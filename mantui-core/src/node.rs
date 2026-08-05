@@ -48,6 +48,26 @@ pub struct CommandNode {
     pub provenance: Provenance,
 }
 
+/// True if `s` looks like a real command/subcommand name: lowercase,
+/// starting with a letter, and otherwise only letters/digits/`_`/`.`/`-`
+/// (`^[a-z][a-z0-9_.-]*$`, spec §7 Tier B rule 3).
+///
+/// This is the shared definition of "looks like a name, not a fabricated
+/// fragment" — used by any extraction tier deciding whether a candidate
+/// bare-word entry is really a subcommand (rejecting prose fragments like
+/// *"treat them as errors"* or placeholder tokens like `BYTES`), and by
+/// the coverage harness (spec §13.1) as one half of its structure-sanity
+/// check: a tier that starts emitting names failing this test again is
+/// exactly the class of regression [M-10] was.
+pub fn is_command_name_shaped(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '_' | '.' | '-'))
+}
+
 impl CommandNode {
     /// A minimal, empty node with the given name and provenance. Useful as
     /// a starting point for tiers and for tests.
@@ -208,4 +228,30 @@ pub struct Example {
     pub command: Text,
     /// An optional explanation of what the example does.
     pub explanation: Option<Text>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_command_name_shaped_accepts_real_names() {
+        assert!(is_command_name_shaped("commit"));
+        assert!(is_command_name_shaped("http-push"));
+        assert!(is_command_name_shaped("sha3-256"));
+        assert!(is_command_name_shaped("v7"));
+    }
+
+    #[test]
+    fn is_command_name_shaped_rejects_prose_and_placeholders() {
+        // A wrapped description continuation line — spec [M-10]'s exact
+        // phantom-subcommand example.
+        assert!(!is_command_name_shaped("treat them as errors"));
+        // Uppercase placeholder tokens (`BYTES`, `FORMAT`) are never real
+        // command names.
+        assert!(!is_command_name_shaped("BYTES"));
+        assert!(!is_command_name_shaped(""));
+        // Must start with a letter, not a digit.
+        assert!(!is_command_name_shaped("42start"));
+    }
 }

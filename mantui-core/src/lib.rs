@@ -19,7 +19,7 @@ pub use merge::{
     merge_flag_lists, merge_nodes, merge_positional_lists, merge_subcommand_lists, pair_aliases,
     MergeError,
 };
-pub use node::{CommandNode, Example, Flag, Positional, ValueKind};
+pub use node::{is_command_name_shaped, CommandNode, Example, Flag, Positional, ValueKind};
 pub use noderef::{resolve, resolve_flag, resolve_mut, FlagKey, NodeRef};
 pub use provenance::{Authority, Axis, ManFormat, Provenance, Source};
 pub use text::{Text, MAX_TEXT_CHARS};

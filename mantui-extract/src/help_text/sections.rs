@@ -42,7 +42,9 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{looks_like_flag_start, parse_flag_spec};
-use mantui_core::{CommandNode, Flag, Positional, Provenance, Source, Text};
+use mantui_core::{
+    is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
+};
 
 /// Everything recovered from one `--help` invocation's output.
 #[derive(Debug, Default)]
@@ -100,19 +102,11 @@ fn mentions_commands_word(s: &str) -> bool {
         })
 }
 
-/// A candidate command/subcommand name must look like one: lowercase,
-/// starting with a letter, and otherwise only letters/digits/`_`/`.`/`-`
-/// (spec §7 Tier B rule 3, `^[a-z][a-z0-9_.-]*$`). Rejects prose fragments
-/// like *"treat them as errors"* (contains spaces) and placeholder-shaped
-/// tokens like `BYTES` (uppercase).
-fn is_command_name_shaped(s: &str) -> bool {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_lowercase() => {}
-        _ => return false,
-    }
-    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '_' | '.' | '-'))
-}
+// Rule 3's name-shape test (`^[a-z][a-z0-9_.-]*$`) lives in
+// `mantui_core::is_command_name_shaped` (imported above) — it's also half
+// of the coverage harness's structure-sanity check (spec §13.1), so there
+// is exactly one definition of "looks like a name, not a fabricated
+// fragment" rather than two that could drift apart.
 
 /// Parse raw `--help` text (already selected as stdout-or-stderr by the
 /// caller) into structured pieces.

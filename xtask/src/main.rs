@@ -50,8 +50,8 @@ fn run_coverage(check: bool, out: &PathBuf) -> anyhow::Result<()> {
     let (table, fresh) = coverage::run();
     println!("{table}");
     println!(
-        "aggregate: {:.2}% described across {} tools, {} with no tier",
-        fresh.pct_described, fresh.total, fresh.no_tier_count
+        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious",
+        fresh.pct_described, fresh.total, fresh.no_tier_count, fresh.suspicious_count
     );
 
     if check {
@@ -69,8 +69,11 @@ fn run_coverage(check: bool, out: &PathBuf) -> anyhow::Result<()> {
         })?;
 
         println!(
-            "previous: {:.2}% described across {} tools, {} with no tier",
-            previous.pct_described, previous.total, previous.no_tier_count
+            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious",
+            previous.pct_described,
+            previous.total,
+            previous.no_tier_count,
+            previous.suspicious_count
         );
 
         let mut regressed = false;
@@ -85,6 +88,18 @@ fn run_coverage(check: bool, out: &PathBuf) -> anyhow::Result<()> {
             println!(
                 "REGRESSION: no-tier count grew from {} to {}",
                 previous.no_tier_count, fresh.no_tier_count
+            );
+            regressed = true;
+        }
+        // Gated exactly like no_tier_count (spec §13.1): a metric that
+        // can be gamed by the failure mode it's meant to detect is worse
+        // than no metric — [M-10] shipped as 100% described while 39 of
+        // tar's 40 nodes were fabricated, so %described alone must never
+        // be the only gate.
+        if fresh.suspicious_count > previous.suspicious_count {
+            println!(
+                "REGRESSION: suspicious count grew from {} to {}",
+                previous.suspicious_count, fresh.suspicious_count
             );
             regressed = true;
         }
