@@ -17,6 +17,7 @@ path = "src/lib.rs"
 
 [dependencies]
 mantui-core.workspace = true
+mantui-search.workspace = true
 ratatui.workspace = true
 crossterm.workspace = true
 unicode-width.workspace = true

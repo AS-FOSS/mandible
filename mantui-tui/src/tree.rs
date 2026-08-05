@@ -45,31 +45,32 @@ pub struct TreeRow {
 /// Flatten `root` into visible rows.
 ///
 /// `expanded` holds the paths the user has explicitly opened.
-/// `filter`, when non-empty, restricts the tree to nodes whose name or
-/// summary contains it (case-insensitive) plus their ancestor chain, which
-/// is force-shown-open regardless of `expanded` (spec §10: "matching a node
-/// force-expands its ancestor chain"). This is a simple substring filter,
-/// not the `nucleo`-backed, flag-aware, ranked search described in spec
-/// §10 — that depends on `mantui-search`, which is a later-batch stub; see
-/// this module's doc comment in `mantui-tui/src/lib.rs`.
+/// `matching_paths`, when `Some`, restricts the tree to nodes whose path is
+/// in the set, plus their ancestor chain, which is force-shown-open
+/// regardless of `expanded` (spec §10: "matching a node force-expands its
+/// ancestor chain"). This function itself does no text matching — the
+/// caller (`App`, backed by `mantui-search`'s `nucleo` index) decides what
+/// matches and hands over the resulting set of command paths; a
+/// [`mantui_core::NodeRef::Flag`] match is represented here by its *parent
+/// command's* path, since flags aren't tree rows (spec §2: "Flags are not
+/// tree rows").
 pub fn flatten(
     root: &CommandNode,
     expanded: &HashSet<Vec<String>>,
-    filter: Option<&str>,
+    matching_paths: Option<&HashSet<Vec<String>>>,
     show_hidden: bool,
     pending: &HashSet<Vec<String>>,
 ) -> Vec<TreeRow> {
     let mut out = Vec::new();
     let root_path = vec![root.name.clone()];
-    match filter {
-        Some(f) if !f.trim().is_empty() => {
-            let needle = f.to_lowercase();
+    match matching_paths {
+        Some(matches) if !matches.is_empty() => {
             push_filtered(
                 root,
                 root_path,
                 0,
                 expanded,
-                &needle,
+                matches,
                 show_hidden,
                 pending,
                 &mut out,
@@ -78,18 +79,6 @@ pub fn flatten(
         _ => push_plain(root, root_path, 0, expanded, show_hidden, pending, &mut out),
     }
     out
-}
-
-fn node_matches(node: &CommandNode, needle: &str) -> bool {
-    if node.name.to_lowercase().contains(needle) {
-        return true;
-    }
-    if let Some(summary) = &node.summary {
-        if summary.as_str().to_lowercase().contains(needle) {
-            return true;
-        }
-    }
-    false
 }
 
 fn make_row(
@@ -153,7 +142,7 @@ fn push_filtered(
     path: Vec<String>,
     depth: usize,
     expanded: &HashSet<Vec<String>>,
-    needle: &str,
+    matches: &HashSet<Vec<String>>,
     show_hidden: bool,
     pending: &HashSet<Vec<String>>,
     out: &mut Vec<TreeRow>,
@@ -161,7 +150,7 @@ fn push_filtered(
     if node.hidden && !show_hidden {
         return false;
     }
-    let self_match = node_matches(node, needle);
+    let self_match = matches.contains(&path);
 
     let mut child_rows = Vec::new();
     let mut any_child_match = false;
@@ -173,7 +162,7 @@ fn push_filtered(
             child_path,
             depth + 1,
             expanded,
-            needle,
+            matches,
             show_hidden,
             pending,
             &mut child_rows,
@@ -220,6 +209,14 @@ mod tests {
                 node("stash", vec![]),
             ],
         )
+    }
+
+    fn path(segments: &[&str]) -> Vec<String> {
+        segments.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn matches(paths: &[&[&str]]) -> HashSet<Vec<String>> {
+        paths.iter().map(|p| path(p)).collect()
     }
 
     #[test]
@@ -281,23 +278,22 @@ mod tests {
     #[test]
     fn filter_force_expands_ancestor_chain_to_a_match() {
         let root = tree();
-        // Nothing manually expanded, but filtering for "onto" should reveal
-        // git -> rebase -> --onto-helper.
-        let rows = flatten(&root, &HashSet::new(), Some("onto"), false, &HashSet::new());
+        // Nothing manually expanded, but a match on --onto-helper should
+        // reveal git -> rebase -> --onto-helper.
+        let m = matches(&[&["git", "rebase", "--onto-helper"]]);
+        let rows = flatten(&root, &HashSet::new(), Some(&m), false, &HashSet::new());
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "rebase", "--onto-helper"]);
     }
 
     #[test]
-    fn filter_matches_on_summary_text() {
+    fn filter_shows_only_the_matched_node_when_it_has_no_matching_descendants() {
         let root = tree();
-        let rows = flatten(
-            &root,
-            &HashSet::new(),
-            Some("reapply"),
-            false,
-            &HashSet::new(),
-        );
+        // A match on "rebase" itself (e.g. its summary matched, or a flag
+        // of its matched and got mapped to its parent path) should show
+        // just git -> rebase, not its children.
+        let m = matches(&[&["git", "rebase"]]);
+        let rows = flatten(&root, &HashSet::new(), Some(&m), false, &HashSet::new());
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "rebase"]);
     }
@@ -305,23 +301,19 @@ mod tests {
     #[test]
     fn filter_hides_non_matching_siblings() {
         let root = tree();
-        let rows = flatten(
-            &root,
-            &HashSet::new(),
-            Some("stash"),
-            false,
-            &HashSet::new(),
-        );
+        let m = matches(&[&["git", "stash"]]);
+        let rows = flatten(&root, &HashSet::new(), Some(&m), false, &HashSet::new());
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "stash"]);
     }
 
     #[test]
-    fn empty_filter_behaves_like_no_filter() {
+    fn empty_matches_behaves_like_no_filter() {
         let root = tree();
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
-        let with_empty = flatten(&root, &expanded, Some(""), false, &HashSet::new());
+        let empty = HashSet::new();
+        let with_empty = flatten(&root, &expanded, Some(&empty), false, &HashSet::new());
         let without = flatten(&root, &expanded, None, false, &HashSet::new());
         assert_eq!(with_empty, without);
     }

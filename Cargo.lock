@@ -782,6 +782,7 @@ dependencies = [
  "base64",
  "crossterm",
  "mantui-core",
+ "mantui-search",
  "proptest",
  "ratatui",
  "thiserror",

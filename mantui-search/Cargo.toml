@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Fuzzy search index over commands and flags for mantui (nucleo-backed). Batch 2 stub. Not independently useful outside the mantui workspace."
+description = "Fuzzy search index over commands and flags for mantui, backed by nucleo. Not independently useful outside the mantui workspace."
 keywords = ["cli", "search", "mantui"]
 categories = ["command-line-interface"]
 

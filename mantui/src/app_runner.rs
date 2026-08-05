@@ -46,6 +46,11 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
             app.splice_filled_node(&warmed.path, node);
         }
 
+        // Drive the search index's background matcher forward from this
+        // same poll timeout (spec §10 "Threading") — never as a blocking
+        // spin inside the keystroke handler itself.
+        app.tick_search(10);
+
         app.ensure_rows_fresh();
         term.draw(|frame| render::render(frame, app))?;
 

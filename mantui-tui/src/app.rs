@@ -3,7 +3,8 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::tree::{flatten, TreeRow};
-use mantui_core::{resolve, CommandNode};
+use mantui_core::{resolve, CommandNode, NodeRef};
+use mantui_search::SearchIndex;
 use std::collections::HashSet;
 
 /// Which pane currently receives keyboard input.
@@ -76,6 +77,12 @@ pub struct App {
     /// True if this tree came from cache rather than a fresh extraction,
     /// for the "cached 3d ago" footer (spec §11).
     pub from_cache: bool,
+    /// The `nucleo`-backed fuzzy index over this tree's commands and flags
+    /// (spec §10). Populated from `root` at construction and whenever the
+    /// tree's structure changes; queried (not text-matched directly) by
+    /// [`Self::ensure_rows_fresh`] to compute which tree paths are
+    /// currently showing as matches.
+    search_index: SearchIndex,
 }
 
 impl App {
@@ -84,6 +91,8 @@ impl App {
     pub fn new(tool: String, root: CommandNode) -> App {
         let mut expanded = HashSet::new();
         expanded.insert(vec![root.name.clone()]);
+        let mut search_index = SearchIndex::new();
+        search_index.populate(&root);
         let mut app = App {
             tool,
             root,
@@ -101,6 +110,7 @@ impl App {
             show_hidden: false,
             status_message: None,
             from_cache: false,
+            search_index,
         };
         app.ensure_rows_fresh();
         app
@@ -124,11 +134,11 @@ impl App {
         if !self.dirty {
             return;
         }
-        let filter = self.active_filter().map(|s| s.to_string());
+        let matching_paths = self.compute_matching_paths();
         self.rows = flatten(
             &self.root,
             &self.expanded,
-            filter.as_deref(),
+            matching_paths.as_ref(),
             self.show_hidden,
             &self.pending,
         );
@@ -136,6 +146,42 @@ impl App {
             self.selected = self.rows.len().saturating_sub(1);
         }
         self.dirty = false;
+    }
+
+    /// The set of command paths currently matching the active filter, if
+    /// any, derived from [`SearchIndex::results`] — a
+    /// [`mantui_core::NodeRef::Flag`] match contributes its *parent*
+    /// command's path, since flags aren't tree rows (spec §2) but a flag
+    /// match should still force-expand and highlight the command that
+    /// owns it (spec §10: "Selecting one selects the parent command").
+    fn compute_matching_paths(&self) -> Option<HashSet<Vec<String>>> {
+        let filter = self.active_filter()?;
+        if filter.trim().is_empty() {
+            return None;
+        }
+        let mut paths = HashSet::new();
+        for node_ref in self.search_index.results() {
+            match node_ref {
+                NodeRef::Command(path) => {
+                    paths.insert(path);
+                }
+                NodeRef::Flag { path, .. } => {
+                    paths.insert(path);
+                }
+            }
+        }
+        Some(paths)
+    }
+
+    /// Drive the search index's background matcher forward (spec §10
+    /// "Threading": must be called from the event loop's own poll timeout,
+    /// never a blocking spin inside a keystroke handler). Marks the row
+    /// list dirty if the result set changed, so the next
+    /// [`Self::ensure_rows_fresh`] picks up fresh matches.
+    pub fn tick_search(&mut self, timeout_ms: u64) {
+        if self.search_index.tick(timeout_ms) {
+            self.mark_dirty();
+        }
     }
 
     /// The current visible rows. Panics-free even if stale would be
@@ -232,6 +278,12 @@ impl App {
         if has_children {
             self.expanded.insert(path.to_vec());
         }
+        // The tree's structure (and searchable content) just changed —
+        // keep the search index in sync. `populate` doesn't touch the
+        // current query/pattern, only the item set, so an active search
+        // simply re-matches against the freshly-filled data on the next
+        // tick.
+        self.search_index.populate(&self.root);
         self.mark_dirty();
     }
 
@@ -295,12 +347,14 @@ impl App {
     /// A character typed into the search box.
     pub fn search_input_char(&mut self, c: char) {
         self.search_query.push(c);
+        self.search_index.set_query(&self.search_query);
         self.mark_dirty();
     }
 
     /// Backspace in the search box.
     pub fn search_backspace(&mut self) {
         self.search_query.pop();
+        self.search_index.set_query(&self.search_query);
         self.mark_dirty();
     }
 
@@ -317,6 +371,7 @@ impl App {
         } else if self.search_pinned.is_some() {
             self.search_pinned = None;
             self.search_query.clear();
+            self.search_index.set_query("");
             self.mark_dirty();
         }
     }
@@ -368,6 +423,25 @@ impl App {
 mod tests {
     use super::*;
     use mantui_core::{Provenance, Source};
+    use std::time::{Duration, Instant};
+
+    /// Drive the (real, async, `nucleo`-backed) search index until its
+    /// results stop changing for a few consecutive polls, bounded overall
+    /// so a bug can't hang the test suite. Mirrors how the real event loop
+    /// calls `tick_search` from its own poll timeout (spec §10
+    /// "Threading") rather than assuming a single call finishes matching.
+    fn settle_search(app: &mut App) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut quiet_polls = 0;
+        while Instant::now() < deadline && quiet_polls < 3 {
+            let changed = app.search_index.tick(20);
+            if changed {
+                quiet_polls = 0;
+            } else {
+                quiet_polls += 1;
+            }
+        }
+    }
 
     fn sample_tree() -> CommandNode {
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
@@ -436,12 +510,14 @@ mod tests {
         for c in "onto".chars() {
             app.search_input_char(c);
         }
+        settle_search(&mut app);
         app.ensure_rows_fresh();
         assert!(app.rows().iter().any(|r| r.name == "--onto-helper"));
 
         app.escape_search();
         assert_eq!(app.focus, Focus::Tree);
         assert_eq!(app.search_pinned.as_deref(), Some("onto"));
+        settle_search(&mut app);
         app.ensure_rows_fresh();
         assert!(
             app.rows().iter().any(|r| r.name == "--onto-helper"),
@@ -450,11 +526,39 @@ mod tests {
 
         app.escape_search();
         assert!(app.search_pinned.is_none());
+        settle_search(&mut app);
         app.ensure_rows_fresh();
         assert_eq!(
             app.rows().len(),
             3,
             "filter cleared, back to expanded-root view"
+        );
+    }
+
+    #[test]
+    fn searching_a_flag_spelling_selects_its_parent_command() {
+        // Spec §10: "Selecting one selects the parent command..." — since
+        // flags aren't tree rows, a flag match must force-expand and
+        // surface its *parent* in the filtered tree.
+        let mut root = sample_tree();
+        let mut autosquash =
+            mantui_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+        autosquash.description = Some(mantui_core::Text::sanitize("Automatically squash commits"));
+        root.subcommands[1].flags.push(autosquash); // rebase
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        for c in "autosquash".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+
+        let names: Vec<&str> = app.rows().iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["git", "rebase"],
+            "flag match should surface its parent command, not the flag itself: {names:?}"
         );
     }
 

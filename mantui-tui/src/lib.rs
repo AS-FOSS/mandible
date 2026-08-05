@@ -8,11 +8,14 @@
 //! `TestBackend`, which is how this crate's rendering is verified (this
 //! sandboxed environment has no tty to run the real thing against).
 //!
-//! **Search note:** the search bar in this batch does simple, local,
-//! case-insensitive substring filtering over command names/summaries
-//! (`tree::flatten`'s `filter` parameter). The `nucleo`-backed, flag-aware,
-//! ranked search described in spec §10 is roadmap phase 3 and depends on
-//! `mantui-search`, which is a stub in this batch.
+//! **Search:** `App` owns a `mantui_search::SearchIndex` (spec §10):
+//! commands and flags are both indexed, ranked with `nucleo`'s fuzzy
+//! scoring plus an exact-name-prefix boost, and driven via
+//! `App::tick_search` from the caller's event-loop poll timeout rather
+//! than blocking a keystroke handler. `tree::flatten` itself does no text
+//! matching — it takes a precomputed set of matching command paths (a
+//! flag match contributes its parent command's path, since flags aren't
+//! tree rows) and handles the hierarchy-preserving expand/hide logic.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
