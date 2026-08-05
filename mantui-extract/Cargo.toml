@@ -1,0 +1,49 @@
+[package]
+name = "mantui-extract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "The tiered CLI extraction pipeline for mantui: known-spec catalogs, help-text grammar, completion-script parsing, man pages, and native probes, merged behind one ExtractionTier trait. Not independently useful outside the mantui workspace."
+keywords = ["cli", "introspection", "mantui"]
+categories = ["command-line-interface", "parser-implementations"]
+build = "build.rs"
+
+[lib]
+name = "mantui_extract"
+path = "src/lib.rs"
+
+[features]
+default = ["known-specs", "help-text", "completion-script", "native"]
+known-specs = []
+help-text = []
+completion-script = []
+native = []
+manpage = ["dep:cc", "dep:bindgen"]
+withfig = []
+
+[dependencies]
+mantui-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+# Vendored mandoc build (Tier D), off by default (spec §8, §15: default
+# features must build with no C toolchain).
+cc = { workspace = true, optional = true }
+bindgen = { version = "0.70", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", default-features = false, features = ["signal", "process"] }
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true
+
+[build-dependencies]
+serde_json.workspace = true
