@@ -1,0 +1,28 @@
+[package]
+name = "mantui-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "On-disk extraction cache for mantui: keying, negative caching, and invalidation. Not independently useful outside the mantui workspace."
+keywords = ["cli", "cache", "mantui"]
+categories = ["caching", "command-line-interface"]
+
+[lib]
+name = "mantui_cache"
+path = "src/lib.rs"
+
+[dependencies]
+mantui-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+flate2.workspace = true
+directories.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
