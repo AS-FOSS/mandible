@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+    "mantui-core",
+    "mantui-extract",
+    "mantui-cache",
+    "mantui-search",
+    "mantui-tui",
+    "mantui",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+repository = "https://github.com/mantui-dev/mantui"
+readme = "README.md"
+authors = ["mantui contributors"]
+
+[workspace.dependencies]
+mantui-core = { path = "mantui-core", version = "0.1.0" }
+mantui-extract = { path = "mantui-extract", version = "0.1.0" }
+mantui-cache = { path = "mantui-cache", version = "0.1.0" }
+mantui-search = { path = "mantui-search", version = "0.1.0" }
+mantui-tui = { path = "mantui-tui", version = "0.1.0" }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+thiserror = "1.0"
+anyhow = "1.0"
+smallvec = "1.13"
+unicode-width = "0.2"
+ratatui = { version = "0.29", features = ["unstable-widget-ref"] }
+crossterm = { version = "0.28", features = ["events"] }
+nucleo = "0.5"
+clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
+winnow = "0.6"
+brush-parser = "0.4"
+rayon = "1.10"
+directories = "5.0"
+flate2 = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+arboard = "3.4"
+insta = "1.40"
+proptest = "1.5"
+tempfile = "3.13"
+libc = "0.2"
+cc = "1.1"
+base64 = "0.22"
