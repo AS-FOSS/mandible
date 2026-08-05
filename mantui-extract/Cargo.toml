@@ -20,7 +20,7 @@ path = "src/lib.rs"
 default = ["known-specs", "help-text", "completion-script", "native"]
 known-specs = []
 help-text = ["dep:winnow"]
-completion-script = []
+completion-script = ["dep:brush-parser"]
 native = []
 manpage = ["dep:cc", "dep:bindgen"]
 withfig = []
@@ -33,6 +33,9 @@ tempfile.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 winnow = { workspace = true, optional = true }
+brush-parser = { workspace = true, optional = true }
+toml.workspace = true
+directories.workspace = true
 
 # Vendored mandoc build (Tier D), off by default (spec §8, §15: default
 # features must build with no C toolchain).

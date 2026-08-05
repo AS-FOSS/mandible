@@ -40,13 +40,17 @@ pub use resolve::{resolve_tool, ResolvedTool};
 pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
 pub use tier::ExtractionTier;
 
-/// Build the default set of tiers for this batch: Tier A (`known_specs`)
-/// then Tier B (`help_text`), in cost-attempt order (spec §7) — Tier A is
-/// zero-spawn and covers the catalog; Tier B costs 1-2 spawns but exists
-/// for every tool everywhere. Whichever of the two features are enabled
-/// contributes its tier; conflict resolution between them (when both
-/// contribute the same node) is by [`mantui_core::Authority`], not attempt
-/// order.
+/// Build the default set of tiers: Tier A (`known_specs`), B (`help_text`),
+/// C (`completion_script`), E (`native`), F (`overrides`), in cost-attempt
+/// order (spec §7) — Tier A is zero-spawn and covers the catalog; Tier B
+/// costs 1-2 spawns but exists for every tool everywhere; Tier C generates
+/// and parses a completion script; Tier E speaks a tool's own dynamic
+/// completion protocol; Tier F is a local file read, attempted last since
+/// most tools have no override at all. Tier D (man pages) remains
+/// unimplemented (deferred entirely, per spec's roadmap). Whichever
+/// features are enabled contributes its tier; conflict resolution between
+/// tiers (when more than one contributes the same node) is by
+/// [`mantui_core::Authority`], not attempt order.
 // `vec![]` can't express the cfg-gated pushes below (each tier only
 // exists to push when its feature is enabled).
 #[allow(clippy::vec_init_then_push)]
@@ -57,5 +61,6 @@ pub fn default_tiers() -> Vec<Box<dyn ExtractionTier>> {
     tiers.push(Box::new(known_specs::CarapaceTier));
     #[cfg(feature = "help-text")]
     tiers.push(Box::new(help_text::HelpTextTier));
+    tiers.push(Box::new(overrides::OverridesTier));
     tiers
 }
