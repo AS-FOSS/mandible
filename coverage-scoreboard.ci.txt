@@ -1,0 +1,15 @@
+tool             tier(s)            nodes   flags   %described     ms suspect  status
+curl             carapace+help          1     273         100%    127       0  ok
+dd               carapace+help          1       2         100%    104       0  ok
+docker           carapace+help+native     193    1003         100%    404       0  ok
+find             carapace+help          1      26         100%    114       0  ok
+gh               carapace+help+native     249    1399         100%    611       0  ok
+git              carapace+help        279    3007         100%    106       0  ok
+gzip             carapace+help          1      19          95%    107       0  ok
+ip               help                   1       7           0%    105       0  low-confidence
+less             help                   1      56         100%     87       0  ok
+openssl          carapace+help        156     683         100%    123      61  suspicious
+sed              carapace+help          1      22         100%     92       0  ok
+tar              carapace+help          1     171         100%     51       0  ok
+
+# aggregate: pct_described=99.88 no_tier_count=0 suspicious_count=1 total=12

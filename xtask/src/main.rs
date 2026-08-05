@@ -34,6 +34,13 @@ enum Command {
         /// Where to read/write the scoreboard.
         #[arg(long, default_value = "coverage-scoreboard.txt")]
         out: PathBuf,
+        /// Scan only this comma-separated list of tool names instead of
+        /// every executable on `PATH`. Pins a fixed, reproducible
+        /// inventory — what CI uses, since the full-`PATH` scoreboard's
+        /// tool set (and therefore its aggregate) varies with the runner
+        /// image and can't be a meaningful regression baseline there.
+        #[arg(long, value_delimiter = ',')]
+        tools: Option<Vec<String>>,
     },
 }
 
@@ -41,13 +48,25 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::CheckIndex => check_index(),
-        Command::Coverage { check, out } => run_coverage(check, &out),
+        Command::Coverage { check, out, tools } => run_coverage(check, &out, tools),
     }
 }
 
-fn run_coverage(check: bool, out: &PathBuf) -> anyhow::Result<()> {
-    println!("scanning PATH and running the extraction pipeline against every executable found...");
-    let (table, fresh) = coverage::run();
+fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyhow::Result<()> {
+    let (table, fresh) = match tools {
+        Some(tools) => {
+            println!(
+                "scanning a fixed list of {} tool(s): {}...",
+                tools.len(),
+                tools.join(", ")
+            );
+            coverage::run_over(tools)
+        }
+        None => {
+            println!("scanning PATH and running the extraction pipeline against every executable found...");
+            coverage::run()
+        }
+    };
     println!("{table}");
     println!(
         "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious",

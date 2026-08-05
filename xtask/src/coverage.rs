@@ -59,7 +59,16 @@ pub struct Aggregate {
 /// sequentially), and return the scoreboard rows plus aggregate stats, in
 /// tool-name order.
 pub fn run() -> (String, Aggregate) {
-    let tools = unique_executables_on_path();
+    run_over(unique_executables_on_path())
+}
+
+/// Same as [`run`], but over a caller-supplied tool list instead of
+/// scanning `PATH`. Used by `--tools` to pin a fixed, reproducible set —
+/// necessary for CI (spec §13.1's regression gate needs a tool inventory
+/// that doesn't vary with the runner image) — and by tests.
+pub fn run_over(mut tools: Vec<String>) -> (String, Aggregate) {
+    tools.sort();
+    tools.dedup();
     let runner = Runner::new(default_tiers());
 
     let mut rows: Vec<Row> = tools
@@ -377,6 +386,22 @@ mod tests {
         // and inspecting the checked-in scoreboard is for).
         let tools = unique_executables_on_path();
         assert!(tools.iter().any(|t| t == "sh"));
+    }
+
+    /// `run_over` (the `--tools` path CI uses) scans exactly the given
+    /// list, deduplicated — not every executable on `PATH` — so the
+    /// aggregate's `total` is deterministic regardless of what else
+    /// happens to be installed on the machine running it.
+    #[test]
+    fn run_over_scans_exactly_the_given_tools() {
+        let (table, aggregate) = run_over(vec![
+            "sh".to_string(),
+            "sh".to_string(), // duplicate, must be deduped
+            "true".to_string(),
+        ]);
+        assert_eq!(aggregate.total, 2);
+        assert!(table.contains("sh"));
+        assert!(table.contains("true"));
     }
 
     fn leaf(name: &str) -> CommandNode {
