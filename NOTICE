@@ -1,0 +1,83 @@
+mantui — third-party data attribution
+======================================
+
+mantui's own source code is MIT-licensed (see LICENSE). This file records
+the provenance and licensing of third-party *data* vendored into the
+repository, per spec.md §14/§15 — vendored data is a distinct legal
+question from crate dependency licensing, and the more likely real exposure
+for this project.
+
+carapace-spec catalog (Tier A, `vendor/carapace-specs.json`)
+--------------------------------------------------------------
+
+- Provider:    carapace-spec
+- Source:      https://github.com/carapace-sh/carapace-bin
+- Source dir:  man/cmd
+- License:     MIT License, Copyright (c) 2020 rsteube
+               (verified against https://github.com/carapace-sh/carapace-bin/blob/master/LICENSE
+               on 2026-08-05; full text below)
+- Vendored via: scripts/vendor_carapace_specs.py
+
+The exact commit and generation timestamp this snapshot was vendored from
+are recorded in the file itself, at the `_meta` key, and are also surfaced
+at runtime via `mantui --doctor <tool>` and the TUI's provenance footer
+(spec §7 "Staleness", §11):
+
+    "_meta": {
+      "provider": "carapace-spec",
+      "source": "https://github.com/carapace-sh/carapace-bin",
+      "source_dir": "man/cmd",
+      "commit": "7bb02905a611bd271abda7b46ba4216bf345ce3c",
+      "generated": "2026-08-04T19:45:01.803129+00:00"
+    }
+
+(as of the snapshot currently in this repository; re-check `_meta` in
+`vendor/carapace-specs.json` if this file and the snapshot ever drift.)
+
+### carapace-bin license text (MIT)
+
+    MIT License
+
+    Copyright (c) 2020 rsteube
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+Not currently vendored
+-----------------------
+
+The following third-party data sources are named in spec.md §7/§14 as
+optional or future sources. Neither is vendored into this repository as of
+this batch, so no attribution obligation exists yet — noted here so it
+isn't forgotten when either is added:
+
+- **withfig/autocomplete** (spec §7 Tier A, optional secondary source).
+  MIT-licensed per spec.md's own dependency table, but this has **not been
+  independently re-verified by this project** the way the carapace-bin
+  license was for this NOTICE. Re-verify at the time it's actually vendored.
+- **mandoc source** (spec §7 Tier D, deferred entirely in this batch,
+  feature-gated behind `manpage`). ISC-licensed per spec.md's dependency
+  table (mandoc.bsd.lv); not vendored, no build has been attempted.
+
+Crate (code) dependency licenses
+----------------------------------
+
+Every Rust crate dependency's license is declared in its own `Cargo.toml`
+and resolvable via standard tooling (e.g. `cargo license`); they are not
+duplicated here. See spec.md §14 for the dependency table this project was
+designed against.
