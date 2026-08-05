@@ -1,0 +1,229 @@
+Usage: bfs [flags...] [paths...] [expression...]
+
+bfs is compatible with find, with some extensions. Flags (-H/-L/-P etc.), paths,
+and expressions may be freely mixed in any order.
+
+Flags:
+
+  -H
+      Follow symbolic links on the command line, but not while searching
+  -L
+      Follow all symbolic links
+  -P
+      Never follow symbolic links (the default)
+  -E
+      Use extended regular expressions (same as -regextype posix-extended)
+  -X
+      Filter out files with non-xargs-safe names
+  -d
+      Search in post-order (same as -depth)
+  -s
+      Visit directory entries in sorted order
+  -x
+      Don't descend into other mount points (same as -xdev)
+  -f PATH
+      Treat PATH as a path to search (useful if begins with a dash)
+  -D FLAG
+      Turn on a debugging flag (see -D help)
+  -ON
+      Enable optimization level N (default: 3)
+  -S bfs|dfs|ids|eds
+      Use breadth-first/depth-first/iterative/exponential deepening search
+      (default: -S bfs)
+  -jN
+      Search with N threads in parallel (default: number of CPUs, up to 8)
+
+Operators:
+
+  ( expression )
+
+  ! expression
+  -not expression
+
+  expression expression
+  expression -a expression
+  expression -and expression
+
+  expression -o expression
+  expression -or expression
+
+  expression , expression
+
+Special forms:
+
+  -exclude expression
+      Exclude all paths matching the expression from the search.
+
+Options:
+
+  -color
+  -nocolor
+      Turn colors on or off (default: -color if outputting to a terminal,
+      -nocolor otherwise)
+  -daystart
+      Measure times relative to the start of today
+  -depth
+      Search in post-order (descendents first)
+  -files0-from FILE
+      Search the NUL ('\0')-separated paths from FILE (- for standard input).
+  -follow
+      Follow all symbolic links (same as -L)
+  -ignore_readdir_race
+  -noignore_readdir_race
+      Whether to report an error if bfs detects that the file tree is modified
+      during the search (default: -noignore_readdir_race)
+  -maxdepth N
+  -mindepth N
+      Ignore files deeper/shallower than N
+  -mount
+      Exclude mount points entirely from the results
+  -noerror
+      Ignore any errors that occur during traversal
+  -nohidden
+      Exclude hidden files
+  -noleaf
+      Ignored; for compatibility with GNU find
+  -regextype TYPE
+      Use TYPE-flavored regexes (default: posix-basic; see -regextype help)
+  -status
+      Display a status bar while searching
+  -unique
+      Skip any files that have already been seen
+  -warn
+  -nowarn
+      Turn on or off warnings about the command line
+  -xdev
+      Don't descend into other mount points
+
+Tests:
+
+  -[aBcm]min [-+]N
+      Find files accessed/Birthed/changed/modified N minutes ago
+  -[aBcm]newer FILE
+      Find files accessed/Birthed/changed/modified more recently than FILE was
+      modified
+  -[aBcm]since TIME
+      Find files accessed/Birthed/changed/modified more recently than TIME
+  -[aBcm]time [-+]N
+      Find files accessed/Birthed/changed/modified N days ago
+  -depth [-+]N
+      Find files with depth N
+  -empty
+      Find empty files/directories
+  -executable
+  -readable
+  -writable
+      Find files the current user can execute/read/write
+  -false
+  -true
+      Always false/true
+  -fstype TYPE
+      Find files on file systems with the given TYPE
+  -gid [-+]N
+  -uid [-+]N
+      Find files owned by group/user ID N
+  -group NAME
+  -user  NAME
+      Find files owned by the group/user NAME
+  -hidden
+      Find hidden files
+  -ilname GLOB
+  -iname  GLOB
+  -ipath  GLOB
+  -iregex REGEX
+  -iwholename GLOB
+      Case-insensitive versions of -lname/-name/-path/-regex/-wholename
+  -inum [-+]N
+      Find files with inode number N
+  -links [-+]N
+      Find files with N hard links
+  -lname GLOB
+      Find symbolic links whose target matches the GLOB
+  -name GLOB
+      Find files whose name matches the GLOB
+  -newer FILE
+      Find files newer than FILE
+  -newerXY REFERENCE
+      Find files whose X time is newer than the Y time of REFERENCE.  X and Y
+      can be any of [aBcm].  Y may also be t to parse REFERENCE an explicit
+      timestamp.
+  -nogroup
+  -nouser
+      Find files owned by nonexistent groups/users
+  -path GLOB
+  -wholename GLOB
+      Find files whose entire path matches the GLOB
+  -perm [-]MODE
+      Find files with a matching mode
+  -regex REGEX
+      Find files whose entire path matches the regular expression REGEX
+  -samefile FILE
+      Find hard links to FILE
+  -since TIME
+      Find files modified since TIME
+  -size [-+]N[cwbkMGTP]
+      Find files with the given size, in 1-byte characters, 2-byte words,
+      512-byte blocks (default), or kiB/MiB/GiB/TiB/PiB
+  -sparse
+      Find files that occupy fewer disk blocks than expected
+  -type [bcdlpfswD]
+      Find files of the given type
+  -used [-+]N
+      Find files last accessed N days after they were changed
+  -xattr
+      Find files with extended attributes
+  -xattrname NAME
+      Find files with the extended attribute NAME
+  -xtype [bcdlpfswD]
+      Find files of the given type, following links when -type would not, and
+      vice versa
+
+Actions:
+
+  -delete
+  -rm
+      Delete any found files (implies -depth)
+  -exec command ... {} ;
+      Execute a command
+  -exec command ... {} +
+      Execute a command with multiple files at once
+  -ok command ... {} ;
+      Prompt the user whether to execute a command
+  -execdir command ... {} ;
+  -execdir command ... {} +
+  -okdir command ... {} ;
+      Like -exec/-ok, but run the command in the same directory as the found
+      file(s)
+  -exit [STATUS]
+      Exit immediately with the given status (0 if unspecified)
+  -fls FILE
+  -fprint FILE
+  -fprint0 FILE
+  -fprintf FILE FORMAT
+      Like -ls/-print/-print0/-printf, but write to FILE instead of standard
+      output
+  -limit N
+      Quit after this action is evaluated N times
+  -ls
+      List files like ls -dils
+  -print
+      Print the path to the found file
+  -print0
+      Like -print, but use the null character ('\0') as a separator rather than
+      newlines
+  -printf FORMAT
+      Print according to a format string (see man find).  The additional format
+      directives %w and %Wk for printing file birth times are supported.
+  -printx
+      Like -print, but escape whitespace and quotation characters, to make the
+      output safe for xargs.  Consider using -print0 and xargs -0 instead.
+  -prune
+      Don't descend into this directory
+  -quit
+      Quit immediately
+  -version
+      Print version information
+  -help
+      Print this help message
+
+https://tavianator.com/projects/bfs.html
