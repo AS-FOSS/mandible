@@ -1,0 +1,32 @@
+[package]
+name = "mantui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "mantui: a universal, interactive TUI reference for CLI tools. `mantui git` opens an explorable tree of every command, subcommand, and flag git has, with descriptions."
+keywords = ["cli", "tui", "documentation", "reference"]
+categories = ["command-line-interface", "command-line-utilities"]
+default-run = "mantui"
+
+[[bin]]
+name = "mantui"
+path = "src/main.rs"
+
+[dependencies]
+mantui-core.workspace = true
+mantui-extract.workspace = true
+mantui-cache.workspace = true
+mantui-tui.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+crossterm.workspace = true
+ratatui.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
