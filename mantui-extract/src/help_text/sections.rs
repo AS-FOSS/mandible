@@ -46,6 +46,25 @@ use mantui_core::{
     is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
 };
 
+/// Hard cap on distinct entries (subcommands, flags, or choices) accepted
+/// from a single probe's output. Real `--help` output never remotely
+/// approaches this — `git` has ~170 top-level subcommands, `tar` 171
+/// flags. It exists as a general defense against a degenerate input: the
+/// coverage harness (spec §13.1) found a tool (`instmodsh`, a Perl REPL
+/// that ignores `--help` entirely and free-runs printing its own 3-line
+/// banner until the wall-clock cap killed it) whose 8 MiB of captured,
+/// almost entirely repeated output parsed into 58,663 "subcommands" —
+/// mostly duplicate names. (The same investigation also found and fixed a
+/// real quadratic-time bug in this file's leading-prose scan, which was
+/// the larger share of that tool's multi-minute parse time; this cap is a
+/// second, independent line of defense — against the downstream bucket-
+/// merge cost of tens of thousands of same-named nodes, and against a
+/// hypothetical input that's huge but *not* quadratic-scan-triggering.)
+/// Capping (and deduplicating) at the point of recovery, rather than
+/// trying to bound cost after the fact, is what keeps one pathological
+/// tool from making the whole pipeline slow.
+const MAX_RECOVERED_ENTRIES: usize = 4096;
+
 /// Everything recovered from one `--help` invocation's output.
 #[derive(Debug, Default)]
 pub struct ParsedHelp {
@@ -70,6 +89,29 @@ pub struct ParsedHelp {
     /// regex, or was dropped for lack of an owning heading/flag. Surfaced
     /// so `extract_node` can mark the node's provenance as a guess.
     pub saw_unattributable_content: bool,
+    /// Names already accepted into `subcommands`, tracked alongside it so
+    /// [`ParsedHelp::try_push_subcommand`] can reject duplicates in O(1)
+    /// instead of an O(n) scan of `subcommands` per candidate (which would
+    /// itself become O(n^2) on the exact degenerate input this whole cap
+    /// exists for).
+    subcommand_names_seen: std::collections::HashSet<String>,
+}
+
+impl ParsedHelp {
+    /// Accept `node` into `subcommands` unless it's a duplicate name (an
+    /// entry recovered twice, e.g. because a heading's block repeats
+    /// verbatim in genuinely broken output) or the recovery cap has
+    /// already been hit. Returns whether it was accepted.
+    fn try_push_subcommand(&mut self, node: CommandNode) -> bool {
+        if self.subcommands.len() >= MAX_RECOVERED_ENTRIES {
+            return false;
+        }
+        if !self.subcommand_names_seen.insert(node.name.clone()) {
+            return false;
+        }
+        self.subcommands.push(node);
+        true
+    }
 }
 
 /// Section headings that introduce worked examples or prose, not
@@ -141,9 +183,17 @@ pub fn parse(raw: &str) -> ParsedHelp {
 
     // 2. Leading prose before the usage block (or before the first
     // section, if there's no usage block) becomes the description.
+    //
+    // `leading_prose_bound` is O(lines.len()) — it must be computed once
+    // here, outside the loop below, not inside the loop condition (which
+    // would re-run it on every iteration and turn this whole function
+    // quadratic in input size; found via the coverage harness (spec
+    // §13.1) parsing a degenerate multi-megabyte input in over two
+    // minutes instead of milliseconds).
+    let description_bound = i.max(leading_prose_bound(&lines));
     let mut description_lines: Vec<&str> = Vec::new();
     let mut j = 0;
-    while j < lines.len() && j < i.max(leading_prose_bound(&lines)) {
+    while j < lines.len() && j < description_bound {
         let l = lines[j];
         if leading_whitespace(l) == 0 && !l.trim().is_empty() {
             let t = l.trim_start();
@@ -439,7 +489,7 @@ fn process_word_grid(
             }
             clean += 1;
             if treat_as_commands {
-                out.subcommands.push(CommandNode {
+                out.try_push_subcommand(CommandNode {
                     group: Some(heading.to_string()),
                     ..CommandNode::new(token, Provenance::single(Source::HelpText))
                 });
@@ -463,6 +513,9 @@ fn emit_flags(
     let mut seen = 0usize;
     let mut clean = 0usize;
     for (spec_text, desc_text) in entries {
+        if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
         seen += 1;
         let spec = parse_flag_spec(spec_text);
         if spec.fully_consumed {
@@ -519,7 +572,7 @@ fn emit_subcommands(
         node.summary = non_empty_text(&desc_text);
         node.group = Some(heading.to_string());
         node.children_filled = false;
-        out.subcommands.push(node);
+        out.try_push_subcommand(node);
     }
     (seen, clean)
 }
@@ -538,6 +591,9 @@ fn emit_choices(
     let mut clean = 0usize;
     let mut candidates: Vec<String> = Vec::new();
     for (spec_text, _desc_text) in &entries {
+        if candidates.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
         // Real listings sometimes alias several values on one line
         // (`"none, off       never make backups"`); each comma-separated
         // fragment is its own candidate choice.
@@ -1172,6 +1228,54 @@ mod tests {
         let raw = "日本語のヘルプ出力\n\n  --flag   description\n";
         let parsed = parse(raw); // must not panic
         let _ = parsed;
+    }
+
+    /// Regression found by the coverage harness (spec §13.1): `instmodsh`
+    /// (a Perl REPL) ignores `--help` entirely and free-runs printing its
+    /// own 3-line "Available commands are: l / m <module> / q" banner
+    /// until the wall-clock cap kills it, producing several megabytes of
+    /// near-exact repetition. Parsing that recovered 58,663 duplicate-name
+    /// subcommands, which then took over two minutes just to bucket-merge
+    /// downstream — a single degenerate tool making the whole pipeline
+    /// slow. Same-named entries recovered twice must collapse to one, and
+    /// the total accepted must stay bounded regardless of how many times
+    /// the input repeats.
+    #[test]
+    fn repeated_identical_banner_does_not_explode_into_duplicate_subcommands() {
+        let block = "Available commands are:\n   l            - List all installed modules\n   q            - Quit the program\n\n";
+        let raw = block.repeat(20_000);
+        let start = std::time::Instant::now();
+        let parsed = parse(&raw);
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(5),
+            "parsing a repetitive input took {:?}, expected it to stay fast",
+            start.elapsed()
+        );
+        assert_eq!(
+            parsed.subcommands.len(),
+            2,
+            "expected exactly one 'l' and one 'q', got {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn entry_recovery_is_capped_even_when_every_entry_is_distinct() {
+        let mut raw = String::from("Commands:\n");
+        for i in 0..(MAX_RECOVERED_ENTRIES + 500) {
+            raw.push_str(&format!("   cmd{i}   does a thing\n"));
+        }
+        let parsed = parse(&raw);
+        assert!(
+            parsed.subcommands.len() <= MAX_RECOVERED_ENTRIES,
+            "got {} subcommands, expected at most {}",
+            parsed.subcommands.len(),
+            MAX_RECOVERED_ENTRIES
+        );
     }
 
     #[test]
