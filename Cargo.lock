@@ -1977,6 +1977,7 @@ dependencies = [
  "anyhow",
  "clap",
  "mantui-extract",
+ "rayon",
 ]
 
 [[package]]

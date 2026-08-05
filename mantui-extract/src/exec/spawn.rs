@@ -106,6 +106,22 @@ pub fn run_inert(
         cmd.process_group(0);
     }
 
+    // Run in a dedicated scratch directory, not whatever directory mantui
+    // itself was launched from. Spec §6 rule 7 ("never write") is about
+    // arguments we pass — it doesn't cover a tool's own default behavior,
+    // and real tools do have default-CWD side effects independent of
+    // argv: running the coverage harness (spec §13.1) against ~1600 real
+    // system binaries surfaced tools that wrote `fonts.dir`/`fonts.scale`
+    // (font-cache builders) and `.mysql.<pid>` temp files into the
+    // invoking directory even when only ever given `--help`/`-h`. A
+    // scratch CWD contains that blast radius regardless of which tool or
+    // argv shape triggers it. Best-effort: if a scratch dir can't be
+    // created, fall back to the default (inherited) CWD rather than
+    // failing the whole probe over it.
+    if let Some(scratch) = scratch_dir() {
+        cmd.current_dir(scratch);
+    }
+
     let mut child = spawn_with_etxtbsy_retry(&mut cmd).map_err(|source| ExecError::Spawn {
         path: path_str.clone(),
         source,
@@ -181,6 +197,18 @@ fn spawn_with_etxtbsy_retry(cmd: &mut Command) -> std::io::Result<Child> {
 #[cfg(not(unix))]
 fn spawn_with_etxtbsy_retry(cmd: &mut Command) -> std::io::Result<Child> {
     cmd.spawn()
+}
+
+/// A scratch directory every probed child runs in, created once and
+/// reused for the lifetime of this process. `None` if it couldn't be
+/// created (falls back to the inherited CWD rather than failing probes).
+fn scratch_dir() -> Option<&'static std::path::Path> {
+    static DIR: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        let dir = std::env::temp_dir().join(format!("mantui-exec-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).ok().map(|()| dir)
+    })
+    .as_deref()
 }
 
 fn exit_code_of(status: &std::process::ExitStatus) -> Option<i32> {
@@ -321,5 +349,26 @@ mod tests {
         assert!(env_text.contains("COLUMNS=100"));
         assert!(env_text.contains("LC_ALL=C.UTF-8"));
         assert!(env_text.contains("PATH="));
+    }
+
+    /// Regression for a real finding from the coverage harness (spec
+    /// §13.1): some real tools write files to their working directory as
+    /// a side effect of being run at all — a font-cache builder created
+    /// `fonts.dir`/`fonts.scale`, and something MySQL-related created
+    /// `.mysql.<pid>` — even though `--help`/`-h` is the only argv shape
+    /// ever passed. A child's CWD must never be the directory mantui
+    /// itself was launched from.
+    #[test]
+    fn child_working_directory_is_not_the_caller_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(dir.path(), "pwd_check.sh", "#!/bin/sh\npwd\n");
+        let out = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(2)).unwrap();
+        let child_cwd = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let caller_cwd = std::env::current_dir().unwrap();
+        assert_ne!(
+            std::path::Path::new(&child_cwd),
+            caller_cwd.as_path(),
+            "child ran in mantui's own working directory: {child_cwd}"
+        );
     }
 }

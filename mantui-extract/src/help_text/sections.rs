@@ -59,10 +59,10 @@ pub fn parse(raw: &str) -> ParsedHelp {
     let mut i = 0;
     // 1. Usage block: one or more lines starting with (case-insensitive)
     // "usage:", plus indented continuations.
-    if let Some(start) = lines.iter().position(|l| {
-        let t = l.trim_start();
-        t.len() >= 6 && t[..6].eq_ignore_ascii_case("usage:")
-    }) {
+    if let Some(start) = lines
+        .iter()
+        .position(|l| starts_with_usage_prefix(l.trim_start()))
+    {
         i = start;
         let mut usage_lines = vec![lines[i].trim().to_string()];
         i += 1;
@@ -89,8 +89,7 @@ pub fn parse(raw: &str) -> ParsedHelp {
         let l = lines[j];
         if leading_whitespace(l) == 0 && !l.trim().is_empty() {
             let t = l.trim_start();
-            let is_usage = t.len() >= 6 && t[..6].eq_ignore_ascii_case("usage:");
-            if !is_usage {
+            if !starts_with_usage_prefix(t) {
                 description_lines.push(l);
             }
         }
@@ -215,6 +214,21 @@ fn leading_prose_bound(lines: &[&str]) -> usize {
 
 fn leading_whitespace(line: &str) -> usize {
     line.len() - line.trim_start().len()
+}
+
+/// True if `t` starts with `"usage:"`, case-insensitively.
+///
+/// Deliberately compares raw bytes rather than doing `&t[..6]` on the
+/// `str` (which panics if byte offset 6 doesn't land on a UTF-8 character
+/// boundary — a real crash the coverage harness found: some real-world
+/// `--help` output puts a multi-byte character, e.g. a box-drawing glyph,
+/// early in the first line). `[u8]::get` is bounds-checked and never
+/// panics, and comparing ASCII bytes needs no UTF-8 decoding at all.
+fn starts_with_usage_prefix(t: &str) -> bool {
+    t.as_bytes()
+        .get(..6)
+        .map(|b| b.eq_ignore_ascii_case(b"usage:"))
+        .unwrap_or(false)
 }
 
 /// True if `line` looks like a row of a bare-name grid (openssl-style
@@ -641,5 +655,38 @@ mod tests {
         let parsed = parse("");
         assert!(parsed.confidence < 0.5);
         assert!(parsed.flags.is_empty());
+    }
+
+    /// Regression for a real crash the coverage harness (spec §13.1) found
+    /// on the very first full run: a multi-byte character (e.g. a
+    /// box-drawing glyph some real tool's `--help` output starts with)
+    /// positioned so that byte offset 6 falls inside it made `&t[..6]`
+    /// panic with "not a char boundary". A tier that can be crashed by one
+    /// real tool's output is worse than a tier that just produces
+    /// low-confidence output for it — this must degrade gracefully, not
+    /// panic, no matter what bytes precede "usage:" or appear anywhere
+    /// else in the input.
+    #[test]
+    fn multibyte_characters_near_the_start_of_output_do_not_panic() {
+        // "12345" is 5 bytes, then U+2588 ('█') is a 3-byte UTF-8 sequence
+        // spanning bytes 5..8 — byte offset 6 (the old `&t[..6]` slice
+        // point) falls squarely inside it, reproducing the exact crash the
+        // coverage harness found on its first real run.
+        let raw =
+            "12345█ some line\nUsage: weirdtool [OPTIONS]\n\n  -x, --example   an example flag\n";
+        let parsed = parse(raw); // must not panic
+        assert!(
+            !parsed.usage.is_empty(),
+            "should still recover the usage line: {parsed:?}"
+        );
+    }
+
+    #[test]
+    fn multibyte_characters_with_no_usage_line_do_not_panic() {
+        // Also exercise the path with no "usage:" line at all, and with
+        // multi-byte content positioned at various points.
+        let raw = "日本語のヘルプ出力\n\n  --flag   description\n";
+        let parsed = parse(raw); // must not panic
+        let _ = parsed;
     }
 }

@@ -52,10 +52,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
 
-  # coverage-harness diff (spec §15): `cargo xtask coverage` and a checked-in
-  # scoreboard land in a later batch, once Tier B exists to make the
-  # scoreboard meaningful (spec §13.1). This job is a placeholder so CI's
-  # shape doesn't need to change when that lands.
+  # coverage-harness diff (spec §13.1): `cargo xtask coverage` and a
+  # checked-in scoreboard (coverage-scoreboard.txt) now exist. Left
+  # commented out here rather than wired as a blocking gate because the
+  # harness scans *every executable on PATH*, which is inherently
+  # environment-dependent — the checked-in baseline was generated in this
+  # batch's sandbox, not on GitHub's actual ubuntu-latest runner image, so
+  # `--check` against it here would very likely fail spuriously on tool
+  # inventory differences rather than a real regression. To enable: run
+  # `cargo xtask coverage` once on the actual CI runner image, commit the
+  # resulting coverage-scoreboard.txt, then uncomment this job.
   # coverage:
   #   name: coverage harness
   #   runs-on: ubuntu-latest

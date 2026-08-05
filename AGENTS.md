@@ -42,6 +42,7 @@ Breaking any of these produces a bug that tests will not catch.
 | **One node = exactly one tree row.** No wrapping in the tree pane | `mantui-tui/src/render/tree_pane.rs` | Row index ↔ node stops being a bijection, breaking selection, scrolling, mouse hit-testing, and filtering all at once |
 | Truncate by **display width** (`unicode-width`), never `char` or byte count | `mantui-tui` | CJK/emoji overflow the border by one cell per wide character |
 | Cache keys must depend on **extraction logic**, not just crate version | `mantui-cache/src/key.rs` (`SOURCE_FINGERPRINT`, computed by `mantui-cache/build.rs` from `mantui-core/src` + `mantui-extract/src`) | Shipped as a real bug: a parser fix did nothing for users because their stale cache entry kept being served after upgrade |
+| Never slice a `&str` derived from tool output at a raw byte offset (`&s[..n]`) | any tier that parses `--help`/similar text | Panics if the offset isn't a UTF-8 char boundary. Shipped as a real crash (`help_text::sections`, found by the coverage harness's first real run, not a synthetic test): a box-drawing glyph early in one real tool's output landed byte 6 mid-character. Use `s.as_bytes().get(..n)` (bounds-checked, no boundary concept for raw bytes) for ASCII-prefix checks, or `s.get(..n)` (returns `None` instead of panicking) generally. |
 
 ---
 
