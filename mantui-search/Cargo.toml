@@ -1,0 +1,20 @@
+[package]
+name = "mantui-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "Fuzzy search index over commands and flags for mantui (nucleo-backed). Batch 2 stub. Not independently useful outside the mantui workspace."
+keywords = ["cli", "search", "mantui"]
+categories = ["command-line-interface"]
+
+[lib]
+name = "mantui_search"
+path = "src/lib.rs"
+
+[dependencies]
+mantui-core.workspace = true
+nucleo.workspace = true
