@@ -27,6 +27,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 crossterm.workspace = true
 ratatui.workspace = true
+rayon.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -1,16 +1,24 @@
 //! The interactive event loop: polls terminal events, translates them via
-//! `mantui_tui::event`, and renders each frame.
+//! `mantui_tui::event`, and renders each frame. Also owns lazy per-node
+//! extraction (spec §5.2 step 3) and background depth-warming (step 4) —
+//! both live here rather than in `mantui-tui`, since `App` is pure state
+//! with no extraction I/O of its own.
 //!
 //! **Not exercised by the automated test suite.** This sandbox has no tty
 //! (`enable_raw_mode` fails with "No such device or address" here), so
 //! this module's correctness rests on `mantui-tui`'s own state-machine and
-//! render tests (which cover everything below the terminal I/O boundary)
-//! plus manual review. See the batch report for this called out explicitly.
+//! render tests (which cover everything below the terminal I/O boundary),
+//! `mantui-extract`'s `Runner::fill_node` tests (which cover the
+//! extraction/merge logic this module calls), and manual review. See the
+//! batch report for this called out explicitly.
 
+use crate::background::Warmer;
 use anyhow::Context;
 use crossterm::event::{self, Event};
+use mantui_extract::{default_tiers, resolve_tool, Runner};
 use mantui_tui::app::App;
 use mantui_tui::{clipboard, event as tui_event, layout, render, terminal, Effect};
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Run the interactive TUI for `app` until the user quits. Always restores
@@ -23,7 +31,21 @@ pub fn run(mut app: App) -> anyhow::Result<()> {
 }
 
 fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
+    let runner = Arc::new(Runner::new(default_tiers()));
+    let resolved = resolve_tool(&app.tool);
+    let warmer = Warmer::new();
+
     loop {
+        // Splice in any background fills that completed since the last
+        // iteration before rendering, so the tree reflects them promptly.
+        for warmed in warmer.drain() {
+            let node = warmed.result.node.clone();
+            if warmed.warm_children {
+                warmer.warm_children(&runner, &resolved, &node, &warmed.path);
+            }
+            app.splice_filled_node(&warmed.path, node);
+        }
+
         app.ensure_rows_fresh();
         term.draw(|frame| render::render(frame, app))?;
 
@@ -34,7 +56,8 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
         match event::read()? {
             Event::Key(key) => {
                 if let Some(effect) = tui_event::handle_key(app, key) {
-                    if !apply_effect(app, effect) {
+                    if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+                        warmer.cancel();
                         return Ok(());
                     }
                 }
@@ -43,7 +66,12 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
                 let size = term.size()?;
                 let area = ratatui::layout::Rect::new(0, 0, size.width, size.height);
                 let regions = layout::compute(area, app.focus);
-                tui_event::handle_mouse(app, mouse, &regions);
+                if let Some(effect) = tui_event::handle_mouse(app, mouse, &regions) {
+                    if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+                        warmer.cancel();
+                        return Ok(());
+                    }
+                }
             }
             Event::Resize(_, _) => {
                 // Nothing to do: the next loop iteration re-renders at the
@@ -56,7 +84,13 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
 
 /// Apply an [`Effect`] produced by the event layer. Returns `false` if the
 /// app should quit.
-fn apply_effect(app: &mut App, effect: Effect) -> bool {
+fn apply_effect(
+    app: &mut App,
+    effect: Effect,
+    runner: &Arc<Runner>,
+    resolved: &mantui_extract::ResolvedTool,
+    warmer: &Warmer,
+) -> bool {
     match effect {
         Effect::Quit => return false,
         Effect::Copy(text) => {
@@ -77,6 +111,12 @@ fn apply_effect(app: &mut App, effect: Effect) -> bool {
                 None => {
                     app.set_status("re-extraction failed: no tier produced a result");
                 }
+            }
+        }
+        Effect::Fill(path) => {
+            if let Some(existing) = mantui_core::resolve(&app.root, &path).cloned() {
+                app.mark_pending(path.clone());
+                warmer.submit(Arc::clone(runner), resolved.clone(), path, existing, true);
             }
         }
     }

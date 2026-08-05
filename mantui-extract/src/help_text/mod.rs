@@ -116,11 +116,18 @@ fn build_node(name: &str, raw: &str) -> CommandNode {
         examples: Vec::new(),
         hidden: false,
         deprecated: None,
-        // Tier B recovers direct subcommand *names* (as stubs) but does
-        // not recurse into them itself — lazy expansion is the runner's
-        // job (spec §5.2) — so this node's own children are never
-        // "known-complete" from Tier B's point of view.
-        children_filled: false,
+        // A single probe of this node genuinely does discover its
+        // complete direct-children *list* (spec §5.2: "the names of its
+        // direct subcommands" — one level, not recursive) — whatever the
+        // "Commands:"-shaped section names, or an empty list for a
+        // flags-only leaf like `tar`. That list's accuracy is exactly
+        // what `confidence` already communicates; `children_filled`
+        // itself is about *this level* being known, not about the
+        // subcommands' own children (which stay `children_filled: false`
+        // stubs until each is, in turn, expanded and probed — that's the
+        // lazy per-node expansion spec §5.2 describes, driven by the
+        // runner, not by recursing here).
+        children_filled: true,
         group: None,
         provenance,
     }
@@ -146,7 +153,10 @@ mod tests {
         assert_eq!(node.name, "tar");
         assert!(!node.flags.is_empty());
         assert!(node.provenance.confidence.unwrap() > 0.0);
-        assert!(!node.children_filled);
+        // A single probe genuinely discovers the complete direct-children
+        // list for this level (spec §5.2) — tar has none, which is itself
+        // a known-complete fact, not an unknown.
+        assert!(node.children_filled);
     }
 
     #[test]

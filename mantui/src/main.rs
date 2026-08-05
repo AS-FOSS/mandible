@@ -4,6 +4,7 @@
 #![forbid(unsafe_code)]
 
 mod app_runner;
+mod background;
 mod cli;
 mod doctor;
 mod pipeline;

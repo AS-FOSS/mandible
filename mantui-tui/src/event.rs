@@ -69,7 +69,9 @@ fn handle_tree_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
-        KeyCode::Right | KeyCode::Enter | KeyCode::Char('l') => app.expand_selected(),
+        KeyCode::Right | KeyCode::Enter | KeyCode::Char('l') => {
+            return app.expand_selected().map(Effect::Fill)
+        }
         KeyCode::Left | KeyCode::Char('h') => app.collapse_or_jump_to_parent(),
         KeyCode::Char('y') => return copy_text_for_selection(app).map(Effect::Copy),
         _ => {}
@@ -101,18 +103,19 @@ fn copy_text_for_selection(app: &App) -> Option<String> {
 /// sees. Tree rows are rendered at fixed column offsets (spec §9: "chevron
 /// is hit when `col == 2*depth`"), which is what makes this arithmetic
 /// rather than guesswork.
-pub fn handle_mouse(app: &mut App, mouse: MouseEvent, regions: &Regions) {
+pub fn handle_mouse(app: &mut App, mouse: MouseEvent, regions: &Regions) -> Option<Effect> {
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) => {
-            handle_click(app, mouse.column, mouse.row, regions)
+            return handle_click(app, mouse.column, mouse.row, regions)
         }
         MouseEventKind::ScrollDown => handle_scroll(app, mouse.column, mouse.row, regions, 1),
         MouseEventKind::ScrollUp => handle_scroll(app, mouse.column, mouse.row, regions, -1),
         _ => {}
     }
+    None
 }
 
-fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) {
+fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) -> Option<Effect> {
     if let Some(tree_rect) = regions.tree {
         if rect_contains(tree_rect, col, row) {
             app.focus = Focus::Tree;
@@ -128,13 +131,13 @@ fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) {
                 let chevron_col = 2 * depth;
                 if app.rows()[idx].has_children && inner_col as usize == chevron_col {
                     let path = app.rows()[idx].path.clone();
-                    app.toggle_expand_path(&path);
+                    return app.toggle_expand_path(&path).map(Effect::Fill);
                 } else {
                     app.select_index(idx);
                     app.reset_detail_scroll();
                 }
             }
-            return;
+            return None;
         }
     }
     if let Some(detail_rect) = regions.detail {
@@ -142,6 +145,7 @@ fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) {
             app.focus = Focus::Detail;
         }
     }
+    None
 }
 
 fn handle_scroll(app: &mut App, col: u16, row: u16, regions: &Regions, direction: i32) {

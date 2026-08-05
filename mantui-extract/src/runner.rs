@@ -1,13 +1,14 @@
 //! The extraction runner: drives every enabled tier for a tool and merges
 //! their output (spec §5.2, §5.3).
 //!
-//! This batch's runner is intentionally the simple case described in spec
-//! §5.2 step 1-2 plus the non-incremental fast path: it asks every
-//! detecting tier for the root, and since the only tier wired up by default
-//! in this batch (Tier A) is non-incremental, that single call already
-//! returns the whole tree. Lazy per-node expansion on top of incremental
-//! tiers (Tier B/C/E) is batch 2's job and slots in without changing this
-//! trait or this struct's shape.
+//! [`Runner::extract_full`] does spec §5.2 step 1 (root-only extraction
+//! from every detecting tier). [`Runner::fill_node`] does step 3 (lazy
+//! per-node expansion): it only re-probes *incremental* tiers, since a
+//! non-incremental tier (Tier A) already contributed everything it ever
+//! will at root extraction. Background warming of the next depth (step 4)
+//! lives above this crate, in the binary's event loop, since it's about
+//! *when* to call `fill_node` (on a bounded background pool, cancelled on
+//! quit), not about extraction logic itself.
 
 use crate::resolve::{resolve_tool, ResolvedTool};
 use crate::tier::ExtractionTier;
@@ -164,6 +165,72 @@ impl Runner {
             elapsed: start.elapsed(),
         }
     }
+
+    /// Lazy per-node expansion (spec §5.2 step 3): re-probe `path` against
+    /// every *incremental* tier only (a non-incremental tier like Tier A
+    /// already contributed everything it ever will, at root extraction —
+    /// there's nothing to defer, so nothing to re-request), and merge the
+    /// result with `existing` (the node already in the tree at `path`,
+    /// which may itself carry deep, already-complete data from a
+    /// non-incremental tier).
+    ///
+    /// `existing` is always included as a merge candidate, so the result
+    /// is never worse than what was already known — a tier that fails or
+    /// isn't detected just doesn't contribute (spec §5.3), it doesn't
+    /// erase prior data.
+    pub fn fill_node(
+        &self,
+        resolved: &ResolvedTool,
+        path: &[String],
+        existing: CommandNode,
+    ) -> FillResult {
+        let start = Instant::now();
+        let mut candidates = vec![existing];
+        let mut statuses = Vec::new();
+
+        for tier in &self.tiers {
+            if !tier.is_incremental() {
+                continue;
+            }
+            let detected = tier.detect(resolved);
+            let mut error = None;
+            if detected {
+                match tier.extract_node(resolved, path) {
+                    Ok(node) => candidates.push(node),
+                    Err(e) => error = Some(e.to_string()),
+                }
+            }
+            statuses.push(TierStatus {
+                tier: tier.name(),
+                detected,
+                error,
+            });
+        }
+
+        // `candidates` always has at least the `existing` node pushed
+        // above, so this can only fail via a merge-internal bug, never
+        // MergeError::Empty.
+        let node = merge_nodes(candidates)
+            .expect("existing is always a candidate, so candidates is never empty");
+
+        FillResult {
+            node,
+            tier_statuses: statuses,
+            elapsed: start.elapsed(),
+        }
+    }
+}
+
+/// The outcome of [`Runner::fill_node`].
+#[derive(Debug, Clone)]
+pub struct FillResult {
+    /// The merged node at the requested path, now with this level's data
+    /// refreshed from every incremental tier.
+    pub node: CommandNode,
+    /// Per-tier status for this fill.
+    pub tier_statuses: Vec<TierStatus>,
+    /// Wall-clock time spent filling.
+    pub elapsed: Duration,
 }
 
 #[cfg(test)]
@@ -277,5 +344,95 @@ mod tests {
         let result = runner.extract_full("sometool");
         assert!(result.root.is_none());
         assert!(!result.tier_statuses[0].detected);
+    }
+
+    /// An incremental tier whose `extract_node` returns a node carrying a
+    /// description, so tests can tell whether `fill_node` actually called
+    /// it and merged the result.
+    struct IncrementalWithDescription;
+    impl ExtractionTier for IncrementalWithDescription {
+        fn name(&self) -> &'static str {
+            "test::incremental_with_description"
+        }
+        fn authority(&self) -> Authority {
+            Source::HelpText.authority()
+        }
+        fn detect(&self, _tool: &ResolvedTool) -> bool {
+            true
+        }
+        fn extract_node(
+            &self,
+            _tool: &ResolvedTool,
+            path: &[String],
+        ) -> Result<CommandNode, ExtractError> {
+            let mut node = CommandNode::new(
+                path.last().cloned().unwrap_or_default(),
+                Provenance::single(Source::HelpText),
+            );
+            node.description = Some(mantui_core::Text::sanitize("filled in lazily"));
+            Ok(node)
+        }
+    }
+
+    #[test]
+    fn fill_node_skips_non_incremental_tiers() {
+        // AlwaysOk is non-incremental: it already contributed everything
+        // at root extraction, so fill_node must not call it again.
+        let runner = Runner::new(vec![Box::new(AlwaysOk)]);
+        let resolved = resolve_tool("sometool");
+        let existing = CommandNode::new("child", Provenance::single(Source::HelpText));
+        let result = runner.fill_node(
+            &resolved,
+            &["sometool".to_string(), "child".to_string()],
+            existing,
+        );
+        assert!(
+            result.tier_statuses.is_empty(),
+            "non-incremental tier must not be probed by fill_node"
+        );
+    }
+
+    #[test]
+    fn fill_node_merges_incremental_tier_output_with_existing() {
+        let runner = Runner::new(vec![Box::new(IncrementalWithDescription)]);
+        let resolved = resolve_tool("sometool");
+        let mut existing = CommandNode::new("child", Provenance::single(Source::HelpText));
+        existing.summary = Some(mantui_core::Text::sanitize("already known summary"));
+        let result = runner.fill_node(
+            &resolved,
+            &["sometool".to_string(), "child".to_string()],
+            existing,
+        );
+        // The pre-existing field survives...
+        assert_eq!(
+            result.node.summary.unwrap().as_str(),
+            "already known summary"
+        );
+        // ...and the newly-filled field is present too.
+        assert_eq!(
+            result.node.description.unwrap().as_str(),
+            "filled in lazily"
+        );
+        assert_eq!(result.tier_statuses.len(), 1);
+        assert!(result.tier_statuses[0].detected);
+    }
+
+    #[test]
+    fn fill_node_never_fails_even_if_every_tier_fails() {
+        // existing is always a merge candidate, so the result is always
+        // Some — a tier failing here must degrade to "unchanged," not to
+        // "no result at all" (unlike extract_full, which can return
+        // root: None when nothing contributes anything).
+        let runner = Runner::new(vec![Box::new(AlwaysFails)]);
+        let resolved = resolve_tool("sometool");
+        let mut existing = CommandNode::new("child", Provenance::single(Source::HelpText));
+        existing.summary = Some(mantui_core::Text::sanitize("kept"));
+        let result = runner.fill_node(
+            &resolved,
+            &["sometool".to_string(), "child".to_string()],
+            existing,
+        );
+        assert_eq!(result.node.summary.unwrap().as_str(), "kept");
+        assert!(result.tier_statuses[0].error.is_some());
     }
 }

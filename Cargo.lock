@@ -717,6 +717,7 @@ dependencies = [
  "mantui-extract",
  "mantui-tui",
  "ratatui",
+ "rayon",
  "tempfile",
  "tracing",
  "tracing-subscriber",

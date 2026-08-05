@@ -27,6 +27,11 @@ pub enum Effect {
     Refresh,
     /// Quit the application.
     Quit,
+    /// Lazily fill this node's children (spec §5.2 step 3) — it was just
+    /// expanded but isn't known-complete yet. The caller should call
+    /// [`App::mark_pending`], run the extraction, then
+    /// [`App::splice_filled_node`] with the result.
+    Fill(Vec<String>),
 }
 
 /// All mutable UI state for one tool's tree view.
@@ -37,6 +42,12 @@ pub struct App {
     pub root: CommandNode,
     /// Paths the user has explicitly expanded.
     expanded: HashSet<Vec<String>>,
+    /// Paths currently being lazily filled (spec §5.2 step 3) — a node
+    /// whose `children_filled` was false when expanded, now being
+    /// re-probed. Drives the spinner/placeholder row (spec §9). Populated
+    /// and drained by the caller (the binary's event loop), which owns
+    /// the actual extraction I/O; `App` itself never spawns anything.
+    pending: HashSet<Vec<String>>,
     /// The flattened, currently-visible row list. Rebuilt only when
     /// `dirty` (spec §9: "The flattened row list is cached").
     rows: Vec<TreeRow>,
@@ -77,6 +88,7 @@ impl App {
             tool,
             root,
             expanded,
+            pending: HashSet::new(),
             rows: Vec::new(),
             dirty: true,
             selected: 0,
@@ -118,6 +130,7 @@ impl App {
             &self.expanded,
             filter.as_deref(),
             self.show_hidden,
+            &self.pending,
         );
         if self.selected >= self.rows.len() {
             self.selected = self.rows.len().saturating_sub(1);
@@ -164,14 +177,62 @@ impl App {
     /// `→`/`Enter`/`l`: expand the selected row if it has children and
     /// isn't already expanded. (Lazy-extraction trigger is a later-batch
     /// concern; Tier A trees are always fully filled.)
-    pub fn expand_selected(&mut self) {
+    /// Returns `Some(path)` if the just-expanded node's children are not
+    /// yet known-complete (spec §5.2 step 3: lazy per-node expansion) and
+    /// isn't already being filled — the caller (the binary's event loop,
+    /// which owns extraction I/O) should mark it pending via
+    /// [`Self::mark_pending`], trigger a fill, and eventually call
+    /// [`Self::splice_filled_node`] with the result. Also returns the
+    /// path when the selected row has no discovered children yet at all
+    /// (`!has_children`) but also isn't known-complete — the classic
+    /// "never probed this node" case for a Tier-B-only tool.
+    pub fn expand_selected(&mut self) -> Option<Vec<String>> {
         self.ensure_rows_fresh();
-        if let Some(row) = self.rows.get(self.selected) {
-            if row.has_children && !self.expanded.contains(&row.path) {
-                self.expanded.insert(row.path.clone());
-                self.mark_dirty();
-            }
+        let row = self.rows.get(self.selected)?;
+        let needs_fill = !row.children_filled && !self.pending.contains(&row.path);
+        let path = row.path.clone();
+        if row.has_children && !self.expanded.contains(&path) {
+            self.expanded.insert(path.clone());
+            self.mark_dirty();
         }
+        needs_fill.then_some(path)
+    }
+
+    /// Mark `path` as currently being lazily filled, so the tree pane
+    /// shows a spinner row for it instead of a static chevron.
+    pub fn mark_pending(&mut self, path: Vec<String>) {
+        self.pending.insert(path);
+        self.mark_dirty();
+    }
+
+    /// Clear a path's pending marker (called whether the fill succeeded
+    /// or failed — either way, it's no longer in flight).
+    pub fn clear_pending(&mut self, path: &[String]) {
+        if self.pending.remove(path) {
+            self.mark_dirty();
+        }
+    }
+
+    /// True if `path` is currently being lazily filled.
+    pub fn is_pending(&self, path: &[String]) -> bool {
+        self.pending.contains(path)
+    }
+
+    /// Splice a freshly-filled node into the tree at `path`, replacing
+    /// whatever was there, clears its pending marker, and — if
+    /// the node now has children and wasn't already user-expanded —
+    /// expands it, so the result the user asked for is immediately
+    /// visible rather than requiring a second expand press.
+    pub fn splice_filled_node(&mut self, path: &[String], node: CommandNode) {
+        self.pending.remove(path);
+        let has_children = !node.subcommands.is_empty();
+        if let Some(slot) = mantui_core::resolve_mut(&mut self.root, path) {
+            *slot = node;
+        }
+        if has_children {
+            self.expanded.insert(path.to_vec());
+        }
+        self.mark_dirty();
     }
 
     /// `←`/`h`: collapse the selected row if it's expanded, else jump
@@ -198,14 +259,23 @@ impl App {
 
     /// Click/Enter/`l`/`→` shorthand: toggle expand state on the given row
     /// path (used by mouse chevron clicks, which address a row directly
-    /// rather than "the selection").
-    pub fn toggle_expand_path(&mut self, path: &[String]) {
+    /// rather than "the selection"). Same fill-needed contract as
+    /// [`Self::expand_selected`].
+    pub fn toggle_expand_path(&mut self, path: &[String]) -> Option<Vec<String>> {
+        let mut needs_fill = None;
         if self.expanded.contains(path) {
             self.expanded.remove(path);
         } else {
             self.expanded.insert(path.to_vec());
+            let filled = resolve(&self.root, path)
+                .map(|n| n.children_filled)
+                .unwrap_or(true);
+            if !filled && !self.pending.contains(path) {
+                needs_fill = Some(path.to_vec());
+            }
         }
         self.mark_dirty();
+        needs_fill
     }
 
     /// Select the row at flattened index `idx`, if in range (used by mouse
@@ -403,5 +473,106 @@ mod tests {
         assert_eq!(app.focus, Focus::Detail);
         app.toggle_focus();
         assert_eq!(app.focus, Focus::Tree);
+    }
+
+    // --- lazy fill (spec §5.2 step 3) ---
+
+    fn sample_tree_known_complete() -> CommandNode {
+        let mut root = sample_tree();
+        root.children_filled = true;
+        for child in &mut root.subcommands {
+            child.children_filled = true;
+            for grandchild in &mut child.subcommands {
+                grandchild.children_filled = true;
+            }
+        }
+        root
+    }
+
+    #[test]
+    fn expanding_a_known_complete_node_needs_no_fill() {
+        let mut app = App::new("git".to_string(), sample_tree_known_complete());
+        app.selected = 2; // rebase, children_filled: true
+        assert_eq!(app.expand_selected(), None);
+    }
+
+    #[test]
+    fn expanding_an_unfilled_node_reports_the_path_to_fill() {
+        // sample_tree() defaults every node to children_filled: false.
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        let needs_fill = app.expand_selected();
+        assert_eq!(
+            needs_fill,
+            Some(vec!["git".to_string(), "rebase".to_string()])
+        );
+    }
+
+    #[test]
+    fn already_pending_node_is_not_reported_again() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        let path = app.expand_selected().unwrap();
+        app.mark_pending(path);
+        // Collapsing and re-expanding while still pending must not queue
+        // a second fill for the same path.
+        app.collapse_or_jump_to_parent();
+        let second = app.expand_selected();
+        assert_eq!(
+            second, None,
+            "already-pending node should not be re-requested"
+        );
+    }
+
+    #[test]
+    fn pending_row_is_marked_in_flattened_rows() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        let path = app.expand_selected().unwrap();
+        app.mark_pending(path);
+        app.ensure_rows_fresh();
+        let rebase_row = app.rows().iter().find(|r| r.name == "rebase").unwrap();
+        assert!(rebase_row.pending);
+    }
+
+    #[test]
+    fn splice_filled_node_replaces_node_and_clears_pending() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        let path = app.expand_selected().unwrap();
+        app.mark_pending(path.clone());
+        assert!(app.is_pending(&path));
+
+        let mut filled = CommandNode::new("rebase", Provenance::single(Source::HelpText));
+        filled.children_filled = true;
+        filled.summary = Some(mantui_core::Text::sanitize("now filled"));
+        app.splice_filled_node(&path, filled);
+
+        assert!(!app.is_pending(&path));
+        app.ensure_rows_fresh();
+        let rebase_row = app.rows().iter().find(|r| r.name == "rebase").unwrap();
+        assert!(!rebase_row.pending);
+        assert_eq!(rebase_row.summary.as_deref(), Some("now filled"));
+    }
+
+    #[test]
+    fn splice_filled_node_with_new_children_auto_expands() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        let path = app.expand_selected().unwrap();
+        app.mark_pending(path.clone());
+
+        let mut filled = CommandNode::new("rebase", Provenance::single(Source::HelpText));
+        filled.children_filled = true;
+        filled.subcommands.push(CommandNode::new(
+            "--onto",
+            Provenance::single(Source::HelpText),
+        ));
+        app.splice_filled_node(&path, filled);
+
+        app.ensure_rows_fresh();
+        // The newly-discovered child should be visible without a second
+        // expand press.
+        assert!(app.rows().iter().any(|r| r.name == "--onto"));
     }
 }

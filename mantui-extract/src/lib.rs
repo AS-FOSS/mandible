@@ -37,7 +37,7 @@ pub mod overrides;
 
 pub use errors::ExtractError;
 pub use resolve::{resolve_tool, ResolvedTool};
-pub use runner::{ExtractionResult, Runner, TierStatus};
+pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
 pub use tier::ExtractionTier;
 
 /// Build the default set of tiers for this batch: Tier A (`known_specs`)

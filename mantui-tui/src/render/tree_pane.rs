@@ -77,6 +77,30 @@ fn build_row_line(
         Style::default()
     };
 
+    if row.pending {
+        // A lazy fill is in flight for this node (spec §5.2 step 3, §9
+        // "designed degraded states"): show a subtle spinner instead of a
+        // (possibly stale or absent) summary, so the user can see
+        // something is actively happening rather than a row that looks
+        // simply empty.
+        text.push_str("  ");
+        let name_part_width = display_width(&text);
+        if name_part_width < width {
+            let remaining = width - name_part_width;
+            let marker = truncate_to_width("⋯ loading", remaining);
+            let truncated_name_part = truncate_to_width(&text, width);
+            spans.push(Span::styled(truncated_name_part, base_style));
+            spans.push(Span::styled(
+                marker,
+                Style::default().add_modifier(Modifier::DIM),
+            ));
+            return Line::from(spans);
+        }
+        let truncated = truncate_to_width(&text, width);
+        spans.push(Span::styled(truncated, base_style));
+        return Line::from(spans);
+    }
+
     if !hide_summary {
         if let Some(summary) = &row.summary {
             let clean_summary = defensive_single_line(summary);
@@ -120,6 +144,7 @@ mod tests {
             expanded: false,
             children_filled: true,
             hidden: false,
+            pending: false,
         }
     }
 
@@ -147,5 +172,27 @@ mod tests {
         let line = build_row_line(&r, 40, false, false);
         let rendered: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
         assert!(display_width(&rendered) <= 40);
+    }
+
+    #[test]
+    fn pending_row_shows_spinner_not_summary() {
+        let mut r = row(0, "get", Some("should not show while pending"), true);
+        r.pending = true;
+        let line = build_row_line(&r, 80, false, false);
+        let rendered: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(rendered.contains("loading"), "{rendered:?}");
+        assert!(
+            !rendered.contains("should not show while pending"),
+            "{rendered:?}"
+        );
+    }
+
+    #[test]
+    fn pending_row_still_respects_width_budget() {
+        let mut r = row(0, "get", None, true);
+        r.pending = true;
+        let line = build_row_line(&r, 12, false, false);
+        let rendered: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(display_width(&rendered) <= 12);
     }
 }

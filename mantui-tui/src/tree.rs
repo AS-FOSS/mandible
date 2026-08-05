@@ -30,12 +30,16 @@ pub struct TreeRow {
     /// True if this row is currently showing its children.
     pub expanded: bool,
     /// True if the node's own children are known-complete (vs. still
-    /// needing lazy extraction — always true in this batch, since Tier A is
-    /// non-incremental).
+    /// needing lazy extraction on expand — spec §5.2 step 3).
     pub children_filled: bool,
     /// True if this node is hidden by the source and being force-shown
     /// because the user toggled `.` (show-hidden).
     pub hidden: bool,
+    /// True if a lazy fill (spec §5.2 step 3) is currently in flight for
+    /// this node, so the tree pane can render a subtle spinner/placeholder
+    /// row instead of a static chevron (spec §9 "designed degraded
+    /// states").
+    pub pending: bool,
 }
 
 /// Flatten `root` into visible rows.
@@ -53,15 +57,25 @@ pub fn flatten(
     expanded: &HashSet<Vec<String>>,
     filter: Option<&str>,
     show_hidden: bool,
+    pending: &HashSet<Vec<String>>,
 ) -> Vec<TreeRow> {
     let mut out = Vec::new();
     let root_path = vec![root.name.clone()];
     match filter {
         Some(f) if !f.trim().is_empty() => {
             let needle = f.to_lowercase();
-            push_filtered(root, root_path, 0, expanded, &needle, show_hidden, &mut out);
+            push_filtered(
+                root,
+                root_path,
+                0,
+                expanded,
+                &needle,
+                show_hidden,
+                pending,
+                &mut out,
+            );
         }
-        _ => push_plain(root, root_path, 0, expanded, show_hidden, &mut out),
+        _ => push_plain(root, root_path, 0, expanded, show_hidden, pending, &mut out),
     }
     out
 }
@@ -78,7 +92,13 @@ fn node_matches(node: &CommandNode, needle: &str) -> bool {
     false
 }
 
-fn make_row(node: &CommandNode, path: Vec<String>, depth: usize, expanded: bool) -> TreeRow {
+fn make_row(
+    node: &CommandNode,
+    path: Vec<String>,
+    depth: usize,
+    expanded: bool,
+    pending: bool,
+) -> TreeRow {
     TreeRow {
         path,
         depth,
@@ -88,6 +108,7 @@ fn make_row(node: &CommandNode, path: Vec<String>, depth: usize, expanded: bool)
         expanded,
         children_filled: node.children_filled,
         hidden: node.hidden,
+        pending,
     }
 }
 
@@ -97,18 +118,28 @@ fn push_plain(
     depth: usize,
     expanded: &HashSet<Vec<String>>,
     show_hidden: bool,
+    pending: &HashSet<Vec<String>>,
     out: &mut Vec<TreeRow>,
 ) {
     if node.hidden && !show_hidden {
         return;
     }
     let is_expanded = expanded.contains(&path);
-    out.push(make_row(node, path.clone(), depth, is_expanded));
+    let is_pending = pending.contains(&path);
+    out.push(make_row(node, path.clone(), depth, is_expanded, is_pending));
     if is_expanded {
         for child in &node.subcommands {
             let mut child_path = path.clone();
             child_path.push(child.name.clone());
-            push_plain(child, child_path, depth + 1, expanded, show_hidden, out);
+            push_plain(
+                child,
+                child_path,
+                depth + 1,
+                expanded,
+                show_hidden,
+                pending,
+                out,
+            );
         }
     }
 }
@@ -116,6 +147,7 @@ fn push_plain(
 /// Returns true if `node` or any descendant was included (i.e. matched or
 /// is an ancestor of a match), in which case rows for it were appended to
 /// `out`.
+#[allow(clippy::too_many_arguments)]
 fn push_filtered(
     node: &CommandNode,
     path: Vec<String>,
@@ -123,6 +155,7 @@ fn push_filtered(
     expanded: &HashSet<Vec<String>>,
     needle: &str,
     show_hidden: bool,
+    pending: &HashSet<Vec<String>>,
     out: &mut Vec<TreeRow>,
 ) -> bool {
     if node.hidden && !show_hidden {
@@ -142,6 +175,7 @@ fn push_filtered(
             expanded,
             needle,
             show_hidden,
+            pending,
             &mut child_rows,
         ) {
             any_child_match = true;
@@ -154,7 +188,8 @@ fn push_filtered(
 
     let user_expanded = expanded.contains(&path);
     let effective_expanded = user_expanded || any_child_match;
-    out.push(make_row(node, path, depth, effective_expanded));
+    let is_pending = pending.contains(&path);
+    out.push(make_row(node, path, depth, effective_expanded, is_pending));
     if effective_expanded {
         out.extend(child_rows);
     }
@@ -190,7 +225,7 @@ mod tests {
     #[test]
     fn root_collapsed_shows_only_root() {
         let root = tree();
-        let rows = flatten(&root, &HashSet::new(), None, false);
+        let rows = flatten(&root, &HashSet::new(), None, false, &HashSet::new());
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "git");
         assert!(rows[0].has_children);
@@ -202,7 +237,7 @@ mod tests {
         let root = tree();
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
-        let rows = flatten(&root, &expanded, None, false);
+        let rows = flatten(&root, &expanded, None, false, &HashSet::new());
         assert_eq!(rows.len(), 4); // git, add, rebase, stash
         assert_eq!(rows[1].name, "add");
         assert_eq!(rows[1].depth, 1);
@@ -216,7 +251,7 @@ mod tests {
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
         expanded.insert(vec!["git".to_string(), "rebase".to_string()]);
-        let rows = flatten(&root, &expanded, None, false);
+        let rows = flatten(&root, &expanded, None, false, &HashSet::new());
         // git, add, rebase, --onto-helper, stash
         assert_eq!(rows.len(), 5);
         assert_eq!(rows[3].name, "--onto-helper");
@@ -229,7 +264,7 @@ mod tests {
         root.subcommands[0].hidden = true; // "add"
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
-        let rows = flatten(&root, &expanded, None, false);
+        let rows = flatten(&root, &expanded, None, false, &HashSet::new());
         assert!(!rows.iter().any(|r| r.name == "add"));
     }
 
@@ -239,7 +274,7 @@ mod tests {
         root.subcommands[0].hidden = true;
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
-        let rows = flatten(&root, &expanded, None, true);
+        let rows = flatten(&root, &expanded, None, true, &HashSet::new());
         assert!(rows.iter().any(|r| r.name == "add"));
     }
 
@@ -248,7 +283,7 @@ mod tests {
         let root = tree();
         // Nothing manually expanded, but filtering for "onto" should reveal
         // git -> rebase -> --onto-helper.
-        let rows = flatten(&root, &HashSet::new(), Some("onto"), false);
+        let rows = flatten(&root, &HashSet::new(), Some("onto"), false, &HashSet::new());
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "rebase", "--onto-helper"]);
     }
@@ -256,7 +291,13 @@ mod tests {
     #[test]
     fn filter_matches_on_summary_text() {
         let root = tree();
-        let rows = flatten(&root, &HashSet::new(), Some("reapply"), false);
+        let rows = flatten(
+            &root,
+            &HashSet::new(),
+            Some("reapply"),
+            false,
+            &HashSet::new(),
+        );
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "rebase"]);
     }
@@ -264,7 +305,13 @@ mod tests {
     #[test]
     fn filter_hides_non_matching_siblings() {
         let root = tree();
-        let rows = flatten(&root, &HashSet::new(), Some("stash"), false);
+        let rows = flatten(
+            &root,
+            &HashSet::new(),
+            Some("stash"),
+            false,
+            &HashSet::new(),
+        );
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "stash"]);
     }
@@ -274,8 +321,8 @@ mod tests {
         let root = tree();
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
-        let with_empty = flatten(&root, &expanded, Some(""), false);
-        let without = flatten(&root, &expanded, None, false);
+        let with_empty = flatten(&root, &expanded, Some(""), false, &HashSet::new());
+        let without = flatten(&root, &expanded, None, false, &HashSet::new());
         assert_eq!(with_empty, without);
     }
 }
