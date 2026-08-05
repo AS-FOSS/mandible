@@ -8,6 +8,71 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed (batch 3)
+
+- **Tier B invented subcommands** [M-10]: wrapped description continuation
+  lines and `--format=`-style enum value lists were misread as bare-word
+  command entries — `tar` gained 39 phantom subcommands, `dd` 40,
+  `less`/`zstdless` 65. Implements spec §7 Tier B's four binding rules:
+  a bare-word block only becomes subcommands under a recognized heading
+  (or a chain started by one); a candidate name must match
+  `^[a-z][a-z0-9_.-]*$`; an unrecognized block nested under a flag
+  becomes that flag's `choices` instead; layout alone is never
+  sufficient evidence. Root cause of the underlying parsing bug: block
+  boundaries and entry-vs-continuation splitting were indent-floor
+  heuristics that broke whenever a block mixed two entry depths (a
+  short+long flag and a long-only flag in the same block, a real and
+  common shape). Zero subcommands now for tar, dd, less, sed, and
+  find/bfs, regression-tested against real fixtures for all five.
+- **`--help` probe containment** [M-11], generalized beyond CWD: every
+  probe now runs with its CWD, `HOME`, `TMPDIR`, and the writable XDG
+  base-directory variables all pointed at one scratch directory created
+  fresh per invocation and removed on drop — not just CWD, which
+  `mysql_secure_installation`'s `.my.cnf` write (an empty root password)
+  already showed wasn't sufficient. Portable regression test proves a
+  probe cannot write into the real `$HOME`.
+- **Quadratic parse time and unbounded entry recovery**: the coverage
+  harness found a tool (`instmodsh`, a Perl REPL that ignores `--help`
+  entirely and free-runs printing its own banner) that took over two
+  minutes and produced 58,663 duplicate-name "subcommands" from one
+  probe. Two bugs, both fixed: an O(n) prose-bound scan was being
+  called from inside a loop condition instead of once before it; and
+  recovered entries had no cap or deduplication, so tens of thousands
+  of duplicates all reached the merge step. Now completes in ~10s
+  (bounded by the ordinary exec timeout) with 3 clean nodes.
+
+### Added (batch 3)
+
+- **Structure-sanity coverage column** (spec §13.1): the scoreboard now
+  carries a count of descendant nodes whose name fails
+  `mantui_core::is_command_name_shaped` or that carry nothing at all (no
+  flags, no children, no summary) — the shape a mis-parsed fragment
+  takes even when its name happens to look valid. Any non-zero count
+  marks the tool `suspicious`, checked before `%described` (which the
+  Tier B phantom-subcommand bug proved can stay at 100% while a tree is
+  fabricated) and gated in `--check` exactly like `no_tier_count`.
+- **Tree row alignment and truncation** (spec §9.1): the summary column
+  is now computed once over the whole flattened row set (not the
+  viewport, which would jump while scrolling); truncation breaks at a
+  word boundary with `…` instead of a hard character cut; the name
+  column never yields to make room for a summary.
+- **The styling contract** (spec §9.2), new `mantui-tui::style` module:
+  `DarkGray` instead of `Modifier::DIM` for muted text; every style
+  degrades under `NO_COLOR`; search-matched characters are underlined
+  within a row's name (via a new `mantui_search::match_indices`,
+  independent of the ranking match against a command's or flag's full
+  haystack).
+- **Detail pane rewrite**: a flag's description continuation now
+  hang-indents under the description column instead of restarting at
+  column 0; group headings (`GLOBAL OPTIONS:`, `Main operation mode:`)
+  are normalized (trailing colon stripped, casing normalized) so the
+  same logical group renders identically regardless of source; a flag
+  line is three distinctly styled spans (spelling: accent; value
+  placeholder: muted italic; description: default) instead of one
+  undifferentiated run; deprecated flags get a `(deprecated)` tag.
+  Selecting a flag via search now scrolls the detail pane to that exact
+  flag's line — closing the batch-2 known gap below.
+
 ### Added (batch 2)
 
 - **Tier B** (`mantui-extract::help_text`): a `winnow`-based flag-spec
@@ -88,10 +153,18 @@ once it reaches a published 0.1.0 release.
 - Tiers C (completion-script parsing), D (man pages, deferred
   entirely), E (native probes), and F (user overrides) are not
   implemented.
-- Search result selection scrolls the detail pane to the matched
-  command but not to the specific matched flag within it.
 - The coverage harness's `--check` regression gate is not wired into CI
   (`.github/workflows/ci.yml`) because the harness scans every
   executable on `PATH`, which is environment-dependent; the checked-in
   baseline was generated in this batch's sandbox, not on the actual CI
   runner image.
+- Probe containment (spec §6 rule 8) redirects CWD/HOME/TMPDIR/XDG_*
+  per invocation, but cannot be a complete guarantee: a tool that bakes
+  an absolute write path into itself, independent of any of these
+  variables, sits outside what an environment/CWD redirect can reach.
+  Full containment needs OS-level sandboxing (namespaces/seccomp).
+- The coverage scoreboard's structure-sanity column currently flags 25
+  real tools as `suspicious` (see `coverage-scoreboard.txt`) that
+  weren't individually investigated this batch — the column is new and
+  doing its job, but each flagged tool is an open item for a future
+  pass, not a confirmed regression.
