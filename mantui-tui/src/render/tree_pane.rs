@@ -19,6 +19,13 @@
 //!   truncated to fit its own budget first; the summary only gets
 //!   whatever's left, and is dropped entirely rather than squeezed into
 //!   a handful of useless characters.
+//!
+//! Spec §9.2/§10: matched search characters are underlined, and only
+//! within the name — never the summary. [`mantui_search::match_indices`]
+//! re-runs a match scoped to just the row's own name (not the full
+//! search haystack, which for a command also includes its summary and
+//! for a flag its description), so the returned positions are always
+//! directly usable against that name with no offset bookkeeping.
 
 use crate::app::{App, Focus};
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_ellipsis};
@@ -66,6 +73,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
     // Computed once, over *all* rows — see the module doc for why.
     let summary_column = summary_column(rows, inner_width);
 
+    let query = app.active_filter();
+
     let lines: Vec<Line> = rows
         .iter()
         .enumerate()
@@ -79,6 +88,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
                 i == app.selected,
                 summary_column,
                 app.color_enabled,
+                query,
             )
         })
         .collect();
@@ -105,6 +115,7 @@ fn summary_column(rows: &[TreeRow], width: usize) -> usize {
     longest.min(cap) + 2
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_row_line(
     row: &TreeRow,
     width: usize,
@@ -112,6 +123,7 @@ fn build_row_line(
     selected: bool,
     summary_column: usize,
     color_enabled: bool,
+    query: Option<&str>,
 ) -> Line<'static> {
     let indent = "  ".repeat(row.depth);
     let chevron = if !row.has_children {
@@ -136,17 +148,23 @@ fn build_row_line(
     // else ever gets a chance at the row's width budget.
     let name_budget = width.saturating_sub(prefix_w);
     let truncated_name = truncate_to_width_ellipsis(&name, name_budget);
-    let name_part = format!("{prefix}{truncated_name}");
-    let name_part_width = display_width(&name_part);
+    let name_part_width = prefix_w + display_width(&truncated_name);
 
-    let mut spans = Vec::new();
+    // Underline matched characters within the name only (spec §9.2 /
+    // §10) — computed against the pre-truncation name so match positions
+    // are stable, but only ever rendered against the surviving
+    // (truncated) prefix of it, which is what's actually on screen.
+    let match_idx = query
+        .map(|q| mantui_search::match_indices(&name, q))
+        .unwrap_or_default();
+    let mut spans = vec![Span::styled(prefix, base_style)];
+    spans.extend(styled_name_spans(&truncated_name, &match_idx, base_style));
 
     if row.pending {
         // A lazy fill is in flight for this node (spec §5.2 step 3, §9
         // "designed degraded states"): show a subtle spinner instead of a
         // (possibly stale or absent) summary, aligned to the same
         // computed column a real summary would use.
-        spans.push(Span::styled(name_part.clone(), base_style));
         if name_part_width < width {
             let pad_to = summary_column.max(name_part_width);
             let padding = " ".repeat(pad_to.saturating_sub(name_part_width));
@@ -173,7 +191,6 @@ fn build_row_line(
                 if remaining > 0 {
                     let padding = " ".repeat(pad_to - name_part_width);
                     let truncated_summary = truncate_to_width_ellipsis(&clean_summary, remaining);
-                    spans.push(Span::styled(name_part, base_style));
                     spans.push(Span::raw(padding));
                     spans.push(Span::styled(truncated_summary, style::muted(color_enabled)));
                     return Line::from(spans);
@@ -182,8 +199,45 @@ fn build_row_line(
         }
     }
 
-    spans.push(Span::styled(name_part, base_style));
     Line::from(spans)
+}
+
+/// Split `name` into spans alternating between `base_style` and
+/// `base_style` + underline wherever `match_idx` (character indices)
+/// says a character matched the active search query (spec §9.2:
+/// "Search match characters: Underline, within the name only").
+fn styled_name_spans(name: &str, match_idx: &[u32], base_style: Style) -> Vec<Span<'static>> {
+    if match_idx.is_empty() {
+        return vec![Span::styled(name.to_string(), base_style)];
+    }
+    let match_set: std::collections::HashSet<u32> = match_idx.iter().copied().collect();
+    let match_style = base_style.add_modifier(ratatui::style::Modifier::UNDERLINED);
+
+    let mut spans = Vec::new();
+    let mut current = String::new();
+    let mut current_matched = false;
+    for (i, c) in name.chars().enumerate() {
+        let is_matched = match_set.contains(&(i as u32));
+        if !current.is_empty() && is_matched != current_matched {
+            let style = if current_matched {
+                match_style
+            } else {
+                base_style
+            };
+            spans.push(Span::styled(std::mem::take(&mut current), style));
+        }
+        current.push(c);
+        current_matched = is_matched;
+    }
+    if !current.is_empty() {
+        let style = if current_matched {
+            match_style
+        } else {
+            base_style
+        };
+        spans.push(Span::styled(current, style));
+    }
+    spans
 }
 
 #[cfg(test)]
@@ -211,7 +265,7 @@ mod tests {
     #[test]
     fn chevron_position_matches_two_times_depth() {
         let r = row(2, "onto", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         let text = rendered(&line);
         // indent "    " (4 chars = 2*depth) then chevron/space/name.
         assert_eq!(&text[0..4], "    ");
@@ -220,7 +274,7 @@ mod tests {
     #[test]
     fn adversarial_name_never_produces_embedded_newline() {
         let r = row(0, "evil\nname\x1b[31m", None, true);
-        let line = build_row_line(&r, 80, false, false, 20, true);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         let text = rendered(&line);
         assert!(!text.contains('\n'));
     }
@@ -229,7 +283,7 @@ mod tests {
     fn long_summary_is_truncated_to_width() {
         let long_summary = "x".repeat(500);
         let r = row(0, "cmd", Some(&long_summary), false);
-        let line = build_row_line(&r, 40, false, false, 10, true);
+        let line = build_row_line(&r, 40, false, false, 10, true, None);
         let text = rendered(&line);
         assert!(display_width(&text) <= 40);
     }
@@ -238,7 +292,7 @@ mod tests {
     fn pending_row_shows_spinner_not_summary() {
         let mut r = row(0, "get", Some("should not show while pending"), true);
         r.pending = true;
-        let line = build_row_line(&r, 80, false, false, 20, true);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         let text = rendered(&line);
         assert!(text.contains("loading"), "{text:?}");
         assert!(!text.contains("should not show while pending"), "{text:?}");
@@ -248,7 +302,7 @@ mod tests {
     fn pending_row_still_respects_width_budget() {
         let mut r = row(0, "get", None, true);
         r.pending = true;
-        let line = build_row_line(&r, 12, false, false, 5, true);
+        let line = build_row_line(&r, 12, false, false, 5, true, None);
         let text = rendered(&line);
         assert!(display_width(&text) <= 12);
     }
@@ -296,7 +350,7 @@ mod tests {
             Some("summary"),
             false,
         );
-        let line = build_row_line(&r, 15, false, false, 5, true);
+        let line = build_row_line(&r, 15, false, false, 5, true, None);
         let text = rendered(&line);
         assert!(display_width(&text) <= 15);
         assert!(text.contains('…'), "{text:?}");
@@ -312,7 +366,7 @@ mod tests {
             Some("Add file contents to the index right now please"),
             false,
         );
-        let line = build_row_line(&r, 30, false, false, 6, true);
+        let line = build_row_line(&r, 30, false, false, 6, true, None);
         let text = rendered(&line);
         assert!(text.contains('…'), "{text:?}");
         assert!(display_width(&text) <= 30);
@@ -321,7 +375,7 @@ mod tests {
     #[test]
     fn no_color_selected_row_still_readable_via_reverse() {
         let r = row(0, "add", None, false);
-        let line = build_row_line(&r, 40, false, true, 10, false);
+        let line = build_row_line(&r, 40, false, true, 10, false, None);
         // With color disabled the base style must still carry REVERSED so
         // the selection is visible without any color at all.
         assert!(line.spans[0]
@@ -329,5 +383,45 @@ mod tests {
             .add_modifier
             .contains(ratatui::style::Modifier::REVERSED));
         assert_eq!(line.spans[0].style.fg, None);
+    }
+
+    /// Spec §9.2 / §10: matched characters within the name are underlined
+    /// — and only within the name, never the summary.
+    #[test]
+    fn matched_characters_within_the_name_are_underlined() {
+        let r = row(0, "rebase", Some("Reapply commits"), true);
+        let line = build_row_line(&r, 80, false, false, 20, true, Some("rb"));
+        let underlined: String = line
+            .spans
+            .iter()
+            .filter(|s| {
+                s.style
+                    .add_modifier
+                    .contains(ratatui::style::Modifier::UNDERLINED)
+            })
+            .map(|s| s.content.as_ref())
+            .collect();
+        assert_eq!(underlined, "rb", "expected just 'r' and 'b' underlined");
+        // The summary must never be underlined, even though it also
+        // contains matchable characters.
+        let summary_span = line
+            .spans
+            .iter()
+            .find(|s| s.content.contains("Reapply"))
+            .expect("summary span present");
+        assert!(!summary_span
+            .style
+            .add_modifier
+            .contains(ratatui::style::Modifier::UNDERLINED));
+    }
+
+    #[test]
+    fn no_query_means_no_underline() {
+        let r = row(0, "rebase", None, false);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
+        assert!(line.spans.iter().all(|s| !s
+            .style
+            .add_modifier
+            .contains(ratatui::style::Modifier::UNDERLINED)));
     }
 }

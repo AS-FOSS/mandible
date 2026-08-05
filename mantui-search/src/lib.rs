@@ -13,7 +13,7 @@
 
 use mantui_core::{CommandNode, NodeRef};
 use nucleo::pattern::{CaseMatching, Normalization};
-use nucleo::{Config, Nucleo};
+use nucleo::{Config, Matcher, Nucleo, Utf32Str};
 use std::sync::Arc;
 
 /// One indexed item: a command or a flag, addressable via its [`NodeRef`].
@@ -123,6 +123,39 @@ impl SearchIndex {
             .map(|(_, _, node_ref)| node_ref)
             .collect()
     }
+}
+
+/// The character indices within `name` (not the full search haystack)
+/// that matched `query`, for highlighting (spec §9.2: "underline matched
+/// characters... within the name only"). This deliberately re-runs a
+/// fresh, independent match scoped to just the display name, rather than
+/// reusing the ranking match against the full haystack (which also scores
+/// aliases/summary/description for commands, or short/long/value/
+/// description for flags) — that match's indices are offsets into a
+/// haystack the caller never sees, and would need adjusting per entry
+/// kind to mean anything. Matching just the name means the returned
+/// indices are always directly usable against `name` with no offset
+/// bookkeeping, at the cost of a second (cheap — names are short) match
+/// per row.
+///
+/// Case-insensitive, matching how the index itself matches
+/// (`CaseMatching::Ignore`). Empty if `query` is empty or doesn't match
+/// `name` at all (e.g. this row is only showing because a *different*
+/// field matched).
+pub fn match_indices(name: &str, query: &str) -> Vec<u32> {
+    if query.is_empty() || name.is_empty() {
+        return Vec::new();
+    }
+    let mut matcher = Matcher::new(Config::DEFAULT);
+    let name_lower = name.to_lowercase();
+    let query_lower = query.to_lowercase();
+    let mut name_buf = Vec::new();
+    let mut query_buf = Vec::new();
+    let haystack = Utf32Str::new(&name_lower, &mut name_buf);
+    let needle = Utf32Str::new(&query_lower, &mut query_buf);
+    let mut indices = Vec::new();
+    matcher.fuzzy_indices(haystack, needle, &mut indices);
+    indices
 }
 
 fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<String>) {
@@ -355,5 +388,29 @@ mod tests {
             !index.results().is_empty(),
             "results should still be findable after repopulating"
         );
+    }
+
+    #[test]
+    fn match_indices_finds_positions_within_the_name() {
+        let idx = match_indices("rebase", "rb");
+        // "r" at 0, "b" at 2 in "rebase".
+        assert_eq!(idx, vec![0, 2]);
+    }
+
+    #[test]
+    fn match_indices_is_case_insensitive() {
+        let idx = match_indices("Rebase", "REB");
+        assert_eq!(idx, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn match_indices_empty_query_yields_no_highlight() {
+        assert_eq!(match_indices("rebase", ""), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn match_indices_no_match_in_name_yields_empty() {
+        // "rebase" doesn't contain "xyz" at all, fuzzy or otherwise.
+        assert_eq!(match_indices("rebase", "xyz"), Vec::<u32>::new());
     }
 }

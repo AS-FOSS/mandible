@@ -135,8 +135,10 @@ impl App {
     }
 
     /// The currently active filter text, if any: the live query while
-    /// typing, else the pinned filter.
-    fn active_filter(&self) -> Option<&str> {
+    /// typing, else the pinned filter. Also used by the tree pane to
+    /// compute which characters within a row's name matched, for
+    /// underlining (spec §9.2).
+    pub fn active_filter(&self) -> Option<&str> {
         if !self.search_query.is_empty() {
             Some(self.search_query.as_str())
         } else {
