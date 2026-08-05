@@ -1976,6 +1976,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "mantui-core",
  "mantui-extract",
  "rayon",
 ]

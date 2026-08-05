@@ -6,21 +6,33 @@
 //! Every tier that needs to run a subprocess goes through [`run_inert`]
 //! with an [`InertArgv`], never `std::process::Command` directly.
 //!
-//! **Known residual gap**, found by running the coverage harness (spec
-//! §13.1) against ~1600 real executables: the argv allowlist assumes a
-//! tool treats `--help`/`-h` as a pure informational query, but a poorly
-//! written one might not. `mysql_secure_installation` (a shell script)
-//! wrote a `.my.cnf.<pid>` config file — with an empty root password —
-//! when probed with nothing but `--help`, regardless of the scratch
-//! working directory `run_inert` sets (see below); it evidently
-//! constructs that path some other way, not relative to CWD. The scratch
-//! CWD *does* contain the common case (confirmed: font-cache and other
-//! tools' stray files stopped appearing in the caller's directory once it
-//! was added), but it cannot be a complete guarantee against a
-//! particular script's own internal path logic. Full containment would
-//! need OS-level sandboxing (a container, a restricted mount namespace,
-//! seccomp) — out of scope for this batch, and deliberately not
-//! special-cased per-tool here (spec §1's invariant).
+//! **`--help`/`-h` is not reliably read-only (spec §6 rule 8, [M-11]).**
+//! Running the coverage harness (spec §13.1) against ~1600 real
+//! executables found font-cache builders writing `fonts.dir`/
+//! `fonts.scale` into the invoking directory, and
+//! `mysql_secure_installation` (a shell script) writing a `.my.cnf.<pid>`
+//! config file — with an empty root password — when probed with nothing
+//! but `--help`. (That script's write is a plain relative path,
+//! `config=".my.cnf.$$"` — no `$HOME` involved; an earlier version of
+//! this comment guessed otherwise before actually reading the script.)
+//! Every probe therefore runs with its working directory, `HOME`,
+//! `TMPDIR`, and the writable XDG base-directory variables
+//! (`XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`,
+//! `XDG_DATA_HOME`, `XDG_STATE_HOME`) all pointed at one scratch directory
+//! — a `tempfile::TempDir` created fresh for that single invocation and
+//! removed again (recursively) the moment it returns, so nothing a probe
+//! writes ever outlives the probe or accumulates across invocations. This
+//! is a general policy applied uniformly to every probe, never a
+//! per-tool exclusion list (spec §1's invariant) — verified for both the
+//! CWD and `HOME` cases in `spawn`'s test module.
+//!
+//! It still is not a complete guarantee: a tool that constructs a write
+//! path some other way entirely — an absolute path baked into the binary
+//! itself, say — sits outside what an environment/CWD redirect can reach.
+//! Full containment needs OS-level sandboxing (a container, a restricted
+//! mount namespace, seccomp), which is out of scope here; that residual
+//! risk is documented rather than papered over with a claim of full
+//! inertness.
 
 mod policy;
 mod spawn;

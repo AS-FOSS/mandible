@@ -106,26 +106,62 @@ pub fn run_inert(
         cmd.process_group(0);
     }
 
-    // Run in a dedicated scratch directory, not whatever directory mantui
-    // itself was launched from. Spec §6 rule 7 ("never write") is about
-    // arguments we pass — it doesn't cover a tool's own default behavior,
-    // and real tools do have default-CWD side effects independent of
-    // argv: running the coverage harness (spec §13.1) against ~1600 real
-    // system binaries surfaced tools that wrote `fonts.dir`/`fonts.scale`
-    // (font-cache builders) and `.mysql.<pid>` temp files into the
-    // invoking directory even when only ever given `--help`/`-h`. A
-    // scratch CWD contains that blast radius regardless of which tool or
-    // argv shape triggers it. Best-effort: if a scratch dir can't be
-    // created, fall back to the default (inherited) CWD rather than
-    // failing the whole probe over it.
-    if let Some(scratch) = scratch_dir() {
-        cmd.current_dir(scratch);
+    // Redirect every writable location a probe might reach (spec §6 rule
+    // 8), not just CWD. Rule 7 ("never write") is about arguments *we*
+    // pass — it doesn't cover a tool's own unprompted behavior, and real
+    // tools have plenty: running the coverage harness (spec §13.1)
+    // against ~1600 real system binaries with nothing but `--help`/`-h`
+    // surfaced font-cache builders writing `fonts.dir`/`fonts.scale` into
+    // the invoking CWD, and `mysql_secure_installation` writing a
+    // `.my.cnf.<pid>` containing an empty root password [M-11]. So every
+    // probe gets its own scratch directory standing in for CWD, `HOME`,
+    // `TMPDIR`, and every standard XDG base-directory variable (the
+    // writable per-user ones — `XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`,
+    // `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`; the `_DIRS`
+    // variants are read-only system search paths, not somewhere a probe
+    // would write) — see this module's parent (`exec/mod.rs`) doc comment
+    // for the full story on what's now verified vs. still a residual risk.
+    //
+    // Deliberately *per invocation*, not created once and reused for the
+    // process's lifetime: a `TempDir` is removed on drop, so nothing a
+    // probe writes here outlives the probe, and one tool's mess can never
+    // be mistaken for another's input. Best-effort — if a scratch
+    // directory can't be created, the probe still runs (falling back to
+    // the inherited environment) rather than failing over containment.
+    //
+    // This is a general policy applied to every probe uniformly, never a
+    // per-tool exclusion list (spec §1) — and it is still not a complete
+    // guarantee. Full containment needs OS-level sandboxing (namespaces/
+    // seccomp); a tool that constructs a write path some other way (an
+    // absolute path baked into itself, rather than derived from any of
+    // these variables) is outside what an environment/CWD redirect can
+    // reach. That residual is documented, not silently assumed away — see
+    // this module's top-level doc comment.
+    let scratch = tempfile::Builder::new()
+        .prefix("mantui-exec-")
+        .tempdir()
+        .ok();
+    if let Some(dir) = &scratch {
+        cmd.current_dir(dir.path());
+        cmd.env("HOME", dir.path());
+        cmd.env("TMPDIR", dir.path());
+        cmd.env("XDG_RUNTIME_DIR", dir.path());
+        cmd.env("XDG_CACHE_HOME", dir.path());
+        cmd.env("XDG_CONFIG_HOME", dir.path());
+        cmd.env("XDG_DATA_HOME", dir.path());
+        cmd.env("XDG_STATE_HOME", dir.path());
     }
 
-    let mut child = spawn_with_etxtbsy_retry(&mut cmd).map_err(|source| ExecError::Spawn {
-        path: path_str.clone(),
-        source,
-    })?;
+    let spawn_result = spawn_with_etxtbsy_retry(&mut cmd);
+    let mut child = match spawn_result {
+        Ok(child) => child,
+        Err(source) => {
+            return Err(ExecError::Spawn {
+                path: path_str.clone(),
+                source,
+            })
+        }
+    };
 
     let stdout_pipe = child.stdout.take().expect("stdout was piped");
     let stderr_pipe = child.stderr.take().expect("stderr was piped");
@@ -197,18 +233,6 @@ fn spawn_with_etxtbsy_retry(cmd: &mut Command) -> std::io::Result<Child> {
 #[cfg(not(unix))]
 fn spawn_with_etxtbsy_retry(cmd: &mut Command) -> std::io::Result<Child> {
     cmd.spawn()
-}
-
-/// A scratch directory every probed child runs in, created once and
-/// reused for the lifetime of this process. `None` if it couldn't be
-/// created (falls back to the inherited CWD rather than failing probes).
-fn scratch_dir() -> Option<&'static std::path::Path> {
-    static DIR: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
-    DIR.get_or_init(|| {
-        let dir = std::env::temp_dir().join(format!("mantui-exec-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).ok().map(|()| dir)
-    })
-    .as_deref()
 }
 
 fn exit_code_of(status: &std::process::ExitStatus) -> Option<i32> {
@@ -370,5 +394,48 @@ mod tests {
             caller_cwd.as_path(),
             "child ran in mantui's own working directory: {child_cwd}"
         );
+    }
+
+    /// Regression for spec §6 rule 8 [M-11]: `--help` is not reliably
+    /// read-only. The real finding was `mysql_secure_installation` writing
+    /// a `.my.cnf.<pid>` with an empty root password — via a plain
+    /// *relative* path (`config=".my.cnf.$$"` in the actual script, no
+    /// `$HOME` involved), which the CWD redirect alone already stops. This
+    /// test proves the broader claim directly and portably (no dependency
+    /// on that specific binary being installed): a probe that writes to a
+    /// relative path *and* one that deliberately targets `$HOME` both land
+    /// in the scratch directory, never in the real `$HOME` this test
+    /// process actually has.
+    #[test]
+    fn probe_cannot_write_into_the_real_home() {
+        let real_home = std::env::var("HOME").expect("HOME must be set to run this test");
+        let marker_name = format!("mantui-test-leak-{}", std::process::id());
+        let real_home_marker = std::path::Path::new(&real_home).join(&marker_name);
+        // Belt-and-braces: make sure a stale run never leaves this
+        // assertion vacuously true.
+        let _ = std::fs::remove_file(&real_home_marker);
+
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(
+            dir.path(),
+            "home_writer.sh",
+            &format!(
+                "#!/bin/sh\necho leaked > \"$HOME/{marker_name}\"\necho relative-leak > ./{marker_name}\necho \"$HOME\"\n"
+            ),
+        );
+        let out = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(2)).unwrap();
+        let child_home = String::from_utf8_lossy(&out.stdout).trim().to_string();
+
+        assert_ne!(
+            child_home, real_home,
+            "child's $HOME was the real $HOME instead of a scratch directory"
+        );
+        assert!(
+            !real_home_marker.exists(),
+            "probe wrote into the real $HOME at {}",
+            real_home_marker.display()
+        );
+
+        let _ = std::fs::remove_file(&real_home_marker);
     }
 }
