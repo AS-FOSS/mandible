@@ -1,0 +1,25 @@
+//! `mantui-core`: the shared intermediate representation (IR) every mantui
+//! extraction tier normalizes into, and the merge logic that combines
+//! several tiers' output for the same node into one.
+//!
+//! See spec §4. This crate has no knowledge of any specific tool, tier, or
+//! terminal library — it is pure data model plus the sanitization and merge
+//! rules that keep that data model trustworthy.
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+mod merge;
+mod node;
+mod noderef;
+mod provenance;
+mod text;
+
+pub use merge::{
+    merge_flag_lists, merge_nodes, merge_positional_lists, merge_subcommand_lists, pair_aliases,
+    MergeError,
+};
+pub use node::{CommandNode, Example, Flag, Positional, ValueKind};
+pub use noderef::{resolve, resolve_flag, resolve_mut, FlagKey, NodeRef};
+pub use provenance::{Authority, Axis, ManFormat, Provenance, Source};
+pub use text::{Text, MAX_TEXT_CHARS};

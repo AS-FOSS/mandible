@@ -1,0 +1,210 @@
+//! The intermediate representation itself: [`CommandNode`], [`Flag`],
+//! [`Positional`], [`Example`]. See spec §4.
+
+use crate::provenance::Provenance;
+use crate::text::Text;
+use serde::{Deserialize, Serialize};
+
+/// One command or subcommand in the tree: `git`, `git rebase`,
+/// `git rebase --onto`'s parent, and so on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommandNode {
+    /// The command's own name, e.g. `"rebase"` (not the full path).
+    pub name: String,
+    /// Alternate names this command is also invoked as, e.g. `["stage"]`
+    /// for `git add`, or a cobra alias like `"co"` for `"checkout"`.
+    pub aliases: Vec<String>,
+    /// A one-line hint, shown in tree rows and as the detail pane's
+    /// headline.
+    pub summary: Option<Text>,
+    /// Long-form prose, shown in the detail pane body.
+    pub description: Option<Text>,
+    /// Raw usage patterns, kept verbatim (not re-flowed).
+    pub usage: Vec<Text>,
+    /// This node's own flags (not including inherited ones from ancestors —
+    /// those are represented by [`Flag::inherited`] on the flags that
+    /// originated in an ancestor and were propagated down).
+    pub flags: Vec<Flag>,
+    /// Positional arguments.
+    pub positionals: Vec<Positional>,
+    /// Direct subcommands.
+    pub subcommands: Vec<CommandNode>,
+    /// Worked examples.
+    pub examples: Vec<Example>,
+    /// True if this command should be hidden from the tree by default.
+    pub hidden: bool,
+    /// `Some(reason)` when this command is deprecated.
+    pub deprecated: Option<Text>,
+    /// True when this node's `subcommands` list is known-complete. False
+    /// means the subtree has not been extracted yet (spec §5, lazy
+    /// extraction) and the runner should request it on expand.
+    pub children_filled: bool,
+    /// Display grouping from the source, e.g. carapace's `group: "main"` for
+    /// `git`'s porcelain commands. Extension beyond the spec's base schema,
+    /// permitted by spec §4 (carapace's `group` is a real display grouping).
+    pub group: Option<String>,
+    /// Which source(s) contributed this node's own fields (not its
+    /// children's — each child has its own `Provenance`).
+    pub provenance: Provenance,
+}
+
+impl CommandNode {
+    /// A minimal, empty node with the given name and provenance. Useful as
+    /// a starting point for tiers and for tests.
+    pub fn new(name: impl Into<String>, provenance: Provenance) -> CommandNode {
+        CommandNode {
+            name: name.into(),
+            aliases: Vec::new(),
+            summary: None,
+            description: None,
+            usage: Vec::new(),
+            flags: Vec::new(),
+            positionals: Vec::new(),
+            subcommands: Vec::new(),
+            examples: Vec::new(),
+            hidden: false,
+            deprecated: None,
+            children_filled: false,
+            group: None,
+            provenance,
+        }
+    }
+}
+
+/// A single flag/option, e.g. `-i, --interactive`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Flag {
+    /// Short spelling, e.g. `Some('i')` for `-i`.
+    pub short: Option<char>,
+    /// Long spelling, e.g. `Some("interactive".into())` for `--interactive`.
+    pub long: Option<String>,
+    /// The value placeholder, e.g. `"FILE"` in `--output FILE`.
+    pub value_name: Option<String>,
+    /// Whether this flag takes no value, a required value, or an optional
+    /// one.
+    pub value_kind: ValueKind,
+    /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`.
+    pub choices: Vec<Text>,
+    /// True if this flag may be given more than once.
+    pub repeatable: bool,
+    /// True if this flag is required.
+    pub required: bool,
+    /// True if this flag should be hidden by default.
+    pub hidden: bool,
+    /// `Some(reason)` when this flag is deprecated.
+    pub deprecated: Option<Text>,
+    /// True when this flag was declared on an ancestor node and propagated
+    /// down (cobra "persistent flag" / carapace `persistentflags`).
+    /// Rendered in a separate, dimmed group in the detail pane.
+    pub inherited: bool,
+    /// Display grouping from the source, e.g. tar's `"Main operation mode"`.
+    pub group: Option<String>,
+    /// The flag's description.
+    pub description: Option<Text>,
+    /// The flag's default value, if documented.
+    pub default: Option<Text>,
+    /// An environment variable that also sets this flag, if documented.
+    pub env_var: Option<String>,
+    /// Which source(s) contributed this flag's fields.
+    pub provenance: Provenance,
+}
+
+impl Flag {
+    /// A minimal flag with only a long spelling.
+    pub fn long(name: impl Into<String>, provenance: Provenance) -> Flag {
+        Flag {
+            short: None,
+            long: Some(name.into()),
+            value_name: None,
+            value_kind: ValueKind::None,
+            choices: Vec::new(),
+            repeatable: false,
+            required: false,
+            hidden: false,
+            deprecated: None,
+            inherited: false,
+            group: None,
+            description: None,
+            default: None,
+            env_var: None,
+            provenance,
+        }
+    }
+
+    /// The canonical identity key used for cross-source matching and
+    /// addressing: prefer the long name, fall back to the short letter.
+    /// Returns `None` for a degenerate flag with neither (which cannot be
+    /// addressed and is only matched positionally during merge).
+    pub fn key(&self) -> Option<crate::noderef::FlagKey> {
+        if let Some(long) = &self.long {
+            Some(crate::noderef::FlagKey::Long(long.clone()))
+        } else {
+            self.short.map(crate::noderef::FlagKey::Short)
+        }
+    }
+
+    /// True if `key` addresses this flag, checking both spellings
+    /// regardless of which one is considered canonical.
+    pub fn matches_key(&self, key: &crate::noderef::FlagKey) -> bool {
+        match key {
+            crate::noderef::FlagKey::Long(l) => self.long.as_deref() == Some(l.as_str()),
+            crate::noderef::FlagKey::Short(s) => self.short == Some(*s),
+        }
+    }
+
+    /// A human-readable spelling for display and clipboard copy, e.g.
+    /// `"-i, --interactive"`, `"--output FILE"`.
+    pub fn spelling(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(s) = self.short {
+            parts.push(format!("-{s}"));
+        }
+        if let Some(l) = &self.long {
+            parts.push(format!("--{l}"));
+        }
+        let mut spelling = parts.join(", ");
+        if let Some(name) = &self.value_name {
+            match self.value_kind {
+                ValueKind::Required => spelling.push_str(&format!(" {name}")),
+                ValueKind::Optional => spelling.push_str(&format!("[={name}]")),
+                ValueKind::None => {}
+            }
+        }
+        spelling
+    }
+}
+
+/// Whether a flag takes a value, and if so, whether it's required.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ValueKind {
+    /// The flag is a boolean switch; it takes no value.
+    None,
+    /// The flag must be given a value.
+    Required,
+    /// The flag may optionally be given a value.
+    Optional,
+}
+
+/// A positional argument, e.g. `<pathspec>...`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Positional {
+    /// The argument's name as shown in usage, e.g. `"pathspec"`.
+    pub name: String,
+    /// True if this positional must be supplied.
+    pub required: bool,
+    /// True if this positional accepts multiple values (`...`).
+    pub variadic: bool,
+    /// The positional's description.
+    pub description: Option<Text>,
+    /// Which source(s) contributed this positional's fields.
+    pub provenance: Provenance,
+}
+
+/// A worked example: a command line plus an optional explanation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Example {
+    /// The example command line, verbatim.
+    pub command: Text,
+    /// An optional explanation of what the example does.
+    pub explanation: Option<Text>,
+}
