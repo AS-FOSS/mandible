@@ -1,0 +1,296 @@
+//! Translating terminal input into [`App`] mutations (spec §2 "Interaction
+//! model").
+
+use crate::app::{App, Effect, Focus};
+use crate::layout::Regions;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+
+/// Handle a key event. Returns `Some(Effect)` when the caller (the binary's
+/// event loop) needs to do something outside pure state — copy to the
+/// clipboard, re-extract, or quit.
+pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
+    // Ctrl-C always quits, regardless of focus.
+    if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+        return Some(Effect::Quit);
+    }
+
+    if app.show_help {
+        // Any key closes the overlay except `?` itself, which is handled
+        // uniformly below (toggling closes it too).
+        if !matches!(key.code, KeyCode::Char('?')) {
+            app.show_help = false;
+            return None;
+        }
+    }
+
+    if app.focus == Focus::Search {
+        return handle_search_key(app, key);
+    }
+
+    match key.code {
+        KeyCode::Char('q') => return Some(Effect::Quit),
+        KeyCode::Char('?') => app.toggle_help(),
+        KeyCode::Char('/') => app.focus_search(),
+        KeyCode::Tab => app.toggle_focus(),
+        KeyCode::Char('.') => app.toggle_show_hidden(),
+        KeyCode::Char('r') => return Some(Effect::Refresh),
+        KeyCode::Esc => app.escape_search(),
+        _ => {
+            return match app.focus {
+                Focus::Tree => handle_tree_key(app, key),
+                Focus::Detail => handle_detail_key(app, key),
+                Focus::Search => unreachable!("handled above"),
+            }
+        }
+    }
+    None
+}
+
+fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
+    match key.code {
+        KeyCode::Esc => app.escape_search(),
+        KeyCode::Enter => app.focus = Focus::Tree,
+        KeyCode::Backspace => app.search_backspace(),
+        KeyCode::Char(c) => app.search_input_char(c),
+        _ => {}
+    }
+    None
+}
+
+fn handle_tree_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
+    match key.code {
+        KeyCode::Down | KeyCode::Char('j') => app.move_down(),
+        KeyCode::Up | KeyCode::Char('k') => app.move_up(),
+        KeyCode::Right | KeyCode::Enter | KeyCode::Char('l') => app.expand_selected(),
+        KeyCode::Left | KeyCode::Char('h') => app.collapse_or_jump_to_parent(),
+        KeyCode::Char('y') => return copy_text_for_selection(app).map(Effect::Copy),
+        _ => {}
+    }
+    None
+}
+
+fn handle_detail_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
+    match key.code {
+        KeyCode::Down | KeyCode::Char('j') => app.detail_scroll_down(),
+        KeyCode::Up | KeyCode::Char('k') => app.detail_scroll_up(),
+        KeyCode::Char('y') => return copy_text_for_selection(app).map(Effect::Copy),
+        _ => {}
+    }
+    None
+}
+
+/// `y`: the selected flag's spelling if the detail pane has one implicitly
+/// focused (batch 1 keeps this simple — flag-level selection within the
+/// detail pane is a later refinement), otherwise the node's full command
+/// path (spec §2: "Copy: the selected flag's spelling, or the node's full
+/// command path").
+fn copy_text_for_selection(app: &App) -> Option<String> {
+    app.selected_row().map(|row| row.path.join(" "))
+}
+
+/// Handle a mouse event. `regions` must be the layout computed for the
+/// frame currently on screen, so hit-testing lines up with what the user
+/// sees. Tree rows are rendered at fixed column offsets (spec §9: "chevron
+/// is hit when `col == 2*depth`"), which is what makes this arithmetic
+/// rather than guesswork.
+pub fn handle_mouse(app: &mut App, mouse: MouseEvent, regions: &Regions) {
+    match mouse.kind {
+        MouseEventKind::Down(MouseButton::Left) => {
+            handle_click(app, mouse.column, mouse.row, regions)
+        }
+        MouseEventKind::ScrollDown => handle_scroll(app, mouse.column, mouse.row, regions, 1),
+        MouseEventKind::ScrollUp => handle_scroll(app, mouse.column, mouse.row, regions, -1),
+        _ => {}
+    }
+}
+
+fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) {
+    if let Some(tree_rect) = regions.tree {
+        if rect_contains(tree_rect, col, row) {
+            app.focus = Focus::Tree;
+            // Inside the border: row 0 is the top border, so content
+            // starts at tree_rect.y + 1; likewise column 0 is the left
+            // border.
+            let inner_row = row.saturating_sub(tree_rect.y + 1);
+            let inner_col = col.saturating_sub(tree_rect.x + 1);
+            app.ensure_rows_fresh();
+            let idx = app.tree_scroll + inner_row as usize;
+            if idx < app.rows().len() {
+                let depth = app.rows()[idx].depth;
+                let chevron_col = 2 * depth;
+                if app.rows()[idx].has_children && inner_col as usize == chevron_col {
+                    let path = app.rows()[idx].path.clone();
+                    app.toggle_expand_path(&path);
+                } else {
+                    app.select_index(idx);
+                    app.reset_detail_scroll();
+                }
+            }
+            return;
+        }
+    }
+    if let Some(detail_rect) = regions.detail {
+        if rect_contains(detail_rect, col, row) {
+            app.focus = Focus::Detail;
+        }
+    }
+}
+
+fn handle_scroll(app: &mut App, col: u16, row: u16, regions: &Regions, direction: i32) {
+    if let Some(tree_rect) = regions.tree {
+        if rect_contains(tree_rect, col, row) {
+            if direction > 0 {
+                app.tree_scroll = app.tree_scroll.saturating_add(1);
+            } else {
+                app.tree_scroll = app.tree_scroll.saturating_sub(1);
+            }
+            return;
+        }
+    }
+    if let Some(detail_rect) = regions.detail {
+        if rect_contains(detail_rect, col, row) {
+            if direction > 0 {
+                app.detail_scroll_down();
+            } else {
+                app.detail_scroll_up();
+            }
+        }
+    }
+}
+
+fn rect_contains(rect: ratatui::layout::Rect, col: u16, row: u16) -> bool {
+    col >= rect.x && col < rect.x + rect.width && row >= rect.y && row < rect.y + rect.height
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout;
+    use mantui_core::{CommandNode, Provenance, Source};
+
+    fn app() -> App {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        root.subcommands.push(CommandNode::new(
+            "add",
+            Provenance::single(Source::HelpText),
+        ));
+        App::new("git".to_string(), root)
+    }
+
+    fn key(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::NONE)
+    }
+
+    #[test]
+    fn q_quits() {
+        let mut a = app();
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Char('q'))),
+            Some(Effect::Quit)
+        );
+    }
+
+    #[test]
+    fn ctrl_c_quits_even_while_in_search() {
+        let mut a = app();
+        a.focus_search();
+        let ev = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert_eq!(handle_key(&mut a, ev), Some(Effect::Quit));
+    }
+
+    #[test]
+    fn slash_focuses_search_and_typing_updates_query() {
+        let mut a = app();
+        handle_key(&mut a, key(KeyCode::Char('/')));
+        assert_eq!(a.focus, Focus::Search);
+        handle_key(&mut a, key(KeyCode::Char('a')));
+        handle_key(&mut a, key(KeyCode::Char('d')));
+        assert_eq!(a.search_query, "ad");
+    }
+
+    #[test]
+    fn y_returns_copy_effect_with_node_path() {
+        let mut a = app();
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Char('y'))),
+            Some(Effect::Copy("git".to_string()))
+        );
+    }
+
+    #[test]
+    fn r_requests_refresh() {
+        let mut a = app();
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Char('r'))),
+            Some(Effect::Refresh)
+        );
+    }
+
+    #[test]
+    fn arrow_down_moves_selection() {
+        let mut a = app();
+        a.expand_selected();
+        a.ensure_rows_fresh();
+        assert_eq!(a.selected, 0);
+        handle_key(&mut a, key(KeyCode::Down));
+        assert_eq!(a.selected, 1);
+    }
+
+    #[test]
+    fn help_overlay_closes_on_any_key() {
+        let mut a = app();
+        a.toggle_help();
+        assert!(a.show_help);
+        handle_key(&mut a, key(KeyCode::Char('x')));
+        assert!(!a.show_help);
+    }
+
+    #[test]
+    fn click_on_chevron_toggles_expand_not_select() {
+        let mut a = app();
+        a.ensure_rows_fresh();
+        // App::new starts with the root already expanded, so there are 2
+        // rows ("git", "add") to begin with.
+        assert_eq!(a.rows().len(), 2);
+
+        let regions = layout::compute(ratatui::layout::Rect::new(0, 0, 100, 30), Focus::Tree);
+        let tree_rect = regions.tree.unwrap();
+        // Root row (depth 0) is the first content row inside the border.
+        let click_row = tree_rect.y + 1;
+        let click_col = tree_rect.x + 1; // chevron column for depth 0
+        handle_mouse(
+            &mut a,
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: click_col,
+                row: click_row,
+                modifiers: KeyModifiers::NONE,
+            },
+            &regions,
+        );
+        a.ensure_rows_fresh();
+        assert_eq!(
+            a.rows().len(),
+            1,
+            "clicking the already-expanded root's chevron should collapse it"
+        );
+        assert_eq!(
+            a.selected, 0,
+            "clicking a chevron must not change selection"
+        );
+
+        // Click it again: should re-expand.
+        handle_mouse(
+            &mut a,
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: click_col,
+                row: click_row,
+                modifiers: KeyModifiers::NONE,
+            },
+            &regions,
+        );
+        a.ensure_rows_fresh();
+        assert_eq!(a.rows().len(), 2, "clicking again should re-expand");
+    }
+}

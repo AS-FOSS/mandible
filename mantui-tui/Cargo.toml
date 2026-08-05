@@ -1,0 +1,29 @@
+[package]
+name = "mantui-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "The ratatui-based terminal UI for mantui: tree pane, detail pane, search bar, status bar, and keybinding overlay. Not independently useful outside the mantui workspace."
+keywords = ["cli", "tui", "ratatui", "mantui"]
+categories = ["command-line-interface", "visualization"]
+
+[lib]
+name = "mantui_tui"
+path = "src/lib.rs"
+
+[dependencies]
+mantui-core.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+unicode-width.workspace = true
+arboard.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+base64.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
