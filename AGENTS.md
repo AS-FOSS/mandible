@@ -41,7 +41,7 @@ Breaking any of these produces a bug that tests will not catch.
 | Extraction is **node-scoped** (`extract_node`), never whole-tree | `mantui-extract/src/tier.rs` | Eager extraction: 232 subprocesses and 10.5s for `docker`. Do not reintroduce a whole-tree `extract()`. |
 | **One node = exactly one tree row.** No wrapping in the tree pane | `mantui-tui/src/render/tree_pane.rs` | Row index ↔ node stops being a bijection, breaking selection, scrolling, mouse hit-testing, and filtering all at once |
 | Truncate by **display width** (`unicode-width`), never `char` or byte count | `mantui-tui` | CJK/emoji overflow the border by one cell per wide character |
-| Cache keys must depend on **extraction logic**, not just crate version | `mantui-cache/src/key.rs` | See §3.2 — this shipped as a real bug |
+| Cache keys must depend on **extraction logic**, not just crate version | `mantui-cache/src/key.rs` (`SOURCE_FINGERPRINT`, computed by `mantui-cache/build.rs` from `mantui-core/src` + `mantui-extract/src`) | Shipped as a real bug: a parser fix did nothing for users because their stale cache entry kept being served after upgrade |
 
 ---
 
@@ -85,15 +85,6 @@ how the markdown leak and the ragged re-wrap were found — both invisible to
 
 `TestBackend` tests are still required (see the border-integrity suite). They
 catch structural regressions; the pty catches *content* regressions.
-
-### 3.3 The `--refresh` trap
-
-When changing extraction, parsing, or sanitization, **always verify with
-`--refresh`** until the cache key is derived from extraction logic. Otherwise
-you are looking at output produced by the code you just replaced, and you will
-conclude a correct fix is broken.
-
-*Delete this section once the cache key includes a source fingerprint.*
 
 ---
 
@@ -154,8 +145,9 @@ you can encode the rule in code, do that instead and skip the entry.
 "why" cannot be evaluated later, so it never gets deleted, so the file rots.
 
 **Delete aggressively.** An entry is dead when its cause is fixed. Deleting it
-is a completed task, not a loss — §3.3 is already marked for deletion. Review
-the whole file whenever you finish a batch of work.
+is a completed task, not a loss — the old "`--refresh` trap" section here was
+deleted the same day `SOURCE_FINGERPRINT` landed, which is the intended
+lifecycle. Review the whole file whenever you finish a batch of work.
 
 **Do not duplicate `spec.md`.** Link to it. Duplication means two sources that
 will disagree, and the disagreement will be discovered at the worst time.

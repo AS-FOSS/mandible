@@ -134,7 +134,12 @@ mod tests {
     use mantui_core::{CommandNode, Provenance, Source};
 
     fn sample_key() -> CacheKey {
-        CacheKey::build("definitely-not-a-real-tool-xyz", None, &["known-specs"])
+        CacheKey::build(
+            "definitely-not-a-real-tool-xyz",
+            None,
+            &["known-specs"],
+            None,
+        )
     }
 
     fn sample_entry(key: CacheKey, root: Option<CommandNode>) -> CacheEntry {

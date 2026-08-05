@@ -35,7 +35,8 @@ pub fn load(tool_name: &str, refresh: bool) -> LoadedTool {
     let runner = Runner::new(default_tiers());
     let store = Store::open_default().ok();
     let tier_names: Vec<&str> = runner.tier_names();
-    let key = CacheKey::build(tool_name, None, &tier_names);
+    let catalog_commit = mantui_extract::known_specs::catalog_meta().commit;
+    let key = CacheKey::build(tool_name, None, &tier_names, Some(catalog_commit));
 
     if refresh {
         if let Some(store) = &store {

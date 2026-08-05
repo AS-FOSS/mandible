@@ -51,6 +51,14 @@ fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Esc => app.escape_search(),
         KeyCode::Enter => app.focus = Focus::Tree,
         KeyCode::Backspace => app.search_backspace(),
+        // Arrows move the (filtered) tree selection without leaving the
+        // search box, so the result the user is about to land on is
+        // visible while still typing — Esc/Enter to actually move focus
+        // to the tree remain available for anyone who wants that instead.
+        // Letters go to search_input_char below, not here, so typing
+        // "j"/"k" always searches rather than navigating.
+        KeyCode::Down => app.move_down(),
+        KeyCode::Up => app.move_up(),
         KeyCode::Char(c) => app.search_input_char(c),
         _ => {}
     }
@@ -206,6 +214,24 @@ mod tests {
         handle_key(&mut a, key(KeyCode::Char('a')));
         handle_key(&mut a, key(KeyCode::Char('d')));
         assert_eq!(a.search_query, "ad");
+    }
+
+    #[test]
+    fn arrow_keys_move_selection_while_search_stays_focused() {
+        // Regression: arrows were previously a dead key while the search
+        // box had focus, which is exactly the mode a user typing a filter
+        // most wants to preview results in.
+        let mut a = app();
+        a.expand_selected();
+        a.ensure_rows_fresh();
+        a.focus_search();
+        assert_eq!(a.selected, 0);
+        handle_key(&mut a, key(KeyCode::Down));
+        assert_eq!(a.selected, 1, "down arrow should move selection");
+        assert_eq!(a.focus, Focus::Search, "focus should remain on search");
+        handle_key(&mut a, key(KeyCode::Up));
+        assert_eq!(a.selected, 0, "up arrow should move selection back");
+        assert_eq!(a.focus, Focus::Search);
     }
 
     #[test]
