@@ -26,6 +26,7 @@ pub mod event;
 pub mod layout;
 pub mod render;
 pub mod sanitize;
+pub mod style;
 pub mod terminal;
 pub mod tree;
 

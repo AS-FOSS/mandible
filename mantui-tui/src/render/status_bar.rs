@@ -4,6 +4,7 @@
 
 use crate::app::App;
 use crate::sanitize::{defensive_single_line, truncate_to_width};
+use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
@@ -26,7 +27,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let style = if app.status_message.is_some() {
         Style::default().add_modifier(Modifier::BOLD)
     } else {
-        Style::default().add_modifier(Modifier::DIM)
+        style::muted(app.color_enabled)
     };
     let paragraph = Paragraph::new(Line::styled(truncated, style));
     frame.render_widget(paragraph, area);

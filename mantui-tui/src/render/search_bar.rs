@@ -1,8 +1,8 @@
 //! The search bar: a 3-row box at the top of the screen (spec §2).
 
-use super::ACCENT;
 use crate::app::{App, Focus};
 use crate::sanitize::defensive_single_line;
+use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
@@ -13,7 +13,7 @@ use ratatui::Frame;
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let focused = app.focus == Focus::Search;
     let border_style = if focused {
-        Style::default().fg(ACCENT)
+        style::accent(app.color_enabled)
     } else {
         Style::default()
     };

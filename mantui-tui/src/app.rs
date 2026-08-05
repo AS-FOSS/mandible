@@ -83,6 +83,22 @@ pub struct App {
     /// [`Self::ensure_rows_fresh`] to compute which tree paths are
     /// currently showing as matches.
     search_index: SearchIndex,
+    /// Whether rendering may use color at all (spec §9.2: respect
+    /// `NO_COLOR`). Read from the environment once at construction — a
+    /// terminal-color preference isn't something that changes mid-run —
+    /// but kept as a plain `pub` field rather than re-read from `std::env`
+    /// on every frame, so tests can set it directly without mutating
+    /// process-wide environment state (which is unsound across Rust's
+    /// parallel test runner).
+    pub color_enabled: bool,
+    /// When a search result is a flag (not a command), the flag's key
+    /// within its parent command — set alongside `selected` so the detail
+    /// pane can scroll to and highlight that specific flag instead of
+    /// just landing on its parent command with the pane at the top (spec
+    /// §10: "Selecting one selects the parent command and scrolls the
+    /// detail pane to that flag"). Cleared on any navigation that isn't a
+    /// search-result selection.
+    pub selected_flag: Option<mantui_core::FlagKey>,
 }
 
 impl App {
@@ -111,6 +127,8 @@ impl App {
             status_message: None,
             from_cache: false,
             search_index,
+            color_enabled: crate::style::color_enabled_from_env(),
+            selected_flag: None,
         };
         app.ensure_rows_fresh();
         app
@@ -145,7 +163,31 @@ impl App {
         if self.selected >= self.rows.len() {
             self.selected = self.rows.len().saturating_sub(1);
         }
+        self.sync_selected_flag_to_top_search_result();
         self.dirty = false;
+    }
+
+    /// Spec §10: "Selecting one [a flag search result] selects the parent
+    /// command and scrolls the detail pane to that flag." The best-ranked
+    /// (first) live search result stands in for "the selected result" —
+    /// there's no separate cursor over the result list itself, only over
+    /// the resulting filtered tree — so when it's a flag, jump the tree
+    /// selection to its owning command and remember which flag to scroll
+    /// the detail pane to; when it's a command, or there's no active
+    /// filter at all, there's no flag target.
+    fn sync_selected_flag_to_top_search_result(&mut self) {
+        self.selected_flag = None;
+        if self.active_filter().is_none() {
+            return;
+        }
+        let Some(NodeRef::Flag { path, key }) = self.search_index.results().into_iter().next()
+        else {
+            return;
+        };
+        if let Some(idx) = self.rows.iter().position(|r| r.path == path) {
+            self.selected = idx;
+        }
+        self.selected_flag = Some(key);
     }
 
     /// The set of command paths currently matching the active filter, if
@@ -213,11 +255,13 @@ impl App {
         if self.selected + 1 < self.rows.len() {
             self.selected += 1;
         }
+        self.selected_flag = None;
     }
 
     /// Move the tree selection up one row.
     pub fn move_up(&mut self) {
         self.selected = self.selected.saturating_sub(1);
+        self.selected_flag = None;
     }
 
     /// `→`/`Enter`/`l`: expand the selected row if it has children and
@@ -307,6 +351,7 @@ impl App {
                 self.selected = idx;
             }
         }
+        self.selected_flag = None;
     }
 
     /// Click/Enter/`l`/`→` shorthand: toggle expand state on the given row
@@ -337,6 +382,7 @@ impl App {
         if idx < self.rows.len() {
             self.selected = idx;
         }
+        self.selected_flag = None;
     }
 
     /// `/`: focus the search box.
@@ -399,11 +445,16 @@ impl App {
 
     /// Detail pane scroll down.
     pub fn detail_scroll_down(&mut self) {
+        // A manual scroll always wins over an outstanding flag-scroll
+        // target from a search selection — otherwise the next render
+        // would just snap straight back to it.
+        self.selected_flag = None;
         self.detail_scroll = self.detail_scroll.saturating_add(1);
     }
 
     /// Detail pane scroll up.
     pub fn detail_scroll_up(&mut self) {
+        self.selected_flag = None;
         self.detail_scroll = self.detail_scroll.saturating_sub(1);
     }
 
@@ -560,6 +611,39 @@ mod tests {
             vec!["git", "rebase"],
             "flag match should surface its parent command, not the flag itself: {names:?}"
         );
+
+        // Closing spec §10's open item: the match also selects the parent
+        // row and remembers which flag the detail pane should scroll to.
+        assert_eq!(app.rows()[app.selected].name, "rebase");
+        assert_eq!(
+            app.selected_flag,
+            Some(mantui_core::FlagKey::Long("autosquash".to_string()))
+        );
+    }
+
+    /// Manually moving the tree selection away from a flag search match
+    /// must drop the flag scroll target — otherwise the detail pane would
+    /// keep snapping back to a flag on a command the user has since
+    /// navigated away from.
+    #[test]
+    fn manual_navigation_clears_the_selected_flag_target() {
+        let mut root = sample_tree();
+        let mut autosquash =
+            mantui_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+        autosquash.description = Some(mantui_core::Text::sanitize("Automatically squash commits"));
+        root.subcommands[1].flags.push(autosquash); // rebase
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        for c in "autosquash".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+        assert!(app.selected_flag.is_some(), "precondition");
+
+        app.move_down();
+        assert_eq!(app.selected_flag, None);
     }
 
     #[test]

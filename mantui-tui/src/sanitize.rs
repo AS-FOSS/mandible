@@ -44,6 +44,39 @@ pub fn display_width(s: &str) -> usize {
     s.chars().filter_map(UnicodeWidthChar::width).sum()
 }
 
+/// Truncate `s` to at most `max_width` display columns, breaking at the
+/// last word boundary before the limit and appending an ellipsis (`…`,
+/// itself 1 column wide) rather than cutting mid-word (spec §9.1: "the
+/// ellipsis is a real signal that the detail pane has more; a mid-word
+/// cut just looks broken"). Falls back to a hard, still-ellipsis-suffixed
+/// truncation when there's no usable word boundary (a single token wider
+/// than the whole budget) — some indication of "more" beats none. Returns
+/// `s` unchanged if it already fits; returns an empty string if
+/// `max_width` is 0.
+pub fn truncate_to_width_ellipsis(s: &str, max_width: usize) -> String {
+    if display_width(s) <= max_width {
+        return s.to_string();
+    }
+    if max_width == 0 {
+        return String::new();
+    }
+    if max_width == 1 {
+        return "…".to_string();
+    }
+    // Reserve 1 column for the ellipsis itself.
+    let hard = truncate_to_width(s, max_width - 1);
+    let base = match hard.rfind(char::is_whitespace) {
+        // A word boundary strictly inside the truncated text: cut there.
+        Some(idx) if idx > 0 => hard[..idx].trim_end(),
+        _ => hard.as_str(),
+    };
+    if base.is_empty() {
+        format!("{hard}…")
+    } else {
+        format!("{base}…")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +111,43 @@ mod tests {
     #[test]
     fn zero_width_budget_yields_empty() {
         assert_eq!(truncate_to_width("anything", 0), "");
+    }
+
+    #[test]
+    fn ellipsis_truncation_breaks_at_word_boundary() {
+        // "Add file contents to the index" truncated to 15 columns: a
+        // hard cut would land mid-word ("Add file conte…"); the
+        // word-boundary version must back up to the last full word
+        // instead.
+        let s = "Add file contents to the index";
+        let truncated = truncate_to_width_ellipsis(s, 15);
+        assert_eq!(truncated, "Add file…");
+        assert!(display_width(&truncated) <= 15, "{truncated:?}");
+    }
+
+    #[test]
+    fn ellipsis_truncation_falls_back_to_hard_cut_for_one_giant_word() {
+        let s = "supercalifragilisticexpialidocious";
+        let truncated = truncate_to_width_ellipsis(s, 10);
+        assert!(display_width(&truncated) <= 10);
+        assert!(truncated.ends_with('…'));
+        assert!(truncated.len() > 1, "must not be just the ellipsis");
+    }
+
+    #[test]
+    fn ellipsis_truncation_leaves_short_strings_untouched() {
+        assert_eq!(truncate_to_width_ellipsis("short", 40), "short");
+    }
+
+    #[test]
+    fn ellipsis_truncation_respects_the_exact_budget() {
+        for width in 1..30 {
+            let truncated = truncate_to_width_ellipsis("Use binary search to find a bug", width);
+            assert!(
+                display_width(&truncated) <= width,
+                "width={width} truncated={truncated:?} used={}",
+                display_width(&truncated)
+            );
+        }
     }
 }

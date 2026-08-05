@@ -16,13 +16,7 @@ mod tree_pane;
 
 use crate::app::App;
 use crate::layout::{self, Regions};
-use ratatui::style::Color;
 use ratatui::Frame;
-
-/// The single accent color, used sparingly: the selected row, and flag
-/// names in the detail pane (spec §2 "Design principles"). Everything else
-/// is neutral.
-pub const ACCENT: Color = Color::Cyan;
 
 /// Render one full frame for `app` into `frame`.
 pub fn render(frame: &mut Frame, app: &App) {
