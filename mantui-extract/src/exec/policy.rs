@@ -32,6 +32,20 @@ pub enum InertArgv {
         /// The path words to ask for help on, if any.
         words: Vec<String>,
     },
+    /// `<words...> --help` — per-node help (e.g. `git rebase --help`),
+    /// used by Tier B to probe a specific subtree without recursing
+    /// eagerly. Always ends in the literal `--help`, so this is never a
+    /// bare invocation even when `words` is empty (the root case).
+    HelpLongForPath {
+        /// The subcommand path words already typed, e.g. `["rebase"]`.
+        words: Vec<String>,
+    },
+    /// `<words...> -h`, the short-flag counterpart of
+    /// [`InertArgv::HelpLongForPath`].
+    HelpShortForPath {
+        /// The subcommand path words already typed.
+        words: Vec<String>,
+    },
     /// `<tool> --` under `COMPLETE=<shell>`, used to detect clap
     /// `CompleteEnv` support (spec §7 Tier E). Never invoked without the
     /// trailing `--`.
@@ -64,6 +78,16 @@ impl InertArgv {
             InertArgv::HelpSubcommand { words } => {
                 let mut a = vec!["help".to_string()];
                 a.extend(words.iter().cloned());
+                a
+            }
+            InertArgv::HelpLongForPath { words } => {
+                let mut a = words.clone();
+                a.push("--help".to_string());
+                a
+            }
+            InertArgv::HelpShortForPath { words } => {
+                let mut a = words.clone();
+                a.push("-h".to_string());
                 a
             }
             InertArgv::ClapCompleteEnvProbe { .. } => vec!["--".to_string()],
@@ -103,6 +127,8 @@ mod tests {
             InertArgv::HelpLong,
             InertArgv::HelpShort,
             InertArgv::HelpSubcommand { words: vec![] },
+            InertArgv::HelpLongForPath { words: vec![] },
+            InertArgv::HelpShortForPath { words: vec![] },
             InertArgv::ClapCompleteEnvProbe {
                 shell: "zsh".to_string(),
             },

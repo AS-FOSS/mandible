@@ -175,9 +175,10 @@ impl Flag {
 }
 
 /// Whether a flag takes a value, and if so, whether it's required.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ValueKind {
     /// The flag is a boolean switch; it takes no value.
+    #[default]
     None,
     /// The flag must be given a value.
     Required,

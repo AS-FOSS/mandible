@@ -19,7 +19,7 @@ path = "src/lib.rs"
 [features]
 default = ["known-specs", "help-text", "completion-script", "native"]
 known-specs = []
-help-text = []
+help-text = ["dep:winnow"]
 completion-script = []
 native = []
 manpage = ["dep:cc", "dep:bindgen"]
@@ -31,6 +31,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+winnow = { workspace = true, optional = true }
 
 # Vendored mandoc build (Tier D), off by default (spec §8, §15: default
 # features must build with no C toolchain).
