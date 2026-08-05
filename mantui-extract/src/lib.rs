@@ -61,6 +61,8 @@ pub fn default_tiers() -> Vec<Box<dyn ExtractionTier>> {
     tiers.push(Box::new(known_specs::CarapaceTier));
     #[cfg(feature = "help-text")]
     tiers.push(Box::new(help_text::HelpTextTier));
+    #[cfg(feature = "native")]
+    tiers.push(Box::new(native::NativeTier::default()));
     tiers.push(Box::new(overrides::OverridesTier));
     tiers
 }
