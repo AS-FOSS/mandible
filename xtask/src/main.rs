@@ -1,9 +1,7 @@
-//! Developer tasks for the mantui workspace.
-//!
-//! This batch wires up the `xtask` crate and gives it one real task —
-//! verifying the vendored catalog index — plus a placeholder for the
-//! coverage harness (spec §13.1), which is a batch 2 deliverable once Tier
-//! B exists to make a scoreboard meaningful.
+//! Developer tasks for the mantui workspace: catalog index verification and
+//! the extraction coverage harness (spec §13.1).
+
+#![forbid(unsafe_code)]
 
 use clap::{Parser, Subcommand};
 

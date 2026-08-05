@@ -25,6 +25,30 @@ const BOTTOM_RIGHT: char = '╯';
 const HORIZONTAL: char = '─';
 const VERTICAL: char = '│';
 
+/// Short, distinctive fragments of the adversarial descriptions below.
+/// None of these may ever appear in a border cell — including the top
+/// edge, which is otherwise hard to check with a strict per-cell glyph
+/// match because a pane's (trusted) title text legitimately overwrites
+/// some of the horizontal rule there. Checking "no adversarial content
+/// leaks into any border cell, top edge included" is both a real
+/// assertion (unlike a loop with no `assert!` in its body) and the exact
+/// property this whole test file exists to defend, without needing to
+/// reimplement ratatui's title-truncation layout to do it.
+const ADVERSARIAL_MARKERS: &[&str] = &[
+    "line one",
+    "line two",
+    "col1",
+    "col2",
+    "bold green",
+    "visible",
+    "日本語",
+    "🎉",
+    "🚀",
+    "xxxxxxxxxx",
+    "Bold text",
+    "party time",
+];
+
 fn adversarial_tree() -> CommandNode {
     let mut root = CommandNode::new(
         "git",
@@ -89,8 +113,9 @@ fn build_app() -> App {
 }
 
 /// Assert every cell on the outer border of `rect` (within `buffer`)
-/// matches the rounded-border glyph set. Interior content is not checked
-/// here — only that adversarial text never overwrote a border cell.
+/// matches the rounded-border glyph set, and additionally that no
+/// adversarial marker from [`ADVERSARIAL_MARKERS`] appears anywhere on the
+/// border ring (top edge included). Interior content is not checked here.
 fn assert_border_intact(buffer: &ratatui::buffer::Buffer, rect: ratatui::layout::Rect) {
     if rect.width < 2 || rect.height < 2 {
         return;
@@ -116,24 +141,19 @@ fn assert_border_intact(buffer: &ratatui::buffer::Buffer, rect: ratatui::layout:
         );
     }
 
+    // Bottom edge never carries a title, so it must be the plain rule
+    // character in every interior cell, strictly.
     for x in (x0 + 1)..x1 {
-        for (y, label) in [(y0, "top"), (y1, "bottom")] {
-            let cell = &buffer[(x, y)];
-            let sym = cell.symbol();
-            // Rounded borders may embed a title in the top border, so
-            // allow any glyph on the top edge where a title could sit, but
-            // the horizontal rule character is what we expect absent a
-            // title; the bottom edge must always be the plain rule.
-            if label == "bottom" {
-                assert_eq!(
-                    sym,
-                    HORIZONTAL.to_string(),
-                    "bottom border at ({x},{y}) of rect {rect:?} corrupted: got {sym:?}"
-                );
-            }
-        }
+        let cell = &buffer[(x, y1)];
+        let sym = cell.symbol();
+        assert_eq!(
+            sym,
+            HORIZONTAL.to_string(),
+            "bottom border at ({x},{y1}) of rect {rect:?} corrupted: got {sym:?}"
+        );
     }
 
+    // Left/right edges: strict glyph match, every content row.
     for y in (y0 + 1)..y1 {
         for (x, label) in [(x0, "left"), (x1, "right")] {
             let cell = &buffer[(x, y)];
@@ -145,6 +165,19 @@ fn assert_border_intact(buffer: &ratatui::buffer::Buffer, rect: ratatui::layout:
                 cell.symbol()
             );
         }
+    }
+
+    // Top edge: a trusted title may legitimately occupy some of these
+    // cells (so we can't assert strict-HORIZONTAL like the bottom edge),
+    // but no adversarial description/summary text may ever appear there.
+    let top_row: String = (x0..=x1)
+        .map(|x| buffer[(x, y0)].symbol().to_string())
+        .collect();
+    for marker in ADVERSARIAL_MARKERS {
+        assert!(
+            !top_row.contains(marker),
+            "top border of rect {rect:?} leaked adversarial content {marker:?}: {top_row:?}"
+        );
     }
 }
 

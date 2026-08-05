@@ -81,7 +81,9 @@ fn build_row_line(
         if let Some(summary) = &row.summary {
             let clean_summary = defensive_single_line(summary);
             if !clean_summary.is_empty() {
-                text.push(' ');
+                // Two spaces (not one) so the summary reads as a distinct
+                // dim column rather than a continuation of the name.
+                text.push_str("  ");
                 let name_part_width = display_width(&text);
                 if name_part_width < width {
                     let remaining = width - name_part_width;

@@ -105,8 +105,13 @@ pub(super) fn convert(raw: RawCommand, inherited: &[Flag]) -> CommandNode {
     CommandNode {
         name: raw.name,
         aliases: raw.aliases,
-        summary: raw.description.as_deref().map(Text::sanitize),
-        description: raw.documentation.as_deref().map(Text::sanitize),
+        // `description`/`documentation` are carapace's markdown-flavored
+        // prose fields (`[label](uri)` links with custom schemes like
+        // `man://`/`cmd://`, inline code, bold/emphasis) — see spec §4.1
+        // and Text::sanitize_markdown's docs. `usage` is literal command
+        // syntax, not prose, so it stays on the plain sanitizer.
+        summary: raw.description.as_deref().map(Text::sanitize_markdown),
+        description: raw.documentation.as_deref().map(Text::sanitize_markdown),
         usage: raw.usage.iter().map(|s| Text::sanitize(s)).collect(),
         flags,
         positionals: Vec::<Positional>::new(),
@@ -140,7 +145,7 @@ fn convert_flag(raw: RawFlag, inherited: bool, provenance: Provenance) -> Flag {
         deprecated: None,
         inherited,
         group: None,
-        description: raw.description.as_deref().map(Text::sanitize),
+        description: raw.description.as_deref().map(Text::sanitize_markdown),
         default: None,
         env_var: None,
         provenance,

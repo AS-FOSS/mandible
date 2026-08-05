@@ -1,6 +1,8 @@
 //! `mantui`: the binary. Wires the extraction pipeline, the cache, and the
 //! TUI together; also hosts the non-interactive `--doctor` diagnostic.
 
+#![forbid(unsafe_code)]
+
 mod app_runner;
 mod cli;
 mod doctor;
