@@ -443,6 +443,16 @@ damage a user's machine, and it gets its own section and its own tests.
    a tool may page its own help and hang forever, or emit ANSI into the IR.
 7. **Never write.** No tier may pass an argument that could name a file the tool
    would create or modify.
+8. **Redirect every writable location a probe might reach.** Rule 7 is not
+   sufficient, because some tools write *unprompted* on `--help`. Measured: a
+   coverage run over `PATH` caused font-cache builders to write into mantui's
+   working directory, and `mysql_secure_installation` to write a `.my.cnf`
+   containing an empty root password [M-11]. Every probe therefore runs with
+   `CWD`, `HOME`, `TMPDIR`, `XDG_*`, and `XDG_RUNTIME_DIR` pointed at a
+   per-invocation scratch directory that is deleted afterwards. This is a
+   general policy — never a per-tool exclusion list, which would violate §1.
+   Full containment needs OS-level sandboxing (namespaces/seccomp); until then,
+   document the residual risk rather than claiming the probe is inert.
 
 A test asserts rules 1, 2, and 3 by running the full pipeline against a shim
 binary that logs its argv and environment, and failing on any invocation outside
@@ -518,6 +528,28 @@ error recovery):
   under headings like "Main operation mode"; `git --help` groups commands under
   "work on the current change". Discarding that grouping is the difference
   between a scannable pane and an undifferentiated wall.
+- **Never invent subcommands.** This tier shipped a bug where wrapped
+  description continuation lines and enum value lists were parsed as commands:
+  `tar` gained 39 phantom subcommands named *"treat them as errors"* and
+  *"extracting (default)"*, `dd` 40, `less` 65 [M-10]. Fabricated structure is
+  strictly worse than missing structure — a user cannot tell it is wrong. Four
+  binding rules:
+  1. A command block **must** be introduced by a recognized heading
+     (`Commands:`, `Subcommands:`, `Available Commands:`, `SUBCOMMANDS`, or a
+     git-style group heading). Layout alone is never sufficient evidence. `tar
+     --help` has no such heading, so the correct answer is **zero subcommands**.
+  2. A line sitting at the description column with nothing at the name column is
+     a **continuation** of the previous row, never a new row.
+  3. A candidate command name must look like one: `^[a-z][a-z0-9_.-]*$`, no
+     whitespace. *"treat them as errors"* fails; `commit` passes.
+  4. An indented list nested under a flag is that flag's **`choices`**, not
+     subcommands — `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum
+     values, and the IR already has a field for them.
+- **Confidence must fall when the grammar is guessing.** The same bug was
+  reported as `ok` at `100% described`, because invented nodes inflate the
+  metric rather than depressing it. Any block that yields names failing rule 3,
+  or a node with no flags, no children, and a non-identifier name, must reduce
+  confidence and mark the tool `suspicious` in the coverage scoreboard (§13.1).
 - **Recurse for subcommands.** Revision 1 parsed only the root, which for `git`
   yields subcommand names and zero subcommand flags. Recursion is per-node under
   §5.2 laziness: `<tool> <sub> --help` runs when that node is expanded.
@@ -693,6 +725,77 @@ are still being extracted shows a subtle spinner row; a tool where only Tier B
 fired shows the confidence in the footer; a tool no tier resolved shows the
 per-tier status list with a suggestion to try `--doctor`.
 
+### 9.1 Tree rows: one node, one row
+
+**No wrapping in the tree pane, ever.** Row index ↔ node stays a bijection, which
+keeps selection, scrolling, mouse hit-testing, and filtering arithmetic instead
+of bookkeeping. Truncation costs nothing here because the detail pane shows the
+full text on selection; a tree summary only has to disambiguate `push` from
+`http-push`, which ~30 characters does.
+
+```
+╭ git ───────────────────────────────────────────╮
+│▾ git             the stupid content tracker    │
+│    add           Add file contents to the ind… │
+│  ▸ bisect        Use binary search to find th… │
+│  ▾ stash         Stash the changes in a dirty… │
+│      push        save your local modification… │
+╰────────────────────────────────────────────────╯
+```
+
+- **Summaries align to a computed column**, not `name + space`. The column is
+  `min(longest indent+name over the whole flattened row set, 40% of pane width)`.
+  Compute over *all* rows, never the viewport — a viewport-derived column jumps
+  as you scroll, which is worse than no alignment. It is stable until expand or
+  collapse.
+- **Truncate at a word boundary with `…`.** The ellipsis is a real signal that
+  the detail pane has more; a mid-word cut just looks broken.
+- **The name column never yields to the summary.** A long name truncates the
+  summary to nothing before truncating itself — you can navigate without
+  summaries, never without names.
+- Width ladder: full layout above 60 columns; **names only** below it (drop
+  summaries rather than showing eight useless characters); stacked panes below 50.
+
+### 9.2 The styling contract
+
+One accent, spent only on information. Everything else is neutral.
+
+| Element | Style |
+|---|---|
+| Node name | Default foreground |
+| Selected row | Accent + reversed |
+| Tree summary | Muted |
+| Focused pane border | Accent; unfocused muted |
+| Breadcrumb | Ancestors muted, leaf bold |
+| Section heading (`DESCRIPTION`, `FLAGS`) | Bold muted |
+| **Flag spelling** | **Accent** — the payload the user came for |
+| Value placeholder (`<FILE>`) | Muted italic |
+| Flag description | Default foreground |
+| Inherited flag group | Entire group muted |
+| Deprecated | Muted + a `(deprecated)` tag |
+| Search match characters | Underline, within the name only |
+| Provenance footer | Muted |
+| Low confidence | Warning color — the **one** sanctioned exception to single-accent |
+
+Four implementation rules that matter more than the palette:
+
+- **ANSI indexed colors, not RGB.** Indexed colors resolve through the user's own
+  terminal theme, so mantui looks native in Solarized, Gruvbox, or a light
+  terminal with no detection logic. Hardcoded RGB looks wrong in half of them.
+  The accent stays configurable.
+- **Prefer `DarkGray` over `Modifier::DIM` for muted text.** Several terminals
+  ignore `DIM` outright and others render it nearly invisible — a portability
+  trap that only manifests on someone else's machine.
+- **Respect `NO_COLOR`**, degrading to bold/reverse/underline only.
+- **Highlight search matches.** `nucleo` returns match indices for free;
+  underlining matched characters is the difference between "the list changed"
+  and "here is why this matched."
+
+Markup handling is staged: Tier A prose is flattened to plain text today
+(`Text::sanitize_markdown`). The better end state keeps parsed spans in the IR so
+inline code and link labels can be *styled* rather than stripped — git's prose is
+dense with both. Do this only once the plain-text path is stable.
+
 ---
 
 ## 10. Search
@@ -806,6 +909,18 @@ regressed `xz`. It is also the signal for when a tier has stopped earning its
 complexity.
 
 Regression gate: `%described` aggregate and `no-tier` count may not worsen.
+
+**`%described` alone is not a quality signal, and trusting it hid a real bug.**
+The Tier B phantom-subcommand defect [M-10] reported `tar` as `ok` at `100%
+described` while 39 of its 40 nodes were fabricated — invented nodes *inflate*
+the metric. The scoreboard therefore also carries a **structure-sanity** column:
+count of nodes whose name fails `^[a-z][a-z0-9_.-]*$`, and count of nodes with
+no flags, no children, and no summary. Any tool with a non-zero count is marked
+`suspicious`, and `suspicious` is a gated metric exactly like `no-tier`.
+
+The general lesson, worth stating because it will recur: **a coverage metric that
+can be gamed by the failure mode it is meant to detect is worse than no metric**,
+because it converts a silent bug into a confidently-reported success.
 
 ### 13.2 Fixed corpus
 
@@ -1028,6 +1143,17 @@ any of these as current.
   exit 255. `ffmpeg -h`: 5,365 stdout **and** 1,827 stderr.
 - **[M-9] `conch-parser`.** Builds with *"the following packages contain code that
   will be rejected by a future version of Rust: conch-parser v0.1.1"*.
+- **[M-10] Tier B phantom subcommands** (2026-08-05, first implementation).
+  Tools with no subcommands at all reported: `tar` 39 nodes, `dd` 40, `less` 65,
+  `zstdless` 65, `sed` 17, `zoxide` 13, `find` 11, `zramctl` 9. Phantom names
+  were wrapped description fragments (*"treat them as errors"*, *"extracting
+  (default)"*, *"silently skip over them"*) and `--format=` enum values
+  (`gnu`, `oldgnu`, `pax`, `posix`). `tar` and `dd` were reported `ok` at
+  `100% described`; only `less`/`zstdless` tripped `low-confidence`.
+- **[M-11] Probes that write.** A coverage run invoking `--help` across 1,665
+  `PATH` executables caused font-cache builders to write into the working
+  directory, and `mysql_secure_installation` to write a `.my.cnf` containing an
+  empty root password. `--help` is not reliably a read-only operation.
 
 ---
 
