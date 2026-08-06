@@ -10,9 +10,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Linux + macOS are the two supported platforms (spec §16 [M-8]-style
+  # honesty: Windows is out of scope for now, see README). macOS is a
+  # *real* native runner here, not a cross-compile target — this actually
+  # exercises the `cfg(unix)` paths in mandible-extract/src/exec/spawn.rs
+  # and mandible-cache/src/key.rs on Darwin, not just Linux. GitHub's
+  # `macos-latest` is Apple Silicon (arm64) as of this writing.
   fmt:
-    name: fmt
-    runs-on: ubuntu-latest
+    name: fmt (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -21,8 +31,12 @@ jobs:
       - run: cargo fmt --all -- --check
 
   clippy:
-    name: clippy
-    runs-on: ubuntu-latest
+    name: clippy (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -32,8 +46,12 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
-    name: test
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -41,8 +59,12 @@ jobs:
       - run: cargo test --workspace
 
   msrv:
-    name: msrv (build only)
-    runs-on: ubuntu-latest
+    name: msrv build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -65,8 +87,15 @@ jobs:
   # own baseline — a different file from the full-PATH `coverage-
   # scoreboard.txt`, since the two scans cover different tool sets and
   # aren't comparable.
+  #
+  # Ubuntu-only, deliberately not matrixed: the pinned tool list (docker,
+  # gh, gzip, ...) reflects ubuntu-latest's specific preinstalled
+  # inventory, not macOS's — a macOS run of this exact list would fail on
+  # inventory differences alone, which is precisely the spurious-failure
+  # mode this job's fixed list exists to avoid on Linux. A macOS-specific
+  # tool list is future work, not a portability bug in the harness itself.
   coverage:
-    name: coverage harness (fixed tool set)
+    name: coverage harness (fixed tool set, ubuntu)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

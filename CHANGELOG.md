@@ -8,6 +8,29 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added (batch 5)
+
+- **macOS support, audited and wired into CI.** `.github/workflows/ci.yml`'s
+  `fmt`/`clippy`/`test`/`msrv` jobs now run as a matrix over
+  `ubuntu-latest` and `macos-latest` (a real native Apple Silicon runner,
+  not a cross-compile). Audited every `cfg(unix)` site
+  (`mandible-extract/src/exec/spawn.rs`'s process-group spawn/kill,
+  `mandible-extract/src/resolve.rs` and `xtask/src/coverage.rs`'s
+  executable-bit checks, `mandible-cache/src/key.rs`'s mtime/inode cache
+  key) and confirmed each uses only POSIX-standard APIs
+  (`std::os::unix::fs::MetadataExt`, `std::os::unix::process::CommandExt`,
+  `nix`'s `signal`/`process` features) with no Linux-only assumption
+  (no `/proc`, no GNU-specific behavior) — this sandbox is Linux-only, so
+  macOS behavior is reasoned-about from source, not run. README documents
+  supported platforms honestly, including that cache/config paths differ
+  by OS (`~/Library/Caches/mandible` etc. on macOS, via the `directories`
+  crate) — this was already true before this batch, just not stated.
+- The coverage harness's `--tools` fixed-list job stays Ubuntu-only,
+  deliberately not matrixed: its pinned tool list reflects
+  `ubuntu-latest`'s specific preinstalled inventory, and running the same
+  list on macOS would fail on inventory differences alone, not a real
+  regression.
+
 ### Changed (batch 5)
 
 - **Project renamed from `mantui` to `mandible`.** Canonical repository is

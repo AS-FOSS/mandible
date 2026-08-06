@@ -55,6 +55,19 @@ catalog tools plus essentially any tool with a parseable `--help`/`-h` —
 a real machine's `PATH`. Later phases close the remaining gap without ever
 special-casing a tool by name — see the invariant below.
 
+## Supported platforms
+
+**Linux and macOS.** CI runs the full test suite natively on both
+(`.github/workflows/ci.yml`, `ubuntu-latest` + `macos-latest`). **Windows is
+not currently supported** — the execution-safety layer's process-group
+handling (spec §6 rule 4) is POSIX-specific, and Windows support hasn't been
+built or tested (spec §16 [M-8]).
+
+Cache and config locations follow OS convention via the `directories` crate:
+`$XDG_CACHE_HOME/mandible/` and `$XDG_CONFIG_HOME/mandible/overrides/` (or
+their `~/.cache`/`~/.config` fallbacks) on Linux; `~/Library/Caches/mandible/`
+and `~/Library/Application Support/mandible/overrides/` on macOS.
+
 ## The invariant
 
 > The mandible repository will never contain per-tool logic. No
