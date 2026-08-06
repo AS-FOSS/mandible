@@ -178,7 +178,7 @@ fn rect_contains(rect: ratatui::layout::Rect, col: u16, row: u16) -> bool {
 mod tests {
     use super::*;
     use crate::layout;
-    use mantui_core::{CommandNode, Provenance, Source};
+    use mandible_core::{CommandNode, Provenance, Source};
 
     fn app() -> App {
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));

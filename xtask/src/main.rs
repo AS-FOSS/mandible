@@ -1,4 +1,4 @@
-//! Developer tasks for the mantui workspace: catalog index verification and
+//! Developer tasks for the mandible workspace: catalog index verification and
 //! the extraction coverage harness (spec §13.1).
 
 #![forbid(unsafe_code)]
@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "xtask", about = "Developer tasks for the mantui workspace")]
+#[command(name = "xtask", about = "Developer tasks for the mandible workspace")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -136,8 +136,8 @@ fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyho
 }
 
 fn check_index() -> anyhow::Result<()> {
-    use mantui_extract::known_specs::{catalog_meta, CarapaceTier};
-    use mantui_extract::ExtractionTier;
+    use mandible_extract::known_specs::{catalog_meta, CarapaceTier};
+    use mandible_extract::ExtractionTier;
 
     let meta = catalog_meta();
     println!("provider:   {}", meta.provider);
@@ -149,7 +149,7 @@ fn check_index() -> anyhow::Result<()> {
 
     let tier = CarapaceTier;
     for spot_check in ["git", "docker", "curl"] {
-        let tool = mantui_extract::resolve_tool(spot_check);
+        let tool = mandible_extract::resolve_tool(spot_check);
         let found = tier.detect(&tool);
         println!(
             "  {spot_check}: {}",

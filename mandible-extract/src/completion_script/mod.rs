@@ -50,7 +50,7 @@ use crate::exec::{run_inert, InertArgv};
 use crate::resolve::ResolvedTool;
 use crate::tier::ExtractionTier;
 use brush_parser::ast;
-use mantui_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
+use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
 use std::path::Path;
 use std::time::Duration;
 

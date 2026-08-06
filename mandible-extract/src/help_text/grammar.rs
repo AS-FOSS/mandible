@@ -10,7 +10,7 @@
 //! reports whether it fully consumed the input, which
 //! `help_text::sections` uses to compute this tier's confidence score.
 
-use mantui_core::ValueKind;
+use mandible_core::ValueKind;
 use winnow::ascii::multispace0;
 use winnow::error::ContextError;
 use winnow::prelude::*;

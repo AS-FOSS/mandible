@@ -1,4 +1,4 @@
-# Contributing to mantui
+# Contributing to mandible
 
 Thank you for considering a contribution. Please read this before opening a
 PR — the project has one rule that overrides most instincts about how to fix
@@ -6,12 +6,12 @@ a bug.
 
 ## The invariant (read this first)
 
-> **The mantui repository will never contain per-tool logic.** No
+> **The mandible repository will never contain per-tool logic.** No
 > `if tool == "docker"`, no vendored per-tool patch file, no tool-name-keyed
 > special case in any extraction tier. Tool-specific knowledge lives in
 > exactly two places: (a) third-party structured catalogs consumed wholesale
 > as *data* (`vendor/`), and (b) user-local override files
-> (`~/.config/mantui/overrides/<tool>.toml`) that are **never** checked into
+> (`~/.config/mandible/overrides/<tool>.toml`) that are **never** checked into
 > this repository.
 
 If a change would violate that invariant, the correct fix is one of:
@@ -41,12 +41,12 @@ silently.
 See spec.md §8 for the full crate architecture and the reasoning behind it.
 Key structural rules, enforced by tests, not just convention:
 
-- **`std::process` may only appear in `mantui-extract/src/exec/`.** A test
-  (`mantui-extract/tests/no_process_outside_exec.rs`) greps the whole
+- **`std::process` may only appear in `mandible-extract/src/exec/`.** A test
+  (`mandible-extract/tests/no_process_outside_exec.rs`) greps the whole
   workspace source tree and fails the build if this is violated anywhere
   else. This is what makes the execution-safety policy (spec §6) auditable.
 - **Every string from outside this process must go through
-  `mantui_core::Text::sanitize`.** `Text`'s field is private with no
+  `mandible_core::Text::sanitize`.** `Text`'s field is private with no
   `From<String>`, so this is structurally enforced, not just documented.
   Widgets are allowed to assume a `Text` is clean.
 - **Provenance lives on `CommandNode`, `Flag`, and `Positional`
@@ -58,7 +58,7 @@ Key structural rules, enforced by tests, not just convention:
 Any code that spawns a subprocess against a user's installed tools must:
 
 1. Never invoke a bare binary — only the fixed set of inert argv shapes in
-   `mantui_extract::exec::InertArgv`.
+   `mandible_extract::exec::InertArgv`.
 2. Set stdin to `/dev/null`.
 3. Enforce a wall-clock timeout and kill the whole process group on expiry.
 4. Cap combined stdout+stderr at 8 MiB.
@@ -91,7 +91,7 @@ closed enum, by design) — that friction is intentional per spec §6 rule 2.
   if you believe you need `unsafe`, that's a discussion, not a PR.
 - `#![warn(missing_docs)]` on library crates — every public item is
   documented.
-- `thiserror` in libraries, `anyhow` only in the `mantui` binary.
+- `thiserror` in libraries, `anyhow` only in the `mandible` binary.
 - No `unwrap()`/`expect()` in a library code path reachable by tool input.
   `expect()` is fine only for genuinely-infallible cases, with a comment
   explaining why.

@@ -1,8 +1,8 @@
-# mantui — Design Specification
+# mandible — Design Specification
 
 **A universal, interactive TUI reference for CLI tools, in Rust.**
 
-> `mantui git` opens an explorable tree of every command, subcommand, and flag `git` has — with descriptions, not just names — plus a search bar that finds the flag you half-remember.
+> `mandible git` opens an explorable tree of every command, subcommand, and flag `git` has — with descriptions, not just names — plus a search bar that finds the flag you half-remember.
 
 This document is the design reference and the build guide. Every claim about the
 outside world in this document has been measured on a real machine; measurements
@@ -39,13 +39,13 @@ are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline a
 
 ## 1. Product definition & non-goals
 
-**mantui is a reference browser, not a command builder.** The user's journey is:
+**mandible is a reference browser, not a command builder.** The user's journey is:
 *"I know roughly what I want; show me the flag and its exact spelling, then let me
 copy it."* Everything in this spec is subordinate to that.
 
 **The invariant that defines the project:**
 
-> The mantui repository will never contain per-tool logic. No `if tool == "docker"`,
+> The mandible repository will never contain per-tool logic. No `if tool == "docker"`,
 > no vendored per-tool patch file, no tool-name-keyed special case in any tier.
 > Tool-specific knowledge lives in exactly two places: (a) third-party structured
 > catalogs we consume wholesale as *data*, and (b) user-local override files that
@@ -58,7 +58,7 @@ starts the erosion.
 
 **Non-goals** (stated so they don't quietly creep in):
 
-- Executing the tool being documented. mantui never runs a user's command for them.
+- Executing the tool being documented. mandible never runs a user's command for them.
 - Being a shell completion engine. Carapace and friends already do that.
 - Natural-language command synthesis. See §17 for why this is deferred, not planned.
 - Perfect fidelity. The pipeline is best-effort by construction; the UI's job is to
@@ -69,7 +69,7 @@ starts the erosion.
 ## 2. Vision & UX flow
 
 ```
-$ mantui git
+$ mandible git
 ```
 
 opens a full-screen TUI:
@@ -182,7 +182,7 @@ year without touching the UI.
 ## 4. The intermediate representation
 
 ```rust
-/// mantui-core: the shared schema every extraction tier must produce.
+/// mandible-core: the shared schema every extraction tier must produce.
 pub struct CommandNode {
     pub name: String,
     pub aliases: Vec<String>,
@@ -398,7 +398,7 @@ The runner:
 4. Optionally warms the next depth in a background thread pool, bounded to
    `min(8, available_parallelism)`, cancelled on quit.
 
-This makes `mantui docker` interactive in well under a second and pays extraction
+This makes `mandible docker` interactive in well under a second and pays extraction
 cost only for the parts of the tree a user actually looks at.
 
 Non-incremental sources (carapace) return their full subtree at step 1; they cost
@@ -408,7 +408,7 @@ nothing, so there is no reason to defer them.
 
 A tier that fails on one node must not invalidate the tier. The runner records
 per-node, per-tier status and keeps whatever merged. `TierStatus` is surfaced in
-the `?` overlay and in `mantui --doctor <tool>`, so "why is this flag missing"
+the `?` overlay and in `mandible --doctor <tool>`, so "why is this flag missing"
 is answerable without a debugger.
 
 The runner errors only when *no* tier produced a root node.
@@ -417,7 +417,7 @@ The runner errors only when *no* tier produced a root node.
 
 ## 6. Execution safety policy
 
-mantui runs other people's binaries. This is the part of the design that can
+mandible runs other people's binaries. This is the part of the design that can
 damage a user's machine, and it gets its own section and its own tests.
 
 **Rules, binding on every tier:**
@@ -445,7 +445,7 @@ damage a user's machine, and it gets its own section and its own tests.
    would create or modify.
 8. **Redirect every writable location a probe might reach.** Rule 7 is not
    sufficient, because some tools write *unprompted* on `--help`. Measured: a
-   coverage run over `PATH` caused font-cache builders to write into mantui's
+   coverage run over `PATH` caused font-cache builders to write into mandible's
    working directory, and `mysql_secure_installation` to write a `.my.cnf`
    containing an empty root password [M-11]. Every probe therefore runs with
    `CWD`, `HOME`, `TMPDIR`, `XDG_*`, and `XDG_RUNTIME_DIR` pointed at a
@@ -470,7 +470,7 @@ revision 1's central error.
 ### Tier A — known-tool structured spec databases (cheapest, highest prose)
 
 Attempted first because it costs zero subprocesses and covers the majority of
-what people will actually run mantui against.
+what people will actually run mandible against.
 
 - **carapace-spec** — a documented YAML schema (with a published JSON Schema)
   describing name, flags, persistent flags, subcommand nesting, and per-flag
@@ -495,7 +495,7 @@ copy. Fall back to the snapshot.
 
 **Staleness.** A vendored snapshot silently ages. The UI shows the snapshot's
 vendoring date in the provenance footer when carapace supplied prose, and
-`mantui --doctor` reports it. The vendoring script records the source commit.
+`mandible --doctor` reports it. The vendoring script records the source commit.
 
 **Attribution.** carapace-bin and withfig/autocomplete are third-party data with
 their own licenses. `NOTICE` must carry both, and §15 covers this — it is the
@@ -644,7 +644,7 @@ structural conflicts (§4.4) because it reflects the version actually installed.
 
 ### Tier F — user override
 
-`~/.config/mantui/overrides/<tool>.toml`, merged with `Authority { 255, 255 }`.
+`~/.config/mandible/overrides/<tool>.toml`, merged with `Authority { 255, 255 }`.
 This exists so the rare bad case has a clean exit; the pipeline never depends on
 one existing.
 
@@ -658,9 +658,9 @@ per-tool patch pile begins.
 ## 8. Crate & workspace architecture
 
 ```
-mantui/                          (workspace root)
-├── mantui-core/                 # IR, Text sanitization, Provenance, Authority, merge, NodeRef
-├── mantui-extract/              # the tiered pipeline + runner
+mandible/                          (workspace root)
+├── mandible-core/                 # IR, Text sanitization, Provenance, Authority, merge, NodeRef
+├── mandible-extract/              # the tiered pipeline + runner
 │   ├── known_specs/             # Tier A: carapace snapshot + index
 │   ├── help_text/               # Tier B: winnow grammar
 │   ├── completion_script/       # Tier C: brush-parser AST walking
@@ -668,14 +668,14 @@ mantui/                          (workspace root)
 │   ├── native/                  # Tier E: cobra, clap, argcomplete probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
-├── mantui-cache/                # on-disk cache, keying, invalidation
-├── mantui-search/               # nucleo index over commands AND flags
-├── mantui-tui/                  # ratatui UI: tree, detail, search, overlay
-├── mantui/                      # the `mantui` binary
+├── mandible-cache/                # on-disk cache, keying, invalidation
+├── mandible-search/               # nucleo index over commands AND flags
+├── mandible-tui/                  # ratatui UI: tree, detail, search, overlay
+├── mandible/                      # the `mandible` binary
 └── xtask/                       # coverage harness, spec vendoring, packaging
 ```
 
-**`mantui-extract/src/exec/` is the only module permitted to use
+**`mandible-extract/src/exec/` is the only module permitted to use
 `std::process`.** A `#![deny]`-style test greps the workspace for `Command::new`
 outside that module and fails the build otherwise. Centralizing this is what makes
 §6 auditable rather than aspirational.
@@ -780,7 +780,7 @@ One accent, spent only on information. Everything else is neutral.
 Four implementation rules that matter more than the palette:
 
 - **ANSI indexed colors, not RGB.** Indexed colors resolve through the user's own
-  terminal theme, so mantui looks native in Solarized, Gruvbox, or a light
+  terminal theme, so mandible looks native in Solarized, Gruvbox, or a light
   terminal with no detection logic. Hardcoded RGB looks wrong in half of them.
   The accent stays configurable.
 - **Prefer `DarkGray` over `Modifier::DIM` for muted text.** Several terminals
@@ -831,13 +831,13 @@ typing `reb` puts `rebase` above every command whose description contains
 ## 11. Caching & invalidation
 
 Extraction is too slow to redo per launch (§5.1), so the tree is cached at
-`$XDG_CACHE_HOME/mantui/` (resolved via `directories`).
+`$XDG_CACHE_HOME/mandible/` (resolved via `directories`).
 
 **Key.** Not a content hash of the binary: `docker` is ~50 MB and hashing it costs
 more than the parse it protects. Use:
 
 ```
-(realpath, size, mtime_ns, inode, tool_version_string?) + schema_version + mantui_version + enabled_features
+(realpath, size, mtime_ns, inode, tool_version_string?) + schema_version + mandible_version + enabled_features
 ```
 
 `tool_version_string` is the output of `<tool> --version` when that is one of the
@@ -853,13 +853,13 @@ otherwise every launch re-probes the tiers that don't apply, which is most of th
 deletable, no embedded-database dependency to maintain. (`sled` is effectively
 unmaintained; if a KV store is ever wanted, `redb` or `fjall`.)
 
-**Invalidation.** Key mismatch, `schema_version` bump, `mantui --refresh <tool>`,
+**Invalidation.** Key mismatch, `schema_version` bump, `mandible --refresh <tool>`,
 or the `r` key in the UI. Corrupt or unreadable cache entries are deleted and
 re-extracted, never propagated as an error.
 
 **Staleness in the UI.** The footer shows `cached 3d ago · docker 27.1` when a
-tree came from cache, so a user can tell the difference between "mantui is wrong"
-and "mantui is remembering an older version."
+tree came from cache, so a user can tell the difference between "mandible is wrong"
+and "mandible is remembering an older version."
 
 ---
 
@@ -871,13 +871,13 @@ that is actually useful, and it still exercises the merge against Tier B.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0 — foundation** | Workspace; `mantui-core` (IR, `Text::sanitize`, `Provenance`, `Authority`, merge, `NodeRef`); `mantui-extract/exec` (§6); cache crate; packaging skeleton (LICENSE, NOTICE, README, CI) | `cargo test` green; the exec-policy test passes; the "no `Command::new` outside `exec/`" test passes |
-| **1 — Tier A + TUI** | carapace snapshot + indexed loader; full tree/detail/status TUI; caching | `mantui git`, `mantui docker`, `mantui gh` render full trees with real descriptions in **< 200 ms** from cache and **< 1 s** cold |
-| **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mantui curl`, `mantui tar`, `mantui openssl`, `mantui ip` all produce useful trees; coverage harness reports its first scoreboard |
-| **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mantui kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
+| **0 — foundation** | Workspace; `mandible-core` (IR, `Text::sanitize`, `Provenance`, `Authority`, merge, `NodeRef`); `mandible-extract/exec` (§6); cache crate; packaging skeleton (LICENSE, NOTICE, README, CI) | `cargo test` green; the exec-policy test passes; the "no `Command::new` outside `exec/`" test passes |
+| **1 — Tier A + TUI** | carapace snapshot + indexed loader; full tree/detail/status TUI; caching | `mandible git`, `mandible docker`, `mandible gh` render full trees with real descriptions in **< 200 ms** from cache and **< 1 s** cold |
+| **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mandible curl`, `mandible tar`, `mandible openssl`, `mandible ip` all produce useful trees; coverage harness reports its first scoreboard |
+| **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
 | **4 — Tier E + C** | cobra two-probe protocol with depth cap/visited set/alias detection; clap `CompleteEnv`; zsh `_arguments` then bash | A cobra tool absent from the catalog renders correctly; a `completion`-only tool renders correctly |
 | **5 — Tier D + F** | libmandoc FFI (vendored, feature-gated), multi-page discovery; user overrides | A BSD-lineage `mdoc` tool and a Linux `man(7)` tool both extract; `git` gains prose from `git-*.1` |
-| **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mantui itself, shell completions | `cargo install mantui` works; `.deb` and `.rpm` install cleanly |
+| **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mandible itself, shell completions | `cargo install mandible` works; `.deb` and `.rpm` install cleanly |
 
 Deliberately **not** on the roadmap: local NL search (§17).
 
@@ -967,7 +967,7 @@ against yesterday's bytes.
 | TUI framework | `ratatui` | MIT | `crossterm` backend; mouse support |
 | Display width | `unicode-width` | MIT/Apache-2.0 | Required for correct truncation (§9) |
 | Fuzzy matching | `nucleo` | MIT/Apache-2.0 | Powers Helix |
-| mantui's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | Also dogfoods the Tier E clap protocol |
+| mandible's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | Also dogfoods the Tier E clap protocol |
 | Help-text grammar | `winnow` | MIT | Preferred over `pest` for error recovery |
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |
 | Man page AST | `bindgen` + **vendored** mandoc | MIT / ISC | Not a system library on Linux [M-6] — vendor the source and build with `cc`. Feature-gated. |
@@ -977,7 +977,7 @@ against yesterday's bytes.
 | Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | IR, cache, carapace specs |
 | Compression | `flate2` | MIT/Apache-2.0 | Cache entries |
 | Errors | `thiserror` (libs), `anyhow` (binary) | MIT/Apache-2.0 | |
-| Logging | `tracing` + `tracing-subscriber` | MIT | Behind `MANTUI_LOG`; never writes to the TUI's terminal |
+| Logging | `tracing` + `tracing-subscriber` | MIT | Behind `MANDIBLE_LOG`; never writes to the TUI's terminal |
 | Clipboard | `arboard` | MIT/Apache-2.0 | For `y`; degrade to OSC-52 when unavailable |
 | Testing | `insta`, `proptest`, `cargo-fuzz` | MIT/Apache-2.0 | Snapshots, properties, grammar fuzzing |
 
@@ -1013,7 +1013,7 @@ spec.md            This document
 .github/workflows/ ci.yml (fmt, clippy -D warnings, test, coverage-harness diff),
                    release.yml (tagged cross-platform binaries)
 xtask/             coverage harness, vendoring, packaging
-packaging/         debian/, rpm/, mantui.1 (man page for mantui itself)
+packaging/         debian/, rpm/, mandible.1 (man page for mandible itself)
 ```
 
 **Cargo metadata.** Every crate carries `description`, `license`, `repository`,
@@ -1028,9 +1028,9 @@ the relationship clear.
   distro maintainers will ask where the 11 MB came from.
 - Default features must build with no network and no C toolchain. That is why
   Tier D is opt-in.
-- Ship completions for mantui itself and `packaging/mantui.1`, installed to the
+- Ship completions for mandible itself and `packaging/mandible.1`, installed to the
   standard paths.
-- `cargo-deb` and `cargo-generate-rpm` metadata live in `mantui/Cargo.toml`.
+- `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
 
 ---
@@ -1081,9 +1081,9 @@ ONNX export are MIT, but the **Cactus inference engine is a custom, non-OSI
 license**: free use is granted only to individuals for personal/educational/
 non-commercial use, organizations under *both* $2M funding and $2M revenue,
 educational institutions, and 501(c)(3) nonprofits — with the grant terminating
-automatically if a qualifying org crosses either threshold. If mantui depended on
+automatically if a qualifying org crosses either threshold. If mandible depended on
 that engine, any downstream user past those thresholds would need a commercial
-license from Cactus Compute merely for using mantui. **Do not take that
+license from Cactus Compute merely for using mandible. **Do not take that
 dependency.** If the model is ever revisited, load the MIT ONNX export via `ort`
 or `tract` (both MIT/Apache-2.0), or reimplement the small architecture in
 `candle`. Avoid the prebuilt `needle-cq4.zip` — it is a proprietary quantization

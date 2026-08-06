@@ -1,5 +1,5 @@
 [package]
-name = "mantui-cache"
+name = "mandible-cache"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,16 +7,16 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "On-disk extraction cache for mantui: keying, negative caching, and invalidation. Not independently useful outside the mantui workspace."
-keywords = ["cli", "cache", "mantui"]
+description = "On-disk extraction cache for mandible: keying, negative caching, and invalidation. Not independently useful outside the mandible workspace."
+keywords = ["cli", "cache", "mandible"]
 categories = ["caching", "command-line-interface"]
 
 [lib]
-name = "mantui_cache"
+name = "mandible_cache"
 path = "src/lib.rs"
 
 [dependencies]
-mantui-core.workspace = true
+mandible-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 flate2.workspace = true

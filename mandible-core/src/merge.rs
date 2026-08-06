@@ -29,7 +29,7 @@ pub enum MergeError {
 ///
 /// `candidates` should all represent the same logical command (same name /
 /// same position in the tree), each typically produced by a single
-/// [`ExtractionTier`](../mantui_extract/trait.ExtractionTier.html) and
+/// [`ExtractionTier`](../mandible_extract/trait.ExtractionTier.html) and
 /// carrying that tier's `Source` in its own `provenance`. Order matters only
 /// for tie-breaking (earlier wins).
 pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, MergeError> {

@@ -37,12 +37,12 @@
 //! 4. An unrecognized bare-word block nested under a flag (its heading
 //!    names that flag, e.g. `"Valid arguments for the --quoting-style
 //!    option are:"`, or it immediately follows the flag with no other
-//!    heading between) becomes that flag's [`mantui_core::Flag::choices`],
+//!    heading between) becomes that flag's [`mandible_core::Flag::choices`],
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{looks_like_flag_start, parse_flag_spec};
-use mantui_core::{
+use mandible_core::{
     is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
 };
 
@@ -145,7 +145,7 @@ fn mentions_commands_word(s: &str) -> bool {
 }
 
 // Rule 3's name-shape test (`^[a-z][a-z0-9_.-]*$`) lives in
-// `mantui_core::is_command_name_shaped` (imported above) — it's also half
+// `mandible_core::is_command_name_shaped` (imported above) — it's also half
 // of the coverage harness's structure-sanity check (spec §13.1), so there
 // is exactly one definition of "looks like a name, not a fabricated
 // fragment" rather than two that could drift apart.

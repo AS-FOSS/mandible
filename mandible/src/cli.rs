@@ -2,9 +2,9 @@
 
 use clap::Parser;
 
-/// mantui: a universal, interactive TUI reference for CLI tools.
+/// mandible: a universal, interactive TUI reference for CLI tools.
 #[derive(Parser, Debug)]
-#[command(name = "mantui", version, about, long_about = None)]
+#[command(name = "mandible", version, about, long_about = None)]
 pub struct Cli {
     /// The tool to open, e.g. "git". Required unless `--doctor` is given.
     pub tool: Option<String>,

@@ -1,6 +1,6 @@
 //! Regression test for Defect B (batch 2): source prose that arrives
 //! hard-wrapped at ~80 columns must not be re-wrapped raggedly at the
-//! pane's actual width. The fix has two parts — `mantui_core::Text`
+//! pane's actual width. The fix has two parts — `mandible_core::Text`
 //! unwraps hard-wrapped paragraphs at the IR boundary (a single `\n`
 //! inside a paragraph joins to a space; `\n\n` stays a break), and the
 //! detail pane relies on `ratatui`'s `Paragraph` `Wrap` to re-wrap the
@@ -9,13 +9,13 @@
 //! not just the intermediate `Text`/`Line` values, since the ragged-wrap
 //! bug only manifests once rendering is involved.
 
-use mantui_core::{CommandNode, Provenance, Source, Text};
-use mantui_tui::app::App;
+use mandible_core::{CommandNode, Provenance, Source, Text};
+use mandible_tui::app::App;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
 /// A paragraph hard-wrapped at ~45 columns, the way carapace's
-/// `documentation` field arrives (see mantui-core's real-fixture tests for
+/// `documentation` field arrives (see mandible-core's real-fixture tests for
 /// the actual vendored strings this mirrors).
 const HARD_WRAPPED: &str = "Git is a fast, scalable, distributed revision\ncontrol system with an\nunusually rich command set that provides both\nhigh-level operations and\nfull access to internals.";
 
@@ -37,19 +37,19 @@ fn render_detail_lines(width: u16) -> Vec<String> {
     let mut app = App::new("git".to_string(), root);
     // Below the stack breakpoint only the focused pane renders; force
     // detail focus so this helper works at any width the tests pass in.
-    app.focus = mantui_tui::Focus::Detail;
+    app.focus = mandible_tui::Focus::Detail;
 
     let backend = TestBackend::new(width, 20);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal
         .draw(|frame| {
-            mantui_tui::render::render(frame, &app);
+            mandible_tui::render::render(frame, &app);
         })
         .unwrap();
 
     let buffer = terminal.backend().buffer().clone();
     let regions =
-        mantui_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, 20), app.focus);
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, 20), app.focus);
     let detail_rect = regions.detail.expect("wide enough for a detail pane");
 
     let mut lines = Vec::new();

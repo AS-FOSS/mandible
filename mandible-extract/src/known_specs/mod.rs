@@ -26,7 +26,7 @@ mod raw;
 use crate::errors::ExtractError;
 use crate::resolve::ResolvedTool;
 use crate::tier::ExtractionTier;
-use mantui_core::{Authority, CommandNode, Source};
+use mandible_core::{Authority, CommandNode, Source};
 
 include!(concat!(env!("OUT_DIR"), "/spec_index.rs"));
 
@@ -115,7 +115,7 @@ impl ExtractionTier for CarapaceTier {
         if path.len() <= 1 {
             return Ok(full);
         }
-        mantui_core::resolve(&full, path)
+        mandible_core::resolve(&full, path)
             .cloned()
             .ok_or(ExtractError::PathNotFound)
     }

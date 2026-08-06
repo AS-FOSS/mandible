@@ -19,7 +19,7 @@ about design, `spec.md` wins and you should fix this file.
 
 Tool-specific knowledge lives in exactly two places: third-party catalogs
 consumed wholesale as *data*, and user-local override files under
-`~/.config/mantui/overrides/` that are never committed here.
+`~/.config/mandible/overrides/` that are never committed here.
 
 If a tool renders badly, the fix is a better general parser, a new general tier,
 or an honest low-confidence badge in the UI. It is never a special case. This is
@@ -34,17 +34,17 @@ Breaking any of these produces a bug that tests will not catch.
 
 | Invariant | Where | Failure it prevents |
 |---|---|---|
-| `Text::sanitize` (or `sanitize_markdown`) is the **only** way untrusted text enters the IR | `mantui-core/src/text.rs` | Control chars and markup reaching a `ratatui::Span`, which corrupts pane borders. Two widget-level fixes for this failed before the boundary fix worked. |
-| Widgets may **assume** `Text` is clean | `mantui-tui` | Re-implementing defenses in each of the three consumers (tree, detail, clipboard), inconsistently |
-| `std::process` appears **only** in `mantui-extract/src/exec/` | enforced by `tests/no_process_outside_exec.rs` | Unaudited subprocess spawning; §6 of the spec becomes unenforceable |
-| Provenance is **per field**, never per tree | `mantui-core/src/provenance.rs` | A trust badge that lies after a multi-tier merge — worse than no badge |
-| Extraction is **node-scoped** (`extract_node`), never whole-tree | `mantui-extract/src/tier.rs` | Eager extraction: 232 subprocesses and 10.5s for `docker`. Do not reintroduce a whole-tree `extract()`. |
-| **One node = exactly one tree row.** No wrapping in the tree pane | `mantui-tui/src/render/tree_pane.rs` | Row index ↔ node stops being a bijection, breaking selection, scrolling, mouse hit-testing, and filtering all at once |
-| Truncate by **display width** (`unicode-width`), never `char` or byte count | `mantui-tui` | CJK/emoji overflow the border by one cell per wide character |
-| Cache keys must depend on **extraction logic**, not just crate version | `mantui-cache/src/key.rs` (`SOURCE_FINGERPRINT`, computed by `mantui-cache/build.rs` from `mantui-core/src` + `mantui-extract/src`) | Shipped as a real bug: a parser fix did nothing for users because their stale cache entry kept being served after upgrade |
+| `Text::sanitize` (or `sanitize_markdown`) is the **only** way untrusted text enters the IR | `mandible-core/src/text.rs` | Control chars and markup reaching a `ratatui::Span`, which corrupts pane borders. Two widget-level fixes for this failed before the boundary fix worked. |
+| Widgets may **assume** `Text` is clean | `mandible-tui` | Re-implementing defenses in each of the three consumers (tree, detail, clipboard), inconsistently |
+| `std::process` appears **only** in `mandible-extract/src/exec/` | enforced by `tests/no_process_outside_exec.rs` | Unaudited subprocess spawning; §6 of the spec becomes unenforceable |
+| Provenance is **per field**, never per tree | `mandible-core/src/provenance.rs` | A trust badge that lies after a multi-tier merge — worse than no badge |
+| Extraction is **node-scoped** (`extract_node`), never whole-tree | `mandible-extract/src/tier.rs` | Eager extraction: 232 subprocesses and 10.5s for `docker`. Do not reintroduce a whole-tree `extract()`. |
+| **One node = exactly one tree row.** No wrapping in the tree pane | `mandible-tui/src/render/tree_pane.rs` | Row index ↔ node stops being a bijection, breaking selection, scrolling, mouse hit-testing, and filtering all at once |
+| Truncate by **display width** (`unicode-width`), never `char` or byte count | `mandible-tui` | CJK/emoji overflow the border by one cell per wide character |
+| Cache keys must depend on **extraction logic**, not just crate version | `mandible-cache/src/key.rs` (`SOURCE_FINGERPRINT`, computed by `mandible-cache/build.rs` from `mandible-core/src` + `mandible-extract/src`) | Shipped as a real bug: a parser fix did nothing for users because their stale cache entry kept being served after upgrade |
 | Never slice a `&str` derived from tool output at a raw byte offset (`&s[..n]`) | any tier that parses `--help`/similar text | Panics if the offset isn't a UTF-8 char boundary. Shipped as a real crash (`help_text::sections`, found by the coverage harness's first real run, not a synthetic test): a box-drawing glyph early in one real tool's output landed byte 6 mid-character. Use `s.as_bytes().get(..n)` (bounds-checked, no boundary concept for raw bytes) for ASCII-prefix checks, or `s.get(..n)` (returns `None` instead of panicking) generally. |
-| A bare-word block becomes subcommands only under a *recognized* heading (or a chain started by one) plus a name-shape check — never from layout alone | `mantui-extract/src/help_text/sections.rs` | [M-10]: Tier B fabricated 39-65 phantom subcommands per tool from wrapped description continuation lines and `--format=`-style enum value lists. Fabricated structure is worse than missing structure — a user can't tell it's wrong. The coverage harness's structure-sanity column (spec §13.1) is the regression net: `%described` alone stayed at 100% while this was happening. |
-| Every probe's CWD, `HOME`, `TMPDIR`, and the writable `XDG_*` vars point at one scratch dir, created fresh **per invocation** and removed on drop | `mantui-extract/src/exec/spawn.rs` | [M-11]: `--help` is not reliably read-only. A font-cache builder wrote into the invoking CWD and `mysql_secure_installation` wrote a `.my.cnf` with an empty root password, from nothing but `--help`. A CWD-only redirect doesn't reach `$HOME`. |
+| A bare-word block becomes subcommands only under a *recognized* heading (or a chain started by one) plus a name-shape check — never from layout alone | `mandible-extract/src/help_text/sections.rs` | [M-10]: Tier B fabricated 39-65 phantom subcommands per tool from wrapped description continuation lines and `--format=`-style enum value lists. Fabricated structure is worse than missing structure — a user can't tell it's wrong. The coverage harness's structure-sanity column (spec §13.1) is the regression net: `%described` alone stayed at 100% while this was happening. |
+| Every probe's CWD, `HOME`, `TMPDIR`, and the writable `XDG_*` vars point at one scratch dir, created fresh **per invocation** and removed on drop | `mandible-extract/src/exec/spawn.rs` | [M-11]: `--help` is not reliably read-only. A font-cache builder wrote into the invoking CWD and `mysql_secure_installation` wrote a `.my.cnf` with an empty root password, from nothing but `--help`. A CWD-only redirect doesn't reach `$HOME`. |
 | Never call an O(n)-or-worse function from inside a `while` loop's own *condition* | general Rust pitfall, not specific to one file | It reruns every iteration, turning a linear function quadratic. Found via the coverage harness on a genuinely degenerate input (a REPL that ignores `--help` and free-runs printing its own banner): one tool took 153s instead of milliseconds. Compute it once, before the loop. |
 
 ---
@@ -80,7 +80,7 @@ emulator to give you the actual screen:
 
 ```bash
 python3 -m venv /tmp/ptyvenv && /tmp/ptyvenv/bin/pip install pyte
-/tmp/ptyvenv/bin/python scripts/pty_screenshot.py 100 28 ./target/release/mantui git
+/tmp/ptyvenv/bin/python scripts/pty_screenshot.py 100 28 ./target/release/mandible git
 ```
 
 This is the only way to see rendering defects that depend on real data. It is

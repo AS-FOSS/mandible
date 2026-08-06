@@ -984,16 +984,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "mantui"
+name = "mandible"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
  "crossterm",
- "mantui-cache",
- "mantui-core",
- "mantui-extract",
- "mantui-tui",
+ "mandible-cache",
+ "mandible-core",
+ "mandible-extract",
+ "mandible-tui",
  "ratatui",
  "rayon",
  "tempfile",
@@ -1002,12 +1002,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "mantui-cache"
+name = "mandible-cache"
 version = "0.1.0"
 dependencies = [
  "directories",
  "flate2",
- "mantui-core",
+ "mandible-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -1016,7 +1016,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mantui-core"
+name = "mandible-core"
 version = "0.1.0"
 dependencies = [
  "proptest",
@@ -1027,7 +1027,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mantui-extract"
+name = "mandible-extract"
 version = "0.1.0"
 dependencies = [
  "bindgen",
@@ -1035,7 +1035,7 @@ dependencies = [
  "cc",
  "directories",
  "libc",
- "mantui-core",
+ "mandible-core",
  "nix",
  "proptest",
  "serde",
@@ -1048,22 +1048,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "mantui-search"
+name = "mandible-search"
 version = "0.1.0"
 dependencies = [
- "mantui-core",
+ "mandible-core",
  "nucleo",
 ]
 
 [[package]]
-name = "mantui-tui"
+name = "mandible-tui"
 version = "0.1.0"
 dependencies = [
  "arboard",
  "base64",
  "crossterm",
- "mantui-core",
- "mantui-search",
+ "mandible-core",
+ "mandible-search",
  "proptest",
  "ratatui",
  "thiserror 1.0.69",
@@ -2503,8 +2503,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "mantui-core",
- "mantui-extract",
+ "mandible-core",
+ "mandible-extract",
  "rayon",
 ]
 

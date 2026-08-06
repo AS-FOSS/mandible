@@ -1,5 +1,5 @@
 //! The detail pane: breadcrumb header, description, flags grouped by
-//! [`mantui_core::Flag::group`] (inherited flags in a final dimmed group),
+//! [`mandible_core::Flag::group`] (inherited flags in a final dimmed group),
 //! and a provenance footer (spec §2, §9, §9.2).
 //!
 //! **Every line handed to the `Paragraph` is already wrapped to the
@@ -29,7 +29,7 @@
 use crate::app::{App, Focus};
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_ellipsis};
 use crate::style;
-use mantui_core::{CommandNode, Flag, FlagKey, ValueKind};
+use mandible_core::{CommandNode, Flag, FlagKey, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -397,11 +397,11 @@ fn provenance_footer(node: &CommandNode) -> String {
     let labels: Vec<String> = node.provenance.sources.iter().map(|s| s.label()).collect();
     let structural = node
         .provenance
-        .effective_authority(mantui_core::Axis::Structural)
+        .effective_authority(mandible_core::Axis::Structural)
         > 0;
     let prose = node
         .provenance
-        .effective_authority(mantui_core::Axis::Prose)
+        .effective_authority(mandible_core::Axis::Prose)
         > 0;
     format!(
         "{} · structure {} · prose {}",
@@ -414,7 +414,7 @@ fn provenance_footer(node: &CommandNode) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mantui_core::{Provenance, Source, Text};
+    use mandible_core::{Provenance, Source, Text};
 
     fn node_with_flags() -> CommandNode {
         let mut n = CommandNode::new(

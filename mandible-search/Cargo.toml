@@ -1,5 +1,5 @@
 [package]
-name = "mantui-search"
+name = "mandible-search"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,14 +7,14 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Fuzzy search index over commands and flags for mantui, backed by nucleo. Not independently useful outside the mantui workspace."
-keywords = ["cli", "search", "mantui"]
+description = "Fuzzy search index over commands and flags for mandible, backed by nucleo. Not independently useful outside the mandible workspace."
+keywords = ["cli", "search", "mandible"]
 categories = ["command-line-interface"]
 
 [lib]
-name = "mantui_search"
+name = "mandible_search"
 path = "src/lib.rs"
 
 [dependencies]
-mantui-core.workspace = true
+mandible-core.workspace = true
 nucleo.workspace = true

@@ -12,7 +12,7 @@
 
 use crate::resolve::{resolve_tool, ResolvedTool};
 use crate::tier::ExtractionTier;
-use mantui_core::{merge_nodes, CommandNode};
+use mandible_core::{merge_nodes, CommandNode};
 use std::time::{Duration, Instant};
 
 /// The result of one tier's attempt to contribute to a node, for display in
@@ -94,7 +94,7 @@ pub struct Runner {
 impl Runner {
     /// Build a runner over the given tiers, attempted in the given order
     /// (a cost ordering, per spec §7 — conflict resolution is by
-    /// [`mantui_core::Authority`], not attempt order).
+    /// [`mandible_core::Authority`], not attempt order).
     pub fn new(tiers: Vec<Box<dyn ExtractionTier>>) -> Runner {
         Runner { tiers }
     }
@@ -237,7 +237,7 @@ pub struct FillResult {
 mod tests {
     use super::*;
     use crate::errors::ExtractError;
-    use mantui_core::{Authority, Provenance, Source};
+    use mandible_core::{Authority, Provenance, Source};
 
     struct AlwaysOk;
     impl ExtractionTier for AlwaysOk {
@@ -369,7 +369,7 @@ mod tests {
                 path.last().cloned().unwrap_or_default(),
                 Provenance::single(Source::HelpText),
             );
-            node.description = Some(mantui_core::Text::sanitize("filled in lazily"));
+            node.description = Some(mandible_core::Text::sanitize("filled in lazily"));
             Ok(node)
         }
     }
@@ -397,7 +397,7 @@ mod tests {
         let runner = Runner::new(vec![Box::new(IncrementalWithDescription)]);
         let resolved = resolve_tool("sometool");
         let mut existing = CommandNode::new("child", Provenance::single(Source::HelpText));
-        existing.summary = Some(mantui_core::Text::sanitize("already known summary"));
+        existing.summary = Some(mandible_core::Text::sanitize("already known summary"));
         let result = runner.fill_node(
             &resolved,
             &["sometool".to_string(), "child".to_string()],
@@ -426,7 +426,7 @@ mod tests {
         let runner = Runner::new(vec![Box::new(AlwaysFails)]);
         let resolved = resolve_tool("sometool");
         let mut existing = CommandNode::new("child", Provenance::single(Source::HelpText));
-        existing.summary = Some(mantui_core::Text::sanitize("kept"));
+        existing.summary = Some(mandible_core::Text::sanitize("kept"));
         let result = runner.fill_node(
             &resolved,
             &["sometool".to_string(), "child".to_string()],

@@ -1,9 +1,9 @@
 //! Wiring the extraction runner and the on-disk cache together: the shared
 //! "get me this tool's tree" path used by both `--doctor` and the TUI.
 
-use mantui_cache::{CacheEntry, CacheKey, CatalogStamp, Store, StoredTierStatus};
-use mantui_core::CommandNode;
-use mantui_extract::{Runner, TierStatus};
+use mandible_cache::{CacheEntry, CacheKey, CatalogStamp, Store, StoredTierStatus};
+use mandible_core::CommandNode;
+use mandible_extract::{Runner, TierStatus};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The result of loading one tool's tree, whether it came from cache or a
@@ -35,7 +35,7 @@ pub fn load(tool_name: &str, refresh: bool) -> LoadedTool {
     let runner = Runner::new(default_tiers());
     let store = Store::open_default().ok();
     let tier_names: Vec<&str> = runner.tier_names();
-    let catalog_commit = mantui_extract::known_specs::catalog_meta().commit;
+    let catalog_commit = mandible_extract::known_specs::catalog_meta().commit;
     let key = CacheKey::build(tool_name, None, &tier_names, Some(catalog_commit));
 
     if refresh {
@@ -98,12 +98,12 @@ pub fn load(tool_name: &str, refresh: bool) -> LoadedTool {
 }
 
 /// The default tier set for this batch: Tier A only (spec roadmap phase 1).
-fn default_tiers() -> Vec<Box<dyn mantui_extract::ExtractionTier>> {
-    mantui_extract::default_tiers()
+fn default_tiers() -> Vec<Box<dyn mandible_extract::ExtractionTier>> {
+    mandible_extract::default_tiers()
 }
 
 fn catalog_stamp() -> Option<CatalogStamp> {
-    let meta = mantui_extract::known_specs::catalog_meta();
+    let meta = mandible_extract::known_specs::catalog_meta();
     Some(CatalogStamp {
         provider: meta.provider.to_string(),
         commit: meta.commit.to_string(),

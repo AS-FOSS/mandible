@@ -1,12 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-    "mantui-core",
-    "mantui-extract",
-    "mantui-cache",
-    "mantui-search",
-    "mantui-tui",
-    "mantui",
+    "mandible-core",
+    "mandible-extract",
+    "mandible-cache",
+    "mandible-search",
+    "mandible-tui",
+    "mandible",
     "xtask",
 ]
 
@@ -15,16 +15,16 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
-repository = "https://github.com/mantui-dev/mantui"
+repository = "https://github.com/sadigaxund/mandible"
 readme = "README.md"
-authors = ["mantui contributors"]
+authors = ["mandible contributors"]
 
 [workspace.dependencies]
-mantui-core = { path = "mantui-core", version = "0.1.0" }
-mantui-extract = { path = "mantui-extract", version = "0.1.0" }
-mantui-cache = { path = "mantui-cache", version = "0.1.0" }
-mantui-search = { path = "mantui-search", version = "0.1.0" }
-mantui-tui = { path = "mantui-tui", version = "0.1.0" }
+mandible-core = { path = "mandible-core", version = "0.1.0" }
+mandible-extract = { path = "mandible-extract", version = "0.1.0" }
+mandible-cache = { path = "mandible-cache", version = "0.1.0" }
+mandible-search = { path = "mandible-search", version = "0.1.0" }
+mandible-tui = { path = "mandible-tui", version = "0.1.0" }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

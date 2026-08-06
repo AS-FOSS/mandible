@@ -1,4 +1,4 @@
-//! `mantui-search`: fuzzy search over commands and flags (spec §10).
+//! `mandible-search`: fuzzy search over commands and flags (spec §10).
 //!
 //! Backed by `nucleo` (the matcher behind Helix). Index entries are
 //! [`NodeRef`]s — including [`NodeRef::Flag`], so a flag is a first-class,
@@ -11,7 +11,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use mantui_core::{CommandNode, NodeRef};
+use mandible_core::{CommandNode, NodeRef};
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::{Config, Matcher, Nucleo, Utf32Str};
 use std::sync::Arc;
@@ -187,7 +187,7 @@ fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<S
     }
 }
 
-fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mantui_core::Flag, path: &[String]) {
+fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Flag, path: &[String]) {
     let Some(key) = flag.key() else {
         return; // a flag with neither short nor long spelling can't be addressed
     };
@@ -229,7 +229,7 @@ fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mantui_core::Flag, path:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mantui_core::{Flag, Provenance, Source, Text, ValueKind};
+    use mandible_core::{Flag, Provenance, Source, Text, ValueKind};
     use std::time::{Duration, Instant};
 
     fn flag(short: Option<char>, long: Option<&str>, description: &str) -> Flag {
@@ -309,7 +309,7 @@ mod tests {
         match &results[0] {
             NodeRef::Flag { path, key } => {
                 assert_eq!(path, &vec!["git".to_string(), "rebase".to_string()]);
-                assert_eq!(key, &mantui_core::FlagKey::Long("autosquash".to_string()));
+                assert_eq!(key, &mandible_core::FlagKey::Long("autosquash".to_string()));
             }
             other => panic!("expected the top match to be the --autosquash flag, got {other:?}"),
         }
@@ -325,7 +325,7 @@ mod tests {
         let results = index.results();
         let has_flag_match = results
             .iter()
-            .any(|r| matches!(r, NodeRef::Flag { key, .. } if key == &mantui_core::FlagKey::Long("patch".to_string())));
+            .any(|r| matches!(r, NodeRef::Flag { key, .. } if key == &mandible_core::FlagKey::Long("patch".to_string())));
         assert!(
             has_flag_match,
             "expected --patch flag among results: {results:?}"

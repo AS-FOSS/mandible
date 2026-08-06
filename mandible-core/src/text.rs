@@ -1,7 +1,7 @@
 //! [`Text`]: the single point through which untrusted, tool-produced strings
-//! enter mantui's intermediate representation.
+//! enter mandible's intermediate representation.
 //!
-//! See spec §4.1. Every string mantui did not author itself — help output,
+//! See spec §4.1. Every string mandible did not author itself — help output,
 //! man page prose, completion script comments, catalog descriptions — must be
 //! wrapped in [`Text::sanitize`] before it can reach a widget. The type is
 //! deliberately awkward to construct any other way: its field is private and

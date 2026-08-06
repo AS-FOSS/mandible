@@ -16,7 +16,7 @@ use crate::errors::ExtractError;
 use crate::exec::{run_inert, InertArgv};
 use crate::resolve::ResolvedTool;
 use crate::tier::ExtractionTier;
-use mantui_core::{Authority, CommandNode, Provenance, Source, Text};
+use mandible_core::{Authority, CommandNode, Provenance, Source, Text};
 use std::path::Path;
 use std::time::Duration;
 

@@ -3,8 +3,8 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::tree::{flatten, TreeRow};
-use mantui_core::{resolve, CommandNode, NodeRef};
-use mantui_search::SearchIndex;
+use mandible_core::{resolve, CommandNode, NodeRef};
+use mandible_search::SearchIndex;
 use std::collections::HashSet;
 
 /// Which pane currently receives keyboard input.
@@ -98,7 +98,7 @@ pub struct App {
     /// §10: "Selecting one selects the parent command and scrolls the
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
-    pub selected_flag: Option<mantui_core::FlagKey>,
+    pub selected_flag: Option<mandible_core::FlagKey>,
 }
 
 impl App {
@@ -194,7 +194,7 @@ impl App {
 
     /// The set of command paths currently matching the active filter, if
     /// any, derived from [`SearchIndex::results`] — a
-    /// [`mantui_core::NodeRef::Flag`] match contributes its *parent*
+    /// [`mandible_core::NodeRef::Flag`] match contributes its *parent*
     /// command's path, since flags aren't tree rows (spec §2) but a flag
     /// match should still force-expand and highlight the command that
     /// owns it (spec §10: "Selecting one selects the parent command").
@@ -318,7 +318,7 @@ impl App {
     pub fn splice_filled_node(&mut self, path: &[String], node: CommandNode) {
         self.pending.remove(path);
         let has_children = !node.subcommands.is_empty();
-        if let Some(slot) = mantui_core::resolve_mut(&mut self.root, path) {
+        if let Some(slot) = mandible_core::resolve_mut(&mut self.root, path) {
             *slot = node;
         }
         if has_children {
@@ -475,7 +475,7 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mantui_core::{Provenance, Source};
+    use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
 
     /// Drive the (real, async, `nucleo`-backed) search index until its
@@ -595,8 +595,10 @@ mod tests {
         // surface its *parent* in the filtered tree.
         let mut root = sample_tree();
         let mut autosquash =
-            mantui_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
-        autosquash.description = Some(mantui_core::Text::sanitize("Automatically squash commits"));
+            mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+        autosquash.description = Some(mandible_core::Text::sanitize(
+            "Automatically squash commits",
+        ));
         root.subcommands[1].flags.push(autosquash); // rebase
 
         let mut app = App::new("git".to_string(), root);
@@ -619,7 +621,7 @@ mod tests {
         assert_eq!(app.rows()[app.selected].name, "rebase");
         assert_eq!(
             app.selected_flag,
-            Some(mantui_core::FlagKey::Long("autosquash".to_string()))
+            Some(mandible_core::FlagKey::Long("autosquash".to_string()))
         );
     }
 
@@ -631,8 +633,10 @@ mod tests {
     fn manual_navigation_clears_the_selected_flag_target() {
         let mut root = sample_tree();
         let mut autosquash =
-            mantui_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
-        autosquash.description = Some(mantui_core::Text::sanitize("Automatically squash commits"));
+            mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+        autosquash.description = Some(mandible_core::Text::sanitize(
+            "Automatically squash commits",
+        ));
         root.subcommands[1].flags.push(autosquash); // rebase
 
         let mut app = App::new("git".to_string(), root);
@@ -735,7 +739,7 @@ mod tests {
 
         let mut filled = CommandNode::new("rebase", Provenance::single(Source::HelpText));
         filled.children_filled = true;
-        filled.summary = Some(mantui_core::Text::sanitize("now filled"));
+        filled.summary = Some(mandible_core::Text::sanitize("now filled"));
         app.splice_filled_node(&path, filled);
 
         assert!(!app.is_pending(&path));

@@ -6,8 +6,8 @@
 //! only ever checked against whichever one tool the author happened to be
 //! looking at, and there's no way to see that fixing `tar` regressed `xz`.
 
-use mantui_core::{is_command_name_shaped, CommandNode};
-use mantui_extract::{default_tiers, Runner};
+use mandible_core::{is_command_name_shaped, CommandNode};
+use mandible_extract::{default_tiers, Runner};
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -407,7 +407,7 @@ mod tests {
     fn leaf(name: &str) -> CommandNode {
         CommandNode::new(
             name,
-            mantui_core::Provenance::single(mantui_core::Source::HelpText),
+            mandible_core::Provenance::single(mandible_core::Source::HelpText),
         )
     }
 
@@ -419,7 +419,7 @@ mod tests {
     fn structure_sanity_flags_fabricated_names() {
         let mut root = leaf("tar");
         let mut phantom = leaf("treat them as errors");
-        phantom.summary = Some(mantui_core::Text::sanitize(
+        phantom.summary = Some(mandible_core::Text::sanitize(
             "some trailing description text",
         ));
         root.subcommands.push(phantom);
@@ -444,7 +444,7 @@ mod tests {
         // lowercase-start regex but is a completely real binary.
         let mut root = leaf("NetworkManager");
         let mut child = leaf("status");
-        child.summary = Some(mantui_core::Text::sanitize("Show status"));
+        child.summary = Some(mandible_core::Text::sanitize("Show status"));
         root.subcommands.push(child);
         assert_eq!(structure_sanity(&root), 0);
     }
@@ -453,7 +453,7 @@ mod tests {
     fn structure_sanity_is_zero_for_a_clean_tree() {
         let mut root = leaf("git");
         let mut child = leaf("commit");
-        child.summary = Some(mantui_core::Text::sanitize("Record changes"));
+        child.summary = Some(mandible_core::Text::sanitize("Record changes"));
         root.subcommands.push(child);
         assert_eq!(structure_sanity(&root), 0);
     }

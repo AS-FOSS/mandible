@@ -1,7 +1,7 @@
-mantui — third-party data attribution
+mandible — third-party data attribution
 ======================================
 
-mantui's own source code is MIT-licensed (see LICENSE). This file records
+mandible's own source code is MIT-licensed (see LICENSE). This file records
 the provenance and licensing of third-party *data* vendored into the
 repository, per spec.md §14/§15 — vendored data is a distinct legal
 question from crate dependency licensing, and the more likely real exposure
@@ -20,7 +20,7 @@ carapace-spec catalog (Tier A, `vendor/carapace-specs.json`)
 
 The exact commit and generation timestamp this snapshot was vendored from
 are recorded in the file itself, at the `_meta` key, and are also surfaced
-at runtime via `mantui --doctor <tool>` and the TUI's provenance footer
+at runtime via `mandible --doctor <tool>` and the TUI's provenance footer
 (spec §7 "Staleness", §11):
 
     "_meta": {

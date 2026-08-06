@@ -1,8 +1,8 @@
-//! `mantui-extract`: the tiered CLI extraction pipeline.
+//! `mandible-extract`: the tiered CLI extraction pipeline.
 //!
-//! See spec §5-§7. Every tier normalizes into [`mantui_core::CommandNode`]
+//! See spec §5-§7. Every tier normalizes into [`mandible_core::CommandNode`]
 //! via the [`ExtractionTier`] trait; the [`Runner`] drives the configured
-//! tiers and merges their output with [`mantui_core::merge_nodes`].
+//! tiers and merges their output with [`mandible_core::merge_nodes`].
 //!
 //! `exec/` is the only module in this crate — and the only module in the
 //! whole workspace — permitted to use `std::process`. See `exec`'s
@@ -50,7 +50,7 @@ pub use tier::ExtractionTier;
 /// unimplemented (deferred entirely, per spec's roadmap). Whichever
 /// features are enabled contributes its tier; conflict resolution between
 /// tiers (when more than one contributes the same node) is by
-/// [`mantui_core::Authority`], not attempt order.
+/// [`mandible_core::Authority`], not attempt order.
 // `vec![]` can't express the cfg-gated pushes below (each tier only
 // exists to push when its feature is enabled).
 #[allow(clippy::vec_init_then_push)]

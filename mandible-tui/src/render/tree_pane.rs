@@ -21,7 +21,7 @@
 //!   a handful of useless characters.
 //!
 //! Spec §9.2/§10: matched search characters are underlined, and only
-//! within the name — never the summary. [`mantui_search::match_indices`]
+//! within the name — never the summary. [`mandible_search::match_indices`]
 //! re-runs a match scoped to just the row's own name (not the full
 //! search haystack, which for a command also includes its summary and
 //! for a flag its description), so the returned positions are always
@@ -155,7 +155,7 @@ fn build_row_line(
     // are stable, but only ever rendered against the surviving
     // (truncated) prefix of it, which is what's actually on screen.
     let match_idx = query
-        .map(|q| mantui_search::match_indices(&name, q))
+        .map(|q| mandible_search::match_indices(&name, q))
         .unwrap_or_default();
     let mut spans = vec![Span::styled(prefix, base_style)];
     spans.extend(styled_name_spans(&truncated_name, &match_idx, base_style));

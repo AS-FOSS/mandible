@@ -1,12 +1,12 @@
 //! End-to-end proof of spec §6 rules 1-3, run through the actual sanctioned
-//! path (`mantui_extract::exec::run_inert`), against a shim binary that
+//! path (`mandible_extract::exec::run_inert`), against a shim binary that
 //! logs exactly what it was invoked with. Spec §13.3 calls this out
 //! explicitly as a required test class ("Execution-policy tests: a shim
 //! binary logs argv/env; any invocation outside the allowlist fails the
 //! suite.") and as the fix for a specific prior bug ("Real-argv tests":
 //! a mocked probe can pass while the real argv construction is broken).
 
-use mantui_extract::exec::{run_inert, InertArgv};
+use mandible_extract::exec::{run_inert, InertArgv};
 use std::io::Write;
 use std::time::Duration;
 

@@ -14,7 +14,7 @@ use std::io::{self, IsTerminal, Stdout};
 /// A live terminal handle, backed by `crossterm`.
 pub type Term = Terminal<CrosstermBackend<Stdout>>;
 
-/// True if stdout is an interactive terminal. mantui must check this and
+/// True if stdout is an interactive terminal. mandible must check this and
 /// fail with a clear message rather than let `enable_raw_mode` produce an
 /// opaque OS error ("No such device or address") when stdout is redirected
 /// or there is no controlling tty.

@@ -7,8 +7,8 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Developer tasks for the mantui workspace: catalog index verification and the extraction coverage harness (spec §13.1)."
-keywords = ["cli", "mantui", "xtask"]
+description = "Developer tasks for the mandible workspace: catalog index verification and the extraction coverage harness (spec §13.1)."
+keywords = ["cli", "mandible", "xtask"]
 categories = ["development-tools"]
 publish = false
 
@@ -17,8 +17,8 @@ name = "xtask"
 path = "src/main.rs"
 
 [dependencies]
-mantui-core.workspace = true
-mantui-extract.workspace = true
+mandible-core.workspace = true
+mandible-extract.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 rayon.workspace = true

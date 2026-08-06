@@ -1,4 +1,4 @@
-//! `mantui`: the binary. Wires the extraction pipeline, the cache, and the
+//! `mandible`: the binary. Wires the extraction pipeline, the cache, and the
 //! TUI together; also hosts the non-interactive `--doctor` diagnostic.
 
 #![forbid(unsafe_code)]
@@ -14,7 +14,7 @@ use cli::Cli;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_env("MANTUI_LOG"))
+        .with_env_filter(tracing_subscriber::EnvFilter::from_env("MANDIBLE_LOG"))
         .with_writer(std::io::stderr)
         .try_init()
         .ok();
@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let Some(tool) = cli.target_tool() else {
-        anyhow::bail!("usage: mantui <tool>  (or: mantui --doctor <tool>)");
+        anyhow::bail!("usage: mandible <tool>  (or: mandible --doctor <tool>)");
     };
     let tool = tool.to_string();
 
@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
         doctor::print_report(&loaded);
         // Note: deliberately `anyhow::bail!` rather than
         // `std::process::exit`, so `std::process` stays confined to
-        // `mantui-extract/src/exec/` workspace-wide (spec §6, §8) — even
+        // `mandible-extract/src/exec/` workspace-wide (spec §6, §8) — even
         // though `exit` doesn't spawn anything, keeping the grep-based
         // invariant test literal and unambiguous is worth the minor
         // indirection.
@@ -42,10 +42,10 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    if !mantui_tui::terminal::stdout_is_tty() {
+    if !mandible_tui::terminal::stdout_is_tty() {
         anyhow::bail!(
-            "mantui requires an interactive terminal (stdout is not a tty). \
-             Try running it directly in a terminal, or use `mantui --doctor {tool}` \
+            "mandible requires an interactive terminal (stdout is not a tty). \
+             Try running it directly in a terminal, or use `mandible --doctor {tool}` \
              for a non-interactive report."
         );
     }
@@ -53,12 +53,12 @@ fn main() -> anyhow::Result<()> {
     let loaded = pipeline::load(&tool, cli.refresh);
     let Some(root) = loaded.root else {
         anyhow::bail!(
-            "no extraction tier could produce a tree for {tool:?}. Run `mantui --doctor {tool}` \
+            "no extraction tier could produce a tree for {tool:?}. Run `mandible --doctor {tool}` \
              for details on what was tried."
         );
     };
 
-    let mut app = mantui_tui::App::new(tool, root);
+    let mut app = mandible_tui::App::new(tool, root);
     app.from_cache = loaded.from_cache;
 
     app_runner::run(app)

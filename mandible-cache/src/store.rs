@@ -1,4 +1,4 @@
-//! Reading and writing cache entries at `$XDG_CACHE_HOME/mantui/` (spec
+//! Reading and writing cache entries at `$XDG_CACHE_HOME/mandible/` (spec
 //! §11 "Format").
 
 use crate::entry::CacheEntry;
@@ -34,9 +34,9 @@ pub struct Store {
 
 impl Store {
     /// Open (creating if needed) the standard XDG cache directory for
-    /// mantui.
+    /// mandible.
     pub fn open_default() -> Result<Store, CacheError> {
-        let proj_dirs = directories::ProjectDirs::from("", "", "mantui").ok_or_else(|| {
+        let proj_dirs = directories::ProjectDirs::from("", "", "mandible").ok_or_else(|| {
             CacheError::Directory(std::io::Error::other(
                 "could not determine a home directory to resolve the cache path",
             ))
@@ -99,7 +99,7 @@ impl Store {
         Ok(())
     }
 
-    /// Delete a tool's cache entry, if present. Used by `mantui --refresh`
+    /// Delete a tool's cache entry, if present. Used by `mandible --refresh`
     /// and the `r` key (spec §11 "Invalidation"). Not an error if the entry
     /// didn't exist.
     pub fn invalidate(&self, tool: &str) -> Result<(), CacheError> {
@@ -131,7 +131,7 @@ fn encode_entry(entry: &CacheEntry) -> Result<Vec<u8>, CacheError> {
 mod tests {
     use super::*;
     use crate::entry::CacheEntry;
-    use mantui_core::{CommandNode, Provenance, Source};
+    use mandible_core::{CommandNode, Provenance, Source};
 
     fn sample_key() -> CacheKey {
         CacheKey::build(

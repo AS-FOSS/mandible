@@ -6,7 +6,7 @@
 //! navigation (↑/↓) — see [`crate::app::App::ensure_rows_fresh`], which only
 //! rebuilds when a dirty flag is set.
 
-use mantui_core::CommandNode;
+use mandible_core::CommandNode;
 use std::collections::HashSet;
 
 /// One visible row in the tree pane.
@@ -49,9 +49,9 @@ pub struct TreeRow {
 /// in the set, plus their ancestor chain, which is force-shown-open
 /// regardless of `expanded` (spec §10: "matching a node force-expands its
 /// ancestor chain"). This function itself does no text matching — the
-/// caller (`App`, backed by `mantui-search`'s `nucleo` index) decides what
+/// caller (`App`, backed by `mandible-search`'s `nucleo` index) decides what
 /// matches and hands over the resulting set of command paths; a
-/// [`mantui_core::NodeRef::Flag`] match is represented here by its *parent
+/// [`mandible_core::NodeRef::Flag`] match is represented here by its *parent
 /// command's* path, since flags aren't tree rows (spec §2: "Flags are not
 /// tree rows").
 pub fn flatten(
@@ -188,7 +188,7 @@ fn push_filtered(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mantui_core::{Provenance, Source, Text};
+    use mandible_core::{Provenance, Source, Text};
 
     fn node(name: &str, children: Vec<CommandNode>) -> CommandNode {
         let mut n = CommandNode::new(name, Provenance::single(Source::HelpText));

@@ -1,5 +1,5 @@
 //! Spec §6/§8 enforcement: `std::process` (and `Command::new` specifically)
-//! may appear **only** inside `mantui-extract/src/exec/`. This walks the
+//! may appear **only** inside `mandible-extract/src/exec/`. This walks the
 //! source tree of every crate in the workspace and fails if it finds the
 //! forbidden patterns anywhere else, so the boundary is auditable rather
 //! than aspirational (spec §8: "A `#![deny]`-style test greps the
@@ -12,16 +12,16 @@ use std::path::{Path, PathBuf};
 fn command_new_and_std_process_appear_only_in_exec() {
     let workspace_root = workspace_root();
     let crate_src_dirs = [
-        "mantui-core/src",
-        "mantui-extract/src",
-        "mantui-cache/src",
-        "mantui-search/src",
-        "mantui-tui/src",
-        "mantui/src",
+        "mandible-core/src",
+        "mandible-extract/src",
+        "mandible-cache/src",
+        "mandible-search/src",
+        "mandible-tui/src",
+        "mandible/src",
         "xtask/src",
     ];
 
-    let allowed_dir = workspace_root.join("mantui-extract/src/exec");
+    let allowed_dir = workspace_root.join("mandible-extract/src/exec");
     let mut violations = Vec::new();
 
     for crate_dir in crate_src_dirs {
@@ -56,17 +56,17 @@ fn command_new_and_std_process_appear_only_in_exec() {
 
     assert!(
         violations.is_empty(),
-        "std::process / Command::new found outside mantui-extract/src/exec/:\n{}",
+        "std::process / Command::new found outside mandible-extract/src/exec/:\n{}",
         violations.join("\n")
     );
 }
 
 fn workspace_root() -> PathBuf {
-    // This crate's manifest dir is `<workspace_root>/mantui-extract`.
+    // This crate's manifest dir is `<workspace_root>/mandible-extract`.
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest_dir
         .parent()
-        .expect("mantui-extract has a parent workspace dir")
+        .expect("mandible-extract has a parent workspace dir")
         .to_path_buf()
 }
 

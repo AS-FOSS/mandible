@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render a TUI program's real screen output in a headless environment.
 
-CI and agent sandboxes have no controlling terminal, so running mantui directly
+CI and agent sandboxes have no controlling terminal, so running mandible directly
 fails with "enable raw mode: No such device or address". This forks a real
 pseudo-terminal, gives it an explicit window size, drives it with keystrokes,
 and replays the output through a terminal emulator to produce the actual screen
@@ -22,7 +22,7 @@ Requires `pyte` (terminal emulator):
 Usage:
 
     pty_screenshot.py <cols> <rows> <program> [args...]
-    pty_screenshot.py --keys 'j,j,<right>,/push' 100 28 ./target/release/mantui git
+    pty_screenshot.py --keys 'j,j,<right>,/push' 100 28 ./target/release/mandible git
 
 Keys are comma-separated. Literal text is sent as-is; `<right>`, `<left>`,
 `<up>`, `<down>`, `<enter>`, `<esc>`, `<tab>`, `<bs>` send the escape sequence.

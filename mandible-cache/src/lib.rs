@@ -1,7 +1,7 @@
-//! `mantui-cache`: the on-disk extraction cache (spec §11).
+//! `mandible-cache`: the on-disk extraction cache (spec §11).
 //!
 //! Extraction is too slow to redo on every launch (spec §5.1), so results
-//! are cached at `$XDG_CACHE_HOME/mantui/`, one gzip-compressed JSON file
+//! are cached at `$XDG_CACHE_HOME/mandible/`, one gzip-compressed JSON file
 //! per tool, keyed by file identity rather than a content hash (hashing a
 //! 50 MB `docker` binary costs more than the parse it protects).
 

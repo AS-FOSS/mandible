@@ -3,7 +3,7 @@
 
 use crate::errors::ExtractError;
 use crate::resolve::ResolvedTool;
-use mantui_core::{Authority, CommandNode};
+use mandible_core::{Authority, CommandNode};
 
 /// One source of `CommandNode` data: a known-spec catalog, `--help` grammar
 /// parser, completion script parser, man page extractor, or native probe.
@@ -33,7 +33,7 @@ pub trait ExtractionTier: Send + Sync {
     /// catalog).
     ///
     /// `path` includes the tool's own name as its first element, matching
-    /// [`mantui_core::NodeRef::Command`]'s convention.
+    /// [`mandible_core::NodeRef::Command`]'s convention.
     fn extract_node(
         &self,
         tool: &ResolvedTool,

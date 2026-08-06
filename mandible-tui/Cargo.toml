@@ -1,5 +1,5 @@
 [package]
-name = "mantui-tui"
+name = "mandible-tui"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,17 +7,17 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "The ratatui-based terminal UI for mantui: tree pane, detail pane, search bar, status bar, and keybinding overlay. Not independently useful outside the mantui workspace."
-keywords = ["cli", "tui", "ratatui", "mantui"]
+description = "The ratatui-based terminal UI for mandible: tree pane, detail pane, search bar, status bar, and keybinding overlay. Not independently useful outside the mandible workspace."
+keywords = ["cli", "tui", "ratatui", "mandible"]
 categories = ["command-line-interface", "visualization"]
 
 [lib]
-name = "mantui_tui"
+name = "mandible_tui"
 path = "src/lib.rs"
 
 [dependencies]
-mantui-core.workspace = true
-mantui-search.workspace = true
+mandible-core.workspace = true
+mandible-search.workspace = true
 ratatui.workspace = true
 crossterm.workspace = true
 unicode-width.workspace = true

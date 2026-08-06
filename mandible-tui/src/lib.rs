@@ -1,4 +1,4 @@
-//! `mantui-tui`: the `ratatui`-based terminal UI (spec §2, §9).
+//! `mandible-tui`: the `ratatui`-based terminal UI (spec §2, §9).
 //!
 //! This crate is split so its core logic is testable without a real tty:
 //! [`app`] holds all mutable state as plain data (no rendering, no
@@ -8,7 +8,7 @@
 //! `TestBackend`, which is how this crate's rendering is verified (this
 //! sandboxed environment has no tty to run the real thing against).
 //!
-//! **Search:** `App` owns a `mantui_search::SearchIndex` (spec §10):
+//! **Search:** `App` owns a `mandible_search::SearchIndex` (spec §10):
 //! commands and flags are both indexed, ranked with `nucleo`'s fuzzy
 //! scoring plus an exact-name-prefix boost, and driven via
 //! `App::tick_search` from the caller's event-loop poll timeout rather

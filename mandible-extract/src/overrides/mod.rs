@@ -1,6 +1,6 @@
 //! Tier F: user overrides (spec §7 Tier F).
 //!
-//! `~/.config/mantui/overrides/<tool>.toml`, merged with
+//! `~/.config/mandible/overrides/<tool>.toml`, merged with
 //! `Authority { structural: 255, prose: 255 }` — the highest of any tier,
 //! so a user override always wins a merge conflict against every other
 //! source (spec §4.4). This exists so the rare bad case (a tool this
@@ -12,8 +12,8 @@
 //! first hard tool gets an override committed to git, and the per-tool
 //! patch pile that the tiered architecture exists to prevent begins. This
 //! module only ever reads from the user's own config directory
-//! (`directories::ProjectDirs`, i.e. `$XDG_CONFIG_HOME/mantui/overrides`,
-//! `~/.config/mantui/overrides` on a default Linux setup); it has no code
+//! (`directories::ProjectDirs`, i.e. `$XDG_CONFIG_HOME/mandible/overrides`,
+//! `~/.config/mandible/overrides` on a default Linux setup); it has no code
 //! path that reads from, or writes to, anywhere inside this repository.
 //!
 //! The pipeline never depends on an override file existing: [`detect`]
@@ -26,7 +26,7 @@
 use crate::errors::ExtractError;
 use crate::resolve::ResolvedTool;
 use crate::tier::ExtractionTier;
-use mantui_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
+use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -87,11 +87,11 @@ impl ExtractionTier for OverridesTier {
     }
 }
 
-/// `$XDG_CONFIG_HOME/mantui/overrides/<tool>.toml` (or the equivalent
+/// `$XDG_CONFIG_HOME/mandible/overrides/<tool>.toml` (or the equivalent
 /// per-OS config directory `directories::ProjectDirs` resolves), if a home
 /// directory could be determined at all.
 fn override_path(tool_name: &str) -> Option<PathBuf> {
-    let dirs = directories::ProjectDirs::from("", "", "mantui")?;
+    let dirs = directories::ProjectDirs::from("", "", "mandible")?;
     Some(
         dirs.config_dir()
             .join("overrides")
@@ -225,12 +225,12 @@ mod tests {
     use std::io::Write;
 
     /// Write an override file under `xdg_config_home` at the exact path
-    /// `override_path` will look for it — `<xdg_config_home>/mantui/
+    /// `override_path` will look for it — `<xdg_config_home>/mandible/
     /// overrides/<tool>.toml`, mirroring `ProjectDirs`' own project
     /// subdirectory rather than assuming `xdg_config_home` itself is
-    /// mantui's config dir.
+    /// mandible's config dir.
     fn write_override(xdg_config_home: &std::path::Path, tool: &str, contents: &str) {
-        let overrides_dir = xdg_config_home.join("mantui").join("overrides");
+        let overrides_dir = xdg_config_home.join("mandible").join("overrides");
         std::fs::create_dir_all(&overrides_dir).unwrap();
         let mut f = std::fs::File::create(overrides_dir.join(format!("{tool}.toml"))).unwrap();
         f.write_all(contents.as_bytes()).unwrap();

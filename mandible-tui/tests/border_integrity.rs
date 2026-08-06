@@ -1,9 +1,9 @@
 //! **The regression test for the bug that was reverted twice** (spec §9,
-//! §13.3): a previous implementation of mantui had description text
+//! §13.3): a previous implementation of mandible had description text
 //! overwrite the tree pane's `│` border while scrolling. Two attempts to
 //! fix it inside the tree widget were reverted. The real fix is at the IR
-//! boundary (`Text::sanitize`, mantui-core) plus display-width-safe
-//! truncation at the widget layer (`mantui_tui::sanitize`) — this test
+//! boundary (`Text::sanitize`, mandible-core) plus display-width-safe
+//! truncation at the widget layer (`mandible_tui::sanitize`) — this test
 //! proves that combination holds under adversarial input.
 //!
 //! Renders real `App`/`render::render` frames via
@@ -12,8 +12,8 @@
 //! scroll offsets, and asserts every border cell in the frame buffer still
 //! holds its expected border glyph.
 
-use mantui_core::{CommandNode, Provenance, Source, Text};
-use mantui_tui::app::App;
+use mandible_core::{CommandNode, Provenance, Source, Text};
+use mandible_tui::app::App;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
@@ -199,12 +199,12 @@ fn borders_survive_adversarial_text_across_widths_and_scroll() {
                 let mut terminal = Terminal::new(backend).unwrap();
                 terminal
                     .draw(|frame| {
-                        mantui_tui::render::render(frame, &app);
+                        mandible_tui::render::render(frame, &app);
                     })
                     .unwrap();
 
                 let buffer = terminal.backend().buffer().clone();
-                let regions = mantui_tui::layout::compute(
+                let regions = mandible_tui::layout::compute(
                     ratatui::layout::Rect::new(0, 0, width, height),
                     app.focus,
                 );
@@ -231,9 +231,9 @@ fn borders_survive_with_each_row_selected_and_detail_focused() {
 
     for selected in 0..row_count {
         for focus in [
-            mantui_tui::Focus::Tree,
-            mantui_tui::Focus::Detail,
-            mantui_tui::Focus::Search,
+            mandible_tui::Focus::Tree,
+            mandible_tui::Focus::Detail,
+            mandible_tui::Focus::Search,
         ] {
             app.selected = selected;
             app.focus = focus;
@@ -242,12 +242,12 @@ fn borders_survive_with_each_row_selected_and_detail_focused() {
             let mut terminal = Terminal::new(backend).unwrap();
             terminal
                 .draw(|frame| {
-                    mantui_tui::render::render(frame, &app);
+                    mandible_tui::render::render(frame, &app);
                 })
                 .unwrap();
 
             let buffer = terminal.backend().buffer().clone();
-            let regions = mantui_tui::layout::compute(
+            let regions = mandible_tui::layout::compute(
                 ratatui::layout::Rect::new(0, 0, width, height),
                 app.focus,
             );
@@ -270,14 +270,15 @@ fn borders_survive_help_overlay() {
     let mut terminal = Terminal::new(backend).unwrap();
     terminal
         .draw(|frame| {
-            mantui_tui::render::render(frame, &app);
+            mandible_tui::render::render(frame, &app);
         })
         .unwrap();
     // The overlay itself uses Clear + a fresh block; just prove the frame
     // renders without panicking and the outer search bar border (drawn
     // before the overlay) is still intact where not covered.
     let buffer = terminal.backend().buffer().clone();
-    let regions = mantui_tui::layout::compute(ratatui::layout::Rect::new(0, 0, 80, 24), app.focus);
+    let regions =
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, 80, 24), app.focus);
     assert_border_intact(&buffer, regions.search);
 }
 
@@ -285,18 +286,20 @@ fn borders_survive_help_overlay() {
 fn narrow_terminal_stacked_layout_borders_survive() {
     let mut app = build_app();
     for &width in &[30u16, 40, 49] {
-        for focus in [mantui_tui::Focus::Tree, mantui_tui::Focus::Detail] {
+        for focus in [mandible_tui::Focus::Tree, mandible_tui::Focus::Detail] {
             app.focus = focus;
             let backend = TestBackend::new(width, 24);
             let mut terminal = Terminal::new(backend).unwrap();
             terminal
                 .draw(|frame| {
-                    mantui_tui::render::render(frame, &app);
+                    mandible_tui::render::render(frame, &app);
                 })
                 .unwrap();
             let buffer = terminal.backend().buffer().clone();
-            let regions =
-                mantui_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, 24), app.focus);
+            let regions = mandible_tui::layout::compute(
+                ratatui::layout::Rect::new(0, 0, width, 24),
+                app.focus,
+            );
             assert_border_intact(&buffer, regions.search);
             if let Some(tree_rect) = regions.tree {
                 assert_border_intact(&buffer, tree_rect);

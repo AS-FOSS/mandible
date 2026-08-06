@@ -2,7 +2,7 @@
 //! shared IR. See the vendoring notes in `scripts/vendor_carapace_specs.py`
 //! for the schema this mirrors.
 
-use mantui_core::{CommandNode, Flag, Positional, Provenance, Source, Text, ValueKind};
+use mandible_core::{CommandNode, Flag, Positional, Provenance, Source, Text, ValueKind};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -87,7 +87,7 @@ pub(super) fn convert(raw: RawCommand, inherited: &[Flag]) -> CommandNode {
     flags.extend(inherited.iter().cloned());
     flags.extend(own_flags);
     flags.extend(persistent.iter().cloned());
-    let flags = mantui_core::pair_aliases(flags);
+    let flags = mandible_core::pair_aliases(flags);
 
     let mut next_inherited = inherited.to_vec();
     for f in &persistent {

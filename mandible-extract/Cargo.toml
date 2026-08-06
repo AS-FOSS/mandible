@@ -1,5 +1,5 @@
 [package]
-name = "mantui-extract"
+name = "mandible-extract"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,13 +7,13 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "The tiered CLI extraction pipeline for mantui: known-spec catalogs, help-text grammar, completion-script parsing, man pages, and native probes, merged behind one ExtractionTier trait. Not independently useful outside the mantui workspace."
-keywords = ["cli", "introspection", "mantui"]
+description = "The tiered CLI extraction pipeline for mandible: known-spec catalogs, help-text grammar, completion-script parsing, man pages, and native probes, merged behind one ExtractionTier trait. Not independently useful outside the mandible workspace."
+keywords = ["cli", "introspection", "mandible"]
 categories = ["command-line-interface", "parser-implementations"]
 build = "build.rs"
 
 [lib]
-name = "mantui_extract"
+name = "mandible_extract"
 path = "src/lib.rs"
 
 [features]
@@ -26,7 +26,7 @@ manpage = ["dep:cc", "dep:bindgen"]
 withfig = []
 
 [dependencies]
-mantui-core.workspace = true
+mandible-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true

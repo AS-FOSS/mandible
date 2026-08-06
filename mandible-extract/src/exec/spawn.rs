@@ -138,7 +138,7 @@ pub fn run_inert(
     // reach. That residual is documented, not silently assumed away — see
     // this module's top-level doc comment.
     let scratch = tempfile::Builder::new()
-        .prefix("mantui-exec-")
+        .prefix("mandible-exec-")
         .tempdir()
         .ok();
     if let Some(dir) = &scratch {
@@ -380,7 +380,7 @@ mod tests {
     /// a side effect of being run at all — a font-cache builder created
     /// `fonts.dir`/`fonts.scale`, and something MySQL-related created
     /// `.mysql.<pid>` — even though `--help`/`-h` is the only argv shape
-    /// ever passed. A child's CWD must never be the directory mantui
+    /// ever passed. A child's CWD must never be the directory mandible
     /// itself was launched from.
     #[test]
     fn child_working_directory_is_not_the_caller_cwd() {
@@ -392,7 +392,7 @@ mod tests {
         assert_ne!(
             std::path::Path::new(&child_cwd),
             caller_cwd.as_path(),
-            "child ran in mantui's own working directory: {child_cwd}"
+            "child ran in mandible's own working directory: {child_cwd}"
         );
     }
 
@@ -409,7 +409,7 @@ mod tests {
     #[test]
     fn probe_cannot_write_into_the_real_home() {
         let real_home = std::env::var("HOME").expect("HOME must be set to run this test");
-        let marker_name = format!("mantui-test-leak-{}", std::process::id());
+        let marker_name = format!("mandible-test-leak-{}", std::process::id());
         let real_home_marker = std::path::Path::new(&real_home).join(&marker_name);
         // Belt-and-braces: make sure a stale run never leaves this
         // assertion vacuously true.

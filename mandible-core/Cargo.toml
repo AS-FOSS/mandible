@@ -1,5 +1,5 @@
 [package]
-name = "mantui-core"
+name = "mandible-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,12 +7,12 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Shared intermediate representation (IR) for mantui: CommandNode, Flag, Text sanitization, Provenance, Authority, and merge logic. Not independently useful outside the mantui workspace."
+description = "Shared intermediate representation (IR) for mandible: CommandNode, Flag, Text sanitization, Provenance, Authority, and merge logic. Not independently useful outside the mandible workspace."
 keywords = ["cli", "tui", "documentation", "introspection"]
 categories = ["command-line-interface", "data-structures"]
 
 [lib]
-name = "mantui_core"
+name = "mandible_core"
 path = "src/lib.rs"
 
 [dependencies]

@@ -14,7 +14,7 @@
 //! each iteration (`Warmer::drain`), never by touching `App` from a
 //! background thread.
 
-use mantui_extract::{FillResult, ResolvedTool, Runner};
+use mandible_extract::{FillResult, ResolvedTool, Runner};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
@@ -52,7 +52,7 @@ impl Warmer {
             .min(8);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
-            .thread_name(|i| format!("mantui-warm-{i}"))
+            .thread_name(|i| format!("mandible-warm-{i}"))
             .build()
             .expect("failed to build the background warming thread pool");
         let (tx, rx) = mpsc::channel();
@@ -70,7 +70,7 @@ impl Warmer {
         runner: Arc<Runner>,
         tool: ResolvedTool,
         path: Vec<String>,
-        existing: mantui_core::CommandNode,
+        existing: mandible_core::CommandNode,
         warm_children: bool,
     ) {
         if self.cancelled.load(Ordering::Relaxed) {
@@ -101,7 +101,7 @@ impl Warmer {
         &self,
         runner: &Arc<Runner>,
         tool: &ResolvedTool,
-        node: &mantui_core::CommandNode,
+        node: &mandible_core::CommandNode,
         path: &[String],
     ) {
         for child in &node.subcommands {

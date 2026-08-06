@@ -1,23 +1,23 @@
 //! The interactive event loop: polls terminal events, translates them via
-//! `mantui_tui::event`, and renders each frame. Also owns lazy per-node
+//! `mandible_tui::event`, and renders each frame. Also owns lazy per-node
 //! extraction (spec §5.2 step 3) and background depth-warming (step 4) —
-//! both live here rather than in `mantui-tui`, since `App` is pure state
+//! both live here rather than in `mandible-tui`, since `App` is pure state
 //! with no extraction I/O of its own.
 //!
 //! **Not exercised by the automated test suite.** This sandbox has no tty
 //! (`enable_raw_mode` fails with "No such device or address" here), so
-//! this module's correctness rests on `mantui-tui`'s own state-machine and
+//! this module's correctness rests on `mandible-tui`'s own state-machine and
 //! render tests (which cover everything below the terminal I/O boundary),
-//! `mantui-extract`'s `Runner::fill_node` tests (which cover the
+//! `mandible-extract`'s `Runner::fill_node` tests (which cover the
 //! extraction/merge logic this module calls), and manual review. See the
 //! batch report for this called out explicitly.
 
 use crate::background::Warmer;
 use anyhow::Context;
 use crossterm::event::{self, Event};
-use mantui_extract::{default_tiers, resolve_tool, Runner};
-use mantui_tui::app::App;
-use mantui_tui::{clipboard, event as tui_event, layout, render, terminal, Effect};
+use mandible_extract::{default_tiers, resolve_tool, Runner};
+use mandible_tui::app::App;
+use mandible_tui::{clipboard, event as tui_event, layout, render, terminal, Effect};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -93,7 +93,7 @@ fn apply_effect(
     app: &mut App,
     effect: Effect,
     runner: &Arc<Runner>,
-    resolved: &mantui_extract::ResolvedTool,
+    resolved: &mandible_extract::ResolvedTool,
     warmer: &Warmer,
 ) -> bool {
     match effect {
@@ -119,7 +119,7 @@ fn apply_effect(
             }
         }
         Effect::Fill(path) => {
-            if let Some(existing) = mantui_core::resolve(&app.root, &path).cloned() {
+            if let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() {
                 app.mark_pending(path.clone());
                 warmer.submit(Arc::clone(runner), resolved.clone(), path, existing, true);
             }

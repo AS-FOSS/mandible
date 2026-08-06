@@ -8,6 +8,16 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Changed (batch 5)
+
+- **Project renamed from `mantui` to `mandible`.** Canonical repository is
+  now `https://github.com/sadigaxund/mandible`. All 7 crates, the binary
+  (`mantui` → `mandible`), user-facing paths (`~/.cache/mantui/` →
+  `~/.cache/mandible/`, `~/.config/mantui/overrides/` →
+  `~/.config/mandible/overrides/`), and every doc/prose reference were
+  renamed. No migration shim: nothing had shipped under the old name, so
+  there is no stale on-disk state to migrate.
+
 ### Fixed (batch 3)
 
 - **Tier B invented subcommands** [M-10]: wrapped description continuation
@@ -45,7 +55,7 @@ once it reaches a published 0.1.0 release.
 
 - **Structure-sanity coverage column** (spec §13.1): the scoreboard now
   carries a count of descendant nodes whose name fails
-  `mantui_core::is_command_name_shaped` or that carry nothing at all (no
+  `mandible_core::is_command_name_shaped` or that carry nothing at all (no
   flags, no children, no summary) — the shape a mis-parsed fragment
   takes even when its name happens to look valid. Any non-zero count
   marks the tool `suspicious`, checked before `%described` (which the
@@ -56,10 +66,10 @@ once it reaches a published 0.1.0 release.
   viewport, which would jump while scrolling); truncation breaks at a
   word boundary with `…` instead of a hard character cut; the name
   column never yields to make room for a summary.
-- **The styling contract** (spec §9.2), new `mantui-tui::style` module:
+- **The styling contract** (spec §9.2), new `mandible-tui::style` module:
   `DarkGray` instead of `Modifier::DIM` for muted text; every style
   degrades under `NO_COLOR`; search-matched characters are underlined
-  within a row's name (via a new `mantui_search::match_indices`,
+  within a row's name (via a new `mandible_search::match_indices`,
   independent of the ranking match against a command's or flag's full
   haystack).
 - **Detail pane rewrite**: a flag's description continuation now
@@ -75,7 +85,7 @@ once it reaches a published 0.1.0 release.
 
 ### Added (batch 2)
 
-- **Tier B** (`mantui-extract::help_text`): a `winnow`-based flag-spec
+- **Tier B** (`mandible-extract::help_text`): a `winnow`-based flag-spec
   grammar plus a layout-driven, content-shaped (not heading-text-keyed)
   section scanner for `--help`/`-h` output. Reads stdout and stderr
   without requiring exit 0 (spec [M-8]); recovers a same-indent "word
@@ -83,22 +93,22 @@ once it reaches a published 0.1.0 release.
   Preserves section headings as `Flag::group`/`CommandNode::group`.
 - Lazy, node-at-a-time extraction (spec §5.2 steps 3-4):
   `Runner::fill_node` re-probes incremental tiers for one node on
-  expand; `mantui-tui`'s `App` tracks pending fills and renders a
+  expand; `mandible-tui`'s `App` tracks pending fills and renders a
   spinner row; the binary's `background.rs` speculatively warms one
   level of a node's children on a bounded `rayon` pool after a
   user-triggered fill, cancelled on quit.
-- Real `nucleo`-backed search (spec §10, `mantui-search`): commands and
+- Real `nucleo`-backed search (spec §10, `mandible-search`): commands and
   flags are both independently indexed and addressable via `NodeRef`,
   ranked with fuzzy score plus an exact-name-prefix boost, driven from
-  the event loop's poll timeout. `mantui-tui`'s tree filtering now takes
+  the event loop's poll timeout. `mandible-tui`'s tree filtering now takes
   a precomputed matching-path set rather than doing its own text search.
 - The extraction coverage harness (`cargo xtask coverage`, spec §13.1):
   scans every executable on `PATH`, runs the full pipeline against each
   in parallel, and emits a scoreboard (checked in as
   `coverage-scoreboard.txt`) with a `--check` regression mode.
-- `mantui-cache`: cache keys now include `SOURCE_FINGERPRINT`, a
-  build-time hash of `mantui-core/src` + `mantui-extract/src`
-  (`mantui-cache/build.rs`), and the vendored catalog's commit — fixes a
+- `mandible-cache`: cache keys now include `SOURCE_FINGERPRINT`, a
+  build-time hash of `mandible-core/src` + `mandible-extract/src`
+  (`mandible-cache/build.rs`), and the vendored catalog's commit — fixes a
   real bug where a stale cache entry from before a parser fix kept being
   served indefinitely after upgrading.
 - `Text::sanitize_markdown`: normalizes carapace's markdown-flavored
@@ -126,23 +136,23 @@ once it reaches a published 0.1.0 release.
 ### Added (batch 1)
 
 - Workspace skeleton for all crates described in spec.md §8:
-  `mantui-core`, `mantui-extract`, `mantui-cache`, `mantui-search`,
-  `mantui-tui`, `mantui`, `xtask`.
-- `mantui-core`: the shared intermediate representation — `CommandNode`,
+  `mandible-core`, `mandible-extract`, `mandible-cache`, `mandible-search`,
+  `mandible-tui`, `mandible`, `xtask`.
+- `mandible-core`: the shared intermediate representation — `CommandNode`,
   `Flag`, `Positional`, `Example`, `ValueKind`; `Text` with the
   `Text::sanitize` IR boundary; per-item `Provenance`/`Source`/`Authority`;
   `NodeRef`/`FlagKey` addressing; two-axis merge with alias pairing.
-- `mantui-extract`: the `ExtractionTier` trait, the extraction `Runner`,
+- `mandible-extract`: the `ExtractionTier` trait, the extraction `Runner`,
   the `exec/` execution-safety module (spec §6), and **Tier A**
   (`known_specs`) backed by a byte-offset-indexed vendored carapace-spec
   catalog. Tiers B, C, D (feature-gated, off by default), E, and F are
   stubbed for later batches.
-- `mantui-cache`: on-disk, gzip-compressed, one-file-per-tool cache with
+- `mandible-cache`: on-disk, gzip-compressed, one-file-per-tool cache with
   file-identity keying and negative-result caching (spec §11).
-- `mantui-tui`: the full tree/detail/search/status/help TUI (spec §2, §9),
+- `mandible-tui`: the full tree/detail/search/status/help TUI (spec §2, §9),
   responsive layout, mouse support, `y` clipboard copy (OS clipboard with
   OSC-52 fallback), and the border-integrity regression test suite.
-- `mantui` binary: `mantui <tool>`, `--refresh`, `--doctor <tool>`, and a
+- `mandible` binary: `mandible <tool>`, `--refresh`, `--doctor <tool>`, and a
   graceful non-tty failure path.
 - Packaging skeleton: `LICENSE` (MIT), `NOTICE` (carapace-bin attribution),
   `README.md`, `CONTRIBUTING.md`, this file, and a CI workflow running

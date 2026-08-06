@@ -2,7 +2,7 @@
 //!
 //! Spec §4.1 makes `Text::sanitize` the IR boundary where untrusted text is
 //! cleaned, and §9 says widgets may assume a `Text` is clean. But
-//! [`mantui_core::CommandNode::name`] and a few other identity-ish fields
+//! [`mandible_core::CommandNode::name`] and a few other identity-ish fields
 //! (aliases, `group`) are typed as plain `String`, not `Text` — they're
 //! meant to be tool/subcommand identifiers, not prose, so the IR doesn't
 //! force them through sanitization. A pathological or adversarial catalog

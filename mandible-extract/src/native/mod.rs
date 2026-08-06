@@ -41,7 +41,7 @@
 //! duplicate the whole `pr checkout` subtree under a second name. Instead,
 //! when the named target is a sibling in the *same* candidate list (the
 //! common case — an alias for a command at the same level), the alias
-//! name is recorded on that sibling's [`mantui_core::CommandNode::aliases`]
+//! name is recorded on that sibling's [`mandible_core::CommandNode::aliases`]
 //! and never becomes a subcommand entry of its own. When the target isn't
 //! a sibling (an alias for something nested deeper, like `co` for the
 //! *nested* `pr checkout`), the candidate is dropped rather than
@@ -58,7 +58,7 @@ use crate::errors::ExtractError;
 use crate::exec::{run_inert, InertArgv};
 use crate::resolve::ResolvedTool;
 use crate::tier::ExtractionTier;
-use mantui_core::{
+use mandible_core::{
     is_command_name_shaped, Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind,
 };
 use std::collections::HashMap;
@@ -95,7 +95,7 @@ enum Protocol {
 pub struct NativeTier {
     /// Which protocol each tool name was found to speak. Bounded by the
     /// number of distinct tool names probed in this process's lifetime —
-    /// normally exactly one, since `mantui` opens a single tool per run.
+    /// normally exactly one, since `mandible` opens a single tool per run.
     protocol_cache: Mutex<HashMap<String, Protocol>>,
     /// Each cobra-speaking tool's root-level candidate-list fingerprint,
     /// remembered the first time it's seen, so a later deeper probe that

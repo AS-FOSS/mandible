@@ -3,12 +3,12 @@
 //! Not a content hash of the binary — hashing a 50 MB `docker` binary costs
 //! more than the parse it protects. Instead: file identity (path, size,
 //! mtime, inode) plus the tool's own reported version when cheaply
-//! available, plus mantui's own schema/binary/feature versions so a mantui
+//! available, plus mandible's own schema/binary/feature versions so a mandible
 //! upgrade or a feature-flag change invalidates old entries.
 //!
 //! **The key also depends on a build-time fingerprint of the extraction
 //! logic itself** ([`SOURCE_FINGERPRINT`], computed by `build.rs` from
-//! every source file under `mantui-core/src` and `mantui-extract/src`).
+//! every source file under `mandible-core/src` and `mandible-extract/src`).
 //! Earlier, the key depended only on [`SCHEMA_VERSION`] (for on-disk
 //! format changes) and `CARGO_PKG_VERSION` — neither of which changes when
 //! a parser or sanitization rule changes, so a cache entry written before
@@ -33,7 +33,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CacheKey {
     /// The resolved, canonicalized path to the tool binary, if it was
-    /// found on `PATH`. `None` for a tool mantui could not locate (the
+    /// found on `PATH`. `None` for a tool mandible could not locate (the
     /// cache entry in that case only really carries negative/tier-status
     /// information).
     pub realpath: Option<PathBuf>,
@@ -51,12 +51,12 @@ pub struct CacheKey {
     pub tool_version: Option<String>,
     /// [`SCHEMA_VERSION`] at the time this key was built.
     pub schema_version: u32,
-    /// A build-time hash of `mantui-core/src` + `mantui-extract/src` (see
+    /// A build-time hash of `mandible-core/src` + `mandible-extract/src` (see
     /// the module docs) — changes automatically whenever extraction,
     /// merge, or sanitization logic changes.
     pub source_fingerprint: u64,
-    /// mantui's own crate version (`CARGO_PKG_VERSION`).
-    pub mantui_version: String,
+    /// mandible's own crate version (`CARGO_PKG_VERSION`).
+    pub mandible_version: String,
     /// Sorted, deduplicated list of enabled extraction feature flags, so
     /// enabling e.g. `manpage` invalidates entries built without it.
     pub enabled_features: Vec<String>,
@@ -73,10 +73,10 @@ impl CacheKey {
     /// Build a key for `tool_name`, resolved against `PATH`. `tool_version`
     /// is optional and supplied by the caller (the runner), since obtaining
     /// it may itself require an inert subprocess call the cache crate must
-    /// not make itself (spec §6: only `mantui-extract/src/exec/` spawns
+    /// not make itself (spec §6: only `mandible-extract/src/exec/` spawns
     /// processes). `catalog_commit` is similarly supplied by the caller
-    /// (typically `mantui_extract::known_specs::catalog_meta().commit`),
-    /// so this crate doesn't need a dependency on `mantui-extract` just to
+    /// (typically `mandible_extract::known_specs::catalog_meta().commit`),
+    /// so this crate doesn't need a dependency on `mandible-extract` just to
     /// read it.
     pub fn build(
         tool_name: &str,
@@ -108,7 +108,7 @@ impl CacheKey {
             tool_version,
             schema_version: SCHEMA_VERSION,
             source_fingerprint: SOURCE_FINGERPRINT,
-            mantui_version: env!("CARGO_PKG_VERSION").to_string(),
+            mandible_version: env!("CARGO_PKG_VERSION").to_string(),
             enabled_features,
             catalog_commit: catalog_commit.map(|s| s.to_string()),
         }

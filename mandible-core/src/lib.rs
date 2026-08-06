@@ -1,4 +1,4 @@
-//! `mantui-core`: the shared intermediate representation (IR) every mantui
+//! `mandible-core`: the shared intermediate representation (IR) every mandible
 //! extraction tier normalizes into, and the merge logic that combines
 //! several tiers' output for the same node into one.
 //!

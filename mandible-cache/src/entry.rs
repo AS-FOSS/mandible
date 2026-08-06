@@ -2,7 +2,7 @@
 //! "Contents").
 
 use crate::key::CacheKey;
-use mantui_core::CommandNode;
+use mandible_core::CommandNode;
 use serde::{Deserialize, Serialize};
 
 /// One tier's recorded outcome for a cached extraction, stored alongside
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredTierStatus {
     /// The tier's name, as returned by
-    /// [`mantui_extract::ExtractionTier::name`](../mantui_extract/trait.ExtractionTier.html#tymethod.name).
+    /// [`mandible_extract::ExtractionTier::name`](../mandible_extract/trait.ExtractionTier.html#tymethod.name).
     pub tier: String,
     /// Whether the tier detected the tool as one it could handle.
     pub detected: bool,

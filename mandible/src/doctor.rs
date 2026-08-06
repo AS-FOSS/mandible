@@ -1,18 +1,18 @@
-//! `mantui --doctor <tool>`: a non-TUI diagnostic (spec §5.3).
+//! `mandible --doctor <tool>`: a non-TUI diagnostic (spec §5.3).
 //!
 //! Prints tier statuses, node/flag counts, the percentage of flags with a
 //! description, the vendored catalog's date, and timing — the primary way
 //! to verify extraction behavior without a terminal.
 
 use crate::pipeline::LoadedTool;
-use mantui_core::CommandNode;
+use mandible_core::CommandNode;
 
 /// Print the diagnostic report for `loaded` to stdout.
 pub fn print_report(loaded: &LoadedTool) {
-    println!("mantui --doctor {}", loaded.tool);
+    println!("mandible --doctor {}", loaded.tool);
     println!();
 
-    let meta = mantui_extract::known_specs::catalog_meta();
+    let meta = mandible_extract::known_specs::catalog_meta();
     println!(
         "catalog:    {} · {} tools · commit {} · vendored {}",
         meta.provider, meta.tool_count, meta.commit, meta.generated

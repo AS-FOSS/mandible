@@ -5,7 +5,7 @@ tool name.
 Usage:
     python3 scripts/vendor_carapace_specs.py <path-to-carapace-bin-clone>
 
-Writes mantui-extract/src/known_specs/specs.json (normalized carapace-spec),
+Writes mandible-extract/src/known_specs/specs.json (normalized carapace-spec),
 which the CarapaceSpec extraction tier (priority 1) serves at runtime.
 
 Flag keys use the carapace-spec grammar (see carapace-spec pkg/command/flag.go):
@@ -29,7 +29,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO_ROOT / ".." / "carapace-bin"
-OUT = REPO_ROOT / "mantui-extract" / "src" / "known_specs" / "specs.json"
+OUT = REPO_ROOT / "mandible-extract" / "src" / "known_specs" / "specs.json"
 MAN = SOURCE / "man" / "cmd"
 
 FLAG_RE = re.compile(
