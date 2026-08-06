@@ -1,0 +1,143 @@
+name: framework support
+
+# Spec §13.1a. Two jobs, both writing markdown to $GITHUB_STEP_SUMMARY so the
+# result lands in the run's summary page rather than being buried in log
+# output:
+#
+#   1. framework-matrix — one representative tool per supported framework,
+#      checking that Tier A′ identifies the framework we expect and Tier B
+#      extracts a non-trivial tree.
+#   2. path-sweep — the coverage harness over the runner's own ~1,500
+#      executables. Zero installation cost, and the broadest available
+#      measurement of "does this actually work on arbitrary tools".
+#
+# Why this workflow exists at all: mandible's central claim is that parsing
+# is keyed by *framework*, not by tool (spec §1, §7). That claim is only
+# credible if the supported framework set is measured against real CLIs on
+# every change — otherwise "we support argparse" degrades into "we supported
+# argparse once, on one machine".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  framework-matrix:
+    name: framework matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # Representative tools, chosen for install cost as much as coverage.
+      # `gh` and `docker` are preinstalled on GitHub-hosted runners; `tar`
+      # and `busybox`-adjacent coreutils come with the image. Everything
+      # else is a small apt/pip/npm install, so this step stays inside the
+      # 2-4 minute budget spec §13.1a asks for.
+      #
+      # Deliberately NOT installed: a picocli jar (JVM download dominates
+      # the budget) and an oclif CLI (npm tree is large). Both are marked
+      # optional in scripts/framework_matrix.sh and reported as skipped
+      # rather than silently omitted — an unmeasured framework should look
+      # unmeasured in the table, not absent from it.
+      - name: Install representative tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fd-find busybox
+          pipx install httpie
+          pipx install black
+
+      # commander (Node) and Go's stdlib `flag` have no ubiquitous
+      # representative CLI small enough to install, so we build a minimal
+      # one for each. This is testing the *framework's* output format,
+      # which is exactly the right granularity — a three-line commander
+      # program emits the same help layout as a large one.
+      - name: Build commander and go-flag fixtures
+        run: |
+          mkdir -p /tmp/fixtures/bin
+          npm install --silent --no-fund --no-audit commander
+          cat > /tmp/fixtures/commander.js <<'EOF'
+          #!/usr/bin/env node
+          const { program } = require('commander');
+          program
+            .name('mandible-commander-fixture')
+            .description('commander representative for the framework matrix')
+            .option('-v, --verbose', 'enable verbose output')
+            .option('-o, --output <file>', 'write output to file')
+            .command('build').description('build the thing');
+          program.parse();
+          EOF
+          chmod +x /tmp/fixtures/commander.js
+          ln -sf /tmp/fixtures/commander.js /tmp/fixtures/bin/mandible-commander-fixture
+          cat > /tmp/fixtures/goflag.go <<'EOF'
+          package main
+
+          import "flag"
+
+          func main() {
+          	flag.Bool("verbose", false, "enable verbose output")
+          	flag.String("output", "", "write output to file")
+          	flag.Parse()
+          }
+          EOF
+          (cd /tmp/fixtures && go mod init fixture >/dev/null 2>&1 || true; go build -o bin/mandible-goflag-fixture goflag.go)
+          echo "/tmp/fixtures/bin" >> "$GITHUB_PATH"
+          echo "NODE_PATH=$PWD/node_modules" >> "$GITHUB_ENV"
+
+      - name: Build mandible
+        run: cargo build --release --bin mandible
+
+      - name: Run framework matrix
+        env:
+          MANDIBLE: ${{ github.workspace }}/target/release/mandible
+        run: scripts/framework_matrix.sh
+
+  path-sweep:
+    name: PATH sweep (coverage harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # The gated run, against the fixed tool list (spec §13.1's regression
+      # gate). A full-PATH scan can't be the gate — the runner image's tool
+      # inventory changes underneath us, so a full-PATH baseline would fail
+      # on inventory drift rather than on a real parser regression.
+      - name: Coverage regression gate (fixed tool set)
+        run: >-
+          cargo xtask coverage --check
+          --out coverage-scoreboard.ci.txt
+          --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
+
+      # The ungated measurement, over everything the runner has. Reported
+      # for visibility — this is the number that answers "does mandible
+      # work on arbitrary tools", and it is not something a fixed
+      # twelve-tool list can tell you.
+      - name: PATH sweep summary
+        if: always()
+        run: |
+          cargo xtask coverage --format markdown --out /tmp/path-sweep.md
+          {
+            echo "## PATH sweep"
+            echo
+            echo "The coverage harness (spec §13.1) over every executable on this"
+            echo "runner's \`PATH\`. Not a regression gate — the runner image's tool"
+            echo "inventory drifts between releases — but it is the broadest"
+            echo "available measurement of framework coverage on real software."
+            echo
+            # The table can run to ~1,500 rows; collapse it so the summary
+            # page leads with the aggregate rather than burying it.
+            echo "<details><summary>Full per-tool table</summary>"
+            echo
+            cat /tmp/path-sweep.md
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"

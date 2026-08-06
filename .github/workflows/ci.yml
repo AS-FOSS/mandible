@@ -13,9 +13,12 @@ jobs:
   # Linux + macOS are the two supported platforms (spec §16 [M-8]-style
   # honesty: Windows is out of scope for now, see README). macOS is a
   # *real* native runner here, not a cross-compile target — this actually
-  # exercises the `cfg(unix)` paths in mandible-extract/src/exec/spawn.rs
-  # and mandible-cache/src/key.rs on Darwin, not just Linux. GitHub's
-  # `macos-latest` is Apple Silicon (arm64) as of this writing.
+  # exercises the `cfg(unix)` paths in mandible-extract/src/exec/spawn.rs,
+  # mandible-extract/src/resolve.rs, and xtask/src/coverage.rs (executable-
+  # bit checks) on Darwin, not just Linux. `mandible-cache` (whose
+  # `key.rs` this comment used to cite) was deleted in spec revision 3 —
+  # see spec.md §11, "No cache". GitHub's `macos-latest` is Apple Silicon
+  # (arm64) as of this writing.
   fmt:
     name: fmt (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -81,9 +84,12 @@ jobs:
   # spuriously on inventory differences rather than a real regression).
   # `--tools` pins a dozen tools that are present on ubuntu-latest by
   # default (docker and gh included — both ship on GitHub-hosted runners)
-  # and together span every active tier: known-specs+help-text (git,
-  # curl, tar), help-text only (ip, openssl, sed, find, less, dd), and
-  # native (docker, gh). `coverage-scoreboard.ci.txt` is this fixed set's
+  # and together span every active tier: help-text for all of them (the
+  # only universal tier since the catalog was deleted in spec revision 3)
+  # plus native on docker and gh, and they cover a deliberate spread of
+  # frameworks — GNU argp (tar, sed, dd), cobra (docker, gh),
+  # unidentified-but-parseable (curl, find, less), and stderr-only output
+  # (ip, openssl, spec [M-8]). `coverage-scoreboard.ci.txt` is this fixed set's
   # own baseline — a different file from the full-PATH `coverage-
   # scoreboard.txt`, since the two scans cover different tool sets and
   # aren't comparable.
