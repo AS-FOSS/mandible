@@ -1004,7 +1004,8 @@ through `apt`/`dnf`, without rework. That constrains layout from day one.
 **Repository layout.**
 
 ```
-LICENSE            MIT (or MIT OR Apache-2.0 — decide once, apply everywhere)
+LICENSE-MIT        }
+LICENSE-APACHE     } dual-licensed MIT OR Apache-2.0 — the Rust ecosystem standard
 NOTICE             Third-party data attribution (§14) — required, not optional
 README.md          What it is, install, a screenshot, the honest coverage story
 CONTRIBUTING.md    Including the §1 invariant, stated prominently

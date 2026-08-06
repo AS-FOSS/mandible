@@ -120,5 +120,12 @@ See [NOTICE](./NOTICE) for full attribution and license text, and
 
 ## License
 
-MIT — see [LICENSE](./LICENSE). Vendored third-party data is separately
-attributed in [NOTICE](./NOTICE).
+Dual-licensed under either [MIT](./LICENSE-MIT) or
+[Apache License, Version 2.0](./LICENSE-APACHE), at your option — the
+Rust ecosystem standard, chosen so the Apache half's explicit patent
+grant is available to corporate users who require it. Vendored
+third-party *data* is separately attributed in [NOTICE](./NOTICE).
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this project by you shall be dual-licensed as
+above, without any additional terms or conditions.

@@ -98,8 +98,11 @@ closed enum, by design) — that friction is intentional per spec §6 rule 2.
 
 ## License
 
-By contributing, you agree your contribution is licensed under this
-project's MIT license (see [LICENSE](./LICENSE)). If your change vendors
-new third-party *data* (not just a crate dependency), it needs an entry in
-[NOTICE](./NOTICE) with the source, commit, and verified license text —
-see spec.md §14/§15 for why this matters as much as crate licensing.
+This project is dual-licensed under [MIT](./LICENSE-MIT) or
+[Apache License, Version 2.0](./LICENSE-APACHE), at your option. By
+contributing, you agree your contribution is licensed under both, without
+any additional terms or conditions, unless you explicitly state otherwise.
+If your change vendors new third-party *data* (not just a crate
+dependency), it needs an entry in [NOTICE](./NOTICE) with the source,
+commit, and verified license text — see spec.md §14/§15 for why this
+matters as much as crate licensing.

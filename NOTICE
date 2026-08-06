@@ -1,7 +1,8 @@
 mandible — third-party data attribution
 ======================================
 
-mandible's own source code is MIT-licensed (see LICENSE). This file records
+mandible's own source code is dual-licensed under MIT OR Apache-2.0 (see
+LICENSE-MIT and LICENSE-APACHE). This file records
 the provenance and licensing of third-party *data* vendored into the
 repository, per spec.md §14/§15 — vendored data is a distinct legal
 question from crate dependency licensing, and the more likely real exposure
