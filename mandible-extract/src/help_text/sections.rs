@@ -194,6 +194,23 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             if leading_whitespace(l) == 0 {
                 break;
             }
+            // A continuation line that itself reads as a flag entry ends
+            // the usage block, even though it is indented and unseparated
+            // by a blank line. A usage continuation is an *alternative
+            // invocation form* (`   curl [options...] <url>`); it never
+            // begins with a dash. Tools that run their flag list straight
+            // into the usage line with no blank separator and no
+            // `Options:` heading are common enough that not stopping here
+            // silently swallowed every flag they have: `curl --help`
+            // indents its 13 flag rows by one space directly under
+            // `Usage:`, and all 13 landed in `usage` with zero flags
+            // parsed — reported as `ok` at "no flags to describe", which
+            // is the same class of confidently-wrong result as [M-10].
+            // This is a layout fact, true of every framework, so it lives
+            // in the shared engine rather than in any profile.
+            if looks_like_flag_start(l.trim_start()) {
+                break;
+            }
             usage_lines.push(l.trim().to_string());
             i += 1;
         }
@@ -1031,6 +1048,37 @@ mod tests {
     const LESS_HELP: &str = include_str!("../../tests/fixtures/help_text/less_help.stdout");
     const SED_HELP: &str = include_str!("../../tests/fixtures/help_text/sed_help.stdout");
     const FIND_HELP: &str = include_str!("../../tests/fixtures/help_text/find_help.stdout");
+    const CURL_HELP: &str = include_str!("../../tests/fixtures/help_text/curl_help.stdout");
+
+    /// Regression: `curl --help` runs its flag list straight into the
+    /// usage line — indented one space, no blank line, no `Options:`
+    /// heading. The usage block used to consume every indented line that
+    /// followed, so all of curl's flags landed in `usage` and the tool
+    /// reported *zero* flags while its status stayed `ok` (nothing was
+    /// fabricated, so the structure-sanity check couldn't see it either).
+    /// This fixture was checked in but never asserted on, which is how it
+    /// survived; the assertion is what makes the fix stick.
+    #[test]
+    fn curl_flags_running_straight_into_the_usage_line_are_not_swallowed() {
+        let parsed = parse(CURL_HELP);
+        assert!(
+            parsed.flags.len() > 100,
+            "expected curl's full flag list, got {}",
+            parsed.flags.len()
+        );
+        let longs: Vec<&str> = parsed
+            .flags
+            .iter()
+            .filter_map(|f| f.long.as_deref())
+            .collect();
+        assert!(longs.contains(&"append"), "{longs:?}");
+        assert!(longs.contains(&"anyauth"), "{longs:?}");
+        // The usage block keeps its own line and stops before the flags.
+        assert_eq!(parsed.usage.len(), 1);
+        assert!(parsed.usage[0].starts_with("Usage: curl"));
+        // And it must not have invented subcommands out of the flag rows.
+        assert!(parsed.subcommands.is_empty(), "{:?}", parsed.subcommands);
+    }
 
     /// Regression for spec [M-8]: `openssl --help` writes only to stderr,
     /// with no `Usage:` line and no indentation at all — commands are a
