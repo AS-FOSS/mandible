@@ -9,7 +9,7 @@ outside world in this document has been measured on a real machine; measurements
 are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline as
 **[M-n]**. When a measurement contradicts an assumption, the measurement wins.
 
-**Revision 2.** Changes from revision 1 are summarized in [Appendix B](#appendix-b--what-changed-in-revision-2).
+**Revision 3.** Revision 3 deletes the vendored spec catalog and the on-disk cache, and reorganizes `--help` parsing around the *framework* that generated the text (§7 Tier A′, §7 Tier B, §11). Revision 2's changes from revision 1 are in [Appendix B](#appendix-b--what-changed-in-revision-2).
 
 ---
 
@@ -25,7 +25,7 @@ are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline a
 8. [Crate & workspace architecture](#8-crate--workspace-architecture)
 9. [TUI design](#9-tui-design)
 10. [Search](#10-search)
-11. [Caching & invalidation](#11-caching--invalidation)
+11. [No cache](#11-no-cache)
 12. [Implementation roadmap](#12-implementation-roadmap)
 13. [Testing & the coverage harness](#13-testing--the-coverage-harness)
 14. [Dependency table](#14-dependency-table)
@@ -467,53 +467,96 @@ ordering — cheapest first. **Conflict resolution is by `Authority` (§4.4), no
 attempt order.** These are two different things and conflating them was
 revision 1's central error.
 
-### Tier A — known-tool structured spec databases (cheapest, highest prose)
+### Tier A — REMOVED (was: vendored spec catalog)
 
-Attempted first because it costs zero subprocesses and covers the majority of
-what people will actually run mandible against.
+Revision 2 ranked a vendored 739-tool carapace-spec snapshot first. **Revision 3
+deletes it**, along with the vendoring script, the 11 MB payload, and the
+third-party data attribution it carried.
 
-- **carapace-spec** — a documented YAML schema (with a published JSON Schema)
-  describing name, flags, persistent flags, subcommand nesting, and per-flag
-  completion actions, maintained by `carapace-sh/carapace-bin`. Declarative, so
-  no code execution is needed to read it; shell-agnostic; and it has bridges into
-  clap, click, bash `complete`, and argcomplete, meaning it already solved
-  detect+normalize for several ecosystems.
-- **withfig/autocomplete** — MIT, ~500+ tools, TypeScript. Optional secondary
-  source behind carapace; consuming it means a Node preprocessing step at vendor
-  time to flatten specs to JSON.
+The reasoning, recorded so it is not re-proposed:
 
-**Storage.** The vendored snapshot is 11 MB. It must **not** be a single
-`include_str!` that deserializes the whole 740-tool catalog to answer one lookup.
-Ship it as either (a) one file per tool in a directory installed alongside the
-binary, or (b) a single file plus a compact `tool → (offset, len)` index so
-exactly one tool's subtree is deserialized. Option (b) keeps single-binary
-distribution; prefer it.
+- **It violated §1.** A per-tool catalog is per-tool knowledge — the thing this
+  project forbids — merely relocated from code into data. That it was somebody
+  else's data did not make it not-per-tool.
+- **It could not be current.** A snapshot is a point-in-time copy; the tool on
+  the user's machine is not.
+- **It cost more than it bought.** 11 MB of a 16 MB binary — the data outweighed
+  all the code 4× — to raise flag-description coverage from a measured 87% (live
+  parsing, 904 tools) to 99.5% on the 251 tools it happened to contain [M-12].
 
-**Runtime carapace.** If a `carapace` binary is on PATH, prefer `carapace --spec
-<tool>` over the snapshot — it is current where the snapshot is a point-in-time
-copy. Fall back to the snapshot.
+The replacement is not "lose those descriptions." It is **parse by the framework
+that generated the help text**, below.
 
-**Staleness.** A vendored snapshot silently ages. The UI shows the snapshot's
-vendoring date in the provenance footer when carapace supplied prose, and
-`mandible --doctor` reports it. The vendoring script records the source commit.
+### Tier A′ — framework identification
 
-**Attribution.** carapace-bin and withfig/autocomplete are third-party data with
-their own licenses. `NOTICE` must carry both, and §15 covers this — it is the
-most likely real legal exposure in the project and revision 1 omitted it entirely
-while scrutinizing crate licenses.
+The load-bearing insight of revision 3: **help text is not written by hand, it is
+*generated*, and only a small closed set of generators exists.** Per-tool
+knowledge is unbounded and forbidden; per-*framework* knowledge is bounded at
+~15 entries and is the correct unit of parsing. A grammar fix for argparse
+improves every Python CLI ever written; a catalog entry improved exactly one tool
+until it went stale.
 
-### Tier B — engineered `--help` grammar parser
+Measured on 1,563 executables with usable `--help`: three fingerprints cover 71%,
+about a dozen cover ~80%, even with deliberately crude patterns [M-12].
 
-Attempted second because it is 1–2 spawns for the root and is the only source
-that exists for every tool everywhere.
+Identify the framework in this order, most reliable first:
 
-This is where "no regex" needs an honest caveat: something must eventually read
-prose, because prose is the only interface some tools expose. The distinction
-that matters is not "regex vs. no regex" — it is **one general-purpose grammar,
-built once, vs. a pile of tool-specific patches that grows forever.**
+1. **From the artifact.** For compiled binaries, scan embedded strings —
+   `spf13/cobra` appears 583× in `docker` and 283× in `gh`, unambiguously [M-13].
+   For scripts, read the shebang plus the import line (`import argparse`,
+   `require('commander')`, `use clap`). This is ground truth, not inference.
+2. **From the help-text signature.** Distinctive marker strings — argparse's
+   `show this help message and exit`, click's `Show this message and exit.`,
+   cobra's `Available Commands:`, GNU argp's `Mandatory arguments to long options`.
+3. **Unidentified** — fall through to the generic layout parser.
 
-Build it as a real parser (`winnow` recommended over `pest` for combinator-style
-error recovery):
+Signature matching alone is fragile and must never be the only method: it missed
+`docker` entirely, because docker prints `Common Commands:` rather than cobra's
+usual `Available Commands:` [M-13]. That failure is exactly why artifact
+fingerprinting leads.
+
+`--doctor` reports the detected framework. This converts "mandible is wrong about
+tool X" into "the argparse grammar mishandles Y" — a general, fixable bug report
+instead of a per-tool complaint.
+
+### Tier B — `--help` parsing, per framework
+
+**The primary tier.** `--help` is the only source every tool has, everywhere, and
+it is always current because it comes from the installed binary.
+
+Parsing is dispatched on the framework identified in Tier A′. There is one
+grammar per framework, not one grammar for everything:
+
+| | frameworks |
+|---|---|
+| Python | argparse, click, docopt |
+| Rust | clap v2, clap v3/v4 |
+| Go | cobra, urfave/cli, stdlib `flag` |
+| Node | commander, yargs, oclif |
+| JVM / .NET | picocli, System.CommandLine |
+| C / POSIX | GNU argp & `getopt_long`, BSD-terse, busybox |
+| PHP / Ruby | Symfony Console, OptionParser / Thor |
+
+Each grammar knows its framework's exact section headings, row layout, value
+syntax, and continuation rules — so it parses precisely rather than guessing.
+This is the "one well-engineered parser, built once" principle applied at the
+right granularity: **once per generator, not once per tool, and not once for the
+whole world.**
+
+**Degradation is staged, and never fabricates:**
+
+1. Framework identified → its grammar, high confidence.
+2. Unidentified → the generic layout parser below, marked low-confidence.
+3. Generic parse yields nothing structurally plausible → **render the raw help
+   text verbatim**, labelled `unparsed`, with the framework shown as unknown.
+
+Step 3 is a feature, not a failure. A tool that conforms to no convention is
+displaying its help the way its author intended; showing that text untouched is
+honest and useful. It is also strictly better than the alternative already
+shipped and fixed once here: inventing 39 subcommands for `tar` out of wrapped
+description lines [M-10]. **Never fabricate structure. Degrade to verbatim.**
+
+The generic fallback parser (step 2) is built with `winnow`:
 
 - **A `Usage:` line grammar.** Usage lines have a learnable grammar — this is
   what `docopt` formalized: `[OPTIONS]`, `<required>`, `[optional]`, `...` for
@@ -828,38 +871,34 @@ typing `reb` puts `rebase` above every command whose description contains
 
 ---
 
-## 11. Caching & invalidation
+## 11. No cache
 
-Extraction is too slow to redo per launch (§5.1), so the tree is cached at
-`$XDG_CACHE_HOME/mandible/` (resolved via `directories`).
+**There is no on-disk extraction cache.** Revision 2 specified one, keyed on
+binary identity plus a build-time source fingerprint. Revision 3 removes it.
 
-**Key.** Not a content hash of the binary: `docker` is ~50 MB and hashing it costs
-more than the parse it protects. Use:
+**Why it cannot be made correct.** A cache key can only observe the things it
+hashes. Help output routinely changes while every hashed input stays identical:
 
-```
-(realpath, size, mtime_ns, inode, tool_version_string?) + schema_version + mandible_version + enabled_features
-```
+- `docker` gains subcommands when a plugin is installed — the docker binary is
+  untouched.
+- `git` gains subcommands from any `git-*` on `PATH`, and from aliases in
+  `~/.gitconfig`.
+- `kubectl` behaves the same way with its plugins.
 
-`tool_version_string` is the output of `<tool> --version` when that is one of the
-inert shapes already being invoked; it catches the case where a package manager
-replaces a binary without changing size.
+No fingerprint over the binary catches any of these. A cache that is *usually*
+fresh is a cache that will be confidently wrong at some point, and this project
+already shipped one staleness bug whose only symptom was a correct fix appearing
+not to work.
 
-**Contents.** The partially-filled tree, `children_filled` flags intact, plus:
-per-tier detect results, per-tier failures, and the vendoring date of any catalog
-data used. Caching **negative** results matters as much as positive ones —
-otherwise every launch re-probes the tiers that don't apply, which is most of them.
+**Why removing it is affordable.** Lazy node-at-a-time extraction (§5.2) means a
+launch only ever extracts the root: 179 ms for `git`, 221 ms for `docker`,
+against the 10.5 s that eager whole-tree extraction cost [M-3]. That is well
+inside the budget for a TUI a human then reads for seconds.
 
-**Format.** JSON, one file per tool, gzip-compressed. Human-inspectable, trivially
-deletable, no embedded-database dependency to maintain. (`sled` is effectively
-unmaintained; if a KV store is ever wanted, `redb` or `fjall`.)
-
-**Invalidation.** Key mismatch, `schema_version` bump, `mandible --refresh <tool>`,
-or the `r` key in the UI. Corrupt or unreadable cache entries are deleted and
-re-extracted, never propagated as an error.
-
-**Staleness in the UI.** The footer shows `cached 3d ago · docker 27.1` when a
-tree came from cache, so a user can tell the difference between "mandible is wrong"
-and "mandible is remembering an older version."
+**If it is ever reintroduced**, the only acceptable design is
+revalidate-rather-than-guess: store a hash of the tool's root help output, and
+re-probe that single command on open (one subprocess, ~40 ms) to decide whether
+the cached tree is still valid. Guessing from file metadata is not acceptable.
 
 ---
 
@@ -921,6 +960,29 @@ no flags, no children, and no summary. Any tool with a non-zero count is marked
 The general lesson, worth stating because it will recur: **a coverage metric that
 can be gamed by the failure mode it is meant to detect is worse than no metric**,
 because it converts a silent bug into a confidently-reported success.
+
+### 13.1a The framework-support workflow
+
+A GitHub Actions workflow reports, on every run, which frameworks mandible
+supports and how well — rendered into the run's summary page via
+`$GITHUB_STEP_SUMMARY`, which accepts markdown.
+
+Two jobs, neither of which needs a long download or a multi-hour run:
+
+1. **Framework matrix.** Install roughly one representative tool per supported
+   framework (`ripgrep`→clap, `gh`→cobra, `httpie`→argparse, `black`→click, a
+   `commander` package, a picocli jar, coreutils→argp, …) and assert that
+   mandible (a) identifies the expected framework and (b) extracts a
+   non-trivial tree. ~2–4 minutes with apt/pip/npm.
+2. **PATH sweep.** `ubuntu-latest` already ships ~1,500 executables. Run the
+   coverage harness over the runner's own `PATH` — zero installation cost.
+
+The summary table carries, per framework: tools detected, flags extracted,
+% described, and pass/fail. The gate fails on regressions in `no-tier`,
+`suspicious`, or framework-detection failures.
+
+This is the natural home for the §13.1 scoreboard once it stops depending on
+whatever happens to be installed on a developer's laptop.
 
 ### 13.2 Fixed corpus
 
@@ -1155,6 +1217,21 @@ any of these as current.
   `PATH` executables caused font-cache builders to write into the working
   directory, and `mysql_secure_installation` to write a `.my.cnf` containing an
   empty root password. `--help` is not reliably a read-only operation.
+- **[M-12] Framework distribution** (2026-08-06, 1,634 executables in
+  `/usr/bin`, `/bin`, `/usr/sbin`; 1,563 with usable `--help`). Classified by
+  deliberately crude fingerprints: generic `Usage:` 31.2%, clap-v4 24.6%,
+  GNU argp/getopt 15.5%, argparse 4.1%, picocli 2.0%, BSD-terse 0.6%,
+  clap-v2 0.4%, then dotnet/urfave/go-flag/symfony/cobra/oclif/click ~1% total;
+  unmatched 20.4%. **Three fingerprints cover 71%; about a dozen cover ~80%**,
+  and better-engineered patterns would improve on that. Separately: flag
+  descriptions from live `--help` parsing alone reached **87.0%** across the 904
+  tools absent from the carapace catalog, versus 99.5% for the 251 tools in it.
+- **[M-13] Artifact fingerprinting beats prose fingerprinting.** `strings` over
+  the binary: `docker` contains `spf13/cobra` 583×, `gh` 283×; `git` and
+  `ripgrep` contain zero (correctly — hand-rolled C, and ripgrep dropped clap
+  for a custom parser). Meanwhile a help-text signature keyed on cobra's usual
+  `Available Commands:` **missed `docker` entirely**, because docker prints
+  `Common Commands:`.
 
 ---
 
