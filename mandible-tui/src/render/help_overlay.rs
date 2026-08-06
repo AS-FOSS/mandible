@@ -16,7 +16,7 @@ const BINDINGS: &[(&str, &str)] = &[
     ("Tab", "Switch focus between tree and detail"),
     ("y", "Copy selected flag/path"),
     ("?", "Toggle this help"),
-    ("r", "Re-extract, bypassing cache"),
+    ("r", "Re-extract this tool"),
     (".", "Toggle hidden/deprecated items"),
     ("q, Ctrl-C", "Quit"),
 ];

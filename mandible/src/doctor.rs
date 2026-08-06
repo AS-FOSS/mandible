@@ -47,15 +47,8 @@ pub fn print_report(loaded: &LoadedTool) {
     }
     println!();
 
-    if loaded.from_cache {
-        println!("source:     cache");
-        if let Some(secs) = loaded.cached_at_unix_secs {
-            println!("cached_at:  {secs} (unix seconds)");
-        }
-    } else {
-        println!("source:     fresh extraction");
-        println!("elapsed:    {:.2}ms", loaded.elapsed.as_secs_f64() * 1000.0);
-    }
+    // Spec §11: there is no cache — every extraction is fresh.
+    println!("elapsed:    {:.2}ms", loaded.elapsed.as_secs_f64() * 1000.0);
 }
 
 fn count_nodes(node: &CommandNode) -> usize {

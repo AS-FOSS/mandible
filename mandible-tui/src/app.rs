@@ -24,7 +24,11 @@ pub enum Focus {
 pub enum Effect {
     /// Copy this text to the clipboard.
     Copy(String),
-    /// Re-extract the current tool, bypassing the cache (`r` key).
+    /// Re-extract the current tool from scratch (`r` key). There is no
+    /// cache to bypass (spec §11) — this discards the in-memory tree
+    /// (including anything lazily filled so far) and re-runs the pipeline,
+    /// useful when the tool itself changed mid-session (a plugin installed,
+    /// a new alias defined).
     Refresh,
     /// Quit the application.
     Quit,
@@ -74,9 +78,6 @@ pub struct App {
     /// A short-lived status line message (e.g. "copied: --interactive"),
     /// shown in the status bar until the next action replaces it.
     pub status_message: Option<String>,
-    /// True if this tree came from cache rather than a fresh extraction,
-    /// for the "cached 3d ago" footer (spec §11).
-    pub from_cache: bool,
     /// The `nucleo`-backed fuzzy index over this tree's commands and flags
     /// (spec §10). Populated from `root` at construction and whenever the
     /// tree's structure changes; queried (not text-matched directly) by
@@ -125,7 +126,6 @@ impl App {
             show_help: false,
             show_hidden: false,
             status_message: None,
-            from_cache: false,
             search_index,
             color_enabled: crate::style::color_enabled_from_env(),
             selected_flag: None,

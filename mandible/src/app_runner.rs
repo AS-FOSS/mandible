@@ -106,12 +106,12 @@ fn apply_effect(
             app.set_status(status);
         }
         Effect::Refresh => {
-            let loaded = crate::pipeline::load(&app.tool, true);
+            let loaded = crate::pipeline::load(&app.tool);
             match loaded.root {
                 Some(root) => {
                     let tool = app.tool.clone();
                     *app = App::new(tool, root);
-                    app.set_status("re-extracted (cache bypassed)");
+                    app.set_status("re-extracted");
                 }
                 None => {
                     app.set_status("re-extraction failed: no tier produced a result");

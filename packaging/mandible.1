@@ -8,12 +8,10 @@ mandible \- a universal, interactive TUI reference for CLI tools
 .SH SYNOPSIS
 .B mandible
 .I TOOL
-.RB [ \-\-refresh ]
 .br
 .B mandible
 .B \-\-doctor
 .I TOOL
-.RB [ \-\-refresh ]
 .br
 .B mandible
 .B \-\-completions
@@ -45,19 +43,23 @@ Structure and descriptions are assembled from whichever of several
 extraction tiers apply to
 .IR TOOL ,
 merged field-by-field by trust (structural accuracy vs. prose quality),
-never by which tier happened to run first. Tiers include a curated
-third-party command-spec catalog, a general-purpose
+never by which tier happened to run first. Tiers include a
 .B \-\-help
-grammar, shell completion-script parsing, and native dynamic probes
-(cobra's
+grammar dispatched on the detected framework (cobra, clap, argparse, GNU
+argp/getopt, and others), shell completion-script parsing, and native
+dynamic probes (cobra's
 .BR __complete ,
 clap's
-.BR CompleteEnv ),
-merged and cached per tool. See
+.BR CompleteEnv ).
+There is no on-disk cache and no third-party catalog: every invocation
+re-runs extraction against the tool actually installed, so the result can
+never be stale (see
+.I spec.md
+section 11 for why a cache could not be made correct here). See
 .B mandible \-\-doctor
 .I TOOL
-for exactly which tiers contributed to a given tool's tree, and the
-project's own
+for exactly which tiers and which detected framework contributed to a
+given tool's tree, and the project's own
 .I spec.md
 for the full design.
 .SH OPTIONS
@@ -75,14 +77,8 @@ is given.
 Print a non-interactive extraction report for
 .I TOOL
 instead of opening the TUI: which tiers detected and succeeded, node
-and flag counts, the percentage of flags with a description, the
-vendored catalog's commit and vendoring date (if it contributed), and
+and flag counts, the percentage of flags with a description, and
 elapsed time. Exits non-zero if no tier produced anything.
-.TP
-.B \-\-refresh
-Bypass the on-disk cache for this invocation, re-run extraction from
-scratch, and repopulate the cache with the fresh result. Use this if a
-tool was upgraded and mandible still shows the old structure.
 .TP
 .B \-\-completions \fISHELL\fR
 Print a shell completion script for
@@ -139,7 +135,9 @@ Copy the selected flag's exact spelling, or the selected node's full
 command path, to the clipboard.
 .TP
 .B r
-Re-extract the current tool, bypassing the cache.
+Re-extract the current tool from scratch (there is no cache to bypass;
+this discards the in-memory tree built so far this session and re-runs
+extraction, useful if the tool itself changed mid-session).
 .TP
 .B .
 Toggle display of hidden and deprecated items.
@@ -160,18 +158,13 @@ written to stderr — never to the TUI's own terminal output.
 When set to any value, mandible degrades its single accent color to
 bold/reverse/underline only.
 .TP
-.B XDG_CACHE_HOME\fR, \fBXDG_CONFIG_HOME
-Standard XDG base-directory variables; mandible respects them for its
-on-disk cache and user override files. See
+.B XDG_CONFIG_HOME
+Standard XDG base-directory variable; mandible respects it for user
+override files. See
 .B FILES
-below for the resolved defaults, which differ on macOS.
+below for the resolved default, which differs on macOS. mandible keeps no
+on-disk cache (spec.md section 11) and writes nothing else.
 .SH FILES
-.TP
-.I $XDG_CACHE_HOME/mandible/
-(Linux, default \fI~/.cache/mandible/\fR; macOS:
-\fI~/Library/Caches/mandible/\fR) — the on-disk extraction cache,
-gzip-compressed JSON, one file per tool. Safe to delete entirely; it is
-rebuilt on next use.
 .TP
 .I $XDG_CONFIG_HOME/mandible/overrides/<tool>.toml
 (Linux, default \fI~/.config/mandible/overrides/\fR; macOS:
@@ -188,7 +181,7 @@ No extraction tier could produce a result for the given tool, stdout is
 not a tty and the TUI could not open, or an argument error.
 .SH SEE ALSO
 Full design documentation, including the extraction-tier model and
-caching/invalidation rules, ships in the project repository as
+framework-detection rules, ships in the project repository as
 .IR spec.md .
 .SH AUTHORS
 Sadig Akhund and contributors.

@@ -1000,7 +1000,6 @@ dependencies = [
  "clap",
  "clap_complete",
  "crossterm",
- "mandible-cache",
  "mandible-core",
  "mandible-extract",
  "mandible-tui",
@@ -1009,20 +1008,6 @@ dependencies = [
  "tempfile",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "mandible-cache"
-version = "0.1.0"
-dependencies = [
- "directories",
- "flate2",
- "mandible-core",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 1.0.69",
- "tracing",
 ]
 
 [[package]]

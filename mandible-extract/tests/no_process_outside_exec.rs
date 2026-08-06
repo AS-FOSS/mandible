@@ -14,7 +14,6 @@ fn command_new_and_std_process_appear_only_in_exec() {
     let crate_src_dirs = [
         "mandible-core/src",
         "mandible-extract/src",
-        "mandible-cache/src",
         "mandible-search/src",
         "mandible-tui/src",
         "mandible/src",

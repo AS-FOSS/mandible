@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     let tool = tool.to_string();
 
     if let Some(doctor_tool) = &cli.doctor {
-        let loaded = pipeline::load(doctor_tool, cli.refresh);
+        let loaded = pipeline::load(doctor_tool);
         let ok = loaded.root.is_some();
         doctor::print_report(&loaded);
         // Note: deliberately `anyhow::bail!` rather than
@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
-    let loaded = pipeline::load(&tool, cli.refresh);
+    let loaded = pipeline::load(&tool);
     let Some(root) = loaded.root else {
         anyhow::bail!(
             "no extraction tier could produce a tree for {tool:?}. Run `mandible --doctor {tool}` \
@@ -65,8 +65,7 @@ fn main() -> anyhow::Result<()> {
         );
     };
 
-    let mut app = mandible_tui::App::new(tool, root);
-    app.from_cache = loaded.from_cache;
+    let app = mandible_tui::App::new(tool, root);
 
     app_runner::run(app)
 }

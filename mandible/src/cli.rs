@@ -21,10 +21,6 @@ pub struct Cli {
     #[arg(long, value_name = "TOOL")]
     pub doctor: Option<String>,
 
-    /// Bypass the cache and re-extract, then repopulate it.
-    #[arg(long)]
-    pub refresh: bool,
-
     /// Print a shell completion script for SHELL to stdout and exit,
     /// instead of opening the TUI. Packaged builds also install
     /// pre-generated completions to the standard per-distro paths (spec

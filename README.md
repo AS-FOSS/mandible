@@ -99,10 +99,12 @@ not currently supported** — the execution-safety layer's process-group
 handling (spec §6 rule 4) is POSIX-specific, and Windows support hasn't been
 built or tested (spec §16 [M-8]).
 
-Cache and config locations follow OS convention via the `directories` crate:
-`$XDG_CACHE_HOME/mandible/` and `$XDG_CONFIG_HOME/mandible/overrides/` (or
-their `~/.cache`/`~/.config` fallbacks) on Linux; `~/Library/Caches/mandible/`
-and `~/Library/Application Support/mandible/overrides/` on macOS.
+There is no on-disk cache (spec §11) — every launch re-runs extraction
+against the tool actually installed, so the result can never go stale.
+User override files (spec §7 Tier F) follow OS convention via the
+`directories` crate: `$XDG_CONFIG_HOME/mandible/overrides/` (or its
+`~/.config` fallback) on Linux; `~/Library/Application
+Support/mandible/overrides/` on macOS.
 
 ## The invariant
 
@@ -138,7 +140,6 @@ mandible --completions zsh > ~/.zfunc/_mandible   # or bash / fish / elvish / po
 
 ```
 mandible <tool>                 # open the interactive tree for <tool>
-mandible <tool> --refresh       # bypass the cache and re-extract
 mandible --doctor <tool>        # non-interactive diagnostic: tiers, counts, timing
 mandible --completions <shell>  # print a shell completion script to stdout
 ```
@@ -155,7 +156,7 @@ Keybindings (also shown in-app via `?`):
 | `Tab` | Switch focus between tree and detail pane |
 | `y` | Copy the selected flag's spelling or the node's command path |
 | `?` | Keybinding overlay |
-| `r` | Re-extract, bypassing cache |
+| `r` | Re-extract this tool from scratch (there is no cache to bypass) |
 | `.` | Toggle hidden/deprecated items |
 | `q`, `Ctrl-C` | Quit |
 
