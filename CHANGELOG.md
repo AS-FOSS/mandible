@@ -8,6 +8,23 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Removed (batch 6 part 1, spec revision 3)
+
+- **Tier A, the vendored carapace-spec catalog.** Removed
+  `mandible-extract/src/known_specs/`, `vendor/carapace-specs.json` (11 MB),
+  `scripts/vendor_carapace_specs.py`, `mandible-extract/build.rs` (the
+  byte-offset catalog index), the `known-specs` feature, and the carapace
+  attribution in `NOTICE`. Reasoning recorded in spec.md §7 ("Tier A —
+  REMOVED"): a per-tool catalog is per-tool knowledge merely relocated into
+  data (spec §1), it cannot stay current with the tool actually installed,
+  and it cost 11 MB of a 16 MB binary to raise flag-description coverage
+  from a measured 87% to 99.5% on the ~250 tools it happened to contain.
+  Replaced by framework identification and per-framework `--help` grammars
+  (batch 6 parts 3-4). Also fixed a related bug: `mandible/src/doctor.rs`
+  and `pipeline.rs` called `known_specs::catalog_meta()` with no `#[cfg]`
+  gate, so the `known-specs` feature was never actually optional despite
+  being documented as one.
+
 ### Added (batch 5, packaging)
 
 - **`cargo-deb`/`cargo-generate-rpm` metadata** in `mandible/Cargo.toml`

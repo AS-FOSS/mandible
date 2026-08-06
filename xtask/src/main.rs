@@ -1,5 +1,5 @@
-//! Developer tasks for the mandible workspace: catalog index verification and
-//! the extraction coverage harness (spec §13.1).
+//! Developer tasks for the mandible workspace: the extraction coverage
+//! harness (spec §13.1).
 
 #![forbid(unsafe_code)]
 
@@ -17,10 +17,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Verify the vendored carapace catalog's build-time index: that it is
-    /// sorted, that spot-checked lookups succeed, and print the catalog's
-    /// provenance metadata.
-    CheckIndex,
     /// Run the extraction coverage harness across every executable on
     /// `PATH` (spec §13.1) and print/write the scoreboard.
     Coverage {
@@ -47,7 +43,6 @@ enum Command {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::CheckIndex => check_index(),
         Command::Coverage { check, out, tools } => run_coverage(check, &out, tools),
     }
 }
@@ -132,31 +127,5 @@ fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyho
     std::fs::write(out, &table)
         .map_err(|e| anyhow::anyhow!("failed to write scoreboard to {}: {e}", out.display()))?;
     println!("wrote {}", out.display());
-    Ok(())
-}
-
-fn check_index() -> anyhow::Result<()> {
-    use mandible_extract::known_specs::{catalog_meta, CarapaceTier};
-    use mandible_extract::ExtractionTier;
-
-    let meta = catalog_meta();
-    println!("provider:   {}", meta.provider);
-    println!("source:     {}", meta.source);
-    println!("source_dir: {}", meta.source_dir);
-    println!("commit:     {}", meta.commit);
-    println!("generated:  {}", meta.generated);
-    println!("tool_count: {}", meta.tool_count);
-
-    let tier = CarapaceTier;
-    for spot_check in ["git", "docker", "curl"] {
-        let tool = mandible_extract::resolve_tool(spot_check);
-        let found = tier.detect(&tool);
-        println!(
-            "  {spot_check}: {}",
-            if found { "found" } else { "MISSING" }
-        );
-    }
-
-    println!("index check ok.");
     Ok(())
 }

@@ -11,9 +11,6 @@ pub enum ExtractError {
     /// The tool could not be located on `PATH`.
     #[error("tool not found on PATH")]
     ToolNotFound,
-    /// The tool is not present in this tier's known-tool catalog.
-    #[error("not present in the known-specs catalog")]
-    NotInCatalog,
     /// The requested path did not resolve within the extracted tree.
     #[error("path did not resolve within the extracted tree")]
     PathNotFound,

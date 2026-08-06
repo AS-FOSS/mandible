@@ -18,9 +18,6 @@ mod resolve;
 mod runner;
 mod tier;
 
-#[cfg(feature = "known-specs")]
-pub mod known_specs;
-
 #[cfg(feature = "help-text")]
 pub mod help_text;
 
@@ -40,14 +37,15 @@ pub use resolve::{resolve_tool, ResolvedTool};
 pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
 pub use tier::ExtractionTier;
 
-/// Build the default set of tiers: Tier A (`known_specs`), B (`help_text`),
-/// C (`completion_script`), E (`native`), F (`overrides`), in cost-attempt
-/// order (spec §7) — Tier A is zero-spawn and covers the catalog; Tier B
-/// costs 1-2 spawns but exists for every tool everywhere; Tier C generates
-/// and parses a completion script; Tier E speaks a tool's own dynamic
-/// completion protocol; Tier F is a local file read, attempted last since
-/// most tools have no override at all. Tier D (man pages) remains
-/// unimplemented (deferred entirely, per spec's roadmap). Whichever
+/// Build the default set of tiers: B (`help_text`), C (`completion_script`),
+/// E (`native`), F (`overrides`), in cost-attempt order (spec §7). Revision
+/// 3 deleted Tier A (the vendored catalog, spec §7 "Tier A — REMOVED"): Tier
+/// B now leads, dispatched on the framework identified by Tier A′ (spec §7
+/// Tier A′), and costs 1-2 spawns but exists for every tool everywhere;
+/// Tier C generates and parses a completion script; Tier E speaks a tool's
+/// own dynamic completion protocol; Tier F is a local file read, attempted
+/// last since most tools have no override at all. Tier D (man pages)
+/// remains unimplemented (deferred entirely, per spec's roadmap). Whichever
 /// features are enabled contributes its tier; conflict resolution between
 /// tiers (when more than one contributes the same node) is by
 /// [`mandible_core::Authority`], not attempt order.
@@ -57,8 +55,6 @@ pub use tier::ExtractionTier;
 pub fn default_tiers() -> Vec<Box<dyn ExtractionTier>> {
     #[allow(unused_mut)]
     let mut tiers: Vec<Box<dyn ExtractionTier>> = Vec::new();
-    #[cfg(feature = "known-specs")]
-    tiers.push(Box::new(known_specs::CarapaceTier));
     #[cfg(feature = "help-text")]
     tiers.push(Box::new(help_text::HelpTextTier));
     #[cfg(feature = "completion-script")]

@@ -103,7 +103,6 @@ Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
   returns flags.
 - `libmandoc` is **not a system library on Linux**.
 - `--help` output may go to **stderr** and exit **non-zero** (`openssl`, `ip`).
-- The vendored catalog is **739 tools** with ~48k flag descriptions.
 
 If you measure something that contradicts Appendix A, the measurement wins —
 update Appendix A in the same commit, with the method.
@@ -115,9 +114,6 @@ update Appendix A in the same commit, with the method.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
-- **Never regenerate or reformat `vendor/carapace-specs.json`.** It is an 11 MB
-  third-party snapshot; reproducing it needs a `carapace-bin` clone. Its
-  `_meta.commit` is load-bearing for attribution and cache keying.
 - **`NOTICE` is not optional.** Vendored third-party *data* carries attribution
   obligations, and it is the most likely genuine legal exposure in this project.
 - Gates before reporting done: `cargo fmt --all -- --check`,
