@@ -1,0 +1,7 @@
+# `cargo xtask <...>` is used throughout the docs, AGENTS.md, and CI
+# (.github/workflows/ci.yml) as the entry point for the coverage harness,
+# spec vendoring, and packaging tasks in `xtask/`. Without this alias
+# `cargo xtask` fails with "no such command: xtask" — there is no other
+# mechanism that makes `xtask` a `cargo` subcommand.
+[alias]
+xtask = "run --package xtask --"
