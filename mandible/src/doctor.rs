@@ -1,8 +1,8 @@
 //! `mandible --doctor <tool>`: a non-TUI diagnostic (spec §5.3).
 //!
-//! Prints tier statuses, node/flag counts, and the percentage of flags with
-//! a description — the primary way to verify extraction behavior without a
-//! terminal.
+//! Prints the detected framework (spec §7 Tier A′), tier statuses,
+//! node/flag counts, and the percentage of flags with a description — the
+//! primary way to verify extraction behavior without a terminal.
 
 use crate::pipeline::LoadedTool;
 use mandible_core::CommandNode;
@@ -10,6 +10,11 @@ use mandible_core::CommandNode;
 /// Print the diagnostic report for `loaded` to stdout.
 pub fn print_report(loaded: &LoadedTool) {
     println!("mandible --doctor {}", loaded.tool);
+    println!();
+
+    let resolved = mandible_extract::resolve_tool(&loaded.tool);
+    let framework = mandible_extract::framework::identify(&resolved);
+    println!("framework:  {}", framework.describe());
     println!();
 
     println!("tiers:");

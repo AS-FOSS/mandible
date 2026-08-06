@@ -18,6 +18,8 @@ mod resolve;
 mod runner;
 mod tier;
 
+pub mod framework;
+
 #[cfg(feature = "help-text")]
 pub mod help_text;
 
