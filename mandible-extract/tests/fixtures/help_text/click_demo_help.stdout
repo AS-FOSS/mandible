@@ -1,0 +1,11 @@
+Usage: click_demo.py [OPTIONS] COMMAND [ARGS]...
+
+  Manage widgets.
+
+Options:
+  --verbose  Be verbose
+  --help     Show this message and exit.
+
+Commands:
+  build  Build the widget.
+  init   Initialize a new widget.

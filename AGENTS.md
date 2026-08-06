@@ -102,6 +102,21 @@ Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
   returns flags.
 - `libmandoc` is **not a system library on Linux**.
 - `--help` output may go to **stderr** and exit **non-zero** (`openssl`, `ip`).
+- **Two pitfalls when picking a real binary for a framework/real-argv test**
+  (batch 6 part 4): (a) `cargo` is commonly a `rustup` proxy that reads
+  `$HOME/.rustup` to pick a toolchain, which fails under the exec sandbox's
+  mandatory per-probe scratch `HOME` (§2's row above) with `rustup could not
+  choose a version of cargo to run` — use the toolchain's real `cargo`
+  (`~/.rustup/toolchains/*/bin/cargo`) or a non-rustup clap binary (`zoxide`
+  worked well: real flags and subcommands, no external state). (b) Never use
+  `mandible`'s own binary as an artifact-fingerprinting test target:
+  `framework::artifact::BINARY_MARKERS` embeds its own search patterns
+  (e.g. `spf13/cobra`) as literal bytes, and `mandible` statically links
+  `mandible-extract`, so a scan of mandible's own binary "detects" itself.
+- `ripgrep` depends on the `clap` crate but hand-rolls its own `--help`
+  formatter [M-13] — its output is not representative of clap's own
+  template. Use a tool whose help text actually came from clap's
+  formatter (`cargo`/`zoxide`) when fixture-testing the `ClapV3V4` grammar.
 
 If you measure something that contradicts Appendix A, the measurement wins —
 update Appendix A in the same commit, with the method.

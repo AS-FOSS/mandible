@@ -76,6 +76,16 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
+    // Level 3 of spec §7 Tier B's staged degradation (batch 6 part 4): no
+    // parse produced anything structurally plausible for this node, so it
+    // carries the tool's own raw `--help` text instead of invented
+    // structure. This is a fundamentally different rendering, not a
+    // variant of the structured one below — see `render_unparsed`.
+    if !node.unparsed.is_empty() {
+        render_unparsed(frame, inner, app, node);
+        return;
+    }
+
     let width = inner.width as usize;
     let built = build_lines(
         node,
@@ -92,6 +102,39 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let paragraph = Paragraph::new(built.lines)
         .wrap(Wrap { trim: false })
         .scroll((scroll, 0));
+    frame.render_widget(paragraph, inner);
+}
+
+/// Render a node whose parse degraded to level 3 (spec §7 Tier B step 3,
+/// batch 6 part 4): `node.unparsed`, one preformatted line per entry,
+/// labelled so it reads as "the author's own text", not a mandible parse.
+///
+/// Deliberately **not** run through [`wrap_words`] and **not** given
+/// `Paragraph::wrap` the way every other block in this pane is (see this
+/// module's top doc comment on why the rest of the pane pre-wraps
+/// everything itself) — this is preformatted output, and re-wrapping it
+/// would silently edit the tool author's own text. Without `Wrap`,
+/// `ratatui::widgets::Paragraph` clips an over-width line at the pane's
+/// edge rather than reflowing it, which is the "horizontal scroll rather
+/// than reflow" spec §7 Tier B step 3 calls for; a horizontal scroll
+/// *offset* is not yet wired to a key in this batch (it always starts at
+/// column 0), but the important safety property — content never reflows,
+/// and can therefore never smear into the pane border the way an
+/// unsanitized newline once did (spec §9) — holds regardless. Safe to hand
+/// straight to a `Span` because `Text::sanitize` already guarantees no
+/// embedded control characters or newlines reach here.
+fn render_unparsed(frame: &mut Frame, inner: Rect, app: &App, node: &CommandNode) {
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(node.unparsed.len() + 2);
+    lines.push(Line::from(Span::styled(
+        "unparsed — showing raw --help output",
+        style::muted_bold(app.color_enabled),
+    )));
+    lines.push(Line::default());
+    for text in &node.unparsed {
+        lines.push(Line::from(text.as_str().to_string()));
+    }
+    let scroll = app.detail_scroll as u16;
+    let paragraph = Paragraph::new(lines).scroll((scroll, 0));
     frame.render_widget(paragraph, inner);
 }
 
@@ -403,12 +446,21 @@ fn provenance_footer(node: &CommandNode) -> String {
         .provenance
         .effective_authority(mandible_core::Axis::Prose)
         > 0;
-    format!(
+    let mut footer = format!(
         "{} · structure {} · prose {}",
         labels.join(" + "),
         if structural { "✓" } else { "✗" },
         if prose { "✓" } else { "✗" }
-    )
+    );
+    // Spec §7 Tier A′ / batch 6 part 4: surfacing the detected framework
+    // turns "mandible is wrong about tool X" into "the <framework> grammar
+    // mishandles Y" — the same general-not-per-tool framing `--doctor`
+    // uses (`mandible/src/doctor.rs`), now visible without leaving the TUI.
+    if let Some(framework) = &node.detected_framework {
+        footer.push_str(" · framework: ");
+        footer.push_str(&defensive_single_line(framework));
+    }
+    footer
 }
 
 #[cfg(test)]
@@ -577,5 +629,47 @@ mod tests {
         let node = node_with_flags();
         let built = build_lines(&node, false, 80, true, None);
         assert_eq!(built.target_flag_line, None);
+    }
+
+    /// Batch 6 part 4 (spec §7 Tier B step 3): a node whose parse degraded
+    /// to level 3 must render its `unparsed` text, labelled as such, via
+    /// the whole-frame path — not the structured `build_lines` path (which
+    /// a node with `unparsed` set should never even reach, since
+    /// `unparsed`/`flags`/`subcommands`/`usage` are mutually exclusive by
+    /// construction).
+    #[test]
+    fn unparsed_node_renders_labelled_raw_text() {
+        use crate::app::App;
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut root = CommandNode::new(
+            "mystery",
+            Provenance::with_confidence(Source::HelpText, 0.0),
+        );
+        root.unparsed = vec![
+            Text::sanitize("a friendly banner"),
+            Text::sanitize("and nothing else"),
+        ];
+        let app = App::new("mystery".to_string(), root);
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| {
+                let area = frame.area();
+                render(frame, area, &app);
+            })
+            .unwrap();
+        let buffer = terminal.backend().buffer().clone();
+        let rendered: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<Vec<_>>()
+            .join("");
+        assert!(rendered.contains("unparsed"), "{rendered}");
+        assert!(rendered.contains("a friendly banner"), "{rendered}");
+        assert!(rendered.contains("and nothing else"), "{rendered}");
     }
 }

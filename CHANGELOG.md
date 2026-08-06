@@ -8,6 +8,46 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added (batch 6 part 4, per-framework Tier B grammars)
+
+- **Framework dispatch wired into Tier B.** `HelpTextTier::extract_node`
+  now identifies the framework behind a tool's `--help` text (spec §7
+  Tier A′ — free artifact scan first, help-text signature fallback only
+  on a miss, never double-probing) and dispatches parsing through a new
+  `FrameworkProfile` (`mandible-extract/src/help_text/profile.rs`): a
+  small per-framework data table (recognized command headings, whether
+  the framework has a subcommand concept at all) that the *shared*
+  section/layout engine consults, rather than one parser per framework.
+  `GnuArgp`, `ClapV3V4`, `Argparse`, `Cobra`, and `Click` (spec §7 Tier
+  B's priority order) have real, fixture-tested grammars — including a
+  small dedicated scan for argparse's structurally distinct
+  `add_subparsers()` layout, which a data table can't express — and the
+  rest are documented as plausible-but-coarse. Adding a framework is one
+  `match` arm plus one fingerprint, never a tool-name branch.
+- **Staged degradation, three levels** (spec §7 Tier B): framework
+  identified → normal confidence; unidentified → the same generic engine,
+  capped to ≤0.5 confidence; structurally implausible (no flags, no
+  subcommands, no usage) → a new `CommandNode::unparsed: Vec<Text>` field
+  carries the tool's raw `--help` text verbatim at `confidence: 0.0`,
+  instead of inventing structure. `mandible-tui`'s detail pane renders an
+  `unparsed` node as a preformatted, unwrapped block (clipped rather than
+  reflowed) with a `framework:` line added to the provenance footer.
+- Two real parsing bugs found via fixture-testing against captured real
+  `--help` output (not synthetic fixtures): gh's own `HELP TOPICS` group
+  was being swept into subcommands by the engine's sticky same-indent
+  chain (fixed with a new `non_command_heading_markers` profile field);
+  and a `"name:"` trailing-colon convention (also from real `gh --help`)
+  was silently rejecting every one of gh's subcommand names from the
+  shape check (fixed generically in `emit_subcommands`, not gh-specific).
+
+### Added (batch 6 part 3, framework identification — undocumented at the
+time, recorded here for a complete changelog)
+
+- **Tier A′**: `mandible-extract::framework` identifies the generator
+  behind a tool's `--help` output — artifact byte-scanning first (ground
+  truth, no spawn), a `--help`-text signature fallback second — across 18
+  frameworks. `mandible --doctor` reports the detected framework.
+
 ### Removed (batch 6 part 1, spec revision 3)
 
 - **Tier A, the vendored carapace-spec catalog.** Removed

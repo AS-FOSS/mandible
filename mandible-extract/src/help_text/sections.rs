@@ -42,6 +42,7 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{looks_like_flag_start, parse_flag_spec};
+use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
     is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
 };
@@ -151,8 +152,27 @@ fn mentions_commands_word(s: &str) -> bool {
 // fragment" rather than two that could drift apart.
 
 /// Parse raw `--help` text (already selected as stdout-or-stderr by the
-/// caller) into structured pieces.
+/// caller) into structured pieces, with no framework knowledge — the
+/// generic layout engine alone (spec §7 Tier B step 2, "unidentified").
+/// Equivalent to `parse_with_profile(raw, None)`. `#[cfg(test)]`: the one
+/// production caller (`help_text::build_node`) always has a definite
+/// answer to "was a framework identified?" and calls
+/// [`parse_with_profile`] directly with `None` or `Some(..)`; this
+/// zero-argument spelling exists only because most of this module's own
+/// (pre-batch-6-part-4) test suite below calls it, and its behavior must
+/// stay exactly what it always was.
+#[cfg(test)]
 pub fn parse(raw: &str) -> ParsedHelp {
+    parse_with_profile(raw, None)
+}
+
+/// Same engine as [`parse`], but consulting `profile`'s framework-specific
+/// heading vocabulary and subcommand-concept knowledge when present (spec
+/// §7 Tier B step 1, "framework identified"). `None` reproduces [`parse`]'s
+/// generic behavior exactly — this is what keeps the two degradation
+/// levels (spec §7 Tier B: identified vs. unidentified) sharing one engine
+/// instead of forking into two.
+pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> ParsedHelp {
     let lines: Vec<&str> = raw.lines().collect();
     let mut result = ParsedHelp::default();
 
@@ -219,7 +239,7 @@ pub fn parse(raw: &str) -> ParsedHelp {
     let mut command_mode = result
         .description
         .as_deref()
-        .is_some_and(mentions_commands_word);
+        .is_some_and(|d| command_mode_seed(d, profile));
 
     // 3. Section blocks: scan the rest of the output for a heading line
     // followed by more-indented content — or, if the very first content
@@ -292,7 +312,7 @@ pub fn parse(raw: &str) -> ParsedHelp {
                     i += 1;
                 }
                 if !is_ignorable_heading(&heading) {
-                    let recognized = is_recognized_command_heading(&heading);
+                    let recognized = is_recognized_command_heading(&heading, profile);
                     if recognized {
                         command_mode = true;
                     }
@@ -314,7 +334,7 @@ pub fn parse(raw: &str) -> ParsedHelp {
             // a block of its own), remember that: the group headings that
             // immediately follow (git's "start a working area (see also:
             // ...)" and friends) say nothing about "commands" themselves.
-            if mentions_commands_word(&heading) {
+            if command_mode_seed(&heading, profile) {
                 command_mode = true;
             }
             // Rewind to just past the original line and continue scanning
@@ -338,13 +358,50 @@ pub fn parse(raw: &str) -> ParsedHelp {
             continue;
         }
 
+        // Argparse's subparser blocks (spec §7 Tier B, batch 6 part 4) are
+        // structurally distinct from every other framework's bare-word
+        // block — see `scan_argparse_subparsers`'s doc comment — so they
+        // get first refusal here, gated on the profile explicitly opting
+        // in and the heading plausibly being argparse's own (usually
+        // undecorated) `"positional arguments:"`. A miss (no `{...}`
+        // pseudo-entry evidence found) falls straight through to the
+        // ordinary bare-block handling below, same as any other tool.
+        if profile.is_some_and(|p| p.argparse_subparser_quirk)
+            && heading.to_lowercase().contains("positional arguments")
+        {
+            if let Some((end, entries)) = scan_argparse_subparsers(&lines, i, heading_indent) {
+                i = end;
+                command_mode = false;
+                let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
+                total_entries += seen;
+                clean_entries += clean;
+                continue;
+            }
+        }
+
         let (end, entries) = scan_bare_block(&lines, i, heading_indent);
         i = end;
         if is_ignorable_heading(&heading) {
             continue;
         }
 
-        let recognized = is_recognized_command_heading(&heading);
+        // A framework-declared *non*-command heading (spec §7 Tier B,
+        // batch 6 part 4 — see `FrameworkProfile::non_command_heading_markers`'s
+        // doc comment) both refuses this block and breaks the engine's
+        // sticky same-indent chain, so nothing after it inherits a
+        // `command_mode` this heading positively contradicts.
+        let is_declared_non_command = profile.is_some_and(|p| {
+            heading_matches_markers(&heading.to_lowercase(), p.non_command_heading_markers)
+        });
+        if is_declared_non_command {
+            command_mode = false;
+            let (seen, clean) = emit_choices(&heading, entries, &mut result);
+            total_entries += seen;
+            clean_entries += clean;
+            continue;
+        }
+
+        let recognized = is_recognized_command_heading(&heading, profile);
         if recognized || command_mode {
             command_mode = true;
             let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
@@ -434,13 +491,47 @@ fn is_name_shaped_token(t: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// True if `heading` is a recognized command-block introduction under
-/// spec §7 Tier B rule 1's literal test (mentions "command(s)" or
-/// "subcommand(s)" as a word). This is *not* the whole test — a heading
-/// can also qualify by being part of a chain started by such a mention
-/// elsewhere (git's group headings) — see `command_mode` in [`parse`].
-fn is_recognized_command_heading(heading: &str) -> bool {
+/// True if `heading` is a recognized command-block introduction: either
+/// spec §7 Tier B rule 1's literal generic test (mentions "command(s)" or
+/// "subcommand(s)" as a word), or — when a framework was identified — one
+/// of that framework's own extra heading markers
+/// ([`FrameworkProfile::command_heading_markers`]). A framework profile
+/// asserting [`FrameworkProfile::no_subcommand_concept`] overrides both:
+/// it means this framework's help output structurally never has
+/// subcommands, so no heading of any kind should ever be recognized here
+/// — the direct fix for [M-10] (spec §7 Tier B rule 1: "must produce zero
+/// subcommands"), made structural instead of incidental to which exact
+/// words one tool's heading happens to use.
+///
+/// This is *not* the whole test — a heading can also qualify by being
+/// part of a chain started by such a mention elsewhere (git's group
+/// headings) — see [`command_mode_seed`] and `command_mode` in
+/// [`parse_with_profile`].
+fn is_recognized_command_heading(heading: &str, profile: Option<&FrameworkProfile>) -> bool {
+    if let Some(p) = profile {
+        if p.no_subcommand_concept {
+            return false;
+        }
+        if heading_matches_markers(&heading.to_lowercase(), p.command_heading_markers) {
+            return true;
+        }
+    }
     mentions_commands_word(heading)
+}
+
+/// True if `text` (prose introducing a heading chain, e.g. git's "These
+/// are common Git commands used in various situations:") should seed
+/// `command_mode` — same [`FrameworkProfile::no_subcommand_concept`]
+/// override as [`is_recognized_command_heading`]: a framework with no
+/// subcommand concept must never have `command_mode` turned on by a prose
+/// mention either, since that mention almost certainly isn't about a
+/// command list this framework doesn't have (e.g. a GNU-argp tool's
+/// `--help` prose mentioning "commands" in an unrelated sentence).
+fn command_mode_seed(text: &str, profile: Option<&FrameworkProfile>) -> bool {
+    if profile.is_some_and(|p| p.no_subcommand_concept) {
+        return false;
+    }
+    mentions_commands_word(text)
 }
 
 /// Find the index of the flag in `flags` that `heading` is most plausibly
@@ -558,7 +649,15 @@ fn emit_subcommands(
     let mut seen = 0usize;
     let mut clean = 0usize;
     for (spec_text, desc_text) in entries {
-        let name = spec_text.trim();
+        // A trailing colon after the name (`"auth:        Authenticate..."`,
+        // a real cobra-app template convention — captured directly from
+        // `gh --help`, not invented) is punctuation, never part of the
+        // name itself; strip it before the shape check below so this
+        // common layout doesn't cause an otherwise perfectly good
+        // subcommand name to be dropped as unattributable. Framework-
+        // general (any framework's command list may format this way), not
+        // gated on a specific one.
+        let name = spec_text.trim().trim_end_matches(':').trim();
         if name.is_empty() {
             continue;
         }
@@ -708,6 +807,17 @@ fn scan_bare_block<'a>(
     start: usize,
     heading_indent: usize,
 ) -> (usize, Vec<(&'a str, String)>) {
+    let _ = heading_indent; // kept for documentation symmetry with the caller
+    let end = bare_block_end(lines, start);
+    (end, split_entries(&lines[start..end]))
+}
+
+/// Find the end of a bare-word block starting at `lines[start]`: its own
+/// indentation is the baseline, and the block runs until a non-blank line
+/// dedents below that baseline. Shared by [`scan_bare_block`] and
+/// [`scan_argparse_subparsers`] so both agree on where a block ends even
+/// though they disagree on how to split its *entries*.
+fn bare_block_end(lines: &[&str], start: usize) -> usize {
     let mut i = start;
     let entry_indent = leading_whitespace(lines[start]);
     while i < lines.len() {
@@ -720,8 +830,65 @@ fn scan_bare_block<'a>(
         }
         i += 1;
     }
-    let _ = heading_indent; // kept for documentation symmetry with the caller
-    (i, split_entries(&lines[start..i]))
+    i
+}
+
+/// Argparse's subparser blocks are the one shape spec §7 Tier B's generic
+/// bare-word engine cannot express as pure data — see
+/// [`super::profile::FrameworkProfile::argparse_subparser_quirk`]'s doc
+/// comment for the full rationale. In short: `add_subparsers()` renders a
+/// `{choice,choice,...}` pseudo-entry (argparse's own metavar for the
+/// whole choice group) immediately followed by each real subcommand one
+/// indent level *deeper* than that pseudo-entry:
+///
+/// ```text
+/// positional arguments:
+///   {init,build,run}
+///     init            Initialize a new widget
+///     build           Build the widget
+///     run             Run the widget
+/// ```
+///
+/// The generic engine's own rule — "a line indented deeper than the
+/// block's entries continues the previous entry's description" — would
+/// fold `init`/`build`/`run` into the pseudo-entry's own description
+/// instead of recovering them as their own entries, exactly backwards
+/// from what's needed. And `positional arguments:` legitimately holds
+/// *plain*, non-command positionals for any argparse tool that never
+/// calls `add_subparsers()` at all, so the heading text alone is never
+/// evidence of a command list (spec §7 Tier B rule 1) — only the presence
+/// of a `{...}`-shaped pseudo-entry inside the block is. Returns `None`
+/// (no evidence found; the caller falls through to ordinary bare-block/
+/// choice handling, exactly as if this framework check hadn't run at all)
+/// when the block contains no such pseudo-entry, so an ordinary
+/// positional-argument list is never promoted to fake subcommands.
+fn scan_argparse_subparsers<'a>(
+    lines: &[&'a str],
+    start: usize,
+    heading_indent: usize,
+) -> Option<(usize, Vec<(&'a str, String)>)> {
+    let _ = heading_indent;
+    let end = bare_block_end(lines, start);
+    let block = &lines[start..end];
+
+    let pseudo_indent = block.iter().find_map(|l| {
+        if l.trim().is_empty() {
+            return None;
+        }
+        l.trim_start()
+            .starts_with('{')
+            .then(|| leading_whitespace(l))
+    })?;
+
+    let sub_lines: Vec<&str> = block
+        .iter()
+        .filter(|l| !l.trim().is_empty() && leading_whitespace(l) > pseudo_indent)
+        .copied()
+        .collect();
+    if sub_lines.is_empty() {
+        return None;
+    }
+    Some((end, split_entries(&sub_lines)))
 }
 
 fn non_empty_text(s: &str) -> Option<Text> {

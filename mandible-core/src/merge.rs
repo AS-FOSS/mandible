@@ -99,6 +99,22 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         candidates.iter().map(|c| (&c.provenance, c.group.as_ref())),
         Axis::Structural,
     );
+    // `unparsed` (spec §7 Tier B step 3 / batch 6 part 4) is honesty
+    // metadata about *how little* a source understood, not structure to
+    // merge piecewise — picking the highest-structural-authority
+    // non-empty contributor (like `usage`) means a candidate that actually
+    // parsed real structure always wins over one that gave up, since a
+    // node only ever carries `unparsed` when it has nothing else.
+    let unparsed = pick_vec(
+        candidates.iter().map(|c| (&c.provenance, &c.unparsed)),
+        Axis::Structural,
+    );
+    let detected_framework = pick_option(
+        candidates
+            .iter()
+            .map(|c| (&c.provenance, c.detected_framework.as_ref())),
+        Axis::Structural,
+    );
 
     let structural_winner_idx =
         best_index(candidates.iter().map(|c| &c.provenance), Axis::Structural);
@@ -131,6 +147,8 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         deprecated,
         children_filled,
         group,
+        unparsed,
+        detected_framework,
         provenance,
     })
 }

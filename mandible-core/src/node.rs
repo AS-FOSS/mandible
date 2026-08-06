@@ -43,6 +43,26 @@ pub struct CommandNode {
     /// `git`'s porcelain commands. Extension beyond the spec's base schema,
     /// permitted by spec §4 (carapace's `group` is a real display grouping).
     pub group: Option<String>,
+    /// The tool's raw `--help` output, one sanitized [`Text`] per line, set
+    /// **only** when no parse produced anything structurally plausible
+    /// (spec §7 Tier B step 3 / batch 6 part 4: no flags, no subcommands,
+    /// no usage). Non-empty means "we are showing you the author's own
+    /// text untouched because inventing structure would be worse" — when
+    /// this is non-empty, `flags`/`subcommands`/`usage`/`description` are
+    /// all empty by construction, `provenance.confidence` is `0.0`, and a
+    /// consumer (the TUI's detail pane) must render this as a preformatted
+    /// block, not re-wrap or markdown-treat it. One `Text` per line
+    /// deliberately: it reuses `Text`'s own single-line invariant instead
+    /// of introducing a second, weaker sanitizer for a raw blob.
+    pub unparsed: Vec<Text>,
+    /// The framework Tier A′ identified for this node's `--help` output
+    /// (`Framework::name()`, e.g. `"clap (v3/v4)"`), if any — for display
+    /// only (`--doctor`, the detail pane's provenance footer), never for
+    /// parsing decisions on the consumer side. `mandible-core` cannot
+    /// depend on `mandible-extract::framework::Framework` (that would be a
+    /// cyclic crate dependency), so this is carried as the already-
+    /// rendered short name rather than the enum itself.
+    pub detected_framework: Option<String>,
     /// Which source(s) contributed this node's own fields (not its
     /// children's — each child has its own `Provenance`).
     pub provenance: Provenance,
@@ -86,6 +106,8 @@ impl CommandNode {
             deprecated: None,
             children_filled: false,
             group: None,
+            unparsed: Vec::new(),
+            detected_framework: None,
             provenance,
         }
     }

@@ -282,6 +282,61 @@ fn borders_survive_help_overlay() {
     assert_border_intact(&buffer, regions.search);
 }
 
+/// Regression for the exact bug class that shipped twice before (spec §9):
+/// untrusted text corrupting the `|` border column. `unparsed` (spec §7
+/// Tier B step 3, batch 6 part 4) is the tool author's *own* raw text,
+/// deliberately not pre-wrapped and not handed `Paragraph::wrap` by
+/// `render_unparsed` (unlike every other block in the pane) — exactly the
+/// path most likely to reintroduce that bug if `Text::sanitize`'s
+/// single-line/no-control-char invariant were ever bypassed. Adversarial
+/// raw lines (embedded control-adjacent content, CJK, emoji, a very long
+/// line) must still leave every border cell intact.
+#[test]
+fn borders_survive_a_node_with_unparsed_raw_help_text() {
+    let mut root = CommandNode::new(
+        "mystery",
+        Provenance::with_confidence(Source::HelpText, 0.0),
+    );
+    root.unparsed = vec![
+        Text::sanitize("a friendly banner with\ttabs and \x1b[31mANSI\x1b[0m codes"),
+        Text::sanitize(
+            "日本語のテキストで境界を壊すテスト文字列です。"
+                .repeat(3)
+                .as_str(),
+        ),
+        Text::sanitize("🎉🎉🎉 line with emoji 🚀🚀🚀"),
+        Text::sanitize(&"x".repeat(5000)),
+    ];
+
+    for &width in &[40u16, 80, 120] {
+        for &height in &[10u16, 24] {
+            for focus in [mandible_tui::Focus::Tree, mandible_tui::Focus::Detail] {
+                let mut app = App::new("mystery".to_string(), root.clone());
+                app.focus = focus;
+                let backend = TestBackend::new(width, height);
+                let mut terminal = Terminal::new(backend).unwrap();
+                terminal
+                    .draw(|frame| {
+                        mandible_tui::render::render(frame, &app);
+                    })
+                    .unwrap();
+                let buffer = terminal.backend().buffer().clone();
+                let regions = mandible_tui::layout::compute(
+                    ratatui::layout::Rect::new(0, 0, width, height),
+                    app.focus,
+                );
+                assert_border_intact(&buffer, regions.search);
+                if let Some(tree_rect) = regions.tree {
+                    assert_border_intact(&buffer, tree_rect);
+                }
+                if let Some(detail_rect) = regions.detail {
+                    assert_border_intact(&buffer, detail_rect);
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn narrow_terminal_stacked_layout_borders_survive() {
     let mut app = build_app();
