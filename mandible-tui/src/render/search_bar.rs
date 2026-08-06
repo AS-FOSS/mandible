@@ -30,12 +30,24 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let query = defensive_single_line(&app.search_query);
-    let pinned = app.search_pinned.as_deref().map(defensive_single_line);
 
+    // Unfocused, the bar shows whatever filter is *actually* in effect —
+    // `app.active_filter()`, the same value the tree pane filters on —
+    // not just the pinned one. `Enter` moves focus to the tree without
+    // clearing `search_query`, so keying the display off `search_pinned`
+    // alone made the text vanish while the filter stayed active: the tree
+    // was still filtered by a query the user could no longer see, and it
+    // reappeared when they focused the box again. A filter that is in
+    // effect must always be visible.
     let text = if focused {
         format!("› {query}")
-    } else if let Some(pinned) = &pinned {
-        format!("(pinned) {pinned}")
+    } else if let Some(active) = app.active_filter() {
+        let label = if app.search_pinned.is_some() && app.search_query.is_empty() {
+            "pinned"
+        } else {
+            "filter"
+        };
+        format!("({label}) {}", defensive_single_line(active))
     } else {
         "› ".to_string()
     };

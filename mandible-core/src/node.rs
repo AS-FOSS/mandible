@@ -80,6 +80,15 @@ pub struct CommandNode {
 /// check: a tier that starts emitting names failing this test again is
 /// exactly the class of regression [M-10] was.
 pub fn is_command_name_shaped(s: &str) -> bool {
+    // A trailing `.`/`-`/`_` is sentence or hyphenation punctuation, never
+    // part of a command name. Interior ones are legitimate (`mount.nfs`,
+    // `apt-get`, `foo_bar`), which is why the character class below allows
+    // them at all — but allowing them at the end let prose fragments like
+    // *"testing."* and *"skipped."* through the name-shape check and into
+    // the tree as fabricated subcommands ([M-10]).
+    if s.ends_with(['.', '-', '_']) {
+        return false;
+    }
     let mut chars = s.chars();
     match chars.next() {
         Some(c) if c.is_ascii_lowercase() => {}

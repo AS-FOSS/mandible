@@ -69,6 +69,16 @@ pub struct App {
     pub focus: Focus,
     /// Tree pane vertical scroll offset, in rows.
     pub tree_scroll: usize,
+    /// How many tree rows the last rendered frame could show at once.
+    /// Written by the renderer each frame and read by
+    /// [`Self::follow_selection`] so keyboard navigation can scroll the
+    /// viewport to keep the selection visible — without that, `↓` past
+    /// the bottom row moved an invisible selection and the pane only
+    /// caught up when the mouse wheel was used, which made the tool
+    /// unusable from the keyboard alone. Zero until the first frame is
+    /// drawn, which `follow_selection` treats as "viewport unknown, leave
+    /// the scroll offset alone".
+    pub tree_viewport: usize,
     /// Detail pane vertical scroll offset, in lines.
     pub detail_scroll: usize,
     /// Whether the `?` keybinding overlay is showing.
@@ -122,6 +132,7 @@ impl App {
             search_pinned: None,
             focus: Focus::Tree,
             tree_scroll: 0,
+            tree_viewport: 0,
             detail_scroll: 0,
             show_help: false,
             show_hidden: false,
@@ -167,6 +178,9 @@ impl App {
         }
         self.sync_selected_flag_to_top_search_result();
         self.dirty = false;
+        // Filtering/expanding can move the selection under the viewport
+        // just as arrow keys can, so the same rule applies here.
+        self.follow_selection();
     }
 
     /// Spec §10: "Selecting one [a flag search result] selects the parent
@@ -258,12 +272,34 @@ impl App {
             self.selected += 1;
         }
         self.selected_flag = None;
+        self.follow_selection();
     }
 
     /// Move the tree selection up one row.
     pub fn move_up(&mut self) {
         self.selected = self.selected.saturating_sub(1);
         self.selected_flag = None;
+        self.follow_selection();
+    }
+
+    /// Scroll the tree pane the minimum amount needed to keep
+    /// [`Self::selected`] on screen. Called after every operation that
+    /// moves the selection, so the tool is fully keyboard-navigable:
+    /// selection and viewport must never drift apart, because a selection
+    /// the user cannot see is indistinguishable from the app ignoring
+    /// their keypress.
+    ///
+    /// A zero [`Self::tree_viewport`] means no frame has been drawn yet,
+    /// so there is no viewport to scroll and the offset is left alone.
+    pub fn follow_selection(&mut self) {
+        if self.tree_viewport == 0 {
+            return;
+        }
+        if self.selected < self.tree_scroll {
+            self.tree_scroll = self.selected;
+        } else if self.selected >= self.tree_scroll + self.tree_viewport {
+            self.tree_scroll = self.selected + 1 - self.tree_viewport;
+        }
     }
 
     /// `→`/`Enter`/`l`: expand the selected row if it has children and
@@ -354,6 +390,7 @@ impl App {
             }
         }
         self.selected_flag = None;
+        self.follow_selection();
     }
 
     /// Click/Enter/`l`/`→` shorthand: toggle expand state on the given row
@@ -385,6 +422,7 @@ impl App {
             self.selected = idx;
         }
         self.selected_flag = None;
+        self.follow_selection();
     }
 
     /// `/`: focus the search box.

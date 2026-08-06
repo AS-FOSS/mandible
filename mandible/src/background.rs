@@ -1,23 +1,41 @@
-//! Bounded background warming of the next tree depth (spec §5.2 step 4).
+//! Bounded background warming of the whole tree (spec §5.2 step 4).
 //!
-//! After a node the user just expanded finishes its own lazy fill (spec
-//! §5.2 step 3), its direct children are spec­ulatively pre-warmed one
-//! level ahead on a bounded pool — `min(8, available_parallelism)` — so
-//! that descending further often finds an answer already in the tree.
-//! Warming is deliberately *not* recursive past that one extra level:
-//! doing so would eventually warm an entire large tree (`kubectl` has
-//! hundreds of subcommands) in the background, which is exactly the
-//! eager-extraction cost problem spec §5.1 exists to avoid, just moved off
-//! the main thread instead of solved.
+//! Every node discovered in the tree is queued for a background fill on a
+//! bounded pool — `min(8, available_parallelism)` — starting from the root
+//! as soon as the TUI opens, and cascading: each completed fill queues the
+//! children it just discovered. The user never waits for the tree, and
+//! never has to expand a node by hand to make it real.
+//!
+//! This replaces an earlier "one level ahead of what the user expanded"
+//! policy. That policy kept the spawn count minimal, but it made an
+//! unexpanded node *invisible to search* — the index can only contain what
+//! has been extracted — and an empty node with nothing on screen
+//! explaining that it needs a keypress reads as a bug, not as laziness.
+//! Filling everything in the background costs the same total work spread
+//! over idle time, and it is what makes a search over the whole tree
+//! honest.
+//!
+//! What this is *not* is a return to eager extraction (spec §5.1): nothing
+//! here blocks startup or any keystroke. [`MAX_WARMED_NODES`] bounds the
+//! walk, and [`Warmer::cancel`] stops it on quit.
 //!
 //! Results are delivered back to the main loop over a channel it polls
 //! each iteration (`Warmer::drain`), never by touching `App` from a
 //! background thread.
 
 use mandible_extract::{FillResult, ResolvedTool, Runner};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
+
+/// Upper bound on how many nodes one session will warm in the background.
+/// The cascade walks the whole reachable tree, and a few CLIs are enormous
+/// (kubectl's subcommand tree runs to the hundreds, and each node costs a
+/// subprocess spawn). This is a backstop against a pathological tree
+/// turning a helpful prefetch into a spawn storm, not a tuning knob — a
+/// tool that hits it still works, it just stops prefetching and falls back
+/// to filling on expand.
+const MAX_WARMED_NODES: usize = 4096;
 
 /// One completed background fill, ready to be spliced into the tree by
 /// the main loop.
@@ -26,11 +44,6 @@ pub struct WarmedNode {
     pub path: Vec<String>,
     /// The fill outcome.
     pub result: FillResult,
-    /// True if this was the fill the user directly triggered by
-    /// expanding a node (as opposed to a speculative one-level-ahead
-    /// warm) — the main loop uses this to decide whether to, in turn,
-    /// warm *this* node's own children.
-    pub warm_children: bool,
 }
 
 /// Owns a bounded thread pool and a cancellation flag; submits fills and
@@ -39,6 +52,9 @@ pub struct WarmedNode {
 pub struct Warmer {
     pool: rayon::ThreadPool,
     cancelled: Arc<AtomicBool>,
+    /// How many fills have been submitted this session, against
+    /// [`MAX_WARMED_NODES`].
+    submitted: AtomicUsize,
     tx: Sender<WarmedNode>,
     rx: Receiver<WarmedNode>,
 }
@@ -59,22 +75,28 @@ impl Warmer {
         Warmer {
             pool,
             cancelled: Arc::new(AtomicBool::new(false)),
+            submitted: AtomicUsize::new(0),
             tx,
             rx,
         }
     }
 
-    /// Submit a single node for a background fill.
+    /// Submit a single node for a background fill. Returns `false` when
+    /// the submission was refused — the app is quitting, or the
+    /// [`MAX_WARMED_NODES`] budget is spent — so a cascading caller knows
+    /// to stop walking.
     pub fn submit(
         &self,
         runner: Arc<Runner>,
         tool: ResolvedTool,
         path: Vec<String>,
         existing: mandible_core::CommandNode,
-        warm_children: bool,
-    ) {
+    ) -> bool {
         if self.cancelled.load(Ordering::Relaxed) {
-            return;
+            return false;
+        }
+        if self.submitted.fetch_add(1, Ordering::Relaxed) >= MAX_WARMED_NODES {
+            return false;
         }
         let cancelled = Arc::clone(&self.cancelled);
         let tx = self.tx.clone();
@@ -86,38 +108,53 @@ impl Warmer {
             if cancelled.load(Ordering::Relaxed) {
                 return;
             }
-            let _ = tx.send(WarmedNode {
-                path,
-                result,
-                warm_children,
-            });
+            let _ = tx.send(WarmedNode { path, result });
         });
+        true
     }
 
-    /// Speculatively pre-fill every direct child of `node` that isn't
-    /// already known-complete, one background job each, one level deep
-    /// (results from these do not themselves trigger further warming).
+    /// Queue every direct child of `node` that isn't already
+    /// known-complete for a background fill, and return the paths queued
+    /// so the caller can mark them pending (which is what renders them as
+    /// loading rows rather than as empty ones).
+    ///
+    /// Results from these fills are themselves cascaded by the event
+    /// loop, so the whole reachable tree is walked progressively in the
+    /// background rather than one level at a time on demand. That is a
+    /// deliberate revision of the original "one level ahead" policy: a
+    /// node the user had not personally expanded was not merely slow, it
+    /// was *invisible to search*, and a lazily-empty node with nothing on
+    /// screen to say it needs a keypress reads as a bug. Startup stays
+    /// non-blocking either way — the difference is only how much gets
+    /// filled while the user reads the first screen.
+    ///
+    /// [`MAX_WARMED_NODES`] keeps the walk from becoming unbounded on a
+    /// very large tree.
     pub fn warm_children(
         &self,
         runner: &Arc<Runner>,
         tool: &ResolvedTool,
         node: &mandible_core::CommandNode,
         path: &[String],
-    ) {
+    ) -> Vec<Vec<String>> {
+        let mut queued = Vec::new();
         for child in &node.subcommands {
             if child.children_filled {
                 continue;
             }
             let mut child_path = path.to_vec();
             child_path.push(child.name.clone());
-            self.submit(
+            if !self.submit(
                 Arc::clone(runner),
                 tool.clone(),
-                child_path,
+                child_path.clone(),
                 child.clone(),
-                false,
-            );
+            ) {
+                break;
+            }
+            queued.push(child_path);
         }
+        queued
     }
 
     /// Drain any background fills that have completed since the last

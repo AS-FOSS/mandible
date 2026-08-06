@@ -176,6 +176,20 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
     let lines: Vec<&str> = raw.lines().collect();
     let mut result = ParsedHelp::default();
 
+    // Some tools answer `--help` with their *man page* rather than a help
+    // summary — `git bisect --help` renders GIT-BISECT(1) in full. That is
+    // a different document format with different conventions, and feeding
+    // it to this grammar produces nonsense: git bisect acquired the
+    // subcommands "follows", "testing.", "command" and "skipped." from
+    // sentences in the DESCRIPTION prose. Man pages are Tier D's job
+    // (spec §7 Tier D, not yet implemented), so until that exists the
+    // honest outcome is no structure at all, which the caller renders
+    // verbatim (spec §7 Tier B step 3) — the author's own manual, shown
+    // as written, instead of invented commands.
+    if looks_like_man_page(&lines) {
+        return result;
+    }
+
     let mut i = 0;
     // 1. Usage block: one or more lines starting with (case-insensitive)
     // "usage:", plus indented continuations.
@@ -520,6 +534,33 @@ fn looks_like_word_grid_line(line: &str) -> bool {
 fn looks_like_word_grid_start(line: &str) -> bool {
     let columns = split_columns(line);
     columns.len() >= 3 && columns.iter().all(|c| is_name_shaped_token(c))
+}
+
+/// True if `lines` is a rendered man page rather than `--help` output.
+///
+/// The signal is the page banner every `man` renderer emits: a first line
+/// carrying the same `NAME(section)` title at both the left and right
+/// margins, e.g. `GIT-BISECT(1)    Git Manual    GIT-BISECT(1)`. That is a
+/// property of the roff output format, not of any tool or framework, and
+/// no `--help` summary looks like it.
+fn looks_like_man_page(lines: &[&str]) -> bool {
+    let Some(first) = lines.iter().find(|l| !l.trim().is_empty()) else {
+        return false;
+    };
+    let trimmed = first.trim();
+    let Some(head) = trimmed.split_whitespace().next() else {
+        return false;
+    };
+    let Some(tail) = trimmed.split_whitespace().next_back() else {
+        return false;
+    };
+    // Both margins must carry the identical `NAME(section)` token, and
+    // there must be a centred title between them — a single repeated word
+    // on its own is not a banner.
+    head == tail
+        && head.ends_with(')')
+        && head.contains('(')
+        && trimmed.split_whitespace().count() > 2
 }
 
 /// Split `line` on runs of two or more spaces, discarding empty fields.

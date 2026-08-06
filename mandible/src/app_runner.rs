@@ -35,15 +35,32 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
     let resolved = resolve_tool(&app.tool);
     let warmer = Warmer::new();
 
+    // Queue the root's children immediately, before the first frame, so
+    // the whole tree starts filling while the user reads the first screen
+    // rather than only once they expand something by hand.
+    {
+        let root_path = vec![app.root.name.clone()];
+        let root = app.root.clone();
+        for path in warmer.warm_children(&runner, &resolved, &root, &root_path) {
+            app.mark_pending(path);
+        }
+    }
+
     loop {
         // Splice in any background fills that completed since the last
         // iteration before rendering, so the tree reflects them promptly.
         for warmed in warmer.drain() {
             let node = warmed.result.node.clone();
-            if warmed.warm_children {
-                warmer.warm_children(&runner, &resolved, &node, &warmed.path);
-            }
+            // Cascade unconditionally: every fill queues the children it
+            // just discovered, so the background walk reaches the whole
+            // tree instead of stopping one level past whatever the user
+            // expanded. Marking them pending is what makes them render as
+            // loading rows rather than as silently empty ones.
+            let queued = warmer.warm_children(&runner, &resolved, &node, &warmed.path);
             app.splice_filled_node(&warmed.path, node);
+            for path in queued {
+                app.mark_pending(path);
+            }
         }
 
         // Drive the search index's background matcher forward from this
@@ -52,6 +69,30 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
         app.tick_search(10);
 
         app.ensure_rows_fresh();
+
+        // Publish the tree pane's visible row count so keyboard navigation
+        // can scroll the viewport to follow the selection (App::
+        // follow_selection). Derived from the same layout the renderer
+        // uses, and through `Block::inner` rather than a hardcoded border
+        // thickness, so the two can't drift apart. Computed before the
+        // draw, so the very first `↓` already has a real viewport rather
+        // than waiting a frame.
+        {
+            let size = term.size()?;
+            let area = ratatui::layout::Rect::new(0, 0, size.width, size.height);
+            let regions = layout::compute(area, app.focus);
+            app.tree_viewport = regions
+                .tree
+                .map(|rect| {
+                    ratatui::widgets::Block::default()
+                        .borders(ratatui::widgets::Borders::ALL)
+                        .inner(rect)
+                        .height as usize
+                })
+                .unwrap_or(0);
+            app.follow_selection();
+        }
+
         term.draw(|frame| render::render(frame, app))?;
 
         if !event::poll(Duration::from_millis(100))? {
@@ -121,7 +162,7 @@ fn apply_effect(
         Effect::Fill(path) => {
             if let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() {
                 app.mark_pending(path.clone());
-                warmer.submit(Arc::clone(runner), resolved.clone(), path, existing, true);
+                warmer.submit(Arc::clone(runner), resolved.clone(), path, existing);
             }
         }
     }
