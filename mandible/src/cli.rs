@@ -1,4 +1,10 @@
-//! Command-line argument parsing.
+// Command-line argument parsing.
+//
+// A regular (not `//!` inner) doc comment deliberately: `build.rs`
+// `include!`s this file verbatim to share the `Cli` definition with the
+// completion-script generator (see its doc comment), and `include!`
+// splices content at the call site rather than as a fresh module, where
+// an inner doc comment doesn't parse.
 
 use clap::Parser;
 
@@ -18,6 +24,15 @@ pub struct Cli {
     /// Bypass the cache and re-extract, then repopulate it.
     #[arg(long)]
     pub refresh: bool,
+
+    /// Print a shell completion script for SHELL to stdout and exit,
+    /// instead of opening the TUI. Packaged builds also install
+    /// pre-generated completions to the standard per-distro paths (spec
+    /// §15); this flag exists for `cargo install` users and anyone
+    /// scripting their own install (e.g. `mandible --completions zsh >
+    /// ~/.zfunc/_mandible`).
+    #[arg(long, value_name = "SHELL")]
+    pub completions: Option<clap_complete::Shell>,
 }
 
 impl Cli {

@@ -11,6 +11,7 @@ description = "mandible: a universal, interactive TUI reference for CLI tools. `
 keywords = ["cli", "tui", "documentation", "reference"]
 categories = ["command-line-interface", "command-line-utilities"]
 default-run = "mandible"
+build = "build.rs"
 
 [[bin]]
 name = "mandible"
@@ -22,6 +23,7 @@ mandible-extract.workspace = true
 mandible-cache.workspace = true
 mandible-tui.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -29,5 +31,47 @@ crossterm.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 
+[build-dependencies]
+clap.workspace = true
+clap_complete.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true
+
+# Packaging metadata (spec §15). `cargo-deb`/`cargo-generate-rpm` are not
+# installed in this build environment (no network to fetch them), so this
+# metadata is unverified by an actual `cargo deb`/`cargo generate-rpm` run
+# here — it follows each tool's documented schema and the convention several
+# popular Rust CLIs (ripgrep, fd) use for referencing build.rs-generated
+# shell completions via a glob into the build-script `OUT_DIR`, since the
+# hashed directory component isn't known ahead of time.
+[package.metadata.deb]
+maintainer = "Sadig Akhund <sadigaxund@gmail.com>"
+copyright = "2026, Sadig Akhund"
+license-file = ["LICENSE-MIT", "0"]
+extended-description = """\
+mandible is a universal, interactive TUI reference for CLI tools. \
+`mandible git` opens an explorable tree of every command, subcommand, and \
+flag git has, with descriptions — a reference browser, not a command \
+builder."""
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/mandible", "usr/bin/", "755"],
+    ["../packaging/mandible.1", "usr/share/man/man1/", "644"],
+    ["../README.md", "usr/share/doc/mandible/README.md", "644"],
+    ["target/release/build/mandible-*/out/mandible.bash", "usr/share/bash-completion/completions/mandible", "644"],
+    ["target/release/build/mandible-*/out/_mandible", "usr/share/zsh/vendor-completions/", "644"],
+    ["target/release/build/mandible-*/out/mandible.fish", "usr/share/fish/vendor_completions.d/", "644"],
+]
+
+[package.metadata.generate-rpm]
+license = "MIT OR Apache-2.0"
+assets = [
+    { source = "target/release/mandible", dest = "/usr/bin/mandible", mode = "755" },
+    { source = "../packaging/mandible.1", dest = "/usr/share/man/man1/mandible.1", mode = "644", doc = true },
+    { source = "target/release/build/mandible-*/out/mandible.bash", dest = "/usr/share/bash-completion/completions/mandible", mode = "644" },
+    { source = "target/release/build/mandible-*/out/_mandible", dest = "/usr/share/zsh/site-functions/_mandible", mode = "644" },
+    { source = "target/release/build/mandible-*/out/mandible.fish", dest = "/usr/share/fish/vendor_completions.d/mandible.fish", mode = "644" },
+]

@@ -9,7 +9,7 @@ mod cli;
 mod doctor;
 mod pipeline;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use cli::Cli;
 
 fn main() -> anyhow::Result<()> {
@@ -20,6 +20,13 @@ fn main() -> anyhow::Result<()> {
         .ok();
 
     let cli = Cli::parse();
+
+    if let Some(shell) = cli.completions {
+        let mut cmd = Cli::command();
+        let bin_name = cmd.get_name().to_string();
+        clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+        return Ok(());
+    }
 
     let Some(tool) = cli.target_tool() else {
         anyhow::bail!("usage: mandible <tool>  (or: mandible --doctor <tool>)");

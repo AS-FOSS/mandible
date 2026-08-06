@@ -8,6 +8,40 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added (batch 5, packaging)
+
+- **`cargo-deb`/`cargo-generate-rpm` metadata** in `mandible/Cargo.toml`
+  (`[package.metadata.deb]`/`[package.metadata.generate-rpm]`), following
+  each tool's documented schema. Neither tool is installed in this build
+  environment (no network to fetch them), so this metadata is unverified
+  by an actual `cargo deb`/`cargo generate-rpm` run — see the report for
+  what's verified vs. not.
+- **`packaging/mandible.1`**: a real, hand-written man page for the
+  `mandible` binary itself (options, key bindings, environment variables,
+  file locations including the macOS/Linux path difference, exit status).
+  Validated with both `mandoc -Tlint` (zero warnings) and `groff -man`
+  (renders cleanly).
+- **Shell completions**, generated at build time from the same `clap`
+  command definition the binary parses against (`mandible/build.rs`,
+  `include!`s `src/cli.rs` — the same pattern ripgrep/fd use, since a
+  build script is a separate compilation with no other way to reach the
+  `Cli` type), so they cannot drift from the real CLI surface. Packaging
+  metadata installs them to standard paths via a glob into the
+  build-script `OUT_DIR`. Also added a `mandible --completions <shell>`
+  runtime flag (bash/zsh/fish/elvish/powershell) for non-packaged
+  installs.
+- README: a real terminal screenshot (`scripts/pty_screenshot.py` against
+  the actual release binary, not fabricated), install instructions
+  covering both `cargo install` and packaged installs, and an honest
+  coverage section that deliberately does not quote a specific tool
+  count or percentage — the extraction pipeline is expected to change
+  again soon, and a number that's about to be wrong is worse than no
+  number; points at `cargo xtask coverage` / `mandible --doctor <tool>`
+  for current, real figures instead.
+- Confirmed default features still build with no network access and no C
+  toolchain (`cc`/`bindgen` stay behind the opt-in `manpage` feature,
+  unchanged by this batch).
+
 ### Added (batch 5)
 
 - **macOS support, audited and wired into CI.** `.github/workflows/ci.yml`'s

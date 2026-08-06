@@ -1,0 +1,194 @@
+.\" Man page for mandible itself (spec §15). Hand-written rather than
+.\" generated (clap_mangen is not in the project's dependency table, and
+.\" the CLI surface is small enough that hand-maintenance is cheap); keep
+.\" this in sync with mandible/src/cli.rs when flags change.
+.TH MANDIBLE 1 "2026-08-06" "mandible 0.1.0" "User Commands"
+.SH NAME
+mandible \- a universal, interactive TUI reference for CLI tools
+.SH SYNOPSIS
+.B mandible
+.I TOOL
+.RB [ \-\-refresh ]
+.br
+.B mandible
+.B \-\-doctor
+.I TOOL
+.RB [ \-\-refresh ]
+.br
+.B mandible
+.B \-\-completions
+.I SHELL
+.br
+.B mandible
+.RB [ \-h | \-\-help ]
+.RB [ \-V | \-\-version ]
+.SH DESCRIPTION
+.B mandible
+opens a full-screen, explorable tree of every command, subcommand, and
+flag that
+.I TOOL
+has, with descriptions rather than just names, plus a fuzzy search bar
+that finds a flag from a partial memory of its name or purpose.
+.PP
+It is a
+.B reference browser,
+not a command builder:
+.B mandible
+never executes
+.I TOOL
+itself, and never runs the command you're looking up. Its job ends the
+moment you have found the right flag and can copy its exact spelling
+with
+.BR y .
+.PP
+Structure and descriptions are assembled from whichever of several
+extraction tiers apply to
+.IR TOOL ,
+merged field-by-field by trust (structural accuracy vs. prose quality),
+never by which tier happened to run first. Tiers include a curated
+third-party command-spec catalog, a general-purpose
+.B \-\-help
+grammar, shell completion-script parsing, and native dynamic probes
+(cobra's
+.BR __complete ,
+clap's
+.BR CompleteEnv ),
+merged and cached per tool. See
+.B mandible \-\-doctor
+.I TOOL
+for exactly which tiers contributed to a given tool's tree, and the
+project's own
+.I spec.md
+for the full design.
+.SH OPTIONS
+.TP
+.I TOOL
+The tool to open, e.g.
+.IR git .
+Resolved against
+.BR PATH .
+Required unless
+.B \-\-doctor
+is given.
+.TP
+.B \-\-doctor \fITOOL\fR
+Print a non-interactive extraction report for
+.I TOOL
+instead of opening the TUI: which tiers detected and succeeded, node
+and flag counts, the percentage of flags with a description, the
+vendored catalog's commit and vendoring date (if it contributed), and
+elapsed time. Exits non-zero if no tier produced anything.
+.TP
+.B \-\-refresh
+Bypass the on-disk cache for this invocation, re-run extraction from
+scratch, and repopulate the cache with the fresh result. Use this if a
+tool was upgraded and mandible still shows the old structure.
+.TP
+.B \-\-completions \fISHELL\fR
+Print a shell completion script for
+.I SHELL
+to stdout and exit.
+.I SHELL
+is one of
+.BR bash ,
+.BR zsh ,
+.BR fish ,
+.BR elvish ,
+or
+.BR powershell .
+Packaged builds (`.deb`/`.rpm`) already install completions to the
+standard per-distro paths; this flag is for
+.B cargo install
+users and anyone scripting their own setup, e.g.:
+.RS
+.PP
+.nf
+mandible \-\-completions zsh > ~/.zfunc/_mandible
+.fi
+.RE
+.TP
+.B \-h\fR,\fB \-\-help
+Print help and exit.
+.TP
+.B \-V\fR,\fB \-\-version
+Print version and exit.
+.SH KEY BINDINGS
+Shown in-app via
+.BR ? .
+.TP
+.BR "Up/Down" ", " k / j
+Move the tree selection.
+.TP
+.BR "Right arrow" ", " Enter ", " l
+Expand the selected node (extracting its children on first expand).
+.TP
+.BR "Left arrow" ", " h
+Collapse the selected node, or jump to its parent if already collapsed.
+.TP
+.B /
+Focus the search bar.
+.TP
+.B Esc
+Leave the search bar, keeping the filter pinned; press again to clear it.
+.TP
+.B Tab
+Switch focus between the tree and detail panes.
+.TP
+.B y
+Copy the selected flag's exact spelling, or the selected node's full
+command path, to the clipboard.
+.TP
+.B r
+Re-extract the current tool, bypassing the cache.
+.TP
+.B .
+Toggle display of hidden and deprecated items.
+.TP
+.B q\fR, \fBCtrl-C
+Quit.
+.SH ENVIRONMENT
+.TP
+.B MANDIBLE_LOG
+Enables diagnostic logging (a
+.I tracing
+.B EnvFilter
+directive string, e.g.
+.IR debug " or " mandible_extract=trace ),
+written to stderr — never to the TUI's own terminal output.
+.TP
+.B NO_COLOR
+When set to any value, mandible degrades its single accent color to
+bold/reverse/underline only.
+.TP
+.B XDG_CACHE_HOME\fR, \fBXDG_CONFIG_HOME
+Standard XDG base-directory variables; mandible respects them for its
+on-disk cache and user override files. See
+.B FILES
+below for the resolved defaults, which differ on macOS.
+.SH FILES
+.TP
+.I $XDG_CACHE_HOME/mandible/
+(Linux, default \fI~/.cache/mandible/\fR; macOS:
+\fI~/Library/Caches/mandible/\fR) — the on-disk extraction cache,
+gzip-compressed JSON, one file per tool. Safe to delete entirely; it is
+rebuilt on next use.
+.TP
+.I $XDG_CONFIG_HOME/mandible/overrides/<tool>.toml
+(Linux, default \fI~/.config/mandible/overrides/\fR; macOS:
+\fI~/Library/Application Support/mandible/overrides/\fR) — optional,
+user-local, per-tool override files (highest authority on both
+structure and prose). Never distributed with mandible itself.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+No extraction tier could produce a result for the given tool, stdout is
+not a tty and the TUI could not open, or an argument error.
+.SH SEE ALSO
+Full design documentation, including the extraction-tier model and
+caching/invalidation rules, ships in the project repository as
+.IR spec.md .
+.SH AUTHORS
+Sadig Akhund and contributors.
