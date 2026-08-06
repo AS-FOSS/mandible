@@ -476,27 +476,62 @@ fn starts_with_usage_prefix(t: &str) -> bool {
 
 /// True if `line` looks like a row of a bare-name grid (openssl-style
 /// `--help` output: `asn1parse   ca   ciphers   cmp`) rather than prose or
-/// a flag spec — every whitespace-separated token is name-shaped (starts
-/// with a letter, otherwise only alphanumerics/`-`/`_`), there are at
-/// least two of them, and none starts with `-` (which would make it a
-/// flag entry instead).
+/// a flag spec — every column is name-shaped (starts with a letter,
+/// otherwise only alphanumerics/`-`/`_`) and none starts with `-` (which
+/// would make it a flag entry instead).
+///
+/// Used to *continue* a grid already started by
+/// [`looks_like_word_grid_start`], so it accepts a lone trailing token
+/// (openssl's final `x509` on its own line) as well as a multi-column
+/// row. Multi-column rows are held to the same 2+-space column rule as
+/// the start line: continuing on single-spaced prose is how a grid that
+/// began legitimately would still end up swallowing a paragraph.
 fn looks_like_word_grid_line(line: &str) -> bool {
-    let tokens: Vec<&str> = line.split_whitespace().collect();
-    if tokens.is_empty() {
+    let columns = split_columns(line);
+    if columns.is_empty() {
         return false;
     }
-    tokens.iter().all(|t| is_name_shaped_token(t))
+    columns.iter().all(|c| is_name_shaped_token(c))
 }
 
-/// Stricter version used only to *start* a grid: requires 3+ columns, so
-/// a two-word heading immediately above the grid (`"Standard commands"`)
+/// Stricter version used only to *start* a grid: requires 3+ **columns**,
+/// so a two-word heading immediately above the grid (`"Standard commands"`)
 /// is never itself mistaken for the first grid row. Once a grid has
 /// started, [`looks_like_word_grid_line`] (which allows a trailing
 /// single-token row, e.g. openssl's lone `x509` closing out a section) is
 /// used to keep consuming it.
+///
+/// "Column" means a field separated from its neighbours by a run of **two
+/// or more** spaces, not merely by whitespace. That distinction is the
+/// whole guard against reading a wrapped prose paragraph as a command
+/// list: a real grid is laid out in aligned columns
+/// (`asn1parse         ca                ciphers`), while prose separates
+/// its words with exactly one space. Without it, `apt-get --help` gained
+/// the subcommands *"and"*, *"information"*, *"about"*, *"them"*,
+/// *"from"*, *"authenticated"* and *"sources"* — every word of its
+/// description paragraph past the first line — because the sentence above
+/// it ("apt-get is a **command** line interface for retrieval of
+/// packages") contains the word "command" and so passed
+/// [`is_recognized_command_heading`], and the paragraph's own lines are
+/// all name-shaped words at a matching indent. That is [M-10] exactly:
+/// fabricated structure a user cannot tell is wrong. Column alignment is
+/// a structural property of the layout, so this stays a general rule
+/// rather than anything keyed to a tool or a framework.
 fn looks_like_word_grid_start(line: &str) -> bool {
-    let tokens: Vec<&str> = line.split_whitespace().collect();
-    tokens.len() >= 3 && tokens.iter().all(|t| is_name_shaped_token(t))
+    let columns = split_columns(line);
+    columns.len() >= 3 && columns.iter().all(|c| is_name_shaped_token(c))
+}
+
+/// Split `line` on runs of two or more spaces, discarding empty fields.
+/// Fields keep any internal single spaces, so a prose fragment comes back
+/// as one field containing whitespace — which `is_name_shaped_token`
+/// then rejects.
+fn split_columns(line: &str) -> Vec<&str> {
+    line.trim()
+        .split("  ")
+        .map(|f| f.trim())
+        .filter(|f| !f.is_empty())
+        .collect()
 }
 
 fn is_name_shaped_token(t: &str) -> bool {
@@ -1049,6 +1084,37 @@ mod tests {
     const SED_HELP: &str = include_str!("../../tests/fixtures/help_text/sed_help.stdout");
     const FIND_HELP: &str = include_str!("../../tests/fixtures/help_text/find_help.stdout");
     const CURL_HELP: &str = include_str!("../../tests/fixtures/help_text/curl_help.stdout");
+    const APT_GET_HELP: &str = include_str!("../../tests/fixtures/help_text/apt_get_help.stdout");
+
+    /// Regression for [M-10], found by reading the real TUI rather than a
+    /// green test suite: `apt-get --help` gained the subcommands *"and"*,
+    /// *"information"*, *"about"*, *"them"*, *"from"*, *"authenticated"*
+    /// and *"sources"* — the words of its own description paragraph past
+    /// the first line. The paragraph's opening sentence ("apt-get is a
+    /// **command** line interface for retrieval of packages") satisfied
+    /// the recognized-command-heading test, and the wrapped lines beneath
+    /// it are all name-shaped words at a matching indent, so the
+    /// bare-name grid parser (which exists for openssl's genuinely
+    /// column-aligned command grid) consumed the prose.
+    #[test]
+    fn apt_get_description_prose_is_not_parsed_as_a_command_grid() {
+        let parsed = parse(APT_GET_HELP);
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        for fabricated in [
+            "and",
+            "information",
+            "about",
+            "them",
+            "from",
+            "authenticated",
+            "sources",
+        ] {
+            assert!(
+                !names.contains(&fabricated),
+                "prose word {fabricated:?} was parsed as a subcommand: {names:?}"
+            );
+        }
+    }
 
     /// Regression: `curl --help` runs its flag list straight into the
     /// usage line — indented one space, no blank line, no `Options:`
