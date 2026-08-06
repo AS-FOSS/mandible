@@ -35,15 +35,20 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
     let resolved = resolve_tool(&app.tool);
     let warmer = Warmer::new();
 
-    // Queue the root's children immediately, before the first frame, so
-    // the whole tree starts filling while the user reads the first screen
-    // rather than only once they expand something by hand.
+    // Queue the root itself before the first frame. `main` hands us a stub
+    // root carrying only the tool's name, so this is the fill that
+    // discovers everything; its result then cascades into the children it
+    // finds. Nothing is extracted on the main thread, which is what makes
+    // launching instant regardless of how slow the tool is to probe.
     {
         let root_path = vec![app.root.name.clone()];
-        let root = app.root.clone();
-        for path in warmer.warm_children(&runner, &resolved, &root, &root_path) {
-            app.mark_pending(path);
-        }
+        app.mark_pending(root_path.clone());
+        warmer.submit(
+            Arc::clone(&runner),
+            resolved.clone(),
+            root_path,
+            app.root.clone(),
+        );
     }
 
     loop {

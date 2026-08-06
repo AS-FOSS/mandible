@@ -57,15 +57,26 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
-    let loaded = pipeline::load(&tool);
-    let Some(root) = loaded.root else {
+    // Startup does *no* extraction. Resolving the name on `PATH` is a
+    // filesystem lookup with no subprocess spawn, so it stays here — it is
+    // the one failure worth reporting on the command line rather than
+    // inside a TUI the user then has to quit. Everything else, including
+    // the root node's own `--help` probe, happens on the background warmer
+    // once the first frame is already on screen.
+    //
+    // Blocking here is what made launching feel slow: extracting the root
+    // synchronously cost ~1.1s for `gh` and ~0.7s for `docker` before a
+    // single pixel was drawn, and the cobra-style tools where that matters
+    // most are exactly the ones with the biggest trees.
+    if mandible_extract::resolve_tool(&tool).path.is_none() {
         anyhow::bail!(
-            "no extraction tier could produce a tree for {tool:?}. Run `mandible --doctor {tool}` \
-             for details on what was tried."
+            "{tool:?} was not found on PATH. Run `mandible --doctor {tool}` for details on \
+             what was tried."
         );
-    };
+    }
 
-    let app = mandible_tui::App::new(tool, root);
+    let stub = mandible_core::CommandNode::new(tool.clone(), mandible_core::Provenance::default());
+    let app = mandible_tui::App::new(tool, stub);
 
     app_runner::run(app)
 }
