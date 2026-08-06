@@ -382,7 +382,7 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
                 command_mode = false;
                 continue;
             }
-            let (seen, clean) = emit_flags(Some(heading), entries, &mut result);
+            let (seen, clean) = emit_flags(meaningful_flag_group(heading), entries, &mut result);
             total_entries += seen;
             clean_entries += clean;
             command_mode = false;
@@ -689,6 +689,33 @@ fn process_word_grid(
 /// Emit a flags block's entries as [`Flag`]s. `group` is `None` for a
 /// headingless block (spec §7 Tier B rule 2's continuation handling
 /// already folded wrapped descriptions in during scanning).
+/// A flags block's heading as a display *group*, or `None` when the
+/// heading is just the generic "here are the flags" label.
+///
+/// `Flag::group` exists to preserve meaningful subdivisions — tar's 171
+/// flags under headings like "Main operation mode" are the difference
+/// between a scannable pane and a wall of text. A heading that only says
+/// "Options" or "Flags" subdivides nothing: it names the section the
+/// detail pane already prints its own `FLAGS` heading for, so keeping it
+/// rendered `FLAGS` twice in a row (visible on `gh`, whose help output
+/// titles that section `FLAGS`).
+fn meaningful_flag_group(heading: String) -> Option<String> {
+    const GENERIC: [&str; 6] = [
+        "options",
+        "flags",
+        "option",
+        "flag",
+        "optional arguments",
+        "global flags",
+    ];
+    let normalized = heading.trim().trim_end_matches(':').to_lowercase();
+    if GENERIC.contains(&normalized.as_str()) {
+        None
+    } else {
+        Some(heading)
+    }
+}
+
 fn emit_flags(
     group: Option<String>,
     entries: Vec<(&str, String)>,
