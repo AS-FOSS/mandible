@@ -642,33 +642,42 @@ mod tests {
     }
 
     #[test]
-    fn detect_true_for_a_real_cobra_binary() {
-        // `docker`/`gh` are the tools this batch was verified against;
-        // skip gracefully if neither is on PATH (e.g. a minimal CI image).
+    fn detect_sends_the_literal_dunder_complete_word_in_argv() {
+        // The bug this exists to prevent: an earlier cobra tier built its
+        // argv as `[...words, ""]` and omitted the literal `"__complete"`,
+        // so the tier was silently dead in production while its unit tests
+        // passed — they injected a mock probe and never exercised argv
+        // construction at all (AGENTS.md §3.1).
         //
-        // Succeeds if *any* present candidate detects, rather than
-        // asserting on the first one found. Detection spawns the real
-        // binary, so a candidate can fail for reasons that have nothing to
-        // do with this code — `docker` is installed on GitHub's runners
-        // but its daemon may not be up, and `docker __complete` is not
-        // reliably answerable in that state. Requiring the first candidate
-        // specifically made this test flaky: it passed on one CI run and
-        // failed on the next with no change in between.
-        let tier = NativeTier::default();
-        let mut present = Vec::new();
-        for candidate in ["docker", "gh"] {
-            let resolved = crate::resolve::resolve_tool(candidate);
-            if resolved.path.is_none() {
-                continue;
-            }
-            present.push(candidate);
-            if tier.detect(&resolved) {
-                return;
-            }
+        // This shim answers with a valid cobra response *only* when it is
+        // actually invoked with `__complete`, so detection can only succeed
+        // if the real argv was built correctly. Deterministic, and it
+        // replaces a test that asserted against whichever of docker/gh
+        // happened to be installed — that one was flaky in CI, since
+        // detection spawns the real binary and `docker __complete` is not
+        // answerable when the daemon is down.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cobrashim.sh");
+        std::fs::write(
+            &path,
+            "#!/bin/sh\ncase \"$1\" in\n  __complete) printf 'build\\tbuild the thing\\n:0\\n' ;;\n  *) echo 'no' ;;\nesac\n",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
+
+        let tier = NativeTier::default();
+        let tool = ResolvedTool {
+            name: "cobrashim".to_string(),
+            path: Some(path),
+            version: None,
+        };
         assert!(
-            present.is_empty(),
-            "none of the cobra binaries present ({present:?}) were detected"
+            tier.detect(&tool),
+            "cobra detection must send the literal `__complete` word"
         );
     }
 }
