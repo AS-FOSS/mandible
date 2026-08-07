@@ -63,7 +63,24 @@ jobs:
             --shard ${{ matrix.shard }}/16 \
             --progress \
             --format markdown \
-            --out shard-${{ matrix.shard }}.md
+            --out shard-${{ matrix.shard }}.md \
+            2>sweep.log || { tail -40 sweep.log >&2; exit 1; }
+      # Name the tool that started and never finished. A killed shard
+      # leaves exactly one unmatched `probe-start:`, which is the suspect —
+      # and unlike the raw log, this survives in the job summary.
+      - name: Name the tool that killed this shard
+        if: failure()
+        run: |
+          echo "### Shard ${{ matrix.shard }} died" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Tools that started but never finished:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          comm -23 \
+            <(grep '^probe-start:' sweep.log | sed 's/^probe-start: *//' | sort) \
+            <(grep '^probe-done:'  sweep.log | sed 's/^probe-done: *//'  | sort) \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
           name: path-sweep-shard-${{ matrix.shard }}

@@ -165,16 +165,27 @@ pub fn run_over(
     let mut rows: Vec<Row> = tools
         .par_iter()
         .map(|tool| {
+            // Logged on both sides, flushed immediately, because the
+            // *unmatched* line is the diagnosis. Several tools are in
+            // flight at once, so "the last tool logged" is only ever a
+            // shortlist — but a tool that started and never finished is
+            // the one that took the process down. Start-only logging
+            // narrowed three killed CI shards to two suspects each and
+            // could not pick between them.
             if progress {
-                // Unbuffered and flushed immediately: the whole point is
-                // that this line survives the process being killed
-                // mid-probe, so the last name printed names the suspect.
                 use std::io::Write;
                 let mut err = std::io::stderr().lock();
-                let _ = writeln!(err, "probing: {tool}");
+                let _ = writeln!(err, "probe-start: {tool}");
                 let _ = err.flush();
             }
-            score_one(&runner, tool)
+            let row = score_one(&runner, tool);
+            if progress {
+                use std::io::Write;
+                let mut err = std::io::stderr().lock();
+                let _ = writeln!(err, "probe-done:  {tool}");
+                let _ = err.flush();
+            }
+            row
         })
         .collect();
     rows.sort_by(|a, b| a.tool.cmp(&b.tool));
