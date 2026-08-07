@@ -1045,6 +1045,7 @@ mod tests {
                 "true".to_string(),
             ],
             None,
+            false,
             ScoreFormat::Text,
         );
         assert_eq!(aggregate.total, 2);
@@ -1054,7 +1055,8 @@ mod tests {
 
     #[test]
     fn run_over_markdown_format_produces_a_table() {
-        let (table, _aggregate) = run_over(vec!["sh".to_string()], None, ScoreFormat::Markdown);
+        let (table, _aggregate) =
+            run_over(vec!["sh".to_string()], None, false, ScoreFormat::Markdown);
         assert!(table.starts_with("| tool |"));
     }
 
