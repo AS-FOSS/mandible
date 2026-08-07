@@ -112,8 +112,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install packagers
-        run: cargo install cargo-deb cargo-generate-rpm --locked
+      # Prebuilt binaries rather than `cargo install`, which compiled both
+      # packagers from source on every release and was most of this job's
+      # 168 seconds. Versions are pinned, so this is a download of a known
+      # artifact, not a moving target.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb@3.7.0,cargo-generate-rpm@0.16.0
       - name: Build packages
         run: |
           cargo build --release --locked --bin mandible

@@ -41,6 +41,15 @@ enum Command {
         /// image and can't be a meaningful regression baseline there.
         #[arg(long, value_delimiter = ',')]
         tools: Option<Vec<String>>,
+        /// Scan only one slice of the tool list, as `INDEX/TOTAL` (e.g.
+        /// `0/8`). Sliced by *stride*, not by contiguous block: pathological
+        /// tools cluster alphabetically (a machine with 23
+        /// `qemu-*-static` binaries, 4 MB each, puts them all in one
+        /// contiguous chunk and that chunk alone takes longer than the
+        /// other eleven combined), so a stride spreads them evenly and
+        /// every shard finishes in comparable time.
+        #[arg(long)]
+        shard: Option<String>,
         /// Output format: fixed-width `text` (the format checked into
         /// `coverage-scoreboard.txt`) or GitHub-flavored `markdown` (spec
         /// §13.1a's framework-support workflow writes this straight to
@@ -57,15 +66,37 @@ fn main() -> anyhow::Result<()> {
             check,
             out,
             tools,
+            shard,
             format,
-        } => run_coverage(check, &out, tools, format),
+        } => {
+            let shard = shard.as_deref().map(parse_shard).transpose()?;
+            run_coverage(check, &out, tools, shard, format)
+        }
     }
+}
+
+/// Parse an `INDEX/TOTAL` shard spec, rejecting the off-by-one mistakes
+/// that would silently drop or duplicate tools.
+fn parse_shard(spec: &str) -> anyhow::Result<(usize, usize)> {
+    let (index, total) = spec
+        .split_once('/')
+        .ok_or_else(|| anyhow::anyhow!("--shard must look like INDEX/TOTAL, e.g. 0/8"))?;
+    let index: usize = index.trim().parse()?;
+    let total: usize = total.trim().parse()?;
+    if total == 0 {
+        anyhow::bail!("--shard TOTAL must be greater than zero");
+    }
+    if index >= total {
+        anyhow::bail!("--shard INDEX ({index}) must be less than TOTAL ({total})");
+    }
+    Ok((index, total))
 }
 
 fn run_coverage(
     check: bool,
     out: &PathBuf,
     tools: Option<Vec<String>>,
+    shard: Option<(usize, usize)>,
     format: ScoreFormat,
 ) -> anyhow::Result<()> {
     let (table, fresh) = match tools {
@@ -75,11 +106,11 @@ fn run_coverage(
                 tools.len(),
                 tools.join(", ")
             );
-            coverage::run_over(tools, format)
+            coverage::run_over(tools, shard, format)
         }
         None => {
             println!("scanning PATH and running the extraction pipeline against every executable found...");
-            coverage::run(format)
+            coverage::run(shard, format)
         }
     };
     println!("{table}");

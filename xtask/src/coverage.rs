@@ -114,22 +114,47 @@ pub enum ScoreFormat {
     Markdown,
 }
 
+/// Keep every `total`-th tool starting at `index` — a stride, not a
+/// contiguous block.
+///
+/// Contiguous slicing balances badly because expensive tools cluster
+/// alphabetically: a machine with 23 `qemu-*-static` binaries (4 MB each,
+/// and the artifact scanner reads deep into every one) puts them all in a
+/// single chunk, which then takes longer than every other chunk combined.
+/// A stride interleaves them, so each shard gets a comparable share of the
+/// expensive ones and the slowest shard sets a much lower ceiling.
+fn select_shard(tools: Vec<String>, index: usize, total: usize) -> Vec<String> {
+    tools
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| i % total == index)
+        .map(|(_, t)| t)
+        .collect()
+}
+
 /// Enumerate unique executable names on `PATH`, run the full extraction
 /// pipeline against each (in parallel — this is dozens to low thousands of
 /// subprocess spawns and would otherwise take a very long time
 /// sequentially), and return the scoreboard rows plus aggregate stats, in
 /// tool-name order.
-pub fn run(format: ScoreFormat) -> (String, Aggregate) {
-    run_over(unique_executables_on_path(), format)
+pub fn run(shard: Option<(usize, usize)>, format: ScoreFormat) -> (String, Aggregate) {
+    run_over(unique_executables_on_path(), shard, format)
 }
 
 /// Same as [`run`], but over a caller-supplied tool list instead of
 /// scanning `PATH`. Used by `--tools` to pin a fixed, reproducible set —
 /// necessary for CI (spec §13.1's regression gate needs a tool inventory
 /// that doesn't vary with the runner image) — and by tests.
-pub fn run_over(mut tools: Vec<String>, format: ScoreFormat) -> (String, Aggregate) {
+pub fn run_over(
+    mut tools: Vec<String>,
+    shard: Option<(usize, usize)>,
+    format: ScoreFormat,
+) -> (String, Aggregate) {
     tools.sort();
     tools.dedup();
+    if let Some((index, total)) = shard {
+        tools = select_shard(tools, index, total);
+    }
     let runner = Runner::new(default_tiers());
 
     let mut rows: Vec<Row> = tools
@@ -469,6 +494,15 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             out.push_str(&format!("- {}: {count}\n", md_escape(name)));
         }
     }
+    // The same machine-readable footer the text format carries, wrapped in
+    // an HTML comment so it stays invisible when rendered but parseable by
+    // whatever recombines shards. Without it a sharded markdown run could
+    // only be merged by re-deriving totals from the rounded per-row
+    // %described column, which is exactly the approximation
+    // `described_flags`/`total_flags` exist to avoid.
+    out.push_str("\n<!-- ");
+    out.push_str(aggregate_footer_line(aggregate).trim_end());
+    out.push_str(" -->\n");
     out
 }
 
@@ -803,6 +837,27 @@ mod tests {
     }
 
     #[test]
+    fn shards_partition_the_tool_list_exactly_once_each() {
+        let tools: Vec<String> = (0..20).map(|i| format!("tool{i:02}")).collect();
+        let total = 4;
+        let mut seen: Vec<String> = Vec::new();
+        for index in 0..total {
+            seen.extend(select_shard(tools.clone(), index, total));
+        }
+        seen.sort();
+        // Every tool appears in exactly one shard: none dropped, none
+        // counted twice. A sharded scoreboard that silently loses tools
+        // would understate coverage without looking wrong.
+        assert_eq!(seen, tools);
+    }
+
+    #[test]
+    fn shards_are_a_stride_not_a_contiguous_block() {
+        let tools: Vec<String> = (0..6).map(|i| format!("t{i}")).collect();
+        assert_eq!(select_shard(tools, 0, 3), vec!["t0", "t3"]);
+    }
+
+    #[test]
     fn unique_executables_on_path_finds_something_real() {
         // `sh` is present on every POSIX system this test would run on;
         // this is a sanity check that PATH scanning works at all, not an
@@ -824,6 +879,7 @@ mod tests {
                 "sh".to_string(), // duplicate, must be deduped
                 "true".to_string(),
             ],
+            None,
             ScoreFormat::Text,
         );
         assert_eq!(aggregate.total, 2);
@@ -833,7 +889,7 @@ mod tests {
 
     #[test]
     fn run_over_markdown_format_produces_a_table() {
-        let (table, _aggregate) = run_over(vec!["sh".to_string()], ScoreFormat::Markdown);
+        let (table, _aggregate) = run_over(vec!["sh".to_string()], None, ScoreFormat::Markdown);
         assert!(table.starts_with("| tool |"));
     }
 

@@ -123,55 +123,111 @@ jobs:
           MANDIBLE: ${{ github.workspace }}/target/release/mandible
         run: scripts/framework_matrix.sh
 
-  path-sweep:
-    name: PATH sweep (coverage harness)
+  # The gate, in its own job: it is a single fixed-tool-list run and must
+  # not be duplicated across the sweep's eight shards. A full-PATH scan
+  # can't be the gate — the runner image's tool inventory changes
+  # underneath us, so a full-PATH baseline would fail on inventory drift
+  # rather than on a real parser regression.
+  coverage-gate:
+    name: coverage gate (fixed tool set)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
-      # The gated run, against the fixed tool list (spec §13.1's regression
-      # gate). A full-PATH scan can't be the gate — the runner image's tool
-      # inventory changes underneath us, so a full-PATH baseline would fail
-      # on inventory drift rather than on a real parser regression.
-      - name: Coverage regression gate (fixed tool set)
-        run: >-
+      - run: >-
           cargo xtask coverage --check
           --out coverage-scoreboard.ci.txt
           --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
 
-      # The ungated measurement, over everything the runner has. Reported
-      # for visibility — this is the number that answers "does mandible
-      # work on arbitrary tools", and it is not something a fixed
-      # twelve-tool list can tell you.
-      # Informational, and deliberately non-blocking. A full-PATH sweep is
-      # ~1,500 tools and one to two subprocess spawns each; it has proven
-      # unreliable at that scale (killed mid-run both here and locally,
-      # with pathological binaries — 23 `qemu-*-static` at 4 MB apiece —
-      # dominating the artifact scan). The *gated* measurement is the fixed
-      # tool list above, which is reproducible; this job reports whatever
-      # it manages to cover. Making it a gate would mean a red badge for a
-      # flaky measurement rather than a real regression.
-      - name: PATH sweep summary
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 20
+  path-sweep:
+    name: PATH sweep ${{ matrix.shard }}/8
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # The ungated measurement, over everything the runner has — sharded.
+      #
+      # Unsharded, this step did not merely run slowly: it was killed by
+      # SIGTERM after ~96 seconds and produced *nothing*, every run, while
+      # `continue-on-error` painted the job green. A step that always dies
+      # and never reports is worse than no step, because the green tick
+      # says otherwise. Sharding keeps each process small enough to finish.
+      #
+      # `--shard i/8` slices by stride rather than by contiguous block,
+      # because expensive tools cluster alphabetically — a machine with 23
+      # `qemu-*-static` binaries at 4 MB each puts them all in one
+      # contiguous chunk, and that chunk alone takes longer than the rest
+      # combined.
+      - name: PATH sweep (shard ${{ matrix.shard }}/8)
+        timeout-minutes: 15
         run: |
-          cargo xtask coverage --format markdown --out /tmp/path-sweep.md
+          cargo build --release --locked --bin xtask
+          ./target/release/xtask coverage \
+            --shard ${{ matrix.shard }}/8 \
+            --format markdown \
+            --out shard-${{ matrix.shard }}.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: path-sweep-shard-${{ matrix.shard }}
+          path: shard-${{ matrix.shard }}.md
+          if-no-files-found: error
+
+  # Merges the shards into one summary. Exact, not approximate: the
+  # aggregate footer carries raw `described_flags`/`total_flags` counts
+  # alongside the rounded percentage precisely so shards can be recombined
+  # without drift (recomputing from the per-row %described column could
+  # not be, since that column is rounded to whole percent).
+  path-sweep-summary:
+    name: PATH sweep summary
+    needs: [path-sweep]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: path-sweep-shard-*
+          path: shards
+          merge-multiple: true
+      - name: Combine and report
+        run: |
           {
             echo "## PATH sweep"
             echo
             echo "The coverage harness (spec §13.1) over every executable on this"
-            echo "runner's \`PATH\`. Not a regression gate — the runner image's tool"
-            echo "inventory drifts between releases — but it is the broadest"
-            echo "available measurement of framework coverage on real software."
+            echo "runner's \`PATH\`, run in 8 shards. Not a regression gate — the"
+            echo "runner image's tool inventory drifts between releases — but it is"
+            echo "the broadest available measurement of framework coverage on real"
+            echo "software."
             echo
-            # The table can run to ~1,500 rows; collapse it so the summary
-            # page leads with the aggregate rather than burying it.
-            echo "<details><summary>Full per-tool table</summary>"
+            awk '
+              /aggregate:/ {
+                for (i = 1; i <= NF; i++) {
+                  split($i, kv, "=")
+                  if (kv[1] == "no_tier_count")     no_tier   += kv[2]
+                  if (kv[1] == "suspicious_count")  suspicious += kv[2]
+                  if (kv[1] == "verbatim_count")    verbatim  += kv[2]
+                  if (kv[1] == "total")             total     += kv[2]
+                  if (kv[1] == "described_flags")   described += kv[2]
+                  if (kv[1] == "total_flags")       flags     += kv[2]
+                }
+              }
+              END {
+                pct = (flags > 0) ? (described / flags * 100) : 0
+                printf "**%d tools**, %.2f%% of %d flags described.\n\n", total, pct, flags
+                printf "- no-tier: %d\n- suspicious: %d\n- verbatim: %d\n", no_tier, suspicious, verbatim
+              }
+            ' shards/*.md
             echo
-            cat /tmp/path-sweep.md
+            echo "<details><summary>Per-tool tables (8 shards)</summary>"
+            echo
+            cat shards/*.md
             echo
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -47,7 +47,12 @@ tempfile.workspace = true
 [package.metadata.deb]
 maintainer = "Sadig Akhund <sadigaxund@gmail.com>"
 copyright = "2026, Sadig Akhund"
-license-file = ["LICENSE-MIT", "0"]
+# Relative to *this* package's directory, not the workspace root — which is
+# where cargo-deb resolves it from, and where the generate-rpm assets below
+# already point with `../`. Without the prefix the build failed with
+# "Unable to read license file: LICENSE-MIT / note: 'LICENSE-MIT' exists",
+# the note being about the workspace root it was not looking in.
+license-file = ["../LICENSE-MIT", "0"]
 extended-description = """\
 mandible is a universal, interactive TUI reference for CLI tools. \
 `mandible git` opens an explorable tree of every command, subcommand, and \
