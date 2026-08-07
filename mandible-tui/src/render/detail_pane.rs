@@ -224,16 +224,9 @@ fn build_lines(
         lines.push(Line::default());
     }
 
-    // Spec §9.2 names low confidence as the one sanctioned exception to
-    // single-accent, and it had never been implemented — the axis ticks
-    // that used to sit here said nothing while `find` (11%) and `ip` (9%)
-    // reported themselves as fine.
-    if let Some(caveat) = provenance_caveat(node, glyphs) {
-        lines.push(Line::from(Span::styled(
-            caveat,
-            style::warning(color_enabled),
-        )));
-    }
+    // Provenance is not rendered here at all any more: it describes where
+    // this node's data came from, which belongs beside the pane rather than
+    // inside its content. See `render::status_bar`.
 
     BuiltLines {
         lines,
@@ -638,6 +631,21 @@ fn flag_line(
 
 /// The provenance footer (spec §2, §4.2): which sources contributed, and
 /// whether structure and prose each came from a trusted source.
+/// Where a node's data came from, e.g. `help-text + cobra-dunder-complete`.
+///
+/// Rendered in the status row under the detail pane rather than inside the
+/// pane itself: it describes the pane's *subject*, not its content, and
+/// inside the pane it pushed the documentation down by a line on every
+/// command to say the same thing each time.
+pub fn provenance_summary(node: &CommandNode) -> String {
+    node.provenance
+        .sources
+        .iter()
+        .map(|s| s.label())
+        .collect::<Vec<_>>()
+        .join(" + ")
+}
+
 /// Confidence below this is a warning; at or above it, silence.
 ///
 /// 0.5 is exactly the cap Tier B applies when no framework was identified
@@ -660,7 +668,7 @@ const LOW_CONFIDENCE: f32 = 0.5;
 /// to flag", which is a stronger signal than a tick that is always
 /// present, and it is the same reasoning that moved the framework out of
 /// here: repeated identical metadata is noise, not provenance.
-fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
+pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
     let confidence = node.provenance.confidence?;
     if confidence >= LOW_CONFIDENCE {
         return None;

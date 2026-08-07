@@ -3,11 +3,11 @@
 //! quit`).
 
 use crate::app::App;
-use crate::sanitize::{defensive_single_line, truncate_to_width};
+use crate::sanitize::{defensive_single_line, display_width, truncate_to_width};
 use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
@@ -40,6 +40,10 @@ fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
 /// Gap between hints. Wide on purpose: at two spaces the row reads as one
 /// long string rather than a list of separate keys.
 const HINT_GAP: &str = "    ";
+
+/// Left margin, matching the panes' own border-plus-padding above, so the
+/// hints don't start hard against the screen edge one row below a border.
+const LEFT_MARGIN: &str = "  ";
 
 /// Join as many hints as fit, **always keeping `^C quit`**.
 ///
@@ -76,18 +80,62 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     if area.width == 0 || area.height == 0 {
         return;
     }
-    let text = match &app.status_message {
-        Some(msg) => defensive_single_line(msg),
-        None => hints_for_width(area.width as usize, app.glyphs),
-    };
-    let truncated = truncate_to_width(&text, area.width as usize);
-    let style = if app.status_message.is_some() {
-        Style::default().add_modifier(Modifier::BOLD)
-    } else {
-        style::muted(app.color_enabled)
-    };
-    let paragraph = Paragraph::new(Line::styled(truncated, style));
-    frame.render_widget(paragraph, area);
+    let width = area.width as usize;
+
+    // A transient message (`copied: …`) owns the whole row while it lasts.
+    if let Some(msg) = &app.status_message {
+        let text = truncate_to_width(&defensive_single_line(msg), width);
+        let paragraph = Paragraph::new(Line::styled(
+            format!("{LEFT_MARGIN}{text}"),
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+        frame.render_widget(paragraph, area);
+        return;
+    }
+
+    // Controls on the left, this node's provenance on the right — the
+    // right-hand end of this row sits under the detail pane, which is what
+    // the provenance describes. Keeping it out of the pane's own content
+    // means the documentation starts at the top of the pane instead of a
+    // line down, and the fact stays visible while you scroll.
+    let right = right_text(app);
+    let right_width = right.as_ref().map(|(t, _)| display_width(t)).unwrap_or(0);
+
+    let margin_width = display_width(LEFT_MARGIN) * 2;
+    let hints_budget = width.saturating_sub(right_width + margin_width + 2);
+    let hints = hints_for_width(hints_budget, app.glyphs);
+
+    let mut spans = vec![
+        Span::raw(LEFT_MARGIN),
+        // Not muted: these are the controls, and a footer nobody can read
+        // is a footer nobody uses. Muted is for text that is genuinely
+        // secondary to something else on the same row.
+        Span::styled(hints.clone(), Style::default()),
+    ];
+    if let Some((text, style)) = right {
+        let used = display_width(LEFT_MARGIN) + display_width(&hints);
+        let pad = width
+            .saturating_sub(used + right_width + display_width(LEFT_MARGIN))
+            .max(1);
+        spans.push(Span::raw(" ".repeat(pad)));
+        spans.push(Span::styled(text, style));
+        spans.push(Span::raw(LEFT_MARGIN));
+    }
+    frame.render_widget(Paragraph::new(Line::from(spans)), area);
+}
+
+/// The right-hand end of the status row: a low-confidence warning when
+/// there is one, otherwise where the selected node's data came from.
+fn right_text(app: &App) -> Option<(String, Style)> {
+    let node = app.selected_node()?;
+    if let Some(caveat) = crate::render::detail_pane::provenance_caveat(node, app.glyphs) {
+        return Some((caveat, style::warning(app.color_enabled)));
+    }
+    let summary = crate::render::detail_pane::provenance_summary(node);
+    if summary.is_empty() {
+        return None;
+    }
+    Some((summary, style::muted(app.color_enabled)))
 }
 
 #[cfg(test)]
@@ -124,5 +172,26 @@ mod tests {
                 "width {width} overflowed: {hints:?}"
             );
         }
+    }
+
+    /// The controls keep a left margin rather than starting hard against
+    /// the screen edge one row below a pane border.
+    #[test]
+    fn hints_are_not_flush_against_the_left_edge() {
+        assert!(LEFT_MARGIN.chars().all(|c| c == ' '));
+        assert!(!LEFT_MARGIN.is_empty());
+    }
+
+    /// Provenance shares the row with the controls, so the hints must be
+    /// budgeted for it — otherwise the two overlap at narrow widths.
+    #[test]
+    fn hints_shrink_to_leave_room_for_the_right_hand_text() {
+        let full = hints_for_width(120, crate::glyphs::UNICODE);
+        let squeezed = hints_for_width(40, crate::glyphs::UNICODE);
+        assert!(
+            squeezed.chars().count() < full.chars().count(),
+            "hints should give way: {squeezed:?} vs {full:?}"
+        );
+        assert!(squeezed.contains("^C quit"));
     }
 }
