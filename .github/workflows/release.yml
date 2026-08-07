@@ -30,6 +30,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Nothing is built, released, or published until the full suite passes.
+  # These reuse ci.yml and frameworks.yml via `workflow_call` rather than
+  # restating their steps here: a second copy of the checks would drift
+  # from the real ones, and a release gate that verifies something slightly
+  # different from what CI verifies is a gate you cannot trust.
+  verify:
+    name: verify
+    uses: ./.github/workflows/ci.yml
+
+  verify-frameworks:
+    name: verify frameworks
+    uses: ./.github/workflows/frameworks.yml
+
   # Native runners for every target rather than cross-compilation: this
   # project spawns subprocesses and reads binaries off PATH, so a
   # cross-compiled artifact that has never executed on its target
@@ -37,6 +50,7 @@ jobs:
   # both macOS architectures directly.
   build:
     name: build ${{ matrix.target }}
+    needs: [verify, verify-frameworks]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -92,6 +106,7 @@ jobs:
   # tested is worse than not shipping one.
   packages:
     name: deb + rpm (x86_64)
+    needs: [verify, verify-frameworks]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

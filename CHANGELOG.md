@@ -6,6 +6,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.1.0]
+
+First release.
+
+**What it is.** `mandible <tool>` opens a full-screen, explorable tree of
+every command, subcommand, and flag a tool has — with descriptions — plus a
+search bar over all of it. A reference browser, not a command builder: the
+job ends when you've found the flag and can `y`-copy its exact spelling.
+
+**How it works on tools it has never seen.** No per-tool logic, anywhere.
+Help text isn't written by hand, it's *generated*, and only a small closed
+set of generators exists — so mandible identifies the **framework** behind a
+tool's output (clap v2/v3/v4, cobra, argparse, click, urfave/cli, Go's
+stdlib `flag`, GNU argp/getopt_long, docopt, commander, yargs, oclif,
+picocli, System.CommandLine, Symfony Console, OptionParser/Thor, busybox,
+BSD-terse) and applies that framework's grammar. Identification is
+artifact-first — `spf13/cobra` appears 583× in `docker`'s own bytes, which
+is ground truth rather than a guess about section headings — with a
+help-text signature as fallback.
+
+Fixing the argparse grammar improves every Python CLI ever written.
+
+**When it can't parse something, it says so.** A tool matching no known
+grammar is rendered verbatim: the author's own text, untouched, labelled
+`unparsed`. Structure is never invented — a user cannot tell fabricated
+structure is wrong, which makes it worse than no structure at all.
+
+**Performance.** Startup does no extraction: the UI is on screen
+immediately and the tree fills in behind it on a bounded background pool,
+showing `⋯ loading` where it hasn't arrived. No cache, deliberately — a
+cache cannot see `docker` gaining a plugin or `git` gaining an alias from
+`~/.gitconfig`, and being confidently stale is worse than being fast.
+
+**Measured, not asserted.** `cargo xtask coverage` runs the pipeline against
+every executable on `PATH` and scores it, including a structure-sanity
+column that catches fabricated output — because `%described` alone once
+reported a tool as `ok` at 100% while 39 of its 40 nodes were invented. A
+CI workflow reports framework support on every run.
+
+**Safety.** Extraction runs real tools, so it's fenced: an allowlist of
+inert argv forms, `std::process` confined to one audited module and
+enforced by a test, and every probe's CWD, `HOME`, `TMPDIR` and `XDG_*`
+pointed at a per-invocation scratch directory. That last one isn't
+paranoia — `mysql_secure_installation --help` was measured writing a
+`.my.cnf` with an empty root password.
+
+Linux and macOS. MSRV 1.88.
+
+Known gaps are tracked as issues; busybox's applet list is
+[#1](https://github.com/sadigaxund/mandible/issues/1).
+
+<details>
+<summary>Development history</summary>
+
 ## [Unreleased]
 
 ### Added (batch 6 part 6, framework-support workflow)
@@ -354,3 +408,5 @@ time, recorded here for a complete changelog)
   weren't individually investigated this batch — the column is new and
   doing its job, but each flagged tool is an open item for a future
   pass, not a confirmed regression.
+
+</details>
