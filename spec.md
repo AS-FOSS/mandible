@@ -545,6 +545,30 @@ until it went stale.
 Measured on 1,563 executables with usable `--help`: three fingerprints cover 71%,
 about a dozen cover ~80%, even with deliberately crude patterns [M-12].
 
+**What was implemented instead, and why the numbers disagree.** [M-12] measured
+*recall* — how much of a real machine crude patterns could plausibly reach. The
+implementation went the other way and uses narrow, high-precision markers
+(`clap_builder` in the binary, `spf13/cobra`, the literal GNU argp footer), which
+identify **~17%** of a real machine's tools rather than 71%.
+
+That gap is deliberate, not a shortfall. A *wrong* framework silently applies the
+wrong grammar, and the tool has no way to tell you it did; an unidentified one
+falls back to the general engine and is honestly marked low-confidence. Given
+those two failure modes, precision is worth far more than recall.
+
+It also cannot be closed by fingerprinting alone. The unidentified bulk is C
+tools — LLVM, binutils, util-linux, iptables, gpg — and most do expose
+`getopt_long` in their dynamic symbol table, so they *are* detectable. But a
+`getopt_long` profile would be the general engine under another name: it would
+parse nothing better, while lifting those tools out of the "unidentified"
+confidence cap and raising both the detection rate and their confidence scores
+for free. That is precisely the failure §13.1 warns about — a metric improved by
+the thing it exists to detect. **Widening a fingerprint is only worth doing
+alongside a grammar that earns it**, never to move the number.
+
+Detection rate is therefore not a target. Coverage is: unidentified tools still
+parse, and aggregate `%described` sits around 96%.
+
 Identify the framework in this order, most reliable first:
 
 1. **From the artifact.** For compiled binaries, scan embedded strings —
