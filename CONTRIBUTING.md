@@ -7,20 +7,29 @@ a bug.
 ## The invariant (read this first)
 
 > **The mandible repository will never contain per-tool logic.** No
-> `if tool == "docker"`, no vendored per-tool patch file, no tool-name-keyed
+> `if tool == "docker"`, no vendored per-tool catalog, no tool-name-keyed
 > special case in any extraction tier. Tool-specific knowledge lives in
-> exactly two places: (a) third-party structured catalogs consumed wholesale
-> as *data* (`vendor/`), and (b) user-local override files
+> exactly one place: user-local override files
 > (`~/.config/mandible/overrides/<tool>.toml`) that are **never** checked into
 > this repository.
 
+The unit of knowledge here is the **framework**, not the tool. Help text is
+generated, not hand-written, and only a small closed set of generators
+exists — so a grammar fix for argparse improves every Python CLI ever
+written, while a catalog entry improved exactly one tool until it went
+stale. Adding framework support is one `match` arm in
+`mandible-extract/src/help_text/profile.rs` plus one fingerprint in
+`mandible-extract/src/framework/`.
+
 If a change would violate that invariant, the correct fix is one of:
 
-1. Improve a general parser (e.g. the Tier B `--help` grammar) so it handles
-   a whole *class* of tools better, not just the one you're looking at.
-2. Add or extend a general extraction tier.
-3. Accept the gap and make it visible in the UI (provenance footer, `?`
-   overlay, `--doctor`) rather than papering over it.
+1. Improve a general parser (the Tier B `--help` grammar) so it handles a
+   whole *class* of tools better, not just the one you're looking at.
+2. Teach it a new *framework* — bounded, ~18 entries, and the right
+   granularity.
+3. Add or extend a general extraction tier.
+4. Accept the gap and let it degrade honestly: an unparseable tool is
+   rendered verbatim and labelled, never given invented structure.
 
 A single tool-name-keyed exception starts the erosion — the next contributor
 who hits a hard tool will reasonably assume it's the established pattern.
