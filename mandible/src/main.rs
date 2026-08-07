@@ -3,6 +3,7 @@
 
 #![forbid(unsafe_code)]
 
+mod about;
 mod app_runner;
 mod background;
 mod cli;
@@ -32,6 +33,15 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("usage: mandible <tool>  (or: mandible --doctor <tool>)");
     };
     let tool = tool.to_string();
+
+    // `mandible mandible` shows the about screen rather than extracting
+    // the binary's own `--help`. Self-introspection is still available
+    // through `mandible --doctor mandible`, which runs the real pipeline
+    // against it — the form anyone actually wants for that purpose.
+    if cli.doctor.is_none() && tool == env!("CARGO_PKG_NAME") {
+        about::print();
+        return Ok(());
+    }
 
     if let Some(doctor_tool) = &cli.doctor {
         let loaded = pipeline::load(doctor_tool);
