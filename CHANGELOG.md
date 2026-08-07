@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [Unreleased]
+
+### Fixed
+
+- **openssl: 151 real command nodes wrongly marked `suspicious`.** The
+  coverage harness's structure-sanity check (spec §13.1) flagged any node
+  with no flags, no children, and no summary — a good fabrication signal
+  in general, but openssl's `--help` genuinely lists 152 bare command
+  names with no per-entry description, so every real node looked
+  identical to a fabricated one. Adds `CommandNode::heading_attested`,
+  positive evidence set only where the parser already requires a
+  recognized command heading before creating a subcommand node; emptiness
+  alone is no longer suspicious once that evidence is present. tar's
+  phantom-subcommand shape ([M-10]) stays caught. openssl: 151 suspect →
+  0.
+- **apt-get: `name - description` subcommand lists not parsed.** Under an
+  already-recognized command heading, ` - ` (space-dash-space) is now
+  accepted as an entry separator alongside the existing 2+-space column
+  gap, so apt-get's `"update - Retrieve new lists of packages"`-style
+  listing recovers real subcommands with descriptions instead of zero. A
+  bare ` - ` outside a recognized heading still can't manufacture
+  anything — the [M-10] regression this column-gap rule exists for stays
+  green. apt-get: 1 node (root only) → 18 (root + 17 real subcommands).
+- **busybox: applet list not parsed.** `busybox --help` lists every
+  applet tab-indented and comma-separated on a handful of wrapped lines
+  under `"Currently defined functions:"` — a shape the shared bare-block
+  engine (one entry per line) can't express. Adds a busybox-scoped
+  `FrameworkProfile::comma_separated_command_list` and a dedicated scan,
+  following the same pattern as argparse's subparser scan: framework-
+  specific code, not a knob that loosens the shared engine for everyone.
+  busybox: 1 node (root only, empty tree) → 271 (root + 270 real
+  applets). Closes the framework-matrix's informational-only marker for
+  busybox — it's a real gate again.
+
+### Added
+
+- **Top unidentified tools by flag count.** The coverage scoreboard's
+  footer (text and markdown) now lists the ~25 tools with no detected
+  framework, ranked by flag count — a work queue for the next framework
+  fingerprint, not just a detection-rate percentage. Not gated.
+
 ## [0.1.0]
 
 First release.

@@ -1,17 +1,26 @@
 tool                     tier(s)            framework                    nodes   flags   %described     ms suspect  status
-curl                     help               —                                1      12          92%    116       0  ok
-dd                       help               —                                1       2         100%    103       0  ok
-docker                   help+native        cobra (artifact)                61      11         100%    718       0  ok
-find                     help               —                                1      17          12%    112       0  low-confidence
-gh                       help+native        cobra (artifact)                29       2         100%   1115       0  ok
-git                      help               —                               23       0            —    271       0  ok
-gzip                     help               GNU argp/getopt_long (art…       1      19          95%     67       0  ok
-ip                       help               —                                1       7           0%    118       0  low-confidence
+curl                     help               —                                1      12          92%    114       0  ok
+dd                       help               —                                1       2         100%    104       0  ok
+docker                   help+native        cobra (artifact)                61      11         100%    729       0  ok
+find                     help               —                                1      17          12%     95       0  low-confidence
+gh                       help+native        cobra (artifact)                29       2         100%   1103       0  ok
+git                      help               —                               23       0            —    268       0  ok
+gzip                     help               GNU argp/getopt_long (art…       1      19          95%     89       0  ok
+ip                       help               —                                1       7           0%    135       0  low-confidence
 less                     help               —                                1      56         100%    111       0  ok
-openssl                  help               —                              152       0            —    128     151  suspicious
-sed                      help               —                                1      15         100%    106       0  ok
-tar                      help               GNU argp/getopt_long (art…       1     156          97%    121       0  ok
-# aggregate: pct_described=90.57 no_tier_count=0 suspicious_count=1 verbatim_count=0 total=12
+openssl                  help               —                              152       0            —    145       0  ok
+sed                      help               —                                1      15         100%    107       0  ok
+tar                      help               GNU argp/getopt_long (art…       1     156          97%    104       0  ok
+# aggregate: pct_described=90.57 no_tier_count=0 suspicious_count=0 verbatim_count=0 total=12 described_flags=269.0000 total_flags=297
 
 # framework-detection: 4/12 tools (33.3%)
 # framework-counts: GNU argp/getopt_long=2, cobra=2
+# top-unidentified-by-flags (richest unidentified tools — candidates for a new framework fingerprint):
+#    1. less                              56 flags
+#    2. find                              17 flags
+#    3. sed                               15 flags
+#    4. curl                              12 flags
+#    5. ip                                 7 flags
+#    6. dd                                 2 flags
+#    7. git                                0 flags
+#    8. openssl                            0 flags
