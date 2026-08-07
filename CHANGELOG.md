@@ -6,10 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
-## [Unreleased]
+## [0.1.1]
+
+Parser and UI fixes found by using 0.1.0 on real tools. Three tools that
+returned nothing useful now return their real structure, and the search
+box behaves the way its results imply.
+
+**Tools fixed** — `apt-get` 1 node → 18 (its real subcommands, with
+descriptions), `busybox` 1 → 271 applets, `openssl`'s 151 genuine commands
+no longer flagged as suspect.
 
 ### Fixed
 
+- **Name-mode search now filters literally.** It used subsequence matching,
+  so searching `run` in `docker` returned most of the tree — `--no-trunc`
+  contains r…u…n in order, and a matching flag surfaces its parent command.
+  Every result was correct and none of them looked it. The two modes are
+  now genuinely different: `names` is a literal substring match over names
+  and flag spellings, `names+text` is the fuzzy index over descriptions
+  too, where `gco` still finds `checkout`.
+- **A row surfaced by a flag now says which flag.** Even literally,
+  `docker ps` matches `run` via `--no-trunc`. That is right, and it was
+  invisible, which is indistinguishable from a broken filter. Such rows
+  show `via --no-trunc` in place of their summary: during a search, "why am
+  I looking at this" is more useful than the description.
+- **The status bar no longer lies while typing.** It always read
+  `… q quit`, but `q` types the letter q in the search box — a user who
+  wants out, hammers `q`, and watches `qqqq` appear in the filter has been
+  told by the footer that this should have worked. While searching it now
+  reads `type to filter   ↑↓ move   Enter/Esc leave search   / names↔text
+  ^C quit`, and names `Ctrl-C`, the one escape that works from anywhere.
+- **A long row name no longer runs into its summary.** Padding collapsed to
+  zero when a name exceeded the shared summary column, producing
+  `dselect-upgradeFollow dselect…`.
 - **openssl: 151 real command nodes wrongly marked `suspicious`.** The
   coverage harness's structure-sanity check (spec §13.1) flagged any node
   with no flags, no children, and no summary — a good fabrication signal
@@ -42,6 +71,14 @@ once it reaches a published 0.1.0 release.
 
 ### Added
 
+- **Supply-chain and licence checking** via `cargo-deny` in CI
+  (`deny.toml`). Two policy calls are recorded there with their reasoning:
+  unmaintained crates fail the build only when depended on *directly*
+  (`paste` reaches us through `ratatui` with no safe upgrade, and a
+  permanently red build over someone else's decision trains everyone to
+  ignore the check), and MPL-2.0 is allowed and named as the exception it
+  is rather than waved through under a "permissive only" heading that would
+  not have been true.
 - **Top unidentified tools by flag count.** The coverage scoreboard's
   footer (text and markdown) now lists the ~25 tools with no detected
   framework, ranked by flag count — a work queue for the next framework
