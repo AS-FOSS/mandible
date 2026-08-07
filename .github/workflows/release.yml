@@ -29,6 +29,15 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# One in-flight release per ref. Re-pushing a tag (to pick up a workflow
+# fix, which took several attempts to get this pipeline right) supersedes
+# the previous attempt rather than leaving it queued forever — three
+# ten-hour zombie runs accumulated that way. Grouped by ref, so releasing
+# 0.2.0 never cancels an in-flight 0.1.0.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Nothing is built, released, or published until the full suite passes.
   # These reuse ci.yml and frameworks.yml via `workflow_call` rather than
@@ -61,9 +70,14 @@ jobs:
     name: build ${{ matrix.target }}
     needs: [verify, verify-frameworks]
     runs-on: ${{ matrix.os }}
-    # A ceiling so an unschedulable runner label fails visibly instead of
-    # hanging: `macos-13` sat queued for ten hours waiting on retired Intel
-    # capacity while every other job in the run had long since passed.
+    # Note what this does and does not cover: `timeout-minutes` starts
+    # counting when a job begins *executing* on a runner, so it bounds a
+    # runaway build but not a job that never gets scheduled at all. The
+    # ten-hour stall that prompted it — `macos-13` waiting on retired Intel
+    # capacity — would not have been caught by this. What fixes that is not
+    # referencing a dead runner label, plus the `concurrency` group above,
+    # which lets a re-pushed tag supersede a stuck run instead of leaving
+    # zombies queued behind it.
     timeout-minutes: 30
     strategy:
       fail-fast: false
