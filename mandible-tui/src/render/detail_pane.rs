@@ -289,6 +289,30 @@ fn normalize_group_heading(raw: &str) -> String {
 /// heading) and inherited flags always last as their own muted group,
 /// regardless of their source `group` value (spec §9). Returns the lines
 /// plus, if `target_flag` matched one of `flags`, the index of its line.
+/// The description column is capped at this fraction of the pane, so one
+/// very long flag spelling cannot push every description in the list off
+/// the right-hand edge. Mirrors the tree pane's summary-column rule
+/// (spec §9.1).
+const DESC_COLUMN_CAP_PERCENT: usize = 45;
+
+/// The column every flag description starts at: the widest spelling in the
+/// list (plus a two-space gutter), capped.
+///
+/// Computed once over *all* the flags being rendered rather than per flag,
+/// which is the whole point — a shared column is what turns a list of
+/// options into a parameter table. Includes inherited flags so the two
+/// blocks line up with each other.
+fn description_column(flags: &[&Flag], width: usize) -> usize {
+    let widest = flags
+        .iter()
+        .map(|f| display_width(&flag_spec_text(f)))
+        .max()
+        .unwrap_or(0);
+    let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
+    // 2 leading + widest + 2 gutter.
+    (2 + widest).min(cap.saturating_sub(2)) + 2
+}
+
 fn flag_lines(
     flags: &[&Flag],
     width: usize,
@@ -296,6 +320,7 @@ fn flag_lines(
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
 ) -> (Vec<Line<'static>>, Option<usize>) {
+    let desc_column = description_column(flags, width);
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
     // need first, and its 17 groups are sequenced deliberately. A BTreeMap
@@ -330,7 +355,14 @@ fn flag_lines(
     if let Some(ungrouped) = own_groups.remove(&None) {
         for f in ungrouped {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, glyphs));
+            out.extend(flag_line(
+                f,
+                false,
+                width,
+                color_enabled,
+                glyphs,
+                desc_column,
+            ));
         }
     }
     for key in group_order {
@@ -342,7 +374,14 @@ fn flag_lines(
         }
         for f in flags {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, glyphs));
+            out.extend(flag_line(
+                f,
+                false,
+                width,
+                color_enabled,
+                glyphs,
+                desc_column,
+            ));
         }
     }
 
@@ -350,7 +389,14 @@ fn flag_lines(
         out.push(heading_line("INHERITED", color_enabled));
         for f in inherited {
             note_if_target(&out, f);
-            out.extend(flag_line(f, true, width, color_enabled, glyphs));
+            out.extend(flag_line(
+                f,
+                true,
+                width,
+                color_enabled,
+                glyphs,
+                desc_column,
+            ));
         }
     }
 
@@ -366,34 +412,57 @@ fn heading_line_owned(text: String, color_enabled: bool) -> Line<'static> {
 /// italic; description: default foreground) — wrapped so a multi-line
 /// description hangs indented under where it started rather than
 /// restarting at column 0.
+/// A flag's spelling, e.g. `-i, --interactive`.
+fn flag_name_spec(flag: &Flag) -> String {
+    let mut spec = String::new();
+    if let Some(s) = flag.short {
+        spec.push('-');
+        spec.push(s);
+    }
+    if flag.short.is_some() && flag.long.is_some() {
+        spec.push_str(", ");
+    }
+    if let Some(l) = &flag.long {
+        spec.push_str("--");
+        spec.push_str(l);
+    }
+    spec
+}
+
+/// A flag's value placeholder as rendered after its spelling, e.g.
+/// ` FILE` or `[=FILE]`.
+fn flag_value_suffix(flag: &Flag) -> Option<String> {
+    flag.value_name
+        .as_ref()
+        .and_then(|name| match flag.value_kind {
+            ValueKind::Required => Some(format!(" {name}")),
+            ValueKind::Optional => Some(format!("[={name}]")),
+            ValueKind::None => None,
+        })
+}
+
+/// Spelling plus value placeholder — the full left-hand column of one row,
+/// which is what [`description_column`] measures.
+fn flag_spec_text(flag: &Flag) -> String {
+    let mut s = flag_name_spec(flag);
+    if let Some(v) = flag_value_suffix(flag) {
+        s.push_str(&v);
+    }
+    s
+}
+
 fn flag_line(
     flag: &Flag,
     dim: bool,
     width: usize,
     color_enabled: bool,
     glyphs: Glyphs,
+    // Column at which every description starts, shared across the whole
+    // flag list — see `description_column`.
+    desc_column: usize,
 ) -> Vec<Line<'static>> {
-    let mut name_spec = String::new();
-    if let Some(s) = flag.short {
-        name_spec.push('-');
-        name_spec.push(s);
-    }
-    if flag.short.is_some() && flag.long.is_some() {
-        name_spec.push_str(", ");
-    }
-    if let Some(l) = &flag.long {
-        name_spec.push_str("--");
-        name_spec.push_str(l);
-    }
-
-    let value_suffix = flag
-        .value_name
-        .as_ref()
-        .and_then(|name| match flag.value_kind {
-            ValueKind::Required => Some(format!(" {name}")),
-            ValueKind::Optional => Some(format!("[={name}]")),
-            ValueKind::None => None,
-        });
+    let name_spec = flag_name_spec(flag);
+    let value_suffix = flag_value_suffix(flag);
 
     let leading = "  ";
     let spelling_style = if dim {
@@ -456,15 +525,25 @@ fn flag_line(
         return vec![Line::from(first_line_spans)];
     };
 
+    // One description column for the entire list, not one per flag. The
+    // indent used to be `this flag's own width + 2`, so every row started
+    // its text somewhere different and the block read as ragged prose. A
+    // shared column is what makes a parameter list read as a table — the
+    // defining visual element of API documentation.
+    //
+    // A spelling longer than the column still never gets truncated to
+    // force alignment (spec §9.1's rule for the tree applies here too):
+    // it simply pushes its own description along, one row out of step
+    // rather than one name destroyed.
     let gap = "  ";
-    let indent_width = prefix_width + display_width(gap);
+    let indent_width = desc_column.max(prefix_width + display_width(gap));
     let available = width.saturating_sub(indent_width).max(1);
     let chunks = wrap_words(&description_text, available, glyphs.ellipsis);
 
     let mut lines = Vec::new();
     let mut chunks_iter = chunks.into_iter();
     if let Some(first_chunk) = chunks_iter.next() {
-        first_line_spans.push(Span::raw(gap));
+        first_line_spans.push(Span::raw(" ".repeat(indent_width - prefix_width)));
         first_line_spans.push(Span::styled(first_chunk, desc_style));
     }
     lines.push(Line::from(first_line_spans));
@@ -580,6 +659,62 @@ mod tests {
         assert!(joined.contains("--interactive"));
     }
 
+    /// Every description starts in the same column, whatever the flag's
+    /// spelling is. Descriptions used to be indented by *each flag's own*
+    /// width, so a list of options read as ragged prose rather than a
+    /// parameter table — the alignment is what makes it look like
+    /// documentation.
+    #[test]
+    fn flag_descriptions_share_one_column() {
+        let mk = |short: Option<char>, long: &str, value: Option<&str>, desc: &str| {
+            let mut f = mandible_core::Flag::long(long, Provenance::single(Source::HelpText));
+            f.short = short;
+            f.value_name = value.map(|v| v.to_string());
+            if value.is_some() {
+                f.value_kind = ValueKind::Required;
+            }
+            f.description = Some(Text::sanitize(desc));
+            f
+        };
+        let flags = vec![
+            mk(Some('d'), "detach", None, "Detached mode"),
+            mk(
+                None,
+                "detach-keys",
+                Some("string"),
+                "Override the key sequence",
+            ),
+            mk(Some('e'), "env", Some("list"), "Set environment variables"),
+        ];
+        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+        let (lines, _) = flag_lines(&refs, 80, true, None, crate::glyphs::UNICODE);
+
+        // Column at which each row's description text begins.
+        let starts: Vec<usize> = lines
+            .iter()
+            .filter_map(|line| {
+                let text = text_of(line);
+                let trimmed = text.trim_start();
+                if trimmed.starts_with('-') {
+                    // A flag row: find where the description follows the
+                    // spelling and its run of padding.
+                    let spec_end = text.find("  ")?;
+                    let rest = &text[spec_end..];
+                    let pad = rest.len() - rest.trim_start().len();
+                    Some(spec_end + pad)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert!(starts.len() >= 3, "expected a row per flag, got {starts:?}");
+        assert!(
+            starts.windows(2).all(|w| w[0] == w[1]),
+            "descriptions are not column-aligned: {starts:?}"
+        );
+    }
+
     #[test]
     fn provenance_footer_reflects_axes() {
         let node = node_with_flags();
@@ -600,7 +735,7 @@ mod tests {
         flag.description = Some(Text::sanitize(
             "Trust certs signed only by this CA (default \"\")",
         ));
-        let lines = flag_line(&flag, false, 40, true, crate::glyphs::UNICODE);
+        let lines = flag_line(&flag, false, 40, true, crate::glyphs::UNICODE, 20);
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
         let first_text = text_of(&lines[0]);
         let continuation_text = text_of(&lines[1]);
@@ -624,7 +759,7 @@ mod tests {
         flag.value_name = Some("FILE".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize("Write output to FILE"));
-        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE);
+        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE, 20);
         let spans = &lines[0].spans;
         assert!(spans.len() >= 3, "{spans:?}");
         // Spelling span carries the accent color.
@@ -640,7 +775,7 @@ mod tests {
         let mut flag = Flag::long("old-flag", Provenance::single(Source::HelpText));
         flag.deprecated = Some(Text::sanitize("use --new-flag instead"));
         flag.description = Some(Text::sanitize("Old behavior"));
-        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE);
+        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE, 20);
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
     }
