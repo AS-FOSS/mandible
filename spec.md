@@ -477,6 +477,29 @@ damage a user's machine, and it gets its own section and its own tests.
    Full containment needs OS-level sandboxing (namespaces/seccomp); until then,
    document the residual risk rather than claiming the probe is inert.
 
+   **One deliberate exception: toolchain-resolution variables.** Redirecting
+   `HOME` breaks every version-manager shim, because they resolve the program
+   they stand in for *through* it — `mandible cargo` reported "rustup could not
+   choose a version of cargo to run" instead of cargo's help, and the same
+   applied to pyenv, nvm, rbenv, asdf, sdkman and volta. A whole class of
+   developer tooling was unusable, which is a poor trade for a containment
+   boundary that these variables do not weaken much: each names a *toolchain*
+   directory, not the user's home, so a misbehaving probe has a far narrower
+   blast radius than `$HOME`.
+
+   So `RUSTUP_HOME`, `CARGO_HOME`, `PYENV_ROOT`, `NVM_DIR`, `RBENV_ROOT`,
+   `ASDF_DIR`, `SDKMAN_DIR` and `VOLTA_HOME` are passed through, while `HOME`
+   itself stays redirected. Passing them through is not enough on its own:
+   almost nobody sets them by hand, so the manager falls back to a documented
+   path under the real `$HOME` — exactly what the sandbox replaces. The default
+   is therefore materialised from the real home before the redirect, and only
+   when that directory exists.
+
+   This is a **closed list of ecosystems, not of tools**, which is what keeps it
+   on the right side of §1: the knowledge is "how version managers locate
+   toolchains", not "how cargo works". Adding an ecosystem is one entry; it
+   never grows per tool.
+
 A test asserts rules 1, 2, and 3 by running the full pipeline against a shim
 binary that logs its argv and environment, and failing on any invocation outside
 the allowlist.

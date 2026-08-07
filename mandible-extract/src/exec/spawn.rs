@@ -95,6 +95,29 @@ pub fn run_inert(
     cmd.env("NO_COLOR", "1");
     cmd.env("COLUMNS", "100");
     cmd.env("LC_ALL", "C.UTF-8");
+    for (key, default_subpath) in TOOLCHAIN_RESOLUTION_VARS {
+        match std::env::var_os(key) {
+            // Explicitly set: pass it through unchanged.
+            Some(value) => {
+                cmd.env(key, value);
+            }
+            // Unset is the *common* case — version managers fall back to a
+            // documented path under the real `$HOME`, which is precisely
+            // what the sandbox redirects. Passing the variable through
+            // alone therefore fixes nothing; the default has to be
+            // materialised from the real home before it is replaced. Only
+            // when the directory actually exists, so a machine without
+            // that toolchain gets no spurious variable.
+            None => {
+                if let Some(home) = std::env::var_os("HOME") {
+                    let candidate = std::path::Path::new(&home).join(default_subpath);
+                    if candidate.is_dir() {
+                        cmd.env(key, candidate);
+                    }
+                }
+            }
+        }
+    }
     for (k, v) in argv.extra_env() {
         cmd.env(k, v);
     }
@@ -264,6 +287,39 @@ where
     })
 }
 
+/// Variables a version manager needs to find the program it stands in for.
+///
+/// A deliberate, bounded loosening of spec §6 rule 8, which redirects
+/// `HOME` so a probe can never write into the user's real one ([M-11]:
+/// `mysql_secure_installation --help` was measured writing a `.my.cnf`
+/// containing an empty root password). That redirect also breaks every
+/// version-manager shim, because they resolve their target *through*
+/// `HOME`: `mandible cargo` showed "rustup could not choose a version of
+/// cargo to run" rather than cargo's help, and the same applies to
+/// pyenv, nvm, rbenv, asdf and mise. A whole class of developer tooling
+/// was unusable.
+///
+/// These are passed through while `HOME` itself stays redirected. Each
+/// points at a *toolchain* directory, not the user's home, so a probe that
+/// misbehaves against one has a far narrower blast radius than `$HOME` —
+/// and the ones that matter are read-only lookups in practice. The list is
+/// closed and small, which keeps it on the right side of the project's
+/// no-per-tool-knowledge rule: the knowledge here is "how version managers
+/// locate toolchains", not "how cargo works".
+/// Each entry is the variable and the path *relative to the real `$HOME`*
+/// that the manager falls back to when it is unset — which is the usual
+/// state, since almost nobody sets these by hand.
+const TOOLCHAIN_RESOLUTION_VARS: &[(&str, &str)] = &[
+    ("RUSTUP_HOME", ".rustup"),
+    ("CARGO_HOME", ".cargo"),
+    ("PYENV_ROOT", ".pyenv"),
+    ("NVM_DIR", ".nvm"),
+    ("RBENV_ROOT", ".rbenv"),
+    ("ASDF_DIR", ".asdf"),
+    ("SDKMAN_DIR", ".sdkman"),
+    ("VOLTA_HOME", ".volta"),
+];
+
 #[cfg(unix)]
 fn kill_process_group(child: &mut Child) {
     use nix::sys::signal::{kill, Signal};
@@ -288,6 +344,29 @@ fn kill_process_group(child: &mut Child) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `HOME` stays redirected while toolchain-resolution variables get
+    /// through. Both halves matter: the redirect is what stops a probe
+    /// writing into the user's home ([M-11]), and the pass-through is what
+    /// makes version-manager shims resolvable at all.
+    #[test]
+    fn toolchain_vars_are_a_closed_list_that_excludes_home() {
+        let keys: Vec<&str> = TOOLCHAIN_RESOLUTION_VARS.iter().map(|(k, _)| *k).collect();
+        for forbidden in ["HOME", "TMPDIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME"] {
+            assert!(
+                !keys.contains(&forbidden),
+                "{forbidden} must stay redirected — it is the containment boundary"
+            );
+        }
+        // Every default is relative, so it can only ever resolve *inside*
+        // the real home rather than at an absolute path somewhere else.
+        for (key, default) in TOOLCHAIN_RESOLUTION_VARS {
+            assert!(
+                !std::path::Path::new(default).is_absolute(),
+                "{key}'s default {default:?} must be relative to $HOME"
+            );
+        }
+    }
     use std::io::Write;
 
     fn write_shim(dir: &std::path::Path, name: &str, script: &str) -> std::path::PathBuf {
