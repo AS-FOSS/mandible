@@ -410,12 +410,6 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             }
         }
 
-        let (end, entries) = scan_bare_block(&lines, i, heading_indent);
-        i = end;
-        if is_ignorable_heading(&heading) {
-            continue;
-        }
-
         // A framework-declared *non*-command heading (spec §7 Tier B,
         // batch 6 part 4 — see `FrameworkProfile::non_command_heading_markers`'s
         // doc comment) both refuses this block and breaks the engine's
@@ -424,6 +418,28 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
         let is_declared_non_command = profile.is_some_and(|p| {
             heading_matches_markers(&heading.to_lowercase(), p.non_command_heading_markers)
         });
+        let recognized = is_recognized_command_heading(&heading, profile);
+        // Issue #3: ` - ` (space-dash-space) is accepted as an entry
+        // separator alongside the usual 2+-space column gap, but *only*
+        // when this block is already headed for `emit_subcommands` —
+        // i.e. its heading is recognized, or it's continuing a chain one
+        // started (`command_mode`), and no framework has declared this
+        // heading a non-command one. Scoping the decision to before the
+        // scan (rather than loosening `find_description_gap` itself,
+        // which every bare block — including `emit_choices`'s enum-value
+        // lists — shares) is what keeps a bare ` - ` in ordinary prose
+        // from ever manufacturing commands again: that's the exact
+        // failure apt-get's own description paragraph produced once
+        // already (spec [M-10]), just via the column-gap rule instead of
+        // this one.
+        let allow_dash_separator = (recognized || command_mode) && !is_declared_non_command;
+
+        let (end, entries) = scan_bare_block(&lines, i, heading_indent, allow_dash_separator);
+        i = end;
+        if is_ignorable_heading(&heading) {
+            continue;
+        }
+
         if is_declared_non_command {
             command_mode = false;
             let (seen, clean) = emit_choices(&heading, entries, &mut result);
@@ -432,7 +448,6 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             continue;
         }
 
-        let recognized = is_recognized_command_heading(&heading, profile);
         if recognized || command_mode {
             command_mode = true;
             let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
@@ -939,14 +954,20 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str
 /// marker to key off of, so this stays indentation-based: the block's
 /// baseline is its first content line's own indent, and a line indented
 /// well past that baseline continues the previous entry's description.
+///
+/// `allow_dash_separator` threads spec issue #3's ` - ` entry separator
+/// down to [`split_entries`] — see the call site in
+/// [`parse_with_profile`] for why this is decided *before* scanning
+/// rather than inside it.
 fn scan_bare_block<'a>(
     lines: &[&'a str],
     start: usize,
     heading_indent: usize,
+    allow_dash_separator: bool,
 ) -> (usize, Vec<(&'a str, String)>) {
     let _ = heading_indent; // kept for documentation symmetry with the caller
     let end = bare_block_end(lines, start);
-    (end, split_entries(&lines[start..end]))
+    (end, split_entries(&lines[start..end], allow_dash_separator))
 }
 
 /// Find the end of a bare-word block starting at `lines[start]`: its own
@@ -1025,7 +1046,12 @@ fn scan_argparse_subparsers<'a>(
     if sub_lines.is_empty() {
         return None;
     }
-    Some((end, split_entries(&sub_lines)))
+    // `false`: argparse's own template renders subparser help in a
+    // column-aligned layout (`init            Initialize a new widget`),
+    // never `name - description`, and issue #3's fix is scoped to the
+    // shape it was actually observed in (apt-get-style recognized
+    // headings), not extended here without a real fixture driving it.
+    Some((end, split_entries(&sub_lines, false)))
 }
 
 fn non_empty_text(s: &str) -> Option<Text> {
@@ -1045,7 +1071,17 @@ fn non_empty_text(s: &str) -> Option<Text> {
 /// block's baseline indent is the minimum indentation among its non-blank
 /// lines, and a line at or near that baseline starts a new entry, while a
 /// line indented well past it continues the previous entry's description.
-fn split_entries<'a>(block_lines: &[&'a str]) -> Vec<(&'a str, String)> {
+///
+/// `allow_dash_separator` (spec issue #3): when true, a new-entry line
+/// with no 2+-space column gap falls back to splitting on the first
+/// ` - ` (space-dash-space) run instead — apt-get's own `"update -
+/// Retrieve new lists of packages"` style. The column gap is always tried
+/// first and wins when present, so this never changes how a tool that
+/// already uses column alignment is read.
+fn split_entries<'a>(
+    block_lines: &[&'a str],
+    allow_dash_separator: bool,
+) -> Vec<(&'a str, String)> {
     let non_blank: Vec<&&str> = block_lines
         .iter()
         .filter(|l| !l.trim().is_empty())
@@ -1067,7 +1103,7 @@ fn split_entries<'a>(block_lines: &[&'a str]) -> Vec<(&'a str, String)> {
         let indent = leading_whitespace(line);
         let is_new_entry = indent <= baseline + 1;
         if is_new_entry {
-            let (spec, desc) = split_at_column(line, find_description_gap(line));
+            let (spec, desc) = split_entry_line(line, allow_dash_separator);
             entries.push((spec, desc));
         } else if let Some(last) = entries.last_mut() {
             last.1.push(' ');
@@ -1079,6 +1115,52 @@ fn split_entries<'a>(block_lines: &[&'a str]) -> Vec<(&'a str, String)> {
         }
     }
     entries
+}
+
+/// Split one bare-block entry line into `(name, description)`: the usual
+/// 2+-space column gap first, falling back to a ` - ` separator (spec
+/// issue #3) only when `allow_dash_separator` is set and no column gap
+/// was found.
+fn split_entry_line(line: &str, allow_dash_separator: bool) -> (&str, String) {
+    if let Some(col) = find_description_gap(line) {
+        return split_at_column(line, Some(col));
+    }
+    if allow_dash_separator {
+        if let Some(idx) = find_dash_separator(line) {
+            return split_at_dash(line, idx);
+        }
+    }
+    split_at_column(line, None)
+}
+
+/// Find the byte offset of a ` - ` (space-dash-space) entry separator in
+/// `line`, if any — the alternative to [`find_description_gap`]'s column-
+/// gap separator that apt-get-style `name - description` listings use
+/// (spec issue #3). Returns the offset of the dash itself. A name's own
+/// internal hyphens (`dist-upgrade`, `apt-get`) never match: they have no
+/// space on at least one side, so only a genuine surrounding-space
+/// separator is found.
+fn find_dash_separator(line: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let mut i = 1;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'-' && bytes[i - 1] == b' ' && bytes[i + 1] == b' ' {
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Split `line` at a ` - ` separator found by [`find_dash_separator`]:
+/// `dash_idx` is the dash's own byte offset, so the name is everything
+/// before the space preceding it and the description is everything after
+/// the space following it — the dash and its surrounding spaces are
+/// punctuation, never part of either side.
+fn split_at_dash(line: &str, dash_idx: usize) -> (&str, String) {
+    let spec = line[..dash_idx].trim_end();
+    let desc = line[dash_idx + 1..].trim_start().to_string();
+    (spec, desc)
 }
 
 /// Find the byte offset of the first run of 2+ spaces in `line`, if any,
@@ -1199,6 +1281,70 @@ mod tests {
                 "prose word {fabricated:?} was parsed as a subcommand: {names:?}"
             );
         }
+    }
+
+    /// Issue #3: `apt-get --help`'s real subcommands sit under a
+    /// recognized heading (`"Most used commands:"`) in single-space
+    /// `name - description` form, e.g. `"update - Retrieve new lists of
+    /// packages"`. Before this fix the 2+-space column-gap requirement
+    /// (needed to keep the regression above green) meant the whole line
+    /// read as one ungapped field, failed the name-shape test, and was
+    /// dropped — none of apt-get's real subcommands were recovered at
+    /// all. This asserts they now are, *with* their descriptions.
+    #[test]
+    fn apt_get_dash_separated_commands_are_recovered_with_descriptions() {
+        let parsed = parse(APT_GET_HELP);
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        for want in [
+            "update",
+            "upgrade",
+            "install",
+            "remove",
+            "purge",
+            "autoremove",
+            "dist-upgrade",
+            "clean",
+            "source",
+        ] {
+            assert!(names.contains(&want), "expected {want:?} among {names:?}");
+        }
+        let update = parsed
+            .subcommands
+            .iter()
+            .find(|c| c.name == "update")
+            .expect("update recovered");
+        assert_eq!(
+            update.summary.as_ref().map(|s| s.as_str()),
+            Some("Retrieve new lists of packages")
+        );
+        let dist_upgrade = parsed
+            .subcommands
+            .iter()
+            .find(|c| c.name == "dist-upgrade")
+            .expect("dist-upgrade recovered — its own internal hyphen must not be mistaken for the separator");
+        assert_eq!(
+            dist_upgrade.summary.as_ref().map(|s| s.as_str()),
+            Some("Distribution upgrade, see apt-get(8)")
+        );
+    }
+
+    /// A bare ` - ` inside ordinary prose (not under a recognized command
+    /// heading) must never manufacture a subcommand — the exact class of
+    /// regression the column-gap rule was originally introduced to stop
+    /// (spec [M-10]), just via this separator instead of that one.
+    #[test]
+    fn dash_separator_is_not_recognized_outside_a_command_heading() {
+        let raw = "Usage: widget [OPTIONS]\n\nAbout this tool:\n  widget - a small utility for widgets\n  it does not have a Commands section at all - just prose\n";
+        let parsed = parse(raw);
+        assert!(
+            parsed.subcommands.is_empty(),
+            "expected zero subcommands from prose, got {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
     }
 
     /// Regression: `curl --help` runs its flag list straight into the
