@@ -6,6 +6,99 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.1.2]
+
+A pass over the detail pane so it reads as documentation rather than as
+flat output, plus the universality work that makes it hold up in terminals
+that can't do Unicode or colour.
+
+### Changed — the detail pane
+
+- **Flag descriptions share one column.** They were indented by each
+  flag's *own* width, so every row started its text somewhere different
+  and the block read as ragged prose. Aligned columns are what make a
+  parameter list read as a table, and a parameter table is what an options
+  list is.
+- **Value placeholders get their own column.** `--env` and `list` answer
+  different questions, and run together as `--env list` they read as one
+  token. The column collapses entirely when nothing in a list takes a
+  value.
+- **Section headings carry a rule** — `FLAGS ─────`. A bold word above body
+  text is two lines of similar weight with nothing to anchor a boundary to.
+- **The usage line is a signature block, and no longer says the tool's name
+  twice.** Raw usage strings usually carry both a `Usage:` label and the
+  tool's name, and the renderer prepended the name again, producing
+  `tar Usage: tar [OPTION...]`.
+- **Flag groups keep the tool's own ordering.** They were sorted
+  alphabetically, so `tar` opened on "Archive format selection" rather than
+  "Main operation mode". The sequencing is editorial and was being
+  overwritten.
+- **A flag's permitted values are shown** — `--format` accepts exactly
+  `gnu, oldgnu, pax, posix, ustar, v7`. Extracted since 0.1.0 and never
+  displayed.
+- **Padding**, so text isn't flush against the border.
+
+### Changed — provenance
+
+- **The per-command footer is gone.** It read `help-text · structure ✓ ·
+  prose ✓ · framework: cobra` under every command, and every part of it was
+  identical on every node of every tool measured. The framework is a
+  property of the *tool* and now sits in the tree pane's title; the source
+  list moved to the status row, beside the pane it describes.
+- **Low confidence is surfaced** — the one sanctioned exception to
+  single-accent in spec §9.2, which had never been implemented. `find`
+  scores 0.11 and `ip` 0.09, meaning the grammar recognised almost nothing;
+  both used to report `structure ✓ · prose ✓` like everything else.
+
+### Changed — controls
+
+- **Controls sit on the left of the status row, provenance on the right**,
+  no longer muted, with a left margin.
+- **The help overlay is grouped** into MOVE / SEARCH / ACTIONS, padded, and
+  its key column aligned. Two entries were stale.
+- **Status messages expire.** `y` set the footer to `copied: <command>` and
+  nothing ever cleared it, so one copy removed the keybinding hints for the
+  rest of the session.
+
+### Added — works where it's needed
+
+- **An ASCII fallback for every glyph**, chosen from the locale, with
+  `MANDIBLE_ASCII=1` to force it. Chevrons, borders, `›`, `✓`, `…` and the
+  footer arrows were drawn unconditionally and are tofu in a non-UTF-8
+  locale — the common case inside a minimal container, and one of the
+  environments this tool is most often reached for. Enforced by a test that
+  renders a full frame and asserts no cell contains a non-ASCII symbol.
+- **`TERM=dumb` disables colour**, as does a non-terminal stdout — piping
+  used to write SGR escapes into the file.
+- **spec §9.2 records the rendering policy**: which techniques are used,
+  which are refused, and the two properties that decide it — whether the
+  capability can be *detected* (colour depth can; a font cannot, which
+  rules out Nerd Fonts permanently) and whether it degrades to *less
+  pretty* or to *meaningless*.
+- **`mandible mandible` animates its wordmark.** One pass, redrawn in place
+  so it stays in scrollback, skipped when piped or when the terminal can't
+  draw block elements.
+
+### Fixed
+
+- **The detail pane scrolled past the end of its content**, so holding `↓`
+  on a short description pushed the text off the top into blank space.
+- **Name-mode search matches command names only.** It also matched flag
+  spellings, so searching `run` in `docker` returned `ps` — `--no-trunc`
+  contains "run". Correct, and indistinguishable from a broken filter.
+  Flags are searched in the other mode, now labelled `everything`.
+- **Value placeholders are no longer italic**, a modifier many terminals
+  ignore and which leaves rendering artefacts where it is honoured.
+
+### Changed — CI
+
+- The PATH sweep runs in 16 shards and logs each tool on both sides of its
+  probe, so a shard killed by the runner names the tool that started and
+  never finished. Release assets now include version-less copies, so
+  `/releases/latest/download/mandible-<target>.tar.gz` keeps working across
+  releases.
+- `cargo-deny` checks advisories, licences, bans and sources.
+
 ## [0.1.1]
 
 Parser and UI fixes found by using 0.1.0 on real tools. Three tools that

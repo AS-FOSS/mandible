@@ -908,7 +908,7 @@ dependencies = [
 
 [[package]]
 name = "mandible"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -926,7 +926,7 @@ dependencies = [
 
 [[package]]
 name = "mandible-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "proptest",
  "serde",
@@ -937,7 +937,7 @@ dependencies = [
 
 [[package]]
 name = "mandible-extract"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bindgen",
  "brush-parser",
@@ -958,7 +958,7 @@ dependencies = [
 
 [[package]]
 name = "mandible-search"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "mandible-core",
  "nucleo",
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "mandible-tui"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "arboard",
  "base64",
@@ -2337,7 +2337,7 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 
 [[package]]
 name = "xtask"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
