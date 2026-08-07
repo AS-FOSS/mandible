@@ -477,6 +477,22 @@ damage a user's machine, and it gets its own section and its own tests.
    Full containment needs OS-level sandboxing (namespaces/seccomp); until then,
    document the residual risk rather than claiming the probe is inert.
 
+   **The residual risk is now measured, not hypothetical.** The timeout kills the
+   probe's *process group*, which a child that calls `setsid` leaves — so
+   anything that daemonises survives it. A full-`PATH` sweep in CI loses roughly
+   three shards in sixteen to the runner being reclaimed, and instrumenting each
+   probe on both sides named the tools that started and never finished:
+   `chromedriver` (starts a browser-driver server), `vimtutor` (launches vim),
+   `ghci` (opens a REPL), `syscount.bt` (attaches kernel probes). The common
+   property is not the tool but the behaviour: **`--help` is not what these
+   programs do when they don't recognise it**, and what they do instead outlives
+   the process group we can reach.
+   
+   Exposure differs sharply by use, which is why this is a documented limit
+   rather than a blocker: interactive use probes one tool and its subcommands,
+   while the coverage harness runs ~1,500 arbitrary binaries in one process and
+   is the only place the orphans accumulate.
+
    **One deliberate exception: toolchain-resolution variables.** Redirecting
    `HOME` breaks every version-manager shim, because they resolve the program
    they stand in for *through* it — `mandible cargo` reported "rustup could not
