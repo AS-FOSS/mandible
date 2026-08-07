@@ -85,6 +85,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
 
+  # Supply-chain and licence checking. This project runs arbitrary
+  # third-party binaries on a user's machine, so its own dependency hygiene
+  # has more reach than in most tools. Configuration and the reasoning for
+  # each policy choice are in deny.toml.
+  deny:
+    name: cargo-deny (advisories, licenses, sources)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+      - run: cargo deny check
+
   # Coverage harness diff (spec §13.1), gated on a *fixed* tool list rather
   # than a full-PATH scan: scanning every executable on PATH is inherently
   # environment-dependent (GitHub's runner image's tool inventory doesn't

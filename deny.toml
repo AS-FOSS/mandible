@@ -1,0 +1,66 @@
+# cargo-deny configuration: supply-chain and licence checking for the
+# dependency tree.
+#
+# This project runs arbitrary third-party binaries on a user's machine, so
+# its own dependency hygiene is not a box-ticking exercise — a compromised
+# or unmaintained crate in the extraction path has more reach here than in
+# most tools.
+
+[advisories]
+# Fail on any crate with a security advisory. `unmaintained` is a warning
+# rather than an error: it is a judgement call about a project's future,
+# not a known defect, and blocking CI on someone else's release cadence
+# produces noise that gets ignored. (The one time it mattered here it was
+# caught by reading, not tooling — spec [M-9], `conch-parser` emitting
+# future-incompatibility warnings, which is why this project uses
+# `brush-parser` instead.)
+yanked = "deny"
+# Only *our own* direct dependencies can fail the build for being
+# unmaintained. `paste` is unmaintained (RUSTSEC-2024-0436) and reaches us
+# only through `ratatui`, with no safe upgrade available — failing CI on it
+# would mean a permanently red build over a decision nobody here can act
+# on, which trains everyone to ignore the check. Transitive unmaintained
+# crates are still reported, just not fatal.
+unmaintained = "workspace"
+ignore = []
+
+[licenses]
+# Permissive licences, plus file-level-copyleft MPL-2.0. Strong copyleft is
+# what must never appear: a GPL dependency would silently change what
+# downstream users may do with mandible, which is exactly why spec §7 Tier
+# C rejected `yash-syntax` (GPLv3) in favour of `brush-parser`.
+#
+# MPL-2.0 is here because it is genuinely in the tree — `option-ext`, via
+# `dirs-sys` → `directories` → mandible-extract. Its copyleft is per-file:
+# it obliges anyone modifying *those files* to publish the changes, and
+# places no condition on a binary that merely links them. That is a real
+# obligation, so it is allowed deliberately and named here rather than
+# waved through under a "permissive only" heading that would not have been
+# true.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    # Boost Software License — permissive, no attribution requirement in
+    # binaries. Reaches us transitively and is compatible with both halves
+    # of this project's dual licence.
+    "BSL-1.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",  # see the note above — file-level copyleft, in use
+    "CC0-1.0",
+    "Unlicense",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
