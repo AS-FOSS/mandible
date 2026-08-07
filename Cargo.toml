@@ -10,19 +10,19 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sadigaxund/mandible"
 readme = "README.md"
-authors = ["mandible contributors"]
+authors = ["Sadig Akhund <sadigaxund@gmail.com>"]
 
 [workspace.dependencies]
-mandible-core = { path = "mandible-core", version = "0.1.2" }
-mandible-extract = { path = "mandible-extract", version = "0.1.2" }
-mandible-search = { path = "mandible-search", version = "0.1.2" }
-mandible-tui = { path = "mandible-tui", version = "0.1.2" }
+mandible-core = { path = "mandible-core", version = "0.1.3" }
+mandible-extract = { path = "mandible-extract", version = "0.1.3" }
+mandible-search = { path = "mandible-search", version = "0.1.3" }
+mandible-tui = { path = "mandible-tui", version = "0.1.3" }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

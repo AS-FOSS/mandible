@@ -6,6 +6,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.1.3]
+
+### Fixed
+
+- **Version-manager shims resolve their toolchain again.** `mandible cargo`
+  showed "rustup could not choose a version of cargo to run" instead of
+  cargo's help: `cargo` is usually a rustup shim, and shims resolve the
+  program they stand in for through `$HOME`, which spec §6 redirects to a
+  scratch directory so a probe can never write into the real one. The
+  redirect is right; it just made a whole class of developer tooling
+  unusable — the same applied to pyenv, nvm, rbenv, asdf, sdkman and volta.
+
+  `RUSTUP_HOME`, `CARGO_HOME`, `PYENV_ROOT`, `NVM_DIR`, `RBENV_ROOT`,
+  `ASDF_DIR`, `SDKMAN_DIR` and `VOLTA_HOME` now pass through while `HOME`
+  itself stays redirected. Each names a *toolchain* directory rather than
+  the user's home, so the blast radius is far narrower than what the rule
+  protects.
+
+      cargo    0 flags  ->  12 nodes, 13 flags, 100% described
+      rustc             ->  29 flags
+      rustup            ->   4 flags
+
+### Changed
+
+- `authors` now names the maintainer rather than a placeholder.
+
+### Documentation
+
+- **spec §7 reconciles the framework-detection claim with what was built.**
+  It advertised 71% from three fingerprints; the implementation identifies
+  ~17%. Both are right and measure different things — [M-12] measured
+  *recall* from deliberately crude patterns, while the implementation chose
+  narrow, high-precision markers, because a *wrong* framework silently
+  applies the wrong grammar whereas an unidentified one falls back to the
+  general engine and is honestly marked low-confidence. Also records why
+  the gap should not simply be closed: a `getopt_long` fingerprint would
+  parse nothing better while lifting those tools out of the low-confidence
+  cap, improving a metric by the thing it exists to detect.
+- **spec §6 records the measured cause of lost coverage-sweep shards.** The
+  timeout kills a probe's process *group*, which a child calling `setsid`
+  leaves — `chromedriver`, `vimtutor`, `ghci` and `syscount.bt` were named
+  by instrumenting each probe on both sides. `--help` is not what those
+  programs do when they don't recognise it. Full containment needs
+  OS-level sandboxing; `#![forbid(unsafe_code)]` rules out the cheaper
+  partial mitigation, since `PR_SET_PDEATHSIG` requires `pre_exec`.
+
 ## [0.1.2]
 
 A pass over the detail pane so it reads as documentation rather than as
