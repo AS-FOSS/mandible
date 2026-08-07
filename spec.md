@@ -391,15 +391,38 @@ pub trait ExtractionTier: Send + Sync {
 
 The runner:
 
-1. Extracts the **root only** from every detecting tier, and merges (§4.4).
-2. Renders immediately. Root extraction is 1–5 spawns, not 232.
-3. On expand, extracts that node's children from the incremental tiers, merges
-   into the cached tree, sets `children_filled`.
-4. Optionally warms the next depth in a background thread pool, bounded to
-   `min(8, available_parallelism)`, cancelled on quit.
+1. Renders immediately, from a **stub root carrying only the tool's name**. The
+   TUI does no extraction before its first frame — resolving the name on `PATH`
+   is a filesystem lookup with no spawn. (Revision 3 extracted the root
+   synchronously here; that cost ~1.1s for `gh` and ~0.7s for `docker` before
+   anything was drawn.)
+2. Queues the root for a background fill, then **cascades**: every completed
+   fill queues the children it just discovered, walking the whole reachable tree
+   on a bounded pool, cancelled on quit and capped at 4096 nodes.
+3. On expand, a node not yet filled is queued at the front of that same
+   mechanism; nodes still in flight render as `⋯ loading` rows.
 
-This makes `mandible docker` interactive in well under a second and pays extraction
-cost only for the parts of the tree a user actually looks at.
+**Warming covers the whole tree, not one level ahead.** Revision 3 warmed only
+one depth past whatever the user had expanded. That kept the spawn count minimal
+but had two costs that outweighed it: an unexpanded node is **invisible to
+search** (the index can only hold what has been extracted), and a node that
+renders empty with nothing explaining that it needs a keypress reads as a bug
+rather than as laziness. Filling everything in the background is the same total
+work spread over idle time, and it is what makes a search over the whole tree
+honest.
+
+This is **not** a return to §5.1's eager extraction: nothing blocks startup or a
+keystroke, and the pool is bounded. The distinction that matters is not *how
+much* gets extracted but *what the user waits for* — and the answer is nothing.
+
+**Background fills never expand the node they fill.** Expansion is user intent.
+When every node is warmed, auto-expanding on arrival unfolds the entire tree and
+buries the user in rows they never asked for.
+
+**Pool sizing is deliberately oversubscribed** — `available_parallelism * 4`,
+clamped to `[4, 32]`. A warming job spawns a child process and then spends
+nearly all its wall time blocked on it, so one thread per core leaves the machine
+idle waiting on I/O.
 
 Non-incremental sources (carapace) return their full subtree at step 1; they cost
 nothing, so there is no reason to defer them.
@@ -853,6 +876,18 @@ selected `git rebase` rather than the flag. Since finding a flag is the product'
 core job (§1), each `Flag` is its own index entry, with a haystack of
 `short + long + value_name + description` and a `NodeRef::Flag` payload.
 Selecting one selects the parent command and scrolls the detail pane to that flag.
+
+**Two match modes, name-only by default.** Matching one combined haystack
+(name + summary + description + flag value) is correct and *looks* arbitrary:
+searching `branch` in `git` returns `switch` via "Switch branches", and since
+only name matches are underlined, nothing on screen explains why that row is
+there. `/` opens the box in **name mode** — command names and flag spellings
+only — and pressing `/` again toggles **wide mode**, the combined haystack. The
+search bar's title shows which is active. Name mode is the default because its
+results explain themselves; wide mode finds more and is one keystroke away.
+Name mode filters the index's own result set rather than maintaining a second
+index, using a subsequence test so it can never reject something the fuzzy
+ranking accepted for the same reason (`gco` → `checkout` still works).
 
 **Filtering preserves hierarchy.** A flat result list rendered with
 `depth = path.len() - 1` produces indentation pointing at ancestors that aren't
