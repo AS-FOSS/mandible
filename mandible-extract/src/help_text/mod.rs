@@ -210,6 +210,14 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>) -> CommandNod
         unparsed: Vec::new(),
         detected_framework,
         provenance,
+        // This node is the probed node itself (the root `--help` was run
+        // against, or a subcommand's own node once *its* `--help` is
+        // probed in turn) — never a bare-word entry recovered from a
+        // listing under some other node's heading, so there is no heading
+        // to attest to. `emit_subcommands`/`process_word_grid` are what
+        // set this `true`, for the stub entries `parsed.subcommands`
+        // already carries into this node's `subcommands` list above.
+        heading_attested: false,
     }
 }
 

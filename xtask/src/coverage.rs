@@ -280,9 +280,26 @@ fn framework_label(tool: &str, result: &ExtractionResult) -> String {
 /// Count descendant nodes (not the root itself — see below) that fail
 /// either half of spec §13.1's structure-sanity check: a name that
 /// doesn't look like a real command (`is_command_name_shaped`), or a node
-/// with no flags, no children, and no summary at all (a node that exists
-/// but carries nothing is exactly what a mis-parsed continuation line or
-/// enum-value-turned-subcommand looks like).
+/// with no flags, no children, no summary, and — this is the half issue
+/// #2 changed — no [`CommandNode::heading_attested`] evidence either.
+///
+/// **Why emptiness alone isn't enough (issue #2).** A node that exists but
+/// carries nothing is exactly what a mis-parsed continuation line or
+/// enum-value-turned-subcommand looks like — *and* exactly what a real,
+/// legitimately description-less command looks like: `openssl --help`
+/// lists 152 real commands (`asn1parse`, `ca`, `ciphers`, ...) as a bare
+/// word grid with no per-entry description at all, so all but one were
+/// getting flagged `suspicious` by emptiness alone. The distinguishing
+/// signal is *provenance, not emptiness*: `heading_attested` is set only
+/// at the parser call sites already gated on positive evidence of a real
+/// command list (a recognized heading, or a chain/pseudo-entry started by
+/// one — see [`CommandNode::heading_attested`]'s doc comment), so an empty
+/// node without it is still exactly [M-10]'s phantom-subcommand shape
+/// (`tar`'s 39 wrapped-description-fragment nodes, none of which came
+/// from any such evidence) and stays suspicious. A node whose *name* is
+/// bad-shaped stays suspicious regardless of `heading_attested` — that
+/// half of the check is orthogonal to provenance and must not be weakened
+/// by it.
 ///
 /// The root is deliberately excluded from the name-shape half: it's the
 /// literal executable name resolved from `PATH`, never something a tier
@@ -297,7 +314,10 @@ fn structure_sanity(root: &CommandNode) -> usize {
 
 fn count_suspicious(node: &CommandNode) -> usize {
     let bad_name = !is_command_name_shaped(&node.name);
-    let empty = node.flags.is_empty() && node.subcommands.is_empty() && node.summary.is_none();
+    let empty = node.flags.is_empty()
+        && node.subcommands.is_empty()
+        && node.summary.is_none()
+        && !node.heading_attested;
     let this_node = usize::from(bad_name || empty);
     this_node + node.subcommands.iter().map(count_suspicious).sum::<usize>()
 }
@@ -936,6 +956,34 @@ mod tests {
         child.summary = Some(mandible_core::Text::sanitize("Show status"));
         root.subcommands.push(child);
         assert_eq!(structure_sanity(&root), 0);
+    }
+
+    /// The core regression for issue #2: an empty node with no
+    /// `heading_attested` evidence (the shape a phantom node — tar's 39
+    /// wrapped-description-fragment "subcommands" — always has) must stay
+    /// suspicious, while an otherwise-identical empty node that *does*
+    /// carry that evidence (openssl's bare command grid: real commands,
+    /// no per-entry description) must not. Provenance, not emptiness, is
+    /// what the check now discriminates on.
+    #[test]
+    fn structure_sanity_distinguishes_fabricated_empty_nodes_from_heading_attested_ones() {
+        let mut fabricated_root = leaf("tar");
+        fabricated_root.subcommands.push(leaf("gnu"));
+        assert_eq!(
+            structure_sanity(&fabricated_root),
+            1,
+            "an empty node with no heading evidence must stay suspicious"
+        );
+
+        let mut openssl_like_root = leaf("openssl");
+        let mut attested = leaf("asn1parse");
+        attested.heading_attested = true;
+        openssl_like_root.subcommands.push(attested);
+        assert_eq!(
+            structure_sanity(&openssl_like_root),
+            0,
+            "an empty node with heading evidence must not be flagged just for being empty"
+        );
     }
 
     #[test]

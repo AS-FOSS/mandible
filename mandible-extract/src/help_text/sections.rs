@@ -675,6 +675,14 @@ fn process_word_grid(
             if treat_as_commands {
                 out.try_push_subcommand(CommandNode {
                     group: Some(heading.to_string()),
+                    // `treat_as_commands` is only ever `true` when the
+                    // grid's heading was `recognized` or the parser was
+                    // already in `command_mode` (see the caller) — i.e.
+                    // this entry has exactly the positive evidence spec
+                    // issue #2 asks `structure_sanity` to trust, even
+                    // though a word-grid entry carries no per-entry
+                    // description (openssl's `asn1parse`, `ciphers`, ...).
+                    heading_attested: true,
                     ..CommandNode::new(token, Provenance::single(Source::HelpText))
                 });
             }
@@ -791,6 +799,15 @@ fn emit_subcommands(
         node.summary = non_empty_text(&desc_text);
         node.group = Some(heading.to_string());
         node.children_filled = false;
+        // Every call site of `emit_subcommands` is already gated on
+        // positive evidence of a real command list — a recognized heading,
+        // a `command_mode` chain started by one, or argparse's own
+        // `{choice,...}` pseudo-entry shape — so an entry recovered here
+        // is never "conjured from layout alone" (spec issue #2's
+        // distinction). This is what lets the coverage harness's
+        // structure-sanity check stop treating a description-less entry
+        // as suspicious purely for being description-less.
+        node.heading_attested = true;
         out.try_push_subcommand(node);
     }
     (seen, clean)

@@ -66,6 +66,27 @@ pub struct CommandNode {
     /// Which source(s) contributed this node's own fields (not its
     /// children's — each child has its own `Provenance`).
     pub provenance: Provenance,
+    /// True when this node was recovered from a bare-word block sitting
+    /// under a **recognized** command heading (spec §7 Tier B rule 1: a
+    /// literal heading-vocabulary match, or a chain started by one, e.g.
+    /// git's group headings) — as opposed to being conjured from layout
+    /// alone. This is *positive evidence the node names a real command*,
+    /// independent of whether the source `--help` text bothered to
+    /// describe it: `openssl --help`'s `Standard commands:` grid lists
+    /// `asn1parse`, `ca`, `ciphers`, ... with no per-entry description at
+    /// all, and every one is a real subcommand.
+    ///
+    /// Set only at the handful of call sites already gated on a recognized
+    /// heading (`help_text::sections::emit_subcommands`,
+    /// `help_text::sections::process_word_grid`); every other constructor
+    /// (`CommandNode::new`, Tier A/E's own node-building) leaves this
+    /// `false`. That is what lets the coverage harness's structure-sanity
+    /// check (spec §13.1, `xtask::coverage::structure_sanity`) stop
+    /// flagging openssl's 151 genuinely empty-but-real nodes as
+    /// `suspicious` while still flagging an empty node with no such
+    /// evidence — [M-10]'s exact shape — regardless of whether its name
+    /// happens to look plausible.
+    pub heading_attested: bool,
 }
 
 /// True if `s` looks like a real command/subcommand name: lowercase,
@@ -118,6 +139,7 @@ impl CommandNode {
             unparsed: Vec::new(),
             detected_framework: None,
             provenance,
+            heading_attested: false,
         }
     }
 }

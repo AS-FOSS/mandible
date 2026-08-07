@@ -120,6 +120,14 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         best_index(candidates.iter().map(|c| &c.provenance), Axis::Structural);
     let hidden = candidates[structural_winner_idx].hidden;
     let children_filled = candidates.iter().any(|c| c.children_filled);
+    // Same "any contributor is enough" reasoning as `children_filled`:
+    // this is positive evidence the node names a real command (spec
+    // §13.1's structure-sanity check), and a merge can only ever add
+    // evidence, never take it away — if one source recovered this node
+    // from a recognized command heading, that fact doesn't stop being
+    // true just because another, lower-authority source also contributed
+    // a field.
+    let heading_attested = candidates.iter().any(|c| c.heading_attested);
 
     let mut provenance = Provenance::default();
     for c in &candidates {
@@ -150,6 +158,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         unparsed,
         detected_framework,
         provenance,
+        heading_attested,
     })
 }
 
