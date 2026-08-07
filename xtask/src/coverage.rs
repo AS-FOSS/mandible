@@ -462,6 +462,70 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&aggregate_footer_line(aggregate));
     out.push('\n');
     out.push_str(&framework_summary_lines(aggregate));
+    out.push_str(&top_unidentified_lines_text(&top_unidentified_by_flags(
+        rows,
+    )));
+    out
+}
+
+/// Cap on the "top unidentified" audit section (see
+/// [`top_unidentified_by_flags`]'s doc comment). Not load-bearing —
+/// this is a work-queue aid, not a gated metric — 25 just keeps the
+/// footer scannable rather than dumping every unidentified tool on a
+/// full-`PATH` sweep.
+const TOP_UNIDENTIFIED_LIMIT: usize = 25;
+
+/// Tools Tier A′ never identified a framework for (`row.framework == "—"`),
+/// ranked by flag count descending, capped to [`TOP_UNIDENTIFIED_LIMIT`].
+///
+/// The coverage harness already reports a framework-detection *rate*
+/// (spec §13.1a), but a percentage alone gives no way to act on it. Flag
+/// count is the proxy for "richest help text, most worth investigating
+/// for a new framework fingerprint": a tool with 150 unrecognized flags
+/// is a far better use of the next framework-fingerprinting effort than
+/// one with 3. Ties broken by tool name for a stable, diffable
+/// scoreboard.
+fn top_unidentified_by_flags(rows: &[Row]) -> Vec<&Row> {
+    let mut unidentified: Vec<&Row> = rows.iter().filter(|r| r.framework == "—").collect();
+    unidentified.sort_by(|a, b| b.flags.cmp(&a.flags).then_with(|| a.tool.cmp(&b.tool)));
+    unidentified.truncate(TOP_UNIDENTIFIED_LIMIT);
+    unidentified
+}
+
+/// Plain-text rendering of [`top_unidentified_by_flags`]'s result, as
+/// `#`-prefixed lines matching this module's other informational footer
+/// sections (`framework_summary_lines`) — reported for visibility, not
+/// re-parsed by `--check`, so the exact format isn't load-bearing.
+fn top_unidentified_lines_text(top: &[&Row]) -> String {
+    if top.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "# top-unidentified-by-flags (richest unidentified tools — candidates for a new framework fingerprint):\n",
+    );
+    for (rank, row) in top.iter().enumerate() {
+        out.push_str(&format!(
+            "#   {:>2}. {:<30} {:>5} flags\n",
+            rank + 1,
+            row.tool,
+            row.flags,
+        ));
+    }
+    out
+}
+
+/// Markdown rendering of [`top_unidentified_by_flags`]'s result, for
+/// [`render_markdown`].
+fn top_unidentified_section_markdown(top: &[&Row]) -> String {
+    if top.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\n**Top unidentified tools by flag count** (candidates for a new framework fingerprint):\n\n| tool | flags |\n|---|---|\n",
+    );
+    for row in top {
+        out.push_str(&format!("| {} | {} |\n", md_escape(&row.tool), row.flags));
+    }
     out
 }
 
@@ -514,6 +578,9 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             out.push_str(&format!("- {}: {count}\n", md_escape(name)));
         }
     }
+    out.push_str(&top_unidentified_section_markdown(
+        &top_unidentified_by_flags(rows),
+    ));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
@@ -854,6 +921,68 @@ mod tests {
         assert!(md.contains("| git |"));
         assert!(md.contains("**Aggregate:**"));
         assert!(md.contains("**Framework detection:**"));
+    }
+
+    /// "Surfacing unidentified tools for audit": the top-unidentified list
+    /// must rank by flag count descending, skip identified tools entirely
+    /// (a rich `git` with 200 flags but a known framework is not a
+    /// fingerprinting candidate), and cap at `TOP_UNIDENTIFIED_LIMIT` so a
+    /// full-`PATH` sweep's footer doesn't dump hundreds of rows.
+    #[test]
+    fn top_unidentified_by_flags_ranks_and_excludes_identified_tools() {
+        let mut identified = row("git", 500, Some(90.0), "ok");
+        identified.framework = "cobra (artifact)".to_string();
+        let rows = vec![
+            row("small-mystery", 3, None, "ok"),
+            identified,
+            row("big-mystery", 150, Some(80.0), "ok"),
+            row("mid-mystery", 40, Some(70.0), "ok"),
+        ];
+        let top = top_unidentified_by_flags(&rows);
+        let names: Vec<&str> = top.iter().map(|r| r.tool.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["big-mystery", "mid-mystery", "small-mystery"],
+            "expected descending flag-count order with git excluded: {names:?}"
+        );
+    }
+
+    #[test]
+    fn top_unidentified_by_flags_is_capped() {
+        let rows: Vec<Row> = (0..(TOP_UNIDENTIFIED_LIMIT + 10))
+            .map(|i| row(&format!("mystery{i}"), i, None, "ok"))
+            .collect();
+        let top = top_unidentified_by_flags(&rows);
+        assert_eq!(top.len(), TOP_UNIDENTIFIED_LIMIT);
+        // Highest flag counts survive the cap, not an arbitrary prefix.
+        assert_eq!(top[0].flags, TOP_UNIDENTIFIED_LIMIT + 9);
+    }
+
+    #[test]
+    fn top_unidentified_lines_text_is_empty_when_nothing_is_unidentified() {
+        let mut identified = row("git", 10, Some(90.0), "ok");
+        identified.framework = "cobra (artifact)".to_string();
+        let rows = vec![identified];
+        assert!(top_unidentified_lines_text(&top_unidentified_by_flags(&rows)).is_empty());
+    }
+
+    #[test]
+    fn render_text_includes_the_top_unidentified_audit_section() {
+        let rows = vec![row("mystery-tool", 42, None, "ok")];
+        let agg = compute_aggregate(&rows);
+        let table = render_text(&rows, &agg);
+        assert!(table.contains("# top-unidentified-by-flags"));
+        assert!(table.contains("mystery-tool"));
+        assert!(table.contains("42 flags"));
+    }
+
+    #[test]
+    fn render_markdown_includes_the_top_unidentified_audit_section() {
+        let rows = vec![row("mystery-tool", 42, None, "ok")];
+        let agg = compute_aggregate(&rows);
+        let md = render_markdown(&rows, &agg);
+        assert!(md.contains("**Top unidentified tools by flag count**"));
+        assert!(md.contains("| mystery-tool | 42 |"));
     }
 
     #[test]
