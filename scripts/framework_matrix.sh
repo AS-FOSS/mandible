@@ -51,6 +51,19 @@ CASES=(
   "?picocli|mandible-picocli-fixture|skipped unless a jar is available"
 )
 
+# An informational case that fails is a *known gap*, not a build failure —
+# it is already documented and tracked. Rendering it as **FAIL** in the
+# table made a deliberate, recorded limitation look like a regression that
+# nobody noticed, which is the opposite of what the label should convey.
+fail_label() {
+  local optional="$1" reason="$2"
+  if [[ "$optional" == 1 ]]; then
+    echo "known gap ($reason)"
+  else
+    echo "**FAIL** ($reason)"
+  fi
+}
+
 failures=0
 rows=""
 
@@ -86,11 +99,11 @@ for case in "${CASES[@]}"; do
     if [[ "${nodes:-0}" -gt 1 || "${flags:-0}" -gt 0 ]]; then
       verdict="ok"
     else
-      verdict="**FAIL** (empty tree)"
+      verdict="$(fail_label "$optional" "empty tree")"
       [[ $optional == 1 ]] || failures=$((failures + 1))
     fi
   else
-    verdict="**FAIL** (expected ${expected})"
+    verdict="$(fail_label "$optional" "expected ${expected}")"
     [[ $optional == 1 ]] || failures=$((failures + 1))
   fi
 
