@@ -112,11 +112,14 @@ pub fn color_enabled_from_env() -> bool {
     // which is worse than the plain rendering it asked for. Emacs shell
     // buffers and some CI shells set it.
     match std::env::var("TERM") {
-        Ok(term) => !term.is_empty() && term != "dumb",
-        // No TERM at all is the same situation: nothing has told us this
-        // is a capable terminal, so don't assume one.
-        Err(_) => false,
+        Ok(term) if term.is_empty() || term == "dumb" => return false,
+        Err(_) => return false,
+        Ok(_) => {}
     }
+    // And nothing is a terminal at the other end of a pipe. Writing SGR
+    // sequences into a file or a grep is the conventional mistake here —
+    // `mandible mandible > notes.txt` should leave text, not escape codes.
+    crate::terminal::stdout_is_tty()
 }
 
 /// A pure-ASCII border set.
