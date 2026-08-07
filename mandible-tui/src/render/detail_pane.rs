@@ -35,7 +35,7 @@ use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Wrap};
 use ratatui::Frame;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 /// Render the detail pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
@@ -292,17 +292,24 @@ fn flag_lines(
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
 ) -> (Vec<Line<'static>>, Option<usize>) {
-    let mut own_groups: BTreeMap<Option<String>, Vec<&Flag>> = BTreeMap::new();
+    // Groups keep the order the tool printed them in, which is editorial:
+    // `tar --help` leads with "Main operation mode" because that is what you
+    // need first, and its 17 groups are sequenced deliberately. A BTreeMap
+    // here sorted them alphabetically, so "Archive format selection" came
+    // first and the author's ordering was silently discarded.
+    let mut group_order: Vec<Option<String>> = Vec::new();
+    let mut own_groups: HashMap<Option<String>, Vec<&Flag>> = HashMap::new();
     let mut inherited: Vec<&Flag> = Vec::new();
 
     for f in flags {
         if f.inherited {
             inherited.push(f);
         } else {
-            own_groups
-                .entry(f.group.as_ref().map(|g| normalize_group_heading(g)))
-                .or_default()
-                .push(f);
+            let key = f.group.as_ref().map(|g| normalize_group_heading(g));
+            if !own_groups.contains_key(&key) {
+                group_order.push(key.clone());
+            }
+            own_groups.entry(key).or_default().push(f);
         }
     }
 
@@ -314,15 +321,19 @@ fn flag_lines(
         }
     };
 
-    // Ungrouped flags first, with no heading.
+    // Ungrouped flags first, with no heading, then each group in the order
+    // the tool introduced it.
     if let Some(ungrouped) = own_groups.remove(&None) {
         for f in ungrouped {
             note_if_target(&out, f);
             out.extend(flag_line(f, false, width, color_enabled));
         }
     }
-    for (group, flags) in own_groups {
-        if let Some(group) = group {
+    for key in group_order {
+        let Some(flags) = own_groups.remove(&key) else {
+            continue;
+        };
+        if let Some(group) = key {
             out.push(heading_line_owned(group, color_enabled));
         }
         for f in flags {
@@ -403,6 +414,27 @@ fn flag_line(flag: &Flag, dim: bool, width: usize, color_enabled: bool) -> Vec<L
         .map(|_| " (deprecated)".to_string());
 
     let mut description_text = flag.description.as_ref().map(|d| d.single_line());
+
+    // The IR carries a flag's permitted values (spec §7 Tier B rule 4:
+    // `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum values,
+    // which is why they are *not* subcommands) and the pane was extracting
+    // them and then dropping them on the floor. Knowing that `--format`
+    // takes exactly six spellings is precisely the sort of thing you open a
+    // reference to find out.
+    if !flag.choices.is_empty() {
+        let joined = flag
+            .choices
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let rendered = format!("[{joined}]");
+        description_text = Some(match description_text {
+            Some(d) if !d.is_empty() => format!("{d} {rendered}"),
+            _ => rendered,
+        });
+    }
+
     if let Some(tag) = &deprecated_tag {
         description_text = Some(match description_text {
             Some(d) => format!("{d}{tag}"),

@@ -81,22 +81,23 @@ Two real bugs in this project passed a full green suite:
 `enable raw mode` fails with *"No such device or address"*. Do not try to run
 the TUI directly.
 
-**Use the pty harness** — it forks a real pseudo-terminal, sets an explicit
-window size (this is the part naive attempts miss; without `TIOCSWINSZ` the pty
-is 0×0 and ratatui renders nothing), and replays output through a terminal
-emulator to give you the actual screen:
+**Rendering must therefore be verified through `TestBackend`**, which needs no
+terminal at all — see `mandible-tui/tests/border_integrity.rs`.
 
-```bash
-python3 -m venv /tmp/ptyvenv && /tmp/ptyvenv/bin/pip install pyte
-/tmp/ptyvenv/bin/python scripts/pty_screenshot.py 100 28 ./target/release/mandible git
-```
+A pty harness (`scripts/pty_screenshot.py`) used to live here: it forked a real
+pseudo-terminal, set an explicit window size (the part naive attempts miss —
+without `TIOCSWINSZ` the pty is 0×0 and ratatui renders nothing), and replayed
+the output through a terminal emulator to produce the actual screen. It found
+the markdown leak, the ragged re-wrap, apt-get's mangled
+`dselect-upgradeFollow`, and the unbounded detail-pane scroll — all invisible
+to `TestBackend`, which uses synthetic fixtures rather than real tool output.
 
-This is the only way to see rendering defects that depend on real data. It is
-how the markdown leak and the ragged re-wrap were found — both invisible to
-`TestBackend` tests, which use synthetic fixtures.
-
-`TestBackend` tests are still required (see the border-integrity suite). They
-catch structural regressions; the pty catches *content* regressions.
+It was removed because its output is no longer wanted in the README. **Its
+absence is a real gap**: content regressions that only appear against real
+`--help` text now have no automated net. If you are changing rendering, the
+mitigation is to widen the `TestBackend` suite with a fixture captured from a
+real tool, rather than to assume synthetic input is representative — the two
+border-corruption bugs that shipped both passed synthetic tests.
 
 ---
 

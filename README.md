@@ -29,47 +29,7 @@ $ mandible docker
 opens an explorable tree of every command, subcommand, and flag — with
 descriptions — and a search bar over all of it.
 
-```
-╭ search [names]  (/ switches) ────────────────────────────────────────────────────────────╮
-│›                                                                                         │
-╰──────────────────────────────────────────────────────────────────────────────────────────╯
-╭ commands (61) ─────────────────────────────╮╭ docker › exec ─────────────────────────────╮
-│▾ docker                                    ││Execute a command in a running container    │
-│    run         Create and run a new…       ││                                            │
-│    exec        Execute a command in a…     ││USAGE                                       │
-│    ps          List containers             ││exec Usage: docker exec [OPTIONS] CONTAINER │
-│    build       Build an image from a…      ││COMMAND [ARG...]                            │
-│    bake        Build from a file           ││                                            │
-│    pull        Download an image from a…   ││FLAGS                                       │
-│    push        Upload an image to a…       ││  -d, --detach  Detached mode: run command  │
-│    images      List images                 ││                in the background           │
-│    login       Authenticate to a registry  ││  --detach-keys string  Override the key    │
-│    logout      Log out from a registry     ││                        sequence for        │
-│    search      Search Docker Hub for images││                        detaching a         │
-│    version     Show the Docker version…    ││                        container           │
-│    info        Display system-wide…        ││  -e, --env list  Set environment variables │
-│  ▸ builder     Manage builds               ││  --env-file list  Read in a file of        │
-│  ▸ checkpoint  Manage checkpoints          ││                   environment variables    │
-│  ▸ container   Manage containers           ││  -i, --interactive  Keep STDIN open even if│
-│  ▸ context     Manage contexts             ││                     not attached           │
-╰────────────────────────────────────────────╯╰────────────────────────────────────────────╯
-↑↓ move   → expand   / search   y copy   ? help   q quit
-```
-
-Type `/` to filter, live:
-
-```
-╭ search [names]  (/ switches) ────────────────────────────────────────────────────────────╮
-│› rebase                                                                                  │
-╰──────────────────────────────────────────────────────────────────────────────────────────╯
-╭ commands (2) ──────────────────────────────╮╭ git ───────────────────────────────────────╮
-│▾ git                                       ││USAGE                                       │
-│    rebase  Reapply commits on top of…      ││git usage: git [-v | --version] [-h |       │
-╰────────────────────────────────────────────╯╰────────────────────────────────────────────╯
-```
-
-*(Real captures via `scripts/pty_screenshot.py` against the release binary — not
-mocked-up output.)*
+<!-- Screenshot goes here. -->
 
 ## Install
 
@@ -101,6 +61,10 @@ bytes, which is ground truth rather than a guess about section headings.
 is rendered verbatim — the author's own text, untouched, labelled `unparsed`.
 Inventing structure a user can't tell is wrong is worse than admitting defeat.
 
+Detection is not the same as coverage: only a minority of tools are matched to a
+specific framework, and the rest still parse through the general layout engine.
+`mandible --doctor <tool>` tells you which happened for any given tool.
+
 ## Speed
 
 Startup does no extraction at all: the UI is on screen immediately, and the tree
@@ -115,22 +79,27 @@ confidently stale is worse than being fast.
 |---|---|
 | `↑`/`↓`, `j`/`k` | move |
 | `→`/`Enter`, `←` | expand / collapse |
-| `/` | search — again to widen from names to descriptions |
+| `/` | search. Press again to switch between **names** (command names, literal substring) and **everything** (flags, summaries and descriptions, fuzzy) |
 | `Esc` | leave search, keeping the filter; again to clear |
 | `Tab` | switch pane |
 | `y` | copy the selected flag or command path |
 | `.` | show hidden and deprecated items |
 | `r` | re-extract |
 | `?` | all keys |
-| `q` | quit |
+| `q` | quit (from the tree; `Ctrl-C` quits from anywhere, including mid-search) |
 
 ## Is it actually universal?
 
 That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline
 against **every executable on your `PATH`** and writes a scoreboard — tiers hit,
 framework detected, nodes, flags, % described, and a structure-sanity column that
-catches fabricated output. It's checked into the repo and diffed on every parser
-change, so a fix for one tool can't silently regress another.
+catches *fabricated* output. That column exists because `%described` alone once
+reported a tool as `ok` at 100% while 39 of its 40 subcommands were invented: a
+coverage metric that can be gamed by the failure it should detect is worse than
+no metric.
+
+CI gates every change against a fixed tool list, and sweeps the whole `PATH`
+separately for the broad picture.
 
 For a single tool:
 
