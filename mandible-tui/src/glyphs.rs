@@ -47,6 +47,8 @@ pub struct Glyphs {
     pub arrows_horizontal: &'static str,
     /// Em dash, used where a value is absent.
     pub absent: &'static str,
+    /// Horizontal rule drawn after a section heading.
+    pub rule: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -63,6 +65,7 @@ pub const UNICODE: Glyphs = Glyphs {
     arrows_vertical: "↑↓",
     arrows_horizontal: "←→",
     absent: "—",
+    rule: "─",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -80,6 +83,7 @@ pub const ASCII: Glyphs = Glyphs {
     arrows_vertical: "up/dn",
     arrows_horizontal: "left/right",
     absent: "-",
+    rule: "-",
 };
 
 /// Pick a glyph set from the environment.
@@ -128,6 +132,7 @@ mod tests {
             ASCII.arrows_vertical,
             ASCII.arrows_horizontal,
             ASCII.absent,
+            ASCII.rule,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

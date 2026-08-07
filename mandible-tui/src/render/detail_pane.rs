@@ -177,7 +177,12 @@ fn build_lines(
     }
 
     if let Some(description) = &node.description {
-        lines.push(heading_line("DESCRIPTION", color_enabled));
+        lines.push(heading_line_ruled(
+            "DESCRIPTION",
+            width,
+            color_enabled,
+            glyphs,
+        ));
         for paragraph_text in description.as_str().split("\n\n") {
             for chunk in wrap_words(paragraph_text, width, glyphs.ellipsis) {
                 lines.push(Line::from(chunk));
@@ -187,11 +192,15 @@ fn build_lines(
     }
 
     if !node.usage.is_empty() {
-        lines.push(heading_line("USAGE", color_enabled));
+        lines.push(heading_line_ruled("USAGE", width, color_enabled, glyphs));
         for u in &node.usage {
-            let full = format!("{} {}", defensive_single_line(&node.name), u.as_str());
-            for chunk in wrap_words(&full, width, glyphs.ellipsis) {
-                lines.push(Line::from(chunk));
+            let full = usage_signature(&node.name, u.as_str());
+            // Indented as a block, the way API documentation sets a
+            // signature apart from its prose.
+            let indent = "  ";
+            let avail = width.saturating_sub(display_width(indent)).max(1);
+            for chunk in wrap_words(&full, avail, glyphs.ellipsis) {
+                lines.push(Line::from(format!("{indent}{chunk}")));
             }
         }
         lines.push(Line::default());
@@ -204,7 +213,7 @@ fn build_lines(
         .collect();
 
     if !visible_flags.is_empty() {
-        lines.push(heading_line("FLAGS", color_enabled));
+        lines.push(heading_line_ruled("FLAGS", width, color_enabled, glyphs));
         let (flag_lines_out, target) =
             flag_lines(&visible_flags, width, color_enabled, target_flag, glyphs);
         let base = lines.len();
@@ -226,8 +235,62 @@ fn build_lines(
     }
 }
 
-fn heading_line(text: &'static str, color_enabled: bool) -> Line<'static> {
-    Line::from(Span::styled(text, style::muted_bold(color_enabled)))
+/// A section heading followed by a rule to the pane's edge.
+///
+/// The rule is what gives the pane hierarchy: without it, a bold word and
+/// the body text beneath it are two lines of similar weight, and the eye
+/// has nothing to anchor a section boundary to. Drawn in the muted style so
+/// it separates without competing, and through the glyph set so a
+/// non-UTF-8 terminal gets `-` rather than tofu.
+fn heading_line_ruled(
+    text: &str,
+    width: usize,
+    color_enabled: bool,
+    glyphs: Glyphs,
+) -> Line<'static> {
+    let heading = text.to_string();
+    let used = display_width(&heading) + 1;
+    let rule_width = width.saturating_sub(used);
+    let mut spans = vec![Span::styled(heading, style::muted_bold(color_enabled))];
+    if rule_width > 0 {
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(
+            glyphs.rule.repeat(rule_width),
+            style::muted(color_enabled),
+        ));
+    }
+    Line::from(spans)
+}
+
+/// One usage line, with the redundancy stripped.
+///
+/// The raw string frequently already carries both a `Usage:` label and the
+/// tool's own name — `tar --help` yields `Usage: tar [OPTION...]` — and
+/// prepending the node name to that produced `tar Usage: tar [OPTION...]`,
+/// with the name twice and a label the `USAGE` heading directly above
+/// already supplies. The name is prepended only when the line does not
+/// already begin with it, which is what makes a bare pattern like
+/// `[OPTIONS] <url>` still render as a complete invocation.
+fn usage_signature(node_name: &str, usage: &str) -> String {
+    let name = defensive_single_line(node_name);
+    let mut text = defensive_single_line(usage);
+
+    // Drop a leading `usage:` label, case-insensitively — the heading says
+    // it.
+    let trimmed = text.trim_start();
+    if trimmed.len() >= 6 && trimmed[..6].eq_ignore_ascii_case("usage:") {
+        text = trimmed[6..].trim_start().to_string();
+    }
+
+    let starts_with_name = text
+        .split_whitespace()
+        .next()
+        .is_some_and(|first| first == name);
+    if starts_with_name || name.is_empty() {
+        text
+    } else {
+        format!("{name} {text}")
+    }
 }
 
 /// Greedy word-wrap of `text` to at most `width` display columns per
@@ -302,15 +365,46 @@ const DESC_COLUMN_CAP_PERCENT: usize = 45;
 /// which is the whole point — a shared column is what turns a list of
 /// options into a parameter table. Includes inherited flags so the two
 /// blocks line up with each other.
-fn description_column(flags: &[&Flag], width: usize) -> usize {
-    let widest = flags
+/// Where a flag row's two right-hand columns begin: the value placeholder,
+/// then the description.
+///
+/// Three columns rather than two, because a value placeholder is a
+/// different *kind* of thing from a spelling — `--env` and `list` answer
+/// "what do I type" and "what does it take". Run together as
+/// `--env list` they read as one token; in their own columns the whole
+/// list can be scanned down either one, which is what a parameter table in
+/// API documentation is for.
+#[derive(Debug, Clone, Copy)]
+struct FlagColumns {
+    value: usize,
+    description: usize,
+}
+
+fn flag_columns(flags: &[&Flag], width: usize) -> FlagColumns {
+    let widest_spec = flags
         .iter()
-        .map(|f| display_width(&flag_spec_text(f)))
+        .map(|f| display_width(&flag_name_spec(f)))
         .max()
         .unwrap_or(0);
+    let widest_value = flags
+        .iter()
+        .filter_map(|f| flag_value_text(f))
+        .map(|v| display_width(&v))
+        .max()
+        .unwrap_or(0);
+
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
-    // 2 leading + widest + 2 gutter.
-    (2 + widest).min(cap.saturating_sub(2)) + 2
+    // 2 leading + spelling + 1 gutter.
+    let value = (2 + widest_spec + 1).min(cap.saturating_sub(2));
+    // ...then the value column, + 2 gutter. When nothing in this list takes
+    // a value the column collapses, rather than leaving a blank strip.
+    let gutter = if widest_value == 0 {
+        0
+    } else {
+        widest_value + 2
+    };
+    let description = (value + gutter).min(cap);
+    FlagColumns { value, description }
 }
 
 fn flag_lines(
@@ -320,7 +414,7 @@ fn flag_lines(
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
 ) -> (Vec<Line<'static>>, Option<usize>) {
-    let desc_column = description_column(flags, width);
+    let columns = flag_columns(flags, width);
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
     // need first, and its 17 groups are sequenced deliberately. A BTreeMap
@@ -355,14 +449,7 @@ fn flag_lines(
     if let Some(ungrouped) = own_groups.remove(&None) {
         for f in ungrouped {
             note_if_target(&out, f);
-            out.extend(flag_line(
-                f,
-                false,
-                width,
-                color_enabled,
-                glyphs,
-                desc_column,
-            ));
+            out.extend(flag_line(f, false, width, color_enabled, glyphs, columns));
         }
     }
     for key in group_order {
@@ -374,29 +461,20 @@ fn flag_lines(
         }
         for f in flags {
             note_if_target(&out, f);
-            out.extend(flag_line(
-                f,
-                false,
-                width,
-                color_enabled,
-                glyphs,
-                desc_column,
-            ));
+            out.extend(flag_line(f, false, width, color_enabled, glyphs, columns));
         }
     }
 
     if !inherited.is_empty() {
-        out.push(heading_line("INHERITED", color_enabled));
+        out.push(heading_line_ruled(
+            "INHERITED",
+            width,
+            color_enabled,
+            glyphs,
+        ));
         for f in inherited {
             note_if_target(&out, f);
-            out.extend(flag_line(
-                f,
-                true,
-                width,
-                color_enabled,
-                glyphs,
-                desc_column,
-            ));
+            out.extend(flag_line(f, true, width, color_enabled, glyphs, columns));
         }
     }
 
@@ -429,26 +507,16 @@ fn flag_name_spec(flag: &Flag) -> String {
     spec
 }
 
-/// A flag's value placeholder as rendered after its spelling, e.g.
-/// ` FILE` or `[=FILE]`.
-fn flag_value_suffix(flag: &Flag) -> Option<String> {
+/// A flag's value placeholder as its own column entry, e.g. `FILE` or
+/// `[FILE]` when optional. `None` when the flag takes no value.
+fn flag_value_text(flag: &Flag) -> Option<String> {
     flag.value_name
         .as_ref()
         .and_then(|name| match flag.value_kind {
-            ValueKind::Required => Some(format!(" {name}")),
-            ValueKind::Optional => Some(format!("[={name}]")),
+            ValueKind::Required => Some(name.clone()),
+            ValueKind::Optional => Some(format!("[{name}]")),
             ValueKind::None => None,
         })
-}
-
-/// Spelling plus value placeholder — the full left-hand column of one row,
-/// which is what [`description_column`] measures.
-fn flag_spec_text(flag: &Flag) -> String {
-    let mut s = flag_name_spec(flag);
-    if let Some(v) = flag_value_suffix(flag) {
-        s.push_str(&v);
-    }
-    s
 }
 
 fn flag_line(
@@ -457,12 +525,12 @@ fn flag_line(
     width: usize,
     color_enabled: bool,
     glyphs: Glyphs,
-    // Column at which every description starts, shared across the whole
-    // flag list — see `description_column`.
-    desc_column: usize,
+    // Where the value and description columns begin, shared across the
+    // whole flag list — see `flag_columns`.
+    columns: FlagColumns,
 ) -> Vec<Line<'static>> {
     let name_spec = flag_name_spec(flag);
-    let value_suffix = flag_value_suffix(flag);
+    let value_text = flag_value_text(flag);
 
     let leading = "  ";
     let spelling_style = if dim {
@@ -482,9 +550,13 @@ fn flag_line(
         spelling_style,
     )];
     let mut prefix_width = display_width(leading) + display_width(&name_spec);
-    if let Some(v) = &value_suffix {
+    if let Some(v) = &value_text {
+        // Padded to its own column, so values line up down the list rather
+        // than sitting wherever each spelling happens to end.
+        let pad = columns.value.saturating_sub(prefix_width).max(1);
+        first_line_spans.push(Span::raw(" ".repeat(pad)));
         first_line_spans.push(Span::styled(v.clone(), value_style));
-        prefix_width += display_width(v);
+        prefix_width += pad + display_width(v);
     }
 
     let deprecated_tag = flag
@@ -536,7 +608,7 @@ fn flag_line(
     // it simply pushes its own description along, one row out of step
     // rather than one name destroyed.
     let gap = "  ";
-    let indent_width = desc_column.max(prefix_width + display_width(gap));
+    let indent_width = columns.description.max(prefix_width + display_width(gap));
     let available = width.saturating_sub(indent_width).max(1);
     let chunks = wrap_words(&description_text, available, glyphs.ellipsis);
 
@@ -676,7 +748,7 @@ mod tests {
             f.description = Some(Text::sanitize(desc));
             f
         };
-        let flags = vec![
+        let flags = [
             mk(Some('d'), "detach", None, "Detached mode"),
             mk(
                 None,
@@ -735,7 +807,17 @@ mod tests {
         flag.description = Some(Text::sanitize(
             "Trust certs signed only by this CA (default \"\")",
         ));
-        let lines = flag_line(&flag, false, 40, true, crate::glyphs::UNICODE, 20);
+        let lines = flag_line(
+            &flag,
+            false,
+            40,
+            true,
+            crate::glyphs::UNICODE,
+            FlagColumns {
+                value: 18,
+                description: 20,
+            },
+        );
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
         let first_text = text_of(&lines[0]);
         let continuation_text = text_of(&lines[1]);
@@ -759,15 +841,31 @@ mod tests {
         flag.value_name = Some("FILE".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize("Write output to FILE"));
-        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE, 20);
+        let lines = flag_line(
+            &flag,
+            false,
+            80,
+            true,
+            crate::glyphs::UNICODE,
+            FlagColumns {
+                value: 18,
+                description: 20,
+            },
+        );
         let spans = &lines[0].spans;
         assert!(spans.len() >= 3, "{spans:?}");
         // Spelling span carries the accent color.
         assert_eq!(spans[0].style.fg, Some(style::ACCENT));
-        // Value span is styled differently from the spelling span (muted,
-        // not accent).
-        assert_ne!(spans[1].style, spans[0].style);
-        assert_eq!(spans[1].content.as_ref(), " FILE");
+        // The value sits in its own column, so the padding between the two
+        // is its own (unstyled) span and the value follows it.
+        let value = spans
+            .iter()
+            .find(|s| s.content.as_ref() == "FILE")
+            .expect("value should be its own span");
+        assert_ne!(
+            value.style, spans[0].style,
+            "value must not read as a spelling"
+        );
     }
 
     #[test]
@@ -775,7 +873,17 @@ mod tests {
         let mut flag = Flag::long("old-flag", Provenance::single(Source::HelpText));
         flag.deprecated = Some(Text::sanitize("use --new-flag instead"));
         flag.description = Some(Text::sanitize("Old behavior"));
-        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE, 20);
+        let lines = flag_line(
+            &flag,
+            false,
+            80,
+            true,
+            crate::glyphs::UNICODE,
+            FlagColumns {
+                value: 18,
+                description: 20,
+            },
+        );
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
     }
