@@ -68,6 +68,11 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
             }
         }
 
+        // Let a transient status message ("copied: …") time out. This loop
+        // already wakes every 100ms to poll for input, so expiry needs no
+        // timer of its own.
+        app.expire_status(std::time::Instant::now());
+
         // Drive the search index's background matcher forward from this
         // same poll timeout (spec §10 "Threading") — never as a blocking
         // spin inside the keystroke handler itself.

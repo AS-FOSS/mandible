@@ -6,6 +6,7 @@ use crate::tree::{flatten, TreeRow};
 use mandible_core::{resolve, CommandNode, NodeRef};
 use mandible_search::SearchIndex;
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
 
 /// What the search box matches against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,9 +133,16 @@ pub struct App {
     pub show_help: bool,
     /// Whether hidden/deprecated items are shown (toggled with `.`).
     pub show_hidden: bool,
-    /// A short-lived status line message (e.g. "copied: --interactive"),
-    /// shown in the status bar until the next action replaces it.
+    /// A short-lived status line message (e.g. "copied: --interactive").
+    ///
+    /// Genuinely short-lived: it used to sit in the footer until some
+    /// *other* action happened to overwrite it, so a single `y` replaced
+    /// the keybinding hints for the rest of the session. See
+    /// [`Self::expire_status`].
     pub status_message: Option<String>,
+    /// When [`Self::status_message`] should disappear. `None` whenever
+    /// there is no message.
+    status_expires_at: Option<Instant>,
     /// The `nucleo`-backed fuzzy index over this tree's commands and flags
     /// (spec §10). Populated from `root` at construction and whenever the
     /// tree's structure changes; queried (not text-matched directly) by
@@ -158,6 +166,12 @@ pub struct App {
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
 }
+
+/// How long a status message stays in the footer before the keybinding
+/// hints come back. Long enough to read a copied flag spelling, short
+/// enough that the hints are never gone when someone looks up needing
+/// them.
+const STATUS_MESSAGE_TTL: Duration = Duration::from_secs(4);
 
 /// Case-insensitive **substring** match of `query` against `name`.
 ///
@@ -208,6 +222,7 @@ impl App {
             show_help: false,
             show_hidden: false,
             status_message: None,
+            status_expires_at: None,
             search_index,
             color_enabled: crate::style::color_enabled_from_env(),
             selected_flag: None,
@@ -632,7 +647,24 @@ impl App {
 
     /// Set a status bar message (e.g. after a copy).
     pub fn set_status(&mut self, message: impl Into<String>) {
+        self.set_status_at(message, Instant::now());
+    }
+
+    /// [`Self::set_status`] with an explicit clock, so the expiry is
+    /// testable without sleeping.
+    pub fn set_status_at(&mut self, message: impl Into<String>, now: Instant) {
         self.status_message = Some(message.into());
+        self.status_expires_at = Some(now + STATUS_MESSAGE_TTL);
+    }
+
+    /// Drop the status message once its time is up, restoring the
+    /// keybinding hints. Called from the event loop, which already wakes
+    /// every 100ms to poll for input, so no extra timer is needed.
+    pub fn expire_status(&mut self, now: Instant) {
+        if self.status_expires_at.is_some_and(|at| now >= at) {
+            self.status_message = None;
+            self.status_expires_at = None;
+        }
     }
 }
 
@@ -750,6 +782,23 @@ mod tests {
             3,
             "filter cleared, back to expanded-root view"
         );
+    }
+
+    #[test]
+    fn a_status_message_expires_and_restores_the_hints() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        let t0 = Instant::now();
+        app.set_status_at("copied: --interactive", t0);
+        assert!(app.status_message.is_some());
+
+        // Still visible just before the deadline...
+        app.expire_status(t0 + STATUS_MESSAGE_TTL - Duration::from_millis(1));
+        assert!(app.status_message.is_some(), "expired too early");
+
+        // ...and gone at it. Previously nothing cleared it at all, so one
+        // `y` replaced the keybinding hints for the rest of the session.
+        app.expire_status(t0 + STATUS_MESSAGE_TTL);
+        assert!(app.status_message.is_none(), "should have expired");
     }
 
     #[test]
