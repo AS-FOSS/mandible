@@ -50,6 +50,17 @@ enum Command {
         /// every shard finishes in comparable time.
         #[arg(long)]
         shard: Option<String>,
+        /// Print each tool's name to stderr *before* probing it.
+        ///
+        /// Exists to identify which tool killed a run. The full-PATH sweep
+        /// runs ~1,500 arbitrary third-party binaries, and on GitHub's
+        /// runners three shards die every time with "the runner has
+        /// received a shutdown signal" — a message that says something
+        /// disrupted the host, not that our process ran out of memory
+        /// (peak RSS is ~270 MB, and the same shards complete locally).
+        /// Without a per-tool trace the logs name no suspect at all.
+        #[arg(long)]
+        progress: bool,
         /// Output format: fixed-width `text` (the format checked into
         /// `coverage-scoreboard.txt`) or GitHub-flavored `markdown` (spec
         /// §13.1a's framework-support workflow writes this straight to
@@ -67,10 +78,11 @@ fn main() -> anyhow::Result<()> {
             out,
             tools,
             shard,
+            progress,
             format,
         } => {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
-            run_coverage(check, &out, tools, shard, format)
+            run_coverage(check, &out, tools, shard, progress, format)
         }
     }
 }
@@ -97,6 +109,7 @@ fn run_coverage(
     out: &PathBuf,
     tools: Option<Vec<String>>,
     shard: Option<(usize, usize)>,
+    progress: bool,
     format: ScoreFormat,
 ) -> anyhow::Result<()> {
     let (table, fresh) = match tools {
@@ -106,11 +119,11 @@ fn run_coverage(
                 tools.len(),
                 tools.join(", ")
             );
-            coverage::run_over(tools, shard, format)
+            coverage::run_over(tools, shard, progress, format)
         }
         None => {
             println!("scanning PATH and running the extraction pipeline against every executable found...");
-            coverage::run(shard, format)
+            coverage::run(shard, progress, format)
         }
     };
     println!("{table}");

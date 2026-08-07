@@ -137,8 +137,12 @@ fn select_shard(tools: Vec<String>, index: usize, total: usize) -> Vec<String> {
 /// subprocess spawns and would otherwise take a very long time
 /// sequentially), and return the scoreboard rows plus aggregate stats, in
 /// tool-name order.
-pub fn run(shard: Option<(usize, usize)>, format: ScoreFormat) -> (String, Aggregate) {
-    run_over(unique_executables_on_path(), shard, format)
+pub fn run(
+    shard: Option<(usize, usize)>,
+    progress: bool,
+    format: ScoreFormat,
+) -> (String, Aggregate) {
+    run_over(unique_executables_on_path(), shard, progress, format)
 }
 
 /// Same as [`run`], but over a caller-supplied tool list instead of
@@ -148,6 +152,7 @@ pub fn run(shard: Option<(usize, usize)>, format: ScoreFormat) -> (String, Aggre
 pub fn run_over(
     mut tools: Vec<String>,
     shard: Option<(usize, usize)>,
+    progress: bool,
     format: ScoreFormat,
 ) -> (String, Aggregate) {
     tools.sort();
@@ -159,7 +164,18 @@ pub fn run_over(
 
     let mut rows: Vec<Row> = tools
         .par_iter()
-        .map(|tool| score_one(&runner, tool))
+        .map(|tool| {
+            if progress {
+                // Unbuffered and flushed immediately: the whole point is
+                // that this line survives the process being killed
+                // mid-probe, so the last name printed names the suspect.
+                use std::io::Write;
+                let mut err = std::io::stderr().lock();
+                let _ = writeln!(err, "probing: {tool}");
+                let _ = err.flush();
+            }
+            score_one(&runner, tool)
+        })
         .collect();
     rows.sort_by(|a, b| a.tool.cmp(&b.tool));
 

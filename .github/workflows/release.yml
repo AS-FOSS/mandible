@@ -125,6 +125,17 @@ jobs:
           tar czf "$staging.tar.gz" "$staging"
           shasum -a 256 "$staging.tar.gz" > "$staging.tar.gz.sha256"
 
+          # A second copy under a version-less name, so
+          # /releases/latest/download/mandible-<target>.tar.gz is a URL that
+          # keeps working across releases. Without it every download link
+          # embeds a version and breaks on the next tag — GitHub resolves
+          # /latest/ to the newest release, but only for an asset filename
+          # that actually exists there. This is what a README link or an
+          # install script can point at.
+          stable="mandible-${{ matrix.target }}"
+          cp "$staging.tar.gz" "$stable.tar.gz"
+          shasum -a 256 "$stable.tar.gz" > "$stable.tar.gz.sha256"
+
       - uses: actions/upload-artifact@v4
         with:
           name: mandible-${{ matrix.target }}

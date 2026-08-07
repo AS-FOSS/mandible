@@ -31,12 +31,12 @@ env:
 
 jobs:
   path-sweep:
-    name: PATH sweep ${{ matrix.shard }}/8
+    name: PATH sweep ${{ matrix.shard }}/16
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -55,12 +55,13 @@ jobs:
       # `qemu-*-static` binaries at 4 MB each puts them all in one
       # contiguous chunk, and that chunk alone takes longer than the rest
       # combined.
-      - name: PATH sweep (shard ${{ matrix.shard }}/8)
+      - name: PATH sweep (shard ${{ matrix.shard }}/16)
         timeout-minutes: 15
         run: |
           cargo build --release --locked --bin xtask
           ./target/release/xtask coverage \
-            --shard ${{ matrix.shard }}/8 \
+            --shard ${{ matrix.shard }}/16 \
+            --progress \
             --format markdown \
             --out shard-${{ matrix.shard }}.md
       - uses: actions/upload-artifact@v4
@@ -87,11 +88,23 @@ jobs:
           merge-multiple: true
       - name: Combine and report
         run: |
+          reported=$(ls shards/*.md 2>/dev/null | wc -l)
           {
             echo "## PATH sweep"
             echo
+            echo "**$reported of 16 shards reported.**"
+            if [ "$reported" -lt 16 ]; then
+              echo
+              echo "> Coverage below is partial. A shard that dies takes its tools with it —"
+              echo "> the numbers are a floor, not a total. Shards are lost to the runner VM"
+              echo "> being reclaimed mid-sweep (\`exit 143\`, \"the runner has received a"
+              echo "> shutdown signal\"), which is what running ~1,500 arbitrary third-party"
+              echo "> binaries on a shared CI machine costs. Each shard now logs every tool"
+              echo "> before probing it, so a failed shard's log names what it was running."
+            fi
+            echo
             echo "The coverage harness (spec §13.1) over every executable on this"
-            echo "runner's \`PATH\`, run in 8 shards. Not a regression gate — the"
+            echo "runner's \`PATH\`, run in 16 shards. Not a regression gate — the"
             echo "runner image's tool inventory drifts between releases — but it is"
             echo "the broadest available measurement of framework coverage on real"
             echo "software."
@@ -115,7 +128,7 @@ jobs:
               }
             ' shards/*.md
             echo
-            echo "<details><summary>Per-tool tables (8 shards)</summary>"
+            echo "<details><summary>Per-tool tables</summary>"
             echo
             cat shards/*.md
             echo
