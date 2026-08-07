@@ -11,21 +11,6 @@
 //! invalidate — an about screen that lies about its own version is worse
 //! than no about screen.
 
-/// The jaws the project is named for: what chews through a CLI's help
-/// text. Drawn narrow enough (34 columns) to sit inside an 80-column
-/// terminal with room for the text column beside it.
-const JAWS: &str = r#"
-     __                    __
-     \ \                  / /
-      \ \                / /
-       \ \______  ______/ /
-        \       \/       /
-        |   ()      ()   |
-         \      __      /
-          \    /  \    /
-           \__/    \__/
-"#;
-
 /// ANSI SGR wrapper that becomes a no-op when color is disabled, so
 /// `NO_COLOR` and piped output stay clean (spec §9.2).
 fn paint(text: &str, code: &str, color: bool) -> String {
@@ -40,12 +25,10 @@ fn paint(text: &str, code: &str, color: bool) -> String {
 pub fn print() {
     let color = mandible_tui::style::color_enabled_from_env();
 
-    let accent = "38;5;173"; // muted amber — the chitin the jaws are made of
     let dim = "2";
     let bold = "1";
 
-    println!("{}", paint(JAWS, accent, color));
-
+    println!();
     println!(
         "  {}  {}",
         paint(env!("CARGO_PKG_NAME"), bold, color),
@@ -112,20 +95,5 @@ mod tests {
         let painted = paint("hi", "1", true);
         assert!(painted.starts_with("\x1b[1m"));
         assert!(painted.ends_with("\x1b[0m"));
-    }
-
-    /// The art must stay inside a narrow terminal. 34 columns leaves room
-    /// beside it even at 80 wide.
-    #[test]
-    fn jaws_fit_a_narrow_terminal() {
-        let widest = JAWS.lines().map(|l| l.chars().count()).max().unwrap();
-        assert!(widest <= 34, "art is {widest} columns wide");
-    }
-
-    /// Pure ASCII: this prints before any terminal setup, on whatever
-    /// encoding the user's terminal happens to have.
-    #[test]
-    fn jaws_are_ascii_only() {
-        assert!(JAWS.is_ascii());
     }
 }

@@ -1,194 +1,163 @@
-# mandible
+<!-- Logo goes here. Suggested: a 120-160px mark, centered, above the title. -->
+<p align="center">
+  <!-- <img src="docs/logo.png" alt="mandible" width="140"> -->
+</p>
 
-**A universal, interactive TUI reference for CLI tools, in Rust.**
+<h1 align="center">mandible</h1>
+
+<p align="center">
+  <strong>A TUI manual for every command-line tool you have.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sadigaxund/mandible/actions/workflows/ci.yml"><img src="https://github.com/sadigaxund/mandible/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml"><img src="https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml/badge.svg" alt="framework support"></a>
+  <a href="https://crates.io/crates/mandible"><img src="https://img.shields.io/crates/v/mandible.svg" alt="crates.io"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="license"></a>
+  <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg" alt="platforms">
+</p>
+
+---
+
+`man` tells you about one command. `--help` tells you about one invocation.
+Neither lets you *explore* a tool you don't already know.
+
+```console
+$ mandible docker
+```
+
+opens an explorable tree of every command, subcommand, and flag — with
+descriptions — and a search bar over all of it.
 
 ```
-$ mandible git
-```
-
-opens a full-screen, explorable tree of every command, subcommand, and flag
-`git` has — with descriptions, not just names — plus a search bar. It is a
-*reference browser*, not a command builder: the product's job ends the
-moment you've found the flag and can `y`-copy its exact spelling.
-
-The full design rationale, measured baselines, and the reasoning behind every
-non-obvious decision below live in [`spec.md`](./spec.md). This README is the
-short version.
-
-## Screenshot
-
-A real capture (`scripts/pty_screenshot.py`, not fabricated output) of
-`mandible git`, after expanding into `git cat-file`:
-
-```
-╭ search ──────────────────────────────────────────────────────────────────────────────────────────╮
-│›                                                                                                 │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭ git ───────────────────────────────────────────╮╭ git › cat-file ────────────────────────────────╮
-│▾ git                the stupid content tracker ││Provide content or type and size information for│
-│    add              Add file contents to the…  ││repository objects                              │
-│    am               Apply a series of patches… ││                                                │
-│    apply            Apply a patch to files…    ││DESCRIPTION                                     │
-│    archimport       Import a GNU Arch…         ││Output the contents or other properties such as │
-│    archive          Create an archive of…      ││size, type or delta information of one or more  │
-│    backfill         backfill missing objects…  ││objects.                                        │
-│  ▸ bisect           Use binary search to find… ││                                                │
-│    blame            Show what revision and…    ││This command can operate in two modes, depending│
-│    branch           List, create, or delete…   ││on whether an option from the --batch family is │
-│    bugreport        Collect information for…   ││specified.                                      │
-│  ▸ bundle           Move objects and refs by…  ││                                                │
-│    cat-file         Provide content or type…   ││In non-batch mode, the command provides         │
-│    check-attr       Display gitattributes…     ││information on an object named on the command   │
-│    check-ignore     Debug gitignore / exclude… ││line.                                           │
-│    check-mailmap    Show canonical names and…  ││                                                │
-│    check-ref-format Ensures that a reference…  ││In batch mode, arguments are read from standard │
-│    checkout-index   Copy files from the index… ││input.                                          │
-│    checkout         Switch branches or…        ││                                                │
-│    cherry-pick      Apply the changes…         ││FLAGS                                           │
-│    cherry           Find commits yet to be…    ││  --allow-unknown-type  allow -s and -t to work │
-│    citool           Graphical alternative to…  ││                        with broken/corrupt     │
-╰────────────────────────────────────────────────╯╰────────────────────────────────────────────────╯
+╭ search [names]  (/ switches) ────────────────────────────────────────────────────────────╮
+│›                                                                                         │
+╰──────────────────────────────────────────────────────────────────────────────────────────╯
+╭ commands (61) ─────────────────────────────╮╭ docker › exec ─────────────────────────────╮
+│▾ docker                                    ││Execute a command in a running container    │
+│    run         Create and run a new…       ││                                            │
+│    exec        Execute a command in a…     ││USAGE                                       │
+│    ps          List containers             ││exec Usage: docker exec [OPTIONS] CONTAINER │
+│    build       Build an image from a…      ││COMMAND [ARG...]                            │
+│    bake        Build from a file           ││                                            │
+│    pull        Download an image from a…   ││FLAGS                                       │
+│    push        Upload an image to a…       ││  -d, --detach  Detached mode: run command  │
+│    images      List images                 ││                in the background           │
+│    login       Authenticate to a registry  ││  --detach-keys string  Override the key    │
+│    logout      Log out from a registry     ││                        sequence for        │
+│    search      Search Docker Hub for images││                        detaching a         │
+│    version     Show the Docker version…    ││                        container           │
+│    info        Display system-wide…        ││  -e, --env list  Set environment variables │
+│  ▸ builder     Manage builds               ││  --env-file list  Read in a file of        │
+│  ▸ checkpoint  Manage checkpoints          ││                   environment variables    │
+│  ▸ container   Manage containers           ││  -i, --interactive  Keep STDIN open even if│
+│  ▸ context     Manage contexts             ││                     not attached           │
+╰────────────────────────────────────────────╯╰────────────────────────────────────────────╯
 ↑↓ move   → expand   / search   y copy   ? help   q quit
 ```
 
-## Status
+Type `/` to filter, live:
 
-This is an in-progress implementation (spec roadmap phases 0-3 of 6).
-**What works today:**
+```
+╭ search [names]  (/ switches) ────────────────────────────────────────────────────────────╮
+│› rebase                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────╯
+╭ commands (2) ──────────────────────────────╮╭ git ───────────────────────────────────────╮
+│▾ git                                       ││USAGE                                       │
+│    rebase  Reapply commits on top of…      ││git usage: git [-v | --version] [-h |       │
+╰────────────────────────────────────────────╯╰────────────────────────────────────────────╯
+```
 
-- A complete intermediate representation (`mandible-core`) with sanitized text
-  (including a conservative markdown normalizer for catalog prose),
-  per-field provenance, and two-axis authority merging.
-- **Tier A**: a curated third-party command-spec catalog, served from a
-  byte-indexed vendored snapshot with no subprocess cost.
-- **Tier B**: a `winnow`-based `--help`/`-h` grammar for everything not in
-  the catalog — layout-driven section parsing (not keyed on specific heading
-  text), reads stdout and stderr without requiring exit 0, recovers
-  same-indent "word grid" listings (`openssl`-style) as well as indented
-  blocks.
-- Lazy, node-at-a-time extraction with bounded background depth-warming
-  (spec §5.2), so expanding into a large tree stays fast.
-- Real fuzzy search (`mandible-search`, backed by `nucleo`): commands and
-  flags are both independently searchable and ranked.
-- A full `ratatui` TUI: tree pane, detail pane, search bar, status bar,
-  keybinding overlay, mouse support, responsive layout.
-- An on-disk cache (spec §11) keyed on a build-time fingerprint of the
-  extraction logic itself, so a code change or a re-vendored catalog
-  invalidates old entries automatically.
-- `mandible --doctor <tool>` (non-interactive diagnostic) and
-  `cargo xtask coverage` (the extraction coverage harness, spec §13.1).
-
-**What's explicitly not built yet** (see spec.md §12 for the roadmap):
-completion-script parsing (Tier C), man page extraction (Tier D, deferred
-entirely), native dynamic probes (Tier E), user overrides (Tier F).
-
-**The honest coverage story:** mandible is genuinely useful today for the
-catalog's tools plus essentially any tool with a parseable `--help`/`-h`.
-Real, current numbers vary as the extraction pipeline evolves, so this
-README deliberately doesn't quote a specific tool count or percentage —
-run `cargo xtask coverage` yourself (it scans every executable on your own
-`PATH` and writes a scoreboard) or `mandible --doctor <tool>` for one
-tool's exact tier-by-tier breakdown. Later phases close remaining gaps
-without ever special-casing a tool by name — see the invariant below.
-
-## Supported platforms
-
-**Linux and macOS.** CI runs the full test suite natively on both
-(`.github/workflows/ci.yml`, `ubuntu-latest` + `macos-latest`). **Windows is
-not currently supported** — the execution-safety layer's process-group
-handling (spec §6 rule 4) is POSIX-specific, and Windows support hasn't been
-built or tested (spec §16 [M-8]).
-
-There is no on-disk cache (spec §11) — every launch re-runs extraction
-against the tool actually installed, so the result can never go stale.
-User override files (spec §7 Tier F) follow OS convention via the
-`directories` crate: `$XDG_CONFIG_HOME/mandible/overrides/` (or its
-`~/.config` fallback) on Linux; `~/Library/Application
-Support/mandible/overrides/` on macOS.
-
-## The invariant
-
-> The mandible repository will never contain per-tool logic. No
-> `if tool == "docker"`, no vendored per-tool patch file, no tool-name-keyed
-> special case in any tier. Tool-specific knowledge lives in exactly two
-> places: (a) third-party structured catalogs consumed wholesale as *data*,
-> and (b) user-local override files that are never checked into this repo.
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+*(Real captures via `scripts/pty_screenshot.py` against the release binary — not
+mocked-up output.)*
 
 ## Install
 
-```
-cargo install --path mandible
-```
-
-(Not yet published to crates.io — see spec.md §12 phase 6.)
-
-Packaging metadata for `.deb` (`cargo-deb`) and `.rpm`
-(`cargo-generate-rpm`) lives in `mandible/Cargo.toml`; a packaged install
-places the binary, a man page (`packaging/mandible.1`), and shell
-completions (bash, zsh, fish — generated at build time from the same
-`clap` definition the binary parses against, so they can't drift) at the
-standard system paths. If you install via `cargo install` instead, generate
-completions yourself:
-
-```
-mandible --completions zsh > ~/.zfunc/_mandible   # or bash / fish / elvish / powershell
+```console
+cargo install mandible
 ```
 
-## Usage
+Packages for `.deb` and `.rpm` are built from the same metadata; see
+[`packaging/`](./packaging). Linux and macOS.
 
-```
-mandible <tool>                 # open the interactive tree for <tool>
-mandible --doctor <tool>        # non-interactive diagnostic: tiers, counts, timing
-mandible --completions <shell>  # print a shell completion script to stdout
-```
+## Why it works on tools it has never seen
 
-Keybindings (also shown in-app via `?`):
+**No per-tool logic, ever.** No `if tool == "docker"`, no vendored catalog of
+hand-written definitions. That approach starts out convenient and ends as an
+unmaintainable pile that is always slightly out of date.
 
-| Key | Action |
+The insight it runs on instead: **help text isn't written by hand, it's
+generated** — and only a small, closed set of generators exists. mandible
+identifies the *framework* behind a tool's output (clap, cobra, argparse, click,
+urfave/cli, GNU argp, busybox, picocli, …) and applies that framework's grammar.
+
+Fixing the argparse grammar improves every Python CLI ever written. A catalog
+entry improved exactly one tool, until it went stale.
+
+Identification is artifact-first: `spf13/cobra` appears 583× in `docker`'s own
+bytes, which is ground truth rather than a guess about section headings.
+
+**When it can't parse something, it says so.** A tool matching no known grammar
+is rendered verbatim — the author's own text, untouched, labelled `unparsed`.
+Inventing structure a user can't tell is wrong is worse than admitting defeat.
+
+## Speed
+
+Startup does no extraction at all: the UI is on screen immediately, and the tree
+fills in behind it on a background pool, showing `⋯ loading` where it hasn't
+arrived yet. There is deliberately **no cache** — a cache can't see `docker`
+gaining a plugin or `git` gaining an alias from `~/.gitconfig`, and being
+confidently stale is worse than being fast.
+
+## Keys
+
+| | |
 |---|---|
-| `↑`/`↓`, `k`/`j` | Move tree selection |
-| `→`/`Enter`/`l` | Expand |
-| `←`/`h` | Collapse, or jump to parent |
-| `/` | Focus search |
-| `Esc` | Leave search (pin filter), `Esc` again clears it |
-| `Tab` | Switch focus between tree and detail pane |
-| `y` | Copy the selected flag's spelling or the node's command path |
-| `?` | Keybinding overlay |
-| `r` | Re-extract this tool from scratch (there is no cache to bypass) |
-| `.` | Toggle hidden/deprecated items |
-| `q`, `Ctrl-C` | Quit |
+| `↑`/`↓`, `j`/`k` | move |
+| `→`/`Enter`, `←` | expand / collapse |
+| `/` | search — again to widen from names to descriptions |
+| `Esc` | leave search, keeping the filter; again to clear |
+| `Tab` | switch pane |
+| `y` | copy the selected flag or command path |
+| `.` | show hidden and deprecated items |
+| `r` | re-extract |
+| `?` | all keys |
+| `q` | quit |
 
-## Building from source
+## Is it actually universal?
 
+That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline
+against **every executable on your `PATH`** and writes a scoreboard — tiers hit,
+framework detected, nodes, flags, % described, and a structure-sanity column that
+catches fabricated output. It's checked into the repo and diffed on every parser
+change, so a fix for one tool can't silently regress another.
+
+For a single tool:
+
+```console
+$ mandible --doctor gh
+framework:  cobra (from artifact)
+nodes:      29
+flags:      2 (100.0% described)
 ```
-git clone <this repo>
-cd mandible
-cargo build --release
-./target/release/mandible git
-```
 
-Default features build with no network access and no C toolchain (spec
-§15). The `manpage` feature (Tier D, deferred) needs a C toolchain and is
-off by default.
+## Docs
 
-## Where the data comes from
+- [`spec.md`](./spec.md) — design authority: the tier model, execution-safety
+  policy, and the measured baselines behind every non-obvious decision.
+- [`AGENTS.md`](./AGENTS.md) — working agreements and the invariants table, each
+  entry naming the failure it prevents.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 
-`vendor/carapace-specs.json` is a vendored, point-in-time snapshot of the
-[carapace-bin](https://github.com/carapace-sh/carapace-bin) project's
-declarative command specs, produced by `scripts/vendor_carapace_specs.py`.
-See [NOTICE](./NOTICE) for full attribution and license text, and
-`mandible --doctor <tool>` for the snapshot's vendoring date and commit.
+## Safety
+
+Extraction runs real tools, so it is fenced: an allowlist of inert argv forms,
+`std::process` confined to one audited module and enforced by a test, and every
+probe's CWD, `HOME`, `TMPDIR` and `XDG_*` pointed at a scratch directory created
+per invocation. That last one is not paranoia — `mysql_secure_installation
+--help` was measured writing a `.my.cnf` with an empty root password.
 
 ## License
 
-Dual-licensed under either [MIT](./LICENSE-MIT) or
-[Apache License, Version 2.0](./LICENSE-APACHE), at your option — the
-Rust ecosystem standard, chosen so the Apache half's explicit patent
-grant is available to corporate users who require it. Vendored
-third-party *data* is separately attributed in [NOTICE](./NOTICE).
-
-Unless you explicitly state otherwise, any contribution intentionally
-submitted for inclusion in this project by you shall be dual-licensed as
-above, without any additional terms or conditions.
+MIT OR Apache-2.0, at your option — the Rust ecosystem's standard dual license.
+See [LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE).
