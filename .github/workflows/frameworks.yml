@@ -7,9 +7,17 @@ name: framework support
 #   1. framework-matrix — one representative tool per supported framework,
 #      checking that Tier A′ identifies the framework we expect and Tier B
 #      extracts a non-trivial tree.
-#   2. path-sweep — the coverage harness over the runner's own ~1,500
-#      executables. Zero installation cost, and the broadest available
-#      measurement of "does this actually work on arbitrary tools".
+# The fixed-tool-list regression gate (spec §13.1) lives in ci.yml, which
+# already runs it; duplicating it here would just run the same check twice
+# per push.
+#
+# The full-PATH sweep deliberately lives in its own workflow
+# (path-sweep.yml). It is a *report*, not a gate, and it was blocking
+# releases: GitHub reclaims the runner VM under the load of hundreds of
+# concurrent subprocess probes ("the runner has received a shutdown
+# signal"), which is an infrastructure limit rather than a defect in the
+# code under test. Gating a release on it meant a green codebase could not
+# ship.
 #
 # Why this workflow exists at all: mandible's central claim is that parsing
 # is keyed by *framework*, not by tool (spec §1, §7). That claim is only
@@ -122,112 +130,3 @@ jobs:
         env:
           MANDIBLE: ${{ github.workspace }}/target/release/mandible
         run: scripts/framework_matrix.sh
-
-  # The gate, in its own job: it is a single fixed-tool-list run and must
-  # not be duplicated across the sweep's eight shards. A full-PATH scan
-  # can't be the gate — the runner image's tool inventory changes
-  # underneath us, so a full-PATH baseline would fail on inventory drift
-  # rather than on a real parser regression.
-  coverage-gate:
-    name: coverage gate (fixed tool set)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: >-
-          cargo xtask coverage --check
-          --out coverage-scoreboard.ci.txt
-          --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
-
-  path-sweep:
-    name: PATH sweep ${{ matrix.shard }}/8
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-
-      # The ungated measurement, over everything the runner has — sharded.
-      #
-      # Unsharded, this step did not merely run slowly: it was killed by
-      # SIGTERM after ~96 seconds and produced *nothing*, every run, while
-      # `continue-on-error` painted the job green. A step that always dies
-      # and never reports is worse than no step, because the green tick
-      # says otherwise. Sharding keeps each process small enough to finish.
-      #
-      # `--shard i/8` slices by stride rather than by contiguous block,
-      # because expensive tools cluster alphabetically — a machine with 23
-      # `qemu-*-static` binaries at 4 MB each puts them all in one
-      # contiguous chunk, and that chunk alone takes longer than the rest
-      # combined.
-      - name: PATH sweep (shard ${{ matrix.shard }}/8)
-        timeout-minutes: 15
-        run: |
-          cargo build --release --locked --bin xtask
-          ./target/release/xtask coverage \
-            --shard ${{ matrix.shard }}/8 \
-            --format markdown \
-            --out shard-${{ matrix.shard }}.md
-      - uses: actions/upload-artifact@v4
-        with:
-          name: path-sweep-shard-${{ matrix.shard }}
-          path: shard-${{ matrix.shard }}.md
-          if-no-files-found: error
-
-  # Merges the shards into one summary. Exact, not approximate: the
-  # aggregate footer carries raw `described_flags`/`total_flags` counts
-  # alongside the rounded percentage precisely so shards can be recombined
-  # without drift (recomputing from the per-row %described column could
-  # not be, since that column is rounded to whole percent).
-  path-sweep-summary:
-    name: PATH sweep summary
-    needs: [path-sweep]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: path-sweep-shard-*
-          path: shards
-          merge-multiple: true
-      - name: Combine and report
-        run: |
-          {
-            echo "## PATH sweep"
-            echo
-            echo "The coverage harness (spec §13.1) over every executable on this"
-            echo "runner's \`PATH\`, run in 8 shards. Not a regression gate — the"
-            echo "runner image's tool inventory drifts between releases — but it is"
-            echo "the broadest available measurement of framework coverage on real"
-            echo "software."
-            echo
-            awk '
-              /aggregate:/ {
-                for (i = 1; i <= NF; i++) {
-                  split($i, kv, "=")
-                  if (kv[1] == "no_tier_count")     no_tier   += kv[2]
-                  if (kv[1] == "suspicious_count")  suspicious += kv[2]
-                  if (kv[1] == "verbatim_count")    verbatim  += kv[2]
-                  if (kv[1] == "total")             total     += kv[2]
-                  if (kv[1] == "described_flags")   described += kv[2]
-                  if (kv[1] == "total_flags")       flags     += kv[2]
-                }
-              }
-              END {
-                pct = (flags > 0) ? (described / flags * 100) : 0
-                printf "**%d tools**, %.2f%% of %d flags described.\n\n", total, pct, flags
-                printf "- no-tier: %d\n- suspicious: %d\n- verbatim: %d\n", no_tier, suspicious, verbatim
-              }
-            ' shards/*.md
-            echo
-            echo "<details><summary>Per-tool tables (8 shards)</summary>"
-            echo
-            cat shards/*.md
-            echo
-            echo "</details>"
-          } >> "$GITHUB_STEP_SUMMARY"
