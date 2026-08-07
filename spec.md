@@ -852,10 +852,50 @@ Four implementation rules that matter more than the palette:
 - **Prefer `DarkGray` over `Modifier::DIM` for muted text.** Several terminals
   ignore `DIM` outright and others render it nearly invisible — a portability
   trap that only manifests on someone else's machine.
-- **Respect `NO_COLOR`**, degrading to bold/reverse/underline only.
+- **Respect `NO_COLOR` and `TERM=dumb`**, degrading to bold/reverse/underline
+  only. A colour-depth ladder (truecolor → 256 → 16) is deliberately **not**
+  implemented: it would require choosing specific RGB values, which the first
+  rule above rules out. Named ANSI colours already work at every depth that has
+  colour at all.
 - **Highlight search matches.** `nucleo` returns match indices for free;
   underlining matched characters is the difference between "the list changed"
   and "here is why this matched."
+
+#### What may be drawn, and what may not
+
+The rule: **a glyph may only be used if there is something legible to fall back
+to.** This is what separates the techniques mandible uses from the ones it
+refuses, and the distinction is not aesthetic — it is about how each *fails*.
+
+| Technique | Fails on | Failure mode |
+|---|---|---|
+| Box-drawing, block elements | non-UTF-8 locale, bare Linux console | falls back to `+-\|` |
+| Colour (named ANSI) | `NO_COLOR`, `TERM=dumb`, no TERM | falls back to bold/reverse |
+| Bold, reverse, underline | almost nothing | — |
+| **Italic, `DIM`** | **many terminals silently ignore them** | **must never be the *sole* distinction between two kinds of text** |
+| Sixel / Kitty graphics | most terminals, most tmux, many SSH sessions | raw bytes on screen |
+| Nerd Font icons | any machine without the patched font | `□`, meaning nothing |
+
+Two properties decide it:
+
+1. **Detectability.** `NO_COLOR`, `TERM` and the locale can be inspected. A
+   terminal can be asked about its colour depth; it can never be asked what font
+   it is using. That alone rules Nerd Fonts out permanently — Sixel is at least
+   probe-able.
+2. **How it degrades.** Losing colour loses emphasis; the text remains. Losing
+   the font loses the meaning and leaves a box.
+
+This matters more for mandible than for most TUIs because of *where* it gets
+used: SSH'd into an unfamiliar machine, or inside a minimal container with
+`LANG` unset, trying to work out a CLI you do not know. Polish that evaporates
+exactly where the tool is most needed is not polish.
+
+Implemented in `mandible-tui/src/glyphs.rs`: two glyph sets chosen at startup
+from `LC_ALL`/`LC_CTYPE`/`LANG`, with `MANDIBLE_ASCII=1` as an override for a
+terminal that claims UTF-8 and renders it badly anyway. Enforced by a test that
+renders a full frame over ASCII-only content and asserts no cell contains a
+non-ASCII symbol — content from the tool itself is exempt, since reproducing a
+tool's own text exactly matters more than any of this.
 
 Markup handling is staged: Tier A prose is flattened to plain text today
 (`Text::sanitize_markdown`). The better end state keeps parsed spans in the IR so

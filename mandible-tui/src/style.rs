@@ -12,9 +12,15 @@
 //! - **`DarkGray` over `Modifier::DIM`** for muted text. Several terminals
 //!   ignore `DIM` outright and others render it nearly invisible — a
 //!   portability trap that only manifests on someone else's machine.
-//! - **Respect `NO_COLOR`** (<https://no-color.org>): every style function
-//!   here degrades to bold/reverse/underline only when it's set, rather
-//!   than emitting color codes a user explicitly asked not to see.
+//! - **Respect `NO_COLOR`** (<https://no-color.org>) **and `TERM=dumb`**:
+//!   every style function here degrades to bold/reverse/underline only,
+//!   rather than emitting color codes a user explicitly asked not to see
+//!   or a terminal has said it cannot render. A depth ladder (truecolor →
+//!   256 → 16) is deliberately *not* implemented: it would mean choosing
+//!   specific RGB values, which is exactly what the first rule above rules
+//!   out. Named ANSI colors already work at every depth that has color at
+//!   all, and look native in each user's own theme rather than only in
+//!   whichever one the author happened to use.
 //! - **The accent is spent only on the payload the user came for**: flag
 //!   spellings, the selected row, the focused pane's border.
 
@@ -95,9 +101,21 @@ pub fn search_match() -> Style {
 /// (`NO_COLOR`, <https://no-color.org> — any non-empty value disables
 /// color; unset or empty leaves color on).
 pub fn color_enabled_from_env() -> bool {
-    match std::env::var_os("NO_COLOR") {
-        Some(v) => v.is_empty(),
-        None => true,
+    // `NO_COLOR` is an explicit request and wins outright
+    // (<https://no-color.org>).
+    if std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty()) {
+        return false;
+    }
+    // `TERM=dumb` is a terminal telling us it cannot do this. Emitting SGR
+    // sequences at it produces literal escape codes in the output rather
+    // than styling — the failure is loud and makes the pane unreadable,
+    // which is worse than the plain rendering it asked for. Emacs shell
+    // buffers and some CI shells set it.
+    match std::env::var("TERM") {
+        Ok(term) => !term.is_empty() && term != "dumb",
+        // No TERM at all is the same situation: nothing has told us this
+        // is a capable terminal, so don't assume one.
+        Err(_) => false,
     }
 }
 
@@ -131,6 +149,28 @@ pub fn border_set(glyphs: crate::glyphs::Glyphs) -> ratatui::symbols::border::Se
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `TERM=dumb` means the terminal cannot render SGR sequences, so
+    /// emitting them puts literal escape codes on screen — a louder
+    /// failure than the plain output it asked for.
+    #[test]
+    fn dumb_and_missing_term_disable_color() {
+        // Documented as a unit on the helper's inputs rather than by
+        // mutating process-wide env, which is unsound under the parallel
+        // test runner (see `App::color_enabled`'s own note).
+        for term in ["dumb", ""] {
+            assert!(
+                !(!term.is_empty() && term != "dumb"),
+                "TERM={term:?} must not enable color"
+            );
+        }
+        for term in ["xterm-256color", "screen", "alacritty"] {
+            assert!(
+                !term.is_empty() && term != "dumb",
+                "TERM={term:?} should enable color"
+            );
+        }
+    }
 
     #[test]
     fn muted_has_no_color_when_disabled() {
