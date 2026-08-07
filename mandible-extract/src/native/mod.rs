@@ -645,17 +645,30 @@ mod tests {
     fn detect_true_for_a_real_cobra_binary() {
         // `docker`/`gh` are the tools this batch was verified against;
         // skip gracefully if neither is on PATH (e.g. a minimal CI image).
+        //
+        // Succeeds if *any* present candidate detects, rather than
+        // asserting on the first one found. Detection spawns the real
+        // binary, so a candidate can fail for reasons that have nothing to
+        // do with this code — `docker` is installed on GitHub's runners
+        // but its daemon may not be up, and `docker __complete` is not
+        // reliably answerable in that state. Requiring the first candidate
+        // specifically made this test flaky: it passed on one CI run and
+        // failed on the next with no change in between.
+        let tier = NativeTier::default();
+        let mut present = Vec::new();
         for candidate in ["docker", "gh"] {
             let resolved = crate::resolve::resolve_tool(candidate);
             if resolved.path.is_none() {
                 continue;
             }
-            let tier = NativeTier::default();
-            assert!(
-                tier.detect(&resolved),
-                "expected {candidate} to be detected as a cobra binary"
-            );
-            return;
+            present.push(candidate);
+            if tier.detect(&resolved) {
+                return;
+            }
         }
+        assert!(
+            present.is_empty(),
+            "none of the cobra binaries present ({present:?}) were detected"
+        );
     }
 }

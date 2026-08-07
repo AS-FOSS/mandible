@@ -87,13 +87,32 @@ impl ExtractionTier for OverridesTier {
     }
 }
 
-/// `$XDG_CONFIG_HOME/mandible/overrides/<tool>.toml` (or the equivalent
-/// per-OS config directory `directories::ProjectDirs` resolves), if a home
-/// directory could be determined at all.
+/// Environment variable that overrides the config directory outright.
+///
+/// Exists because the per-OS default is genuinely per-OS: `ProjectDirs`
+/// resolves `$XDG_CONFIG_HOME/mandible` on Linux but
+/// `~/Library/Application Support/mandible` on macOS, and **macOS ignores
+/// `XDG_CONFIG_HOME` completely**. That difference silently broke this
+/// module's own tests on `macos-latest` — they set `XDG_CONFIG_HOME` and
+/// it had no effect — and it is equally awkward for anyone wanting a
+/// portable or sandboxed config location. One explicit variable is
+/// clearer than either a per-OS test cfg or a per-OS mental model.
+pub const CONFIG_DIR_ENV: &str = "MANDIBLE_CONFIG_DIR";
+
+/// `$MANDIBLE_CONFIG_DIR/overrides/<tool>.toml` if that variable is set,
+/// else the per-OS config directory `directories::ProjectDirs` resolves
+/// (`$XDG_CONFIG_HOME/mandible` on Linux, `~/Library/Application
+/// Support/mandible` on macOS), if a home directory could be determined
+/// at all.
 fn override_path(tool_name: &str) -> Option<PathBuf> {
-    let dirs = directories::ProjectDirs::from("", "", "mandible")?;
+    let config_dir = match std::env::var_os(CONFIG_DIR_ENV) {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => directories::ProjectDirs::from("", "", "mandible")?
+            .config_dir()
+            .to_path_buf(),
+    };
     Some(
-        dirs.config_dir()
+        config_dir
             .join("overrides")
             .join(format!("{tool_name}.toml")),
     )
@@ -229,8 +248,13 @@ mod tests {
     /// overrides/<tool>.toml`, mirroring `ProjectDirs`' own project
     /// subdirectory rather than assuming `xdg_config_home` itself is
     /// mandible's config dir.
-    fn write_override(xdg_config_home: &std::path::Path, tool: &str, contents: &str) {
-        let overrides_dir = xdg_config_home.join("mandible").join("overrides");
+    /// `config_dir` is the value `MANDIBLE_CONFIG_DIR` will be set to —
+    /// i.e. the config directory itself, not a parent that a project name
+    /// gets appended to. This mirrors `override_path` exactly; when the two
+    /// disagreed the tests failed for a reason that had nothing to do with
+    /// the code under test.
+    fn write_override(config_dir: &std::path::Path, tool: &str, contents: &str) {
+        let overrides_dir = config_dir.join("overrides");
         std::fs::create_dir_all(&overrides_dir).unwrap();
         let mut f = std::fs::File::create(overrides_dir.join(format!("{tool}.toml"))).unwrap();
         f.write_all(contents.as_bytes()).unwrap();
@@ -314,19 +338,19 @@ mod tests {
         assert!(node.subcommands.is_empty());
     }
 
-    // Serializes access to the process-global `XDG_CONFIG_HOME` env var
-    // across the tests below: Rust test binaries run tests in parallel by
-    // default, and mutating process-wide env from multiple threads at once
-    // is unsound. A dedicated mutex scopes these tests to run one at a time
-    // relative to each other, which is sufficient since no other test in
-    // this crate touches this variable.
+    // Serializes access to the process-global `MANDIBLE_CONFIG_DIR` env
+    // var across the tests below: Rust test binaries run tests in parallel
+    // by default, and mutating process-wide env from multiple threads at
+    // once is unsound. A dedicated mutex scopes these tests to run one at a
+    // time relative to each other, which is sufficient since no other test
+    // in this crate touches this variable.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn detect_is_false_with_no_override_file() {
         let dir = tempfile::tempdir().unwrap();
         let _guard = ENV_LOCK.lock().unwrap();
-        std::env::set_var("XDG_CONFIG_HOME", dir.path());
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
         let tier = OverridesTier;
         let tool = ResolvedTool {
             name: "definitely-not-overridden-xyz".to_string(),
@@ -334,7 +358,7 @@ mod tests {
             version: None,
         };
         assert!(!tier.detect(&tool));
-        std::env::remove_var("XDG_CONFIG_HOME");
+        std::env::remove_var(CONFIG_DIR_ENV);
     }
 
     #[test]
@@ -353,7 +377,7 @@ mod tests {
             "#,
         );
         let _guard = ENV_LOCK.lock().unwrap();
-        std::env::set_var("XDG_CONFIG_HOME", dir.path());
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
 
         let tier = OverridesTier;
         let tool = ResolvedTool {
@@ -369,7 +393,7 @@ mod tests {
         assert_eq!(node.summary.as_ref().unwrap().as_str(), "custom summary");
         assert_eq!(node.flags[0].long.as_deref(), Some("verbose"));
 
-        std::env::remove_var("XDG_CONFIG_HOME");
+        std::env::remove_var(CONFIG_DIR_ENV);
     }
 
     #[test]
@@ -377,7 +401,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_override(dir.path(), "mytool", r#"summary = "root only""#);
         let _guard = ENV_LOCK.lock().unwrap();
-        std::env::set_var("XDG_CONFIG_HOME", dir.path());
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
 
         let tier = OverridesTier;
         let tool = ResolvedTool {
@@ -391,6 +415,6 @@ mod tests {
         );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));
 
-        std::env::remove_var("XDG_CONFIG_HOME");
+        std::env::remove_var(CONFIG_DIR_ENV);
     }
 }

@@ -587,22 +587,20 @@ mod tests {
             .extract_node(&tool, &["click_demo.py".to_string()])
             .unwrap();
 
-        // The fixture is a real program, not a mock — which is the point
-        // (AGENTS.md §3.1) — but that means it needs click actually
-        // installed. GitHub's macOS runners don't have it, so the script
-        // exits with an ImportError and there is no click-shaped help text
-        // to parse. Detecting click at all is the precondition for the
-        // rest of this test having anything to assert against; deliberately
-        // checked without spawning a probe of our own, since `std::process`
-        // is confined to `exec/` (spec §6/§8, enforced by
-        // tests/no_process_outside_exec.rs).
-        if node.detected_framework.as_deref() != Some(Framework::Click.name()) {
-            return;
-        }
-
-        let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
-        assert!(names.contains(&"build"));
-        assert!(names.contains(&"init"));
+        // This test's unique job is proving the *wiring*: real argv, a real
+        // spawned process, and detection running against the bytes that
+        // came back (AGENTS.md §3.1 — a tier once shipped dead because its
+        // tests mocked the probe). Whether the click grammar recovers the
+        // right subcommands is covered deterministically, and on every
+        // platform, by `click_profile_recovers_commands_and_flags` against
+        // a captured fixture. Asserting grammar details here too added no
+        // coverage and made the test depend on which click version the
+        // runner's Python happens to have.
+        assert_eq!(
+            node.detected_framework.as_deref(),
+            Some(Framework::Click.name()),
+            "click not detected — is click installed for this python3?"
+        );
     }
 
     #[test]

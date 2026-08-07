@@ -158,9 +158,20 @@ written to stderr — never to the TUI's own terminal output.
 When set to any value, mandible degrades its single accent color to
 bold/reverse/underline only.
 .TP
+.B MANDIBLE_CONFIG_DIR
+Overrides the config directory outright, ahead of the per-OS default.
+Useful for portable or sandboxed installs, and for anyone who wants one
+path that means the same thing on Linux and macOS \(em the per-OS
+defaults do not (macOS ignores
+.B XDG_CONFIG_HOME
+entirely). Override files are read from
+.I $MANDIBLE_CONFIG_DIR/overrides/<tool>.toml\fR.
+.TP
 .B XDG_CONFIG_HOME
 Standard XDG base-directory variable; mandible respects it for user
-override files. See
+override files on Linux, when
+.B MANDIBLE_CONFIG_DIR
+is unset. See
 .B FILES
 below for the resolved default, which differs on macOS. mandible keeps no
 on-disk cache (spec.md section 11) and writes nothing else.
