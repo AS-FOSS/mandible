@@ -6,6 +6,7 @@
 mod coverage;
 
 use clap::{Parser, Subcommand};
+use coverage::ScoreFormat;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -21,10 +22,13 @@ enum Command {
     /// `PATH` (spec §13.1) and print/write the scoreboard.
     Coverage {
         /// Compare the freshly computed aggregate against the checked-in
-        /// scoreboard and fail (nonzero exit) if `%described` dropped or
-        /// the `no-tier` count grew — the regression gate spec §13.1
-        /// describes. Without this flag, the command just (re)writes the
-        /// scoreboard file.
+        /// scoreboard and fail (nonzero exit) if `%described` dropped, the
+        /// `no-tier` count grew, or the `suspicious` count grew — the
+        /// regression gate spec §13.1 describes. `verbatim` and framework-
+        /// detection counts are reported but deliberately not part of
+        /// this gate (see `coverage::compute_aggregate`'s doc comment).
+        /// Without this flag, the command just (re)writes the scoreboard
+        /// file.
         #[arg(long)]
         check: bool,
         /// Where to read/write the scoreboard.
@@ -37,17 +41,33 @@ enum Command {
         /// image and can't be a meaningful regression baseline there.
         #[arg(long, value_delimiter = ',')]
         tools: Option<Vec<String>>,
+        /// Output format: fixed-width `text` (the format checked into
+        /// `coverage-scoreboard.txt`) or GitHub-flavored `markdown` (spec
+        /// §13.1a's framework-support workflow writes this straight to
+        /// `$GITHUB_STEP_SUMMARY`).
+        #[arg(long, value_enum, default_value = "text")]
+        format: ScoreFormat,
     },
 }
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Coverage { check, out, tools } => run_coverage(check, &out, tools),
+        Command::Coverage {
+            check,
+            out,
+            tools,
+            format,
+        } => run_coverage(check, &out, tools, format),
     }
 }
 
-fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyhow::Result<()> {
+fn run_coverage(
+    check: bool,
+    out: &PathBuf,
+    tools: Option<Vec<String>>,
+    format: ScoreFormat,
+) -> anyhow::Result<()> {
     let (table, fresh) = match tools {
         Some(tools) => {
             println!(
@@ -55,17 +75,23 @@ fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyho
                 tools.len(),
                 tools.join(", ")
             );
-            coverage::run_over(tools)
+            coverage::run_over(tools, format)
         }
         None => {
             println!("scanning PATH and running the extraction pipeline against every executable found...");
-            coverage::run()
+            coverage::run(format)
         }
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious",
-        fresh.pct_described, fresh.total, fresh.no_tier_count, fresh.suspicious_count
+        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {}/{} framework-detected",
+        fresh.pct_described,
+        fresh.total,
+        fresh.no_tier_count,
+        fresh.suspicious_count,
+        fresh.verbatim_count,
+        fresh.framework_detected_count,
+        fresh.total,
     );
 
     if check {
@@ -83,11 +109,12 @@ fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyho
         })?;
 
         println!(
-            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious",
+            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim",
             previous.pct_described,
             previous.total,
             previous.no_tier_count,
-            previous.suspicious_count
+            previous.suspicious_count,
+            previous.verbatim_count,
         );
 
         let mut regressed = false;
@@ -116,6 +143,17 @@ fn run_coverage(check: bool, out: &PathBuf, tools: Option<Vec<String>>) -> anyho
                 previous.suspicious_count, fresh.suspicious_count
             );
             regressed = true;
+        }
+        // `verbatim_count` is intentionally NOT gated here (spec §13.1,
+        // batch 6 part 5): a correct new framework grammar can legitimately
+        // move a tool from fabricated structure to honest verbatim, and
+        // failing the build on that would block exactly the improvement
+        // this whole batch is about. Reported for visibility only.
+        if fresh.verbatim_count != previous.verbatim_count {
+            println!(
+                "verbatim count changed from {} to {} (reported, not gated)",
+                previous.verbatim_count, fresh.verbatim_count
+            );
         }
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

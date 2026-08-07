@@ -8,6 +8,68 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added (batch 6 part 6, framework-support workflow)
+
+- **`.github/workflows/frameworks.yml`** (spec §13.1a): a framework matrix
+  job (one representative tool per supported framework, asserting Tier A′
+  detects the expected framework and Tier B extracts a non-trivial tree)
+  and a PATH-sweep job (the coverage harness over the runner's own ~1,500
+  executables). Both render markdown into `$GITHUB_STEP_SUMMARY`, so the
+  supported-framework picture is on the run's summary page rather than
+  buried in logs. The matrix logic lives in `scripts/framework_matrix.sh`
+  so it runs identically on a laptop.
+- Frameworks with no cheaply-installable representative (picocli, oclif)
+  are reported as **skipped rows**, not omitted — an unmeasured framework
+  should look unmeasured.
+
+### Removed (batch 6 part 5)
+
+- **`coverage-scoreboard.txt` is no longer checked in.** A full-`PATH`
+  scoreboard is a snapshot of one developer's installed tools, so it can
+  never be a portable baseline — spec §13.1a already said CI is "the
+  natural home for the §13.1 scoreboard once it stops depending on
+  whatever happens to be installed on a developer's laptop". The checked-in
+  regression gate stays `coverage-scoreboard.ci.txt` over a fixed tool
+  list; the broad measurement is the PATH sweep in
+  `.github/workflows/frameworks.yml`, where the inventory is at least
+  reproducible. `cargo xtask coverage` still writes the file locally; it is
+  now gitignored.
+
+### Added (batch 6 part 5, coverage harness)
+
+- **Raw `described_flags`/`total_flags` in the aggregate footer**, so a
+  scoreboard produced in shards can be merged exactly. Recomputing the
+  aggregate from the per-row `%described` column cannot be exact — that
+  column is rounded to whole percent — and a gated baseline must not be
+  approximate.
+
+- **`framework` column** in the scoreboard: detected framework plus how it
+  was detected (`artifact` / `help-text`), with an aggregate
+  framework-detection rate and per-framework counts in the footer.
+- **`verbatim` status** for tools that degraded to spec §7 Tier B step 3.
+  Reported but deliberately **not gated**: a correct new grammar can
+  legitimately move a tool from fabricated structure to honest verbatim,
+  and gating it would block exactly that improvement. `%described`,
+  `no-tier`, and `suspicious` remain the gate.
+- **`--format markdown`** output mode, consumed by the part 6 workflow.
+- **Fixed column alignment.** Long names (`aarch64-linux-gnu-cpp-13`,
+  `UnicodeNameMappingGenerator-18`) previously shoved every column to
+  their right out of alignment for that row; columns are now fixed-width
+  and truncated with an `…` marker.
+
+### Fixed
+
+- **Flags running straight into the `Usage:` line were silently
+  swallowed.** The usage block consumed every indented line that followed
+  it, so a tool that lists its flags immediately under `Usage:` with no
+  blank separator and no `Options:` heading contributed *zero* flags —
+  `curl --help` is the clearest case — while still reporting status `ok`,
+  since nothing was fabricated for the structure-sanity check to catch.
+  A usage continuation is an alternative invocation form and never begins
+  with a dash, so a line that reads as a flag entry now ends the usage
+  block. The curl fixture had been checked in but never asserted on,
+  which is how this survived; it has a regression test now.
+
 ### Added (batch 6 part 4, per-framework Tier B grammars)
 
 - **Framework dispatch wired into Tier B.** `HelpTextTier::extract_node`

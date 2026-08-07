@@ -1,2 +1,11 @@
 /target
 *.swp
+
+# The full-PATH scoreboard is a snapshot of one machine's installed tools,
+# not a portable baseline — spec §13.1a: this is "the natural home for the
+# §13.1 scoreboard once it stops depending on whatever happens to be
+# installed on a developer's laptop." Generate it locally with
+# `cargo xtask coverage`. The checked-in regression gate is
+# coverage-scoreboard.ci.txt over a fixed tool list; the broad measurement
+# is the CI PATH sweep, where the inventory is at least reproducible.
+coverage-scoreboard.txt
