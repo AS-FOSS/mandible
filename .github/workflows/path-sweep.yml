@@ -120,4 +120,4 @@ jobs:
             cat shards/*.md
             echo
             echo "</details>"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

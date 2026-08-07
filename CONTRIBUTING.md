@@ -105,6 +105,40 @@ closed enum, by design) — that friction is intentional per spec §6 rule 2.
   `expect()` is fine only for genuinely-infallible cases, with a comment
   explaining why.
 
+## Releasing (maintainers)
+
+Releases are cut **manually**, on purpose. Tagging is the one step where a
+human decides that a given commit is worth making permanent — publishing to
+crates.io cannot be undone, only yanked — and no bot has better judgement
+about that than you do.
+
+```console
+# 1. Move the accumulated Unreleased notes under a new version heading in
+#    CHANGELOG.md. The release body is generated from that section:
+scripts/changelog_section.sh 0.2.0        # check what it will say
+
+# 2. Bump `version` in the workspace Cargo.toml (all five crates share it),
+#    commit, and let CI go green on main.
+
+# 3. Tag — signed, so the release shows as Verified on GitHub:
+git tag -s v0.2.0 -m "v0.2.0" && git push origin v0.2.0
+```
+
+The tag triggers `.github/workflows/release.yml`, which will not build
+anything until CI and the framework matrix both pass, then produces
+binaries for four targets, `.deb`/`.rpm`, a GitHub Release, and finally
+publishes all five crates to crates.io in dependency order (`mandible-core`
+→ `mandible-search` → `mandible-extract` → `mandible-tui` → `mandible`).
+
+Two things that will bite otherwise:
+
+- **All five crates must share a version and be published together.**
+  Publishing `mandible-tui 0.2.0` while it still depends on
+  `mandible-core 0.1.0` is accepted by crates.io permanently.
+- **Re-pushing a tag supersedes the previous run** (the workflow has a
+  `concurrency` group), so fixing a broken release is: fix, force-tag,
+  push. Nothing is published until every earlier job has passed.
+
 ## License
 
 This project is dual-licensed under [MIT](./LICENSE-MIT) or
