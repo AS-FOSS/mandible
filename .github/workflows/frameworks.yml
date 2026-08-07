@@ -51,7 +51,6 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends fd-find busybox
-          pipx install httpie
           pipx install black
 
       # commander (Node) and Go's stdlib `flag` have no ubiquitous
@@ -59,10 +58,26 @@ jobs:
       # one for each. This is testing the *framework's* output format,
       # which is exactly the right granularity — a three-line commander
       # program emits the same help layout as a large one.
-      - name: Build commander and go-flag fixtures
+      - name: Build argparse, commander and go-flag fixtures
         run: |
           mkdir -p /tmp/fixtures/bin
-          npm install --silent --no-fund --no-audit commander
+          # argparse is represented by this repo's own fixture rather than
+          # by httpie. httpie installs as a console-script wrapper (so the
+          # artifact scan sees no `import argparse`) and customizes its
+          # help formatter enough to lose argparse's signature string — it
+          # is a test of httpie's customization, not of the argparse
+          # grammar, and this matrix is keyed on frameworks.
+          cp mandible-extract/tests/fixtures/help_text/argparse_demo.py /tmp/fixtures/bin/mandible-argparse-fixture
+          chmod +x /tmp/fixtures/bin/mandible-argparse-fixture
+          # Installed in /tmp/fixtures, not the workspace: node resolves
+          # `require('commander')` relative to the script's own directory,
+          # and the fixture lives here. Installing it in the workspace left
+          # the script unable to load commander at all — it still
+          # *fingerprinted* as commander (the artifact scan reads the .js
+          # source, where the require() line is plainly visible) but
+          # produced no help text to parse, which the matrix correctly
+          # reported as an empty tree.
+          (cd /tmp/fixtures && npm install --silent --no-fund --no-audit commander)
           cat > /tmp/fixtures/commander.js <<'EOF'
           #!/usr/bin/env node
           const { program } = require('commander');
@@ -75,7 +90,12 @@ jobs:
           program.parse();
           EOF
           chmod +x /tmp/fixtures/commander.js
-          ln -sf /tmp/fixtures/commander.js /tmp/fixtures/bin/mandible-commander-fixture
+          # A real file, not a symlink: node resolves modules from the
+          # *realpath* of the entry script, so a symlink in bin/ would send
+          # it looking for node_modules next to the link target anyway.
+          # Keeping both in /tmp/fixtures makes that resolution work.
+          printf '#!/bin/sh\nexec node /tmp/fixtures/commander.js "$@"\n' > /tmp/fixtures/bin/mandible-commander-fixture
+          chmod +x /tmp/fixtures/bin/mandible-commander-fixture
           cat > /tmp/fixtures/goflag.go <<'EOF'
           package main
 
@@ -89,7 +109,6 @@ jobs:
           EOF
           (cd /tmp/fixtures && go mod init fixture >/dev/null 2>&1 || true; go build -o bin/mandible-goflag-fixture goflag.go)
           echo "/tmp/fixtures/bin" >> "$GITHUB_PATH"
-          echo "NODE_PATH=$PWD/node_modules" >> "$GITHUB_ENV"
 
       - name: Build mandible
         run: cargo build --release --bin mandible
