@@ -43,27 +43,44 @@ jobs:
     name: verify frameworks
     uses: ./.github/workflows/frameworks.yml
 
-  # Native runners for every target rather than cross-compilation: this
-  # project spawns subprocesses and reads binaries off PATH, so a
-  # cross-compiled artifact that has never executed on its target
-  # architecture is not evidence of much. GitHub provides arm64 Linux and
-  # both macOS architectures directly.
+  # Native runners wherever GitHub still has them, because this project
+  # spawns subprocesses and reads binaries off PATH — a cross-compiled
+  # artifact that has never executed on its target architecture is not
+  # evidence of much.
+  #
+  # The one exception is x86_64-apple-darwin. GitHub retired the Intel
+  # macOS runners, and `macos-13` now waits for capacity that no longer
+  # exists: every release run sat with that single job queued for ten hours
+  # while all fifteen others passed. It is cross-compiled from the arm64
+  # runner instead, and `native: false` marks it as the one artifact whose
+  # smoke test is best-effort — running an x86_64 binary there needs
+  # Rosetta, which the runner image does not guarantee. Shipping an Intel
+  # build that compiled but never ran beats shipping none at all, as long
+  # as the difference is stated rather than implied.
   build:
     name: build ${{ matrix.target }}
     needs: [verify, verify-frameworks]
     runs-on: ${{ matrix.os }}
+    # A ceiling so an unschedulable runner label fails visibly instead of
+    # hanging: `macos-13` sat queued for ten hours waiting on retired Intel
+    # capacity while every other job in the run had long since passed.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            native: true
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-          - os: macos-13
+            native: true
+          - os: macos-latest
             target: x86_64-apple-darwin
+            native: false
           - os: macos-latest
             target: aarch64-apple-darwin
+            native: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -76,8 +93,10 @@ jobs:
 
       # A release binary that cannot start is the one failure mode worth
       # catching here, and `--doctor` exercises the real extraction pipeline
-      # without needing a tty.
+      # without needing a tty. Skipped for the cross-compiled target, which
+      # this runner cannot execute.
       - name: Smoke-test the artifact
+        if: matrix.native
         run: |
           ./target/${{ matrix.target }}/release/mandible --version
           ./target/${{ matrix.target }}/release/mandible --doctor tar
@@ -108,6 +127,7 @@ jobs:
     name: deb + rpm (x86_64)
     needs: [verify, verify-frameworks]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -140,6 +160,7 @@ jobs:
     needs: [build, packages]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
@@ -195,6 +216,7 @@ jobs:
     needs: [release]
     if: startsWith(github.ref, 'refs/tags/') && (github.event_name != 'workflow_dispatch' || inputs.publish_crates)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: crates-io
     steps:
       - uses: actions/checkout@v4
