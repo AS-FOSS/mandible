@@ -23,6 +23,7 @@
 pub mod app;
 pub mod clipboard;
 pub mod event;
+pub mod glyphs;
 pub mod layout;
 pub mod render;
 pub mod sanitize;

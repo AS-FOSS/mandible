@@ -33,6 +33,6 @@ pub fn render(frame: &mut Frame, app: &App) {
     status_bar::render(frame, regions.status, app);
 
     if app.show_help {
-        help_overlay::render(frame, area);
+        help_overlay::render(frame, area, app.glyphs);
     }
 }

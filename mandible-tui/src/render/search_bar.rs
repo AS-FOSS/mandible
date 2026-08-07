@@ -6,7 +6,7 @@ use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 /// Render the search bar into `area`.
@@ -23,7 +23,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
             app.search_mode.label()
         ))
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
+        .border_set(style::border_set(app.glyphs))
         .border_style(border_style);
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -43,7 +43,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     // reappeared when they focused the box again. A filter that is in
     // effect must always be visible.
     let text = if focused {
-        format!("› {query}")
+        format!("{} {query}", app.glyphs.prompt)
     } else if let Some(active) = app.active_filter() {
         let label = if app.search_pinned.is_some() && app.search_query.is_empty() {
             "pinned"
@@ -52,7 +52,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         };
         format!("({label}) {}", defensive_single_line(active))
     } else {
-        "› ".to_string()
+        format!("{} ", app.glyphs.prompt)
     };
 
     let truncated = crate::sanitize::truncate_to_width(&text, inner.width as usize);

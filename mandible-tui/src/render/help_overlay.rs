@@ -4,7 +4,7 @@ use crate::layout::centered_popup;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 const BINDINGS: &[(&str, &str)] = &[
@@ -22,14 +22,14 @@ const BINDINGS: &[(&str, &str)] = &[
 ];
 
 /// Render the overlay centered over `full_area`.
-pub fn render(frame: &mut Frame, full_area: Rect) {
+pub fn render(frame: &mut Frame, full_area: Rect, glyphs: crate::glyphs::Glyphs) {
     let popup = centered_popup(full_area, 60, 60);
     frame.render_widget(Clear, popup);
 
     let block = Block::default()
         .title(" keybindings ")
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded);
+        .border_set(crate::style::border_set(glyphs));
     let inner = block.inner(popup);
     frame.render_widget(block, popup);
 

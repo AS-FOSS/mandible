@@ -54,26 +54,36 @@ pub fn display_width(s: &str) -> usize {
 /// `s` unchanged if it already fits; returns an empty string if
 /// `max_width` is 0.
 pub fn truncate_to_width_ellipsis(s: &str, max_width: usize) -> String {
+    truncate_to_width_marker(s, max_width, "…")
+}
+
+/// [`truncate_to_width_ellipsis`] with an explicit truncation marker, so a
+/// terminal that cannot draw `…` gets `...` instead of tofu (see
+/// [`crate::glyphs`]). The marker's own display width is reserved, which
+/// matters because the ASCII fallback is three columns wide, not one —
+/// assuming one would overflow the pane by two cells on every truncated
+/// row, and overflowing a pane is how border corruption starts.
+pub fn truncate_to_width_marker(s: &str, max_width: usize, marker: &str) -> String {
     if display_width(s) <= max_width {
         return s.to_string();
     }
     if max_width == 0 {
         return String::new();
     }
-    if max_width == 1 {
-        return "…".to_string();
+    let marker_width = display_width(marker);
+    if max_width <= marker_width {
+        return truncate_to_width(marker, max_width);
     }
-    // Reserve 1 column for the ellipsis itself.
-    let hard = truncate_to_width(s, max_width - 1);
+    let hard = truncate_to_width(s, max_width - marker_width);
     let base = match hard.rfind(char::is_whitespace) {
         // A word boundary strictly inside the truncated text: cut there.
         Some(idx) if idx > 0 => hard[..idx].trim_end(),
         _ => hard.as_str(),
     };
     if base.is_empty() {
-        format!("{hard}…")
+        format!("{hard}{marker}")
     } else {
-        format!("{base}…")
+        format!("{base}{marker}")
     }
 }
 

@@ -23,15 +23,19 @@ use ratatui::Frame;
 /// every focus; `Esc` named explicitly, because it is how you get out of
 /// the search box; and wide separators, since a run of hints crammed
 /// together reads as one long string rather than a list of keys.
-const HINTS: &[&str] = &[
-    "↑↓ move",
-    "←→ expand",
-    "/ search",
-    "Esc back",
-    "y copy",
-    "? help",
-    "^C quit",
-];
+/// Built per-frame because the arrow glyphs depend on what the terminal
+/// can draw (see [`crate::glyphs`]).
+fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
+    vec![
+        format!("{} move", glyphs.arrows_vertical),
+        format!("{} expand", glyphs.arrows_horizontal),
+        "/ search".to_string(),
+        "Esc back".to_string(),
+        "y copy".to_string(),
+        "? help".to_string(),
+        "^C quit".to_string(),
+    ]
+}
 
 /// Gap between hints. Wide on purpose: at two spaces the row reads as one
 /// long string rather than a list of separate keys.
@@ -44,14 +48,16 @@ const HINT_GAP: &str = "    ";
 /// someone who is stuck. Hints are dropped from the least important end
 /// instead, so what remains is always whole and always ends in the escape
 /// hatch.
-fn hints_for_width(width: usize) -> String {
-    let quit = HINTS[HINTS.len() - 1];
+fn hints_for_width(width: usize, glyphs: crate::glyphs::Glyphs) -> String {
+    let all = hints(glyphs);
+    let (quit, rest) = all.split_last().expect("hints() is never empty");
     let mut kept: Vec<&str> = Vec::new();
-    for hint in &HINTS[..HINTS.len() - 1] {
+    for hint in rest {
         let candidate_len = kept
             .iter()
-            .chain(std::iter::once(hint))
-            .chain(std::iter::once(&quit))
+            .copied()
+            .chain(std::iter::once(hint.as_str()))
+            .chain(std::iter::once(quit.as_str()))
             .map(|h| h.chars().count())
             .sum::<usize>()
             + HINT_GAP.chars().count() * (kept.len() + 1);
@@ -72,7 +78,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
     let text = match &app.status_message {
         Some(msg) => defensive_single_line(msg),
-        None => hints_for_width(area.width as usize),
+        None => hints_for_width(area.width as usize, app.glyphs),
     };
     let truncated = truncate_to_width(&text, area.width as usize);
     let style = if app.status_message.is_some() {
@@ -90,10 +96,19 @@ mod tests {
 
     #[test]
     fn wide_terminal_shows_every_hint() {
-        let hints = hints_for_width(120);
-        for h in HINTS {
-            assert!(hints.contains(h), "{h} missing from {hints:?}");
+        let rendered = hints_for_width(120, crate::glyphs::UNICODE);
+        for h in hints(crate::glyphs::UNICODE) {
+            assert!(rendered.contains(&h), "{h} missing from {rendered:?}");
         }
+    }
+
+    /// Every hint stays readable without Unicode — the footer is the last
+    /// thing that should turn into boxes for someone who cannot get out.
+    #[test]
+    fn ascii_fallback_hints_are_pure_ascii() {
+        let rendered = hints_for_width(120, crate::glyphs::ASCII);
+        assert!(rendered.is_ascii(), "{rendered:?}");
+        assert!(rendered.contains("^C quit"));
     }
 
     /// The escape hatch survives at any width. Plain truncation used to cut
@@ -102,7 +117,7 @@ mod tests {
     #[test]
     fn quit_hint_survives_a_narrow_terminal() {
         for width in [20, 30, 40, 60, 88] {
-            let hints = hints_for_width(width);
+            let hints = hints_for_width(width, crate::glyphs::UNICODE);
             assert!(hints.contains("^C quit"), "width {width}: {hints:?}");
             assert!(
                 hints.chars().count() <= width.max(7),

@@ -28,13 +28,14 @@
 //! directly usable against that name with no offset bookkeeping.
 
 use crate::app::{App, Focus};
-use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_ellipsis};
+use crate::glyphs::Glyphs;
+use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
 use crate::style;
 use crate::tree::TreeRow;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 /// The summary column is capped at this fraction of the pane's inner
@@ -59,7 +60,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
+        .border_set(style::border_set(app.glyphs))
         .border_style(border_style);
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -94,6 +95,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
                 summary_column,
                 app.color_enabled,
                 query,
+                app.glyphs,
             )
         })
         .collect();
@@ -129,14 +131,15 @@ fn build_row_line(
     summary_column: usize,
     color_enabled: bool,
     query: Option<&str>,
+    glyphs: Glyphs,
 ) -> Line<'static> {
     let indent = "  ".repeat(row.depth);
     let chevron = if !row.has_children {
         ' '
     } else if row.expanded {
-        '▾'
+        glyphs.chevron_open
     } else {
-        '▸'
+        glyphs.chevron_closed
     };
     let prefix = format!("{indent}{chevron} ");
     let prefix_w = display_width(&prefix);
@@ -152,7 +155,7 @@ fn build_row_line(
     // first, to whatever's left after the fixed prefix, before anything
     // else ever gets a chance at the row's width budget.
     let name_budget = width.saturating_sub(prefix_w);
-    let truncated_name = truncate_to_width_ellipsis(&name, name_budget);
+    let truncated_name = truncate_to_width_marker(&name, name_budget, glyphs.ellipsis);
     let name_part_width = prefix_w + display_width(&truncated_name);
 
     // Underline matched characters within the name only (spec §9.2 /
@@ -176,7 +179,7 @@ fn build_row_line(
             let remaining = width.saturating_sub(pad_to);
             if remaining > 0 {
                 spans.push(Span::raw(padding));
-                let marker = truncate_to_width_ellipsis("⋯ loading", remaining);
+                let marker = truncate_to_width_marker(glyphs.loading, remaining, glyphs.ellipsis);
                 spans.push(Span::styled(marker, style::muted(color_enabled)));
             }
         }
@@ -206,7 +209,8 @@ fn build_row_line(
                 let remaining = width.saturating_sub(pad_to);
                 if remaining > 0 {
                     let padding = " ".repeat(pad_to - name_part_width);
-                    let truncated_summary = truncate_to_width_ellipsis(&clean_summary, remaining);
+                    let truncated_summary =
+                        truncate_to_width_marker(&clean_summary, remaining, glyphs.ellipsis);
                     spans.push(Span::raw(padding));
                     spans.push(Span::styled(truncated_summary, style::muted(color_enabled)));
                     return Line::from(spans);
@@ -281,7 +285,7 @@ mod tests {
     #[test]
     fn chevron_position_matches_two_times_depth() {
         let r = row(2, "onto", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         // indent "    " (4 chars = 2*depth) then chevron/space/name.
         assert_eq!(&text[0..4], "    ");
@@ -290,7 +294,7 @@ mod tests {
     #[test]
     fn adversarial_name_never_produces_embedded_newline() {
         let r = row(0, "evil\nname\x1b[31m", None, true);
-        let line = build_row_line(&r, 80, false, false, 20, true, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(!text.contains('\n'));
     }
@@ -299,7 +303,7 @@ mod tests {
     fn long_summary_is_truncated_to_width() {
         let long_summary = "x".repeat(500);
         let r = row(0, "cmd", Some(&long_summary), false);
-        let line = build_row_line(&r, 40, false, false, 10, true, None);
+        let line = build_row_line(&r, 40, false, false, 10, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(display_width(&text) <= 40);
     }
@@ -308,7 +312,7 @@ mod tests {
     fn pending_row_shows_spinner_not_summary() {
         let mut r = row(0, "get", Some("should not show while pending"), true);
         r.pending = true;
-        let line = build_row_line(&r, 80, false, false, 20, true, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(text.contains("loading"), "{text:?}");
         assert!(!text.contains("should not show while pending"), "{text:?}");
@@ -318,7 +322,7 @@ mod tests {
     fn pending_row_still_respects_width_budget() {
         let mut r = row(0, "get", None, true);
         r.pending = true;
-        let line = build_row_line(&r, 12, false, false, 5, true, None);
+        let line = build_row_line(&r, 12, false, false, 5, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(display_width(&text) <= 12);
     }
@@ -366,7 +370,7 @@ mod tests {
             Some("summary"),
             false,
         );
-        let line = build_row_line(&r, 15, false, false, 5, true, None);
+        let line = build_row_line(&r, 15, false, false, 5, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(display_width(&text) <= 15);
         assert!(text.contains('…'), "{text:?}");
@@ -382,7 +386,7 @@ mod tests {
             Some("Add file contents to the index right now please"),
             false,
         );
-        let line = build_row_line(&r, 30, false, false, 6, true, None);
+        let line = build_row_line(&r, 30, false, false, 6, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(text.contains('…'), "{text:?}");
         assert!(display_width(&text) <= 30);
@@ -391,7 +395,7 @@ mod tests {
     #[test]
     fn no_color_selected_row_still_readable_via_reverse() {
         let r = row(0, "add", None, false);
-        let line = build_row_line(&r, 40, false, true, 10, false, None);
+        let line = build_row_line(&r, 40, false, true, 10, false, None, crate::glyphs::UNICODE);
         // With color disabled the base style must still carry REVERSED so
         // the selection is visible without any color at all.
         assert!(line.spans[0]
@@ -406,7 +410,16 @@ mod tests {
     #[test]
     fn matched_characters_within_the_name_are_underlined() {
         let r = row(0, "rebase", Some("Reapply commits"), true);
-        let line = build_row_line(&r, 80, false, false, 20, true, Some("rb"));
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            true,
+            Some("rb"),
+            crate::glyphs::UNICODE,
+        );
         let underlined: String = line
             .spans
             .iter()
@@ -434,7 +447,7 @@ mod tests {
     #[test]
     fn no_query_means_no_underline() {
         let r = row(0, "rebase", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
         assert!(line.spans.iter().all(|s| !s
             .style
             .add_modifier

@@ -101,6 +101,33 @@ pub fn color_enabled_from_env() -> bool {
     }
 }
 
+/// A pure-ASCII border set.
+///
+/// ratatui ships no ASCII borders — even `BorderType::Plain` is
+/// box-drawing (`┌─┐`), which is why this exists rather than reusing it.
+/// A test asserting an ASCII-mode frame contains no non-ASCII cell caught
+/// exactly that.
+const ASCII_BORDER: ratatui::symbols::border::Set = ratatui::symbols::border::Set {
+    top_left: "+",
+    top_right: "+",
+    bottom_left: "+",
+    bottom_right: "+",
+    vertical_left: "|",
+    vertical_right: "|",
+    horizontal_top: "-",
+    horizontal_bottom: "-",
+};
+
+/// Rounded box-drawing borders when the terminal can draw them, `+-|`
+/// otherwise.
+pub fn border_set(glyphs: crate::glyphs::Glyphs) -> ratatui::symbols::border::Set {
+    if glyphs.rounded_borders {
+        ratatui::symbols::border::ROUNDED
+    } else {
+        ASCII_BORDER
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

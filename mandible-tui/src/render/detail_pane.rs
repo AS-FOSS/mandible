@@ -27,13 +27,14 @@
 //! construct should already fit, so it should never need to act.
 
 use crate::app::{App, Focus};
-use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_ellipsis};
+use crate::glyphs::Glyphs;
+use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
 use crate::style;
 use mandible_core::{CommandNode, Flag, FlagKey, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 use std::collections::HashMap;
 
@@ -53,7 +54,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                 .iter()
                 .map(|s| defensive_single_line(s))
                 .collect::<Vec<_>>()
-                .join(" › ")
+                .join(&format!(" {} ", app.glyphs.breadcrumb))
         })
         .unwrap_or_default();
     let title = format!(" {breadcrumb} ");
@@ -61,7 +62,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
+        .border_set(style::border_set(app.glyphs))
         .border_style(border_style);
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -93,6 +94,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         width,
         app.color_enabled,
         app.selected_flag.as_ref(),
+        app.glyphs,
     );
     // Search selecting a flag scrolls straight to it (spec §10): the line
     // index is exact because every line above was pre-wrapped by us, not
@@ -131,7 +133,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 fn render_unparsed(frame: &mut Frame, inner: Rect, app: &App, node: &CommandNode) {
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(node.unparsed.len() + 2);
     lines.push(Line::from(Span::styled(
-        "unparsed — showing raw --help output",
+        format!("unparsed {} showing raw --help output", app.glyphs.absent),
         style::muted_bold(app.color_enabled),
     )));
     lines.push(Line::default());
@@ -159,12 +161,13 @@ fn build_lines(
     width: usize,
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
+    glyphs: Glyphs,
 ) -> BuiltLines {
     let mut lines = Vec::new();
     let mut target_flag_line = None;
 
     if let Some(summary) = &node.summary {
-        for chunk in wrap_words(summary.as_str(), width) {
+        for chunk in wrap_words(summary.as_str(), width, glyphs.ellipsis) {
             lines.push(Line::from(Span::styled(
                 chunk,
                 Style::default().add_modifier(ratatui::style::Modifier::BOLD),
@@ -176,7 +179,7 @@ fn build_lines(
     if let Some(description) = &node.description {
         lines.push(heading_line("DESCRIPTION", color_enabled));
         for paragraph_text in description.as_str().split("\n\n") {
-            for chunk in wrap_words(paragraph_text, width) {
+            for chunk in wrap_words(paragraph_text, width, glyphs.ellipsis) {
                 lines.push(Line::from(chunk));
             }
             lines.push(Line::default());
@@ -187,7 +190,7 @@ fn build_lines(
         lines.push(heading_line("USAGE", color_enabled));
         for u in &node.usage {
             let full = format!("{} {}", defensive_single_line(&node.name), u.as_str());
-            for chunk in wrap_words(&full, width) {
+            for chunk in wrap_words(&full, width, glyphs.ellipsis) {
                 lines.push(Line::from(chunk));
             }
         }
@@ -203,7 +206,7 @@ fn build_lines(
     if !visible_flags.is_empty() {
         lines.push(heading_line("FLAGS", color_enabled));
         let (flag_lines_out, target) =
-            flag_lines(&visible_flags, width, color_enabled, target_flag);
+            flag_lines(&visible_flags, width, color_enabled, target_flag, glyphs);
         let base = lines.len();
         if let Some(t) = target {
             target_flag_line = Some(base + t);
@@ -213,7 +216,7 @@ fn build_lines(
     }
 
     lines.push(Line::from(Span::styled(
-        provenance_footer(node),
+        provenance_footer(node, glyphs),
         style::muted(color_enabled),
     )));
 
@@ -231,7 +234,7 @@ fn heading_line(text: &'static str, color_enabled: bool) -> Line<'static> {
 /// line, never breaking a word unless it alone exceeds `width` (in which
 /// case it's ellipsis-truncated rather than allowed to overflow). Always
 /// returns at least one (possibly empty) chunk.
-fn wrap_words(text: &str, width: usize) -> Vec<String> {
+fn wrap_words(text: &str, width: usize, marker: &str) -> Vec<String> {
     let width = width.max(1);
     let mut lines = Vec::new();
     let mut current = String::new();
@@ -253,7 +256,7 @@ fn wrap_words(text: &str, width: usize) -> Vec<String> {
             current_width = 0;
         }
         if word_width > width {
-            lines.push(truncate_to_width_ellipsis(word, width));
+            lines.push(truncate_to_width_marker(word, width, marker));
         } else {
             current.push_str(word);
             current_width = word_width;
@@ -291,6 +294,7 @@ fn flag_lines(
     width: usize,
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
+    glyphs: Glyphs,
 ) -> (Vec<Line<'static>>, Option<usize>) {
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
@@ -326,7 +330,7 @@ fn flag_lines(
     if let Some(ungrouped) = own_groups.remove(&None) {
         for f in ungrouped {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled));
+            out.extend(flag_line(f, false, width, color_enabled, glyphs));
         }
     }
     for key in group_order {
@@ -338,7 +342,7 @@ fn flag_lines(
         }
         for f in flags {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled));
+            out.extend(flag_line(f, false, width, color_enabled, glyphs));
         }
     }
 
@@ -346,7 +350,7 @@ fn flag_lines(
         out.push(heading_line("INHERITED", color_enabled));
         for f in inherited {
             note_if_target(&out, f);
-            out.extend(flag_line(f, true, width, color_enabled));
+            out.extend(flag_line(f, true, width, color_enabled, glyphs));
         }
     }
 
@@ -362,7 +366,13 @@ fn heading_line_owned(text: String, color_enabled: bool) -> Line<'static> {
 /// italic; description: default foreground) — wrapped so a multi-line
 /// description hangs indented under where it started rather than
 /// restarting at column 0.
-fn flag_line(flag: &Flag, dim: bool, width: usize, color_enabled: bool) -> Vec<Line<'static>> {
+fn flag_line(
+    flag: &Flag,
+    dim: bool,
+    width: usize,
+    color_enabled: bool,
+    glyphs: Glyphs,
+) -> Vec<Line<'static>> {
     let mut name_spec = String::new();
     if let Some(s) = flag.short {
         name_spec.push('-');
@@ -449,7 +459,7 @@ fn flag_line(flag: &Flag, dim: bool, width: usize, color_enabled: bool) -> Vec<L
     let gap = "  ";
     let indent_width = prefix_width + display_width(gap);
     let available = width.saturating_sub(indent_width).max(1);
-    let chunks = wrap_words(&description_text, available);
+    let chunks = wrap_words(&description_text, available, glyphs.ellipsis);
 
     let mut lines = Vec::new();
     let mut chunks_iter = chunks.into_iter();
@@ -471,7 +481,7 @@ fn flag_line(flag: &Flag, dim: bool, width: usize, color_enabled: bool) -> Vec<L
 
 /// The provenance footer (spec §2, §4.2): which sources contributed, and
 /// whether structure and prose each came from a trusted source.
-fn provenance_footer(node: &CommandNode) -> String {
+fn provenance_footer(node: &CommandNode, glyphs: Glyphs) -> String {
     if node.provenance.sources.is_empty() {
         return "no source".to_string();
     }
@@ -484,11 +494,14 @@ fn provenance_footer(node: &CommandNode) -> String {
         .provenance
         .effective_authority(mandible_core::Axis::Prose)
         > 0;
+    let yes = glyphs.check;
+    let no = if glyphs.check.is_ascii() { "no" } else { "✗" };
+    let dot = glyphs.dot;
     let mut footer = format!(
-        "{} · structure {} · prose {}",
+        "{} {dot} structure {} {dot} prose {}",
         labels.join(" + "),
-        if structural { "✓" } else { "✗" },
-        if prose { "✓" } else { "✗" }
+        if structural { yes } else { no },
+        if prose { yes } else { no }
     );
     // Spec §7 Tier A′ / batch 6 part 4: surfacing the detected framework
     // turns "mandible is wrong about tool X" into "the <framework> grammar
@@ -542,7 +555,7 @@ mod tests {
     fn inherited_flags_are_grouped_last() {
         let node = node_with_flags();
         let flags: Vec<&Flag> = node.flags.iter().collect();
-        let (lines, _) = flag_lines(&flags, 80, true, None);
+        let (lines, _) = flag_lines(&flags, 80, true, None, crate::glyphs::UNICODE);
         let text: Vec<String> = lines.iter().map(text_of).collect();
         let inherited_pos = text.iter().position(|l| l.contains("INHERITED")).unwrap();
         let help_pos = text.iter().position(|l| l.contains("--help")).unwrap();
@@ -553,7 +566,7 @@ mod tests {
     fn hidden_flags_suppressed_by_default() {
         let mut node = node_with_flags();
         node.flags[0].hidden = true;
-        let built = build_lines(&node, false, 80, true, None);
+        let built = build_lines(&node, false, 80, true, None, crate::glyphs::UNICODE);
         let joined: String = built.lines.iter().map(text_of).collect();
         assert!(!joined.contains("--interactive"));
     }
@@ -562,7 +575,7 @@ mod tests {
     fn hidden_flags_shown_when_toggled() {
         let mut node = node_with_flags();
         node.flags[0].hidden = true;
-        let built = build_lines(&node, true, 80, true, None);
+        let built = build_lines(&node, true, 80, true, None, crate::glyphs::UNICODE);
         let joined: String = built.lines.iter().map(text_of).collect();
         assert!(joined.contains("--interactive"));
     }
@@ -570,7 +583,7 @@ mod tests {
     #[test]
     fn provenance_footer_reflects_axes() {
         let node = node_with_flags();
-        let footer = provenance_footer(&node);
+        let footer = provenance_footer(&node, crate::glyphs::UNICODE);
         assert!(footer.contains("carapace"));
         assert!(footer.contains("structure ✓"));
         assert!(footer.contains("prose"));
@@ -587,7 +600,7 @@ mod tests {
         flag.description = Some(Text::sanitize(
             "Trust certs signed only by this CA (default \"\")",
         ));
-        let lines = flag_line(&flag, false, 40, true);
+        let lines = flag_line(&flag, false, 40, true, crate::glyphs::UNICODE);
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
         let first_text = text_of(&lines[0]);
         let continuation_text = text_of(&lines[1]);
@@ -611,7 +624,7 @@ mod tests {
         flag.value_name = Some("FILE".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize("Write output to FILE"));
-        let lines = flag_line(&flag, false, 80, true);
+        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE);
         let spans = &lines[0].spans;
         assert!(spans.len() >= 3, "{spans:?}");
         // Spelling span carries the accent color.
@@ -627,7 +640,7 @@ mod tests {
         let mut flag = Flag::long("old-flag", Provenance::single(Source::HelpText));
         flag.deprecated = Some(Text::sanitize("use --new-flag instead"));
         flag.description = Some(Text::sanitize("Old behavior"));
-        let lines = flag_line(&flag, false, 80, true);
+        let lines = flag_line(&flag, false, 80, true, crate::glyphs::UNICODE);
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
     }
@@ -656,6 +669,7 @@ mod tests {
             80,
             true,
             Some(&FlagKey::Long("interactive".to_string())),
+            crate::glyphs::UNICODE,
         );
         let idx = built.target_flag_line.expect("flag should be found");
         let line_text = text_of(&built.lines[idx]);
@@ -665,7 +679,7 @@ mod tests {
     #[test]
     fn no_target_flag_means_no_scroll_override() {
         let node = node_with_flags();
-        let built = build_lines(&node, false, 80, true, None);
+        let built = build_lines(&node, false, 80, true, None, crate::glyphs::UNICODE);
         assert_eq!(built.target_flag_line, None);
     }
 

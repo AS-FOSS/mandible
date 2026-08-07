@@ -157,6 +157,12 @@ pub struct App {
     /// process-wide environment state (which is unsound across Rust's
     /// parallel test runner).
     pub color_enabled: bool,
+    /// The glyph set this terminal can actually draw, chosen once from the
+    /// locale (see [`crate::glyphs`]). A plain field rather than a lookup
+    /// per frame for the same reason `color_enabled` is: it cannot change
+    /// mid-run, and tests need to set it directly without mutating
+    /// process-wide environment state.
+    pub glyphs: crate::glyphs::Glyphs,
     /// When a search result is a flag (not a command), the flag's key
     /// within its parent command — set alongside `selected` so the detail
     /// pane can scroll to and highlight that specific flag instead of
@@ -225,6 +231,7 @@ impl App {
             status_expires_at: None,
             search_index,
             color_enabled: crate::style::color_enabled_from_env(),
+            glyphs: crate::glyphs::from_env(),
             selected_flag: None,
         };
         app.ensure_rows_fresh();

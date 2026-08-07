@@ -365,3 +365,85 @@ fn narrow_terminal_stacked_layout_borders_survive() {
         }
     }
 }
+
+/// Nothing outside ASCII reaches the screen once the ASCII glyph set is
+/// selected.
+///
+/// This is the automated replacement for eyeballing the TUI in a terminal
+/// with `LANG=C`, which is the environment mandible is most often reached
+/// for and least often tested in: SSH'd into an unfamiliar box, or a
+/// minimal container where the locale is unset. Every chevron, border,
+/// prompt, ellipsis and footer arrow has an ASCII counterpart precisely so
+/// that a non-UTF-8 terminal shows readable text instead of tofu — and an
+/// assertion is the only way that stays true, since the glyph a terminal
+/// can actually draw cannot be probed at runtime.
+///
+/// Rendered over an **ASCII-only tree** on purpose. The adversarial tree
+/// the border tests use contains CJK and emoji, and mandible must render a
+/// tool's own text exactly as the tool wrote it — transliterating someone
+/// else's output would be a far worse bug than a tofu box. So the only
+/// non-ASCII a frame may contain is content that came from the tool; with
+/// ASCII-only content, anything non-ASCII on screen is necessarily
+/// mandible's own chrome, which is what this asserts about.
+#[test]
+fn ascii_glyph_set_renders_a_pure_ascii_frame() {
+    for (width, height) in [(80u16, 24u16), (60, 20), (120, 40), (40, 12)] {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        root.summary = Some(Text::sanitize("the stupid content tracker"));
+        for (name, summary) in [
+            ("clone", "Clone a repository into a new directory"),
+            ("rebase", "Reapply commits on top of another base tip"),
+            ("commit", "Record changes to the repository"),
+        ] {
+            let mut child = CommandNode::new(name, Provenance::single(Source::HelpText));
+            child.summary = Some(Text::sanitize(summary));
+            child.children_filled = true;
+            root.subcommands.push(child);
+        }
+        root.children_filled = true;
+
+        let mut app = App::new("git".to_string(), root);
+        app.glyphs = mandible_tui::glyphs::ASCII;
+        app.ensure_rows_fresh();
+
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| {
+                mandible_tui::render::render(frame, &app);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer().clone();
+        for y in 0..height {
+            for x in 0..width {
+                let symbol = buffer[(x, y)].symbol();
+                assert!(
+                    symbol.is_ascii(),
+                    "non-ASCII {symbol:?} at ({x},{y}) in a {width}x{height} ASCII-mode frame"
+                );
+            }
+        }
+    }
+}
+
+/// The Unicode set is still what a UTF-8 terminal gets — the fallback must
+/// not quietly become the default for everyone.
+#[test]
+fn unicode_glyph_set_still_draws_rounded_borders() {
+    let mut app = build_app();
+    app.glyphs = mandible_tui::glyphs::UNICODE;
+    app.ensure_rows_fresh();
+
+    let backend = TestBackend::new(80, 24);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| {
+            mandible_tui::render::render(frame, &app);
+        })
+        .unwrap();
+
+    let buffer = terminal.backend().buffer().clone();
+    let corner = buffer[(0u16, 0u16)].symbol().to_string();
+    assert_eq!(corner, "╭", "expected a rounded corner, got {corner:?}");
+}
