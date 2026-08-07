@@ -33,6 +33,11 @@ jobs:
   path-sweep:
     name: PATH sweep ${{ matrix.shard }}/16
     runs-on: ubuntu-latest
+    # Job-level, not step-level. When the runner is reclaimed the *job* is
+    # killed rather than any step failing — every step reports success or
+    # skipped and the job still fails — so `continue-on-error` on the step
+    # has nothing to catch. Observed exactly that before moving it here.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -64,23 +69,18 @@ jobs:
       # `qemu-*-static` binaries at 4 MB each puts them all in one
       # contiguous chunk, and that chunk alone takes longer than the rest
       # combined.
-      # A lost shard is expected, understood, and not a code defect, so it
-      # does not fail the workflow — the summary reports how many shards
-      # reported and says the coverage is a floor.
+      # A lost shard is expected, understood, and not a code defect (see
+      # the job-level `continue-on-error` above and spec §6 rule 8). The
+      # summary reports how many shards reported and says the coverage is a
+      # floor.
       #
-      # This is not the masking that `continue-on-error` was doing before.
-      # Then, the sweep failed *entirely* and every run, for an unknown
-      # reason, while the badge stayed green — a tick that asserted
-      # something false. Now the cause is measured and written down (spec
-      # §6 rule 8): probes that daemonise escape the process-group kill,
-      # and orphans accumulate until the runner is reclaimed. Roughly three
-      # shards in sixteen are lost, the other thirteen report real numbers,
-      # and the summary states exactly that. Failing the workflow over an
-      # infrastructure limit that no change to this repository can fix
-      # teaches everyone to ignore a red mark, which costs more than it
-      # buys.
+      # This is not the masking removed earlier. Then the sweep failed
+      # *entirely*, every run, for an unknown reason, while the badge
+      # stayed green — a tick asserting something false. Now the cause is
+      # measured: probes that daemonise escape the process-group kill and
+      # orphans accumulate until the runner is reclaimed. Thirteen shards
+      # report real numbers and the summary says so.
       - name: PATH sweep (shard ${{ matrix.shard }}/16)
-        continue-on-error: true
         timeout-minutes: 15
         run: |
           cargo build --release --locked --bin xtask
