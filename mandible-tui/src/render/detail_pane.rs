@@ -648,20 +648,24 @@ fn provenance_footer(node: &CommandNode, glyphs: Glyphs) -> String {
     let yes = glyphs.check;
     let no = if glyphs.check.is_ascii() { "no" } else { "✗" };
     let dot = glyphs.dot;
-    let mut footer = format!(
+    let footer = format!(
         "{} {dot} structure {} {dot} prose {}",
         labels.join(" + "),
         if structural { yes } else { no },
         if prose { yes } else { no }
     );
-    // Spec §7 Tier A′ / batch 6 part 4: surfacing the detected framework
-    // turns "mandible is wrong about tool X" into "the <framework> grammar
-    // mishandles Y" — the same general-not-per-tool framing `--doctor`
-    // uses (`mandible/src/doctor.rs`), now visible without leaving the TUI.
-    if let Some(framework) = &node.detected_framework {
-        footer.push_str(" · framework: ");
-        footer.push_str(&defensive_single_line(framework));
-    }
+    // The detected framework deliberately does *not* appear here. It is a
+    // property of the whole tool — one generator produced all of its help
+    // text — and measuring `gh`, `docker`, `git` and `apt-get` confirms it
+    // is identical on every node. Repeating it under each command was the
+    // same string over and over. It lives in the tree pane's title, which
+    // is where the other tool-level fact already is.
+    //
+    // What stays is genuinely per-node (spec §4.2): which tiers contributed
+    // to *this* node, and whether its structural and prose axes have any
+    // authority behind them. A single badge for a whole tree would lie
+    // after a multi-tier merge, which is why it is per-node in the first
+    // place.
     footer
 }
 

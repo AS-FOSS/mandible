@@ -56,7 +56,21 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
     // adjacent lines read as a duplication bug. The count is the useful
     // thing a title can add that the rows can't: how much is in here,
     // including the part scrolled out of view.
-    let title = format!(" commands ({}) ", app.rows().len());
+    //
+    // The detected framework joins it because it is a *tool*-level fact —
+    // one generator produced all of this tool's help text — and it used to
+    // be repeated in the detail pane's footer under every single command,
+    // where it was the same string every time. Read from the root node,
+    // which is the only node that is always present.
+    let title = match &app.root.detected_framework {
+        Some(framework) => format!(
+            " commands ({}) {} {} ",
+            app.rows().len(),
+            app.glyphs.dot,
+            defensive_single_line(framework)
+        ),
+        None => format!(" commands ({}) ", app.rows().len()),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
