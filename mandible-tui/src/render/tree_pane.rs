@@ -94,7 +94,6 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
                 summary_column,
                 app.color_enabled,
                 query,
-                app.match_reason(&row.path),
             )
         })
         .collect();
@@ -130,11 +129,6 @@ fn build_row_line(
     summary_column: usize,
     color_enabled: bool,
     query: Option<&str>,
-    // The flag that put this row in the filtered set, when its own name
-    // doesn't explain why it is here. Shown instead of the summary,
-    // because during a search "why am I looking at this" is more useful
-    // than the description.
-    match_reason: Option<&str>,
 ) -> Line<'static> {
     let indent = "  ".repeat(row.depth);
     let chevron = if !row.has_children {
@@ -190,16 +184,12 @@ fn build_row_line(
     }
 
     if !hide_summary && name_part_width < width {
-        // During a search, a row whose own name doesn't contain the query
-        // shows *why* it matched instead of its summary. `run` in `docker`
-        // legitimately surfaces `ps`, because `--no-trunc` contains "run" —
-        // a correct match that looked like a broken filter until the reason
-        // was on screen.
-        let display_text = match match_reason {
-            Some(reason) => Some(format!("via {reason}")),
-            None => row.summary.as_ref().map(|s| defensive_single_line(s)),
-        };
-        if let Some(summary) = display_text.as_ref() {
+        // A row's summary never changes because of a search. Swapping it
+        // for a "why this matched" hint made the pane's content shift under
+        // the user mid-keystroke, which is a worse problem than the one it
+        // solved — the filter itself is now precise enough not to need
+        // explaining.
+        if let Some(summary) = &row.summary {
             let clean_summary = defensive_single_line(summary);
             if !clean_summary.is_empty() {
                 // Align to the shared column when the name is short
@@ -291,7 +281,7 @@ mod tests {
     #[test]
     fn chevron_position_matches_two_times_depth() {
         let r = row(2, "onto", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         let text = rendered(&line);
         // indent "    " (4 chars = 2*depth) then chevron/space/name.
         assert_eq!(&text[0..4], "    ");
@@ -300,7 +290,7 @@ mod tests {
     #[test]
     fn adversarial_name_never_produces_embedded_newline() {
         let r = row(0, "evil\nname\x1b[31m", None, true);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         let text = rendered(&line);
         assert!(!text.contains('\n'));
     }
@@ -309,7 +299,7 @@ mod tests {
     fn long_summary_is_truncated_to_width() {
         let long_summary = "x".repeat(500);
         let r = row(0, "cmd", Some(&long_summary), false);
-        let line = build_row_line(&r, 40, false, false, 10, true, None, None);
+        let line = build_row_line(&r, 40, false, false, 10, true, None);
         let text = rendered(&line);
         assert!(display_width(&text) <= 40);
     }
@@ -318,7 +308,7 @@ mod tests {
     fn pending_row_shows_spinner_not_summary() {
         let mut r = row(0, "get", Some("should not show while pending"), true);
         r.pending = true;
-        let line = build_row_line(&r, 80, false, false, 20, true, None, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         let text = rendered(&line);
         assert!(text.contains("loading"), "{text:?}");
         assert!(!text.contains("should not show while pending"), "{text:?}");
@@ -328,7 +318,7 @@ mod tests {
     fn pending_row_still_respects_width_budget() {
         let mut r = row(0, "get", None, true);
         r.pending = true;
-        let line = build_row_line(&r, 12, false, false, 5, true, None, None);
+        let line = build_row_line(&r, 12, false, false, 5, true, None);
         let text = rendered(&line);
         assert!(display_width(&text) <= 12);
     }
@@ -376,7 +366,7 @@ mod tests {
             Some("summary"),
             false,
         );
-        let line = build_row_line(&r, 15, false, false, 5, true, None, None);
+        let line = build_row_line(&r, 15, false, false, 5, true, None);
         let text = rendered(&line);
         assert!(display_width(&text) <= 15);
         assert!(text.contains('…'), "{text:?}");
@@ -392,7 +382,7 @@ mod tests {
             Some("Add file contents to the index right now please"),
             false,
         );
-        let line = build_row_line(&r, 30, false, false, 6, true, None, None);
+        let line = build_row_line(&r, 30, false, false, 6, true, None);
         let text = rendered(&line);
         assert!(text.contains('…'), "{text:?}");
         assert!(display_width(&text) <= 30);
@@ -401,7 +391,7 @@ mod tests {
     #[test]
     fn no_color_selected_row_still_readable_via_reverse() {
         let r = row(0, "add", None, false);
-        let line = build_row_line(&r, 40, false, true, 10, false, None, None);
+        let line = build_row_line(&r, 40, false, true, 10, false, None);
         // With color disabled the base style must still carry REVERSED so
         // the selection is visible without any color at all.
         assert!(line.spans[0]
@@ -413,32 +403,10 @@ mod tests {
 
     /// Spec §9.2 / §10: matched characters within the name are underlined
     /// — and only within the name, never the summary.
-    /// A row surfaced by a *flag* match shows which flag, in place of its
-    /// summary. Searching `run` in `docker` legitimately returns `ps`
-    /// (because `--no-trunc` contains "run"), and without the reason on
-    /// screen a correct match reads as a broken filter.
-    #[test]
-    fn match_reason_replaces_the_summary_during_a_search() {
-        let r = row(1, "ps", Some("List containers"), false);
-        let line = build_row_line(
-            &r,
-            60,
-            false,
-            false,
-            12,
-            true,
-            Some("run"),
-            Some("--no-trunc"),
-        );
-        let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
-        assert!(text.contains("via --no-trunc"), "{text:?}");
-        assert!(!text.contains("List containers"), "{text:?}");
-    }
-
     #[test]
     fn matched_characters_within_the_name_are_underlined() {
         let r = row(0, "rebase", Some("Reapply commits"), true);
-        let line = build_row_line(&r, 80, false, false, 20, true, Some("rb"), None);
+        let line = build_row_line(&r, 80, false, false, 20, true, Some("rb"));
         let underlined: String = line
             .spans
             .iter()
@@ -466,7 +434,7 @@ mod tests {
     #[test]
     fn no_query_means_no_underline() {
         let r = row(0, "rebase", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, None);
+        let line = build_row_line(&r, 80, false, false, 20, true, None);
         assert!(line.spans.iter().all(|s| !s
             .style
             .add_modifier

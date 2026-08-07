@@ -98,7 +98,12 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     // index is exact because every line above was pre-wrapped by us, not
     // by the widget's own `Wrap` after the fact. Falls back to the user's
     // own scroll position once nothing is flag-targeted.
-    let scroll = built.target_flag_line.unwrap_or(app.detail_scroll) as u16;
+    // Tell `App` how far this content can scroll, so `↓` stops at the end
+    // instead of pushing it off the top into blank space.
+    app.set_detail_extent(built.lines.len(), inner.height as usize);
+    let scroll = built
+        .target_flag_line
+        .unwrap_or_else(|| app.clamped_detail_scroll()) as u16;
     let paragraph = Paragraph::new(built.lines)
         .wrap(Wrap { trim: false })
         .scroll((scroll, 0));
@@ -133,7 +138,8 @@ fn render_unparsed(frame: &mut Frame, inner: Rect, app: &App, node: &CommandNode
     for text in &node.unparsed {
         lines.push(Line::from(text.as_str().to_string()));
     }
-    let scroll = app.detail_scroll as u16;
+    app.set_detail_extent(lines.len(), inner.height as usize);
+    let scroll = app.clamped_detail_scroll() as u16;
     let paragraph = Paragraph::new(lines).scroll((scroll, 0));
     frame.render_widget(paragraph, inner);
 }

@@ -5,19 +5,20 @@
 use crate::tree::{flatten, TreeRow};
 use mandible_core::{resolve, CommandNode, NodeRef};
 use mandible_search::SearchIndex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// What the search box matches against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchMode {
-    /// Names only — command names and flag spellings. The default,
-    /// because it is the mode whose results are self-explanatory: every
-    /// row shown has the query visible in its name.
+    /// Command names only, matched as a literal substring. The default,
+    /// and the mode whose results need no explanation: every row shown has
+    /// the query visible in its own name, and the rows around it are gone.
     Name,
-    /// Names *and* summaries, descriptions, and flag values. Finds far
-    /// more, at the cost of rows whose reason for matching isn't visible
-    /// in the name column (searching `branch` in `git` surfaces `switch`
-    /// via "Switch branches"), which is exactly why it isn't the default.
+    /// Everything: command names, flag spellings, summaries, descriptions
+    /// and flag values, matched fuzzily. This is where you find a flag by
+    /// its spelling, or a command by what it does. Rows appear whose names
+    /// don't contain the query — that is the point of the mode, and why it
+    /// isn't the default.
     Wide,
 }
 
@@ -27,7 +28,7 @@ impl SearchMode {
     pub fn label(self) -> &'static str {
         match self {
             SearchMode::Name => "names",
-            SearchMode::Wide => "names+text",
+            SearchMode::Wide => "everything",
         }
     }
 
@@ -117,6 +118,16 @@ pub struct App {
     pub tree_viewport: usize,
     /// Detail pane vertical scroll offset, in lines.
     pub detail_scroll: usize,
+    /// How far the detail pane can usefully scroll: its rendered line count
+    /// minus the visible height, written by the renderer each frame.
+    ///
+    /// Interior mutability because rendering takes `&App`, and this is the
+    /// one fact only the renderer knows — it is the built line count, which
+    /// depends on wrapping at the current width. Without it `↓` incremented
+    /// the offset forever: holding the key on a description that already
+    /// fit scrolled the content off the top into blank space, and getting
+    /// back required as many presses up as had gone down.
+    detail_max_scroll: std::cell::Cell<usize>,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
     /// Whether hidden/deprecated items are shown (toggled with `.`).
@@ -138,13 +149,6 @@ pub struct App {
     /// process-wide environment state (which is unsound across Rust's
     /// parallel test runner).
     pub color_enabled: bool,
-    /// Why a row is in the current match set, when the reason is not
-    /// visible in its own name — keyed by path, valued with the matching
-    /// flag's spelling. Searching `run` in `docker` legitimately surfaces
-    /// `ps`, because `--no-trunc` contains "run"; the match is correct but
-    /// nothing on screen said so, which reads as a broken filter. Empty
-    /// whenever no filter is active.
-    match_reasons: HashMap<Vec<String>, String>,
     /// When a search result is a flag (not a command), the flag's key
     /// within its parent command — set alongside `selected` so the detail
     /// pane can scroll to and highlight that specific flag instead of
@@ -177,25 +181,6 @@ fn name_matches(name: &str, query: &str) -> bool {
     name.to_lowercase().contains(&query.to_lowercase())
 }
 
-/// Same test against a flag's own spellings (`-v`, `--verbose`), so
-/// name-mode search finds flags by how they're typed, never by their
-/// description.
-/// How a flag is spelled, for display as a match reason.
-fn flag_key_label(key: &mandible_core::FlagKey) -> String {
-    match key {
-        mandible_core::FlagKey::Long(l) => format!("--{l}"),
-        mandible_core::FlagKey::Short(c) => format!("-{c}"),
-    }
-}
-
-fn flag_key_matches(key: &mandible_core::FlagKey, query: &str) -> bool {
-    let trimmed = query.trim_start_matches('-');
-    match key {
-        mandible_core::FlagKey::Long(l) => name_matches(l, trimmed),
-        mandible_core::FlagKey::Short(c) => name_matches(&c.to_string(), trimmed),
-    }
-}
-
 impl App {
     /// Build a new app over an already-extracted (and merged) tree, with
     /// the root expanded so the first screen isn't empty.
@@ -219,12 +204,12 @@ impl App {
             tree_scroll: 0,
             tree_viewport: 0,
             detail_scroll: 0,
+            detail_max_scroll: std::cell::Cell::new(0),
             show_help: false,
             show_hidden: false,
             status_message: None,
             search_index,
             color_enabled: crate::style::color_enabled_from_env(),
-            match_reasons: HashMap::new(),
             selected_flag: None,
         };
         app.ensure_rows_fresh();
@@ -298,10 +283,8 @@ impl App {
     /// command's path, since flags aren't tree rows (spec §2) but a flag
     /// match should still force-expand and highlight the command that
     /// owns it (spec §10: "Selecting one selects the parent command").
-    fn compute_matching_paths(&mut self) -> Option<HashSet<Vec<String>>> {
-        self.match_reasons.clear();
-        let filter = self.active_filter()?.to_string();
-        let filter = filter.as_str();
+    fn compute_matching_paths(&self) -> Option<HashSet<Vec<String>>> {
+        let filter = self.active_filter()?;
         if filter.trim().is_empty() {
             return None;
         }
@@ -322,33 +305,22 @@ impl App {
                     }
                     paths.insert(path);
                 }
-                NodeRef::Flag { path, key } => {
-                    if self.search_mode == SearchMode::Name && !flag_key_matches(&key, filter) {
+                NodeRef::Flag { path, .. } => {
+                    // A flag match surfaces its *parent command*, which in
+                    // name mode means rows whose own names don't contain
+                    // the query: searching `run` in `docker` returned `ps`,
+                    // because `--no-trunc` contains "run". Correct, and
+                    // indistinguishable from a broken filter. Name mode is
+                    // now exactly what its label says — command names — and
+                    // flags are found in `Wide`, one keystroke away.
+                    if self.search_mode == SearchMode::Name {
                         continue;
-                    }
-                    // Record the flag as the reason only when the command's
-                    // own name doesn't explain the match, and only for the
-                    // first such flag — the row has space for one hint, and
-                    // the first is as good as any for answering "why is this
-                    // here".
-                    let name_explains = path.last().is_some_and(|n| name_matches(n, filter));
-                    if !name_explains {
-                        self.match_reasons
-                            .entry(path.clone())
-                            .or_insert_with(|| flag_key_label(&key));
                     }
                     paths.insert(path);
                 }
             }
         }
         Some(paths)
-    }
-
-    /// The matching flag that put `path` in the result set, when the row's
-    /// own name doesn't explain it. `None` when the name is reason enough,
-    /// or when no filter is active.
-    pub fn match_reason(&self, path: &[String]) -> Option<&str> {
-        self.match_reasons.get(path).map(String::as_str)
     }
 
     /// Drive the search index's background matcher forward (spec §10
@@ -627,7 +599,23 @@ impl App {
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
         self.selected_flag = None;
-        self.detail_scroll = self.detail_scroll.saturating_add(1);
+        let max = self.detail_max_scroll.get();
+        self.detail_scroll = self.detail_scroll.saturating_add(1).min(max);
+    }
+
+    /// Record how far the detail pane can scroll, from the renderer.
+    /// Clamps any offset already past the new limit, so a resize that makes
+    /// the pane taller (or a move to a shorter node) doesn't leave the view
+    /// stranded below its own content.
+    pub fn set_detail_extent(&self, content_lines: usize, viewport_lines: usize) {
+        self.detail_max_scroll
+            .set(content_lines.saturating_sub(viewport_lines));
+    }
+
+    /// The current scroll offset, clamped to what the last frame could
+    /// actually show.
+    pub fn clamped_detail_scroll(&self) -> usize {
+        self.detail_scroll.min(self.detail_max_scroll.get())
     }
 
     /// Detail pane scroll up.
@@ -769,6 +757,11 @@ mod tests {
         // Spec §10: "Selecting one selects the parent command..." — since
         // flags aren't tree rows, a flag match must force-expand and
         // surface its *parent* in the filtered tree.
+        //
+        // In `SearchMode::Wide`, which is where flags are searched. Name
+        // mode deliberately matches command names only: a flag match there
+        // surfaced parents whose own names didn't contain the query, which
+        // is correct and reads as a broken filter.
         let mut root = sample_tree();
         let mut autosquash =
             mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
@@ -779,6 +772,7 @@ mod tests {
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
+        app.cycle_search_mode(); // Name -> Wide
         for c in "autosquash".chars() {
             app.search_input_char(c);
         }
@@ -817,6 +811,7 @@ mod tests {
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
+        app.cycle_search_mode(); // Name -> Wide
         for c in "autosquash".chars() {
             app.search_input_char(c);
         }
