@@ -543,7 +543,14 @@ fn flag_line(
     } else {
         style::accent(color_enabled)
     };
-    let value_style = style::muted_italic(color_enabled);
+    // Muted, not italic. Italic is unreliable — spec §9.2 lists it among
+    // the modifiers many terminals silently ignore, and where it *is*
+    // honoured the glyphs frequently overflow their cell and leave
+    // artefacts behind (reported on a `--log-level` value rendering
+    // `error|info|debug`). It was also redundant the moment values moved
+    // into their own column: position now carries the distinction, which
+    // is the more robust signal anyway.
+    let value_style = style::muted(color_enabled);
     let desc_style = if dim {
         style::muted(color_enabled)
     } else {
@@ -680,13 +687,14 @@ pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
         return None;
     }
 
-    let labels: Vec<String> = node.provenance.sources.iter().map(|s| s.label()).collect();
+    // Terse on purpose: this shares one row with the controls, and the
+    // long form ("… understood little of this tool's help text; treat the
+    // structure as a guess") ran past the width available and pushed them
+    // off. The percentage is the information; the reader can infer the
+    // rest, and `--doctor` has the detail.
     let pct = (confidence * 100.0).round() as u32;
-    Some(format!(
-        "low confidence ({pct}%) {} {} understood little of this tool's help text; treat the structure as a guess",
-        glyphs.dot,
-        labels.join(" + "),
-    ))
+    let _ = glyphs;
+    Some(format!("low confidence: {pct}% parsed"))
 }
 
 #[cfg(test)]
@@ -836,7 +844,9 @@ mod tests {
         let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
             .expect("low confidence must be surfaced");
         assert!(caveat.contains("11%"), "{caveat:?}");
-        assert!(caveat.contains("guess"), "{caveat:?}");
+        assert!(caveat.contains("low confidence"), "{caveat:?}");
+        // Short enough to share a row with the controls.
+        assert!(caveat.chars().count() <= 32, "too long: {caveat:?}");
     }
 
     /// The reported defect: a flag description that wraps must hang-
