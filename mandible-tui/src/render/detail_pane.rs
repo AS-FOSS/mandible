@@ -224,10 +224,16 @@ fn build_lines(
         lines.push(Line::default());
     }
 
-    lines.push(Line::from(Span::styled(
-        provenance_footer(node, glyphs),
-        style::muted(color_enabled),
-    )));
+    // Spec §9.2 names low confidence as the one sanctioned exception to
+    // single-accent, and it had never been implemented — the axis ticks
+    // that used to sit here said nothing while `find` (11%) and `ip` (9%)
+    // reported themselves as fine.
+    if let Some(caveat) = provenance_caveat(node, glyphs) {
+        lines.push(Line::from(Span::styled(
+            caveat,
+            style::warning(color_enabled),
+        )));
+    }
 
     BuiltLines {
         lines,
@@ -632,41 +638,41 @@ fn flag_line(
 
 /// The provenance footer (spec §2, §4.2): which sources contributed, and
 /// whether structure and prose each came from a trusted source.
-fn provenance_footer(node: &CommandNode, glyphs: Glyphs) -> String {
-    if node.provenance.sources.is_empty() {
-        return "no source".to_string();
+/// Confidence below this is a warning; at or above it, silence.
+///
+/// 0.5 is exactly the cap Tier B applies when no framework was identified
+/// but the generic engine parsed cleanly — `git`, `curl`, `apt-get` and
+/// `openssl` all sit there and are fine. What is worth warning about is
+/// well below it: `find` scores 0.11 and `ip` 0.09, meaning the grammar
+/// recognised almost nothing and what is on screen is a guess.
+const LOW_CONFIDENCE: f32 = 0.5;
+
+/// A caveat about *this* node, or nothing at all.
+///
+/// The footer used to read `help-text · structure ✓ · prose ✓` under every
+/// command of every tool. Both axes have authority for every tool
+/// measured, so the ticks were always ticks; the tier list was the same
+/// string on every node. It was decoration, and it crowded out the one
+/// thing in this area that carries information — how much of the help text
+/// the grammar actually understood.
+///
+/// So it now appears only when there is a caveat. Silence means "nothing
+/// to flag", which is a stronger signal than a tick that is always
+/// present, and it is the same reasoning that moved the framework out of
+/// here: repeated identical metadata is noise, not provenance.
+fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
+    let confidence = node.provenance.confidence?;
+    if confidence >= LOW_CONFIDENCE {
+        return None;
     }
+
     let labels: Vec<String> = node.provenance.sources.iter().map(|s| s.label()).collect();
-    let structural = node
-        .provenance
-        .effective_authority(mandible_core::Axis::Structural)
-        > 0;
-    let prose = node
-        .provenance
-        .effective_authority(mandible_core::Axis::Prose)
-        > 0;
-    let yes = glyphs.check;
-    let no = if glyphs.check.is_ascii() { "no" } else { "✗" };
-    let dot = glyphs.dot;
-    let footer = format!(
-        "{} {dot} structure {} {dot} prose {}",
+    let pct = (confidence * 100.0).round() as u32;
+    Some(format!(
+        "low confidence ({pct}%) {} {} understood little of this tool's help text; treat the structure as a guess",
+        glyphs.dot,
         labels.join(" + "),
-        if structural { yes } else { no },
-        if prose { yes } else { no }
-    );
-    // The detected framework deliberately does *not* appear here. It is a
-    // property of the whole tool — one generator produced all of its help
-    // text — and measuring `gh`, `docker`, `git` and `apt-get` confirms it
-    // is identical on every node. Repeating it under each command was the
-    // same string over and over. It lives in the tree pane's title, which
-    // is where the other tool-level fact already is.
-    //
-    // What stays is genuinely per-node (spec §4.2): which tiers contributed
-    // to *this* node, and whether its structural and prose axes have any
-    // authority behind them. A single badge for a whole tree would lie
-    // after a multi-tier merge, which is why it is per-node in the first
-    // place.
-    footer
+    ))
 }
 
 #[cfg(test)]
@@ -791,13 +797,32 @@ mod tests {
         );
     }
 
+    /// A confidently-parsed node says nothing. Silence is the signal that
+    /// there is nothing to flag, and it is a stronger one than a tick that
+    /// was present on every node of every tool measured.
     #[test]
-    fn provenance_footer_reflects_axes() {
-        let node = node_with_flags();
-        let footer = provenance_footer(&node, crate::glyphs::UNICODE);
-        assert!(footer.contains("carapace"));
-        assert!(footer.contains("structure ✓"));
-        assert!(footer.contains("prose"));
+    fn a_confident_node_gets_no_caveat() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
+        assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
+
+        // Exactly at the threshold is Tier B's "no framework identified but
+        // parsed cleanly" cap, where git, curl and apt-get sit. Not a
+        // warning.
+        node.provenance = Provenance::with_confidence(Source::HelpText, LOW_CONFIDENCE);
+        assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
+    }
+
+    /// A barely-parsed node says so. `find` scores 0.11 and `ip` 0.09 in
+    /// practice, and both used to report `structure ✓ · prose ✓`.
+    #[test]
+    fn a_barely_parsed_node_warns_with_its_score() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.11);
+        let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
+            .expect("low confidence must be surfaced");
+        assert!(caveat.contains("11%"), "{caveat:?}");
+        assert!(caveat.contains("guess"), "{caveat:?}");
     }
 
     /// The reported defect: a flag description that wraps must hang-
