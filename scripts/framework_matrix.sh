@@ -89,6 +89,9 @@ for case in "${CASES[@]}"; do
   rows+="| ${expected} | \`${tool}\` | ${detected:-—} | ${nodes:-—} | ${flags:-—} | ${pct:-—} | ${verdict} |"$'\n'
 done
 
+# Written to stdout *and* the step summary. Summary-only output meant a
+# failing run showed an exit code and nothing else in the logs, which is
+# precisely when you need to see the table.
 {
   echo "## Framework support matrix"
   echo
@@ -105,6 +108,6 @@ done
   else
     echo "**${failures} framework check(s) failed.**"
   fi
-} >>"$SUMMARY"
+} | tee -a "$SUMMARY"
 
 exit $((failures > 0 ? 1 : 0))

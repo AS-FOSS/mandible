@@ -121,8 +121,18 @@ jobs:
       # for visibility — this is the number that answers "does mandible
       # work on arbitrary tools", and it is not something a fixed
       # twelve-tool list can tell you.
+      # Informational, and deliberately non-blocking. A full-PATH sweep is
+      # ~1,500 tools and one to two subprocess spawns each; it has proven
+      # unreliable at that scale (killed mid-run both here and locally,
+      # with pathological binaries — 23 `qemu-*-static` at 4 MB apiece —
+      # dominating the artifact scan). The *gated* measurement is the fixed
+      # tool list above, which is reproducible; this job reports whatever
+      # it manages to cover. Making it a gate would mean a red badge for a
+      # flaky measurement rather than a real regression.
       - name: PATH sweep summary
         if: always()
+        continue-on-error: true
+        timeout-minutes: 20
         run: |
           cargo xtask coverage --format markdown --out /tmp/path-sweep.md
           {

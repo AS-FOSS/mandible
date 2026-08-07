@@ -12,7 +12,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sadigaxund/mandible"
 readme = "README.md"
@@ -42,7 +42,7 @@ rayon = "1.10"
 directories = "5.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-arboard = "3.4"
+arboard = { version = "3.4", default-features = false }
 insta = "1.40"
 proptest = "1.5"
 tempfile = "3.13"

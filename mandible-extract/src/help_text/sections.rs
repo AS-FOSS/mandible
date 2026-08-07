@@ -887,7 +887,7 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str
         let trimmed = line.trim_start();
 
         let is_entry_start = looks_like_flag_start(trimmed)
-            && min_entry_indent.map_or(true, |min| indent <= min + ENTRY_INDENT_TOLERANCE);
+            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         if is_entry_start {
             let gap = find_description_gap(line);
