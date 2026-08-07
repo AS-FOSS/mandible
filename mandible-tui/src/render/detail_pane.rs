@@ -34,7 +34,7 @@ use mandible_core::{CommandNode, Flag, FlagKey, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use ratatui::Frame;
 use std::collections::HashMap;
 
@@ -63,7 +63,13 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .title(title)
         .borders(Borders::ALL)
         .border_set(style::border_set(app.glyphs))
-        .border_style(border_style);
+        .border_style(border_style)
+        // A column of breathing room either side, so prose and flag rows
+        // don't butt against the border. `Block::padding` takes it out of
+        // the inner rect, so every width calculation downstream — wrapping,
+        // the description column, truncation — accounts for it without
+        // knowing it exists.
+        .padding(Padding::horizontal(1));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

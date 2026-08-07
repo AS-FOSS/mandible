@@ -95,9 +95,15 @@ fn hard_wrapped_description_reflows_to_the_actual_pane_width() {
 
     // The full sentence must still be present somewhere (reflowing must
     // not have dropped or corrupted words at the old wrap points).
+    // Whitespace-normalised: the pane has a column of padding either side,
+    // so cell-level extraction yields runs of spaces that are layout, not
+    // content. This assertion is about words surviving the wrap points.
     let joined = non_empty
         .iter()
         .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join(" ")
+        .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
     assert!(
