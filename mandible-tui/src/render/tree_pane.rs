@@ -206,7 +206,13 @@ fn build_row_line(
                 // enough to leave room for it; otherwise the summary
                 // simply starts right after the name (still never
                 // truncating the name to force alignment).
-                let pad_to = summary_column.max(name_part_width);
+                // At least one space, always. When a name is longer than
+                // the shared column, `pad_to` used to collapse to exactly
+                // the name's width and the summary began in the very next
+                // cell: `dselect-upgradeFollow dselect…` in `apt-get`,
+                // which reads as one mangled word rather than a name and
+                // its description.
+                let pad_to = summary_column.max(name_part_width + 1);
                 let remaining = width.saturating_sub(pad_to);
                 if remaining > 0 {
                     let padding = " ".repeat(pad_to - name_part_width);
