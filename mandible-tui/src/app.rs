@@ -5,7 +5,7 @@
 use crate::tree::{flatten, TreeRow};
 use mandible_core::{resolve, CommandNode, NodeRef};
 use mandible_search::SearchIndex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// What the search box matches against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,6 +138,13 @@ pub struct App {
     /// process-wide environment state (which is unsound across Rust's
     /// parallel test runner).
     pub color_enabled: bool,
+    /// Why a row is in the current match set, when the reason is not
+    /// visible in its own name — keyed by path, valued with the matching
+    /// flag's spelling. Searching `run` in `docker` legitimately surfaces
+    /// `ps`, because `--no-trunc` contains "run"; the match is correct but
+    /// nothing on screen said so, which reads as a broken filter. Empty
+    /// whenever no filter is active.
+    match_reasons: HashMap<Vec<String>, String>,
     /// When a search result is a flag (not a command), the flag's key
     /// within its parent command — set alongside `selected` so the detail
     /// pane can scroll to and highlight that specific flag instead of
@@ -148,23 +155,39 @@ pub struct App {
     pub selected_flag: Option<mandible_core::FlagKey>,
 }
 
-/// Subsequence match of `query` against `name`, case-insensitive — the
-/// same shape of match the fuzzy index does, just restricted to the name
-/// so `SearchMode::Name` stays consistent with what the tree pane
-/// underlines. A plain `contains` would reject `gco` matching `checkout`
-/// while the index accepted it, which would look like the filter
-/// disagreeing with itself.
+/// Case-insensitive **substring** match of `query` against `name`.
+///
+/// Deliberately literal, not a subsequence, because that is the whole
+/// point of `SearchMode::Name` existing as a separate mode. Subsequence
+/// matching is what made the narrow mode feel broken: searching `run` in
+/// `docker` surfaced `ps` and `build`, because `--no-trunc` contains
+/// r…u…n in order and a matching flag surfaces its parent command. Every
+/// hit was technically correct and none of them looked it.
+///
+/// So the two modes are now genuinely different kinds of search rather
+/// than the same search over different fields:
+///
+/// - [`SearchMode::Name`] — literal substring, over names and flag
+///   spellings. Every row shown contains what you typed.
+/// - [`SearchMode::Wide`] — the fuzzy index over names, summaries,
+///   descriptions and flag values, where `gco` still finds `checkout`.
+///
+/// One keystroke apart, and the search bar says which is active.
 fn name_matches(name: &str, query: &str) -> bool {
-    let mut haystack = name.chars().flat_map(char::to_lowercase);
-    query
-        .chars()
-        .flat_map(char::to_lowercase)
-        .all(|needle| haystack.any(|c| c == needle))
+    name.to_lowercase().contains(&query.to_lowercase())
 }
 
 /// Same test against a flag's own spellings (`-v`, `--verbose`), so
 /// name-mode search finds flags by how they're typed, never by their
 /// description.
+/// How a flag is spelled, for display as a match reason.
+fn flag_key_label(key: &mandible_core::FlagKey) -> String {
+    match key {
+        mandible_core::FlagKey::Long(l) => format!("--{l}"),
+        mandible_core::FlagKey::Short(c) => format!("-{c}"),
+    }
+}
+
 fn flag_key_matches(key: &mandible_core::FlagKey, query: &str) -> bool {
     let trimmed = query.trim_start_matches('-');
     match key {
@@ -201,6 +224,7 @@ impl App {
             status_message: None,
             search_index,
             color_enabled: crate::style::color_enabled_from_env(),
+            match_reasons: HashMap::new(),
             selected_flag: None,
         };
         app.ensure_rows_fresh();
@@ -274,8 +298,10 @@ impl App {
     /// command's path, since flags aren't tree rows (spec §2) but a flag
     /// match should still force-expand and highlight the command that
     /// owns it (spec §10: "Selecting one selects the parent command").
-    fn compute_matching_paths(&self) -> Option<HashSet<Vec<String>>> {
-        let filter = self.active_filter()?;
+    fn compute_matching_paths(&mut self) -> Option<HashSet<Vec<String>>> {
+        self.match_reasons.clear();
+        let filter = self.active_filter()?.to_string();
+        let filter = filter.as_str();
         if filter.trim().is_empty() {
             return None;
         }
@@ -300,11 +326,29 @@ impl App {
                     if self.search_mode == SearchMode::Name && !flag_key_matches(&key, filter) {
                         continue;
                     }
+                    // Record the flag as the reason only when the command's
+                    // own name doesn't explain the match, and only for the
+                    // first such flag — the row has space for one hint, and
+                    // the first is as good as any for answering "why is this
+                    // here".
+                    let name_explains = path.last().is_some_and(|n| name_matches(n, filter));
+                    if !name_explains {
+                        self.match_reasons
+                            .entry(path.clone())
+                            .or_insert_with(|| flag_key_label(&key));
+                    }
                     paths.insert(path);
                 }
             }
         }
         Some(paths)
+    }
+
+    /// The matching flag that put `path` in the result set, when the row's
+    /// own name doesn't explain it. `None` when the name is reason enough,
+    /// or when no filter is active.
+    pub fn match_reason(&self, path: &[String]) -> Option<&str> {
+        self.match_reasons.get(path).map(String::as_str)
     }
 
     /// Drive the search index's background matcher forward (spec §10
