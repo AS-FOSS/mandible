@@ -434,6 +434,28 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
         // this one.
         let allow_dash_separator = (recognized || command_mode) && !is_declared_non_command;
 
+        // Busybox's applet list (spec issue #1) is a single flat,
+        // comma-separated run under one heading — structurally distinct
+        // from every other framework's per-line bare-word block, so it
+        // gets first refusal here exactly like argparse's subparser scan
+        // above (see `FrameworkProfile::comma_separated_command_list`'s
+        // doc comment). Gated on the profile flag (busybox only) *and*
+        // this heading already being recognized or continuing a
+        // `command_mode` chain, so it can never fire for an unrelated
+        // tool's ordinary bare-word block.
+        if profile.is_some_and(|p| p.comma_separated_command_list)
+            && (recognized || command_mode)
+            && !is_declared_non_command
+        {
+            let (end, entries) = scan_comma_separated_commands(&lines, i);
+            i = end;
+            command_mode = true;
+            let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
+            total_entries += seen;
+            clean_entries += clean;
+            continue;
+        }
+
         let (end, entries) = scan_bare_block(&lines, i, heading_indent, allow_dash_separator);
         i = end;
         if is_ignorable_heading(&heading) {
@@ -1052,6 +1074,35 @@ fn scan_argparse_subparsers<'a>(
     // shape it was actually observed in (apt-get-style recognized
     // headings), not extended here without a real fixture driving it.
     Some((end, split_entries(&sub_lines, false)))
+}
+
+/// Scan a busybox-shaped comma-separated applet block starting at
+/// `lines[start]` (spec issue #1, gated on
+/// [`super::profile::FrameworkProfile::comma_separated_command_list`]).
+/// Unlike every other bare-word block this engine reads, there is no
+/// name/description split at all — the block is a flat run of `token,
+/// token, token,` entries wrapped across several lines purely for
+/// terminal width, with nothing to key a per-entry description off of —
+/// so this returns `(name, "")` pairs directly rather than delegating to
+/// [`split_entries`]'s indentation-and-column logic, which doesn't apply
+/// here. Reuses [`bare_block_end`] to find where the block ends (same
+/// "dedents below the first content line" rule every bare block uses),
+/// then just splits every non-blank line on `,`.
+fn scan_comma_separated_commands<'a>(
+    lines: &[&'a str],
+    start: usize,
+) -> (usize, Vec<(&'a str, String)>) {
+    let end = bare_block_end(lines, start);
+    let mut entries = Vec::new();
+    for line in &lines[start..end] {
+        for token in line.split(',') {
+            let name = token.trim();
+            if !name.is_empty() {
+                entries.push((name, String::new()));
+            }
+        }
+    }
+    (end, entries)
 }
 
 fn non_empty_text(s: &str) -> Option<Text> {

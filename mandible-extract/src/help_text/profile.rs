@@ -90,6 +90,30 @@ pub struct FrameworkProfile {
     /// general "deeper means continuation" rule. Gates whether the engine
     /// even attempts that dedicated scan.
     pub argparse_subparser_quirk: bool,
+    /// True only for [`Framework::Busybox`] (spec issue #1): busybox's
+    /// `Currently defined functions:` block lists every applet as one flat,
+    /// tab-indented, comma-separated run —
+    ///
+    /// ```text
+    /// Currently defined functions:
+    ///     [, [[, acpid, add-shell, addgroup, adduser, adjtimex, ar, arch, arp,
+    ///     arping, ash, awk, base32, base64, basename, bc, bunzip2, bzcat, ...
+    /// ```
+    ///
+    /// — a shape the engine's ordinary bare-block scan (one entry per
+    /// *line*, split at a 2+-space column gap) cannot express at all: every
+    /// line is many entries, separated by `, `, with no per-entry
+    /// description and no column gap anywhere. Same reasoning as
+    /// `argparse_subparser_quirk` above (see
+    /// [`super::sections::scan_argparse_subparsers`]'s doc comment) — this
+    /// is a genuinely distinct structural shape, not a knob every profile
+    /// could plausibly set, so it earns its own dedicated scan
+    /// (`super::sections::scan_comma_separated_commands`) gated on this
+    /// flag rather than a general "sometimes commas separate entries" rule
+    /// loosening the shared engine for everyone. The general grid rule
+    /// (`looks_like_word_grid_start`/`_line`, spec [M-10]) stays strict
+    /// because this never touches it.
+    pub comma_separated_command_list: bool,
 }
 
 /// The profile for `framework`. A `match` over all of [`Framework`]'s
@@ -107,6 +131,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::ClapV3V4 => FrameworkProfile {
             // clap's derive/builder help template renders `"Commands:"`,
@@ -121,6 +146,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Argparse => FrameworkProfile {
             // A titled `add_subparsers(title=...)` block renders as an
@@ -136,6 +162,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: true,
+            comma_separated_command_list: false,
         },
         Framework::Cobra => FrameworkProfile {
             // cobra's command-grouping mechanism always names a group
@@ -163,6 +190,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &["help topics"],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Click => FrameworkProfile {
             // click's `Group` help template renders a plain `"Commands:"`
@@ -171,6 +199,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
 
         // --- best-effort: plausible from documented conventions, not
@@ -181,6 +210,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::UrfaveCli => FrameworkProfile {
             // urfave/cli's default template renders `"COMMANDS:"`.
@@ -188,6 +218,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::GoFlag => FrameworkProfile {
             // The stdlib `flag` package has no subcommand mechanism of
@@ -199,6 +230,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Docopt => FrameworkProfile {
             // spec §7 Tier B: "docopt is usage-line-only" — the usage
@@ -213,6 +245,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::BsdTerse => FrameworkProfile {
             // By the fingerprint's own definition (`help_text_signature`'s
@@ -223,6 +256,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Busybox => FrameworkProfile {
             // The opposite of most entries here: busybox's whole point is
@@ -235,6 +269,9 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            // Issue #1: this is the one framework whose command list is a
+            // flat comma-separated run rather than one entry per line.
+            comma_separated_command_list: true,
         },
         Framework::Commander => FrameworkProfile {
             // commander's default help renders `"Commands:"`.
@@ -242,6 +279,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Yargs => FrameworkProfile {
             // yargs renders `"Commands:"` alongside `"Positionals:"` /
@@ -250,6 +288,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Oclif => FrameworkProfile {
             // oclif groups topics under `"TOPICS"` in addition to
@@ -258,6 +297,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::Picocli => FrameworkProfile {
             // picocli's usage help renders `"Commands:"`.
@@ -265,6 +305,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::DotNetSystemCommandLine => FrameworkProfile {
             // System.CommandLine's default help renders `"Commands:"`.
@@ -272,6 +313,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::SymfonyConsole => FrameworkProfile {
             // Symfony Console's `list` output renders `"Available
@@ -280,6 +322,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
         Framework::OptionParserOrThor => FrameworkProfile {
             // Grouped per spec §7 Tier B's own table. Thor renders
@@ -293,6 +336,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             non_command_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
+            comma_separated_command_list: false,
         },
     }
 }

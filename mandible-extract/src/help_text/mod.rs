@@ -403,6 +403,54 @@ mod tests {
         );
     }
 
+    /// Busybox (spec issue #1): the dedicated `scan_comma_separated_commands`
+    /// path, captured from this machine's real `busybox --help` output
+    /// (`tests/fixtures/help_text/busybox_help.stdout`). Before this fix
+    /// the framework fingerprinted correctly but yielded zero subcommands
+    /// — the applet list is one flat, tab-indented, comma-separated run
+    /// under `"Currently defined functions:"`, a shape the generic
+    /// per-line bare-block engine cannot express at all.
+    #[test]
+    fn busybox_profile_recovers_comma_separated_applets() {
+        let raw = fixture("busybox_help.stdout");
+        let parsed =
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Busybox)));
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        // Applets from the first, middle, and last wrapped line of the
+        // real list, so this can't pass by only recovering one line's
+        // worth of entries.
+        for want in ["acpid", "adjtimex", "grep", "mount", "wget", "zcat"] {
+            assert!(names.contains(&want), "expected {want:?} among {names:?}");
+        }
+        // `[` and `[[` are real busybox applets but fail the name-shape
+        // test (spec §7 Tier B rule 3) — dropped, not fabricated into
+        // something they're not. This just documents that the count
+        // reflects real recovery, not an accidental swallow of the whole
+        // block as one entry.
+        assert!(names.len() > 250, "got {} applets: {names:?}", names.len());
+    }
+
+    /// Busybox's own dedicated-scan regression, mirroring argparse's above:
+    /// the comma-separated scan must never fire outside a recognized
+    /// command heading, even for a framework whose profile enables it —
+    /// the heading-gate check in `parse_with_profile` is what prevents an
+    /// unrelated comma-separated list elsewhere in a busybox-identified
+    /// tool's output from being read as commands.
+    #[test]
+    fn busybox_profile_does_not_fabricate_commands_outside_a_command_heading() {
+        let raw = "Usage: widget [OPTIONS]\n\nSupported formats:\n\tjson, yaml, toml, xml\n";
+        let parsed = sections::parse_with_profile(raw, Some(&profile::profile(Framework::Busybox)));
+        assert!(
+            parsed.subcommands.is_empty(),
+            "expected zero subcommands, got {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
     /// Cobra, captured from real `gh --help` output. Exercises the
     /// trailing-colon name normalization (`"auth:        Authenticate..."`)
     /// and, just as importantly, a *negative* case: `HELP TOPICS` never
