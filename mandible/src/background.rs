@@ -60,12 +60,23 @@ pub struct Warmer {
 }
 
 impl Warmer {
-    /// Build a warmer with `min(8, available_parallelism)` worker threads.
+    /// Build a warmer with `available_parallelism * 4` worker threads,
+    /// clamped to `[4, 32]`.
+    ///
+    /// Deliberately oversubscribed relative to core count, because a
+    /// warming job is not CPU work: it spawns `<tool> <path> --help` and
+    /// then spends nearly all of its wall time blocked on that child. One
+    /// thread per core leaves the machine idle waiting on I/O, and the
+    /// trees where warming matters most (cobra CLIs with hundreds of
+    /// nodes) are exactly where that idle time compounds. The upper clamp
+    /// keeps a many-core machine from turning the prefetch into a spawn
+    /// storm against the OS process table.
     pub fn new() -> Warmer {
         let threads = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1)
-            .min(8);
+            .saturating_mul(4)
+            .clamp(4, 32);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
             .thread_name(|i| format!("mandible-warm-{i}"))
