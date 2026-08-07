@@ -59,6 +59,11 @@ fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         // "j"/"k" always searches rather than navigating.
         KeyCode::Down => app.move_down(),
         KeyCode::Up => app.move_up(),
+        // `/` while already in the box toggles what search matches
+        // against, rather than typing a slash — command names never
+        // contain one, so the keystroke is free, and it puts the mode
+        // switch on the same key that opened the box.
+        KeyCode::Char('/') => app.cycle_search_mode(),
         KeyCode::Char(c) => app.search_input_char(c),
         _ => {}
     }

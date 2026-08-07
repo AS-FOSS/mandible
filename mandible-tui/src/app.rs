@@ -7,6 +7,38 @@ use mandible_core::{resolve, CommandNode, NodeRef};
 use mandible_search::SearchIndex;
 use std::collections::HashSet;
 
+/// What the search box matches against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchMode {
+    /// Names only — command names and flag spellings. The default,
+    /// because it is the mode whose results are self-explanatory: every
+    /// row shown has the query visible in its name.
+    Name,
+    /// Names *and* summaries, descriptions, and flag values. Finds far
+    /// more, at the cost of rows whose reason for matching isn't visible
+    /// in the name column (searching `branch` in `git` surfaces `switch`
+    /// via "Switch branches"), which is exactly why it isn't the default.
+    Wide,
+}
+
+impl SearchMode {
+    /// The label the search bar shows, so the active mode is never
+    /// something the user has to remember.
+    pub fn label(self) -> &'static str {
+        match self {
+            SearchMode::Name => "names",
+            SearchMode::Wide => "names+text",
+        }
+    }
+
+    fn toggled(self) -> SearchMode {
+        match self {
+            SearchMode::Name => SearchMode::Wide,
+            SearchMode::Wide => SearchMode::Name,
+        }
+    }
+}
+
 /// Which pane currently receives keyboard input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Focus {
@@ -67,6 +99,10 @@ pub struct App {
     pub search_pinned: Option<String>,
     /// Which pane has input focus.
     pub focus: Focus,
+    /// What the search box matches against. `/` enters search in
+    /// [`SearchMode::Name`]; pressing `/` again toggles to
+    /// [`SearchMode::Wide`].
+    pub search_mode: SearchMode,
     /// Tree pane vertical scroll offset, in rows.
     pub tree_scroll: usize,
     /// How many tree rows the last rendered frame could show at once.
@@ -112,6 +148,31 @@ pub struct App {
     pub selected_flag: Option<mandible_core::FlagKey>,
 }
 
+/// Subsequence match of `query` against `name`, case-insensitive — the
+/// same shape of match the fuzzy index does, just restricted to the name
+/// so `SearchMode::Name` stays consistent with what the tree pane
+/// underlines. A plain `contains` would reject `gco` matching `checkout`
+/// while the index accepted it, which would look like the filter
+/// disagreeing with itself.
+fn name_matches(name: &str, query: &str) -> bool {
+    let mut haystack = name.chars().flat_map(char::to_lowercase);
+    query
+        .chars()
+        .flat_map(char::to_lowercase)
+        .all(|needle| haystack.any(|c| c == needle))
+}
+
+/// Same test against a flag's own spellings (`-v`, `--verbose`), so
+/// name-mode search finds flags by how they're typed, never by their
+/// description.
+fn flag_key_matches(key: &mandible_core::FlagKey, query: &str) -> bool {
+    let trimmed = query.trim_start_matches('-');
+    match key {
+        mandible_core::FlagKey::Long(l) => name_matches(l, trimmed),
+        mandible_core::FlagKey::Short(c) => name_matches(&c.to_string(), trimmed),
+    }
+}
+
 impl App {
     /// Build a new app over an already-extracted (and merged) tree, with
     /// the root expanded so the first screen isn't empty.
@@ -131,6 +192,7 @@ impl App {
             search_query: String::new(),
             search_pinned: None,
             focus: Focus::Tree,
+            search_mode: SearchMode::Name,
             tree_scroll: 0,
             tree_viewport: 0,
             detail_scroll: 0,
@@ -217,13 +279,27 @@ impl App {
         if filter.trim().is_empty() {
             return None;
         }
+        // The index matches one combined haystack per item (name plus
+        // summary, description and flag value), which is what
+        // `SearchMode::Wide` wants. `SearchMode::Name` narrows that same
+        // result set down to items whose *name* actually matches, rather
+        // than maintaining a second index: nucleo has already done the
+        // expensive part, and this filter runs over matches only.
         let mut paths = HashSet::new();
         for node_ref in self.search_index.results() {
             match node_ref {
                 NodeRef::Command(path) => {
+                    if self.search_mode == SearchMode::Name
+                        && !name_matches(path.last().map(String::as_str).unwrap_or(""), filter)
+                    {
+                        continue;
+                    }
                     paths.insert(path);
                 }
-                NodeRef::Flag { path, .. } => {
+                NodeRef::Flag { path, key } => {
+                    if self.search_mode == SearchMode::Name && !flag_key_matches(&key, filter) {
+                        continue;
+                    }
                     paths.insert(path);
                 }
             }
@@ -432,6 +508,15 @@ impl App {
         }
         self.selected_flag = None;
         self.follow_selection();
+    }
+
+    /// `/`: focus the search box. Pressing it again while the box is
+    /// already focused toggles between matching names only and matching
+    /// descriptions too — the narrow mode first, so the first thing a new
+    /// user sees is the mode whose results explain themselves.
+    pub fn cycle_search_mode(&mut self) {
+        self.search_mode = self.search_mode.toggled();
+        self.mark_dirty();
     }
 
     /// `/`: focus the search box.

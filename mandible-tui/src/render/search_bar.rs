@@ -18,7 +18,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         Style::default()
     };
     let block = Block::default()
-        .title(" search ")
+        .title(format!(
+            " search [{}]  (/ switches) ",
+            app.search_mode.label()
+        ))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(border_style);
