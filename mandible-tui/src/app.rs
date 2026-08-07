@@ -319,7 +319,14 @@ impl App {
         let row = self.rows.get(self.selected)?;
         let needs_fill = !row.children_filled && !self.pending.contains(&row.path);
         let path = row.path.clone();
-        if row.has_children && !self.expanded.contains(&path) {
+        // `needs_fill` is included deliberately: a node whose children
+        // haven't been extracted yet reports `has_children == false`, but
+        // the user pressing `→` on it is still a request to expand.
+        // Recording that intent here is what lets `splice_filled_node`
+        // stay purely mechanical — it expands nothing on its own, so the
+        // background warmer filling the whole tree no longer unfolds the
+        // whole tree on screen.
+        if (row.has_children || needs_fill) && !self.expanded.contains(&path) {
             self.expanded.insert(path.clone());
             self.mark_dirty();
         }
@@ -353,13 +360,15 @@ impl App {
     /// visible rather than requiring a second expand press.
     pub fn splice_filled_node(&mut self, path: &[String], node: CommandNode) {
         self.pending.remove(path);
-        let has_children = !node.subcommands.is_empty();
         if let Some(slot) = mandible_core::resolve_mut(&mut self.root, path) {
             *slot = node;
         }
-        if has_children {
-            self.expanded.insert(path.to_vec());
-        }
+        // Deliberately does *not* expand the node. Every node in the tree
+        // is filled in the background now, so auto-expanding on arrival
+        // unfolded the entire tree and buried the user in rows they never
+        // asked to see. Expansion is user intent, recorded by
+        // `expand_selected`; a node the user already expanded is still in
+        // `expanded`, so its children appear the moment they arrive.
         // The tree's structure (and searchable content) just changed —
         // keep the search index in sync. `populate` doesn't touch the
         // current query/pattern, only the item set, so an active search

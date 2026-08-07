@@ -17,9 +17,13 @@ about design, `spec.md` wins and you should fix this file.
 > special case in any extraction tier, no per-tool patch file vendored into this
 > repo.
 
-Tool-specific knowledge lives in exactly two places: third-party catalogs
-consumed wholesale as *data*, and user-local override files under
-`~/.config/mandible/overrides/` that are never committed here.
+Tool-specific knowledge lives in exactly one place: user-local override files
+under `~/.config/mandible/overrides/`, which are never committed here. (Spec
+revision 3 deleted the vendored catalog that used to be the second place — a
+per-tool catalog is per-tool knowledge relocated into data, and it cannot stay
+current with the tool actually installed. Parsing is keyed by *framework* now:
+see spec §7 Tier A′ and `mandible-extract/src/help_text/profile.rs`, where
+adding a framework is one `match` arm plus one fingerprint.)
 
 If a tool renders badly, the fix is a better general parser, a new general tier,
 or an honest low-confidence badge in the UI. It is never a special case. This is

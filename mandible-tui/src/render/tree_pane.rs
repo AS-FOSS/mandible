@@ -50,7 +50,12 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
     } else {
         Style::default()
     };
-    let title = format!(" {} ", defensive_single_line(&app.tool));
+    // Titled by what the pane *is*, not by the tool — the tool's own name
+    // is already the root row one line below, and printing it twice in
+    // adjacent lines read as a duplication bug. The count is the useful
+    // thing a title can add that the rows can't: how much is in here,
+    // including the part scrolled out of view.
+    let title = format!(" commands ({}) ", app.rows().len());
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
