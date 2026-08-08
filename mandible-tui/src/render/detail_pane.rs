@@ -1067,6 +1067,85 @@ mod tests {
         assert_eq!(built.target_flag_line, None);
     }
 
+    /// Render the whole frame in each of the verbatim view's three states.
+    ///
+    /// The state machine for `t` is unit-tested in `app`, but that proves
+    /// only that the right variant is *selected*; this proves it reaches
+    /// the screen. The `Failed` case matters most: a refusal that rendered
+    /// as an empty pane would be indistinguishable from a tool that prints
+    /// nothing, which is the exact confusion the view exists to remove.
+    #[test]
+    fn raw_mode_renders_each_state_to_the_screen() {
+        use crate::app::{App, RawHelp};
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        fn screen(app: &App) -> String {
+            let backend = TestBackend::new(80, 24);
+            let mut terminal = Terminal::new(backend).unwrap();
+            terminal
+                .draw(|frame| {
+                    let area = frame.area();
+                    render(frame, area, app);
+                })
+                .unwrap();
+            terminal
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|c| c.symbol())
+                .collect::<Vec<_>>()
+                .join("")
+        }
+
+        // A node that parses perfectly well, so anything verbatim on
+        // screen can only have come from the raw path overriding it.
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        let mut flag = Flag::long("verbose", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("PARSED-FLAG-DESCRIPTION"));
+        root.flags.push(flag);
+        let mut app = App::new("tool".to_string(), root);
+        let path = vec!["tool".to_string()];
+
+        let parsed = screen(&app);
+        assert!(parsed.contains("PARSED-FLAG-DESCRIPTION"), "{parsed}");
+
+        app.toggle_raw_mode();
+
+        app.mark_raw_pending(path.clone());
+        let pending = screen(&app);
+        assert!(pending.contains("verbatim"), "{pending}");
+        assert!(pending.contains("running the probe"), "{pending}");
+
+        app.set_raw_help(
+            path.clone(),
+            RawHelp::Ready(vec![Text::sanitize("RAW-HELP-LINE-FROM-THE-TOOL")]),
+        );
+        let ready = screen(&app);
+        assert!(ready.contains("RAW-HELP-LINE-FROM-THE-TOOL"), "{ready}");
+        assert!(
+            !ready.contains("PARSED-FLAG-DESCRIPTION"),
+            "the parse must be replaced, not appended: {ready}"
+        );
+
+        app.set_raw_help(
+            path.clone(),
+            RawHelp::Failed("refused: REASON-SHOWN-TO-THE-USER".to_string()),
+        );
+        let failed = screen(&app);
+        assert!(failed.contains("REASON-SHOWN-TO-THE-USER"), "{failed}");
+        assert!(
+            !failed.contains("PARSED-FLAG-DESCRIPTION"),
+            "a refusal must not silently fall back to the parse: {failed}"
+        );
+
+        // And back, to prove the override is not one-way.
+        app.toggle_raw_mode();
+        let restored = screen(&app);
+        assert!(restored.contains("PARSED-FLAG-DESCRIPTION"), "{restored}");
+    }
+
     /// Batch 6 part 4 (spec §7 Tier B step 3): a node whose parse degraded
     /// to level 3 must render its `unparsed` text, labelled as such, via
     /// the whole-frame path — not the structured `build_lines` path (which
