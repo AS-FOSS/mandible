@@ -1,35 +1,34 @@
-<!-- Logo goes here. Suggested: a 120-160px mark, centered, above the title. -->
-<p align="center">
-  <!-- <img src="docs/logo.png" alt="mandible" width="140"> -->
-</p>
+<div align="center">
 
-<h1 align="center">mandible</h1>
+<!-- LOGO: a ~96px mark goes here. Something jaw/mandible-shaped reads well at this
+     size. Replace this comment with: <img src="docs/logo.png" width="96" alt="mandible logo"> -->
 
-<p align="center">
-  <strong>A TUI manual for every command-line tool you have.</strong>
-</p>
+# mandible
 
-<p align="center">
-  <a href="https://github.com/sadigaxund/mandible/actions/workflows/ci.yml"><img src="https://github.com/sadigaxund/mandible/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml"><img src="https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml/badge.svg" alt="framework support"></a>
-  <a href="https://crates.io/crates/mandible"><img src="https://img.shields.io/crates/v/mandible.svg" alt="crates.io"></a>
-  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="license"></a>
-  <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg" alt="platforms">
-</p>
+*A TUI manual for every command-line tool you have*
 
----
+[![CI](https://github.com/sadigaxund/mandible/actions/workflows/ci.yml/badge.svg)](https://github.com/sadigaxund/mandible/actions/workflows/ci.yml)
+[![framework support](https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml/badge.svg)](https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml)
+[![crates.io](https://img.shields.io/crates/v/mandible.svg?style=flat-square)](https://crates.io/crates/mandible)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat-square)](#)
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg?style=flat-square)
 
-`man` tells you about one command. `--help` tells you about one invocation.
-Neither lets you *explore* a tool you don't already know.
+[Install](#install) • [How it works](#how-it-works) • [Keys](#keys) • [Configuration](#configuration) • [Safety](#safety)
+
+</div>
+
+`man` tells you about one command. `--help` tells you about one invocation. Neither
+lets you *explore* a tool you don't already know.
 
 ```console
 $ mandible docker
 ```
 
-opens an explorable tree of every command, subcommand, and flag — with
-descriptions — and a search bar over all of it.
+<!-- SCREENSHOT: the two-pane view on `docker`, with a subcommand selected so the
+     right pane shows its flag table. ~1200px wide reads well on GitHub. -->
 
-<!-- Screenshot goes here. -->
+A tree of every command, subcommand and flag on the left; the selected one's
+documentation on the right; fuzzy search over all of it.
 
 ## Install
 
@@ -37,71 +36,127 @@ descriptions — and a search bar over all of it.
 cargo install mandible
 ```
 
-Packages for `.deb` and `.rpm` are built from the same metadata; see
-[`packaging/`](./packaging). Linux and macOS.
+Or grab a binary — these links always point at the newest release:
 
-## Why it works on tools it has never seen
+| Platform | Download |
+|---|---|
+| Linux x86_64 | [`mandible-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-x86_64-unknown-linux-gnu.tar.gz) |
+| Linux arm64 | [`mandible-aarch64-unknown-linux-gnu.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-aarch64-unknown-linux-gnu.tar.gz) |
+| macOS Apple Silicon | [`mandible-aarch64-apple-darwin.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-aarch64-apple-darwin.tar.gz) |
+| macOS Intel | [`mandible-x86_64-apple-darwin.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-x86_64-apple-darwin.tar.gz) |
 
-**No per-tool logic, ever.** No `if tool == "docker"`, no vendored catalog of
-hand-written definitions. That approach starts out convenient and ends as an
-unmaintainable pile that is always slightly out of date.
+`.deb` and `.rpm` packages are attached to every
+[release](https://github.com/sadigaxund/mandible/releases), and each archive ships a
+`.sha256` beside it.
 
-The insight it runs on instead: **help text isn't written by hand, it's
-generated** — and only a small, closed set of generators exists. mandible
-identifies the *framework* behind a tool's output (clap, cobra, argparse, click,
-urfave/cli, GNU argp, busybox, picocli, …) and applies that framework's grammar.
+## How it works
 
-Fixing the argparse grammar improves every Python CLI ever written. A catalog
+**There is no per-tool logic anywhere in this project.** No `if tool == "docker"`,
+no vendored catalogue of hand-written definitions. That approach is convenient for a
+week and unmaintainable ever after — always slightly out of date, and wrong in ways
+you cannot see.
+
+The insight it runs on instead: **help text isn't written by hand, it's generated**,
+and only a small closed set of generators exists. mandible identifies the
+*framework* behind a tool's output and applies that framework's grammar.
+
+```
+clap v2 · clap v3/v4 · cobra · urfave/cli · Go stdlib flag · argparse · click
+docopt · GNU argp/getopt_long · busybox · commander · yargs · oclif · picocli
+System.CommandLine · Symfony Console · OptionParser/Thor · BSD-terse
+```
+
+Fixing the argparse grammar improves every Python CLI ever written. A catalogue
 entry improved exactly one tool, until it went stale.
 
-Identification is artifact-first: `spf13/cobra` appears 583× in `docker`'s own
-bytes, which is ground truth rather than a guess about section headings.
+Identification is **artifact-first**: `spf13/cobra` appears 583 times in `docker`'s
+own bytes. That is ground truth, not a guess about which section headings a tool
+happens to print this week.
 
-**When it can't parse something, it says so.** A tool matching no known grammar
-is rendered verbatim — the author's own text, untouched, labelled `unparsed`.
-Inventing structure a user can't tell is wrong is worse than admitting defeat.
+### Four sources, merged per field
 
-Detection is not the same as coverage: only a minority of tools are matched to a
-specific framework, and the rest still parse through the general layout engine.
-`mandible --doctor <tool>` tells you which happened for any given tool.
+| Source | What it gives |
+|---|---|
+| `--help` text | Universal. Every tool has it, and it is always current |
+| Completion scripts | `<tool> completion zsh`, parsed with a real shell grammar — never executed |
+| Native protocols | cobra's `__complete`, clap's completion env — structured data straight from the tool |
+| Your overrides | `~/.config/mandible/overrides/<tool>.toml`, highest authority |
 
-## Speed
+Every field remembers where it came from, so a merge can take structure from one
+source and prose from another without showing you a trust badge that lies.
 
-Startup does no extraction at all: the UI is on screen immediately, and the tree
-fills in behind it on a background pool, showing `⋯ loading` where it hasn't
-arrived yet. There is deliberately **no cache** — a cache can't see `docker`
-gaining a plugin or `git` gaining an alias from `~/.gitconfig`, and being
-confidently stale is worse than being fast.
+> [!NOTE]
+> **When it can't parse something, it says so.** A tool matching no known grammar is
+> shown verbatim — the author's own text, untouched, labelled `unparsed`. Inventing
+> structure a reader cannot tell is wrong is worse than admitting defeat. Poorly
+> parsed tools carry a visible low-confidence warning rather than pretending.
+
+### Speed
+
+Startup does no extraction at all. The interface is on screen immediately and the
+tree fills in behind it on a bounded background pool, showing `⋯ loading` where it
+hasn't arrived yet.
+
+There is deliberately **no cache**. A cache cannot see `docker` gaining a plugin or
+`git` gaining an alias from `~/.gitconfig`, and being confidently stale is worse than
+being fast.
 
 ## Keys
 
-| | |
+| Key | Action |
 |---|---|
-| `↑`/`↓`, `j`/`k` | move |
-| `→`/`Enter`, `←` | expand / collapse |
-| `/` | search. Press again to switch between **names** (command names, literal substring) and **everything** (flags, summaries and descriptions, fuzzy) |
-| `Esc` | leave search, keeping the filter; again to clear |
-| `Tab` | switch pane |
-| `y` | copy the selected flag or command path |
-| `.` | show hidden and deprecated items |
-| `r` | re-extract |
-| `?` | all keys |
-| `q` | quit (from the tree; `Ctrl-C` quits from anywhere, including mid-search) |
+| <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>k</kbd> <kbd>j</kbd> | Move |
+| <kbd>→</kbd> <kbd>Enter</kbd> · <kbd>←</kbd> | Expand · collapse |
+| <kbd>/</kbd> | Search. Press again to switch **names** ↔ **everything** |
+| <kbd>Esc</kbd> | Leave search, keeping the filter. Again clears it |
+| <kbd>Tab</kbd> | Switch pane |
+| <kbd>y</kbd> | Copy the selected flag or command path |
+| <kbd>.</kbd> | Show hidden and deprecated items |
+| <kbd>r</kbd> | Re-extract |
+| <kbd>?</kbd> | All keys |
+| <kbd>q</kbd> · <kbd>Ctrl</kbd>+<kbd>C</kbd> | Quit · quit from anywhere |
 
-## Is it actually universal?
+Search has two modes because they answer different questions. **names** matches
+command names literally, so every row contains what you typed. **everything**
+searches flags, summaries and descriptions fuzzily, so `gco` finds `checkout`.
 
-That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline
-against **every executable on your `PATH`** and writes a scoreboard — tiers hit,
-framework detected, nodes, flags, % described, and a structure-sanity column that
-catches *fabricated* output. That column exists because `%described` alone once
-reported a tool as `ok` at 100% while 39 of its 40 subcommands were invented: a
-coverage metric that can be gamed by the failure it should detect is worse than
-no metric.
+## Configuration
 
-CI gates every change against a fixed tool list, and sweeps the whole `PATH`
-separately for the broad picture.
+### Overrides
 
-For a single tool:
+Anything mandible gets wrong about a tool, you can correct locally. Drop a TOML file
+at `~/.config/mandible/overrides/<tool>.toml`:
+
+```toml
+summary = "my better one-line description"
+
+[[flags]]
+long = "verbose"
+short = "v"
+description = "a description that actually explains it"
+
+[[node]]
+path = ["build"]
+summary = "corrections apply to subcommands too"
+```
+
+These are yours and are never committed to this repository.
+
+> [!TIP]
+> An override fixes a tool for you today. Consider also opening an issue — the real
+> fix belongs in a *framework* grammar, where it improves every tool built with that
+> framework at once.
+
+### Environment
+
+| Variable | Effect |
+|---|---|
+| `NO_COLOR` | Disable colour. `TERM=dumb` and piped output do the same |
+| `MANDIBLE_ASCII=1` | Force the ASCII glyph set, for terminals that mangle Unicode |
+| `MANDIBLE_CONFIG_DIR` | Override the config directory outright |
+| `MANDIBLE_LOG` | Tracing filter, written to stderr |
+
+### Diagnostics
 
 ```console
 $ mandible --doctor gh
@@ -110,46 +165,65 @@ nodes:      29
 flags:      2 (100.0% described)
 ```
 
-## Docs
+`--doctor` reports which framework was identified, which sources contributed, and how
+much of the tool was understood. It turns *"mandible is wrong about tool X"* into
+*"the cobra grammar mishandles Y"* — a bug that can actually be fixed.
 
-- [`spec.md`](./spec.md) — design authority: the tier model, execution-safety
-  policy, and the measured baselines behind every non-obvious decision.
-- [`AGENTS.md`](./AGENTS.md) — working agreements and the invariants table, each
-  entry naming the failure it prevents.
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+## Is it actually universal?
+
+That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline against
+**every executable on your `PATH`** and scores each one: sources used, framework
+detected, nodes, flags, percentage described.
+
+It also carries a **structure-sanity** column, which exists because a coverage number
+alone can be gamed by the very failure it should catch. `%described` once reported a
+tool as fine at 100% while 39 of its 40 subcommands were fabricated out of wrapped
+prose. A metric that improves when the tool gets worse is worse than no metric.
+
+CI gates every change against a fixed tool list, and sweeps the whole `PATH`
+separately for the broad picture.
 
 ## Safety
 
 mandible finds out what a tool does by **running it** — `docker --help`,
-`git rebase --help`, and so on. Running other people's programs to read their
-documentation deserves some care, so:
+`git rebase --help`. Running other people's programs to read their documentation
+deserves some care.
 
-**Some programs are never run at all.** `kill`, `pkill`, `killall`, `fuser`,
-`reboot`, `shutdown` and their relatives exist to terminate things. There is no
-safe way to ask them for help, because mandible's questions take the shape
-`pkill something --help` — and to `pkill`, that first word is *a process to
-kill*, not a subcommand. So it doesn't ask. Use `man pkill` for those.
+> [!WARNING]
+> **Some programs are never run at all.** `kill`, `pkill`, `killall`, `fuser`,
+> `reboot`, `shutdown` and their relatives exist to terminate things. There is no
+> safe way to ask them for help, because mandible's questions take the shape
+> `pkill something --help` — and to `pkill`, that first word is *a process to kill*,
+> not a subcommand. So it doesn't ask. Use `man pkill` for those.
 
-**Everything else is asked only in a few fixed, harmless ways** — `--help`,
-`-h`, `<tool> help`, and the completion commands some tools support. mandible
-never passes an argument that could name a file to write to, never runs a tool
-with no arguments at all, and gives up on anything that hangs.
+Everything else is asked only in a few fixed, harmless ways: `--help`, `-h`,
+`<tool> help`, and the completion commands some tools support. mandible never passes
+an argument that could name a file to write to, never runs a tool bare, and gives up
+on anything that hangs.
 
-**Whatever a tool writes goes somewhere disposable.** Some programs create files
-just because you asked for help. One real example found while testing: running
-`mysql_secure_installation --help` drops a MySQL config file into your home
-directory containing a blank database password. So every probe runs with its
-home, temp and config directories pointed at a throwaway folder that is deleted
-straight afterwards, and with its working directory there too.
+**Whatever a tool writes goes somewhere disposable.** Some programs create files just
+because you asked for help — running `mysql_secure_installation --help` drops a MySQL
+config file into your home directory containing a blank database password. So every
+probe runs with its home, temp, config and working directories pointed at a throwaway
+folder that is deleted straight afterwards.
 
-**It is all in one place.** Every one of these rules lives in a single module,
-and a test fails the build if any other part of the codebase learns how to
-launch a program — so the boundary is enforced rather than merely intended.
+All of these rules live in a single module, and a test fails the build if any other
+part of the codebase learns how to launch a program.
 
-Full isolation would need OS-level sandboxing, which mandible does not yet do;
-[`spec.md`](./spec.md) §6 states plainly what is and isn't covered.
+> [!NOTE]
+> Full isolation would need OS-level sandboxing, which mandible does not yet do.
+> [`spec.md`](./spec.md) §6 states plainly what is and isn't covered.
 
-## License
+## Documentation
 
-MIT OR Apache-2.0, at your option — the Rust ecosystem's standard dual license.
-See [LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE).
+| | |
+|---|---|
+| [`spec.md`](./spec.md) | Design authority — the source model, the safety policy, and the measurement behind every non-obvious decision |
+| [`AGENTS.md`](./AGENTS.md) | The invariants table. Every entry names the failure it prevents |
+
+## Platforms
+
+Linux and macOS, on both x86_64 and arm64. Windows is not supported: the process
+containment described above relies on POSIX process groups, and native Windows tools
+use conventions (`/?`, PowerShell's own help system) that this project does not yet
+speak.
