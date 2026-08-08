@@ -16,7 +16,7 @@ use crate::background::Warmer;
 use anyhow::Context;
 use crossterm::event::{self, Event};
 use mandible_extract::{default_tiers, resolve_tool, Runner};
-use mandible_tui::app::App;
+use mandible_tui::app::{App, RawHelp};
 use mandible_tui::{clipboard, event as tui_event, layout, render, terminal, Effect};
 use std::sync::Arc;
 use std::time::Duration;
@@ -135,6 +135,22 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
             }
             _ => {}
         }
+
+        // The verbatim view (`t`) is a mode, so moving the selection while
+        // it is on has to fetch the newly-selected node's raw text. Hooked
+        // here, after every event, rather than onto each movement key:
+        // there are eight ways to move the selection (arrows, hjkl,
+        // expand, collapse, a search hit jumping to a flag's parent) and
+        // wiring the fetch into each one would leave the mode silently
+        // broken on whichever was missed. `raw_fetch_needed` is a cheap
+        // map lookup that returns `None` unless the mode is on and this
+        // node is genuinely unfetched.
+        if let Some(effect) = app.raw_fetch_needed() {
+            if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+                warmer.cancel();
+                return Ok(());
+            }
+        }
     }
 }
 
@@ -174,6 +190,24 @@ fn apply_effect(
                 app.mark_pending(path.clone());
                 warmer.submit(Arc::clone(runner), resolved.clone(), path, existing);
             }
+        }
+        // Run on the UI thread rather than through the warm pool. This is
+        // one probe of a node the warmer has almost certainly already
+        // faulted in, so it costs tens of milliseconds; routing it through
+        // the background pool would need a second result channel to carry
+        // a different payload type, for a wait nobody would notice. The
+        // pathological case is a tool that hangs until EXTRACT_TIMEOUT,
+        // which the timeout itself bounds.
+        Effect::FetchRaw(path) => {
+            app.mark_raw_pending(path.clone());
+            let result = match mandible_extract::help_text::raw_help(resolved, &path) {
+                Ok(lines) => RawHelp::Ready(lines),
+                // Shown in the pane, not swallowed: "refused: kill is
+                // never probed" is a useful answer to `t`, and a blank
+                // pane is not.
+                Err(e) => RawHelp::Failed(format!("could not fetch raw --help: {e}")),
+            };
+            app.set_raw_help(path, result);
         }
     }
     true

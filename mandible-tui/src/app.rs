@@ -3,9 +3,9 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::tree::{flatten, TreeRow};
-use mandible_core::{resolve, CommandNode, NodeRef};
+use mandible_core::{resolve, CommandNode, NodeRef, Text};
 use mandible_search::SearchIndex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 /// What the search box matches against.
@@ -71,6 +71,24 @@ pub enum Effect {
     /// [`App::mark_pending`], run the extraction, then
     /// [`App::splice_filled_node`] with the result.
     Fill(Vec<String>),
+    /// Fetch this node's raw `--help` output for the verbatim view (`t`).
+    /// The caller should run the probe and hand the result back through
+    /// [`App::set_raw_help`].
+    FetchRaw(Vec<String>),
+}
+
+/// One node's raw `--help` text, as far as the verbatim view has got.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RawHelp {
+    /// The probe was requested but hasn't returned yet.
+    Pending,
+    /// The tool's own output, one sanitized line per entry.
+    Ready(Vec<Text>),
+    /// The probe failed or was refused (spec §6 rule 0). Carries the
+    /// reason, which is shown in place of the text — a verbatim view that
+    /// silently shows nothing would be indistinguishable from a tool that
+    /// prints nothing.
+    Failed(String),
 }
 
 /// All mutable UI state for one tool's tree view.
@@ -101,6 +119,19 @@ pub struct App {
     pub search_pinned: Option<String>,
     /// Which pane has input focus.
     pub focus: Focus,
+    /// Whether the detail pane is showing the tool's own `--help` bytes
+    /// instead of mandible's reading of them (`t`).
+    ///
+    /// A *mode*, not a per-node flag: once you have started distrusting a
+    /// parse you are usually comparing several nodes, and having the view
+    /// snap back to parsed on every arrow key would make that comparison
+    /// impossible. Moving the selection while it is on fetches the new
+    /// node's raw text instead.
+    pub raw_mode: bool,
+    /// Raw `--help` text per node path, as fetched. Only ever populated
+    /// for nodes the user actually asked to see verbatim, which is why
+    /// this is a map rather than a field on every `CommandNode`.
+    raw_help: HashMap<Vec<String>, RawHelp>,
     /// What the search box matches against. `/` enters search in
     /// [`SearchMode::Name`]; pressing `/` again toggles to
     /// [`SearchMode::Wide`].
@@ -220,6 +251,8 @@ impl App {
             search_query: String::new(),
             search_pinned: None,
             focus: Focus::Tree,
+            raw_mode: false,
+            raw_help: HashMap::new(),
             search_mode: SearchMode::Name,
             tree_scroll: 0,
             tree_viewport: 0,
@@ -373,6 +406,11 @@ impl App {
     pub fn selected_node(&self) -> Option<&CommandNode> {
         let row = self.selected_row()?;
         resolve(&self.root, &row.path)
+    }
+
+    /// The selected row's path from the root, e.g. `["git", "rebase"]`.
+    pub fn selected_path(&self) -> Option<Vec<String>> {
+        Some(self.selected_row()?.path.clone())
     }
 
     fn mark_dirty(&mut self) {
@@ -602,6 +640,69 @@ impl App {
             Focus::Detail => Focus::Tree,
             Focus::Search => Focus::Tree,
         };
+    }
+
+    /// `t`: toggle the verbatim view — the tool's own `--help` bytes
+    /// instead of mandible's reading of them.
+    ///
+    /// This is the escape hatch for the one failure the rest of the
+    /// pipeline cannot signal. A node that degraded to verbatim already
+    /// says so, and a thin parse carries a low-confidence warning; what
+    /// neither covers is a grammar that produced a confident, well-formed,
+    /// *wrong* tree, which looks exactly like a correct one. Rather than
+    /// asking the user to trust a number, this shows them the source text
+    /// and lets them check.
+    ///
+    /// Returns the fetch the caller must run, if the text isn't already
+    /// in hand. Turning the mode *off* never needs one.
+    pub fn toggle_raw_mode(&mut self) -> Option<Effect> {
+        self.raw_mode = !self.raw_mode;
+        // Scroll offsets don't carry between two completely different
+        // renderings of the same node: line 40 of a flag table is not line
+        // 40 of the raw text, so keeping the offset lands the reader
+        // somewhere arbitrary in whichever view they just switched to.
+        self.detail_scroll = 0;
+        self.raw_fetch_needed()
+    }
+
+    /// The fetch required to render the current selection verbatim, if the
+    /// mode is on and this node's text is neither in hand nor already in
+    /// flight.
+    ///
+    /// Called both by [`Self::toggle_raw_mode`] and by the event loop after
+    /// every event, which is what makes the mode survive moving the
+    /// selection: each newly-selected node gets fetched once, on arrival.
+    pub fn raw_fetch_needed(&self) -> Option<Effect> {
+        if !self.raw_mode {
+            return None;
+        }
+        let path = self.selected_path()?;
+        if self.raw_help.contains_key(&path) {
+            return None;
+        }
+        Some(Effect::FetchRaw(path))
+    }
+
+    /// Mark a raw fetch as in flight, so the renderer can say so and
+    /// [`Self::raw_fetch_needed`] doesn't queue it a second time.
+    pub fn mark_raw_pending(&mut self, path: Vec<String>) {
+        self.raw_help.insert(path, RawHelp::Pending);
+    }
+
+    /// Hand back the result of a [`Effect::FetchRaw`].
+    pub fn set_raw_help(&mut self, path: Vec<String>, result: RawHelp) {
+        self.raw_help.insert(path, result);
+    }
+
+    /// The verbatim text for the current selection, if the mode is on.
+    /// `None` means "render the parsed view", so a failed fetch still
+    /// returns `Some(RawHelp::Failed)` rather than silently falling back —
+    /// switching views must never look like it did nothing.
+    pub fn raw_help_for_selected(&self) -> Option<&RawHelp> {
+        if !self.raw_mode {
+            return None;
+        }
+        self.raw_help.get(&self.selected_path()?)
     }
 
     /// `?`: toggle the keybinding overlay.
@@ -908,6 +1009,99 @@ mod tests {
             }
         }
         root
+    }
+
+    /// `t` asks for the text it doesn't have, and the fetch names the
+    /// selected node rather than the root.
+    #[test]
+    fn toggling_raw_mode_requests_the_selected_nodes_help_text() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        assert_eq!(
+            app.toggle_raw_mode(),
+            Some(Effect::FetchRaw(vec![
+                "git".to_string(),
+                "rebase".to_string()
+            ]))
+        );
+        assert!(app.raw_mode);
+    }
+
+    /// Turning the mode off asks for nothing, and — the part worth
+    /// asserting — leaves the parsed view showing even for a node whose
+    /// raw text is still cached from earlier.
+    #[test]
+    fn leaving_raw_mode_needs_no_fetch_and_hides_cached_text() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.toggle_raw_mode();
+        app.set_raw_help(
+            vec!["git".to_string()],
+            RawHelp::Ready(vec![Text::sanitize("usage: git")]),
+        );
+        assert!(app.raw_help_for_selected().is_some());
+
+        assert_eq!(app.toggle_raw_mode(), None);
+        assert!(!app.raw_mode);
+        assert!(app.raw_help_for_selected().is_none());
+    }
+
+    /// The mode survives moving the selection: each newly-selected node
+    /// gets its own fetch, which is what `raw_fetch_needed` exists for.
+    #[test]
+    fn moving_the_selection_in_raw_mode_fetches_the_new_node() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.toggle_raw_mode();
+        app.set_raw_help(vec!["git".to_string()], RawHelp::Ready(Vec::new()));
+        assert_eq!(app.raw_fetch_needed(), None, "root is already in hand");
+
+        app.move_down(); // add
+        assert_eq!(
+            app.raw_fetch_needed(),
+            Some(Effect::FetchRaw(vec!["git".to_string(), "add".to_string()]))
+        );
+    }
+
+    /// An in-flight fetch must not be queued a second time on every loop
+    /// iteration — the event loop calls `raw_fetch_needed` after *every*
+    /// event, so a `Pending` entry that didn't suppress the request would
+    /// re-probe the tool at the poll rate.
+    #[test]
+    fn a_pending_fetch_is_not_requested_again() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.toggle_raw_mode();
+        app.mark_raw_pending(vec!["git".to_string()]);
+        assert_eq!(app.raw_fetch_needed(), None);
+    }
+
+    /// A refused or failed probe stays visible instead of silently
+    /// reverting to the parsed view. Pressing `t` on `kill` must say why
+    /// nothing is shown, since a blank pane is also what a tool that
+    /// prints nothing looks like.
+    #[test]
+    fn a_failed_fetch_is_still_rendered_as_raw() {
+        let mut app = App::new("kill".to_string(), sample_tree());
+        app.toggle_raw_mode();
+        app.set_raw_help(
+            vec!["git".to_string()],
+            RawHelp::Failed("refused: never probed".to_string()),
+        );
+        assert!(matches!(
+            app.raw_help_for_selected(),
+            Some(RawHelp::Failed(_))
+        ));
+    }
+
+    /// Line 40 of a flag table is not line 40 of the raw text, so carrying
+    /// the offset across the switch lands the reader somewhere arbitrary.
+    #[test]
+    fn switching_views_resets_the_detail_scroll() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.detail_scroll = 40;
+        app.toggle_raw_mode();
+        assert_eq!(app.detail_scroll, 0);
+        app.detail_scroll = 12;
+        app.toggle_raw_mode();
+        assert_eq!(app.detail_scroll, 0);
     }
 
     #[test]

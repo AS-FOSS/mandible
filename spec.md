@@ -138,6 +138,7 @@ users actually need — the tree is for structure, search is for flags.
 | `/` | Focus search |
 | `Esc` | Leave search, **keeping** the filter pinned; `Esc` again clears it |
 | `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`) |
+| `t` | Verbatim view: re-probe this node and show the tool's own `--help` output instead of the parse |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
 | `r` | Re-extract this tool, bypassing cache |
@@ -147,6 +148,22 @@ users actually need — the tree is for structure, search is for flags.
 `y` is not a nice-to-have. Looking up a flag in order to type it is the terminal
 step of the core journey, and a reference tool that can't hand you the string
 makes you retype it.
+
+`t` is the escape hatch for the one failure mode the rest of this document's
+honesty machinery cannot signal. §7 Tier B's staged degradation labels a node it
+could not parse, and the confidence cap marks a thin parse as a guess, but a
+grammar that misreads a layout and produces a *plausible* tree is
+indistinguishable from one that read it correctly — that is exactly what the
+fabricated-subcommand regressions ([M-8], apt-get, git bisect) looked like from
+the inside, and each was caught by a human reading the tool's real output beside
+ours. Rather than reserve that check for whoever runs the coverage harness, `t`
+puts it one key away for every user, on every node.
+
+It re-probes rather than retaining raw text on every node: retention costs
+megabytes across a warmed tree to serve one node at a time, and a retained copy
+would show what the tool said at startup rather than what it says now — the same
+staleness argument that removed the cache (§11). Rule 0 of §6 applies unchanged;
+an interactive request does not make `pkill --help` safe to run.
 
 ---
 

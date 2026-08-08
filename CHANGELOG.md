@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [Unreleased]
+
+### Added
+
+- **`t` shows a node's raw `--help` output instead of the parse.** The
+  staged degradation in spec §7 labels a node it could not parse, and a
+  thin parse carries a low-confidence warning, but neither covers a
+  grammar that misreads a layout and produces a *plausible* tree: from the
+  outside that is indistinguishable from a correct one. Every fabricated
+  -subcommand regression this project has had (apt-get's description
+  paragraph, git bisect's man-page prose) was caught by a human reading
+  the tool's real output beside ours, and `t` puts that check one key away
+  on every node rather than reserving it for whoever runs the coverage
+  harness.
+
+  It re-probes on demand instead of retaining raw text for every node,
+  which would cost megabytes across a warmed tree to serve one node at a
+  time and would show what the tool said at startup rather than what it
+  says now. Refusals are rendered, not swallowed: pressing `t` on a
+  never-probe tool says so, because a blank pane is also what a tool that
+  prints nothing looks like.
+
+### Fixed
+
+- `Tab` was missing from the footer despite being bound since the first
+  release. It is how the detail pane is reached at all, so long flag lists
+  were unscrollable for anyone who had not read the `?` overlay.
+
 ## [0.1.4]
 
 ### Fixed — safety

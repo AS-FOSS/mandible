@@ -33,6 +33,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Char('/') => app.focus_search(),
         KeyCode::Tab => app.toggle_focus(),
         KeyCode::Char('.') => app.toggle_show_hidden(),
+        KeyCode::Char('t') => return app.toggle_raw_mode(),
         KeyCode::Char('r') => return Some(Effect::Refresh),
         KeyCode::Esc => app.escape_search(),
         _ => {

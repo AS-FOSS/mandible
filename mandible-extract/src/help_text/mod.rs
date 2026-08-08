@@ -123,6 +123,40 @@ fn probe_help_text(tool_path: &Path, words: &[String]) -> Result<String, Extract
     Ok(pick_stream(&short.stdout, &short.stderr))
 }
 
+/// Fetch one node's raw `--help` output verbatim, sanitized one [`Text`]
+/// per line and bounded the same way [`CommandNode::unparsed`] is.
+///
+/// This exists for the TUI's verbatim view (`t`), which answers a question
+/// no confidence score can: *is this parse actually right?* A tool whose
+/// grammar produced a confident, well-formed, wrong tree looks identical to
+/// one that produced a correct tree. Showing the author's own bytes next to
+/// our reading of them lets the person at the keyboard settle it in a
+/// second, and every degradation this crate already performs — verbatim
+/// nodes, low-confidence caps — is an admission that our reading is
+/// sometimes worth checking.
+///
+/// Deliberately **re-probes** rather than reading a retained copy. Keeping
+/// every node's raw text alive costs megabytes on a warmed tree (`git`
+/// alone reaches the 4096-node warm ceiling) to serve one node at a time,
+/// and a retained copy also ages: it would show what the tool said at
+/// startup, not what it says now, which is the same staleness argument that
+/// removed the cache in spec §11. One probe is ~10-30ms against a binary
+/// the warmer has almost certainly already faulted in.
+///
+/// Refusal for a never-probe tool (spec §6 rule 0) propagates from
+/// [`run_inert`] unchanged: `kill --help` is no safer because a human asked
+/// for it interactively.
+pub fn raw_help(tool: &ResolvedTool, path: &[String]) -> Result<Vec<Text>, ExtractError> {
+    let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
+    let words: Vec<String> = path.iter().skip(1).cloned().collect();
+    let raw = probe_help_text(tool_path, &words)?;
+    Ok(raw
+        .lines()
+        .take(MAX_UNPARSED_LINES)
+        .map(Text::sanitize)
+        .collect())
+}
+
 /// Prefer stdout when both streams are non-empty (spec §7 Tier B).
 fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     if !stdout.is_empty() {
@@ -232,6 +266,25 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         );
         std::fs::read_to_string(path).unwrap()
+    }
+
+    /// `raw_help` is a second public entry point into the exec boundary,
+    /// reached by a key press rather than by the extraction pipeline. The
+    /// never-probe refusal (spec §6 rule 0) has to hold on it too: asking
+    /// interactively is not a reason `pkill something --help` becomes safe,
+    /// and it was an interactive `mandible pkill` that froze a machine.
+    #[test]
+    fn raw_help_refuses_a_never_probe_tool() {
+        let mut tool = resolve_tool("pkill");
+        tool.path = Some(std::path::PathBuf::from("/usr/bin/pkill"));
+        let err = raw_help(&tool, &["pkill".to_string()]).expect_err("must refuse");
+        assert!(
+            matches!(
+                err,
+                ExtractError::Exec(crate::exec::ExecError::RefusedUnsafeTool { .. })
+            ),
+            "expected a refusal, got {err:?}"
+        );
     }
 
     #[test]

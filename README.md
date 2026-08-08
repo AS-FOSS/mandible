@@ -91,6 +91,11 @@ source and prose from another without showing you a trust badge that lies.
 > structure a reader cannot tell is wrong is worse than admitting defeat. Tools that
 > parsed badly carry a visible low-confidence warning.
 
+Neither of those covers the failure that matters most: a grammar that produces a
+confident, well-formed, wrong tree, which looks exactly like a correct one. So
+<kbd>t</kbd> shows the tool's own `--help` output for whatever is selected, and you
+can settle it yourself in a second rather than taking a confidence score on trust.
+
 ### Speed
 
 Startup does no extraction at all. The interface is on screen immediately and the
@@ -110,6 +115,7 @@ than being fast.
 | <kbd>/</kbd> | Search. Press again to switch names ↔ everything |
 | <kbd>Esc</kbd> | Leave search, keeping the filter. Again clears it |
 | <kbd>Tab</kbd> | Switch pane |
+| <kbd>t</kbd> | Show the tool's own `--help` output instead of the parse |
 | <kbd>y</kbd> | Copy the selected flag or command path |
 | <kbd>.</kbd> | Show hidden and deprecated items |
 | <kbd>r</kbd> | Re-extract |

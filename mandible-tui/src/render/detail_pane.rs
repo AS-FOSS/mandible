@@ -83,13 +83,28 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
+    // The user asked to see the tool's own bytes (`t`). Checked before the
+    // parsed rendering and before the degradation check below, because it
+    // is an override of both: the whole point is to see past whatever
+    // mandible decided.
+    if let Some(raw) = app.raw_help_for_selected() {
+        render_raw_mode(frame, inner, app, raw);
+        return;
+    }
+
     // Level 3 of spec §7 Tier B's staged degradation (batch 6 part 4): no
     // parse produced anything structurally plausible for this node, so it
     // carries the tool's own raw `--help` text instead of invented
     // structure. This is a fundamentally different rendering, not a
-    // variant of the structured one below — see `render_unparsed`.
+    // variant of the structured one below — see `render_verbatim`.
     if !node.unparsed.is_empty() {
-        render_unparsed(frame, inner, app, node);
+        render_verbatim(
+            frame,
+            inner,
+            app,
+            &format!("unparsed {} showing raw --help output", app.glyphs.absent),
+            node.unparsed.iter().map(|t| t.as_str().to_string()),
+        );
         return;
     }
 
@@ -118,9 +133,54 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(paragraph, inner);
 }
 
-/// Render a node whose parse degraded to level 3 (spec §7 Tier B step 3,
-/// batch 6 part 4): `node.unparsed`, one preformatted line per entry,
-/// labelled so it reads as "the author's own text", not a mandible parse.
+/// Render the verbatim view (`t`): the tool's own `--help` output for the
+/// selected node, whatever mandible made of it.
+///
+/// The three states are all rendered, not just the successful one. A view
+/// whose purpose is "show me what you were actually given" cannot answer a
+/// refused or failed probe with a blank pane, because blank is also what a
+/// tool that prints nothing looks like, and telling those apart is the
+/// entire reason someone pressed the key.
+fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::RawHelp) {
+    let heading = format!(
+        "verbatim {} the tool's own --help output",
+        app.glyphs.absent
+    );
+    match raw {
+        crate::app::RawHelp::Pending => {
+            render_verbatim(
+                frame,
+                inner,
+                app,
+                &heading,
+                std::iter::once("running the probe…".to_string()),
+            );
+        }
+        crate::app::RawHelp::Ready(lines) => {
+            render_verbatim(
+                frame,
+                inner,
+                app,
+                &heading,
+                lines.iter().map(|t| t.as_str().to_string()),
+            );
+        }
+        crate::app::RawHelp::Failed(reason) => {
+            render_verbatim(frame, inner, app, &heading, std::iter::once(reason.clone()));
+        }
+    }
+}
+
+/// Render preformatted text under a muted heading: the tool's own bytes,
+/// never re-flowed.
+///
+/// Shared by the verbatim view (`t`) and by level-3 degradation, which want
+/// the same treatment for the same reason and differ only in their label.
+///
+/// Originally written for a node whose parse degraded to level 3 (spec §7
+/// Tier B step 3, batch 6 part 4): `node.unparsed`, one preformatted line
+/// per entry, labelled so it reads as "the author's own text", not a
+/// mandible parse.
 ///
 /// Deliberately **not** run through [`wrap_words`] and **not** given
 /// `Paragraph::wrap` the way every other block in this pane is (see this
@@ -136,15 +196,21 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 /// unsanitized newline once did (spec §9) — holds regardless. Safe to hand
 /// straight to a `Span` because `Text::sanitize` already guarantees no
 /// embedded control characters or newlines reach here.
-fn render_unparsed(frame: &mut Frame, inner: Rect, app: &App, node: &CommandNode) {
-    let mut lines: Vec<Line<'static>> = Vec::with_capacity(node.unparsed.len() + 2);
+fn render_verbatim(
+    frame: &mut Frame,
+    inner: Rect,
+    app: &App,
+    heading: &str,
+    body: impl Iterator<Item = String>,
+) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
     lines.push(Line::from(Span::styled(
-        format!("unparsed {} showing raw --help output", app.glyphs.absent),
+        heading.to_string(),
         style::muted_bold(app.color_enabled),
     )));
     lines.push(Line::default());
-    for text in &node.unparsed {
-        lines.push(Line::from(text.as_str().to_string()));
+    for text in body {
+        lines.push(Line::from(text));
     }
     app.set_detail_extent(lines.len(), inner.height as usize);
     let scroll = app.clamped_detail_scroll() as u16;

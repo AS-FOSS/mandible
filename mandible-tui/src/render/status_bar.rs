@@ -30,6 +30,8 @@ fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
         format!("{} move", glyphs.arrows_vertical),
         format!("{} expand", glyphs.arrows_horizontal),
         "/ search".to_string(),
+        "Tab pane".to_string(),
+        "t raw".to_string(),
         "Esc back".to_string(),
         "y copy".to_string(),
         "? help".to_string(),
