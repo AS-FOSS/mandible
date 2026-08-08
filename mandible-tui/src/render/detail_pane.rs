@@ -682,6 +682,16 @@ const LOW_CONFIDENCE: f32 = 0.5;
 /// present, and it is the same reasoning that moved the framework out of
 /// here: repeated identical metadata is noise, not provenance.
 pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
+    // A node rendered verbatim is not a bad parse — it is the designed
+    // honest fallback (spec §7 Tier B step 3), it carries confidence 0.0
+    // by construction, and the pane already says so in its own words. Every
+    // `git` subcommand lands here, because `git clone --help` renders
+    // GIT-CLONE(1) and the man-page guard correctly refuses to mine roff
+    // prose for structure. Reporting that as "0% parsed" made a deliberate
+    // outcome read as a failure on every node of the tool.
+    if !node.unparsed.is_empty() {
+        return None;
+    }
     let confidence = node.provenance.confidence?;
     if confidence >= LOW_CONFIDENCE {
         return None;
@@ -832,6 +842,18 @@ mod tests {
         // parsed cleanly" cap, where git, curl and apt-get sit. Not a
         // warning.
         node.provenance = Provenance::with_confidence(Source::HelpText, LOW_CONFIDENCE);
+        assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
+    }
+
+    /// A node shown verbatim says nothing here: it is the designed
+    /// fallback, not a failed parse, and the pane already labels itself
+    /// `unparsed`. Every `git` subcommand is one, since `git clone --help`
+    /// renders a man page.
+    #[test]
+    fn a_verbatim_node_gets_no_caveat() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.0);
+        node.unparsed = vec![Text::sanitize("GIT-CLONE(1) Git Manual GIT-CLONE(1)")];
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
     }
 
