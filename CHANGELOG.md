@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.1.4]
+
+### Fixed — safety
+
+- **mandible no longer runs programs whose purpose is to kill processes.**
+  `mandible pkill` froze a user's machine badly enough to require a reset.
+  `kill`, `pkill`, `killall`, `killall5`, `skill`, `xkill`, `fuser` and the
+  system-state commands `halt`, `poweroff`, `reboot`, `shutdown`,
+  `telinit`, `init` are refused before anything is spawned, under every
+  argument shape.
+
+  `--help` being harmless on one machine's build is not sufficient. The
+  shapes spec §6 rule 2 permits include `<tool> <word> --help`, and for
+  these programs the first positional is a **target, not a subcommand**:
+  `killall foo --help` kills everything named `foo`. Any parser change that
+  starts emitting subcommands for one of them turns a flag list into a
+  process massacre — and the whole-tree background warmer would do it
+  without being asked.
+
+  The check lives in the single chokepoint every tier goes through, so
+  nothing can reach one by another route, including the coverage harness
+  that sweeps the whole `PATH`. A test asserts a shim named `pkill` is
+  never executed under any allowed argv.
+
+  This is a **safety** rule, deliberately distinct from §1's ban on
+  per-tool parsing knowledge: it is closed, and keyed on what a program
+  *does* rather than on how its output is formatted.
+
+### Fixed
+
+- **`mandible git` reported "low confidence: 0% parsed" on every node.** The
+  number was accurate and the conclusion was wrong: `git clone --help`
+  renders GIT-CLONE(1), 405 lines of man page, and the man-page guard
+  correctly refuses to mine roff prose for structure — so the node degrades
+  to verbatim with confidence 0.0 by construction. That is the designed
+  fallback, and the pane already says `unparsed — showing raw --help
+  output`. The caveat now skips verbatim nodes, and still fires for
+  genuinely poor parses (`find` 11%, `ip` 9%).
+
 ## [0.1.3]
 
 ### Fixed
