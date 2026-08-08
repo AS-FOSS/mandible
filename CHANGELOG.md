@@ -25,6 +25,10 @@ once it reaches a published 0.1.0 release.
   pages write such defaults anyway, and it keeps captured fixtures independent
   of the machine that captured them.
 
+  Each path is masked under both its logical and its canonicalized spelling, so
+  a probe that resolves its own working directory is covered too — on macOS
+  `$TMPDIR` sits under `/var`, a symlink to `/private/var`.
+
   A tool that wraps a scratch path across two lines still cannot be matched;
   the scratch prefix is now short to make that rarer.
 

@@ -317,27 +317,18 @@ impl Scratch {
             if std::fs::create_dir_all(&path).is_err() {
                 continue;
             }
-            masks.push((
-                path.to_string_lossy().into_owned().into_bytes(),
-                format!("${var}").into_bytes(),
-            ));
+            push_mask(&mut masks, &path, &format!("${var}"));
         }
         let cwd = dir.path().join(SCRATCH_CWD);
         if std::fs::create_dir_all(&cwd).is_ok() {
-            masks.push((
-                cwd.to_string_lossy().into_owned().into_bytes(),
-                b"$PWD".to_vec(),
-            ));
+            push_mask(&mut masks, &cwd, "$PWD");
         }
         // Backstop for a path derived from the root some other way (a tool
         // printing the parent of `$TMPDIR`, say). It should never fire,
         // and if it does, something visibly ours beats a real-looking path
-        // to a directory that no longer exists. Last, and therefore
-        // shortest-matching, because every entry above is beneath it.
-        masks.push((
-            dir.path().to_string_lossy().into_owned().into_bytes(),
-            b"$MANDIBLE_SCRATCH".to_vec(),
-        ));
+        // to a directory that no longer exists. Sorting below puts it last,
+        // since every entry above is longer and sits beneath it.
+        push_mask(&mut masks, dir.path(), "$MANDIBLE_SCRATCH");
         masks.sort_by_key(|(path, _)| std::cmp::Reverse(path.len()));
 
         Some(Scratch { _dir: dir, masks })
@@ -365,6 +356,36 @@ impl Scratch {
             out = replace_bytes(&out, path, replacement);
         }
         out
+    }
+}
+
+/// Register `mask` for `path` under **every spelling a tool might print it
+/// as** — as given, and canonicalized.
+///
+/// The two differ whenever anything on the way to the scratch directory is
+/// a symlink, and on macOS that is the default case, not an edge one:
+/// `$TMPDIR` lives under `/var`, which is a symlink to `/private/var`. A
+/// probe that resolves its own working directory (anything calling
+/// `getcwd`, `realpath`, or `pwd` with no `PWD` in the environment — and
+/// we clear the environment) therefore prints the physical path, while the
+/// logical one is what we handed it.
+///
+/// Registering only one form is worse than registering neither. CI caught
+/// exactly that: the logical key matched the tail of the physical path and
+/// left the head behind, so the output read `cwd=/private$PWD` — a mangled
+/// hybrid that is harder to recognise as wrong than an un-masked path
+/// would have been.
+fn push_mask(masks: &mut Vec<(Vec<u8>, Vec<u8>)>, path: &Path, mask: &str) {
+    let mut forms = vec![path.to_path_buf()];
+    match std::fs::canonicalize(path) {
+        Ok(real) if real != path => forms.push(real),
+        _ => {}
+    }
+    for form in forms {
+        masks.push((
+            form.to_string_lossy().into_owned().into_bytes(),
+            mask.as_bytes().to_vec(),
+        ));
     }
 }
 
@@ -871,6 +892,40 @@ mod tests {
         assert_eq!(
             String::from_utf8_lossy(&masked),
             "see $XDG_CONFIG_HOME/app.toml"
+        );
+    }
+
+    /// A tool prints whichever spelling of the path it happened to
+    /// resolve, so both have to be registered.
+    ///
+    /// Built on an explicit symlink rather than on the real scratch
+    /// directory, because on Linux `/tmp` usually is not one and the test
+    /// would assert nothing. macOS gets this for free — `$TMPDIR` sits
+    /// under `/var`, a symlink to `/private/var` — which is where CI found
+    /// it, having passed locally.
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_scratch_path_is_masked_under_both_spellings() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real");
+        std::fs::create_dir_all(&real).unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let mut masks = Vec::new();
+        push_mask(&mut masks, &link, "$HOME");
+
+        let keys: Vec<String> = masks
+            .iter()
+            .map(|(p, _)| String::from_utf8_lossy(p).into_owned())
+            .collect();
+        assert!(
+            keys.contains(&link.to_string_lossy().into_owned()),
+            "logical path missing: {keys:?}"
+        );
+        assert!(
+            keys.contains(&real.canonicalize().unwrap().to_string_lossy().into_owned()),
+            "physical path missing: {keys:?}"
         );
     }
 

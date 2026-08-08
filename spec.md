@@ -582,10 +582,16 @@ damage a user's machine, and it gets its own section and its own tests.
    `/tmp/…/.docker` could have come from any of seven variables.
 
    Matching is on this invocation's exact path, never a `/tmp/mnd-*` pattern, so
-   a temp path a tool legitimately prints is untouched. **Residual:** a tool
-   wraps its own help text at the `COLUMNS` we set, so a path split across two
-   lines cannot be matched. The scratch prefix is kept short to make that rarer;
-   it does not eliminate it.
+   a temp path a tool legitimately prints is untouched. Every path is registered
+   under **both its logical and its canonicalized spelling**, because a probe
+   that resolves its own working directory prints the physical one: on macOS
+   `$TMPDIR` sits under `/var`, a symlink to `/private/var`, so registering one
+   form left the output reading `cwd=/private$PWD` — a mangled hybrid harder to
+   spot than an unmasked path.
+
+   **Residual:** a tool wraps its own help text at the `COLUMNS` we set, so a
+   path split across two lines cannot be matched. The scratch prefix is kept
+   short to make that rarer; it does not eliminate it.
 
 A test asserts rules 1, 2, and 3 by running the full pipeline against a shim
 binary that logs its argv and environment, and failing on any invocation outside
