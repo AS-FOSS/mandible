@@ -4,12 +4,13 @@ name: framework support
 # result lands in the run's summary page rather than being buried in log
 # output:
 #
-#   1. framework-matrix — one representative tool per supported framework,
-#      checking that Tier A′ identifies the framework we expect and Tier B
-#      extracts a non-trivial tree.
+# One job: framework-matrix, which takes one representative tool per
+# supported framework and checks that Tier A′ identifies the framework we
+# expect and Tier B extracts a non-trivial tree.
+#
 # The fixed-tool-list regression gate (spec §13.1) lives in ci.yml, which
-# already runs it; duplicating it here would just run the same check twice
-# per push.
+# already runs it; duplicating it here would run the same check twice per
+# push.
 #
 # The full-PATH sweep deliberately lives in its own workflow
 # (path-sweep.yml). It is a *report*, not a gate, and it was blocking
@@ -28,12 +29,35 @@ name: framework support
 on:
   push:
     branches: [main]
+    paths-ignore:
+      # Prose changes cannot break the build, so they do not run it. Note
+      # this is `paths-ignore`, not `paths`: a run is skipped only when
+      # *every* changed file matches, so touching a workflow, a manifest or
+      # any source file still triggers everything. That also answers the
+      # obvious worry about editing a workflow and having nothing verify it.
+      #
+      # Path filters apply to `push` and `pull_request` only. A release
+      # reaches these same jobs through `workflow_call`, which ignores them,
+      # so a tag always runs the full suite regardless of what it touched.
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE-*"
+      - "NOTICE"
+      - ".gitignore"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE-*"
+      - "NOTICE"
+      - ".gitignore"
+  # Run it by hand from the Actions tab, which is what you want after
+  # changing the workflow itself.
+  workflow_dispatch:
   # Callable so the release workflow can gate on exactly these checks
   # rather than maintaining a second, drifting copy of them.
   workflow_call:
-  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

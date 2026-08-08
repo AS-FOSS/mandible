@@ -18,7 +18,7 @@
 </div>
 
 `man` tells you about one command. `--help` tells you about one invocation. Neither
-lets you *explore* a tool you don't already know.
+lets you explore a tool you don't already know.
 
 ```console
 $ mandible docker
@@ -27,8 +27,8 @@ $ mandible docker
 <!-- SCREENSHOT: the two-pane view on `docker`, with a subcommand selected so the
      right pane shows its flag table. ~1200px wide reads well on GitHub. -->
 
-A tree of every command, subcommand and flag on the left; the selected one's
-documentation on the right; fuzzy search over all of it.
+A tree of every command, subcommand and flag on the left. The selected one's
+documentation on the right. Fuzzy search over all of it.
 
 ## Install
 
@@ -36,7 +36,7 @@ documentation on the right; fuzzy search over all of it.
 cargo install mandible
 ```
 
-Or grab a binary — these links always point at the newest release:
+Or grab a binary. These links always point at the newest release:
 
 | Platform | Download |
 |---|---|
@@ -51,14 +51,14 @@ Or grab a binary — these links always point at the newest release:
 
 ## How it works
 
-**There is no per-tool logic anywhere in this project.** No `if tool == "docker"`,
-no vendored catalogue of hand-written definitions. That approach is convenient for a
-week and unmaintainable ever after — always slightly out of date, and wrong in ways
-you cannot see.
+There is no per-tool logic anywhere in this project. No `if tool == "docker"`, no
+vendored catalogue of hand-written definitions. That approach is convenient for a
+week and unmaintainable ever after. It is always slightly out of date, and it is
+wrong in ways you cannot see from the outside.
 
-The insight it runs on instead: **help text isn't written by hand, it's generated**,
-and only a small closed set of generators exists. mandible identifies the
-*framework* behind a tool's output and applies that framework's grammar.
+The insight it runs on instead: help text isn't written by hand, it's generated, and
+only a small closed set of generators exists. mandible works out which *framework*
+produced a tool's output, then applies that framework's grammar.
 
 ```
 clap v2 · clap v3/v4 · cobra · urfave/cli · Go stdlib flag · argparse · click
@@ -66,30 +66,30 @@ docopt · GNU argp/getopt_long · busybox · commander · yargs · oclif · pico
 System.CommandLine · Symfony Console · OptionParser/Thor · BSD-terse
 ```
 
-Fixing the argparse grammar improves every Python CLI ever written. A catalogue
-entry improved exactly one tool, until it went stale.
+Fix the argparse grammar and you have improved every Python CLI ever written. A
+catalogue entry improved exactly one tool, until it went stale.
 
-Identification is **artifact-first**: `spf13/cobra` appears 583 times in `docker`'s
-own bytes. That is ground truth, not a guess about which section headings a tool
-happens to print this week.
+Identification reads the binary itself before it reads any text. The string
+`spf13/cobra` appears 583 times inside `docker`. Which section headings a tool
+prints can change between releases; the library it links against does not.
 
 ### Four sources, merged per field
 
 | Source | What it gives |
 |---|---|
 | `--help` text | Universal. Every tool has it, and it is always current |
-| Completion scripts | `<tool> completion zsh`, parsed with a real shell grammar — never executed |
-| Native protocols | cobra's `__complete`, clap's completion env — structured data straight from the tool |
+| Completion scripts | `<tool> completion zsh`, parsed with a real shell grammar. Never executed |
+| Native protocols | cobra's `__complete`, clap's completion env. Structured data straight from the tool |
 | Your overrides | `~/.config/mandible/overrides/<tool>.toml`, highest authority |
 
 Every field remembers where it came from, so a merge can take structure from one
 source and prose from another without showing you a trust badge that lies.
 
 > [!NOTE]
-> **When it can't parse something, it says so.** A tool matching no known grammar is
-> shown verbatim — the author's own text, untouched, labelled `unparsed`. Inventing
-> structure a reader cannot tell is wrong is worse than admitting defeat. Poorly
-> parsed tools carry a visible low-confidence warning rather than pretending.
+> When it can't parse something, it says so. A tool matching no known grammar is
+> shown verbatim: the author's own text, untouched, labelled `unparsed`. Inventing
+> structure a reader cannot tell is wrong is worse than admitting defeat. Tools that
+> parsed badly carry a visible low-confidence warning.
 
 ### Speed
 
@@ -97,9 +97,9 @@ Startup does no extraction at all. The interface is on screen immediately and th
 tree fills in behind it on a bounded background pool, showing `⋯ loading` where it
 hasn't arrived yet.
 
-There is deliberately **no cache**. A cache cannot see `docker` gaining a plugin or
-`git` gaining an alias from `~/.gitconfig`, and being confidently stale is worse than
-being fast.
+There is deliberately no cache. A cache cannot see `docker` gaining a plugin or
+`git` gaining an alias from `~/.gitconfig`, and being confidently stale is worse
+than being fast.
 
 ## Keys
 
@@ -107,7 +107,7 @@ being fast.
 |---|---|
 | <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>k</kbd> <kbd>j</kbd> | Move |
 | <kbd>→</kbd> <kbd>Enter</kbd> · <kbd>←</kbd> | Expand · collapse |
-| <kbd>/</kbd> | Search. Press again to switch **names** ↔ **everything** |
+| <kbd>/</kbd> | Search. Press again to switch names ↔ everything |
 | <kbd>Esc</kbd> | Leave search, keeping the filter. Again clears it |
 | <kbd>Tab</kbd> | Switch pane |
 | <kbd>y</kbd> | Copy the selected flag or command path |
@@ -116,8 +116,8 @@ being fast.
 | <kbd>?</kbd> | All keys |
 | <kbd>q</kbd> · <kbd>Ctrl</kbd>+<kbd>C</kbd> | Quit · quit from anywhere |
 
-Search has two modes because they answer different questions. **names** matches
-command names literally, so every row contains what you typed. **everything**
+Search has two modes because they answer different questions. `names` matches
+command names literally, so every row you see contains what you typed. `everything`
 searches flags, summaries and descriptions fuzzily, so `gco` finds `checkout`.
 
 ## Configuration
@@ -143,8 +143,8 @@ summary = "corrections apply to subcommands too"
 These are yours and are never committed to this repository.
 
 > [!TIP]
-> An override fixes a tool for you today. Consider also opening an issue — the real
-> fix belongs in a *framework* grammar, where it improves every tool built with that
+> An override fixes a tool for you today. Consider also opening an issue: the real
+> fix belongs in a framework grammar, where it improves every tool built with that
 > framework at once.
 
 ### Environment
@@ -166,18 +166,18 @@ flags:      2 (100.0% described)
 ```
 
 `--doctor` reports which framework was identified, which sources contributed, and how
-much of the tool was understood. It turns *"mandible is wrong about tool X"* into
-*"the cobra grammar mishandles Y"* — a bug that can actually be fixed.
+much of the tool was understood. It turns "mandible is wrong about tool X" into "the
+cobra grammar mishandles Y", which is a bug someone can actually fix.
 
 ## Is it actually universal?
 
 That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline against
-**every executable on your `PATH`** and scores each one: sources used, framework
-detected, nodes, flags, percentage described.
+every executable on your `PATH` and scores each one: sources used, framework detected,
+nodes, flags, percentage described.
 
-It also carries a **structure-sanity** column, which exists because a coverage number
+It also carries a structure-sanity column, which exists because a coverage number
 alone can be gamed by the very failure it should catch. `%described` once reported a
-tool as fine at 100% while 39 of its 40 subcommands were fabricated out of wrapped
+tool as fine at 100% while 39 of its 40 subcommands had been fabricated out of wrapped
 prose. A metric that improves when the tool gets worse is worse than no metric.
 
 CI gates every change against a fixed tool list, and sweeps the whole `PATH`
@@ -185,24 +185,24 @@ separately for the broad picture.
 
 ## Safety
 
-mandible finds out what a tool does by **running it** — `docker --help`,
+mandible finds out what a tool does by running it: `docker --help`,
 `git rebase --help`. Running other people's programs to read their documentation
 deserves some care.
 
 > [!WARNING]
-> **Some programs are never run at all.** `kill`, `pkill`, `killall`, `fuser`,
-> `reboot`, `shutdown` and their relatives exist to terminate things. There is no
-> safe way to ask them for help, because mandible's questions take the shape
-> `pkill something --help` — and to `pkill`, that first word is *a process to kill*,
-> not a subcommand. So it doesn't ask. Use `man pkill` for those.
+> Some programs are never run at all. `kill`, `pkill`, `killall`, `fuser`, `reboot`,
+> `shutdown` and their relatives exist to terminate things. There is no safe way to
+> ask them for help, because mandible's questions take the shape
+> `pkill something --help`, and to `pkill` that first word is a process to kill
+> rather than a subcommand. So it doesn't ask. Use `man pkill` for those.
 
 Everything else is asked only in a few fixed, harmless ways: `--help`, `-h`,
 `<tool> help`, and the completion commands some tools support. mandible never passes
 an argument that could name a file to write to, never runs a tool bare, and gives up
 on anything that hangs.
 
-**Whatever a tool writes goes somewhere disposable.** Some programs create files just
-because you asked for help — running `mysql_secure_installation --help` drops a MySQL
+Whatever a tool writes goes somewhere disposable. Some programs create files just
+because you asked for help. Running `mysql_secure_installation --help` drops a MySQL
 config file into your home directory containing a blank database password. So every
 probe runs with its home, temp, config and working directories pointed at a throwaway
 folder that is deleted straight afterwards.
@@ -218,12 +218,12 @@ part of the codebase learns how to launch a program.
 
 | | |
 |---|---|
-| [`spec.md`](./spec.md) | Design authority — the source model, the safety policy, and the measurement behind every non-obvious decision |
+| [`spec.md`](./spec.md) | Design authority: the source model, the safety policy, and the measurement behind every non-obvious decision |
 | [`AGENTS.md`](./AGENTS.md) | The invariants table. Every entry names the failure it prevents |
 
 ## Platforms
 
-Linux and macOS, on both x86_64 and arm64. Windows is not supported: the process
+Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
 containment described above relies on POSIX process groups, and native Windows tools
 use conventions (`/?`, PowerShell's own help system) that this project does not yet
 speak.
