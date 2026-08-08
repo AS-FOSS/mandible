@@ -120,11 +120,34 @@ flags:      2 (100.0% described)
 
 ## Safety
 
-Extraction runs real tools, so it is fenced: an allowlist of inert argv forms,
-`std::process` confined to one audited module and enforced by a test, and every
-probe's CWD, `HOME`, `TMPDIR` and `XDG_*` pointed at a scratch directory created
-per invocation. That last one is not paranoia — `mysql_secure_installation
---help` was measured writing a `.my.cnf` with an empty root password.
+mandible finds out what a tool does by **running it** — `docker --help`,
+`git rebase --help`, and so on. Running other people's programs to read their
+documentation deserves some care, so:
+
+**Some programs are never run at all.** `kill`, `pkill`, `killall`, `fuser`,
+`reboot`, `shutdown` and their relatives exist to terminate things. There is no
+safe way to ask them for help, because mandible's questions take the shape
+`pkill something --help` — and to `pkill`, that first word is *a process to
+kill*, not a subcommand. So it doesn't ask. Use `man pkill` for those.
+
+**Everything else is asked only in a few fixed, harmless ways** — `--help`,
+`-h`, `<tool> help`, and the completion commands some tools support. mandible
+never passes an argument that could name a file to write to, never runs a tool
+with no arguments at all, and gives up on anything that hangs.
+
+**Whatever a tool writes goes somewhere disposable.** Some programs create files
+just because you asked for help. One real example found while testing: running
+`mysql_secure_installation --help` drops a MySQL config file into your home
+directory containing a blank database password. So every probe runs with its
+home, temp and config directories pointed at a throwaway folder that is deleted
+straight afterwards, and with its working directory there too.
+
+**It is all in one place.** Every one of these rules lives in a single module,
+and a test fails the build if any other part of the codebase learns how to
+launch a program — so the boundary is enforced rather than merely intended.
+
+Full isolation would need OS-level sandboxing, which mandible does not yet do;
+[`spec.md`](./spec.md) §6 states plainly what is and isn't covered.
 
 ## License
 
