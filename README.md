@@ -31,7 +31,7 @@ A tree of every command, subcommand and flag on the left. The selected one's
 documentation on the right. Fuzzy search over all of it.
 
 > [!TIP]
-> Anything on your `PATH` works here, `mandible` included.
+> Try running `mandible mandible`
 
 ## Install
 
