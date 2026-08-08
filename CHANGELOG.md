@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.1.6]
+
+### Fixed
+
+Three defects in re-extract (`r`), reported in
+[#6](https://github.com/sadigaxund/mandible/issues/6). The last two shared a
+cause: refresh replaced the whole `App` and then skipped both things the
+event loop does for a freshly built one.
+
+- **Holding `r` no longer piles up re-extractions.** `pipeline::load` runs a
+  full extraction on the UI thread, so on a slow tool the screen is frozen
+  for seconds while key auto-repeat keeps filling the input buffer. Every
+  one of those buffered events was typed blind at a frozen screen, and each
+  replayed into another complete re-extraction. Input that arrives during
+  the block is now discarded.
+
+  Refresh also left the previous whole-tree warming cascade running against
+  the tree it had just discarded, so N presses left N overlapping walks
+  competing for the pool. `Warmer::reset` abandons them by generation
+  rather than by rebuilding the pool, because dropping a
+  `rayon::ThreadPool` waits for its running jobs and would freeze the UI
+  for exactly as long as the work being abandoned.
+
+  The same counter that bounds warming (`MAX_WARMED_NODES`) was monotonic
+  across refreshes, so each `r` spent from a budget that never refilled
+  until background warming silently stopped working for the rest of the
+  session. It resets with the generation.
+
+- **The detail pane is no longer empty after a re-extract.** The root fill
+  is what starts the cascade that walks the tree, and it was submitted once
+  at startup and never re-queued. Afterwards the tree existed with nothing
+  filling it, and expand was the only path that still triggered extraction,
+  which is why pressing Enter appeared to fix it.
+
+- **`r` is shown in the footer.** It was bound and listed in the `?`
+  overlay from the first release but never on screen, so it could only be
+  found by someone who already knew it was there.
+
+### Changed
+
+- **Re-extract keeps your place.** It previously rebuilt the `App` from
+  scratch, discarding every expanded node, the selection, the scroll
+  position, the search filter and the view mode. That is a poor trade for a
+  key you press *because* you want to keep looking at what you are looking
+  at. The selection is restored by path rather than row index, since a
+  re-extract can change how many rows precede it.
+
+- **The footer always keeps `? help`, not only `^C quit`.** A narrow
+  terminal hides most of the row, which is exactly where a reader needs to
+  be told the full list exists. It also means adding a hint can no longer
+  quietly push `?` off the end, which is how `r` stayed invisible.
+
 ## [0.1.5]
 
 ### Added

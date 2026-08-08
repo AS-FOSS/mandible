@@ -52,9 +52,18 @@ pub struct WarmedNode {
 pub struct Warmer {
     pool: rayon::ThreadPool,
     cancelled: Arc<AtomicBool>,
-    /// How many fills have been submitted this session, against
-    /// [`MAX_WARMED_NODES`].
+    /// How many fills have been submitted against [`MAX_WARMED_NODES`]
+    /// *for the current generation*. Reset by [`Warmer::reset`].
     submitted: AtomicUsize,
+    /// Bumped by [`Warmer::reset`] to abandon everything in flight.
+    ///
+    /// A re-extract throws away the tree these jobs were filling, so their
+    /// results describe a tree that no longer exists. They cannot be
+    /// cancelled outright (a running probe is blocked in `wait()` and a
+    /// rayon worker cannot be safely force-killed), so each job instead
+    /// compares the generation it was submitted under against the current
+    /// one and drops its result on the floor if they differ.
+    generation: Arc<AtomicUsize>,
     tx: Sender<WarmedNode>,
     rx: Receiver<WarmedNode>,
 }
@@ -87,6 +96,7 @@ impl Warmer {
             pool,
             cancelled: Arc::new(AtomicBool::new(false)),
             submitted: AtomicUsize::new(0),
+            generation: Arc::new(AtomicUsize::new(0)),
             tx,
             rx,
         }
@@ -110,13 +120,20 @@ impl Warmer {
             return false;
         }
         let cancelled = Arc::clone(&self.cancelled);
+        let generation = Arc::clone(&self.generation);
+        let submitted_under = generation.load(Ordering::Relaxed);
         let tx = self.tx.clone();
         self.pool.spawn(move || {
-            if cancelled.load(Ordering::Relaxed) {
+            let stale = |g: &AtomicUsize| g.load(Ordering::Relaxed) != submitted_under;
+            if cancelled.load(Ordering::Relaxed) || stale(&generation) {
                 return;
             }
             let result = runner.fill_node(&tool, &path, existing);
-            if cancelled.load(Ordering::Relaxed) {
+            // Checked again after the probe, not only before it: a
+            // re-extract that lands mid-probe is exactly the case this
+            // exists for, and splicing this result would put a node from
+            // the discarded tree into the new one.
+            if cancelled.load(Ordering::Relaxed) || stale(&generation) {
                 return;
             }
             let _ = tx.send(WarmedNode { path, result });
@@ -181,10 +198,109 @@ impl Warmer {
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed);
     }
+
+    /// Abandon everything in flight and start a fresh warming budget,
+    /// keeping the thread pool.
+    ///
+    /// Called on re-extract (`r`). Without it, that key was doubly
+    /// unbounded: the previous whole-tree cascade kept running against a
+    /// tree that had just been thrown away, so N re-extracts left N
+    /// overlapping walks competing for the pool; and `submitted` is
+    /// monotonic, so each one spent from a [`MAX_WARMED_NODES`] budget
+    /// that was never replenished, until warming silently stopped working
+    /// for the rest of the session.
+    ///
+    /// The pool itself is deliberately reused rather than rebuilt.
+    /// Dropping a `rayon::ThreadPool` waits for its running jobs, and a
+    /// job blocked on a probe can take up to the extraction timeout, so
+    /// rebuilding would freeze the UI for exactly as long as the work we
+    /// are trying to abandon. Bumping a generation gets the same result
+    /// immediately: in-flight probes still finish, but their results are
+    /// discarded instead of spliced.
+    pub fn reset(&self) {
+        self.generation.fetch_add(1, Ordering::Relaxed);
+        self.submitted.store(0, Ordering::Relaxed);
+        // Results that arrived from the old generation but haven't been
+        // drained yet describe the discarded tree too.
+        while self.rx.try_recv().is_ok() {}
+    }
 }
 
 impl Default for Warmer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mandible_core::{CommandNode, Provenance, Source};
+
+    fn warmed(path: &[&str]) -> WarmedNode {
+        WarmedNode {
+            path: path.iter().map(|s| s.to_string()).collect(),
+            result: FillResult {
+                node: CommandNode::new(
+                    path.last().copied().unwrap_or("root"),
+                    Provenance::single(Source::HelpText),
+                ),
+                tier_statuses: Vec::new(),
+                elapsed: std::time::Duration::ZERO,
+            },
+        }
+    }
+
+    /// `submitted` is the [`MAX_WARMED_NODES`] budget, and it was
+    /// monotonic: every re-extract spent from a pool that never refilled,
+    /// so enough of them silently disabled background warming for the
+    /// rest of the session.
+    #[test]
+    fn reset_replenishes_the_warming_budget() {
+        let warmer = Warmer::new();
+        warmer.submitted.store(MAX_WARMED_NODES, Ordering::Relaxed);
+        warmer.reset();
+        assert_eq!(warmer.submitted.load(Ordering::Relaxed), 0);
+    }
+
+    /// Results already sitting in the channel describe the tree that the
+    /// re-extract just discarded, so they must not survive into the new
+    /// one.
+    #[test]
+    fn reset_discards_undrained_results_from_the_old_generation() {
+        let warmer = Warmer::new();
+        warmer.tx.send(warmed(&["git", "rebase"])).unwrap();
+        warmer.tx.send(warmed(&["git", "add"])).unwrap();
+
+        warmer.reset();
+
+        assert!(
+            warmer.drain().is_empty(),
+            "stale fills must not be spliced into the replacement tree"
+        );
+    }
+
+    /// A job that finishes *after* a reset compares generations and drops
+    /// its result. Exercised directly against the flag rather than through
+    /// a real probe, since the point is the comparison, not the spawn.
+    #[test]
+    fn a_job_submitted_before_a_reset_is_stale_afterwards() {
+        let warmer = Warmer::new();
+        let submitted_under = warmer.generation.load(Ordering::Relaxed);
+        warmer.reset();
+        assert_ne!(
+            warmer.generation.load(Ordering::Relaxed),
+            submitted_under,
+            "in-flight jobs detect abandonment by this counter changing"
+        );
+    }
+
+    /// Draining is unaffected in the ordinary case: reset is the only
+    /// thing that throws results away.
+    #[test]
+    fn drain_returns_results_when_nothing_was_reset() {
+        let warmer = Warmer::new();
+        warmer.tx.send(warmed(&["git", "rebase"])).unwrap();
+        assert_eq!(warmer.drain().len(), 1);
     }
 }

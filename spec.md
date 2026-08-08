@@ -141,7 +141,7 @@ users actually need — the tree is for structure, search is for flags.
 | `t` | Verbatim view: re-probe this node and show the tool's own `--help` output instead of the parse |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
-| `r` | Re-extract this tool, bypassing cache |
+| `r` | Re-extract this tool. Preserves expansion, selection, filter and view mode; abandons the in-flight warming cascade and restarts it |
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 

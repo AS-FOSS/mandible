@@ -34,6 +34,7 @@ fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
         "t raw".to_string(),
         "Esc back".to_string(),
         "y copy".to_string(),
+        "r reload".to_string(),
         "? help".to_string(),
         "^C quit".to_string(),
     ]
@@ -43,36 +44,49 @@ fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
 /// long string rather than a list of separate keys.
 const HINT_GAP: &str = "    ";
 
+/// How many trailing hints are never dropped, however narrow the row.
+const PINNED_HINTS: usize = 2;
+
 /// Left margin, matching the panes' own border-plus-padding above, so the
 /// hints don't start hard against the screen edge one row below a border.
 const LEFT_MARGIN: &str = "  ";
 
-/// Join as many hints as fit, **always keeping `^C quit`**.
+/// Join as many hints as fit, **always keeping `? help` and `^C quit`**.
 ///
 /// Plain truncation cut the row mid-word at narrow widths — an 88-column
 /// terminal showed `… ^C qu`, losing the one hint that matters most to
 /// someone who is stuck. Hints are dropped from the least important end
-/// instead, so what remains is always whole and always ends in the escape
-/// hatch.
+/// instead, so what remains is always whole.
+///
+/// Two are pinned rather than one. `^C quit` is the escape hatch, and `?`
+/// is what makes everything dropped from the middle discoverable again: a
+/// narrow terminal that hides two thirds of the footer is exactly where a
+/// reader most needs to be told the full list exists. Pinning it also
+/// means adding a hint can no longer silently push it off the row, which
+/// is how `r` stayed invisible for five releases.
 fn hints_for_width(width: usize, glyphs: crate::glyphs::Glyphs) -> String {
     let all = hints(glyphs);
-    let (quit, rest) = all.split_last().expect("hints() is never empty");
+    let split = all.len().saturating_sub(PINNED_HINTS);
+    let (rest, pinned) = all.split_at(split);
+    let pinned_len: usize = pinned.iter().map(|h| h.chars().count()).sum::<usize>()
+        + HINT_GAP.chars().count() * pinned.len().saturating_sub(1);
+
     let mut kept: Vec<&str> = Vec::new();
     for hint in rest {
         let candidate_len = kept
             .iter()
             .copied()
             .chain(std::iter::once(hint.as_str()))
-            .chain(std::iter::once(quit.as_str()))
             .map(|h| h.chars().count())
             .sum::<usize>()
+            + pinned_len
             + HINT_GAP.chars().count() * (kept.len() + 1);
         if candidate_len > width {
             break;
         }
         kept.push(hint);
     }
-    kept.push(quit);
+    kept.extend(pinned.iter().map(|h| h.as_str()));
     kept.join(HINT_GAP)
 }
 
@@ -152,6 +166,23 @@ mod tests {
         }
     }
 
+    /// Every key that changes what the tool does must be reachable without
+    /// opening `?` first.
+    ///
+    /// `r` was bound and listed in the overlay from the first release but
+    /// never shown here, so the only way to discover it was to already know
+    /// it existed. Listing them explicitly means removing one fails a test
+    /// rather than quietly shrinking the footer.
+    #[test]
+    fn every_action_key_is_named_at_full_width() {
+        let rendered = hints_for_width(140, crate::glyphs::UNICODE);
+        for key in [
+            "/ search", "Tab pane", "t raw", "y copy", "r reload", "? help",
+        ] {
+            assert!(rendered.contains(key), "{key} missing from {rendered:?}");
+        }
+    }
+
     /// Every hint stays readable without Unicode — the footer is the last
     /// thing that should turn into boxes for someone who cannot get out.
     #[test]
@@ -169,6 +200,9 @@ mod tests {
         for width in [20, 30, 40, 60, 88] {
             let hints = hints_for_width(width, crate::glyphs::UNICODE);
             assert!(hints.contains("^C quit"), "width {width}: {hints:?}");
+            // A narrow row hides most of the footer, which is exactly
+            // where the reader needs to know the full list exists.
+            assert!(hints.contains("? help"), "width {width}: {hints:?}");
             assert!(
                 hints.chars().count() <= width.max(7),
                 "width {width} overflowed: {hints:?}"

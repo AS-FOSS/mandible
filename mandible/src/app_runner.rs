@@ -21,6 +21,9 @@ use mandible_tui::{clipboard, event as tui_event, layout, render, terminal, Effe
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Upper bound on events dropped after a blocking re-extract.
+const MAX_DISCARDED_EVENTS: usize = 1024;
+
 /// Run the interactive TUI for `app` until the user quits. Always restores
 /// the terminal on the way out, even if the loop returns an error.
 pub fn run(mut app: App) -> anyhow::Result<()> {
@@ -40,16 +43,7 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
     // discovers everything; its result then cascades into the children it
     // finds. Nothing is extracted on the main thread, which is what makes
     // launching instant regardless of how slow the tool is to probe.
-    {
-        let root_path = vec![app.root.name.clone()];
-        app.mark_pending(root_path.clone());
-        warmer.submit(
-            Arc::clone(&runner),
-            resolved.clone(),
-            root_path,
-            app.root.clone(),
-        );
-    }
+    submit_root_fill(app, &runner, &resolved, &warmer);
 
     loop {
         // Splice in any background fills that completed since the last
@@ -173,17 +167,29 @@ fn apply_effect(
             app.set_status(status);
         }
         Effect::Refresh => {
+            // Abandon the previous whole-tree walk *first*. Its results
+            // describe the tree about to be replaced, and without this
+            // every `r` left another cascade running against a discarded
+            // tree while eating from a warming budget that never refilled.
+            warmer.reset();
+
             let loaded = crate::pipeline::load(&app.tool);
             match loaded.root {
                 Some(root) => {
-                    let tool = app.tool.clone();
-                    *app = App::new(tool, root);
+                    app.reload(root);
+                    // Re-queue the root fill. This is what restarts the
+                    // cascade that walks the tree; without it the pane sat
+                    // empty after a re-extract until the user pressed
+                    // Enter, because expand was the only remaining path
+                    // that still triggered extraction.
+                    submit_root_fill(app, runner, resolved, warmer);
                     app.set_status("re-extracted");
                 }
                 None => {
                     app.set_status("re-extraction failed: no tier produced a result");
                 }
             }
+            discard_input_typed_during_the_block();
         }
         Effect::Fill(path) => {
             if let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() {
@@ -211,4 +217,50 @@ fn apply_effect(
         }
     }
     true
+}
+
+/// Queue the root for a background fill, which is what starts the cascade
+/// that walks the whole tree.
+///
+/// Shared by startup and by re-extract, deliberately: these are the two
+/// moments a tree exists with nothing filling it, and having only the
+/// startup path do it is precisely how `r` came to leave an empty pane.
+fn submit_root_fill(
+    app: &mut App,
+    runner: &Arc<Runner>,
+    resolved: &mandible_extract::ResolvedTool,
+    warmer: &Warmer,
+) {
+    let root_path = vec![app.root.name.clone()];
+    app.mark_pending(root_path.clone());
+    warmer.submit(
+        Arc::clone(runner),
+        resolved.clone(),
+        root_path,
+        app.root.clone(),
+    );
+}
+
+/// Throw away input that arrived while a blocking re-extract held the loop.
+///
+/// `pipeline::load` runs a full extraction on this thread, so on a slow
+/// tool the UI is unresponsive for seconds. Key auto-repeat keeps filling
+/// crossterm's buffer throughout, and every one of those events was typed
+/// blind at a frozen screen. Replaying them meant holding `r` queued one
+/// more complete re-extraction per repeat, which is what made the key look
+/// like it spawned unbounded work.
+///
+/// Bounded rather than looping until empty, so a key that is genuinely
+/// stuck down cannot keep us here indefinitely.
+fn discard_input_typed_during_the_block() {
+    for _ in 0..MAX_DISCARDED_EVENTS {
+        match event::poll(Duration::from_millis(0)) {
+            Ok(true) => {
+                if event::read().is_err() {
+                    return;
+                }
+            }
+            _ => return,
+        }
+    }
 }

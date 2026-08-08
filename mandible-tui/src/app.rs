@@ -642,6 +642,46 @@ impl App {
         };
     }
 
+    /// Swap in a freshly extracted tree (`r`), keeping the user where they
+    /// were.
+    ///
+    /// Refresh used to be `*app = App::new(tool, root)`, which threw away
+    /// every expanded node, the selection, the scroll position, the search
+    /// filter and the view mode. That is a poor trade for a key whose whole
+    /// purpose is "the tool changed under me": you press it *because* you
+    /// want to keep looking at the thing you are looking at, and it dumped
+    /// you back at the root.
+    ///
+    /// The selection is restored by path rather than by row index, since a
+    /// re-extract can change how many rows precede it. A node that no
+    /// longer exists in the new tree leaves the selection clamped to the
+    /// nearest valid row instead of pointing past the end.
+    pub fn reload(&mut self, root: CommandNode) {
+        let previously_selected = self.selected_path();
+
+        self.root = root;
+        // Fills queued against the old tree are abandoned by the caller,
+        // so nothing is still pending for this one.
+        self.pending.clear();
+        // Re-probed on demand. The point of a re-extract is that the tool
+        // may have changed, which makes cached raw output exactly as stale
+        // as the tree it came from.
+        self.raw_help.clear();
+
+        self.search_index = SearchIndex::new();
+        self.search_index.populate(&self.root);
+        let filter = self.active_filter().unwrap_or("").to_string();
+        self.search_index.set_query(&filter);
+
+        self.mark_dirty();
+        self.ensure_rows_fresh();
+
+        self.selected = previously_selected
+            .and_then(|path| self.rows.iter().position(|row| row.path == path))
+            .unwrap_or_else(|| self.selected.min(self.rows.len().saturating_sub(1)));
+        self.detail_scroll = 0;
+    }
+
     /// `t`: toggle the verbatim view — the tool's own `--help` bytes
     /// instead of mandible's reading of them.
     ///
@@ -1009,6 +1049,92 @@ mod tests {
             }
         }
         root
+    }
+
+    /// Re-extract used to be `*app = App::new(...)`, which dumped the
+    /// user back at the root with everything collapsed. You press `r`
+    /// *because* you want to keep looking at what you are looking at.
+    #[test]
+    fn reload_keeps_the_selection_on_the_same_node() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        assert_eq!(app.selected_node().unwrap().name, "rebase");
+
+        app.reload(sample_tree());
+
+        assert_eq!(
+            app.selected_node().unwrap().name,
+            "rebase",
+            "selection is restored by path, not by row index"
+        );
+    }
+
+    /// A re-extract can legitimately remove a node. That must clamp, not
+    /// leave the selection pointing past the end of the row list.
+    #[test]
+    fn reload_clamps_when_the_selected_node_is_gone() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+
+        let mut shrunk = CommandNode::new("git", Provenance::single(Source::HelpText));
+        shrunk.subcommands.push(CommandNode::new(
+            "add",
+            Provenance::single(Source::HelpText),
+        ));
+        app.reload(shrunk);
+
+        assert!(app.selected < app.rows().len(), "selection ran off the end");
+        assert!(app.selected_node().is_some());
+    }
+
+    /// Expansion survives, so a re-extract does not collapse a tree the
+    /// user spent time opening.
+    #[test]
+    fn reload_keeps_expanded_nodes_expanded() {
+        // The known-complete fixture, so expanding actually reveals the
+        // child rather than requesting a fill for it.
+        let mut app = App::new("git".to_string(), sample_tree_known_complete());
+        app.selected = 2; // rebase
+        app.expand_selected();
+        // `rows()` is a cache; the event loop refreshes it each iteration.
+        app.ensure_rows_fresh();
+        let expanded_rows = app.rows().len();
+        assert!(expanded_rows > 3, "precondition: rebase opened a child");
+
+        app.reload(sample_tree_known_complete());
+
+        assert_eq!(app.rows().len(), expanded_rows);
+    }
+
+    /// Cached verbatim text describes the tree that was just thrown away,
+    /// which makes it exactly as stale as the tree itself.
+    #[test]
+    fn reload_drops_cached_raw_help() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.toggle_raw_mode();
+        app.set_raw_help(
+            vec!["git".to_string()],
+            RawHelp::Ready(vec![Text::sanitize("stale")]),
+        );
+        assert!(app.raw_help_for_selected().is_some());
+
+        app.reload(sample_tree());
+
+        assert!(
+            app.raw_help_for_selected().is_none(),
+            "must re-probe rather than show output from the previous tree"
+        );
+        assert!(app.raw_mode, "the view mode itself is the user's choice");
+    }
+
+    /// Fills queued against the old tree are abandoned by the caller, so
+    /// nothing should still render as loading afterwards.
+    #[test]
+    fn reload_clears_pending_fills() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.mark_pending(vec!["git".to_string(), "rebase".to_string()]);
+        app.reload(sample_tree());
+        assert!(!app.is_pending(&["git".to_string(), "rebase".to_string()]));
     }
 
     /// `t` asks for the text it doesn't have, and the fetch names the
