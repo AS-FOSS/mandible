@@ -35,6 +35,7 @@ pub mod native;
 pub mod overrides;
 
 pub use errors::ExtractError;
+pub use exec::is_never_probe;
 pub use resolve::{resolve_tool, ResolvedTool};
 pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
 pub use tier::ExtractionTier;

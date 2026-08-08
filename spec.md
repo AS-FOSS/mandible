@@ -464,6 +464,27 @@ damage a user's machine, and it gets its own section and its own tests.
 6. **Sanitized environment.** Clear `LESS`, `PAGER`, `MANPAGER`, `GIT_PAGER`;
    set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`. Without this,
    a tool may page its own help and hang forever, or emit ANSI into the IR.
+0. **Never run a program whose purpose is to kill processes.** `kill`, `pkill`,
+   `killall`, `killall5`, `skill`, `xkill`, `fuser`, and the system-state
+   commands `halt`, `poweroff`, `reboot`, `shutdown`, `telinit`, `init` are
+   refused before anything is spawned, under every argument shape.
+
+   `--help` being harmless on one machine's build is not sufficient. The shapes
+   rule 2 permits include `<tool> <word> --help`, and for these programs the
+   first positional is a **target, not a subcommand** — `killall foo --help`
+   kills everything named `foo`. A user reported `mandible pkill` freezing their
+   machine badly enough to require a reset. The trade is not close: what is on
+   offer is a flag list, and the downside is someone's session.
+
+   **This is a safety rule, and is deliberately not the per-tool knowledge §1
+   forbids.** §1 governs *extraction* — "if a tool renders badly, fix the
+   general parser" — because such lists grow without bound and rot. This list is
+   about what may be *executed at all*, is closed, and every entry shares one
+   property that is a fact about the program rather than about its output
+   format. The check lives in `exec::run_inert`, which every tier goes through,
+   so no tier can reach one of these by another route; a test asserts a shim
+   named `pkill` is never executed under any allowed argv.
+
 7. **Never write.** No tier may pass an argument that could name a file the tool
    would create or modify.
 8. **Redirect every writable location a probe might reach.** Rule 7 is not

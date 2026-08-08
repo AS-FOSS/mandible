@@ -43,6 +43,14 @@ pub enum ExecError {
         #[source]
         source: std::io::Error,
     },
+    /// The tool is on the never-probe list (spec §6 rule 0): its whole
+    /// purpose is to terminate or signal processes, so no argument vector
+    /// is reliably inert and mandible declines to run it at all.
+    #[error("{path} is not probed: its purpose is to signal or terminate processes")]
+    RefusedUnsafeTool {
+        /// The path that was refused.
+        path: String,
+    },
 }
 
 /// The captured result of running a tool under the exec policy.
@@ -80,6 +88,13 @@ pub fn run_inert(
     timeout: Duration,
 ) -> Result<ExecOutput, ExecError> {
     let path_str = tool_path.display().to_string();
+
+    // Refuse outright, before anything is spawned (spec §6 rule 0).
+    if is_never_probe(tool_path) {
+        return Err(ExecError::RefusedUnsafeTool {
+            path: path_str.clone(),
+        });
+    }
 
     let mut cmd = Command::new(tool_path);
     cmd.args(argv.args());
@@ -287,6 +302,55 @@ where
     })
 }
 
+/// Programs mandible will never execute, under any argument shape.
+///
+/// **This is a safety rule, not a parsing rule**, and the distinction is
+/// what keeps it clear of §1. §1 forbids per-tool knowledge in *extraction*
+/// — "if a tool renders badly, fix the general parser" — because that kind
+/// of list grows without bound and rots. This list is about what is safe to
+/// *run at all*, it is closed, and every entry shares one property: the
+/// program's entire purpose is to terminate or signal other processes, so
+/// there is no argument vector that is reliably inert.
+///
+/// `--help` being safe on *this* machine's build is not enough. The shapes
+/// spec §6 rule 2 allows include `<tool> <word> --help`, and for these
+/// programs the first positional is a *target*, not a subcommand:
+/// `killall foo --help` kills everything named `foo`. A user reported
+/// `mandible pkill` freezing their machine badly enough to require a reset.
+/// Whatever the exact path to that, running a process-killer to find out
+/// what its flags are is a trade this tool should never make — the whole
+/// value on offer is a flag list, and the downside is someone's session.
+///
+/// Matched on the file name only, so a copy under another path is caught
+/// too, and the tool still appears in the UI — labelled as deliberately not
+/// probed, which is more honest than silently showing nothing.
+const NEVER_PROBE: &[&str] = &[
+    // Signal senders: the first positional is a process to kill.
+    "kill",
+    "pkill",
+    "killall",
+    "killall5",
+    "skill",
+    "xkill",
+    "fuser",
+    // System state: no argument vector is worth risking.
+    "halt",
+    "poweroff",
+    "reboot",
+    "shutdown",
+    "telinit",
+    "init",
+    "systemctl-shutdown",
+];
+
+/// True if `tool_path` names a program from [`NEVER_PROBE`].
+pub fn is_never_probe(tool_path: &Path) -> bool {
+    tool_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| NEVER_PROBE.contains(&name))
+}
+
 /// Variables a version manager needs to find the program it stands in for.
 ///
 /// A deliberate, bounded loosening of spec §6 rule 8, which redirects
@@ -344,6 +408,58 @@ fn kill_process_group(child: &mut Child) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A never-probe tool is refused *before* anything is spawned, for
+    /// every argument shape — the check lives in `run_inert`, which every
+    /// tier goes through, so no tier can reach one by another route.
+    #[test]
+    fn never_probe_tools_are_refused_without_spawning() {
+        let dir = tempfile::tempdir().unwrap();
+        // A shim named `pkill` that would report if it ever ran. It must
+        // not: the refusal is on the file name, before spawn.
+        let path = dir.path().join("pkill");
+        std::fs::write(&path, "#!/bin/sh\ntouch \"$0.ran\"\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        for argv in [
+            InertArgv::HelpLong,
+            InertArgv::HelpShort,
+            InertArgv::HelpLongForPath {
+                words: vec!["anything".to_string()],
+            },
+            InertArgv::CobraComplete { words: vec![] },
+        ] {
+            let result = run_inert(&path, &argv, Duration::from_secs(2));
+            assert!(
+                matches!(result, Err(ExecError::RefusedUnsafeTool { .. })),
+                "{argv:?} should have been refused"
+            );
+        }
+        assert!(
+            !path.with_extension("ran").exists() && !dir.path().join("pkill.ran").exists(),
+            "the shim was executed — the refusal is not before spawn"
+        );
+    }
+
+    /// The list is closed and every entry is a process-killer or a
+    /// system-state command. It is a *safety* rule, not a parsing one, and
+    /// must not grow into the per-tool catalogue §1 forbids.
+    #[test]
+    fn never_probe_list_stays_small_and_matches_by_file_name() {
+        assert!(
+            NEVER_PROBE.len() <= 20,
+            "this list must not become a catalogue"
+        );
+        assert!(is_never_probe(Path::new("/usr/bin/pkill")));
+        assert!(is_never_probe(Path::new("/some/other/place/killall")));
+        // A tool that merely *contains* a listed name is not matched.
+        assert!(!is_never_probe(Path::new("/usr/bin/killall-not-really")));
+        assert!(!is_never_probe(Path::new("/usr/bin/git")));
+    }
 
     /// `HOME` stays redirected while toolchain-resolution variables get
     /// through. Both halves matter: the redirect is what stops a probe

@@ -38,4 +38,4 @@ mod policy;
 mod spawn;
 
 pub use policy::InertArgv;
-pub use spawn::{run_inert, ExecError, ExecOutput, MAX_OUTPUT_BYTES};
+pub use spawn::{is_never_probe, run_inert, ExecError, ExecOutput, MAX_OUTPUT_BYTES};

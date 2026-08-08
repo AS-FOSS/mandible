@@ -43,6 +43,26 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    let resolved = mandible_extract::resolve_tool(&tool);
+    // Refused before the TUI opens rather than shown as an empty tree: the
+    // reason is the point, and a blank pane would read as a parser failure
+    // (spec §6 rule 0).
+    if resolved
+        .path
+        .as_deref()
+        .is_some_and(mandible_extract::is_never_probe)
+    {
+        anyhow::bail!(
+            "mandible will not run {tool:?}.\n\n\
+             Its purpose is to signal or terminate processes, so no way of asking it for \
+             help is reliably harmless — the argument shapes mandible uses include \
+             `{tool} <word> --help`, and for this program the first argument is a target, \
+             not a subcommand.\n\n\
+             A flag list is not worth the risk of ending your session. Use `man {tool}` \
+             or `{tool} --help` directly."
+        );
+    }
+
     if let Some(doctor_tool) = &cli.doctor {
         let loaded = pipeline::load(doctor_tool);
         let ok = loaded.root.is_some();
@@ -78,13 +98,12 @@ fn main() -> anyhow::Result<()> {
     // synchronously cost ~1.1s for `gh` and ~0.7s for `docker` before a
     // single pixel was drawn, and the cobra-style tools where that matters
     // most are exactly the ones with the biggest trees.
-    if mandible_extract::resolve_tool(&tool).path.is_none() {
+    if resolved.path.is_none() {
         anyhow::bail!(
             "{tool:?} was not found on PATH. Run `mandible --doctor {tool}` for details on \
              what was tried."
         );
     }
-
     let stub = mandible_core::CommandNode::new(tool.clone(), mandible_core::Provenance::default());
     let app = mandible_tui::App::new(tool, stub);
 
