@@ -489,69 +489,108 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&aggregate_footer_line(aggregate));
     out.push('\n');
     out.push_str(&framework_summary_lines(aggregate));
-    out.push_str(&top_unidentified_lines_text(&top_unidentified_by_flags(
-        rows,
-    )));
+    out.push_str(&worst_parsed_lines_text(&worst_parsed(rows)));
     out
 }
 
-/// Cap on the "top unidentified" audit section (see
-/// [`top_unidentified_by_flags`]'s doc comment). Not load-bearing —
-/// this is a work-queue aid, not a gated metric — 25 just keeps the
-/// footer scannable rather than dumping every unidentified tool on a
-/// full-`PATH` sweep.
-const TOP_UNIDENTIFIED_LIMIT: usize = 25;
+/// Cap on the worst-parsed audit section. Not load-bearing (this is a
+/// work-queue aid, not a gated metric); 25 keeps the footer scannable
+/// rather than dumping every imperfect tool on a full-`PATH` sweep.
+const WORST_PARSED_LIMIT: usize = 25;
 
-/// Tools Tier A′ never identified a framework for (`row.framework == "—"`),
-/// ranked by flag count descending, capped to [`TOP_UNIDENTIFIED_LIMIT`].
-///
-/// The coverage harness already reports a framework-detection *rate*
-/// (spec §13.1a), but a percentage alone gives no way to act on it. Flag
-/// count is the proxy for "richest help text, most worth investigating
-/// for a new framework fingerprint": a tool with 150 unrecognized flags
-/// is a far better use of the next framework-fingerprinting effort than
-/// one with 3. Ties broken by tool name for a stable, diffable
-/// scoreboard.
-fn top_unidentified_by_flags(rows: &[Row]) -> Vec<&Row> {
-    let mut unidentified: Vec<&Row> = rows.iter().filter(|r| r.framework == "—").collect();
-    unidentified.sort_by(|a, b| b.flags.cmp(&a.flags).then_with(|| a.tool.cmp(&b.tool)));
-    unidentified.truncate(TOP_UNIDENTIFIED_LIMIT);
-    unidentified
+/// How many of a tool's flags the grammar failed to find a description
+/// for. The ranking key below.
+fn undescribed_flags(row: &Row) -> usize {
+    match row.pct_described {
+        Some(pct) => {
+            let described = (row.flags as f64) * (pct / 100.0);
+            row.flags.saturating_sub(described.round() as usize)
+        }
+        // No flags at all, so nothing was missed.
+        None => 0,
+    }
 }
 
-/// Plain-text rendering of [`top_unidentified_by_flags`]'s result, as
+/// The tools this harness parsed worst, ranked by how many flag
+/// descriptions went missing, capped to [`WORST_PARSED_LIMIT`].
+///
+/// This section used to rank *unidentified* tools by flag count, on the
+/// theory that rich help text with no framework behind it was the best
+/// candidate for a new fingerprint. Measurement killed that theory: across
+/// a real `PATH`, unidentified tools average ~92% described and identified
+/// ones ~90%. Detection is not what separates a good result from a bad
+/// one, so a list of undetected tools is not a work queue, and acting on it
+/// would mean adding fingerprints that raise the detection rate without
+/// parsing anything better (spec §7's note on why that is worse than
+/// leaving the number alone).
+///
+/// What does separate them is how much of a tool the grammar actually
+/// understood. Ranking by *undescribed flags* rather than by percentage
+/// alone keeps the list actionable: a tool with 150 flags at 60% has more
+/// missing documentation behind it than one with 3 flags at 0%, and is a
+/// better use of the next hour. Ties broken by tool name for a stable,
+/// diffable scoreboard.
+fn worst_parsed(rows: &[Row]) -> Vec<&Row> {
+    let mut worst: Vec<&Row> = rows.iter().filter(|r| undescribed_flags(r) > 0).collect();
+    worst.sort_by(|a, b| {
+        undescribed_flags(b)
+            .cmp(&undescribed_flags(a))
+            .then_with(|| a.tool.cmp(&b.tool))
+    });
+    worst.truncate(WORST_PARSED_LIMIT);
+    worst
+}
+
+/// Plain-text rendering of [`worst_parsed`]'s result, as
 /// `#`-prefixed lines matching this module's other informational footer
 /// sections (`framework_summary_lines`) — reported for visibility, not
 /// re-parsed by `--check`, so the exact format isn't load-bearing.
-fn top_unidentified_lines_text(top: &[&Row]) -> String {
-    if top.is_empty() {
+fn worst_parsed_lines_text(worst: &[&Row]) -> String {
+    if worst.is_empty() {
         return String::new();
     }
-    let mut out = String::from(
-        "# top-unidentified-by-flags (richest unidentified tools — candidates for a new framework fingerprint):\n",
-    );
-    for (rank, row) in top.iter().enumerate() {
+    let mut out =
+        String::from("# worst-parsed (most missing flag descriptions — the real work queue):\n");
+    for (rank, row) in worst.iter().enumerate() {
+        let pct = row
+            .pct_described
+            .map(|p| format!("{p:.0}%"))
+            .unwrap_or_else(|| "-".to_string());
         out.push_str(&format!(
-            "#   {:>2}. {:<30} {:>5} flags\n",
+            "#   {:>2}. {:<30} {:>5} of {:>5} flags undescribed ({:>4}) {}\n",
             rank + 1,
             row.tool,
+            undescribed_flags(row),
             row.flags,
+            pct,
+            row.framework,
         ));
     }
     out
 }
 
-/// Markdown rendering of [`top_unidentified_by_flags`]'s result, for
+/// Markdown rendering of [`worst_parsed`]'s result, for
 /// [`render_markdown`].
-fn top_unidentified_section_markdown(top: &[&Row]) -> String {
-    if top.is_empty() {
+fn worst_parsed_section_markdown(worst: &[&Row]) -> String {
+    if worst.is_empty() {
         return String::new();
     }
     let mut out = String::from(
-        "\n**Top unidentified tools by flag count** (candidates for a new framework fingerprint):\n\n| tool | flags |\n|---|---|\n",
+        "\n**Worst-parsed tools** (most missing flag descriptions, which is where grammar work pays off):\n\n| tool | undescribed | flags | %described | framework |\n|---|---|---|---|---|\n",
     );
-    for row in top {
-        out.push_str(&format!("| {} | {} |\n", md_escape(&row.tool), row.flags));
+    for row in worst {
+        let pct = row
+            .pct_described
+            .map(|p| format!("{p:.0}%"))
+            .unwrap_or_else(|| "-".to_string());
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} |\n",
+            md_escape(&row.tool),
+            undescribed_flags(row),
+            row.flags,
+            pct,
+            md_escape(&row.framework),
+        ));
     }
     out
 }
@@ -605,9 +644,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             out.push_str(&format!("- {}: {count}\n", md_escape(name)));
         }
     }
-    out.push_str(&top_unidentified_section_markdown(
-        &top_unidentified_by_flags(rows),
-    ));
+    out.push_str(&worst_parsed_section_markdown(&worst_parsed(rows)));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
@@ -951,65 +988,60 @@ mod tests {
     }
 
     /// "Surfacing unidentified tools for audit": the top-unidentified list
-    /// must rank by flag count descending, skip identified tools entirely
-    /// (a rich `git` with 200 flags but a known framework is not a
-    /// fingerprinting candidate), and cap at `TOP_UNIDENTIFIED_LIMIT` so a
-    /// full-`PATH` sweep's footer doesn't dump hundreds of rows.
+    /// Ranked by how many flag *descriptions* are missing, not by flag
+    /// count and not by percentage alone: a tool with 150 flags at 80% has
+    /// more missing documentation behind it than one with 3 flags at 0%.
+    /// Tools that parsed cleanly are excluded entirely, since a work queue
+    /// of finished work is not a work queue.
     #[test]
-    fn top_unidentified_by_flags_ranks_and_excludes_identified_tools() {
-        let mut identified = row("git", 500, Some(90.0), "ok");
-        identified.framework = "cobra (artifact)".to_string();
+    fn worst_parsed_ranks_by_missing_descriptions() {
         let rows = vec![
-            row("small-mystery", 3, None, "ok"),
-            identified,
-            row("big-mystery", 150, Some(80.0), "ok"),
-            row("mid-mystery", 40, Some(70.0), "ok"),
+            row("perfect", 500, Some(100.0), "ok"),    // nothing missing
+            row("tiny-but-awful", 3, Some(0.0), "ok"), // 3 missing
+            row("big-and-ok", 150, Some(80.0), "ok"),  // 30 missing
+            row("mid", 40, Some(50.0), "ok"),          // 20 missing
         ];
-        let top = top_unidentified_by_flags(&rows);
-        let names: Vec<&str> = top.iter().map(|r| r.tool.as_str()).collect();
+        let worst = worst_parsed(&rows);
+        let names: Vec<&str> = worst.iter().map(|r| r.tool.as_str()).collect();
         assert_eq!(
             names,
-            vec!["big-mystery", "mid-mystery", "small-mystery"],
-            "expected descending flag-count order with git excluded: {names:?}"
+            vec!["big-and-ok", "mid", "tiny-but-awful"],
+            "expected ranking by missing descriptions, cleanly-parsed excluded: {names:?}"
         );
     }
 
     #[test]
-    fn top_unidentified_by_flags_is_capped() {
-        let rows: Vec<Row> = (0..(TOP_UNIDENTIFIED_LIMIT + 10))
-            .map(|i| row(&format!("mystery{i}"), i, None, "ok"))
+    fn worst_parsed_is_capped() {
+        let rows: Vec<Row> = (0..(WORST_PARSED_LIMIT + 10))
+            .map(|i| row(&format!("tool{i}"), i + 10, Some(10.0), "ok"))
             .collect();
-        let top = top_unidentified_by_flags(&rows);
-        assert_eq!(top.len(), TOP_UNIDENTIFIED_LIMIT);
-        // Highest flag counts survive the cap, not an arbitrary prefix.
-        assert_eq!(top[0].flags, TOP_UNIDENTIFIED_LIMIT + 9);
+        assert_eq!(worst_parsed(&rows).len(), WORST_PARSED_LIMIT);
+    }
+
+    /// Nothing to report when every tool parsed cleanly. The section
+    /// disappears rather than printing an empty heading.
+    #[test]
+    fn worst_parsed_lines_text_is_empty_when_everything_parsed_cleanly() {
+        let rows = vec![row("git", 10, Some(100.0), "ok")];
+        assert!(worst_parsed_lines_text(&worst_parsed(&rows)).is_empty());
     }
 
     #[test]
-    fn top_unidentified_lines_text_is_empty_when_nothing_is_unidentified() {
-        let mut identified = row("git", 10, Some(90.0), "ok");
-        identified.framework = "cobra (artifact)".to_string();
-        let rows = vec![identified];
-        assert!(top_unidentified_lines_text(&top_unidentified_by_flags(&rows)).is_empty());
-    }
-
-    #[test]
-    fn render_text_includes_the_top_unidentified_audit_section() {
-        let rows = vec![row("mystery-tool", 42, None, "ok")];
+    fn render_text_includes_the_worst_parsed_audit_section() {
+        let rows = vec![row("half-parsed", 42, Some(50.0), "ok")];
         let agg = compute_aggregate(&rows);
         let table = render_text(&rows, &agg);
-        assert!(table.contains("# top-unidentified-by-flags"));
-        assert!(table.contains("mystery-tool"));
-        assert!(table.contains("42 flags"));
+        assert!(table.contains("# worst-parsed"));
+        assert!(table.contains("half-parsed"));
     }
 
     #[test]
-    fn render_markdown_includes_the_top_unidentified_audit_section() {
-        let rows = vec![row("mystery-tool", 42, None, "ok")];
+    fn render_markdown_includes_the_worst_parsed_audit_section() {
+        let rows = vec![row("half-parsed", 42, Some(50.0), "ok")];
         let agg = compute_aggregate(&rows);
         let md = render_markdown(&rows, &agg);
-        assert!(md.contains("**Top unidentified tools by flag count**"));
-        assert!(md.contains("| mystery-tool | 42 |"));
+        assert!(md.contains("**Worst-parsed tools**"));
+        assert!(md.contains("| half-parsed |"));
     }
 
     #[test]
