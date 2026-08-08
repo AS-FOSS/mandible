@@ -160,6 +160,10 @@ pub fn run_inert(
     // would write) — see this module's parent (`exec/mod.rs`) doc comment
     // for the full story on what's now verified vs. still a residual risk.
     //
+    // Each of those gets its own *subdirectory* of the scratch root, and
+    // the paths are masked back out of the tool's output on the way here.
+    // See [`Scratch`] for both, and for the defect that prompted them.
+    //
     // Deliberately *per invocation*, not created once and reused for the
     // process's lifetime: a `TempDir` is removed on drop, so nothing a
     // probe writes here outlives the probe, and one tool's mess can never
@@ -175,19 +179,9 @@ pub fn run_inert(
     // these variables) is outside what an environment/CWD redirect can
     // reach. That residual is documented, not silently assumed away — see
     // this module's top-level doc comment.
-    let scratch = tempfile::Builder::new()
-        .prefix("mandible-exec-")
-        .tempdir()
-        .ok();
-    if let Some(dir) = &scratch {
-        cmd.current_dir(dir.path());
-        cmd.env("HOME", dir.path());
-        cmd.env("TMPDIR", dir.path());
-        cmd.env("XDG_RUNTIME_DIR", dir.path());
-        cmd.env("XDG_CACHE_HOME", dir.path());
-        cmd.env("XDG_CONFIG_HOME", dir.path());
-        cmd.env("XDG_DATA_HOME", dir.path());
-        cmd.env("XDG_STATE_HOME", dir.path());
+    let scratch = Scratch::create();
+    if let Some(scratch) = &scratch {
+        scratch.apply(&mut cmd);
     }
 
     let spawn_result = spawn_with_etxtbsy_retry(&mut cmd);
@@ -234,12 +228,163 @@ pub fn run_inert(
     let stdout = stdout_handle.join().unwrap_or_default();
     let stderr = stderr_handle.join().unwrap_or_default();
 
+    // Undo the redirect *in the text* before anything downstream sees it.
+    // Done here, at the boundary that applied the redirect, so every tier,
+    // every grammar, `--doctor` and the verbatim view (`t`) all get the
+    // masked form without knowing this happened.
+    let (stdout, stderr) = match &scratch {
+        Some(scratch) => (scratch.mask(&stdout), scratch.mask(&stderr)),
+        None => (stdout, stderr),
+    };
+
     Ok(ExecOutput {
         stdout,
         stderr,
         exit_code: status.and_then(|s| exit_code_of(&s)),
         timed_out,
     })
+}
+
+/// The variables the scratch redirect stands in for, and the subdirectory
+/// each one gets.
+///
+/// **One directory per variable, not one shared directory.** They used to
+/// all point at the same path, which was wrong twice over. It is not a
+/// filesystem shape any real machine has — a tool writing
+/// `$XDG_CACHE_HOME/x` and reading `$HOME/x` saw one file — so every probe
+/// ran against an environment that cannot occur. And it made the leak
+/// below unfixable: given `/tmp/…/​.docker` in a tool's output there was no
+/// way to tell which variable produced it, so there was nothing correct to
+/// put back.
+const SCRATCH_VARS: &[(&str, &str)] = &[
+    ("HOME", "home"),
+    ("TMPDIR", "tmp"),
+    ("XDG_RUNTIME_DIR", "runtime"),
+    ("XDG_CACHE_HOME", "cache"),
+    ("XDG_CONFIG_HOME", "config"),
+    ("XDG_DATA_HOME", "data"),
+    ("XDG_STATE_HOME", "state"),
+];
+
+/// The subdirectory used as the probe's working directory.
+const SCRATCH_CWD: &str = "cwd";
+
+/// A per-probe scratch directory, plus the substitutions that hide it
+/// again on the way out.
+///
+/// Redirecting `$HOME` means a tool that prints a `$HOME`-derived default
+/// prints *ours*: `docker --help` reported its config location as
+/// `/tmp/mandible-exec-L3saJ8/.docker`, a directory that was deleted
+/// moments later and never existed for the reader. That is documentation
+/// stating something false, with nothing on screen to suggest it — the
+/// exact failure this project refuses everywhere else, arrived at through
+/// the safety mechanism rather than through a parser.
+///
+/// The fix is to write back the *variable name*, not its real value:
+///
+/// ```text
+/// Location of client config files (default "$HOME/.docker")
+/// ```
+///
+/// Substituting the reader's actual home directory would state a fact the
+/// tool never gave us — filling in a blank is the same move as inventing
+/// structure, just smaller. `$HOME` is what is actually known, it is how
+/// man pages write it anyway, and it is identical on every machine, so a
+/// fixture captured from a real tool does not bake in the capturing
+/// machine's home directory.
+struct Scratch {
+    /// Held for its `Drop`, which removes the directory.
+    _dir: tempfile::TempDir,
+    /// `(path, mask)` pairs, longest path first so that a subdirectory is
+    /// always matched before the root it sits under.
+    masks: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+impl Scratch {
+    /// Best-effort: a probe still runs without a scratch directory
+    /// (falling back to the inherited environment) rather than failing
+    /// over containment.
+    fn create() -> Option<Scratch> {
+        // Short prefix on purpose. A tool wraps its own help text at the
+        // `COLUMNS` we set, so a long path is more likely to be split
+        // across two lines, and a split string cannot be matched. Keeping
+        // it short reduces how often that happens; it cannot rule it out.
+        let dir = tempfile::Builder::new().prefix("mnd-").tempdir().ok()?;
+
+        let mut masks = Vec::new();
+        for (var, subdir) in SCRATCH_VARS {
+            let path = dir.path().join(subdir);
+            if std::fs::create_dir_all(&path).is_err() {
+                continue;
+            }
+            masks.push((
+                path.to_string_lossy().into_owned().into_bytes(),
+                format!("${var}").into_bytes(),
+            ));
+        }
+        let cwd = dir.path().join(SCRATCH_CWD);
+        if std::fs::create_dir_all(&cwd).is_ok() {
+            masks.push((
+                cwd.to_string_lossy().into_owned().into_bytes(),
+                b"$PWD".to_vec(),
+            ));
+        }
+        // Backstop for a path derived from the root some other way (a tool
+        // printing the parent of `$TMPDIR`, say). It should never fire,
+        // and if it does, something visibly ours beats a real-looking path
+        // to a directory that no longer exists. Last, and therefore
+        // shortest-matching, because every entry above is beneath it.
+        masks.push((
+            dir.path().to_string_lossy().into_owned().into_bytes(),
+            b"$MANDIBLE_SCRATCH".to_vec(),
+        ));
+        masks.sort_by_key(|(path, _)| std::cmp::Reverse(path.len()));
+
+        Some(Scratch { _dir: dir, masks })
+    }
+
+    fn apply(&self, cmd: &mut Command) {
+        let root = self._dir.path();
+        cmd.current_dir(root.join(SCRATCH_CWD));
+        for (var, subdir) in SCRATCH_VARS {
+            cmd.env(var, root.join(subdir));
+        }
+    }
+
+    /// Replace every scratch path in `bytes` with the variable that stood
+    /// in for it.
+    ///
+    /// Byte-level rather than `str`, because a tool's output is not
+    /// guaranteed to be UTF-8 and this runs before any lossy conversion.
+    /// Matching is on the exact path of *this* invocation, never a
+    /// `/tmp/mnd-*` pattern: the path is unique per probe, so a tool that
+    /// legitimately prints some other temp path is untouched.
+    fn mask(&self, bytes: &[u8]) -> Vec<u8> {
+        let mut out = bytes.to_vec();
+        for (path, replacement) in &self.masks {
+            out = replace_bytes(&out, path, replacement);
+        }
+        out
+    }
+}
+
+/// Replace every occurrence of `needle` in `haystack` with `replacement`.
+fn replace_bytes(haystack: &[u8], needle: &[u8], replacement: &[u8]) -> Vec<u8> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return haystack.to_vec();
+    }
+    let mut out = Vec::with_capacity(haystack.len());
+    let mut i = 0;
+    while i < haystack.len() {
+        if haystack[i..].starts_with(needle) {
+            out.extend_from_slice(replacement);
+            i += needle.len();
+        } else {
+            out.push(haystack[i]);
+            i += 1;
+        }
+    }
+    out
 }
 
 /// Spawn `cmd`, retrying briefly on `ETXTBSY` ("text file busy").
@@ -632,5 +777,114 @@ mod tests {
         );
 
         let _ = std::fs::remove_file(&real_home_marker);
+    }
+
+    /// The scratch directory must not appear in what a tool tells the
+    /// reader.
+    ///
+    /// `docker --help` reported its config location as
+    /// `/tmp/mandible-exec-L3saJ8/.docker` — a directory deleted moments
+    /// later that never existed for the reader. Nothing on screen marked
+    /// it as anything other than docker's own documentation.
+    ///
+    /// Goes through `run_inert` rather than testing `Scratch::mask` alone,
+    /// because the claim is about the boundary as a whole: the redirect
+    /// and the mask have to agree about which directory stood in for
+    /// which variable, and only running a real process checks that.
+    #[test]
+    fn scratch_paths_are_masked_out_of_a_probes_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(
+            dir.path(),
+            "path_printer.sh",
+            "#!/bin/sh\n\
+             echo \"config=$XDG_CONFIG_HOME/app.toml\"\n\
+             echo \"home=$HOME/.appconfig\"\n\
+             echo \"tmp=$TMPDIR\"\n\
+             echo \"cwd=$(pwd)\"\n",
+        );
+        let out = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(2)).unwrap();
+        let text = String::from_utf8_lossy(&out.stdout).to_string();
+
+        assert!(
+            !text.contains("/mnd-"),
+            "a scratch path reached the reader: {text:?}"
+        );
+        // Each variable is named as itself, not as whichever one happened
+        // to share its directory.
+        assert!(
+            text.contains("config=$XDG_CONFIG_HOME/app.toml"),
+            "{text:?}"
+        );
+        assert!(text.contains("home=$HOME/.appconfig"), "{text:?}");
+        assert!(text.contains("tmp=$TMPDIR"), "{text:?}");
+        assert!(text.contains("cwd=$PWD"), "{text:?}");
+    }
+
+    /// Every redirected variable resolves somewhere different. They all
+    /// pointed at one directory, so a probe writing `$XDG_CACHE_HOME/x`
+    /// and reading `$HOME/x` saw the same file — a filesystem shape no
+    /// real machine has, which every probe was nonetheless run against.
+    #[test]
+    fn each_redirected_variable_gets_its_own_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let vars: Vec<&str> = SCRATCH_VARS.iter().map(|(v, _)| *v).collect();
+        let body = vars
+            .iter()
+            .map(|v| format!("echo \"${v}\""))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let shim = write_shim(
+            dir.path(),
+            "env_printer.sh",
+            &format!("#!/bin/sh\n{body}\n"),
+        );
+
+        // Read the raw paths, which means bypassing the mask — hence a
+        // scratch of our own rather than `run_inert`'s.
+        let scratch = Scratch::create().unwrap();
+        let mut cmd = Command::new(&shim);
+        scratch.apply(&mut cmd);
+        let out = cmd.output().unwrap();
+        let paths: Vec<String> = String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|l| l.to_string())
+            .collect();
+
+        assert_eq!(paths.len(), vars.len(), "{paths:?}");
+        let distinct: std::collections::BTreeSet<&String> = paths.iter().collect();
+        assert_eq!(
+            distinct.len(),
+            paths.len(),
+            "redirected variables share a directory: {paths:?}"
+        );
+    }
+
+    /// A subdirectory must be matched before the root it sits under,
+    /// otherwise `<root>/config/x` masks to `$MANDIBLE_SCRATCH/config/x`
+    /// instead of `$XDG_CONFIG_HOME/x`.
+    #[test]
+    fn the_longest_matching_path_wins() {
+        let scratch = Scratch::create().unwrap();
+        let root = scratch._dir.path().to_string_lossy().into_owned();
+        let masked = scratch.mask(format!("see {root}/config/app.toml").as_bytes());
+        assert_eq!(
+            String::from_utf8_lossy(&masked),
+            "see $XDG_CONFIG_HOME/app.toml"
+        );
+    }
+
+    #[test]
+    fn replace_bytes_replaces_every_occurrence() {
+        assert_eq!(
+            replace_bytes(b"a/x and a/y", b"a/", b"$A/"),
+            b"$A/x and $A/y"
+        );
+        assert_eq!(
+            replace_bytes(b"nothing here", b"a/", b"$A/"),
+            b"nothing here"
+        );
+        // A needle longer than the haystack must not panic on the slice.
+        assert_eq!(replace_bytes(b"ab", b"abcdef", b"x"), b"ab");
     }
 }

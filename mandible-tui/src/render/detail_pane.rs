@@ -423,59 +423,114 @@ fn normalize_group_heading(raw: &str) -> String {
 /// heading) and inherited flags always last as their own muted group,
 /// regardless of their source `group` value (spec §9). Returns the lines
 /// plus, if `target_flag` matched one of `flags`, the index of its line.
-/// The description column is capped at this fraction of the pane, so one
-/// very long flag spelling cannot push every description in the list off
-/// the right-hand edge. Mirrors the tree pane's summary-column rule
-/// (spec §9.1).
+/// A spelling wider than this fraction of the pane does not get to set the
+/// shared column — it hangs instead (see [`FlagLayout::Table`]). One
+/// 40-character flag name in a list of short ones used to push every
+/// description in the list against the right-hand edge. Mirrors the tree
+/// pane's summary-column rule (spec §9.1).
 const DESC_COLUMN_CAP_PERCENT: usize = 45;
 
-/// The column every flag description starts at: the widest spelling in the
-/// list (plus a two-space gutter), capped.
+/// Prose narrower than this reads as a shredded column rather than a
+/// sentence, so a table that cannot leave this much room becomes a
+/// [`FlagLayout::Stacked`] list instead.
 ///
-/// Computed once over *all* the flags being rendered rather than per flag,
-/// which is the whole point — a shared column is what turns a list of
-/// options into a parameter table. Includes inherited flags so the two
-/// blocks line up with each other.
-/// Where a flag row's two right-hand columns begin: the value placeholder,
-/// then the description.
+/// Measured against real output rather than picked: at 20 columns
+/// `docker pull`'s `--platform` description breaks as "Set / platform /
+/// if server / is / multi-pla… / capable" — six lines, one of them
+/// truncated mid-word, for six words of text. 28 is the point either side
+/// of which the table and the stacked list swap places on legibility.
+const MIN_DESC_WIDTH: usize = 28;
+
+/// Leading indent for every flag row, and (in stacked mode) the extra
+/// indent that subordinates a description to the spelling above it.
+const FLAG_INDENT: &str = "  ";
+const STACKED_DESC_INDENT: usize = 6;
+
+/// How a whole flag list is arranged. Chosen once for the list, never per
+/// row — a per-row decision is exactly what made this ragged.
 ///
-/// Three columns rather than two, because a value placeholder is a
-/// different *kind* of thing from a spelling — `--env` and `list` answer
-/// "what do I type" and "what does it take". Run together as
-/// `--env list` they read as one token; in their own columns the whole
-/// list can be scanned down either one, which is what a parameter table in
-/// API documentation is for.
-#[derive(Debug, Clone, Copy)]
-struct FlagColumns {
-    value: usize,
-    description: usize,
+/// The pane is not wide enough for a three-column table at every terminal
+/// size, and the previous code did not admit that. It computed one shared
+/// description column, capped it at 45% of the pane, and then let any row
+/// too wide for the cap start its description wherever its own text
+/// happened to end. At 120 columns almost nothing exceeded the cap and the
+/// table looked right; at 90 columns `docker`'s global flags rendered with
+/// descriptions starting at three different columns (19, 24 and 28), which
+/// is not a table at all. The cap was silently setting a target that most
+/// rows then missed individually.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FlagLayout {
+    /// Spelling, value placeholder and description in three aligned
+    /// columns.
+    ///
+    /// Three rather than two, because a value placeholder is a different
+    /// *kind* of thing from a spelling — `--env` and `list` answer "what do
+    /// I type" and "what does it take". Run together as `--env list` they
+    /// read as one token; in their own columns the whole list can be
+    /// scanned down either one, which is what a parameter table in API
+    /// documentation is for.
+    ///
+    /// Both columns are invariant for the list: a row too wide for them
+    /// hangs its description onto the next line rather than pushing the
+    /// column right for itself alone.
+    Table { value: usize, description: usize },
+    /// Spelling and value on one line, description indented underneath.
+    ///
+    /// What every narrow-terminal help renderer falls back to, and for the
+    /// same reason: it gives prose the full width of the pane and keeps a
+    /// perfectly straight left edge, neither of which a table can do once
+    /// the columns eat more than half the room.
+    Stacked,
 }
 
-fn flag_columns(flags: &[&Flag], width: usize) -> FlagColumns {
+impl FlagLayout {
+    /// Where descriptions begin under this layout.
+    fn description_column(self) -> usize {
+        match self {
+            FlagLayout::Table { description, .. } => description,
+            FlagLayout::Stacked => STACKED_DESC_INDENT,
+        }
+    }
+}
+
+/// Choose the layout for `flags` in a pane `width` columns wide.
+fn flag_layout(flags: &[&Flag], width: usize) -> FlagLayout {
+    let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
+    let lead = display_width(FLAG_INDENT);
+    let gap = 2;
+
+    // Outliers are excluded from the measurement rather than clamped. A
+    // clamped column is a column the outlier still misses; an excluded one
+    // is a column it can hang below while every other row stays aligned.
+    let fits = |w: usize| lead + w + gap <= cap;
     let widest_spec = flags
         .iter()
         .map(|f| display_width(&flag_name_spec(f)))
+        .filter(|w| fits(*w))
         .max()
         .unwrap_or(0);
     let widest_value = flags
         .iter()
         .filter_map(|f| flag_value_text(f))
         .map(|v| display_width(&v))
+        .filter(|w| fits(*w))
         .max()
         .unwrap_or(0);
 
-    let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
-    // 2 leading + spelling + 1 gutter.
-    let value = (2 + widest_spec + 1).min(cap.saturating_sub(2));
-    // ...then the value column, + 2 gutter. When nothing in this list takes
-    // a value the column collapses, rather than leaving a blank strip.
-    let gutter = if widest_value == 0 {
-        0
-    } else {
-        widest_value + 2
-    };
-    let description = (value + gutter).min(cap);
-    FlagColumns { value, description }
+    let value = lead + widest_spec + gap;
+    // When nothing in this list takes a value the column collapses, rather
+    // than leaving a blank strip down the pane.
+    let description = value
+        + if widest_value == 0 {
+            0
+        } else {
+            widest_value + gap
+        };
+
+    if width.saturating_sub(description) < MIN_DESC_WIDTH {
+        return FlagLayout::Stacked;
+    }
+    FlagLayout::Table { value, description }
 }
 
 fn flag_lines(
@@ -485,7 +540,7 @@ fn flag_lines(
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
 ) -> (Vec<Line<'static>>, Option<usize>) {
-    let columns = flag_columns(flags, width);
+    let layout = flag_layout(flags, width);
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
     // need first, and its 17 groups are sequenced deliberately. A BTreeMap
@@ -520,7 +575,7 @@ fn flag_lines(
     if let Some(ungrouped) = own_groups.remove(&None) {
         for f in ungrouped {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, glyphs, columns));
+            out.extend(flag_line(f, false, width, color_enabled, glyphs, layout));
         }
     }
     for key in group_order {
@@ -532,7 +587,7 @@ fn flag_lines(
         }
         for f in flags {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, glyphs, columns));
+            out.extend(flag_line(f, false, width, color_enabled, glyphs, layout));
         }
     }
 
@@ -545,7 +600,7 @@ fn flag_lines(
         ));
         for f in inherited {
             note_if_target(&out, f);
-            out.extend(flag_line(f, true, width, color_enabled, glyphs, columns));
+            out.extend(flag_line(f, true, width, color_enabled, glyphs, layout));
         }
     }
 
@@ -598,7 +653,7 @@ fn flag_line(
     glyphs: Glyphs,
     // Where the value and description columns begin, shared across the
     // whole flag list — see `flag_columns`.
-    columns: FlagColumns,
+    layout: FlagLayout,
 ) -> Vec<Line<'static>> {
     let name_spec = flag_name_spec(flag);
     let value_text = flag_value_text(flag);
@@ -630,8 +685,13 @@ fn flag_line(
     let mut prefix_width = display_width(leading) + display_width(&name_spec);
     if let Some(v) = &value_text {
         // Padded to its own column, so values line up down the list rather
-        // than sitting wherever each spelling happens to end.
-        let pad = columns.value.saturating_sub(prefix_width).max(1);
+        // than sitting wherever each spelling happens to end. In stacked
+        // mode there is no column to reach, so a single space separates
+        // them — the description below is what carries the alignment.
+        let pad = match layout {
+            FlagLayout::Table { value, .. } => value.saturating_sub(prefix_width).max(1),
+            FlagLayout::Stacked => 1,
+        };
         first_line_spans.push(Span::raw(" ".repeat(pad)));
         first_line_spans.push(Span::styled(v.clone(), value_style));
         prefix_width += pad + display_width(v);
@@ -675,26 +735,32 @@ fn flag_line(
         return vec![Line::from(first_line_spans)];
     };
 
-    // One description column for the entire list, not one per flag. The
-    // indent used to be `this flag's own width + 2`, so every row started
-    // its text somewhere different and the block read as ragged prose. A
-    // shared column is what makes a parameter list read as a table — the
-    // defining visual element of API documentation.
+    // One description column for the entire list, not one per flag. That
+    // is what makes a parameter list read as a table — the defining visual
+    // element of API documentation — and it only holds if it is *always*
+    // the same number. It previously wasn't: the column was a target, and
+    // any row too wide for it silently started its description at its own
+    // width instead, so a list could show three different "columns" at
+    // once.
     //
-    // A spelling longer than the column still never gets truncated to
-    // force alignment (spec §9.1's rule for the tree applies here too):
-    // it simply pushes its own description along, one row out of step
-    // rather than one name destroyed.
-    let gap = "  ";
-    let indent_width = columns.description.max(prefix_width + display_width(gap));
+    // So a row that does not fit hangs: its description starts on the next
+    // line, at the shared column. The spelling is never truncated to force
+    // alignment (spec §9.1's rule for the tree applies here too) and the
+    // column never moves — the row costs one extra line, which is the only
+    // one of the three that nothing else has to pay for.
+    let gap = 2;
+    let indent_width = layout.description_column();
+    let hangs = prefix_width + gap > indent_width;
     let available = width.saturating_sub(indent_width).max(1);
     let chunks = wrap_words(&description_text, available, glyphs.ellipsis);
 
     let mut lines = Vec::new();
     let mut chunks_iter = chunks.into_iter();
-    if let Some(first_chunk) = chunks_iter.next() {
-        first_line_spans.push(Span::raw(" ".repeat(indent_width - prefix_width)));
-        first_line_spans.push(Span::styled(first_chunk, desc_style));
+    if !hangs {
+        if let Some(first_chunk) = chunks_iter.next() {
+            first_line_spans.push(Span::raw(" ".repeat(indent_width - prefix_width)));
+            first_line_spans.push(Span::styled(first_chunk, desc_style));
+        }
     }
     lines.push(Line::from(first_line_spans));
 
@@ -895,6 +961,165 @@ mod tests {
         );
     }
 
+    /// `docker --help`'s global flags, which is the list the alignment
+    /// actually broke on. The test above uses three short synthetic flags
+    /// at one comfortable width, and that is exactly why it kept passing
+    /// while real panes rendered ragged: nothing in it was wide enough to
+    /// exceed the column cap, so the per-row fallback never fired.
+    ///
+    /// Every description begins with `zzz` so its column can be located
+    /// exactly rather than inferred from runs of whitespace (the value
+    /// placeholder is also preceded by a run of whitespace, which is what
+    /// makes the inference ambiguous).
+    fn docker_global_flags() -> Vec<mandible_core::Flag> {
+        let mk = |short: Option<char>, long: &str, value: Option<&str>| {
+            let mut f = mandible_core::Flag::long(long, Provenance::single(Source::HelpText));
+            f.short = short;
+            f.value_name = value.map(|v| v.to_string());
+            if value.is_some() {
+                f.value_kind = ValueKind::Required;
+            }
+            f.description = Some(Text::sanitize(
+                "zzz set the thing to the other thing and then keep going for a while",
+            ));
+            f
+        };
+        vec![
+            mk(None, "config", Some("string")),
+            mk(Some('c'), "context", Some("string")),
+            mk(Some('D'), "debug", None),
+            mk(Some('H'), "host", Some("string")),
+            mk(Some('l'), "log-level", Some("string")),
+            mk(None, "tls", None),
+            mk(None, "tlscacert", Some("string")),
+        ]
+    }
+
+    /// The column that every description line in `lines` starts at.
+    fn description_columns(lines: &[Line<'static>]) -> Vec<usize> {
+        lines
+            .iter()
+            .filter_map(|line| {
+                let text = text_of(line);
+                if let Some(at) = text.find("zzz") {
+                    return Some(display_width(&text[..at]));
+                }
+                // A continuation line: prose with no spelling on it.
+                let trimmed = text.trim_start();
+                if trimmed.is_empty() || trimmed.starts_with('-') {
+                    return None;
+                }
+                Some(text.len() - trimmed.len())
+            })
+            .collect()
+    }
+
+    /// The reported defect, at every width rather than one.
+    ///
+    /// A shared column is only shared if it is the same number for every
+    /// row. It was not: the column was capped at 45% of the pane and any
+    /// row too wide for the cap started its description at its own width
+    /// instead, so `docker`'s global flags rendered descriptions at three
+    /// different columns (19, 24 and 28) in a 90-column terminal — with
+    /// `--log-level string` also losing the gap that separates a spelling
+    /// from its value, so the two ran together as one token.
+    #[test]
+    fn descriptions_share_one_column_at_every_width() {
+        let flags = docker_global_flags();
+        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+
+        for width in 20..=160 {
+            let (lines, _) = flag_lines(&refs, width, true, None, crate::glyphs::UNICODE);
+            let starts = description_columns(&lines);
+            assert!(
+                !starts.is_empty(),
+                "width {width}: no descriptions rendered"
+            );
+            let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
+            assert_eq!(
+                distinct.len(),
+                1,
+                "width {width}: descriptions start at {distinct:?}, not one shared column"
+            );
+        }
+    }
+
+    /// Below the point where a table can leave prose a readable width, the
+    /// list stacks rather than shredding descriptions into a narrow strip.
+    ///
+    /// At 90 columns `docker pull`'s `--platform` description used to
+    /// break as "Set / platform / if server / is / multi-pla… / capable" —
+    /// six lines for six words, one truncated mid-word, because the
+    /// columns had eaten everything but 9 cells of the pane.
+    #[test]
+    fn a_narrow_pane_stacks_instead_of_shredding_prose() {
+        let flags = docker_global_flags();
+        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+
+        assert_eq!(flag_layout(&refs, 38), FlagLayout::Stacked);
+        let (lines, _) = flag_lines(&refs, 38, true, None, crate::glyphs::UNICODE);
+        for start in description_columns(&lines) {
+            assert_eq!(start, STACKED_DESC_INDENT, "stacked prose must be flush");
+        }
+        // The whole point of stacking: prose gets the pane, not a strip.
+        // Measured on the rendered lines rather than asserted against the
+        // constants, which would only restate the arithmetic above.
+        let widest_prose = lines
+            .iter()
+            .map(text_of)
+            .filter(|t| !t.trim_start().starts_with('-'))
+            .map(|t| display_width(t.trim()))
+            .max()
+            .unwrap_or(0);
+        assert!(
+            widest_prose >= MIN_DESC_WIDTH,
+            "stacked prose still shredded: widest line was {widest_prose}"
+        );
+    }
+
+    /// One very long spelling must not drag every other row's description
+    /// against the right-hand edge — the reason a cap existed at all. It
+    /// now hangs instead of widening the column, so the cap's original job
+    /// is done without the raggedness it used to cause.
+    #[test]
+    fn one_overlong_spelling_hangs_rather_than_moving_the_column() {
+        let mut flags = docker_global_flags();
+        // Past the 45% cap at 120 columns, which is the point of the test.
+        // A spelling that merely *looks* long is not an outlier: a 49-char
+        // name at this width still leaves 59 columns for prose, and the
+        // cap admits it deliberately rather than spending a line on it.
+        let mut monster = mandible_core::Flag::long(
+            "an-extremely-long-option-name-that-nobody-would-ever-type-by-hand",
+            Provenance::single(Source::HelpText),
+        );
+        monster.description = Some(Text::sanitize("zzz does something"));
+        flags.push(monster);
+        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+
+        let without: Vec<&mandible_core::Flag> = refs[..refs.len() - 1].to_vec();
+        assert_eq!(
+            flag_layout(&refs, 120),
+            flag_layout(&without, 120),
+            "an outlier spelling must not set the column for the list"
+        );
+
+        let (lines, _) = flag_lines(&refs, 120, true, None, crate::glyphs::UNICODE);
+        let distinct: std::collections::BTreeSet<usize> =
+            description_columns(&lines).into_iter().collect();
+        assert_eq!(distinct.len(), 1, "outlier broke the column: {distinct:?}");
+
+        // ...and it hangs: its spelling occupies a line of its own.
+        let joined: Vec<String> = lines.iter().map(text_of).collect();
+        let row = joined
+            .iter()
+            .find(|l| l.contains("an-extremely-long-option-name"))
+            .expect("outlier row missing");
+        assert!(
+            !row.contains("zzz"),
+            "an over-long spelling should hang its description, not push the column: {row:?}"
+        );
+    }
+
     /// A confidently-parsed node says nothing. Silence is the signal that
     /// there is nothing to flag, and it is a stronger one than a tick that
     /// was present on every node of every tool measured.
@@ -954,22 +1179,31 @@ mod tests {
             40,
             true,
             crate::glyphs::UNICODE,
-            FlagColumns {
+            FlagLayout::Table {
                 value: 18,
                 description: 20,
             },
         );
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
         let first_text = text_of(&lines[0]);
-        let continuation_text = text_of(&lines[1]);
-        let indent_len = continuation_text.len() - continuation_text.trim_start().len();
-        // The continuation's leading whitespace must reach past the
-        // spelling+value+gap on the first line — i.e. actually hang
-        // indented, not just have *some* leading space.
-        assert!(
-            indent_len >= display_width("  --tlscacert string  "),
-            "first={first_text:?} continuation={continuation_text:?} indent_len={indent_len}"
-        );
+        // Every description line — the first as well as the continuations
+        // — sits at the column the list agreed on, never at column 0 and
+        // never at this row's own width.
+        //
+        // This row's spelling plus value runs to 24, past the column, so
+        // it hangs: line 0 is the spelling alone and the description
+        // starts on line 1. The earlier assertion here demanded the
+        // continuation clear *this row's* prefix, which is precisely the
+        // per-row indent that made a list of flags render with three
+        // different "columns" at once.
+        for line in &lines[1..] {
+            let text = text_of(line);
+            let indent_len = text.len() - text.trim_start().len();
+            assert_eq!(
+                indent_len, 20,
+                "first={first_text:?} line={text:?} must start at the shared column"
+            );
+        }
     }
 
     /// Spec §9.2: the flag spelling is accent-styled, the value
@@ -988,7 +1222,7 @@ mod tests {
             80,
             true,
             crate::glyphs::UNICODE,
-            FlagColumns {
+            FlagLayout::Table {
                 value: 18,
                 description: 20,
             },
@@ -1020,7 +1254,7 @@ mod tests {
             80,
             true,
             crate::glyphs::UNICODE,
-            FlagColumns {
+            FlagLayout::Table {
                 value: 18,
                 description: 20,
             },

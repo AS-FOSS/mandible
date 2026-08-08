@@ -48,7 +48,8 @@ Breaking any of these produces a bug that tests will not catch.
 | Never slice a `&str` derived from tool output at a raw byte offset (`&s[..n]`) | any tier that parses `--help`/similar text | Panics if the offset isn't a UTF-8 char boundary. Shipped as a real crash (`help_text::sections`, found by the coverage harness's first real run, not a synthetic test): a box-drawing glyph early in one real tool's output landed byte 6 mid-character. Use `s.as_bytes().get(..n)` (bounds-checked, no boundary concept for raw bytes) for ASCII-prefix checks, or `s.get(..n)` (returns `None` instead of panicking) generally. |
 | A bare-word block becomes subcommands only under a *recognized* heading (or a chain started by one) plus a name-shape check — never from layout alone | `mandible-extract/src/help_text/sections.rs` | [M-10]: Tier B fabricated 39-65 phantom subcommands per tool from wrapped description continuation lines and `--format=`-style enum value lists. Fabricated structure is worse than missing structure — a user can't tell it's wrong. The coverage harness's structure-sanity column (spec §13.1) is the regression net: `%described` alone stayed at 100% while this was happening. |
 | Programs whose purpose is to kill processes (`kill`, `pkill`, `killall`, `fuser`, `reboot`, …) are **never executed**, under any argv | `mandible-extract/src/exec/spawn.rs` (`NEVER_PROBE`), enforced in `run_inert` | `mandible pkill` froze a user's machine into a reset. `--help` being harmless on one build is not enough: rule 2 permits `<tool> <word> --help`, and for these the first positional is a *target* — `killall foo --help` kills everything named `foo`. This is a **safety** list, not the per-tool parsing knowledge §1 forbids: it is closed, and keyed on what a program *does*, not on how its output is formatted. |
-| Every probe's CWD, `HOME`, `TMPDIR`, and the writable `XDG_*` vars point at one scratch dir, created fresh **per invocation** and removed on drop | `mandible-extract/src/exec/spawn.rs` | [M-11]: `--help` is not reliably read-only. A font-cache builder wrote into the invoking CWD and `mysql_secure_installation` wrote a `.my.cnf` with an empty root password, from nothing but `--help`. A CWD-only redirect doesn't reach `$HOME`. |
+| Every probe's CWD, `HOME`, `TMPDIR`, and the writable `XDG_*` vars point at a scratch dir, created fresh **per invocation** and removed on drop, with **one subdirectory per variable** | `mandible-extract/src/exec/spawn.rs` (`Scratch`) | [M-11]: `--help` is not reliably read-only. A font-cache builder wrote into the invoking CWD and `mysql_secure_installation` wrote a `.my.cnf` with an empty root password, from nothing but `--help`. A CWD-only redirect doesn't reach `$HOME`. They shared one directory until 0.1.7, which is a filesystem shape no real machine has — `$XDG_CACHE_HOME/x` and `$HOME/x` were the same file — and it made the row below impossible. |
+| Scratch paths are **masked back to their variable** (`$HOME/.docker`) before any output leaves `run_inert` | `mandible-extract/src/exec/spawn.rs` (`Scratch::mask`) | Redirecting `$HOME` makes a tool print *ours*: docker documented its config location as `/tmp/mandible-exec-…/.docker`, a directory deleted seconds later that never existed for the reader. The safety mechanism was manufacturing confidently false documentation — the exact failure the degradation ladder exists to prevent when a parser causes it. Mask to the *variable*, never to the reader's real home: the tool never told us that, and it would bake the capturing machine's paths into any fixture. |
 | A bare-name grid becomes subcommands only when its rows are **column-aligned** (fields separated by 2+ spaces) | `mandible-extract/src/help_text/sections.rs` | [M-10] again, by a different route: `apt-get --help`'s description paragraph became the subcommands *"and"*, *"information"*, *"about"*, *"them"*, *"from"*, *"authenticated"*, *"sources"*. Its opening sentence ("apt-get is a **command** line interface…") passed the recognized-heading test and the wrapped prose lines are all name-shaped words at a matching indent. Prose is single-spaced; a real grid is aligned. Layout, not vocabulary, is the discriminator. |
 | A usage-block continuation line **must not itself read as a flag entry** | `mandible-extract/src/help_text/sections.rs` | The inverse failure: `curl --help` runs its flag rows straight under `Usage:` with no blank line and no `Options:` heading, so every flag was consumed as usage text and the tool reported **zero flags** — at status `ok`, because nothing was fabricated for the structure-sanity check to catch. Silently-missing structure is as wrong as invented structure and harder to notice. A usage continuation is an alternative invocation form; it never starts with `-`. |
 | Rendered **man pages** are not `--help` output and must not reach the help-text grammar | `mandible-extract/src/help_text/sections.rs` | `git bisect --help` renders GIT-BISECT(1), and mining roff prose for structure produced the subcommands *"follows"*, *"testing."*, *"command"*, *"skipped."*. Detected by the `NAME(1) … NAME(1)` banner both margins carry. Until Tier D exists, the honest outcome is verbatim rendering. |
@@ -85,20 +86,37 @@ the TUI directly.
 **Rendering must therefore be verified through `TestBackend`**, which needs no
 terminal at all — see `mandible-tui/tests/border_integrity.rs`.
 
-A pty harness (`scripts/pty_screenshot.py`) used to live here: it forked a real
-pseudo-terminal, set an explicit window size (the part naive attempts miss —
-without `TIOCSWINSZ` the pty is 0×0 and ratatui renders nothing), and replayed
-the output through a terminal emulator to produce the actual screen. It found
-the markdown leak, the ragged re-wrap, apt-get's mangled
-`dselect-upgradeFollow`, and the unbounded detail-pane scroll — all invisible
-to `TestBackend`, which uses synthetic fixtures rather than real tool output.
+**But `TestBackend` alone is not enough**, and the record on that is
+unambiguous. `scripts/pty_screenshot.py` forks a real pseudo-terminal, sets an
+explicit window size (the part naive attempts miss — without `TIOCSWINSZ` the
+pty is 0×0 and ratatui renders nothing), drives it with keystrokes, and replays
+the output through a terminal emulator to produce the actual screen as text:
 
-It was removed because its output is no longer wanted in the README. **Its
-absence is a real gap**: content regressions that only appear against real
-`--help` text now have no automated net. If you are changing rendering, the
-mitigation is to widen the `TestBackend` suite with a fixture captured from a
-real tool, rather than to assume synthetic input is representative — the two
-border-corruption bugs that shipped both passed synthetic tests.
+```console
+$ python3 -m venv /tmp/ptyvenv && /tmp/ptyvenv/bin/pip install pyte
+$ /tmp/ptyvenv/bin/python scripts/pty_screenshot.py --keys '/run,<enter>,<tab>' \
+      90 30 ./target/release/mandible docker
+```
+
+It found the markdown leak, the ragged re-wrap, apt-get's mangled
+`dselect-upgradeFollow`, the unbounded detail-pane scroll, and the ragged flag
+columns — every rendering bug this project has had. All were invisible to
+`TestBackend`, because synthetic fixtures are chosen to be representative and
+real `--help` output is not.
+
+It is a debugging tool, not part of CI, and it is deliberately **not mentioned
+in the README** — it once generated the README's terminal art, which is what it
+is no longer for.
+
+The failure mode it guards against is specific and keeps recurring: a
+`TestBackend` test written from synthetic input passes, ships, and the defect is
+plainly visible the moment a real tool is rendered. The ragged flag columns are
+the type specimen — `flag_descriptions_share_one_column` asserted alignment over
+three short flags at one comfortable width, and every one of them fitted the
+column, so the test passed for six releases while `docker --help` rendered its
+descriptions at three different columns in the same list. **When you change
+rendering, capture a screen before and after**, and when a rendering test
+passes first try, suspect the fixture before believing the result.
 
 ---
 

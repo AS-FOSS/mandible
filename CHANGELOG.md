@@ -6,6 +6,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.1.7]
+
+### Fixed
+
+- **Probe sandbox paths no longer leak into documentation.** Every probe runs
+  with `HOME`, `TMPDIR` and the writable `XDG_*` variables redirected at a
+  scratch directory, so a tool printing a `$HOME`-derived default printed
+  *ours*: `docker --help` reported its config location as
+  `/tmp/mandible-exec-L3saJ8/.docker`, a directory deleted moments later that
+  never existed for the reader, with nothing marking it as anything but
+  docker's own text.
+
+  Scratch paths are now masked back to the variable that stood in for them —
+  `(default "$HOME/.docker")` — at the exec boundary, so every tier,
+  `--doctor` and the verbatim view get the corrected text. Deliberately not the
+  reader's real home directory: the tool never told us that, it is how man
+  pages write such defaults anyway, and it keeps captured fixtures independent
+  of the machine that captured them.
+
+  A tool that wraps a scratch path across two lines still cannot be matched;
+  the scratch prefix is now short to make that rarer.
+
+- **The flag table no longer goes ragged as the terminal narrows.** The
+  description column was capped at 45% of the pane, and any row too wide for
+  the cap started its description at its own width instead — so the "shared"
+  column was a target most rows missed. In a 90-column terminal `docker`'s
+  global flags rendered descriptions at three different columns in one list,
+  and `--log-level string` lost the gap between spelling and value, running
+  them together as a single token.
+
+  The column is now invariant for the list. A spelling too wide for it hangs
+  its description onto the next line rather than pushing the column right for
+  itself alone, and an outlier spelling is excluded from the measurement
+  instead of being clamped to a column it would still miss.
+
+  Below the width where a table can leave prose a readable amount of room, the
+  list now stacks — spelling on one line, description indented underneath —
+  the way every narrow-terminal help renderer does. Previously a 90-column
+  pane broke `--platform`'s six-word description across six lines, one of them
+  truncated mid-word.
+
+### Changed
+
+- **Each redirected variable gets its own scratch subdirectory.** They all
+  pointed at one directory, which is a filesystem shape no real machine has — a
+  probe writing `$XDG_CACHE_HOME/x` and reading `$HOME/x` saw the same file —
+  so every tool was probed against an environment that cannot occur. It also
+  left the path leak above unfixable, since a path under the shared directory
+  could have come from any of seven variables.
+
+### Internal
+
+- `scripts/pty_screenshot.py` is back. It renders the TUI through a real
+  pseudo-terminal in an environment that has no tty, and it found both
+  rendering defects above — the `TestBackend` suite was green throughout. See
+  `AGENTS.md` §3.2; it is a debugging tool, not part of CI.
+
 ## [0.1.6]
 
 ### Fixed

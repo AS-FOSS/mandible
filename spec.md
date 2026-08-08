@@ -515,6 +515,11 @@ damage a user's machine, and it gets its own section and its own tests.
    Full containment needs OS-level sandboxing (namespaces/seccomp); until then,
    document the residual risk rather than claiming the probe is inert.
 
+   **One subdirectory per variable, never one shared directory.** They pointed
+   at a single path once, which is a filesystem shape no real machine has — a
+   tool writing `$XDG_CACHE_HOME/x` and reading `$HOME/x` saw one file — so
+   every probe ran against an environment that cannot occur.
+
    **The residual risk is now measured, not hypothetical.** The timeout kills the
    probe's *process group*, which a child that calls `setsid` leaves — so
    anything that daemonises survives it. A full-`PATH` sweep in CI loses roughly
@@ -553,6 +558,34 @@ damage a user's machine, and it gets its own section and its own tests.
    on the right side of §1: the knowledge is "how version managers locate
    toolchains", not "how cargo works". Adding an ecosystem is one entry; it
    never grows per tool.
+
+9. **Mask the redirect back out of the output.** Rule 8 has a cost the other
+   rules don't: it changes what tools *say*. A tool printing a `$HOME`-derived
+   default prints *ours* — `docker --help` reported its config location as
+   `/tmp/mandible-exec-L3saJ8/.docker`, a directory deleted moments later that
+   never existed for the reader, with nothing on screen marking it as anything
+   but docker's own documentation. The safety mechanism had become a source of
+   confidently false documentation, which is the failure §7's whole degradation
+   ladder exists to prevent when a *parser* causes it.
+
+   Each scratch path is replaced with **the variable that stood in for it**
+   (`$HOME/.docker`), at the same boundary that applied the redirect, so every
+   tier, `--doctor` and the verbatim view get it without knowing. Deliberately
+   *not* the reader's real home directory: the tool never told us that, and
+   filling in a blank is the same move as inventing structure, only smaller. It
+   is how man pages write such defaults anyway, and it is identical on every
+   machine, so a fixture captured from a real tool cannot bake in the capturing
+   machine's paths.
+
+   This is what rule 8's one-subdirectory-per-variable requirement buys. With a
+   single shared directory there is no correct answer to write back, because
+   `/tmp/…/.docker` could have come from any of seven variables.
+
+   Matching is on this invocation's exact path, never a `/tmp/mnd-*` pattern, so
+   a temp path a tool legitimately prints is untouched. **Residual:** a tool
+   wraps its own help text at the `COLUMNS` we set, so a path split across two
+   lines cannot be matched. The scratch prefix is kept short to make that rarer;
+   it does not eliminate it.
 
 A test asserts rules 1, 2, and 3 by running the full pipeline against a shim
 binary that logs its argv and environment, and failing on any invocation outside
@@ -922,6 +955,34 @@ full text on selection; a tree summary only has to disambiguate `push` from
   summaries, never without names.
 - Width ladder: full layout above 60 columns; **names only** below it (drop
   summaries rather than showing eight useless characters); stacked panes below 50.
+
+### 9.1a Flag rows: a table, or honestly not one
+
+The detail pane's flag list is a three-column table — spelling, value
+placeholder, description. Three rather than two because a placeholder answers a
+different question from a spelling (`--env` is what you type, `list` is what it
+takes); run together as `--env list` they read as one token, while in their own
+columns the list can be scanned down either one.
+
+- **The description column is one number for the whole list.** Not a target the
+  wide rows are allowed to miss. A column that most rows share and some rows
+  don't is not alignment, it is noise that looks like alignment — and it is
+  worse than no column at all, because the eye keeps trying to use it.
+- **A row too wide for the column hangs**: its description starts on the next
+  line, at the column. It never pushes the column right for itself, and the
+  spelling is never truncated to force alignment (as in §9.1, names win). The
+  row costs one extra line, which is the only cost nothing else has to pay.
+- **An outlier spelling is excluded from the measurement, not clamped to it.**
+  Clamping sets a column the outlier still misses; excluding lets it hang while
+  every other row stays aligned. Threshold: a spelling wider than 45% of the
+  pane does not get a vote.
+- **Below the width where the table can leave prose a readable amount of room
+  (28 columns), stop pretending and stack**: spelling and value on one line,
+  description indented beneath. A table whose columns have eaten the pane
+  breaks six words of prose across six lines; a stacked list at the same width
+  reads normally. This is the same judgement as the tree's width ladder —
+  degrade to a different layout deliberately rather than to a worse version of
+  the same one.
 
 ### 9.2 The styling contract
 
