@@ -6,6 +6,82 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.2.0]
+
+Six fixes, three of them found by rendering a deliberately awkward CLI through a
+real pseudo-terminal rather than by any test.
+
+### Fixed
+
+- **The USAGE line no longer repeats the command name.** `docker import`
+  rendered as `import docker import [OPTIONS] file|URL|- [REPOSITORY[:TAG]]`.
+  The check asked whether the usage's *first word* was the node's name, but
+  cobra and argparse both print the full command path, so the name was stapled
+  on the front of nearly every subcommand of every such tool. It now scans the
+  whole leading run of command words. Tools that print no name at all
+  (`Usage: [OPTIONS] FILE`) still get one added, which is what the prepending
+  was for.
+
+- **A token wider than the pane is broken across lines instead of discarded.**
+  It was ellipsis-truncated, so a 150-character URL rendered as
+  `https://registry.example.com/v2/org…` with everything after it unrecoverable
+  from the parsed view. Splits are placed by display width, so a double-width
+  character cannot straddle the boundary and overflow the pane.
+
+- **A relative tool path works.** `mandible ./scripts/tool.py` failed with
+  "No such file or directory" for a file plainly present: the path was checked
+  against the caller's working directory, then the probe ran with its own
+  directory redirected into a scratch dir (§6 rule 8). Resolution now yields an
+  absolute path — via `std::path::absolute`, deliberately not
+  `fs::canonicalize`; see below.
+
+- **argparse subcommands survive a styled section heading.**
+  `add_subparsers(title="commands")` is the ordinary way to name that block,
+  and the dedicated scan was gated on the heading reading `positional
+  arguments`, so a styled heading collapsed the entire command tree to a single
+  node. The scan's structural evidence — a `{a,b,c}` pseudo-entry with deeper
+  lines beneath it — is stronger than the heading text ever was, and still
+  refuses a plain positional carrying `choices=[...]`.
+
+- **A command list at the same indent as its heading is recognized.** `dnf` 4
+  prints its whole command list flush at column 0 under a flush-left heading;
+  the engine required content indented *more* than its heading, so `mandible
+  dnf` showed one node and no subcommands. Now 30.
+
+- **A pending row's spinner no longer touches the name.** `dnf`'s longest
+  command rendered `check-update⋯ loading`, one mangled word rather than a name
+  and its status — the same defect fixed for summaries in an earlier release
+  (`apt-get`'s `dselect-upgradeFollow`) and missed in the sibling branch,
+  because no tool in the suite had a pending row at the column until `dnf`
+  gained subcommands.
+
+### Notes on two near-misses
+
+Both were caught by the PATH-wide coverage sweep and by nothing else; the unit
+suite was green through both.
+
+- Making resolved paths absolute with `fs::canonicalize` **defeated §6 rule 0**.
+  `is_never_probe` matches on the file name, and `reboot`, `poweroff`,
+  `shutdown` and `telinit` are symlinks to `systemctl` — resolving renamed them
+  before the refusal ran. It also broke ten `iptables*` tools, which dispatch on
+  `argv[0]`. Fixed by using `std::path::absolute`, which does not follow links.
+- The same-indent command rule initially **fabricated 28 subcommands** out of
+  `mysqlslap`'s config-variable table (`port 3306`, `no-drop FALSE`), because at
+  a shared indent every row is a candidate heading for the rows beneath it and
+  `init-command` contains the word "command". A heading must now not itself look
+  like a row.
+
+Final sweep is identical to baseline on every aggregate — 89.19% described
+across 2266 tools, 1 suspicious, 320 verbatim — with zero status changes, zero
+nodes lost, and `dnf` the only gain.
+
+### Internal
+
+- `scripts/smoke_cli.py`: a deliberately awkward argparse CLI for exercising
+  layout by hand — a twelve-level command chain, four flag-table shapes, tokens
+  with no whitespace to wrap at, and sixty flags. It found three of the bugs
+  above within minutes of existing.
+
 ## [0.1.7]
 
 ### Fixed

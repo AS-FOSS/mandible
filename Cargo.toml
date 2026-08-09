@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.7"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -19,10 +19,16 @@ readme = "README.md"
 authors = ["Sadig Akhund <sadigaxund@gmail.com>"]
 
 [workspace.dependencies]
-mandible-core = { path = "mandible-core", version = "0.1.4" }
-mandible-extract = { path = "mandible-extract", version = "0.1.4" }
-mandible-search = { path = "mandible-search", version = "0.1.4" }
-mandible-tui = { path = "mandible-tui", version = "0.1.4" }
+# These versions must be bumped together with `workspace.package.version`
+# above. A path dependency needs a version to be publishable at all, and the
+# requirement is a caret one — `"0.1.4"` silently covered 0.1.5 through 0.1.7
+# and then failed to resolve the moment the workspace reached 0.2.0. Caught by
+# a local build; after a tag it would have failed mid-release, with some crates
+# already published and unpublishable again.
+mandible-core = { path = "mandible-core", version = "0.2.0" }
+mandible-extract = { path = "mandible-extract", version = "0.2.0" }
+mandible-search = { path = "mandible-search", version = "0.2.0" }
+mandible-tui = { path = "mandible-tui", version = "0.2.0" }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

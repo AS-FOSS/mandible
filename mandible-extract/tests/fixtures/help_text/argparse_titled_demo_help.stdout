@@ -1,0 +1,14 @@
+usage: widget [-h] [-v] [--config FILE] {init,build,run} ...
+
+Manage widgets.
+
+options:
+  -h, --help        show this help message and exit
+  -v, --verbose     be verbose
+  --config FILE     path to config file
+
+commands:
+  {init,build,run}
+    init            Initialize a new widget
+    build           Build the widget
+    run             Run the widget

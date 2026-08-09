@@ -358,6 +358,66 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
                 }
                 continue;
             }
+            // A command table that sits at the *same* indent as its own
+            // heading, rather than beneath it. `dnf` 4 prints its whole
+            // command list this way, flush at column 0:
+            //
+            // ```text
+            // List of Main Commands:
+            //
+            // alias                     List or create command aliases
+            // autoremove                remove all unneeded packages
+            // ```
+            //
+            // The engine's "content is indented more than its heading"
+            // rule cannot see that at all, so `mandible dnf` reported one
+            // node and no subcommands — silently missing structure, which
+            // §7 treats as no better than inventing it.
+            //
+            // Guarded much harder than the indented case, because this is
+            // the shape [M-10] came in through: `apt-get --help`'s prose
+            // paragraph became the subcommands *"and"*, *"information"*,
+            // *"about"*, *"them"*. Three things must all hold — the
+            // heading must be a *recognized* command heading (never merely
+            // a line ending in a colon), every row must be column-aligned
+            // in the [M-10] sense (a name-shaped token, then a 2+ space
+            // gap, then description text), and there must be at least two
+            // such rows. Prose is single-spaced, so it fails the second
+            // test on its first line.
+            // The heading must not itself look like one of the rows. At a
+            // shared indent there is no structural difference between a
+            // heading and a table row, so without this every row is a
+            // candidate heading for the rows beneath it — and
+            // `mentions_commands_word` splits on non-alphanumerics, so a
+            // row whose *name* merely contains "command" qualifies.
+            //
+            // Measured: `mysqlslap --help` ends with a flush-left table of
+            // config variables and their defaults, and the row
+            // `init-command    (No default value)` was taken as a heading,
+            // fabricating 28 subcommands out of MySQL settings — [M-10]
+            // exactly, reached by a new route. A real heading is a single
+            // field (`List of Main Commands:`); a row is two columns
+            // separated by a 2+ space gap.
+            let heading_is_itself_a_row = find_description_gap(lines[heading_idx]).is_some();
+
+            if i < lines.len()
+                && leading_whitespace(lines[i]) == heading_indent
+                && !heading_is_itself_a_row
+                && !is_ignorable_heading(&heading)
+                && is_recognized_command_heading(&heading, profile)
+            {
+                if let Some((end, entries)) =
+                    scan_same_indent_entry_table(&lines, i, heading_indent)
+                {
+                    i = end;
+                    command_mode = true;
+                    let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
+                    total_entries += seen;
+                    clean_entries += clean;
+                    continue;
+                }
+            }
+
             // Not actually a heading — but if it reads like an
             // introduction to a command list ("These are common Git
             // commands used in various situations:", itself flanked by
@@ -393,13 +453,28 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
         // structurally distinct from every other framework's bare-word
         // block — see `scan_argparse_subparsers`'s doc comment — so they
         // get first refusal here, gated on the profile explicitly opting
-        // in and the heading plausibly being argparse's own (usually
-        // undecorated) `"positional arguments:"`. A miss (no `{...}`
-        // pseudo-entry evidence found) falls straight through to the
-        // ordinary bare-block handling below, same as any other tool.
-        if profile.is_some_and(|p| p.argparse_subparser_quirk)
-            && heading.to_lowercase().contains("positional arguments")
-        {
+        // in. A miss (no `{...}` pseudo-entry evidence found) falls
+        // straight through to the ordinary bare-block handling below, same
+        // as any other tool.
+        //
+        // Deliberately *not* also gated on the heading reading `"positional
+        // arguments"`. It was, and that made `add_subparsers(title=...)` —
+        // the ordinary way an argparse tool styles this heading — collapse
+        // the entire command tree to nothing: the scan never ran, and the
+        // general engine then read the `{a,b,c}` pseudo-entry as the single
+        // entry with the real subcommands as its continuation lines. A
+        // twelve-level fixture and `smokecli` both rendered one node.
+        //
+        // The structural evidence the scan already demands is what makes
+        // dropping the text check safe, and it is strictly stronger than
+        // the heading was: a `{...}` pseudo-entry *with deeper lines
+        // beneath it*. A plain positional carrying `choices=[...]` renders
+        // the same `{...}` metavar but has nothing beneath it, so it still
+        // returns `None` and is still never promoted to subcommands —
+        // which is the [M-10] fabrication this guard exists to prevent, and
+        // is asserted directly by
+        // `argparse_profile_does_not_fabricate_subcommands_from_plain_positionals`.
+        if profile.is_some_and(|p| p.argparse_subparser_quirk) {
             if let Some((end, entries)) = scan_argparse_subparsers(&lines, i, heading_indent) {
                 i = end;
                 command_mode = false;
@@ -1088,6 +1163,41 @@ fn scan_argparse_subparsers<'a>(
 /// here. Reuses [`bare_block_end`] to find where the block ends (same
 /// "dedents below the first content line" rule every bare block uses),
 /// then just splits every non-blank line on `,`.
+/// Scan a command table sitting at the *same* indent as its heading
+/// (`dnf` 4's flush-left command list — see the call site for why this
+/// exists and what it is guarded against).
+///
+/// **All-or-nothing on purpose.** A single row that is not column-aligned
+/// rejects the whole block rather than ending it early. Stopping early
+/// would accept a table with prose appended to it, and prose promoted to
+/// subcommands is exactly [M-10]; refusing the block just leaves the text
+/// where it was, which is the failure this project prefers. `None` here
+/// simply falls through to the ordinary handling, same as any other tool.
+fn scan_same_indent_entry_table<'a>(
+    lines: &[&'a str],
+    start: usize,
+    indent: usize,
+) -> Option<(usize, Vec<(&'a str, String)>)> {
+    /// One row is as likely to be a stray sentence as a table.
+    const MIN_ROWS: usize = 2;
+
+    let mut end = start;
+    let mut entries: Vec<(&'a str, String)> = Vec::new();
+    while end < lines.len() {
+        let line = lines[end];
+        if line.trim().is_empty() || leading_whitespace(line) != indent {
+            break;
+        }
+        let (name, description) = split_entry_line(line, false);
+        if description.is_empty() || !is_name_shaped_token(name) {
+            return None;
+        }
+        entries.push((name, description));
+        end += 1;
+    }
+    (entries.len() >= MIN_ROWS).then_some((end, entries))
+}
+
 fn scan_comma_separated_commands<'a>(
     lines: &[&'a str],
     start: usize,

@@ -436,6 +436,61 @@ mod tests {
         assert!(long_flags.contains(&"config"));
     }
 
+    /// The same recovery when the tool styles the heading itself.
+    ///
+    /// `add_subparsers(title="commands")` is the ordinary way an argparse
+    /// tool names that block, and the dedicated scan used to be gated on
+    /// the heading reading `"positional arguments"`, so a styled heading
+    /// skipped it entirely and the whole command tree collapsed to a
+    /// single node. Captured from a real runnable script
+    /// (`tests/fixtures/help_text/argparse_titled_demo.py`) rather than
+    /// hand-written, so it stays honest about what argparse emits.
+    #[test]
+    fn argparse_profile_recovers_subparsers_under_a_styled_heading() {
+        let raw = fixture("argparse_titled_demo_help.stdout");
+        let parsed =
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)));
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["init", "build", "run"], "{names:?}");
+    }
+
+    /// A flush-left command table is recognized (`dnf` 4 prints its whole
+    /// command list at column 0, under a heading also at column 0), and
+    /// the `--help` engine's indent rule cannot see that on its own.
+    #[test]
+    fn a_command_table_at_its_headings_own_indent_is_recovered() {
+        let raw = "usage: dnf [options] COMMAND\n\nList of Main Commands:\n\nalias                     List or create command aliases\nautoremove                remove all unneeded packages\ncheck                     check for problems in the packagedb\n\nGeneral DNF options:\n  -v, --verbose         verbose operation\n";
+        let parsed = sections::parse(raw);
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["alias", "autoremove", "check"], "{names:?}");
+    }
+
+    /// ...but a flush-left table of *settings* must not become commands,
+    /// even when one of its rows happens to contain the word "command".
+    ///
+    /// At a shared indent nothing structurally separates a heading from a
+    /// row, so every row is a candidate heading for those beneath it, and
+    /// `mentions_commands_word` splits on non-alphanumerics — so
+    /// `init-command` qualifies as mentioning "command". Measured against
+    /// the real thing: `mysqlslap --help` ends with a table of config
+    /// variables and their defaults, and this shape fabricated 28
+    /// subcommands out of MySQL settings before the guard landed. [M-10],
+    /// reached by a new route.
+    #[test]
+    fn a_flush_left_settings_table_is_not_promoted_to_subcommands() {
+        let raw = "Usage: mysqlslap [OPTIONS]\n\nVariables (--variable-name=value)\nand boolean options {FALSE|TRUE}      Value (after reading options)\ncommit                                0\ninit-command                          (No default value)\niterations                            1\nno-drop                               FALSE\nport                                  3306\n";
+        let parsed = sections::parse(raw);
+        assert!(
+            parsed.subcommands.is_empty(),
+            "settings became subcommands: {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
     /// Argparse's own dedicated-scan regression: an ordinary positional
     /// argument list (no `add_subparsers()` at all) must never be promoted
     /// to fake subcommands just because it sits under `positional

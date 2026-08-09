@@ -28,7 +28,7 @@
 
 use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
-use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
+use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
 use mandible_core::{CommandNode, Flag, FlagKey, ValueKind};
 use ratatui::layout::Rect;
@@ -37,6 +37,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use ratatui::Frame;
 use std::collections::HashMap;
+use unicode_width::UnicodeWidthChar;
 
 /// Render the detail pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
@@ -239,7 +240,7 @@ fn build_lines(
     let mut target_flag_line = None;
 
     if let Some(summary) = &node.summary {
-        for chunk in wrap_words(summary.as_str(), width, glyphs.ellipsis) {
+        for chunk in wrap_words(summary.as_str(), width) {
             lines.push(Line::from(Span::styled(
                 chunk,
                 Style::default().add_modifier(ratatui::style::Modifier::BOLD),
@@ -256,7 +257,7 @@ fn build_lines(
             glyphs,
         ));
         for paragraph_text in description.as_str().split("\n\n") {
-            for chunk in wrap_words(paragraph_text, width, glyphs.ellipsis) {
+            for chunk in wrap_words(paragraph_text, width) {
                 lines.push(Line::from(chunk));
             }
             lines.push(Line::default());
@@ -271,7 +272,7 @@ fn build_lines(
             // signature apart from its prose.
             let indent = "  ";
             let avail = width.saturating_sub(display_width(indent)).max(1);
-            for chunk in wrap_words(&full, avail, glyphs.ellipsis) {
+            for chunk in wrap_words(&full, avail) {
                 lines.push(Line::from(format!("{indent}{chunk}")));
             }
         }
@@ -336,12 +337,31 @@ fn heading_line_ruled(
 /// One usage line, with the redundancy stripped.
 ///
 /// The raw string frequently already carries both a `Usage:` label and the
-/// tool's own name — `tar --help` yields `Usage: tar [OPTION...]` — and
-/// prepending the node name to that produced `tar Usage: tar [OPTION...]`,
-/// with the name twice and a label the `USAGE` heading directly above
-/// already supplies. The name is prepended only when the line does not
-/// already begin with it, which is what makes a bare pattern like
-/// `[OPTIONS] <url>` still render as a complete invocation.
+/// tool's own command path — `tar --help` yields `Usage: tar [OPTION...]`,
+/// and prepending the node name to that produced `tar Usage: tar
+/// [OPTION...]`, with the name twice and a label the `USAGE` heading
+/// directly above already supplies.
+///
+/// The old guard only checked the usage text's *first* word, which is why
+/// `docker import --help`'s `Usage:  docker import [OPTIONS] file|URL|-
+/// [REPOSITORY[:TAG]]` rendered as `import docker import [OPTIONS]
+/// file|URL|- [REPOSITORY[:TAG]]`: cobra prints the *full* command path
+/// (`docker import`), not just the leaf name, so the first word is
+/// `docker` and the check missed. `smokecli columns outlier` (argparse,
+/// which does the same thing) has the identical shape: `usage: smokecli
+/// columns outlier [-h] ...`.
+///
+/// So the check now scans the whole run of bare, word-shaped tokens at the
+/// front of the usage text — stopping at the first token that looks like
+/// an option or placeholder (`-...`, `[...`, `<...`, or a bare ALL-CAPS
+/// metavar like `FILE`) — and prepends the name only when it is absent
+/// from that whole run, not just its first entry. That run *is* the
+/// tool's own command-path prefix; if the node's name shows up anywhere in
+/// it the line already names the command. Tools that print no command name
+/// at all still work: `Usage: [OPTIONS] FILE` has an empty leading run (the
+/// very first token is a placeholder), so nothing is found there and the
+/// name still gets prepended — which is what keeps a bare pattern like
+/// `[OPTIONS] <url>` a complete, copy-pasteable invocation.
 fn usage_signature(node_name: &str, usage: &str) -> String {
     let name = defensive_single_line(node_name);
     let mut text = defensive_single_line(usage);
@@ -353,22 +373,45 @@ fn usage_signature(node_name: &str, usage: &str) -> String {
         text = trimmed[6..].trim_start().to_string();
     }
 
-    let starts_with_name = text
-        .split_whitespace()
-        .next()
-        .is_some_and(|first| first == name);
-    if starts_with_name || name.is_empty() {
+    if name.is_empty() || usage_names_the_node(&text, &name) {
         text
     } else {
         format!("{name} {text}")
     }
 }
 
+/// Whether `name` already appears among `text`'s leading run of bare
+/// command-path words — see [`usage_signature`] for why the search covers
+/// the whole run rather than only the first token.
+fn usage_names_the_node(text: &str, name: &str) -> bool {
+    text.split_whitespace()
+        .take_while(|word| !looks_like_option_or_placeholder(word))
+        .any(|word| word == name)
+}
+
+/// A token that ends a usage line's leading command-path run: an option
+/// (`-v`, `--verbose`), a bracketed/angled placeholder (`[OPTIONS]`,
+/// `<url>`), or a bare ALL-CAPS metavar (`FILE`, `URL`) — docopt-style
+/// convention for "this is a slot to fill in", never a literal word of the
+/// command path.
+fn looks_like_option_or_placeholder(word: &str) -> bool {
+    if word.starts_with(['-', '[', '<']) {
+        return true;
+    }
+    let has_letter = word.chars().any(|c| c.is_alphabetic());
+    has_letter && !word.chars().any(|c| c.is_lowercase())
+}
+
 /// Greedy word-wrap of `text` to at most `width` display columns per
-/// line, never breaking a word unless it alone exceeds `width` (in which
-/// case it's ellipsis-truncated rather than allowed to overflow). Always
-/// returns at least one (possibly empty) chunk.
-fn wrap_words(text: &str, width: usize, marker: &str) -> Vec<String> {
+/// line, never breaking a word unless it alone exceeds `width` — in which
+/// case it is broken across as many lines as it takes (see
+/// [`break_overlong_word`]) rather than truncated. A token that is lost
+/// once truncated is unrecoverable from the parsed view: `smokecli
+/// unbreakable url` prints a ~150-character URL that used to render as
+/// `https://registry.example.com/v2/org…` in a 46-column pane, with
+/// everything past `/v2/org` gone. Always returns at least one (possibly
+/// empty) chunk.
+fn wrap_words(text: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     let mut lines = Vec::new();
     let mut current = String::new();
@@ -390,7 +433,7 @@ fn wrap_words(text: &str, width: usize, marker: &str) -> Vec<String> {
             current_width = 0;
         }
         if word_width > width {
-            lines.push(truncate_to_width_marker(word, width, marker));
+            lines.extend(break_overlong_word(word, width));
         } else {
             current.push_str(word);
             current_width = word_width;
@@ -403,6 +446,42 @@ fn wrap_words(text: &str, width: usize, marker: &str) -> Vec<String> {
         lines.push(String::new());
     }
     lines
+}
+
+/// Break a single token wider than `width` display columns into as many
+/// width-limited chunks as it takes, so the token survives intact across
+/// multiple lines instead of being lost to an ellipsis truncation.
+///
+/// Splits are placed between characters, chosen by summing each
+/// character's [`unicode_width`] — never by byte index (a raw byte offset
+/// can land mid-character and panic, the exact failure AGENTS.md's
+/// byte-slicing rule documents for parsed tool output) and never by
+/// `char` count (a `char`-count split can put a double-width CJK or emoji
+/// character right at the boundary and let it overflow the line by one
+/// cell, the same border-overflow failure display-width truncation exists
+/// to prevent elsewhere in this pane). A lone character wider than `width`
+/// itself (a 2-wide emoji in a 1-column budget) still cannot be split —
+/// it gets its own chunk and that chunk is allowed to exceed `width` by
+/// the unavoidable minimum, since no cut point inside a character exists.
+fn break_overlong_word(word: &str, width: usize) -> Vec<String> {
+    let width = width.max(1);
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+    let mut current_width = 0usize;
+
+    for c in word.chars() {
+        let c_width = UnicodeWidthChar::width(c).unwrap_or(0);
+        if current_width + c_width > width && !current.is_empty() {
+            chunks.push(std::mem::take(&mut current));
+            current_width = 0;
+        }
+        current.push(c);
+        current_width += c_width;
+    }
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+    chunks
 }
 
 /// Strip a group heading's trailing colon and normalize its casing, so
@@ -575,7 +654,7 @@ fn flag_lines(
     if let Some(ungrouped) = own_groups.remove(&None) {
         for f in ungrouped {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, glyphs, layout));
+            out.extend(flag_line(f, false, width, color_enabled, layout));
         }
     }
     for key in group_order {
@@ -587,7 +666,7 @@ fn flag_lines(
         }
         for f in flags {
             note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, glyphs, layout));
+            out.extend(flag_line(f, false, width, color_enabled, layout));
         }
     }
 
@@ -600,7 +679,7 @@ fn flag_lines(
         ));
         for f in inherited {
             note_if_target(&out, f);
-            out.extend(flag_line(f, true, width, color_enabled, glyphs, layout));
+            out.extend(flag_line(f, true, width, color_enabled, layout));
         }
     }
 
@@ -650,7 +729,6 @@ fn flag_line(
     dim: bool,
     width: usize,
     color_enabled: bool,
-    glyphs: Glyphs,
     // Where the value and description columns begin, shared across the
     // whole flag list — see `flag_columns`.
     layout: FlagLayout,
@@ -752,7 +830,7 @@ fn flag_line(
     let indent_width = layout.description_column();
     let hangs = prefix_width + gap > indent_width;
     let available = width.saturating_sub(indent_width).max(1);
-    let chunks = wrap_words(&description_text, available, glyphs.ellipsis);
+    let chunks = wrap_words(&description_text, available);
 
     let mut lines = Vec::new();
     let mut chunks_iter = chunks.into_iter();
@@ -1178,7 +1256,6 @@ mod tests {
             false,
             40,
             true,
-            crate::glyphs::UNICODE,
             FlagLayout::Table {
                 value: 18,
                 description: 20,
@@ -1221,7 +1298,6 @@ mod tests {
             false,
             80,
             true,
-            crate::glyphs::UNICODE,
             FlagLayout::Table {
                 value: 18,
                 description: 20,
@@ -1253,7 +1329,6 @@ mod tests {
             false,
             80,
             true,
-            crate::glyphs::UNICODE,
             FlagLayout::Table {
                 value: 18,
                 description: 20,
@@ -1420,5 +1495,132 @@ mod tests {
         assert!(rendered.contains("unparsed"), "{rendered}");
         assert!(rendered.contains("a friendly banner"), "{rendered}");
         assert!(rendered.contains("and nothing else"), "{rendered}");
+    }
+
+    /// The reported defect: cobra prints the *full* command path in its
+    /// usage line, not just the leaf node's own name — `docker import
+    /// --help` yields `Usage:  docker import [OPTIONS] file|URL|-
+    /// [REPOSITORY[:TAG]]`. The old guard only checked the usage text's
+    /// first word ("docker" ≠ "import"), so it prepended the leaf name
+    /// anyway and produced `import docker import [OPTIONS] file|URL|-
+    /// [REPOSITORY[:TAG]]` — the name doubled and the real command path
+    /// pushed off the front. The correct output is the tool's own line,
+    /// byte for byte.
+    #[test]
+    fn usage_signature_does_not_prepend_when_the_full_path_already_names_the_node() {
+        assert_eq!(
+            usage_signature(
+                "import",
+                "docker import [OPTIONS] file|URL|- [REPOSITORY[:TAG]]"
+            ),
+            "docker import [OPTIONS] file|URL|- [REPOSITORY[:TAG]]"
+        );
+        // Same shape, a second real tool (docker pull), so this isn't
+        // one coincidental fixture.
+        assert_eq!(
+            usage_signature("pull", "docker pull [OPTIONS] NAME[:TAG|@DIGEST]"),
+            "docker pull [OPTIONS] NAME[:TAG|@DIGEST]"
+        );
+        // argparse does the same thing, and for a node three levels deep
+        // the leading run is three words wide, not one — the fix has to
+        // scan the whole run, not just swap which single word it checks.
+        assert_eq!(
+            usage_signature("outlier", "smokecli columns outlier [-h] [-v] [-n]"),
+            "smokecli columns outlier [-h] [-v] [-n]"
+        );
+    }
+
+    /// The other direction, which is why the fix can't just delete the
+    /// prepending: some tools print usage with no command name in it at
+    /// all (`Usage: [OPTIONS] FILE`), and mandible adds the name so the
+    /// line reads as a complete, copy-pasteable invocation. Here the
+    /// node's name genuinely does not appear anywhere in the usage text,
+    /// so it must still be prepended.
+    #[test]
+    fn usage_signature_still_prepends_when_the_name_is_truly_absent() {
+        assert_eq!(
+            usage_signature("mytool", "[OPTIONS] FILE"),
+            "mytool [OPTIONS] FILE"
+        );
+        assert_eq!(usage_signature("cat", "<url>"), "cat <url>");
+    }
+
+    /// A single over-long token must survive wrapping intact — broken
+    /// across as many lines as it takes, never truncated. Concatenating
+    /// every chunk this function returns must reconstruct the original
+    /// word exactly; losing a suffix here is exactly what shipped as
+    /// `smokecli unbreakable url` rendering a ~150-character URL as
+    /// `https://registry.example.com/v2/org…` with everything past
+    /// `/v2/org` gone from the parsed view.
+    #[test]
+    fn wrap_words_breaks_an_overlong_token_instead_of_losing_it() {
+        let url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef0123456789abcdef0123456789abcd?query=value&more=stuff";
+        let chunks = wrap_words(url, 20);
+        assert!(chunks.len() > 1, "expected multiple chunks: {chunks:?}");
+        let rejoined: String = chunks.concat();
+        assert_eq!(rejoined, url, "the token must survive intact");
+        for chunk in &chunks {
+            assert!(
+                display_width(chunk) <= 20,
+                "chunk exceeds the budget: {chunk:?}"
+            );
+        }
+        // Nothing here is a hard-truncation ellipsis marker.
+        assert!(!rejoined.contains('…'));
+    }
+
+    /// [`break_overlong_word`] must split only at character boundaries —
+    /// never mid-character — even when the word is wide/emoji text, so
+    /// display-width accounting (not byte or `char` count) is what decides
+    /// where a line ends.
+    #[test]
+    fn break_overlong_word_never_splits_a_multibyte_character() {
+        // Each CJK character is 2 columns wide; a budget of 3 must place
+        // exactly one character per chunk; the whole string must survive.
+        let word = "日本語文字列長い";
+        let chunks = break_overlong_word(word, 3);
+        let rejoined: String = chunks.concat();
+        assert_eq!(rejoined, word);
+        for chunk in &chunks {
+            // Every chunk parses as valid UTF-8 chars by construction
+            // (`String` guarantees it), so the real assertion is the
+            // width budget: no chunk may smuggle a whole extra character
+            // past it.
+            assert!(display_width(chunk) <= 3, "chunk too wide: {chunk:?}");
+        }
+    }
+
+    /// The end-to-end path for the reported repro: a node whose `usage`
+    /// carries an over-long token must still show the whole token
+    /// somewhere in the rendered lines, and never emit an ellipsis in its
+    /// place.
+    #[test]
+    fn build_lines_wraps_rather_than_truncates_a_long_usage_token() {
+        let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
+        let long_url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef0123456789abcdef0123456789abcd";
+        node.usage = vec![Text::sanitize(long_url)];
+
+        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE);
+        // Every usage line carries its own 2-space block indent (see the
+        // USAGE section of `build_lines`) — strip it per line before
+        // rejoining so adjacent chunks of the broken token reassemble
+        // without a spurious gap between them.
+        let joined: String = built
+            .lines
+            .iter()
+            .map(text_of)
+            .map(|t| t.trim_start().to_string())
+            .collect();
+        // The chunks concatenate back to the original token exactly, so
+        // the whole URL — not just a fragment of it — must appear intact
+        // somewhere in the rendered output.
+        assert!(
+            joined.contains(long_url),
+            "token was lost, not wrapped: {joined:?}"
+        );
+        assert!(
+            !joined.contains('…'),
+            "an over-long token must never be ellipsis-truncated: {joined:?}"
+        );
     }
 }

@@ -188,7 +188,16 @@ fn build_row_line(
         // (possibly stale or absent) summary, aligned to the same
         // computed column a real summary would use.
         if name_part_width < width {
-            let pad_to = summary_column.max(name_part_width);
+            // `+ 1` for the same reason the summary branch below does it,
+            // and against the same failure: a name that reaches the shared
+            // column leaves `pad_to` equal to its own width, so the marker
+            // starts in the very next cell. `dnf`'s longest command
+            // rendered as `check-update⋯ loading`, one mangled word rather
+            // than a name and its status. Fixed once below for summaries
+            // (apt-get's `dselect-upgradeFollow`) and missed here, because
+            // no tool in the suite had a pending row at the column until
+            // `dnf` gained subcommands.
+            let pad_to = summary_column.max(name_part_width + 1);
             let padding = " ".repeat(pad_to.saturating_sub(name_part_width));
             let remaining = width.saturating_sub(pad_to);
             if remaining > 0 {
@@ -339,6 +348,36 @@ mod tests {
         let line = build_row_line(&r, 12, false, false, 5, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(display_width(&text) <= 12);
+    }
+
+    /// A pending row's spinner must never touch the name, exactly as a
+    /// summary must not. `dnf`'s longest command rendered
+    /// `check-update⋯ loading` — the name and its status reading as one
+    /// mangled word, the same defect apt-get's `dselect-upgradeFollow`
+    /// produced in the summary branch and which was only fixed there.
+    #[test]
+    fn a_pending_row_keeps_a_gap_between_the_name_and_the_spinner() {
+        // Column set exactly at the name's own width, which is what a row
+        // holding the longest name in the tree gets.
+        let mut r = row(0, "check-update", None, true);
+        r.pending = true;
+        let name_width = prefix_width(0) + display_width("check-update");
+        let line = build_row_line(
+            &r,
+            60,
+            false,
+            false,
+            name_width,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+        );
+        let text = rendered(&line);
+        assert!(
+            !text.contains("check-update\u{22ef}"),
+            "spinner is touching the name: {text:?}"
+        );
+        assert!(text.contains("check-update "), "{text:?}");
     }
 
     /// Spec §9.1: the summary column is computed over the *whole*
