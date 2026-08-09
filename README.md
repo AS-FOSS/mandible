@@ -106,29 +106,24 @@ separately for the broad picture.
 ## Safety
 
 mandible finds out what a tool does by running it: `docker --help`,
-`git rebase --help`. Running other people's programs to read their documentation
-deserves some care.
+`git rebase --help`. That deserves some care, so the rules are narrow and they
+all live in one module — a test fails the build if any other part of the
+codebase learns how to launch a program.
 
-> [!WARNING]
-> Some programs are never run at all. `kill`, `pkill`, `killall`, `fuser`, `reboot`,
-> `shutdown` and their relatives exist to terminate things. There is no safe way to
-> ask them for help, because mandible's questions take the shape
-> `pkill something --help`, and to `pkill` that first word is a process to kill
-> rather than a subcommand. So it doesn't ask. Use `man pkill` for those.
-
-Everything else is asked only in a few fixed, harmless ways: `--help`, `-h`,
-`<tool> help`, and the completion commands some tools support. mandible never passes
-an argument that could name a file to write to, never runs a tool bare, and gives up
-on anything that hangs.
-
-Whatever a tool writes goes somewhere disposable. Some programs create files just
-because you asked for help. Running `mysql_secure_installation --help` drops a MySQL
-config file into your home directory containing a blank database password. So every
-probe runs with its home, temp, config and working directories pointed at a throwaway
-folder that is deleted straight afterwards.
-
-All of these rules live in a single module, and a test fails the build if any other
-part of the codebase learns how to launch a program.
+- **Only fixed, inert argument shapes**: `--help`, `-h`, `<tool> help`, and the
+  completion commands some tools support. Never a bare invocation, never an
+  argument that could name a file to write to, and anything that hangs is
+  killed.
+- **Writes go somewhere disposable.** Some programs create files just because
+  you asked for help — `mysql_secure_installation --help` drops a MySQL config
+  containing a blank database password into your home directory. So every probe
+  runs with its home, temp, config and working directories pointed at a
+  throwaway folder, deleted straight after.
+- **Programs that kill processes or halt machines get `--help` and nothing
+  else.** `kill`, `pkill`, `fuser`, `reboot`, `shutdown` and their relatives are
+  restricted to that one shape, because for them an unrecognised argument is a
+  target rather than a subcommand — and because `-h` on `reboot` and `shutdown`
+  is not "help", it is the action.
 
 > [!NOTE]
 > Full isolation would need OS-level sandboxing, which mandible does not yet do.

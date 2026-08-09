@@ -162,8 +162,10 @@ puts it one key away for every user, on every node.
 It re-probes rather than retaining raw text on every node: retention costs
 megabytes across a warmed tree to serve one node at a time, and a retained copy
 would show what the tool said at startup rather than what it says now — the same
-staleness argument that removed the cache (§11). Rule 0 of §6 applies unchanged;
-an interactive request does not make `pkill --help` safe to run.
+staleness argument that removed the cache (§11). Rule 0 of §6 applies unchanged:
+`pkill --help` is shown, because that shape is measured harmless, but an
+interactive request does not widen what may be run — `pkill something --help`
+stays refused here exactly as it is in the extraction pipeline.
 
 ---
 
@@ -180,7 +182,7 @@ What exists is a fragmented set of partial mechanisms. Their **measured** covera
 |---|---|
 | **carapace-spec catalog** (declarative YAML, hundreds of tools) | 740 tools, 48,224 flag descriptions in the vendored snapshot. `git` 279 nodes / 2,999 flags / 2,979 with prose; `docker` 162/836/836; `gh` 249/1,061/1,061 [M-1]. Zero subprocesses, works on Windows. |
 | **cobra `__complete`** (Go: kubectl, docker, gh, helm) | Works, and is version-accurate. But returns **only subcommands** for an empty word; flags require a *second* probe with `"-"` [M-2]. Descriptions are terse. Cost: one subprocess per node per probe [M-3]. |
-| **clap `CompleteEnv`** (`COMPLETE=zsh <tool>`) | **Near-absent in the wild.** `ripgrep` errors; `cargo` prints ordinary help [M-4]. It is opt-in and few published binaries enable it. |
+| **clap `CompleteEnv`** (`COMPLETE=zsh <tool>`) | **Near-absent in the wild**, and since removed as a source. `ripgrep` errors; `cargo` prints ordinary help [M-4]. Detection had no protocol-guaranteed signal, so on a PATH sweep it matched ten tools of which none were clap — see §7 Tier E. |
 | **`<tool> completion bash\|zsh`** | Common. But bash scripts typically *compute* candidates at runtime (`$(git ls-files)`), so static parsing recovers less than it appears. zsh `_arguments` blocks are the description-bearing form and the higher-value target. |
 | **man pages** (`mdoc(7)` semantic, `man(7)` prose) | Prose-rich, structure-poor, and **absent on many systems**: this test container has 31 `man1` pages and none for `git` or `curl` [M-5]. `libmandoc` is not a shipped library on Linux [M-6]. |
 | **`--help`** | Universal, and the only thing every tool has everywhere. Also the messiest: output may go to **stderr** and the exit code may be **non-zero** [M-8]. |
@@ -289,7 +291,7 @@ pub struct Provenance {
 }
 
 pub enum Source {
-    NativeDynamic { protocol: &'static str },  // "clap-complete-env", "cobra-dunder-complete"
+    NativeDynamic { protocol: &'static str },  // "cobra-dunder-complete"
     KnownSpec { provider: &'static str },      // "carapace", "withfig"
     CompletionScript { shell: &'static str },
     ManPage { format: ManFormat },             // Mdoc | Man
@@ -465,12 +467,17 @@ damage a user's machine, and it gets its own section and its own tests.
 1. **Never invoke a bare binary.** Revision 1's clap probe ran `<tool>` with no
    arguments to see whether it honored `COMPLETE=`. Running an arbitrary binary
    bare is how you launch a REPL, block on stdin, start a daemon, or trigger a
-   tool whose no-arg default is an action. The clap probe must use the protocol's
-   argument form (`<tool> --`), never the bare form.
+   tool whose no-arg default is an action. (That probe has since been removed
+   entirely — §7 Tier E — but the rule stands for every tier: an argv is never
+   empty.) Note that rule 2a is the necessary companion: counting arguments is
+   not enough, because an *empty* argument satisfies this rule while being the
+   opposite of inert.
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
    [<words...>]`, or `-- <partial>` under `COMPLETE=`. Any other shape requires a
-   spec amendment.
+   spec amendment. The last of those is currently **unused** — no tier constructs
+   it since Tier E's clap probe was removed — and it is retained on the type only
+   so removing a public enum variant is not forced into a patch release.
 
    2a. **No empty argument the tool could read as its first positional.** Rule 1
    only counts arguments, and an empty string satisfies it while being the
@@ -548,7 +555,9 @@ damage a user's machine, and it gets its own section and its own tests.
    property that is a fact about the program rather than about its output
    format. The check lives in `exec::run_inert`, which every tier goes through,
    so no tier can reach one of these by another route; a test asserts a shim
-   named `pkill` is never executed under any allowed argv.
+   named `pkill` is never executed under any argv but `--help`, and *is*
+   executed for that one — both halves matter, since silently refusing the
+   permitted shape would quietly undo the coverage this rule now allows.
 
 7. **Never write.** No tier may pass an argument that could name a file the tool
    would create or modify.
@@ -889,10 +898,27 @@ structural conflicts (§4.4) because it reflects the version actually installed.
     duplicates an entire subtree. Detect the `Alias for` convention and the case
     where a child's candidate set equals a sibling's, and record it in
     `CommandNode::aliases` instead of recursing.
-- **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> -- <partial>`): keep the tier,
-  but **do not build a roadmap milestone on it.** Measured: `ripgrep` errors and
-  `cargo` prints ordinary help — neither supports it [M-4]. It is opt-in and rare.
-  Probe with `<tool> --` under `COMPLETE=zsh` (never bare — §6 rule 1).
+- **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> -- <partial>`): **probed once,
+  now removed.** It was always marginal — measured opt-in and rare, with `ripgrep`
+  erroring and `cargo` printing ordinary help [M-4] — but it was removed for two
+  concrete reasons rather than for rarity.
+
+  It could not be spelled safely. With an empty partial it rendered as
+  `<tool> -- ""`, and `--` is the option terminator essentially every getopt
+  program discards, so the empty string arrived as the tool's first positional:
+  `pkill -- ""` was measured terminating every process in a PID namespace (see
+  §6 rule 2a). Spelled `<tool> --` instead it is harmless but wrong, because `--`
+  is a no-op for most tools, which then print ordinary output that the shape
+  heuristic reads as candidates — measured at 16 tools spuriously acquiring this
+  tier, 8 of them flagged suspicious.
+
+  And it never worked. Unlike cobra's `:N` directive, clap's protocol has no
+  self-identifying trailer, so detection was only ever a shape heuristic; on the
+  PATH sweep it matched ten tools and **none** were clap (`echo -- ""` prints
+  `--`, which starts with a dash and so "looked like" a flag). Re-adding it needs
+  a way to confirm the protocol before trusting the response — gating on Tier A′
+  framework identification would supply one — and a spelling that never passes an
+  empty first positional.
 - **argcomplete** (Python): the `_ARGCOMPLETE` env-var convention. Same shape,
   lowest priority within this tier.
 
@@ -919,7 +945,7 @@ mandible/                          (workspace root)
 │   ├── help_text/               # Tier B: winnow grammar
 │   ├── completion_script/       # Tier C: brush-parser AST walking
 │   ├── manpage/                 # Tier D: libmandoc FFI  [feature = "manpage"]
-│   ├── native/                  # Tier E: cobra, clap, argcomplete probes
+│   ├── native/                  # Tier E: cobra `__complete` probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
 ├── mandible-cache/                # on-disk cache, keying, invalidation
@@ -1320,7 +1346,7 @@ against yesterday's bytes.
 | TUI framework | `ratatui` | MIT | `crossterm` backend; mouse support |
 | Display width | `unicode-width` | MIT/Apache-2.0 | Required for correct truncation (§9) |
 | Fuzzy matching | `nucleo` | MIT/Apache-2.0 | Powers Helix |
-| mandible's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | Also dogfoods the Tier E clap protocol |
+| mandible's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | `--completions <shell>` emits a real completion script, which Tier C then parses — mandible parsing itself |
 | Help-text grammar | `winnow` | MIT | Preferred over `pest` for error recovery |
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |
 | Man page AST | `bindgen` + **vendored** mandoc | MIT / ISC | Not a system library on Linux [M-6] — vendor the source and build with `cc`. Feature-gated. |
