@@ -434,9 +434,12 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             continue;
         }
 
-        // Peek the first content line to decide flags vs. bare-word.
-        if looks_like_flag_start(lines[i]) {
-            let (end, entries) = scan_flags_block(&lines, i);
+        // Peek the first content lines to decide flags vs. bare-word. Not
+        // just the *first*: some tools document a positional at the top of
+        // their options table, and keying the whole decision off row one
+        // threw the rest of the block away. See `flags_block_start`.
+        if let Some(flags_start) = flags_block_start(&lines, i) {
+            let (end, entries) = scan_flags_block(&lines, flags_start);
             i = end;
             if is_ignorable_heading(&heading) {
                 command_mode = false;
@@ -1000,6 +1003,61 @@ fn emit_choices(
 /// misclassify it as a new entry — the indent check catches that: a
 /// deeply-indented dash-led line is still closer to the description
 /// column than to any entry's name column, so it stays a continuation.
+/// Where a flags block actually begins at or after `start`, or `None` if
+/// this section is not a flags block at all.
+///
+/// Normally that is `start` itself. The exception this exists for: a tool
+/// that documents a **positional** as the first row of its options table.
+/// `kill --help` opens its `Options:` section with
+///
+/// ```text
+///  <pid> [...]            send signal to every <pid> listed
+///  -q, --queue <value>    integer value to be sent with the signal
+/// ```
+///
+/// Deciding flags-vs-bare-words from row one alone sent that whole block
+/// to the bare-word path, and `kill` reported **zero flags** — measured,
+/// and confirmed by deleting just that row from the help text, after which
+/// the same build read 6 flags at 100% described.
+///
+/// Bounded deliberately, because "look harder for flags" is how
+/// fabrication starts. A row is skipped only when it sits at the block's
+/// own indent (deeper lines are that row's own description) and only
+/// [`MAX_SKIPPED_LEADING_ROWS`] of them, and there must still be a real
+/// `-`-leading row at that same indent. A bare-word command table contains
+/// no such row, so it is unaffected — the discriminator stays the `-`
+/// marker, which is self-identifying in a way bare words never are.
+fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
+    /// How many non-flag rows may precede the first flag row.
+    const MAX_SKIPPED_LEADING_ROWS: usize = 3;
+
+    if looks_like_flag_start(lines[start]) {
+        return Some(start);
+    }
+    let base = leading_whitespace(lines[start]);
+    let mut skipped = 0;
+    for (offset, line) in lines.iter().enumerate().skip(start + 1) {
+        if line.trim().is_empty() {
+            return None;
+        }
+        let indent = leading_whitespace(line);
+        if indent > base {
+            continue; // the previous row's own wrapped description
+        }
+        if indent < base {
+            return None; // dedented out of the block
+        }
+        if looks_like_flag_start(line) {
+            return Some(offset);
+        }
+        skipped += 1;
+        if skipped > MAX_SKIPPED_LEADING_ROWS {
+            return None;
+        }
+    }
+    None
+}
+
 fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str, String)>) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
@@ -1021,6 +1079,16 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str
         if is_entry_start {
             let gap = find_description_gap(line);
             let (spec, desc) = split_at_column(line, gap);
+            // A second column of *option spellings* is not a description
+            // (`awk --help` prints POSIX short options beside their GNU
+            // long equivalents) — see `is_synonym_not_description`. Blanked
+            // rather than dropped, so a genuine continuation line below can
+            // still supply the real text.
+            let desc = if is_synonym_not_description(&desc) {
+                String::new()
+            } else {
+                desc
+            };
             entries.push((spec, desc));
             min_entry_indent = Some(min_entry_indent.map_or(indent, |m| m.min(indent)));
             i += 1;
@@ -1283,6 +1351,34 @@ fn split_entries<'a>(
 /// issue #3) only when `allow_dash_separator` is set and no column gap
 /// was found.
 fn split_entry_line(line: &str, allow_dash_separator: bool) -> (&str, String) {
+    let (spec, description) = split_entry_line_raw(line, allow_dash_separator);
+    if is_synonym_not_description(&description) {
+        return (spec, String::new());
+    }
+    (spec, description)
+}
+
+/// True if `description` is a bare option spelling rather than prose — a
+/// single token beginning with `-`.
+///
+/// Some tools lay out two *columns of flags* rather than flag-and-prose.
+/// `awk --help` is the case that forced this: it prints POSIX short options
+/// beside their GNU long equivalents, tab-separated, so reading the second
+/// column as a description gives `-f progfile` the "description"
+/// `--file=progfile`. That is not a description, it is the same option
+/// spelled differently, and asserting it would be the fabrication §1
+/// forbids — worse than the honest "no description" the tool actually
+/// offers, and it would have been reported as **28 flags, 100% described**.
+///
+/// Deliberately narrow: only a lone token counts. Real descriptions that
+/// merely *start* with a dash (`-1 means unlimited`) have more than one
+/// word and are untouched.
+fn is_synonym_not_description(description: &str) -> bool {
+    let trimmed = description.trim();
+    trimmed.starts_with('-') && !trimmed.contains(char::is_whitespace)
+}
+
+fn split_entry_line_raw(line: &str, allow_dash_separator: bool) -> (&str, String) {
     if let Some(col) = find_description_gap(line) {
         return split_at_column(line, Some(col));
     }
@@ -1324,19 +1420,31 @@ fn split_at_dash(line: &str, dash_idx: usize) -> (&str, String) {
     (spec, desc)
 }
 
-/// Find the byte offset of the first run of 2+ spaces in `line`, if any,
-/// after some non-whitespace content.
+/// Find the byte offset of the first column gap in `line`, if any, after
+/// some non-whitespace content — a run of 2+ spaces, or any run containing
+/// a tab.
+///
+/// A tab counts on its own because it is never decoration: it advances to
+/// the next 8-column stop, so a single one already separates columns by at
+/// least as much as the two spaces required of a space run. Ignoring tabs
+/// meant a tab-aligned table had no gap at all and every row collapsed to
+/// a name with no description. Measured on `mokutil --help`, which writes
+/// `  --list-enrolled\t\t\t\tList the enrolled keys`: **38 flags, 0
+/// described**, while the descriptions were sitting right there in the
+/// output.
 fn find_description_gap(line: &str) -> Option<usize> {
     let bytes = line.as_bytes();
     let mut i = 0;
     let mut seen_content = false;
     while i < bytes.len() {
-        if bytes[i] == b' ' {
+        if bytes[i] == b' ' || bytes[i] == b'\t' {
             let mut j = i;
-            while j < bytes.len() && bytes[j] == b' ' {
+            let mut had_tab = false;
+            while j < bytes.len() && (bytes[j] == b' ' || bytes[j] == b'\t') {
+                had_tab |= bytes[j] == b'\t';
                 j += 1;
             }
-            if seen_content && j - i >= 2 {
+            if seen_content && (had_tab || j - i >= 2) {
                 return Some(i);
             }
             i = j;
@@ -1973,5 +2081,107 @@ mod tests {
         // "recommends" contains the substring "commands" but is not the
         // word "commands" — must not false-positive on substring match.
         assert!(!mentions_commands_word("This tool recommends caution."));
+    }
+
+    /// A tab-aligned entry table is a table. `find_description_gap` looked
+    /// only for runs of 2+ *spaces*, so a tool separating its columns with
+    /// tabs appeared to have no description column at all — measured on
+    /// `mokutil --help`: **38 flags, 0 described**, with the descriptions
+    /// plainly present in the output.
+    #[test]
+    fn tab_separated_entries_have_their_descriptions_recovered() {
+        let help = "Usage: mokutil [options]\n\nOptions:\n  \
+                    --list-enrolled\t\t\tList the enrolled keys\n  \
+                    --import\t\t\t\tImport a key\n";
+        let parsed = parse(help);
+        let described: Vec<(&str, &str)> = parsed
+            .flags
+            .iter()
+            .map(|f| {
+                (
+                    f.long.as_deref().unwrap_or(""),
+                    f.description.as_ref().map(|d| d.as_str()).unwrap_or(""),
+                )
+            })
+            .collect();
+        assert!(
+            described.contains(&("list-enrolled", "List the enrolled keys")),
+            "{described:?}"
+        );
+        assert!(
+            described.contains(&("import", "Import a key")),
+            "{described:?}"
+        );
+    }
+
+    /// The other half of tab handling: a second column of *option
+    /// spellings* is not a description. `awk --help` prints POSIX short
+    /// options beside their GNU long equivalents, so treating the tab as a
+    /// description gap gave `-f progfile` the "description"
+    /// `--file=progfile`. Reporting that would be **28 flags, 100%
+    /// described** and every description a lie; the honest answer is that
+    /// awk documents no descriptions here.
+    #[test]
+    fn a_second_column_of_option_spellings_is_not_a_description() {
+        let help = "Usage: awk [options] -f progfile\n\n\
+                    POSIX options:\t\tGNU long options: (standard)\n\t\
+                    -f progfile\t\t--file=progfile\n\t\
+                    -v var=val\t\t--assign=var=val\n";
+        let parsed = parse(help);
+        for flag in &parsed.flags {
+            let desc = flag.description.as_ref().map(|d| d.as_str()).unwrap_or("");
+            assert!(
+                !desc.starts_with('-'),
+                "a flag spelling was reported as a description: {:?} -> {desc:?}",
+                flag.short
+                    .or(flag.long.as_deref().and_then(|l| l.chars().next()))
+            );
+        }
+    }
+
+    /// A positional documented as the *first* row of an options table must
+    /// not cost the whole table. `kill --help` opens `Options:` with
+    /// `<pid> [...]`, and because the flags-vs-bare-words decision read
+    /// only that first row, every flag below it was thrown away — measured
+    /// at **0 flags**, confirmed by deleting just that row, after which
+    /// the same build read 6 flags at 100% described.
+    #[test]
+    fn a_leading_positional_row_does_not_discard_the_options_table() {
+        let help = "Usage:\n kill [options] <pid> [...]\n\nOptions:\n \
+                    <pid> [...]            send signal to every <pid> listed\n \
+                    -q, --queue <value>    integer value to be sent with the signal\n \
+                    -L, --table            list all signal names in a nice table\n";
+        let parsed = parse(help);
+        let longs: Vec<&str> = parsed
+            .flags
+            .iter()
+            .filter_map(|f| f.long.as_deref())
+            .collect();
+        assert!(longs.contains(&"queue"), "{longs:?}");
+        assert!(longs.contains(&"table"), "{longs:?}");
+        assert!(
+            parsed.subcommands.is_empty(),
+            "the positional row must not become a subcommand: {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// The bound on that lookahead is what keeps it from being "look
+    /// harder until you find flags". A bare-word block containing no
+    /// `-`-leading row at its own indent must still be a bare-word block.
+    #[test]
+    fn a_bare_word_block_is_not_reinterpreted_as_flags() {
+        let help = "Usage: tool <command>\n\nCommands:\n  \
+                    build    Build the thing\n  \
+                    clean    Clean the thing\n  \
+                    test     Test the thing\n";
+        let parsed = parse(help);
+        assert!(parsed.flags.is_empty(), "{:?}", parsed.flags);
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["build", "clean", "test"]);
     }
 }

@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [Unreleased]
+
+Two general parser fixes. Between them, described coverage across the PATH
+sweep moves **89.23% → 94.18%** on 2266 tools, with no tool losing anything.
+
+### Fixed
+
+- **Tab-aligned entry tables had no description column.** `find_description_gap`
+  looked only for runs of two or more *spaces*, so a tool separating its
+  columns with tabs looked like it documented nothing. `mokutil --help` was
+  reported as **38 flags, 0 described** while every description sat plainly in
+  the output; it now reads 38 at 100%. The same fix recovers 11 real commands
+  for `mysqladmin`/`mariadb-admin`, whose command list is tab-separated.
+
+  A tab now counts as a gap on its own, because it is never decoration — it
+  advances to the next 8-column stop, so one tab already separates columns by
+  at least as much as the two spaces a space-run must have.
+
+- **A second column of option *spellings* is no longer read as a description.**
+  The necessary companion to the above: `awk --help` prints POSIX short options
+  beside their GNU long equivalents, so treating that tab as a description gap
+  gave `-f progfile` the "description" `--file=progfile`. That would have been
+  reported as **28 flags, 100% described** with every description a lie. A
+  description that is a single token beginning with `-` is now recognised as a
+  synonym and dropped, leaving the honest "no description" awk actually offers.
+
+- **A positional documented as the first row of an options table no longer
+  discards the table.** The flags-vs-bare-words decision read only the section's
+  first content line. `kill --help` opens `Options:` with `<pid> [...]`, so
+  every flag beneath it was thrown away: **0 flags**, confirmed by deleting just
+  that row, after which the same build read 6 at 100%. The decision now looks
+  past at most three leading non-flag rows at the block's own indent, and still
+  requires a real `-`-leading row — bounded deliberately, since "look harder for
+  flags" is how fabrication starts. A bare-word command table contains no such
+  row and is unaffected.
+
 ## [0.2.1]
 
 A safety rule was covering for a bug instead of solving it. Fixing the bug
