@@ -1543,6 +1543,34 @@ any of these as current.
   and better-engineered patterns would improve on that. Separately: flag
   descriptions from live `--help` parsing alone reached **87.0%** across the 904
   tools absent from the carapace catalog, versus 99.5% for the 251 tools in it.
+- **[M-14] What a man-page tier would actually recover, measured before
+  building one.** Of the 724 tools the PATH sweep still rates weak (verbatim,
+  no-tier, low-confidence, or zero/poorly-described flags), **164 have a man
+  page whose flag-tagged entries outnumber what mandible finds today**, worth
+  about **2,515 option entries**. 472 have a man page with no flag-tagged
+  entries at all (prose only — roff would not help them), and 78 have no page.
+  The gainers are not obscure: `ssh` 52 entries against 0 today, `bash` 162
+  against 18, `ps` 58, `tcpdump` 82, `mdadm` 125, `dash`/`sh` 65.
+
+  Three design constraints fell out of the measurement. **Do not gate on an
+  `OPTIONS` section** — `bash`, `ps` and `tmux` document options under
+  `DESCRIPTION`, and that gate alone cost 28 tools; gate on the *tag line*
+  beginning with a flag, which is also what excludes examples (`ps` tags its
+  examples with `.TP`, and a looser rule counted them, inflating the estimate
+  to 276 tools / 4,923 entries before it was corrected). **Target man(7)
+  `.TP`/`.IP` + `.B`, with `.It Fl` for mdoc** — only ~20 of these pages are
+  mdoc, so an mdoc-first plan aims at the wrong majority; combined with [M-6]
+  and `#![forbid(unsafe_code)]` ruling out C FFI, a pure-Rust subset parser is
+  both smaller and unblocked. And **fire only as a zero-confidence fallback**,
+  which keeps staleness away from the ~1,500 tools that already parse and
+  avoids authority-merge questions entirely.
+
+  Note also that [M-5]'s "31 man1 pages" is a bare-container artifact and
+  understates real systems badly: the machine this was measured on has 9,515.
+
+  2,515 is an upper bound — entries *present in the pages*, not entries a
+  parser would extract cleanly.
+
 - **[M-13] Artifact fingerprinting beats prose fingerprinting.** `strings` over
   the binary: `docker` contains `spf13/cobra` 583×, `gh` 283×; `git` and
   `ripgrep` contain zero (correctly — hand-rolled C, and ripgrep dropped clap

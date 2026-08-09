@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
-## [Unreleased]
+## [0.2.2]
 
 Two general parser fixes. Between them, described coverage across the PATH
 sweep moves **89.23% → 94.18%** on 2266 tools, with no tool losing anything.
