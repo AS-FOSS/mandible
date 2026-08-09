@@ -15,7 +15,7 @@
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat-square)](#)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg?style=flat-square)
 
-[Install](#install) • [How it works](#how-it-works) • [Coverage](#is-it-actually-universal) • [Safety](#safety) • [Keys](#keys) • [Configurations](#configuration)
+[Install](#install) • [How it works](#how-it-works) • [Coverage](#is-it-actually-universal) • [Keys](#keys)
 
 </div>
 
