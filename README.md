@@ -1,4 +1,6 @@
 <div align="center">
+     
+<img width="256" height="256" alt="logo" src="https://github.com/user-attachments/assets/9cc704a2-8176-49d1-bdb3-3646ae74f152" />
 
 <!-- LOGO: a ~96px mark goes here. Something jaw/mandible-shaped reads well at this
      size. Replace this comment with: <img src="docs/logo.png" width="96" alt="mandible logo"> -->
@@ -13,22 +15,27 @@
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat-square)](#)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg?style=flat-square)
 
-[Install](#install) • [How it works](#how-it-works) • [Coverage](#is-it-actually-universal) • [Safety](#safety) • [Keys](#keys) • [Configuration](#configuration)
+[Install](#install) • [How it works](#how-it-works) • [Coverage](#is-it-actually-universal) • [Safety](#safety) • [Keys](#keys) • [Configurations](#configuration)
 
 </div>
 
-`man` tells you about one command. `--help` tells you about one invocation. Neither
-lets you explore a tool you don't already know.
+`man` tells you about one command. `--help` tells you about one invocation. Neither explores a tool you don't already know.
 
 ```console
 $ mandible docker
 ```
 
-<!-- SCREENSHOT: the two-pane view on `docker`, with a subcommand selected so the
-     right pane shows its flag table. ~1200px wide reads well on GitHub. -->
+<p align="center">
+     
+<img width="2560" height="1440" alt="output" src="https://github.com/user-attachments/assets/8fa831a6-c0e6-472f-834e-b844d7c49792" />
 
-A tree of every command, subcommand and flag on the left. The selected one's
-documentation on the right. Fuzzy search over all of it.
+  <br>
+  <em>A tree of every command, subcommand and flag on the left. The selected one's documentation on the right.</em>
+</p>
+
+
+
+
 
 > [!TIP]
 > Try running `mandible mandible`
@@ -39,18 +46,22 @@ documentation on the right. Fuzzy search over all of it.
 cargo install mandible
 ```
 
-Or grab a binary. These links always point at the newest release:
+### Pre-built binaries
 
-| Platform | Download |
-|---|---|
-| Linux x86_64 | [`mandible-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-x86_64-unknown-linux-gnu.tar.gz) |
-| Linux arm64 | [`mandible-aarch64-unknown-linux-gnu.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-aarch64-unknown-linux-gnu.tar.gz) |
-| macOS Apple Silicon | [`mandible-aarch64-apple-darwin.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-aarch64-apple-darwin.tar.gz) |
-| macOS Intel | [`mandible-x86_64-apple-darwin.tar.gz`](https://github.com/sadigaxund/mandible/releases/latest/download/mandible-x86_64-apple-darwin.tar.gz) |
+<div align="center">
 
-`.deb` and `.rpm` packages are attached to every
-[release](https://github.com/sadigaxund/mandible/releases), and each archive ships a
-`.sha256` beside it.
+| Platform              | Download |
+|:----------------------|:---------|
+| Linux x86_64          | [`tar.gz`](...) |
+| Linux arm64           | [`tar.gz`](...) |
+| macOS Apple Silicon   | [`tar.gz`](...) |
+| macOS Intel           | [`tar.gz`](...) |
+
+`.deb` and `.rpm` packages are attached to every [release](https://github.com/sadigaxund/mandible/releases).  
+Each archive ships a matching `.sha256` checksum.
+</div>
+
+
 
 ## How it works
 
@@ -61,53 +72,20 @@ wrong in ways you cannot see from the outside.
 
 The insight it runs on instead: help text isn't written by hand, it's generated, and
 only a small closed set of generators exists. mandible works out which *framework*
-produced a tool's output, then applies that framework's grammar.
+produced a tool's output, then applies that framework's grammar. For example:
+<div align="center">
+     <table>
+       <tr><td><b>Rust</b></td><td>clap (v2, v3/v4)</td></tr>
+       <tr><td><b>Go</b></td><td>cobra, urfave/cli, stdlib flag</td></tr>
+       <tr><td><b>Python</b></td><td>argparse, click, docopt</td></tr>
+       <tr><td><b>JavaScript</b></td><td>commander, yargs, oclif</td></tr>
+       <tr><td><b>Java / .NET</b></td><td>picocli, System.CommandLine</td></tr>
+       <tr><td><b>Others</b></td><td>GNU argp/getopt_long, busybox, Symfony Console, OptionParser/Thor, BSD-terse</td></tr>
+     </table>
+</div>
 
-```
-clap v2 · clap v3/v4 · cobra · urfave/cli · Go stdlib flag · argparse · click
-docopt · GNU argp/getopt_long · busybox · commander · yargs · oclif · picocli
-System.CommandLine · Symfony Console · OptionParser/Thor · BSD-terse
-```
-
-Fix the argparse grammar and you have improved every Python CLI ever written. A
-catalogue entry improved exactly one tool, until it went stale.
-
-Identification reads the binary itself before it reads any text. The string
-`spf13/cobra` appears 583 times inside `docker`. Which section headings a tool
-prints can change between releases; the library it links against does not.
-
-### Four sources, merged per field
-
-| Source | What it gives |
-|---|---|
-| `--help` text | Universal. Every tool has it, and it is always current |
-| Completion scripts | `<tool> completion zsh`, parsed with a real shell grammar. Never executed |
-| Native protocols | cobra's `__complete`, clap's completion env. Structured data straight from the tool |
-| Your overrides | `~/.config/mandible/overrides/<tool>.toml`, highest authority |
-
-Every field remembers where it came from, so a merge can take structure from one
-source and prose from another without showing you a trust badge that lies.
-
-> [!NOTE]
-> When it can't parse something, it says so. A tool matching no known grammar is
-> shown verbatim: the author's own text, untouched, labelled `unparsed`. Inventing
-> structure a reader cannot tell is wrong is worse than admitting defeat. Tools that
-> parsed badly carry a visible low-confidence warning.
-
-Neither of those covers the failure that matters most: a grammar that produces a
-confident, well-formed, wrong tree, which looks exactly like a correct one. So
-<kbd>t</kbd> shows the tool's own `--help` output for whatever is selected, and you
-can settle it yourself in a second rather than taking a confidence score on trust.
-
-### Speed
-
-Startup does no extraction at all. The interface is on screen immediately and the
-tree fills in behind it on a bounded background pool, showing `⋯ loading` where it
-hasn't arrived yet.
-
-There is deliberately no cache. A cache cannot see `docker` gaining a plugin or
-`git` gaining an alias from `~/.gitconfig`, and being confidently stale is worse
-than being fast.
+> [!TIP]
+> You can also try to probe executable files: `mandible scripts/custom.py`
 
 ## Is it actually universal?
 
@@ -122,6 +100,8 @@ prose. A metric that improves when the tool gets worse is worse than no metric.
 
 CI gates every change against a fixed tool list, and sweeps the whole `PATH`
 separately for the broad picture.
+
+
 
 ## Safety
 
@@ -154,7 +134,11 @@ part of the codebase learns how to launch a program.
 > Full isolation would need OS-level sandboxing, which mandible does not yet do.
 > [`spec.md`](./spec.md) §6 states plainly what is and isn't covered.
 
-## Keys
+
+<details>
+<summary><h2>Configurations</h2></summary>
+     
+### Keys
 
 `?` lists every binding and the footer keeps the important ones on screen, so this
 section is deliberately short: arrows or `hjkl` to move, `/` to search, `Tab`
@@ -165,8 +149,6 @@ different questions. `names` matches command names literally, so every row you s
 contains what you typed. `everything` searches flags, summaries and descriptions
 fuzzily, so `gco` finds `checkout`. `/` opens the first, and pressing it again
 switches to the second.
-
-## Configuration
 
 ### Overrides
 
@@ -206,14 +188,16 @@ These are yours and are never committed to this repository.
 
 ```console
 $ mandible --doctor gh
-framework:  cobra (from artifact)
-nodes:      29
-flags:      2 (100.0% described)
+framework: cobra (from artifact)
+nodes: 29
+flags: 2 (100.0% described)
 ```
 
 `--doctor` reports which framework was identified, which sources contributed, and how
 much of the tool was understood. It turns "mandible is wrong about tool X" into "the
 cobra grammar mishandles Y", which is a bug someone can actually fix.
+
+</details>
 
 ## Documentation
 
