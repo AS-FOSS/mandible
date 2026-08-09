@@ -282,7 +282,11 @@ mod tests {
         // without this test depending on the real binary's behaviour.
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("pkill");
-        std::fs::write(&path, "#!/bin/sh\necho 'Usage: pkill [options] <pattern>'\n").unwrap();
+        std::fs::write(
+            &path,
+            "#!/bin/sh\necho 'Usage: pkill [options] <pattern>'\n",
+        )
+        .unwrap();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

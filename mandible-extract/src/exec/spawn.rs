@@ -133,7 +133,11 @@ pub fn run_inert(
     // it by constructing an argv elsewhere.
     let args = argv.args();
     let guarded = matches!(args.first().map(String::as_str), Some("__complete"));
-    if args.iter().enumerate().any(|(i, a)| a.is_empty() && !(guarded && i > 0)) {
+    if args
+        .iter()
+        .enumerate()
+        .any(|(i, a)| a.is_empty() && !(guarded && i > 0))
+    {
         return Err(ExecError::RefusedEmptyArgument {
             path: path_str.clone(),
         });
@@ -735,7 +739,9 @@ mod tests {
         assert!(is_help_only_probe(Path::new("/usr/bin/pkill")));
         assert!(is_help_only_probe(Path::new("/some/other/place/killall")));
         // A tool that merely *contains* a listed name is not matched.
-        assert!(!is_help_only_probe(Path::new("/usr/bin/killall-not-really")));
+        assert!(!is_help_only_probe(Path::new(
+            "/usr/bin/killall-not-really"
+        )));
         assert!(!is_help_only_probe(Path::new("/usr/bin/git")));
     }
 
