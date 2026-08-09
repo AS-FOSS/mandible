@@ -269,15 +269,37 @@ mod tests {
     }
 
     /// `raw_help` is a second public entry point into the exec boundary,
-    /// reached by a key press rather than by the extraction pipeline. The
-    /// never-probe refusal (spec §6 rule 0) has to hold on it too: asking
-    /// interactively is not a reason `pkill something --help` becomes safe,
-    /// and it was an interactive `mandible pkill` that froze a machine.
+    /// reached by a key press rather than by the extraction pipeline, so
+    /// spec §6 rule 0 has to hold on it too. Asking interactively is not a
+    /// reason `pkill something --help` becomes safe.
+    ///
+    /// The root shape is now permitted — `pkill --help` is measured
+    /// harmless and is the whole point of the verbatim view — so what this
+    /// pins is the boundary between the two.
     #[test]
-    fn raw_help_refuses_a_never_probe_tool() {
+    fn raw_help_allows_the_root_but_refuses_a_deeper_path_for_a_help_only_tool() {
+        // A shim named `pkill`, so the refusal is exercised by file name
+        // without this test depending on the real binary's behaviour.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pkill");
+        std::fs::write(&path, "#!/bin/sh\necho 'Usage: pkill [options] <pattern>'\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
         let mut tool = resolve_tool("pkill");
-        tool.path = Some(std::path::PathBuf::from("/usr/bin/pkill"));
-        let err = raw_help(&tool, &["pkill".to_string()]).expect_err("must refuse");
+        tool.path = Some(path);
+
+        let root = raw_help(&tool, &["pkill".to_string()])
+            .expect("`pkill --help` is the one permitted shape and must be shown");
+        assert!(
+            root.iter().any(|line| line.as_str().contains("Usage:")),
+            "{root:?}"
+        );
+
+        let err = raw_help(&tool, &["pkill".to_string(), "something".to_string()])
+            .expect_err("a positional path must still be refused");
         assert!(
             matches!(
                 err,

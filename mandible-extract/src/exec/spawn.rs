@@ -43,11 +43,21 @@ pub enum ExecError {
         #[source]
         source: std::io::Error,
     },
-    /// The tool is on the never-probe list (spec §6 rule 0): its whole
-    /// purpose is to terminate or signal processes, so no argument vector
-    /// is reliably inert and mandible declines to run it at all.
-    #[error("{path} is not probed: its purpose is to signal or terminate processes")]
+    /// The tool is on the help-only list (spec §6 rule 0) and this was not
+    /// the one permitted shape. Such a program acts on processes or on
+    /// machine state, so `--help` is the only argument vector measured
+    /// harmless for it; `-h` in particular is an action flag on several.
+    #[error("{path} is only probed as `--help`: it signals processes or changes machine state")]
     RefusedUnsafeTool {
+        /// The path that was refused.
+        path: String,
+    },
+    /// The argv contained an empty string (spec §6 rule 2a). Refused
+    /// before spawning: an empty argument is not inert, because a program
+    /// that takes a pattern or a target as its first positional reads it
+    /// as "match everything".
+    #[error("{path} not probed with an empty argument: an empty argv element is never inert")]
+    RefusedEmptyArgument {
         /// The path that was refused.
         path: String,
     },
@@ -89,15 +99,48 @@ pub fn run_inert(
 ) -> Result<ExecOutput, ExecError> {
     let path_str = tool_path.display().to_string();
 
-    // Refuse outright, before anything is spawned (spec §6 rule 0).
-    if is_never_probe(tool_path) {
+    // Restrict process-signalling and machine-state programs to exactly
+    // `--help`, before anything is spawned (spec §6 rule 0). Not a total
+    // ban: `--help` is measured harmless on all of them and is where their
+    // flag list lives. Every other shape is refused — including `-h`,
+    // which on systemd's multi-call binary is an *action* flag
+    // (`shutdown -h` is halt) and was measured attempting the real
+    // operation. See [`HELP_ONLY_PROBE`].
+    if is_help_only_probe(tool_path) && argv.args() != ["--help"] {
         return Err(ExecError::RefusedUnsafeTool {
             path: path_str.clone(),
         });
     }
 
+    // Refuse an empty argument the tool could read as its first positional
+    // (spec §6 rule 2a), before anything is spawned. Rule 1 ("never a bare
+    // invocation") only counts arguments, and an empty string satisfies it
+    // while being the opposite of inert: `pkill -- ""` passes the
+    // universally-understood option terminator and then an empty pattern,
+    // which matches every process. Measured terminating every process in a
+    // PID namespace, pkill included (rc=143) — the mechanism behind the
+    // machine reset that motivated rule 0. The never-probe list masked it
+    // for thirteen tools while the same shape was still emitted at the
+    // rest of PATH.
+    //
+    // Scoped rather than blanket, because one empty argument is protocol-
+    // required and provably safe: cobra's completion word. It is never the
+    // first positional — it sits behind the `__complete` sentinel, which a
+    // non-cobra tool rejects rather than acts on. So the rule is that an
+    // empty element is allowed only when a guard word precedes it, and
+    // never directly after `--`, which every getopt program discards.
+    // Enforced here, at the single chokepoint, so no tier can reintroduce
+    // it by constructing an argv elsewhere.
+    let args = argv.args();
+    let guarded = matches!(args.first().map(String::as_str), Some("__complete"));
+    if args.iter().enumerate().any(|(i, a)| a.is_empty() && !(guarded && i > 0)) {
+        return Err(ExecError::RefusedEmptyArgument {
+            path: path_str.clone(),
+        });
+    }
+
     let mut cmd = Command::new(tool_path);
-    cmd.args(argv.args());
+    cmd.args(args);
     cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -468,30 +511,65 @@ where
     })
 }
 
-/// Programs mandible will never execute, under any argument shape.
+/// Programs mandible may invoke *only* as `<tool> --help`, and under no
+/// other argument shape.
 ///
 /// **This is a safety rule, not a parsing rule**, and the distinction is
 /// what keeps it clear of §1. §1 forbids per-tool knowledge in *extraction*
 /// — "if a tool renders badly, fix the general parser" — because that kind
 /// of list grows without bound and rots. This list is about what is safe to
 /// *run at all*, it is closed, and every entry shares one property: the
-/// program's entire purpose is to terminate or signal other processes, so
-/// there is no argument vector that is reliably inert.
+/// program acts on processes or on machine state, so an argument it does
+/// not recognise is a target rather than a subcommand.
 ///
-/// `--help` being safe on *this* machine's build is not enough. The shapes
-/// spec §6 rule 2 allows include `<tool> <word> --help`, and for these
-/// programs the first positional is a *target*, not a subcommand:
-/// `killall foo --help` kills everything named `foo`. A user reported
-/// `mandible pkill` freezing their machine badly enough to require a reset.
-/// Whatever the exact path to that, running a process-killer to find out
-/// what its flags are is a trade this tool should never make — the whole
-/// value on offer is a flag list, and the downside is someone's session.
+/// It began as a total ban, after a user reported `mandible pkill` freezing
+/// their machine badly enough to require a reset. Two later measurements
+/// reshaped it into this narrower rule.
+///
+/// **What the ban was blamed on was false.** The claim was that
+/// `<tool> <word> --help` makes `killall foo --help` kill everything named
+/// `foo`. On glibc, GNU getopt permutes, so `--help` wins wherever it sits:
+/// `pkill --help`, `pkill victim --help` and `killall victim --help` were
+/// all measured killing nothing. The reset's real mechanism was an empty
+/// argument (`pkill -- ""`), now refused for every tool by rule 2a above.
+///
+/// **What it was silently protecting against is real, and was never
+/// written down: `-h` is not a help flag here.** Measured against systemd's
+/// multi-call binary, with the machine saved only by polkit because the
+/// probe ran unprivileged:
+///
+/// ```text
+/// halt -h      → Call to Halt failed: Interactive authentication required
+/// poweroff -h  → Call to PowerOff failed: Interactive authentication required
+/// reboot -h    → Call to Reboot failed: Interactive authentication required
+/// shutdown -h  → Failed to schedule shutdown: Interactive authentication required
+/// ```
+///
+/// Those are not parse errors — each tool *attempted the action* (`-h` is
+/// `shutdown -h now`'s halt). mandible falls back to `-h` whenever `--help`
+/// fails, so as root, or wherever polkit is permissive, the fallback alone
+/// would halt the machine.
+///
+/// Hence the shape of the rule: `--help` is measured harmless on all of
+/// these and yields a real flag list (`pkill --help` parses to 27 flags,
+/// all described), while every other shape — `-h`, `help <word>`,
+/// `<word> --help`, `completion <shell>`, `__complete` — is refused. That
+/// keeps the flag list on offer and removes the two hazards that were
+/// actually measured, rather than trading the first for the second.
+///
+/// The remaining reason to keep positional shapes off these specific tools,
+/// rather than relying on rule 2a alone: argument permutation is a glibc
+/// behaviour, not a guarantee (BSD and busybox getopt stop at the first
+/// non-option), and the background tree warmer would reach any subcommand a
+/// future parser change starts emitting, unasked. The general form of that
+/// problem — a fabricated word becoming argv for *any* tool — belongs to
+/// provenance-gating positional probes, not to this list.
 ///
 /// Matched on the file name only, so a copy under another path is caught
-/// too, and the tool still appears in the UI — labelled as deliberately not
-/// probed, which is more honest than silently showing nothing.
-const NEVER_PROBE: &[&str] = &[
-    // Signal senders: the first positional is a process to kill.
+/// too. Never resolve symlinks before this check: `reboot`, `poweroff`,
+/// `shutdown` and `telinit` are all links to `systemctl`.
+const HELP_ONLY_PROBE: &[&str] = &[
+    // Signal senders: an unrecognised positional is a process to kill.
     "kill",
     "pkill",
     "killall",
@@ -499,7 +577,7 @@ const NEVER_PROBE: &[&str] = &[
     "skill",
     "xkill",
     "fuser",
-    // System state: no argument vector is worth risking.
+    // System state: `-h` is an action flag on every one of these.
     "halt",
     "poweroff",
     "reboot",
@@ -509,12 +587,13 @@ const NEVER_PROBE: &[&str] = &[
     "systemctl-shutdown",
 ];
 
-/// True if `tool_path` names a program from [`NEVER_PROBE`].
-pub fn is_never_probe(tool_path: &Path) -> bool {
+/// True if `tool_path` names a program from [`HELP_ONLY_PROBE`], i.e. one
+/// that may be invoked as `--help` and nothing else.
+pub fn is_help_only_probe(tool_path: &Path) -> bool {
     tool_path
         .file_name()
         .and_then(|n| n.to_str())
-        .is_some_and(|name| NEVER_PROBE.contains(&name))
+        .is_some_and(|name| HELP_ONLY_PROBE.contains(&name))
 }
 
 /// Variables a version manager needs to find the program it stands in for.
@@ -575,14 +654,21 @@ fn kill_process_group(child: &mut Child) {
 mod tests {
     use super::*;
 
-    /// A never-probe tool is refused *before* anything is spawned, for
-    /// every argument shape — the check lives in `run_inert`, which every
+    /// A help-only tool is refused *before* anything is spawned for every
+    /// shape but `--help`, and the check lives in `run_inert`, which every
     /// tier goes through, so no tier can reach one by another route.
+    ///
+    /// `-h` is in the refused set deliberately, and it is the case that
+    /// matters most: on systemd's multi-call binary `-h` is an action flag,
+    /// and `halt -h` / `poweroff -h` / `reboot -h` / `shutdown -h` were all
+    /// measured *attempting the real operation*, stopped only by polkit
+    /// because the probe ran unprivileged. mandible falls back to `-h`
+    /// whenever `--help` fails, so this refusal is what stands between that
+    /// fallback and a machine that reboots itself.
     #[test]
-    fn never_probe_tools_are_refused_without_spawning() {
+    fn help_only_tools_are_refused_every_shape_but_help_long() {
         let dir = tempfile::tempdir().unwrap();
-        // A shim named `pkill` that would report if it ever ran. It must
-        // not: the refusal is on the file name, before spawn.
+        // A shim named `pkill` that would report if it ever ran.
         let path = dir.path().join("pkill");
         std::fs::write(&path, "#!/bin/sh\ntouch \"$0.ran\"\n").unwrap();
         #[cfg(unix)]
@@ -592,12 +678,21 @@ mod tests {
         }
 
         for argv in [
-            InertArgv::HelpLong,
             InertArgv::HelpShort,
+            InertArgv::HelpSubcommand { words: vec![] },
+            InertArgv::HelpSubcommand {
+                words: vec!["anything".to_string()],
+            },
             InertArgv::HelpLongForPath {
                 words: vec!["anything".to_string()],
             },
+            InertArgv::HelpShortForPath {
+                words: vec!["anything".to_string()],
+            },
             InertArgv::CobraComplete { words: vec![] },
+            InertArgv::CompletionScript {
+                shell: "zsh".to_string(),
+            },
         ] {
             let result = run_inert(&path, &argv, Duration::from_secs(2));
             assert!(
@@ -606,25 +701,42 @@ mod tests {
             );
         }
         assert!(
-            !path.with_extension("ran").exists() && !dir.path().join("pkill.ran").exists(),
+            !dir.path().join("pkill.ran").exists(),
             "the shim was executed — the refusal is not before spawn"
+        );
+
+        // `HelpLongForPath` with no words renders as exactly `--help`, so it
+        // is the same permitted shape and must not be refused for spelling.
+        for argv in [
+            InertArgv::HelpLong,
+            InertArgv::HelpLongForPath { words: vec![] },
+        ] {
+            assert_eq!(argv.args(), vec!["--help".to_string()]);
+            assert!(
+                run_inert(&path, &argv, Duration::from_secs(2)).is_ok(),
+                "{argv:?} is the one permitted shape and must run"
+            );
+        }
+        assert!(
+            dir.path().join("pkill.ran").exists(),
+            "`--help` must actually reach the tool — that is the point"
         );
     }
 
-    /// The list is closed and every entry is a process-killer or a
-    /// system-state command. It is a *safety* rule, not a parsing one, and
-    /// must not grow into the per-tool catalogue §1 forbids.
+    /// The list is closed and every entry acts on processes or machine
+    /// state. It is a *safety* rule, not a parsing one, and must not grow
+    /// into the per-tool catalogue §1 forbids.
     #[test]
-    fn never_probe_list_stays_small_and_matches_by_file_name() {
+    fn help_only_list_stays_small_and_matches_by_file_name() {
         assert!(
-            NEVER_PROBE.len() <= 20,
+            HELP_ONLY_PROBE.len() <= 20,
             "this list must not become a catalogue"
         );
-        assert!(is_never_probe(Path::new("/usr/bin/pkill")));
-        assert!(is_never_probe(Path::new("/some/other/place/killall")));
+        assert!(is_help_only_probe(Path::new("/usr/bin/pkill")));
+        assert!(is_help_only_probe(Path::new("/some/other/place/killall")));
         // A tool that merely *contains* a listed name is not matched.
-        assert!(!is_never_probe(Path::new("/usr/bin/killall-not-really")));
-        assert!(!is_never_probe(Path::new("/usr/bin/git")));
+        assert!(!is_help_only_probe(Path::new("/usr/bin/killall-not-really")));
+        assert!(!is_help_only_probe(Path::new("/usr/bin/git")));
     }
 
     /// `HOME` stays redirected while toolchain-resolution variables get

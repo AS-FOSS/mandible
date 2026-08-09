@@ -61,7 +61,7 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
 /// two things at once when it was used here, both caught by the PATH-wide
 /// coverage sweep and neither by any test:
 ///
-/// - **It defeated spec §6 rule 0.** `is_never_probe` matches on the file
+/// - **It defeated spec §6 rule 0.** `is_help_only_probe` matches on the file
 ///   *name*, and `reboot`, `poweroff`, `shutdown` and `telinit` are all
 ///   symlinks to `systemctl`. Canonicalizing renamed them before that
 ///   check ran, so the never-probe list stopped refusing them and the

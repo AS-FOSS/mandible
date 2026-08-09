@@ -6,6 +6,83 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [0.2.1]
+
+A safety rule was covering for a bug instead of solving it. Fixing the bug
+turned the rule into a narrower, better one — and turned thirteen tools that
+showed nothing into eleven that show real flag lists.
+
+### Added
+
+- **`pkill`, `killall`, `fuser`, `reboot`, `shutdown` and the rest are now
+  browsable.** They were refused outright; they are now invoked as
+  `<tool> --help` and nothing else. That single shape is measured harmless on
+  all of them and is where their flag lists live: `pkill` yields 27 flags,
+  `killall` and `fuser` 16 each, all fully described. Twelve of the thirteen
+  went from `no-tier` to `ok` on the PATH sweep, and overall described
+  coverage moved 89.20% → 89.23%. (`killall5` still shows nothing — it has no
+  `--help` at all. `kill` parses to zero flags because its options block opens
+  with a `<pid> [...]` row rather than a flag; that is a pre-existing parser
+  gap, now merely visible.)
+
+### Fixed
+
+- **`-h` is an action flag on machine-state tools, and mandible sends `-h` as a
+  fallback.** Measured, with the machine saved only by polkit because the probe
+  ran unprivileged: `halt -h`, `poweroff -h`, `reboot -h` and `shutdown -h` each
+  returned "Call to … failed: Interactive authentication required" — that is,
+  each *attempted the real operation* (`-h` is the halt in `shutdown -h now`).
+  mandible falls back to `-h` whenever `--help` fails, so as root, or wherever
+  polkit is permissive, the fallback alone would reboot the machine. The
+  previous blanket ban was preventing this without anyone having written it
+  down; the replacement rule refuses `-h` on these tools explicitly.
+
+- **A probe could hand a tool an empty first positional, and `pkill -- ""`
+  terminates every process it can reach.** The clap `CompleteEnv` probe ran
+  `<tool> -- <partial>`, and at the root the partial was empty. `--` is the
+  option terminator essentially every getopt program discards, so the empty
+  string arrived as the tool's first positional — and a program whose first
+  positional is a pattern reads an empty pattern as *match everything*.
+  Measured in a private PID namespace: `pkill -- ""` killed every process
+  there, itself included.
+
+  This is the mechanism behind the machine reset that produced the never-probe
+  list in 0.1.x. That list refuses thirteen named tools; this argv was going to
+  the other 2253 on `PATH`. It is now refused at the `run_inert` chokepoint for
+  every tool, so no tier can reintroduce it (spec §6 rule 2a). Cobra's
+  completion word stays permitted — it is protocol-required and, unlike the
+  above, never the first positional, because the `__complete` sentinel precedes
+  it.
+
+  The rationale recorded for the never-probe list turned out to be **wrong**,
+  and is corrected in `spec.md`. It claimed `killall foo --help` kills
+  everything named `foo`; on glibc, GNU getopt permutes arguments, so `--help`
+  is processed first. `pkill --help`, `pkill victim --help` and
+  `killall victim --help` were all measured killing nothing. Positional shapes
+  stay refused for those tools anyway — permutation is a glibc behaviour, not a
+  guarantee — but the list is no longer what stands between a user and the
+  measured hazard.
+
+### Changed
+
+- **Canonical repository is now `https://github.com/AS-FOSS/mandible`.** The
+  `repository` field drives both the crates.io metadata and the `mandible
+  mandible` screen, so the easter egg follows automatically.
+
+### Removed
+
+- **The clap `CompleteEnv` probe.** Besides being the source of the argv above,
+  it never once identified a real clap tool. clap's protocol has no
+  self-identifying trailer like cobra's `:N` directive, so detection was only a
+  shape heuristic, and on the PATH sweep it matched ten unrelated tools —
+  `echo`, `bzless`, `bzmore`, `validlocale`, `xdg-user-dir`,
+  `update-alternatives` among them. (`echo -- ""` prints `--`, which starts
+  with a dash and so "looked like" a flag.) Removing it deletes eight bogus
+  `native` tiers, three fabricated flags and one fabricated node; described
+  coverage moves 89.19% → 89.20% across 2266 tools with no tool losing
+  anything. Re-adding it would need a way to confirm the protocol before
+  trusting the response, and a spelling that never passes an empty positional.
+
 ## [0.2.0]
 
 Six fixes, three of them found by rendering a deliberately awkward CLI through a
@@ -148,7 +225,7 @@ nodes lost, and `dnf` the only gain.
 ### Fixed
 
 Three defects in re-extract (`r`), reported in
-[#6](https://github.com/sadigaxund/mandible/issues/6). The last two shared a
+[#6](https://github.com/AS-FOSS/mandible/issues/6). The last two shared a
 cause: refresh replaced the whole `App` and then skipped both things the
 event loop does for a freshly built one.
 
@@ -536,7 +613,7 @@ paranoia — `mysql_secure_installation --help` was measured writing a
 Linux and macOS. MSRV 1.88.
 
 Known gaps are tracked as issues; busybox's applet list is
-[#1](https://github.com/sadigaxund/mandible/issues/1).
+[#1](https://github.com/AS-FOSS/mandible/issues/1).
 
 <details>
 <summary>Development history</summary>

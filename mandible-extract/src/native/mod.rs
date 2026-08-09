@@ -1,9 +1,9 @@
 //! Tier E: native, self-describing binary probes (spec §7 Tier E).
 //!
-//! Two protocols, both driven entirely through [`crate::exec::run_inert`]
-//! with argv shapes already on [`crate::exec::InertArgv`] — this tier adds
-//! no new spawn shapes, it only teaches the pipeline to speak two that
-//! were already on the §6 allowlist:
+//! One protocol, driven entirely through [`crate::exec::run_inert`] with
+//! an argv shape already on [`crate::exec::InertArgv`] — this tier adds no
+//! new spawn shapes, it only teaches the pipeline to speak one that was
+//! already on the §6 allowlist:
 //!
 //! - **cobra `__complete`** (`gh`, `docker`, `kubectl`, ...). The protocol
 //!   needs **two probes per node**, not one — an earlier implementation
@@ -14,10 +14,13 @@
 //!   `Completion ended with directive: ...` note goes to stderr and is
 //!   ignored. Candidates are `value\tdescription` (or bare `value`) per
 //!   line.
-//! - **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> --`), probed but not
-//!   relied on: measured absent from both `ripgrep` and `cargo` [M-4]: so
-//!   nothing in this pipeline gates on it working. Never invoked bare —
-//!   always `<tool> --` at minimum (spec §6 rule 1).
+//!
+//! clap's `CompleteEnv` was also probed here once and has been removed: it
+//! never identified a single real clap tool, matched ten unrelated ones by
+//! accident, and its argv spelling handed tools an empty first positional
+//! — the shape measured terminating every process in a PID namespace via
+//! `pkill -- ""`. The full reasoning, and what re-adding it would require,
+//! is recorded at the former call site below.
 //!
 //! **Strictly node-scoped, never eager.** [`ExtractionTier::extract_node`]
 //! probes exactly the one path it's given; the two-probe cost is paid once
@@ -83,14 +86,14 @@ const DEPTH_CAP: usize = 6;
 /// re-run the same detection probe on every call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Protocol {
-    /// cobra's `__complete` convention.
+    /// cobra's `__complete` convention. The only native protocol left
+    /// after clap's `CompleteEnv` probe was removed (see below); kept as
+    /// an enum because the protocol cache is keyed on it and a second
+    /// protocol re-added later belongs here.
     Cobra,
-    /// clap's `CompleteEnv` convention.
-    ClapCompleteEnv,
 }
 
-/// Tier E: cobra `__complete` and clap `CompleteEnv` dynamic-completion
-/// probes.
+/// Tier E: cobra `__complete` dynamic-completion probes.
 #[derive(Debug, Default)]
 pub struct NativeTier {
     /// Which protocol each tool name was found to speak. Bounded by the
@@ -127,10 +130,6 @@ impl ExtractionTier for NativeTier {
             self.set_protocol(&tool.name, Protocol::Cobra);
             return true;
         }
-        if probe_clap_complete_env(tool_path, "", DETECT_TIMEOUT).is_some() {
-            self.set_protocol(&tool.name, Protocol::ClapCompleteEnv);
-            return true;
-        }
         false
     }
 
@@ -147,7 +146,6 @@ impl ExtractionTier for NativeTier {
             Some(Protocol::Cobra) => {
                 Ok(self.extract_cobra_node(tool_path, &tool.name, &words, name))
             }
-            Some(Protocol::ClapCompleteEnv) => Ok(extract_clap_node(tool_path, &words, name)),
             None => Err(ExtractError::Other(
                 "no native protocol detected for this tool".to_string(),
             )),
@@ -252,6 +250,12 @@ fn probe_cobra_list(
     timeout: Duration,
 ) -> Option<Vec<(String, String)>> {
     let mut argv_words = words.to_vec();
+    // The empty word is required by cobra's protocol, not incidental:
+    // `docker __complete` without it fails with "requires at least 1
+    // arg(s), only received 0" and detection collapses for every cobra
+    // tool. It is safe here for a reason `run_inert` can check — it is
+    // never the first positional, always shielded behind the `__complete`
+    // sentinel, which a non-cobra tool rejects. See spec §6 rule 2a.
     argv_words.push(trailing.to_string());
     let out = run_inert(
         tool_path,
@@ -399,75 +403,42 @@ fn non_empty_text(s: &str) -> Option<Text> {
     (!t.is_empty()).then(|| Text::sanitize(t))
 }
 
-/// Probe clap's `CompleteEnv` convention: `COMPLETE=<shell> <tool> --
-/// <partial>`, never bare (spec §6 rule 1 — always at least the trailing
-/// `--`). Measured absent from both `ripgrep` and `cargo` [M-4]; nothing
-/// in this pipeline depends on this succeeding. Low-confidence by design:
-/// unlike cobra's `:N` directive, clap's protocol has no equally strong
-/// self-identifying trailer this code can check for, so detection here is
-/// a shape heuristic (every returned line must itself look like a
-/// plausible candidate) rather than a protocol-guaranteed signal.
-fn probe_clap_complete_env(
-    tool_path: &Path,
-    partial: &str,
-    timeout: Duration,
-) -> Option<Vec<(String, String)>> {
-    let out = run_inert(
-        tool_path,
-        &InertArgv::ClapCompleteEnvComplete {
-            shell: "zsh".to_string(),
-            partial: partial.to_string(),
-        },
-        timeout,
-    )
-    .ok()?;
-    if out.stdout.is_empty() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&out.stdout);
-    let mut candidates = Vec::new();
-    for line in text.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let (value, description) = match line.split_once('\t') {
-            Some((v, d)) => (v.to_string(), d.to_string()),
-            None => (line.to_string(), String::new()),
-        };
-        let looks_like_candidate = value.starts_with('-') || is_command_name_shaped(value.trim());
-        if !looks_like_candidate {
-            return None; // one implausible line: not this protocol
-        }
-        candidates.push((value, description));
-    }
-    (!candidates.is_empty()).then_some(candidates)
-}
-
-fn extract_clap_node(tool_path: &Path, words: &[String], name: String) -> CommandNode {
-    let provenance = Provenance::single(Source::NativeDynamic {
-        protocol: "clap-complete-env".to_string(),
-    });
-    let mut node = CommandNode::new(name, provenance.clone());
-    node.children_filled = true;
-
-    let partial_prefix = words.join(" ");
-    if let Some(candidates) = probe_clap_complete_env(tool_path, &partial_prefix, EXTRACT_TIMEOUT) {
-        for (value, description) in &candidates {
-            if let Some(flag) = flag_from_candidate(value, description, &provenance) {
-                node.flags.push(flag);
-                continue;
-            }
-            if is_command_name_shaped(value) {
-                let mut child = CommandNode::new(value.clone(), provenance.clone());
-                child.summary = non_empty_text(description);
-                child.children_filled = false;
-                node.subcommands.push(child);
-            }
-        }
-    }
-
-    node
-}
+// clap's `CompleteEnv` probe was removed here; the reasons are worth
+// keeping, because "re-add it" is an obvious-looking idea.
+//
+// The probe was `COMPLETE=<shell> <tool> -- <partial>`, and it could not
+// be spelled safely in either direction:
+//
+// - With an empty partial it rendered as `<tool> -- ""`. `--` is the
+//   option terminator essentially every getopt program discards, so the
+//   empty string arrived as the tool's *first positional*, and a program
+//   whose first positional is a pattern reads that as "match everything".
+//   Measured: `pkill -- ""` terminated every process in a private PID
+//   namespace, pkill included. This is the mechanism behind the machine
+//   reset that motivated the never-probe list (spec §6 rule 0) — which
+//   masked it for thirteen tools while this same argv went to the rest of
+//   PATH.
+// - Spelled `<tool> --` instead, it is harmless but wrong: `--` is a
+//   no-op for most tools, so they run normally and print their ordinary
+//   output, which the shape heuristic below then read as a candidate
+//   list. Measured on the PATH-wide sweep: 16 tools newly acquired this
+//   tier and 8 became `suspicious` (`whoami --` prints a username, which
+//   is command-name-shaped).
+//
+// And it never worked. clap's protocol has no self-identifying trailer
+// like cobra's `:N` directive, so detection was only ever a shape
+// heuristic, and on the sweep it matched 10 tools of which *none* were
+// clap: `echo`, `bzless`, `bzmore`, `validlocale`, `xdg-user-dir`,
+// `update-alternatives` and friends. `echo -- ""` prints `--`, which
+// starts with a dash and so "looked like" a flag candidate. Combined with
+// [M-4] (measured absent from both `ripgrep` and `cargo`), the feature
+// was pure false-positive generation attached to a lethal argv shape.
+//
+// Re-adding it needs two things this code never had: a way to confirm the
+// tool really speaks the protocol before trusting the response, and a
+// spelling that never hands a tool an empty first positional. Gating on
+// Tier A′ framework identification (probe only what is already identified
+// as clap) would supply the first.
 
 #[cfg(test)]
 mod tests {

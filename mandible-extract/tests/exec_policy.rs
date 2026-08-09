@@ -121,3 +121,76 @@ fn clap_complete_env_shape_carries_its_env_var_to_the_real_child() {
         "LESS must not leak through:\n{text}"
     );
 }
+
+/// Rule 2a: an empty argument the tool could read as its first positional
+/// is refused before anything is spawned.
+///
+/// This is the shape behind the machine reset that motivated rule 0.
+/// `ClapCompleteEnvComplete { partial: "" }` renders as `-- ""`; because
+/// `--` is the option terminator essentially every getopt program
+/// discards, the empty string arrives as the first positional, and a
+/// program whose first positional is a pattern reads it as "match
+/// everything". Measured: `pkill -- ""` terminated every process in a
+/// private PID namespace, pkill included. The never-probe list hid this
+/// for thirteen tools while the same argv was still emitted at the rest of
+/// PATH, so the fix belongs at the chokepoint, not in a name list.
+#[test]
+fn empty_first_positional_is_refused_before_spawning() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_shim(dir.path());
+
+    let refused = InertArgv::ClapCompleteEnvComplete {
+        shell: "zsh".to_string(),
+        partial: String::new(),
+    };
+    assert_eq!(refused.args(), vec!["--".to_string(), String::new()]);
+
+    let err = run_inert(&shim, &refused, Duration::from_secs(2))
+        .expect_err("`-- \"\"` must be refused, not spawned");
+    assert!(
+        err.to_string().contains("empty argument"),
+        "unexpected error: {err}"
+    );
+
+    // The safe expression of the same request must still reach the child:
+    // `--` alone, which `ClapCompleteEnvProbe` exists to produce.
+    let allowed = InertArgv::ClapCompleteEnvProbe {
+        shell: "zsh".to_string(),
+    };
+    let out = run_inert(&shim, &allowed, Duration::from_secs(2)).unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("ARGC:1"), "{text}");
+    assert!(text.contains("ARGV[0]:--"), "{text}");
+}
+
+/// The one empty argument that is allowed, and why: cobra's completion
+/// word is protocol-required — `docker __complete` without it fails with
+/// "requires at least 1 arg(s), only received 0" and native detection
+/// collapses for every cobra tool. It is safe for a reason the chokepoint
+/// can check: it is never the first positional, always shielded behind the
+/// `__complete` sentinel, which a non-cobra tool rejects rather than acts
+/// on.
+#[test]
+fn cobra_completion_word_may_be_empty_because_a_sentinel_guards_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_shim(dir.path());
+
+    let argv = InertArgv::CobraComplete {
+        words: vec![String::new()],
+    };
+    let out = run_inert(&shim, &argv, Duration::from_secs(2))
+        .expect("cobra's empty completion word must still be permitted");
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("ARGC:2"), "{text}");
+    assert!(text.contains("ARGV[0]:__complete"), "{text}");
+
+    // But the sentinel must genuinely be the guard: an empty *first*
+    // argument is refused even for this variant.
+    let unguarded = InertArgv::HelpSubcommand {
+        words: vec![String::new()],
+    };
+    assert!(
+        run_inert(&shim, &unguarded, Duration::from_secs(2)).is_err(),
+        "`help \"\"` has no sentinel shielding the empty word"
+    );
+}

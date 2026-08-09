@@ -9,8 +9,8 @@
 
 *A TUI manual for every command-line tool you have*
 
-[![CI](https://github.com/sadigaxund/mandible/actions/workflows/ci.yml/badge.svg)](https://github.com/sadigaxund/mandible/actions/workflows/ci.yml)
-[![framework support](https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml/badge.svg)](https://github.com/sadigaxund/mandible/actions/workflows/frameworks.yml)
+[![CI](https://github.com/AS-FOSS/mandible/actions/workflows/ci.yml/badge.svg)](https://github.com/AS-FOSS/mandible/actions/workflows/ci.yml)
+[![framework support](https://github.com/AS-FOSS/mandible/actions/workflows/frameworks.yml/badge.svg)](https://github.com/AS-FOSS/mandible/actions/workflows/frameworks.yml)
 [![crates.io](https://img.shields.io/crates/v/mandible.svg?style=flat-square)](https://crates.io/crates/mandible)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat-square)](#)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg?style=flat-square)
@@ -57,7 +57,7 @@ cargo install mandible
 | macOS Apple Silicon   | [`tar.gz`](...) |
 | macOS Intel           | [`tar.gz`](...) |
 
-`.deb` and `.rpm` packages are attached to every [release](https://github.com/sadigaxund/mandible/releases).  
+`.deb` and `.rpm` packages are attached to every [release](https://github.com/AS-FOSS/mandible/releases).  
 Each archive ships a matching `.sha256` checksum.
 </div>
 

@@ -471,6 +471,24 @@ damage a user's machine, and it gets its own section and its own tests.
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
    [<words...>]`, or `-- <partial>` under `COMPLETE=`. Any other shape requires a
    spec amendment.
+
+   2a. **No empty argument the tool could read as its first positional.** Rule 1
+   only counts arguments, and an empty string satisfies it while being the
+   opposite of inert. `--` is the option terminator essentially every getopt
+   program discards, so `<tool> -- ""` delivers an empty string as the tool's
+   first positional — and a program whose first positional is a pattern reads
+   that as *match everything*. Measured: `pkill -- ""` terminated every process
+   in a private PID namespace, pkill included. This was the actual mechanism
+   behind the machine reset that motivated rule 0, which masked it for thirteen
+   named tools while the same argv still went to the rest of PATH.
+
+   Enforced at the `run_inert` chokepoint, not at call sites, so no tier can
+   reintroduce it. Exactly one empty argument is permitted: cobra's completion
+   word, which is protocol-required (`docker __complete` without it fails with
+   "requires at least 1 arg(s)") and is never the first positional — the
+   `__complete` sentinel precedes it, and a non-cobra tool rejects that word
+   rather than acting on it. So the rule is checkable: an empty element is
+   allowed only behind a guard word, never straight after `--`.
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
    kill the **process group**, not just the child — completion scripts spawn
@@ -481,17 +499,47 @@ damage a user's machine, and it gets its own section and its own tests.
 6. **Sanitized environment.** Clear `LESS`, `PAGER`, `MANPAGER`, `GIT_PAGER`;
    set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`. Without this,
    a tool may page its own help and hang forever, or emit ANSI into the IR.
-0. **Never run a program whose purpose is to kill processes.** `kill`, `pkill`,
-   `killall`, `killall5`, `skill`, `xkill`, `fuser`, and the system-state
-   commands `halt`, `poweroff`, `reboot`, `shutdown`, `telinit`, `init` are
-   refused before anything is spawned, under every argument shape.
+0. **Programs that signal processes or change machine state are invoked only
+   as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`, `skill`,
+   `xkill`, `fuser`, and the system-state commands `halt`, `poweroff`,
+   `reboot`, `shutdown`, `telinit`, `init` may be run with exactly that one
+   argument vector. Every other shape — `-h`, `help <word>`, `<word> --help`,
+   `completion <shell>`, `__complete` — is refused before anything is spawned.
 
-   `--help` being harmless on one machine's build is not sufficient. The shapes
-   rule 2 permits include `<tool> <word> --help`, and for these programs the
-   first positional is a **target, not a subcommand** — `killall foo --help`
-   kills everything named `foo`. A user reported `mandible pkill` freezing their
-   machine badly enough to require a reset. The trade is not close: what is on
-   offer is a flag list, and the downside is someone's session.
+   This began as a total ban, after a user reported `mandible pkill` freezing
+   their machine badly enough to require a reset. Two later measurements
+   reshaped it.
+
+   **The reason originally given was false.** It held that rule 2's
+   `<tool> <word> --help` shape makes `killall foo --help` kill everything
+   named `foo`. On glibc, GNU getopt permutes arguments, so `--help` is
+   processed wherever it sits: `pkill --help`, `pkill victim --help` and
+   `killall victim --help` were all measured killing nothing. The reset's real
+   mechanism was rule 2a's empty argument.
+
+   **What the ban was silently protecting against is real, and was never
+   written down: `-h` is not a help flag on these tools.** Measured against
+   systemd's multi-call binary, saved only by polkit because the probe ran
+   unprivileged — `halt -h`, `poweroff -h`, `reboot -h` and `shutdown -h` each
+   *attempted the real operation* (`-h` is the halt in `shutdown -h now`).
+   mandible falls back to `-h` whenever `--help` fails, so that fallback alone
+   would have rebooted a machine running as root.
+
+   So the rule keeps what is measured harmless and refuses what is measured
+   dangerous, instead of trading one for the other. `--help` yields real flag
+   lists — `pkill` 27 flags, `killall` and `fuser` 16 each, all fully
+   described; twelve of the thirteen went from `no-tier` to `ok` on the PATH
+   sweep. Positional shapes stay refused because argument permutation is a
+   glibc behaviour rather than a guarantee (BSD and busybox getopt stop at the
+   first non-option), and because the background tree warmer would reach any
+   subcommand a future parser change starts emitting, unasked.
+
+   The general form of that last hazard — a *fabricated* word becoming argv
+   for any tool, not just these — is not solved by this list and should be
+   solved by gating positional probes on provenance: send `<word> --help` only
+   when the word came from a structural source (cobra `__complete`, a
+   completion script, an argparse subparser table), never from a prose
+   heuristic. Until then this list is load-bearing for thirteen tools.
 
    **This is a safety rule, and is deliberately not the per-tool knowledge §1
    forbids.** §1 governs *extraction* — "if a tool renders badly, fix the

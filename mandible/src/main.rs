@@ -44,24 +44,12 @@ fn main() -> anyhow::Result<()> {
     }
 
     let resolved = mandible_extract::resolve_tool(&tool);
-    // Refused before the TUI opens rather than shown as an empty tree: the
-    // reason is the point, and a blank pane would read as a parser failure
-    // (spec §6 rule 0).
-    if resolved
-        .path
-        .as_deref()
-        .is_some_and(mandible_extract::is_never_probe)
-    {
-        anyhow::bail!(
-            "mandible will not run {tool:?}.\n\n\
-             Its purpose is to signal or terminate processes, so no way of asking it for \
-             help is reliably harmless — the argument shapes mandible uses include \
-             `{tool} <word> --help`, and for this program the first argument is a target, \
-             not a subcommand.\n\n\
-             A flag list is not worth the risk of ending your session. Use `man {tool}` \
-             or `{tool} --help` directly."
-        );
-    }
+    // Process-signalling and machine-state tools are no longer refused
+    // outright: `--help` is measured harmless on all of them and is where
+    // their flag list lives, so they open like any other tool and the exec
+    // chokepoint restricts them to that one shape (spec §6 rule 0). The
+    // visible consequence is that they never gain a subcommand tree, which
+    // is correct — they do not have one.
 
     if let Some(doctor_tool) = &cli.doctor {
         let loaded = pipeline::load(doctor_tool);
