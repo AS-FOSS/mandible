@@ -102,34 +102,6 @@ CI gates every change against a fixed tool list, and sweeps the whole `PATH`
 separately for the broad picture.
 
 
-
-## Safety
-
-mandible finds out what a tool does by running it: `docker --help`,
-`git rebase --help`. That deserves some care, so the rules are narrow and they
-all live in one module — a test fails the build if any other part of the
-codebase learns how to launch a program.
-
-- **Only fixed, inert argument shapes**: `--help`, `-h`, `<tool> help`, and the
-  completion commands some tools support. Never a bare invocation, never an
-  argument that could name a file to write to, and anything that hangs is
-  killed.
-- **Writes go somewhere disposable.** Some programs create files just because
-  you asked for help — `mysql_secure_installation --help` drops a MySQL config
-  containing a blank database password into your home directory. So every probe
-  runs with its home, temp, config and working directories pointed at a
-  throwaway folder, deleted straight after.
-- **Programs that kill processes or halt machines get `--help` and nothing
-  else.** `kill`, `pkill`, `fuser`, `reboot`, `shutdown` and their relatives are
-  restricted to that one shape, because for them an unrecognised argument is a
-  target rather than a subcommand — and because `-h` on `reboot` and `shutdown`
-  is not "help", it is the action.
-
-> [!NOTE]
-> Full isolation would need OS-level sandboxing, which mandible does not yet do.
-> [`spec.md`](./spec.md) §6 states plainly what is and isn't covered.
-
-
 <details>
 <summary><h2>Configurations</h2></summary>
      
