@@ -240,6 +240,66 @@ fn man_page_banner(name: &str) -> String {
 }
 
 /// Half one: a permitted tool's subcommand whose `--help` renders a man
+/// The verbatim view (`t`) must fetch **the document the parse read**.
+///
+/// Its whole purpose is letting a reader check our reading against the
+/// author's own bytes — which only works if both are the same bytes. When
+/// [M-16] sub-case (a) fires the parse came from `-h`, not from the man
+/// page `--help` returned, so a raw fetch that re-probed without the same
+/// attestation would show a different document than the tree came from and
+/// silently answer a question nobody asked. That shipped briefly:
+/// `raw_help` hardcoded `heading_attested: false`.
+#[test]
+fn raw_help_fetches_the_same_document_the_parse_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "sub" ] && [ "$2" = "--help" ]; then
+    printf '%s' '{banner}'
+    exit 0
+fi
+if [ "$1" = "sub" ] && [ "$2" = "-h" ]; then
+    echo "Usage: manthing sub [options]"
+    echo ""
+    echo "Options:"
+    echo "  --amend      Amend the previous thing"
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#,
+        banner = man_page_banner("manthing-sub").replace('\'', "'\\''")
+    );
+    let shim = write_named_shim(dir.path(), "manthing", &script);
+    let tool = ResolvedTool {
+        name: "manthing".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let path = ["manthing".to_string(), "sub".to_string()];
+    let attested = NodeHints {
+        heading_attested: true,
+    };
+
+    let raw = mandible_extract::help_text::raw_help(&tool, &path, attested)
+        .expect("the shim answers both probes");
+    let joined: String = raw
+        .iter()
+        .map(|t| t.as_str().to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(
+        joined.contains("--amend"),
+        "raw help must show the -h document the parse actually read: {joined}"
+    );
+    assert!(
+        !joined.contains("MANTHING-SUB(1)"),
+        "raw help showed the man page the parse discarded — the verbatim \
+         view is answering the wrong question: {joined}"
+    );
+}
+
 /// page must trigger the `-h` fallback, and the fallback's output — an
 /// ordinary option table — must actually be what the node parses to,
 /// rather than the man page staying as verbatim degradation.

@@ -258,36 +258,38 @@ fn looks_like_help_output(text: &str) -> bool {
 /// caller (the TUI's verbatim view) wants the live tool, so this keeps
 /// their call site unchanged while still funneling through the same
 /// probe-taking function a replay caller would use.
-pub fn raw_help(tool: &ResolvedTool, path: &[String]) -> Result<Vec<Text>, ExtractError> {
-    raw_help_with_probe(&LiveProbe, tool, path)
+pub fn raw_help(
+    tool: &ResolvedTool,
+    path: &[String],
+    hints: NodeHints,
+) -> Result<Vec<Text>, ExtractError> {
+    raw_help_with_probe(&LiveProbe, tool, path, hints)
 }
 
 /// [`raw_help`], but against an explicit [`Probe`] rather than always the
 /// live one — the seam a future corpus runner or test can use to check the
 /// TUI's verbatim view against frozen bytes with zero subprocesses.
+///
+/// **`hints` must describe the same node the tree was built from.** This
+/// function exists so a reader can check our parse against the author's own
+/// bytes; that only works if it fetches *the document we actually parsed*.
+/// When [M-16] sub-case (a) fires, the parse came from `-h` and not from
+/// the man page `--help` returned — so a verbatim view that re-probed with
+/// different hints would show a different document than the tree came from,
+/// and silently answer the wrong question. It shipped that way briefly:
+/// `heading_attested` was hardcoded `false` here on the reasoning that this
+/// call site could not verify attestation, which is true of the *function*
+/// but not of its caller — the TUI resolves the `CommandNode` at `path`
+/// before requesting raw help, and that node carries the bit.
 pub fn raw_help_with_probe(
     probe: &dyn Probe,
     tool: &ResolvedTool,
     path: &[String],
+    hints: NodeHints,
 ) -> Result<Vec<Text>, ExtractError> {
     let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
     let words: Vec<String> = path.iter().skip(1).cloned().collect();
-    // Deliberately never `heading_attested: true` here, regardless of
-    // `path`: this function has no `CommandNode` to read that bit from
-    // (the TUI's verbatim view re-probes by path alone, spec §2's `t`
-    // key), and the honest default is to disable [M-16] sub-case (a)'s
-    // `-h` fallback rather than assume attestation this call site cannot
-    // verify. The one existing fallback (empty output on both streams) is
-    // untouched, since it doesn't depend on this bit at all — see
-    // `probe_help_text`.
-    let raw = probe_help_text(
-        probe,
-        tool_path,
-        &words,
-        NodeHints {
-            heading_attested: false,
-        },
-    )?;
+    let raw = probe_help_text(probe, tool_path, &words, hints)?;
     Ok(raw
         .lines()
         .take(MAX_UNPARSED_LINES)
@@ -457,15 +459,27 @@ mod tests {
         let mut tool = resolve_tool("pkill");
         tool.path = Some(path);
 
-        let root = raw_help(&tool, &["pkill".to_string()])
-            .expect("`pkill --help` is the one permitted shape and must be shown");
+        let root = raw_help(
+            &tool,
+            &["pkill".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        )
+        .expect("`pkill --help` is the one permitted shape and must be shown");
         assert!(
             root.iter().any(|line| line.as_str().contains("Usage:")),
             "{root:?}"
         );
 
-        let err = raw_help(&tool, &["pkill".to_string(), "something".to_string()])
-            .expect_err("a positional path must still be refused");
+        let err = raw_help(
+            &tool,
+            &["pkill".to_string(), "something".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        )
+        .expect_err("a positional path must still be refused");
         assert!(
             matches!(
                 err,

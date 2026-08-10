@@ -206,7 +206,18 @@ fn apply_effect(
         // which the timeout itself bounds.
         Effect::FetchRaw(path) => {
             app.mark_raw_pending(path.clone());
-            let result = match mandible_extract::help_text::raw_help(resolved, &path) {
+            // Read attestation from the node this view is *about*, so the
+            // raw fetch reproduces the same probe the parse used. The `t`
+            // key's whole job is letting a reader check our reading against
+            // the author's own bytes; fetching a different document than
+            // the tree came from answers a question nobody asked. A node
+            // the tree doesn't have cannot be attested, so `false` is the
+            // right default rather than a fallback worth worrying about.
+            let hints = mandible_extract::NodeHints {
+                heading_attested: mandible_core::resolve(&app.root, &path)
+                    .is_some_and(|n| n.heading_attested),
+            };
+            let result = match mandible_extract::help_text::raw_help(resolved, &path, hints) {
                 Ok(lines) => RawHelp::Ready(lines),
                 // Shown in the pane, not swallowed: "refused: kill is
                 // never probed" is a useful answer to `t`, and a blank
