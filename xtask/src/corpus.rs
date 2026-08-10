@@ -1047,7 +1047,24 @@ fn render_markdown_report(
                     }
                 }
                 if parts.is_empty() {
-                    parts.push("no change".to_string());
+                    // A failing fixture whose tracked dimensions all match
+                    // still has a real snapshot mismatch somewhere the
+                    // summary cannot see: confidence, provenance, usage
+                    // lines, a reworded description. Printing "no change"
+                    // beside FAIL reads as a bug in the runner rather than
+                    // a regression in the parser, and sends the reviewer
+                    // hunting in the wrong place. Measured: scaling
+                    // `compute_confidence` by 0.8 produced exactly that
+                    // row in a real CI run.
+                    parts.push(
+                        if row.status_word == "FAIL" {
+                            "differs outside status/nodes/flags — check confidence, \
+                             usage or descriptions in the snapshot diff"
+                        } else {
+                            "no change"
+                        }
+                        .to_string(),
+                    );
                 }
                 (status_cell, nodes_cell, flags_cell, parts)
             }
@@ -1395,6 +1412,49 @@ stdout = "help-sub.txt"
         // markdown report as if it were the file's literal text.
         assert!(!report.text.contains("heading_attested"));
         assert!(!report.text.contains("provenance"));
+    }
+
+    /// A mismatch the summary's own dimensions cannot see must not be
+    /// reported as "no change".
+    ///
+    /// Found in a real CI run, not by a unit test: scaling
+    /// `compute_confidence` by 0.8 left status, node count, flag count and
+    /// every flag name identical, so the row rendered as
+    /// `tar/1.35 | FAIL | ... | no change`. "FAIL, no change" reads as a
+    /// bug in the runner rather than a regression in the parser, and points
+    /// the reviewer at the wrong thing. The row must instead say the
+    /// difference lies outside the tracked dimensions.
+    #[test]
+    fn markdown_report_never_says_no_change_on_a_failing_fixture() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        // Perturb only `confidence` in the blessed snapshot — nothing the
+        // semantic summary tracks. Equivalent to a parser change that moves
+        // confidence and nothing else.
+        let snap_path = corpus.root.join("mytool/1.0/expected.snap");
+        let snap = std::fs::read_to_string(&snap_path).expect("blessed snapshot exists");
+        let perturbed = snap.replace("confidence:", "confidence: 0.01 #");
+        assert_ne!(snap, perturbed, "the fixture must carry a confidence field");
+        std::fs::write(&snap_path, perturbed).expect("rewrite snapshot");
+
+        let report = run(&corpus.root, false, ScoreFormat::Markdown).expect("check run succeeds");
+        assert!(
+            report.failed(),
+            "a perturbed snapshot must fail: {}",
+            report.text
+        );
+        assert!(
+            !report.text.contains("no change"),
+            "a failing fixture must never be described as unchanged: {}",
+            report.text
+        );
+        assert!(
+            report.text.contains("differs outside"),
+            "the row must say where to look instead: {}",
+            report.text
+        );
     }
 
     /// The markdown report's whole reason to exist: when a snapshot
