@@ -1,0 +1,27 @@
+---
+source: mandible-core/src/snapshot.rs
+expression: to_snapshot(&root)
+---
+name: git
+summary: the stupid content tracker
+provenance:
+  sources:
+    - help-text
+  confidence: 0.91
+subcommands:
+  - name: commit
+    summary: Record changes to the repository
+    flags:
+      - long: amend
+        description: amend the previous commit
+        provenance:
+          sources:
+            - help-text
+    provenance:
+      sources:
+        - help-text
+  - name: status
+    summary: Show the working tree status
+    provenance:
+      sources:
+        - help-text

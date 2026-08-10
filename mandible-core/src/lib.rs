@@ -13,6 +13,7 @@ mod merge;
 mod node;
 mod noderef;
 mod provenance;
+mod snapshot;
 mod text;
 
 pub use merge::{
@@ -22,4 +23,8 @@ pub use merge::{
 pub use node::{is_command_name_shaped, CommandNode, Example, Flag, Positional, ValueKind};
 pub use noderef::{resolve, resolve_flag, resolve_mut, FlagKey, NodeRef};
 pub use provenance::{Authority, Axis, ManFormat, Provenance, Source};
+pub use snapshot::{
+    to_snapshot, ExampleSnapshot, FlagSnapshot, NodeSnapshot, PositionalSnapshot,
+    ProvenanceSnapshot,
+};
 pub use text::{Text, MAX_TEXT_CHARS};
