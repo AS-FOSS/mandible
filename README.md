@@ -1,6 +1,6 @@
 <div align="center">
      
-<img width="256" height="256" alt="logo" src="https://github.com/user-attachments/assets/9cc704a2-8176-49d1-bdb3-3646ae74f152" />
+<img width="256" height="256" alt="logo" src="https://github.com/user-attachments/assets/c1f6d254-1488-4d4d-ac94-b3ad273d7bb7" />
 
 <!-- LOGO: a ~96px mark goes here. Something jaw/mandible-shaped reads well at this
      size. Replace this comment with: <img src="docs/logo.png" width="96" alt="mandible logo"> -->
