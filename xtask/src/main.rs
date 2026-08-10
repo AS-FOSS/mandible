@@ -171,12 +171,13 @@ fn run_coverage(
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {}/{} framework-detected",
+        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {}/{} framework-detected",
         fresh.pct_described,
         fresh.total,
         fresh.no_tier_count,
         fresh.suspicious_count,
         fresh.verbatim_count,
+        fresh.man_shaped_count,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -196,12 +197,13 @@ fn run_coverage(
         })?;
 
         println!(
-            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim",
+            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped",
             previous.pct_described,
             previous.total,
             previous.no_tier_count,
             previous.suspicious_count,
             previous.verbatim_count,
+            previous.man_shaped_count,
         );
 
         let mut regressed = false;
@@ -240,6 +242,16 @@ fn run_coverage(
             println!(
                 "verbatim count changed from {} to {} (reported, not gated)",
                 previous.verbatim_count, fresh.verbatim_count
+            );
+        }
+        // `man_shaped_count` (spec [M-16]'s exposure enumeration for the
+        // pending `-h`-fallback decision) is a brand-new measurement with
+        // no baseline to regress against, so — like `verbatim_count` — it
+        // is reported for visibility only and never gated.
+        if fresh.man_shaped_count != previous.man_shaped_count {
+            println!(
+                "man-shaped count changed from {} to {} (reported, not gated)",
+                previous.man_shaped_count, fresh.man_shaped_count
             );
         }
         if regressed {

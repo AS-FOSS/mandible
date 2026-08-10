@@ -26,6 +26,14 @@ mod grammar;
 mod profile;
 mod sections;
 
+/// Re-exported for the coverage harness (spec §13.1, [M-16]): the pure
+/// man-page-banner check this tier already uses at [`build_node`]'s
+/// verbatim-degradation step (`sections::parse_with_profile`), exposed so
+/// `xtask` can ask "was this root's captured `--help` output a rendered
+/// man page?" without a second copy of the rule and without re-probing the
+/// tool — see [`sections::is_man_page_banner`]'s own doc comment.
+pub use sections::is_man_page_banner;
+
 use crate::errors::ExtractError;
 use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};

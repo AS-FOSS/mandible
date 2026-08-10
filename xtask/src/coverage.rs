@@ -54,6 +54,14 @@ struct Row {
     /// verbatim rendering (`CommandNode::unparsed` non-empty) rather than
     /// producing any structure at all.
     verbatim: bool,
+    /// True when the root `--help` probe's captured output was detected as
+    /// a rendered man page (spec [M-16]) rather than ordinary help text —
+    /// see [`root_is_man_shaped`]. A measurement column only: this is the
+    /// exposure enumeration for a pending, not-yet-implemented safety
+    /// decision (falling back to `-h` when this fires), so it is reported
+    /// but never gated (spec [M-16], [`compute_aggregate`]'s doc comment
+    /// on why `verbatim_count` gets the same treatment).
+    man_shaped: bool,
     status: &'static str,
 }
 
@@ -80,6 +88,15 @@ pub struct Aggregate {
     /// Tools whose root degraded to verbatim (spec §7 Tier B step 3).
     /// **Not gated** — see [`compute_aggregate`].
     pub verbatim_count: usize,
+    /// Tools whose root `--help` output was detected as a rendered man
+    /// page (spec [M-16]) — the exposure set for the pending `-h`
+    /// fallback decision. A subset of `verbatim_count`: every man-shaped
+    /// root degrades to verbatim, but not every verbatim root is a man
+    /// page (some tools just print nothing this grammar can use). **Not
+    /// gated** — this is a brand-new measurement with no baseline to
+    /// regress against, and per the task this metric measures, it is not
+    /// itself changing any execution.
+    pub man_shaped_count: usize,
     /// Tools for which Tier A′ identified a framework at all (spec §7
     /// Tier A′), regardless of method.
     pub framework_detected_count: usize,
@@ -224,6 +241,7 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
     // comment for why an independent second definition here would be a
     // drift risk, not a convenience.
     let status = crate::status::compute(&result);
+    let man_shaped = root_is_man_shaped(&result);
 
     Row {
         tool: tool.to_string(),
@@ -235,8 +253,37 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
         ms,
         suspicious_nodes: status.suspicious_nodes,
         verbatim: status.verbatim,
+        man_shaped,
         status: status.label,
     }
+}
+
+/// True when the root's captured `--help` output was detected as a
+/// rendered man page (spec [M-16]) — the measurement this whole module
+/// change exists to add.
+///
+/// **Sends nothing new.** This reads text the pipeline already captured
+/// rather than probing the tool again: [`help_text::build_node`] sets
+/// `CommandNode::unparsed` to the raw `--help` lines precisely when
+/// nothing parsed as structure, which includes (but is not limited to) the
+/// man-page case — `sections::parse_with_profile` returns an empty parse
+/// immediately once it sees the banner (spec §7 Tier B step 3). Only that
+/// tier ever populates `unparsed` (`mandible-extract/src/help_text/mod.rs`
+/// is the sole writer, grepped), so if it survived merge (spec §4.4:
+/// `pick_vec` skips empty contributors, and every other tier's `unparsed`
+/// is always empty), it is exactly the text `--help` produced. Re-running
+/// [`mandible_extract::help_text::is_man_page_banner`] — the identical
+/// rule `build_node` already applied — over that captured first line tells
+/// the two "gave up" reasons apart (a banner vs. output the grammar simply
+/// couldn't use) without a second invocation of the tool.
+fn root_is_man_shaped(result: &ExtractionResult) -> bool {
+    let Some(root) = result.root.as_ref() else {
+        return false;
+    };
+    let Some(first_line) = root.unparsed.iter().find(|t| !t.as_str().trim().is_empty()) else {
+        return false;
+    };
+    mandible_extract::help_text::is_man_page_banner(first_line.as_str())
 }
 
 /// Compact `"<framework name> (<method>)"` label for the scoreboard's
@@ -316,6 +363,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let no_tier_count = rows.iter().filter(|r| r.status == "no-tier").count();
     let suspicious_count = rows.iter().filter(|r| r.status == "suspicious").count();
     let verbatim_count = rows.iter().filter(|r| r.verbatim).count();
+    let man_shaped_count = rows.iter().filter(|r| r.man_shaped).count();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -330,6 +378,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         no_tier_count,
         suspicious_count,
         verbatim_count,
+        man_shaped_count,
         framework_detected_count,
         framework_counts,
         total: rows.len(),
@@ -376,7 +425,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     // alignment for that row.
     let mut out = String::new();
     out.push_str(&format!(
-        "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}  {}\n",
+        "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}  {}\n",
         "tool",
         "tier(s)",
         "framework",
@@ -385,6 +434,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
         "%described",
         "ms",
         "suspect",
+        "man",
         "status",
         tw = TOOL_COL_WIDTH,
         iw = TIER_COL_WIDTH,
@@ -396,7 +446,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}  {}\n",
+            "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}  {}\n",
             truncate_col(&row.tool, TOOL_COL_WIDTH),
             truncate_col(&row.tiers, TIER_COL_WIDTH),
             truncate_col(&row.framework, FRAMEWORK_COL_WIDTH),
@@ -405,6 +455,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             pct,
             row.ms,
             row.suspicious_nodes,
+            if row.man_shaped { "yes" } else { "-" },
             row.status,
             tw = TOOL_COL_WIDTH,
             iw = TIER_COL_WIDTH,
@@ -527,16 +578,16 @@ fn worst_parsed_section_markdown(worst: &[&Row]) -> String {
 fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     let mut out = String::new();
     out.push_str(
-        "| tool | tier(s) | framework | nodes | flags | %described | ms | suspect | status |\n",
+        "| tool | tier(s) | framework | nodes | flags | %described | ms | suspect | man | status |\n",
     );
-    out.push_str("|---|---|---|---|---|---|---|---|---|\n");
+    out.push_str("|---|---|---|---|---|---|---|---|---|---|\n");
     for row in rows {
         let pct = row
             .pct_described
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.tool),
             md_escape(&row.tiers),
             md_escape(&row.framework),
@@ -545,17 +596,19 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             pct,
             row.ms,
             row.suspicious_nodes,
+            if row.man_shaped { "yes" } else { "-" },
             row.status,
         ));
     }
     out.push('\n');
     out.push_str(&format!(
-        "**Aggregate:** {:.2}% described across {} tools, {} no-tier, {} suspicious, {} verbatim.\n\n",
+        "**Aggregate:** {:.2}% described across {} tools, {} no-tier, {} suspicious, {} verbatim, {} man-shaped.\n\n",
         aggregate.pct_described,
         aggregate.total,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
         aggregate.verbatim_count,
+        aggregate.man_shaped_count,
     ));
     out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
@@ -605,11 +658,12 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} total={} described_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} total={} described_flags={:.4} total_flags={}\n",
         aggregate.pct_described,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
         aggregate.verbatim_count,
+        aggregate.man_shaped_count,
         aggregate.total,
         aggregate.described_flags,
         aggregate.total_flags,
@@ -647,13 +701,14 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     let line = scoreboard.lines().find(|l| l.starts_with("# aggregate:"))?;
     let mut pct_described = None;
     let mut no_tier_count = None;
-    // Older scoreboards (pre structure-sanity / pre-framework columns)
-    // are missing `suspicious_count`/`verbatim_count` entirely; default
-    // both to 0 rather than failing to parse, so `--check` against a
-    // not-yet-regenerated baseline still works for the fields that did
-    // exist.
+    // Older scoreboards (pre structure-sanity / pre-framework / pre-man-
+    // shaped columns) are missing `suspicious_count`/`verbatim_count`/
+    // `man_shaped_count` entirely; default all three to 0 rather than
+    // failing to parse, so `--check` against a not-yet-regenerated
+    // baseline still works for the fields that did exist.
     let mut suspicious_count = 0usize;
     let mut verbatim_count = 0usize;
+    let mut man_shaped_count = 0usize;
     let mut described_flags = 0.0f64;
     let mut total_flags = 0usize;
     let mut total = None;
@@ -664,6 +719,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "no_tier_count" => no_tier_count = value.parse::<usize>().ok(),
             "suspicious_count" => suspicious_count = value.parse::<usize>().ok()?,
             "verbatim_count" => verbatim_count = value.parse::<usize>().ok()?,
+            "man_shaped_count" => man_shaped_count = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
             "total" => total = value.parse::<usize>().ok(),
@@ -675,6 +731,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         no_tier_count: no_tier_count?,
         suspicious_count,
         verbatim_count,
+        man_shaped_count,
         framework_detected_count: 0,
         framework_counts: BTreeMap::new(),
         total: total?,
@@ -728,12 +785,13 @@ mod tests {
 
     #[test]
     fn parses_its_own_footer_format() {
-        let table = "tool  tier(s)\nfoo   carapace\n\n# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=2 verbatim_count=1 total=10\n";
+        let table = "tool  tier(s)\nfoo   carapace\n\n# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=2 verbatim_count=1 man_shaped_count=1 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
         assert_eq!(agg.pct_described, 42.5);
         assert_eq!(agg.no_tier_count, 3);
         assert_eq!(agg.suspicious_count, 2);
         assert_eq!(agg.verbatim_count, 1);
+        assert_eq!(agg.man_shaped_count, 1);
         assert_eq!(agg.total, 10);
     }
 
@@ -758,6 +816,16 @@ mod tests {
         assert_eq!(agg.verbatim_count, 0);
     }
 
+    /// Same for `man_shaped_count`, added by this batch ([M-16]'s
+    /// exposure enumeration): a scoreboard from before it exists has no
+    /// such field, and `--check` against it must still work.
+    #[test]
+    fn footer_without_man_shaped_count_defaults_to_zero() {
+        let table = "# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.man_shaped_count, 0);
+    }
+
     #[test]
     fn missing_footer_returns_none() {
         assert!(parse_aggregate_footer("no footer here\n").is_none());
@@ -768,6 +836,73 @@ mod tests {
         assert_eq!(short_tier_name("known_specs::carapace"), "carapace");
         assert_eq!(short_tier_name("help_text"), "help");
         assert_eq!(short_tier_name("something_else"), "something_else");
+    }
+
+    fn extraction_result_with_unparsed(tool: &str, first_line: &str) -> ExtractionResult {
+        use mandible_core::{CommandNode, Provenance, Source, Text};
+        let mut root = CommandNode::new(tool, Provenance::with_confidence(Source::HelpText, 0.0));
+        root.unparsed = vec![Text::sanitize(first_line)];
+        ExtractionResult {
+            tool: tool.to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        }
+    }
+
+    /// True positive: a captured `unparsed` first line carrying the man
+    /// banner shape is detected, via the exact same rule
+    /// `sections::is_man_page_banner` exposes — this is `root_is_man_shaped`
+    /// reading data the pipeline already captured, not a second probe.
+    #[test]
+    fn root_is_man_shaped_true_positive_on_a_captured_man_banner() {
+        let result = extraction_result_with_unparsed(
+            "git-bisect",
+            "GIT-BISECT(1)     Git Manual     GIT-BISECT(1)",
+        );
+        assert!(root_is_man_shaped(&result));
+    }
+
+    /// A root that degraded to verbatim for an *ordinary* reason (the
+    /// grammar just found nothing usable, no man banner involved) must not
+    /// be counted as man-shaped — the two "gave up" reasons are distinct,
+    /// which is the entire reason this function re-checks the captured
+    /// text instead of trusting `verbatim` alone.
+    #[test]
+    fn root_is_man_shaped_false_when_verbatim_for_a_non_man_reason() {
+        let result = extraction_result_with_unparsed(
+            "mystery",
+            "This tool prints only a friendly banner and nothing else.",
+        );
+        assert!(!root_is_man_shaped(&result));
+    }
+
+    /// git's own *root* must never register as man-shaped ([M-16]'s
+    /// central subtlety: only its subcommands render man pages). A root
+    /// that parsed real structure never carries `unparsed` at all, so
+    /// there is no captured text to test the banner against.
+    #[test]
+    fn root_is_man_shaped_false_when_root_parsed_structurally() {
+        use mandible_core::{CommandNode, Provenance, Source};
+        let root = CommandNode::new("git", Provenance::with_confidence(Source::HelpText, 0.8));
+        let result = ExtractionResult {
+            tool: "git".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        assert!(!root_is_man_shaped(&result));
+    }
+
+    #[test]
+    fn root_is_man_shaped_false_when_no_tier_produced_a_root() {
+        let result = ExtractionResult {
+            tool: "nothing".to_string(),
+            root: None,
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        assert!(!root_is_man_shaped(&result));
     }
 
     fn row(tool: &str, flags: usize, pct_described: Option<f64>, status: &'static str) -> Row {
@@ -781,6 +916,7 @@ mod tests {
             ms: 1,
             suspicious_nodes: 0,
             verbatim: false,
+            man_shaped: false,
             status,
         }
     }
@@ -821,6 +957,29 @@ mod tests {
         // not forgotten — the *not gated* half is enforced by
         // `xtask/src/main.rs` never comparing it, covered by reading that
         // function, not a unit test over a private struct.
+    }
+
+    /// [M-16]'s enumeration column: a man-shaped root is a *subset* of
+    /// verbatim (git's subcommands are both), but not every verbatim root
+    /// is man-shaped (some tools produce output the grammar just can't
+    /// use, with no man banner in sight) — so the two counts must move
+    /// independently, and `man_shaped_count` must never be gated (this is
+    /// a brand-new measurement with no baseline, per the task).
+    #[test]
+    fn aggregate_counts_man_shaped_separately_from_plain_verbatim() {
+        let mut man_shaped_row = row("git-bisect", 0, None, "verbatim");
+        man_shaped_row.verbatim = true;
+        man_shaped_row.man_shaped = true;
+        let mut plain_verbatim_row = row("mystery", 0, None, "verbatim");
+        plain_verbatim_row.verbatim = true;
+        let rows = vec![
+            row("clean", 10, Some(100.0), "ok"),
+            man_shaped_row,
+            plain_verbatim_row,
+        ];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.verbatim_count, 2);
+        assert_eq!(agg.man_shaped_count, 1);
     }
 
     #[test]

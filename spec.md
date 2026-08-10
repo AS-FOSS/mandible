@@ -1611,10 +1611,32 @@ any of these as current.
   tools, and `HELP_ONLY_PROBE` restricts those to exactly `--help`
   regardless (§6 rule 0).
 
-  Not measured: how many tools on `PATH` share this shape. That number comes
-  free from the sweep once the fallback lands, which is a reproducible gated
-  measurement rather than an ad-hoc probe of 2,000 binaries outside
-  `run_inert`.
+  **The exposure set, now measured** (2026-08-10, same machine — aarch64,
+  2,266 tools on `PATH`; CI's x86-64 image carries ~2,832 and its list will
+  differ, so the authoritative run is CI's). The coverage harness gained a
+  `man` column that re-runs the existing banner check over text the pipeline
+  **already captured** (`CommandNode::unparsed`), so the enumeration costs no
+  new probe and no new argv shape — which matters, because measuring an argv
+  broadening by performing one would be circular.
+
+  **Six tools have a man-shaped root `--help`:** `byobu`, `byobu-screen`,
+  `byobu-tmux`, `git-receive-pack`, `git-upload-archive`, `git-upload-pack`.
+  All six currently render `verbatim` with zero flags. None belongs to the
+  process-signalling or machine-state classes §6 rule 0 restricts, so the
+  measurement campaign for the risky sub-case is six named binaries rather
+  than a survey.
+
+  **`verbatim` would have been a 50× overestimate as a proxy.** The same
+  sweep reports `verbatim_count=314` against `man_shaped_count=6`: a root
+  degrades to verbatim overwhelmingly because nothing parsed, only rarely
+  because it printed a man page. Anything reasoning about man-page exposure
+  from the verbatim column is wrong by a factor of fifty — the distinction
+  has to come from the banner check itself.
+
+  Adding the column changed no parse: `pct_described` 94.18%, `no_tier` 2,
+  `suspicious` 1, identical to the run before it. `git`'s own root correctly
+  reports **not** man-shaped, which is the true negative that matters — it is
+  git's *subcommands* that print man pages, not its root.
 
 - **[M-15] The declination tax: 378 tools report `ok` with zero flags**
   (2026-08-10, mandible 0.2.2 at 7384b6f, aarch64 — note this differs from

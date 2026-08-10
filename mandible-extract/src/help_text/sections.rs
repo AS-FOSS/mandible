@@ -678,6 +678,32 @@ fn looks_like_man_page(lines: &[&str]) -> bool {
         && trimmed.split_whitespace().count() > 2
 }
 
+/// Public wrapper around [`looks_like_man_page`], for the coverage harness
+/// (spec §13.1, [M-16]) to reuse rather than reimplement.
+///
+/// [M-16] proposes falling back to `-h` when `--help` renders a man page
+/// (git's subcommands do this; its root does not, and that distinction is
+/// exactly what this function exists to get right). Before that fallback
+/// can be sent — an argv broadening the maintainer has ruled must be
+/// measured first, not assumed — something has to enumerate which tools on
+/// `PATH` would newly receive it. That enumeration must not spawn a second
+/// probe of its own (spec §6: every invocation is measured, unmeasured
+/// broadening is the exact hazard [M-16] is about), so it re-runs this
+/// *same* detection over text the pipeline already captured — a tool's
+/// `CommandNode::unparsed` line, set by [`super::build_node`] precisely
+/// when this check fired (or when nothing else parsed for some other
+/// reason; the caller re-checks here to tell those two apart) — instead of
+/// touching the tool a second time.
+///
+/// Kept as a thin wrapper rather than inlined at the call site so there is
+/// exactly one definition of "looks like a rendered man page": duplicating
+/// the rule for a caller outside this module is how the two copies would
+/// eventually drift, and this one is about to gate a safety decision.
+pub fn is_man_page_banner(text: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    looks_like_man_page(&lines)
+}
+
 /// Split `line` on runs of two or more spaces, discarding empty fields.
 /// Fields keep any internal single spaces, so a prose fragment comes back
 /// as one field containing whitespace — which `is_name_shaped_token`
@@ -2187,5 +2213,51 @@ mod tests {
         assert!(parsed.flags.is_empty(), "{:?}", parsed.flags);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["build", "clean", "test"]);
+    }
+
+    // --- `is_man_page_banner` (spec [M-16] enumeration prerequisite) ---
+
+    /// The exact shape `git bisect --help` renders (`man`'s own banner
+    /// convention: identical `NAME(section)` token at both margins around
+    /// a centred title) — a true positive.
+    #[test]
+    fn is_man_page_banner_true_positive_on_a_real_banner_shape() {
+        let rendered = "GIT-BISECT(1)                Git Manual                GIT-BISECT(1)\n\n\
+                         NAME\n       git-bisect - Use binary search to find the commit...\n";
+        assert!(is_man_page_banner(rendered));
+    }
+
+    /// git's *root* `--help` is conventional help text, not a man page —
+    /// [M-16]'s whole subtlety is that this must come back false. If this
+    /// ever flips true, the detection is firing in the wrong place (spec
+    /// §7 Tier B step 3 is meant for subcommands like `git bisect`, not
+    /// the root `git --help`, which parses cleanly today).
+    #[test]
+    fn is_man_page_banner_is_false_on_gits_own_root_help() {
+        assert!(!is_man_page_banner(GIT_HELP));
+    }
+
+    /// Ordinary `--help` output — even output that starts with a single
+    /// all-caps word — is not a false positive: a repeated *single* word is
+    /// not a banner (there must be a centred title between the two
+    /// margins), and `tar`'s help doesn't repeat its own name at both ends
+    /// of its first line at all.
+    #[test]
+    fn is_man_page_banner_is_false_on_ordinary_help_text() {
+        assert!(!is_man_page_banner(TAR_HELP));
+        assert!(!is_man_page_banner("USAGE USAGE\n"));
+    }
+
+    /// Public wrapper delegates to exactly the same rule the parser itself
+    /// uses to decide whether to degrade to verbatim — not a second,
+    /// possibly-drifted copy.
+    #[test]
+    fn is_man_page_banner_agrees_with_the_parsers_own_degradation_decision() {
+        let man_page = "FOO(1)   Foo Manual   FOO(1)\n\nNAME\n     foo\n";
+        assert!(is_man_page_banner(man_page));
+        let parsed = parse(man_page);
+        assert!(parsed.flags.is_empty());
+        assert!(parsed.subcommands.is_empty());
+        assert!(parsed.usage.is_empty());
     }
 }
