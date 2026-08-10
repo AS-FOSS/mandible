@@ -845,7 +845,13 @@ which is the safety property that matters when processing untrusted output.
 - Walk `complete -F`/`compgen -W` registrations and `case "$prev" in` branches as
   typed AST nodes.
 
-### Tier D — man page structural extraction
+### Tier D — man page prose backfill
+
+**Not built.** Measured before building ([M-14]), re-scoped after a second
+measurement contradicted its headline case ([M-16]), and deliberately
+**off by default** — see "Trigger and default" below. This section records
+what a correct implementation would be, so the next attempt does not
+re-derive it.
 
 Two sub-cases of very different quality:
 
@@ -858,26 +864,62 @@ Two sub-cases of very different quality:
 
 **Do not** regex the rendered output of `man <tool>`, and do not parse `mandoc -T
 tree` — the OpenBSD manual documents that format as unstable and explicitly says
-not to write parsers against it. There is no `-T json`. Use `libmandoc`
-(`mparse_alloc` → `mparse_readfd` → `mparse_result` → walk `mdoc_node()`/
-`man_node()`) via `bindgen`.
+not to write parsers against it. There is no `-T json`.
 
-Two corrections to revision 1:
+**Implementation: a pure-Rust subset parser, not `libmandoc` FFI.** Revision 2
+specified `libmandoc` via `bindgen`, and that is superseded. `libmandoc` is not
+a shipped library on Linux [M-6], so it would mean vendoring mandoc's source and
+building it with `cc` — and `#![forbid(unsafe_code)]` rules out the FFI
+regardless. [M-14] measured what a subset parser would actually need: target
+man(7) `.TP`/`.IP` + `.B`, with `.It Fl` for mdoc (only ~20 of the relevant
+pages are mdoc, so an mdoc-first plan aims at the wrong majority). **Do not gate
+on an `OPTIONS` section** — `bash`, `ps` and `tmux` document options under
+`DESCRIPTION`, and that gate alone cost 28 tools; gate on the *tag line*
+beginning with a flag, which is also what excludes examples (`ps` tags its
+examples with `.TP`).
 
-- **`libmandoc` is not a shipped library on Linux** — no `.so` or headers in a
-  default install; `mandoc` exists only as a source package [M-6]. Using this tier
-  on the platform where most man pages live means **vendoring mandoc's source and
-  building it with `cc`** (ISC-licensed, feasible). That makes this the *most*
-  build-complex tier, not merely "a real build-complexity cost." It is off by
-  default behind a `manpage` feature.
-- **Multi-page tools are unaddressed and matter most.** `git`'s structure is not
-  in `git.1`; it is spread across `git-commit.1`, `git-rebase.1`, and so on.
-  Extracting a tree requires discovering sibling pages via `MANPATH`/`man -k` and
-  the `<tool>-<sub>.N` convention. This is the highest-value un-specced source of
-  prose for classic Unix tools and belongs in this tier's design.
+**Man pages are generated too, and that decides the design.** help2man,
+asciidoc/docbook→man, mdoc and hand-written roff partition this space the same
+way clap/cobra/argparse partition help text — the Tier A′ insight, one tier
+down. So the first step is a generator survey with a go/no-go per generator,
+not a parser. [M-16] is why this is not optional: **git's 184 `git-*.1` pages
+contain zero `.TP` macros** — asciidoc emits bold-run paragraphs instead — so a
+`.TP`-targeting parser recovers nothing from the tool revision 2 named as this
+tier's motivating case. git is therefore **not** the headline case; its flags
+are reachable far more cheaply through `-h` ([M-16]) and, at the root, through
+a usage-synopsis grammar. The honest remaining value is [M-14]'s measured
+`.TP` set: `ssh` (52 entries against 0 today), `bash` (162 against 18), `ps`,
+`tcpdump`, `mdadm`.
 
-Position this tier as a **prose backfill** (structural 60 / prose 180, §4.4), not
-as a structure source. It is the exact complement of Tier E.
+Multi-page discovery is still required for the tools that do benefit: a tool's
+structure is spread across `<tool>-<sub>.N` siblings, found via `MANPATH`/`man -k`.
+
+**Trigger and default — this reconciles a contradiction this spec used to
+carry.** Revision 2 positioned this tier as a **prose backfill** merged by
+authority (structural 60 / prose 180, §4.4), i.e. enriching parses that
+already succeeded. [M-14]'s own conclusion says the opposite: *fire only as a
+zero-confidence fallback*, which "keeps staleness away from the ~1,500 tools
+that already parse and avoids authority-merge questions entirely." Those are
+different tiers, and the disagreement sat unresolved in this document.
+
+**Resolved in [M-14]'s favour** (maintainer decision, 2026-08-11):
+
+1. **Zero-confidence fallback only.** This tier fires only where the help-text
+   tiers produced nothing usable. It never enriches a parse that already
+   succeeded — so a tool like `git restore`, which yields 16 flags from `-h`,
+   is never touched by it.
+2. **Off by default, opt-in if built.** Enrichment-by-merge is the more
+   invasive reading and is not the default behaviour.
+3. Rationale, and it is a UX judgement as much as a technical one: a man page
+   is a *different document* from the tool's own help, written at a different
+   time, and silently blending the two makes a pane that no longer corresponds
+   to anything the tool actually prints. That is the cleanliness cost, and it
+   is the same objection [M-14] recorded as "avoids authority-merge questions
+   entirely."
+
+Where it does fire, per-field provenance labels the prose `man`, so a reader
+can always see that a description came from a page rather than from the
+binary.
 
 ### Tier E — native, self-describing binaries
 
@@ -944,7 +986,7 @@ mandible/                          (workspace root)
 │   ├── known_specs/             # Tier A: carapace snapshot + index
 │   ├── help_text/               # Tier B: winnow grammar
 │   ├── completion_script/       # Tier C: brush-parser AST walking
-│   ├── manpage/                 # Tier D: libmandoc FFI  [feature = "manpage"]
+│   ├── manpage/                 # Tier D: pure-Rust roff subset [feature = "manpage"]
 │   ├── native/                  # Tier E: cobra `__complete` probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
@@ -960,9 +1002,11 @@ mandible/                          (workspace root)
 outside that module and fails the build otherwise. Centralizing this is what makes
 §6 auditable rather than aspirational.
 
-Per-tier modules sit behind feature flags so Tier D's `libmandoc` dependency —
-which needs a C toolchain and only makes sense on Unix — is not a hard
-requirement for a Windows user who wants Tiers A/B/C/E.
+Per-tier modules sit behind feature flags so Tier D — which only makes sense
+where man pages exist, and which is off by default in any case (§7 Tier D) —
+is not a hard requirement for a Windows user who wants Tiers A/B/C/E. Note the
+original reason for gating it, a C toolchain for `libmandoc`, no longer
+applies: §7 Tier D is a pure-Rust subset parser.
 
 **Default features:** `known-specs`, `help-text`, `completion-script`, `native`.
 **Optional:** `manpage` (C toolchain), `withfig`.
@@ -1232,7 +1276,7 @@ that is actually useful, and it still exercises the merge against Tier B.
 | **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mandible curl`, `mandible tar`, `mandible openssl`, `mandible ip` all produce useful trees; coverage harness reports its first scoreboard |
 | **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
 | **4 — Tier E + C** | cobra two-probe protocol with depth cap/visited set/alias detection; clap `CompleteEnv`; zsh `_arguments` then bash | A cobra tool absent from the catalog renders correctly; a `completion`-only tool renders correctly |
-| **5 — Tier D + F** | libmandoc FFI (vendored, feature-gated), multi-page discovery; user overrides | A BSD-lineage `mdoc` tool and a Linux `man(7)` tool both extract; `git` gains prose from `git-*.1` |
+| **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). **Not** `git` — its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
 | **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mandible itself, shell completions | `cargo install mandible` works; `.deb` and `.rpm` install cleanly |
 
 Deliberately **not** on the roadmap: local NL search (§17).
@@ -1349,8 +1393,7 @@ against yesterday's bytes.
 | mandible's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | `--completions <shell>` emits a real completion script, which Tier C then parses — mandible parsing itself |
 | Help-text grammar | `winnow` | MIT | Preferred over `pest` for error recovery |
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |
-| Man page AST | `bindgen` + **vendored** mandoc | MIT / ISC | Not a system library on Linux [M-6] — vendor the source and build with `cc`. Feature-gated. |
-| C build | `cc` | MIT/Apache-2.0 | For vendored mandoc only |
+| Man page AST | *(none — hand-written)* | — | **No `bindgen`/vendored mandoc.** Revision 2 specified `libmandoc` via FFI; superseded, because it is not a system library on Linux [M-6] and `#![forbid(unsafe_code)]` rules out the FFI regardless. §7 Tier D is a pure-Rust subset parser over `.TP`/`.IP` + `.B` and `.It Fl` [M-14]. |
 | Parallelism | `rayon` | MIT/Apache-2.0 | Bounded pool for background subtree warming |
 | Paths | `directories` | MIT/Apache-2.0 | XDG cache/config resolution |
 | Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | IR, cache, carapace specs |
@@ -1371,7 +1414,6 @@ licenses — this is the more likely real exposure):
 |---|---|---|
 | carapace specs | `carapace-sh/carapace-bin` | Verify current license text at vendor time; record source commit and date; carry in `NOTICE` |
 | withfig specs (optional) | `withfig/autocomplete` | MIT; carry in `NOTICE` |
-| mandoc source (optional) | `mandoc.bsd.lv` | ISC; carry in `NOTICE` |
 
 ---
 
