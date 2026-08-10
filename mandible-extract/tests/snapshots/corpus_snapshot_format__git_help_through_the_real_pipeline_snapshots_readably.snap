@@ -10,16 +10,6 @@ usage:
   - "[--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]"
   - "[--config-env=<name>=<envvar>] <command> [<args>]"
 positionals:
-  - name: path
-    required: true
-    provenance:
-      sources:
-        - help-text
-  - name: name>=<value
-    required: true
-    provenance:
-      sources:
-        - help-text
   - name: command
     required: true
     provenance:

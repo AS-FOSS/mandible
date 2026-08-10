@@ -1,0 +1,303 @@
+name: git
+usage:
+- 'usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]'
+- '[--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]'
+- '[-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]'
+- '[--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]'
+- '[--config-env=<name>=<envvar>] <command> [<args>]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: args
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: clone
+  summary: Clone a repository into a new directory
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Create an empty Git repository or reinitialize an existing one
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add
+  summary: Add file contents to the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mv
+  summary: Move or rename a file, a directory, or a symlink
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restore
+  summary: Restore working tree files
+  usage:
+  - 'usage: git restore [<options>] [--source=<branch>] <file>...'
+  positionals:
+  - name: options
+    provenance:
+      sources:
+      - help-text
+  - name: file
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - short: 's'
+    long: source
+    value_name: <tree-ish>
+    value_kind: Required
+    negatable: true
+    description: which tree-ish to checkout from
+    provenance:
+      sources:
+      - help-text
+  - short: 'S'
+    long: staged
+    negatable: true
+    description: restore the index
+    provenance:
+      sources:
+      - help-text
+  - short: 'W'
+    long: worktree
+    negatable: true
+    description: restore the working tree (default)
+    provenance:
+      sources:
+      - help-text
+  - long: ignore-unmerged
+    negatable: true
+    description: ignore unmerged entries
+    provenance:
+      sources:
+      - help-text
+  - long: overlay
+    negatable: true
+    description: use overlay mode
+    provenance:
+      sources:
+      - help-text
+  - short: 'q'
+    long: quiet
+    negatable: true
+    description: suppress progress reporting
+    provenance:
+      sources:
+      - help-text
+  - long: recurse-submodules
+    value_name: <checkout>
+    value_kind: Optional
+    negatable: true
+    description: control recursive updating of submodules
+    provenance:
+      sources:
+      - help-text
+  - long: progress
+    negatable: true
+    description: force progress reporting
+    provenance:
+      sources:
+      - help-text
+  - short: 'm'
+    long: merge
+    negatable: true
+    description: perform a 3-way merge with the new branch
+    provenance:
+      sources:
+      - help-text
+  - long: conflict
+    value_name: <style>
+    value_kind: Required
+    negatable: true
+    description: conflict style (merge, diff3, or zdiff3)
+    provenance:
+      sources:
+      - help-text
+  - short: '2'
+    long: ours
+    description: checkout our version for unmerged files
+    provenance:
+      sources:
+      - help-text
+  - short: '3'
+    long: theirs
+    description: checkout their version for unmerged files
+    provenance:
+      sources:
+      - help-text
+  - short: 'p'
+    long: patch
+    negatable: true
+    description: select hunks interactively
+    provenance:
+      sources:
+      - help-text
+  - long: ignore-skip-worktree-bits
+    negatable: true
+    description: do not limit pathspecs to sparse entries only
+    provenance:
+      sources:
+      - help-text
+  - long: pathspec-from-file
+    value_name: <file>
+    value_kind: Required
+    negatable: true
+    description: read pathspec from file
+    provenance:
+      sources:
+      - help-text
+  - long: pathspec-file-nul
+    negatable: true
+    description: with --pathspec-from-file, pathspec elements are separated with NUL character
+    provenance:
+      sources:
+      - help-text
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: rm
+  summary: Remove files from the working tree and from the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bisect
+  summary: Use binary search to find the commit that introduced a bug
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff
+  summary: Show changes between commits, commit and working tree, etc
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: grep
+  summary: Print lines matching a pattern
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log
+  summary: Show commit logs
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Show various types of objects
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: status
+  summary: Show the working tree status
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: branch
+  summary: List, create, or delete branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: commit
+  summary: Record changes to the repository
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge
+  summary: Join two or more development histories together
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rebase
+  summary: Reapply commits on top of another base tip
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reset
+  summary: Reset current HEAD to the specified state
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch
+  summary: Switch branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: tag
+  summary: Create, list, delete or verify a tag object signed with GPG
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch
+  summary: Download objects and refs from another repository
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pull
+  summary: Fetch from and integrate with another repository or a local branch
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: push
+  summary: Update remote refs along with associated objects
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

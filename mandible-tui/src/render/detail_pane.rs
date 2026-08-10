@@ -707,6 +707,13 @@ fn flag_name_spec(flag: &Flag) -> String {
     }
     if let Some(l) = &flag.long {
         spec.push_str("--");
+        // Reconstruct the getopt_long `--[no-]foo` convention for display
+        // from `negatable` — the IR's `long` is always the base name
+        // (never `[no-]foo`/`no-foo`), so this is the one place that
+        // spelling comes back together.
+        if flag.negatable {
+            spec.push_str("[no-]");
+        }
         spec.push_str(l);
     }
     spec

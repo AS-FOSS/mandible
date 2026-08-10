@@ -227,6 +227,7 @@ impl FlagOverride {
             choices: Vec::new(),
             repeatable: false,
             required: false,
+            negatable: false,
             hidden: self.hidden.unwrap_or(false),
             deprecated: self.deprecated.map(|s| Text::sanitize(&s)),
             inherited: false,

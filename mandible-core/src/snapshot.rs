@@ -166,6 +166,10 @@ pub struct FlagSnapshot {
     /// True if this flag is required.
     #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
+    /// True if the tool documents this boolean's negation inline
+    /// (`--[no-]foo`). `long` holds the base name either way.
+    #[serde(skip_serializing_if = "is_false")]
+    pub negatable: bool,
     /// True if this flag should be hidden by default.
     #[serde(skip_serializing_if = "is_false")]
     pub hidden: bool,
@@ -201,6 +205,7 @@ impl From<&Flag> for FlagSnapshot {
             choices: f.choices.iter().map(|t| t.as_str().to_string()).collect(),
             repeatable: f.repeatable,
             required: f.required,
+            negatable: f.negatable,
             hidden: f.hidden,
             deprecated: f.deprecated.as_ref().map(|t| t.as_str().to_string()),
             inherited: f.inherited,

@@ -894,6 +894,7 @@ fn emit_flags(
             choices: Vec::new(),
             repeatable: false,
             required: false,
+            negatable: spec.negatable,
             hidden: false,
             deprecated: None,
             inherited: false,
@@ -1502,14 +1503,36 @@ fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for line in usage_lines {
+        // A value-shaped token immediately following a bare flag token
+        // (`-C <path>`, `-c <name>=<value>`, argparse's `--config FILE`)
+        // is that flag's *argument*, not a positional — a property of
+        // usage-synopsis notation generally, true for every framework that
+        // writes an option's value right after it rather than gluing it on
+        // with `=`. `prev_cleaned` tracks the immediately preceding
+        // token's cleaned spelling so the loop below can tell the two
+        // apart; it resets every physical line, since a usage line's
+        // tokens never continue onto the next one.
+        let mut prev_cleaned: Option<&str> = None;
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
-            if cleaned.starts_with('-') {
+            // A flag already carrying its value inline (`--git-dir=<path>`)
+            // has an `=` in `cleaned` and does not expect a following
+            // token; a bare flag (`-C`, `-Zscript`) does.
+            let consumed_by_prior_flag =
+                prev_cleaned.is_some_and(|p| p.starts_with('-') && !p.contains('='));
+            prev_cleaned = Some(cleaned);
+
+            if cleaned.starts_with('-') || consumed_by_prior_flag {
                 continue;
             }
             let (name, variadic) = if let Some(stripped) = cleaned.strip_prefix('<') {
-                match stripped.strip_suffix('>') {
-                    Some(inner) => (inner.to_string(), token.ends_with("...")),
+                // The *nearest* closing `>`, not the outermost one:
+                // `<name>=<value>` (git's `-c <name>=<value>`, when not
+                // already excluded above as a flag's own argument) must
+                // yield `name`, not `name>=<value` from stripping only the
+                // token's very last `>`.
+                match stripped.find('>') {
+                    Some(end) => (stripped[..end].to_string(), token.ends_with("...")),
                     None => continue,
                 }
             } else if cleaned.chars().all(|c| c.is_uppercase() || c == '_') && cleaned.len() > 1 {
@@ -1944,6 +1967,97 @@ mod tests {
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         for want in ["clone", "add", "bisect", "branch", "fetch"] {
             assert!(names.contains(&want), "{names:?}");
+        }
+    }
+
+    /// Regression for the two `extract_positionals` defects the
+    /// `corpus/git/2.43.0` fixture held open under `[xfail]`: git's root
+    /// usage line has `-C <path>` and `-c <name>=<value>` before its two
+    /// real positionals, `<command>` and `[<args>]`.
+    ///
+    /// 1. Greedy bracket match: stripping only the *last* `>` off
+    ///    `<name>=<value>` used to land past the value spec's own closing
+    ///    bracket, producing a positional literally named `name>=<value`.
+    /// 2. Flag arguments read as positionals: `-C <path>` and
+    ///    `-c <name>=<value>` are option values, not positionals, but the
+    ///    old scan had no awareness of what preceded a token.
+    ///
+    /// The fix must produce exactly `command` and `args` — neither
+    /// `path` nor `name>=<value` (nor `options`/`file`/anything else) may
+    /// leak in.
+    #[test]
+    fn git_root_positionals_are_exactly_command_and_args() {
+        let parsed = parse(GIT_HELP);
+        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["command", "args"], "{names:?}");
+    }
+
+    /// The general shape behind the git-specific regression above, spelled
+    /// out with a synthetic usage line so the rule reads as "any flag
+    /// followed by its value token", not "git's own bytes": a bare flag's
+    /// value — whether `<angle>`-bracketed or a bare `UPPERCASE` word
+    /// (argparse's `--config FILE` convention) — must never become a
+    /// positional, while a flag that already carries its value inline
+    /// (`=`) leaves the *next* token free to be a real positional.
+    #[test]
+    fn flag_values_in_a_usage_line_are_never_positionals() {
+        let parsed = parse("usage: widget [-C <dir>] [--tag=<name>] <target> [--config FILE]\n");
+        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["target"], "{names:?}");
+    }
+
+    /// Regression for the third defect found alongside the two above:
+    /// `--[no-]name`, GNU getopt_long's negatable-boolean convention
+    /// (git's own `--help` formatter uses it for every negatable boolean).
+    /// Before the fix, `try_long` required an alphanumeric immediately
+    /// after `--`, so `--[no-]staged` matched neither `try_short` nor
+    /// `try_long`: a row with a short spelling (`-S, --[no-]staged`)
+    /// rendered with its long name silently dropped, and a long-only row
+    /// (`--[no-]ignore-unmerged`) was discarded entirely
+    /// (`emit_flags`'s `short.is_none() && long.is_none()` skip). The fix
+    /// must recover the *base* name, with `negatable` set and no `[`/`]`
+    /// ever appearing in `long`.
+    #[test]
+    fn negatable_boolean_flags_are_recovered_with_base_names() {
+        let raw = "Usage: restore [<options>]\n\nOptions:\n  -S, --[no-]staged     restore the index\n  --[no-]ignore-unmerged\n                        ignore unmerged entries\n  -2, --ours            checkout our version for unmerged files\n";
+        let parsed = parse(raw);
+
+        let staged = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('S'))
+            .expect("short-spelled negatable flag must not be dropped");
+        assert_eq!(staged.long.as_deref(), Some("staged"));
+        assert!(staged.negatable);
+
+        let ignore_unmerged = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("ignore-unmerged"))
+            .expect("long-only negatable flag must not be dropped entirely");
+        assert!(ignore_unmerged.short.is_none());
+        assert!(ignore_unmerged.negatable);
+        assert_eq!(
+            ignore_unmerged.description.as_ref().map(|d| d.as_str()),
+            Some("ignore unmerged entries"),
+            "the description on the following line must still attach"
+        );
+
+        // Control case: no `[no-]`, must be unaffected.
+        let ours = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("ours"))
+            .expect("non-negatable flag must still parse");
+        assert!(!ours.negatable);
+
+        for f in &parsed.flags {
+            if let Some(long) = &f.long {
+                assert!(
+                    !long.contains('[') && !long.contains(']'),
+                    "long name must never contain brackets: {long:?}"
+                );
+            }
         }
     }
 

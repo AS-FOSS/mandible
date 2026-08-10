@@ -414,6 +414,7 @@ fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) 
         choices: Vec::new(),
         repeatable: false,
         required: false,
+        negatable: false,
         hidden: false,
         deprecated: None,
         inherited: false,

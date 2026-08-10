@@ -393,6 +393,7 @@ impl ParsedArgSpec {
             choices: Vec::new(),
             repeatable: false,
             required: false,
+            negatable: false,
             hidden: false,
             deprecated: None,
             inherited: false,

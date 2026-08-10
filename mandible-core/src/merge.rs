@@ -228,6 +228,7 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
     );
     let repeatable = bucket.iter().any(|f| f.repeatable);
     let required = bucket.iter().any(|f| f.required);
+    let negatable = bucket.iter().any(|f| f.negatable);
     let hidden = bucket.iter().all(|f| f.hidden) && !bucket.is_empty();
     let deprecated = pick_option(
         bucket
@@ -268,6 +269,7 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
         choices,
         repeatable,
         required,
+        negatable,
         hidden,
         deprecated,
         inherited,

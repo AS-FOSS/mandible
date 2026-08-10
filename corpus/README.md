@@ -88,6 +88,13 @@ min_status = "ok"                    # floor: ok > low-confidence > verbatim
 min_subcommands = 20                 # coarse floor, not an exact count
 must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 
+# Same idea, for a subcommand's own flags — keyed by its path (space-
+# separated, tool's own name excluded), since `must_contain_flags` alone
+# can only ever assert what a tool publishes at its *root*. Requires a
+# `[[capture]]` for that subcommand's own `--help`/`-h`.
+[contract.must_contain_flags_by_path]
+restore = ["--source", "--staged"]
+
 [xfail]                              # present only while the bug is unfixed
 broken = true
 reason = "command groups under flush-left headings are dropped; renders verbatim"
@@ -193,9 +200,13 @@ tiered extraction pipeline via the `Transcript` probe
 output names the tool and exactly what broke, e.g.:
 
 ```
-git/2.43.0   xfail (as expected)  (1.4ms)  contract: must_contain_flags: missing --paginate, --git-dir; snapshot: none yet (legal while [xfail])
-tar/1.35     ok                   (6.2ms)  snapshot: match
+git/2.43.0   ok                   (2.9ms)  snapshot: match
+tar/1.35     ok                   (6.1ms)  snapshot: match
 ```
+
+(A fixture still marked `[xfail]` reports its unmet promises instead, e.g.
+`xfail (as expected)  (1.4ms)  contract: must_contain_flags: missing --paginate;
+snapshot: none yet (legal while [xfail])` — see the `[xfail]` example above.)
 
 A fixture also fails outright if it parses slower than ~100ms — deliberately
 coarse, a mechanical net for an accidental O(n²)-in-a-loop bug rather than a
@@ -207,10 +218,12 @@ a fixture's *content* may be documented-broken, but a slow parse never is.
 
 The corpus contract above is adopted, and the runner described in "Running
 the suite" implements it in full: snapshot + `[contract]` + strict-xfail
-(both directions) + the parse-time ceiling, over the two seed fixtures
-(`tar` — green, the [M-10] phantom-subcommand war story locked in at zero
-subcommands; `git` — `[xfail]`, holding open two real, currently-unfixed
-`extract_positionals` defects). Still open:
+(both directions) + the parse-time ceiling, over the two seed fixtures —
+both green (`tar`: the [M-10] phantom-subcommand war story locked in at
+zero subcommands; `git`: promoted from `[xfail]` once its
+`extract_positionals` defects and a related negatable-flag defect were
+fixed, its `restore` captures now also exercising [M-16]'s man-page→`-h`
+fallback in replay). Still open:
 
 - [ ] `mandible capture <tool>` — one-command fixture bundle with masking
 - [ ] `xtask`-generated `FRAMEWORKS.md` table

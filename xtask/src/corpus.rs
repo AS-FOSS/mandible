@@ -35,7 +35,8 @@
 //!   `serde_yaml` serializer `--bless` writes with, never an `insta` run
 //!   (see [`render_snapshot`]'s doc comment on why).
 //! - **(b) `[contract]`**: `expected_framework`, `min_status`,
-//!   `min_subcommands`, `must_contain_flags` (see [`check_contract`]).
+//!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`
+//!   (see [`check_contract`]).
 //! - **(c) Strict xfail**: a fixture marked `[xfail]` whose snapshot and
 //!   contract *both* pass fails the run — the bug got fixed and the
 //!   fixture must be promoted (`corpus/README.md`'s lifecycle rules).
@@ -147,6 +148,18 @@ struct ContractMeta {
     min_subcommands: Option<usize>,
     #[serde(default)]
     must_contain_flags: Vec<String>,
+    /// Same spot-check as `must_contain_flags`, but for a subcommand's own
+    /// flags rather than the root's — keyed by the subcommand's path,
+    /// space-separated and *not* including the tool's own name (`"restore"`,
+    /// `"remote add"`). General on purpose: the key is a path any tool's
+    /// tree can have, never a tool name, so this generalizes the same way
+    /// `must_contain_flags` does rather than adding a git-specific check.
+    /// Exists because `must_contain_flags` alone can only ever assert what
+    /// a tool publishes at its *root* (`flag_present`'s doc comment) — most
+    /// of what a fix like [M-16]'s `-h` fallback or a flag-spec grammar fix
+    /// changes shows up on a subcommand instead.
+    #[serde(default)]
+    must_contain_flags_by_path: std::collections::BTreeMap<String, Vec<String>>,
 }
 
 /// `[xfail]`: present only while the fixture's bug is unfixed.
@@ -435,6 +448,11 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
                 "must_contain_flags: no root produced".into(),
             ));
         }
+        if !contract.must_contain_flags_by_path.is_empty() {
+            failures.push(ContractFailure(
+                "must_contain_flags_by_path: no root produced".into(),
+            ));
+        }
         return failures;
     };
 
@@ -483,7 +501,40 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
         )));
     }
 
+    for (path, specs) in &contract.must_contain_flags_by_path {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_contain_flags_by_path: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let missing: Vec<&str> = specs
+            .iter()
+            .filter(|spec| !flag_present(node, spec))
+            .map(|s| s.as_str())
+            .collect();
+        if !missing.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_contain_flags_by_path[{path:?}]: missing {}",
+                missing.join(", ")
+            )));
+        }
+    }
+
     failures
+}
+
+/// Resolve a space-separated subcommand path (`"restore"`, `"remote add"`)
+/// against `root`'s own `subcommands`, one path segment per level — the
+/// same walk [`mandible_core::noderef::resolve`] does for the TUI's own
+/// addressing, reimplemented narrowly here rather than pulled in because
+/// this only ever needs a name match, never alias resolution.
+fn find_node_by_path<'a>(root: &'a CommandNode, path: &str) -> Option<&'a CommandNode> {
+    let mut node = root;
+    for segment in path.split_whitespace() {
+        node = node.subcommands.iter().find(|c| c.name == segment)?;
+    }
+    Some(node)
 }
 
 /// Wrap a root already produced by [`extract_tree`] back into an
@@ -501,22 +552,25 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
     }
 }
 
-/// Whether `root`'s own flags satisfy a `must_contain_flags` spec:
-/// `--long-name` matches [`mandible_core::Flag::long`], `-x` matches
-/// [`mandible_core::Flag::short`], anything else is matched against
-/// `long` verbatim. Root-level only, not recursive — `must_contain_flags`
-/// documents what a tool *publishes at its root* (spec's git example:
-/// `--paginate`, `--git-dir`), not "somewhere in the whole tree".
-fn flag_present(root: &CommandNode, spec: &str) -> bool {
+/// Whether `node`'s own flags satisfy a `must_contain_flags`/
+/// `must_contain_flags_by_path` spec: `--long-name` matches
+/// [`mandible_core::Flag::long`], `-x` matches [`mandible_core::Flag::short`],
+/// anything else is matched against `long` verbatim. Only ever checks the
+/// one node it's given, never recursing into its subcommands itself —
+/// `must_contain_flags` calls this with the fixture's root (what a tool
+/// *publishes at its root*, spec's git example: `--paginate`, `--git-dir`);
+/// `must_contain_flags_by_path` calls it with whatever node
+/// [`find_node_by_path`] resolved.
+fn flag_present(node: &CommandNode, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
-        root.flags.iter().any(|f| f.long.as_deref() == Some(long))
+        node.flags.iter().any(|f| f.long.as_deref() == Some(long))
     } else if let Some(short) = spec.strip_prefix('-') {
         short
             .chars()
             .next()
-            .is_some_and(|c| root.flags.iter().any(|f| f.short == Some(c)))
+            .is_some_and(|c| node.flags.iter().any(|f| f.short == Some(c)))
     } else {
-        root.flags.iter().any(|f| f.long.as_deref() == Some(spec))
+        node.flags.iter().any(|f| f.long.as_deref() == Some(spec))
     }
 }
 
@@ -1423,6 +1477,101 @@ stdout = "help-sub.txt"
         assert!(
             sub.flags.iter().any(|f| f.long.as_deref() == Some("deep")),
             "the recursive fill must have picked up sub's own captured --help: {sub:?}"
+        );
+    }
+
+    /// `must_contain_flags_by_path`: a spot-check against a *subcommand's*
+    /// own flags, not the root's — the generalization `must_contain_flags`
+    /// alone can't express (`flag_present`'s doc comment: root-only).
+    /// Reuses `deeptool`'s two-capture shape (root plus one subcommand
+    /// `--help`) so the recursive fill actually populates `sub`'s flags
+    /// before the contract check runs.
+    #[test]
+    fn must_contain_flags_by_path_checks_a_subcommands_own_flags() {
+        let corpus = setup();
+        let dir = corpus.root.join("deeptool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "deeptool"
+version = "1.0"
+
+[[capture]]
+argv = ["deeptool", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["deeptool", "sub", "--help"]
+stdout = "help-sub.txt"
+
+[contract.must_contain_flags_by_path]
+sub = ["--deep"]
+"#,
+        );
+        write(
+            &dir.join("help.txt"),
+            "Usage: deeptool <COMMAND>\n\nCommands:\n  sub    does a thing\n",
+        );
+        write(
+            &dir.join("help-sub.txt"),
+            "Usage: deeptool sub [OPTIONS]\n\nOptions:\n  --deep   a subcommand-only flag\n",
+        );
+
+        let report = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+
+        let checked = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!checked.failed(), "{}", checked.text);
+    }
+
+    /// The failing direction: a flag the subcommand doesn't actually have
+    /// must be named in the failure, and a path that doesn't resolve at
+    /// all must say so rather than panicking or silently passing.
+    #[test]
+    fn must_contain_flags_by_path_names_a_missing_flag_and_an_unknown_path() {
+        let corpus = setup();
+        let dir = corpus.root.join("deeptool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "deeptool"
+version = "1.0"
+
+[[capture]]
+argv = ["deeptool", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["deeptool", "sub", "--help"]
+stdout = "help-sub.txt"
+
+[contract.must_contain_flags_by_path]
+sub = ["--deep", "--nonexistent"]
+"missing-node" = ["--anything"]
+"#,
+        );
+        write(
+            &dir.join("help.txt"),
+            "Usage: deeptool <COMMAND>\n\nCommands:\n  sub    does a thing\n",
+        );
+        write(
+            &dir.join("help-sub.txt"),
+            "Usage: deeptool sub [OPTIONS]\n\nOptions:\n  --deep   a subcommand-only flag\n",
+        );
+
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("--nonexistent"),
+            "the missing flag must be named: {}",
+            report.text
+        );
+        assert!(
+            report.text.contains("missing-node"),
+            "the unresolvable path must be named: {}",
+            report.text
         );
     }
 

@@ -162,6 +162,16 @@ pub struct Flag {
     pub repeatable: bool,
     /// True if this flag is required.
     pub required: bool,
+    /// True if the tool documents this boolean flag's negation inline —
+    /// GNU getopt_long's `--[no-]foo` convention (git's own `--help`
+    /// formatter renders every negatable boolean this way). `long` always
+    /// holds the *base* name (`"foo"`, never `"[no-]foo"` or `"no-foo"`):
+    /// this field is what lets the negatability survive the parse without
+    /// smuggling `[`/`]` into the spelling users search and copy. See
+    /// `mandible-extract/src/help_text/grammar.rs`'s `try_long` for where
+    /// this is recognized, structurally, from the bracketed-prefix shape —
+    /// never from a tool name.
+    pub negatable: bool,
     /// True if this flag should be hidden by default.
     pub hidden: bool,
     /// `Some(reason)` when this flag is deprecated.
@@ -193,6 +203,7 @@ impl Flag {
             choices: Vec::new(),
             repeatable: false,
             required: false,
+            negatable: false,
             hidden: false,
             deprecated: None,
             inherited: false,
@@ -226,14 +237,21 @@ impl Flag {
     }
 
     /// A human-readable spelling for display and clipboard copy, e.g.
-    /// `"-i, --interactive"`, `"--output FILE"`.
+    /// `"-i, --interactive"`, `"--output FILE"`, or `"-S, --[no-]staged"`
+    /// for a negatable boolean — the `[no-]` is reconstructed for display
+    /// from `negatable`, never stored in `long` itself (see the field's
+    /// doc comment).
     pub fn spelling(&self) -> String {
         let mut parts = Vec::new();
         if let Some(s) = self.short {
             parts.push(format!("-{s}"));
         }
         if let Some(l) = &self.long {
-            parts.push(format!("--{l}"));
+            if self.negatable {
+                parts.push(format!("--[no-]{l}"));
+            } else {
+                parts.push(format!("--{l}"));
+            }
         }
         let mut spelling = parts.join(", ");
         if let Some(name) = &self.value_name {
