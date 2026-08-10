@@ -1578,6 +1578,44 @@ any of these as current.
   `Available Commands:` **missed `docker` entirely**, because docker prints
   `Common Commands:`.
 
+- **[M-16] git's subcommands are recoverable today, via `-h` — and the man
+  tier as designed would not recover them** (2026-08-10, git 2.43.0,
+  aarch64). Found by running the TUI by hand, not by any gate.
+
+  `git <sub> --help` does not print help: it execs `man` and renders
+  `GIT-COMMIT(1)`. The man-page banner check catches that and correctly
+  degrades to verbatim (§7 Tier B step 3), so **all 22 of git's listed
+  subcommands render as raw roff output** while the root parses cleanly.
+
+  **[M-14]'s design does not reach them.** It targets man(7) `.TP`/`.IP`
+  + `.B`. git's 184 `git-*.1` pages contain **zero `.TP` macros** — they are
+  asciidoc-generated and mark options as bold-run paragraphs
+  (`\fB\-\-amend\fR`, 2,426 occurrences, an inflated upper bound since
+  inline cross-references repeat). So the tier spec §7 Tier D names git as
+  its highest-value case would recover approximately nothing from git.
+  Reconciling Tier D with [M-14] must also account for the asciidoc-
+  generated dialect, which is a *generator*, not a tool — §1-clean, and the
+  same unit of knowledge Tier A′ already parses by.
+
+  **The cheap path is a probe-ordering rule, not a new tier.** `git commit -h`
+  prints an ordinary two-column option table the generic grammar already
+  handles. Measured across the 22 listed subcommands: **501 option lines on
+  21 of them** (only `bisect` yields none). mandible extracts **zero** today,
+  purely because the `-h` fallback fires only when `--help` produced *no
+  output on either stream* — and a man page is plenty of output.
+
+  The fix is to treat *detected as a rendered man page* as "no usable help"
+  and fall back to `-h`, reusing the banner detection that already exists.
+  Keyed on an observable property of the output, never on the tool name. The
+  one hazard is already contained: `-h` is an action flag on machine-state
+  tools, and `HELP_ONLY_PROBE` restricts those to exactly `--help`
+  regardless (§6 rule 0).
+
+  Not measured: how many tools on `PATH` share this shape. That number comes
+  free from the sweep once the fallback lands, which is a reproducible gated
+  measurement rather than an ad-hoc probe of 2,000 binaries outside
+  `run_inert`.
+
 - **[M-15] The declination tax: 378 tools report `ok` with zero flags**
   (2026-08-10, mandible 0.2.2 at 7384b6f, aarch64 — note this differs from
   the x86-64 baseline above, and that difference is itself an argument for
