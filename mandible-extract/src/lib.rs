@@ -38,7 +38,7 @@ pub use errors::ExtractError;
 pub use exec::is_help_only_probe;
 pub use resolve::{resolve_tool, ResolvedTool};
 pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
-pub use tier::ExtractionTier;
+pub use tier::{ExtractionTier, NodeHints};
 
 use std::sync::Arc;
 

@@ -38,7 +38,7 @@ use crate::errors::ExtractError;
 use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{Authority, CommandNode, Provenance, Source, Text};
 use std::path::Path;
 use std::sync::Arc;
@@ -105,10 +105,11 @@ impl ExtractionTier for HelpTextTier {
         &self,
         tool: &ResolvedTool,
         path: &[String],
+        hints: NodeHints,
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
-        let raw = probe_help_text(self.probe.as_ref(), tool_path, &words)?;
+        let raw = probe_help_text(self.probe.as_ref(), tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
         // Detection order per spec §7 Tier A′, never double-probing: the
         // free artifact scan first (memoized per binary path — see
@@ -126,14 +127,44 @@ impl ExtractionTier for HelpTextTier {
     }
 }
 
-/// Run `<tool> <words...> --help`, falling back to `-h` if that produced
-/// no output at all on either stream, and return whichever stream had
-/// content (stdout preferred when both are non-empty — spec §7 Tier B,
-/// measured against real tools in [M-8]).
+/// Run `<tool> <words...> --help`, falling back to `-h` if that produced no
+/// output at all on either stream (the long-standing fallback; unconditional
+/// on `words`'/`hints`' provenance, unchanged by [M-16]'s addition below),
+/// and return whichever stream had content (stdout preferred when both are
+/// non-empty — spec §7 Tier B, measured against real tools in [M-8]).
+///
+/// **[M-16] sub-case (a):** when `--help` instead produced real output that
+/// is a *rendered man page* — `git commit --help` execs `man` and renders
+/// `GIT-COMMIT(1)` rather than printing help — also fall back to `-h`,
+/// which for 21 of git's 22 subcommands prints an ordinary option table the
+/// generic grammar already handles. Two guards, both required:
+///
+/// - **`words` must be non-empty.** This is the boundary between sub-case
+///   (a) (implemented here) and sub-case (b) (a tool's own root `--help`
+///   being man-shaped — six named binaries, `byobu`/`byobu-screen`/
+///   `byobu-tmux`/`git-receive-pack`/`git-upload-archive`/`git-upload-pack`,
+///   **not** implemented here). [M-16] measured the six but the maintainer's
+///   ruling is that an unmeasured argv broadening is a no; a man-shaped
+///   *root* must keep degrading to verbatim exactly as it does today, so
+///   this fallback never fires for the root regardless of anything else.
+/// - **`hints.heading_attested` must be true.** `words`' last element must
+///   have come from a structural source (spec §6 rule 0's closing
+///   paragraph names an unattested word becoming argv as the general,
+///   still-unsolved form of the never-probe list's hazard) — see
+///   [`NodeHints::heading_attested`].
+///
+/// The `-h` response is validated with [`looks_like_help_output`] before
+/// being trusted (D1.3.1): a tool that *acts* on an argument it doesn't
+/// recognise instead of printing help may still print *something*, and a
+/// never-probe tool's `-h` is refused outright by [`crate::exec::run_inert`]
+/// (spec §6 rule 0) regardless of any of the above — that refusal is
+/// swallowed here exactly like a validation failure, not propagated as a
+/// fatal error, so the node still degrades to verbatim.
 fn probe_help_text(
     probe: &dyn Probe,
     tool_path: &Path,
     words: &[String],
+    hints: NodeHints,
 ) -> Result<String, ExtractError> {
     let long = probe.run(
         tool_path,
@@ -142,18 +173,61 @@ fn probe_help_text(
         },
         EXTRACT_TIMEOUT,
     )?;
-    if !long.stdout.is_empty() || !long.stderr.is_empty() {
-        return Ok(pick_stream(&long.stdout, &long.stderr));
+
+    if long.stdout.is_empty() && long.stderr.is_empty() {
+        let short = probe.run(
+            tool_path,
+            &InertArgv::HelpShortForPath {
+                words: words.to_vec(),
+            },
+            EXTRACT_TIMEOUT,
+        )?;
+        return Ok(pick_stream(&short.stdout, &short.stderr));
     }
 
-    let short = probe.run(
-        tool_path,
-        &InertArgv::HelpShortForPath {
-            words: words.to_vec(),
-        },
-        EXTRACT_TIMEOUT,
-    )?;
-    Ok(pick_stream(&short.stdout, &short.stderr))
+    let long_text = pick_stream(&long.stdout, &long.stderr);
+
+    if !words.is_empty() && hints.heading_attested && sections::is_man_page_banner(&long_text) {
+        if let Ok(short) = probe.run(
+            tool_path,
+            &InertArgv::HelpShortForPath {
+                words: words.to_vec(),
+            },
+            EXTRACT_TIMEOUT,
+        ) {
+            let short_text = pick_stream(&short.stdout, &short.stderr);
+            if looks_like_help_output(&short_text) {
+                return Ok(short_text);
+            }
+        }
+        // `-h` was refused (a never-probe tool, spec §6 rule 0), errored,
+        // timed out, or didn't validate as real help output: keep the man
+        // page text, so this node degrades to verbatim exactly as it did
+        // before this fallback existed.
+    }
+
+    Ok(long_text)
+}
+
+/// D1.3.1: is `text` plausibly real help output, rather than a tool having
+/// *acted* on an argument it didn't recognise (and printed nothing
+/// help-shaped as a side effect) or having rendered a man page under a
+/// different guise?
+///
+/// Reuses [`sections::parse_with_profile`] — the exact structural-
+/// plausibility test [`build_node`] already applies to every probe result
+/// (spec §7 Tier B step 3: "flags, subcommands, or a usage line") — rather
+/// than inventing a second heuristic. This transitively rejects a man page
+/// too: `parse_with_profile` checks [`sections::is_man_page_banner`] first
+/// and returns an empty parse for one, so a `-h` response that renders a
+/// *different* man page fails this check the same way an empty or
+/// unstructured response does.
+fn looks_like_help_output(text: &str) -> bool {
+    if text.trim().is_empty() {
+        return false;
+    }
+    let parsed = sections::parse_with_profile(text, None);
+    !parsed.flags.is_empty() || !parsed.subcommands.is_empty() || !parsed.usage.is_empty()
 }
 
 /// Fetch one node's raw `--help` output verbatim, sanitized one [`Text`]
@@ -198,7 +272,22 @@ pub fn raw_help_with_probe(
 ) -> Result<Vec<Text>, ExtractError> {
     let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
     let words: Vec<String> = path.iter().skip(1).cloned().collect();
-    let raw = probe_help_text(probe, tool_path, &words)?;
+    // Deliberately never `heading_attested: true` here, regardless of
+    // `path`: this function has no `CommandNode` to read that bit from
+    // (the TUI's verbatim view re-probes by path alone, spec §2's `t`
+    // key), and the honest default is to disable [M-16] sub-case (a)'s
+    // `-h` fallback rather than assume attestation this call site cannot
+    // verify. The one existing fallback (empty output on both streams) is
+    // untouched, since it doesn't depend on this bit at all — see
+    // `probe_help_text`.
+    let raw = probe_help_text(
+        probe,
+        tool_path,
+        &words,
+        NodeHints {
+            heading_attested: false,
+        },
+    )?;
     Ok(raw
         .lines()
         .take(MAX_UNPARSED_LINES)
@@ -308,6 +397,15 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>) -> CommandNod
 mod tests {
     use super::*;
     use crate::resolve::resolve_tool;
+
+    /// Every test in this module extracts a node whose path came from a
+    /// real, structurally-known source (a real binary's actual root, or a
+    /// path handed in directly by the test) — never an invented word — so
+    /// `heading_attested: true` is the honest hint throughout, matching
+    /// what `Runner::extract_full_for` passes for a root in production.
+    const ATTESTED: NodeHints = NodeHints {
+        heading_attested: true,
+    };
 
     fn fixture(name: &str) -> String {
         // `tar --help` and `git --help`'s captures now live once, as the
@@ -728,7 +826,9 @@ mod tests {
         if tool.path.is_none() {
             return; // environment without tar; nothing to verify
         }
-        let node = tier.extract_node(&tool, &["tar".to_string()]).unwrap();
+        let node = tier
+            .extract_node(&tool, &["tar".to_string()], ATTESTED)
+            .unwrap();
         assert!(!node.flags.is_empty());
 
         // The GNU-argp assertions below only apply to *GNU* tar. macOS
@@ -774,7 +874,9 @@ mod tests {
         if tool.path.is_none() {
             return;
         }
-        let node = tier.extract_node(&tool, &["zoxide".to_string()]).unwrap();
+        let node = tier
+            .extract_node(&tool, &["zoxide".to_string()], ATTESTED)
+            .unwrap();
         assert_eq!(
             node.detected_framework.as_deref(),
             Some(Framework::ClapV3V4.name())
@@ -796,7 +898,9 @@ mod tests {
         if tool.path.is_none() {
             return;
         }
-        let node = tier.extract_node(&tool, &["gh".to_string()]).unwrap();
+        let node = tier
+            .extract_node(&tool, &["gh".to_string()], ATTESTED)
+            .unwrap();
         assert_eq!(
             node.detected_framework.as_deref(),
             Some(Framework::Cobra.name())
@@ -817,7 +921,7 @@ mod tests {
         let tool = resolve_tool(&path);
         assert!(tool.path.is_some(), "fixture script must be executable");
         let node = tier
-            .extract_node(&tool, &["argparse_demo.py".to_string()])
+            .extract_node(&tool, &["argparse_demo.py".to_string()], ATTESTED)
             .unwrap();
         assert_eq!(
             node.detected_framework.as_deref(),
@@ -838,7 +942,7 @@ mod tests {
         let tool = resolve_tool(&path);
         assert!(tool.path.is_some(), "fixture script must be executable");
         let node = tier
-            .extract_node(&tool, &["click_demo.py".to_string()])
+            .extract_node(&tool, &["click_demo.py".to_string()], ATTESTED)
             .unwrap();
 
         // This test's unique job is proving the *wiring*: real argv, a real
@@ -867,7 +971,9 @@ mod tests {
         if tool.path.is_none() {
             return;
         }
-        let node = tier.extract_node(&tool, &["ip".to_string()]).unwrap();
+        let node = tier
+            .extract_node(&tool, &["ip".to_string()], ATTESTED)
+            .unwrap();
         assert!(
             !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
             "expected ip's stderr-only help to produce *something*"
@@ -881,7 +987,9 @@ mod tests {
         if tool.path.is_none() {
             return;
         }
-        let node = tier.extract_node(&tool, &["openssl".to_string()]).unwrap();
+        let node = tier
+            .extract_node(&tool, &["openssl".to_string()], ATTESTED)
+            .unwrap();
         assert!(
             !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
             "expected openssl's stderr-only help to produce *something*"
@@ -926,7 +1034,7 @@ mod tests {
             version: None,
         };
         let node = tier
-            .extract_node(&tool, &["tar".to_string()])
+            .extract_node(&tool, &["tar".to_string()], ATTESTED)
             .expect("the transcript covers the exact argv this tier sends");
         assert_eq!(node.name, "tar");
         assert!(!node.flags.is_empty());
@@ -953,7 +1061,7 @@ mod tests {
             version: None,
         };
         let err = tier
-            .extract_node(&tool, &["tar".to_string()])
+            .extract_node(&tool, &["tar".to_string()], ATTESTED)
             .expect_err("the transcript has no recording for the root's `--help` argv");
         match err {
             ExtractError::Exec(crate::exec::ExecError::TranscriptMiss { argv, .. }) => {

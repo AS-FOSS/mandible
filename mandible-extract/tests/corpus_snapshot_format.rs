@@ -22,9 +22,17 @@
 
 use mandible_extract::exec::Transcript;
 use mandible_extract::help_text::HelpTextTier;
-use mandible_extract::{ExtractionTier, ResolvedTool};
+use mandible_extract::{ExtractionTier, NodeHints, ResolvedTool};
 use std::path::PathBuf;
 use std::sync::Arc;
+
+/// Both fixtures below extract a tool's root, whose name came from what the
+/// user typed rather than from any parser guess — structurally attested by
+/// definition, matching what `Runner::extract_full_for` passes in
+/// production.
+const ATTESTED: NodeHints = NodeHints {
+    heading_attested: true,
+};
 
 fn fixture(name: &str) -> String {
     // `tar --help` and `git --help`'s captures live once, as the corpus
@@ -76,7 +84,7 @@ fn git_help_through_the_real_pipeline_snapshots_readably() {
     };
 
     let node = tier
-        .extract_node(&tool, &["git".to_string()])
+        .extract_node(&tool, &["git".to_string()], ATTESTED)
         .expect("the transcript covers the exact argv extract_node sends");
 
     // Sanity: this run actually parsed structure, not the level-3 verbatim
@@ -108,7 +116,7 @@ fn tar_help_through_the_real_pipeline_snapshots_readably() {
     };
 
     let node = tier
-        .extract_node(&tool, &["tar".to_string()])
+        .extract_node(&tool, &["tar".to_string()], ATTESTED)
         .expect("the transcript covers the exact argv extract_node sends");
 
     assert!(

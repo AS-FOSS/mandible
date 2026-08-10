@@ -48,7 +48,7 @@
 use crate::errors::ExtractError;
 use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use brush_parser::ast;
 use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
 use std::path::Path;
@@ -106,6 +106,7 @@ impl ExtractionTier for CompletionScriptTier {
         &self,
         tool: &ResolvedTool,
         path: &[String],
+        _hints: NodeHints,
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         // Root-only contribution (see module doc). `is_incremental() ==
@@ -627,7 +628,13 @@ _mytool "$@"
             path: Some(Path::new("/bin/sh").to_path_buf()),
             version: None,
         };
-        let result = tier.extract_node(&tool, &["mytool".to_string(), "sub".to_string()]);
+        let result = tier.extract_node(
+            &tool,
+            &["mytool".to_string(), "sub".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));
     }
 
@@ -669,7 +676,13 @@ _mytool "$@"
             version: None,
         };
         let node = tier
-            .extract_node(&tool, &["mytool".to_string()])
+            .extract_node(
+                &tool,
+                &["mytool".to_string()],
+                NodeHints {
+                    heading_attested: true,
+                },
+            )
             .expect("the transcript covers the exact `completion zsh` argv this tier sends");
         assert!(node
             .flags
@@ -693,7 +706,13 @@ _mytool "$@"
             path: Some(std::path::PathBuf::from("/replayed/mytool")),
             version: None,
         };
-        let result = tier.extract_node(&tool, &["mytool".to_string()]);
+        let result = tier.extract_node(
+            &tool,
+            &["mytool".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        );
         assert!(
             matches!(result, Err(ExtractError::Other(_))),
             "expected an explicit error, got {result:?}"

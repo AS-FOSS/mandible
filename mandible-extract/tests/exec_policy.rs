@@ -6,9 +6,30 @@
 //! suite.") and as the fix for a specific prior bug ("Real-argv tests":
 //! a mocked probe can pass while the real argv construction is broken).
 
-use mandible_extract::exec::{run_inert, InertArgv};
+use mandible_extract::exec::{run_inert, ExecError, InertArgv};
+use mandible_extract::help_text::HelpTextTier;
+use mandible_extract::{ExtractError, ExtractionTier, NodeHints, ResolvedTool};
 use std::io::Write;
+use std::path::Path;
 use std::time::Duration;
+
+/// Like [`write_shim`], but with a caller-chosen name and script — needed
+/// for the [M-16] D1.3.2 tests below, which must name a shim `pkill` to
+/// exercise `HELP_ONLY_PROBE` matching (spec §6 rule 0's file-name check)
+/// and need custom argv-dependent behaviour rather than the fixed
+/// argv-dumping script `write_shim` always installs.
+fn write_named_shim(dir: &Path, name: &str, script: &str) -> std::path::PathBuf {
+    let path = dir.join(name);
+    let mut f = std::fs::File::create(&path).unwrap();
+    f.write_all(script.as_bytes()).unwrap();
+    drop(f);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    path
+}
 
 fn write_shim(dir: &std::path::Path) -> std::path::PathBuf {
     let path = dir.join("shim.sh");
@@ -192,5 +213,197 @@ fn cobra_completion_word_may_be_empty_because_a_sentinel_guards_it() {
     assert!(
         run_inert(&shim, &unguarded, Duration::from_secs(2)).is_err(),
         "`help \"\"` has no sentinel shielding the empty word"
+    );
+}
+
+// --- [M-16] sub-case (a): the `-h` fallback for a man-shaped subcommand
+// --- probe, D1.3.2's "both halves matter" shim suite ---
+//
+// These drive `HelpTextTier::extract_node` — not `run_inert` directly —
+// against real shim binaries, through the tier's actual `Probe`
+// construction (`HelpTextTier::default()` uses the live `LiveProbe`, so
+// every probe below is a real subprocess spawn through the real
+// `run_inert` chokepoint, exactly like the tests above). A rendered man
+// page is built from the same banner shape `git bisect --help` actually
+// produces (identical `NAME(section)` token at both margins around a
+// centred title) — see `help_text::sections::is_man_page_banner`'s own
+// tests for the real fixture this is modeled on.
+
+/// A minimal man-page banner in the exact shape `looks_like_man_page`
+/// recognizes: identical `NAME(1)` token at both margins, a centred title
+/// between them.
+fn man_page_banner(name: &str) -> String {
+    let tag = format!("{}(1)", name.to_uppercase());
+    format!(
+        "{tag}                Some Manual                {tag}\n\nNAME\n     {name} - a thing\n"
+    )
+}
+
+/// Half one: a permitted tool's subcommand whose `--help` renders a man
+/// page must trigger the `-h` fallback, and the fallback's output — an
+/// ordinary option table — must actually be what the node parses to,
+/// rather than the man page staying as verbatim degradation.
+#[test]
+fn man_shaped_subcommand_help_triggers_the_dash_h_fallback_when_permitted() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "sub" ] && [ "$2" = "--help" ]; then
+    printf '%s' '{banner}'
+    exit 0
+fi
+if [ "$1" = "sub" ] && [ "$2" = "-h" ]; then
+    touch "$0.dash_h_ran"
+    echo "Usage: manthing sub [options]"
+    echo ""
+    echo "Options:"
+    echo "  --amend      Amend the previous thing"
+    echo "  --dry-run    Do not actually do anything"
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#,
+        banner = man_page_banner("manthing-sub").replace('\'', "'\\''")
+    );
+    let shim = write_named_shim(dir.path(), "manthing", &script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "manthing".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(
+            &tool,
+            &["manthing".to_string(), "sub".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        )
+        .expect("the shim always answers one of the two probes it's asked for");
+
+    assert!(
+        node.unparsed.is_empty(),
+        "node degraded to verbatim instead of using the -h fallback's real flags: {node:?}"
+    );
+    let long_flags: Vec<&str> = node
+        .flags
+        .iter()
+        .filter_map(|f| f.long.as_deref())
+        .collect();
+    assert!(long_flags.contains(&"amend"), "{long_flags:?}");
+    assert!(long_flags.contains(&"dry-run"), "{long_flags:?}");
+    assert!(
+        dir.path().join("manthing.dash_h_ran").exists(),
+        "the -h fallback's marker was never written — -h was never actually invoked"
+    );
+}
+
+/// Half two: a shim named like a never-probe tool (spec §6 rule 0,
+/// `HELP_ONLY_PROBE`) must never receive the `-h` fallback, even in a
+/// scenario shaped to trigger it. `pkill`'s subcommand-path `--help` probe
+/// (`InertArgv::HelpLongForPath` with non-empty words renders to
+/// `[..words, "--help"]`, never exactly `["--help"]`) is itself already
+/// refused by `run_inert`'s chokepoint before this tier's new fallback
+/// logic ever runs — which is the strongest form of "cannot route around
+/// it": the fallback code path is never even reached, because the probe
+/// that would have supplied it man-shaped text to react to never completes.
+/// The shim unconditionally leaves a marker on every invocation, so this
+/// also proves the refusal happens before any spawn, not merely before the
+/// tier acts on a result.
+#[test]
+fn never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shaped() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(
+        dir.path(),
+        "pkill",
+        "#!/bin/sh\ntouch \"$0.ran\"\necho ran\n",
+    );
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkill".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let result = tier.extract_node(
+        &tool,
+        &["pkill".to_string(), "sub".to_string()],
+        NodeHints {
+            heading_attested: true,
+        },
+    );
+
+    assert!(
+        matches!(
+            result,
+            Err(ExtractError::Exec(ExecError::RefusedUnsafeTool { .. }))
+        ),
+        "expected the never-probe list to refuse the subcommand `--help` probe outright, got {result:?}"
+    );
+    assert!(
+        !dir.path().join("pkill.ran").exists(),
+        "the never-probe shim was executed at all — refusal did not happen before spawn"
+    );
+}
+
+/// Half three: a subcommand word that did *not* come from a structural
+/// source (`hints.heading_attested: false`) must never receive the `-h`
+/// fallback either, even though its (still-sent, spec §6-permitted)
+/// `--help` probe comes back man-shaped. This is the provenance gate spec
+/// §6 rule 0's closing paragraph calls for: `words` must be attested before
+/// the *new* argv shape (`-h`) may be sent for it. It does not (and is not
+/// meant to) touch the pre-existing `<words...> --help` probe itself, which
+/// still fires regardless of attestation — a separate, pre-existing gap,
+/// not one this test closes.
+#[test]
+fn non_attested_subcommand_word_gets_no_dash_h_probe_at_all() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "sub" ] && [ "$2" = "--help" ]; then
+    printf '%s' '{banner}'
+    exit 0
+fi
+if [ "$1" = "sub" ] && [ "$2" = "-h" ]; then
+    touch "$0.dash_h_ran"
+    echo "Usage: unattested sub [options]"
+    echo ""
+    echo "Options:"
+    echo "  --amend  Amend the previous thing"
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#,
+        banner = man_page_banner("unattested-sub").replace('\'', "'\\''")
+    );
+    let shim = write_named_shim(dir.path(), "unattested", &script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "unattested".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(
+            &tool,
+            &["unattested".to_string(), "sub".to_string()],
+            NodeHints {
+                heading_attested: false,
+            },
+        )
+        .expect("the --help probe itself is still permitted and still answered");
+
+    assert!(
+        !node.unparsed.is_empty(),
+        "node parsed structure from the man page instead of degrading to verbatim: {node:?}"
+    );
+    assert!(
+        !dir.path().join("unattested.dash_h_ran").exists(),
+        "the -h fallback ran despite the word not being heading_attested"
     );
 }

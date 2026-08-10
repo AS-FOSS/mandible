@@ -11,7 +11,7 @@
 //! quit), not about extraction logic itself.
 
 use crate::resolve::{resolve_tool, ResolvedTool};
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{merge_nodes, CommandNode};
 use std::time::{Duration, Instant};
 
@@ -125,12 +125,20 @@ impl Runner {
         let root_path = vec![resolved.name.clone()];
         let mut statuses = Vec::with_capacity(self.tiers.len());
         let mut candidates = Vec::new();
+        // The root is the tool name the *user typed* at the command line —
+        // never a word any parser invented from `--help` layout — so it is
+        // structurally attested by definition, with no heading needed to
+        // point to. See `NodeHints::heading_attested`'s own doc comment for
+        // what this bit gates.
+        let root_hints = NodeHints {
+            heading_attested: true,
+        };
 
         for tier in &self.tiers {
             let detected = tier.detect(resolved);
             let mut error = None;
             if detected {
-                match tier.extract_node(resolved, &root_path) {
+                match tier.extract_node(resolved, &root_path, root_hints) {
                     Ok(node) => candidates.push(node),
                     Err(e) => error = Some(e.to_string()),
                 }
@@ -185,6 +193,14 @@ impl Runner {
         existing: CommandNode,
     ) -> FillResult {
         let start = Instant::now();
+        // `existing` already carries whatever the last merge decided about
+        // this node's own provenance (spec §4.4: `heading_attested` is
+        // OR'd across contributors at merge time, `mandible-core/src/merge.rs`),
+        // so it is the correct — and only available — source for this
+        // node's hint. Read before `existing` moves into `candidates`.
+        let hints = NodeHints {
+            heading_attested: existing.heading_attested,
+        };
         let mut candidates = vec![existing];
         let mut statuses = Vec::new();
 
@@ -195,7 +211,7 @@ impl Runner {
             let detected = tier.detect(resolved);
             let mut error = None;
             if detected {
-                match tier.extract_node(resolved, path) {
+                match tier.extract_node(resolved, path, hints) {
                     Ok(node) => candidates.push(node),
                     Err(e) => error = Some(e.to_string()),
                 }
@@ -254,6 +270,7 @@ mod tests {
             &self,
             _tool: &ResolvedTool,
             path: &[String],
+            _hints: NodeHints,
         ) -> Result<CommandNode, ExtractError> {
             Ok(CommandNode::new(
                 path.last().cloned().unwrap_or_default(),
@@ -280,6 +297,7 @@ mod tests {
             &self,
             _tool: &ResolvedTool,
             _path: &[String],
+            _hints: NodeHints,
         ) -> Result<CommandNode, ExtractError> {
             Err(ExtractError::Other("boom".to_string()))
         }
@@ -300,6 +318,7 @@ mod tests {
             &self,
             _tool: &ResolvedTool,
             _path: &[String],
+            _hints: NodeHints,
         ) -> Result<CommandNode, ExtractError> {
             unreachable!("must not be called when detect() is false")
         }
@@ -364,6 +383,7 @@ mod tests {
             &self,
             _tool: &ResolvedTool,
             path: &[String],
+            _hints: NodeHints,
         ) -> Result<CommandNode, ExtractError> {
             let mut node = CommandNode::new(
                 path.last().cloned().unwrap_or_default(),

@@ -60,7 +60,7 @@
 use crate::errors::ExtractError;
 use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{
     is_command_name_shaped, Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind,
 };
@@ -157,6 +157,7 @@ impl ExtractionTier for NativeTier {
         &self,
         tool: &ResolvedTool,
         path: &[String],
+        _hints: NodeHints,
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
@@ -720,7 +721,13 @@ mod tests {
             "transcript covers the real subcommands-probe argv"
         );
         let node = tier
-            .extract_node(&tool, &["cobratool".to_string()])
+            .extract_node(
+                &tool,
+                &["cobratool".to_string()],
+                NodeHints {
+                    heading_attested: true,
+                },
+            )
             .expect("detect having succeeded, extract_node must too");
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["build"], "{names:?}");

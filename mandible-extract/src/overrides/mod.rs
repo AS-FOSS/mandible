@@ -25,7 +25,7 @@
 
 use crate::errors::ExtractError;
 use crate::resolve::ResolvedTool;
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -52,6 +52,7 @@ impl ExtractionTier for OverridesTier {
         &self,
         tool: &ResolvedTool,
         path: &[String],
+        _hints: NodeHints,
     ) -> Result<CommandNode, ExtractError> {
         let file_path = override_path(&tool.name)
             .ok_or_else(|| ExtractError::Other("could not resolve a config directory".into()))?;
@@ -388,7 +389,13 @@ mod tests {
         assert!(tier.detect(&tool));
 
         let node = tier
-            .extract_node(&tool, &["mytool".to_string()])
+            .extract_node(
+                &tool,
+                &["mytool".to_string()],
+                NodeHints {
+                    heading_attested: true,
+                },
+            )
             .expect("root override should resolve");
         assert_eq!(node.summary.as_ref().unwrap().as_str(), "custom summary");
         assert_eq!(node.flags[0].long.as_deref(), Some("verbose"));
@@ -412,6 +419,9 @@ mod tests {
         let result = tier.extract_node(
             &tool,
             &["mytool".to_string(), "some-subcommand".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
         );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));
 
