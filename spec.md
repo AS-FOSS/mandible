@@ -1578,6 +1578,41 @@ any of these as current.
   `Available Commands:` **missed `docker` entirely**, because docker prints
   `Common Commands:`.
 
+- **[M-15] The declination tax: 378 tools report `ok` with zero flags**
+  (2026-08-10, mandible 0.2.2 at 7384b6f, aarch64 — note this differs from
+  the x86-64 baseline above, and that difference is itself an argument for
+  pinning the sweep's environment). Of the 1,895 tools the full-`PATH` sweep
+  rates `ok`, **378 (20%) carry no flags at all.**
+
+  This is the exact counterpart to [M-10] and it is invisible to every gate
+  §13.1 currently defines. [M-10] was *fabrication* — invented nodes inflate
+  `%described`, which the structure-sanity column now catches. This is
+  *declination*: a tool the grammar refused to read rather than risk
+  fabricating from. It depresses no metric, because a node with zero flags
+  has no described-ratio to report at all — the scoreboard prints `—` and
+  the tool is excluded from the aggregate rather than counted against it. So
+  every precision tightening in `sections.rs` (the apt-get prose rule, the
+  mysqlslap same-indent rule, the curl usage-continuation rule) could pay
+  for itself in recall elsewhere on `PATH` and nothing would say so.
+  §13.1's own lesson applies to its own gate set: a metric a failure mode
+  can slip past is worse than no metric.
+
+  **Method:** the checked-in scoreboard, filtered to rows with status `ok`
+  and a flag count of 0. Deliberately *not* re-derived by shelling out to
+  378 binaries — probing outside `exec::run_inert` bypasses every §6 rule,
+  so the finer breakdown below has to be computed inside the harness.
+
+  **Not measured, and worth measuring in the harness:** how many of the 378
+  publish flags only in a **usage synopsis**. Spot-checked by hand, that
+  case is real and includes marquee tools — `git --help` documents
+  `-v/--version`, `-C <path>`, `-p/--paginate`, `--git-dir=<path>` and eight
+  more entirely inside its `usage:` block, and mandible extracts none of
+  them (`help_text::sections::extract_positionals` mines that block for
+  positionals only). `zipinfo` is the same shape. The class is not uniform,
+  though, and the honest counterexample matters: `apt-get`'s zero flags is
+  **correct** — apt 2.8.3's help has no options section at all — so the 378
+  is an upper bound on what any single grammar could recover, not a target.
+
 ---
 
 ## Appendix B — What changed in revision 2

@@ -1,5 +1,13 @@
+tmp/
 /target
 *.swp
+
+# Working notes and running TODO state for whoever (human or agent) is
+# mid-project. Deliberately untracked: spec.md is the design authority and
+# AGENTS.md the operational one, and a third committed document that
+# describes plans would drift out of agreement with both. Anything in here
+# that turns out to be durable belongs in spec.md instead.
+HANDOVER.md
 
 # The full-PATH scoreboard is a snapshot of one machine's installed tools,
 # not a portable baseline — spec §13.1a: this is "the natural home for the

@@ -4,6 +4,21 @@ Thank you for considering a contribution. Please read this before opening a
 PR — the project has one rule that overrides most instincts about how to fix
 a bug.
 
+## Two kinds of contribution
+
+**Found a tool that mandible parses badly?** You don't need to write Rust.
+The project accepts *fixtures*: a frozen capture of the tool's real help
+output plus a short contract file, checked into [`corpus/`](./corpus/README.md)
+and marked as a known failure. That turns your bug report into an executable,
+reproducible test the next grammar fix must satisfy — and it is the only
+per-tool artifact this repository accepts. The full workflow (capture,
+`meta.toml`, xfail lifecycle) lives in [`corpus/README.md`](./corpus/README.md).
+
+**Changing the source** — grammars, tiers, TUI, exec policy — is what the
+rest of this document covers. One rule that binds both kinds: a parser change
+must keep every already-green fixture green, and a new parsing rule should
+arrive with the fixture that made it necessary.
+
 ## The invariant (read this first)
 
 > **The mandible repository will never contain per-tool logic.** No
