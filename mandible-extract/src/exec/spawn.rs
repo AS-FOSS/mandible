@@ -61,6 +61,23 @@ pub enum ExecError {
         /// The path that was refused.
         path: String,
     },
+    /// [`crate::exec::Transcript`] has no recording for the exact argv a
+    /// tier asked for (keyed on [`InertArgv::args`], not on the enum
+    /// variant or the tool name — see that type's doc comment for why).
+    /// Distinct from every other variant above: those all describe a real
+    /// spawn attempt being refused or failing, while this one means no
+    /// process was ever meant to run — the replay fixture simply doesn't
+    /// cover this argv. A future corpus runner reports this verbatim
+    /// ("the tier asked for `git commit --help`, which this fixture
+    /// doesn't contain") rather than a tier silently producing an empty,
+    /// confidently-wrong node.
+    #[error("no transcript recording for `{tool} {}`", argv.join(" "))]
+    TranscriptMiss {
+        /// The tool path the tier asked to probe.
+        tool: String,
+        /// The exact argument vector requested ([`InertArgv::args`]).
+        argv: Vec<String>,
+    },
 }
 
 /// The captured result of running a tool under the exec policy.

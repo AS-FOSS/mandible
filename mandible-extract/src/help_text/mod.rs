@@ -27,12 +27,13 @@ mod profile;
 mod sections;
 
 use crate::errors::ExtractError;
-use crate::exec::{run_inert, InertArgv};
+use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::ExtractionTier;
 use mandible_core::{Authority, CommandNode, Provenance, Source, Text};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Wall-clock cap for an `extract_node` probe (spec §6 rule 4).
@@ -49,8 +50,28 @@ const MAX_UNPARSED_LINES: usize = 4096;
 
 /// Tier B: parses `<tool> [<path>...] --help` (falling back to `-h`) via a
 /// layout-driven section parser and a small `winnow` flag-spec grammar.
-#[derive(Debug, Default)]
-pub struct HelpTextTier;
+pub struct HelpTextTier {
+    /// The source of a `--help`/`-h` probe's output — [`LiveProbe`] in
+    /// production ([`Self::default`]), or a [`crate::exec::Transcript`] to
+    /// replay frozen bytes through this exact parsing pipeline with zero
+    /// subprocesses (the corpus regression harness's seam).
+    probe: Arc<dyn Probe>,
+}
+
+impl Default for HelpTextTier {
+    fn default() -> Self {
+        Self::new(Arc::new(LiveProbe))
+    }
+}
+
+impl HelpTextTier {
+    /// Build this tier against an explicit probe. Production code wants
+    /// [`Self::default`]; tests and the future corpus runner construct a
+    /// [`crate::exec::Transcript`] here instead.
+    pub fn new(probe: Arc<dyn Probe>) -> Self {
+        Self { probe }
+    }
+}
 
 impl ExtractionTier for HelpTextTier {
     fn name(&self) -> &'static str {
@@ -79,7 +100,7 @@ impl ExtractionTier for HelpTextTier {
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
-        let raw = probe_help_text(tool_path, &words)?;
+        let raw = probe_help_text(self.probe.as_ref(), tool_path, &words)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
         // Detection order per spec §7 Tier A′, never double-probing: the
         // free artifact scan first (memoized per binary path — see
@@ -101,8 +122,12 @@ impl ExtractionTier for HelpTextTier {
 /// no output at all on either stream, and return whichever stream had
 /// content (stdout preferred when both are non-empty — spec §7 Tier B,
 /// measured against real tools in [M-8]).
-fn probe_help_text(tool_path: &Path, words: &[String]) -> Result<String, ExtractError> {
-    let long = run_inert(
+fn probe_help_text(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+) -> Result<String, ExtractError> {
+    let long = probe.run(
         tool_path,
         &InertArgv::HelpLongForPath {
             words: words.to_vec(),
@@ -113,7 +138,7 @@ fn probe_help_text(tool_path: &Path, words: &[String]) -> Result<String, Extract
         return Ok(pick_stream(&long.stdout, &long.stderr));
     }
 
-    let short = run_inert(
+    let short = probe.run(
         tool_path,
         &InertArgv::HelpShortForPath {
             words: words.to_vec(),
@@ -144,12 +169,28 @@ fn probe_help_text(tool_path: &Path, words: &[String]) -> Result<String, Extract
 /// the warmer has almost certainly already faulted in.
 ///
 /// Refusal for a never-probe tool (spec §6 rule 0) propagates from
-/// [`run_inert`] unchanged: `kill --help` is no safer because a human asked
-/// for it interactively.
+/// [`crate::exec::run_inert`] unchanged: `kill --help` is no safer because
+/// a human asked for it interactively.
+///
+/// A thin [`LiveProbe`] wrapper over [`raw_help_with_probe`] — every real
+/// caller (the TUI's verbatim view) wants the live tool, so this keeps
+/// their call site unchanged while still funneling through the same
+/// probe-taking function a replay caller would use.
 pub fn raw_help(tool: &ResolvedTool, path: &[String]) -> Result<Vec<Text>, ExtractError> {
+    raw_help_with_probe(&LiveProbe, tool, path)
+}
+
+/// [`raw_help`], but against an explicit [`Probe`] rather than always the
+/// live one — the seam a future corpus runner or test can use to check the
+/// TUI's verbatim view against frozen bytes with zero subprocesses.
+pub fn raw_help_with_probe(
+    probe: &dyn Probe,
+    tool: &ResolvedTool,
+    path: &[String],
+) -> Result<Vec<Text>, ExtractError> {
     let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
     let words: Vec<String> = path.iter().skip(1).cloned().collect();
-    let raw = probe_help_text(tool_path, &words)?;
+    let raw = probe_help_text(probe, tool_path, &words)?;
     Ok(raw
         .lines()
         .take(MAX_UNPARSED_LINES)
@@ -645,21 +686,21 @@ mod tests {
 
     #[test]
     fn detect_true_for_resolved_tool() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("sh");
         assert!(tier.detect(&tool));
     }
 
     #[test]
     fn detect_false_for_unresolved_tool() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("definitely-not-a-real-tool-xyz");
         assert!(!tier.detect(&tool));
     }
 
     #[test]
     fn extract_node_against_real_tar_binary() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("tar");
         if tool.path.is_none() {
             return; // environment without tar; nothing to verify
@@ -705,7 +746,7 @@ mod tests {
     /// self-reference bug also discovered while writing this test).
     #[test]
     fn extract_node_against_real_zoxide_binary_identifies_clap() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("zoxide");
         if tool.path.is_none() {
             return;
@@ -727,7 +768,7 @@ mod tests {
     /// scanning alone.
     #[test]
     fn extract_node_against_real_gh_binary_identifies_cobra() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("gh");
         if tool.path.is_none() {
             return;
@@ -745,7 +786,7 @@ mod tests {
     /// any other tool.
     #[test]
     fn extract_node_against_real_argparse_script() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let path = format!(
             "{}/tests/fixtures/help_text/argparse_demo.py",
             env!("CARGO_MANIFEST_DIR")
@@ -766,7 +807,7 @@ mod tests {
     /// Real argv, real (script) binary: `click_demo.py`.
     #[test]
     fn extract_node_against_real_click_script() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let path = format!(
             "{}/tests/fixtures/help_text/click_demo.py",
             env!("CARGO_MANIFEST_DIR")
@@ -798,7 +839,7 @@ mod tests {
         // Regression for spec [M-8]: `ip --help` writes only to stderr
         // and exits 255. A tier that required exit 0/stdout would
         // silently produce nothing here.
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("ip");
         if tool.path.is_none() {
             return;
@@ -812,7 +853,7 @@ mod tests {
 
     #[test]
     fn extract_node_against_stderr_only_openssl_binary() {
-        let tier = HelpTextTier;
+        let tier = HelpTextTier::default();
         let tool = resolve_tool("openssl");
         if tool.path.is_none() {
             return;
@@ -822,5 +863,84 @@ mod tests {
             !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
             "expected openssl's stderr-only help to produce *something*"
         );
+    }
+
+    // --- the replay seam: real-argv tests against a `Transcript` ---
+    //
+    // These drive `HelpTextTier` through its real `extract_node` — not
+    // `build_node` directly — against a `Transcript` keyed on exactly the
+    // argv the tier's own probe construction produces, with zero
+    // subprocesses. This is the test class AGENTS.md §3.1 and spec §13.3
+    // exist for: a tier that built the wrong argv (as a since-fixed cobra
+    // tier once did, undetected because its tests mocked the probe and
+    // skipped argv construction) would miss here instead of passing.
+
+    fn exec_output(stdout: &str) -> crate::exec::ExecOutput {
+        crate::exec::ExecOutput {
+            stdout: stdout.as_bytes().to_vec(),
+            stderr: Vec::new(),
+            exit_code: Some(0),
+            timed_out: false,
+        }
+    }
+
+    /// Real argv, replayed: the root probe is `InertArgv::HelpLongForPath
+    /// { words: [] }`, which renders to exactly `["--help"]`
+    /// (`InertArgv::args`). A transcript keyed on that argv, holding the
+    /// real captured `tar --help` fixture, must let `extract_node` produce
+    /// the same structural result as the direct `build_node` unit test
+    /// above — but reached through the tier's actual probe construction,
+    /// not by handing the parser text directly.
+    #[test]
+    fn extract_node_replays_from_a_transcript_keyed_on_the_real_argv() {
+        let raw = fixture("tar_help.stdout");
+        let transcript =
+            crate::exec::Transcript::new([(vec!["--help".to_string()], exec_output(&raw))]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "tar".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/tar")),
+            version: None,
+        };
+        let node = tier
+            .extract_node(&tool, &["tar".to_string()])
+            .expect("the transcript covers the exact argv this tier sends");
+        assert_eq!(node.name, "tar");
+        assert!(!node.flags.is_empty());
+    }
+
+    /// The negative case: a transcript that does *not* contain the argv
+    /// this tier actually sends must miss loudly, naming the argv it was
+    /// asked for — never fall through to an empty, confidently-wrong
+    /// success. If a tier's argv construction ever drifts from what this
+    /// test expects, this is the assertion that catches it.
+    #[test]
+    fn extract_node_against_a_transcript_missing_the_argv_is_a_named_miss() {
+        // Deliberately keyed on a *different* argv than the tier will ever
+        // send at the root (`["commit", "--help"]` instead of `["--help"]`)
+        // — simulating exactly the class of bug this seam exists to catch.
+        let transcript = crate::exec::Transcript::new([(
+            vec!["commit".to_string(), "--help".to_string()],
+            exec_output("usage: tar [options]\n"),
+        )]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "tar".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/tar")),
+            version: None,
+        };
+        let err = tier
+            .extract_node(&tool, &["tar".to_string()])
+            .expect_err("the transcript has no recording for the root's `--help` argv");
+        match err {
+            ExtractError::Exec(crate::exec::ExecError::TranscriptMiss { argv, .. }) => {
+                assert_eq!(
+                    argv,
+                    vec!["--help".to_string()],
+                    "must name the requested argv"
+                );
+            }
+            other => panic!("expected a named TranscriptMiss, got {other:?}"),
+        }
     }
 }
