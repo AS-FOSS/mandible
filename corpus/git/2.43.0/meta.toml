@@ -38,25 +38,27 @@ min_status = "ok"
 # check — a new git release adding one more listed command must not fail
 # this fixture).
 min_subcommands = 20
-# NOT `must_contain_flags = ["--paginate", "--git-dir"]`, deliberately.
-# git publishes these only in its usage synopsis (`[-p | --paginate | ...]`
-# and `[--git-dir=<path>]`), never under a flag heading, so the generic
-# parser's `Options:`-style block scanner still has nothing to read there
-# and root flags are still empty — a real, separate, still-open gap
-# (recovering flag specs straight out of a usage synopsis line), not one
-# of the three defects this revision fixes. Asserting it here would either
-# block promotion on an unrelated bug or silently drop the check the day
-# someone "fixes" it by fabricating a flag from prose. `restore`'s flags
-# below are the actual regression net for this revision's fixes.
+# The still-open demand, kept deliberately failing. git publishes these
+# only in its usage synopsis (`[-p | --paginate | ...]`, `[--git-dir=<path>]`),
+# never under a flag heading, so the generic parser's block scanner finds
+# nothing and root flags are still empty. That is [M-15]'s headline finding
+# — 378 of 1,895 `ok` tools carry zero flags — and this line is the only
+# executable demand that it ever gets fixed.
 #
-# `restore` is where all three fixes are visible: its `-h` capture (added
-# this revision, per [M-16] below) has 16 real flag rows, 8 of which are
-# git's `--[no-]foo` negatable-boolean convention. Before this revision
-# `--[no-]foo` matched neither `try_short` nor `try_long`, so a flag with a
-# short spelling rendered bare (`-S` with no long name) and a long-only one
-# (`--[no-]ignore-unmerged`) was dropped entirely. `-2, --ours` has no
-# `[no-]` and needs none of this revision's fixes — the control case that
-# confirms the diagnosis.
+# It is therefore NOT removed to let this fixture go green. A fixture is a
+# reproducible backlog entry (corpus/README.md); deleting the failing
+# assertion deletes the backlog entry and leaves a prose comment in its
+# place, which is exactly the "lessons rot, fixtures don't" failure this
+# corpus exists to prevent. The fixture stays `[xfail]` until a usage-
+# synopsis flag grammar lands, at which point strict xfail forces it to be
+# promoted rather than allowing it to drift.
+#
+# Note this does not cost the three fixes their ratchet: `expected.snap` is
+# present and compared on every run regardless of `[xfail]`, and
+# `must_contain_flags_by_path` below asserts `restore`'s recovered flags by
+# name. Only this one root-level assertion is outstanding.
+must_contain_flags = ["--paginate", "--git-dir"]
+
 [contract.must_contain_flags_by_path]
 restore = [
   "-s", "--source",             # short+long, had a value spec (regression risk for grammar.rs's try_value ordering)
@@ -65,10 +67,22 @@ restore = [
   "-2", "--ours",                # the control case: no `[no-]`, worked before and must keep working
 ]
 
-# Promoted from `[xfail]`: the two `extract_positionals` defects this
-# fixture held open (greedy bracket match on `<name>=<value>`; flag
-# arguments — `-C <path>`, `-c <name>=<value>` — read as positionals) are
-# both fixed, and a third, related defect found alongside them
-# (`--[no-]name`, git's negatable-boolean convention, unparseable by both
-# `try_short` and `try_long`) is fixed too — see the commit that promoted
-# this fixture for the full writeup.
+# Still `[xfail]`, and narrowed. The two `extract_positionals` defects this
+# fixture originally held open (greedy bracket match on `<name>=<value>`;
+# flag arguments — `-C <path>`, `-c <name>=<value>` — read as positionals)
+# are both fixed, as is a third found alongside them (`--[no-]name`, git's
+# negatable-boolean convention, unparseable by both `try_short` and
+# `try_long`). Those three are now locked in by `expected.snap` and by
+# `must_contain_flags_by_path` above.
+#
+# What remains is the reason this stays broken: root flags. See
+# `must_contain_flags`.
+[xfail]
+broken = true
+reason = """
+git's root flags live only in its usage synopsis (`[-p | --paginate | -P | --no-pager]`, `[--git-dir=<path>]`, twelve long options and six short ones), and no tier extracts flag specs from a usage line — help_text::sections::extract_positionals mines that block for positionals only. So `git --help` parses to 22 correctly-grouped subcommands and zero flags, at status `ok`.
+
+This is the silently-missing-structure failure, not the fabrication one: nothing is invented, so no structure-sanity check fires and the tool reports full confidence on an incomplete parse. [M-15] measured the same shape across the fleet — 378 of 1,895 `ok` tools carry zero flags.
+
+Fixing it means a usage-synopsis flag grammar. The synopsis is already isolated (`usage` is kept separately and mined for positionals), and it is naturally resistant to [M-10]: a synopsis token starts with `-`, so prose cannot enter through it.
+"""
