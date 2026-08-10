@@ -45,10 +45,12 @@
 //!   loop's own condition" entry, the 153-second incident) whether or not
 //!   the fixture's *content* is expected to be broken.
 
-use mandible_core::CommandNode;
+use crate::coverage::ScoreFormat;
+use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -509,7 +511,15 @@ enum Outcome {
 /// (spec's documented promotion workflow blesses *before* removing
 /// `[xfail]`, and the strict-xfail check on the next plain run is what
 /// then reminds a contributor to remove it).
-pub fn run(corpus_root: &Path, bless: bool) -> anyhow::Result<CorpusReport> {
+///
+/// `format` selects how a *checking* run (`bless: false`) renders its
+/// report: [`ScoreFormat::Text`] is the plain per-fixture lines this
+/// module has always produced (unchanged); [`ScoreFormat::Markdown`]
+/// additionally builds a semantic before/after transition table (see
+/// [`render_markdown_report`]) for `$GITHUB_STEP_SUMMARY`. `format` is
+/// ignored while blessing — bless has no "review artifact" to format,
+/// only a rewrite-and-report-what-was-written action.
+pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Result<CorpusReport> {
     let fixtures = discover_fixtures(corpus_root)?;
     if fixtures.is_empty() {
         anyhow::bail!(
@@ -521,6 +531,10 @@ pub fn run(corpus_root: &Path, bless: bool) -> anyhow::Result<CorpusReport> {
     let mut lines = Vec::new();
     let mut outcomes = Vec::new();
     let mut timing_violations = Vec::new();
+    // Only populated for a checking run (`bless: false`) — see
+    // `render_markdown_report`. Cheap to build unconditionally alongside
+    // `lines`: every fixture here is a few KiB, never worth gating on.
+    let mut fixture_rows: Vec<FixtureRow> = Vec::new();
 
     for fixture in &fixtures {
         let transcript = fixture.build_transcript()?;
@@ -632,6 +646,15 @@ pub fn run(corpus_root: &Path, bless: bool) -> anyhow::Result<CorpusReport> {
             elapsed,
             detail.join("; ")
         ));
+
+        fixture_rows.push(FixtureRow {
+            label: fixture.label.clone(),
+            status_word,
+            detail: detail.clone(),
+            current: summarize(&fixture.meta.tool.name, root.as_ref()),
+            previous: previous_summary(fixture),
+        });
+
         outcomes.push(outcome);
     }
 
@@ -670,11 +693,408 @@ pub fn run(corpus_root: &Path, bless: bool) -> anyhow::Result<CorpusReport> {
         }
     }
 
+    // Markdown only applies to a checking run — see `run`'s doc comment.
+    // It fully replaces `lines.join(...)` rather than appending to it: the
+    // markdown report is a self-contained artifact (table plus `<details>`
+    // for anything capped), not the plain-text report with formatting
+    // bolted on.
+    let text = if !bless && matches!(format, ScoreFormat::Markdown) {
+        render_markdown_report(&fixture_rows, fixtures.len(), green, xfail, failed_count)
+    } else {
+        lines.join("\n")
+    };
+
     Ok(CorpusReport {
-        text: lines.join("\n"),
+        text,
         failures,
         bless,
     })
+}
+
+/// One side of a fixture's semantic comparison (spec companion work
+/// order's requirement: a report must say *what changed*, never present a
+/// text diff) — either the tree `expected.snap` currently pins, or the
+/// tree this run just extracted. Built once via [`summarize`] so both
+/// sides go through identical logic; no separate "previous" rules to drift
+/// from "current" ones.
+struct TreeSummary {
+    /// [`crate::status::compute`]'s label — the *same* function
+    /// `check_contract`'s `min_status` check uses, so a status shown here
+    /// can never disagree with what actually gated the run (status.rs's
+    /// own doc comment: "two independent definitions of 'status' will
+    /// drift, and the drift will be discovered at the worst possible
+    /// time").
+    status: &'static str,
+    nodes: usize,
+    flags: usize,
+    /// Every subcommand's dotted path (`"bisect start"`, not just
+    /// `"start"`), so two same-named subcommands under different parents
+    /// are never conflated.
+    subcommands: BTreeSet<String>,
+    /// Every flag's canonical spelling (`--long` if present, else `-x`).
+    flag_names: BTreeSet<String>,
+}
+
+/// Build a [`TreeSummary`] for `root` (`None` when no tier produced
+/// anything, e.g. a "current" side with no root, or an unresolvable
+/// `expected.snap`). `tool` only feeds the status stub's `tool` field,
+/// which `crate::status::compute` never actually reads.
+fn summarize(tool: &str, root: Option<&CommandNode>) -> TreeSummary {
+    let stub = mandible_extract::ExtractionResult {
+        tool: tool.to_string(),
+        root: root.cloned(),
+        tier_statuses: Vec::new(),
+        elapsed: Duration::ZERO,
+    };
+    let status = crate::status::compute(&stub);
+    let mut subcommands = BTreeSet::new();
+    let mut flag_names = BTreeSet::new();
+    if let Some(r) = root {
+        collect_subcommand_paths(r, "", &mut subcommands);
+        collect_flag_names(r, &mut flag_names);
+    }
+    TreeSummary {
+        status: status.label,
+        nodes: root.map(count_nodes).unwrap_or(0),
+        flags: root.map(count_flags).unwrap_or(0),
+        subcommands,
+        flag_names,
+    }
+}
+
+fn count_nodes(node: &CommandNode) -> usize {
+    1 + node.subcommands.iter().map(count_nodes).sum::<usize>()
+}
+
+fn count_flags(node: &CommandNode) -> usize {
+    node.flags.len() + node.subcommands.iter().map(count_flags).sum::<usize>()
+}
+
+fn collect_flag_names(node: &CommandNode, out: &mut BTreeSet<String>) {
+    for f in &node.flags {
+        if let Some(long) = &f.long {
+            out.insert(format!("--{long}"));
+        } else if let Some(short) = f.short {
+            out.insert(format!("-{short}"));
+        }
+    }
+    for child in &node.subcommands {
+        collect_flag_names(child, out);
+    }
+}
+
+fn collect_subcommand_paths(node: &CommandNode, prefix: &str, out: &mut BTreeSet<String>) {
+    for child in &node.subcommands {
+        let path = if prefix.is_empty() {
+            child.name.clone()
+        } else {
+            format!("{prefix} {}", child.name)
+        };
+        out.insert(path.clone());
+        collect_subcommand_paths(child, &path, out);
+    }
+}
+
+/// Minimal, tolerant mirror of `expected.snap`'s compact YAML shape
+/// (`mandible_core::snapshot::NodeSnapshot`), carrying only what
+/// [`TreeSummary`] needs. `NodeSnapshot` itself derives only `Serialize`
+/// (its own doc comment: the compact form is a one-way review artifact,
+/// not a round-trip format — every empty `Vec`/`None` field is omitted
+/// entirely), so a direct `Deserialize` of the full IR would fail on
+/// "missing field" for nearly every real fixture. `#[serde(default)]` on
+/// every field here is what makes an omitted key deserialize back to the
+/// same "empty" value its serializer chose not to write, instead of an
+/// error.
+#[derive(Debug, Clone, Default, Deserialize)]
+struct SnapFlag {
+    #[serde(default)]
+    short: Option<char>,
+    #[serde(default)]
+    long: Option<String>,
+    /// Needed for nothing this module names directly, but
+    /// [`crate::status::compute`]'s `pct_described` (and therefore the
+    /// `low-confidence` vs `ok` status boundary) reads it — omitting it
+    /// would make every reconstructed "previous" tree look 0% described
+    /// regardless of the real fixture, which would desync `TreeSummary`'s
+    /// two sides even when `expected.snap` and the fresh extraction are
+    /// byte-identical.
+    #[serde(default)]
+    description: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct SnapNode {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde(default)]
+    flags: Vec<SnapFlag>,
+    #[serde(default)]
+    subcommands: Vec<SnapNode>,
+    #[serde(default)]
+    unparsed: Vec<String>,
+    #[serde(default)]
+    heading_attested: bool,
+}
+
+/// Rebuild a real (if synthetic-provenance) [`CommandNode`] from a
+/// [`SnapNode`], so [`summarize`] can run the *exact same* status/count/
+/// name-collection logic over `expected.snap`'s tree that it runs over a
+/// freshly extracted one — one code path for both sides of the
+/// comparison, never a second one hand-written against the compact YAML
+/// shape. Every field `SnapNode` doesn't carry (provenance detail,
+/// descriptions, positionals, ...) is irrelevant to what [`summarize`]
+/// reads and is left at `CommandNode::new`'s defaults.
+fn snap_to_command_node(n: &SnapNode) -> CommandNode {
+    let mut node = CommandNode::new(n.name.clone(), Provenance::single(Source::HelpText));
+    node.summary = n.summary.as_deref().map(Text::sanitize);
+    node.heading_attested = n.heading_attested;
+    node.unparsed = n.unparsed.iter().map(|s| Text::sanitize(s)).collect();
+    node.flags = n
+        .flags
+        .iter()
+        .map(|f| {
+            let mut flag = Flag::long("", Provenance::single(Source::HelpText));
+            flag.long = f.long.clone();
+            flag.short = f.short;
+            flag.description = f.description.as_deref().map(Text::sanitize);
+            flag
+        })
+        .collect();
+    node.subcommands = n.subcommands.iter().map(snap_to_command_node).collect();
+    node
+}
+
+/// Read and convert a fixture's `expected.snap` into a [`TreeSummary`],
+/// `None` when it doesn't exist yet (legal for an unfixed `[xfail]`
+/// fixture, `corpus/README.md` step 4) or fails to parse (a corrupt or
+/// hand-edited file — degrade to "no baseline" rather than panicking on
+/// tool input, per AGENTS.md's `unwrap()` rule).
+fn previous_summary(fixture: &Fixture) -> Option<TreeSummary> {
+    let snap_path = fixture.expected_snap_path();
+    if !snap_path.is_file() {
+        return None;
+    }
+    let raw = std::fs::read_to_string(&snap_path).ok()?;
+    let snap: SnapNode = serde_yaml::from_str(&raw).ok()?;
+    let converted = snap_to_command_node(&snap);
+    Some(summarize(&fixture.meta.tool.name, Some(&converted)))
+}
+
+/// One fixture's row in the markdown transition report: the same
+/// pass/fail classification and detail lines the text report already
+/// computed, plus the two [`TreeSummary`] sides [`render_markdown_report`]
+/// diffs.
+struct FixtureRow {
+    label: String,
+    status_word: &'static str,
+    /// `contract: ...` / `snapshot: ...` lines, reused to decide which
+    /// remedy to name (§ this module's doc comment on `render_markdown_report`).
+    detail: Vec<String>,
+    current: TreeSummary,
+    previous: Option<TreeSummary>,
+}
+
+/// Cap on how many names a single markdown table cell shows inline before
+/// folding the rest into "+N more" — keeps a large-fixture regression
+/// scannable. Not load-bearing (informational only): the complete list is
+/// never dropped, only moved into a `<details>` block below the table (see
+/// [`capped_names`]), matching `path-sweep.yml`'s own summary step
+/// (`<details><summary>Per-tool tables</summary>`) for exactly the same
+/// reason — GitHub's step-summary UI renders `<details>` natively, so a
+/// reviewer who wants the full list expands it without ever leaving the
+/// page, and one who doesn't isn't shown a 1,000-line dump by default.
+const MARKDOWN_NAME_CAP: usize = 8;
+
+/// Render `names` as a capped, comma-joined inline string, plus (only when
+/// truncated) the complete list for a `<details>` block.
+fn capped_names(names: &BTreeSet<String>) -> (String, Option<String>) {
+    if names.is_empty() {
+        return (String::new(), None);
+    }
+    let all: Vec<&str> = names.iter().map(String::as_str).collect();
+    if all.len() <= MARKDOWN_NAME_CAP {
+        return (all.join(", "), None);
+    }
+    let shown = all[..MARKDOWN_NAME_CAP].join(", ");
+    let capped = format!("{shown}, +{} more", all.len() - MARKDOWN_NAME_CAP);
+    (capped, Some(all.join(", ")))
+}
+
+/// Escape the one GFM table-breaking character. Same reasoning and same
+/// narrow scope as `coverage::md_escape` — tool/flag/subcommand names are
+/// the only free-form content a table cell here ever holds.
+fn md_escape(s: &str) -> String {
+    s.replace('|', "\\|")
+}
+
+/// Render the corpus run as a GitHub-flavored markdown **transition
+/// report** for `$GITHUB_STEP_SUMMARY` — never a text diff of
+/// `expected.snap`.
+///
+/// `corpus/README.md` calls a snapshot mismatch the review step itself:
+/// `expected.snap` is descriptive, "subject to snapshot review", and a red
+/// run that forces a human to look *is* that review. But a 1,000+ line
+/// YAML diff is unreviewable — a reviewer facing one either reads none of
+/// it, or worse, learns to approve it unread, which quietly deletes the
+/// ratchet this whole harness exists to build (the PATH sweep's flapping
+/// history, AGENTS.md, is what an ignored gate costs once trust in it is
+/// gone). So instead of lines, this reports **what changed semantically**:
+/// status, node/flag counts, and which *named* subcommands/flags appeared
+/// or disappeared — the level of detail a reviewer can act on without
+/// opening the YAML at all.
+///
+/// Passing fixtures are included too, compactly (one row, "no change") —
+/// a report that only shows failures gives no sense of what the ratchet
+/// is actually protecting.
+///
+/// The remedy named for a failing row depends on *which* check failed, and
+/// the two are never blurred: a snapshot mismatch names `--bless` (the
+/// descriptive half may be accepted after review); a `[contract]`
+/// violation names a deliberate `meta.toml` edit (the normative half may
+/// only weaken by an explicit, reviewable change — never by blessing).
+fn render_markdown_report(
+    rows: &[FixtureRow],
+    total: usize,
+    green: usize,
+    xfail: usize,
+    failed: usize,
+) -> String {
+    let mut out = String::new();
+    out.push_str("## Corpus regression report\n\n");
+    out.push_str(
+        "Every fixture below is replayed through the real tiered extraction pipeline from \
+         frozen bytes — zero subprocesses, nothing environment-dependent, no live tool version \
+         to drift. A red row is always a real parser change, never runner flakiness \
+         (`corpus/README.md`); that is exactly why this check is a hard gate rather than a \
+         reported-only sweep like the PATH sweep.\n\n",
+    );
+    out.push_str(&format!(
+        "**{total} fixture(s):** {green} ok, {xfail} xfail (as expected), {failed} failed.\n\n",
+    ));
+    out.push_str("| fixture | outcome | status | nodes | flags | change |\n");
+    out.push_str("|---|---|---|---|---|---|\n");
+
+    let mut details_sections: Vec<String> = Vec::new();
+
+    for row in rows {
+        let (status_cell, nodes_cell, flags_cell, mut change_parts) = match &row.previous {
+            None => (
+                format!("{} (no baseline)", row.current.status),
+                row.current.nodes.to_string(),
+                row.current.flags.to_string(),
+                vec!["no `expected.snap` yet".to_string()],
+            ),
+            Some(prev) => {
+                let status_cell = if prev.status == row.current.status {
+                    prev.status.to_string()
+                } else {
+                    format!("{} → {}", prev.status, row.current.status)
+                };
+                let nodes_cell = if prev.nodes == row.current.nodes {
+                    prev.nodes.to_string()
+                } else {
+                    format!("{}→{}", prev.nodes, row.current.nodes)
+                };
+                let flags_cell = if prev.flags == row.current.flags {
+                    prev.flags.to_string()
+                } else {
+                    format!("{}→{}", prev.flags, row.current.flags)
+                };
+
+                let mut parts = Vec::new();
+                let removed_subs: BTreeSet<String> = prev
+                    .subcommands
+                    .difference(&row.current.subcommands)
+                    .cloned()
+                    .collect();
+                let added_subs: BTreeSet<String> = row
+                    .current
+                    .subcommands
+                    .difference(&prev.subcommands)
+                    .cloned()
+                    .collect();
+                let removed_flags: BTreeSet<String> = prev
+                    .flag_names
+                    .difference(&row.current.flag_names)
+                    .cloned()
+                    .collect();
+                let added_flags: BTreeSet<String> = row
+                    .current
+                    .flag_names
+                    .difference(&prev.flag_names)
+                    .cloned()
+                    .collect();
+
+                for (kind, names) in [
+                    ("removed subcommands", &removed_subs),
+                    ("added subcommands", &added_subs),
+                    ("removed flags", &removed_flags),
+                    ("added flags", &added_flags),
+                ] {
+                    if names.is_empty() {
+                        continue;
+                    }
+                    let count = names.len();
+                    let (capped, full) = capped_names(names);
+                    parts.push(format!("{kind} ({count}): {capped}"));
+                    if let Some(full) = full {
+                        details_sections.push(format!(
+                            "<details><summary>{} — {count} {kind}</summary>\n\n{full}\n\n</details>",
+                            row.label,
+                        ));
+                    }
+                }
+                if parts.is_empty() {
+                    parts.push("no change".to_string());
+                }
+                (status_cell, nodes_cell, flags_cell, parts)
+            }
+        };
+
+        if row.status_word == "FAIL" {
+            let has_snapshot_mismatch = row
+                .detail
+                .iter()
+                .any(|d| d.starts_with("snapshot mismatch") || d.contains("missing expected.snap"));
+            let has_contract_failure = row.detail.iter().any(|d| d.starts_with("contract:"));
+            if has_snapshot_mismatch {
+                change_parts.push(
+                    "**fix:** `cargo run -p xtask -- corpus --bless`, then review the \
+                     `expected.snap` diff"
+                        .to_string(),
+                );
+            }
+            if has_contract_failure {
+                change_parts.push(
+                    "**fix:** `[contract]` is normative — edit `meta.toml` deliberately \
+                     (never `--bless`) and justify the change in the PR"
+                        .to_string(),
+                );
+            }
+        }
+
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} | {} |\n",
+            md_escape(&row.label),
+            row.status_word,
+            md_escape(&status_cell),
+            nodes_cell,
+            flags_cell,
+            md_escape(&change_parts.join("; ")),
+        ));
+    }
+
+    if !details_sections.is_empty() {
+        out.push('\n');
+        for section in &details_sections {
+            out.push_str(section);
+            out.push('\n');
+        }
+    }
+
+    out
 }
 
 /// The outcome of a full corpus run.
@@ -778,11 +1198,11 @@ reason = "deliberately impossible contract, for the runner's own tests"
         let corpus = setup();
         green_fixture(&corpus.root);
 
-        let blessed = run(&corpus.root, true).expect("bless run succeeds");
+        let blessed = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
         assert!(!blessed.failed());
         assert!(corpus.root.join("mytool/1.0/expected.snap").is_file());
 
-        let checked = run(&corpus.root, false).expect("check run succeeds");
+        let checked = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
         assert!(
             !checked.failed(),
             "freshly-blessed fixture must check clean: {}",
@@ -794,7 +1214,7 @@ reason = "deliberately impossible contract, for the runner's own tests"
     fn xfail_fixture_that_still_fails_does_not_fail_the_run() {
         let corpus = setup();
         broken_xfail_fixture(&corpus.root);
-        let report = run(&corpus.root, false).expect("check run succeeds");
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
         assert!(
             !report.failed(),
             "an xfail fixture that still fails its contract must not fail the run: {}",
@@ -831,9 +1251,9 @@ reason = "was broken; this test fixture is deliberately no longer broken"
         // Bless first (spec's documented promotion order: accept the
         // snapshot, *then* the strict-xfail check on the next plain run
         // is what tells the contributor to remove [xfail]).
-        run(&corpus.root, true).expect("bless run succeeds");
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
 
-        let report = run(&corpus.root, false).expect("check run succeeds");
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
         assert!(
             report.failed(),
             "an xfail fixture whose checks now all pass must fail the run"
@@ -861,7 +1281,7 @@ stdout = "help.txt"
 "#,
         );
         write(&dir.join("help.txt"), MYTOOL_HELP);
-        let report = run(&corpus.root, false).expect("check run succeeds");
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
         assert!(
             report.failed(),
             "a non-[xfail] fixture with no expected.snap asserts nothing about structure at \
@@ -948,5 +1368,74 @@ stdout = "help-sub.txt"
         let labels: Vec<&str> = fixtures.iter().map(|f| f.label.as_str()).collect();
         assert!(labels.iter().any(|l| l.starts_with("tar/")), "{labels:?}");
         assert!(labels.iter().any(|l| l.starts_with("git/")), "{labels:?}");
+    }
+
+    /// A freshly-blessed, byte-identical fixture must report "no change"
+    /// in markdown, on **both** sides of the comparison agreeing on
+    /// status — the regression test for the bug this module's first draft
+    /// actually shipped: `SnapFlag` without a `description` field made
+    /// every reconstructed "previous" tree look 0% described regardless of
+    /// the real fixture, desyncing `status` (`low-confidence` vs `ok`)
+    /// even when nothing had changed.
+    #[test]
+    fn markdown_report_on_a_matching_fixture_says_no_change() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Markdown).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(
+            report.text.contains("no change"),
+            "an unchanged fixture must be reported as such, not silently omitted: {}",
+            report.text
+        );
+        // Never a raw YAML diff: the compact snapshot's own field names
+        // (`heading_attested`, `provenance`) must not leak into the
+        // markdown report as if it were the file's literal text.
+        assert!(!report.text.contains("heading_attested"));
+        assert!(!report.text.contains("provenance"));
+    }
+
+    /// The markdown report's whole reason to exist: when a snapshot
+    /// mismatches, it must name *which* flag disappeared — not report a
+    /// line count, and never the raw YAML — and it must point at
+    /// `--bless` as the remedy, not at editing `meta.toml` (that remedy is
+    /// reserved for a `[contract]` violation, a different failure this
+    /// fixture doesn't trigger).
+    #[test]
+    fn markdown_report_on_a_snapshot_mismatch_names_the_lost_flag() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        // Simulate a regression: the fixture's captured `--help` gains a
+        // second flag that the blessed `expected.snap` doesn't know about
+        // yet (as if a grammar change started recognizing it, or — the
+        // regression direction that matters — stopped recognizing an
+        // existing one). Either way this must show up as a *named* flag,
+        // not a line-number diff.
+        write(
+            &corpus.root.join("mytool/1.0/help.txt"),
+            "Usage: mytool [OPTIONS] <COMMAND>\n\nOptions:\n  -v, --verbose   be noisy\n  -q, --quiet   be silent\n\nCommands:\n  run    run the thing\n",
+        );
+
+        let report = run(&corpus.root, false, ScoreFormat::Markdown).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("--quiet"),
+            "the specific flag that changed must be named: {}",
+            report.text
+        );
+        assert!(
+            report.text.contains("--bless"),
+            "a snapshot mismatch must name --bless as the remedy: {}",
+            report.text
+        );
+        assert!(
+            !report.text.contains("edit `meta.toml`"),
+            "a snapshot mismatch is not a [contract] violation and must not point at meta.toml: {}",
+            report.text
+        );
     }
 }

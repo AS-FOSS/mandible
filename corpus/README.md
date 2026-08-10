@@ -212,10 +212,15 @@ the suite" implements it in full: snapshot + `[contract]` + strict-xfail
 subcommands; `git` — `[xfail]`, holding open two real, currently-unfixed
 `extract_positionals` defects). Still open:
 
-- [ ] Wiring `cargo xtask corpus` into CI as a required check
 - [ ] `mandible capture <tool>` — one-command fixture bundle with masking
 - [ ] `xtask`-generated `FRAMEWORKS.md` table
-- [ ] A machine-readable transition report (JSON/markdown) for CI to post,
-      analogous to the coverage harness's `--format markdown`
 - [x] This contract document
 - [x] The `xtask corpus` runner itself
+- [x] Wiring `cargo xtask corpus` into CI as a required check (`.github/
+      workflows/ci.yml`'s `corpus` job — a hard gate, unlike the PATH
+      sweep, because this runner spawns no subprocesses and reads only
+      frozen bytes: nothing about it can flap)
+- [x] A markdown transition report for CI to post (`cargo xtask corpus
+      --format markdown`, written to `$GITHUB_STEP_SUMMARY`) — status,
+      node/flag counts, and named subcommand/flag deltas, never a raw
+      `expected.snap` diff

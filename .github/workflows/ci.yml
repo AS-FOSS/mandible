@@ -158,3 +158,51 @@ jobs:
           cargo xtask coverage --check
           --out coverage-scoreboard.ci.txt
           --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
+
+  # Corpus regression net (spec §13.2, corpus/README.md, xtask/src/corpus.rs):
+  # replays every corpus/<tool>/<version>/ fixture through the real tiered
+  # extraction pipeline from bytes frozen in the repo.
+  #
+  # This is a **hard gate**, unlike `path-sweep.yml`'s coverage sweep — read
+  # that file's header for the long version of why *it* deliberately isn't
+  # one, because the contrast is the point. The short version: the corpus
+  # runner spawns zero subprocesses (`Transcript`, not a live `exec`), reads
+  # only bytes checked into this repo, and never touches an installed
+  # tool's version — nothing here can vary between two runs of the same
+  # commit. `path-sweep.yml` measured the alternative directly: two sweeps
+  # of *identical* code, on a contended shared VM, had four tools flap
+  # purely on timing (`waagent2.0` went `ok` -> `verbatim` as its elapsed
+  # time halved between runs, AGENTS.md). That class of flake is
+  # structurally impossible here, so a red run is always a real parser
+  # change — a `[contract]` violation or a snapshot mismatch — and gating
+  # on it costs nothing a human wouldn't want caught before merge.
+  #
+  # `--format markdown` renders a semantic before/after transition report
+  # (status, node/flag counts, and *named* subcommand/flag deltas) instead
+  # of a raw `expected.snap` diff, for the same reason `corpus/README.md`
+  # frames blessing as something to *review*: a fixture like tar's runs
+  # over a thousand YAML lines, and a diff that size gets approved unread,
+  # which quietly deletes the ratchet this whole harness exists to build.
+  # `tee -a` (not `>>`, which would only ever reach the file) both prints
+  # the report to this step's own log and appends it to
+  # `$GITHUB_STEP_SUMMARY`; `pipefail` keeps `cargo xtask corpus`'s exit
+  # code — not `tee`'s — as the step's result, so a regression still fails
+  # the job even though its output was piped.
+  #
+  # Ubuntu-only, deliberately not matrixed like fmt/clippy/test above: the
+  # runner touches no OS-conditional code path (no subprocess, no
+  # filesystem probing beyond reading its own fixtures), so a second run on
+  # macOS would exercise nothing fmt/clippy/test/msrv's own matrix doesn't
+  # already cover.
+  corpus:
+    name: corpus regression net
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Replay corpus fixtures
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo xtask corpus --format markdown | tee -a "$GITHUB_STEP_SUMMARY"

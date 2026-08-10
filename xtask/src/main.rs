@@ -87,6 +87,16 @@ enum Command {
         /// The corpus root to scan.
         #[arg(long, default_value = "corpus")]
         dir: PathBuf,
+        /// Output format for a *checking* run (ignored with `--bless`,
+        /// which only ever rewrites and reports what it wrote): fixed
+        /// per-fixture `text` lines (unchanged since this command's first
+        /// version), or GitHub-flavored `markdown` — a semantic before/
+        /// after transition report (status, node/flag counts, named
+        /// subcommand/flag deltas), never a raw `expected.snap` diff. The
+        /// corpus CI job writes this straight to `$GITHUB_STEP_SUMMARY`,
+        /// same convention as `coverage`'s `--format markdown`.
+        #[arg(long, value_enum, default_value = "text")]
+        format: ScoreFormat,
     },
 }
 
@@ -104,12 +114,12 @@ fn main() -> anyhow::Result<()> {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
             run_coverage(check, &out, tools, shard, progress, format)
         }
-        Command::Corpus { bless, dir } => run_corpus(bless, &dir),
+        Command::Corpus { bless, dir, format } => run_corpus(bless, &dir, format),
     }
 }
 
-fn run_corpus(bless: bool, dir: &std::path::Path) -> anyhow::Result<()> {
-    let report = corpus::run(dir, bless)?;
+fn run_corpus(bless: bool, dir: &std::path::Path, format: ScoreFormat) -> anyhow::Result<()> {
+    let report = corpus::run(dir, bless, format)?;
     println!("{}", report.text);
     if report.failed() {
         anyhow::bail!(
