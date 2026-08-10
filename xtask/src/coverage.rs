@@ -11,7 +11,6 @@
 //! scoreboard, plus a `--format markdown` mode the framework-support CI
 //! workflow (batch 6 part 6, spec §13.1a) consumes.
 
-use mandible_core::{is_command_name_shaped, CommandNode};
 use mandible_extract::{default_tiers, resolve_tool, ExtractionResult, Runner};
 use rayon::prelude::*;
 use std::collections::BTreeMap;
@@ -45,7 +44,7 @@ struct Row {
     pct_described: Option<f64>,
     ms: u128,
     /// Structure-sanity count (spec §13.1): descendant nodes whose name
-    /// fails [`is_command_name_shaped`], plus descendant nodes with no
+    /// fails [`mandible_core::is_command_name_shaped`], plus descendant nodes with no
     /// flags, no children, and no summary. Non-zero means `status` is
     /// forced to `"suspicious"` regardless of `%described` — the whole
     /// point of this column is that `%described` alone cannot detect
@@ -73,7 +72,7 @@ pub struct Aggregate {
     /// Tools for which no tier produced a root node at all.
     pub no_tier_count: usize,
     /// Tools with at least one structurally-suspicious node (spec §13.1):
-    /// a name failing [`is_command_name_shaped`], or a node with no flags,
+    /// a name failing [`mandible_core::is_command_name_shaped`], or a node with no flags,
     /// no children, and no summary. Gated exactly like `no_tier_count` —
     /// [M-10] shipped as `ok` at `100% described` because `%described`
     /// alone can't see fabricated structure; this is the column that can.
@@ -216,44 +215,15 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
     };
 
     let framework = framework_label(tool, &result);
-
     let nodes = result.node_count();
     let flags = result.flag_count();
-    let pct_described = if flags == 0 {
-        None
-    } else {
-        Some(result.flag_description_ratio() * 100.0)
-    };
 
-    let suspicious_nodes = result.root.as_ref().map(structure_sanity).unwrap_or(0);
-    let verbatim = result.root.as_ref().is_some_and(|r| !r.unparsed.is_empty());
-
-    let status = if result.root.is_none() {
-        "no-tier"
-    } else if verbatim {
-        // Spec §7 Tier B step 3: this tool produced no structure at all
-        // and is showing the author's own raw text instead — distinct
-        // from `suspicious` (fabricated structure) and from `no-tier`
-        // (nothing at all, not even raw text). Checked before
-        // `suspicious`/`%described` for the same reason both of those
-        // are checked in the order they are: a verbatim root always has
-        // zero subcommands by construction (level 3 clears them), so it
-        // can never also be `suspicious` — this ordering just documents
-        // that rather than relying on it being an accident.
-        "verbatim"
-    } else if suspicious_nodes > 0 {
-        // Checked before %described on purpose: a tool that's tripping
-        // the structure-sanity check is suspicious regardless of how
-        // "described" its (possibly fabricated) flags look — [M-10]
-        // reported `tar` as `ok` at `100% described` while 39 of its 40
-        // nodes were invented, because the invented nodes inflated the
-        // metric instead of depressing it.
-        "suspicious"
-    } else if pct_described.map(|p| p < 50.0).unwrap_or(false) {
-        "low-confidence"
-    } else {
-        "ok"
-    };
+    // Status derivation (structure-sanity count, verbatim flag,
+    // %described, and the final label) is computed once in `status.rs`
+    // and shared verbatim with the corpus runner — see that module's doc
+    // comment for why an independent second definition here would be a
+    // drift risk, not a convenience.
+    let status = crate::status::compute(&result);
 
     Row {
         tool: tool.to_string(),
@@ -261,11 +231,11 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
         framework,
         nodes,
         flags,
-        pct_described,
+        pct_described: status.pct_described,
         ms,
-        suspicious_nodes,
-        verbatim,
-        status,
+        suspicious_nodes: status.suspicious_nodes,
+        verbatim: status.verbatim,
+        status: status.label,
     }
 }
 
@@ -302,51 +272,6 @@ fn framework_label(tool: &str, result: &ExtractionResult) -> String {
         "help-text"
     };
     format!("{name} ({method})")
-}
-
-/// Count descendant nodes (not the root itself — see below) that fail
-/// either half of spec §13.1's structure-sanity check: a name that
-/// doesn't look like a real command (`is_command_name_shaped`), or a node
-/// with no flags, no children, no summary, and — this is the half issue
-/// #2 changed — no [`CommandNode::heading_attested`] evidence either.
-///
-/// **Why emptiness alone isn't enough (issue #2).** A node that exists but
-/// carries nothing is exactly what a mis-parsed continuation line or
-/// enum-value-turned-subcommand looks like — *and* exactly what a real,
-/// legitimately description-less command looks like: `openssl --help`
-/// lists 152 real commands (`asn1parse`, `ca`, `ciphers`, ...) as a bare
-/// word grid with no per-entry description at all, so all but one were
-/// getting flagged `suspicious` by emptiness alone. The distinguishing
-/// signal is *provenance, not emptiness*: `heading_attested` is set only
-/// at the parser call sites already gated on positive evidence of a real
-/// command list (a recognized heading, or a chain/pseudo-entry started by
-/// one — see [`CommandNode::heading_attested`]'s doc comment), so an empty
-/// node without it is still exactly [M-10]'s phantom-subcommand shape
-/// (`tar`'s 39 wrapped-description-fragment nodes, none of which came
-/// from any such evidence) and stays suspicious. A node whose *name* is
-/// bad-shaped stays suspicious regardless of `heading_attested` — that
-/// half of the check is orthogonal to provenance and must not be weakened
-/// by it.
-///
-/// The root is deliberately excluded from the name-shape half: it's the
-/// literal executable name resolved from `PATH`, never something a tier
-/// guessed at, and plenty of completely legitimate real-world binaries
-/// (`NetworkManager`, `FileCheck-18`, `aarch64-linux-gnu-cpp-13`) fail
-/// `^[a-z][a-z0-9_.-]*$` on casing or a leading digit alone. Counting
-/// those would swamp the signal this column exists to carry — a metric
-/// too noisy to trust is exactly as useless as one that's gameable.
-fn structure_sanity(root: &CommandNode) -> usize {
-    root.subcommands.iter().map(count_suspicious).sum()
-}
-
-fn count_suspicious(node: &CommandNode) -> usize {
-    let bad_name = !is_command_name_shaped(&node.name);
-    let empty = node.flags.is_empty()
-        && node.subcommands.is_empty()
-        && node.summary.is_none()
-        && !node.heading_attested;
-    let this_node = usize::from(bad_name || empty);
-    this_node + node.subcommands.iter().map(count_suspicious).sum::<usize>()
 }
 
 /// Shorten a tier's internal name (e.g. `"known_specs::carapace"`) to the
@@ -1103,85 +1028,8 @@ mod tests {
         assert!(table.starts_with("| tool |"));
     }
 
-    fn leaf(name: &str) -> CommandNode {
-        CommandNode::new(
-            name,
-            mandible_core::Provenance::single(mandible_core::Source::HelpText),
-        )
-    }
-
-    /// The exact regression this column exists for: a tool whose
-    /// subcommands are all fabricated fragments must not be structurally
-    /// clean just because each fragment happens to have "a description"
-    /// (its own trailing prose, in [M-10]'s case).
-    #[test]
-    fn structure_sanity_flags_fabricated_names() {
-        let mut root = leaf("tar");
-        let mut phantom = leaf("treat them as errors");
-        phantom.summary = Some(mandible_core::Text::sanitize(
-            "some trailing description text",
-        ));
-        root.subcommands.push(phantom);
-        assert_eq!(structure_sanity(&root), 1);
-    }
-
-    /// A node that exists but carries nothing (no flags, no children, no
-    /// summary) is exactly the shape a mis-parsed continuation line takes
-    /// even when its *name* happens to pass the shape test (an enum value
-    /// like `gnu` parses as a fine identifier; it's still not a command).
-    #[test]
-    fn structure_sanity_flags_empty_nodes_with_valid_names() {
-        let mut root = leaf("tar");
-        root.subcommands.push(leaf("gnu"));
-        assert_eq!(structure_sanity(&root), 1);
-    }
-
-    #[test]
-    fn structure_sanity_ignores_the_roots_own_name() {
-        // Root names are real executable filenames from PATH, not
-        // something a tier guessed — e.g. "NetworkManager" fails the
-        // lowercase-start regex but is a completely real binary.
-        let mut root = leaf("NetworkManager");
-        let mut child = leaf("status");
-        child.summary = Some(mandible_core::Text::sanitize("Show status"));
-        root.subcommands.push(child);
-        assert_eq!(structure_sanity(&root), 0);
-    }
-
-    /// The core regression for issue #2: an empty node with no
-    /// `heading_attested` evidence (the shape a phantom node — tar's 39
-    /// wrapped-description-fragment "subcommands" — always has) must stay
-    /// suspicious, while an otherwise-identical empty node that *does*
-    /// carry that evidence (openssl's bare command grid: real commands,
-    /// no per-entry description) must not. Provenance, not emptiness, is
-    /// what the check now discriminates on.
-    #[test]
-    fn structure_sanity_distinguishes_fabricated_empty_nodes_from_heading_attested_ones() {
-        let mut fabricated_root = leaf("tar");
-        fabricated_root.subcommands.push(leaf("gnu"));
-        assert_eq!(
-            structure_sanity(&fabricated_root),
-            1,
-            "an empty node with no heading evidence must stay suspicious"
-        );
-
-        let mut openssl_like_root = leaf("openssl");
-        let mut attested = leaf("asn1parse");
-        attested.heading_attested = true;
-        openssl_like_root.subcommands.push(attested);
-        assert_eq!(
-            structure_sanity(&openssl_like_root),
-            0,
-            "an empty node with heading evidence must not be flagged just for being empty"
-        );
-    }
-
-    #[test]
-    fn structure_sanity_is_zero_for_a_clean_tree() {
-        let mut root = leaf("git");
-        let mut child = leaf("commit");
-        child.summary = Some(mandible_core::Text::sanitize("Record changes"));
-        root.subcommands.push(child);
-        assert_eq!(structure_sanity(&root), 0);
-    }
+    // `structure_sanity`'s own unit tests (fabricated names, empty nodes,
+    // the root-name exclusion, `heading_attested` provenance, a clean
+    // tree) now live in `status.rs`'s test module, alongside the function
+    // itself — see that module's doc comment for why it moved.
 }

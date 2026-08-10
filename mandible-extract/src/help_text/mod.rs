@@ -302,11 +302,26 @@ mod tests {
     use crate::resolve::resolve_tool;
 
     fn fixture(name: &str) -> String {
-        let path = format!(
-            "{}/tests/fixtures/help_text/{name}",
-            env!("CARGO_MANIFEST_DIR")
-        );
-        std::fs::read_to_string(path).unwrap()
+        // `tar --help` and `git --help`'s captures now live once, as the
+        // corpus regression fixtures (`corpus/tar/<version>/help.txt`,
+        // `corpus/git/<version>/help.txt` — see corpus/README.md), rather
+        // than duplicated here byte-for-byte. A version bump means
+        // updating the path below, same as the corpus fixture's own
+        // directory would need renaming.
+        let path = match name {
+            "tar_help.stdout" => {
+                format!("{}/../corpus/tar/1.35/help.txt", env!("CARGO_MANIFEST_DIR"))
+            }
+            "git_help.stdout" => format!(
+                "{}/../corpus/git/2.43.0/help.txt",
+                env!("CARGO_MANIFEST_DIR")
+            ),
+            _ => format!(
+                "{}/tests/fixtures/help_text/{name}",
+                env!("CARGO_MANIFEST_DIR")
+            ),
+        };
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading fixture {path}: {e}"))
     }
 
     /// `raw_help` is a second public entry point into the exec boundary,

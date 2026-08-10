@@ -1511,8 +1511,12 @@ fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
 mod tests {
     use super::*;
 
-    const TAR_HELP: &str = include_str!("../../tests/fixtures/help_text/tar_help.stdout");
-    const GIT_HELP: &str = include_str!("../../tests/fixtures/help_text/git_help.stdout");
+    // These two captures live once, as the corpus regression fixtures
+    // (`corpus/tar/1.35/help.txt`, `corpus/git/2.43.0/help.txt` — see
+    // corpus/README.md), rather than a byte-identical second copy under
+    // this crate's own `tests/fixtures/`.
+    const TAR_HELP: &str = include_str!("../../../corpus/tar/1.35/help.txt");
+    const GIT_HELP: &str = include_str!("../../../corpus/git/2.43.0/help.txt");
     const OPENSSL_HELP: &str = include_str!("../../tests/fixtures/help_text/openssl_help.stderr");
     const IP_HELP: &str = include_str!("../../tests/fixtures/help_text/ip_help.stderr");
     const DD_HELP: &str = include_str!("../../tests/fixtures/help_text/dd_help.stdout");

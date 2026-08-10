@@ -3,7 +3,9 @@
 
 #![forbid(unsafe_code)]
 
+mod corpus;
 mod coverage;
+mod status;
 
 use clap::{Parser, Subcommand};
 use coverage::ScoreFormat;
@@ -68,6 +70,24 @@ enum Command {
         #[arg(long, value_enum, default_value = "text")]
         format: ScoreFormat,
     },
+    /// Replay every fixture under `corpus/<tool>/<version>/` through the
+    /// real tiered extraction pipeline with zero subprocesses (spec
+    /// §13.2, `corpus/README.md`), and fail loudly when a parse
+    /// regresses: a snapshot mismatch, a violated `[contract]`, a
+    /// promoted-but-still-`[xfail]`-marked fixture, or a fixture that
+    /// parses slower than the coarse 100ms ceiling.
+    Corpus {
+        /// Rewrite every fixture's `expected.snap` to match its freshly
+        /// extracted tree instead of checking it. Never fails the run
+        /// (short of an I/O error) — this is the accept-the-new-snapshot
+        /// step of `corpus/README.md`'s fixture workflow, the plain-file-
+        /// compare equivalent of `cargo insta review`.
+        #[arg(long)]
+        bless: bool,
+        /// The corpus root to scan.
+        #[arg(long, default_value = "corpus")]
+        dir: PathBuf,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -84,7 +104,20 @@ fn main() -> anyhow::Result<()> {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
             run_coverage(check, &out, tools, shard, progress, format)
         }
+        Command::Corpus { bless, dir } => run_corpus(bless, &dir),
     }
+}
+
+fn run_corpus(bless: bool, dir: &std::path::Path) -> anyhow::Result<()> {
+    let report = corpus::run(dir, bless)?;
+    println!("{}", report.text);
+    if report.failed() {
+        anyhow::bail!(
+            "corpus regression: {} fixture(s) failed — see above",
+            report.failures.len()
+        );
+    }
+    Ok(())
 }
 
 /// Parse an `INDEX/TOTAL` shard spec, rejecting the off-by-one mistakes

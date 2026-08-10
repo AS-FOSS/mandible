@@ -2366,6 +2366,10 @@ dependencies = [
  "mandible-core",
  "mandible-extract",
  "rayon",
+ "serde",
+ "serde_yaml",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]

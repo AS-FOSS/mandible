@@ -1,0 +1,185 @@
+//! Shared parse-status derivation (spec §13.1), used identically by the
+//! coverage harness (`coverage.rs`) and the corpus regression runner
+//! (`corpus.rs`).
+//!
+//! This used to be computed independently in `coverage::score_one` and (in
+//! an earlier draft of the corpus runner) a second time here, and the work
+//! order for the corpus runner called that out by name: "two independent
+//! definitions of 'status' will drift, and the drift will be discovered at
+//! the worst possible time." So there is exactly one function that turns an
+//! [`ExtractionResult`] into a status label, [`compute`], and both callers
+//! use it.
+
+use mandible_core::{is_command_name_shaped, CommandNode};
+use mandible_extract::ExtractionResult;
+
+/// A tool/fixture's derived status plus the raw numbers that produced it,
+/// so a caller (the coverage scoreboard's `Row`, or the corpus runner's
+/// per-fixture report) can render its own detail without recomputing
+/// anything.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Status {
+    /// Descendant nodes failing spec §13.1's structure-sanity check (a
+    /// bad-shaped name, or emptiness with no `heading_attested` evidence).
+    /// Non-zero forces `label` to `"suspicious"` regardless of everything
+    /// else — see [`structure_sanity`]'s doc comment on why emptiness
+    /// alone isn't enough and why this is checked ahead of `%described`.
+    pub suspicious_nodes: usize,
+    /// True when the root degraded to spec §7 Tier B step 3's verbatim
+    /// rendering (`CommandNode::unparsed` non-empty).
+    pub verbatim: bool,
+    /// Percentage (0-100) of flags in the merged tree with a description.
+    /// `None` when the tree has no flags at all to compute a ratio over.
+    pub pct_described: Option<f64>,
+    /// One of `"no-tier"`, `"verbatim"`, `"suspicious"`, `"low-confidence"`,
+    /// `"ok"` — see [`compute`] for the derivation order.
+    pub label: &'static str,
+}
+
+/// Derive [`Status`] from a completed extraction, exactly as
+/// `coverage::score_one` did before this module existed (moved here
+/// unchanged, not reimplemented — see this module's doc comment).
+pub fn compute(result: &ExtractionResult) -> Status {
+    let suspicious_nodes = result.root.as_ref().map(structure_sanity).unwrap_or(0);
+    let verbatim = result.root.as_ref().is_some_and(|r| !r.unparsed.is_empty());
+
+    let flags = result.flag_count();
+    let pct_described = if flags == 0 {
+        None
+    } else {
+        Some(result.flag_description_ratio() * 100.0)
+    };
+
+    let label = if result.root.is_none() {
+        "no-tier"
+    } else if verbatim {
+        // Spec §7 Tier B step 3: this tool produced no structure at all
+        // and is showing the author's own raw text instead — distinct
+        // from `suspicious` (fabricated structure) and from `no-tier`
+        // (nothing at all, not even raw text). A verbatim root always has
+        // zero subcommands by construction, so it can never also trip the
+        // structure-sanity check below; checked first anyway so that
+        // invariant is documented rather than relied on as an accident.
+        "verbatim"
+    } else if suspicious_nodes > 0 {
+        // Checked before %described on purpose: [M-10] reported `tar` as
+        // `ok` at `100% described` while 39 of its 40 nodes were
+        // fabricated, because the invented nodes inflated the metric
+        // instead of depressing it. A tool tripping structure-sanity is
+        // suspicious regardless of how "described" its possibly-invented
+        // flags look.
+        "suspicious"
+    } else if pct_described.map(|p| p < 50.0).unwrap_or(false) {
+        "low-confidence"
+    } else {
+        "ok"
+    };
+
+    Status {
+        suspicious_nodes,
+        verbatim,
+        pct_described,
+        label,
+    }
+}
+
+/// Count descendant nodes (root excluded — see below) that fail spec
+/// §13.1's structure-sanity check: a name that doesn't look like a real
+/// command ([`is_command_name_shaped`]), or a node with no flags, no
+/// children, no summary, and no [`CommandNode::heading_attested`]
+/// evidence.
+///
+/// **Why emptiness alone isn't enough.** A node that exists but carries
+/// nothing is exactly what a mis-parsed continuation line or enum-value-
+/// turned-subcommand looks like — *and* exactly what a real,
+/// legitimately description-less command looks like (`openssl --help`
+/// lists 152 real commands as a bare word grid with no per-entry
+/// description). The distinguishing signal is provenance, not emptiness:
+/// `heading_attested` is set only where the parser already had positive
+/// evidence of a real command list, so an empty node without it is still
+/// [M-10]'s phantom-subcommand shape and stays suspicious.
+///
+/// The root is excluded from the name-shape half: it's the literal
+/// executable name resolved from `PATH` (or, for the corpus runner, the
+/// fixture's declared tool name), never something a tier guessed at, and
+/// plenty of legitimate real-world binaries (`NetworkManager`,
+/// `aarch64-linux-gnu-cpp-13`) fail `^[a-z][a-z0-9_.-]*$` on casing or a
+/// leading digit alone.
+pub fn structure_sanity(root: &CommandNode) -> usize {
+    root.subcommands.iter().map(count_suspicious).sum()
+}
+
+fn count_suspicious(node: &CommandNode) -> usize {
+    let bad_name = !is_command_name_shaped(&node.name);
+    let empty = node.flags.is_empty()
+        && node.subcommands.is_empty()
+        && node.summary.is_none()
+        && !node.heading_attested;
+    let this_node = usize::from(bad_name || empty);
+    this_node + node.subcommands.iter().map(count_suspicious).sum::<usize>()
+}
+
+/// The `min_status` ladder (`corpus/README.md`'s `[contract]` field),
+/// coarsest to finest. Defined exactly once so `xtask corpus`'s contract
+/// check and any future consumer agree on what "at least ok" means.
+///
+/// A future `incomplete` status (noted in the corpus work order as
+/// "will slot in after `ok`") is a one-line addition here — append it
+/// after `"ok"` — which is the whole reason this is a lookup table rather
+/// than a hand-written comparison chain.
+///
+/// **`"suspicious"` is deliberately not on this ladder.** It is not a
+/// coarser or finer degree of the same "how much did we recover" scale
+/// the other four measure — it means the parser recovered structure that
+/// isn't real. AGENTS.md's structure-sanity invariant is explicit that
+/// fabricated structure is *worse* than missing structure, so no
+/// `min_status` floor is satisfiable by a suspicious result:
+/// [`meets_min_status`] fails it outright rather than ranking it.
+const STATUS_LADDER: &[&str] = &["no-tier", "verbatim", "low-confidence", "ok"];
+
+/// True when `actual` meets or exceeds the `min` floor on [`STATUS_LADDER`].
+/// `"suspicious"` never meets any floor (see the ladder's doc comment).
+/// An unrecognized label in either position fails closed (`false`) rather
+/// than panicking, since `min` ultimately comes from a hand-edited
+/// `meta.toml` a contributor could typo.
+pub fn meets_min_status(actual: &str, min: &str) -> bool {
+    if actual == "suspicious" {
+        return false;
+    }
+    let actual_rank = STATUS_LADDER.iter().position(|s| *s == actual);
+    let min_rank = STATUS_LADDER.iter().position(|s| *s == min);
+    matches!((actual_rank, min_rank), (Some(a), Some(m)) if a >= m)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ladder_orders_coarsest_to_finest() {
+        assert!(meets_min_status("ok", "ok"));
+        assert!(meets_min_status("ok", "low-confidence"));
+        assert!(meets_min_status("ok", "verbatim"));
+        assert!(meets_min_status("ok", "no-tier"));
+        assert!(meets_min_status("low-confidence", "verbatim"));
+        assert!(!meets_min_status("verbatim", "ok"));
+        assert!(!meets_min_status("no-tier", "verbatim"));
+    }
+
+    #[test]
+    fn suspicious_never_meets_any_floor_including_the_lowest() {
+        assert!(!meets_min_status("suspicious", "no-tier"));
+    }
+
+    #[test]
+    fn equal_ranks_meet_the_floor() {
+        assert!(meets_min_status("no-tier", "no-tier"));
+        assert!(meets_min_status("verbatim", "verbatim"));
+    }
+
+    #[test]
+    fn unrecognized_labels_fail_closed() {
+        assert!(!meets_min_status("ok", "incomplete"));
+        assert!(!meets_min_status("typo'd-status", "ok"));
+    }
+}

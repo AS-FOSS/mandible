@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Developer tasks for the mandible workspace: catalog index verification and the extraction coverage harness (spec §13.1)."
+description = "Developer tasks for the mandible workspace: catalog index verification, the extraction coverage harness (spec §13.1), and the corpus regression runner (spec §13.2, corpus/README.md)."
 keywords = ["cli", "mandible", "xtask"]
 categories = ["development-tools"]
 publish = false
@@ -22,3 +22,9 @@ mandible-extract.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 rayon.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
