@@ -43,7 +43,15 @@
 //!   every fixture regardless of xfail status — a slow parse is a bug
 //!   (AGENTS.md's "never call an O(n)-or-worse function from inside a
 //!   loop's own condition" entry, the 153-second incident) whether or not
-//!   the fixture's *content* is expected to be broken.
+//!   the fixture's *content* is expected to be broken. **This one warns
+//!   rather than failing the run**; it is the only wall-clock-dependent
+//!   check here, and [`MAX_FIXTURE_PARSE_TIME`] explains why that
+//!   distinction is load-bearing rather than a softening.
+//!
+//! Checks (a) through (c) block. Check (d) warns. That split is the whole
+//! reason this gate can be strict at all: everything that blocks is
+//! deterministic, so a red is always a real parser change and never the
+//! shared runner having a bad afternoon.
 
 use crate::coverage::ScoreFormat;
 use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
@@ -61,6 +69,26 @@ use std::time::{Duration, Instant};
 /// in-memory parse should ever cost, so this never fires on ordinary
 /// millisecond-scale variance and exists only to catch the next
 /// accidental quadratic loop before it ships.
+///
+/// **This check warns; it does not fail the run.** It is the one
+/// nondeterministic ingredient in an otherwise fully deterministic runner —
+/// every other check reads frozen bytes and spawns nothing, so a red is
+/// always a real parser change, which is what earns this gate the right to
+/// block where the live PATH sweep does not. Wall-clock on shared CI
+/// hardware is not that. Measured on this project's own runners:
+/// `waagent2.0` took 41.9s in one sweep and 21.4s in the next **with
+/// identical code**, roughly 40x contention — so the ~100x headroom this
+/// ceiling has over a real ~1ms fixture parse is a thinner margin than it
+/// looks.
+///
+/// The asymmetry decides it. A missed quadratic is caught by the next run,
+/// by the sweep's own `ms` column, or by a warning nobody could miss (the
+/// motivating incident was 153,000ms against a 100ms line — it does not
+/// arrive as a borderline reading). One false red on timing, by contrast,
+/// teaches people that a red corpus run can be ignored, and that habit
+/// costs the correctness checks their authority. Blocking on flaky
+/// wall-clock would reproduce, inside the one gate immune to it, the exact
+/// failure `path-sweep.yml` is deliberately non-gating to avoid.
 const MAX_FIXTURE_PARSE_TIME: Duration = Duration::from_millis(100);
 
 /// Bound on the recursive per-fixture tree fill (see this module's doc
@@ -520,6 +548,24 @@ enum Outcome {
 /// ignored while blessing — bless has no "review artifact" to format,
 /// only a rewrite-and-report-what-was-written action.
 pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Result<CorpusReport> {
+    run_with_ceiling(corpus_root, bless, format, MAX_FIXTURE_PARSE_TIME)
+}
+
+/// [`run`], with the parse-time ceiling injected rather than taken from
+/// [`MAX_FIXTURE_PARSE_TIME`].
+///
+/// Exists so the warn-don't-block property is testable: a real fixture
+/// parses in well under a millisecond, so the only way to exercise a
+/// ceiling violation is to lower the ceiling. Without this seam the
+/// property could only be checked by editing the constant by hand — which
+/// is how it was verified originally, and exactly the kind of unguarded
+/// behaviour a later refactor silently reverses.
+fn run_with_ceiling(
+    corpus_root: &Path,
+    bless: bool,
+    format: ScoreFormat,
+    max_parse_time: Duration,
+) -> anyhow::Result<CorpusReport> {
     let fixtures = discover_fixtures(corpus_root)?;
     if fixtures.is_empty() {
         anyhow::bail!(
@@ -545,10 +591,10 @@ pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Resu
         let root = extract_tree(&runner, &resolved);
         let elapsed = start.elapsed();
 
-        if elapsed > MAX_FIXTURE_PARSE_TIME {
+        if elapsed > max_parse_time {
             timing_violations.push(format!(
                 "{}: parsed in {:?}, exceeding the {:?} ceiling",
-                fixture.label, elapsed, MAX_FIXTURE_PARSE_TIME
+                fixture.label, elapsed, max_parse_time
             ));
         }
 
@@ -662,14 +708,16 @@ pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Resu
         .iter()
         .filter(|o| matches!(o, Outcome::Failed(_)))
         .count();
-    let mut failures: Vec<String> = outcomes
+    let failures: Vec<String> = outcomes
         .iter()
         .filter_map(|o| match o {
             Outcome::Failed(msg) => Some(msg.clone()),
             _ => None,
         })
         .collect();
-    failures.extend(timing_violations.iter().cloned());
+    // Deliberately NOT extended with `timing_violations` — the parse-time
+    // ceiling warns, it does not fail the run. See
+    // [`MAX_FIXTURE_PARSE_TIME`] for why.
 
     let green = outcomes
         .iter()
@@ -689,7 +737,10 @@ pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Resu
             fixtures.len(),
         ));
         for violation in &timing_violations {
-            lines.push(format!("TIMING: {violation}"));
+            // "warning", not a bare label: this line does not fail the
+            // run, and a reader who cannot tell that from the output will
+            // either chase a non-failure or learn to skim past real ones.
+            lines.push(format!("warning: slow parse (does not fail): {violation}"));
         }
     }
 
@@ -1412,6 +1463,38 @@ stdout = "help-sub.txt"
         // markdown report as if it were the file's literal text.
         assert!(!report.text.contains("heading_attested"));
         assert!(!report.text.contains("provenance"));
+    }
+
+    /// The parse-time ceiling **warns; it never fails the run.**
+    ///
+    /// This is a deliberate, argued property (see
+    /// [`MAX_FIXTURE_PARSE_TIME`]), not an oversight, so it needs a test
+    /// that fails if someone "fixes" it back. It was previously verified
+    /// only by editing the constant by hand, which guards nothing —
+    /// confirmed genuine by reverting the property and watching this fail.
+    ///
+    /// A zero ceiling makes every fixture violate it, which is the only way
+    /// to exercise this at all: a real fixture parses in well under a
+    /// millisecond.
+    #[test]
+    fn an_exceeded_parse_time_ceiling_warns_but_does_not_fail() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run_with_ceiling(&corpus.root, false, ScoreFormat::Text, Duration::ZERO)
+            .expect("check run succeeds");
+
+        assert!(
+            !report.failed(),
+            "a slow parse must not fail the run — only correctness checks block: {}",
+            report.text
+        );
+        assert!(
+            report.text.contains("warning: slow parse"),
+            "...but it must still be reported, and legibly as a warning: {}",
+            report.text
+        );
     }
 
     /// A mismatch the summary's own dimensions cannot see must not be
