@@ -504,9 +504,43 @@ damage a user's machine, and it gets its own section and its own tests.
 5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation; a tool
    that streams forever must not exhaust memory. Reader threads (or a poll loop)
    are mandatory to avoid pipe deadlock on large output.
-6. **Sanitized environment.** Clear `LESS`, `PAGER`, `MANPAGER`, `GIT_PAGER`;
-   set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`. Without this,
-   a tool may page its own help and hang forever, or emit ANSI into the IR.
+6. **Sanitized environment, and a new session.** Clear `LESS`; **set**
+   `PAGER`, `MANPAGER`, `GIT_PAGER`, and `SYSTEMD_PAGER` to `cat` (not merely
+   clear them — absence is the weaker property, since several ecosystems read
+   an unset pager variable as "go find one yourself" rather than "don't
+   page"); set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`.
+   Spawn the probe as the leader of a **brand-new session**, not merely a new
+   process group: `process_group(0)` alone leaves the child in the same
+   session as mandible, so the session's controlling terminal is still
+   reachable, and a descendant can `open("/dev/tty")` to read and write it
+   directly regardless of what stdin/stdout/stderr were redirected to.
+
+   A user reported `mandible systemctl` freezing their entire TUI, with a
+   pager observed. `env_clear()` used to leave `PAGER` merely *absent*
+   rather than set, and `process_group(0)` alone does not sever the
+   controlling terminal — together, the working theory was that an absent
+   `PAGER` let a tool go find `less` itself, which then opened `/dev/tty`
+   directly for keyboard input (bypassing piped stdout entirely) and left
+   termios changes on the tty device that a process-group kill cannot
+   undo (termios state lives on the device, not the process).
+   [M-17] measured that this specific theory does not hold for
+   `systemctl`: systemd's own pager gate checks `isatty` on its *own*
+   stdout/stderr, which `run_inert` always makes pipes, so no argv this
+   crate constructs against `systemctl` ever reaches the pager at all — a
+   74-verb sweep plus direct `strace` confirmation that `less` itself never
+   attempts `/dev/tty` once its own stdout is non-tty, even with a real
+   controlling terminal available via the session. But [M-17] also
+   confirmed, with a shim that does nothing but attempt
+   `open("/dev/tty")`, that the underlying mechanism the report pointed at
+   is real and general, independent of `systemctl` or pagers specifically:
+   under `process_group(0)` alone, a descendant *can* reach a real
+   controlling terminal; spawning the probe in its own session (via
+   `pre_exec` + `setsid()`, this crate's one audited `unsafe` — see
+   `mandible-extract/src/exec/spawn.rs`) makes that same `open` fail with
+   `ENXIO`. `tests/exec_policy.rs`'s `dev_tty_hazard` shim test is the
+   regression net: it fails without the session fix and passes with it.
+   The pager variables are kept set to `cat` anyway as defense-in-depth
+   against a tool whose own pager gate is weaker than systemd's.
 0. **Programs that signal processes or change machine state are invoked only
    as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`, `skill`,
    `xkill`, `fuser`, and the system-state commands `halt`, `poweroff`,
@@ -1778,6 +1812,99 @@ any of these as current.
   though, and the honest counterexample matters: `apt-get`'s zero flags is
   **correct** — apt 2.8.3's help has no options section at all — so the 378
   is an upper bound on what any single grammar could recover, not a target.
+
+- **[M-17] The `/dev/tty` hazard behind the `mandible systemctl` freeze
+  report, and what actually triggers it** (2026-08-11, systemd 255, less
+  643, dash (Ubuntu `/bin/sh`), aarch64, Ubuntu 24.04). A user reported
+  `mandible systemctl` freezing their entire TUI, with a pager observed.
+  The working theory — `env_clear()` leaves `PAGER` merely *absent*,
+  which lets a pager-searching tool go find `less` itself, combined with
+  `process_group(0)` not severing the controlling terminal — turned out to
+  be right about the mechanism and wrong about which half of it fires for
+  `systemctl` specifically.
+
+  **The `PAGER`-absence half does not hold, measured.** systemd's own
+  pager gate checks `isatty` on its *own* stdout and stderr before ever
+  consulting `PAGER`, and `run_inert` always makes both pipes. A sweep of
+  all 74 `systemctl` verbs plus the root, each probed with both `--help`
+  and `-h` under the exact sanitized environment `run_inert` uses (run
+  inside `unshare -rpf --mount-proc` — read-only queries only, no
+  privileged verb was actually dispatched, confirmed by identical output
+  across every verb, see the second half below), found **zero** pager
+  invocations: every one of the 148 probes produced byte-identical global
+  help text to plain `systemctl --help`, with empty stderr and no
+  descendant process of any kind. Confirmed at the `less`-binary level
+  too, directly via `strace -f -e trace=openat,open`: `less` never
+  attempts `open("/dev/tty")` once its own stdout is non-tty — true both
+  with no controlling terminal available at all, and (built for this
+  measurement, using `openpty()` + `login_tty()` to give a throwaway
+  process a real pty as its controlling terminal, standing in for a real
+  interactive session) with one genuinely available. `less`'s decision is
+  keyed entirely on its own fds, not on whether a reachable controlling
+  terminal exists.
+
+  **The session half is real, demonstrated with a positive control.**
+  Confirming `process_group(0)`'s residual risk needed a program that
+  wants a controlling terminal *unconditionally*, since no argv this
+  crate actually constructs against any known tool was found to do so in
+  this environment. Built directly: a shim run under the same rig (real
+  pty as controlling terminal via `login_tty`, probe spawned exactly as
+  `run_inert` spawns it) that does nothing but `open("/dev/tty")`.
+  **Under `process_group(0)` alone, it succeeds** — the descendant reaches
+  the real controlling terminal, exactly the mechanism the bug report
+  pointed at, regardless of which tool or argv triggers it. **Spawning the
+  probe as the leader of a new session** (`pre_exec` + `setsid()`, this
+  crate's one audited `unsafe`) **makes the same call fail with `ENXIO`.**
+  This is `tests/exec_policy.rs`'s `dev_tty_hazard::
+  probe_cannot_reopen_the_controlling_terminal` test, verified to fail
+  against the pre-fix code and pass against the fix — the AGENTS.md §2
+  discipline of a fixture that has actually been made to fail once, not
+  prose alone.
+
+  Building the positive control itself needed two non-obvious fixes,
+  recorded here since they'd otherwise cost the next person the same
+  half-day: (a) `openpty()` must happen *before* the worker becomes a
+  ctty-less session leader, or a plain `open()` risks auto-acquiring the
+  terminal ambiguously; and more load-bearing, (b) **the pty's master
+  side must stay open** — closing it (even in a different process that
+  merely held a copy of the fd) hangs up the slave, and `TIOCSCTTY`/
+  `login_tty` on a hung-up slave fails with `EIO`, which is easy to
+  misread as "the fix already worked" when it is actually a broken rig.
+
+  **Net effect:** both fixes shipped regardless of which half caused the
+  original freeze — the pager variables (rule 6) as defense-in-depth
+  against a tool whose own pager gate is weaker than systemd's `isatty`
+  check, and the session change (also rule 6) because it is the only one
+  of the two demonstrated, by measurement, to actually close a real
+  `open("/dev/tty")` path. The exact trigger on the reporting user's own
+  machine remains unreproduced — this sandbox has no controlling terminal
+  at all ([`AGENTS.md` §3.2](./AGENTS.md)), so the user-visible freeze
+  itself could not be attempted directly, only the underlying mechanism.
+
+- **[M-18] `systemctl <verb> --help` is safe — measured, not assumed**
+  (2026-08-11, same environment as [M-17]). Prompted by rule 0's own
+  precedent: `shutdown -h` looked harmless until measured and turned out
+  to attempt the real halt, stopped only by polkit. `systemctl`'s verb
+  list includes `reboot`, `poweroff`, `kexec`, `halt` and other
+  machine-state actions, and the background tree warmer will probe
+  `HelpLongForPath` (`systemctl <verb> --help`) for every one of them —
+  `HELP_ONLY_PROBE` (rule 0) matches on the *binary's file name*, so it
+  restricts the standalone `reboot`/`poweroff`/`halt`/`shutdown`
+  multi-call symlinks but not `systemctl` invoked with one of those words
+  as a verb.
+
+  All 74 verbs from `systemctl --help`'s own listing, each probed as
+  `systemctl <verb> --help` and `systemctl <verb> -h` under the sanitized
+  environment (inside `unshare -rpf --mount-proc`), produced output
+  **byte-identical** to plain `systemctl --help` — including `reboot`,
+  `poweroff`, `kexec`, and `halt` — with empty stderr and exit 0 for
+  every case. This is the opposite finding from `shutdown -h`: on
+  `systemctl` (unlike its standalone multi-call-binary symlinks), `-h` is
+  a genuine alias for `--help`, and GNU getopt's permutation intercepts
+  it globally before verb dispatch, for every verb tested, not just the
+  ones already covered by rule 0. No change to `HELP_ONLY_PROBE` or any
+  other safety list is needed; this closes the concern rather than
+  extending the list.
 
 ---
 

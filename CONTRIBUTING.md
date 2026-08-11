@@ -111,8 +111,13 @@ closed enum, by design) — that friction is intentional per spec §6 rule 2.
 
 ## Style
 
-- `#![forbid(unsafe_code)]` on every crate. No exceptions in this codebase;
-  if you believe you need `unsafe`, that's a discussion, not a PR.
+- `#![forbid(unsafe_code)]` on every crate, with **one audited exception**:
+  `mandible-extract` carries `#![deny(unsafe_code)]` and exactly one scoped
+  `#[allow(unsafe_code)]`, on the probe-spawning function in `exec/`, for a
+  `pre_exec` + `setsid` call that gives every probe its own session — so a
+  descendant can't reopen the controlling terminal via `/dev/tty` regardless
+  of what its own stdio point to (spec §6 rule 6, [M-17]). If you believe you
+  need `unsafe` anywhere else, that's a discussion, not a PR.
 - `#![warn(missing_docs)]` on library crates — every public item is
   documented.
 - `thiserror` in libraries, `anyhow` only in the `mandible` binary.

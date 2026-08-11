@@ -166,8 +166,12 @@ update Appendix A in the same commit, with the method.
 - Gates before reporting done: `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace`, `cargo build --release`.
-- `#![forbid(unsafe_code)]` in every crate. No `unwrap()` on any path reachable
-  from tool input.
+- `#![forbid(unsafe_code)]` in every crate except `mandible-extract`, which
+  carries `#![deny(unsafe_code)]` plus exactly one scoped
+  `#[allow(unsafe_code)]` on the probe-spawning function in `exec/`, for the
+  `pre_exec` + `setsid` call that gives every probe its own session so a
+  descendant can't reopen the controlling terminal via `/dev/tty` ([M-17]).
+  No `unwrap()` on any path reachable from tool input.
 - Never invoke a tool binary outside the argv allowlist in spec §6. Running a
   bare binary is how you launch a REPL, block on stdin, or start a daemon.
 

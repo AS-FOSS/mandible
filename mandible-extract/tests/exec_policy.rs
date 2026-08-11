@@ -13,6 +13,216 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 
+// --- [M-17]: the `/dev/tty` hazard, closed structurally, not just
+// --- documented ---
+//
+// A reported `mandible systemctl` freeze, tracked down to a pager (spec §6
+// rule 6): `env_clear()` used to leave `PAGER` merely *absent* (which lets
+// a tool go find one itself, e.g. `less`), and `process_group(0)` gives a
+// probe its own process *group* but leaves it in the *same session* as
+// mandible — so a descendant can still `open("/dev/tty")` and reach the
+// real controlling terminal directly, bypassing whatever stdin/stdout/
+// stderr were redirected to. That's how a pager (or anything else that
+// explicitly wants a controlling terminal, e.g. a password prompt) reads
+// real keystrokes and leaves real termios changes behind, which a
+// process-group kill on timeout does not undo (termios state lives on the
+// tty device, not the process).
+//
+// [M-17] measured that no argv `run_inert` actually constructs against
+// `systemctl` triggers this in this environment: systemd's own pager gate
+// checks `isatty` on its *own* stdout/stderr, which `run_inert` always
+// makes pipes, so it never even reaches the point of trying. (See spec.md
+// Appendix A [M-17] for the full method — a 74-verb sweep plus `strace`
+// confirmation that `less` itself, even with a real controlling terminal
+// available via the session, never attempts `/dev/tty` once its own
+// stdout is non-tty.) But the underlying mechanism the bug report
+// pointed at — a descendant reaching the real controlling terminal via
+// `process_group(0)`'s session-sharing — is real, independent of
+// `systemctl` or pagers specifically, and this test demonstrates it
+// directly with a shim that just tries the `open("/dev/tty")` call: the
+// fixture-not-prose version of the lesson.
+mod dev_tty_hazard {
+    use super::*;
+
+    const ROLE_VAR: &str = "MANDIBLE_TTY_TEST_ROLE";
+    const SHIM_VAR: &str = "MANDIBLE_TTY_TEST_SHIM";
+    const RESULT_VAR: &str = "MANDIBLE_TTY_TEST_RESULT_FILE";
+    const WORKER_ROLE: &str = "session-leader-worker";
+
+    /// Proves the hazard is closed, using a *real* controlling terminal.
+    ///
+    /// This sandbox has none at all (`AGENTS.md` §3.2 — `open("/dev/tty")`
+    /// already fails with `ENXIO` for every process here, fix or no fix),
+    /// so a naive version of this test would vacuously pass regardless of
+    /// whether `run_inert` does the right thing. To actually exercise the
+    /// mechanism, this test spawns a **fresh, single-purpose copy of this
+    /// same test binary** (never `fork()`s the already-running,
+    /// multi-threaded `cargo test` process itself — racing an arbitrary
+    /// other test thread's locks across a raw `fork()` is its own hazard)
+    /// that calls the POSIX `login_tty()` primitive to become the leader
+    /// of a brand-new session with a real pty as its controlling terminal
+    /// — standing in for the interactive `mandible` TUI process a real
+    /// user runs this against — and only then, from that single-threaded
+    /// worker process, makes the one real call this test is actually
+    /// about: `run_inert` against a shim that tries `open("/dev/tty")`
+    /// and reports whether it succeeded.
+    ///
+    /// Verified to fail without the session fix and pass with it (see
+    /// this crate's exec-policy work: reverting `spawn.rs`'s `pre_exec`
+    /// `setsid` call back to bare `process_group(0)` flips this test from
+    /// pass to fail, with the shim reporting `TTY_OPEN:ok`).
+    #[test]
+    fn probe_cannot_reopen_the_controlling_terminal() {
+        // Re-invocation (see `main` below) lands back in this same `#[test]`
+        // fn under `--exact`; the role var routes it into worker mode
+        // instead of re-running the orchestrator logic recursively.
+        if std::env::var(ROLE_VAR).as_deref() == Ok(WORKER_ROLE) {
+            run_as_session_leader_worker();
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        // Deliberately *not* `if exec 3<>/dev/tty; then ... else ... fi`:
+        // measured directly while building this test that `dash` (this
+        // sandbox's `/bin/sh`) treats a failed redirection on `exec` (and
+        // on an ordinary simple command, e.g. the `:` builtin) as fatal
+        // and exits the whole script immediately with its own diagnostic
+        // on stderr, even inside an `if` condition — so an `else` branch
+        // never runs and never gets the chance to report anything. A
+        // shim can't out-cleverness that: it just needs to be a redirect
+        // whose *reachability of the next line* is the signal. If
+        // `/dev/tty` opens, the script continues and prints the marker;
+        // if it doesn't, the shell exits right there and the marker is
+        // simply absent — which the worker below treats as the (fixed,
+        // expected) outcome, corroborated by checking that the shell's
+        // own failure diagnostic mentions the device.
+        let shim = write_named_shim(
+            dir.path(),
+            "tty_prober",
+            "#!/bin/sh\n: 3<>/dev/tty\necho TTY_OPEN:ok\n",
+        );
+        let result_file = dir.path().join("result.txt");
+
+        let exe = std::env::current_exe().expect("path to this test binary");
+        let output = std::process::Command::new(&exe)
+            .arg("--exact")
+            .arg("dev_tty_hazard::probe_cannot_reopen_the_controlling_terminal")
+            .arg("--nocapture")
+            .arg("--test-threads=1")
+            .env(ROLE_VAR, WORKER_ROLE)
+            .env(SHIM_VAR, &shim)
+            .env(RESULT_VAR, &result_file)
+            .output()
+            .expect("spawn a fresh worker copy of this test binary");
+
+        let detail = std::fs::read_to_string(&result_file)
+            .unwrap_or_else(|_| "(worker wrote no result file)".to_string());
+        let harness_output = format!(
+            "worker exit status: {:?}\nworker stdout: {}\nworker stderr: {}\nworker detail: {detail}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+
+        match output.status.code() {
+            Some(0) => {} // TTY_OPEN:failed — the fixed, expected outcome.
+            Some(1) => panic!(
+                "a probe spawned through run_inert opened /dev/tty — the \
+                 controlling terminal was reachable from a descendant, the \
+                 exact mechanism behind the reported TUI freeze:\n{harness_output}"
+            ),
+            other => panic!(
+                "worker setup was inconclusive (exit {other:?}), not a \
+                 pass — this must not be silently treated as green:\n{harness_output}"
+            ),
+        }
+    }
+
+    /// Becomes a session leader with a real pty as its controlling
+    /// terminal, then makes the one production call under test.
+    ///
+    /// Always exits the process rather than returning — it must never
+    /// fall back into the orchestrator's own test-body logic.
+    fn run_as_session_leader_worker() -> ! {
+        let shim_path = std::env::var(SHIM_VAR).expect("orchestrator sets the shim path");
+        let result_file = std::env::var(RESULT_VAR).expect("orchestrator sets the result path");
+
+        let finish = |code: i32, detail: String| -> ! {
+            let _ = std::fs::write(&result_file, &detail);
+            std::process::exit(code);
+        };
+
+        let pty = match nix::pty::openpty(None, None) {
+            Ok(p) => p,
+            Err(e) => finish(2, format!("openpty failed: {e}")),
+        };
+        // Deliberately *not* dropped: once nothing holds the master side
+        // open, the slave hangs up and `TIOCSCTTY`/`login_tty` on it fails
+        // with `EIO` regardless of session state — measured directly while
+        // building this test. Leaked into a raw fd for the rest of this
+        // short-lived, single-purpose worker process's life; it closes on
+        // exit either way.
+        let _master_fd: std::os::fd::RawFd = std::os::fd::IntoRawFd::into_raw_fd(pty.master);
+
+        let slave_fd: std::os::fd::RawFd = std::os::fd::IntoRawFd::into_raw_fd(pty.slave);
+        // SAFETY: `login_tty(3)` is the standard glibc primitive for
+        // exactly this — make the caller a session leader with `fd` as
+        // its controlling terminal, then dup it onto 0/1/2 — and this
+        // process is a freshly `exec`'d, single-purpose, single-threaded
+        // worker (see the orchestrator above), so there is no concurrent
+        // Rust state for a post-fork-style call to race. This file is a
+        // separate compilation unit from `mandible-extract`'s library
+        // crate — its `#![deny(unsafe_code)]` (one audited exception, in
+        // `exec/spawn.rs`) does not extend here — and this is test-only
+        // scaffolding to manufacture a controlling terminal the sandbox
+        // doesn't otherwise have, never part of the exec-safety path
+        // itself.
+        let rc = unsafe { libc::login_tty(slave_fd) };
+        if rc != 0 {
+            finish(
+                2,
+                format!("login_tty failed: {}", std::io::Error::last_os_error()),
+            );
+        }
+
+        // The one call this whole test exists to check: exactly what
+        // every real probe goes through in production.
+        let result = run_inert(
+            Path::new(&shim_path),
+            &InertArgv::HelpLong,
+            Duration::from_secs(5),
+        );
+
+        match result {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+                let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+                let detail = format!(
+                    "stdout={stdout:?} stderr={stderr:?} timed_out={}",
+                    out.timed_out
+                );
+                if stdout.contains("TTY_OPEN:ok") {
+                    // The shim's script continued past the redirect, so
+                    // /dev/tty genuinely opened: the hazard is present.
+                    finish(1, detail);
+                } else if stderr.to_lowercase().contains("tty")
+                    || stderr.to_lowercase().contains("device")
+                {
+                    // The marker line was never reached because the
+                    // shell aborted on the failed redirect first (dash's
+                    // behavior for `exec`/simple-command redirect
+                    // failures — see the orchestrator's comment on the
+                    // shim), and its own diagnostic corroborates *why*:
+                    // this is the fixed, expected outcome.
+                    finish(0, detail);
+                } else {
+                    finish(2, format!("inconclusive — neither the success marker nor a device/tty failure diagnostic: {detail}"));
+                }
+            }
+            Err(e) => finish(2, format!("run_inert errored: {e}")),
+        }
+    }
+}
+
 /// Like [`write_shim`], but with a caller-chosen name and script — needed
 /// for the [M-16] D1.3.2 tests below, which must name a shim `pkill` to
 /// exercise `HELP_ONLY_PROBE` matching (spec §6 rule 0's file-name check)
