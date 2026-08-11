@@ -17,3 +17,10 @@ HANDOVER.md
 # coverage-scoreboard.ci.txt over a fixed tool list; the broad measurement
 # is the CI PATH sweep, where the inventory is at least reproducible.
 coverage-scoreboard.txt
+
+# Audit review records and staged fixtures (`xtask audit`). Untracked by
+# maintainer decision 2026-08-12 — pending a call on whether the review
+# record belongs in the repo. It is a parallel fixture tree the corpus
+# runner does not execute, so tracking it risks a junk drawer; not tracking
+# it risks losing the review. Decide before the first real 80-tool run.
+audit/
