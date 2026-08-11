@@ -49,8 +49,9 @@
 //! [`render_markdown`]/[`render_text`].
 
 use crate::coverage::{
-    FLAGS_COL_WIDTH, FRAMEWORK_COL_WIDTH, MAN_COL_WIDTH, MISATTR_COL_WIDTH, MS_COL_WIDTH,
-    NODES_COL_WIDTH, PCT_COL_WIDTH, SUSPECT_COL_WIDTH, TIER_COL_WIDTH, TOOL_COL_WIDTH,
+    EXISTENCE_COL_WIDTH, FLAGS_COL_WIDTH, FRAMEWORK_COL_WIDTH, MAN_COL_WIDTH, MISATTR_COL_WIDTH,
+    MS_COL_WIDTH, NODES_COL_WIDTH, PCT_COL_WIDTH, SUSPECT_COL_WIDTH, TIER_COL_WIDTH,
+    TOOL_COL_WIDTH,
 };
 use std::collections::BTreeMap;
 
@@ -104,6 +105,11 @@ pub struct ParsedRow {
     /// Distinct from `Some(0)` ("column present, zero suspects"), so a
     /// reader can tell "not measured yet" from "measured, clean".
     pub misattribution_suspect_count: Option<usize>,
+    /// `None` on a scoreboard rendered before the existence detector
+    /// existed (no `exist` column at all) — see [`has_existence_column`].
+    /// Same `None`-vs-`Some(0)` distinction as
+    /// `misattribution_suspect_count` above.
+    pub existence_fabrication_count: Option<usize>,
     pub status: String,
 }
 
@@ -137,20 +143,34 @@ pub struct ParsedScoreboard {
 /// used only to decide whether it carries the `misattr` column added after
 /// the misattribution detector shipped — every scoreboard from before that
 /// (this task found four real ones, captured during earlier work on this
-/// branch) has ten columns instead of eleven and needs a different offset
-/// for the trailing `status` column. See [`row_offsets`].
+/// branch) has ten columns instead of eleven (or twelve, with `exist` too)
+/// and needs a different offset for the trailing `status` column. See
+/// [`row_offsets`].
 fn has_misattr_column(header: &str) -> bool {
     header.contains("misattr")
+}
+
+/// Same idea as [`has_misattr_column`], for the `exist` column
+/// ([`crate::existence`], this task) appended after `misattr` — every
+/// scoreboard from before this task has eleven columns (or ten, with no
+/// `misattr` either) and needs the shorter offset for `status`.
+fn has_existence_column(header: &str) -> bool {
+    header.contains("exist")
 }
 
 /// The exact character offsets [`crate::coverage::render_text`] writes each
 /// column at, derived from the same width constants that function uses —
 /// never a second, hand-copied set of numbers (this module's doc comment).
-/// `with_misattr` selects between the current eleven-column layout and the
-/// legacy ten-column one (no `misattr` field) that every scoreboard
-/// predating the misattribution detector still uses — both share identical
-/// offsets for every column up through `man`, since the detector only ever
-/// *appended* a column rather than resizing an existing one.
+/// `with_misattr`/`with_existence` select among the three layouts a real,
+/// checked-in scoreboard can have — ten columns (neither detector existed
+/// yet), eleven (`misattr` only), or twelve (both) — since each detector
+/// only ever *appended* a column rather than resizing an existing one,
+/// every column up through `man` shares identical offsets regardless.
+/// `with_existence` without `with_misattr` cannot happen from any
+/// scoreboard this binary ever wrote (the columns shipped in that order),
+/// but is still handled the same way `with_misattr` alone is, rather than
+/// asserted against, since this function's only job is to read whatever
+/// header string it's given.
 struct RowOffsets {
     tool: (usize, usize),
     tier: (usize, usize),
@@ -162,10 +182,11 @@ struct RowOffsets {
     suspect: (usize, usize),
     man: (usize, usize),
     misattr: Option<(usize, usize)>,
+    existence: Option<(usize, usize)>,
     status_start: usize,
 }
 
-fn row_offsets(with_misattr: bool) -> RowOffsets {
+fn row_offsets(with_misattr: bool, with_existence: bool) -> RowOffsets {
     let tool = (0, TOOL_COL_WIDTH);
     let tier = (tool.1 + 1, tool.1 + 1 + TIER_COL_WIDTH);
     let framework = (tier.1 + 1, tier.1 + 1 + FRAMEWORK_COL_WIDTH);
@@ -175,12 +196,16 @@ fn row_offsets(with_misattr: bool) -> RowOffsets {
     let ms = (pct.1, pct.1 + MS_COL_WIDTH);
     let suspect = (ms.1, ms.1 + SUSPECT_COL_WIDTH);
     let man = (suspect.1, suspect.1 + MAN_COL_WIDTH);
-    let (misattr, status_start) = if with_misattr {
+    let (misattr, existence, status_start) = if with_misattr {
         let m = (man.1, man.1 + MISATTR_COL_WIDTH);
-        let s = m.1 + 2;
-        (Some(m), s)
+        if with_existence {
+            let e = (m.1, m.1 + EXISTENCE_COL_WIDTH);
+            (Some(m), Some(e), e.1 + 2)
+        } else {
+            (Some(m), None, m.1 + 2)
+        }
     } else {
-        (None, man.1 + 2)
+        (None, None, man.1 + 2)
     };
     RowOffsets {
         tool,
@@ -193,6 +218,7 @@ fn row_offsets(with_misattr: bool) -> RowOffsets {
         suspect,
         man,
         misattr,
+        existence,
         status_start,
     }
 }
@@ -274,6 +300,16 @@ fn parse_line(line: &str, offsets: &RowOffsets) -> LineResult {
         },
         None => None,
     };
+    let existence_fabrication_count = match offsets.existence {
+        Some(range) => match slice(&chars, range) {
+            Some(s) => match s.parse::<usize>() {
+                Ok(n) => Some(n),
+                Err(_) => return LineResult::Unparseable,
+            },
+            None => return LineResult::Unparseable,
+        },
+        None => None,
+    };
     if chars.len() < offsets.status_start {
         return LineResult::Unparseable;
     }
@@ -309,6 +345,7 @@ fn parse_line(line: &str, offsets: &RowOffsets) -> LineResult {
         suspicious_nodes,
         man_shaped,
         misattribution_suspect_count,
+        existence_fabrication_count,
         status,
     })
 }
@@ -324,7 +361,7 @@ pub fn parse_scoreboard(text: &str) -> ParsedScoreboard {
     let Some(header) = lines.find(|l| !l.trim().is_empty()) else {
         return out;
     };
-    let offsets = row_offsets(has_misattr_column(header));
+    let offsets = row_offsets(has_misattr_column(header), has_existence_column(header));
 
     for line in lines {
         if line.trim().is_empty() {
@@ -789,6 +826,14 @@ mod tests {
     /// Round-trips a scoreboard this binary just rendered itself — the
     /// sanity floor: if the renderer and parser ever drift, this is the
     /// test that catches it before a real sweep does.
+    ///
+    /// Checks `status`/`existence_fabrication_count`/
+    /// `misattribution_suspect_count` explicitly, not just row presence:
+    /// a fixed-offset desync (e.g. adding `exist` — [`crate::existence`],
+    /// this task — without teaching this module its width) still leaves
+    /// the `tool` column, and therefore the row key, intact, so a presence-
+    /// only check would have stayed green through exactly that bug. This
+    /// version would not have.
     #[test]
     fn parses_a_freshly_rendered_scoreboard_back_out() {
         let (table, _agg) = run_over(
@@ -800,8 +845,22 @@ mod tests {
         let parsed = parse_scoreboard(&table);
         assert_eq!(parsed.truncated_dropped, 0);
         assert_eq!(parsed.unparseable_dropped, 0);
-        assert!(parsed.rows.contains_key("sh"));
-        assert!(parsed.rows.contains_key("true"));
+        for tool in ["sh", "true"] {
+            let row = parsed
+                .rows
+                .get(tool)
+                .unwrap_or_else(|| panic!("{tool} row parsed"));
+            assert_eq!(row.misattribution_suspect_count, Some(0));
+            assert_eq!(row.existence_fabrication_count, Some(0));
+            assert!(
+                row.status
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_ascii_lowercase()),
+                "status field looks corrupted (fixed-offset desync?): {:?}",
+                row.status
+            );
+        }
     }
 
     fn sample_text(rows: &[&str]) -> String {
@@ -836,9 +895,42 @@ mod tests {
         assert_eq!(row.misattribution_suspect_count, Some(0));
     }
 
+    /// A hand-built row at the current (`misattr` + `exist`) column widths —
+    /// the shape every scoreboard this task's own `cargo xtask coverage`
+    /// run produces.
+    fn row_line_with_existence(
+        tool: &str,
+        status: &str,
+        flags: usize,
+        ms: u128,
+        existence_fabrication_count: usize,
+    ) -> String {
+        format!(
+            "{:<24} {:<18} {:<26} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}{:>9}{:>6}  {}",
+            tool, "help", "—", 1, flags, "100%", ms, 0, "-", 0, existence_fabrication_count, status,
+        )
+    }
+
+    #[test]
+    fn parses_a_hand_built_row_with_the_existence_column() {
+        let header = "tool                     tier(s)            framework                    nodes   flags   %flags_text     ms suspect   man  misattr exist  status\n";
+        let row = row_line_with_existence("git", "ok", 34, 120, 2);
+        let text = format!(
+            "{header}{row}\n# aggregate: pct_flags_with_text=90.00 no_tier_count=0 total=1\n"
+        );
+        let parsed = parse_scoreboard(&text);
+        let row = parsed.rows.get("git").expect("git row parsed");
+        assert_eq!(row.flags, 34);
+        assert_eq!(row.status, "ok");
+        assert_eq!(row.misattribution_suspect_count, Some(0));
+        assert_eq!(row.existence_fabrication_count, Some(2));
+    }
+
     /// A scoreboard from before the misattribution detector existed has no
-    /// `misattr` column at all — the four real scratch scoreboards used to
-    /// verify this module during development are exactly this shape.
+    /// `misattr` column at all (and therefore no `exist` column either,
+    /// since `exist` was only ever appended after `misattr`) — the four
+    /// real scratch scoreboards used to verify this module during
+    /// development are exactly this shape.
     #[test]
     fn parses_a_legacy_row_with_no_misattr_column() {
         let header = "tool                     tier(s)            framework                    nodes   flags   %described     ms suspect   man  status\n";
@@ -852,6 +944,7 @@ mod tests {
         let row = parsed.rows.get("git").expect("git row parsed");
         assert_eq!(row.flags, 34);
         assert_eq!(row.misattribution_suspect_count, None);
+        assert_eq!(row.existence_fabrication_count, None);
     }
 
     /// The exact hazard this module's doc comment describes: a truncated

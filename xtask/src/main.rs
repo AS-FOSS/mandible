@@ -6,6 +6,7 @@
 mod audit;
 mod corpus;
 mod coverage;
+mod existence;
 mod misattribution;
 mod status;
 mod transition;
@@ -435,7 +436,7 @@ fn run_coverage(
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {}/{} framework-detected",
+        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {}/{} framework-detected",
         fresh.pct_flags_with_text,
         fresh.total,
         fresh.no_tier_count,
@@ -444,6 +445,7 @@ fn run_coverage(
         fresh.man_shaped_count,
         fresh.zero_flag_ok_count,
         fresh.misattribution_suspect_tools,
+        fresh.existence_fabrication_tools,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -549,6 +551,21 @@ fn run_coverage(
             println!(
                 "misattribution-suspect tool count changed from {} to {} (reported, not gated)",
                 previous.misattribution_suspect_tools, fresh.misattribution_suspect_tools
+            );
+        }
+        // `existence_fabrication_tools` (`crate::existence`, this task's own
+        // instrument — the twin of `misattribution_suspect_tools` above, a
+        // different check with a different victim: does a name/spelling the
+        // help-text tier emitted actually occur in the tool's own raw
+        // output, rather than whether an attached description belongs to
+        // the right flag) is deliberately **not gated**, for the identical
+        // reason: a brand-new detector with no fleet-wide baseline must not
+        // fail a build the first time it runs (spec §13.1b). Reported so a
+        // grammar change's effect on it is visible.
+        if fresh.existence_fabrication_tools != previous.existence_fabrication_tools {
+            println!(
+                "existence-fabrication tool count changed from {} to {} (reported, not gated)",
+                previous.existence_fabrication_tools, fresh.existence_fabrication_tools
             );
         }
         if regressed {

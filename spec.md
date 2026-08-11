@@ -1409,6 +1409,40 @@ lower-false-positive accuracy instrument exists, every scoreboard also carries
 a literal `accuracy: unmeasured` line, so a reader can never mistake
 `%flags_text` for it again.
 
+**The "anti-fabrication oracle" this section originally called for turned out
+to be two checks, not one — a distinction that cost a cycle to discover and
+should not have to be rediscovered.** Misattribution (above) answers "does a
+description belong to the flag it's attached to?" — its victim is `lsof`'s
+column-bled options table. A second, independent question is "does everything
+extracted actually *occur* in the tool's own output, or was it invented?" —
+and its victim is [M-10], this project's worst shipped defect: `tar` gained 39
+phantom subcommands named things like *"treat them as errors"* (a wrapped
+continuation line mistaken for a new table entry), `dd` 40, `less` 65,
+`apt-get` seven words lifted from its own description paragraph — every one
+reported `100%` "described," because a fabricated node's own fabricated flags
+look exactly as described as a real node's. The **existence detector**
+(`xtask/src/existence.rs`) is this check: every help-text-sourced subcommand
+name and flag spelling the tier emitted must occur literally in the tool's own
+raw captured text — a subcommand name additionally at a line-start-ish
+position (the real, measured shape of a command-list entry; a bare substring
+match alone is too weak against a fabricated name built from an ordinary
+English word that also happens to appear once in unrelated prose). It compares
+against *pre-normalization* spellings, not the IR's stored form: alias pairing
+(`mandible_core::merge::pair_aliases`, e.g. `gh`'s `-R`/`--repo`) means a
+flag's two spellings need not sit together in the raw text, only each occur
+somewhere in it; value stripping (`--gpg-sign[=KID]` stored as `gpg-sign`)
+means a spelling is checked as a word-bounded *prefix*, not an exact token;
+and a negatable boolean (`--[no-]source`, `mandible_core::Flag::negatable`)
+is checked against its real bracketed raw form, never the bare `--source` that
+never actually appears. Same properties as misattribution and for the same
+reasons: it reuses `misattribution::RecordingProbe` (no new probes), is scoped
+to `Source::HelpText`/`Source::HelpTextSynopsis` only (every other source —
+Cobra `__complete`, a completion script, a native probe — is structural and
+legitimately silent in help text), and is reported in the scoreboard's `exist`
+column and `existence_fabrication_tools` footer field **without being gated**
+— a brand-new detector with no fleet-wide baseline must not fail a build the
+first time it runs (§13.1b).
+
 The general lesson, worth stating because it will recur: **a coverage metric that
 can be gamed by the failure mode it is meant to detect is worse than no metric**,
 because it converts a silent bug into a confidently-reported success.
@@ -2049,3 +2083,25 @@ design. A scoreboard written before this rename has `pct_described=` in its
 against an old baseline still works. Every scoreboard, old or new, also now
 carries a literal `# accuracy: unmeasured` line — not parsed by `--check`,
 just a standing, honest reminder that nothing here measures correctness yet.
+
+**Post-revision-2 note (2026-08-12): the "anti-fabrication oracle" is two
+checks, not one.** WS4 originally described a single instrument; building it
+found that misattribution (`xtask/src/misattribution.rs`, added first) and
+existence (`xtask/src/existence.rs`, added by this note) check different
+things with different victims — see §13.1's own account of both. The
+scoreboard gains an `exist` column (right after `misattr`, same tightly-packed
+right-aligned style) and the `# aggregate:` footer gains
+`existence_fabrication_tools=`, appended after
+`misattribution_column_aligned_tools=` and before `total=`. A scoreboard
+written before this change has neither key; `parse_aggregate_footer` defaults
+`existence_fabrication_tools` to `0` on such a scoreboard, so `--check`
+against an old baseline still works. `xtask/src/transition.rs`'s fixed-offset
+row parser (`row_offsets`) was updated in the same change to recognize the new
+column's width (`has_existence_column`, mirroring the existing
+`has_misattr_column`) — without it, `sweep-diff` would have silently misread
+every `status` field on any scoreboard carrying the new column, since that
+field is sliced by trailing character offset, not by name. Caught by
+strengthening `parses_a_freshly_rendered_scoreboard_back_out` to assert
+`status`'s actual value (not just that a row with the right key exists)
+rather than by any gate — worth recording here because the failure mode is
+exactly the kind a presence-only test stays green through.

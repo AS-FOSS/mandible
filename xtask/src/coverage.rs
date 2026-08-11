@@ -11,6 +11,7 @@
 //! scoreboard, plus a `--format markdown` mode the framework-support CI
 //! workflow (batch 6 part 6, spec §13.1a) consumes.
 
+use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
 use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
 use rayon::prelude::*;
@@ -57,6 +58,11 @@ pub(crate) const MAN_COL_WIDTH: usize = 6;
 /// silently misreads every field after it. A single source of truth means
 /// a future column can't do that.
 pub(crate) const MISATTR_COL_WIDTH: usize = 9;
+/// Fixed display width for the right-aligned `exist` column
+/// ([`crate::existence`] — the fabrication count twin of `misattr` above,
+/// same reasoning for why the width lives here rather than local to
+/// [`render_text`]).
+pub(crate) const EXISTENCE_COL_WIDTH: usize = 6;
 
 /// One tool's row in the scoreboard.
 struct Row {
@@ -137,6 +143,18 @@ struct Row {
     /// hundreds of suspect flags can't crowd out every other tool's sample
     /// from a fleet-wide report.
     misattribution_samples: Vec<String>,
+    /// [`crate::existence`]'s own measurement: count of this tool's help-
+    /// text-sourced subcommand names and flag spellings that do not occur
+    /// literally in the tool's own raw captured `--help` text — [M-10]'s
+    /// shape, generalized, and this task's own instrument. **Not gated**,
+    /// same reasoning as `misattribution_suspect_count`: a brand-new
+    /// detector with no fleet-wide baseline must not fail a build the
+    /// first time it runs (spec §13.1b).
+    existence_fabrication_count: usize,
+    /// A few of this row's own fabrications, pre-formatted, mirroring
+    /// [`Self::misattribution_samples`] — capped per row
+    /// ([`EXISTENCE_SAMPLES_PER_ROW`]).
+    existence_samples: Vec<String>,
     status: &'static str,
 }
 
@@ -155,6 +173,16 @@ const MISATTRIBUTION_SAMPLE_LIMIT: usize = 20;
 /// readable — the full text is still in the tree the sweep already wrote,
 /// this is a display concern only.
 const MISATTRIBUTION_DESC_DISPLAY_LEN: usize = 70;
+
+/// Cap on how many of one tool's own [`crate::existence`] fabrications feed
+/// the fleet-wide sample section — mirrors
+/// [`MISATTRIBUTION_SAMPLES_PER_ROW`]'s reasoning exactly.
+const EXISTENCE_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on the total number of sample lines the fleet-wide
+/// `# existence-fabrications (sample)` section prints — mirrors
+/// [`MISATTRIBUTION_SAMPLE_LIMIT`]'s reasoning exactly.
+const EXISTENCE_SAMPLE_LIMIT: usize = 20;
 
 /// Aggregate stats. `pct_flags_with_text`, `no_tier_count`, and
 /// `suspicious_count` are the regression gate (spec §13.1: "may not
@@ -253,6 +281,17 @@ pub struct Aggregate {
     /// actually turns up a suspect. **Not gated**, same reasoning as
     /// `misattribution_suspect_tools`.
     pub misattribution_column_aligned_tools: usize,
+    /// Tools with at least one [`crate::existence`] fabrication — a help-
+    /// text-sourced subcommand name or flag spelling that does not occur
+    /// literally in that tool's own raw captured text. This is the *other*
+    /// half of what spec.md's WS4 originally called one "anti-fabrication
+    /// oracle" — [`Self::misattribution_suspect_tools`]'s twin, with a
+    /// different victim: [M-10]'s invented `tar`/`dd`/`less`/`apt-get`
+    /// nodes, not `lsof`'s column-bled descriptions. **Not gated**, same
+    /// reasoning as `misattribution_suspect_tools`: a brand-new detector
+    /// with no fleet-wide baseline must not fail a build the first time it
+    /// runs (spec §13.1b).
+    pub existence_fabrication_tools: usize,
 }
 
 /// Output format for the rendered scoreboard.
@@ -408,6 +447,26 @@ fn score_one(tool: &str) -> Row {
             _ => (0, false, Vec::new()),
         };
 
+    // Same captured text, zero additional probes — [`crate::existence`]'s
+    // own doc comment on why re-reading `probe.root_help_text()` a second
+    // time here (rather than sharing one `raw` binding with the
+    // misattribution block above) costs nothing: both are cheap `Option<String>`
+    // clones of bytes already in memory, not a second fetch.
+    let (existence_fabrication_count, existence_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = existence::detect(&raw, root);
+                let samples = report
+                    .fabrications
+                    .iter()
+                    .take(EXISTENCE_SAMPLES_PER_ROW)
+                    .map(format_existence_sample)
+                    .collect();
+                (report.fabrication_count(), samples)
+            }
+            _ => (0, Vec::new()),
+        };
+
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -423,6 +482,8 @@ fn score_one(tool: &str) -> Row {
         misattribution_suspect_count,
         misattribution_column_aligned,
         misattribution_samples,
+        existence_fabrication_count,
+        existence_samples,
         status: status.label,
     }
 }
@@ -440,6 +501,20 @@ fn format_misattribution_sample(suspect: &misattribution::Suspect) -> String {
         suspect.flag,
         desc,
         suspect.offending_tokens.join(", "),
+    )
+}
+
+/// One fabrication, rendered as a single audit-section line: which node
+/// path carries it, whether it's a subcommand or a flag, and the specific
+/// offending spelling — mirrors [`format_misattribution_sample`]'s shape.
+fn format_existence_sample(fabrication: &existence::Fabrication) -> String {
+    let kind = match fabrication.kind {
+        existence::FabricationKind::Subcommand => "subcommand",
+        existence::FabricationKind::Flag => "flag",
+    };
+    format!(
+        "{}: invented {kind} {:?} not found in raw text",
+        fabrication.path, fabrication.name,
     )
 }
 
@@ -568,6 +643,10 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         .iter()
         .filter(|r| r.misattribution_column_aligned)
         .count();
+    let existence_fabrication_tools = rows
+        .iter()
+        .filter(|r| r.existence_fabrication_count > 0)
+        .count();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -592,6 +671,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         total_flags,
         misattribution_suspect_tools,
         misattribution_column_aligned_tools,
+        existence_fabrication_tools,
     }
 }
 
@@ -633,7 +713,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     // alignment for that row.
     let mut out = String::new();
     out.push_str(&format!(
-        "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}  {}\n",
+        "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}  {}\n",
         "tool",
         "tier(s)",
         "framework",
@@ -648,6 +728,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
         "suspect",
         "man",
         "misattr",
+        "exist",
         "status",
         tw = TOOL_COL_WIDTH,
         iw = TIER_COL_WIDTH,
@@ -659,6 +740,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
         sw = SUSPECT_COL_WIDTH,
         manw = MAN_COL_WIDTH,
         miw = MISATTR_COL_WIDTH,
+        ew = EXISTENCE_COL_WIDTH,
     ));
     for row in rows {
         let pct = row
@@ -666,7 +748,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}  {}\n",
+            "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}  {}\n",
             truncate_col(&row.tool, TOOL_COL_WIDTH),
             truncate_col(&row.tiers, TIER_COL_WIDTH),
             truncate_col(&row.framework, FRAMEWORK_COL_WIDTH),
@@ -677,6 +759,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             row.suspicious_nodes,
             if row.man_shaped { "yes" } else { "-" },
             row.misattribution_suspect_count,
+            row.existence_fabrication_count,
             row.status,
             tw = TOOL_COL_WIDTH,
             iw = TIER_COL_WIDTH,
@@ -688,6 +771,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             sw = SUSPECT_COL_WIDTH,
             manw = MAN_COL_WIDTH,
             miw = MISATTR_COL_WIDTH,
+            ew = EXISTENCE_COL_WIDTH,
         ));
     }
     out.push_str(&aggregate_footer_line(aggregate));
@@ -696,6 +780,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&framework_summary_lines(aggregate));
     out.push_str(&worst_parsed_lines_text(&worst_parsed(rows)));
     out.push_str(&misattribution_sample_lines_text(rows));
+    out.push_str(&existence_sample_lines_text(rows));
     out
 }
 
@@ -848,6 +933,48 @@ fn misattribution_sample_lines_text(rows: &[Row]) -> String {
     out
 }
 
+/// Plain-text rendering of every row's [`Row::existence_samples`], flattened
+/// and capped at [`EXISTENCE_SAMPLE_LIMIT`] — mirrors
+/// [`misattribution_sample_lines_text`]'s shape and "nothing to report → no
+/// section" convention exactly.
+fn existence_sample_lines_text(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.existence_samples.iter())
+        .take(EXISTENCE_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "# existence-fabrications (sample — not gated; judge the false-positive rate yourself):\n",
+    );
+    for (rank, sample) in samples.iter().enumerate() {
+        out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
+    }
+    out
+}
+
+/// Markdown rendering of [`existence_sample_lines_text`]'s result, for
+/// [`render_markdown`].
+fn existence_sample_section_markdown(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.existence_samples.iter())
+        .take(EXISTENCE_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\n**Existence fabrications** (sample, not gated — see `xtask/src/existence.rs`):\n\n| sample |\n|---|\n",
+    );
+    for sample in samples {
+        out.push_str(&format!("| {} |\n", md_escape(sample)));
+    }
+    out
+}
+
 /// Markdown rendering of [`misattribution_sample_lines_text`]'s result, for
 /// [`render_markdown`].
 fn misattribution_sample_section_markdown(rows: &[Row]) -> String {
@@ -875,16 +1002,16 @@ fn misattribution_sample_section_markdown(rows: &[Row]) -> String {
 fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     let mut out = String::new();
     out.push_str(
-        "| tool | tier(s) | framework | nodes | flags | %flags_text | ms | suspect | man | misattr | status |\n",
+        "| tool | tier(s) | framework | nodes | flags | %flags_text | ms | suspect | man | misattr | exist | status |\n",
     );
-    out.push_str("|---|---|---|---|---|---|---|---|---|---|---|\n");
+    out.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for row in rows {
         let pct = row
             .pct_flags_with_text
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.tool),
             md_escape(&row.tiers),
             md_escape(&row.framework),
@@ -895,6 +1022,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             row.suspicious_nodes,
             if row.man_shaped { "yes" } else { "-" },
             row.misattribution_suspect_count,
+            row.existence_fabrication_count,
             row.status,
         ));
     }
@@ -919,6 +1047,12 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.misattribution_suspect_tools,
     ));
     out.push_str(&format!(
+        "**Existence fabrications:** {} tool(s) with at least one help-text-sourced subcommand \
+         name or flag spelling not found literally in that tool's own raw help text — [M-10]'s \
+         shape, generalized; not gated, see `xtask/src/existence.rs`.\n\n",
+        aggregate.existence_fabrication_tools,
+    ));
+    out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
         aggregate.total,
@@ -932,6 +1066,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     }
     out.push_str(&worst_parsed_section_markdown(&worst_parsed(rows)));
     out.push_str(&misattribution_sample_section_markdown(rows));
+    out.push_str(&existence_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
@@ -967,7 +1102,7 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -976,6 +1111,7 @@ fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.zero_flag_ok_count,
         aggregate.misattribution_suspect_tools,
         aggregate.misattribution_column_aligned_tools,
+        aggregate.existence_fabrication_tools,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -1040,6 +1176,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // all, so `--check` against one must still work.
     let mut misattribution_suspect_tools = 0usize;
     let mut misattribution_column_aligned_tools = 0usize;
+    // Same reasoning, same pattern, brand new field (this task): a
+    // scoreboard from before the existence detector existed has no such
+    // key at all, so `--check` against one must still work.
+    let mut existence_fabrication_tools = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -1060,6 +1200,9 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             }
             "misattribution_column_aligned_tools" => {
                 misattribution_column_aligned_tools = value.parse::<usize>().ok()?
+            }
+            "existence_fabrication_tools" => {
+                existence_fabrication_tools = value.parse::<usize>().ok()?
             }
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
@@ -1083,6 +1226,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         total_flags,
         misattribution_suspect_tools,
         misattribution_column_aligned_tools,
+        existence_fabrication_tools,
     })
 }
 
@@ -1251,6 +1395,27 @@ mod tests {
         assert_eq!(parsed.misattribution_suspect_tools, 1);
     }
 
+    /// Same pattern as every other new-column default: a scoreboard from
+    /// before the existence detector existed has no such field.
+    #[test]
+    fn footer_without_existence_fabrication_tools_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.existence_fabrication_tools, 0);
+    }
+
+    #[test]
+    fn footer_round_trips_existence_fabrication_tools() {
+        let mut fabricated_row = row("tar", 42, Some(79.0), "ok");
+        fabricated_row.existence_fabrication_count = 1;
+        let rows = vec![row("git", 34, Some(100.0), "ok"), fabricated_row];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.existence_fabrication_tools, 1);
+        let footer = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&footer).unwrap();
+        assert_eq!(parsed.existence_fabrication_tools, 1);
+    }
+
     #[test]
     fn missing_footer_returns_none() {
         assert!(parse_aggregate_footer("no footer here\n").is_none());
@@ -1355,6 +1520,8 @@ mod tests {
             misattribution_suspect_count: 0,
             misattribution_column_aligned: false,
             misattribution_samples: Vec::new(),
+            existence_fabrication_count: 0,
+            existence_samples: Vec::new(),
             status,
         }
     }
