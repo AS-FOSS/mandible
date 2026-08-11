@@ -119,7 +119,7 @@ impl ExtractionTier for HelpTextTier {
         // the text this call already fetched above for its own parsing.
         let detected = framework::identify_from_artifact(tool)
             .or_else(|| framework::identify_from_help_text(&raw));
-        Ok(build_node(&node_name, &raw, detected))
+        Ok(build_node(&node_name, &raw, detected, &tool.name))
     }
 
     fn is_incremental(&self) -> bool {
@@ -244,7 +244,12 @@ fn looks_like_help_output(text: &str) -> bool {
     if text.trim().is_empty() {
         return false;
     }
-    let parsed = sections::parse_with_profile(text, None);
+    // `tool_name: None` — this check only cares whether *any* structure
+    // came back, and the usage-block scanner's tool-name discriminator
+    // only affects how many entries a usage block joins into, never
+    // whether `usage` ends up empty (see `parse_with_profile`'s doc
+    // comment). No tool name is in scope at this call site anyway.
+    let parsed = sections::parse_with_profile(text, None, None);
     !parsed.flags.is_empty() || !parsed.subcommands.is_empty() || !parsed.usage.is_empty()
 }
 
@@ -341,9 +346,16 @@ fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
 ///    structure entirely and carry the raw text verbatim in
 ///    [`CommandNode::unparsed`] instead, at `confidence: 0.0` — spec §7
 ///    Tier B step 3, "never fabricate, degrade to verbatim".
-fn build_node(name: &str, raw: &str, framework: Option<Framework>) -> CommandNode {
+///
+/// `name` is this node's own name (`"rebase"` for `git rebase`); `tool_name`
+/// is the root tool's name (`"git"` for both `git --help` and `git rebase
+/// --help`) — usage synopses conventionally repeat the *root* invocation,
+/// not the immediate node's name, so `tool_name` (not `name`) is what
+/// `sections::parse_with_profile`'s usage-block scanner is given as the
+/// "starts a new entry" discriminator.
+fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &str) -> CommandNode {
     let fw_profile = framework.map(profile::profile);
-    let parsed = sections::parse_with_profile(raw, fw_profile.as_ref());
+    let parsed = sections::parse_with_profile(raw, fw_profile.as_ref(), Some(tool_name));
     let detected_framework = framework.map(|f| f.name().to_string());
 
     let structurally_plausible =
@@ -512,7 +524,7 @@ mod tests {
     #[test]
     fn build_node_from_tar_fixture_has_flags_and_confidence() {
         let raw = fixture("tar_help.stdout");
-        let node = build_node("tar", &raw, None);
+        let node = build_node("tar", &raw, None, "tar");
         assert_eq!(node.name, "tar");
         assert!(!node.flags.is_empty());
         assert!(node.provenance.confidence.unwrap() > 0.0);
@@ -532,8 +544,8 @@ mod tests {
     #[test]
     fn unidentified_confidence_is_capped_but_identified_is_not() {
         let raw = fixture("tar_help.stdout");
-        let unidentified = build_node("tar", &raw, None);
-        let identified = build_node("tar", &raw, Some(Framework::GnuArgp));
+        let unidentified = build_node("tar", &raw, None, "tar");
+        let identified = build_node("tar", &raw, Some(Framework::GnuArgp), "tar");
         assert!(unidentified.provenance.confidence.unwrap() <= 0.5);
         assert!(
             identified.provenance.confidence.unwrap() > 0.5,
@@ -550,7 +562,7 @@ mod tests {
     #[test]
     fn structurally_implausible_output_degrades_to_verbatim() {
         let raw = "This tool prints only a friendly banner and nothing else.\nGoodbye.\n";
-        let node = build_node("mystery", raw, None);
+        let node = build_node("mystery", raw, None, "mystery");
         assert_eq!(node.provenance.confidence, Some(0.0));
         assert!(!node.unparsed.is_empty());
         assert_eq!(node.unparsed.len(), 2);
@@ -567,19 +579,19 @@ mod tests {
     #[test]
     fn structurally_plausible_output_never_carries_unparsed() {
         let raw = fixture("tar_help.stdout");
-        let node = build_node("tar", &raw, None);
+        let node = build_node("tar", &raw, None, "tar");
         assert!(node.unparsed.is_empty());
     }
 
     #[test]
     fn detected_framework_is_recorded_on_the_node() {
         let raw = fixture("tar_help.stdout");
-        let node = build_node("tar", &raw, Some(Framework::GnuArgp));
+        let node = build_node("tar", &raw, Some(Framework::GnuArgp), "tar");
         assert_eq!(
             node.detected_framework.as_deref(),
             Some(Framework::GnuArgp.name())
         );
-        let unidentified = build_node("tar", &raw, None);
+        let unidentified = build_node("tar", &raw, None, "tar");
         assert_eq!(unidentified.detected_framework, None);
     }
 
@@ -600,7 +612,7 @@ mod tests {
     fn gnu_argp_profile_forces_zero_subcommands_on_real_tar_output() {
         let raw = fixture("tar_help.stdout");
         let parsed =
-            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::GnuArgp)));
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::GnuArgp)), None);
         assert!(parsed.subcommands.is_empty());
         let create = parsed
             .flags
@@ -618,7 +630,7 @@ mod tests {
     fn clap_v3v4_profile_recovers_cargo_commands_and_flags() {
         let raw = fixture("cargo_help.stdout");
         let parsed =
-            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::ClapV3V4)));
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::ClapV3V4)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         // Deliberately only asserting names with no inline `, alias`
         // (clap's `visible_alias` rendering, e.g. "build, b") — entries
@@ -646,7 +658,7 @@ mod tests {
     fn argparse_profile_recovers_subparsers_not_plain_positionals() {
         let raw = fixture("argparse_demo_help.stdout");
         let parsed =
-            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)));
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["init", "build", "run"], "{names:?}");
         let long_flags: Vec<&str> = parsed
@@ -671,7 +683,7 @@ mod tests {
     fn argparse_profile_recovers_subparsers_under_a_styled_heading() {
         let raw = fixture("argparse_titled_demo_help.stdout");
         let parsed =
-            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)));
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["init", "build", "run"], "{names:?}");
     }
@@ -721,7 +733,7 @@ mod tests {
     fn argparse_profile_does_not_fabricate_subcommands_from_plain_positionals() {
         let raw = "usage: tool [-h] path\n\npositional arguments:\n  path        the file to process\n\noptions:\n  -h, --help  show this help message and exit\n";
         let parsed =
-            sections::parse_with_profile(raw, Some(&profile::profile(Framework::Argparse)));
+            sections::parse_with_profile(raw, Some(&profile::profile(Framework::Argparse)), None);
         assert!(
             parsed.subcommands.is_empty(),
             "expected zero subcommands, got {:?}",
@@ -744,7 +756,7 @@ mod tests {
     fn busybox_profile_recovers_comma_separated_applets() {
         let raw = fixture("busybox_help.stdout");
         let parsed =
-            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Busybox)));
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Busybox)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         // Applets from the first, middle, and last wrapped line of the
         // real list, so this can't pass by only recovering one line's
@@ -769,7 +781,8 @@ mod tests {
     #[test]
     fn busybox_profile_does_not_fabricate_commands_outside_a_command_heading() {
         let raw = "Usage: widget [OPTIONS]\n\nSupported formats:\n\tjson, yaml, toml, xml\n";
-        let parsed = sections::parse_with_profile(raw, Some(&profile::profile(Framework::Busybox)));
+        let parsed =
+            sections::parse_with_profile(raw, Some(&profile::profile(Framework::Busybox)), None);
         assert!(
             parsed.subcommands.is_empty(),
             "expected zero subcommands, got {:?}",
@@ -790,7 +803,8 @@ mod tests {
     #[test]
     fn cobra_profile_recovers_gh_commands_and_excludes_help_topics() {
         let raw = fixture("gh_help.stdout");
-        let parsed = sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Cobra)));
+        let parsed =
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Cobra)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         for want in ["auth", "pr", "co", "alias", "cache"] {
             assert!(names.contains(&want), "{names:?}");
@@ -808,7 +822,8 @@ mod tests {
     #[test]
     fn click_profile_recovers_commands_and_flags() {
         let raw = fixture("click_demo_help.stdout");
-        let parsed = sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Click)));
+        let parsed =
+            sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Click)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"build"), "{names:?}");
         assert!(names.contains(&"init"), "{names:?}");

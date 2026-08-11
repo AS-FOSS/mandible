@@ -154,16 +154,25 @@ fn mentions_commands_word(s: &str) -> bool {
 /// Parse raw `--help` text (already selected as stdout-or-stderr by the
 /// caller) into structured pieces, with no framework knowledge — the
 /// generic layout engine alone (spec §7 Tier B step 2, "unidentified").
-/// Equivalent to `parse_with_profile(raw, None)`. `#[cfg(test)]`: the one
-/// production caller (`help_text::build_node`) always has a definite
-/// answer to "was a framework identified?" and calls
-/// [`parse_with_profile`] directly with `None` or `Some(..)`; this
-/// zero-argument spelling exists only because most of this module's own
+/// Equivalent to `parse_with_profile(raw, None, None)`. `#[cfg(test)]`: the
+/// one production caller (`help_text::build_node`) always has a definite
+/// answer to "was a framework identified?" (and always knows the tool's own
+/// name) and calls [`parse_with_profile`] directly; this zero-argument
+/// spelling exists only because most of this module's own
 /// (pre-batch-6-part-4) test suite below calls it, and its behavior must
 /// stay exactly what it always was.
 #[cfg(test)]
 pub fn parse(raw: &str) -> ParsedHelp {
-    parse_with_profile(raw, None)
+    parse_with_profile(raw, None, None)
+}
+
+/// [`parse`], but naming the tool whose `--help` this is — see
+/// [`parse_with_profile`]'s `tool_name` parameter. `#[cfg(test)]` for the
+/// same reason as [`parse`]: the production caller always passes a real
+/// name directly to `parse_with_profile`.
+#[cfg(test)]
+fn parse_named(raw: &str, tool_name: &str) -> ParsedHelp {
+    parse_with_profile(raw, None, Some(tool_name))
 }
 
 /// Same engine as [`parse`], but consulting `profile`'s framework-specific
@@ -172,7 +181,19 @@ pub fn parse(raw: &str) -> ParsedHelp {
 /// generic behavior exactly — this is what keeps the two degradation
 /// levels (spec §7 Tier B: identified vs. unidentified) sharing one engine
 /// instead of forking into two.
-pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> ParsedHelp {
+///
+/// `tool_name` is the probed tool's own root name (`ResolvedTool::name`,
+/// e.g. `"git"` for both `git --help` and `git rebase --help`) when known.
+/// It feeds the usage-block scanner's "starts a new entry" test alongside
+/// the `usage:`/`or:` markers — see that block's own comment for why
+/// indentation alone cannot carry this weight. `None` is always safe: it
+/// only makes the name-based half of that test inert, never wrong (the
+/// marker- and content-shape-based halves are unaffected).
+pub fn parse_with_profile(
+    raw: &str,
+    profile: Option<&FrameworkProfile>,
+    tool_name: Option<&str>,
+) -> ParsedHelp {
     let lines: Vec<&str> = raw.lines().collect();
     let mut result = ParsedHelp::default();
 
@@ -197,8 +218,8 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
     // does — see that block's own comment for why.
     let mut usage_lines: Vec<String> = Vec::new();
     // 1. Usage block: one or more *logical* entries — each a `usage:` /
-    // `or:` line plus whatever more-indented lines wrap it — collected
-    // from the physical lines starting at the first (case-insensitive)
+    // `or:` / own-name line plus whatever continues it — collected from
+    // the physical lines starting at the first (case-insensitive)
     // "usage:" line.
     //
     // `usage_lines` stays one string per *physical* source line: it feeds
@@ -210,26 +231,53 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
     //
     // `usage_entries` is the display/verbatim form (`result.usage`), one
     // string per logical invocation, and this is where the join happens.
-    // The rule mirrors spec §7 Tier B rule 2 ("a line at the description
-    // column with nothing at the name column is a continuation of the
-    // previous row, never a new row") applied to the usage block instead
-    // of a command table: a line **more indented than the block's own
-    // base indent, and not itself a marker**, continues the entry above
-    // it. Git's five-line wrapped synopsis (`corpus/git/2.43.0`) is
-    // exactly this — four continuation lines, all indented under `git`,
-    // none of them a marker — so it joins into the one invocation form it
-    // always was, instead of five phantom ones the previous per-line
-    // storage fabricated.
     //
-    // A line is a **new** entry, never a continuation, when it is itself a
-    // `usage:`/`Usage:` line (some tools repeat the label per form) or
-    // starts with the GNU coreutils `or:` marker (case-insensitive) —
-    // `du`'s `  or:  du [OPTION]... --files0-from=F` is indented *more*
-    // than the block's base indent (0), so the pure indentation rule alone
-    // would wrongly fold it into the line above; the marker check is what
-    // keeps `or:` a form of its own. This is the over-join guard: a fix
-    // that simply joined every indented line would look correct on `git`
-    // and silently merge every `or:` alternative fleet-wide.
+    // A line **starts a new entry**, regardless of indentation, when it is
+    // itself a `usage:`/`Usage:` line (some tools repeat the label per
+    // form), starts with the GNU coreutils `or:` marker (case-insensitive:
+    // `du`'s `  or:  du [OPTION]... --files0-from=F`), or begins with the
+    // tool's own name at a word boundary (`tool_name`, when known — a tool
+    // that lists alternative forms *without* any marker by literally
+    // repeating itself, `prog foo` / `prog bar`, must still read as two
+    // entries). Anything else is a **continuation** of the entry above it —
+    // *unless* it ends the block entirely; see below.
+    //
+    // Indentation alone decided "continuation vs. block end" before this
+    // comment was rewritten, and it is not sufficient: `git`'s wrapped
+    // synopsis continuations sit *more* indented than `usage:` (column 0
+    // vs. 11), but `lsof`'s sit at *exactly the same* indent as its own
+    // `usage:` marker (both column 1) —
+    //
+    // ```text
+    //  usage: [-?abhKlnNoOPRtUvVX] [+|-c c] ...
+    //  [-F [f]] [-g [s]] [-i [i]] ...
+    // ```
+    //
+    // — so the old `leading_whitespace(l) <= base_indent` test read every
+    // one of lsof's continuation lines as the block already having ended,
+    // silently dropping them (and the six flags documented only in them,
+    // none elsewhere in lsof's own two-column options table) before they
+    // ever reached `usage_lines`/`extract_usage_flags`. Simply loosening
+    // the indentation test doesn't work either: `du`'s block ends with an
+    // ordinary prose sentence ("Summarize device usage of the set of
+    // FILEs...") at that *same* column-0-or-less position, immediately
+    // after the `or:` line, with no blank separator — a line that is not a
+    // marker, does not start with `du`, and must still end the block.
+    // Indentation genuinely cannot tell these two same-indent cases apart;
+    // only content shape can:
+    //
+    // - **More indented than the block's base indent**: always a
+    //   continuation (git's hanging-indent wrap). Indentation *is*
+    //   sufficient signal here, so no further test is applied.
+    // - **At or below the base indent, and not a marker/own-name line**:
+    //   a continuation only if it still *reads like more usage grammar* —
+    //   opens with one of the docopt-style group delimiters spec §7 names
+    //   (`[`, `<`, `{` — "`[OPTIONS]`, `<required>`, `{a|b|c}`"), as every
+    //   one of lsof's continuation fragments does. Anything else (a
+    //   sentence of prose, a two-column flag row) ends the block: `du`'s
+    //   trailing sentence starts with a capital word, not a delimiter, and
+    //   a continuation line that itself reads as a flag *row* (checked
+    //   first, below) ends the block the same way it always has.
     //
     // Joined fragments are separated by a single space. This is not
     // re-flowing (spec §7: usage is "kept verbatim, not re-flowed") — each
@@ -253,29 +301,41 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             let trimmed_start = l.trim_start();
             let is_marker =
                 starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
-            if leading_whitespace(l) <= base_indent && !is_marker {
-                break;
-            }
-            // A continuation line that itself reads as a flag entry ends
-            // the usage block, even though it is indented and unseparated
-            // by a blank line. A usage continuation is an *alternative
-            // invocation form* (`   curl [options...] <url>`); it never
-            // begins with a dash. Tools that run their flag list straight
-            // into the usage line with no blank separator and no
-            // `Options:` heading are common enough that not stopping here
-            // silently swallowed every flag they have: `curl --help`
-            // indents its 13 flag rows by one space directly under
-            // `Usage:`, and all 13 landed in `usage` with zero flags
-            // parsed — reported as `ok` at "no flags to describe", which
-            // is the same class of confidently-wrong result as [M-10].
-            // This is a layout fact, true of every framework, so it lives
-            // in the shared engine rather than in any profile.
-            if looks_like_flag_start(trimmed_start) {
-                break;
+            let is_own_name =
+                tool_name.is_some_and(|name| starts_with_tool_name(trimmed_start, name));
+            let starts_new_entry = is_marker || is_own_name;
+
+            if !starts_new_entry {
+                // A continuation line that itself reads as a flag entry
+                // ends the usage block, even though it is indented and
+                // unseparated by a blank line. A usage continuation is an
+                // *alternative invocation form* (`   curl [options...]
+                // <url>`); it never begins with a dash. Tools that run
+                // their flag list straight into the usage line with no
+                // blank separator and no `Options:` heading are common
+                // enough that not stopping here silently swallowed every
+                // flag they have: `curl --help` indents its 13 flag rows
+                // by one space directly under `Usage:`, and all 13 landed
+                // in `usage` with zero flags parsed — reported as `ok` at
+                // "no flags to describe", which is the same class of
+                // confidently-wrong result as [M-10]. This is a layout
+                // fact, true of every framework, so it lives in the shared
+                // engine rather than in any profile.
+                if looks_like_flag_start(trimmed_start) {
+                    break;
+                }
+                // Below the base indent (never above it: `leading_whitespace`
+                // is unsigned, so this also covers "equal to"), indentation
+                // alone can't distinguish a genuine continuation (lsof) from
+                // the block having ended (du) — fall back to content shape.
+                if leading_whitespace(l) <= base_indent && !looks_like_usage_fragment(trimmed_start)
+                {
+                    break;
+                }
             }
             let trimmed = l.trim().to_string();
             usage_lines.push(trimmed.clone());
-            if is_marker || leading_whitespace(l) <= base_indent {
+            if starts_new_entry {
                 usage_entries.push(trimmed);
             } else if let Some(last) = usage_entries.last_mut() {
                 last.push(' ');
@@ -731,6 +791,55 @@ fn starts_with_or_marker(t: &str) -> bool {
         .get(..3)
         .map(|b| b.eq_ignore_ascii_case(b"or:"))
         .unwrap_or(false)
+}
+
+/// True if `t` (already trimmed of leading whitespace) begins with `name`
+/// at a word boundary — either exactly `name`, or `name` followed by
+/// whitespace. The "starts with the tool's own name" half of the
+/// usage-block continuation discriminator (see the block's own comment):
+/// a tool that lists alternative invocation forms *without* an `or:`/
+/// `usage:` marker, by literally repeating itself —
+///
+/// ```text
+/// Usage: prog foo
+///        prog bar
+/// ```
+///
+/// — must still read as two entries, not one continuation swallowing the
+/// other.
+///
+/// Word-boundary checked (via `str::strip_prefix`, not a raw byte slice)
+/// so a tool named `git` doesn't also claim a line that happens to start
+/// with `gitk` or `git-foo`.
+fn starts_with_tool_name(t: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    match t.strip_prefix(name) {
+        Some(rest) => rest.is_empty() || rest.starts_with(char::is_whitespace),
+        None => false,
+    }
+}
+
+/// True if `t` (already trimmed of leading whitespace) opens with one of
+/// the docopt-style usage grammar's own group delimiters — spec §7 Tier B:
+/// "`[OPTIONS]`, `<required>`, `[optional]`, `...` for repetition, `|` for
+/// alternatives, `{a|b|c}` for choices." A line that opens this way still
+/// reads as more invocation syntax, not the next section starting.
+///
+/// This is the content-shape half of the usage-block continuation
+/// discriminator, needed because indentation alone cannot separate a
+/// genuine same-indent continuation (`lsof`'s `[-F [f]] [-g [s]] ...`,
+/// wrapped at the exact same column as its own `usage:` marker) from a
+/// same-indent line that legitimately ends the block (`du`'s trailing
+/// "Summarize device usage of the set of FILEs..." sentence, immediately
+/// after its `or:` line with no blank separator) — both sit at or below
+/// the block's base indent, and neither is a marker or the tool's own
+/// name, so only their content tells them apart: one is bracket/
+/// angle-bracket syntax, the other is an English sentence starting with a
+/// capital word.
+fn looks_like_usage_fragment(t: &str) -> bool {
+    matches!(t.as_bytes().first(), Some(b'[') | Some(b'<') | Some(b'{'))
 }
 
 /// True if `line` looks like a row of a bare-name grid (openssl-style
@@ -2170,6 +2279,94 @@ mod tests {
                 "usage: widget stop [OPTIONS]".to_string(),
             ]
         );
+    }
+
+    /// The other discriminator spec §7's usage grammar allows for: a tool
+    /// that lists alternative forms *without* any `usage:`/`or:` marker, by
+    /// literally repeating its own name. This must read as two entries when
+    /// the tool's name is known — the counterpart to the marker-based
+    /// version just above, exercised via [`parse_named`] rather than
+    /// [`parse`] since the discriminator only fires when a name is given.
+    #[test]
+    fn own_name_repeated_with_no_marker_starts_a_new_entry() {
+        let raw = "Usage: prog foo\n       prog bar\n";
+        let parsed = parse_named(raw, "prog");
+        assert_eq!(
+            parsed.usage,
+            vec!["Usage: prog foo".to_string(), "prog bar".to_string()],
+            "{:?}",
+            parsed.usage
+        );
+        // Without a known name, the second line is still more indented
+        // than the block's own base (7 spaces vs. 0) — the same hanging-
+        // indent shape git's wrapped synopsis uses — so it (reasonably)
+        // reads as a continuation instead, joining into one entry. This is
+        // exactly why `tool_name` matters: the discriminator that tells
+        // these two real shapes apart is the name, not the indent, which
+        // looks identical in both.
+        let unnamed = parse(raw);
+        assert_eq!(unnamed.usage, vec!["Usage: prog foo prog bar".to_string()]);
+    }
+
+    /// The regression this batch exists to fix: `lsof -h`'s usage synopsis
+    /// wraps across three physical lines, but — unlike `git`'s hanging
+    /// indent — every continuation sits at *the same* column as the
+    /// `usage:` marker itself (both indented by exactly one space):
+    ///
+    /// ```text
+    ///  usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]]
+    ///  [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s]
+    ///  [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]
+    /// ```
+    ///
+    /// The indentation-only rule `f5f1183` shipped read `leading_whitespace
+    /// <= base_indent` as "block already ended" for every one of these
+    /// continuation lines, dropping them — and the six flags documented
+    /// only in them (`-F`, `-g`, `+|-L`, `+m`, `+|-M`, `+|-r`, among others)
+    /// never reached `extract_usage_flags` — before they ever joined
+    /// `result.usage`. This must now recover as one logical entry, with
+    /// every continuation-only flag still present.
+    #[test]
+    fn lsof_same_indent_continuations_join_into_one_entry() {
+        let raw = " usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]]\n \
+                    [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s]\n \
+                    [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]\n\
+                    Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.\n";
+        let parsed = parse_named(raw, "lsof");
+        assert_eq!(
+            parsed.usage.len(),
+            1,
+            "lsof's three same-indent lines must join into one logical entry, got {:?}",
+            parsed.usage
+        );
+        assert_eq!(
+            parsed.usage[0],
+            "usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]] \
+             [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s] \
+             [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]"
+        );
+        // The over-join guard's counterpart: the trailing "Defaults in
+        // parentheses..." sentence sits at that same column-0-or-less
+        // position (no leading space at all) but is ordinary prose, not a
+        // usage-grammar fragment, and must still end the block rather than
+        // being swallowed onto the synopsis.
+        assert!(!parsed.usage[0].contains("Defaults"), "{:?}", parsed.usage);
+        let short_flags: Vec<Option<char>> = parsed.flags.iter().map(|f| f.short).collect();
+        // Spot-check flags documented only in the two (previously dropped)
+        // continuation lines — none of these appear in the first line's
+        // own groups (verified by hand against `usage_segments`'
+        // token-level behavior: `-o`, for instance, appears as a bare
+        // character inside line one's bundled `-?abhKlnNoOPRtUvVX` blob,
+        // but that whole blob parses as a single flag spelled `-?` with
+        // the rest as its value shape, not as fourteen separate flags — so
+        // `-o` is only ever actually recovered from continuation line
+        // one's own explicit `[-o [o]]` group).
+        for want in ['F', 'g', 'L', 'M', 'r', 'u'] {
+            assert!(
+                short_flags.contains(&Some(want)),
+                "expected -{want} recovered from lsof's continuation lines, got {short_flags:?}"
+            );
+        }
     }
 
     /// Regression for spec [M-8]: `openssl --help` writes only to stderr,
