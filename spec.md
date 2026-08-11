@@ -577,11 +577,37 @@ damage a user's machine, and it gets its own section and its own tests.
    subcommand a future parser change starts emitting, unasked.
 
    The general form of that last hazard — a *fabricated* word becoming argv
-   for any tool, not just these — is not solved by this list and should be
-   solved by gating positional probes on provenance: send `<word> --help` only
-   when the word came from a structural source (cobra `__complete`, a
-   completion script, an argparse subparser table), never from a prose
-   heuristic. Until then this list is load-bearing for thirteen tools.
+   for any tool, not just these — is now closed for the one place in this
+   crate that constructs a positional `--help` probe: Tier B's
+   `<word> --help`/`-h` (`HelpTextTier`, `mandible-extract/src/help_text/mod.rs`)
+   fires only when `NodeHints::heading_attested` is true — the word came
+   from a recognized command heading (or the chain a heading started), never
+   from layout alone. A non-attested node is not probed in any shape; the
+   tier declines and records a per-node, per-tier failure (§5.3) rather than
+   fabricating a probe or letting the tree silently gain an
+   empty-but-successful node in its place. The root is exempt by construction
+   (`Runner::extract_full_for` passes `heading_attested: true` for it, since
+   it is the name the user typed, not a word any parser invented), so the
+   ordinary `<tool> --help` root probe is unaffected. `mandible-extract/tests/exec_policy.rs`'s
+   shim suite proves both halves: an attested word is still probed and its
+   real flags recovered; a non-attested one reaches the tool's binary not at
+   all — verified by running the same assertion against the pre-gate code
+   path and watching it fail.
+
+   This list stays anyway, and is not made redundant by that gate. The two
+   close different gaps: the gate above governs *when a word is trusted
+   enough to become argv at all*, while this list governs *what these
+   thirteen specific programs may be asked to do even with a trusted word*
+   — `--help` remains their only permitted shape regardless of provenance,
+   because for them even a genuine, correctly-attested subcommand name is
+   still a target (`killall foo --help` looks safe by attestation and is
+   refused anyway, since `foo` naming a real process is exactly the risk).
+   The gate also inherits whatever a grammar's own heading-recognition gets
+   wrong — `heading_attested` is only as trustworthy as the rules in
+   `help_text/sections.rs` that set it, and those have needed several fixes
+   (AGENTS.md §2's invariant table records more than one) — while this list
+   is closed on a fact about the program itself, independent of any parser.
+   Belt and suspenders, on two different axes.
 
    **This is a safety rule, and is deliberately not the per-tool knowledge §1
    forbids.** §1 governs *extraction* — "if a tool renders badly, fix the

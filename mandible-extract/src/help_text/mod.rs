@@ -133,6 +133,23 @@ impl ExtractionTier for HelpTextTier {
 /// and return whichever stream had content (stdout preferred when both are
 /// non-empty — spec §7 Tier B, measured against real tools in [M-8]).
 ///
+/// **The positional probe itself is gated on provenance.** `words`
+/// non-empty means this is a subcommand path, not the root, and its last
+/// element is a word some earlier extraction produced — either the tool's
+/// own attested command table, or, if a grammar bug ever mis-reads a
+/// layout, a fabrication. Spec §6 rule 0's closing paragraph names this as
+/// the general form of the never-probe list's hazard: a fabricated word
+/// becoming argv for *any* tool, not just the thirteen named there. So
+/// **no probe of any kind is sent** — not `--help`, not the `-h` fallback
+/// below it, not [M-16] sub-case (a)'s `-h` fallback further down — unless
+/// [`NodeHints::heading_attested`] is true, exactly the same bit the
+/// sub-case (a) fallback already checked before this function grew a gate
+/// of its own. See [`probe_help_text_reporting_flag`] for where the check
+/// actually lives; a non-attested node returns [`ExtractError::Other`]
+/// instead of spawning anything, so the runner records a per-node,
+/// per-tier failure (spec §5.3) rather than the tree silently gaining an
+/// empty-but-successful node.
+///
 /// **[M-16] sub-case (a):** when `--help` instead produced real output that
 /// is a *rendered man page* — `git commit --help` execs `man` and renders
 /// `GIT-COMMIT(1)` rather than printing help — also fall back to `-h`,
@@ -147,11 +164,12 @@ impl ExtractionTier for HelpTextTier {
 ///   ruling is that an unmeasured argv broadening is a no; a man-shaped
 ///   *root* must keep degrading to verbatim exactly as it does today, so
 ///   this fallback never fires for the root regardless of anything else.
-/// - **`hints.heading_attested` must be true.** `words`' last element must
-///   have come from a structural source (spec §6 rule 0's closing
-///   paragraph names an unattested word becoming argv as the general,
-///   still-unsolved form of the never-probe list's hazard) — see
-///   [`NodeHints::heading_attested`].
+/// - **`hints.heading_attested` must be true.** No longer checked
+///   explicitly at this fallback's own call site: the function-level gate
+///   above already refused a non-attested `words` before any probe ran, so
+///   by the time execution reaches this fallback, `words` non-empty
+///   implies attested. This is the same bit [M-16] originally added this
+///   fallback's own check for, before the wider gate existed.
 ///
 /// The `-h` response is validated with [`looks_like_help_output`] before
 /// being trusted (D1.3.1): a tool that *acts* on an argument it doesn't
@@ -184,6 +202,21 @@ fn probe_help_text_reporting_flag(
     words: &[String],
     hints: NodeHints,
 ) -> Result<(String, &'static str), ExtractError> {
+    // Spec §6 rule 0's closing paragraph, closed: a subcommand word is
+    // probed at all only when it is structurally attested. The root
+    // (`words.is_empty()`) is always attested by construction — it is the
+    // name the user typed, never a word any parser invented — so this
+    // never blocks the ordinary `<tool> --help` root probe, only a deeper
+    // path whose last word did not come from a recognized heading.
+    if !words.is_empty() && !hints.heading_attested {
+        return Err(ExtractError::Other(format!(
+            "refusing to probe `{} --help`: {:?} is not heading_attested, so it may be a \
+             fabricated subcommand rather than a real one (spec §6 rule 0)",
+            words.join(" "),
+            words.last().expect("words is non-empty in this branch"),
+        )));
+    }
+
     let long = probe.run(
         tool_path,
         &InertArgv::HelpLongForPath {
@@ -205,7 +238,11 @@ fn probe_help_text_reporting_flag(
 
     let long_text = pick_stream(&long.stdout, &long.stderr);
 
-    if !words.is_empty() && hints.heading_attested && sections::is_man_page_banner(&long_text) {
+    // `hints.heading_attested` is no longer checked here explicitly: the
+    // function-level gate above already returned early for a non-attested
+    // `words`, so reaching this line with `words` non-empty means it's
+    // attested by construction.
+    if !words.is_empty() && sections::is_man_page_banner(&long_text) {
         if let Ok(short) = probe.run(
             tool_path,
             &InertArgv::HelpShortForPath {

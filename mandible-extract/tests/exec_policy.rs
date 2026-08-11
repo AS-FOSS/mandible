@@ -622,21 +622,126 @@ fn never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shape
     );
 }
 
-/// Half three: a subcommand word that did *not* come from a structural
-/// source (`hints.heading_attested: false`) must never receive the `-h`
-/// fallback either, even though its (still-sent, spec §6-permitted)
-/// `--help` probe comes back man-shaped. This is the provenance gate spec
-/// §6 rule 0's closing paragraph calls for: `words` must be attested before
-/// the *new* argv shape (`-h`) may be sent for it. It does not (and is not
-/// meant to) touch the pre-existing `<words...> --help` probe itself, which
-/// still fires regardless of attestation — a separate, pre-existing gap,
-/// not one this test closes.
+/// Half three, now closed all the way: a subcommand word that did *not*
+/// come from a structural source (`hints.heading_attested: false`) must
+/// receive **no probe at all** — not `--help`, not the `-h` fallback of any
+/// kind. This is the provenance gate spec §6 rule 0's closing paragraph
+/// calls for, closed in full: `HelpTextTier::extract_node` must decline
+/// with an error rather than send `<words...> --help` for a word that may
+/// be a fabrication, and the tree must not silently gain an
+/// empty-but-successful node in its place (spec §5.3 — a declined probe is
+/// a recorded per-node failure, not a quiet "found nothing").
+///
+/// This test previously asserted only that the *`-h`* fallback was
+/// withheld while still expecting the `--help` probe itself to fire and be
+/// read for man-page structure — that was the pre-existing, then-still-open
+/// half of the gap this change closes. The shim now marks *both* branches
+/// it could take, so this proves neither one was ever reached: refusal
+/// happens before any spawn, matching the never-probe list's own contract
+/// (`never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shaped`,
+/// above, whose "before any spawn" assertion this mirrors for the new
+/// general-purpose gate rather than the closed thirteen-tool list).
+///
+/// Verified to fail without the fix (see
+/// `attestation_gate_is_load_bearing_probe_would_have_fired_without_it`
+/// below, which exercises the identical shim and hint through the
+/// pre-gate code path directly).
 #[test]
-fn non_attested_subcommand_word_gets_no_dash_h_probe_at_all() {
+fn non_attested_subcommand_word_is_never_probed_at_all() {
     let dir = tempfile::tempdir().unwrap();
-    let script = format!(
+    let shim = write_named_shim(dir.path(), "unattested", &unattested_probe_script());
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "unattested".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let result = tier.extract_node(
+        &tool,
+        &["unattested".to_string(), "sub".to_string()],
+        NodeHints {
+            heading_attested: false,
+        },
+    );
+
+    assert!(
+        result.is_err(),
+        "a non-attested subcommand word must be declined, not silently extracted: {result:?}"
+    );
+    assert!(
+        !dir.path().join("unattested.help_ran").exists(),
+        "the --help probe ran despite the word not being heading_attested"
+    );
+    assert!(
+        !dir.path().join("unattested.dash_h_ran").exists(),
+        "the -h fallback ran despite the word not being heading_attested"
+    );
+}
+
+/// Half four, the positive case this suite was missing entirely: an
+/// **attested** subcommand word must still be probed with `--help` and
+/// have its real flags recovered — proving the new gate in
+/// `non_attested_subcommand_word_is_never_probed_at_all` above restricts
+/// exactly the unattested case, and does not accidentally withhold the
+/// probe from an ordinary, legitimately-discovered subcommand.
+#[test]
+fn attested_subcommand_word_is_still_probed_with_dash_dash_help() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = r#"#!/bin/sh
+if [ "$1" = "sub" ] && [ "$2" = "--help" ]; then
+    touch "$0.help_ran"
+    echo "Usage: attested sub [options]"
+    echo ""
+    echo "Options:"
+    echo "  --amend  Amend the previous thing"
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#;
+    let shim = write_named_shim(dir.path(), "attested", script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "attested".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(
+            &tool,
+            &["attested".to_string(), "sub".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        )
+        .expect("an attested word's --help probe must still run and succeed");
+
+    assert!(
+        dir.path().join("attested.help_ran").exists(),
+        "the --help probe never ran for an attested word"
+    );
+    let long_flags: Vec<&str> = node
+        .flags
+        .iter()
+        .filter_map(|f| f.long.as_deref())
+        .collect();
+    assert!(long_flags.contains(&"amend"), "{long_flags:?}");
+}
+
+/// Shared with the "prove the negative fails without the fix" check below:
+/// a shim that marks which of the two probes it received, man-shaped on
+/// `--help` exactly like `man_shaped_subcommand_help_triggers_the_dash_h_fallback_when_permitted`'s
+/// shim, so the same script demonstrates both "no probe of any kind
+/// reaches this binary" (with the fix) and "the `--help` probe reaches it
+/// and returns man-page structure" (without the fix, reverting to the old
+/// code path that only gated the `-h` fallback).
+fn unattested_probe_script() -> String {
+    format!(
         r#"#!/bin/sh
 if [ "$1" = "sub" ] && [ "$2" = "--help" ]; then
+    touch "$0.help_ran"
     printf '%s' '{banner}'
     exit 0
 fi
@@ -652,31 +757,44 @@ echo "unexpected argv: $@" >&2
 exit 1
 "#,
         banner = man_page_banner("unattested-sub").replace('\'', "'\\''")
-    );
-    let shim = write_named_shim(dir.path(), "unattested", &script);
+    )
+}
 
-    let tier = HelpTextTier::default();
-    let tool = ResolvedTool {
-        name: "unattested".to_string(),
-        path: Some(shim.clone()),
-        version: None,
-    };
-    let node = tier
-        .extract_node(
-            &tool,
-            &["unattested".to_string(), "sub".to_string()],
-            NodeHints {
-                heading_attested: false,
-            },
-        )
-        .expect("the --help probe itself is still permitted and still answered");
+/// Proves `non_attested_subcommand_word_is_never_probed_at_all` is not a
+/// vacuous assertion: this test drives the exact pre-fix code path (no
+/// attestation gate in `probe_help_text_reporting_flag`, matching what
+/// `HelpTextTier::extract_node` did before this change) against the same
+/// shim and hint, and confirms the probe *would* have fired and produced a
+/// verbatim-degraded node — the failure mode the fix closes. Written
+/// directly against `run_inert`/`InertArgv` (not through `HelpTextTier`,
+/// which no longer exposes the ungated path) so this stays meaningful even
+/// as the tier's own internals change, and so a reviewer can compare this
+/// test's assertions to the one above line for line.
+#[test]
+fn attestation_gate_is_load_bearing_probe_would_have_fired_without_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(dir.path(), "unattested", &unattested_probe_script());
+
+    // The exact argv `HelpLongForPath` renders for this path, sent the way
+    // the pre-fix `probe_help_text_reporting_flag` sent it: unconditionally,
+    // with no regard for `hints.heading_attested`.
+    let out = run_inert(
+        &shim,
+        &InertArgv::HelpLongForPath {
+            words: vec!["sub".to_string()],
+        },
+        Duration::from_secs(2),
+    )
+    .expect("run_inert itself has no attestation concept — it would have spawned this");
 
     assert!(
-        !node.unparsed.is_empty(),
-        "node parsed structure from the man page instead of degrading to verbatim: {node:?}"
+        dir.path().join("unattested.help_ran").exists(),
+        "the ungated probe did not even reach the shim; this test no longer demonstrates \
+         what it claims to"
     );
+    let text = String::from_utf8_lossy(&out.stdout);
     assert!(
-        !dir.path().join("unattested.dash_h_ran").exists(),
-        "the -h fallback ran despite the word not being heading_attested"
+        text.contains("UNATTESTED-SUB(1)"),
+        "expected the man-page banner the fix now prevents this argv from ever fetching: {text}"
     );
 }

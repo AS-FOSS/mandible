@@ -27,15 +27,16 @@ pub struct NodeHints {
     /// needed.
     ///
     /// This is the provenance gate spec §6 rule 0's closing paragraph names
-    /// as the still-unsolved general form of the hazard behind the
-    /// never-probe list: "send `<word> --help` only when the word came
-    /// from a structural source ... never from a prose heuristic." As of
-    /// this field's introduction it gates exactly one decision — whether
-    /// [M-16] sub-case (a)'s `-h` fallback may fire for a subcommand's
-    /// man-shaped `--help` output ([`crate::help_text`]) — and nothing
-    /// else. In particular, the pre-existing `<words...> --help` probe
-    /// itself is sent unconditionally regardless of this bit; closing that
-    /// wider gap is future work, not something folded in here.
+    /// as the general form of the hazard behind the never-probe list:
+    /// "send `<word> --help` only when the word came from a structural
+    /// source ... never from a prose heuristic." It started out gating
+    /// only [M-16] sub-case (a)'s `-h` fallback for a subcommand's
+    /// man-shaped `--help` output; it now also gates the positional
+    /// `<words...> --help` probe itself
+    /// ([`crate::help_text::probe_help_text_reporting_flag`]) — a
+    /// non-attested node is never probed at all, in any shape, and the
+    /// tier declines with a per-node error instead (spec §5.3) rather than
+    /// the tree silently gaining an empty-but-successful node.
     pub heading_attested: bool,
 }
 
