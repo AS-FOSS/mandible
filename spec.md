@@ -2014,6 +2014,115 @@ any of these as current.
   other safety list is needed; this closes the concern rather than
   extending the list.
 
+- **[M-19] The actual mechanism behind the `mandible systemctl` freeze:
+  a self-similar background-warmer fan-out, not a pager and not `/dev/tty`**
+  (2026-08-12, systemd 255, mandible at `fd5212f`, aarch64, 4-core sandbox
+  with a working `systemctl`/PID 1 — not the bare container [M-5]/[M-17]
+  measured in). [M-17] and [M-18] closed the tty-reachability and per-verb
+  safety questions but left the freeze itself unreproduced. It reproduces.
+
+  **Reproduced under `scripts/pty_screenshot.py`, which forks a real pty.**
+  `mandible systemctl` under the harness: pressing `j` (move selection
+  down) up to 75 times in a row produced **zero change on screen** — same
+  frame, byte-for-byte, every capture — while `mandible git` under the
+  identical harness updates on every single keystroke. Eventually (around
+  the 75th key, ~45s of wall time on this machine) exactly one keystroke
+  got through, then it froze again. Ruled out as a screenshot-tooling
+  artifact by first confirming `git` visibly changes pane content (not
+  just highlight color, which the plain-text capture can't see) on one
+  `j`, and by checking with `ps`/`/proc` mid-run.
+
+  **Failure shape: the event loop starved, not a blocked process.** While
+  frozen, the `mandible` process was in state `S` (interruptible sleep,
+  not `D`), and `ps` showed **132% CPU** across its threads — actively
+  running, contending for the CPU, not blocked on a syscall. This is the
+  fourth shape the investigation brief distinguished ("the event loop
+  starved"), not a hung child, not a `/dev/tty` reopen, not corrupted
+  terminal state — the terminal state and the process were both fine, the
+  main thread just never got scheduled back around to `event::poll` and
+  `term.draw` (`mandible/src/app_runner.rs`'s `run_loop`) for tens of
+  seconds.
+
+  **Root mechanism, confirmed at the shell and then via the extraction
+  API directly.** `systemctl`'s GNU getopt permutes `--help` to the front
+  of argv regardless of what precedes it, and `systemctl` never validates
+  a verb before help dispatch — so `systemctl <anything...> --help`
+  prints the tool's own root help, byte-identical, no matter how many
+  words come first or what they are:
+
+  ```text
+  $ diff <(systemctl --help) <(systemctl preset-all get-default daemon-reload halt reboot --help)
+  (no difference; exit 0)
+  ```
+
+  Calling `Runner::fill_node` directly (the same call the background
+  warmer makes) against `systemctl`, `systemctl preset-all`, and
+  `systemctl preset-all get-default` in turn showed all three reporting
+  **the same 18 subcommands** — because `HelpTextTier::extract_node`
+  (`mandible-extract/src/help_text/mod.rs`) has no way to know a probe's
+  output describes the root rather than the node it was asked about, so
+  it reads the root's "Commands:" section a second (third, fourth…) time
+  and reports it as that subcommand's own children.
+
+  **Why that becomes a freeze, not just wrong data.** The background
+  `Warmer` (`mandible/src/background.rs`) cascades every discovered
+  child's fill unconditionally — "every fill queues the children it just
+  discovered" — with no cycle or self-similarity detection (unlike the
+  cobra tier's own visited-set protocol, [M-2]). 18 children each
+  (wrongly) reporting 18 children of their own is 18², then 18³ = 5,832,
+  bounded only by `MAX_WARMED_NODES` (4,096) — a global submission cap,
+  not a depth cap. Reaching it means thousands of concurrent
+  `systemctl <phantom path...> --help` spawns queued on a
+  16-thread pool (`available_parallelism() * 4` clamped to `[4, 32]`; 4
+  cores here) plus their stdout/stderr reader threads, all contending
+  with the single UI thread for the same 4 cores — enough scheduler
+  pressure, measured, to starve a 100ms poll loop for 45+ seconds, which
+  is exactly what a user experiences as "the TUI froze."
+
+  **The fix: recognize the hazard from an observable property of the
+  output, the same discipline [M-16] used for man-page detection — never
+  the tool's name.** `HelpTextTier` now remembers each tool's root
+  `--help` text (keyed by resolved binary path) the first time it probes
+  the root, and compares every later subcommand probe's raw text against
+  it. A byte-identical match degrades that node to verbatim (spec §7
+  Tier B step 3 — "never fabricate, degrade to verbatim", the same
+  existing machinery a structurally-implausible parse already uses,
+  factored out as `verbatim_node`) instead of reporting the root's
+  subcommands as its own: `children_filled: true`, `subcommands: []`, raw
+  text still available to the `t` view. An empty `subcommands` list is
+  what stops `Warmer::warm_children`'s loop from queuing anything further
+  for that node, so the cascade halts at depth 1 instead of growing
+  exponentially. This generalizes to any multi-call binary or getopt
+  permutation with the same behavior, not just `systemctl` — the check
+  never inspects the tool's name.
+
+  **Verified no longer reproducing, same pty harness, same commands.**
+  Post-fix, `mandible systemctl` under `pty_screenshot.py`: every `j`
+  press updates the pane immediately (`preset-all` →`get-default` →
+  `show-environment` → …, all 18 of the root's children, one per
+  keystroke), matching `git`'s responsiveness exactly. A 40-keystroke
+  stress run completed in the harness's own nominal wall-clock time
+  (~26s for 40 keys at the harness's fixed pacing) with no stall at any
+  point. `HelpTextTier::extract_node`, called the same way against the
+  same three-level `systemctl` path directly, now reports 18 subcommands
+  at the root and **0** at the first child (previously 18/18/18).
+  Regression tests
+  (`mandible-extract/src/help_text/mod.rs::tests::
+  a_subcommand_probe_identical_to_the_root_does_not_fan_out` and
+  `::a_subcommand_probe_merely_similar_to_the_root_is_parsed_normally`)
+  pin both the positive case and the negative one (a subcommand that
+  shares a preamble with the root but is not byte-identical still parses
+  its own real flags) — the first, verified against this section's own
+  discipline, fails against the pre-fix tier with the exact symptom
+  above (`["preset-all", "get-default"]` reported as the child's own
+  children) and passes against the fix.
+
+  The full workspace test suite (584 tests, two more than the 582 this
+  investigation started from) and all 6 corpus fixtures stayed green
+  throughout — the guard is keyed on exact byte equality to the root, so
+  it never fires for a genuinely distinct subcommand's genuinely distinct
+  help text, corpus fixtures included.
+
 ---
 
 ## Appendix B — What changed in revision 2

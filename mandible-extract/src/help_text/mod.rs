@@ -40,8 +40,9 @@ use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{Authority, CommandNode, Provenance, Source, Text};
-use std::path::Path;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Wall-clock cap for an `extract_node` probe (spec §6 rule 4).
@@ -64,6 +65,20 @@ pub struct HelpTextTier {
     /// replay frozen bytes through this exact parsing pipeline with zero
     /// subprocesses (the corpus regression harness's seam).
     probe: Arc<dyn Probe>,
+    /// Each tool's root `--help` text, keyed by its resolved binary path,
+    /// remembered the first time [`Self::extract_node`] probes the root —
+    /// see that method's doc comment for why: it is the baseline a later
+    /// subcommand probe is checked against to catch the self-similar-
+    /// fan-out hazard.
+    ///
+    /// A `Mutex` because `fill_node` is called concurrently from the
+    /// background warm pool (`mandible/src/background.rs`) as well as the
+    /// UI thread; a plain `RefCell` would not be `Sync`. Lives for the
+    /// tier's lifetime, which is the whole session — one `Runner` (and so
+    /// one set of tiers) is built once per `mandible` invocation and
+    /// targets exactly one tool for that invocation's lifetime, refresh
+    /// (`r`) included, so the cache never needs to be evicted.
+    root_text: Mutex<HashMap<PathBuf, Arc<str>>>,
 }
 
 impl Default for HelpTextTier {
@@ -77,7 +92,10 @@ impl HelpTextTier {
     /// [`Self::default`]; tests and the future corpus runner construct a
     /// [`crate::exec::Transcript`] here instead.
     pub fn new(probe: Arc<dyn Probe>) -> Self {
-        Self { probe }
+        Self {
+            probe,
+            root_text: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -111,6 +129,63 @@ impl ExtractionTier for HelpTextTier {
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
         let raw = probe_help_text(self.probe.as_ref(), tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
+
+        if words.is_empty() {
+            // This probe *is* the root: remember its text as the baseline
+            // the check below compares every subcommand probe against.
+            // Always overwritten, never only-if-absent, so a refresh (`r`)
+            // re-baselines rather than comparing against a stale probe.
+            if let Ok(mut cache) = self.root_text.lock() {
+                cache.insert(tool_path.clone(), Arc::from(raw.as_str()));
+            }
+        } else if let Ok(cache) = self.root_text.lock() {
+            // The self-similar-fan-out hazard, found live against
+            // `mandible systemctl` (spec [M-19]): GNU getopt permutes
+            // `--help` to the front of argv regardless of what precedes
+            // it, and `systemctl` never validates a verb before dispatch,
+            // so `systemctl <anything...> --help` prints the tool's *own
+            // root help*, byte-identical, no matter how many words or
+            // what they are — confirmed at the shell directly, five words
+            // deep. The generic grammar below has no way to know that;
+            // it reads the root's own "Commands:" section a second time
+            // and reports it as *this* subcommand's children, which are
+            // the same subcommand names all over again. The background
+            // warmer (`mandible/src/background.rs`) cascades every
+            // discovered child unconditionally with no cycle detection —
+            // that is deliberately this crate's job, not the extractor's,
+            // per this module's own doc comment ("recursion happens
+            // per-node, lazily, through the runner") — so left unchecked
+            // this is not merely wrong data, it is unbounded (18^depth)
+            // recursive re-probing capped only by `MAX_WARMED_NODES`
+            // (4096), and reaching that cap means thousands of concurrent
+            // `systemctl` spawns contending for the CPU with the UI
+            // thread's own 100ms poll loop — measured starving it for
+            // 45+ seconds on a 4-core machine, which is what a user
+            // reported as the TUI simply freezing.
+            //
+            // Keyed on an observable property of the *output* — identical
+            // bytes to the root — never on the tool's name, the same
+            // discipline [M-16] used for man-page detection: this is not
+            // "if tool == systemctl", it is "if probing this subcommand
+            // produced nothing beyond a second copy of the root", which
+            // generalizes to any multi-call binary or getopt permutation
+            // that behaves the same way. Degrading to verbatim (spec §7
+            // Tier B step 3) is the existing, honest response to "this
+            // probe told us nothing new": the raw bytes are still shown
+            // to the reader via `t` exactly as returned, but nothing is
+            // reported as this node's *own* structure, so the cascade
+            // that reads `subcommands` finds none and stops rather than
+            // re-probing the same 18 names one level deeper forever.
+            if let Some(root_raw) = cache.get(tool_path) {
+                if root_raw.as_ref() == raw.as_str() {
+                    let detected_framework = framework::identify_from_artifact(tool)
+                        .or_else(|| framework::identify_from_help_text(&raw))
+                        .map(|f| f.name().to_string());
+                    return Ok(verbatim_node(&node_name, &raw, detected_framework));
+                }
+            }
+        }
+
         // Detection order per spec §7 Tier A′, never double-probing: the
         // free artifact scan first (memoized per binary path — see
         // `framework::identify_from_artifact`'s doc comment — so probing
@@ -399,19 +474,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         !parsed.flags.is_empty() || !parsed.subcommands.is_empty() || !parsed.usage.is_empty();
 
     if !structurally_plausible {
-        let provenance = Provenance::with_confidence(Source::HelpText, 0.0);
-        let mut node = CommandNode::new(name, provenance);
-        node.unparsed = raw
-            .lines()
-            .take(MAX_UNPARSED_LINES)
-            .map(Text::sanitize)
-            .collect();
-        node.detected_framework = detected_framework;
-        // Same rationale as the structurally-plausible path below: one
-        // probe did complete and did discover this level's (empty, as it
-        // turns out) children list.
-        node.children_filled = true;
-        return node;
+        return verbatim_node(name, raw, detected_framework);
     }
 
     // Level 2 (unidentified) is capped low; level 1 (identified) is not
@@ -462,6 +525,38 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         // already carries into this node's `subcommands` list above.
         heading_attested: false,
     }
+}
+
+/// Give up on structure entirely and carry `raw` verbatim in
+/// [`CommandNode::unparsed`] instead, at `confidence: 0.0` (spec §7 Tier B
+/// step 3, "never fabricate, degrade to verbatim").
+///
+/// Two callers reach this, both "this probe has nothing to report as this
+/// node's own structure": [`build_node`], when the generic parse found no
+/// flags, no subcommands and no usage line at all; and [`HelpTextTier::
+/// extract_node`]'s self-similar-fan-out guard, when the parse found
+/// plenty of *structure* but it demonstrably belongs to the tool's root,
+/// not to this subcommand (see that call site for [M-19]'s `systemctl`
+/// finding). Sharing this function rather than duplicating the empty-node
+/// construction keeps both places honest about what `children_filled:
+/// true` with an empty `subcommands` means: a probe genuinely completed
+/// and genuinely found nothing to attribute to this level, which is what
+/// stops the background warmer (`mandible/src/background.rs`) from
+/// cascading any further past this node.
+fn verbatim_node(name: &str, raw: &str, detected_framework: Option<String>) -> CommandNode {
+    let provenance = Provenance::with_confidence(Source::HelpText, 0.0);
+    let mut node = CommandNode::new(name, provenance);
+    node.unparsed = raw
+        .lines()
+        .take(MAX_UNPARSED_LINES)
+        .map(Text::sanitize)
+        .collect();
+    node.detected_framework = detected_framework;
+    // Same rationale as the structurally-plausible path in `build_node`:
+    // one probe did complete and did discover this level's (empty, as it
+    // turns out) children list.
+    node.children_filled = true;
+    node
 }
 
 #[cfg(test)]
@@ -1124,6 +1219,124 @@ mod tests {
             .expect("the transcript covers the exact argv this tier sends");
         assert_eq!(node.name, "tar");
         assert!(!node.flags.is_empty());
+    }
+
+    /// The self-similar-fan-out hazard [M-19] found live against `mandible
+    /// systemctl`: a subcommand probe that comes back byte-identical to the
+    /// root's own `--help` text must not be read as "this subcommand has
+    /// the same children as the root" — that reading is what turned a
+    /// harmless 18-way command list into an unbounded recursive re-probe
+    /// (18, then 18², then 18³…) that starved the UI thread for 45+ seconds
+    /// on real hardware before this fix.
+    ///
+    /// Reproduced here exactly as `systemctl` does it: one transcript entry
+    /// for the root argv and a *second* entry, for a subcommand's argv,
+    /// holding the identical text — standing in for a tool whose own getopt
+    /// permutes `--help` to the front regardless of what precedes it. Two
+    /// calls through the *same* tier instance, root first, so the cache
+    /// this fix adds is populated exactly as production does it (root
+    /// always fills before any child, spec §5.2 step 4's cascade order).
+    #[test]
+    fn a_subcommand_probe_identical_to_the_root_does_not_fan_out() {
+        let raw = "usage: widget [options] COMMAND\n\nCommands:\n\n  preset-all   Do the preset-all thing\n  get-default  Get the default\n\nOptions:\n  -h, --help   Show this help\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(raw)),
+            (
+                vec!["preset-all".to_string(), "--help".to_string()],
+                exec_output(raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        let root = tier
+            .extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the transcript covers the root's argv");
+        let root_names: Vec<&str> = root.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(
+            root_names,
+            vec!["preset-all", "get-default"],
+            "sanity: the root itself must read the two real subcommands"
+        );
+
+        let child = tier
+            .extract_node(
+                &tool,
+                &["widget".to_string(), "preset-all".to_string()],
+                ATTESTED,
+            )
+            .expect("the transcript covers this subcommand's argv too");
+        assert!(
+            child.subcommands.is_empty(),
+            "a probe identical to the root must not report the root's own \
+             children as this subcommand's children — that is the cascade \
+             that starved the UI thread: {:?}",
+            child
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            child.children_filled,
+            "this level is still known-complete (empty), just not \
+             re-probed forever"
+        );
+        assert!(
+            !child.unparsed.is_empty(),
+            "the raw text must still be available to the verbatim ('t') \
+             view even though nothing was promoted to structure"
+        );
+    }
+
+    /// A subcommand's probe that happens to share *some* text with the root
+    /// (a common preamble, say) but is not byte-identical must be parsed
+    /// normally — the guard is keyed on exact equality, not similarity, so
+    /// it never swallows a real subcommand's real, distinct structure.
+    #[test]
+    fn a_subcommand_probe_merely_similar_to_the_root_is_parsed_normally() {
+        let root_raw = "usage: widget [options] COMMAND\n\nCommands:\n\n  preset-all   Do the preset-all thing\n\nOptions:\n  -h, --help   Show this help\n";
+        let child_raw = "usage: widget preset-all [options]\n\nOptions:\n  -h, --help   Show this help\n  -f, --force  Force it\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["preset-all".to_string(), "--help".to_string()],
+                exec_output(child_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the transcript covers the root's argv");
+        let child = tier
+            .extract_node(
+                &tool,
+                &["widget".to_string(), "preset-all".to_string()],
+                ATTESTED,
+            )
+            .expect("the transcript covers this subcommand's argv too");
+        assert!(
+            child.subcommands.is_empty(),
+            "preset-all genuinely has none of its own"
+        );
+        let flag_names: Vec<&str> = child
+            .flags
+            .iter()
+            .filter_map(|f| f.long.as_deref())
+            .collect();
+        assert!(
+            flag_names.contains(&"force"),
+            "a genuinely distinct subcommand's own flags must still parse: {flag_names:?}"
+        );
     }
 
     /// The negative case: a transcript that does *not* contain the argv
