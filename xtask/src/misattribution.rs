@@ -232,6 +232,26 @@ impl RecordingProbe {
             .get(&InertArgv::HelpShort.args())
             .map(|short| pick_stream(&short.stdout, &short.stderr))
     }
+
+    /// The full recorded `(argv, output)` pair behind [`Self::root_help_text`]
+    /// — same "prefer `--help`, fall back to `-h` only if `--help` produced
+    /// nothing on either stream" selection, but handing back the raw
+    /// [`ExecOutput`] (separate stdout/stderr, exit code) and the exact argv
+    /// used, rather than one merged string. `crate::audit` uses this to
+    /// write a corpus-shaped capture (`corpus/README.md`'s `[[capture]]`)
+    /// without a second probe of the tool — same "no new probes" property
+    /// [`Self::root_help_text`] already documents.
+    pub fn root_help_capture(&self) -> Option<(Vec<String>, ExecOutput)> {
+        let recordings = self.recordings.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(long) = recordings.get(&InertArgv::HelpLong.args()) {
+            if !long.stdout.is_empty() || !long.stderr.is_empty() {
+                return Some((InertArgv::HelpLong.args(), long.clone()));
+            }
+        }
+        recordings
+            .get(&InertArgv::HelpShort.args())
+            .map(|short| (InertArgv::HelpShort.args(), short.clone()))
+    }
 }
 
 impl Default for RecordingProbe {

@@ -1,0 +1,229 @@
+name: du
+description: Summarize device usage of the set of FILEs, recursively for directories.
+usage:
+- 'Usage: /usr/bin/du [OPTION]... [FILE]...'
+- 'or: /usr/bin/du [OPTION]... --files0-from=F'
+positionals:
+- name: OPTION
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: '0'
+  long: 'null'
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: end each output line with NUL, not newline
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: all
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: write counts for all files, not just directories
+  provenance:
+    sources:
+    - help-text
+- long: apparent-size
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: print apparent sizes rather than device usage; although the apparent size is usually smaller, it may be larger due to holes in ('sparse') files, internal fragmentation, indirect blocks, and the like
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: block-size
+  value_name: SIZE
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: scale sizes by SIZE before printing them; e.g., '-BM' prints sizes in units of 1,048,576 bytes; see SIZE format below
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  long: bytes
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: equivalent to '--apparent-size --block-size=1'
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: total
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: produce a grand total
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: dereference-args
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: dereference only symlinks that are listed on the command line
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: max-depth
+  value_name: N
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: print the total for a directory (or file, with --all) only if it is N or fewer levels below the command line argument; --max-depth=0 is the same as --summarize
+  provenance:
+    sources:
+    - help-text
+- long: files0-from
+  value_name: F
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: summarize device usage of the NUL-terminated file names specified in file F; if F is -, then read names from standard input
+  provenance:
+    sources:
+    - help-text
+- short: 'H'
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: equivalent to --dereference-args (-D)
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: human-readable
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: print sizes in human readable format (e.g., 1K 234M 2G)
+  provenance:
+    sources:
+    - help-text
+- long: inodes
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: list inode usage information instead of block usage
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: like --block-size=1K
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: dereference
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: dereference all symbolic links
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: count-links
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: count sizes many times if hard linked
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: like --block-size=1M
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: no-dereference
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: don't follow any symbolic links (this is the default)
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: separate-dirs
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: for directories do not include size of subdirectories
+  provenance:
+    sources:
+    - help-text
+- long: si
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: like -h, but use powers of 1000 not 1024
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: summarize
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: display only a total for each argument
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: threshold
+  value_name: SIZE
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: exclude entries smaller than SIZE if positive, or entries greater than SIZE if negative
+  provenance:
+    sources:
+    - help-text
+- long: time
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: show time of the last modification of any file in the directory, or any of its subdirectories
+  provenance:
+    sources:
+    - help-text
+- long: time
+  value_name: WORD
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: 'show time as WORD instead of modification time: atime, access, use, ctime or status'
+  provenance:
+    sources:
+    - help-text
+- long: time-style
+  value_name: STYLE
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: 'show times using STYLE, which can be: full-iso, long-iso, iso, or +FORMAT; FORMAT is interpreted like in ''date'''
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  long: exclude-from
+  value_name: FILE
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: exclude files that match any pattern in FILE
+  provenance:
+    sources:
+    - help-text
+- long: exclude
+  value_name: PATTERN
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: exclude files that match PATTERN
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  long: one-file-system
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: skip directories on different file systems
+  provenance:
+    sources:
+    - help-text
+- long: help
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

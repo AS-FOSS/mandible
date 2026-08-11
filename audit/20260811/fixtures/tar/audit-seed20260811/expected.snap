@@ -1,0 +1,1136 @@
+name: tar
+description: GNU 'tar' saves many files together into a single tape or disk archive, and can restore individual files from the archive.
+usage:
+- 'Usage: tar [OPTION...] [FILE]...'
+positionals:
+- name: OPTION
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'A'
+  long: catenate
+  group: 'Main operation mode:'
+  description: append tar files to an archive
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: create
+  group: 'Main operation mode:'
+  description: create a new archive
+  provenance:
+    sources:
+    - help-text
+- long: delete
+  group: 'Main operation mode:'
+  description: delete from the archive (not on mag tapes!)
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: diff
+  group: 'Main operation mode:'
+  description: find differences between archive and file system
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: append
+  group: 'Main operation mode:'
+  description: append files to the end of an archive
+  provenance:
+    sources:
+    - help-text
+- long: test-label
+  group: 'Main operation mode:'
+  description: test the archive volume label and exit
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: list
+  group: 'Main operation mode:'
+  description: list the contents of an archive
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  long: update
+  group: 'Main operation mode:'
+  description: only append files newer than copy in archive
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  long: extract
+  group: 'Main operation mode:'
+  description: extract files from an archive
+  provenance:
+    sources:
+    - help-text
+- long: check-device
+  group: 'Operation modifiers:'
+  description: check device numbers when creating incremental archives (default)
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  long: listed-incremental
+  value_name: FILE
+  value_kind: Required
+  group: 'Operation modifiers:'
+  description: handle new GNU-format incremental backup
+  provenance:
+    sources:
+    - help-text
+- short: 'G'
+  long: incremental
+  group: 'Operation modifiers:'
+  description: handle old GNU-format incremental backup
+  provenance:
+    sources:
+    - help-text
+- long: hole-detection
+  value_name: TYPE
+  value_kind: Required
+  group: 'Operation modifiers:'
+  description: technique to detect holes
+  provenance:
+    sources:
+    - help-text
+- long: ignore-failed-read
+  group: 'Operation modifiers:'
+  description: do not exit with nonzero on unreadable files
+  provenance:
+    sources:
+    - help-text
+- long: level
+  value_name: NUMBER
+  value_kind: Required
+  group: 'Operation modifiers:'
+  description: dump level for created listed-incremental archive
+  provenance:
+    sources:
+    - help-text
+- long: no-check-device
+  group: 'Operation modifiers:'
+  description: do not check device numbers when creating incremental archives
+  provenance:
+    sources:
+    - help-text
+- long: no-seek
+  group: 'Operation modifiers:'
+  description: archive is not seekable
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: seek
+  group: 'Operation modifiers:'
+  description: archive is seekable
+  provenance:
+    sources:
+    - help-text
+- long: occurrence
+  value_name: NUMBER
+  value_kind: Optional
+  group: 'Operation modifiers:'
+  description: process only the NUMBERth occurrence of each file in the archive; this option is valid only in conjunction with one of the subcommands --delete, --diff, --extract or --list and when a list of files is given either on the command line or via the -T option; NUMBER defaults to 1
+  provenance:
+    sources:
+    - help-text
+- long: sparse-version
+  value_name: MAJOR[.MINOR]
+  value_kind: Required
+  group: 'Operation modifiers:'
+  description: set version of the sparse format to use (implies --sparse)
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: sparse
+  group: 'Operation modifiers:'
+  description: handle sparse files efficiently
+  provenance:
+    sources:
+    - help-text
+- long: add-file
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: add given FILE to the archive (useful if its name starts with a dash)
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: directory
+  value_name: DIR
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: change to directory DIR
+  provenance:
+    sources:
+    - help-text
+- long: exclude
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: exclude files, given as a PATTERN
+  provenance:
+    sources:
+    - help-text
+- long: exclude-backups
+  group: 'Local file name selection:'
+  description: exclude backup and lock files
+  provenance:
+    sources:
+    - help-text
+- long: exclude-caches
+  group: 'Local file name selection:'
+  description: exclude contents of directories containing CACHEDIR.TAG, except for the tag file itself
+  provenance:
+    sources:
+    - help-text
+- long: exclude-caches-all
+  group: 'Local file name selection:'
+  description: exclude directories containing CACHEDIR.TAG
+  provenance:
+    sources:
+    - help-text
+- long: exclude-caches-under
+  value_name: exclude
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: CACHEDIR.TAG
+  provenance:
+    sources:
+    - help-text
+- long: exclude-ignore
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: read exclude patterns for each directory from FILE, if it exists
+  provenance:
+    sources:
+    - help-text
+- long: exclude-ignore-recursive
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: read exclude patterns for each directory and its subdirectories from FILE, if it exists
+  provenance:
+    sources:
+    - help-text
+- long: exclude-tag
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: exclude contents of directories containing FILE, except for FILE itself
+  provenance:
+    sources:
+    - help-text
+- long: exclude-tag-all
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  provenance:
+    sources:
+    - help-text
+- long: exclude-tag-under
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: exclude everything under directories containing FILE
+  provenance:
+    sources:
+    - help-text
+- long: exclude-vcs
+  group: 'Local file name selection:'
+  description: exclude version control system directories
+  provenance:
+    sources:
+    - help-text
+- long: exclude-vcs-ignores
+  group: 'Local file name selection:'
+  description: read exclude patterns from the VCS ignore files
+  provenance:
+    sources:
+    - help-text
+- long: no-null
+  group: 'Local file name selection:'
+  description: disable the effect of the previous --null option
+  provenance:
+    sources:
+    - help-text
+- long: no-recursion
+  group: 'Local file name selection:'
+  description: avoid descending automatically in directories
+  provenance:
+    sources:
+    - help-text
+- long: no-unquote
+  group: 'Local file name selection:'
+  description: do not unquote input file or member names
+  provenance:
+    sources:
+    - help-text
+- long: no-verbatim-files-from
+  group: 'Local file name selection:'
+  description: -T treats file names starting with dash as options (default)
+  provenance:
+    sources:
+    - help-text
+- long: 'null'
+  group: 'Local file name selection:'
+  description: -T reads null-terminated names; implies --verbatim-files-from
+  provenance:
+    sources:
+    - help-text
+- long: recursion
+  group: 'Local file name selection:'
+  description: recurse into directories (default)
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  long: files-from
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: get names to extract or create from FILE
+  provenance:
+    sources:
+    - help-text
+- long: unquote
+  group: 'Local file name selection:'
+  description: unquote input file or member names (default)
+  provenance:
+    sources:
+    - help-text
+- long: verbatim-files-from
+  group: 'Local file name selection:'
+  description: -T reads file names verbatim (no escape or option handling)
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  long: exclude-from
+  value_name: FILE
+  value_kind: Required
+  group: 'Local file name selection:'
+  description: exclude patterns listed in FILE
+  provenance:
+    sources:
+    - help-text
+- long: anchored
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: patterns match file name start
+  provenance:
+    sources:
+    - help-text
+- long: ignore-case
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: ignore case
+  provenance:
+    sources:
+    - help-text
+- long: no-anchored
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: patterns match after any '/' (default for exclusion)
+  provenance:
+    sources:
+    - help-text
+- long: no-ignore-case
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: case sensitive matching (default)
+  provenance:
+    sources:
+    - help-text
+- long: no-wildcards
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: verbatim string matching
+  provenance:
+    sources:
+    - help-text
+- long: no-wildcards-match-slash
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: wildcards do not match '/'
+  provenance:
+    sources:
+    - help-text
+- long: wildcards
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: use wildcards (default for exclusion)
+  provenance:
+    sources:
+    - help-text
+- long: wildcards-match-slash
+  group: 'File name matching options (affect both exclude and include patterns):'
+  description: wildcards match '/' (default for exclusion)
+  provenance:
+    sources:
+    - help-text
+- long: keep-directory-symlink
+  group: 'Overwrite control:'
+  description: preserve existing symlinks to directories when extracting
+  provenance:
+    sources:
+    - help-text
+- long: keep-newer-files
+  group: 'Overwrite control:'
+  description: don't replace existing files that are newer than their archive copies
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  long: keep-old-files
+  group: 'Overwrite control:'
+  description: don't replace existing files when extracting, treat them as errors
+  provenance:
+    sources:
+    - help-text
+- long: no-overwrite-dir
+  group: 'Overwrite control:'
+  description: preserve metadata of existing directories
+  provenance:
+    sources:
+    - help-text
+- long: one-top-level
+  value_name: DIR
+  value_kind: Optional
+  group: 'Overwrite control:'
+  description: create a subdirectory to avoid having loose files extracted
+  provenance:
+    sources:
+    - help-text
+- long: overwrite
+  group: 'Overwrite control:'
+  description: overwrite existing files when extracting
+  provenance:
+    sources:
+    - help-text
+- long: overwrite-dir
+  group: 'Overwrite control:'
+  description: overwrite metadata of existing directories when extracting (default)
+  provenance:
+    sources:
+    - help-text
+- long: recursive-unlink
+  group: 'Overwrite control:'
+  description: empty hierarchies prior to extracting directory
+  provenance:
+    sources:
+    - help-text
+- long: remove-files
+  group: 'Overwrite control:'
+  description: remove files after adding them to the archive
+  provenance:
+    sources:
+    - help-text
+- long: skip-old-files
+  group: 'Overwrite control:'
+  description: don't replace existing files when extracting, silently skip over them
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  long: unlink-first
+  group: 'Overwrite control:'
+  description: remove each file prior to extracting over it
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  long: verify
+  group: 'Overwrite control:'
+  description: attempt to verify the archive after writing it
+  provenance:
+    sources:
+    - help-text
+- long: ignore-command-error
+  value_name: ignore
+  value_kind: Required
+  group: 'Select output stream:'
+  provenance:
+    sources:
+    - help-text
+- long: no-ignore-command-error
+  group: 'Select output stream:'
+  description: treat non-zero exit codes of children as error
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  long: to-stdout
+  group: 'Select output stream:'
+  description: extract files to standard output
+  provenance:
+    sources:
+    - help-text
+- long: to-command
+  value_name: COMMAND
+  value_kind: Required
+  group: 'Select output stream:'
+  description: pipe extracted files to another program
+  provenance:
+    sources:
+    - help-text
+- long: atime-preserve
+  value_name: METHOD
+  value_kind: Optional
+  group: 'Handling of file attributes:'
+  description: preserve access times on dumped files, either by restoring the times after reading (METHOD='replace'; default) or by not setting the times in the first place (METHOD='system')
+  provenance:
+    sources:
+    - help-text
+- long: clamp-mtime
+  group: 'Handling of file attributes:'
+  description: only set time when the file is more recent than what was given with --mtime
+  provenance:
+    sources:
+    - help-text
+- long: delay-directory-restore
+  group: 'Handling of file attributes:'
+  description: delay setting modification times and permissions of extracted directories until the end of extraction
+  provenance:
+    sources:
+    - help-text
+- long: group
+  value_name: NAME
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: force NAME as group for added files
+  provenance:
+    sources:
+    - help-text
+- long: group-map
+  value_name: FILE
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: use FILE to map file owner GIDs and names
+  provenance:
+    sources:
+    - help-text
+- long: mode
+  value_name: CHANGES
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: force (symbolic) mode CHANGES for added files
+  provenance:
+    sources:
+    - help-text
+- long: mtime
+  value_name: DATE-OR-FILE
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: set mtime for added files from DATE-OR-FILE
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  long: touch
+  group: 'Handling of file attributes:'
+  description: don't extract file modified time
+  provenance:
+    sources:
+    - help-text
+- long: no-delay-directory-restore
+  group: 'Handling of file attributes:'
+  description: cancel the effect of --delay-directory-restore option
+  provenance:
+    sources:
+    - help-text
+- long: no-same-owner
+  group: 'Handling of file attributes:'
+  description: extract files as yourself (default for ordinary users)
+  provenance:
+    sources:
+    - help-text
+- long: no-same-permissions
+  group: 'Handling of file attributes:'
+  description: apply the user's umask when extracting permissions from the archive (default for ordinary users)
+  provenance:
+    sources:
+    - help-text
+- long: numeric-owner
+  group: 'Handling of file attributes:'
+  description: always use numbers for user/group names
+  provenance:
+    sources:
+    - help-text
+- long: owner
+  value_name: NAME
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: force NAME as owner for added files
+  provenance:
+    sources:
+    - help-text
+- long: owner-map
+  value_name: FILE
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: use FILE to map file owner UIDs and names
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: preserve-permissions
+  group: 'Handling of file attributes:'
+  description: extract information about file permissions (default for superuser)
+  provenance:
+    sources:
+    - help-text
+- long: same-owner
+  group: 'Handling of file attributes:'
+  description: try extracting files with the same ownership as exists in the archive (default for superuser)
+  provenance:
+    sources:
+    - help-text
+- long: sort
+  value_name: ORDER
+  value_kind: Required
+  group: 'Handling of file attributes:'
+  description: 'directory sorting order: none (default), name or inode'
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: preserve-order
+  group: 'Handling of file attributes:'
+  description: member arguments are listed in the same order as the files in the archive
+  provenance:
+    sources:
+    - help-text
+- long: acls
+  group: 'Handling of extended file attributes:'
+  description: Enable the POSIX ACLs support
+  provenance:
+    sources:
+    - help-text
+- long: no-acls
+  group: 'Handling of extended file attributes:'
+  description: Disable the POSIX ACLs support
+  provenance:
+    sources:
+    - help-text
+- long: no-selinux
+  group: 'Handling of extended file attributes:'
+  description: Disable the SELinux context support
+  provenance:
+    sources:
+    - help-text
+- long: no-xattrs
+  group: 'Handling of extended file attributes:'
+  description: Disable extended attributes support
+  provenance:
+    sources:
+    - help-text
+- long: selinux
+  group: 'Handling of extended file attributes:'
+  description: Enable the SELinux context support
+  provenance:
+    sources:
+    - help-text
+- long: xattrs
+  group: 'Handling of extended file attributes:'
+  description: Enable extended attributes support
+  provenance:
+    sources:
+    - help-text
+- long: xattrs-exclude
+  value_name: MASK
+  value_kind: Required
+  group: 'Handling of extended file attributes:'
+  description: specify the exclude pattern for xattr keys
+  provenance:
+    sources:
+    - help-text
+- long: xattrs-include
+  value_name: MASK
+  value_kind: Required
+  group: 'Handling of extended file attributes:'
+  description: specify the include pattern for xattr keys
+  provenance:
+    sources:
+    - help-text
+- long: force-local
+  group: 'Device selection and switching:'
+  description: archive file is local even if it has a colon
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: file
+  value_name: ARCHIVE
+  value_kind: Required
+  group: 'Device selection and switching:'
+  description: use archive file or device ARCHIVE
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  long: info-script
+  value_name: NAME,
+  value_kind: Required
+  group: 'Device selection and switching:'
+  description: run script at end of each tape (implies -M)
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: tape-length
+  value_name: NUMBER
+  value_kind: Required
+  group: 'Device selection and switching:'
+  description: change tape after writing NUMBER x 1024 bytes
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  long: multi-volume
+  group: 'Device selection and switching:'
+  description: create/list/extract multi-volume archive
+  provenance:
+    sources:
+    - help-text
+- long: rmt-command
+  value_name: COMMAND
+  value_kind: Required
+  group: 'Device selection and switching:'
+  description: use given rmt COMMAND instead of rmt
+  provenance:
+    sources:
+    - help-text
+- long: rsh-command
+  value_name: COMMAND
+  value_kind: Required
+  group: 'Device selection and switching:'
+  description: use remote COMMAND instead of rsh
+  provenance:
+    sources:
+    - help-text
+- long: volno-file
+  value_name: FILE
+  value_kind: Required
+  group: 'Device selection and switching:'
+  description: use/update the volume number in FILE
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  long: blocking-factor
+  value_name: BLOCKS
+  value_kind: Required
+  group: 'Device blocking:'
+  description: BLOCKS x 512 bytes per record
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: read-full-records
+  group: 'Device blocking:'
+  description: reblock as we read (for 4.2BSD pipes)
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: ignore-zeros
+  group: 'Device blocking:'
+  description: ignore zeroed blocks in archive (means EOF)
+  provenance:
+    sources:
+    - help-text
+- long: record-size
+  value_name: NUMBER
+  value_kind: Required
+  group: 'Device blocking:'
+  description: NUMBER of bytes per record, multiple of 512
+  provenance:
+    sources:
+    - help-text
+- short: 'H'
+  long: format
+  value_name: FORMAT
+  value_kind: Required
+  choices:
+  - gnu
+  - oldgnu
+  - pax
+  - posix
+  - ustar
+  - v7
+  group: 'Archive format selection:'
+  description: create archive of the given format
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: label
+  value_name: TEXT
+  value_kind: Required
+  description: create archive with volume name TEXT; at list/extract time, use TEXT as a globbing pattern for volume name
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: auto-compress
+  group: 'Compression options:'
+  description: use archive suffix to determine the compression program
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: use-compress-program
+  value_name: PROG
+  value_kind: Required
+  group: 'Compression options:'
+  description: filter through PROG (must accept -d)
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: bzip2
+  group: 'Compression options:'
+  description: filter the archive through bzip2
+  provenance:
+    sources:
+    - help-text
+- short: 'J'
+  long: xz
+  group: 'Compression options:'
+  description: filter the archive through xz
+  provenance:
+    sources:
+    - help-text
+- long: lzip
+  group: 'Compression options:'
+  description: filter the archive through lzip
+  provenance:
+    sources:
+    - help-text
+- long: lzma
+  group: 'Compression options:'
+  description: filter the archive through xz
+  provenance:
+    sources:
+    - help-text
+- long: lzop
+  group: 'Compression options:'
+  description: filter the archive through lzop
+  provenance:
+    sources:
+    - help-text
+- long: no-auto-compress
+  group: 'Compression options:'
+  description: do not use archive suffix to determine the compression program
+  provenance:
+    sources:
+    - help-text
+- long: zstd
+  group: 'Compression options:'
+  description: filter the archive through zstd
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  long: gzip
+  group: 'Compression options:'
+  description: filter the archive through gzip
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  long: compress
+  group: 'Compression options:'
+  description: filter the archive through compress
+  provenance:
+    sources:
+    - help-text
+- long: backup
+  value_name: CONTROL
+  value_kind: Optional
+  choices:
+  - none
+  - off
+  - t
+  - numbered
+  - nil
+  - existing
+  - never
+  - simple
+  group: 'Local file selection:'
+  description: backup before removal, choose version CONTROL
+  provenance:
+    sources:
+    - help-text
+- long: hard-dereference
+  group: 'Local file selection:'
+  description: follow hard links; archive and dump the files they refer to
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: dereference
+  group: 'Local file selection:'
+  description: follow symlinks; archive and dump the files they point to
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  long: starting-file
+  value_name: MEMBER-NAME
+  value_kind: Required
+  group: 'Local file selection:'
+  description: begin at member MEMBER-NAME when reading the archive
+  provenance:
+    sources:
+    - help-text
+- long: newer-mtime
+  value_name: DATE
+  value_kind: Required
+  group: 'Local file selection:'
+  description: compare date and time when data changed only
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  long: newer
+  value_name: DATE-OR-FILE,
+  value_kind: Required
+  group: 'Local file selection:'
+  description: only store files newer than DATE-OR-FILE
+  provenance:
+    sources:
+    - help-text
+- long: one-file-system
+  group: 'Local file selection:'
+  description: stay in local file system when creating archive
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: absolute-names
+  group: 'Local file selection:'
+  description: don't strip leading '/'s from file names
+  provenance:
+    sources:
+    - help-text
+- long: suffix
+  value_name: STRING
+  value_kind: Required
+  group: 'Local file selection:'
+  description: backup before removal, override usual suffix ('~' unless overridden by environment variable SIMPLE_BACKUP_SUFFIX)
+  provenance:
+    sources:
+    - help-text
+- long: strip-components
+  value_name: NUMBER
+  value_kind: Required
+  group: 'File name transformations:'
+  description: strip NUMBER leading components from file names on extraction
+  provenance:
+    sources:
+    - help-text
+- long: transform
+  value_name: EXPRESSION,
+  value_kind: Required
+  group: 'File name transformations:'
+  description: use sed replace EXPRESSION to transform file names
+  provenance:
+    sources:
+    - help-text
+- long: checkpoint
+  value_name: NUMBER
+  value_kind: Optional
+  group: 'Informative output:'
+  description: display progress messages every NUMBERth record (default 10)
+  provenance:
+    sources:
+    - help-text
+- long: checkpoint-action
+  value_name: ACTION
+  value_kind: Required
+  group: 'Informative output:'
+  description: execute ACTION on each checkpoint
+  provenance:
+    sources:
+    - help-text
+- long: full-time
+  group: 'Informative output:'
+  description: print file time to its full resolution
+  provenance:
+    sources:
+    - help-text
+- long: index-file
+  value_name: FILE
+  value_kind: Required
+  group: 'Informative output:'
+  description: send verbose output to FILE
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: check-links
+  group: 'Informative output:'
+  description: print a message if not all links are dumped
+  provenance:
+    sources:
+    - help-text
+- long: no-quote-chars
+  value_name: STRING
+  value_kind: Required
+  group: 'Informative output:'
+  description: disable quoting for characters from STRING
+  provenance:
+    sources:
+    - help-text
+- long: quote-chars
+  value_name: STRING
+  value_kind: Required
+  group: 'Informative output:'
+  description: additionally quote characters from STRING
+  provenance:
+    sources:
+    - help-text
+- long: quoting-style
+  value_name: STYLE
+  value_kind: Required
+  choices:
+  - literal
+  - shell
+  - shell-always
+  - shell-escape
+  - shell-escape-always
+  - c
+  - c-maybe
+  - escape
+  - locale
+  - clocale
+  group: 'Informative output:'
+  description: set name quoting style; see below for valid STYLE values
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  long: block-number
+  group: 'Informative output:'
+  description: show block number within archive with each message
+  provenance:
+    sources:
+    - help-text
+- long: show-defaults
+  group: 'Informative output:'
+  description: show tar defaults
+  provenance:
+    sources:
+    - help-text
+- long: show-omitted-dirs
+  group: 'Informative output:'
+  description: when listing or extracting, list each directory that does not match search criteria
+  provenance:
+    sources:
+    - help-text
+- long: show-snapshot-field-ranges
+  group: 'Informative output:'
+  description: show valid ranges for snapshot-file fields
+  provenance:
+    sources:
+    - help-text
+- long: show-transformed-names
+  group: 'Informative output:'
+  description: show file or archive names after transformation
+  provenance:
+    sources:
+    - help-text
+- long: totals
+  value_name: SIGNAL
+  value_kind: Optional
+  group: 'Informative output:'
+  description: 'print total bytes after processing the archive; with an argument - print total bytes when this SIGNAL is delivered; Allowed signals are: SIGHUP, SIGQUIT, SIGINT, SIGUSR1 and SIGUSR2; the names without SIG prefix are also accepted'
+  provenance:
+    sources:
+    - help-text
+- long: utc
+  group: 'Informative output:'
+  description: print file modification times in UTC
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Informative output:'
+  description: verbosely list files processed
+  provenance:
+    sources:
+    - help-text
+- long: warning
+  value_name: KEYWORD
+  value_kind: Required
+  group: 'Informative output:'
+  description: warning control
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  long: interactive
+  group: 'Informative output:'
+  description: ask for confirmation for every action
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  group: 'Compatibility options:'
+  description: when creating, same as --old-archive; when extracting, same as --no-same-owner
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  long: help
+  group: 'Other options:'
+  description: give this help list
+  provenance:
+    sources:
+    - help-text
+- long: restrict
+  group: 'Other options:'
+  description: disable use of some potentially harmful options
+  provenance:
+    sources:
+    - help-text
+- long: usage
+  group: 'Other options:'
+  description: give a short usage message
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'Other options:'
+  description: print program version
+  provenance:
+    sources:
+    - help-text
+- long: format
+  value_name: gnu
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: rsh-command
+  value_name: /usr/bin/rsh
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 0.96
+children_filled: true

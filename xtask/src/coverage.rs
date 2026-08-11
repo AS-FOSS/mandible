@@ -1049,7 +1049,13 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
 /// Every uniquely-named executable file found in a `PATH` directory,
 /// deduplicated by basename (the first directory to have a given name
 /// wins, matching normal `PATH` resolution order) and sorted.
-fn unique_executables_on_path() -> Vec<String> {
+///
+/// `pub(crate)`, not `pub`: `crate::audit`'s `sample` subcommand needs the
+/// same population this module's own `run` scans by default (spec's audit
+/// brief: "a deterministic draw from the tools on `PATH`"), and re-walking
+/// `PATH` a second, independent way would risk the two enumerations quietly
+/// disagreeing about what "every tool" means.
+pub(crate) fn unique_executables_on_path() -> Vec<String> {
     let mut seen: BTreeMap<String, PathBuf> = BTreeMap::new();
     let Some(path_var) = std::env::var_os("PATH") else {
         return Vec::new();

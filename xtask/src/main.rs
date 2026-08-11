@@ -3,6 +3,7 @@
 
 #![forbid(unsafe_code)]
 
+mod audit;
 mod corpus;
 mod coverage;
 mod misattribution;
@@ -115,6 +116,113 @@ enum Command {
         #[arg(long)]
         baseline_dir: Option<PathBuf>,
     },
+    /// A bounded, random, human-reviewed sample of real tools, comparing
+    /// raw captured `--help` text against the parsed tree (`audit.rs`'s own
+    /// doc comment has the full rationale). This is the first instrument
+    /// that measures agreement with *truth*, not with the parser's own
+    /// prior output.
+    Audit {
+        #[command(subcommand)]
+        action: AuditAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuditAction {
+    /// Draw a deterministic, stratified sample of tools and write/merge a
+    /// resumable verdict file at `<dir>/<seed>.toml`.
+    Sample {
+        /// Random seed. Same seed (and same `--sample`/`--tools`) always
+        /// draws the same tools; a different seed draws a different set.
+        #[arg(long)]
+        seed: u64,
+        /// How many tools to draw in total, split proportionally across
+        /// the parse-status strata found in the population.
+        #[arg(long)]
+        sample: usize,
+        /// Sample from this fixed, comma-separated list instead of
+        /// scanning `PATH` — pins a reproducible population, which is what
+        /// tests and CI use (mirrors `coverage --tools`).
+        #[arg(long, value_delimiter = ',')]
+        tools: Option<Vec<String>>,
+        /// Directory holding verdict files (`<dir>/<seed>.toml`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// The interactive review loop: raw `--help` text and the parsed tree,
+    /// side by side, one verdict at a time. Reads `<word> [note...]` lines
+    /// from stdin and saves after every tool, so an interrupted session
+    /// resumes rather than restarts.
+    Review {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// Non-interactive twin of `review`: write every still-pending tool's
+    /// raw text + parsed tree to its own file under `--emit-dir`, for a
+    /// reviewer (or a machine with no tty) to read offline. Pair with
+    /// `ingest` to apply the resulting verdicts.
+    Emit {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        #[arg(long)]
+        emit_dir: PathBuf,
+    },
+    /// Apply a plain-text verdicts file (`<tool> <verdict> [note...]` per
+    /// line, `#` comments and blank lines ignored) to a sample — the
+    /// counterpart to `emit`, and how a review gets recorded on a machine
+    /// with no tty at all.
+    Ingest {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// The verdicts file to read.
+        #[arg(long)]
+        verdicts: PathBuf,
+        /// Replace an already-recorded verdict instead of leaving it
+        /// alone. Without this, re-running `ingest` on a file that
+        /// includes already-applied lines is a safe no-op for those lines.
+        #[arg(long)]
+        overwrite: bool,
+    },
+    /// Per-stratum and overall accuracy, each stated as a count and a
+    /// confidence interval — never a bare percentage — plus the list of
+    /// tools judged `wrong` or `incomplete`.
+    Report {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// Turn every reviewed tool into a `corpus/README.md`-shaped fixture:
+    /// capture files, a pre-filled `meta.toml`, `expected.snap` for a
+    /// `correct` verdict, `[xfail]` with the reviewer's note as `reason`
+    /// for `wrong`/`incomplete`. Stages into `<dir>/<seed>/fixtures` by
+    /// default rather than the gated `corpus/` tree — see `cmd_fixtures`'s
+    /// doc comment for why.
+    Fixtures {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Where to write fixture directories. Defaults to a staging area
+        /// under `--dir`; pass `corpus` explicitly to write straight into
+        /// the gated corpus (only once every `[xfail]` fixture has a real
+        /// falsifying `[contract]` field — see `cmd_fixtures`).
+        #[arg(long)]
+        corpus_dir: Option<PathBuf>,
+        /// Only emit fixtures for these tools (comma-separated) instead of
+        /// every reviewed entry.
+        #[arg(long, value_delimiter = ',')]
+        only: Option<Vec<String>>,
+        /// Overwrite an already-existing fixture directory.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -137,6 +245,47 @@ fn main() -> anyhow::Result<()> {
             format,
             baseline_dir,
         } => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+        Command::Audit { action } => run_audit(action),
+    }
+}
+
+fn run_audit(action: AuditAction) -> anyhow::Result<()> {
+    match action {
+        AuditAction::Sample {
+            seed,
+            sample,
+            tools,
+            dir,
+        } => audit::cmd_sample(seed, sample, tools, &dir),
+        AuditAction::Review { seed, dir } => {
+            let stdin = std::io::stdin();
+            let mut input = stdin.lock();
+            let mut output = std::io::stdout();
+            audit::cmd_review(&dir, seed, &mut input, &mut output)
+        }
+        AuditAction::Emit {
+            seed,
+            dir,
+            emit_dir,
+        } => audit::cmd_emit(&dir, seed, &emit_dir),
+        AuditAction::Ingest {
+            seed,
+            dir,
+            verdicts,
+            overwrite,
+        } => audit::cmd_ingest(&dir, seed, &verdicts, overwrite),
+        AuditAction::Report { seed, dir } => audit::cmd_report(&dir, seed),
+        AuditAction::Fixtures {
+            seed,
+            dir,
+            corpus_dir,
+            only,
+            force,
+        } => {
+            let corpus_dir =
+                corpus_dir.unwrap_or_else(|| dir.join(seed.to_string()).join("fixtures"));
+            audit::cmd_fixtures(&dir, seed, &corpus_dir, only, force)
+        }
     }
 }
 

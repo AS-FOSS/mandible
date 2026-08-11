@@ -1,0 +1,262 @@
+name: git
+usage:
+- 'usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>] [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare] [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>] <command> [<args>]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: args
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'v'
+  long: version
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'h'
+  long: help
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'C'
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'c'
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: exec-path
+  value_name: <path>
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: html-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: man-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: info-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'p'
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: paginate
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'P'
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: no-pager
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: no-replace-objects
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: bare
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: git-dir
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: work-tree
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: namespace
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: config-env
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: clone
+  summary: Clone a repository into a new directory
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Create an empty Git repository or reinitialize an existing one
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add
+  summary: Add file contents to the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mv
+  summary: Move or rename a file, a directory, or a symlink
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restore
+  summary: Restore working tree files
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rm
+  summary: Remove files from the working tree and from the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bisect
+  summary: Use binary search to find the commit that introduced a bug
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff
+  summary: Show changes between commits, commit and working tree, etc
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: grep
+  summary: Print lines matching a pattern
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log
+  summary: Show commit logs
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Show various types of objects
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: status
+  summary: Show the working tree status
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: branch
+  summary: List, create, or delete branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: commit
+  summary: Record changes to the repository
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge
+  summary: Join two or more development histories together
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rebase
+  summary: Reapply commits on top of another base tip
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reset
+  summary: Reset current HEAD to the specified state
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch
+  summary: Switch branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: tag
+  summary: Create, list, delete or verify a tag object signed with GPG
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch
+  summary: Download objects and refs from another repository
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pull
+  summary: Fetch from and integrate with another repository or a local branch
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: push
+  summary: Update remote refs along with associated objects
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
