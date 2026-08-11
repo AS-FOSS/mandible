@@ -26,11 +26,37 @@ use std::time::Instant;
 /// (31 chars) — and an untruncated long name shoves every column after it
 /// out of alignment for that one row, which is exactly the bug this
 /// constant (and [`truncate_col`]) exists to fix.
-const TOOL_COL_WIDTH: usize = 24;
+pub(crate) const TOOL_COL_WIDTH: usize = 24;
 /// Fixed display width for the `tier(s)` column, same reasoning.
-const TIER_COL_WIDTH: usize = 18;
+pub(crate) const TIER_COL_WIDTH: usize = 18;
 /// Fixed display width for the new `framework` column, same reasoning.
-const FRAMEWORK_COL_WIDTH: usize = 26;
+pub(crate) const FRAMEWORK_COL_WIDTH: usize = 26;
+/// Fixed display width for the right-aligned `nodes` column.
+pub(crate) const NODES_COL_WIDTH: usize = 7;
+/// Fixed display width for the right-aligned `flags` column.
+pub(crate) const FLAGS_COL_WIDTH: usize = 8;
+/// Fixed display width for the right-aligned `%flags_text` column.
+pub(crate) const PCT_COL_WIDTH: usize = 13;
+/// Fixed display width for the right-aligned `ms` column.
+pub(crate) const MS_COL_WIDTH: usize = 7;
+/// Fixed display width for the right-aligned `suspect` column.
+pub(crate) const SUSPECT_COL_WIDTH: usize = 8;
+/// Fixed display width for the right-aligned `man` column.
+pub(crate) const MAN_COL_WIDTH: usize = 6;
+/// Fixed display width for the right-aligned `misattr` column.
+///
+/// All eight widths above are `pub(crate)` (not just local to
+/// [`render_text`]) for one reason: [`crate::transition`] parses a
+/// rendered `ScoreFormat::Text` scoreboard back into rows — two
+/// independently-generated sweeps, diffed — and it must slice each line at
+/// *exactly* the offsets [`render_text`] wrote them at. Duplicating these
+/// numbers as a second set of literals in that module would be exactly the
+/// kind of drift risk `status.rs`'s own doc comment warns about ("two
+/// independent definitions... will drift, and the drift will be discovered
+/// at the worst possible time") — one column added here and the parser
+/// silently misreads every field after it. A single source of truth means
+/// a future column can't do that.
+pub(crate) const MISATTR_COL_WIDTH: usize = 9;
 
 /// One tool's row in the scoreboard.
 struct Row {
@@ -607,7 +633,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     // alignment for that row.
     let mut out = String::new();
     out.push_str(&format!(
-        "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}{:>9}  {}\n",
+        "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}  {}\n",
         "tool",
         "tier(s)",
         "framework",
@@ -626,6 +652,13 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
         tw = TOOL_COL_WIDTH,
         iw = TIER_COL_WIDTH,
         fw = FRAMEWORK_COL_WIDTH,
+        nw = NODES_COL_WIDTH,
+        flw = FLAGS_COL_WIDTH,
+        pw = PCT_COL_WIDTH,
+        msw = MS_COL_WIDTH,
+        sw = SUSPECT_COL_WIDTH,
+        manw = MAN_COL_WIDTH,
+        miw = MISATTR_COL_WIDTH,
     ));
     for row in rows {
         let pct = row
@@ -633,7 +666,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}{:>9}  {}\n",
+            "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}  {}\n",
             truncate_col(&row.tool, TOOL_COL_WIDTH),
             truncate_col(&row.tiers, TIER_COL_WIDTH),
             truncate_col(&row.framework, FRAMEWORK_COL_WIDTH),
@@ -648,6 +681,13 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             tw = TOOL_COL_WIDTH,
             iw = TIER_COL_WIDTH,
             fw = FRAMEWORK_COL_WIDTH,
+            nw = NODES_COL_WIDTH,
+            flw = FLAGS_COL_WIDTH,
+            pw = PCT_COL_WIDTH,
+            msw = MS_COL_WIDTH,
+            sw = SUSPECT_COL_WIDTH,
+            manw = MAN_COL_WIDTH,
+            miw = MISATTR_COL_WIDTH,
         ));
     }
     out.push_str(&aggregate_footer_line(aggregate));

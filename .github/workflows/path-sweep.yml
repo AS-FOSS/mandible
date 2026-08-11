@@ -12,6 +12,33 @@ name: PATH sweep
 #
 # Runs on pushes to main and weekly, so drift is visible without a human
 # remembering to look.
+#
+# WS2 decision 3 (maintainer-approved): the `path-sweep` job below runs
+# inside a container pinned to a specific image *digest*, not `ubuntu-latest`
+# bare. The image is the measurement instrument here — this sweep's whole
+# value is comparing one run's scoreboard against another's, and
+# `ubuntu-latest`'s own tool inventory drifts under that label over time (new
+# GitHub runner-image releases add/remove/upgrade preinstalled packages on a
+# schedule this repo doesn't control), which shows up in a diff as tools
+# silently appearing, disappearing, or changing `--help` output for reasons
+# that have nothing to do with any grammar change here. A digest is the only
+# thing GitHub Actions will hold still: a floating tag (`ubuntu:22.04`,
+# `ubuntu:latest`) still repoints over time. From here forward, a bump to
+# this digest is its own reviewable commit, exactly like a dependency bump —
+# never an implicit side effect of GitHub updating a shared image.
+#
+# **This is a real, deliberate trade-off, not a free win**: pinning to a
+# plain `ubuntu:22.04` container shrinks the swept population from
+# `ubuntu-latest`'s own ~1,500 preinstalled executables (spec §13.1a) down to
+# whatever this minimal base image plus the toolchain bootstrap step below
+# actually provides — on the order of a few hundred, not thousands. Fewer
+# tools measured, but the same tools measured the same way every time, which
+# is what a regression *diff* (this workflow's own reason to exist, and
+# `xtask sweep-diff`'s target input) actually needs. Restoring more breadth
+# is legitimate future work — installing a curated, version-pinned package
+# list into a purpose-built image published under this repo's own control,
+# so a breadth increase is also its own reviewable commit rather than
+# something that rides in silently on the base image.
 
 on:
   push:
@@ -48,6 +75,15 @@ jobs:
   path-sweep:
     name: PATH sweep ${{ matrix.shard }}/16
     runs-on: ubuntu-latest
+    # Pinned by digest, not by the floating `ubuntu:22.04` tag (see this
+    # file's header comment on WS2 decision 3). Captured 2026-08-11 from
+    # Docker Hub's `library/ubuntu:22.04` manifest
+    # (`docker manifest inspect`/registry `Docker-Content-Digest`); it is a
+    # multi-arch index, so the same line resolves correctly on this runner's
+    # x86-64 host without a separate arm64 pin. Bumping this digest is its
+    # own commit — see the header comment for why that's the whole point.
+    container:
+      image: ubuntu:22.04@sha256:3b06811b2afd352be909dd088a004166d665dc76d38b13eada33522a9d915c6f
     # Job-level, not step-level. When the runner is reclaimed the *job* is
     # killed rather than any step failing — every step reports success or
     # skipped and the job still fails — so `continue-on-error` on the step
@@ -59,6 +95,21 @@ jobs:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - uses: actions/checkout@v4
+      # The pinned base image (see `container:` above) is deliberately
+      # minimal — it ships neither a C toolchain nor `curl`, both of which
+      # `dtolnay/rust-toolchain` needs to install rustup. This is the
+      # curated, version-*un*pinned bootstrap: `apt-get`'s own package
+      # versions still float with Ubuntu's live archives even though the
+      # base image is frozen, so this step alone does not make the sweep
+      # fully byte-for-byte reproducible — only the base OS layer is pinned.
+      # Freezing package versions too (an apt snapshot mirror, or baking
+      # these into a custom published image) is future work; this step's
+      # job is to stop the base image from drifting, which it does.
+      - name: Bootstrap build tools in the pinned container
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git build-essential pkg-config
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 

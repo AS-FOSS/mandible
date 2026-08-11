@@ -159,6 +159,60 @@ jobs:
           --out coverage-scoreboard.ci.txt
           --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
 
+  # WS2 part 2: `coverage-scoreboard.ci.txt` is stale against the redefined
+  # `pct_flags_with_text` metric (spec §13.1b — the `describable` denominator
+  # change), so the `coverage` job right above is red *by design* until it's
+  # regenerated. It cannot be regenerated correctly from this repo's own dev
+  # box: that baseline captures real `--help` text from real x86-64 binaries
+  # (`git`, `docker`, `gh`, ...), and this project's own dev box is aarch64
+  # (AGENTS.md environment facts) — a scoreboard built there would silently
+  # mix architectures into a baseline that's supposed to be one.
+  #
+  # This job is the mechanism only. It does **not** overwrite
+  # `coverage-scoreboard.ci.txt` in the checkout or commit anything — see
+  # AGENTS.md/this task's hard constraint on never writing that file except
+  # through an explicit, human-reviewed commit. It computes a fresh
+  # scoreboard on the *same* `ubuntu-latest` environment the `coverage` job
+  # above actually gates on (deliberately not the pinned container
+  # `path-sweep.yml` uses — that pin is scoped to the full-PATH sweep, per
+  # WS2 decision 3, and mismatching the baseline's capture environment from
+  # the gate's own check environment would just reintroduce the drift this
+  # whole task exists to remove), runs `sweep-diff` against the stale
+  # checked-in baseline so a reviewer sees exactly what moved, and uploads
+  # the fresh file as a downloadable artifact. A human downloads it, renames
+  # it to `coverage-scoreboard.ci.txt`, reviews the diff, and commits it
+  # deliberately — the same review discipline `corpus/README.md` asks of a
+  # blessed snapshot, not an automated overwrite.
+  #
+  # `workflow_dispatch`-only: nothing about regenerating a baseline belongs
+  # on every push or PR — there is no schedule this needs to run on, only a
+  # human deciding it's time.
+  emit-coverage-baseline:
+    name: emit a fresh coverage-scoreboard.ci.txt (manual, artifact only)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compute a fresh scoreboard (scratch path — never the checked-in name)
+        run: >-
+          cargo xtask coverage
+          --out coverage-scoreboard.ci.fresh.txt
+          --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
+      - name: Review report — fresh scoreboard against the stale checked-in baseline
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo xtask sweep-diff \
+            --before coverage-scoreboard.ci.txt \
+            --after coverage-scoreboard.ci.fresh.txt \
+            --format markdown | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-scoreboard-ci-fresh
+          path: coverage-scoreboard.ci.fresh.txt
+
   # Corpus regression net (spec §13.2, corpus/README.md, xtask/src/corpus.rs):
   # replays every corpus/<tool>/<version>/ fixture through the real tiered
   # extraction pipeline from bytes frozen in the repo.
@@ -199,10 +253,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # `--baseline-dir` below needs the PR's base-ref `corpus/` tree to
+          # diff against, and the default shallow (depth-1, HEAD-only)
+          # checkout doesn't carry any history to find it in. Only
+          # `pull_request` events have a base ref to compare against at all;
+          # `push`/`workflow_call` runs get the ordinary shallow checkout and
+          # the population step below is skipped for them (see its own
+          # `if`), same as today.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # Populates `--baseline-dir` (`corpus::contract_weakened_lines`'s doc
+      # comment names exactly this as "the intended" way to wire it) so the
+      # `CONTRACT WEAKENED` detector is actually live in CI instead of inert.
+      # Before this step existed, nothing ever passed `--baseline-dir` here,
+      # so a PR that quietly weakened a fixture's `[contract]` (lowered
+      # `min_subcommands`, dropped a `must_contain_flags` entry, newly marked
+      # a fixture `[xfail]`) produced no warning at all — legal per
+      # `corpus/README.md`'s documented lifecycle, but silent, which is
+      # exactly what that detector exists to stop.
+      #
+      # `git archive <base-sha> -- corpus | tar -x` is the runner's own git
+      # access reaching into the base ref, never this repo's code doing it
+      # (`xtask`/`corpus.rs`'s own doc comment: no `std::process` outside
+      # `mandible-extract/src/exec/`, so the binary itself can't shell out to
+      # git). `continue-on-error: true`: a failure here (an unusually shallow
+      # fork, a rebased PR whose base sha isn't reachable, ...) must never
+      # take down the hard gate below over a report-only feature — the next
+      # step falls back to "no baseline" exactly as if `--baseline-dir` had
+      # never been passed.
+      - name: Populate contract baseline from the PR's base ref
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          mkdir -p corpus-baseline
+          git archive ${{ github.event.pull_request.base.sha }} -- corpus | tar -x -C corpus-baseline
       - name: Replay corpus fixtures
         shell: bash
         run: |
           set -o pipefail
-          cargo xtask corpus --format markdown | tee -a "$GITHUB_STEP_SUMMARY"
+          baseline_args=()
+          if [ -d corpus-baseline/corpus ]; then
+            baseline_args=(--baseline-dir corpus-baseline/corpus)
+          fi
+          cargo xtask corpus --format markdown "${baseline_args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -8,6 +8,7 @@ mod corpus;
 mod coverage;
 mod misattribution;
 mod status;
+mod transition;
 
 use clap::{Parser, Subcommand};
 use coverage::ScoreFormat;
@@ -115,6 +116,40 @@ enum Command {
         /// the intended one. Omit it and nothing about this run changes.
         #[arg(long)]
         baseline_dir: Option<PathBuf>,
+    },
+    /// A semantic per-tool diff between two coverage scoreboards (WS2 part
+    /// 1, `transition.rs`'s own doc comment): status transitions, flag-
+    /// count gains/losses (reported separately, never netted), and tools
+    /// appearing or disappearing. This is the check that has actually
+    /// caught every regression on this branch so far — done by hand, by a
+    /// human running a full sweep before and after a grammar change and
+    /// diffing per tool, because the aggregate `%flags_text` gate and the
+    /// fixed corpus both stayed green through two real regressions. Reads
+    /// two already-rendered `ScoreFormat::Text` scoreboards (e.g. two
+    /// `cargo xtask coverage --out <path>` runs before/after a change);
+    /// never a raw text diff of the files themselves — see
+    /// `render_markdown`'s doc comment for why.
+    ///
+    /// **Non-blocking, per maintainer decision D4**: this never fails the
+    /// run (there is deliberately no `--check`-style flag here to fail on),
+    /// so it can ship now and be promoted to a real gate after a burn-in
+    /// period without a second command to learn.
+    SweepDiff {
+        /// The earlier scoreboard.
+        #[arg(long)]
+        before: PathBuf,
+        /// The later scoreboard.
+        #[arg(long)]
+        after: PathBuf,
+        /// Write the rendered report here in addition to printing it.
+        /// Omit to only print to stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// `markdown` for `$GITHUB_STEP_SUMMARY`, `text` for a terminal or
+        /// plain log. Same convention as `coverage --format`/`corpus
+        /// --format`.
+        #[arg(long, value_enum, default_value = "text")]
+        format: ScoreFormat,
     },
     /// A bounded, random, human-reviewed sample of real tools, comparing
     /// raw captured `--help` text against the parsed tree (`audit.rs`'s own
@@ -245,6 +280,12 @@ fn main() -> anyhow::Result<()> {
             format,
             baseline_dir,
         } => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+        Command::SweepDiff {
+            before,
+            after,
+            out,
+            format,
+        } => run_sweep_diff(&before, &after, out.as_deref(), format),
         Command::Audit { action } => run_audit(action),
     }
 }
@@ -308,6 +349,47 @@ fn run_corpus(
             "corpus regression: {} fixture(s) failed — see above",
             report.failures.len()
         );
+    }
+    Ok(())
+}
+
+/// Read and diff two scoreboards (`xtask sweep-diff`, WS2 part 1). Always
+/// exits `0` on a clean read of both files — see `transition.rs`'s doc
+/// comment on why this is non-blocking by construction (maintainer decision
+/// D4), not by a flag a caller has to remember to omit.
+fn run_sweep_diff(
+    before: &std::path::Path,
+    after: &std::path::Path,
+    out: Option<&std::path::Path>,
+    format: ScoreFormat,
+) -> anyhow::Result<()> {
+    let before_text = std::fs::read_to_string(before).map_err(|e| {
+        anyhow::anyhow!(
+            "could not read --before scoreboard at {}: {e}",
+            before.display()
+        )
+    })?;
+    let after_text = std::fs::read_to_string(after).map_err(|e| {
+        anyhow::anyhow!(
+            "could not read --after scoreboard at {}: {e}",
+            after.display()
+        )
+    })?;
+
+    let before_parsed = transition::parse_scoreboard(&before_text);
+    let after_parsed = transition::parse_scoreboard(&after_text);
+    let t = transition::diff(&before_parsed, &after_parsed);
+
+    let rendered = match format {
+        ScoreFormat::Text => transition::render_text(&t),
+        ScoreFormat::Markdown => transition::render_markdown(&t),
+    };
+    println!("{rendered}");
+
+    if let Some(out) = out {
+        std::fs::write(out, &rendered)
+            .map_err(|e| anyhow::anyhow!("failed to write report to {}: {e}", out.display()))?;
+        println!("wrote {}", out.display());
     }
     Ok(())
 }
