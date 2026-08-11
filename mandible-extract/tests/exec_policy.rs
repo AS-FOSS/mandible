@@ -281,8 +281,11 @@ exit 1
         heading_attested: true,
     };
 
-    let raw = mandible_extract::help_text::raw_help(&tool, &path, attested)
+    let (raw, flag) = mandible_extract::help_text::raw_help(&tool, &path, attested)
         .expect("the shim answers both probes");
+    // The pane labels itself from this, so a wrong value is a false claim
+    // about where the bytes came from, not a cosmetic slip.
+    assert_eq!(flag, "-h", "raw help must report the argv it actually ran");
     let joined: String = raw
         .iter()
         .map(|t| t.as_str().to_string())

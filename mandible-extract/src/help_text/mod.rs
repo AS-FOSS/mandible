@@ -166,6 +166,24 @@ fn probe_help_text(
     words: &[String],
     hints: NodeHints,
 ) -> Result<String, ExtractError> {
+    probe_help_text_reporting_flag(probe, tool_path, words, hints).map(|(text, _flag)| text)
+}
+
+/// [`probe_help_text`], also reporting **which flag actually produced the
+/// text** — `"--help"` or `"-h"`.
+///
+/// The verbatim view (`t`) needs this to label itself honestly. Since
+/// [M-16] sub-case (a) a subcommand's text may come from either probe, and
+/// a pane that hardcodes "the tool's own `--help` output" while showing
+/// `-h` output states something untrue about where the bytes came from —
+/// in the one view whose entire job is showing the reader exactly what we
+/// were given. It shipped that way briefly.
+fn probe_help_text_reporting_flag(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+    hints: NodeHints,
+) -> Result<(String, &'static str), ExtractError> {
     let long = probe.run(
         tool_path,
         &InertArgv::HelpLongForPath {
@@ -182,7 +200,7 @@ fn probe_help_text(
             },
             EXTRACT_TIMEOUT,
         )?;
-        return Ok(pick_stream(&short.stdout, &short.stderr));
+        return Ok((pick_stream(&short.stdout, &short.stderr), "-h"));
     }
 
     let long_text = pick_stream(&long.stdout, &long.stderr);
@@ -197,7 +215,7 @@ fn probe_help_text(
         ) {
             let short_text = pick_stream(&short.stdout, &short.stderr);
             if looks_like_help_output(&short_text) {
-                return Ok(short_text);
+                return Ok((short_text, "-h"));
             }
         }
         // `-h` was refused (a never-probe tool, spec §6 rule 0), errored,
@@ -206,7 +224,7 @@ fn probe_help_text(
         // before this fallback existed.
     }
 
-    Ok(long_text)
+    Ok((long_text, "--help"))
 }
 
 /// D1.3.1: is `text` plausibly real help output, rather than a tool having
@@ -262,7 +280,7 @@ pub fn raw_help(
     tool: &ResolvedTool,
     path: &[String],
     hints: NodeHints,
-) -> Result<Vec<Text>, ExtractError> {
+) -> Result<(Vec<Text>, &'static str), ExtractError> {
     raw_help_with_probe(&LiveProbe, tool, path, hints)
 }
 
@@ -286,15 +304,17 @@ pub fn raw_help_with_probe(
     tool: &ResolvedTool,
     path: &[String],
     hints: NodeHints,
-) -> Result<Vec<Text>, ExtractError> {
+) -> Result<(Vec<Text>, &'static str), ExtractError> {
     let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
     let words: Vec<String> = path.iter().skip(1).cloned().collect();
-    let raw = probe_help_text(probe, tool_path, &words, hints)?;
-    Ok(raw
-        .lines()
-        .take(MAX_UNPARSED_LINES)
-        .map(Text::sanitize)
-        .collect())
+    let (raw, flag) = probe_help_text_reporting_flag(probe, tool_path, &words, hints)?;
+    Ok((
+        raw.lines()
+            .take(MAX_UNPARSED_LINES)
+            .map(Text::sanitize)
+            .collect(),
+        flag,
+    ))
 }
 
 /// Prefer stdout when both streams are non-empty (spec §7 Tier B).
@@ -468,7 +488,7 @@ mod tests {
         )
         .expect("`pkill --help` is the one permitted shape and must be shown");
         assert!(
-            root.iter().any(|line| line.as_str().contains("Usage:")),
+            root.0.iter().any(|line| line.as_str().contains("Usage:")),
             "{root:?}"
         );
 

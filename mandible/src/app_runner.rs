@@ -218,7 +218,9 @@ fn apply_effect(
                     .is_some_and(|n| n.heading_attested),
             };
             let result = match mandible_extract::help_text::raw_help(resolved, &path, hints) {
-                Ok(lines) => RawHelp::Ready(lines),
+                // Render the argv exactly as a human would type it, so
+                // the pane can name its own source rather than assume one.
+                Ok((lines, flag)) => RawHelp::Ready(lines, format!("{} {flag}", path.join(" "))),
                 // Shown in the pane, not swallowed: "refused: kill is
                 // never probed" is a useful answer to `t`, and a blank
                 // pane is not.

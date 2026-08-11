@@ -143,10 +143,15 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 /// tool that prints nothing looks like, and telling those apart is the
 /// entire reason someone pressed the key.
 fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::RawHelp) {
-    let heading = format!(
-        "verbatim {} the tool's own --help output",
-        app.glyphs.absent
-    );
+    // Named from the argv actually run, never a hardcoded spelling — see
+    // `RawHelp::Ready`. Only `Ready` knows it; the other two states have no
+    // output to attribute, so they stay generic.
+    let heading = match raw {
+        crate::app::RawHelp::Ready(_, argv) => {
+            format!("verbatim {} output of `{argv}`", app.glyphs.absent)
+        }
+        _ => format!("verbatim {} the tool's own help output", app.glyphs.absent),
+    };
     match raw {
         crate::app::RawHelp::Pending => {
             render_verbatim(
@@ -157,7 +162,7 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
                 std::iter::once("running the probe…".to_string()),
             );
         }
-        crate::app::RawHelp::Ready(lines) => {
+        crate::app::RawHelp::Ready(lines, _) => {
             render_verbatim(
                 frame,
                 inner,
@@ -1436,7 +1441,10 @@ mod tests {
 
         app.set_raw_help(
             path.clone(),
-            RawHelp::Ready(vec![Text::sanitize("RAW-HELP-LINE-FROM-THE-TOOL")]),
+            RawHelp::Ready(
+                vec![Text::sanitize("RAW-HELP-LINE-FROM-THE-TOOL")],
+                "git --help".to_string(),
+            ),
         );
         let ready = screen(&app);
         assert!(ready.contains("RAW-HELP-LINE-FROM-THE-TOOL"), "{ready}");
