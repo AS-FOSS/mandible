@@ -15,6 +15,95 @@ positionals:
   provenance:
     sources:
     - help-text
+flags:
+- short: 'v'
+  long: version
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: exec-path
+  value_name: <path>
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text
+- long: html-path
+  provenance:
+    sources:
+    - help-text
+- long: man-path
+  provenance:
+    sources:
+    - help-text
+- long: info-path
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  provenance:
+    sources:
+    - help-text
+- long: paginate
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  provenance:
+    sources:
+    - help-text
+- long: no-pager
+  provenance:
+    sources:
+    - help-text
+- long: no-replace-objects
+  provenance:
+    sources:
+    - help-text
+- long: bare
+  provenance:
+    sources:
+    - help-text
+- long: git-dir
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: work-tree
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: namespace
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: config-env
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

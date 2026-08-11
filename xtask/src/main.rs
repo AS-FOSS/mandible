@@ -171,13 +171,14 @@ fn run_coverage(
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {}/{} framework-detected",
+        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {}/{} framework-detected",
         fresh.pct_described,
         fresh.total,
         fresh.no_tier_count,
         fresh.suspicious_count,
         fresh.verbatim_count,
         fresh.man_shaped_count,
+        fresh.zero_flag_ok_count,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -197,13 +198,14 @@ fn run_coverage(
         })?;
 
         println!(
-            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped",
+            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags",
             previous.pct_described,
             previous.total,
             previous.no_tier_count,
             previous.suspicious_count,
             previous.verbatim_count,
             previous.man_shaped_count,
+            previous.zero_flag_ok_count,
         );
 
         let mut regressed = false;
@@ -252,6 +254,23 @@ fn run_coverage(
             println!(
                 "man-shaped count changed from {} to {} (reported, not gated)",
                 previous.man_shaped_count, fresh.man_shaped_count
+            );
+        }
+        // `zero_flag_ok_count` ([M-15]) is deliberately **not** gated, and
+        // deliberately reported even though `pct_described` already is:
+        // [M-15]'s whole point is that a synopsis-only flag grammar makes
+        // `pct_described` fall (a usage-only flag adds to the denominator
+        // with no description to add to the numerator) at the exact moment
+        // real recall improves. A gate on `pct_described` alone therefore
+        // rewards *not* fixing this, which is the metric trap this column
+        // exists to make visible instead of silently blocking. This count
+        // falling is the actual signal that a fix like this one worked;
+        // `pct_described` falling alongside it is the expected, correct
+        // cost, not a second regression.
+        if fresh.zero_flag_ok_count != previous.zero_flag_ok_count {
+            println!(
+                "ok-with-zero-flags count changed from {} to {} (reported, not gated — spec [M-15]: this falling, not pct_described, is the real success signal)",
+                previous.zero_flag_ok_count, fresh.zero_flag_ok_count
             );
         }
         if regressed {

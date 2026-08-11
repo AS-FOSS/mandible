@@ -97,6 +97,19 @@ pub struct Aggregate {
     /// regress against, and per the task this metric measures, it is not
     /// itself changing any execution.
     pub man_shaped_count: usize,
+    /// Tools at status `ok` with zero flags at all — [M-15]'s own measure
+    /// ("378 of 1,895 `ok` tools carry no flags at all"), reported here so
+    /// a parser change's effect on *recall* is visible even though
+    /// `pct_described` moves the opposite way when the fix works (spec
+    /// [M-15]: finding a usage-only flag set adds to `pct_described`'s
+    /// denominator only, since a synopsis carries no description — so the
+    /// aggregate ratio legitimately *falls* exactly when this count
+    /// legitimately falls). **Not gated**, same reasoning as
+    /// `man_shaped_count`: this is a brand-new measurement with no
+    /// baseline to regress against, and the whole point of adding it is to
+    /// give a human the number the existing gate can't see, not to invent
+    /// a second automatic gate the same trap could defeat.
+    pub zero_flag_ok_count: usize,
     /// Tools for which Tier A′ identified a framework at all (spec §7
     /// Tier A′), regardless of method.
     pub framework_detected_count: usize,
@@ -364,6 +377,10 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let suspicious_count = rows.iter().filter(|r| r.status == "suspicious").count();
     let verbatim_count = rows.iter().filter(|r| r.verbatim).count();
     let man_shaped_count = rows.iter().filter(|r| r.man_shaped).count();
+    let zero_flag_ok_count = rows
+        .iter()
+        .filter(|r| r.status == "ok" && r.flags == 0)
+        .count();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -379,6 +396,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         suspicious_count,
         verbatim_count,
         man_shaped_count,
+        zero_flag_ok_count,
         framework_detected_count,
         framework_counts,
         total: rows.len(),
@@ -658,12 +676,13 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} total={} described_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} zero_flag_ok_count={} total={} described_flags={:.4} total_flags={}\n",
         aggregate.pct_described,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
         aggregate.verbatim_count,
         aggregate.man_shaped_count,
+        aggregate.zero_flag_ok_count,
         aggregate.total,
         aggregate.described_flags,
         aggregate.total_flags,
@@ -702,13 +721,15 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     let mut pct_described = None;
     let mut no_tier_count = None;
     // Older scoreboards (pre structure-sanity / pre-framework / pre-man-
-    // shaped columns) are missing `suspicious_count`/`verbatim_count`/
-    // `man_shaped_count` entirely; default all three to 0 rather than
-    // failing to parse, so `--check` against a not-yet-regenerated
-    // baseline still works for the fields that did exist.
+    // shaped / pre-zero-flag columns) are missing `suspicious_count`/
+    // `verbatim_count`/`man_shaped_count`/`zero_flag_ok_count` entirely;
+    // default all four to 0 rather than failing to parse, so `--check`
+    // against a not-yet-regenerated baseline still works for the fields
+    // that did exist.
     let mut suspicious_count = 0usize;
     let mut verbatim_count = 0usize;
     let mut man_shaped_count = 0usize;
+    let mut zero_flag_ok_count = 0usize;
     let mut described_flags = 0.0f64;
     let mut total_flags = 0usize;
     let mut total = None;
@@ -720,6 +741,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "suspicious_count" => suspicious_count = value.parse::<usize>().ok()?,
             "verbatim_count" => verbatim_count = value.parse::<usize>().ok()?,
             "man_shaped_count" => man_shaped_count = value.parse::<usize>().ok()?,
+            "zero_flag_ok_count" => zero_flag_ok_count = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
             "total" => total = value.parse::<usize>().ok(),
@@ -732,6 +754,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         suspicious_count,
         verbatim_count,
         man_shaped_count,
+        zero_flag_ok_count,
         framework_detected_count: 0,
         framework_counts: BTreeMap::new(),
         total: total?,
@@ -785,13 +808,14 @@ mod tests {
 
     #[test]
     fn parses_its_own_footer_format() {
-        let table = "tool  tier(s)\nfoo   carapace\n\n# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=2 verbatim_count=1 man_shaped_count=1 total=10\n";
+        let table = "tool  tier(s)\nfoo   carapace\n\n# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=2 verbatim_count=1 man_shaped_count=1 zero_flag_ok_count=4 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
         assert_eq!(agg.pct_described, 42.5);
         assert_eq!(agg.no_tier_count, 3);
         assert_eq!(agg.suspicious_count, 2);
         assert_eq!(agg.verbatim_count, 1);
         assert_eq!(agg.man_shaped_count, 1);
+        assert_eq!(agg.zero_flag_ok_count, 4);
         assert_eq!(agg.total, 10);
     }
 
@@ -824,6 +848,16 @@ mod tests {
         let table = "# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
         assert_eq!(agg.man_shaped_count, 0);
+    }
+
+    /// Same for `zero_flag_ok_count` ([M-15]): a scoreboard from before
+    /// this metric existed has no such field, and `--check` against it
+    /// must still work.
+    #[test]
+    fn footer_without_zero_flag_ok_count_defaults_to_zero() {
+        let table = "# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 man_shaped_count=1 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.zero_flag_ok_count, 0);
     }
 
     #[test]
@@ -980,6 +1014,23 @@ mod tests {
         let agg = compute_aggregate(&rows);
         assert_eq!(agg.verbatim_count, 2);
         assert_eq!(agg.man_shaped_count, 1);
+    }
+
+    /// [M-15]'s own measure: a tool at status `ok` with zero flags at all
+    /// (the shape 378 of 1,895 `ok` tools had fleet-wide before the usage-
+    /// synopsis flag grammar). A `low-confidence` or `no-tier` tool with
+    /// zero flags must not count — only `ok` ones do, since those are the
+    /// ones a reader would otherwise trust as "nothing more to find here."
+    #[test]
+    fn aggregate_counts_ok_tools_with_zero_flags() {
+        let rows = vec![
+            row("git-like", 0, None, "ok"),
+            row("has-flags", 10, Some(90.0), "ok"),
+            row("weak", 0, None, "low-confidence"),
+            row("nothing", 0, None, "no-tier"),
+        ];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.zero_flag_ok_count, 1);
     }
 
     #[test]

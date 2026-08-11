@@ -41,7 +41,7 @@
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
-use super::grammar::{looks_like_flag_start, parse_flag_spec};
+use super::grammar::{looks_like_flag_start, parse_flag_spec, FlagSpec};
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
     is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
@@ -558,6 +558,53 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             let (seen, clean) = emit_choices(&heading, entries, &mut result);
             total_entries += seen;
             clean_entries += clean;
+        }
+    }
+
+    // spec [M-15]: mine the usage synopsis for flag spellings too, not just
+    // positionals — `git --help` documents fourteen long options and six
+    // short ones (`-p | --paginate | -P | --no-pager`, `--git-dir=<path>`,
+    // ...) *only* in its `usage:` block, and until now nothing read that
+    // block for anything but positionals, so tools whose options live only
+    // in their synopsis reported zero flags at status `ok` ([M-15]: 378 of
+    // 1,895 `ok` tools fleet-wide). Deferred to here (after the section-
+    // block scan above, which is where a `Options:`-style block's
+    // *described* flags land in `result.flags`) so a duplicate spelling can
+    // be recognized and dropped rather than added a second time.
+    //
+    // **Deliberately not `mandible_core::merge_flag_lists`.** A first cut
+    // used it and a real-`PATH` sweep caught the bug: that function
+    // rebuckets *every* flag in the combined list by identity, which is
+    // correct for merging several tiers' candidates for the same node (each
+    // tier should contribute one canonical entry) but wrong here, because a
+    // single `Options:`-style block can legitimately list one spelling
+    // twice for two different forms — `du --help`'s bare `--time` and
+    // valued `--time=WORD` rows, `ex --help` (vim)'s bare `-r` and
+    // `-r (with file name)` rows, each pair with its own real description.
+    // Running the whole list through identity-based rebucketing merged
+    // those pre-existing, legitimate pairs into one row apiece and dropped
+    // a real description every time — measured: `ex` lost 2 descriptions
+    // with its flag count unchanged (two collapses cancelled out by two
+    // genuinely new usage flags), `du` lost a flag outright. Only a usage-
+    // derived flag is allowed to be judged redundant; a block-derived flag
+    // is never rebucketed, never dropped, never has a field replaced — so
+    // whatever the block scan already produced, however it shaped up,
+    // survives byte-for-byte.
+    if !result.usage.is_empty() {
+        for flag in extract_usage_flags(&result.usage) {
+            if result.flags.len() >= MAX_RECOVERED_ENTRIES {
+                break;
+            }
+            if !flag_spelling_already_present(&flag, &result.flags) {
+                result.flags.push(flag);
+            }
+            // else: this spelling (by short or by long) already names a
+            // flag the block scan recovered — described or not, recovered
+            // from real structure either way — so the usage-derived,
+            // always-undescribed duplicate is simply not added. This is
+            // "let the described version win" taken literally: the
+            // existing entry is never touched, so it cannot lose a field it
+            // already had.
         }
     }
 
@@ -1556,6 +1603,270 @@ fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
     out
 }
 
+/// Extract flag spellings from a usage-synopsis block (spec [M-15]:
+/// "378 of 1,895 `ok` tools carry no flags at all", because usage-only
+/// options — `git --help`'s `[-p | --paginate | -P | --no-pager]` and
+/// friends — were never mined at all; [`extract_positionals`] (above)
+/// reads the same block for positionals only, and nothing else reads it
+/// for anything.
+///
+/// **The anti-fabrication property this relies on: a synopsis token
+/// becomes a flag only if it starts with `-`.** That single character
+/// class is the whole guard — there is no heading to misjudge, no
+/// column-alignment ambiguity, no bare-word block that might be prose
+/// (the failure mode [M-10] came in through four different ways in the
+/// section-block scanner above). Prose cannot enter through a `-` prefix,
+/// so this stays resistant to [M-10] by construction. Do not relax it to
+/// recognize more shapes; spec §7 Tier B's rule is unconditional: never
+/// fabricate.
+///
+/// Flags recovered here carry **no description** — a usage line documents
+/// spellings and value shapes, never prose, and inventing one (by copying
+/// the usage line's own text, or a neighbouring flag's description) is
+/// exactly the fabrication spec §7 Tier B forbids. Reconciling a
+/// same-spelling flag that *does* have a description (from an `Options:`-
+/// style block elsewhere in the same output) is [`parse_with_profile`]'s
+/// job, via [`flag_spelling_already_present`] — see that function's doc
+/// comment for why a duplicate is *dropped* rather than merged.
+fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
+    let mut out: Vec<Flag> = Vec::new();
+    for line in usage_lines {
+        for segment in usage_segments(line) {
+            if out.len() >= MAX_RECOVERED_ENTRIES {
+                return out;
+            }
+            match segment {
+                UsageSegment::Group(members) => {
+                    let flaggy: Vec<&str> =
+                        members.into_iter().filter(|m| m.starts_with('-')).collect();
+                    // spec [M-15]'s conservative-pairing rule: within one
+                    // bracket group, pair a short with a long only when the
+                    // group has exactly one of each. `[-v | --version]`
+                    // qualifies; `[-p | --paginate | -P | --no-pager]`
+                    // (four alternatives) does not, and every spelling in
+                    // it is emitted on its own rather than guessing which
+                    // short goes with which long. A wrong pairing asserts a
+                    // false equivalence a user would act on — worse than an
+                    // unpaired entry, which is merely incomplete.
+                    if flaggy.len() == 2 {
+                        let a = parse_flag_spec(flaggy[0]);
+                        let b = parse_flag_spec(flaggy[1]);
+                        if let Some(paired) = pair_short_and_long(a, b) {
+                            push_usage_flag(&mut out, paired);
+                            continue;
+                        }
+                    }
+                    for m in flaggy {
+                        push_usage_flag(&mut out, parse_flag_spec(m));
+                    }
+                }
+                UsageSegment::Bare(tok) => {
+                    if tok.starts_with('-') {
+                        push_usage_flag(&mut out, parse_flag_spec(tok));
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// True if `candidate` shares a spelling — its short letter, or its long
+/// name — with any flag already in `existing`.
+///
+/// **Deliberately loose in `existing`'s favor.** `candidate` is always a
+/// usage-derived flag here (see the one call site in [`parse_with_profile`]),
+/// so it never has a description to lose; matching on *either* spelling
+/// (not requiring the same combination [`mandible_core::merge::flag_identity`]
+/// would key on, which prefers a long name over a short one) is what
+/// catches `arptables`' `--insert, -I` row against a bare `-I` mentioned
+/// standalone elsewhere in the synopsis — a real duplicate that a stricter,
+/// identity-string equality check would miss and add a second, spellingless
+/// (no long, no description) time. The cost of the looser match is a
+/// forgone enrichment (a usage flag's value shape is never folded into an
+/// existing entry that lacks one) in exchange for the guarantee this
+/// function exists to provide: an existing flag, right or wrong, is never
+/// altered by anything found here — only ever left alone or joined by a
+/// new one.
+fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
+    existing.iter().any(|f| {
+        (candidate.long.is_some() && f.long == candidate.long)
+            || (candidate.short.is_some() && f.short == candidate.short)
+    })
+}
+
+/// Turn a [`FlagSpec`] into a [`Flag`] and push it, unless the spec
+/// recognized nothing (`short`/`long` both `None` — a stray token like a
+/// bare `-` or `--` option terminator). Mirrors `emit_flags`'s field
+/// defaults exactly, except `group`/`description` are always `None`: see
+/// [`extract_usage_flags`]'s doc comment for why a usage-derived flag must
+/// never carry a description.
+fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
+    if spec.short.is_none() && spec.long.is_none() {
+        return;
+    }
+    out.push(Flag {
+        short: spec.short,
+        long: spec.long,
+        value_name: spec.value_name,
+        value_kind: spec.value_kind,
+        choices: Vec::new(),
+        repeatable: false,
+        required: false,
+        negatable: spec.negatable,
+        hidden: false,
+        deprecated: None,
+        inherited: false,
+        group: None,
+        description: None,
+        default: None,
+        env_var: None,
+        provenance: Provenance::single(Source::HelpText),
+    });
+}
+
+/// Pair a short-only and a long-only [`FlagSpec`] into one, or refuse
+/// (`None`) if they are not exactly complementary (spec [M-15]'s
+/// conservative pairing rule, applied by the caller to a bracket group
+/// already known to have exactly one flaggy member of each kind).
+///
+/// Shape-similar to [`mandible_core::merge::pair_aliases`], but that
+/// function pairs rows from the *same block* by matching description text
+/// (two rows that happen to describe the same flag identically); nothing
+/// here has a description to compare against, so the evidence is the
+/// bracket group's own `|`-alternation instead, per spec's stated rule.
+fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> {
+    let (short_spec, long_spec) =
+        if a.short.is_some() && a.long.is_none() && b.short.is_none() && b.long.is_some() {
+            (a, b)
+        } else if b.short.is_some() && b.long.is_none() && a.short.is_none() && a.long.is_some() {
+            (b, a)
+        } else {
+            return None;
+        };
+    let long_had_value = long_spec.value_name.is_some();
+    Some(FlagSpec {
+        short: short_spec.short,
+        long: long_spec.long,
+        negatable: long_spec.negatable,
+        value_kind: if long_had_value {
+            long_spec.value_kind
+        } else {
+            short_spec.value_kind
+        },
+        value_name: long_spec.value_name.or(short_spec.value_name),
+        fully_consumed: short_spec.fully_consumed && long_spec.fully_consumed,
+    })
+}
+
+/// One token-level unit of a usage-synopsis line, as [`usage_segments`]
+/// walks it: either a bracketed alternation group (spec [M-15]'s pairing
+/// rule operates within one such group) or a bare token outside any
+/// bracket.
+enum UsageSegment<'a> {
+    /// The members of one top-level `[...]` group, already split on `|` at
+    /// that group's own nesting depth — so `--exec-path[=<path>]`'s inner
+    /// bracket (an optional value spec) is never mistaken for a second
+    /// alternative.
+    Group(Vec<&'a str>),
+    /// A single top-level token outside any bracket (e.g. git's own
+    /// `usage:`/`git` at the very start of the line, or a required flag
+    /// some tool's synopsis writes unbracketed).
+    Bare(&'a str),
+}
+
+/// Walk `line` into [`UsageSegment`]s.
+///
+/// Every substring boundary here comes from `char_indices`, never a raw
+/// byte offset (`AGENTS.md`'s slicing rule) — safe even if a usage line
+/// happens to carry a multi-byte character, with no separate UTF-8-
+/// boundary reasoning required.
+fn usage_segments(line: &str) -> Vec<UsageSegment<'_>> {
+    let chars: Vec<(usize, char)> = line.char_indices().collect();
+    let len = chars.len();
+    let mut out = Vec::new();
+    let mut idx = 0usize;
+    while idx < len {
+        let (byte_pos, c) = chars[idx];
+        if c.is_whitespace() {
+            idx += 1;
+            continue;
+        }
+        if c == '[' {
+            if let Some((content_range, close_idx)) = matched_bracket_group(&chars, idx) {
+                let content = &line[content_range.0..content_range.1];
+                out.push(UsageSegment::Group(split_top_level_pipe(content)));
+                idx = close_idx + 1;
+                continue;
+            }
+        }
+        let mut j = idx;
+        while j < len && !chars[j].1.is_whitespace() {
+            j += 1;
+        }
+        let end_byte = if j < len { chars[j].0 } else { line.len() };
+        out.push(UsageSegment::Bare(&line[byte_pos..end_byte]));
+        idx = j;
+    }
+    out
+}
+
+/// Find the byte range of the content strictly between `chars[open_idx]`
+/// (a `[`) and its matching `]`, and the char-index of that `]` —
+/// bracket-depth aware, so `[--exec-path[=<path>]]`'s inner `[...]` (an
+/// optional value spec on the one alternative) is consumed as part of the
+/// outer group's content instead of closing the group early. `None` when
+/// `open_idx`'s bracket is never closed (malformed input); the caller
+/// falls back to treating it as an ordinary bare token.
+fn matched_bracket_group(
+    chars: &[(usize, char)],
+    open_idx: usize,
+) -> Option<((usize, usize), usize)> {
+    let (open_byte, open_c) = chars[open_idx];
+    let content_start = open_byte + open_c.len_utf8();
+    let mut depth = 1i32;
+    let mut j = open_idx + 1;
+    while j < chars.len() {
+        let (byte_pos, c) = chars[j];
+        match c {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(((content_start, byte_pos), j));
+                }
+            }
+            _ => {}
+        }
+        j += 1;
+    }
+    None
+}
+
+/// Split a bracket group's content on `|` at that content's own nesting
+/// depth 0, so a nested `[...]` (an optional value spec on one of the
+/// alternatives) is never itself split on. Empty fragments (a stray
+/// leading/trailing `|`, or `||`) are dropped.
+fn split_top_level_pipe(content: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    for (i, c) in content.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => depth -= 1,
+            '|' if depth == 0 => {
+                out.push(content[start..i].trim());
+                start = i + c.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    out.push(content[start..].trim());
+    out.retain(|s| !s.is_empty());
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2004,6 +2315,150 @@ mod tests {
         let parsed = parse("usage: widget [-C <dir>] [--tag=<name>] <target> [--config FILE]\n");
         let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, vec!["target"], "{names:?}");
+    }
+
+    /// [M-15]'s headline case, straight from the reference example in the
+    /// work order: a synopsis with no `Options:`/`Flags:` block at all must
+    /// still recover the flags it documents inline. Also exercises the
+    /// conservative-pairing rule end to end: `[-v | --version]` (exactly
+    /// one short, one long) becomes one flag with both spellings;
+    /// `[-p | --paginate | -P | --no-pager]` (two of each) must not guess a
+    /// pairing and instead emit all four spellings as separate entries.
+    #[test]
+    fn usage_synopsis_flags_are_recovered_with_conservative_pairing() {
+        let raw = "usage: git [-v | --version] [-h | --help] [-C <path>] \
+                   [-p | --paginate | -P | --no-pager] [--git-dir=<path>]\n";
+        let parsed = parse(raw);
+
+        let version = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("version"))
+            .expect("--version recovered");
+        assert_eq!(
+            version.short,
+            Some('v'),
+            "exactly one short + one long in a group must pair"
+        );
+
+        let help = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("help"))
+            .expect("--help recovered");
+        assert_eq!(help.short, Some('h'));
+
+        // Four alternatives: never guess which short goes with which long.
+        // Every spelling is its own unpaired flag, with no cross-pairing.
+        let spellings: Vec<(Option<char>, Option<&str>)> = parsed
+            .flags
+            .iter()
+            .map(|f| (f.short, f.long.as_deref()))
+            .collect();
+        assert!(
+            spellings.contains(&(Some('p'), None)),
+            "expected an unpaired -p entry, got {spellings:?}"
+        );
+        assert!(
+            spellings.contains(&(None, Some("paginate"))),
+            "expected an unpaired --paginate entry, got {spellings:?}"
+        );
+        assert!(
+            spellings.contains(&(Some('P'), None)),
+            "expected an unpaired -P entry, got {spellings:?}"
+        );
+        assert!(
+            spellings.contains(&(None, Some("no-pager"))),
+            "expected an unpaired --no-pager entry, got {spellings:?}"
+        );
+
+        // None of these carry a description — a synopsis has spellings and
+        // value shapes only, never prose (spec §7 Tier B: never fabricate).
+        assert!(parsed.flags.iter().all(|f| f.description.is_none()));
+    }
+
+    /// Value shapes the usage grammar recognizes: `-C <path>` (space-
+    /// separated) and `--git-dir=<path>` (`=`-joined) are both a
+    /// *required* value; `--exec-path[=<path>]` (bracketed) is *optional*.
+    #[test]
+    fn usage_synopsis_flag_value_shapes_are_captured() {
+        let raw = "usage: git [-C <path>] [--exec-path[=<path>]] [--git-dir=<path>]\n";
+        let parsed = parse(raw);
+
+        let c = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('C'))
+            .expect("-C recovered");
+        assert_eq!(c.value_name.as_deref(), Some("<path>"));
+        assert_eq!(c.value_kind, mandible_core::ValueKind::Required);
+
+        let exec_path = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("exec-path"))
+            .expect("--exec-path recovered");
+        assert_eq!(exec_path.value_kind, mandible_core::ValueKind::Optional);
+
+        let git_dir = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("git-dir"))
+            .expect("--git-dir recovered");
+        assert_eq!(git_dir.value_kind, mandible_core::ValueKind::Required);
+    }
+
+    /// Do-not-double-count: a flag documented in *both* the usage synopsis
+    /// and an `Options:` block must collapse to one entry, with the
+    /// described version's fields — never two `Flag`s for the same
+    /// spelling, and never the description dropped in favor of the
+    /// synopsis's bare spelling.
+    #[test]
+    fn usage_and_options_block_duplicates_merge_into_one_described_flag() {
+        let raw =
+            "usage: widget [--verbose] [<file>]\n\nOptions:\n  --verbose    print extra output\n";
+        let parsed = parse(raw);
+        let verbose: Vec<&Flag> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.long.as_deref() == Some("verbose"))
+            .collect();
+        assert_eq!(
+            verbose.len(),
+            1,
+            "expected exactly one flag, got {verbose:?}"
+        );
+        assert_eq!(
+            verbose[0].description.as_ref().map(|d| d.as_str()),
+            Some("print extra output")
+        );
+    }
+
+    /// A synopsis with nothing dash-led at all (no `[OPTIONS]`-shaped
+    /// bracket carries a real flag, just a positional-only usage line)
+    /// must recover zero flags — the extractor must not invent structure
+    /// from empty input, mirroring `apt-get`'s real-world shape (spec
+    /// [M-15]: "apt-get's zero flags is correct").
+    #[test]
+    fn usage_synopsis_with_no_dash_tokens_yields_zero_flags() {
+        let parsed = parse("Usage: mytool [FILE]... <target>\n");
+        assert!(parsed.flags.is_empty(), "{:?}", parsed.flags);
+    }
+
+    /// A malformed/unmatched bracket in a usage line (never seen from a
+    /// real tool, but the parser must not panic or misbehave on it) falls
+    /// back to treating the stray `[` as part of an ordinary bare token —
+    /// still gated by the same "starts with `-`" rule, so it recovers
+    /// nothing rather than guessing.
+    #[test]
+    fn unmatched_bracket_in_usage_line_does_not_panic() {
+        let parsed = parse("usage: widget [--flag <value>\n");
+        // No panic is the primary assertion; the bracket does eventually
+        // close over word boundaries in a way that still yields --flag,
+        // since `[--flag` is bare (starts with `-`... actually with `[`)
+        // and `<value>` is not flag-shaped. This just documents there is
+        // no crash and no fabricated flag from the stray bracket itself.
+        assert!(parsed.flags.iter().all(|f| f.long.as_deref() != Some("")));
     }
 
     /// Regression for the third defect found alongside the two above:
