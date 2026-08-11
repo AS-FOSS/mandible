@@ -51,4 +51,50 @@ min_subcommands = 0
 # from a continuation line rather than the marker line — matching the
 # measured 27 -> 21 exactly — so this fails again if the continuation
 # lines are ever dropped by a future change.
-must_contain_flags = ["-L", "-M", "-o", "-r", "-S", "-w"]
+# -L/-M/-o/-r/-S/-w reach the tree only via the usage synopsis (spelling
+# only, no prose) — the continuation-line regression net.
+#
+# -a -b -l -t -v are the xfail's demand: real, described entries in lsof's
+# options table that never reach the tree at all, because the table is
+# THREE flag+description pairs per line and only the first is read.
+must_contain_flags = ["-L", "-M", "-o", "-r", "-S", "-w", "-a", "-b", "-l", "-t", "-v"]
+
+[xfail]
+broken = true
+reason = """
+lsof's options table packs THREE flag+description pairs onto each line:
+
+  -?|-h list help          -a AND selections (OR)     -b avoid kernel blocks
+
+The generic parser detects a single description column, so it reads `-?`
+and swallows the rest of the line as its description. `expected.snap`
+records the result: `-?` is described as "-a AND selections (OR) -b avoid
+kernel blocks", `-c` as "cmd c ^c /c/[bix] +c w COMMAND width (9) +d s dir
+s files", and so on down the table.
+
+Two failures, and the second is the serious one:
+
+1. Under-extraction — lsof documents 42 distinct flags; 27 reach the tree.
+   Every second and third column entry (-a, -b, +c, +d, -K, -l, ...) is
+   lost.
+2. MISATTRIBUTION — the ~21 flags that do carry a description carry the
+   WRONG one, assembled from their neighbours. A reader is told `-?` means
+   "AND selections (OR)". That is fabricated documentation presented at
+   full confidence, which spec §7's degradation ladder exists to prevent:
+   verbatim would be strictly more honest than this.
+
+The scoreboard reports lsof `ok` at 79% described, because %described
+counts a misattributed description as described — the same shape as
+[M-10] inflating the metric with fabricated nodes, and the fifth instance
+of the pattern §13.1b records.
+
+Fixing this needs multi-column option-table detection: when a candidate
+description itself contains flag spellings at consistent column offsets,
+the block is N-column and must be split before parsing. WS4's
+anti-fabrication oracle would also catch it — a description containing
+another flag's literal spelling is exactly the signal it is built to see.
+
+This fixture was briefly committed GREEN, blessing the bad parse. A
+snapshot records what happens, not what is right; only `[contract]` and a
+human can say the latter.
+"""
