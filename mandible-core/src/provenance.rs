@@ -205,7 +205,7 @@ pub enum Source {
     /// description for one from neighbouring text. A flag whose only
     /// source is this variant is therefore structurally undescribable, not
     /// merely undescribed: [`Source::can_describe`] says so, and spec
-    /// §13's `pct_described` excludes it from the denominator rather than
+    /// §13's `pct_flags_with_text` excludes it from the denominator rather than
     /// punishing recall for having found it (the defect [M-15] and this
     /// redefinition both exist to fix — see spec §13's metric design
     /// rules).

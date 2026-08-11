@@ -56,6 +56,24 @@ distinction is what makes the ratchet work:
   broke, if a change violates them. Weakening one is allowed only by editing
   this file — an explicit, reviewable act.
 
+**`--bless` is a human assertion of correctness, not a mechanical accept.**
+It rewrites `expected.snap` to match whatever the parser just produced —
+it does not check that production against anything, and a clean `cargo
+xtask corpus` run afterward only proves the snapshot now matches itself,
+never that either one is right. Running `--bless` and committing the diff
+without reading it is indistinguishable, to every later reader and to CI,
+from asserting the new tree is correct. Before you run it, **read the raw
+capture and the resulting tree side by side** — every flag's description
+against the line it came from, every subcommand against the heading that
+named it — and only bless once you can say the tree is what the raw text
+actually says. `corpus/lsof/4.95.0` is the fixture that proves what
+skipping this costs: it was committed green (`--bless`, then `[xfail]`
+removed) by blessing a parse where a three-column options table had been
+read as one column, so roughly three quarters of its "described" flags
+carried another flag's description instead of their own — a snapshot that
+matched itself perfectly and was still wrong. It is `[xfail]` again now,
+specifically because that review did not happen the first time.
+
 ```toml
 [tool]
 name = "git"
@@ -192,7 +210,24 @@ regressions are gated on `expected_framework` exactly like parse regressions.
 $ cargo run -p xtask -- corpus            # check every fixture, exit non-zero on any regression
 $ cargo run -p xtask -- corpus --bless    # rewrite expected.snap to match a fresh extraction
 $ cargo run -p xtask -- corpus --dir some/other/corpus   # point at a different corpus root
+$ cargo run -p xtask -- corpus --baseline-dir /tmp/corpus-at-main   # also flag weakened [contract]s
 ```
+
+`--baseline-dir` diffs every fixture's `[contract]` against a second, plain
+corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
+line for each field that got weaker (lowered `min_status`/`min_subcommands`,
+a dropped `must_contain_flags`/`must_contain_flags_by_path` entry, a fixture
+newly marked `[xfail]`, or a fixture missing entirely) — reported, never
+gated, since weakening a contract deliberately is still legal (the lifecycle
+rules above). This binary **has no git access and never will** — the
+workspace-wide `no_process_outside_exec` test forbids `std::process` outside
+`mandible-extract/src/exec/`, `xtask/src` included — so `--baseline-dir` takes
+a plain directory, never a git ref: populate it however you like (a CI step
+running `git archive <base-ref> corpus | tar -x -C <dir>` before invoking
+`xtask corpus` is the intended shape). Omit the flag and nothing changes —
+`.github/workflows/ci.yml`'s `corpus` job does not pass it yet, so this check
+does not currently run in CI; wiring that step is open follow-up work, not
+yet done.
 
 Runs with **zero subprocesses**: every fixture is replayed through the real
 tiered extraction pipeline via the `Transcript` probe
@@ -227,6 +262,11 @@ fallback in replay). Still open:
 
 - [ ] `mandible capture <tool>` — one-command fixture bundle with masking
 - [ ] `xtask`-generated `FRAMEWORKS.md` table
+- [ ] Wiring `.github/workflows/ci.yml`'s `corpus` job to populate a
+      baseline directory from the PR's base ref and pass `--baseline-dir`,
+      so `CONTRACT WEAKENED` actually appears on real PRs — the `xtask`
+      side (`--baseline-dir`, `contract_weakened_lines`) is implemented and
+      tested; the CI step that feeds it a real baseline is not
 - [x] This contract document
 - [x] The `xtask corpus` runner itself
 - [x] Wiring `cargo xtask corpus` into CI as a required check (`.github/

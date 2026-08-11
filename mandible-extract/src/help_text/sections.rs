@@ -1895,7 +1895,7 @@ fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
 /// never carry a description. Provenance is [`Source::HelpTextSynopsis`],
 /// not the plain [`Source::HelpText`] `emit_flags` uses — same authority
 /// (spec §4.4 is unaffected), but a distinct source so spec §13's
-/// `pct_described` can tell a structurally-undescribable flag apart from
+/// `pct_flags_with_text` can tell a structurally-undescribable flag apart from
 /// one that merely wasn't described.
 fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
     if spec.short.is_none() && spec.long.is_none() {
@@ -2738,7 +2738,7 @@ mod tests {
 
     /// spec §13's metric redefinition rests on this: a usage-synopsis-
     /// derived flag must carry `Source::HelpTextSynopsis`, not the plain
-    /// `Source::HelpText` an options-table row gets, so `pct_described`
+    /// `Source::HelpText` an options-table row gets, so `pct_flags_with_text`
     /// can exclude it from the denominator instead of counting it as an
     /// undescribed flag from a source that could have described it.
     #[test]

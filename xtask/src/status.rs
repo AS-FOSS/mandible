@@ -38,7 +38,7 @@ pub struct Status {
     /// of them describable (a root whose only flags came from its usage
     /// synopsis, e.g. `git` before [M-16]'s `-h` fallback recovered
     /// `restore`'s described ones).
-    pub pct_described: Option<f64>,
+    pub pct_flags_with_text: Option<f64>,
     /// One of `"no-tier"`, `"verbatim"`, `"suspicious"`, `"low-confidence"`,
     /// `"ok"` — see [`compute`] for the derivation order.
     pub label: &'static str,
@@ -59,7 +59,7 @@ pub fn compute(result: &ExtractionResult) -> Status {
     // tool has no ratio to report either. See
     // `ExtractionResult::describable_flag_count`'s doc comment.
     let describable = result.describable_flag_count();
-    let pct_described = if describable == 0 {
+    let pct_flags_with_text = if describable == 0 {
         None
     } else {
         Some(result.flag_description_ratio() * 100.0)
@@ -84,7 +84,7 @@ pub fn compute(result: &ExtractionResult) -> Status {
         // suspicious regardless of how "described" its possibly-invented
         // flags look.
         "suspicious"
-    } else if pct_described.map(|p| p < 50.0).unwrap_or(false) {
+    } else if pct_flags_with_text.map(|p| p < 50.0).unwrap_or(false) {
         "low-confidence"
     } else {
         "ok"
@@ -93,7 +93,7 @@ pub fn compute(result: &ExtractionResult) -> Status {
     Status {
         suspicious_nodes,
         verbatim,
-        pct_described,
+        pct_flags_with_text,
         label,
     }
 }
@@ -152,6 +152,19 @@ fn count_suspicious(node: &CommandNode) -> usize {
 /// [`meets_min_status`] fails it outright rather than ranking it.
 const STATUS_LADDER: &[&str] = &["no-tier", "verbatim", "low-confidence", "ok"];
 
+/// `label`'s position on [`STATUS_LADDER`] (coarsest = 0), for callers that
+/// need to compare two `min_status` values directly rather than just ask
+/// "does A meet floor B" — the corpus runner's contract-weakening check
+/// (`corpus.rs`) is the first one: "was `min_status` lowered" needs an
+/// ordering between two contract values, not a floor check against a
+/// result. `None` for an unrecognized label (including `"suspicious"`,
+/// which the ladder deliberately excludes — see its own doc comment),
+/// exactly as [`meets_min_status`] already treats an unrecognized label as
+/// "fails closed" rather than panicking.
+pub fn status_rank(label: &str) -> Option<usize> {
+    STATUS_LADDER.iter().position(|s| *s == label)
+}
+
 /// True when `actual` meets or exceeds the `min` floor on [`STATUS_LADDER`].
 /// `"suspicious"` never meets any floor (see the ladder's doc comment).
 /// An unrecognized label in either position fails closed (`false`) rather
@@ -194,11 +207,11 @@ mod tests {
 
     /// [M-15]/spec §13's regression net, end to end: a root whose only
     /// flags are usage-synopsis-derived (undescribable by construction)
-    /// must report `pct_described: None`, not a bottomed-out ratio near
+    /// must report `pct_flags_with_text: None`, not a bottomed-out ratio near
     /// 0% — exactly the shape that used to force `low-confidence` and is
     /// the defect this whole redefinition fixes.
     #[test]
-    fn pct_described_is_none_when_every_flag_is_synopsis_derived() {
+    fn pct_flags_with_text_is_none_when_every_flag_is_synopsis_derived() {
         use mandible_core::{Provenance, Source};
 
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
@@ -213,7 +226,7 @@ mod tests {
             elapsed: std::time::Duration::default(),
         };
         let status = compute(&result);
-        assert_eq!(status.pct_described, None);
+        assert_eq!(status.pct_flags_with_text, None);
         assert_eq!(status.label, "ok");
     }
 
@@ -226,7 +239,7 @@ mod tests {
     /// denominator entirely and the ratio is exactly the describable
     /// subset's own 100%.
     #[test]
-    fn pct_described_excludes_synopsis_flags_and_git_returns_to_ok() {
+    fn pct_flags_with_text_excludes_synopsis_flags_and_git_returns_to_ok() {
         use mandible_core::{Provenance, Source};
 
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
@@ -257,7 +270,7 @@ mod tests {
             "raw count still includes the 3 synopsis flags"
         );
         assert_eq!(result.describable_flag_count(), 2);
-        assert_eq!(status.pct_described, Some(100.0));
+        assert_eq!(status.pct_flags_with_text, Some(100.0));
         assert_eq!(status.label, "ok");
     }
 

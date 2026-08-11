@@ -5,6 +5,7 @@
 
 mod corpus;
 mod coverage;
+mod misattribution;
 mod status;
 
 use clap::{Parser, Subcommand};
@@ -24,13 +25,14 @@ enum Command {
     /// `PATH` (spec §13.1) and print/write the scoreboard.
     Coverage {
         /// Compare the freshly computed aggregate against the checked-in
-        /// scoreboard and fail (nonzero exit) if `%described` dropped, the
+        /// scoreboard and fail (nonzero exit) if `%flags_text` dropped, the
         /// `no-tier` count grew, or the `suspicious` count grew — the
-        /// regression gate spec §13.1 describes. `verbatim` and framework-
-        /// detection counts are reported but deliberately not part of
-        /// this gate (see `coverage::compute_aggregate`'s doc comment).
-        /// Without this flag, the command just (re)writes the scoreboard
-        /// file.
+        /// regression gate spec §13.1 describes. `verbatim`, framework-
+        /// detection, and `misattribution_suspect_tools` counts are
+        /// reported but deliberately not part of this gate (see
+        /// `coverage::compute_aggregate`'s doc comment and
+        /// `crate::misattribution`'s). Without this flag, the command just
+        /// (re)writes the scoreboard file.
         #[arg(long)]
         check: bool,
         /// Where to read/write the scoreboard.
@@ -97,6 +99,21 @@ enum Command {
         /// same convention as `coverage`'s `--format markdown`.
         #[arg(long, value_enum, default_value = "text")]
         format: ScoreFormat,
+        /// A second, plain corpus directory (never a git ref) to diff every
+        /// fixture's `[contract]` against, printing a prominent `CONTRACT
+        /// WEAKENED: <fixture> <field>` line for every field that got
+        /// weaker — see `corpus::contract_weakened_lines`'s doc comment for
+        /// why this takes a directory instead of talking to git itself
+        /// (this binary has no git access, by the same workspace-wide
+        /// invariant that keeps `std::process` out of every crate but
+        /// `mandible-extract/src/exec/`). Reported, never gated — a
+        /// contract may legitimately weaken (`corpus/README.md`'s
+        /// documented lifecycle), this only makes sure nobody has to take
+        /// that on faith. Populate it however you like — a CI step
+        /// running `git archive <base-ref> corpus | tar -x -C <dir>` is
+        /// the intended one. Omit it and nothing about this run changes.
+        #[arg(long)]
+        baseline_dir: Option<PathBuf>,
     },
 }
 
@@ -114,12 +131,28 @@ fn main() -> anyhow::Result<()> {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
             run_coverage(check, &out, tools, shard, progress, format)
         }
-        Command::Corpus { bless, dir, format } => run_corpus(bless, &dir, format),
+        Command::Corpus {
+            bless,
+            dir,
+            format,
+            baseline_dir,
+        } => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
     }
 }
 
-fn run_corpus(bless: bool, dir: &std::path::Path, format: ScoreFormat) -> anyhow::Result<()> {
-    let report = corpus::run(dir, bless, format)?;
+fn run_corpus(
+    bless: bool,
+    dir: &std::path::Path,
+    format: ScoreFormat,
+    baseline_dir: Option<&std::path::Path>,
+) -> anyhow::Result<()> {
+    // `corpus::run` (no baseline) stays the default path, unchanged from
+    // before `--baseline-dir` existed; `run_with_baseline` is only reached
+    // when a caller actually asks for the contract-weakening check.
+    let report = match baseline_dir {
+        Some(baseline) => corpus::run_with_baseline(dir, bless, format, Some(baseline))?,
+        None => corpus::run(dir, bless, format)?,
+    };
     println!("{}", report.text);
     if report.failed() {
         anyhow::bail!(
@@ -171,14 +204,15 @@ fn run_coverage(
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {}/{} framework-detected",
-        fresh.pct_described,
+        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {}/{} framework-detected",
+        fresh.pct_flags_with_text,
         fresh.total,
         fresh.no_tier_count,
         fresh.suspicious_count,
         fresh.verbatim_count,
         fresh.man_shaped_count,
         fresh.zero_flag_ok_count,
+        fresh.misattribution_suspect_tools,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -198,8 +232,8 @@ fn run_coverage(
         })?;
 
         println!(
-            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags",
-            previous.pct_described,
+            "previous: {:.2}% of flags carried text across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags",
+            previous.pct_flags_with_text,
             previous.total,
             previous.no_tier_count,
             previous.suspicious_count,
@@ -209,10 +243,10 @@ fn run_coverage(
         );
 
         let mut regressed = false;
-        if fresh.pct_described + 0.01 < previous.pct_described {
+        if fresh.pct_flags_with_text + 0.01 < previous.pct_flags_with_text {
             println!(
-                "REGRESSION: %described dropped from {:.2}% to {:.2}%",
-                previous.pct_described, fresh.pct_described
+                "REGRESSION: %flags_text dropped from {:.2}% to {:.2}%",
+                previous.pct_flags_with_text, fresh.pct_flags_with_text
             );
             regressed = true;
         }
@@ -225,9 +259,9 @@ fn run_coverage(
         }
         // Gated exactly like no_tier_count (spec §13.1): a metric that
         // can be gamed by the failure mode it's meant to detect is worse
-        // than no metric — [M-10] shipped as 100% described while 39 of
-        // tar's 40 nodes were fabricated, so %described alone must never
-        // be the only gate.
+        // than no metric — [M-10] shipped as 100% "described" (this
+        // column's old name) while 39 of tar's 40 nodes were fabricated,
+        // so `%flags_text` alone must never be the only gate.
         if fresh.suspicious_count > previous.suspicious_count {
             println!(
                 "REGRESSION: suspicious count grew from {} to {}",
@@ -257,20 +291,33 @@ fn run_coverage(
             );
         }
         // `zero_flag_ok_count` ([M-15]) is deliberately **not** gated, and
-        // deliberately reported even though `pct_described` already is:
+        // deliberately reported even though `pct_flags_with_text` already is:
         // [M-15]'s whole point is that a synopsis-only flag grammar makes
-        // `pct_described` fall (a usage-only flag adds to the denominator
+        // `pct_flags_with_text` fall (a usage-only flag adds to the denominator
         // with no description to add to the numerator) at the exact moment
-        // real recall improves. A gate on `pct_described` alone therefore
+        // real recall improves. A gate on `pct_flags_with_text` alone therefore
         // rewards *not* fixing this, which is the metric trap this column
         // exists to make visible instead of silently blocking. This count
         // falling is the actual signal that a fix like this one worked;
-        // `pct_described` falling alongside it is the expected, correct
+        // `pct_flags_with_text` falling alongside it is the expected, correct
         // cost, not a second regression.
         if fresh.zero_flag_ok_count != previous.zero_flag_ok_count {
             println!(
-                "ok-with-zero-flags count changed from {} to {} (reported, not gated — spec [M-15]: this falling, not pct_described, is the real success signal)",
+                "ok-with-zero-flags count changed from {} to {} (reported, not gated — spec [M-15]: this falling, not pct_flags_with_text, is the real success signal)",
                 previous.zero_flag_ok_count, fresh.zero_flag_ok_count
+            );
+        }
+        // `misattribution_suspect_tools` (this task's own instrument,
+        // `crate::misattribution`) is deliberately **not gated**: it is a
+        // brand-new detector with a measured, nonzero false-positive rate
+        // and no fleet-wide baseline to regress against yet — see that
+        // module's doc comment. Reported so a grammar change's effect on
+        // it is visible, exactly like `verbatim_count`/`man_shaped_count`
+        // above.
+        if fresh.misattribution_suspect_tools != previous.misattribution_suspect_tools {
+            println!(
+                "misattribution-suspect tool count changed from {} to {} (reported, not gated)",
+                previous.misattribution_suspect_tools, fresh.misattribution_suspect_tools
             );
         }
         if regressed {

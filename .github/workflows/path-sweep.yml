@@ -116,7 +116,7 @@ jobs:
   # Merges the shards into one summary. Exact, not approximate: the
   # aggregate footer carries raw `described_flags`/`total_flags` counts
   # alongside the rounded percentage precisely so shards can be recombined
-  # without drift (recomputing from the per-row %described column could
+  # without drift (recomputing from the per-row %flags_text column could
   # not be, since that column is rounded to whole percent).
   path-sweep-summary:
     name: PATH sweep summary
@@ -166,7 +166,7 @@ jobs:
               }
               END {
                 pct = (flags > 0) ? (described / flags * 100) : 0
-                printf "**%d tools**, %.2f%% of %d flags described.\n\n", total, pct, flags
+                printf "**%d tools**, %.2f%% of %d flags carry text (accuracy: unmeasured).\n\n", total, pct, flags
                 printf "- no-tier: %d\n- suspicious: %d\n- verbatim: %d\n", no_tier, suspicious, verbatim
               }
             ' shards/*.md

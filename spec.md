@@ -752,7 +752,7 @@ the thing it exists to detect. **Widening a fingerprint is only worth doing
 alongside a grammar that earns it**, never to move the number.
 
 Detection rate is therefore not a target. Coverage is: unidentified tools still
-parse, and aggregate `%described` sits around 96%.
+parse, and aggregate `%flags_text` sits around 96%.
 
 Identify the framework in this order, most reliable first:
 
@@ -1327,7 +1327,7 @@ it. `cargo xtask coverage` runs extraction across every executable on `PATH` and
 emits a scoreboard:
 
 ```
-tool        tier(s)              nodes  flags  %described  ms     status
+tool        tier(s)              nodes  flags  %flags_text  ms     status
 docker      carapace+help          162    836        100%   180    ok
 curl        help                     1    241         96%    90    ok
 openssl     help                     1    112         71%   140    ok  (stderr)
@@ -1335,7 +1335,9 @@ somecli     help                     3     12         33%    60    low-confidenc
 weirdtool   —                        0      0          —    240    no-tier
 ```
 
-The scoreboard is **checked into the repo** and diffed on every parser change.
+The scoreboard is **checked into the repo** and diffed on every parser change,
+and carries a literal `accuracy: unmeasured` line (see below) until an
+instrument actually measures correctness rather than mere presence.
 
 This is what makes "universal, no per-tool adjustment" **measurable** rather than
 aspirational. Without it, every grammar tweak is evaluated against the one tool
@@ -1343,18 +1345,43 @@ you happened to be looking at, and there is no way to see that fixing `tar`
 regressed `xz`. It is also the signal for when a tier has stopped earning its
 complexity.
 
-Regression gate: `%described` aggregate and `no-tier` count may not worsen.
-`%described` is `described / describable`, not `described / total` — see
+Regression gate: `%flags_text` aggregate and `no-tier` count may not worsen.
+`%flags_text` is `described / describable`, not `described / total` — see
 §13.1b's metric design rules for why the denominator excludes flags a source
 could never have described in the first place.
 
-**`%described` alone is not a quality signal, and trusting it hid a real bug.**
-The Tier B phantom-subcommand defect [M-10] reported `tar` as `ok` at `100%
-described` while 39 of its 40 nodes were fabricated — invented nodes *inflate*
-the metric. The scoreboard therefore also carries a **structure-sanity** column:
-count of nodes whose name fails `^[a-z][a-z0-9_.-]*$`, and count of nodes with
-no flags, no children, and no summary. Any tool with a non-zero count is marked
-`suspicious`, and `suspicious` is a gated metric exactly like `no-tier`.
+**`%flags_text` alone is not a quality signal, and trusting it hid two real
+bugs, not one.** The Tier B phantom-subcommand defect [M-10] reported `tar` as
+`ok` at `100% described` (this column's name at the time) while 39 of its 40
+nodes were fabricated — invented nodes *inflate* the metric. The scoreboard
+therefore also carries a **structure-sanity** column: count of nodes whose name
+fails `^[a-z][a-z0-9_.-]*$`, and count of nodes with no flags, no children, and
+no summary. Any tool with a non-zero count is marked `suspicious`, and
+`suspicious` is a gated metric exactly like `no-tier`.
+
+**`lsof` (`corpus/lsof/4.95.0`, `[xfail]`) is the second bug, and the reason
+this column was renamed from `%described` to `%flags_text`.** It scored 79%
+"described" — every number above suggesting a good parse — while its options
+table packs three flag+description pairs onto one physical line and the
+generic parser reads only the first, so roughly three quarters of its
+"described" flags actually carry a *different* flag's description.
+`%flags_text` has only ever measured whether text is *attached*; it has never checked
+whether that text is *right*, and `%described` was a name that let a reader
+assume it did. `%flags_text` is the honest name for the same ratio, unchanged
+in every other respect — see §13.1b. The **misattribution detector**
+(`xtask/src/misattribution.rs`) is this project's first step toward an actual
+correctness signal: a re-examination of text the pipeline already captures
+(no new probes) that flags a flag description containing another flag's
+literal spelling, attested at a column-aligned position elsewhere in the
+tool's own raw help text — the exact shape of `lsof`'s bug, generalized. It is
+a heuristic with a measured, nonzero false-positive rate, reported in the
+scoreboard's `misattr` column and `misattribution_suspect_tools` footer field,
+and **deliberately not gated**: see that module's own doc comment for the
+full rule, the false positives it had to be hardened against, and why a
+brand-new detector must not fail a build the first time it runs. Until a
+lower-false-positive accuracy instrument exists, every scoreboard also carries
+a literal `accuracy: unmeasured` line, so a reader can never mistake
+`%flags_text` for it again.
 
 The general lesson, worth stating because it will recur: **a coverage metric that
 can be gamed by the failure mode it is meant to detect is worse than no metric**,
@@ -1377,23 +1404,24 @@ Two jobs, neither of which needs a long download or a multi-hour run:
    coverage harness over the runner's own `PATH` — zero installation cost.
 
 The summary table carries, per framework: tools detected, flags extracted,
-% described, and pass/fail. The gate fails on regressions in `no-tier`,
-`suspicious`, or framework-detection failures.
+% of flags with text (`%flags_text`), and pass/fail. The gate fails on
+regressions in `no-tier`, `suspicious`, or framework-detection failures.
 
 This is the natural home for the §13.1 scoreboard once it stops depending on
 whatever happens to be installed on a developer's laptop.
 
 ### 13.1b Metric design rules
 
-`pct_described` was originally `described / total`. [M-15]'s usage-synopsis
-flag grammar recovered 1,618 real flags — a usage line lists spellings, never
-prose, by construction — and `pct_described` *fell*, 94.18% → 91.17%, because
-every recovered flag counted as "undescribed" against a source that could
-never have described it. Recall was punished for succeeding. That is a defect
-in the metric, not in the grammar, and it is the same shape of mistake this
-project has now made four times:
+`pct_flags_with_text` (`%flags_text` in the scoreboard; named `pct_described`
+until this rename — see below) was originally `described / total`. [M-15]'s
+usage-synopsis flag grammar recovered 1,618 real flags — a usage line lists
+spellings, never prose, by construction — and the ratio *fell*, 94.18% →
+91.17%, because every recovered flag counted as "undescribed" against a
+source that could never have described it. Recall was punished for
+succeeding. That is a defect in the metric, not in the grammar, and it is the
+same shape of mistake this project has now made five times:
 
-- **[M-10]** — invented subcommand nodes *inflated* `%described` (`tar`
+- **[M-10]** — invented subcommand nodes *inflated* the ratio (`tar`
   reported `ok` at 100% described while 39 of its 40 nodes were fabricated).
   Fixed by the structure-sanity column (above), not by trusting the ratio.
 - **[M-16]** — `verbatim` conflated "the tool printed nothing this grammar
@@ -1408,22 +1436,28 @@ project has now made four times:
   near the 10s extract cap and machine load decided which side of it the
   tool landed on. A timing-derived status is a statement about the machine
   that happened to run it, not about the parser.
-- **This one** — `pct_described` punished [M-15]'s recovered synopsis flags
-  by counting them as undescribed against a source that structurally cannot
-  supply a description.
+- **The [M-15] denominator defect** — the ratio punished [M-15]'s recovered
+  synopsis flags by counting them as undescribed against a source that
+  structurally cannot supply a description.
+- **The name itself** — `pct_described`/`%described` measured only whether a
+  flag had *text attached*, never whether the text was *right*, and a name
+  that says "described" reads as an accuracy claim it never earned. `lsof`
+  (`corpus/lsof/4.95.0`) is the proof: it scored 79% "described" while
+  roughly a quarter of its flags carried another flag's description
+  entirely. See below.
 
-Three rules, derived from those four incidents rather than asserted in the
-abstract:
+Three rules, derived from the first four of those incidents rather than
+asserted in the abstract:
 
 1. **A gated metric must be monotone under added true information.** An
    improvement that adds correct flags and loses nothing must never worsen
-   any number a gate reads. `pct_described = described / total` violated
-   this the moment a source existed that could add flags but never
+   any number a gate reads. `pct_flags_with_text = described / total`
+   violated this the moment a source existed that could add flags but never
    descriptions.
 2. **Denominators are conditioned on what the source could have provided.**
    A flag whose only source cannot supply a description (spec [M-15]:
    `mandible_core::Source::HelpTextSynopsis`) is excluded from
-   `pct_described`'s denominator entirely — see
+   `pct_flags_with_text`'s denominator entirely — see
    [`mandible_core::Provenance::describable`] and
    [`mandible_extract::ExtractionResult::describable_flag_count`] — rather
    than counted as a description the grammar failed to find. The raw flag
@@ -1436,12 +1470,26 @@ abstract:
    be distinguishable from an actual regression before either is reported
    as one.
 
-`pct_described` is now `described / describable`. Fleet-wide on this
+`pct_flags_with_text` is `described / describable`. Fleet-wide on this
 aarch64 box (2,266 `PATH` tools), the redefinition returns it to
 **94.19%** — within 0.01 of the 94.18% figure that predates [M-15]'s
 synopsis-flag recovery — while the recovered flags remain fully counted in
 the raw total (48,278, unchanged) and 204 tools move `low-confidence` →
 `ok` with zero tools moving the other direction. See Appendix B.
+
+**A fifth rule, from the fifth incident:** a metric's *name* is part of its
+design, not decoration, and a name a reader could reasonably mistake for a
+stronger claim than the metric makes is itself a defect — the same category
+of bug as a wrong denominator, just harder to grep for. `pct_described` was
+renamed to `pct_flags_with_text` (the scoreboard column: `%described` →
+`%flags_text`) for exactly this reason: it changes nothing about how the
+ratio is computed, only what it is honestly called. Every scoreboard also
+now carries a literal `accuracy: unmeasured` line until an instrument
+actually measures correctness — see §13.1's own note on the misattribution
+detector, the first step toward one. `xtask::coverage::parse_aggregate_footer`
+still reads a scoreboard's old `pct_described=` key for backward
+compatibility; it never writes one. See Appendix B for the historical note on
+the column-name change.
 
 ### 13.2 Fixed corpus
 
@@ -1952,3 +2000,26 @@ to `0.0` on parse, per `parse_aggregate_footer`'s doc comment) and its
 after it has both fields, and `pct_described` is over `describable_flags`.
 The raw flag count (`total_flags`, and the per-row `flags` column) is
 unaffected either way and remains directly comparable across the change.
+
+**Post-revision-2 note (2026-08-11, later same day): the column was renamed,
+its ratio unchanged.** A second, independent change from the denominator one
+above — worth its own entry because it changes what a historical
+scoreboard's *column header* means, not what any number in it is. The
+scoreboard's `%described` column and its `pct_described` aggregate/footer
+field are renamed `%flags_text`/`pct_flags_with_text`: same computation
+(`described / describable`, per the note above), same value on any given
+scoreboard, only the name changed. The rename exists because `%described`
+reads as an accuracy claim — "this flag's text is correct" — when all it has
+ever measured is presence — "this flag has text attached" — and `lsof`
+(`corpus/lsof/4.95.0`, `[xfail]`) is the proof the gap is real: it scored 79%
+"described" while roughly a quarter of its flags carried a different flag's
+description, misread from a three-column options table the generic parser
+reads as one. See §13.1's note on the misattribution detector
+(`xtask/src/misattribution.rs`), the instrument this incident motivated, and
+§13.1b's added fifth metric-design rule on names as part of a metric's
+design. A scoreboard written before this rename has `pct_described=` in its
+`# aggregate:` footer instead of `pct_flags_with_text=`;
+`parse_aggregate_footer` reads both, mapped to the same field, so `--check`
+against an old baseline still works. Every scoreboard, old or new, also now
+carries a literal `# accuracy: unmeasured` line — not parsed by `--check`,
+just a standing, honest reminder that nothing here measures correctness yet.

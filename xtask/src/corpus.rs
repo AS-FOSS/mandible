@@ -306,6 +306,127 @@ fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixture>> {
     Ok(out)
 }
 
+/// Contract-weakening detection (this task's process fix #1): "Three
+/// separate subagent attempts have weakened a fixture contract to force a
+/// pass" — lowering `min_subcommands`, shrinking `must_contain_flags`, or
+/// marking a previously-enforced fixture `[xfail]` all make a real failure
+/// disappear without fixing anything, and `corpus/README.md` already
+/// permits this ("Weakening a contract... only via an explicit edit to
+/// `meta.toml`, justified in the PR description") — it must stay legal,
+/// it must stop being *quiet*.
+///
+/// **This module has no git access, on purpose**, and cannot gain any: the
+/// workspace-wide `tests/no_process_outside_exec.rs` invariant forbids
+/// `std::process`/`Command::new` in `xtask/src` exactly as it does in every
+/// other crate but `mandible-extract/src/exec/`, so this runner could never
+/// legitimately shell out to `git diff` to see what the *previous* commit's
+/// `meta.toml` said. Faking that — inferring "committed" from whatever
+/// happens to be on disk right now — would be worse than not checking at
+/// all, since a fixture is always compared against itself. The honest
+/// alternative implemented here: this function takes a **second, plain
+/// corpus directory** (`baseline_root`) and diffs `[contract]` fields
+/// between it and the current one — no git anywhere in this process. `git`
+/// access belongs to whatever *invokes* this binary, which can
+/// legitimately populate that directory however it likes (a CI step
+/// running `git archive <base-ref> corpus | tar -x`, e.g.) and pass it via
+/// `--baseline-dir`. Nothing here assumes that wiring exists; with no
+/// `--baseline-dir`, this function is never called and nothing changes.
+///
+/// Returns one `"CONTRACT WEAKENED: <fixture> <field>"` line per weakened
+/// field, most-recognizable field first within a fixture, fixtures in
+/// their usual sorted order. Reported, not gated — see `run`'s doc comment
+/// on why this must not fail a build the moment it's introduced: a
+/// contract may legitimately weaken (the corpus's own documented lifecycle
+/// rule), and this exists to make sure a reviewer sees it, not to
+/// second-guess a deliberate, justified edit.
+fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<String> {
+    let mut lines = Vec::new();
+    for base in baseline {
+        let Some(now) = current.iter().find(|f| f.label == base.label) else {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} fixture-removed (present in baseline, missing now)",
+                base.label
+            ));
+            continue;
+        };
+        let (b, n) = (&base.meta.contract, &now.meta.contract);
+
+        // A framework assertion that's simply gone is a removed check —
+        // never flagged for merely *changing* to a different framework
+        // name, since that has no natural "weaker/stronger" ordering and a
+        // real detection improvement legitimately changes it.
+        if b.expected_framework.is_some() && n.expected_framework.is_none() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} expected_framework (assertion removed)",
+                base.label
+            ));
+        }
+
+        if let Some(base_status) = &b.min_status {
+            let base_rank = crate::status::status_rank(base_status);
+            let now_rank = n.min_status.as_deref().and_then(crate::status::status_rank);
+            if now_rank < base_rank {
+                lines.push(format!(
+                    "CONTRACT WEAKENED: {} min_status ({:?} -> {:?})",
+                    base.label,
+                    base_status,
+                    n.min_status.as_deref().unwrap_or("(removed)"),
+                ));
+            }
+        }
+
+        if let Some(base_min) = b.min_subcommands {
+            let now_min = n.min_subcommands.unwrap_or(0);
+            if now_min < base_min {
+                lines.push(format!(
+                    "CONTRACT WEAKENED: {} min_subcommands ({base_min} -> {now_min})",
+                    base.label
+                ));
+            }
+        }
+
+        let missing_flags: Vec<&str> = b
+            .must_contain_flags
+            .iter()
+            .filter(|spec| !n.must_contain_flags.iter().any(|s| s == *spec))
+            .map(String::as_str)
+            .collect();
+        if !missing_flags.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_contain_flags (dropped: {})",
+                base.label,
+                missing_flags.join(", ")
+            ));
+        }
+
+        for (path, base_specs) in &b.must_contain_flags_by_path {
+            let now_specs = n.must_contain_flags_by_path.get(path);
+            let missing: Vec<&str> = base_specs
+                .iter()
+                .filter(|spec| !now_specs.is_some_and(|specs| specs.iter().any(|s| s == *spec)))
+                .map(String::as_str)
+                .collect();
+            if !missing.is_empty() {
+                lines.push(format!(
+                    "CONTRACT WEAKENED: {} must_contain_flags_by_path[{path:?}] (dropped: {})",
+                    base.label,
+                    missing.join(", ")
+                ));
+            }
+        }
+
+        let base_xfail = base.meta.xfail.as_ref().is_some_and(|x| x.broken);
+        let now_xfail = now.meta.xfail.as_ref().is_some_and(|x| x.broken);
+        if !base_xfail && now_xfail {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} xfail (newly marked broken — contract failures no longer fail the run)",
+                base.label
+            ));
+        }
+    }
+    lines
+}
+
 /// Extract a fixture's full tree: root extraction, then a bounded
 /// recursive fill into every discovered subcommand (see this module's doc
 /// comment). Returns `None` when no tier produced a root at all.
@@ -602,7 +723,29 @@ enum Outcome {
 /// ignored while blessing — bless has no "review artifact" to format,
 /// only a rewrite-and-report-what-was-written action.
 pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Result<CorpusReport> {
-    run_with_ceiling(corpus_root, bless, format, MAX_FIXTURE_PARSE_TIME)
+    run_with_baseline(corpus_root, bless, format, None)
+}
+
+/// [`run`], additionally comparing every fixture's `[contract]` against
+/// `baseline_root` (a second, plain corpus directory — never git) and
+/// printing a prominent `CONTRACT WEAKENED: ...` line for every field that
+/// got weaker. See [`contract_weakened_lines`] for the full rule and why
+/// this takes a directory instead of a git ref. `None` skips the check
+/// entirely (unchanged behavior from before this existed) — this is what
+/// [`run`] passes, so every existing caller is unaffected.
+pub fn run_with_baseline(
+    corpus_root: &Path,
+    bless: bool,
+    format: ScoreFormat,
+    baseline_root: Option<&Path>,
+) -> anyhow::Result<CorpusReport> {
+    run_with_ceiling(
+        corpus_root,
+        bless,
+        format,
+        MAX_FIXTURE_PARSE_TIME,
+        baseline_root,
+    )
 }
 
 /// [`run`], with the parse-time ceiling injected rather than taken from
@@ -619,6 +762,7 @@ fn run_with_ceiling(
     bless: bool,
     format: ScoreFormat,
     max_parse_time: Duration,
+    baseline_root: Option<&Path>,
 ) -> anyhow::Result<CorpusReport> {
     let fixtures = discover_fixtures(corpus_root)?;
     if fixtures.is_empty() {
@@ -627,6 +771,18 @@ fn run_with_ceiling(
             corpus_root.display()
         );
     }
+    // Contract-weakening lines (see `contract_weakened_lines`'s doc
+    // comment) — computed once, up front, from plain `meta.toml` reads
+    // only (no extraction, no git), so a failure here (a malformed
+    // baseline directory) surfaces before any of the real, expensive work
+    // below starts.
+    let weakened: Vec<String> = match baseline_root {
+        Some(dir) => {
+            let baseline_fixtures = discover_fixtures(dir)?;
+            contract_weakened_lines(&fixtures, &baseline_fixtures)
+        }
+        None => Vec::new(),
+    };
 
     let mut lines = Vec::new();
     let mut outcomes = Vec::new();
@@ -804,9 +960,22 @@ fn run_with_ceiling(
     // for anything capped), not the plain-text report with formatting
     // bolted on.
     let text = if !bless && matches!(format, ScoreFormat::Markdown) {
-        render_markdown_report(&fixture_rows, fixtures.len(), green, xfail, failed_count)
+        render_markdown_report(
+            &fixture_rows,
+            fixtures.len(),
+            green,
+            xfail,
+            failed_count,
+            &weakened,
+        )
     } else {
-        lines.join("\n")
+        // Contract-weakening lines go first, ahead of every per-fixture
+        // line and the summary — "prominent... so a reviewer skimming a
+        // green run cannot miss it" means the very top of the output, not
+        // one more line in a footer nobody reads once green.
+        let mut prefixed = weakened;
+        prefixed.extend(lines);
+        prefixed.join("\n")
     };
 
     Ok(CorpusReport {
@@ -917,7 +1086,7 @@ struct SnapFlag {
     #[serde(default)]
     long: Option<String>,
     /// Needed for nothing this module names directly, but
-    /// [`crate::status::compute`]'s `pct_described` (and therefore the
+    /// [`crate::status::compute`]'s `pct_flags_with_text` (and therefore the
     /// `low-confidence` vs `ok` status boundary) reads it — omitting it
     /// would make every reconstructed "previous" tree look 0% described
     /// regardless of the real fixture, which would desync `TreeSummary`'s
@@ -1065,8 +1234,23 @@ fn render_markdown_report(
     green: usize,
     xfail: usize,
     failed: usize,
+    weakened: &[String],
 ) -> String {
     let mut out = String::new();
+    // Contract weakening, ahead of even the report's own heading — this is
+    // the one signal `corpus/README.md`'s own lifecycle rules say is
+    // *legal* but must never be *quiet* (three separate subagent attempts
+    // have weakened a fixture's `[contract]` to force a pass). A `>
+    // [!WARNING]` GFM alert renders with its own colored icon on GitHub,
+    // which a plain bullet or bold line does not — the point is that this
+    // cannot be skimmed past the way the rest of a green run can.
+    if !weakened.is_empty() {
+        out.push_str("> [!WARNING]\n");
+        for line in weakened {
+            out.push_str(&format!("> {}\n", md_escape(line)));
+        }
+        out.push('\n');
+    }
     out.push_str("## Corpus regression report\n\n");
     out.push_str(
         "Every fixture below is replayed through the real tiered extraction pipeline from \
@@ -1313,6 +1497,48 @@ reason = "deliberately impossible contract, for the runner's own tests"
         let dir = tempfile::TempDir::new().expect("tempdir");
         let root = dir.path().to_path_buf();
         TestCorpus { _dir: dir, root }
+    }
+
+    /// A fixture with every `[contract]` field set to something a later
+    /// edit can weaken — the baseline side of every
+    /// `contract_weakened_lines` test below. Explicit parameters for the
+    /// two fields tests actually vary, rather than raw-string TOML
+    /// injection: a naive `format!` splice let an override land inside
+    /// `[contract.must_contain_flags_by_path]` instead of replacing the
+    /// top-level key it was meant to override (TOML disallows a real
+    /// duplicate key in one table, which is exactly the bug this signature
+    /// change closes off structurally).
+    fn full_contract_fixture(root: &Path, min_subcommands: usize, must_contain_flags: &[&str]) {
+        let dir = root.join("fulltool/1.0");
+        let flags_toml = must_contain_flags
+            .iter()
+            .map(|f| format!("{f:?}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write(
+            &dir.join("meta.toml"),
+            &format!(
+                r#"
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = {min_subcommands}
+must_contain_flags = [{flags_toml}]
+
+[contract.must_contain_flags_by_path]
+run = ["--source", "--staged"]
+"#
+            ),
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
     }
 
     #[test]
@@ -1631,7 +1857,7 @@ sub = ["--deep", "--nonexistent"]
         green_fixture(&corpus.root);
         run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
 
-        let report = run_with_ceiling(&corpus.root, false, ScoreFormat::Text, Duration::ZERO)
+        let report = run_with_ceiling(&corpus.root, false, ScoreFormat::Text, Duration::ZERO, None)
             .expect("check run succeeds");
 
         assert!(
@@ -1729,5 +1955,326 @@ sub = ["--deep", "--nonexistent"]
             "a snapshot mismatch is not a [contract] violation and must not point at meta.toml: {}",
             report.text
         );
+    }
+
+    // --- contract-weakening detection (process fix #1) ---
+    //
+    // Every test below builds two *plain directories* (never git) and
+    // calls `contract_weakened_lines` or `run_with_baseline` directly —
+    // exactly the interface a CI step would drive after populating
+    // `baseline_root` with `git archive <base-ref> corpus | tar -x`. None
+    // of this module ever shells out to git; see `contract_weakened_lines`'s
+    // own doc comment for why that's a hard boundary, not an oversight.
+
+    #[test]
+    fn identical_contracts_produce_no_weakening_lines() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        full_contract_fixture(&current.root, 1, &["--verbose", "--quiet"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        assert!(contract_weakened_lines(&cur_fixtures, &base_fixtures).is_empty());
+    }
+
+    /// A **tightened** contract (more flags required, not fewer) must
+    /// never be flagged — only a field getting *weaker* is the signal.
+    #[test]
+    fn a_tightened_contract_is_not_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        full_contract_fixture(&current.root, 1, &["--verbose", "--quiet", "--extra"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        assert!(contract_weakened_lines(&cur_fixtures, &base_fixtures).is_empty());
+    }
+
+    /// A fixture whose `[contract]` sets only `min_subcommands`, matched
+    /// against what `MYTOOL_HELP` actually contains (one subcommand,
+    /// `run`) — used by the two end-to-end tests below, which (unlike
+    /// [`full_contract_fixture`]'s pure `contract_weakened_lines` tests)
+    /// really do run extraction: a contract demanding flags the capture
+    /// doesn't have would fail its *own* check for unrelated reasons and
+    /// make "weakening is reported, never gated" untestable in isolation.
+    fn minimal_min_subcommands_fixture(root: &Path, min_subcommands: usize) {
+        write(
+            &root.join("fulltool/1.0/meta.toml"),
+            &format!(
+                r#"
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+min_subcommands = {min_subcommands}
+"#
+            ),
+        );
+        write(&root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+    }
+
+    #[test]
+    fn lowered_min_subcommands_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 20, &["--verbose", "--quiet"]);
+        full_contract_fixture(&current.root, 1, &["--verbose", "--quiet"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines.iter().any(|l| l.contains("min_subcommands")),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn lowered_min_status_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        // Overwrite min_status from "ok" down to "verbatim" — a real
+        // per-tool downgrade, so write the whole contract explicitly
+        // rather than relying on TOML's last-key-wins (fragile and easy
+        // to break by reordering the base template).
+        write(
+            &current.root.join("fulltool/1.0/meta.toml"),
+            r#"
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+min_subcommands = 1
+must_contain_flags = ["--verbose", "--quiet"]
+
+[contract.must_contain_flags_by_path]
+run = ["--source", "--staged"]
+"#,
+        );
+        write(&current.root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(lines.iter().any(|l| l.contains("min_status")), "{lines:?}");
+    }
+
+    #[test]
+    fn a_dropped_must_contain_flag_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        write(
+            &current.root.join("fulltool/1.0/meta.toml"),
+            r#"
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 1
+must_contain_flags = ["--verbose"]
+
+[contract.must_contain_flags_by_path]
+run = ["--source", "--staged"]
+"#,
+        );
+        write(&current.root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_contain_flags") && l.contains("--quiet")),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn a_dropped_must_contain_flags_by_path_entry_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        write(
+            &current.root.join("fulltool/1.0/meta.toml"),
+            r#"
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 1
+must_contain_flags = ["--verbose", "--quiet"]
+
+[contract.must_contain_flags_by_path]
+run = ["--source"]
+"#,
+        );
+        write(&current.root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_contain_flags_by_path") && l.contains("--staged")),
+            "{lines:?}"
+        );
+    }
+
+    /// A fixture newly marked `[xfail]` — the exact move "weaken a
+    /// contract to force a pass" describes when the underlying promise
+    /// didn't change, only whether failing it still fails the run.
+    #[test]
+    fn newly_marked_xfail_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        write(
+            &current.root.join("fulltool/1.0/meta.toml"),
+            r#"
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 1
+must_contain_flags = ["--verbose", "--quiet"]
+
+[contract.must_contain_flags_by_path]
+run = ["--source", "--staged"]
+
+[xfail]
+broken = true
+reason = "newly broken"
+"#,
+        );
+        write(&current.root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(lines.iter().any(|l| l.contains("xfail")), "{lines:?}");
+    }
+
+    /// A fixture present in the baseline but deleted entirely in the
+    /// current tree — `corpus/README.md`'s "never deleted because it
+    /// became inconvenient" rule, made loud instead of trusted.
+    #[test]
+    fn a_removed_fixture_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        full_contract_fixture(&baseline.root, 1, &["--verbose", "--quiet"]);
+        green_fixture(&current.root); // some *other* fixture, "fulltool" absent
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("fulltool/1.0") && l.contains("fixture-removed")),
+            "{lines:?}"
+        );
+    }
+
+    /// End-to-end through [`run_with_baseline`]: the weakening line reaches
+    /// the actual text report, appears before every other line ("prominent
+    /// ... a reviewer skimming a green run cannot miss it"), and — the
+    /// point of "reported, not gated" — does not make an otherwise-clean
+    /// run fail.
+    #[test]
+    fn run_with_baseline_surfaces_weakening_prominently_and_does_not_gate_on_it() {
+        let baseline = setup();
+        let current = setup();
+        minimal_min_subcommands_fixture(&baseline.root, 20);
+        minimal_min_subcommands_fixture(&current.root, 1);
+        // Bless the current side so the snapshot itself is clean — the
+        // only thing wrong here is the weakened contract.
+        run(&current.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run_with_baseline(
+            &current.root,
+            false,
+            ScoreFormat::Text,
+            Some(&baseline.root),
+        )
+        .expect("check run succeeds");
+        assert!(
+            !report.failed(),
+            "contract weakening must be reported, never gated: {}",
+            report.text
+        );
+        assert!(report.text.contains("CONTRACT WEAKENED"));
+        assert!(report.text.contains("min_subcommands"));
+        let weakened_line_pos = report.text.find("CONTRACT WEAKENED").unwrap();
+        let fixture_line_pos = report.text.find("fulltool/1.0").unwrap();
+        // The weakening line must be the *first* mention of the fixture,
+        // i.e. it precedes the fixture's own per-fixture result line.
+        assert!(weakened_line_pos <= fixture_line_pos);
+    }
+
+    /// Same end-to-end check for the markdown format: the warning must
+    /// render as a GFM alert block, ahead of the report's own heading.
+    #[test]
+    fn run_with_baseline_markdown_renders_a_warning_alert_first() {
+        let baseline = setup();
+        let current = setup();
+        minimal_min_subcommands_fixture(&baseline.root, 20);
+        minimal_min_subcommands_fixture(&current.root, 1);
+        run(&current.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run_with_baseline(
+            &current.root,
+            false,
+            ScoreFormat::Markdown,
+            Some(&baseline.root),
+        )
+        .expect("check run succeeds");
+        assert!(report.text.starts_with("> [!WARNING]"));
+        assert!(report.text.contains("CONTRACT WEAKENED"));
+        let warning_pos = report.text.find("[!WARNING]").unwrap();
+        let heading_pos = report.text.find("## Corpus regression report").unwrap();
+        assert!(warning_pos < heading_pos);
+    }
+
+    /// With no baseline given (the default — nothing wired to call this
+    /// yet), behavior must be byte-identical to before this feature
+    /// existed: no weakening lines, nothing gated differently.
+    #[test]
+    fn no_baseline_means_no_weakening_check_at_all() {
+        let current = setup();
+        green_fixture(&current.root);
+        run(&current.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        let report = run(&current.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!report.text.contains("CONTRACT WEAKENED"));
     }
 }
