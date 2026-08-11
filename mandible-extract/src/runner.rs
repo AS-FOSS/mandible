@@ -43,9 +43,24 @@ pub struct ExtractionResult {
 
 impl ExtractionResult {
     /// Total flags in the merged tree, including inherited ones, counted
-    /// recursively.
+    /// recursively. This is the raw recall count — it includes flags whose
+    /// only source is a usage synopsis and can never carry a description
+    /// (spec [M-15], §13's metric design rules), which is exactly why it
+    /// is kept as its own number rather than folded into
+    /// [`Self::flag_description_ratio`]'s denominator: a spelling-only
+    /// flag is real information, just not a ratio to gate on.
     pub fn flag_count(&self) -> usize {
         self.root.as_ref().map(count_flags).unwrap_or(0)
+    }
+
+    /// Total flags in the merged tree whose source *could*, in principle,
+    /// have supplied a description (spec §13's metric design rules, rule
+    /// 2: "denominators are conditioned on what the source could have
+    /// provided"). This is [`Self::flag_count`] minus flags whose every
+    /// contributing source is [`mandible_core::Source::HelpTextSynopsis`]
+    /// — see [`mandible_core::Provenance::describable`].
+    pub fn describable_flag_count(&self) -> usize {
+        self.root.as_ref().map(count_describable_flags).unwrap_or(0)
     }
 
     /// Total nodes in the merged tree (including the root), counted
@@ -54,15 +69,27 @@ impl ExtractionResult {
         self.root.as_ref().map(count_nodes).unwrap_or(0)
     }
 
-    /// Fraction (0.0-1.0) of flags in the merged tree that have a
-    /// description. `0.0` if there are no flags.
+    /// Fraction (0.0-1.0) of *describable* flags in the merged tree that
+    /// have a description (spec §13's metric design rules). `0.0` if there
+    /// are no describable flags — callers distinguish "nothing describable
+    /// to rate" from "rated everything at 0%" via
+    /// [`Self::describable_flag_count`], exactly as they already
+    /// distinguished "no flags" from "0% described" via [`Self::flag_count`]
+    /// before this redefinition ([M-15]).
+    ///
+    /// Excluding usage-synopsis-only flags from the denominator, rather
+    /// than counting them as undescribed, is what makes this metric
+    /// monotone under added true information: recovering a real flag that
+    /// is honestly undescribable by construction must never make the ratio
+    /// worse, or the metric stands as a standing incentive not to find it
+    /// (spec §13's metric design rules, rule 1).
     pub fn flag_description_ratio(&self) -> f64 {
-        let total = self.flag_count();
-        if total == 0 {
+        let describable = self.describable_flag_count();
+        if describable == 0 {
             return 0.0;
         }
         let described = self.root.as_ref().map(count_described_flags).unwrap_or(0);
-        described as f64 / total as f64
+        described as f64 / describable as f64
     }
 }
 
@@ -70,6 +97,25 @@ fn count_flags(node: &CommandNode) -> usize {
     node.flags.len() + node.subcommands.iter().map(count_flags).sum::<usize>()
 }
 
+fn count_describable_flags(node: &CommandNode) -> usize {
+    node.flags
+        .iter()
+        .filter(|f| f.provenance.describable())
+        .count()
+        + node
+            .subcommands
+            .iter()
+            .map(count_describable_flags)
+            .sum::<usize>()
+}
+
+/// Flags with a description. A flag is only ever given a description when
+/// its source is describable (`push_usage_flag` never sets one, and the
+/// duplicate-dropping rule in `sections.rs` means a synopsis-only spelling
+/// never acquires one via merge either), so this is already implicitly a
+/// subset of [`count_describable_flags`] — no extra filter needed here for
+/// [`ExtractionResult::flag_description_ratio`]'s numerator to stay
+/// consistent with its denominator.
 fn count_described_flags(node: &CommandNode) -> usize {
     node.flags
         .iter()

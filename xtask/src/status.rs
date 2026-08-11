@@ -28,8 +28,16 @@ pub struct Status {
     /// True when the root degraded to spec §7 Tier B step 3's verbatim
     /// rendering (`CommandNode::unparsed` non-empty).
     pub verbatim: bool,
-    /// Percentage (0-100) of flags in the merged tree with a description.
-    /// `None` when the tree has no flags at all to compute a ratio over.
+    /// Percentage (0-100) of *describable* flags in the merged tree with a
+    /// description (spec §13's metric design rules: a usage-synopsis-only
+    /// flag is excluded from both numerator and denominator, since its
+    /// source could never have supplied a description — see
+    /// [`mandible_extract::ExtractionResult::flag_description_ratio`]).
+    /// `None` when the tree has no describable flags at all to compute a
+    /// ratio over — which includes the case where it has flags, just none
+    /// of them describable (a root whose only flags came from its usage
+    /// synopsis, e.g. `git` before [M-16]'s `-h` fallback recovered
+    /// `restore`'s described ones).
     pub pct_described: Option<f64>,
     /// One of `"no-tier"`, `"verbatim"`, `"suspicious"`, `"low-confidence"`,
     /// `"ok"` — see [`compute`] for the derivation order.
@@ -43,8 +51,15 @@ pub fn compute(result: &ExtractionResult) -> Status {
     let suspicious_nodes = result.root.as_ref().map(structure_sanity).unwrap_or(0);
     let verbatim = result.root.as_ref().is_some_and(|r| !r.unparsed.is_empty());
 
-    let flags = result.flag_count();
-    let pct_described = if flags == 0 {
+    // The ratio's denominator is `describable_flag_count`, not
+    // `flag_count` (spec §13's metric design rules) — a tool can have
+    // flags (`flag_count() > 0`, the raw column callers like
+    // `coverage::score_one` keep visible separately) that are entirely
+    // usage-synopsis spellings (`describable_flag_count() == 0`), and that
+    // tool has no ratio to report either. See
+    // `ExtractionResult::describable_flag_count`'s doc comment.
+    let describable = result.describable_flag_count();
+    let pct_described = if describable == 0 {
         None
     } else {
         Some(result.flag_description_ratio() * 100.0)
@@ -175,6 +190,75 @@ mod tests {
     fn equal_ranks_meet_the_floor() {
         assert!(meets_min_status("no-tier", "no-tier"));
         assert!(meets_min_status("verbatim", "verbatim"));
+    }
+
+    /// [M-15]/spec §13's regression net, end to end: a root whose only
+    /// flags are usage-synopsis-derived (undescribable by construction)
+    /// must report `pct_described: None`, not a bottomed-out ratio near
+    /// 0% — exactly the shape that used to force `low-confidence` and is
+    /// the defect this whole redefinition fixes.
+    #[test]
+    fn pct_described_is_none_when_every_flag_is_synopsis_derived() {
+        use mandible_core::{Provenance, Source};
+
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        root.flags.push(mandible_core::Flag::long(
+            "paginate",
+            Provenance::single(Source::HelpTextSynopsis),
+        ));
+        let result = ExtractionResult {
+            tool: "git".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let status = compute(&result);
+        assert_eq!(status.pct_described, None);
+        assert_eq!(status.label, "ok");
+    }
+
+    /// The exact shape [M-15]/spec §13's git fixture reproduces: a root
+    /// with undescribed synopsis-only flags, and a subcommand whose flags
+    /// are fully described from a real `Options:`-style block. Before this
+    /// redefinition, the synopsis flags counted as "undescribed" and
+    /// dragged the whole tree's ratio under `status.rs`'s 50% floor
+    /// (`low-confidence`); after it, they are excluded from the
+    /// denominator entirely and the ratio is exactly the describable
+    /// subset's own 100%.
+    #[test]
+    fn pct_described_excludes_synopsis_flags_and_git_returns_to_ok() {
+        use mandible_core::{Provenance, Source};
+
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        for name in ["paginate", "git-dir", "no-pager"] {
+            root.flags.push(mandible_core::Flag::long(
+                name,
+                Provenance::single(Source::HelpTextSynopsis),
+            ));
+        }
+        let mut restore = CommandNode::new("restore", Provenance::single(Source::HelpText));
+        for name in ["source", "staged"] {
+            let mut f = mandible_core::Flag::long(name, Provenance::single(Source::HelpText));
+            f.description = Some(mandible_core::Text::sanitize("described from -h"));
+            restore.flags.push(f);
+        }
+        root.subcommands.push(restore);
+
+        let result = ExtractionResult {
+            tool: "git".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let status = compute(&result);
+        assert_eq!(
+            result.flag_count(),
+            5,
+            "raw count still includes the 3 synopsis flags"
+        );
+        assert_eq!(result.describable_flag_count(), 2);
+        assert_eq!(status.pct_described, Some(100.0));
+        assert_eq!(status.label, "ok");
     }
 
     #[test]

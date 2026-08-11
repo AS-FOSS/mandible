@@ -20,90 +20,90 @@ flags:
   long: version
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - short: 'h'
   long: help
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - short: 'C'
   value_name: <path>
   value_kind: Required
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - short: 'c'
   value_name: <name>
   value_kind: Required
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: exec-path
   value_name: <path>
   value_kind: Optional
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: html-path
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: man-path
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: info-path
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - short: 'p'
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: paginate
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - short: 'P'
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: no-pager
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: no-replace-objects
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: bare
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: git-dir
   value_name: <path>
   value_kind: Required
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: work-tree
   value_name: <path>
   value_kind: Required
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: namespace
   value_name: <name>
   value_kind: Required
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 - long: config-env
   value_name: <name>
   value_kind: Required
   provenance:
     sources:
-    - help-text
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

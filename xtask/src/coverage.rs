@@ -39,8 +39,21 @@ struct Row {
     /// [`framework_label`].
     framework: String,
     nodes: usize,
+    /// Raw flag count, including flags whose only source is a usage
+    /// synopsis and can therefore never carry a description ([M-15]).
+    /// Deliberately kept as its own column, separate from [`Self::describable`]
+    /// — spec §13's metric design rules: a spelling-only flag is real
+    /// information, just not part of the ratio [`Self::pct_described`] gates
+    /// on.
     flags: usize,
-    /// `None` when there are no flags to compute a percentage over.
+    /// Flags whose source *could*, in principle, have supplied a
+    /// description (spec §13's metric design rules) — the denominator
+    /// [`Self::pct_described`] is actually computed over. See
+    /// [`mandible_extract::ExtractionResult::describable_flag_count`].
+    describable: usize,
+    /// `None` when there are no *describable* flags to compute a
+    /// percentage over (which includes the case where `flags > 0` but
+    /// every one of them is usage-synopsis-derived).
     pct_described: Option<f64>,
     ms: u128,
     /// Structure-sanity count (spec §13.1): descendant nodes whose name
@@ -99,16 +112,22 @@ pub struct Aggregate {
     pub man_shaped_count: usize,
     /// Tools at status `ok` with zero flags at all — [M-15]'s own measure
     /// ("378 of 1,895 `ok` tools carry no flags at all"), reported here so
-    /// a parser change's effect on *recall* is visible even though
-    /// `pct_described` moves the opposite way when the fix works (spec
-    /// [M-15]: finding a usage-only flag set adds to `pct_described`'s
-    /// denominator only, since a synopsis carries no description — so the
-    /// aggregate ratio legitimately *falls* exactly when this count
-    /// legitimately falls). **Not gated**, same reasoning as
-    /// `man_shaped_count`: this is a brand-new measurement with no
-    /// baseline to regress against, and the whole point of adding it is to
-    /// give a human the number the existing gate can't see, not to invent
-    /// a second automatic gate the same trap could defeat.
+    /// a parser change's effect on *recall* is visible as its own number.
+    ///
+    /// Before spec §13's metric redefinition, finding a usage-only flag set
+    /// *lowered* `pct_described` (a synopsis flag added to the denominator
+    /// with nothing to add to the numerator), which is the exact defect
+    /// [M-15] and this metric redefinition exist to fix — see
+    /// [`mandible_extract::ExtractionResult::describable_flag_count`]'s doc
+    /// comment. After the fix, a synopsis flag is excluded from
+    /// `pct_described`'s denominator entirely, so recovering one moves this
+    /// count down without moving `pct_described` down at all: the two
+    /// numbers are no longer in tension, which was the whole point.
+    /// **Not gated**, same reasoning as `man_shaped_count`: this is a
+    /// brand-new measurement with no baseline to regress against, and the
+    /// whole point of adding it is to give a human the number the existing
+    /// gate can't see, not to invent a second automatic gate the same trap
+    /// could defeat.
     pub zero_flag_ok_count: usize,
     /// Tools for which Tier A′ identified a framework at all (spec §7
     /// Tier A′), regardless of method.
@@ -120,15 +139,26 @@ pub struct Aggregate {
     pub framework_counts: BTreeMap<String, usize>,
     /// Total tools scanned.
     pub total: usize,
-    /// Raw numerator/denominator behind `pct_described`, carried in the
-    /// footer so a scoreboard produced in *shards* can be merged exactly.
-    /// Recomputing the aggregate from the per-row `%described` column
-    /// cannot be exact — that column is rounded to whole percent — and a
-    /// gated regression baseline must not be approximate. A full-PATH
-    /// sweep is long enough to be worth running in shards, and CI's PATH
-    /// sweep will want the same.
+    /// Raw numerator behind `pct_described`, carried in the footer so a
+    /// scoreboard produced in *shards* can be merged exactly. Recomputing
+    /// the aggregate from the per-row `%described` column cannot be exact
+    /// — that column is rounded to whole percent — and a gated regression
+    /// baseline must not be approximate. A full-PATH sweep is long enough
+    /// to be worth running in shards, and CI's PATH sweep will want the
+    /// same.
     pub described_flags: f64,
-    /// Denominator for [`Self::described_flags`].
+    /// **The** denominator behind `pct_described` (spec §13's metric
+    /// design rules) — the sum, across every tool, of flags whose source
+    /// could have supplied a description. Excludes usage-synopsis-only
+    /// flags; see
+    /// [`mandible_extract::ExtractionResult::describable_flag_count`].
+    pub describable_flags: f64,
+    /// Raw flag total across every tool, including usage-synopsis-only
+    /// ones — **not** `pct_described`'s denominator (that's
+    /// [`Self::describable_flags`]). Kept as its own number precisely so a
+    /// fix that recovers real, honestly-undescribable flags is visible as
+    /// recall gained rather than silently absent from every footer field,
+    /// per spec §13's "keep the raw flag count visible" rule.
     pub total_flags: usize,
 }
 
@@ -247,6 +277,7 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
     let framework = framework_label(tool, &result);
     let nodes = result.node_count();
     let flags = result.flag_count();
+    let describable = result.describable_flag_count();
 
     // Status derivation (structure-sanity count, verbatim flag,
     // %described, and the final label) is computed once in `status.rs`
@@ -262,6 +293,7 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
         framework,
         nodes,
         flags,
+        describable,
         pct_described: status.pct_described,
         ms,
         suspicious_nodes: status.suspicious_nodes,
@@ -360,18 +392,25 @@ fn short_tier_name(name: &str) -> &str {
 /// never a regression to block on.
 fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let total_flags: usize = rows.iter().map(|r| r.flags).sum();
+    let describable_flags: f64 = rows.iter().map(|r| r.describable as f64).sum();
+    // Weighted by each row's *describable* count, not its raw flag count
+    // (spec §13's metric design rules) — a row's `pct_described` is
+    // already described/describable, so multiplying it back by
+    // `r.flags` here would silently reintroduce [M-15]'s defect by
+    // crediting synopsis-only flags into a denominator they were just
+    // excluded from.
     let described_flags: f64 = rows
         .iter()
         .map(|r| {
             r.pct_described
-                .map(|p| p / 100.0 * r.flags as f64)
+                .map(|p| p / 100.0 * r.describable as f64)
                 .unwrap_or(0.0)
         })
         .sum();
-    let pct_described = if total_flags == 0 {
+    let pct_described = if describable_flags == 0.0 {
         0.0
     } else {
-        described_flags / total_flags as f64 * 100.0
+        described_flags / describable_flags * 100.0
     };
     let no_tier_count = rows.iter().filter(|r| r.status == "no-tier").count();
     let suspicious_count = rows.iter().filter(|r| r.status == "suspicious").count();
@@ -401,6 +440,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         framework_counts,
         total: rows.len(),
         described_flags,
+        describable_flags,
         total_flags,
     }
 }
@@ -492,15 +532,22 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
 /// rather than dumping every imperfect tool on a full-`PATH` sweep.
 const WORST_PARSED_LIMIT: usize = 25;
 
-/// How many of a tool's flags the grammar failed to find a description
-/// for. The ranking key below.
+/// How many of a tool's *describable* flags the grammar failed to find a
+/// description for. The ranking key below.
+///
+/// Measured against `row.describable`, not `row.flags` (spec §13's metric
+/// design rules): a usage-synopsis-only flag was never a candidate for a
+/// description in the first place, so counting it as "missing" here would
+/// reopen exactly the trap this whole redefinition closes — a tool that
+/// gains recall in flags nothing could ever describe would rank as having
+/// gotten *worse*.
 fn undescribed_flags(row: &Row) -> usize {
     match row.pct_described {
         Some(pct) => {
-            let described = (row.flags as f64) * (pct / 100.0);
-            row.flags.saturating_sub(described.round() as usize)
+            let described = (row.describable as f64) * (pct / 100.0);
+            row.describable.saturating_sub(described.round() as usize)
         }
-        // No flags at all, so nothing was missed.
+        // No describable flags at all, so nothing was missed.
         None => 0,
     }
 }
@@ -676,7 +723,7 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} zero_flag_ok_count={} total={} described_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} zero_flag_ok_count={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_described,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -685,6 +732,7 @@ fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.zero_flag_ok_count,
         aggregate.total,
         aggregate.described_flags,
+        aggregate.describable_flags,
         aggregate.total_flags,
     )
 }
@@ -731,6 +779,14 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     let mut man_shaped_count = 0usize;
     let mut zero_flag_ok_count = 0usize;
     let mut described_flags = 0.0f64;
+    // A scoreboard from before spec §13's metric redefinition has no
+    // `describable_flags` field at all — its `pct_described` was computed
+    // over raw `total_flags` instead. Defaulting to 0.0 here (same pattern
+    // as every other new-field default above) only affects reconstructing
+    // an *exact* numerator/denominator for shard merging; `--check`
+    // compares `pct_described` values directly and never recomputes them
+    // from this pair, so an old baseline still round-trips.
+    let mut describable_flags = 0.0f64;
     let mut total_flags = 0usize;
     let mut total = None;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
@@ -743,6 +799,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "man_shaped_count" => man_shaped_count = value.parse::<usize>().ok()?,
             "zero_flag_ok_count" => zero_flag_ok_count = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
+            "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
             "total" => total = value.parse::<usize>().ok(),
             _ => {}
@@ -759,6 +816,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         framework_counts: BTreeMap::new(),
         total: total?,
         described_flags,
+        describable_flags,
         total_flags,
     })
 }
@@ -860,6 +918,34 @@ mod tests {
         assert_eq!(agg.zero_flag_ok_count, 0);
     }
 
+    /// Same for `describable_flags` (spec §13's metric redefinition): a
+    /// scoreboard from before it exists has no such field, and `--check`
+    /// against it must still work — `--check` compares `pct_described`
+    /// values directly and never reconstructs them from this pair, so a
+    /// pre-redefinition baseline still round-trips (see
+    /// `parse_aggregate_footer`'s doc comment on this field).
+    #[test]
+    fn footer_without_describable_flags_defaults_to_zero() {
+        let table = "# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 man_shaped_count=1 zero_flag_ok_count=1 total=10 described_flags=4.2000 total_flags=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.describable_flags, 0.0);
+    }
+
+    /// A freshly-written footer round-trips `describable_flags` exactly —
+    /// this is the field a sharded `--check` run needs to merge partial
+    /// scoreboards without re-deriving `pct_described` from the rounded
+    /// per-row percentage column.
+    #[test]
+    fn footer_round_trips_describable_flags() {
+        let rows = vec![row("git", 34, Some(100.0), "ok")];
+        let mut only_row = rows;
+        only_row[0].describable = 16;
+        let agg = compute_aggregate(&only_row);
+        let footer = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&footer).unwrap();
+        assert_eq!(parsed.describable_flags, 16.0);
+    }
+
     #[test]
     fn missing_footer_returns_none() {
         assert!(parse_aggregate_footer("no footer here\n").is_none());
@@ -939,6 +1025,10 @@ mod tests {
         assert!(!root_is_man_shaped(&result));
     }
 
+    /// `describable` defaults to `flags` — most tests here aren't about the
+    /// synopsis-exclusion split itself, so every flag is describable unless
+    /// a test overrides `.describable` afterwards (same pattern as
+    /// `.verbatim`/`.man_shaped` below).
     fn row(tool: &str, flags: usize, pct_described: Option<f64>, status: &'static str) -> Row {
         Row {
             tool: tool.to_string(),
@@ -946,6 +1036,7 @@ mod tests {
             framework: "—".to_string(),
             nodes: 1,
             flags,
+            describable: flags,
             pct_described,
             ms: 1,
             suspicious_nodes: 0,
@@ -964,6 +1055,23 @@ mod tests {
         let agg = compute_aggregate(&rows);
         // 100 described out of 101 total, not (100% + 0%)/2 = 50%.
         assert!((agg.pct_described - (100.0 / 101.0 * 100.0)).abs() < 0.01);
+    }
+
+    /// spec §13's metric redefinition, at aggregate granularity: a tool
+    /// whose flags are mostly undescribable-by-construction (synopsis-only)
+    /// must not drag the fleet-wide ratio down for that reason — the
+    /// aggregate is weighted by each row's *describable* count, not its
+    /// raw flag count. Models the git shape directly: 34 raw flags, only
+    /// 16 describable, all 16 described (spec's git fixture, post-fix).
+    #[test]
+    fn aggregate_weights_by_describable_count_not_raw_flag_count() {
+        let mut git_like = row("git", 34, Some(100.0), "ok");
+        git_like.describable = 16;
+        let rows = vec![git_like];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.pct_described, 100.0);
+        assert_eq!(agg.describable_flags, 16.0);
+        assert_eq!(agg.described_flags, 16.0);
     }
 
     #[test]

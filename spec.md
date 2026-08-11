@@ -295,7 +295,8 @@ pub enum Source {
     KnownSpec { provider: &'static str },      // "carapace", "withfig"
     CompletionScript { shell: &'static str },
     ManPage { format: ManFormat },             // Mdoc | Man
-    HelpText,
+    HelpText,                                  // a structured block: table, .TP, ...
+    HelpTextSynopsis,                          // a usage line — spellings, never prose ([M-15], §13.1b)
     UserOverride,
 }
 ```
@@ -1309,6 +1310,9 @@ regressed `xz`. It is also the signal for when a tier has stopped earning its
 complexity.
 
 Regression gate: `%described` aggregate and `no-tier` count may not worsen.
+`%described` is `described / describable`, not `described / total` — see
+§13.1b's metric design rules for why the denominator excludes flags a source
+could never have described in the first place.
 
 **`%described` alone is not a quality signal, and trusting it hid a real bug.**
 The Tier B phantom-subcommand defect [M-10] reported `tar` as `ok` at `100%
@@ -1344,6 +1348,63 @@ The summary table carries, per framework: tools detected, flags extracted,
 
 This is the natural home for the §13.1 scoreboard once it stops depending on
 whatever happens to be installed on a developer's laptop.
+
+### 13.1b Metric design rules
+
+`pct_described` was originally `described / total`. [M-15]'s usage-synopsis
+flag grammar recovered 1,618 real flags — a usage line lists spellings, never
+prose, by construction — and `pct_described` *fell*, 94.18% → 91.17%, because
+every recovered flag counted as "undescribed" against a source that could
+never have described it. Recall was punished for succeeding. That is a defect
+in the metric, not in the grammar, and it is the same shape of mistake this
+project has now made four times:
+
+- **[M-10]** — invented subcommand nodes *inflated* `%described` (`tar`
+  reported `ok` at 100% described while 39 of its 40 nodes were fabricated).
+  Fixed by the structure-sanity column (above), not by trusting the ratio.
+- **[M-16]** — `verbatim` conflated "the tool printed nothing this grammar
+  can use" with "the tool rendered a man page," a fifty-times overestimate
+  (`verbatim_count=314` against `man_shaped_count=6`) if either reading were
+  assumed from the other. Fixed by a dedicated `man_shaped` check reading the
+  captured text directly, never inferred from `verbatim` alone.
+- **A sweep-timing false transition** — `waagent2.0` was reported red-to-
+  green (41.9s → 21.4s) on a coverage run against **identical code**, purely
+  from machine load variance between two sweeps. A timing-derived status is
+  a statement about the machine that happened to run it, not the parser.
+- **This one** — `pct_described` punished [M-15]'s recovered synopsis flags
+  by counting them as undescribed against a source that structurally cannot
+  supply a description.
+
+Three rules, derived from those four incidents rather than asserted in the
+abstract:
+
+1. **A gated metric must be monotone under added true information.** An
+   improvement that adds correct flags and loses nothing must never worsen
+   any number a gate reads. `pct_described = described / total` violated
+   this the moment a source existed that could add flags but never
+   descriptions.
+2. **Denominators are conditioned on what the source could have provided.**
+   A flag whose only source cannot supply a description (spec [M-15]:
+   `mandible_core::Source::HelpTextSynopsis`) is excluded from
+   `pct_described`'s denominator entirely — see
+   [`mandible_core::Provenance::describable`] and
+   [`mandible_extract::ExtractionResult::describable_flag_count`] — rather
+   than counted as a description the grammar failed to find. The raw flag
+   count is kept as its own, ungated column: a spelling-only flag is real
+   information, just not part of a ratio to gate on.
+3. **A status derived under resource pressure (timeout-adjacent) is a
+   statement about the machine, not the parser.** Wall-clock-derived
+   signals (a parse-time ceiling, a sweep that ran under contention) must
+   not silently flip a correctness gate; a machine-load explanation should
+   be distinguishable from an actual regression before either is reported
+   as one.
+
+`pct_described` is now `described / describable`. Fleet-wide on this
+aarch64 box (2,266 `PATH` tools), the redefinition returns it to
+**94.19%** — within 0.01 of the 94.18% figure that predates [M-15]'s
+synopsis-flag recovery — while the recovered flags remain fully counted in
+the raw total (48,278, unchanged) and 204 tools move `low-confidence` →
+`ok` with zero tools moving the other direction. See Appendix B.
 
 ### 13.2 Fixed corpus
 
@@ -1744,3 +1805,20 @@ any of these as current.
 | Packaging | Absent | §15 | Shipping to crates.io/deb/rpm constrains layout from day one |
 | NL search | Phase 6 feature | §17, deferred with reasoning preserved | Registry-size claim fails on real data; needs a fine-tune project |
 | UX | — | `y` copy, `?` overlay, `--doctor`, designed degraded states | Copying the flag is the end of the core journey |
+
+**Post-revision-2 note (2026-08-11): `pct_described`'s denominator changed.**
+Not a revision bump on its own, but worth recording here because it changes
+what every historical scoreboard number *means* — a reader comparing an old
+`coverage-scoreboard.txt`/`coverage-scoreboard.ci.txt` figure against a new
+one needs to know the ratio itself moved, not just the tools underneath it.
+`pct_described` was `described / total`; it is now `described / describable`
+(§13.1b's metric design rules), excluding flags whose only source is a usage
+synopsis (`mandible_core::Source::HelpTextSynopsis`, spec [M-15]) from the
+denominator, since a synopsis carries spellings, never prose, by
+construction. A scoreboard produced before this change has no
+`describable_flags` field in its `# aggregate:` footer at all (it defaults
+to `0.0` on parse, per `parse_aggregate_footer`'s doc comment) and its
+`pct_described` was computed over raw `total_flags`; a scoreboard produced
+after it has both fields, and `pct_described` is over `describable_flags`.
+The raw flag count (`total_flags`, and the per-row `flags` column) is
+unaffected either way and remains directly comparable across the change.

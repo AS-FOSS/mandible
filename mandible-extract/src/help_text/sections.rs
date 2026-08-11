@@ -1700,7 +1700,11 @@ fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
 /// bare `-` or `--` option terminator). Mirrors `emit_flags`'s field
 /// defaults exactly, except `group`/`description` are always `None`: see
 /// [`extract_usage_flags`]'s doc comment for why a usage-derived flag must
-/// never carry a description.
+/// never carry a description. Provenance is [`Source::HelpTextSynopsis`],
+/// not the plain [`Source::HelpText`] `emit_flags` uses — same authority
+/// (spec §4.4 is unaffected), but a distinct source so spec §13's
+/// `pct_described` can tell a structurally-undescribable flag apart from
+/// one that merely wasn't described.
 fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
     if spec.short.is_none() && spec.long.is_none() {
         return;
@@ -1721,7 +1725,7 @@ fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
         description: None,
         default: None,
         env_var: None,
-        provenance: Provenance::single(Source::HelpText),
+        provenance: Provenance::single(Source::HelpTextSynopsis),
     });
 }
 
@@ -2375,6 +2379,38 @@ mod tests {
         // None of these carry a description — a synopsis has spellings and
         // value shapes only, never prose (spec §7 Tier B: never fabricate).
         assert!(parsed.flags.iter().all(|f| f.description.is_none()));
+    }
+
+    /// spec §13's metric redefinition rests on this: a usage-synopsis-
+    /// derived flag must carry `Source::HelpTextSynopsis`, not the plain
+    /// `Source::HelpText` an options-table row gets, so `pct_described`
+    /// can exclude it from the denominator instead of counting it as an
+    /// undescribed flag from a source that could have described it.
+    #[test]
+    fn usage_derived_flags_carry_the_synopsis_source_table_derived_do_not() {
+        let raw =
+            "usage: widget [--verbose] [<file>]\n\nOptions:\n  --loud    print extra output\n";
+        let parsed = parse(raw);
+
+        let verbose = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("verbose"))
+            .expect("--verbose recovered from the synopsis");
+        assert_eq!(
+            verbose.provenance.sources.as_slice(),
+            [Source::HelpTextSynopsis],
+            "usage-only flag must be marked structurally undescribable"
+        );
+        assert!(!verbose.provenance.describable());
+
+        let loud = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("loud"))
+            .expect("--loud recovered from the Options: block");
+        assert_eq!(loud.provenance.sources.as_slice(), [Source::HelpText]);
+        assert!(loud.provenance.describable());
     }
 
     /// Value shapes the usage grammar recognizes: `-C <path>` (space-

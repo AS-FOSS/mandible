@@ -93,6 +93,20 @@ impl Provenance {
             .unwrap_or(0)
     }
 
+    /// Whether an item carrying this provenance could, in principle, have
+    /// been described — spec §13's metric design rules. `true` when *any*
+    /// contributing source [`Source::can_describe`] (a flag merged from
+    /// several tiers is describable if even one of them could have
+    /// supplied prose, e.g. a synopsis spelling later reconciled against a
+    /// structured entry — see `help_text::sections::flag_spelling_already_present`).
+    /// `true` also when there are no contributing sources at all: an empty
+    /// `Provenance` is not this codebase's way of saying "usage-synopsis
+    /// only," so it must not silently disappear from a describability
+    /// count the way a real `HelpTextSynopsis`-only item correctly does.
+    pub fn describable(&self) -> bool {
+        self.sources.is_empty() || self.sources.iter().any(Source::can_describe)
+    }
+
     /// Merge another `Provenance` into this one: union the source lists
     /// (deduplicated, order preserved) and combine confidence
     /// conservatively (the lower of the two, since overall trust is bounded
@@ -173,8 +187,29 @@ pub enum Source {
         /// Whether the page used semantic `mdoc(7)` macros or plain `man(7)`.
         format: ManFormat,
     },
-    /// `--help`/`-h`/`help` grammar parsing (Tier B).
+    /// `--help`/`-h`/`help` grammar parsing (Tier B) of a structured block
+    /// (an options table, `.TP`-shaped entry, or similar) that carries
+    /// prose alongside each flag.
     HelpText,
+    /// `--help`/`-h`/`help` grammar parsing (Tier B) of a **usage synopsis**
+    /// line specifically (spec [M-15]): `git --help`'s
+    /// `[-p | --paginate | -P | --no-pager]`, mined by
+    /// `help_text::sections::extract_usage_flags`. A separate variant
+    /// rather than a field on `HelpText`, because a synopsis is genuinely a
+    /// different extraction site — the same reason `ManPage` carries
+    /// `format` and `CompletionScript` carries `shell` instead of `HelpText`
+    /// growing a field each of them would also need.
+    ///
+    /// A usage synopsis lists spellings and value shapes only, **never**
+    /// prose, by construction — spec §7 Tier B forbids fabricating a
+    /// description for one from neighbouring text. A flag whose only
+    /// source is this variant is therefore structurally undescribable, not
+    /// merely undescribed: [`Source::can_describe`] says so, and spec
+    /// §13's `pct_described` excludes it from the denominator rather than
+    /// punishing recall for having found it (the defect [M-15] and this
+    /// redefinition both exist to fix — see spec §13's metric design
+    /// rules).
+    HelpTextSynopsis,
     /// A user-local override file (Tier F).
     UserOverride,
 }
@@ -212,11 +247,27 @@ impl Source {
                 structural: 60,
                 prose: 180,
             },
-            Source::HelpText => Authority {
+            // Same authority for both help-text variants: this split is
+            // about *measurement* (can this source's flag carry a
+            // description at all — see `can_describe`), not about merge
+            // precedence, so a synopsis-derived flag competes for a merge
+            // exactly as a table-derived one would.
+            Source::HelpText | Source::HelpTextSynopsis => Authority {
                 structural: 80,
                 prose: 120,
             },
         }
+    }
+
+    /// Whether this source could, in principle, have supplied a
+    /// description — spec §13's metric design rules (rule 2:
+    /// "denominators are conditioned on what the source could have
+    /// provided"). `false` only for [`Source::HelpTextSynopsis`]: a usage
+    /// synopsis lists spellings and value shapes, never prose, by
+    /// construction. Every other source at least *could* have carried a
+    /// description, whether or not it did for a given flag.
+    pub fn can_describe(&self) -> bool {
+        !matches!(self, Source::HelpTextSynopsis)
     }
 
     /// A short, human-readable label for UI footers, e.g. `"carapace"`,
@@ -233,6 +284,7 @@ impl Source {
                 format: ManFormat::Man,
             } => "man".to_string(),
             Source::HelpText => "help-text".to_string(),
+            Source::HelpTextSynopsis => "help-text-synopsis".to_string(),
             Source::UserOverride => "override".to_string(),
         }
     }
@@ -298,6 +350,35 @@ mod tests {
                 prose: 120
             }
         );
+        // [M-15]/§13 metric redefinition: same authority as `HelpText` —
+        // the split is about measurement, not merge precedence.
+        assert_eq!(
+            Source::HelpTextSynopsis.authority(),
+            Source::HelpText.authority()
+        );
+    }
+
+    #[test]
+    fn only_help_text_synopsis_cannot_describe() {
+        assert!(Source::HelpText.can_describe());
+        assert!(Source::UserOverride.can_describe());
+        assert!(Source::KnownSpec {
+            provider: "carapace".to_string()
+        }
+        .can_describe());
+        assert!(!Source::HelpTextSynopsis.can_describe());
+    }
+
+    #[test]
+    fn provenance_describable_is_true_if_any_source_can_describe() {
+        let synopsis_only = Provenance::single(Source::HelpTextSynopsis);
+        assert!(!synopsis_only.describable());
+
+        let mut mixed = Provenance::single(Source::HelpTextSynopsis);
+        mixed.absorb(&Provenance::single(Source::HelpText));
+        assert!(mixed.describable());
+
+        assert!(Provenance::default().describable());
     }
 
     #[test]
