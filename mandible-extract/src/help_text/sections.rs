@@ -191,21 +191,69 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
     }
 
     let mut i = 0;
-    // 1. Usage block: one or more lines starting with (case-insensitive)
-    // "usage:", plus indented continuations.
+    // Physical usage lines (one string per source line, pre-join), kept
+    // alive past the block below so the deferred `extract_usage_flags`
+    // call further down can read the same per-line shape `extract_positionals`
+    // does — see that block's own comment for why.
+    let mut usage_lines: Vec<String> = Vec::new();
+    // 1. Usage block: one or more *logical* entries — each a `usage:` /
+    // `or:` line plus whatever more-indented lines wrap it — collected
+    // from the physical lines starting at the first (case-insensitive)
+    // "usage:" line.
+    //
+    // `usage_lines` stays one string per *physical* source line: it feeds
+    // `extract_positionals` and (later, at the `extract_usage_flags` call
+    // below) the [M-15] synopsis flag grammar, exactly as before this
+    // change — neither is touched by the grouping introduced here, so
+    // their output (18 root flags and positionals `command`/`args` for
+    // `git`) is unaffected by it.
+    //
+    // `usage_entries` is the display/verbatim form (`result.usage`), one
+    // string per logical invocation, and this is where the join happens.
+    // The rule mirrors spec §7 Tier B rule 2 ("a line at the description
+    // column with nothing at the name column is a continuation of the
+    // previous row, never a new row") applied to the usage block instead
+    // of a command table: a line **more indented than the block's own
+    // base indent, and not itself a marker**, continues the entry above
+    // it. Git's five-line wrapped synopsis (`corpus/git/2.43.0`) is
+    // exactly this — four continuation lines, all indented under `git`,
+    // none of them a marker — so it joins into the one invocation form it
+    // always was, instead of five phantom ones the previous per-line
+    // storage fabricated.
+    //
+    // A line is a **new** entry, never a continuation, when it is itself a
+    // `usage:`/`Usage:` line (some tools repeat the label per form) or
+    // starts with the GNU coreutils `or:` marker (case-insensitive) —
+    // `du`'s `  or:  du [OPTION]... --files0-from=F` is indented *more*
+    // than the block's base indent (0), so the pure indentation rule alone
+    // would wrongly fold it into the line above; the marker check is what
+    // keeps `or:` a form of its own. This is the over-join guard: a fix
+    // that simply joined every indented line would look correct on `git`
+    // and silently merge every `or:` alternative fleet-wide.
+    //
+    // Joined fragments are separated by a single space. This is not
+    // re-flowing (spec §7: usage is "kept verbatim, not re-flowed") — each
+    // fragment's own text is untouched, byte for byte; only the join
+    // character between fragments is chosen, and a single space is what
+    // the wrap itself removed by breaking the line there.
     if let Some(start) = lines
         .iter()
         .position(|l| starts_with_usage_prefix(l.trim_start()))
     {
         i = start;
-        let mut usage_lines = vec![lines[i].trim().to_string()];
+        let base_indent = leading_whitespace(lines[i]);
+        usage_lines.push(lines[i].trim().to_string());
+        let mut usage_entries = vec![lines[i].trim().to_string()];
         i += 1;
         while i < lines.len() {
             let l = lines[i];
             if l.trim().is_empty() {
                 break;
             }
-            if leading_whitespace(l) == 0 {
+            let trimmed_start = l.trim_start();
+            let is_marker =
+                starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
+            if leading_whitespace(l) <= base_indent && !is_marker {
                 break;
             }
             // A continuation line that itself reads as a flag entry ends
@@ -222,14 +270,21 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
             // is the same class of confidently-wrong result as [M-10].
             // This is a layout fact, true of every framework, so it lives
             // in the shared engine rather than in any profile.
-            if looks_like_flag_start(l.trim_start()) {
+            if looks_like_flag_start(trimmed_start) {
                 break;
             }
-            usage_lines.push(l.trim().to_string());
+            let trimmed = l.trim().to_string();
+            usage_lines.push(trimmed.clone());
+            if is_marker || leading_whitespace(l) <= base_indent {
+                usage_entries.push(trimmed);
+            } else if let Some(last) = usage_entries.last_mut() {
+                last.push(' ');
+                last.push_str(&trimmed);
+            }
             i += 1;
         }
         result.positionals = extract_positionals(&usage_lines);
-        result.usage = usage_lines;
+        result.usage = usage_entries;
     }
 
     // 2. Leading prose before the usage block (or before the first
@@ -590,8 +645,16 @@ pub fn parse_with_profile(raw: &str, profile: Option<&FrameworkProfile>) -> Pars
     // is never rebucketed, never dropped, never has a field replaced — so
     // whatever the block scan already produced, however it shaped up,
     // survives byte-for-byte.
-    if !result.usage.is_empty() {
-        for flag in extract_usage_flags(&result.usage) {
+    // Reads `usage_lines` (physical, pre-join), not `result.usage` (the
+    // logical, joined-for-display entries built above) — deliberately, so
+    // the join introduced for rendering cannot change what this recovers.
+    // `usage_segments` is line-shaped and self-contained (bracket-matching
+    // and tokenizing within one string), so joined input should be
+    // equivalent in practice, but there is no reason to make the [M-15]
+    // flag grammar depend on that equivalence when the pre-join lines are
+    // still sitting right here.
+    if !usage_lines.is_empty() {
+        for flag in extract_usage_flags(&usage_lines) {
             if result.flags.len() >= MAX_RECOVERED_ENTRIES {
                 break;
             }
@@ -647,6 +710,26 @@ fn starts_with_usage_prefix(t: &str) -> bool {
     t.as_bytes()
         .get(..6)
         .map(|b| b.eq_ignore_ascii_case(b"usage:"))
+        .unwrap_or(false)
+}
+
+/// True if `t` starts with `"or:"`, case-insensitively — GNU coreutils'
+/// marker for a genuine *alternative* invocation form (`du`'s `Usage: du
+/// [OPTION]... [FILE]...` / `  or:  du [OPTION]... --files0-from=F`), as
+/// distinct from a wrapped continuation of the form above it. This is the
+/// over-join guard: without recognizing this marker, a rule that joins
+/// every more-indented line in the usage block onto the entry above it
+/// (correct for a wrapped synopsis) would also swallow `or:`'s alternative
+/// form, silently merging two real invocations into one and losing the
+/// fact that `du` can be invoked either way.
+///
+/// Same bounds-checked byte comparison as [`starts_with_usage_prefix`], for
+/// the same reason: never slice a `&str` derived from tool output at a raw
+/// offset.
+fn starts_with_or_marker(t: &str) -> bool {
+    t.as_bytes()
+        .get(..3)
+        .map(|b| b.eq_ignore_ascii_case(b"or:"))
         .unwrap_or(false)
 }
 
@@ -2012,6 +2095,81 @@ mod tests {
         assert!(parsed.usage[0].starts_with("Usage: curl"));
         // And it must not have invented subcommands out of the flag rows.
         assert!(parsed.subcommands.is_empty(), "{:?}", parsed.subcommands);
+    }
+
+    /// The fabrication bug this module exists to fix: `git --help`'s usage
+    /// synopsis is one invocation form wrapped across five physical lines
+    /// (four continuations, all indented under `git`, none of them a
+    /// marker). The old per-physical-line storage reported five separate
+    /// `usage` entries, and the detail pane's `usage_signature` — which
+    /// prepends the node name to any entry not already starting with it —
+    /// turned the tail fragment into `git [--config-env=<name>=<envvar>]
+    /// <command> [<args>]`, a complete-looking invocation git never
+    /// documented. The fix must produce exactly one entry, with every
+    /// fragment's own text intact and joined by a single space (not
+    /// re-flowed — spec §7: usage is kept verbatim).
+    #[test]
+    fn git_wrapped_usage_synopsis_joins_into_one_entry() {
+        let parsed = parse(GIT_HELP);
+        assert_eq!(
+            parsed.usage.len(),
+            1,
+            "git's five wrapped lines must join into one logical entry, got {:?}",
+            parsed.usage
+        );
+        assert_eq!(
+            parsed.usage[0],
+            "usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>] \
+             [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] \
+             [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare] \
+             [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>] \
+             [--config-env=<name>=<envvar>] <command> [<args>]"
+        );
+    }
+
+    /// The over-join guard: `du --help` prints two *genuine* alternative
+    /// invocation forms, joined by GNU coreutils' `or:` marker —
+    ///
+    /// ```text
+    /// Usage: du [OPTION]... [FILE]...
+    ///   or:  du [OPTION]... --files0-from=F
+    /// ```
+    ///
+    /// — as opposed to one form wrapped across lines. The `or:` line is
+    /// indented *more* than the block's base indent (0), so a rule that
+    /// joins every more-indented line onto the entry above it — correct
+    /// for git's wrapped synopsis above — would also swallow this one,
+    /// silently merging two real invocations into a single fabricated
+    /// line. The marker check is what keeps `or:` its own entry regardless
+    /// of indentation.
+    #[test]
+    fn du_or_marker_stays_a_separate_usage_entry() {
+        let raw = "Usage: du [OPTION]... [FILE]...\n  or:  du [OPTION]... --files0-from=F\nSummarize device usage of the set of FILEs, recursively for directories.\n";
+        let parsed = parse(raw);
+        assert_eq!(
+            parsed.usage,
+            vec![
+                "Usage: du [OPTION]... [FILE]...".to_string(),
+                "or:  du [OPTION]... --files0-from=F".to_string(),
+            ],
+            "or: must stay a separate entry, not join onto the line above"
+        );
+    }
+
+    /// A tool that repeats the `usage:`/`Usage:` label itself for each
+    /// form (rather than using `or:`) must also get one entry per label,
+    /// not one entry per physical line and not everything joined into one.
+    #[test]
+    fn repeated_usage_label_at_base_indent_starts_a_new_entry() {
+        let raw = "usage: widget run [OPTIONS]\nusage: widget stop [OPTIONS]\n";
+        let parsed = parse(raw);
+        assert_eq!(
+            parsed.usage,
+            vec![
+                "usage: widget run [OPTIONS]".to_string(),
+                "usage: widget stop [OPTIONS]".to_string(),
+            ]
+        );
     }
 
     /// Regression for spec [M-8]: `openssl --help` writes only to stderr,
