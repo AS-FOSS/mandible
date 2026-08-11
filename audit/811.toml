@@ -1,0 +1,324 @@
+[meta]
+seed = 811
+sample_size = 80
+
+[[entry]]
+tool = "VGAuthService"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld.bfd"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld.gold"
+stratum = "ok"
+
+[[entry]]
+tool = "add-shell"
+stratum = "verbatim"
+
+[[entry]]
+tool = "addr2line"
+stratum = "ok"
+
+[[entry]]
+tool = "agetty"
+stratum = "ok"
+
+[[entry]]
+tool = "aria_pack"
+stratum = "ok"
+
+[[entry]]
+tool = "badblocks"
+stratum = "ok"
+
+[[entry]]
+tool = "base64"
+stratum = "ok"
+
+[[entry]]
+tool = "bcache-super-show"
+stratum = "ok"
+
+[[entry]]
+tool = "blkzone"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfs-find-root"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfsck"
+stratum = "ok"
+
+[[entry]]
+tool = "catman"
+stratum = "ok"
+
+[[entry]]
+tool = "chmem"
+stratum = "ok"
+
+[[entry]]
+tool = "clear"
+stratum = "ok"
+
+[[entry]]
+tool = "dash"
+stratum = "verbatim"
+
+[[entry]]
+tool = "deadlock-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_autotools-dev_restoreconfig"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dir"
+stratum = "ok"
+
+[[entry]]
+tool = "dnf"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-divert"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-scan"
+stratum = "ok"
+
+[[entry]]
+tool = "filefrag"
+stratum = "ok"
+
+[[entry]]
+tool = "gtk-builder-tool"
+stratum = "verbatim"
+
+[[entry]]
+tool = "hdparm"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ip6tables-apply"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables"
+stratum = "ok"
+
+[[entry]]
+tool = "jsondiff"
+stratum = "ok"
+
+[[entry]]
+tool = "killsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-ifs-18"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadbd-safe-helper"
+stratum = "ok"
+
+[[entry]]
+tool = "mkdir"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.ext3"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.msdos"
+stratum = "verbatim"
+
+[[entry]]
+tool = "myisamchk"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_secure_installation"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mysqlhotcopy"
+stratum = "ok"
+
+[[entry]]
+tool = "oomkill.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "oslo-config-generator"
+stratum = "ok"
+
+[[entry]]
+tool = "pango-view"
+stratum = "ok"
+
+[[entry]]
+tool = "paperconf"
+stratum = "ok"
+
+[[entry]]
+tool = "pastebinit"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "pdata_tools"
+stratum = "ok"
+
+[[entry]]
+tool = "perlbug"
+stratum = "ok"
+
+[[entry]]
+tool = "pip"
+stratum = "ok"
+
+[[entry]]
+tool = "pkaction"
+stratum = "ok"
+
+[[entry]]
+tool = "pmap"
+stratum = "ok"
+
+[[entry]]
+tool = "podchecker"
+stratum = "ok"
+
+[[entry]]
+tool = "poweroff"
+stratum = "ok"
+
+[[entry]]
+tool = "pppstats"
+stratum = "ok"
+
+[[entry]]
+tool = "printenv"
+stratum = "ok"
+
+[[entry]]
+tool = "prtstat"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-mipsn32el-static"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-sh4eb-static"
+stratum = "ok"
+
+[[entry]]
+tool = "rootlesskit"
+stratum = "ok"
+
+[[entry]]
+tool = "rubygc-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "runqlen.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "rustfmt"
+stratum = "ok"
+
+[[entry]]
+tool = "sbattach"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_get_config"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_prevent"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_read_long"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_timestamp"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_write_long"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-ring-composer"
+stratum = "ok"
+
+[[entry]]
+tool = "switch_root"
+stratum = "ok"
+
+[[entry]]
+tool = "syncsnoop-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tac"
+stratum = "ok"
+
+[[entry]]
+tool = "tclcalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tclsh"
+stratum = "ok"
+
+[[entry]]
+tool = "tclsh8.6"
+stratum = "ok"
+
+[[entry]]
+tool = "tee"
+stratum = "ok"
+
+[[entry]]
+tool = "update-locale"
+stratum = "ok"
+
+[[entry]]
+tool = "uuidd"
+stratum = "ok"
+
+[[entry]]
+tool = "vgremove"
+stratum = "verbatim"
+
+[[entry]]
+tool = "w"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_estimate"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "xfs_growfs"
+stratum = "ok"
+
+[[entry]]
+tool = "zerofree"
+stratum = "ok"

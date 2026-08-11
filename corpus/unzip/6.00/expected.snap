@@ -1,0 +1,164 @@
+name: unzip
+description: UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.
+usage:
+- 'Usage: unzip [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir] Default action is to extract files in list, except those in xlist, to exdir; file[.zip] may be a wildcard. -Z => ZipInfo mode ("unzip -Z" for usage).'
+flags:
+- short: 'p'
+  description: extract files to pipe, no messages
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  description: list files (short format)
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  description: freshen existing files, create none
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  description: test compressed archive data
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  description: update files, create if necessary
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  description: display archive comment only
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  description: list verbosely/show version info
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  description: timestamp archive to latest
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  description: exclude files that follow (in xlist)
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  description: extract files into exdir
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  group: 'modifiers:'
+  description: never overwrite existing files
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  group: 'modifiers:'
+  description: quiet mode (-qq => quieter)
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  group: 'modifiers:'
+  description: overwrite files WITHOUT prompting
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  group: 'modifiers:'
+  description: auto-convert any text files
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  group: 'modifiers:'
+  description: junk paths (do not make directories)
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: a
+  value_kind: Required
+  group: 'modifiers:'
+  description: treat ALL files as text
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  group: 'modifiers:'
+  description: use escapes for all non-ASCII Unicode
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  value_name: U
+  value_kind: Required
+  group: 'modifiers:'
+  description: ignore any Unicode fields
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  group: 'modifiers:'
+  description: match filenames case-insensitively
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  group: 'modifiers:'
+  description: make (some) names lowercase
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  group: 'modifiers:'
+  description: restore UID/GID info
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  group: 'modifiers:'
+  description: retain VMS version numbers
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  group: 'modifiers:'
+  description: keep setuid/setgid/tacky permissions
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  group: 'modifiers:'
+  description: pipe through "more" pager
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  group: 'modifiers:'
+  description: CHARSET specify a character encoding for DOS, Windows and OS/2 archives
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  group: 'modifiers:'
+  description: CHARSET specify a character encoding for UNIX and other archives
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

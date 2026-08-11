@@ -4,90 +4,146 @@ usage:
 - 'usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]] [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s] [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]'
 flags:
 - short: '?'
-  value_name: list
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: -a AND selections (OR) -b avoid kernel blocks
+  description: list help
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: AND selections (OR)
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: avoid kernel blocks
   provenance:
     sources:
     - help-text
 - short: 'c'
-  value_name: c
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: cmd c ^c /c/[bix] +c w COMMAND width (9) +d s dir s files
+  description: c cmd c ^c /c/[bix]
   provenance:
     sources:
     - help-text
 - short: 'd'
-  value_name: s
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: select by FD set +D D dir D tree *SLOW?* +|-e s exempt s *RISKY*
+  description: s select by FD set
   provenance:
     sources:
     - help-text
 - short: 'i'
-  value_name: select
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: -K [i] list|(i)gn tasKs -l list UID numbers
+  description: select IPv[46] files
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: '[i] list|(i)gn tasKs'
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list UID numbers
   provenance:
     sources:
     - help-text
 - short: 'n'
-  value_name: no
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: -N select NFS files -o list file offset
+  description: no host names
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: select NFS files
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list file offset
   provenance:
     sources:
     - help-text
 - short: 'O'
-  value_name: no
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: -P no port names -Q allow failed search
+  description: no overhead *RISKY*
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: no port names
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: allow failed search
   provenance:
     sources:
     - help-text
 - short: 'R'
-  value_name: list
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: -s list file size -t terse listing
+  description: list paRent PID
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list file size
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: terse listing
   provenance:
     sources:
     - help-text
 - short: 'T'
-  value_name: disable
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: -U select Unix socket -v list version info
+  description: disable TCP/TPI info
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: select Unix socket
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list version info
   provenance:
     sources:
     - help-text
 - short: 'V'
-  value_name: verbose
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: +|-w Warnings (+) -X skip TCP&UDP* files
+  description: verbose search
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: skip TCP&UDP* files
   provenance:
     sources:
     - help-text
 - short: 'Z'
-  value_name: Z
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: context [Z] -- end option scan
+  description: Z context [Z] -- end option scan
   provenance:
     sources:
     - help-text
 - short: 'E'
-  value_name: display
-  value_kind: Required
   group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
-  description: +E display endpoint info and files
+  description: display endpoint info
   provenance:
     sources:
     - help-text
@@ -165,12 +221,6 @@ flags:
   provenance:
     sources:
     - help-text-synopsis
-- short: 'o'
-  value_name: o
-  value_kind: Optional
-  provenance:
-    sources:
-    - help-text-synopsis
 - short: 'r'
   value_name: t
   value_kind: Optional
@@ -190,5 +240,5 @@ flags:
 provenance:
   sources:
   - help-text
-  confidence: 0.33
+  confidence: 0.5
 children_filled: true

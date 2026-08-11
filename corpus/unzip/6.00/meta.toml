@@ -1,0 +1,28 @@
+[tool]
+name = "unzip"
+version = "6.00"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.2.2"
+
+# unzip's options table packs TWO flag+description pairs per physical line
+# — the same shape `corpus/lsof/4.95.0` documents, on a smaller, cleaner
+# tool. Confirmed by the misattribution detector
+# (`xtask/src/misattribution.rs`'s own doc comment names `unzip --help`'s
+# `-p  extract files to pipe...     -l  list files (short format)` as a
+# second, independent true positive beyond `lsof` itself) — this fixture is
+# the regression net for the fix, a second independent case beyond `lsof`
+# for the same multi-column splitter.
+[[capture]]
+argv = ["unzip", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# One flag from each real two-column pair, spread across both tables
+# (the unlabeled top table and the "modifiers:" table) and both physical
+# columns, so a regression that only fixes one column or one table still
+# fails this contract.
+must_contain_flags = ["-p", "-l", "-x", "-d", "-n", "-q", "-O", "-I"]

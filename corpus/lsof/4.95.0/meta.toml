@@ -54,47 +54,34 @@ min_subcommands = 0
 # -L/-M/-o/-r/-S/-w reach the tree only via the usage synopsis (spelling
 # only, no prose) — the continuation-line regression net.
 #
-# -a -b -l -t -v are the xfail's demand: real, described entries in lsof's
-# options table that never reach the tree at all, because the table is
-# THREE flag+description pairs per line and only the first is read.
+# -a -b -l -t -v were the original xfail's demand: real, described entries
+# in lsof's options table that never reached the tree at all, because the
+# table is THREE flag+description pairs per line and only the first was
+# read. Promoted (see below): the generic parser now detects a block's
+# column count from its own alignment (recurring flag-shaped cells at the
+# same character offset across several rows — `help_text::sections`'
+# `block_is_multi_column`/`fields_in_line`) and splits each row into its
+# real per-flag pairs before parsing, so all five now reach the tree with
+# their own, correct description.
 must_contain_flags = ["-L", "-M", "-o", "-r", "-S", "-w", "-a", "-b", "-l", "-t", "-v"]
 
-[xfail]
-broken = true
-reason = """
-lsof's options table packs THREE flag+description pairs onto each line:
-
-  -?|-h list help          -a AND selections (OR)     -b avoid kernel blocks
-
-The generic parser detects a single description column, so it reads `-?`
-and swallows the rest of the line as its description. `expected.snap`
-records the result: `-?` is described as "-a AND selections (OR) -b avoid
-kernel blocks", `-c` as "cmd c ^c /c/[bix] +c w COMMAND width (9) +d s dir
-s files", and so on down the table.
-
-Two failures, and the second is the serious one:
-
-1. Under-extraction — lsof documents 42 distinct flags; 27 reach the tree.
-   Every second and third column entry (-a, -b, +c, +d, -K, -l, ...) is
-   lost.
-2. MISATTRIBUTION — the ~21 flags that do carry a description carry the
-   WRONG one, assembled from their neighbours. A reader is told `-?` means
-   "AND selections (OR)". That is fabricated documentation presented at
-   full confidence, which spec §7's degradation ladder exists to prevent:
-   verbatim would be strictly more honest than this.
-
-The scoreboard reports lsof `ok` at 79% described, because %described
-counts a misattributed description as described — the same shape as
-[M-10] inflating the metric with fabricated nodes, and the fifth instance
-of the pattern §13.1b records.
-
-Fixing this needs multi-column option-table detection: when a candidate
-description itself contains flag spellings at consistent column offsets,
-the block is N-column and must be split before parsing. WS4's
-anti-fabrication oracle would also catch it — a description containing
-another flag's literal spelling is exactly the signal it is built to see.
-
-This fixture was briefly committed GREEN, blessing the bad parse. A
-snapshot records what happens, not what is right; only `[contract]` and a
-human can say the latter.
-"""
+# Promoted from [xfail] — this was the second, more serious sibling of the
+# multi-column defect: lsof's options table packs THREE flag+description
+# pairs onto one line, e.g.
+#
+#   -?|-h list help          -a AND selections (OR)     -b avoid kernel blocks
+#
+# and the generic parser used to detect a single description column, so it
+# read `-?` and swallowed the rest of the line as its description —
+# `expected.snap` used to record `-?` as "-a AND selections (OR) -b avoid
+# kernel blocks", fabricated documentation at full confidence. Fixed by
+# `help_text::sections::block_is_multi_column`/`fields_in_line`: column
+# count is detected from the block's own layout (a secondary flag-shaped
+# cell recurring at the same character offset across >= 3 rows — the same
+# calibration as `xtask::misattribution::MIN_COLUMN_RECURRENCE`, which
+# first measured and proved this exact shape), never from lsof's name or
+# any per-tool knowledge. `expected.snap` now records every flag's own,
+# correct description — read it side by side with `help.stderr.txt` before
+# trusting this comment; that is what turned this fixture green the first
+# time, wrongly, and `corpus/README.md` names it as the cautionary case for
+# exactly that shortcut.

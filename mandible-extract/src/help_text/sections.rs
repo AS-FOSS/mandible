@@ -357,18 +357,54 @@ pub fn parse_with_profile(
     // §13.1) parsing a degenerate multi-megabyte input in over two
     // minutes instead of milliseconds).
     let description_bound = i.max(leading_prose_bound(&lines));
-    let mut description_lines: Vec<&str> = Vec::new();
+    // Collected as *paragraphs* (blank-line-separated runs), not one flat
+    // list, so a leading version/author/URL banner can be told apart from
+    // the tool's real description — see `is_banner_paragraph` below. A
+    // paragraph boundary is a genuinely blank line; a skipped indented line
+    // (a usage continuation sitting in this same zone, `du`'s `  or: ...`)
+    // does not break the paragraph it sits inside, matching this loop's
+    // pre-batch behavior of simply ignoring such lines rather than treating
+    // them as a break.
+    let mut paragraphs: Vec<Vec<&str>> = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
     let mut j = 0;
     while j < lines.len() && j < description_bound {
         let l = lines[j];
-        if leading_whitespace(l) == 0 && !l.trim().is_empty() {
+        if l.trim().is_empty() {
+            if !current.is_empty() {
+                paragraphs.push(std::mem::take(&mut current));
+            }
+        } else if leading_whitespace(l) == 0 {
             let t = l.trim_start();
             if !starts_with_usage_prefix(t) {
-                description_lines.push(l);
+                current.push(l);
             }
         }
         j += 1;
     }
+    if !current.is_empty() {
+        paragraphs.push(current);
+    }
+    // clap's own `--help` template (and every framework that copies its
+    // shape) renders `<name> <version>` / author / homepage as one
+    // paragraph, a blank line, and *then* the real description
+    // (`zoxide --help`: "zoxide 0.9.9" / "Ajeet D'Souza <...>" /
+    // "https://github.com/..." / blank / "A smarter cd command for your
+    // terminal"). Concatenating every leading column-0 line regardless of
+    // that blank line put the email address and URL into the description
+    // shown in the detail pane — nothing fabricated, nothing missing, so no
+    // gate fires, but the pane shows junk. Only drop the first paragraph,
+    // and only when it *looks* like this banner shape (never by checking it
+    // against the tool's own name — see `is_banner_paragraph`) — and only
+    // when a later paragraph exists to fall back to, so a tool whose entire
+    // leading prose happens to open with something version-shaped never
+    // loses its only description.
+    let description_lines: Vec<&str> =
+        if paragraphs.len() > 1 && is_banner_paragraph(&paragraphs[0]) {
+            paragraphs[1..].iter().flatten().copied().collect()
+        } else {
+            paragraphs.into_iter().flatten().collect()
+        };
     if !description_lines.is_empty() {
         result.description = Some(description_lines.join(" "));
     }
@@ -754,6 +790,111 @@ fn leading_prose_bound(lines: &[&str]) -> usize {
     lines.len()
 }
 
+/// True if `paragraph` (a blank-line-delimited run of leading, column-0
+/// lines — see the description-collection block in
+/// [`parse_with_profile`]) reads as a version/author/homepage banner rather
+/// than descriptive prose.
+///
+/// Two independent signals, either sufficient on its own, both purely
+/// structural — neither ever compares against the probed tool's own name,
+/// which the hard constraint on this fix (spec §7 Tier B, generalized from
+/// `zoxide`) requires:
+///
+/// 1. The paragraph's first line is *exactly* two tokens, `<name>
+///    <version>` (clap's own template: `"zoxide 0.9.9"`). A longer first
+///    line — even one that happens to contain a version-shaped word,
+///    e.g. "Build v2 is faster than v1." — does not qualify: the two-token
+///    shape is what a version banner actually looks like, and requiring it
+///    exactly is what keeps ordinary prose from matching by accident.
+/// 2. Any line in the paragraph carries a URL or an email address —
+///    `zoxide`'s own author/homepage lines, and the general shape any
+///    framework's templated banner uses for contact info.
+///
+/// Only ever consulted when a *later* paragraph exists to fall back to
+/// (see the call site) — a lone paragraph that happens to match this shape
+/// is kept rather than discarded, because degrading to "no description" is
+/// worse than keeping a paragraph that looks unusual but is all there is.
+fn is_banner_paragraph(paragraph: &[&str]) -> bool {
+    match paragraph.first() {
+        Some(first) if looks_like_name_version_line(first) => return true,
+        _ => {}
+    }
+    paragraph.iter().any(|line| line_has_contact_info(line))
+}
+
+/// True if `line` is exactly two whitespace-separated tokens, a
+/// name-shaped one followed by a version-shaped one — `"zoxide 0.9.9"`,
+/// `"cargo 1.75.0"`. Exactly two tokens and no more: a sentence that merely
+/// mentions a version number partway through does not qualify.
+fn looks_like_name_version_line(line: &str) -> bool {
+    let mut words = line.split_whitespace();
+    let (Some(name), Some(version)) = (words.next(), words.next()) else {
+        return false;
+    };
+    if words.next().is_some() {
+        return false;
+    }
+    is_name_shaped_token(name) && looks_like_version_token(version)
+}
+
+/// True if `token` is shaped like a version number: an optional leading
+/// `v`, then a run of digits/letters/`-`/`_`/`.` containing at least one
+/// digit and at least one `.` — `0.9.9`, `v1.75.0`, `2.4.0-beta`. Digit and
+/// dot are both required so a bare word (`x`) or a bare number with no dot
+/// (`2020`, a copyright year) doesn't qualify.
+fn looks_like_version_token(token: &str) -> bool {
+    let rest = token.strip_prefix('v').unwrap_or(token);
+    if rest.is_empty() {
+        return false;
+    }
+    let mut has_digit = false;
+    let mut has_dot = false;
+    for c in rest.chars() {
+        match c {
+            '0'..='9' => has_digit = true,
+            '.' => has_dot = true,
+            c if c.is_ascii_alphabetic() || c == '-' || c == '_' => {}
+            _ => return false,
+        }
+    }
+    has_digit && has_dot
+}
+
+/// True if `line` contains a URL (`http://`/`https://`) or an
+/// email-shaped token, as a whitespace-delimited word (common surrounding
+/// punctuation — `<...>`, trailing `,`/`.` — stripped first, so
+/// `"<98ajeet@gmail.com>"` and `"https://example.com,"` both match).
+fn line_has_contact_info(line: &str) -> bool {
+    line.split_whitespace().any(|word| {
+        let trimmed = word.trim_matches(|c: char| matches!(c, '<' | '>' | ',' | '.' | '(' | ')'));
+        trimmed.starts_with("http://")
+            || trimmed.starts_with("https://")
+            || looks_like_email(trimmed)
+    })
+}
+
+/// True if `word` is shaped like an email address: a non-empty local part,
+/// an `@`, and a domain part containing a `.` that doesn't start or end
+/// with one, with both sides restricted to characters real addresses and
+/// domains actually use. Deliberately simple — this only has to
+/// distinguish "an address is present" from "one isn't," not validate one.
+fn looks_like_email(word: &str) -> bool {
+    let Some((local, domain)) = word.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && !domain.is_empty()
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && local
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '+'))
+        && domain
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
+}
+
 fn leading_whitespace(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }
@@ -1106,7 +1247,7 @@ fn meaningful_flag_group(heading: String) -> Option<String> {
 
 fn emit_flags(
     group: Option<String>,
-    entries: Vec<(&str, String)>,
+    entries: Vec<(String, String)>,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let mut seen = 0usize;
@@ -1116,7 +1257,7 @@ fn emit_flags(
             break;
         }
         seen += 1;
-        let spec = parse_flag_spec(spec_text);
+        let spec = parse_flag_spec(&spec_text);
         if spec.fully_consumed {
             clean += 1;
         }
@@ -1324,10 +1465,310 @@ fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
     None
 }
 
-fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str, String)>) {
+// --- Multi-column option tables (spec §7 Tier B, [M-10]'s sibling defect,
+// `corpus/lsof/4.95.0`) --------------------------------------------------
+//
+// Some tools (`lsof`, `unzip`, `infocmp`, `zipinfo`) pack two or three
+// flag+description *pairs* onto one physical line instead of one:
+//
+// ```text
+//   -?|-h list help          -a AND selections (OR)     -b avoid kernel blocks
+// ```
+//
+// Reading one description column per line here doesn't just lose `-a` and
+// `-b` (under-extraction) — it attributes their descriptions to `-?`
+// instead (misattribution), which is fabricated documentation at full
+// confidence. This section detects that shape from the block's own layout
+// — column alignment recurring across several rows, never a tool name or a
+// framework — and splits each row into its real per-flag pairs before
+// `emit_flags` ever sees it.
+//
+// The detection mechanism (cells → fields → recurring offsets) mirrors
+// `xtask/src/misattribution.rs`'s `DefinitionIndex`, which was built and
+// measured against this exact bug first and already carries the hardening
+// against the false-positive classes below — deliberately duplicated here
+// (like `help_text::pick_stream`/`misattribution::pick_stream` already are)
+// rather than sharing code with that module, which this task's own
+// instructions rule out touching. One difference is load-bearing, not
+// incidental: that module is an *advisory* metric a human reads, so it can
+// afford to under-suppress (its own doc comment names `arptables`' `-A
+// chain` as a known, accepted residual false positive). A splitter's
+// mistakes are not advisory — they fabricate a flag that was never in the
+// tool's own text — so [`fields_in_line`] below is strictly more
+// conservative: it never starts a new field on top of one that hasn't yet
+// earned real description text of its own (see its doc comment), which is
+// exactly what keeps `-A chain`/`-p NUM`-shaped rows (a value placeholder
+// standing in for real trailing text, lower-case so
+// `is_value_placeholder_only` can't recognize it as one) from being read as
+// a second, independent flag.
+
+/// Minimum number of distinct entry lines a secondary column offset must
+/// recur at before a block is trusted as genuinely multi-column. Same
+/// figure and same justification as
+/// `xtask::misattribution::MIN_COLUMN_RECURRENCE`: real column bleed
+/// (`lsof`'s two hidden columns) recurs 9 times over its ~10-line options
+/// block; the worst accidental coincidence measured in this project's own
+/// real-tool sample (`tar`'s `-T` cross-reference) recurs twice, at two
+/// different offsets. `3` sits strictly between the two.
+const MIN_COLUMN_RECURRENCE: usize = 3;
+
+/// True if `token` is shaped like a flag spelling: `-x`, `--word`, `+x`, or
+/// `+|-x` — lsof spells several of its own flags with the `+` prefix
+/// (`+d`, `+m`). Deliberately permissive about the character right after a
+/// short prefix (`lsof`'s own `-?`).
+fn is_flag_shaped(token: &str) -> bool {
+    if let Some(rest) = token.strip_prefix("+|-") {
+        return rest.chars().next().is_some_and(is_flag_char);
+    }
+    if let Some(rest) = token.strip_prefix("--") {
+        return rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+    }
+    if let Some(rest) = token.strip_prefix('+') {
+        return rest.chars().next().is_some_and(is_flag_char);
+    }
+    if let Some(rest) = token.strip_prefix('-') {
+        return rest.chars().next().is_some_and(is_flag_char);
+    }
+    false
+}
+
+/// The character class allowed immediately after a short flag's leading
+/// `-`/`+`: alphanumerics cover the overwhelming majority, plus the small
+/// punctuation set measured on real tools (`lsof -?`).
+fn is_flag_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || matches!(c, '?' | '#' | '@')
+}
+
+/// First whitespace-delimited word of `s`, or `""` for an all-whitespace
+/// string.
+fn first_word(s: &str) -> &str {
+    s.split_whitespace().next().unwrap_or("")
+}
+
+/// Split `line` into cells at a column gap — a run of two or more spaces,
+/// **or any tab** — character-indexed, never byte-indexed (AGENTS.md's rule
+/// against slicing tool output at a raw byte offset applies to column math
+/// here just as much as to parsing: a wide character earlier in a real
+/// `--help` line would otherwise desync every offset after it). Returns
+/// `(char offset, cell text)` pairs, trailing whitespace trimmed off each
+/// cell.
+///
+/// A single tab is a boundary on its own — `debconf --help`'s real table is
+/// tab-separated (`-o,  --owner=package\t\tSet the package...`), and only
+/// requiring 2+ spaces would read the tab-glued alias-plus-description as
+/// one cell.
+fn cells(line: &str) -> Vec<(usize, String)> {
+    let chars: Vec<char> = line.chars().collect();
+    let n = chars.len();
+    let is_gap_start = |i: usize| -> bool {
+        chars[i] == '\t' || (chars[i] == ' ' && i + 1 < n && chars[i + 1] == ' ')
+    };
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i < n {
+        while i < n && (chars[i] == ' ' || chars[i] == '\t') {
+            i += 1;
+        }
+        if i >= n {
+            break;
+        }
+        let start = i;
+        let mut j = i;
+        while j < n {
+            if is_gap_start(j) {
+                break;
+            }
+            j += 1;
+        }
+        let content: String = chars[start..j].iter().collect();
+        out.push((start, content.trim_end().to_string()));
+        i = j;
+    }
+    out
+}
+
+/// True if `s` is nothing but a single value-placeholder token — bracket-
+/// wrapped (`<dir>`, `[NUMBER]`), fully upper-case (`NUM`, `FILE`), or an
+/// upper-case name with a bracketed decoration (`BLOCKSIZE[bskK...]`) —
+/// with no other words. Deliberately narrow: a lower-case placeholder
+/// (`arptables`'s `-A chain`) is not recognized here, because a real
+/// English word is not reliably distinguishable from real prose from one
+/// cell alone. [`fields_in_line`]'s own fold-while-bare rule is what
+/// actually protects that case (see its doc comment) — this check only
+/// needs to catch the *unambiguous* placeholders, not every one.
+fn is_value_placeholder_only(s: &str) -> bool {
+    let mut words = s.split_whitespace();
+    let Some(word) = words.next() else {
+        return true;
+    };
+    if words.next().is_some() {
+        return false;
+    }
+    let bracketed = matches!(
+        (word.chars().next(), word.chars().last()),
+        (Some('<'), Some('>')) | (Some('['), Some(']')) | (Some('{'), Some('}'))
+    );
+    let all_upper = word.chars().any(char::is_alphabetic)
+        && word.chars().all(|c| !c.is_alphabetic() || c.is_uppercase());
+    let upper_name_with_decoration = word.find(['[', '<', '{']).is_some_and(|i| {
+        let name = &word[..i];
+        !name.is_empty() && name.chars().all(|c| c.is_ascii_uppercase())
+    });
+    bracketed || all_upper || upper_name_with_decoration
+}
+
+/// One column entry recovered from a multi-column row.
+struct Field {
+    /// Character offset of the field's *first* flag-shaped cell — the
+    /// position [`block_is_multi_column`] buckets recurrence counts by.
+    /// Never updated once the field is created, even while later cells
+    /// keep folding into it (see [`fields_in_line`]): it names where this
+    /// logical column *starts*, not wherever it happens to still be
+    /// absorbing text.
+    offset: usize,
+    /// Every flag-shaped spelling folded into this field — usually one,
+    /// more when a row spells one option's short and long forms as
+    /// adjacent cells sharing a single description (`nano --help`'s `-A
+    /// --smarthome`), or when a value placeholder that looked like real
+    /// text kept the field open (see [`fields_in_line`]).
+    tokens: Vec<String>,
+    /// Accumulated non-flag-shaped text following this field's token(s).
+    /// Empty (or a bare value placeholder) means "not yet described" —
+    /// see [`Field::is_bare`].
+    trailing: String,
+}
+
+impl Field {
+    /// True when this field carries no real descriptive text of its own
+    /// yet. Never true of a genuine secondary column in an N-column table
+    /// (every real column pairs a flag with a description, by the shape
+    /// the bug report itself defines: "flag+description pairs"), so this
+    /// is the discriminator [`fields_in_line`] uses to decide whether the
+    /// *next* flag-shaped cell is a new column or just another spelling of
+    /// the option still open.
+    fn is_bare(&self) -> bool {
+        let trailing = self.trailing.trim();
+        trailing.is_empty() || is_value_placeholder_only(trailing)
+    }
+}
+
+/// Group `line`'s cells (see [`cells`]) into [`Field`]s: one per *logical*
+/// column entry, not one per raw cell.
+///
+/// **The fold-while-bare rule, and why it's stricter than
+/// `misattribution::fields_in_line`.** Whenever the currently open field is
+/// still bare (no real description attached yet), any further flag-shaped
+/// cell is folded into it as another spelling of the *same* option —
+/// regardless of whether that cell's own trailing text looks real. This is
+/// what a genuine alias pair looks like (`nano`'s `-A  --smarthome  <shared
+/// description>`, both cells bare until the real prose arrives), but it is
+/// also what protects against the residual false-positive class the
+/// misattribution detector documents and accepts rather than fixes:
+/// `arptables --help`'s `--append  -A chain<TAB><TAB>Append to chain`. Read
+/// cell-by-cell, `-A chain` has "real" trailing text (`chain`) that isn't a
+/// recognized placeholder (lower-case, so [`is_value_placeholder_only`]
+/// doesn't catch it) — but `--append`, the field already open when `-A`
+/// arrives, is itself still bare, so this rule folds `-A` into it anyway,
+/// and `chain` becomes an extension of the *shared* trailing text rather
+/// than proof of a second, independent flag. A genuine N-column table never
+/// needs this fold at all: its primary column always carries its own real
+/// description (`lsof`'s `-?|-h list help  ...`), so the field it opens is
+/// never bare when the next flag-shaped cell arrives, and a fresh field
+/// starts exactly as it would without this rule.
+fn fields_in_line(line: &str) -> Vec<Field> {
+    let mut fields: Vec<Field> = Vec::new();
+    for (offset, content) in cells(line) {
+        let token = first_word(&content);
+        if !is_flag_shaped(token) {
+            // Plain prose: belongs to whichever field is currently open. A
+            // line that starts with prose before any flag-shaped cell has
+            // no open field yet, so that content is simply dropped — it
+            // isn't part of any flag's definition.
+            if let Some(last) = fields.last_mut() {
+                if !last.trailing.is_empty() {
+                    last.trailing.push(' ');
+                }
+                last.trailing.push_str(&content);
+            }
+            continue;
+        }
+        let own_trailing = content
+            .strip_prefix(token)
+            .unwrap_or(&content)
+            .trim()
+            .to_string();
+        if let Some(last) = fields.last_mut() {
+            if last.is_bare() {
+                last.tokens.push(token.to_string());
+                if last.trailing.trim().is_empty() {
+                    last.trailing = own_trailing;
+                } else if !own_trailing.is_empty() {
+                    last.trailing.push(' ');
+                    last.trailing.push_str(&own_trailing);
+                }
+                continue;
+            }
+        }
+        fields.push(Field {
+            offset,
+            tokens: vec![token.to_string()],
+            trailing: own_trailing,
+        });
+    }
+    fields
+}
+
+/// True if `entry_lines` (a flags block's raw entry rows, one string per
+/// physical line — never continuation lines, which carry no flag-shaped
+/// cells of their own to align) shows real column alignment: a secondary
+/// field recurring at the same character offset across at least
+/// [`MIN_COLUMN_RECURRENCE`] rows. Mirrors
+/// `misattribution::build_definition_index`'s recurrence check, scoped to
+/// one block instead of a whole tool's raw text — the same signal, applied
+/// where it can actually change how the block is parsed rather than only
+/// audit it after the fact. Only the *secondary* fields (skipping each
+/// row's own first/primary one) count, for the same reason
+/// `misattribution` excludes a row's own leftmost field: a row's primary
+/// entry legitimately cross-references another, real, single-column flag
+/// in its own prose (`du --help`'s `-H` mentioning `-D`), and that must
+/// never itself look like evidence of a second table column.
+fn block_is_multi_column(entry_lines: &[&str]) -> bool {
+    let mut offset_counts: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
+    for line in entry_lines {
+        let fields = fields_in_line(line);
+        if fields.len() < 2 {
+            continue;
+        }
+        for field in fields.iter().skip(1) {
+            if field.is_bare() {
+                continue;
+            }
+            *offset_counts.entry(field.offset).or_insert(0) += 1;
+        }
+    }
+    offset_counts
+        .values()
+        .any(|&count| count >= MIN_COLUMN_RECURRENCE)
+}
+
+/// One raw row within a flags block, before it's split into `(spec,
+/// description)` — kept as a whole `&str` because the *splitting* decision
+/// (one column vs. several — see [`block_is_multi_column`]) can't be made
+/// per-line; it needs every entry row in the block at once.
+enum FlagsBlockRow<'a> {
+    /// Looks like the start of a new flag entry.
+    Entry(&'a str),
+    /// A continuation of the previous entry's description (`trim_end`ed
+    /// text only — the row's own indentation has already done its job by
+    /// this point).
+    Continuation(&'a str),
+}
+
+fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String, String)>) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
-    let mut entries: Vec<(&str, String)> = Vec::new();
+    let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
     let mut min_entry_indent: Option<usize> = None;
 
     while i < lines.len() {
@@ -1343,29 +1784,15 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         if is_entry_start {
-            let gap = find_description_gap(line);
-            let (spec, desc) = split_at_column(line, gap);
-            // A second column of *option spellings* is not a description
-            // (`awk --help` prints POSIX short options beside their GNU
-            // long equivalents) — see `is_synonym_not_description`. Blanked
-            // rather than dropped, so a genuine continuation line below can
-            // still supply the real text.
-            let desc = if is_synonym_not_description(&desc) {
-                String::new()
-            } else {
-                desc
-            };
-            entries.push((spec, desc));
+            rows.push(FlagsBlockRow::Entry(line));
             min_entry_indent = Some(min_entry_indent.map_or(indent, |m| m.min(indent)));
             i += 1;
             continue;
         }
 
-        let is_continuation = !entries.is_empty() && min_entry_indent.is_some_and(|m| indent > m);
+        let is_continuation = !rows.is_empty() && min_entry_indent.is_some_and(|m| indent > m);
         if is_continuation {
-            let last = entries.last_mut().expect("checked non-empty above");
-            last.1.push(' ');
-            last.1.push_str(trimmed.trim_end());
+            rows.push(FlagsBlockRow::Continuation(trimmed.trim_end()));
             i += 1;
             continue;
         }
@@ -1375,7 +1802,76 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(&'a str
         // a flag — a genuinely new heading. Stop here.
         break;
     }
+
+    // Whether this block packs more than one flag+description pair per
+    // physical line (spec §7 Tier B, `lsof`'s options table) is a property
+    // of the *block*, decided once from every entry row together — never
+    // per line, which would let a block's ordinary single-column rows
+    // (`lsof`'s own `-i select IPv[46] files`) get split as if a bare
+    // second word were a second flag.
+    let entry_lines: Vec<&str> = rows
+        .iter()
+        .filter_map(|r| match r {
+            FlagsBlockRow::Entry(l) => Some(*l),
+            FlagsBlockRow::Continuation(_) => None,
+        })
+        .collect();
+    let multi_column = block_is_multi_column(&entry_lines);
+
+    let mut entries: Vec<(String, String)> = Vec::new();
+    for row in rows {
+        match row {
+            FlagsBlockRow::Entry(line) => {
+                // `fields_in_line` can come back empty on a line
+                // `looks_like_flag_start` accepted (bare `-` test) but
+                // whose leading token isn't `is_flag_shaped` (a stricter,
+                // narrower class — see that function). Never silently drop
+                // the row when that happens: fall back to the ordinary
+                // single-column split, same as a block that was never
+                // multi-column at all.
+                let split = multi_column
+                    .then(|| fields_in_line(line))
+                    .filter(|f| !f.is_empty());
+                match split {
+                    Some(fields) => {
+                        for field in fields {
+                            entries
+                                .push((field.tokens.join(", "), field.trailing.trim().to_string()));
+                        }
+                    }
+                    None => entries.push(split_single_column_entry(line)),
+                }
+            }
+            FlagsBlockRow::Continuation(text) => {
+                if let Some(last) = entries.last_mut() {
+                    last.1.push(' ');
+                    last.1.push_str(text);
+                }
+            }
+        }
+    }
     (i, entries)
+}
+
+/// The original (pre-multi-column) way to split one flags-block entry line:
+/// one description column, detected once per line. Still the only path for
+/// a block [`block_is_multi_column`] didn't flag, and the fallback for a
+/// multi-column block's occasional line that doesn't itself split into
+/// fields (see the call site).
+fn split_single_column_entry(line: &str) -> (String, String) {
+    let gap = find_description_gap(line);
+    let (spec, desc) = split_at_column(line, gap);
+    // A second column of *option spellings* is not a description (`awk
+    // --help` prints POSIX short options beside their GNU long
+    // equivalents) — see `is_synonym_not_description`. Blanked rather than
+    // dropped, so a genuine continuation line below can still supply the
+    // real text.
+    let desc = if is_synonym_not_description(&desc) {
+        String::new()
+    } else {
+        desc
+    };
+    (spec.to_string(), desc)
 }
 
 /// Scan a bare-word block (subcommand names, enum values, ...) starting at
@@ -2073,6 +2569,10 @@ mod tests {
     // this crate's own `tests/fixtures/`.
     const TAR_HELP: &str = include_str!("../../../corpus/tar/1.35/help.txt");
     const GIT_HELP: &str = include_str!("../../../corpus/git/2.43.0/help.txt");
+    const LSOF_HELP: &str = include_str!("../../../corpus/lsof/4.95.0/help.stderr.txt");
+    const UNZIP_HELP: &str = include_str!("../../../corpus/unzip/6.00/help.txt");
+    const ZOXIDE_HELP: &str = include_str!("../../../corpus/zoxide/0.9.9/help.txt");
+
     const OPENSSL_HELP: &str = include_str!("../../tests/fixtures/help_text/openssl_help.stderr");
     const IP_HELP: &str = include_str!("../../tests/fixtures/help_text/ip_help.stderr");
     const DD_HELP: &str = include_str!("../../tests/fixtures/help_text/dd_help.stdout");
@@ -3219,5 +3719,287 @@ mod tests {
         assert!(parsed.flags.is_empty());
         assert!(parsed.subcommands.is_empty());
         assert!(parsed.usage.is_empty());
+    }
+
+    // --- Multi-column option tables (corpus/lsof/4.95.0, corpus/unzip/6.00) ---
+
+    /// The regression `corpus/lsof/4.95.0` was `[xfail]` for: lsof's
+    /// options table packs three flag+description pairs onto one physical
+    /// line. Before the column splitter, the generic parser read only the
+    /// first flag on each row and swallowed the other two as its
+    /// description — under-extracting `-a`/`-b`/`-l`/`-t`/`-v` entirely and
+    /// telling a reader `-?` means "AND selections (OR)" (`-a`'s real
+    /// text). Every flag here must now be present *and* carry its own
+    /// text, not a neighbour's.
+    #[test]
+    fn lsof_three_column_options_table_is_split_per_flag() {
+        let parsed = parse_named(LSOF_HELP, "lsof");
+        let desc_of = |short: char| -> String {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("expected -{short} to be recovered"))
+                .description
+                .as_ref()
+                .map(|t| t.as_str().to_string())
+                .unwrap_or_default()
+        };
+        assert_eq!(desc_of('?'), "list help");
+        assert_eq!(desc_of('a'), "AND selections (OR)");
+        assert_eq!(desc_of('b'), "avoid kernel blocks");
+        assert_eq!(desc_of('l'), "list UID numbers");
+        assert_eq!(desc_of('t'), "terse listing");
+        assert_eq!(desc_of('v'), "list version info");
+        // The misattribution shape itself: no flag's description contains
+        // another flag's own spelling from this row.
+        assert!(!desc_of('?').contains("-a"));
+        assert!(!desc_of('?').contains("-b"));
+    }
+
+    /// A block with only *one* description column must still parse exactly
+    /// as before — the splitter's block-level gate
+    /// (`block_is_multi_column`) requires real, recurring column
+    /// alignment, so an ordinary single-column table is untouched. `tar`'s
+    /// 171-flag table is the existing net for this; this is a small,
+    /// direct check that a ordinary two-word description doesn't get
+    /// misread as a second flag+description pair.
+    #[test]
+    fn a_single_column_block_is_not_treated_as_multi_column() {
+        let raw = "Options:\n\
+                    \x20 -a, --all       do everything\n\
+                    \x20 -b, --bare      minimal output\n\
+                    \x20 -c, --count     print a count\n";
+        let parsed = parse(raw);
+        let all = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("all"))
+            .unwrap();
+        assert_eq!(all.description.as_ref().unwrap().as_str(), "do everything");
+        assert_eq!(parsed.flags.len(), 3);
+    }
+
+    /// `nano`-shaped alias row: a short and long spelling of the *same*
+    /// option, sharing one description, with nothing between them. Every
+    /// row here folds into exactly one field per line (checked directly —
+    /// `fields_in_line`'s alias fold), so the block never accumulates the
+    /// column-recurrence evidence `block_is_multi_column` requires, and
+    /// falls back to the ordinary single-column path for all three rows —
+    /// the same path `nano`'s real 52-option table already went through
+    /// before this change, unaffected by it. The bar here is what the
+    /// false-positive class actually demands: no *phantom* fourth/fifth/
+    /// sixth flag gets fabricated out of `--smarthome`/`--breezy`/`--calm`.
+    #[test]
+    fn an_alias_pair_sharing_one_description_is_not_split_into_two_flags() {
+        let raw = "Options:\n\
+                    \x20 -A  --smarthome  Enable smart home key\n\
+                    \x20 -B  --breezy     Enable breezy mode\n\
+                    \x20 -C  --calm       Enable calm mode\n";
+        assert_eq!(
+            fields_in_line(" -A  --smarthome  Enable smart home key").len(),
+            1
+        );
+        let parsed = parse(raw);
+        assert_eq!(parsed.flags.len(), 3, "{:?}", parsed.flags);
+        for short in ['A', 'B', 'C'] {
+            assert_eq!(
+                parsed
+                    .flags
+                    .iter()
+                    .filter(|f| f.short == Some(short))
+                    .count(),
+                1,
+                "expected exactly one -{short}, got {:?}",
+                parsed.flags
+            );
+        }
+        assert!(
+            !parsed.flags.iter().any(|f| f.short.is_none()),
+            "a spellingless (fabricated) flag was emitted: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// `iptables`/`patch`-shaped row: a bare short/long alias pair where
+    /// the short spelling's own cell carries what looks like real trailing
+    /// text but is actually just its value placeholder (`-p NUM`, `-A
+    /// chain` — lower-case, so it isn't recognized by
+    /// `is_value_placeholder_only`). Must fold into one field per line
+    /// (checked directly), never fabricating a second flag out of the
+    /// placeholder text.
+    #[test]
+    fn a_lowercase_value_placeholder_does_not_fabricate_a_second_flag() {
+        let raw = "Options:\n\
+                    \x20 --append  -A chain\tAppend to chain\n\
+                    \x20 --check   -C chain\tCheck for the existence of a rule\n\
+                    \x20 --delete  -D chain\tDelete matching rule from chain\n";
+        assert_eq!(
+            fields_in_line(" --append  -A chain\tAppend to chain").len(),
+            1
+        );
+        let parsed = parse(raw);
+        assert_eq!(parsed.flags.len(), 3, "{:?}", parsed.flags);
+        for long in ["append", "check", "delete"] {
+            assert_eq!(
+                parsed
+                    .flags
+                    .iter()
+                    .filter(|f| f.long.as_deref() == Some(long))
+                    .count(),
+                1,
+                "expected exactly one --{long}, got {:?}",
+                parsed.flags
+            );
+        }
+        // No phantom `-A`/`-C`/`-D` split out as its own, separate flag —
+        // each real spelling recovered here is the long form only (the
+        // pre-existing single-column fallback's own limit on this 3-field
+        // "short / long / description" shape, unrelated to and unchanged
+        // by this batch), never a fabricated second entry.
+        assert!(
+            !parsed.flags.iter().any(|f| f.long.is_none()),
+            "a spellingless (fabricated) flag was emitted: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// `awk`-shaped row: two columns of option *spellings* (POSIX short
+    /// beside GNU long), never flag+description. Must not read the second
+    /// column as a real description, and must not split it out as a second
+    /// flag either — `is_synonym_not_description`'s single-column check
+    /// (unchanged by this batch) is what actually saves this shape, since
+    /// the row's own lowercase value placeholder (`-f progfile`) keeps its
+    /// primary field from reading as bare, which is exactly why this stays
+    /// a block-level single-column fallback rather than a real second
+    /// column — matching the existing `a_second_column_of_option_spellings_
+    /// is_not_a_description` regression test above.
+    #[test]
+    fn two_columns_of_bare_option_spellings_are_not_read_as_two_flags() {
+        let raw = "Options:\n\
+                    \x20 -f progfile       --file=progfile\n\
+                    \x20 -v var=val        --assign=var=val\n\
+                    \x20 -F fs             --field-separator=fs\n";
+        let parsed = parse(raw);
+        assert_eq!(parsed.flags.len(), 3, "{:?}", parsed.flags);
+        for short in ['f', 'v', 'F'] {
+            assert_eq!(
+                parsed
+                    .flags
+                    .iter()
+                    .filter(|fl| fl.short == Some(short))
+                    .count(),
+                1,
+                "expected exactly one -{short}, got {:?}",
+                parsed.flags
+            );
+        }
+        for flag in &parsed.flags {
+            let desc = flag.description.as_ref().map(|d| d.as_str()).unwrap_or("");
+            assert!(!desc.starts_with('-'), "{:?} -> {desc:?}", flag.short);
+        }
+    }
+
+    /// The second independent multi-column net beyond `lsof`
+    /// (`corpus/unzip/6.00`): a genuine two-column table, real flag on
+    /// both sides of every row. Spot-checks one pair from each of unzip's
+    /// two tables (the unlabeled top one and the "modifiers:" one) so a
+    /// regression confined to either table or either physical column would
+    /// still fail this test.
+    #[test]
+    fn unzip_two_column_options_table_is_split_per_flag() {
+        let parsed = parse_named(UNZIP_HELP, "unzip");
+        let desc_of = |short: char| -> String {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("expected -{short} to be recovered"))
+                .description
+                .as_ref()
+                .map(|t| t.as_str().to_string())
+                .unwrap_or_default()
+        };
+        assert_eq!(desc_of('p'), "extract files to pipe, no messages");
+        assert_eq!(desc_of('l'), "list files (short format)");
+        assert_eq!(desc_of('n'), "never overwrite existing files");
+        assert_eq!(desc_of('q'), "quiet mode (-qq => quieter)");
+        assert!(!desc_of('p').contains("-l "));
+        assert!(!desc_of('n').contains("-q "));
+    }
+
+    // --- Preamble bleeding into the root description (corpus/zoxide/0.9.9) ---
+
+    /// The regression `corpus/zoxide/0.9.9` guards: clap's own `--help`
+    /// template renders `<name> <version>` / author / homepage as one
+    /// paragraph, a blank line, then the real description. Before the
+    /// preamble fix, every leading column-0 line was concatenated
+    /// regardless of that blank line, so the root description read "zoxide
+    /// 0.9.9 Ajeet D'Souza <98ajeet@gmail.com> https://... A smarter cd
+    /// command for your terminal". Nothing was fabricated or missing, so no
+    /// existing gate caught it — this is a direct assertion on the text
+    /// itself.
+    #[test]
+    fn zoxide_banner_is_dropped_and_real_description_kept() {
+        let parsed = parse_named(ZOXIDE_HELP, "zoxide");
+        assert_eq!(
+            parsed.description.as_deref(),
+            Some("A smarter cd command for your terminal")
+        );
+    }
+
+    /// A tool with no banner at all — `tar`'s leading prose is a single
+    /// paragraph, no blank line before `Usage:` — must be completely
+    /// unaffected by the banner-drop logic: `paragraphs.len() > 1` never
+    /// holds, so nothing is ever dropped.
+    #[test]
+    fn a_single_paragraph_description_is_never_dropped_as_a_banner() {
+        let parsed = parse(TAR_HELP);
+        let desc = parsed.description.as_deref().unwrap_or_default();
+        assert!(desc.contains("GNU 'tar' saves many files together"));
+    }
+
+    /// A lone paragraph that *happens* to open with a version-shaped first
+    /// line, with nothing after it to fall back to, must be kept rather
+    /// than discarded — degrading to "no description" is worse than
+    /// keeping a paragraph that merely looks unusual.
+    #[test]
+    fn a_banner_shaped_paragraph_with_no_fallback_is_kept() {
+        let raw = "mytool 1.2.3\nDoes a thing.\n\nUsage: mytool [OPTIONS]\n";
+        let parsed = parse(raw);
+        assert_eq!(
+            parsed.description.as_deref(),
+            Some("mytool 1.2.3 Does a thing.")
+        );
+    }
+
+    /// A banner detected purely by contact info (no name-version first
+    /// line) is dropped the same way, and — the general-rule requirement —
+    /// this must work without ever comparing against the tool's own name.
+    #[test]
+    fn a_contact_info_only_banner_is_dropped() {
+        let raw = "Homepage: https://example.com/mytool\nSupport: help@example.com\n\n\
+                    Does a thing well.\n\nUsage: mytool [OPTIONS]\n";
+        let parsed = parse_named(raw, "mytool");
+        assert_eq!(parsed.description.as_deref(), Some("Does a thing well."));
+    }
+
+    /// A multi-sentence banner-shaped first line (more than two tokens)
+    /// must not be mistaken for a `<name> <version>` banner just because it
+    /// contains a version-looking word partway through.
+    #[test]
+    fn a_sentence_merely_mentioning_a_version_number_is_not_a_banner() {
+        let raw = "Build v2 is faster than v1.\n\nSee the changelog for details.\n\n\
+                    Usage: mytool [OPTIONS]\n";
+        let parsed = parse(raw);
+        // Two *paragraphs* exist here (real fallback content follows), so
+        // the banner check genuinely runs — and must say no, because the
+        // first paragraph's line is a whole sentence (more than the two
+        // bare tokens `<name> <version>` a real banner is), not merely
+        // because there's nothing to fall back to.
+        assert_eq!(
+            parsed.description.as_deref(),
+            Some("Build v2 is faster than v1. See the changelog for details.")
+        );
     }
 }
