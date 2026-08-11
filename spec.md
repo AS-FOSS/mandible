@@ -1367,10 +1367,13 @@ project has now made four times:
   (`verbatim_count=314` against `man_shaped_count=6`) if either reading were
   assumed from the other. Fixed by a dedicated `man_shaped` check reading the
   captured text directly, never inferred from `verbatim` alone.
-- **A sweep-timing false transition** — `waagent2.0` was reported red-to-
-  green (41.9s → 21.4s) on a coverage run against **identical code**, purely
-  from machine load variance between two sweeps. A timing-derived status is
-  a statement about the machine that happened to run it, not the parser.
+- **A sweep-timing false transition** — `waagent2.0` was reported
+  `ok` → `verbatim`, a *downward* transition that a per-tool status gate
+  would have flagged red, on two coverage runs against **identical code**.
+  Its elapsed time halved between them (41.9s → 21.4s), i.e. both runs sat
+  near the 10s extract cap and machine load decided which side of it the
+  tool landed on. A timing-derived status is a statement about the machine
+  that happened to run it, not about the parser.
 - **This one** — `pct_described` punished [M-15]'s recovered synopsis flags
   by counting them as undescribed against a source that structurally cannot
   supply a description.
