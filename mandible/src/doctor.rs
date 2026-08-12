@@ -22,7 +22,7 @@ use std::fmt::Write as _;
 
 /// Print the diagnostic report for `loaded` to stdout.
 pub fn print_report(loaded: &LoadedTool) {
-    print!("{}", build_report(loaded));
+    print!("{}{}", build_report(loaded), report_hint(&loaded.tool));
 }
 
 /// Build the diagnostic report for `loaded` as a string, rather than
@@ -99,15 +99,19 @@ pub fn build_report(loaded: &LoadedTool) -> String {
         loaded.elapsed.as_secs_f64() * 1000.0
     )
     .unwrap();
-    writeln!(out).unwrap();
-    writeln!(
-        out,
-        "Found a bad parse? Run `mandible --report {}` for a paste-ready bug report.",
-        loaded.tool
-    )
-    .unwrap();
 
     out
+}
+
+/// The `--report` pointer `--doctor` prints after its diagnostic.
+///
+/// Deliberately **not** part of [`build_report`]. `report.rs` embeds
+/// `build_report`'s output verbatim inside the paste-ready block, and this
+/// line is addressed to the person at the terminal, not to the maintainer
+/// reading the pasted issue — inside that block it reads as an instruction
+/// to someone who has already followed it.
+pub fn report_hint(tool: &str) -> String {
+    format!("\nFound a bad parse? Run `mandible --report {tool}` for a paste-ready bug report.\n")
 }
 
 #[cfg(test)]

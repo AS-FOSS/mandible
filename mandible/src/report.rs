@@ -51,10 +51,27 @@ fn build_report(loaded: &LoadedTool) -> String {
 
     let mut body = String::new();
     body.push_str(&format!("mandible:   v{}\n", env!("CARGO_PKG_VERSION")));
-    body.push_str(&format!(
-        "{tool} version: {}\n",
-        scrape_version(raw.as_ref().ok(), tool).unwrap_or_else(|| "unknown".to_string())
-    ));
+    // When the banner carries no usable version, say what to do about it
+    // rather than printing a bare "unknown". Measured on this machine
+    // across curl, tar, gzip, less, du, git and unzip: most do not print
+    // their version in `--help` at all — they merely *document a
+    // `--version` flag*, which is not the same thing and must never be
+    // scraped as one. `unzip` does print one, but as prose ("UnZip 6.00 of
+    // 20 April 2009, by Debian"), which `scrape_version` deliberately
+    // rejects: loosening it to read versions out of sentences is exactly
+    // how a report ends up asserting a confidently wrong version.
+    //
+    // So the miss is the common case, not the exceptional one, and a bare
+    // "unknown" repeated on nearly every report trains the reader to skip
+    // the one line rung 0 exists to collect. Recovering it properly needs a
+    // `--version` probe — a new argv shape, and therefore a spec §6 rule 2
+    // amendment, deliberately not taken here.
+    body.push_str(&match scrape_version(raw.as_ref().ok(), tool) {
+        Some(version) => format!("{tool} version: {version}\n"),
+        None => format!(
+            "{tool} version: (not printed in --help — please paste `{tool} --version` here)\n"
+        ),
+    });
     body.push('\n');
 
     body.push_str("--- mandible --doctor ");
@@ -257,7 +274,26 @@ mod tests {
     fn report_never_panics_for_an_unresolvable_tool() {
         let loaded = crate::pipeline::load("definitely-not-a-real-tool-xyz-123");
         let report = build_report(&loaded);
-        assert!(report.contains("unknown"));
+        // An unscrapable version must ask the reporter for it by name,
+        // not print a bare "unknown": the miss is the common case (most
+        // tools never print their version in `--help`), so the line has to
+        // stay actionable rather than becoming noise the reader learns to
+        // skip. See `build_report`'s comment on why a `--version` probe is
+        // not taken instead.
+        assert!(
+            report.contains("--version` here"),
+            "the version line must tell the reporter what to paste: {report}"
+        );
         assert!(report.contains("/issues"));
+    }
+
+    /// The `--report` block embeds `doctor::build_report` verbatim, and the
+    /// `--doctor` footer pointing *at* `--report` must not ride along into
+    /// it — inside a pasted issue that line addresses someone who has
+    /// already done what it asks.
+    #[test]
+    fn the_report_block_does_not_carry_doctors_report_hint() {
+        let loaded = crate::pipeline::load("definitely-not-a-real-tool-xyz-123");
+        assert!(!build_report(&loaded).contains("Found a bad parse?"));
     }
 }
