@@ -67,119 +67,35 @@ use crate::coverage::unique_executables_on_path;
 use crate::existence::{self, FabricationKind};
 use crate::misattribution::RecordingProbe;
 use crate::status;
+use mandible_core::audit::{
+    extract_tag_override, load, parse_verdict_word, save, tag_display, verdict_path, AuditFile,
+    AuditMeta, Entry,
+};
 use mandible_core::{CommandNode, Flag};
 use mandible_extract::exec::ExecOutput;
 use mandible_extract::{default_tiers_with_probe, ExtractionResult, Runner};
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
-/// One entry in a verdict file: a sampled tool, its drawn stratum, and — once
-/// reviewed — a verdict plus an optional note. `verdict: None` is the
-/// "pending" state; every command that touches the file treats absence of a
-/// verdict as "not yet reviewed", never as an implicit skip.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Entry {
-    /// The tool name as found on `PATH` (or supplied via `--tools`).
-    pub tool: String,
-    /// The [`status::compute`] label this tool had when it was drawn —
-    /// recorded at draw time, not recomputed later, so a tool whose parse
-    /// changes between `sample` and `review` (a grammar fix landing
-    /// mid-session) still reports against the stratum it was actually
-    /// drawn from.
-    pub stratum: String,
-    /// `"correct"` / `"incomplete"` / `"wrong"` / `"skip"`, or absent while
-    /// pending. Stored as a plain string (not an enum) so a hand-edited
-    /// verdict file with an unrecognized word fails loudly at the point of
-    /// use (`parse_verdict_word`) rather than silently at deserialization.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verdict: Option<String>,
-    /// The reviewer's free-text note. Becomes an `[xfail]` `reason` for a
-    /// `wrong`/`incomplete` fixture (see [`cmd_fixtures`]).
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub note: String,
-    /// **K1 pre-tag**: the GCC-family single-dash-long-option parser defect
-    /// (`short.is_some() && long.is_none() && value_name.is_some()`, spec's
-    /// grammar item №1, deliberately not fixed before this audit runs — see
-    /// this module's own doc comment on why teaching to the test would
-    /// defeat the audit's purpose). Auto-suggested at draw time from
-    /// [`k1_signature`] (`Some(true)` when the tool's tree has at least one
-    /// matching flag, `None` when it has none), so a reviewer looking at a
-    /// GCC/Clang-family tool sees the defect already named instead of
-    /// re-deriving it flag by flag — confirmed by leaving it alone, or
-    /// overridden with a `k1=true`/`k1=false` token anywhere in the verdict
-    /// line ([`cmd_review`]/[`cmd_ingest`]). [`cmd_report`] excludes
-    /// `Some(true)` entries from its "K1-excluded" accuracy view.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub k1: Option<bool>,
-    /// **K2 pre-tag**: the existence detector's own tokenizer gap
-    /// (`xtask/src/existence.rs`'s `line_start_words` only ever considered
-    /// each line's *first* token — a multi-column or comma-separated
-    /// applet/subcommand list, e.g. `busybox`/`openssl`, reports every
-    /// column after the first as "fabricated" even though it is right there
-    /// in the raw text). Auto-suggested at draw time from
-    /// [`k2_signature`]: `Some(true)` when every subcommand-kind existence
-    /// fabrication for this tool is explained by a token appearing
-    /// somewhere else on its line (detector noise, not parser fabrication),
-    /// `Some(false)` when at least one is not so explained (worth a real
-    /// look), `None` when the tool has no subcommand-kind fabrications to
-    /// judge at all. Same confirm-by-leaving-alone /
-    /// override-with-`k2=true`/`k2=false` treatment as `k1`, and its own
-    /// "K2-excluded" view in [`cmd_report`].
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub k2: Option<bool>,
-    /// `Some(reason)` when this entry was force-included in the sample
-    /// outside the normal stratified draw — the motivating case is the 14
-    /// tools `find_description_gap` (commit `3464b0c`) promoted
-    /// `low-confidence` -> `ok` during a declared grammar freeze: an
-    /// unaudited heuristic minted `ok` labels that now sit in the exact
-    /// stratum this audit samples from, so they are included
-    /// *unconditionally* rather than trusted to turn up in the random draw
-    /// (see [`cmd_sample`]'s `force_include` parameter and
-    /// `load_force_include`). `None` for an entry drawn by the ordinary
-    /// stratified sample. [`cmd_report`] tallies these under their own
-    /// synthetic stratum rather than blending them into the tool's nominal
-    /// status stratum, so the forced inclusion stays visible and auditable
-    /// instead of silently diluting (or inflating) the random draw's own
-    /// numbers.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub include_reason: Option<String>,
-}
-
+/// The manifest schema itself — [`Entry`], [`AuditFile`], [`AuditMeta`], the
+/// load/save functions, and the verdict-word/tag-override parsers — lives in
+/// [`mandible_core::audit`], not here, so `mandible --review` can read and
+/// write the exact same `audit/<seed>.toml` file this module produces
+/// without a second, drifting copy of the format. See that module's own doc
+/// comment for the full rationale. What stays here: drawing the sample and
+/// computing the K1/K2/K3 pre-tag suggestions, both of which need this
+/// crate's own detectors (`status`, `existence`, `misattribution`) and a
+/// live extraction pass — `mandible --review` never recomputes either, it
+/// only displays what's already in the file.
+///
 /// The synthetic stratum label [`cmd_report`] uses for every entry carrying
 /// an [`Entry::include_reason`], so a force-included tool is tallied
 /// separately from the ordinary stratified draw rather than blended into
 /// its nominal [`Entry::stratum`] — see that field's doc comment.
 const FORCED_INCLUSION_STRATUM: &str = "forced-inclusion";
-
-/// The persisted state of one audit run: everything needed to resume, and
-/// nothing that would make two runs of `sample` with the same `--seed`
-/// disagree with each other.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditFile {
-    meta: AuditMeta,
-    #[serde(default, rename = "entry")]
-    entries: Vec<Entry>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct AuditMeta {
-    seed: u64,
-    sample_size: usize,
-}
-
-impl AuditFile {
-    fn pending(&self) -> impl Iterator<Item = usize> + '_ {
-        self.entries
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| e.verdict.is_none())
-            .map(|(i, _)| i)
-    }
-}
 
 // ---------------------------------------------------------------------
 // A minimal, dependency-free deterministic PRNG.
@@ -378,11 +294,90 @@ fn k2_signature(report: &existence::ExistenceReport, raw: &str) -> Option<bool> 
     }
 }
 
-/// Build one [`Entry`] from a classified tool, computing both pre-tag
-/// suggestions from the same single extraction pass — no second probe, same
+/// True for a node carrying nothing at all: no flags, no subcommands, and
+/// no summary — the same `empty` predicate `status::structure_sanity`'s own
+/// `count_suspicious` uses, reused here rather than redefined so the two
+/// "is this node genuinely empty" checks in this codebase can never drift
+/// apart.
+fn is_bare_stub(node: &CommandNode) -> bool {
+    node.flags.is_empty() && node.subcommands.is_empty() && node.summary.is_none()
+}
+
+/// True for a bare stub ([`is_bare_stub`]) that is *also* not
+/// [`CommandNode::heading_attested`] — its name came from a native/cobra
+/// artifact (e.g. a `__complete` candidate) rather than a recognized
+/// `--help` heading. This is provable from the single extraction pass this
+/// pre-tag is computed from: `help_text::raw_help` refuses to probe any
+/// node whose `heading_attested` bit is false (`mandible-extract/src/
+/// help_text/mod.rs`), so unlike an ordinary un-recursed subcommand — merely
+/// not fetched *yet* — this one structurally cannot ever be, live
+/// navigation included. `git-lfs`'s tree is the motivating case: 36 nodes,
+/// 34 of them exactly this shape, which is also why its
+/// `status::compute` label is `suspicious`.
+fn is_attestation_gated_stub(node: &CommandNode) -> bool {
+    is_bare_stub(node) && !node.heading_attested
+}
+
+/// Count of [`is_attestation_gated_stub`] matches across `node` and every
+/// descendant — called only on `root`'s subcommands, never on `root`
+/// itself, matching `status::structure_sanity`'s own root-exclusion
+/// (`root` is the literal executable name resolved from `PATH`, never
+/// something a tier guessed at, so it needs no heading to attest to).
+fn count_attestation_gated_stubs(node: &CommandNode) -> usize {
+    let this = usize::from(is_attestation_gated_stub(node));
+    this + node
+        .subcommands
+        .iter()
+        .map(count_attestation_gated_stubs)
+        .sum::<usize>()
+}
+
+/// Total flag count across `node` and every descendant.
+fn total_flags(node: &CommandNode) -> usize {
+    node.flags.len() + node.subcommands.iter().map(total_flags).sum::<usize>()
+}
+
+/// True when `root` has at least one subcommand yet the whole tree — root
+/// included — carries zero flags anywhere. `openssl`'s shape: the top-level
+/// `--help` is a bare command grid with no options section at all, so the
+/// single root-only extraction pass this pre-tag is computed from
+/// ([`classify_one`]/[`Runner::extract_full`], which never recurses) never
+/// surfaces a single flag, and each of its 151 subcommands' own help
+/// genuinely was never fetched. Most real tools' root `--help` documents at
+/// least one flag (`-h`/`--version` if nothing else), which is what makes
+/// "zero flags anywhere, but subcommands exist" a reasonable single-pass
+/// proxy for this specific gap rather than every multi-level tool's
+/// ordinary lazy-fill state (which would otherwise over-tag almost every
+/// sampled tool, since `extract_full` never recurses into subcommands at
+/// all).
+fn has_unfetched_subcommand_help(root: &CommandNode) -> bool {
+    !root.subcommands.is_empty() && total_flags(root) == 0
+}
+
+/// The K3 pre-tag suggestion (see [`mandible_core::audit::Entry::k3`]):
+/// `Some(true)` when `root`'s single-pass snapshot shows either known
+/// cause — an attestation-gated stub anywhere in the tree, or the
+/// whole-tree-zero-flags shape — `None` otherwise. Same "no `Some(false)`"
+/// convention as [`k1_signature`]: there is nothing to assert-not for a
+/// tool that shows neither shape.
+fn k3_signature(root: &CommandNode) -> Option<bool> {
+    let gated_stubs: usize = root
+        .subcommands
+        .iter()
+        .map(count_attestation_gated_stubs)
+        .sum();
+    if gated_stubs > 0 || has_unfetched_subcommand_help(root) {
+        Some(true)
+    } else {
+        None
+    }
+}
+
+/// Build one [`Entry`] from a classified tool, computing every pre-tag
+/// suggestion from the same single extraction pass — no second probe, same
 /// property [`Classified`]'s own doc comment describes. Shared by
 /// [`sample_stratified`] (the ordinary draw) and [`cmd_sample`]'s
-/// force-include path, so the two can never compute a K1/K2 suggestion
+/// force-include path, so the two can never compute a K1/K2/K3 suggestion
 /// differently.
 fn entry_from_classified(
     tool: String,
@@ -394,6 +389,7 @@ fn entry_from_classified(
         (Some(root), Some(raw)) => k2_signature(&existence::detect(raw, root), raw),
         _ => None,
     };
+    let k3 = classified.result.root.as_ref().and_then(k3_signature);
     Entry {
         tool,
         stratum: classified.stratum.to_string(),
@@ -401,6 +397,7 @@ fn entry_from_classified(
         note: String::new(),
         k1,
         k2,
+        k3,
         include_reason,
     }
 }
@@ -490,32 +487,6 @@ fn sample_stratified(
     }
     entries.sort_by(|a, b| a.tool.cmp(&b.tool));
     (entries, counts)
-}
-
-fn verdict_path(dir: &Path, seed: u64) -> PathBuf {
-    dir.join(format!("{seed}.toml"))
-}
-
-fn load(path: &Path) -> anyhow::Result<AuditFile> {
-    let raw = std::fs::read_to_string(path).map_err(|e| {
-        anyhow::anyhow!(
-            "reading {}: {e} (run `xtask audit sample` first)",
-            path.display()
-        )
-    })?;
-    toml::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {}: {e}", path.display()))
-}
-
-fn save(path: &Path, file: &AuditFile) -> anyhow::Result<()> {
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| anyhow::anyhow!("creating {}: {e}", parent.display()))?;
-        }
-    }
-    let text = toml::to_string_pretty(file)
-        .map_err(|e| anyhow::anyhow!("serializing {}: {e}", path.display()))?;
-    std::fs::write(path, text).map_err(|e| anyhow::anyhow!("writing {}: {e}", path.display()))
 }
 
 /// Read a force-include file: `<tool> <reason...>` per line (`#` comments
@@ -668,69 +639,6 @@ fn render_snapshot(node: Option<&CommandNode>) -> String {
     }
 }
 
-/// Parse a verdict word (`c`/`correct`, `i`/`incomplete`, `w`/`wrong`,
-/// `s`/`skip`) to its canonical spelling. Shared by [`cmd_review`] (typed
-/// live) and [`cmd_ingest`] (read from a verdicts file), so the two entry
-/// points can never disagree about what counts as a valid verdict.
-fn parse_verdict_word(word: &str) -> anyhow::Result<&'static str> {
-    match word {
-        "c" | "correct" => Ok("correct"),
-        "i" | "incomplete" => Ok("incomplete"),
-        "w" | "wrong" => Ok("wrong"),
-        "s" | "skip" => Ok("skip"),
-        other => anyhow::bail!(
-            "unrecognized verdict {other:?} — expected one of: c/correct, i/incomplete, w/wrong, s/skip"
-        ),
-    }
-}
-
-/// Human-readable line for a pre-tag, shown to the reviewer before they
-/// type a verdict — the whole point of [`Entry::k1`]/[`Entry::k2`] is that
-/// this line lets a reviewer confirm-or-override in one glance instead of
-/// re-deriving the same known defect per flag.
-fn tag_display(label: &str, tag: Option<bool>, override_syntax: &str) -> String {
-    match tag {
-        Some(true) => format!(
-            "{label}: suggested TRUE — leave as-is to confirm, or add `{override_syntax}=false` \
-             to your verdict to override"
-        ),
-        Some(false) => format!(
-            "{label}: suggested FALSE (fabrications present but not fully explained by the \
-             known class — worth a real look) — add `{override_syntax}=true` to override"
-        ),
-        None => format!("{label}: not flagged (nothing of this class detected)"),
-    }
-}
-
-/// Pull any `k1=true`/`k1=false`/`k2=true`/`k2=false` token (case-
-/// insensitive) for `key` out of `text`, in place, returning the override it
-/// specified (if any). The token is removed from `text` regardless of
-/// position — a reviewer's note is free-form prose, not a fixed field
-/// order — so what remains is the plain note with no tag syntax left in it.
-/// Shared by [`cmd_review`] and [`cmd_ingest`] so a verdict typed live and
-/// one read from a verdicts file parse identically.
-fn extract_tag_override(text: &mut String, key: &str) -> Option<bool> {
-    let true_tok = format!("{key}=true");
-    let false_tok = format!("{key}=false");
-    let mut found = None;
-    let kept: Vec<&str> = text
-        .split_whitespace()
-        .filter(|tok| {
-            if tok.eq_ignore_ascii_case(&true_tok) {
-                found = Some(true);
-                false
-            } else if tok.eq_ignore_ascii_case(&false_tok) {
-                found = Some(false);
-                false
-            } else {
-                true
-            }
-        })
-        .collect();
-    *text = kept.join(" ");
-    found
-}
-
 /// `xtask audit review`: the interactive loop. Presents the raw `--help`
 /// text and the parsed tree for every still-pending entry, one at a time,
 /// reads a verdict line (`<word> [note...]`) from `input`, and persists the
@@ -765,9 +673,9 @@ pub fn cmd_review(
         output,
         "{} pending of {} total. Verdict: c(orrect) / i(ncomplete) / w(rong) / s(kip), \
          optionally followed by a space and a note. Add `k1=true`/`k1=false`/`k2=true`/\
-         `k2=false` anywhere in the note to override a pre-tag; omitting it confirms the \
-         suggestion shown below. Blank line or end of input stops (already-recorded \
-         verdicts are saved after every tool).",
+         `k2=false`/`k3=true`/`k3=false` anywhere in the note to override a pre-tag; omitting \
+         it confirms the suggestion shown below. Blank line or end of input stops \
+         (already-recorded verdicts are saved after every tool).",
         pending.len(),
         file.entries.len()
     )?;
@@ -777,6 +685,7 @@ pub fn cmd_review(
         let stratum = file.entries[idx].stratum.clone();
         let k1 = file.entries[idx].k1;
         let k2 = file.entries[idx].k2;
+        let k3 = file.entries[idx].k3;
         let include_reason = file.entries[idx].include_reason.clone();
         let classified = classify_one(&tool);
         writeln!(output, "\n=== {tool}  (stratum: {stratum}) ===")?;
@@ -792,6 +701,11 @@ pub fn cmd_review(
             output,
             "{}",
             tag_display("K2 (existence-detector tokenizer gap)", k2, "k2")
+        )?;
+        writeln!(
+            output,
+            "{}",
+            tag_display("K3 (subcommand help never fetched)", k3, "k3")
         )?;
         writeln!(output, "--- raw --help ---")?;
         writeln!(
@@ -827,6 +741,7 @@ pub fn cmd_review(
         let verdict = parse_verdict_word(word)?;
         let k1_override = extract_tag_override(&mut note, "k1");
         let k2_override = extract_tag_override(&mut note, "k2");
+        let k3_override = extract_tag_override(&mut note, "k3");
 
         file.entries[idx].verdict = Some(verdict.to_string());
         file.entries[idx].note = note;
@@ -835,6 +750,9 @@ pub fn cmd_review(
         }
         if let Some(v) = k2_override {
             file.entries[idx].k2 = Some(v);
+        }
+        if let Some(v) = k3_override {
+            file.entries[idx].k3 = Some(v);
         }
         save(&path, &file)?;
         writeln!(output, "recorded: {verdict}")?;
@@ -876,9 +794,10 @@ pub fn cmd_emit(dir: &Path, seed: u64, emit_dir: &Path) -> anyhow::Result<()> {
             buf.push_str(&format!("forced inclusion: {reason}\n"));
         }
         buf.push_str(&format!(
-            "{}\n{}\n\n",
+            "{}\n{}\n{}\n\n",
             tag_display("K1 (single-dash-long defect)", entry.k1, "k1"),
             tag_display("K2 (existence-detector tokenizer gap)", entry.k2, "k2"),
+            tag_display("K3 (subcommand help never fetched)", entry.k3, "k3"),
         ));
         buf.push_str("=== raw --help ===\n");
         buf.push_str(
@@ -901,8 +820,8 @@ pub fn cmd_emit(dir: &Path, seed: u64, emit_dir: &Path) -> anyhow::Result<()> {
     );
     println!(
         "review offline, then write a verdicts file (one line per tool: `<tool> <verdict> \
-         [note...]`, optionally including `k1=true`/`k1=false`/`k2=true`/`k2=false` anywhere \
-         in the note to override a pre-tag) and run: \
+         [note...]`, optionally including `k1=true`/`k1=false`/`k2=true`/`k2=false`/\
+         `k3=true`/`k3=false` anywhere in the note to override a pre-tag) and run: \
          cargo run -p xtask -- audit ingest --seed {seed} --verdicts <file>"
     );
     Ok(())
@@ -954,6 +873,7 @@ pub fn cmd_ingest(
             .map_err(|e| anyhow::anyhow!("{}:{}: {e}", verdicts_path.display(), lineno + 1))?;
         let k1_override = extract_tag_override(&mut note, "k1");
         let k2_override = extract_tag_override(&mut note, "k2");
+        let k3_override = extract_tag_override(&mut note, "k3");
 
         let Some(entry) = file.entries.iter_mut().find(|e| e.tool == tool) else {
             unknown.push(tool.to_string());
@@ -970,6 +890,9 @@ pub fn cmd_ingest(
         }
         if let Some(v) = k2_override {
             entry.k2 = Some(v);
+        }
+        if let Some(v) = k3_override {
+            entry.k3 = Some(v);
         }
         applied += 1;
     }
@@ -1167,11 +1090,14 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
 
     let k1_tagged = file.entries.iter().filter(|e| e.k1 == Some(true)).count();
     let k2_tagged = file.entries.iter().filter(|e| e.k2 == Some(true)).count();
+    let k3_tagged = file.entries.iter().filter(|e| e.k3 == Some(true)).count();
     println!(
-        "\nK1/K2 sensitivity ({k1_tagged} entr{k1_s} tagged K1, {k2_tagged} entr{k2_s} tagged \
-         K2 — see xtask/src/audit.rs's Entry::k1/k2 doc comments):",
+        "\nK1/K2/K3 sensitivity ({k1_tagged} entr{k1_s} tagged K1, {k2_tagged} entr{k2_s} \
+         tagged K2, {k3_tagged} entr{k3_s} tagged K3 — see mandible_core::audit's \
+         Entry::k1/k2/k3 doc comments and this module's *_signature functions):",
         k1_s = if k1_tagged == 1 { "y" } else { "ies" },
         k2_s = if k2_tagged == 1 { "y" } else { "ies" },
+        k3_s = if k3_tagged == 1 { "y" } else { "ies" },
     );
     println!("view                      correct/judged   accuracy   95% CI");
     let (c, j) = accuracy_over(file.entries.iter());
@@ -1180,12 +1106,14 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     print_accuracy_line("K1-excluded", c, j);
     let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k2 != Some(true)));
     print_accuracy_line("K2-excluded", c, j);
+    let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k3 != Some(true)));
+    print_accuracy_line("K3-excluded", c, j);
     let (c, j) = accuracy_over(
         file.entries
             .iter()
-            .filter(|e| e.k1 != Some(true) && e.k2 != Some(true)),
+            .filter(|e| e.k1 != Some(true) && e.k2 != Some(true) && e.k3 != Some(true)),
     );
-    print_accuracy_line("K1+K2-excluded", c, j);
+    print_accuracy_line("K1+K2+K3-excluded", c, j);
 
     let mut flagged: Vec<&Entry> = file
         .entries
@@ -1422,6 +1350,7 @@ mod tests {
     use super::*;
     use mandible_core::{Provenance, Source};
     use std::io::Cursor;
+    use std::path::PathBuf;
 
     fn synthetic_classified(specs: &[(&str, &str)]) -> Vec<(String, Classified)> {
         // Builds fake (tool, stratum) pairs without touching a real
@@ -1590,6 +1519,7 @@ mod tests {
                     note: String::new(),
                     k1: None,
                     k2: None,
+                    k3: None,
                     include_reason: None,
                 })
                 .collect(),
@@ -1852,6 +1782,88 @@ mod tests {
     }
 
     // -------------------------------------------------------------
+    // K3 pre-tag
+    // -------------------------------------------------------------
+
+    #[test]
+    fn k3_signature_flags_an_attestation_gated_stub() {
+        // git-lfs's shape: a real, non-empty root (so the whole-tree-zero-
+        // flags cause can't be what's firing) with at least one subcommand
+        // whose name came from a native/cobra artifact, never a recognized
+        // heading — `CommandNode::new` defaults `heading_attested` to
+        // `false`, which is the honest state for exactly this case.
+        let mut root = CommandNode::new("git-lfs", Provenance::single(Source::HelpText));
+        root.flags
+            .push(Flag::long("version", Provenance::single(Source::HelpText)));
+        root.subcommands.push(CommandNode::new(
+            "install",
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(count_attestation_gated_stubs(&root.subcommands[0]), 1);
+        assert_eq!(k3_signature(&root), Some(true));
+    }
+
+    #[test]
+    fn k3_signature_flags_unfetched_subcommand_help_when_the_whole_tree_has_zero_flags() {
+        // openssl's shape: a bare command grid at the root (no options
+        // section at all, so zero flags anywhere) with subcommands that
+        // *are* heading_attested — real names, just never individually
+        // probed by the single root-only extraction pass this signature
+        // is computed from.
+        let mut root = CommandNode::new("openssl", Provenance::single(Source::HelpText));
+        for name in ["asn1parse", "ca", "ciphers"] {
+            let mut child = CommandNode::new(name, Provenance::single(Source::HelpText));
+            child.heading_attested = true;
+            root.subcommands.push(child);
+        }
+        assert!(
+            has_unfetched_subcommand_help(&root),
+            "root has subcommands but zero flags anywhere"
+        );
+        let gated: usize = root
+            .subcommands
+            .iter()
+            .map(count_attestation_gated_stubs)
+            .sum();
+        assert_eq!(
+            gated, 0,
+            "these subcommands are heading_attested, so cause (a) must not also fire"
+        );
+        assert_eq!(k3_signature(&root), Some(true));
+    }
+
+    #[test]
+    fn k3_signature_is_none_for_an_ordinary_tool() {
+        // git's shape: the root itself documents flags, and its
+        // subcommands are heading_attested (real, recognized-heading
+        // names) even though their own flags haven't been fetched yet by
+        // this single pass — the ordinary, unremarkable lazy-fill state
+        // every multi-level tool is in at sample time.
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        root.flags
+            .push(Flag::long("version", Provenance::single(Source::HelpText)));
+        let mut child = CommandNode::new("clone", Provenance::single(Source::HelpText));
+        child.heading_attested = true;
+        root.subcommands.push(child);
+        assert_eq!(
+            k3_signature(&root),
+            None,
+            "an ordinary un-recursed subcommand must not be tagged K3"
+        );
+    }
+
+    #[test]
+    fn count_attestation_gated_stubs_excludes_the_root_itself() {
+        // The root is definitionally real (the literal name resolved from
+        // PATH), never something a tier guessed at from a heading — same
+        // exclusion `status::structure_sanity` already makes. A childless,
+        // flagless, unattested root must not tag K3 on that basis alone.
+        let root = CommandNode::new("sh", Provenance::single(Source::HelpText));
+        assert!(!root.heading_attested);
+        assert_eq!(k3_signature(&root), None);
+    }
+
+    // -------------------------------------------------------------
     // Tag-override parsing
     // -------------------------------------------------------------
 
@@ -2007,6 +2019,7 @@ mod tests {
             note: String::new(),
             k1: None,
             k2: None,
+            k3: None,
             include_reason: None,
         };
         assert_eq!(effective_stratum(&e), "ok");
@@ -2022,6 +2035,7 @@ mod tests {
             note: String::new(),
             k1,
             k2,
+            k3: None,
             include_reason: None,
         }
     }
@@ -2054,15 +2068,37 @@ mod tests {
     }
 
     #[test]
-    fn cmd_report_runs_cleanly_over_a_mixed_k1_k2_and_forced_sample() {
+    fn k3_excluded_view_drops_only_k3_true_entries() {
+        let mut tagged = entry("openssl", Some("incomplete"), None, None);
+        tagged.k3 = Some(true);
+        let entries = [
+            tagged,
+            entry("git", Some("correct"), None, None),
+            entry("git-lfs", Some("incomplete"), None, None),
+        ];
+        let (correct, judged) = accuracy_over(entries.iter().filter(|e| e.k3 != Some(true)));
+        assert_eq!(
+            (correct, judged),
+            (1, 2),
+            "the K3-tagged entry must not count toward this view at all"
+        );
+    }
+
+    #[test]
+    fn cmd_report_runs_cleanly_over_a_mixed_k1_k2_k3_and_forced_sample() {
         // Smoke test: build a verdict file exercising every field this
-        // task added (k1, k2, include_reason) and confirm `cmd_report`
+        // task added (k1, k2, k3, include_reason) and confirm `cmd_report`
         // runs to completion without panicking on any of them.
         let tmp = tempfile::tempdir().unwrap();
         let path = write_sample_file(
             tmp.path(),
             42,
-            &[("clang", "ok"), ("busybox", "ok"), ("zoxide", "ok")],
+            &[
+                ("clang", "ok"),
+                ("busybox", "ok"),
+                ("zoxide", "ok"),
+                ("openssl", "suspicious"),
+            ],
         );
         let mut f = load(&path).unwrap();
         f.entries[0].verdict = Some("wrong".to_string());
@@ -2071,6 +2107,8 @@ mod tests {
         f.entries[1].k2 = Some(true);
         f.entries[2].verdict = Some("correct".to_string());
         f.entries[2].include_reason = Some("unaudited promotion example".to_string());
+        f.entries[3].verdict = Some("incomplete".to_string());
+        f.entries[3].k3 = Some(true);
         save(&path, &f).unwrap();
 
         cmd_report(tmp.path(), 42).unwrap();
