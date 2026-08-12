@@ -2,10 +2,13 @@
 //!
 //! Attempted second (after the free, zero-spawn Tier A) because it costs
 //! 1-2 spawns per node and is the only source that exists for every tool
-//! everywhere. Reads stdout *and* stderr and does not require exit 0 —
-//! `openssl --help` writes only to stderr with exit 0, `ip --help` writes
-//! only to stderr with exit 255 (spec [M-8]) — preferring stdout when both
-//! are non-empty. Recursion happens per-node, lazily, through the runner
+//! everywhere. Reads stdout *and* stderr and does not require exit 0:
+//! `openssl --help` writes only to stderr with exit 0, and `ip --help`
+//! writes only to stderr with exit 255 (spec [M-8]). When both streams carry
+//! bytes, the parser reads whichever one looks like help rather than
+//! whichever one is merely non-empty; see [`pick_stream`] for the truth
+//! table and for the `openssl cmp` case that made the older rule untenable.
+//! Recursion happens per-node, lazily, through the runner
 //! (spec §5.2/batch 3's lazy runner); this tier itself only ever parses
 //! the one node it's asked for.
 //!

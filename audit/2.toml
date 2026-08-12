@@ -366,50 +366,64 @@ k1 = true
 [[entry]]
 tool = "pkg-config"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "pptpsetup"
 stratum = "ok"
+verdict = "incomplete"
+note = "bad parse"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "psfaddtable"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "ptargrep"
 stratum = "ok"
+verdict = "wrong"
+note = "tools problem: typing --help shits out some code, but without --help it really prints the help text for some reasonm"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "qemu-arm64-static"
 stratum = "ok"
+verdict = "wrong"
+note = "new 3 column format, also badly parsed flags, it separated the -help into '-h elp'"
 k1 = true
 
 [[entry]]
 tool = "renice"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "rmiregistry"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "rubycalls-bpfcc"
 stratum = "verbatim"
+verdict = "skip"
 
 [[entry]]
 tool = "rubyobjnew-bpfcc"
 stratum = "ok"
+verdict = "incomplete"
+note = "missing positinal arguments, i think we never taken those into account"
 k1 = true
 
 [[entry]]
 tool = "run-one-until-failure"
 stratum = "verbatim"
+verdict = "skip"
 
 [[entry]]
 tool = "rust-lldb"
