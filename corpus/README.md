@@ -114,11 +114,65 @@ must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 [contract.must_contain_flags_by_path]
 restore = ["--source", "--staged"]
 
+# Which dimensions of the tree a human actually verified before blessing
+# this fixture. Optional; see "What `--bless` does and does not assert"
+# below for the values and why an absent field means *no* scope, never
+# every scope.
+verdict_scope = ["flags", "subcommands"]
+
 [xfail]                              # present only while the bug is unfixed
 broken = true
 reason = "command groups under flush-left headings are dropped; renders verbatim"
 issue = "https://github.com/<org>/<repo>/issues/NNN"  # optional
 ```
+
+### What `--bless` does and does not assert: `verdict_scope`
+
+`--bless` freezes the *entire* tree into `expected.snap` — node summaries,
+flag descriptions, usage lines, all of it — regardless of which parts of
+that tree a human actually read before running it. That gap is exactly
+what the lsof cautionary tale above cost: a snapshot that matched itself
+perfectly while three quarters of its flag descriptions were wrong,
+because the person who blessed it never looked.
+
+`[contract]`'s `verdict_scope` makes the *claim* a bless makes machine-
+readable instead of leaving it to a prose comment (or worse, to nothing).
+It is a list of which dimensions of the tree were actually looked at by a
+human before this fixture was blessed:
+
+- `"flags"` — the flag list (names, short/long spellings) was checked
+  against the raw capture.
+- `"subcommands"` — the subcommand tree was checked against the raw
+  capture.
+- `"descriptions"` — flag and node *prose* was checked against the raw
+  capture (`corpus/README.md`'s full bless workflow, "every flag's
+  description against the line it came from").
+- `"usage"` — usage/synopsis lines were checked.
+
+**An absent `verdict_scope` means no scope is claimed — never "every
+dimension."** A blessed `expected.snap` freezes every field whether or
+not a human read it, so treating silence as "everything verified" would
+let the exact overclaim this field exists to prevent survive by omission.
+This is deliberately the conservative reading: it is always safe to add a
+truthful claim later, never safe to have quietly claimed one that wasn't
+made. Most fixtures in this corpus (everything captured before this field
+existed, and the hand-authored `git`/`tar` seed fixtures, which went
+through the full bless workflow but never had the claim recorded) are
+unscoped for exactly this reason — that does not mean they weren't
+reviewed, only that the review's scope isn't machine-readable for them.
+
+`xtask corpus --show <fixture>` prints a fixture's scope alongside its
+raw capture and parsed tree; a checking run's per-fixture line adds a
+`verdict_scope: ...` note when one is set; the `--format markdown`
+transition report carries a `scope` column so a reviewer scanning a green
+run can see, without opening `meta.toml`, which rows have unreviewed
+prose. `check_contract` never reads this field — it is a record of what a
+human checked by eye, not itself a check.
+
+The 36 `audit-seed2` fixtures promoted from the seed-2 human audit
+(`git show c9bfe76`) all carry `verdict_scope = ["flags", "subcommands"]`,
+matching that audit's own declared scope: the reviewer judged flag and
+subcommand accuracy only, and never looked at prose.
 
 Lifecycle rules, enforced by `cargo xtask corpus`:
 

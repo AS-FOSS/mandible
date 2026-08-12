@@ -160,6 +160,80 @@ struct ContractMeta {
     /// changes shows up on a subcommand instead.
     #[serde(default)]
     must_contain_flags_by_path: std::collections::BTreeMap<String, Vec<String>>,
+    /// Which dimensions of this fixture's tree a human actually verified
+    /// before blessing it — the machine-readable replacement for the
+    /// "SCOPE OF REVIEW" prose comment 36 `audit-seed2` fixtures each
+    /// carried a copy of (`git show c9bfe76`). `check_contract` never
+    /// reads this: it is not itself a check, it is a record of which
+    /// checks a human *stood in for* by eye when they blessed the
+    /// snapshot — `expected.snap` freezes every field regardless
+    /// (`corpus/README.md`: "a full expected.snap freezes everything"),
+    /// so without this, a passing fixture cannot be told apart from one
+    /// whose flags were reviewed but whose descriptions never were. It
+    /// is carried into every report (`show_fixture`, the text and
+    /// markdown corpus reports) so that question is answered by reading
+    /// data, not by grepping `meta.toml` prose.
+    ///
+    /// **Absent means "no scope claimed", not "full scope".** A blessed
+    /// snapshot always freezes every field whether or not a human looked
+    /// at it, so treating silence as "everything verified" would let the
+    /// exact overclaim this field exists to prevent survive by omission
+    /// — the lsof cautionary tale (`corpus/README.md`) was precisely a
+    /// blessed tree nobody had actually read. An empty scope makes the
+    /// weakest possible claim (none at all), which is the only safe
+    /// default when the entire point is to never overclaim. See
+    /// `verdict_scope_defaults_to_empty_when_absent`.
+    #[serde(default)]
+    verdict_scope: Vec<VerdictScope>,
+}
+
+/// One dimension of a fixture's tree that a `verdict_scope` entry can
+/// claim was actually reviewed by a human before the fixture was
+/// blessed. `Flags` and `Subcommands` are the two the seed-2 audit
+/// workflow actually checks (`corpus/README.md`, `git show c9bfe76`);
+/// `Descriptions` and `Usage` exist so a fixture whose bless *did*
+/// include a prose read — `corpus/README.md`'s own full bless workflow
+/// asks a reviewer to check "every flag's description against the line
+/// it came from" — has somewhere to say so, rather than the schema
+/// hard-coding today's one audit's scope as the only kind of review that
+/// can ever be recorded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum VerdictScope {
+    Flags,
+    Subcommands,
+    Descriptions,
+    Usage,
+}
+
+impl VerdictScope {
+    fn as_str(self) -> &'static str {
+        match self {
+            VerdictScope::Flags => "flags",
+            VerdictScope::Subcommands => "subcommands",
+            VerdictScope::Descriptions => "descriptions",
+            VerdictScope::Usage => "usage",
+        }
+    }
+}
+
+/// Render a `verdict_scope` list for a report: the comma-joined
+/// dimension names, or `"unscoped"` when the list is empty. Centralized
+/// so every surface (`show_fixture`, the text report's per-fixture
+/// detail, the markdown table's `scope` column) renders an absent scope
+/// the same visible, unmissable way — never blank space that reads the
+/// same as "not shown at all", which would quietly defeat the reason
+/// this field exists.
+fn verdict_scope_label(scope: &[VerdictScope]) -> String {
+    if scope.is_empty() {
+        "unscoped".to_string()
+    } else {
+        scope
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 /// `[xfail]`: present only while the fixture's bug is unfixed.
@@ -867,6 +941,19 @@ fn run_with_ceiling(
             )),
         }
 
+        // Only when a scope is actually recorded — an unscoped fixture
+        // (the overwhelming majority, today) stays silent here exactly
+        // as it always has; `show_fixture` is where "unscoped" is spelled
+        // out explicitly for a fixture being inspected one at a time.
+        // Purely informational: never affects `all_pass`, since a scope
+        // claim is a record of what a human checked, not itself a check.
+        if !fixture.meta.contract.verdict_scope.is_empty() {
+            detail.push(format!(
+                "verdict_scope: {}",
+                verdict_scope_label(&fixture.meta.contract.verdict_scope)
+            ));
+        }
+
         let outcome = if is_xfail {
             if all_pass {
                 // The promote message belongs in `detail` too, not just
@@ -909,6 +996,7 @@ fn run_with_ceiling(
             detail: detail.clone(),
             current: summarize(&fixture.meta.tool.name, root.as_ref()),
             previous: previous_summary(fixture),
+            verdict_scope: fixture.meta.contract.verdict_scope.clone(),
         });
 
         outcomes.push(outcome);
@@ -1168,6 +1256,12 @@ struct FixtureRow {
     detail: Vec<String>,
     current: TreeSummary,
     previous: Option<TreeSummary>,
+    /// What a human actually verified before this fixture was blessed
+    /// (`ContractMeta::verdict_scope`'s doc comment) — surfaced as the
+    /// table's own `scope` column so a reviewer sees, without opening
+    /// `meta.toml`, that a green row's descriptions may still be
+    /// unreviewed prose.
+    verdict_scope: Vec<VerdictScope>,
 }
 
 /// Cap on how many names a single markdown table cell shows inline before
@@ -1262,8 +1356,8 @@ fn render_markdown_report(
     out.push_str(&format!(
         "**{total} fixture(s):** {green} ok, {xfail} xfail (as expected), {failed} failed.\n\n",
     ));
-    out.push_str("| fixture | outcome | status | nodes | flags | change |\n");
-    out.push_str("|---|---|---|---|---|---|\n");
+    out.push_str("| fixture | outcome | status | nodes | flags | scope | change |\n");
+    out.push_str("|---|---|---|---|---|---|---|\n");
 
     let mut details_sections: Vec<String> = Vec::new();
 
@@ -1382,12 +1476,13 @@ fn render_markdown_report(
         }
 
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.label),
             row.status_word,
             md_escape(&status_cell),
             nodes_cell,
             flags_cell,
+            md_escape(&verdict_scope_label(&row.verdict_scope)),
             md_escape(&change_parts.join("; ")),
         ));
     }
@@ -1471,6 +1566,18 @@ pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
         );
     } else {
         println!("status:  expected to pass");
+    }
+    if fixture.meta.contract.verdict_scope.is_empty() {
+        println!(
+            "scope:   unscoped — no dimension of this tree is asserted human-verified \
+             (a passing snapshot check still freezes every field, descriptions included)"
+        );
+    } else {
+        println!(
+            "scope:   {} — only these dimensions were human-verified before this fixture was \
+             blessed; the rest of the tree is frozen but unreviewed",
+            verdict_scope_label(&fixture.meta.contract.verdict_scope)
+        );
     }
     println!();
 
@@ -2357,5 +2464,171 @@ reason = "newly broken"
         run(&current.root, true, ScoreFormat::Text).expect("bless run succeeds");
         let report = run(&current.root, false, ScoreFormat::Text).expect("check run succeeds");
         assert!(!report.text.contains("CONTRACT WEAKENED"));
+    }
+
+    // --- verdict_scope (machine-readable "SCOPE OF REVIEW") ---
+
+    /// The argued default: a fixture with no `verdict_scope` key at all
+    /// must parse to an empty list, never to every dimension. Silence
+    /// must mean "no claim made", not "everything reviewed" — `bless`
+    /// freezes descriptions whether or not a human read them, so the only
+    /// safe reading of an absent field is that nothing is being claimed
+    /// about it.
+    #[test]
+    fn verdict_scope_defaults_to_empty_when_absent() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // no [contract] verdict_scope key
+        let fixtures = discover_fixtures(&corpus.root).unwrap();
+        let fixture = fixtures.iter().find(|f| f.label == "mytool/1.0").unwrap();
+        assert!(
+            fixture.meta.contract.verdict_scope.is_empty(),
+            "an absent verdict_scope must default to empty (no scope claimed), never to \
+             every dimension"
+        );
+        assert_eq!(
+            verdict_scope_label(&fixture.meta.contract.verdict_scope),
+            "unscoped"
+        );
+    }
+
+    /// The documented value set parses into the matching enum variants,
+    /// in the order written.
+    #[test]
+    fn verdict_scope_parses_the_documented_values() {
+        let corpus = setup();
+        let dir = corpus.root.join("scopedtool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "scopedtool"
+version = "1.0"
+
+[[capture]]
+argv = ["scopedtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "subcommands", "descriptions", "usage"]
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        let fixtures = discover_fixtures(&corpus.root).unwrap();
+        let fixture = fixtures
+            .iter()
+            .find(|f| f.label == "scopedtool/1.0")
+            .unwrap();
+        assert_eq!(
+            fixture.meta.contract.verdict_scope,
+            vec![
+                VerdictScope::Flags,
+                VerdictScope::Subcommands,
+                VerdictScope::Descriptions,
+                VerdictScope::Usage,
+            ]
+        );
+        assert_eq!(
+            verdict_scope_label(&fixture.meta.contract.verdict_scope),
+            "flags, subcommands, descriptions, usage"
+        );
+    }
+
+    /// An unrecognized scope word must fail to parse, loudly, naming the
+    /// offending fixture — never be silently dropped or treated as an
+    /// unknown-but-tolerated variant, since a typo here would otherwise
+    /// quietly under-claim (or, worse, a future rename of a value could
+    /// silently keep matching the old string forever with a permissive
+    /// deserializer).
+    #[test]
+    fn verdict_scope_rejects_an_unknown_value() {
+        let corpus = setup();
+        let dir = corpus.root.join("badscope/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "badscope"
+version = "1.0"
+
+[[capture]]
+argv = ["badscope", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "vibes"]
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        let result = discover_fixtures(&corpus.root);
+        let err = match result {
+            Ok(_) => panic!("an unrecognized verdict_scope value must fail to parse"),
+            Err(e) => e,
+        };
+        assert!(err.to_string().contains("badscope"), "{err}");
+    }
+
+    /// Once a fixture is blessed and passes, a set `verdict_scope` shows
+    /// up in the plain-text per-fixture report line — the runner surfaces
+    /// what a green result actually means, not just that it's green.
+    #[test]
+    fn verdict_scope_appears_in_the_text_report_when_set() {
+        let corpus = setup();
+        let dir = corpus.root.join("scopedtool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "scopedtool"
+version = "1.0"
+
+[[capture]]
+argv = ["scopedtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "subcommands"]
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(
+            report.text.contains("verdict_scope: flags, subcommands"),
+            "{}",
+            report.text
+        );
+    }
+
+    /// An unscoped fixture must not gain a `verdict_scope:` line — the
+    /// text report's shape for every fixture shipped before this field
+    /// existed must stay byte-for-byte unchanged.
+    #[test]
+    fn unscoped_fixture_has_no_verdict_scope_line_in_the_text_report() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(!report.text.contains("verdict_scope"), "{}", report.text);
+    }
+
+    /// The markdown table always carries a `scope` column, including
+    /// `"unscoped"` for a fixture with no recorded scope — a reviewer
+    /// scanning the transition report should never have to open
+    /// `meta.toml` to learn that a passing row's descriptions were never
+    /// looked at.
+    #[test]
+    fn markdown_report_includes_the_scope_column() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Markdown).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(report.text.contains("| scope |"), "{}", report.text);
+        assert!(report.text.contains("unscoped"), "{}", report.text);
     }
 }
