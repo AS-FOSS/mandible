@@ -1231,6 +1231,34 @@ Highest structural authority, lowest cost-efficiency. Attempted last for *cost*
 reasons — it is the only tier that spawns a process per node — but it wins
 structural conflicts (§4.4) because it reflects the version actually installed.
 
+**Gated on prior evidence, never speculative (2026-08-12).** This tier only
+constructs a `__complete` argv for a tool whose *own compiled bytes* already
+identify it as cobra, via Tier A′'s `identify_from_artifact`. It used to ask
+every tool on `PATH`, because asking was the only way to find out who answered.
+
+Reported from real use: probing `wall` that way broadcast the literal text
+`__complete` to every logged-in terminal on the reporter's machine, because
+`wall` treats an unrecognized first positional as the message to send. That is
+the same shape as `pkill -- ""` under §6 rule 2a, an argv that is inert for
+nearly every tool and an action for one family, and it is the second time that
+shape has caused a real-world side effect. A containment list
+(`exec::spawn::HELP_ONLY_PROBE`) closes the measured cases. It cannot close the
+general one, because it can only ever name tools somebody has already been
+bitten by. The gate closes the general one.
+
+Measured, full PATH, before and after, 2,248 tools joined: **no status
+transitions, no flag-count gains, no flag-count losses**, and an identical
+aggregate (`pct_flags_with_text` 94.83 both sides). Tools eligible for a
+`__complete` probe fell from every tool swept, 2,302, to **5**: `docker`,
+`dockerd`, `gh`, `git-lfs`, `ollama`. So the speculative form was contributing
+nothing to extraction while carrying the whole risk.
+
+The cost of the gate is that a genuine cobra tool whose artifact check fails,
+a stripped binary being the realistic case, loses this tier rather than being
+probed anyway. Nothing on this machine's PATH was in that position. The
+`HELP_ONLY_PROBE` entries stay in place regardless: an artifact fingerprint is
+a heuristic, and defence in depth costs nothing here.
+
 - **cobra `__complete`** (kubectl, docker, gh, helm, and much of modern infra):
   **the protocol requires two probes per node.** `__complete <path> ""` returns
   subcommands only; flags require `__complete <path> "-"` [M-2]. Revision 1

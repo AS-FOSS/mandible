@@ -56,9 +56,30 @@
 //! carapace's vendored snapshot (which can drift stale), but carapace's
 //! human-written descriptions stay more trustworthy than a completion
 //! system's often-terse or absent ones.
+//!
+//! **Gated on prior evidence, never speculative** (spec §7 Tier E, the
+//! 2026-08-12 incident). `detect()` used to send `__complete <word>` to
+//! *every* tool on `PATH` to find out whether it answered — the only way
+//! to know, absent any other signal. Reported from real use: probing
+//! `wall` this way broadcast the literal text `__complete` to every
+//! logged-in terminal on the reporter's machine, because `wall` treats an
+//! unrecognized first positional as the message to send rather than
+//! rejecting it — the same *shape* of hazard as `pkill -- ""` (§6 rule 2a),
+//! an argv that is inert for nearly every tool and an action for one
+//! family, discovered a second time. A per-tool containment list
+//! (`exec::spawn::HELP_ONLY_PROBE`) closes the six measured cases; this
+//! gate closes the general one. `detect()` now sends `__complete` only
+//! when [`crate::framework::identify_from_artifact`] has already read the
+//! tool's own compiled bytes and found the `spf13/cobra` marker — ground
+//! truth, and free: a plain file read, no subprocess. A tool this check
+//! misses (a stripped binary with debug info removed, mainly) loses Tier E
+//! rather than being probed speculatively; see spec §7 Tier E for the
+//! measured cost. [`CobraEvidence`] is the seam that makes this testable
+//! without a real cobra-marked binary on disk.
 
 use crate::errors::ExtractError;
 use crate::exec::{InertArgv, LiveProbe, Probe};
+use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{
@@ -93,6 +114,37 @@ enum Protocol {
     Cobra,
 }
 
+/// Prior evidence that a tool speaks cobra, checked before this tier ever
+/// constructs a `__complete` argv (spec §7 Tier E's gate — see the module
+/// doc comment). A trait, mirroring [`Probe`]'s own seam, rather than
+/// calling [`framework::identify_from_artifact`] directly: the production
+/// check does a real file read (`framework::artifact::scan`), and that
+/// scan can never recognize a `#!`-shebang shell script as cobra —
+/// script-shebang scanning only ever resolves to a *script* framework
+/// (argparse, click, commander, ...), never cobra, which is Go-only and
+/// always compiled. Every test shim in this crate's suite is exactly such
+/// a script, so exercising the *gated* branch of `detect()` (as opposed to
+/// the *refused* branch, which any real shim already proves against the
+/// live production check — see `mandible-extract/tests/`) needs a way to
+/// supply a fixed answer instead.
+trait CobraEvidence: Send + Sync {
+    /// True when `tool` is already known to speak cobra.
+    fn speaks_cobra(&self, tool: &ResolvedTool) -> bool;
+}
+
+/// Production [`CobraEvidence`]: ground truth from the tool's own compiled
+/// bytes, via Tier A′ (spec §7 Tier A′). Adds no subprocess of its own —
+/// `identify_from_artifact` is a bounded file read, memoized per binary
+/// path, so this gate costs nothing beyond what framework identification
+/// already pays elsewhere in the pipeline.
+struct ArtifactEvidence;
+
+impl CobraEvidence for ArtifactEvidence {
+    fn speaks_cobra(&self, tool: &ResolvedTool) -> bool {
+        framework::identify_from_artifact(tool) == Some(Framework::Cobra)
+    }
+}
+
 /// Tier E: cobra `__complete` dynamic-completion probes.
 pub struct NativeTier {
     /// Which protocol each tool name was found to speak. Bounded by the
@@ -108,6 +160,9 @@ pub struct NativeTier {
     /// production ([`Self::default`]), or a [`crate::exec::Transcript`] to
     /// replay frozen bytes with zero subprocesses.
     probe: Arc<dyn Probe>,
+    /// The gate `detect()` checks before ever sending `__complete` — see
+    /// [`CobraEvidence`].
+    evidence: Arc<dyn CobraEvidence>,
 }
 
 impl Default for NativeTier {
@@ -117,12 +172,28 @@ impl Default for NativeTier {
 }
 
 impl NativeTier {
-    /// Build this tier against an explicit probe.
+    /// Build this tier against an explicit probe, gated by the real,
+    /// file-backed [`ArtifactEvidence`] check — what every production
+    /// caller wants (`mandible-extract/src/lib.rs`'s `default_tiers_with_probe`
+    /// is the only one).
     pub fn new(probe: Arc<dyn Probe>) -> Self {
+        Self::new_with_evidence(probe, Arc::new(ArtifactEvidence))
+    }
+
+    /// [`Self::new`], but against an explicit [`CobraEvidence`] rather than
+    /// always the real artifact scan — the seam a test uses to exercise
+    /// `detect()`'s gated (rather than refused) branch without a real
+    /// cobra-marked binary on disk. Not `pub`: every real caller wants
+    /// [`Self::new`]/[`Self::default`], and the *negative* property (no
+    /// evidence ⇒ no probe) is proven against the real, ungated production
+    /// check by this crate's integration tests instead, which is the
+    /// stronger claim.
+    fn new_with_evidence(probe: Arc<dyn Probe>, evidence: Arc<dyn CobraEvidence>) -> Self {
         Self {
             protocol_cache: Mutex::new(HashMap::new()),
             root_fingerprint_cache: Mutex::new(HashMap::new()),
             probe,
+            evidence,
         }
     }
 }
@@ -145,6 +216,13 @@ impl ExtractionTier for NativeTier {
         };
         if self.cached_protocol(&tool.name).is_some() {
             return true;
+        }
+        // The gate (spec §7 Tier E, module doc comment): `__complete` is
+        // never sent speculatively. Without prior evidence that this tool
+        // speaks cobra, `detect()` declines before constructing any argv
+        // at all — no probe, no spawn, nothing reaches the tool's binary.
+        if !self.evidence.speaks_cobra(tool) {
+            return false;
         }
         if probe_cobra_list(self.probe.as_ref(), tool_path, &[], "", DETECT_TIMEOUT).is_some() {
             self.set_protocol(&tool.name, Protocol::Cobra);
@@ -626,6 +704,18 @@ mod tests {
         assert_eq!(tier.remembered_root_fingerprint("mytool"), Some(fp));
     }
 
+    /// A fixed [`CobraEvidence`] answer, for tests that want to exercise
+    /// `detect()`'s probing logic (argv construction, response parsing)
+    /// without a real cobra-marked binary on disk — see [`CobraEvidence`]'s
+    /// own doc comment for why a shell-script shim can never satisfy the
+    /// real, file-backed [`ArtifactEvidence`] check.
+    struct FixedEvidence(bool);
+    impl CobraEvidence for FixedEvidence {
+        fn speaks_cobra(&self, _tool: &ResolvedTool) -> bool {
+            self.0
+        }
+    }
+
     #[test]
     fn detect_false_for_a_tool_that_understands_neither_protocol() {
         let tier = NativeTier::default();
@@ -634,9 +724,10 @@ mod tests {
             path: Some(Path::new("/bin/sh").to_path_buf()),
             version: None,
         };
-        // `/bin/sh __complete ""` and the clap probe both just run `sh`
-        // normally (or fail), neither producing a recognizable protocol
-        // response.
+        // `/bin/sh` carries no cobra artifact marker at all, so this is
+        // refused by the gate before any probe is even attempted — the
+        // production `ArtifactEvidence` check is exercised here unmodified
+        // (this test uses `NativeTier::default()`, not `new_with_evidence`).
         assert!(!tier.detect(&tool));
     }
 
@@ -655,6 +746,17 @@ mod tests {
         // happened to be installed — that one was flaky in CI, since
         // detection spawns the real binary and `docker __complete` is not
         // answerable when the daemon is down.
+        //
+        // Built with `FixedEvidence(true)` rather than `NativeTier::default()`:
+        // this test is about what happens *after* the gate passes (is the
+        // probe itself correct?), not about the gate itself — a shell-script
+        // shim can never carry real cobra artifact evidence (see
+        // `CobraEvidence`'s doc comment), so proving this with the real gate
+        // would require a real Go/cobra binary in the test fixtures. The
+        // gate itself — that a tool *without* evidence never reaches this
+        // probe at all — is proven separately, against the real,
+        // ungated-by-tests production check, by this crate's integration
+        // tests (`mandible-extract/tests/`).
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("cobrashim.sh");
         std::fs::write(
@@ -668,7 +770,8 @@ mod tests {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let tier = NativeTier::default();
+        let tier =
+            NativeTier::new_with_evidence(Arc::new(LiveProbe), Arc::new(FixedEvidence(true)));
         let tool = ResolvedTool {
             name: "cobrashim".to_string(),
             path: Some(path),
@@ -699,6 +802,12 @@ mod tests {
     /// probe construction — the same protocol
     /// `detect_sends_the_literal_dunder_complete_word_in_argv` proves with
     /// a real shim binary, but with zero subprocesses.
+    ///
+    /// `FixedEvidence(true)` stands in for a real artifact-scan hit
+    /// (`/replayed/cobratool` doesn't exist on disk, so the real,
+    /// file-backed gate would refuse it regardless of what the transcript
+    /// covers) — this test is about probe/response plumbing downstream of
+    /// the gate, which the gate itself is not.
     #[test]
     fn extract_node_replays_cobra_candidates_from_a_transcript_keyed_on_the_real_argv() {
         let transcript = crate::exec::Transcript::new([
@@ -711,7 +820,8 @@ mod tests {
                 exec_output("--all\tAll of it\n:0\n"),
             ),
         ]);
-        let tier = NativeTier::new(Arc::new(transcript));
+        let tier =
+            NativeTier::new_with_evidence(Arc::new(transcript), Arc::new(FixedEvidence(true)));
         let tool = ResolvedTool {
             name: "cobratool".to_string(),
             path: Some(std::path::PathBuf::from("/replayed/cobratool")),
@@ -740,6 +850,10 @@ mod tests {
     /// mistaken for a cobra-speaking tool — `detect` must come back
     /// `false`, not silently succeed with an empty candidate list treated
     /// as a confident (if empty) detection.
+    ///
+    /// `FixedEvidence(true)` again stands in for a real artifact-scan hit,
+    /// so this test isolates the *response-parsing* miss it's named for —
+    /// see the sibling test above.
     #[test]
     fn detect_is_false_against_a_transcript_missing_the_real_argv() {
         let transcript = crate::exec::Transcript::new([(
@@ -749,7 +863,8 @@ mod tests {
             vec!["__complete".to_string()],
             exec_output("build\tBuild the thing\n:0\n"),
         )]);
-        let tier = NativeTier::new(Arc::new(transcript));
+        let tier =
+            NativeTier::new_with_evidence(Arc::new(transcript), Arc::new(FixedEvidence(true)));
         let tool = ResolvedTool {
             name: "cobratool".to_string(),
             path: Some(std::path::PathBuf::from("/replayed/cobratool")),
@@ -758,6 +873,35 @@ mod tests {
         assert!(
             !tier.detect(&tool),
             "a transcript miss must not be mistaken for a successful cobra detection"
+        );
+    }
+
+    /// The gate itself, isolated: `FixedEvidence(false)` must refuse
+    /// detection before the probe is even consulted, regardless of what
+    /// the transcript covers — proving `detect()`'s early return actually
+    /// short-circuits rather than merely happening to fail downstream.
+    #[test]
+    fn detect_is_false_when_evidence_says_no_even_if_the_transcript_would_answer() {
+        let transcript = crate::exec::Transcript::new([
+            (
+                vec!["__complete".to_string(), String::new()],
+                exec_output("build\tBuild the thing\n:0\n"),
+            ),
+            (
+                vec!["__complete".to_string(), "-".to_string()],
+                exec_output("--all\tAll of it\n:0\n"),
+            ),
+        ]);
+        let tier =
+            NativeTier::new_with_evidence(Arc::new(transcript), Arc::new(FixedEvidence(false)));
+        let tool = ResolvedTool {
+            name: "cobratool".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/cobratool")),
+            version: None,
+        };
+        assert!(
+            !tier.detect(&tool),
+            "no cobra evidence must refuse detection even when the transcript covers a valid response"
         );
     }
 }
