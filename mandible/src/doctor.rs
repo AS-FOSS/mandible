@@ -1,23 +1,47 @@
 //! `mandible --doctor <tool>`: a non-TUI diagnostic (spec §5.3).
 //!
 //! Prints the detected framework (spec §7 Tier A′), tier statuses,
-//! node/flag counts, and the percentage of flags with a description — the
-//! primary way to verify extraction behavior without a terminal.
+//! node/flag counts, and the fraction of *describable* flags that carry a
+//! description — the primary way to verify extraction behavior without a
+//! terminal.
+//!
+//! The percentage here is deliberately the **same instrument** as the
+//! `cargo xtask coverage` scoreboard (spec §13.1/§13.1b), computed via the
+//! same [`mandible_extract::ExtractionResult`] accessors rather than a
+//! second, hand-rolled tree walk. The two used to disagree: this file used
+//! to divide described flags by *every* flag, including usage-synopsis-only
+//! ones that can never carry a description by construction, so a tool like
+//! `git` — whose root flags are entirely synopsis-derived — reported `0.0%
+//! described` here (read: total failure) while the scoreboard correctly
+//! reported `—` (read: not applicable, nothing to rate). Reusing the
+//! accessors makes that kind of drift a type error instead of a bug two
+//! instruments can quietly disagree about.
 
 use crate::pipeline::LoadedTool;
-use mandible_core::CommandNode;
+use std::fmt::Write as _;
 
 /// Print the diagnostic report for `loaded` to stdout.
 pub fn print_report(loaded: &LoadedTool) {
-    println!("mandible --doctor {}", loaded.tool);
-    println!();
+    print!("{}", build_report(loaded));
+}
+
+/// Build the diagnostic report for `loaded` as a string, rather than
+/// printing it directly — so `--report` (`mandible/src/report.rs`) can
+/// embed the exact same text inside its paste-ready block instead of
+/// re-deriving it (and risking the two drift apart, which is the same
+/// mistake this file's `%described` fix exists to undo).
+pub fn build_report(loaded: &LoadedTool) -> String {
+    let mut out = String::new();
+
+    writeln!(out, "mandible --doctor {}", loaded.tool).unwrap();
+    writeln!(out).unwrap();
 
     let resolved = mandible_extract::resolve_tool(&loaded.tool);
     let framework = mandible_extract::framework::identify(&resolved);
-    println!("framework:  {}", framework.describe());
-    println!();
+    writeln!(out, "framework:  {}", framework.describe()).unwrap();
+    writeln!(out).unwrap();
 
-    println!("tiers:");
+    writeln!(out, "tiers:").unwrap();
     for status in &loaded.tier_statuses {
         let state = if !status.detected {
             "not detected".to_string()
@@ -26,48 +50,131 @@ pub fn print_report(loaded: &LoadedTool) {
         } else {
             "ok".to_string()
         };
-        println!("  {:<28} {}", status.tier, state);
+        writeln!(out, "  {:<28} {}", status.tier, state).unwrap();
     }
-    println!();
+    writeln!(out).unwrap();
 
     match &loaded.root {
-        Some(root) => {
-            let nodes = count_nodes(root);
-            let flags = count_flags(root);
-            let described = count_described(root);
-            let pct = if flags == 0 {
-                0.0
+        Some(_) => {
+            let nodes = loaded.node_count();
+            let flags = loaded.flag_count();
+            let describable = loaded.describable_flag_count();
+            // `—` when nothing is describable (spec §13.1b), never `0.0%`:
+            // a root whose flags are entirely usage-synopsis-derived (e.g.
+            // `git`) has no describable flags at all, and "not applicable"
+            // is a different fact than "described nothing it could have."
+            let pct = if describable == 0 {
+                "—".to_string()
             } else {
-                described as f64 / flags as f64 * 100.0
+                format!("{:.1}%", loaded.flag_description_ratio() * 100.0)
             };
-            println!("nodes:      {nodes}");
-            println!("flags:      {flags} ({pct:.1}% described)");
+            writeln!(out, "nodes:      {nodes}").unwrap();
+            writeln!(out, "flags:      {flags} ({pct} flags with text)").unwrap();
         }
         None => {
-            println!(
+            writeln!(
+                out,
                 "result:     no tier produced a root node for {:?}",
                 loaded.tool
-            );
+            )
+            .unwrap();
         }
     }
-    println!();
+    writeln!(out).unwrap();
+
+    // This percentage has only ever measured whether a flag has text
+    // attached, never whether that text is *correct* — see the scoreboard's
+    // own `accuracy: unmeasured` line (`xtask/src/coverage.rs`,
+    // `accuracy_unmeasured_line`) and `Row::pct_flags_with_text`'s doc
+    // comment for the measured case (`lsof` scored 79% "described" while
+    // roughly a quarter of its flags were actually correct). Repeated here
+    // so nobody reads "% flags with text" as an accuracy claim just because
+    // this is the instrument they happened to run.
+    writeln!(out, "accuracy:   unmeasured").unwrap();
 
     // Spec §11: there is no cache — every extraction is fresh.
-    println!("elapsed:    {:.2}ms", loaded.elapsed.as_secs_f64() * 1000.0);
+    writeln!(
+        out,
+        "elapsed:    {:.2}ms",
+        loaded.elapsed.as_secs_f64() * 1000.0
+    )
+    .unwrap();
+    writeln!(out).unwrap();
+    writeln!(
+        out,
+        "Found a bad parse? Run `mandible --report {}` for a paste-ready bug report.",
+        loaded.tool
+    )
+    .unwrap();
+
+    out
 }
 
-fn count_nodes(node: &CommandNode) -> usize {
-    1 + node.subcommands.iter().map(count_nodes).sum::<usize>()
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mandible_core::{CommandNode, Flag, Provenance, Source};
+    use mandible_extract::{ExtractionResult, TierStatus};
 
-fn count_flags(node: &CommandNode) -> usize {
-    node.flags.len() + node.subcommands.iter().map(count_flags).sum::<usize>()
-}
+    /// The exact defect this file was fixed for: a root whose flags are
+    /// entirely usage-synopsis-derived (undescribable by construction —
+    /// real `git`'s shape before [M-16]'s `-h` fallback recovered any
+    /// describable ones) must report `—`, never `0.0%`. The old
+    /// `described/total` arithmetic divided 0 described by a nonzero flag
+    /// count and printed a confident `0.0% described` — total failure —
+    /// for a tool that had nothing describable to fail at, which is
+    /// exactly the dishonesty spec §13.1b's denominator redefinition
+    /// exists to remove.
+    #[test]
+    fn reports_an_em_dash_not_zero_percent_when_nothing_is_describable() {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        for name in ["paginate", "git-dir", "no-pager"] {
+            root.flags.push(Flag::long(
+                name,
+                Provenance::single(Source::HelpTextSynopsis),
+            ));
+        }
+        let loaded = ExtractionResult {
+            tool: "git".to_string(),
+            root: Some(root),
+            tier_statuses: vec![TierStatus {
+                tier: "help_text",
+                detected: true,
+                error: None,
+            }],
+            elapsed: std::time::Duration::default(),
+        };
 
-fn count_described(node: &CommandNode) -> usize {
-    node.flags
-        .iter()
-        .filter(|f| f.description.is_some())
-        .count()
-        + node.subcommands.iter().map(count_described).sum::<usize>()
+        let report = build_report(&loaded);
+        assert!(
+            report.contains("flags:      3 (— flags with text)"),
+            "expected the em-dash line, got:\n{report}"
+        );
+        assert!(
+            !report.contains("0.0%"),
+            "must never fall back to the old described/total arithmetic:\n{report}"
+        );
+    }
+
+    /// The companion case: when there *is* something describable, the
+    /// percentage still renders normally (not always `—`).
+    #[test]
+    fn reports_a_percentage_when_some_flags_are_describable() {
+        let mut root = CommandNode::new("sometool", Provenance::single(Source::HelpText));
+        let mut f = Flag::long("verbose", Provenance::single(Source::HelpText));
+        f.description = Some(mandible_core::Text::sanitize("be more talkative"));
+        root.flags.push(f);
+        let loaded = ExtractionResult {
+            tool: "sometool".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+
+        let report = build_report(&loaded);
+        assert!(
+            report.contains("flags:      1 (100.0% flags with text)"),
+            "expected a real percentage, got:\n{report}"
+        );
+    }
 }
