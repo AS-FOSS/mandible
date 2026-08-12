@@ -209,6 +209,14 @@ pub struct App {
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
+    /// `Some` for the duration of one tool's session inside `mandible
+    /// --review`, `None` in the ordinary `mandible <tool>` path. Carries the
+    /// tool's stratum, pre-tag suggestions, and sample progress for the
+    /// review overlay to display, plus any in-progress verdict draft — see
+    /// [`crate::app_review`]. `App` itself never sets this; the caller
+    /// (`mandible/src/app_runner.rs`'s `run_review`) attaches it right
+    /// after building the app for each sampled tool.
+    pub review: Option<crate::app_review::ReviewOverlay>,
 }
 
 /// How long a status message stays in the footer before the keybinding
@@ -273,6 +281,7 @@ impl App {
             color_enabled: crate::style::color_enabled_from_env(),
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
+            review: None,
         };
         app.ensure_rows_fresh();
         app

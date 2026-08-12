@@ -21,6 +21,7 @@
 #![warn(missing_docs)]
 
 pub mod app;
+pub mod app_review;
 pub mod clipboard;
 pub mod event;
 pub mod glyphs;

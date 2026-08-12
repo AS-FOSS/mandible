@@ -10,6 +10,7 @@
 
 mod detail_pane;
 mod help_overlay;
+mod review_overlay;
 mod search_bar;
 mod status_bar;
 mod tree_pane;
@@ -34,5 +35,9 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     if app.show_help {
         help_overlay::render(frame, area, app.glyphs, app.color_enabled);
+    }
+
+    if let Some(review) = &app.review {
+        review_overlay::render(frame, area, review, app.glyphs);
     }
 }
