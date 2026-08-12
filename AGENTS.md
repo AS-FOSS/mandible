@@ -111,6 +111,27 @@ descriptions at three different columns in the same list. **When you change
 rendering, capture a screen before and after**, and when a rendering test
 passes first try, suspect the fixture before believing the result.
 
+### 3.3 Never parse human-format test output
+
+Run tests with `cargo nextest run --workspace` (CI and this playbook both use
+it), never `cargo test --workspace` piped into `grep`/`awk`/similar. The rule
+is not "use nextest because it's faster" — it is that **human-format test
+output must never be parsed, by anyone, for any reason**, and nextest exists
+here specifically so nobody has to.
+
+The concrete failure, self-reported twice in consecutive reports before it
+became this rule: `grep -c FAILED` against `cargo test`'s output false-
+positived on test *data* that happened to contain the literal word "FAIL"
+(fixture text, a variant name, a snapshot value — the output stream mixes
+program output and test-runner output with no structural separation),
+producing a confident, wrong pass/fail count. Nothing about that failure was
+exotic; it is the generic risk of treating a human-readable report as a data
+format, and it will keep recurring for as long as a human-format stream is
+the thing being read. `cargo nextest run` reports a real nonzero exit code on
+any failure and can emit `--message-format libtest-json` when a structured
+result is actually needed — read *that*, or read the exit code, never the
+prose.
+
 ---
 
 ## 4. Environment facts
@@ -154,7 +175,8 @@ update Appendix A in the same commit, with the method.
   obligations, and it is the most likely genuine legal exposure in this project.
 - Gates before reporting done: `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`,
-  `cargo test --workspace`, `cargo build --release`.
+  `cargo nextest run --workspace` (§3.3 — never `cargo test --workspace`
+  piped into a text-parsing tool), `cargo build --release`.
 - `#![forbid(unsafe_code)]` in every crate except `mandible-extract`, which
   carries `#![deny(unsafe_code)]` plus exactly one scoped
   `#[allow(unsafe_code)]` on the probe-spawning function in `exec/`, for the
