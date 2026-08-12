@@ -598,6 +598,62 @@ damage a user's machine, and it gets its own section and its own tests.
    node's status at `incomplete` (§13.1's status ladder: `ok > incomplete >
    low-confidence > verbatim > no-tier`) rather than reporting a confident
    `ok` on a document the tool's own text already said was truncated.
+
+   **Detection-only extension: two more shapes (WS5's own genus list,
+   finally recognized).** curl was the specimen this rule was built from,
+   but it was never the only one named — this rule's own genus list, above,
+   already cited `ffmpeg -h long`/`-h full` and `gcc --help=<class>`.
+   Neither is curl's *quoted* `"--help <word>"` shape, so
+   `help_text::confession::detect_directives` did not see either one, and
+   both tools were measured reporting a confident `ok` over a document
+   their own text already said was incomplete — ffmpeg 91 flags at 97%
+   described, gcc 43 flags at 95% described. Two grammar additions close
+   that, **detection only**:
+
+   - **ffmpeg's shape** is unquoted, inside a flag-table row rather than
+     prose: `-h long -- print more options`. `help_text::confession::
+     match_unquoted_table_row` recognizes `<flag> <word> -- <description>`,
+     anchored to the trimmed line's start exactly as the quoted form is
+     anchored to the character right after an opening quote — a bare `--`
+     token must sit directly between the captured word and a non-empty
+     description, which is what keeps it off an ordinary flag row (`-h,
+     --help  show this help message and exit`: a comma sits where this
+     grammar requires a space) and off a distinct, longer flag name
+     (`--help-all`: no space between `--help` and `-all`).
+   - **gcc's shape** is a flag *definition*, not an invocation example:
+     `--help={common|optimizers|...}[,...].` lists `--help` itself as
+     taking a value. `help_text::confession::match_flag_value_row`
+     recognizes `<flag>=<opener>...`, requiring the character right after
+     `=` to be one of `{`, `[`, `<`, `(` — the punctuation a
+     class/placeholder enumeration opens with, never a bare word — so a
+     hypothetical literal-valued row (`--help=yes`) or an optional-value
+     row (`--help[=FMT]`, where `[` sits before `=`, not after it) is never
+     mistaken for it. The word recorded is the first class name
+     (`"common"`), taken verbatim.
+
+   Both are safe to add **without** a rule 2 amendment, for the same reason
+   detecting curl's shape was: detection only changes what gets *recorded*
+   on the node (a `Confession`), never what argv gets *constructed*. Rule
+   0's `argv.args() != ["--help"]` check, the attestation gate, and every
+   other execution-safety mechanism in this section are untouched, because
+   nothing new is ever run.
+
+   **Following either is explicitly deferred, not shipped.** Neither
+   shape's word is added to `FOLLOWABLE_WORDS`, and no new `InertArgv`
+   variant exists to construct the argv either would need: ffmpeg's own
+   invocation is `-h long` (bare `-h`, no `--help` prefix at all — not
+   `HelpExpand`'s `[..words, "--help", word]` shape), and gcc's is
+   `--help=common` (one joined token, not `--help` and `all` as two
+   separate ones — also not `HelpExpand`'s shape). Each is *new argv this
+   crate does not yet construct*, so each needs its own rule 2 amendment
+   and its own §6 deliberation before it can ship, exactly as this
+   amendment itself was required for curl's `--help all` — that is
+   deferred work (WS5b), not a gap in this change. Until then, both
+   directives are recorded with `followed: false` and cap status at
+   `incomplete` via the ladder above — the same honest-but-incomplete
+   outcome curl's own `--help category` already gets. An undetected
+   confession is a false `ok`; a detected-but-unfollowed one is honest,
+   which is what this extension buys on its own.
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
    kill the **process group**, not just the child — completion scripts spawn

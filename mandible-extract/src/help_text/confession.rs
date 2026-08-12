@@ -30,6 +30,54 @@
 //! Broadening to unquoted forms, if a real specimen ever needs it, is a
 //! new, separately-reviewable shape — not a default this module reaches
 //! for.
+//!
+//! **Two more specimens, detected but never followed (spec §6 rule 2b's
+//! detection-only extension).** curl was not the only tool this genus
+//! named; two of the others measured "confidently wrong" — `ok` at full
+//! confidence over a document their own text says is incomplete — because
+//! neither confesses in curl's *quoted* shape:
+//!
+//! - **ffmpeg** confesses unquoted, inside a flag-table row, not prose:
+//!   ```text
+//!   Getting help:
+//!       -h      -- print basic options
+//!       -h long -- print more options
+//!       -h full -- print all options (including all format and codec specific options, very long)
+//!   ```
+//!   [`match_unquoted_table_row`] recognizes `<flag> <word> -- <description>`,
+//!   anchored to the trimmed line's start exactly like the quoted form is
+//!   anchored to the character right after an opening quote — a bare `--`
+//!   token has to sit directly between the captured word and a non-empty
+//!   description, so nothing short of that exact three-part shape matches.
+//!   That anchoring is what keeps an ordinary flag row
+//!   (`-h, --help  show this help message and exit`) safe: the comma sits
+//!   where this grammar requires a space, so the row never even reaches the
+//!   word-capture step, and a real *description* almost never has a bare
+//!   `--` as its first token (descriptions are prose, not `-- more prose`).
+//! - **gcc** confesses as a flag definition, not an invocation example: its
+//!   own `--help` output lists `--help` itself as taking a value —
+//!   ```text
+//!     --help={common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].
+//!                              Display specific types of command line options.
+//!   ```
+//!   [`match_flag_value_row`] recognizes `<flag>=<opener>...`, requiring the
+//!   character right after `=` to be one of `{`, `[`, `<`, `(` — the
+//!   punctuation a class/placeholder enumeration opens with — never a bare
+//!   word, so a hypothetical literal-valued row (`--help=yes`) or an
+//!   optional-value row (`--help[=FMT]`, `=` not touching the flag) is
+//!   never mistaken for this shape.
+//!
+//! Both are **detection only**: neither shape's word is added to
+//! [`FOLLOWABLE_WORDS`], and no new [`crate::exec::InertArgv`]
+//! variant exists to *follow* `-h <word>` (no leading `--help`, so it isn't
+//! `HelpExpand`'s shape) or `--help=<class>` (a different argv token
+//! entirely — `--help=common`, one token, not `--help` `all`, two). Each
+//! would need its own §6 deliberation before this crate could construct
+//! that argv (deferred: WS5b). Detecting them without following them is
+//! still strictly better than the status quo: an undetected confession is
+//! a false `ok`; a detected-but-unfollowed one is an honest `incomplete`
+//! (spec §6 rule 2b's status ladder) — which is the entire point of this
+//! extension.
 
 /// One directive a tool's own `--help` text printed, recommending a
 /// further probe. `word` is taken verbatim from the tool's own text —
@@ -81,14 +129,35 @@ pub fn detect_directives(text: &str) -> Vec<Directive> {
                 // (AGENTS.md: never slice at an unverified byte offset).
                 let after = &line[pos + quote.len_utf8()..];
                 if let Some(directive) = match_quoted(after, quote) {
-                    if !out.contains(&directive) {
-                        out.push(directive);
-                    }
+                    push_unique(&mut out, directive);
                 }
             }
         }
+        // The two unquoted shapes (ffmpeg's table row, gcc's flag-value
+        // row) are both anchored to the start of the line — never scanned
+        // mid-line the way quotes are — which is what keeps them from
+        // reading a sentence that merely *mentions* `--help` as a
+        // directive. `trim_start` only strips leading whitespace, so a
+        // real flag-table row's own indentation is the only thing this
+        // removes.
+        let trimmed = line.trim_start();
+        if let Some(directive) = match_unquoted_table_row(trimmed) {
+            push_unique(&mut out, directive);
+        }
+        if let Some(directive) = match_flag_value_row(trimmed) {
+            push_unique(&mut out, directive);
+        }
     }
     out
+}
+
+/// Append `directive` unless an equal one is already present — the same
+/// dedup [`detect_directives`] has always applied to the quoted shape, now
+/// shared across all three shapes.
+fn push_unique(out: &mut Vec<Directive>, directive: Directive) {
+    if !out.contains(&directive) {
+        out.push(directive);
+    }
 }
 
 /// Try to read `<flag><spaces><word><quote>` from the very start of
@@ -120,6 +189,133 @@ fn match_quoted(after: &str, quote: char) -> Option<Directive> {
         if after_word.starts_with(quote) {
             return Some(Directive { flag, word });
         }
+    }
+    None
+}
+
+/// Try to read `<flag> <word> -- <description>` from the very start of
+/// `trimmed` — ffmpeg's own shape:
+///
+/// ```text
+/// -h long -- print more options
+/// ```
+///
+/// Requires, in order: the flag, then at least one space, then a bare
+/// word, then at least one more space, then a literal `--` immediately
+/// followed by whitespace, then a non-empty description. Every one of
+/// those joints has to hold, which is what makes this safe against the
+/// two shapes it must never match:
+///
+/// - An ordinary flag row (`-h, --help  show this help message and
+///   exit`): after `-h` comes a comma, not a space, so the very first
+///   joint fails and nothing downstream is even attempted.
+/// - A distinct, longer flag name (`--help-all  Show all help options`):
+///   after `--help` comes `-all` with no space, so the first joint fails
+///   here too — this shape can never fire on a flag that merely starts
+///   with `--help`.
+/// - A row whose description happens to be prose (`--help  show more
+///   information`): the first captured word (`show`) is not immediately
+///   followed by a bare `--` — it's followed by more words — so the `--`
+///   joint fails. A real description essentially never opens with a
+///   standalone `--` token.
+fn match_unquoted_table_row(trimmed: &str) -> Option<Directive> {
+    for flag in FLAGS {
+        let Some(rest) = trimmed.strip_prefix(flag) else {
+            continue;
+        };
+        let after_flag = rest.trim_start_matches(' ');
+        if after_flag.len() == rest.len() {
+            // No space right after the flag: not `<flag> <word>` at all —
+            // covers both `<flag>,` (ordinary row) and `<flag>-suffix`
+            // (a different, longer flag name).
+            continue;
+        }
+        let word: String = after_flag
+            .chars()
+            .take_while(|&c| is_word_char(c))
+            .collect();
+        if word.is_empty()
+            || word.chars().count() > MAX_WORD_LEN
+            || !word.chars().next().is_some_and(is_word_start)
+        {
+            continue;
+        }
+        let after_word = &after_flag[word.len()..];
+        let after_space = after_word.trim_start_matches(' ');
+        if after_space.len() == after_word.len() {
+            // The word runs straight into whatever follows, with no space
+            // — not `<word> --`.
+            continue;
+        }
+        let Some(after_dashes) = after_space.strip_prefix("--") else {
+            continue;
+        };
+        if !after_dashes.starts_with(' ') {
+            // `--` has to stand alone, separated from the description by
+            // whitespace — never the start of a longer token (`---`,
+            // `--foo`) and never glued straight to the description.
+            continue;
+        }
+        let description = after_dashes.trim_start_matches(' ');
+        if description.is_empty() {
+            // Nothing follows `--` at all: `-h long --` alone (never a
+            // real specimen) is not a confession, just a truncated line.
+            continue;
+        }
+        return Some(Directive { flag, word });
+    }
+    None
+}
+
+/// The punctuation marks a class/placeholder enumeration opens with, right
+/// after `=` — never a bare word. This is what tells gcc's own
+/// `--help={common|optimizers|...}` apart from a hypothetical
+/// literal-valued flag (`--help=yes`, which starts with none of these) or
+/// an optional-value flag (`--help[=FMT]`, where `[` sits *before* `=`,
+/// not after it, so `strip_prefix('=')` below never even reaches it).
+const VALUE_LIST_OPENERS: [char; 4] = ['{', '[', '<', '('];
+
+/// Try to read `<flag>=<opener>...` from the very start of `trimmed` —
+/// gcc's own shape: the flag itself, printed as a flag-table row, listed
+/// as taking a value:
+///
+/// ```text
+/// --help={common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].
+/// ```
+///
+/// The word recorded is the first class name in the enumeration
+/// (`"common"`, here) — taken verbatim from the tool's own text, the same
+/// discipline [`match_quoted`] and [`match_unquoted_table_row`] both
+/// follow, never fabricated. It plays the same role curl's own `--help
+/// category` directive does: detected so `incomplete` fires honestly, but
+/// not in [`FOLLOWABLE_WORDS`], because following it would need
+/// enumerating every class as its own probe — the same "menu, not a
+/// single document" shape that directive already defers.
+fn match_flag_value_row(trimmed: &str) -> Option<Directive> {
+    for flag in FLAGS {
+        let Some(rest) = trimmed.strip_prefix(flag) else {
+            continue;
+        };
+        let Some(value) = rest.strip_prefix('=') else {
+            continue;
+        };
+        let Some(opener) = value.chars().next() else {
+            continue;
+        };
+        if !VALUE_LIST_OPENERS.contains(&opener) {
+            continue;
+        }
+        let word: String = value[opener.len_utf8()..]
+            .chars()
+            .take_while(|&c| is_word_char(c))
+            .collect();
+        if word.is_empty()
+            || word.chars().count() > MAX_WORD_LEN
+            || !word.chars().next().is_some_and(is_word_start)
+        {
+            continue;
+        }
+        return Some(Directive { flag, word });
     }
     None
 }
@@ -234,5 +430,109 @@ mod tests {
     #[test]
     fn no_directives_at_all_is_not_expandable() {
         assert!(expandable(&[]).is_none());
+    }
+
+    /// ffmpeg's own "Getting help:" block, byte-for-byte (spec §6 rule 2b's
+    /// detection-only extension): both `long` and `full` are detected;
+    /// the bare `-h` bullet (no word between `-h` and `--`) and the
+    /// `type=name` bullet (no space right after the word, so the `--`
+    /// joint never lines up) are correctly not.
+    const FFMPEG_GETTING_HELP: &str = "Getting help:\n    -h      -- print basic options\n    -h long -- print more options\n    -h full -- print all options (including all format and codec specific options, very long)\n    -h type=name -- print all options for the named decoder/encoder/demuxer/muxer/filter/bsf/protocol\n    See man ffmpeg for detailed description of the options.\n";
+
+    #[test]
+    fn detects_ffmpeg_long_and_full() {
+        let directives = detect_directives(FFMPEG_GETTING_HELP);
+        assert_eq!(
+            directives,
+            vec![
+                Directive {
+                    flag: "-h",
+                    word: "long".to_string(),
+                },
+                Directive {
+                    flag: "-h",
+                    word: "full".to_string(),
+                },
+            ]
+        );
+    }
+
+    /// Neither `long` nor `full` is in the followable vocabulary — both
+    /// are detected (capping status at `incomplete`) but not followed,
+    /// exactly like curl's own `--help category`: following either would
+    /// need a new argv shape (`-h long`/`-h full`, no leading `--help`,
+    /// so it isn't `HelpExpand`'s shape either), which spec §6 rule 2b's
+    /// extension explicitly defers to WS5b.
+    #[test]
+    fn ffmpeg_directives_are_detected_but_not_expandable() {
+        let directives = detect_directives(FFMPEG_GETTING_HELP);
+        assert!(!directives.is_empty());
+        assert!(expandable(&directives).is_none());
+    }
+
+    /// Real rows from ffmpeg's own output that sit right next to the
+    /// confession and must not be misread as one: `-h topic` and `--help
+    /// topic` both name a word after the flag, but the very next thing is
+    /// prose (`show help`), never a bare `--` token.
+    #[test]
+    fn ffmpeg_topic_rows_are_not_directives() {
+        let text = "-h topic            show help\n--help topic        show help\n";
+        assert!(detect_directives(text).is_empty(), "{text:?}");
+    }
+
+    /// gcc's own `--help=<class-list>` row, byte-for-byte (spec §6 rule
+    /// 2b's detection-only extension): the first class name (`common`) is
+    /// recorded as the word, taken verbatim from the tool's own text.
+    #[test]
+    fn detects_gcc_help_equals_row() {
+        let text = "  --help={common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].\n                           Display specific types of command line options.\n";
+        let directives = detect_directives(text);
+        assert_eq!(
+            directives,
+            vec![Directive {
+                flag: "--help",
+                word: "common".to_string(),
+            }]
+        );
+        assert!(expandable(&directives).is_none());
+    }
+
+    /// gcc's own plain `--help` row, right above the `--help=<class>` row
+    /// in real output, must not itself be read as a directive: nothing
+    /// follows `--help` but whitespace then prose, never `=`.
+    #[test]
+    fn gcc_plain_help_row_is_not_a_directive() {
+        let text = "  --help                   Display this information.\n";
+        assert!(detect_directives(text).is_empty(), "{text:?}");
+    }
+
+    /// A *longer* flag name that merely starts with `--help` (a real GNU
+    /// convention on some tools, e.g. `--help-all`) must never be read as
+    /// this tier's `--help` confessing anything: there is no space between
+    /// `--help` and `-all`, so the row never reaches the word-capture step
+    /// in either unquoted matcher.
+    #[test]
+    fn a_longer_help_prefixed_flag_is_not_a_directive() {
+        let text = "  --help-all             Show all help options\n";
+        assert!(detect_directives(text).is_empty(), "{text:?}");
+    }
+
+    /// A hypothetical literal-valued `--help=yes` row must not be read as
+    /// gcc's shape: the character right after `=` is a bare word
+    /// character, not one of the punctuation marks a class/placeholder
+    /// enumeration opens with.
+    #[test]
+    fn a_literal_valued_help_flag_is_not_a_directive() {
+        let text = "  --help=yes             enable extra help\n";
+        assert!(detect_directives(text).is_empty(), "{text:?}");
+    }
+
+    /// A GNU-style optional-value row (`--help[=FMT]`) must not be read as
+    /// gcc's shape either: the `[` sits *before* `=`, not immediately
+    /// after it, so `strip_prefix('=')` never matches at all.
+    #[test]
+    fn an_optional_value_help_flag_is_not_a_directive() {
+        let text = "  --help[=FMT]           show help, formatted per FMT\n";
+        assert!(detect_directives(text).is_empty(), "{text:?}");
     }
 }

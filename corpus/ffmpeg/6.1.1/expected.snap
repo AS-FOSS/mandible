@@ -1,0 +1,645 @@
+name: ffmpeg
+description: Hyper fast Audio and Video encoder
+usage:
+- 'usage: ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...'
+flags:
+- short: 'h'
+  group: 'Getting help:'
+  description: -- print basic options
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  value_name: long
+  value_kind: Required
+  group: 'Getting help:'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  value_name: full
+  value_kind: Required
+  group: 'Getting help:'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  value_name: type=name
+  value_kind: Required
+  group: 'Getting help:'
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  description: show license
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  value_name: topic
+  value_kind: Required
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  value_name: topic
+  value_kind: Required
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  value_name: elp
+  value_kind: Required
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: ersion
+  value_kind: Required
+  description: show version
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  value_name: uildconf
+  value_kind: Required
+  description: show build configuration
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ormats
+  value_kind: Required
+  description: show available formats
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: uxers
+  value_kind: Required
+  description: show available muxers
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: emuxers
+  value_kind: Required
+  description: show available demuxers
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: evices
+  value_kind: Required
+  description: show available devices
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: odecs
+  value_kind: Required
+  description: show available codecs
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: ecoders
+  value_kind: Required
+  description: show available decoders
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  value_name: ncoders
+  value_kind: Required
+  description: show available encoders
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  value_name: sfs
+  value_kind: Required
+  description: show available bit stream filters
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rotocols
+  value_kind: Required
+  description: show available protocols
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ilters
+  value_kind: Required
+  description: show available filters
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: ix_fmts
+  value_kind: Required
+  description: show available pixel formats
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  value_name: ayouts
+  value_kind: Required
+  description: show standard channel layouts
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: ample_fmts
+  value_kind: Required
+  description: show available audio sample formats
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: ispositions
+  value_kind: Required
+  description: show available stream dispositions
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: olors
+  value_kind: Required
+  description: show available color names
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: ources
+  value_kind: Required
+  description: list sources of the input device
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: inks
+  value_kind: Required
+  description: list sinks of the output device
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  value_name: waccels
+  value_kind: Required
+  description: show available HW acceleration methods
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  value_name: oglevel
+  value_kind: Required
+  description: set logging level
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: loglevel
+  value_kind: Required
+  description: set logging level
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: eport
+  value_kind: Required
+  description: generate a report
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: ax_alloc
+  value_kind: Required
+  description: set maximum size of a single allocated block
+  provenance:
+    sources:
+    - help-text
+- short: 'y'
+  description: overwrite output files
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  description: never overwrite output files
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  value_name: gnore_unknown
+  value_kind: Required
+  description: Ignore unknown stream types
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ilter_threads
+  value_kind: Required
+  description: number of non-complex filter threads
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ilter_complex_threads
+  value_kind: Required
+  description: number of threads for -filter_complex
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: tats
+  value_kind: Required
+  description: print progress report during encoding
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: ax_error_rate
+  value_kind: Required
+  description: 'ratio of decoding errors (0.0: no errors, 1.0: 100% errors) above which ffmpeg returns an error instead of success.'
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: fmt
+  value_kind: Required
+  description: force format
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: codec
+  value_kind: Required
+  description: codec name
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: odec
+  value_kind: Required
+  description: codec name
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: re
+  value_kind: Required
+  description: preset name
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: ap_metadata
+  value_kind: Required
+  description: set metadata information of outfile from infile
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: duration
+  value_kind: Required
+  description: record or transcode "duration" seconds of audio/video
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: o
+  value_kind: Required
+  description: record or transcode stop time
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: s
+  value_kind: Required
+  description: set the limit file size in bytes
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: s
+  value_kind: Required
+  description: set the start time offset
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: seof
+  value_kind: Required
+  description: set the start time offset relative to EOF
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: eek_timestamp
+  value_kind: Required
+  description: enable/disable seeking by timestamp with -ss
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: imestamp
+  value_kind: Required
+  description: set the recording timestamp ('now' to set the current time)
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: etadata
+  value_kind: Required
+  description: add metadata
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rogram
+  value_kind: Required
+  description: add program with specified streams
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: arget
+  value_kind: Required
+  description: specify target file type ("vcd", "svcd", "dvd", "dv" or "dv50" with optional prefixes "pal-", "ntsc-" or "film-")
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: pad
+  value_kind: Required
+  description: audio pad
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: rames
+  value_kind: Required
+  description: set the number of frames to output
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ilter
+  value_kind: Required
+  description: set stream filtergraph
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ilter_script
+  value_kind: Required
+  description: read stream filtergraph description from a file
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: einit_filter
+  value_kind: Required
+  description: reinit filtergraph on input parameter changes
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: iscard
+  value_kind: Required
+  description: discard
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: isposition
+  value_kind: Required
+  description: disposition
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: frames
+  value_kind: Required
+  description: set the number of video frames to output
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: rate
+  value_kind: Required
+  description: set frame rate (Hz value, fraction or abbreviation)
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: psmax
+  value_kind: Required
+  description: set max frame rate (Hz value, fraction or abbreviation)
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: size
+  value_kind: Required
+  description: set frame size (WxH or abbreviation)
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: spect
+  value_kind: Required
+  description: set aspect ratio (4:3, 16:9 or 1.3333, 1.7777)
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: isplay_rotation
+  value_kind: Required
+  description: set pure counter-clockwise rotation in degrees for stream(s)
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: isplay_hflip
+  value_kind: Required
+  description: set display horizontal flip for stream(s) (overrides any display rotation if it is not set)
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: isplay_vflip
+  value_kind: Required
+  description: set display vertical flip for stream(s) (overrides any display rotation if it is not set)
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: n
+  value_kind: Required
+  description: disable video
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: codec
+  value_kind: Required
+  description: force video codec ('copy' to copy stream)
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: imecode
+  value_kind: Required
+  description: set initial TimeCode value.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: ass
+  value_kind: Required
+  description: select the pass number (1 to 3)
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: f
+  value_kind: Required
+  description: set video filters
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  value_name: bitrate
+  value_kind: Required
+  description: video bitrate (please use -b:v)
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: n
+  value_kind: Required
+  description: disable data
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: frames
+  value_kind: Required
+  description: set the number of audio frames to output
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: q
+  value_kind: Required
+  description: set audio quality (codec-specific)
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: r
+  value_kind: Required
+  description: set audio sampling rate (in Hz)
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: c
+  value_kind: Required
+  description: set number of audio channels
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: n
+  value_kind: Required
+  description: disable audio
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: codec
+  value_kind: Required
+  description: force audio codec ('copy' to copy stream)
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: b
+  value_kind: Required
+  description: audio bitrate (please use -b:a)
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: f
+  value_kind: Required
+  description: set audio filters
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: size
+  value_kind: Required
+  description: set frame size (WxH or abbreviation)
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: n
+  value_kind: Required
+  description: disable subtitle
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: codec
+  value_kind: Required
+  description: force subtitle codec ('copy' to copy stream)
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: tag
+  value_kind: Required
+  description: force subtitle tag/fourcc
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: ix_sub_duration
+  value_kind: Required
+  description: fix subtitles duration
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: anvas_size
+  value_kind: Required
+  description: set canvas size (WxH or abbreviation)
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: pre
+  value_kind: Required
+  description: set the subtitle options to the indicated preset
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+confession:
+  word: long
+  flag: -h
+  followed: false
