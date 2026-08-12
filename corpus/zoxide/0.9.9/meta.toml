@@ -1,0 +1,38 @@
+[tool]
+name = "zoxide"
+version = "0.9.9"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.2.2"
+
+# zoxide's `--help` opens with clap's own version/author/homepage banner —
+# "zoxide 0.9.9" / "Ajeet D'Souza <98ajeet@gmail.com>" /
+# "https://github.com/ajeetdsouza/zoxide" — separated by a blank line from
+# the tool's real one-line description, "A smarter cd command for your
+# terminal". Before the preamble fix, the generic description-collection
+# loop concatenated every leading column-0 line regardless of that blank
+# line, so the root node's description read "zoxide 0.9.9 Ajeet D'Souza
+# <98ajeet@gmail.com> https://github.com/ajeetdsouza/zoxide A smarter cd
+# command for your terminal" — mostly an email address and a URL. Nothing
+# was fabricated and nothing was missing (structure is otherwise perfect:
+# 6 subcommands, 2 root flags, clap correctly detected), so no existing gate
+# ever caught it. This fixture is the regression net for that fix.
+[[capture]]
+argv = ["zoxide", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+# Not "clap (v3/v4)": clap identification is artifact-based (Tier A′ step
+# 1, scanning the compiled binary's own bytes — see
+# `mandible-extract/src/framework/mod.rs`), and the corpus replay runner
+# has no real binary on disk to scan (`xtask/src/corpus.rs`'s
+# `resolved_tool` fabricates a path under `/corpus-replay/` that
+# deliberately never resolves — see its own doc comment). A live probe of
+# the real `zoxide` binary does identify clap
+# (`extract_node_against_real_zoxide_binary_identifies_clap`,
+# `mandible-extract/src/help_text/mod.rs`); this frozen fixture only
+# exercises the generic layout engine, same as every other fixture here.
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 6
+must_contain_flags = ["--help", "--version"]

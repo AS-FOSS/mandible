@@ -3,7 +3,13 @@
 
 #![forbid(unsafe_code)]
 
+mod audit;
+mod corpus;
 mod coverage;
+mod existence;
+mod misattribution;
+mod status;
+mod transition;
 
 use clap::{Parser, Subcommand};
 use coverage::ScoreFormat;
@@ -22,17 +28,26 @@ enum Command {
     /// `PATH` (spec §13.1) and print/write the scoreboard.
     Coverage {
         /// Compare the freshly computed aggregate against the checked-in
-        /// scoreboard and fail (nonzero exit) if `%described` dropped, the
+        /// scoreboard and fail (nonzero exit) if `%flags_text` dropped, the
         /// `no-tier` count grew, or the `suspicious` count grew — the
-        /// regression gate spec §13.1 describes. `verbatim` and framework-
-        /// detection counts are reported but deliberately not part of
-        /// this gate (see `coverage::compute_aggregate`'s doc comment).
-        /// Without this flag, the command just (re)writes the scoreboard
-        /// file.
+        /// regression gate spec §13.1 describes. `verbatim`, framework-
+        /// detection, and `misattribution_suspect_tools` counts are
+        /// reported but deliberately not part of this gate (see
+        /// `coverage::compute_aggregate`'s doc comment and
+        /// `crate::misattribution`'s). Without this flag, the command just
+        /// (re)writes the scoreboard file.
         #[arg(long)]
         check: bool,
         /// Where to read/write the scoreboard.
-        #[arg(long, default_value = "coverage-scoreboard.txt")]
+        ///
+        /// Defaults under `tmp/` (gitignored) rather than the repo root: a
+        /// full-PATH scoreboard is a snapshot of one machine's installed
+        /// tools, never a portable baseline (spec §13.1a), so it is scratch
+        /// by construction and does not belong beside the tracked files. The
+        /// one scoreboard that *is* a baseline, `coverage-scoreboard.ci.txt`,
+        /// stays at the root because CI names that path explicitly — it is
+        /// checked in, and `--check` diffs against it.
+        #[arg(long, default_value = "tmp/coverage-scoreboard.txt")]
         out: PathBuf,
         /// Scan only this comma-separated list of tool names instead of
         /// every executable on `PATH`. Pins a fixed, reproducible
@@ -68,6 +83,200 @@ enum Command {
         #[arg(long, value_enum, default_value = "text")]
         format: ScoreFormat,
     },
+    /// Replay every fixture under `corpus/<tool>/<version>/` through the
+    /// real tiered extraction pipeline with zero subprocesses (spec
+    /// §13.2, `corpus/README.md`), and fail loudly when a parse
+    /// regresses: a snapshot mismatch, a violated `[contract]`, a
+    /// promoted-but-still-`[xfail]`-marked fixture, or a fixture that
+    /// parses slower than the coarse 100ms ceiling.
+    Corpus {
+        /// Rewrite every fixture's `expected.snap` to match its freshly
+        /// extracted tree instead of checking it. Never fails the run
+        /// (short of an I/O error) — this is the accept-the-new-snapshot
+        /// step of `corpus/README.md`'s fixture workflow, the plain-file-
+        /// compare equivalent of `cargo insta review`.
+        #[arg(long)]
+        bless: bool,
+        /// The corpus root to scan.
+        #[arg(long, default_value = "corpus")]
+        dir: PathBuf,
+        /// Output format for a *checking* run (ignored with `--bless`,
+        /// which only ever rewrites and reports what it wrote): fixed
+        /// per-fixture `text` lines (unchanged since this command's first
+        /// version), or GitHub-flavored `markdown` — a semantic before/
+        /// after transition report (status, node/flag counts, named
+        /// subcommand/flag deltas), never a raw `expected.snap` diff. The
+        /// corpus CI job writes this straight to `$GITHUB_STEP_SUMMARY`,
+        /// same convention as `coverage`'s `--format markdown`.
+        #[arg(long, value_enum, default_value = "text")]
+        format: ScoreFormat,
+        /// A second, plain corpus directory (never a git ref) to diff every
+        /// fixture's `[contract]` against, printing a prominent `CONTRACT
+        /// WEAKENED: <fixture> <field>` line for every field that got
+        /// weaker — see `corpus::contract_weakened_lines`'s doc comment for
+        /// why this takes a directory instead of talking to git itself
+        /// (this binary has no git access, by the same workspace-wide
+        /// invariant that keeps `std::process` out of every crate but
+        /// `mandible-extract/src/exec/`). Reported, never gated — a
+        /// contract may legitimately weaken (`corpus/README.md`'s
+        /// documented lifecycle), this only makes sure nobody has to take
+        /// that on faith. Populate it however you like — a CI step
+        /// running `git archive <base-ref> corpus | tar -x -C <dir>` is
+        /// the intended one. Omit it and nothing about this run changes.
+        #[arg(long)]
+        baseline_dir: Option<PathBuf>,
+    },
+    /// A semantic per-tool diff between two coverage scoreboards (WS2 part
+    /// 1, `transition.rs`'s own doc comment): status transitions, flag-
+    /// count gains/losses (reported separately, never netted), and tools
+    /// appearing or disappearing. This is the check that has actually
+    /// caught every regression on this branch so far — done by hand, by a
+    /// human running a full sweep before and after a grammar change and
+    /// diffing per tool, because the aggregate `%flags_text` gate and the
+    /// fixed corpus both stayed green through two real regressions. Reads
+    /// two already-rendered `ScoreFormat::Text` scoreboards (e.g. two
+    /// `cargo xtask coverage --out <path>` runs before/after a change);
+    /// never a raw text diff of the files themselves — see
+    /// `render_markdown`'s doc comment for why.
+    ///
+    /// **Non-blocking, per maintainer decision D4**: this never fails the
+    /// run (there is deliberately no `--check`-style flag here to fail on),
+    /// so it can ship now and be promoted to a real gate after a burn-in
+    /// period without a second command to learn.
+    SweepDiff {
+        /// The earlier scoreboard.
+        #[arg(long)]
+        before: PathBuf,
+        /// The later scoreboard.
+        #[arg(long)]
+        after: PathBuf,
+        /// Write the rendered report here in addition to printing it.
+        /// Omit to only print to stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// `markdown` for `$GITHUB_STEP_SUMMARY`, `text` for a terminal or
+        /// plain log. Same convention as `coverage --format`/`corpus
+        /// --format`.
+        #[arg(long, value_enum, default_value = "text")]
+        format: ScoreFormat,
+    },
+    /// A bounded, random, human-reviewed sample of real tools, comparing
+    /// raw captured `--help` text against the parsed tree (`audit.rs`'s own
+    /// doc comment has the full rationale). This is the first instrument
+    /// that measures agreement with *truth*, not with the parser's own
+    /// prior output.
+    Audit {
+        #[command(subcommand)]
+        action: AuditAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuditAction {
+    /// Draw a deterministic, stratified sample of tools and write/merge a
+    /// resumable verdict file at `<dir>/<seed>.toml`.
+    Sample {
+        /// Random seed. Same seed (and same `--sample`/`--tools`) always
+        /// draws the same tools; a different seed draws a different set.
+        #[arg(long)]
+        seed: u64,
+        /// How many tools to draw in total, split proportionally across
+        /// the parse-status strata found in the population.
+        #[arg(long)]
+        sample: usize,
+        /// Sample from this fixed, comma-separated list instead of
+        /// scanning `PATH` — pins a reproducible population, which is what
+        /// tests and CI use (mirrors `coverage --tools`).
+        #[arg(long, value_delimiter = ',')]
+        tools: Option<Vec<String>>,
+        /// Directory holding verdict files (`<dir>/<seed>.toml`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// A plain-text file of `<tool> <reason...>` lines (`#` comments and
+        /// blank lines ignored, same convention as `ingest --verdicts`)
+        /// naming tools to include in the sample *unconditionally*, on top
+        /// of the stratified random draw. The motivating case: 14 tools an
+        /// unaudited heuristic (commit `3464b0c`) promoted `low-confidence`
+        /// -> `ok` mid-freeze, identified via `xtask sweep-diff` — a
+        /// `--tools` shortcut population would not reliably re-draw them,
+        /// so they are named explicitly instead of left to chance.
+        #[arg(long)]
+        force_include_file: Option<PathBuf>,
+    },
+    /// The interactive review loop: raw `--help` text and the parsed tree,
+    /// side by side, one verdict at a time. Reads `<word> [note...]` lines
+    /// from stdin and saves after every tool, so an interrupted session
+    /// resumes rather than restarts.
+    Review {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// Non-interactive twin of `review`: write every still-pending tool's
+    /// raw text + parsed tree to its own file under `--emit-dir`, for a
+    /// reviewer (or a machine with no tty) to read offline. Pair with
+    /// `ingest` to apply the resulting verdicts.
+    Emit {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        #[arg(long)]
+        emit_dir: PathBuf,
+    },
+    /// Apply a plain-text verdicts file (`<tool> <verdict> [note...]` per
+    /// line, `#` comments and blank lines ignored) to a sample — the
+    /// counterpart to `emit`, and how a review gets recorded on a machine
+    /// with no tty at all.
+    Ingest {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// The verdicts file to read.
+        #[arg(long)]
+        verdicts: PathBuf,
+        /// Replace an already-recorded verdict instead of leaving it
+        /// alone. Without this, re-running `ingest` on a file that
+        /// includes already-applied lines is a safe no-op for those lines.
+        #[arg(long)]
+        overwrite: bool,
+    },
+    /// Per-stratum and overall accuracy, each stated as a count and a
+    /// confidence interval — never a bare percentage — plus the list of
+    /// tools judged `wrong` or `incomplete`.
+    Report {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// Turn every reviewed tool into a `corpus/README.md`-shaped fixture:
+    /// capture files, a pre-filled `meta.toml`, `expected.snap` for a
+    /// `correct` verdict, `[xfail]` with the reviewer's note as `reason`
+    /// for `wrong`/`incomplete`. Stages into `<dir>/<seed>/fixtures` by
+    /// default rather than the gated `corpus/` tree — see `cmd_fixtures`'s
+    /// doc comment for why.
+    Fixtures {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Where to write fixture directories. Defaults to a staging area
+        /// under `--dir`; pass `corpus` explicitly to write straight into
+        /// the gated corpus (only once every `[xfail]` fixture has a real
+        /// falsifying `[contract]` field — see `cmd_fixtures`).
+        #[arg(long)]
+        corpus_dir: Option<PathBuf>,
+        /// Only emit fixtures for these tools (comma-separated) instead of
+        /// every reviewed entry.
+        #[arg(long, value_delimiter = ',')]
+        only: Option<Vec<String>>,
+        /// Overwrite an already-existing fixture directory.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -84,7 +293,130 @@ fn main() -> anyhow::Result<()> {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
             run_coverage(check, &out, tools, shard, progress, format)
         }
+        Command::Corpus {
+            bless,
+            dir,
+            format,
+            baseline_dir,
+        } => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+        Command::SweepDiff {
+            before,
+            after,
+            out,
+            format,
+        } => run_sweep_diff(&before, &after, out.as_deref(), format),
+        Command::Audit { action } => run_audit(action),
     }
+}
+
+fn run_audit(action: AuditAction) -> anyhow::Result<()> {
+    match action {
+        AuditAction::Sample {
+            seed,
+            sample,
+            tools,
+            dir,
+            force_include_file,
+        } => {
+            let force_include = match force_include_file {
+                Some(path) => audit::load_force_include(&path)?,
+                None => Vec::new(),
+            };
+            audit::cmd_sample(seed, sample, tools, &dir, &force_include)
+        }
+        AuditAction::Review { seed, dir } => {
+            let stdin = std::io::stdin();
+            let mut input = stdin.lock();
+            let mut output = std::io::stdout();
+            audit::cmd_review(&dir, seed, &mut input, &mut output)
+        }
+        AuditAction::Emit {
+            seed,
+            dir,
+            emit_dir,
+        } => audit::cmd_emit(&dir, seed, &emit_dir),
+        AuditAction::Ingest {
+            seed,
+            dir,
+            verdicts,
+            overwrite,
+        } => audit::cmd_ingest(&dir, seed, &verdicts, overwrite),
+        AuditAction::Report { seed, dir } => audit::cmd_report(&dir, seed),
+        AuditAction::Fixtures {
+            seed,
+            dir,
+            corpus_dir,
+            only,
+            force,
+        } => {
+            let corpus_dir =
+                corpus_dir.unwrap_or_else(|| dir.join(seed.to_string()).join("fixtures"));
+            audit::cmd_fixtures(&dir, seed, &corpus_dir, only, force)
+        }
+    }
+}
+
+fn run_corpus(
+    bless: bool,
+    dir: &std::path::Path,
+    format: ScoreFormat,
+    baseline_dir: Option<&std::path::Path>,
+) -> anyhow::Result<()> {
+    // `corpus::run` (no baseline) stays the default path, unchanged from
+    // before `--baseline-dir` existed; `run_with_baseline` is only reached
+    // when a caller actually asks for the contract-weakening check.
+    let report = match baseline_dir {
+        Some(baseline) => corpus::run_with_baseline(dir, bless, format, Some(baseline))?,
+        None => corpus::run(dir, bless, format)?,
+    };
+    println!("{}", report.text);
+    if report.failed() {
+        anyhow::bail!(
+            "corpus regression: {} fixture(s) failed — see above",
+            report.failures.len()
+        );
+    }
+    Ok(())
+}
+
+/// Read and diff two scoreboards (`xtask sweep-diff`, WS2 part 1). Always
+/// exits `0` on a clean read of both files — see `transition.rs`'s doc
+/// comment on why this is non-blocking by construction (maintainer decision
+/// D4), not by a flag a caller has to remember to omit.
+fn run_sweep_diff(
+    before: &std::path::Path,
+    after: &std::path::Path,
+    out: Option<&std::path::Path>,
+    format: ScoreFormat,
+) -> anyhow::Result<()> {
+    let before_text = std::fs::read_to_string(before).map_err(|e| {
+        anyhow::anyhow!(
+            "could not read --before scoreboard at {}: {e}",
+            before.display()
+        )
+    })?;
+    let after_text = std::fs::read_to_string(after).map_err(|e| {
+        anyhow::anyhow!(
+            "could not read --after scoreboard at {}: {e}",
+            after.display()
+        )
+    })?;
+
+    let before_parsed = transition::parse_scoreboard(&before_text);
+    let after_parsed = transition::parse_scoreboard(&after_text);
+    let t = transition::diff(&before_parsed, &after_parsed);
+
+    let rendered = match format {
+        ScoreFormat::Text => transition::render_text(&t),
+        ScoreFormat::Markdown => transition::render_markdown(&t),
+    };
+    println!("{rendered}");
+
+    if let Some(out) = out {
+        write_out(out, &rendered, "report")?;
+        println!("wrote {}", out.display());
+    }
+    Ok(())
 }
 
 /// Parse an `INDEX/TOTAL` shard spec, rejecting the off-by-one mistakes
@@ -128,12 +460,16 @@ fn run_coverage(
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim, {}/{} framework-detected",
-        fresh.pct_described,
+        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {}/{} framework-detected",
+        fresh.pct_flags_with_text,
         fresh.total,
         fresh.no_tier_count,
         fresh.suspicious_count,
         fresh.verbatim_count,
+        fresh.man_shaped_count,
+        fresh.zero_flag_ok_count,
+        fresh.misattribution_suspect_tools,
+        fresh.existence_fabrication_tools,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -153,19 +489,21 @@ fn run_coverage(
         })?;
 
         println!(
-            "previous: {:.2}% described across {} tools, {} with no tier, {} suspicious, {} verbatim",
-            previous.pct_described,
+            "previous: {:.2}% of flags carried text across {} tools, {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags",
+            previous.pct_flags_with_text,
             previous.total,
             previous.no_tier_count,
             previous.suspicious_count,
             previous.verbatim_count,
+            previous.man_shaped_count,
+            previous.zero_flag_ok_count,
         );
 
         let mut regressed = false;
-        if fresh.pct_described + 0.01 < previous.pct_described {
+        if fresh.pct_flags_with_text + 0.01 < previous.pct_flags_with_text {
             println!(
-                "REGRESSION: %described dropped from {:.2}% to {:.2}%",
-                previous.pct_described, fresh.pct_described
+                "REGRESSION: %flags_text dropped from {:.2}% to {:.2}%",
+                previous.pct_flags_with_text, fresh.pct_flags_with_text
             );
             regressed = true;
         }
@@ -178,9 +516,9 @@ fn run_coverage(
         }
         // Gated exactly like no_tier_count (spec §13.1): a metric that
         // can be gamed by the failure mode it's meant to detect is worse
-        // than no metric — [M-10] shipped as 100% described while 39 of
-        // tar's 40 nodes were fabricated, so %described alone must never
-        // be the only gate.
+        // than no metric — [M-10] shipped as 100% "described" (this
+        // column's old name) while 39 of tar's 40 nodes were fabricated,
+        // so `%flags_text` alone must never be the only gate.
         if fresh.suspicious_count > previous.suspicious_count {
             println!(
                 "REGRESSION: suspicious count grew from {} to {}",
@@ -199,6 +537,61 @@ fn run_coverage(
                 previous.verbatim_count, fresh.verbatim_count
             );
         }
+        // `man_shaped_count` (spec [M-16]'s exposure enumeration for the
+        // pending `-h`-fallback decision) is a brand-new measurement with
+        // no baseline to regress against, so — like `verbatim_count` — it
+        // is reported for visibility only and never gated.
+        if fresh.man_shaped_count != previous.man_shaped_count {
+            println!(
+                "man-shaped count changed from {} to {} (reported, not gated)",
+                previous.man_shaped_count, fresh.man_shaped_count
+            );
+        }
+        // `zero_flag_ok_count` ([M-15]) is deliberately **not** gated, and
+        // deliberately reported even though `pct_flags_with_text` already is:
+        // [M-15]'s whole point is that a synopsis-only flag grammar makes
+        // `pct_flags_with_text` fall (a usage-only flag adds to the denominator
+        // with no description to add to the numerator) at the exact moment
+        // real recall improves. A gate on `pct_flags_with_text` alone therefore
+        // rewards *not* fixing this, which is the metric trap this column
+        // exists to make visible instead of silently blocking. This count
+        // falling is the actual signal that a fix like this one worked;
+        // `pct_flags_with_text` falling alongside it is the expected, correct
+        // cost, not a second regression.
+        if fresh.zero_flag_ok_count != previous.zero_flag_ok_count {
+            println!(
+                "ok-with-zero-flags count changed from {} to {} (reported, not gated — spec [M-15]: this falling, not pct_flags_with_text, is the real success signal)",
+                previous.zero_flag_ok_count, fresh.zero_flag_ok_count
+            );
+        }
+        // `misattribution_suspect_tools` (this task's own instrument,
+        // `crate::misattribution`) is deliberately **not gated**: it is a
+        // brand-new detector with a measured, nonzero false-positive rate
+        // and no fleet-wide baseline to regress against yet — see that
+        // module's doc comment. Reported so a grammar change's effect on
+        // it is visible, exactly like `verbatim_count`/`man_shaped_count`
+        // above.
+        if fresh.misattribution_suspect_tools != previous.misattribution_suspect_tools {
+            println!(
+                "misattribution-suspect tool count changed from {} to {} (reported, not gated)",
+                previous.misattribution_suspect_tools, fresh.misattribution_suspect_tools
+            );
+        }
+        // `existence_fabrication_tools` (`crate::existence`, this task's own
+        // instrument — the twin of `misattribution_suspect_tools` above, a
+        // different check with a different victim: does a name/spelling the
+        // help-text tier emitted actually occur in the tool's own raw
+        // output, rather than whether an attached description belongs to
+        // the right flag) is deliberately **not gated**, for the identical
+        // reason: a brand-new detector with no fleet-wide baseline must not
+        // fail a build the first time it runs (spec §13.1b). Reported so a
+        // grammar change's effect on it is visible.
+        if fresh.existence_fabrication_tools != previous.existence_fabrication_tools {
+            println!(
+                "existence-fabrication tool count changed from {} to {} (reported, not gated)",
+                previous.existence_fabrication_tools, fresh.existence_fabrication_tools
+            );
+        }
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }
@@ -206,8 +599,27 @@ fn run_coverage(
         return Ok(());
     }
 
-    std::fs::write(out, &table)
-        .map_err(|e| anyhow::anyhow!("failed to write scoreboard to {}: {e}", out.display()))?;
+    write_out(out, &table, "scoreboard")?;
     println!("wrote {}", out.display());
     Ok(())
+}
+
+/// Write `contents` to `out`, creating `out`'s parent directory first.
+///
+/// `std::fs::write` does not create intermediate directories, so without
+/// this a perfectly reasonable `--out tmp/scoreboard.txt` fails on any
+/// checkout that doesn't already happen to have a `tmp/`. That matters now
+/// that the default `--out` *is* under `tmp/` (see `Coverage::out`): a fresh
+/// clone has no such directory, and the sweep would die at the very end,
+/// after twenty minutes of work, with nothing written.
+fn write_out(out: &std::path::Path, contents: &str, what: &str) -> anyhow::Result<()> {
+    if let Some(parent) = out.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                anyhow::anyhow!("failed to create {} for {what}: {e}", parent.display())
+            })?;
+        }
+    }
+    std::fs::write(out, contents)
+        .map_err(|e| anyhow::anyhow!("failed to write {what} to {}: {e}", out.display()))
 }

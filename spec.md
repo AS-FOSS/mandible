@@ -280,6 +280,36 @@ otherwise need its own defense. Widgets are permitted to assume `Text` is clean.
 `Text` retains paragraph breaks (`\n\n`) for the detail pane's description
 rendering; the tree pane collapses to a single line at render time.
 
+**The raw pane (key `t`, §2) deliberately does not go through
+`Text::sanitize`.** Its whole job is showing the tool's own bytes, and
+`sanitize`'s whitespace-collapsing and paragraph-unwrapping are exactly what
+would destroy the column alignment a reviewer needs to judge the parser
+against. A second constructor, `Text::sanitize_preserving_layout`, exists for
+this one path: it strips ANSI/OSC/DCS escapes, stray carriage returns, and
+other C0 controls (a raw terminal escape or a lying `\r` could scramble the
+reader's terminal, so this much neutralization is not optional even for a
+"raw" view), and expands tabs to spaces at 8-column stops, because `ratatui`
+gives a bare `\t` zero display width and leaving it unexpanded would misalign
+columns rather than preserve them. It does not collapse whitespace, trim, or
+unwrap paragraphs, and it is truncated to the same `MAX_TEXT_CHARS` bound as
+`sanitize`. `Text::sanitize` itself, and every use of it on the path that
+feeds the IR, is untouched; only `mandible-extract`'s `help_text::raw_help*`
+functions call the preserving variant. The two constructors are verified
+apart: diffing the raw pane against independently captured `--help` output
+for `du` (column alignment) and `curl --help all` (large output) came back
+byte-identical.
+
+One consequence worth knowing when comparing the pane to your own terminal:
+mandible probes tools by absolute resolved path, so a tool that echoes its
+own `argv[0]` prints `Usage: /usr/bin/du` in the pane and `Usage: du` in a
+shell where `du` was found via `PATH`. That difference is correct: it is
+what the tool actually received as `argv[0]` in each case, not a defect in
+either the probe or the pane.
+
+The raw pane also displays stdout and stderr **both**, labelled, even though
+§7 Tier B's parser reads only one of the two per its own rule. See that
+section for why the two paths differ.
+
 ### 4.2 Provenance is per field, not per node
 
 ```rust
@@ -295,7 +325,8 @@ pub enum Source {
     KnownSpec { provider: &'static str },      // "carapace", "withfig"
     CompletionScript { shell: &'static str },
     ManPage { format: ManFormat },             // Mdoc | Man
-    HelpText,
+    HelpText,                                  // a structured block: table, .TP, ...
+    HelpTextSynopsis,                          // a usage line — spellings, never prose ([M-15], §13.1b)
     UserOverride,
 }
 ```
@@ -455,6 +486,27 @@ is answerable without a debugger.
 
 The runner errors only when *no* tier produced a root node.
 
+**`mandible --report <TOOL>`** assembles a paste-ready bug report: mandible's
+own version, the target tool's version when recoverable, the `--doctor`
+diagnostic (reusing its report-building code rather than re-deriving it), and
+a raw `--help` capture, followed by the repository's issues URL. It goes
+through the same sanctioned probe chokepoint every other tier uses and adds
+no new argv shape. The honest limitation: a tool's version is scraped
+best-effort from the same `--help` banner already captured (clap's own
+template opens with `"<name> <version>"`, which this recognizes), but most
+tools never print a version in `--help` at all, so the report usually asks
+the person filing it to paste `<tool> --version` themselves. Recovering it
+automatically would mean issuing a `--version` probe, which is a new argv
+shape against §6 rule 2's closed list and has deliberately not been taken.
+
+**`mandible --review <SEED>`** (with `--audit-dir`, default `audit`) opens
+the audit review loop (§13.1c) inside the real TUI: it walks
+`audit/<SEED>.toml`'s pending entries in file order, opening each tool
+exactly as `mandible <tool>` would (same tree, same lazy fill, same raw
+pane), and saves a verdict to the manifest immediately after every
+confirmation, never batched, so a killed session resumes at the next pending
+entry with everything answered so far intact.
+
 ---
 
 ## 6. Execution safety policy
@@ -474,10 +526,13 @@ damage a user's machine, and it gets its own section and its own tests.
    opposite of inert.
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
-   [<words...>]`, or `-- <partial>` under `COMPLETE=`. Any other shape requires a
-   spec amendment. The last of those is currently **unused** — no tier constructs
-   it since Tier E's clap probe was removed — and it is retained on the type only
-   so removing a public enum variant is not forced into a patch release.
+   [<words...>]`, `<words...> --help`/`-h` (a subcommand path's own probe,
+   `HelpLongForPath`/`HelpShortForPath`), `<words...> --help <word>` (rule
+   2b, below), or `-- <partial>` under `COMPLETE=`. Any other shape requires a
+   spec amendment. The `COMPLETE=` shape is currently **unused** — no tier
+   constructs it since Tier E's clap probe was removed — and it is retained on
+   the type only so removing a public enum variant is not forced into a patch
+   release.
 
    2a. **No empty argument the tool could read as its first positional.** Rule 1
    only counts arguments, and an empty string satisfies it while being the
@@ -496,6 +551,160 @@ damage a user's machine, and it gets its own section and its own tests.
    `__complete` sentinel precedes it, and a non-cobra tool rejects that word
    rather than acting on it. So the rule is checkable: an empty element is
    allowed only behind a guard word, never straight after `--`.
+
+   2b. **`InertArgv::HelpExpand` — the truncation-confession follow-up
+   (WS5, approved amendment).** `curl --help` ends its own output:
+
+   ```text
+   This is not the full help, this menu is stripped into categories.
+   Use "--help category" to get an overview of all categories.
+   For all options use the manual or "--help all".
+   ```
+
+   That is a **truncation confession** — the tool telling the reader, in its
+   own words, that what was just printed is not the complete document.
+   Measured: `curl --help` recovers 12 flags; `curl --help all` recovers
+   258, and mandible was reporting the 12-flag document as `ok` at full
+   confidence. It is a convention, not a curl quirk (`ffmpeg -h long`/`-h
+   full`, `git help -a`, `gcc --help=<class>` are the same genus), so this is
+   a new, general argv shape rather than a curl special case — which is
+   exactly why rule 2's closed list needs a new member, not a `mandible-
+   extract` patch that quietly bypasses it.
+
+   A new shape needs an amendment because it is new *argv the crate can
+   construct*, not because it is dangerous by any measure this section
+   already tracks: it is refused by rule 0 exactly like every other non-
+   `["--help"]` shape (`run_inert`'s own `argv.args() != ["--help"]` check
+   needs no change to cover it), it cannot produce an empty argument (rule
+   2a — `word` is checked non-empty before this shape is even constructed,
+   see below), and it is bounded by the same timeout, output cap, and
+   scratch-directory redirect as every other probe. What rule 2 exists to
+   police is the *shape*, and this is a shape nothing on the closed list
+   already covers: `--help` followed by a second, tool-supplied word.
+
+   **`InertArgv::HelpExpand { words, word }`** renders as `[..words,
+   "--help", word]` (`mandible-extract/src/exec/policy.rs`). Three
+   constraints, all enforced in `help_text::confession` and
+   `HelpTextTier`, not left to caller discipline:
+
+   - **`word` comes from the tool's own printed directive, never a prose
+     heuristic and never a fabricated word.** `help_text::confession::
+     detect_directives` recognizes a closed, content-keyed grammar — a
+     quoted `"--help <word>"`/`"-h <word>"` shape, the word bare and the
+     quote immediately closing right after it (curl's own `"--help all"`)
+     — never keyed on the tool's name, so it fires identically for any
+     tool that happens to print the same convention. `word` is copied
+     verbatim from what matched; nothing about the word is invented,
+     guessed, or derived from the tool's identity.
+   - **`--help` precedes `word`.** So a getopt that stops at the first
+     non-option (BSD/busybox-style, unlike glibc's permuting one) still
+     reaches `--help` before ever considering `word` as a positional —
+     this can never degrade into a bare positional some other getopt
+     routes elsewhere, the exact hazard rule 2a exists to close for a
+     *different* shape (`-- ""`). Putting `word` first was never on the
+     table for this reason alone.
+   - **Expansion is followed at most once, never chained.** A confession
+     detected inside an *expanded* document is not looked at: the probe
+     that fetches the expanded text returns it as-is, with no second call
+     back into `detect_directives` on that result. This is structural, not
+     a depth counter that could be miscalibrated — the function that
+     issues the one follow-up probe simply never recurses into itself.
+
+   **Interaction with rule 0 (the never-probe list) and the attestation
+   gate (`heading_attested`, this section's closing paragraph on
+   `HelpTextTier`).** Neither conflicts with this amendment, and both are
+   worth saying explicitly rather than leaving a reader to wonder:
+
+   - **Rule 0 wins unconditionally.** `HelpExpand`'s rendered argv is never
+     exactly `["--help"]` (it is always `[..words, "--help", word]`, `word`
+     non-empty), so `run_inert`'s existing check refuses it for every
+     tool on the never-probe list with no code change and no special
+     case — a `pkill`-named tool that confesses is refused the expansion
+     exactly as it is refused every other non-`--help` shape.
+   - **A directive-sourced word is structurally attested by construction.**
+     The attestation gate exists to stop a *fabricated* word — one a
+     grammar guessed at from layout — from becoming argv (this section's
+     closing paragraph). A confession's `word` is not fabricated and is
+     not a subcommand name any grammar inferred: it is copied verbatim
+     from text the tool itself already printed, in response to a probe
+     that was itself already attested (the root by construction, or a
+     subcommand path that already passed the gate to be probed at all).
+     So `word` needs no *separate* attestation check — it inherits the
+     attestation of the probe that produced it, the same way the root's
+     own `--help` probe is exempt from the gate because it is the name
+     the user typed, not a word any parser invented.
+
+   **Scope, deliberately narrow.** Only the single-word "expand to one
+   complete document" shape ships (`help_text::confession`'s closed
+   `FOLLOWABLE_WORDS` vocabulary, `all` only for now). curl's *other*
+   directive, `--help category`, is detected (so `incomplete` still fires
+   honestly) but not followed: following it returns a menu of category
+   *names*, not flags, and turning that into real recovery needs
+   enumerating each category as its own probe — a materially bigger
+   feature (`--help category` → N probes) this amendment does not cover
+   and does not partially build.
+
+   A confession that is detected but not followed — an unrecognised
+   word/shape, a failed follow-up probe, or a rule 0 refusal — caps the
+   node's status at `incomplete` (§13.1's status ladder: `ok > incomplete >
+   low-confidence > verbatim > no-tier`) rather than reporting a confident
+   `ok` on a document the tool's own text already said was truncated.
+
+   **Detection-only extension: two more shapes (WS5's own genus list,
+   finally recognized).** curl was the specimen this rule was built from,
+   but it was never the only one named — this rule's own genus list, above,
+   already cited `ffmpeg -h long`/`-h full` and `gcc --help=<class>`.
+   Neither is curl's *quoted* `"--help <word>"` shape, so
+   `help_text::confession::detect_directives` did not see either one, and
+   both tools were measured reporting a confident `ok` over a document
+   their own text already said was incomplete — ffmpeg 91 flags at 97%
+   described, gcc 43 flags at 95% described. Two grammar additions close
+   that, **detection only**:
+
+   - **ffmpeg's shape** is unquoted, inside a flag-table row rather than
+     prose: `-h long -- print more options`. `help_text::confession::
+     match_unquoted_table_row` recognizes `<flag> <word> -- <description>`,
+     anchored to the trimmed line's start exactly as the quoted form is
+     anchored to the character right after an opening quote — a bare `--`
+     token must sit directly between the captured word and a non-empty
+     description, which is what keeps it off an ordinary flag row (`-h,
+     --help  show this help message and exit`: a comma sits where this
+     grammar requires a space) and off a distinct, longer flag name
+     (`--help-all`: no space between `--help` and `-all`).
+   - **gcc's shape** is a flag *definition*, not an invocation example:
+     `--help={common|optimizers|...}[,...].` lists `--help` itself as
+     taking a value. `help_text::confession::match_flag_value_row`
+     recognizes `<flag>=<opener>...`, requiring the character right after
+     `=` to be one of `{`, `[`, `<`, `(` — the punctuation a
+     class/placeholder enumeration opens with, never a bare word — so a
+     hypothetical literal-valued row (`--help=yes`) or an optional-value
+     row (`--help[=FMT]`, where `[` sits before `=`, not after it) is never
+     mistaken for it. The word recorded is the first class name
+     (`"common"`), taken verbatim.
+
+   Both are safe to add **without** a rule 2 amendment, for the same reason
+   detecting curl's shape was: detection only changes what gets *recorded*
+   on the node (a `Confession`), never what argv gets *constructed*. Rule
+   0's `argv.args() != ["--help"]` check, the attestation gate, and every
+   other execution-safety mechanism in this section are untouched, because
+   nothing new is ever run.
+
+   **Following either is explicitly deferred, not shipped.** Neither
+   shape's word is added to `FOLLOWABLE_WORDS`, and no new `InertArgv`
+   variant exists to construct the argv either would need: ffmpeg's own
+   invocation is `-h long` (bare `-h`, no `--help` prefix at all — not
+   `HelpExpand`'s `[..words, "--help", word]` shape), and gcc's is
+   `--help=common` (one joined token, not `--help` and `all` as two
+   separate ones — also not `HelpExpand`'s shape). Each is *new argv this
+   crate does not yet construct*, so each needs its own rule 2 amendment
+   and its own §6 deliberation before it can ship, exactly as this
+   amendment itself was required for curl's `--help all` — that is
+   deferred work (WS5b), not a gap in this change. Until then, both
+   directives are recorded with `followed: false` and cap status at
+   `incomplete` via the ladder above — the same honest-but-incomplete
+   outcome curl's own `--help category` already gets. An undetected
+   confession is a false `ok`; a detected-but-unfollowed one is honest,
+   which is what this extension buys on its own.
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
    kill the **process group**, not just the child — completion scripts spawn
@@ -503,9 +712,43 @@ damage a user's machine, and it gets its own section and its own tests.
 5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation; a tool
    that streams forever must not exhaust memory. Reader threads (or a poll loop)
    are mandatory to avoid pipe deadlock on large output.
-6. **Sanitized environment.** Clear `LESS`, `PAGER`, `MANPAGER`, `GIT_PAGER`;
-   set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`. Without this,
-   a tool may page its own help and hang forever, or emit ANSI into the IR.
+6. **Sanitized environment, and a new session.** Clear `LESS`; **set**
+   `PAGER`, `MANPAGER`, `GIT_PAGER`, and `SYSTEMD_PAGER` to `cat` (not merely
+   clear them — absence is the weaker property, since several ecosystems read
+   an unset pager variable as "go find one yourself" rather than "don't
+   page"); set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`.
+   Spawn the probe as the leader of a **brand-new session**, not merely a new
+   process group: `process_group(0)` alone leaves the child in the same
+   session as mandible, so the session's controlling terminal is still
+   reachable, and a descendant can `open("/dev/tty")` to read and write it
+   directly regardless of what stdin/stdout/stderr were redirected to.
+
+   A user reported `mandible systemctl` freezing their entire TUI, with a
+   pager observed. `env_clear()` used to leave `PAGER` merely *absent*
+   rather than set, and `process_group(0)` alone does not sever the
+   controlling terminal — together, the working theory was that an absent
+   `PAGER` let a tool go find `less` itself, which then opened `/dev/tty`
+   directly for keyboard input (bypassing piped stdout entirely) and left
+   termios changes on the tty device that a process-group kill cannot
+   undo (termios state lives on the device, not the process).
+   [M-17] measured that this specific theory does not hold for
+   `systemctl`: systemd's own pager gate checks `isatty` on its *own*
+   stdout/stderr, which `run_inert` always makes pipes, so no argv this
+   crate constructs against `systemctl` ever reaches the pager at all — a
+   74-verb sweep plus direct `strace` confirmation that `less` itself never
+   attempts `/dev/tty` once its own stdout is non-tty, even with a real
+   controlling terminal available via the session. But [M-17] also
+   confirmed, with a shim that does nothing but attempt
+   `open("/dev/tty")`, that the underlying mechanism the report pointed at
+   is real and general, independent of `systemctl` or pagers specifically:
+   under `process_group(0)` alone, a descendant *can* reach a real
+   controlling terminal; spawning the probe in its own session (via
+   `pre_exec` + `setsid()`, this crate's one audited `unsafe` — see
+   `mandible-extract/src/exec/spawn.rs`) makes that same `open` fail with
+   `ENXIO`. `tests/exec_policy.rs`'s `dev_tty_hazard` shim test is the
+   regression net: it fails without the session fix and passes with it.
+   The pager variables are kept set to `cat` anyway as defense-in-depth
+   against a tool whose own pager gate is weaker than systemd's.
 0. **Programs that signal processes or change machine state are invoked only
    as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`, `skill`,
    `xkill`, `fuser`, and the system-state commands `halt`, `poweroff`,
@@ -542,11 +785,37 @@ damage a user's machine, and it gets its own section and its own tests.
    subcommand a future parser change starts emitting, unasked.
 
    The general form of that last hazard — a *fabricated* word becoming argv
-   for any tool, not just these — is not solved by this list and should be
-   solved by gating positional probes on provenance: send `<word> --help` only
-   when the word came from a structural source (cobra `__complete`, a
-   completion script, an argparse subparser table), never from a prose
-   heuristic. Until then this list is load-bearing for thirteen tools.
+   for any tool, not just these — is now closed for the one place in this
+   crate that constructs a positional `--help` probe: Tier B's
+   `<word> --help`/`-h` (`HelpTextTier`, `mandible-extract/src/help_text/mod.rs`)
+   fires only when `NodeHints::heading_attested` is true — the word came
+   from a recognized command heading (or the chain a heading started), never
+   from layout alone. A non-attested node is not probed in any shape; the
+   tier declines and records a per-node, per-tier failure (§5.3) rather than
+   fabricating a probe or letting the tree silently gain an
+   empty-but-successful node in its place. The root is exempt by construction
+   (`Runner::extract_full_for` passes `heading_attested: true` for it, since
+   it is the name the user typed, not a word any parser invented), so the
+   ordinary `<tool> --help` root probe is unaffected. `mandible-extract/tests/exec_policy.rs`'s
+   shim suite proves both halves: an attested word is still probed and its
+   real flags recovered; a non-attested one reaches the tool's binary not at
+   all — verified by running the same assertion against the pre-gate code
+   path and watching it fail.
+
+   This list stays anyway, and is not made redundant by that gate. The two
+   close different gaps: the gate above governs *when a word is trusted
+   enough to become argv at all*, while this list governs *what these
+   thirteen specific programs may be asked to do even with a trusted word*
+   — `--help` remains their only permitted shape regardless of provenance,
+   because for them even a genuine, correctly-attested subcommand name is
+   still a target (`killall foo --help` looks safe by attestation and is
+   refused anyway, since `foo` naming a real process is exactly the risk).
+   The gate also inherits whatever a grammar's own heading-recognition gets
+   wrong — `heading_attested` is only as trustworthy as the rules in
+   `help_text/sections.rs` that set it, and those have needed several fixes
+   (AGENTS.md §2's invariant table records more than one) — while this list
+   is closed on a fact about the program itself, independent of any parser.
+   Belt and suspenders, on two different axes.
 
    **This is a safety rule, and is deliberately not the per-tool knowledge §1
    forbids.** §1 governs *extraction* — "if a tool renders badly, fix the
@@ -717,7 +986,7 @@ the thing it exists to detect. **Widening a fingerprint is only worth doing
 alongside a grammar that earns it**, never to move the number.
 
 Detection rate is therefore not a target. Coverage is: unidentified tools still
-parse, and aggregate `%described` sits around 96%.
+parse, and aggregate `%flags_text` sits around 96%.
 
 Identify the framework in this order, most reliable first:
 
@@ -819,7 +1088,42 @@ The generic fallback parser (step 2) is built with `winnow`:
 - **Read stdout *and* stderr, and do not require exit 0.** Measured: `openssl
   --help` writes 0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255
   with output only on stderr [M-8]. Both are exactly the "older Unix utility"
-  this tier exists for. Prefer stdout when both are non-empty.
+  this tier exists for. The rule for which of the two the *parser* reads is
+  not "stdout if non-empty, else stderr": that rule shipped first and was
+  wrong. `openssl cmp --help` prints two `CMP info: ...` diagnostic lines to
+  stdout and its entire ~60-line help to stderr, so it handed the parser the
+  banner and threw the document away, reachable by roughly 150 openssl
+  subcommands in the same shape. The rule now judges each stream on its own
+  with a help-shaped-output check (`looks_like_help_output`, D1.3.1) and
+  parses whichever stream looks like help:
+
+  | stdout empty? | stderr empty? | picks |
+  |---|---|---|
+  | yes | yes | stdout (empty; nothing to pick) |
+  | yes | no | stderr, the only stream available |
+  | no | yes | stdout, the only stream available |
+  | no | no, stdout help-shaped | stdout, regardless of stderr |
+  | no | no, stdout not help-shaped, stderr help-shaped | stderr |
+  | no | no, neither help-shaped | stdout, the default when there is nothing to prefer |
+
+  Ties (both streams help-shaped) break toward stdout, the conventional
+  stream for a well-behaved tool's `--help`. The streams are never
+  concatenated for the parser: merging a diagnostic preamble into the
+  document is how banner text becomes fabricated flags. `pick_stream` in
+  `mandible-extract/src/help_text/mod.rs` carries the full truth table and
+  reasoning above its definition.
+
+  This is the *parsing* path only. The verbatim/raw pane (key `t`, §2) shows **both**
+  streams, labelled, independent of what the parser chose to read. A
+  reviewer checking the parser's work needs to see the diagnostic lines the
+  parser correctly discarded, not just the document it kept. See §4.1 for
+  the raw pane's own sanitization rule, which is deliberately different from
+  the IR's.
+
+  Measured, full PATH, 2,240 tools joined, before and after the fix: 0
+  flag-count losses across any tool, 169 flags gained across 11 tools (every
+  one from zero), 13 tools moving `verbatim` → `ok`, `verbatim_count` 321 →
+  308.
 - **Attach `confidence: f32`** derived from how much of the output the grammar
   actually consumed, and surface it. Being honest about a best guess is better UX
   than presenting heuristic output with man-page confidence.
@@ -845,7 +1149,13 @@ which is the safety property that matters when processing untrusted output.
 - Walk `complete -F`/`compgen -W` registrations and `case "$prev" in` branches as
   typed AST nodes.
 
-### Tier D — man page structural extraction
+### Tier D — man page prose backfill
+
+**Not built.** Measured before building ([M-14]), re-scoped after a second
+measurement contradicted its headline case ([M-16]), and deliberately
+**off by default** — see "Trigger and default" below. This section records
+what a correct implementation would be, so the next attempt does not
+re-derive it.
 
 Two sub-cases of very different quality:
 
@@ -858,26 +1168,62 @@ Two sub-cases of very different quality:
 
 **Do not** regex the rendered output of `man <tool>`, and do not parse `mandoc -T
 tree` — the OpenBSD manual documents that format as unstable and explicitly says
-not to write parsers against it. There is no `-T json`. Use `libmandoc`
-(`mparse_alloc` → `mparse_readfd` → `mparse_result` → walk `mdoc_node()`/
-`man_node()`) via `bindgen`.
+not to write parsers against it. There is no `-T json`.
 
-Two corrections to revision 1:
+**Implementation: a pure-Rust subset parser, not `libmandoc` FFI.** Revision 2
+specified `libmandoc` via `bindgen`, and that is superseded. `libmandoc` is not
+a shipped library on Linux [M-6], so it would mean vendoring mandoc's source and
+building it with `cc` — and `#![forbid(unsafe_code)]` rules out the FFI
+regardless. [M-14] measured what a subset parser would actually need: target
+man(7) `.TP`/`.IP` + `.B`, with `.It Fl` for mdoc (only ~20 of the relevant
+pages are mdoc, so an mdoc-first plan aims at the wrong majority). **Do not gate
+on an `OPTIONS` section** — `bash`, `ps` and `tmux` document options under
+`DESCRIPTION`, and that gate alone cost 28 tools; gate on the *tag line*
+beginning with a flag, which is also what excludes examples (`ps` tags its
+examples with `.TP`).
 
-- **`libmandoc` is not a shipped library on Linux** — no `.so` or headers in a
-  default install; `mandoc` exists only as a source package [M-6]. Using this tier
-  on the platform where most man pages live means **vendoring mandoc's source and
-  building it with `cc`** (ISC-licensed, feasible). That makes this the *most*
-  build-complex tier, not merely "a real build-complexity cost." It is off by
-  default behind a `manpage` feature.
-- **Multi-page tools are unaddressed and matter most.** `git`'s structure is not
-  in `git.1`; it is spread across `git-commit.1`, `git-rebase.1`, and so on.
-  Extracting a tree requires discovering sibling pages via `MANPATH`/`man -k` and
-  the `<tool>-<sub>.N` convention. This is the highest-value un-specced source of
-  prose for classic Unix tools and belongs in this tier's design.
+**Man pages are generated too, and that decides the design.** help2man,
+asciidoc/docbook→man, mdoc and hand-written roff partition this space the same
+way clap/cobra/argparse partition help text — the Tier A′ insight, one tier
+down. So the first step is a generator survey with a go/no-go per generator,
+not a parser. [M-16] is why this is not optional: **git's 184 `git-*.1` pages
+contain zero `.TP` macros** — asciidoc emits bold-run paragraphs instead — so a
+`.TP`-targeting parser recovers nothing from the tool revision 2 named as this
+tier's motivating case. git is therefore **not** the headline case; its flags
+are reachable far more cheaply through `-h` ([M-16]) and, at the root, through
+a usage-synopsis grammar. The honest remaining value is [M-14]'s measured
+`.TP` set: `ssh` (52 entries against 0 today), `bash` (162 against 18), `ps`,
+`tcpdump`, `mdadm`.
 
-Position this tier as a **prose backfill** (structural 60 / prose 180, §4.4), not
-as a structure source. It is the exact complement of Tier E.
+Multi-page discovery is still required for the tools that do benefit: a tool's
+structure is spread across `<tool>-<sub>.N` siblings, found via `MANPATH`/`man -k`.
+
+**Trigger and default — this reconciles a contradiction this spec used to
+carry.** Revision 2 positioned this tier as a **prose backfill** merged by
+authority (structural 60 / prose 180, §4.4), i.e. enriching parses that
+already succeeded. [M-14]'s own conclusion says the opposite: *fire only as a
+zero-confidence fallback*, which "keeps staleness away from the ~1,500 tools
+that already parse and avoids authority-merge questions entirely." Those are
+different tiers, and the disagreement sat unresolved in this document.
+
+**Resolved in [M-14]'s favour** (maintainer decision, 2026-08-11):
+
+1. **Zero-confidence fallback only.** This tier fires only where the help-text
+   tiers produced nothing usable. It never enriches a parse that already
+   succeeded — so a tool like `git restore`, which yields 16 flags from `-h`,
+   is never touched by it.
+2. **Off by default, opt-in if built.** Enrichment-by-merge is the more
+   invasive reading and is not the default behaviour.
+3. Rationale, and it is a UX judgement as much as a technical one: a man page
+   is a *different document* from the tool's own help, written at a different
+   time, and silently blending the two makes a pane that no longer corresponds
+   to anything the tool actually prints. That is the cleanliness cost, and it
+   is the same objection [M-14] recorded as "avoids authority-merge questions
+   entirely."
+
+Where it does fire, per-field provenance labels the prose `man`, so a reader
+can always see that a description came from a page rather than from the
+binary.
 
 ### Tier E — native, self-describing binaries
 
@@ -944,7 +1290,7 @@ mandible/                          (workspace root)
 │   ├── known_specs/             # Tier A: carapace snapshot + index
 │   ├── help_text/               # Tier B: winnow grammar
 │   ├── completion_script/       # Tier C: brush-parser AST walking
-│   ├── manpage/                 # Tier D: libmandoc FFI  [feature = "manpage"]
+│   ├── manpage/                 # Tier D: pure-Rust roff subset [feature = "manpage"]
 │   ├── native/                  # Tier E: cobra `__complete` probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
@@ -960,9 +1306,11 @@ mandible/                          (workspace root)
 outside that module and fails the build otherwise. Centralizing this is what makes
 §6 auditable rather than aspirational.
 
-Per-tier modules sit behind feature flags so Tier D's `libmandoc` dependency —
-which needs a C toolchain and only makes sense on Unix — is not a hard
-requirement for a Windows user who wants Tiers A/B/C/E.
+Per-tier modules sit behind feature flags so Tier D — which only makes sense
+where man pages exist, and which is off by default in any case (§7 Tier D) —
+is not a hard requirement for a Windows user who wants Tiers A/B/C/E. Note the
+original reason for gating it, a C toolchain for `libmandoc`, no longer
+applies: §7 Tier D is a pure-Rust subset parser.
 
 **Default features:** `known-specs`, `help-text`, `completion-script`, `native`.
 **Optional:** `manpage` (C toolchain), `withfig`.
@@ -1232,7 +1580,7 @@ that is actually useful, and it still exercises the merge against Tier B.
 | **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mandible curl`, `mandible tar`, `mandible openssl`, `mandible ip` all produce useful trees; coverage harness reports its first scoreboard |
 | **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
 | **4 — Tier E + C** | cobra two-probe protocol with depth cap/visited set/alias detection; clap `CompleteEnv`; zsh `_arguments` then bash | A cobra tool absent from the catalog renders correctly; a `completion`-only tool renders correctly |
-| **5 — Tier D + F** | libmandoc FFI (vendored, feature-gated), multi-page discovery; user overrides | A BSD-lineage `mdoc` tool and a Linux `man(7)` tool both extract; `git` gains prose from `git-*.1` |
+| **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). **Not** `git` — its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
 | **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mandible itself, shell completions | `cargo install mandible` works; `.deb` and `.rpm` install cleanly |
 
 Deliberately **not** on the roadmap: local NL search (§17).
@@ -1248,7 +1596,7 @@ it. `cargo xtask coverage` runs extraction across every executable on `PATH` and
 emits a scoreboard:
 
 ```
-tool        tier(s)              nodes  flags  %described  ms     status
+tool        tier(s)              nodes  flags  %flags_text  ms     status
 docker      carapace+help          162    836        100%   180    ok
 curl        help                     1    241         96%    90    ok
 openssl     help                     1    112         71%   140    ok  (stderr)
@@ -1256,7 +1604,9 @@ somecli     help                     3     12         33%    60    low-confidenc
 weirdtool   —                        0      0          —    240    no-tier
 ```
 
-The scoreboard is **checked into the repo** and diffed on every parser change.
+The scoreboard is **checked into the repo** and diffed on every parser change,
+and carries a literal `accuracy: unmeasured` line (see below) until an
+instrument actually measures correctness rather than mere presence.
 
 This is what makes "universal, no per-tool adjustment" **measurable** rather than
 aspirational. Without it, every grammar tweak is evaluated against the one tool
@@ -1264,15 +1614,77 @@ you happened to be looking at, and there is no way to see that fixing `tar`
 regressed `xz`. It is also the signal for when a tier has stopped earning its
 complexity.
 
-Regression gate: `%described` aggregate and `no-tier` count may not worsen.
+Regression gate: `%flags_text` aggregate and `no-tier` count may not worsen.
+`%flags_text` is `described / describable`, not `described / total` — see
+§13.1b's metric design rules for why the denominator excludes flags a source
+could never have described in the first place.
 
-**`%described` alone is not a quality signal, and trusting it hid a real bug.**
-The Tier B phantom-subcommand defect [M-10] reported `tar` as `ok` at `100%
-described` while 39 of its 40 nodes were fabricated — invented nodes *inflate*
-the metric. The scoreboard therefore also carries a **structure-sanity** column:
-count of nodes whose name fails `^[a-z][a-z0-9_.-]*$`, and count of nodes with
-no flags, no children, and no summary. Any tool with a non-zero count is marked
-`suspicious`, and `suspicious` is a gated metric exactly like `no-tier`.
+**`%flags_text` alone is not a quality signal, and trusting it hid two real
+bugs, not one.** The Tier B phantom-subcommand defect [M-10] reported `tar` as
+`ok` at `100% described` (this column's name at the time) while 39 of its 40
+nodes were fabricated — invented nodes *inflate* the metric. The scoreboard
+therefore also carries a **structure-sanity** column: count of nodes whose name
+fails `^[a-z][a-z0-9_.-]*$`, and count of nodes with no flags, no children, and
+no summary. Any tool with a non-zero count is marked `suspicious`, and
+`suspicious` is a gated metric exactly like `no-tier`.
+
+**`lsof` (`corpus/lsof/4.95.0`, `[xfail]`) is the second bug, and the reason
+this column was renamed from `%described` to `%flags_text`.** It scored 79%
+"described" — every number above suggesting a good parse — while its options
+table packs three flag+description pairs onto one physical line and the
+generic parser reads only the first, so roughly three quarters of its
+"described" flags actually carry a *different* flag's description.
+`%flags_text` has only ever measured whether text is *attached*; it has never checked
+whether that text is *right*, and `%described` was a name that let a reader
+assume it did. `%flags_text` is the honest name for the same ratio, unchanged
+in every other respect — see §13.1b. The **misattribution detector**
+(`xtask/src/misattribution.rs`) is this project's first step toward an actual
+correctness signal: a re-examination of text the pipeline already captures
+(no new probes) that flags a flag description containing another flag's
+literal spelling, attested at a column-aligned position elsewhere in the
+tool's own raw help text — the exact shape of `lsof`'s bug, generalized. It is
+a heuristic with a measured, nonzero false-positive rate, reported in the
+scoreboard's `misattr` column and `misattribution_suspect_tools` footer field,
+and **deliberately not gated**: see that module's own doc comment for the
+full rule, the false positives it had to be hardened against, and why a
+brand-new detector must not fail a build the first time it runs. Until a
+lower-false-positive accuracy instrument exists, every scoreboard also carries
+a literal `accuracy: unmeasured` line, so a reader can never mistake
+`%flags_text` for it again.
+
+**The "anti-fabrication oracle" this section originally called for turned out
+to be two checks, not one — a distinction that cost a cycle to discover and
+should not have to be rediscovered.** Misattribution (above) answers "does a
+description belong to the flag it's attached to?" — its victim is `lsof`'s
+column-bled options table. A second, independent question is "does everything
+extracted actually *occur* in the tool's own output, or was it invented?" —
+and its victim is [M-10], this project's worst shipped defect: `tar` gained 39
+phantom subcommands named things like *"treat them as errors"* (a wrapped
+continuation line mistaken for a new table entry), `dd` 40, `less` 65,
+`apt-get` seven words lifted from its own description paragraph — every one
+reported `100%` "described," because a fabricated node's own fabricated flags
+look exactly as described as a real node's. The **existence detector**
+(`xtask/src/existence.rs`) is this check: every help-text-sourced subcommand
+name and flag spelling the tier emitted must occur literally in the tool's own
+raw captured text — a subcommand name additionally at a line-start-ish
+position (the real, measured shape of a command-list entry; a bare substring
+match alone is too weak against a fabricated name built from an ordinary
+English word that also happens to appear once in unrelated prose). It compares
+against *pre-normalization* spellings, not the IR's stored form: alias pairing
+(`mandible_core::merge::pair_aliases`, e.g. `gh`'s `-R`/`--repo`) means a
+flag's two spellings need not sit together in the raw text, only each occur
+somewhere in it; value stripping (`--gpg-sign[=KID]` stored as `gpg-sign`)
+means a spelling is checked as a word-bounded *prefix*, not an exact token;
+and a negatable boolean (`--[no-]source`, `mandible_core::Flag::negatable`)
+is checked against its real bracketed raw form, never the bare `--source` that
+never actually appears. Same properties as misattribution and for the same
+reasons: it reuses `misattribution::RecordingProbe` (no new probes), is scoped
+to `Source::HelpText`/`Source::HelpTextSynopsis` only (every other source —
+Cobra `__complete`, a completion script, a native probe — is structural and
+legitimately silent in help text), and is reported in the scoreboard's `exist`
+column and `existence_fabrication_tools` footer field **without being gated**
+— a brand-new detector with no fleet-wide baseline must not fail a build the
+first time it runs (§13.1b).
 
 The general lesson, worth stating because it will recur: **a coverage metric that
 can be gamed by the failure mode it is meant to detect is worse than no metric**,
@@ -1295,11 +1707,190 @@ Two jobs, neither of which needs a long download or a multi-hour run:
    coverage harness over the runner's own `PATH` — zero installation cost.
 
 The summary table carries, per framework: tools detected, flags extracted,
-% described, and pass/fail. The gate fails on regressions in `no-tier`,
-`suspicious`, or framework-detection failures.
+% of flags with text (`%flags_text`), and pass/fail. The gate fails on
+regressions in `no-tier`, `suspicious`, or framework-detection failures.
 
 This is the natural home for the §13.1 scoreboard once it stops depending on
 whatever happens to be installed on a developer's laptop.
+
+### 13.1b Metric design rules
+
+`pct_flags_with_text` (`%flags_text` in the scoreboard; named `pct_described`
+until this rename — see below) was originally `described / total`. [M-15]'s
+usage-synopsis flag grammar recovered 1,618 real flags — a usage line lists
+spellings, never prose, by construction — and the ratio *fell*, 94.18% →
+91.17%, because every recovered flag counted as "undescribed" against a
+source that could never have described it. Recall was punished for
+succeeding. That is a defect in the metric, not in the grammar, and it is the
+same shape of mistake this project has now made five times:
+
+- **[M-10]** — invented subcommand nodes *inflated* the ratio (`tar`
+  reported `ok` at 100% described while 39 of its 40 nodes were fabricated).
+  Fixed by the structure-sanity column (above), not by trusting the ratio.
+- **[M-16]** — `verbatim` conflated "the tool printed nothing this grammar
+  can use" with "the tool rendered a man page," a fifty-times overestimate
+  (`verbatim_count=314` against `man_shaped_count=6`) if either reading were
+  assumed from the other. Fixed by a dedicated `man_shaped` check reading the
+  captured text directly, never inferred from `verbatim` alone.
+- **A sweep-timing false transition** — `waagent2.0` was reported
+  `ok` → `verbatim`, a *downward* transition that a per-tool status gate
+  would have flagged red, on two coverage runs against **identical code**.
+  Its elapsed time halved between them (41.9s → 21.4s), i.e. both runs sat
+  near the 10s extract cap and machine load decided which side of it the
+  tool landed on. A timing-derived status is a statement about the machine
+  that happened to run it, not about the parser.
+- **The [M-15] denominator defect** — the ratio punished [M-15]'s recovered
+  synopsis flags by counting them as undescribed against a source that
+  structurally cannot supply a description.
+- **The name itself** — `pct_described`/`%described` measured only whether a
+  flag had *text attached*, never whether the text was *right*, and a name
+  that says "described" reads as an accuracy claim it never earned. `lsof`
+  (`corpus/lsof/4.95.0`) is the proof: it scored 79% "described" while
+  roughly a quarter of its flags carried another flag's description
+  entirely. See below.
+
+Three rules, derived from the first four of those incidents rather than
+asserted in the abstract:
+
+1. **A gated metric must be monotone under added true information.** An
+   improvement that adds correct flags and loses nothing must never worsen
+   any number a gate reads. `pct_flags_with_text = described / total`
+   violated this the moment a source existed that could add flags but never
+   descriptions.
+2. **Denominators are conditioned on what the source could have provided.**
+   A flag whose only source cannot supply a description (spec [M-15]:
+   `mandible_core::Source::HelpTextSynopsis`) is excluded from
+   `pct_flags_with_text`'s denominator entirely — see
+   [`mandible_core::Provenance::describable`] and
+   [`mandible_extract::ExtractionResult::describable_flag_count`] — rather
+   than counted as a description the grammar failed to find. The raw flag
+   count is kept as its own, ungated column: a spelling-only flag is real
+   information, just not part of a ratio to gate on.
+3. **A status derived under resource pressure (timeout-adjacent) is a
+   statement about the machine, not the parser.** Wall-clock-derived
+   signals (a parse-time ceiling, a sweep that ran under contention) must
+   not silently flip a correctness gate; a machine-load explanation should
+   be distinguishable from an actual regression before either is reported
+   as one.
+
+`pct_flags_with_text` is `described / describable`. Fleet-wide on this
+aarch64 box (2,266 `PATH` tools), the redefinition returns it to
+**94.19%** — within 0.01 of the 94.18% figure that predates [M-15]'s
+synopsis-flag recovery — while the recovered flags remain fully counted in
+the raw total (48,278, unchanged) and 204 tools move `low-confidence` →
+`ok` with zero tools moving the other direction. See Appendix B.
+
+**A fifth rule, from the fifth incident:** a metric's *name* is part of its
+design, not decoration, and a name a reader could reasonably mistake for a
+stronger claim than the metric makes is itself a defect — the same category
+of bug as a wrong denominator, just harder to grep for. `pct_described` was
+renamed to `pct_flags_with_text` (the scoreboard column: `%described` →
+`%flags_text`) for exactly this reason: it changes nothing about how the
+ratio is computed, only what it is honestly called. Every scoreboard also
+now carries a literal `accuracy: unmeasured` line until an instrument
+actually measures correctness — see §13.1's own note on the misattribution
+detector, the first step toward one. `xtask::coverage::parse_aggregate_footer`
+still reads a scoreboard's old `pct_described=` key for backward
+compatibility; it never writes one. See Appendix B for the historical note on
+the column-name change.
+
+### 13.1c The audit instrument: comparing against truth
+
+Misattribution and existence (§13.1) each re-examine text the pipeline
+already captured, so both are still, structurally, comparisons against the
+parser's own prior output. `xtask audit` and `mandible --review` are the
+project's fourth testing instrument and the first to compare output against
+independently established truth: a human reads the tool's own raw `--help`
+text side by side with the parsed tree and judges whether the tree is right.
+
+**Subcommands** (`xtask audit <subcommand>`): `sample` draws and persists a
+sample; `review` is the interactive terminal loop; `emit`/`ingest` are its
+non-interactive twin, since this project's CI has no tty (AGENTS.md §3.2):
+`emit` writes every pending pair to a file for offline reading, `ingest`
+reads a plain-text verdicts file back in; `report` renders accuracy;
+`fixtures` turns a reviewed tool into a staged `corpus/`-shaped fixture, a
+`correct` verdict becoming a real `expected.snap` and a `wrong`/`incomplete`
+verdict becoming `[xfail]` with the reviewer's note as `reason` (`--bless`'s
+own reasoning, applied to a human read instead of an automated one).
+`mandible --review <SEED>` (§5.3) is a fifth entry point onto the same
+manifest, reviewing inside the real TUI instead of a terminal loop.
+
+**The draw is stratified, deterministic, and force-includable.** `xtask
+audit sample` draws proportionally by parse status (`ok`/`low-confidence`/
+`verbatim`/`no-tier`/`suspicious`, whatever `status::compute` actually
+produces for the population, not a fixed bucket set) so the sample's status
+mix reflects the real population's, seeded so the same `--seed` and
+`--sample` size always produce the same draw. A tool can additionally be
+force-included outside the stratified quota, but only with a recorded
+reason (`audit/force-include.txt`, `<tool> <reason...>` per line). An
+unconditional inclusion with no stated reason is exactly the kind of
+unauditable claim this instrument exists to rule out, so force-included
+entries are tallied under their own `forced-inclusion` stratum in `audit
+report` rather than blended into the random draw's numbers.
+
+**Verdicts are `correct`, `incomplete`, `wrong`, or `skip`.** A `wrong` or
+`incomplete` verdict must carry a note, enforced identically in both entry
+paths (the TUI refuses to save a blank-note draft; `xtask audit ingest`
+fails the line): for those two verdicts the note *is* the finding, and a bare
+`wrong` with nothing recorded about what was wrong is useless to whatever
+fix the audit is meant to feed. `correct` and `skip` do not require one,
+since forcing prose out of a reviewer with nothing to add is how a review
+loop starts collecting "n/a". `skip` is recorded, not omitted: a skipped
+entry still occupies its slot and appears in `audit report`, just excluded
+from the accuracy ratio.
+
+**Three pre-tagged known-defect classes** are computed once at sample time
+and shown to the reviewer before they record a verdict, so confirming is
+"leave it alone" and overriding is one `k1=`/`k2=`/`k3=` token in the
+verdict line or note:
+
+- **K1**: the GCC-family single-dash-long-option mis-parse. A flag like
+  `-fdump-scos` is stored as short flag `-f` with `value_name` `dump-scos`
+  instead of as the long-form spelling it actually is. This is a real,
+  measured parser defect, not a detector artifact, and is scheduled as
+  grammar item 1 once the parser freeze the audit is running under lifts.
+- **K2**: the existence detector's own tokenizer gap (`xtask::existence`),
+  not a parser defect. `line_start_words` only considers a line's *first*
+  whitespace-delimited token, so a multi-column or comma-separated
+  subcommand/applet list reports every column after the first as fabricated
+  even though it is right there in the raw text.
+- **K3**: a subcommand stub whose help was never fetched, from either of
+  two causes. Either the attestation gate permanently refused to probe a
+  name that came from a native/cobra artifact rather than a recognized
+  `--help` heading (never a "not yet fetched", a "cannot ever be fetched"),
+  or the tool's subcommands simply carry no flags because their own help
+  was never probed by the single-pass extraction the sample is drawn from.
+
+**`audit report` states accuracy per stratum with a Wilson 95% confidence
+interval, never a bare percentage.** This is the same discipline `%flags_text`'s
+own history (§13.1b) exists to enforce elsewhere. It also reports accuracy
+under views with each known class excluded (K1-excluded, K2-excluded,
+K3-excluded, and all three excluded together), so a reader can see how much
+of the raw number is attributable to a known, already-scheduled cause versus
+genuinely unexplained.
+
+**Scope, decided for the seed-2 run:** the audit measures flag accuracy and
+command/subcommand accuracy only. A node's own prose description and
+usage-section formatting are explicitly out of scope and deferred, so
+neither drives a verdict here. The boundary that keeps this consistent: a
+*flag's* description attached to the *wrong* flag is in scope, because that
+is flag data mis-attribution (the same shape `lsof`'s bug was, §13.1); the
+*node's* own prose description is not, because that is a different kind of
+claim this audit is not yet reviewing.
+
+**`audit/<seed>.toml` is tracked.** It is both the sample manifest and the
+verdict record, a verdict written directly onto its own sample entry, so an
+accuracy claim carries its evidence rather than depending on a file that
+lived on one contributor's machine. **`audit/<seed>/fixtures/` is not
+tracked**: it is `xtask audit fixtures`' staging output, and
+`corpus/README.md`'s own workflow is to review a staged fixture by hand and
+deliberately promote what's ready into `corpus/`, so the staging tree is
+scratch by design.
+
+The audit has not finished running. This section documents the instrument,
+not a result: no accuracy number is stated here, and none should be read
+into anything above. The result, and the final statement of scope, belong in
+Appendix A as **[M-20]**, once the audit actually completes.
 
 ### 13.2 Fixed corpus
 
@@ -1337,6 +1928,21 @@ against yesterday's bytes.
 - **Merge property tests**: merge is associative over authority; a `None` never
   displaces a `Some`; alias pairing is idempotent.
 
+**The workspace runs under `cargo nextest run --workspace` in CI**, never
+`cargo test --workspace` piped into a text-processing tool. The rule behind
+this is not that nextest is faster: it is that human-format test output must
+never be parsed, by anyone, for any reason. The concrete failure, self-reported
+(AGENTS.md §3.3): `grep -c FAILED` against `cargo test`'s output false-positived on
+test *data* that happened to contain the literal word "FAIL" (fixture text,
+a variant name, a snapshot value all share one output stream with no
+structural separation from the test runner's own report), producing a
+confident, wrong pass or fail count. `cargo nextest run` reports a real
+nonzero exit code on any failure and can emit `--message-format
+libtest-json` when a structured result is actually needed. Read that, or the
+exit code, never the prose. Nextest cannot run doctests (an upstream
+limitation), so CI runs a separate `cargo test --doc --workspace` step to
+cover them.
+
 ---
 
 ## 14. Dependency table
@@ -1349,8 +1955,7 @@ against yesterday's bytes.
 | mandible's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | `--completions <shell>` emits a real completion script, which Tier C then parses — mandible parsing itself |
 | Help-text grammar | `winnow` | MIT | Preferred over `pest` for error recovery |
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |
-| Man page AST | `bindgen` + **vendored** mandoc | MIT / ISC | Not a system library on Linux [M-6] — vendor the source and build with `cc`. Feature-gated. |
-| C build | `cc` | MIT/Apache-2.0 | For vendored mandoc only |
+| Man page AST | *(none — hand-written)* | — | **No `bindgen`/vendored mandoc.** Revision 2 specified `libmandoc` via FFI; superseded, because it is not a system library on Linux [M-6] and `#![forbid(unsafe_code)]` rules out the FFI regardless. §7 Tier D is a pure-Rust subset parser over `.TP`/`.IP` + `.B` and `.It Fl` [M-14]. |
 | Parallelism | `rayon` | MIT/Apache-2.0 | Bounded pool for background subtree warming |
 | Paths | `directories` | MIT/Apache-2.0 | XDG cache/config resolution |
 | Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | IR, cache, carapace specs |
@@ -1371,7 +1976,6 @@ licenses — this is the more likely real exposure):
 |---|---|---|
 | carapace specs | `carapace-sh/carapace-bin` | Verify current license text at vendor time; record source commit and date; carry in `NOTICE` |
 | withfig specs (optional) | `withfig/autocomplete` | MIT; carry in `NOTICE` |
-| mandoc source (optional) | `mandoc.bsd.lv` | ISC; carry in `NOTICE` |
 
 ---
 
@@ -1578,6 +2182,303 @@ any of these as current.
   `Available Commands:` **missed `docker` entirely**, because docker prints
   `Common Commands:`.
 
+- **[M-16] git's subcommands are recoverable today, via `-h` — and the man
+  tier as designed would not recover them** (2026-08-10, git 2.43.0,
+  aarch64). Found by running the TUI by hand, not by any gate.
+
+  `git <sub> --help` does not print help: it execs `man` and renders
+  `GIT-COMMIT(1)`. The man-page banner check catches that and correctly
+  degrades to verbatim (§7 Tier B step 3), so **all 22 of git's listed
+  subcommands render as raw roff output** while the root parses cleanly.
+
+  **[M-14]'s design does not reach them.** It targets man(7) `.TP`/`.IP`
+  + `.B`. git's 184 `git-*.1` pages contain **zero `.TP` macros** — they are
+  asciidoc-generated and mark options as bold-run paragraphs
+  (`\fB\-\-amend\fR`, 2,426 occurrences, an inflated upper bound since
+  inline cross-references repeat). So the tier spec §7 Tier D names git as
+  its highest-value case would recover approximately nothing from git.
+  Reconciling Tier D with [M-14] must also account for the asciidoc-
+  generated dialect, which is a *generator*, not a tool — §1-clean, and the
+  same unit of knowledge Tier A′ already parses by.
+
+  **The cheap path is a probe-ordering rule, not a new tier.** `git commit -h`
+  prints an ordinary two-column option table the generic grammar already
+  handles. Measured across the 22 listed subcommands: **501 option lines on
+  21 of them** (only `bisect` yields none). mandible extracts **zero** today,
+  purely because the `-h` fallback fires only when `--help` produced *no
+  output on either stream* — and a man page is plenty of output.
+
+  The fix is to treat *detected as a rendered man page* as "no usable help"
+  and fall back to `-h`, reusing the banner detection that already exists.
+  Keyed on an observable property of the output, never on the tool name. The
+  one hazard is already contained: `-h` is an action flag on machine-state
+  tools, and `HELP_ONLY_PROBE` restricts those to exactly `--help`
+  regardless (§6 rule 0).
+
+  **The exposure set, now measured** (2026-08-10, same machine — aarch64,
+  2,266 tools on `PATH`; CI's x86-64 image carries ~2,832 and its list will
+  differ, so the authoritative run is CI's). The coverage harness gained a
+  `man` column that re-runs the existing banner check over text the pipeline
+  **already captured** (`CommandNode::unparsed`), so the enumeration costs no
+  new probe and no new argv shape — which matters, because measuring an argv
+  broadening by performing one would be circular.
+
+  **Six tools have a man-shaped root `--help`:** `byobu`, `byobu-screen`,
+  `byobu-tmux`, `git-receive-pack`, `git-upload-archive`, `git-upload-pack`.
+  All six currently render `verbatim` with zero flags. None belongs to the
+  process-signalling or machine-state classes §6 rule 0 restricts, so the
+  measurement campaign for the risky sub-case is six named binaries rather
+  than a survey.
+
+  **`verbatim` would have been a 50× overestimate as a proxy.** The same
+  sweep reports `verbatim_count=314` against `man_shaped_count=6`: a root
+  degrades to verbatim overwhelmingly because nothing parsed, only rarely
+  because it printed a man page. Anything reasoning about man-page exposure
+  from the verbatim column is wrong by a factor of fifty — the distinction
+  has to come from the banner check itself.
+
+  Adding the column changed no parse: `pct_described` 94.18%, `no_tier` 2,
+  `suspicious` 1, identical to the run before it. `git`'s own root correctly
+  reports **not** man-shaped, which is the true negative that matters — it is
+  git's *subcommands* that print man pages, not its root.
+
+- **[M-15] The declination tax: 378 tools report `ok` with zero flags**
+  (2026-08-10, mandible 0.2.2 at 7384b6f, aarch64 — note this differs from
+  the x86-64 baseline above, and that difference is itself an argument for
+  pinning the sweep's environment). Of the 1,895 tools the full-`PATH` sweep
+  rates `ok`, **378 (20%) carry no flags at all.**
+
+  This is the exact counterpart to [M-10] and it is invisible to every gate
+  §13.1 currently defines. [M-10] was *fabrication* — invented nodes inflate
+  `%described`, which the structure-sanity column now catches. This is
+  *declination*: a tool the grammar refused to read rather than risk
+  fabricating from. It depresses no metric, because a node with zero flags
+  has no described-ratio to report at all — the scoreboard prints `—` and
+  the tool is excluded from the aggregate rather than counted against it. So
+  every precision tightening in `sections.rs` (the apt-get prose rule, the
+  mysqlslap same-indent rule, the curl usage-continuation rule) could pay
+  for itself in recall elsewhere on `PATH` and nothing would say so.
+  §13.1's own lesson applies to its own gate set: a metric a failure mode
+  can slip past is worse than no metric.
+
+  **Method:** the checked-in scoreboard, filtered to rows with status `ok`
+  and a flag count of 0. Deliberately *not* re-derived by shelling out to
+  378 binaries — probing outside `exec::run_inert` bypasses every §6 rule,
+  so the finer breakdown below has to be computed inside the harness.
+
+  **Not measured, and worth measuring in the harness:** how many of the 378
+  publish flags only in a **usage synopsis**. Spot-checked by hand, that
+  case is real and includes marquee tools — `git --help` documents
+  `-v/--version`, `-C <path>`, `-p/--paginate`, `--git-dir=<path>` and eight
+  more entirely inside its `usage:` block, and mandible extracts none of
+  them (`help_text::sections::extract_positionals` mines that block for
+  positionals only). `zipinfo` is the same shape. The class is not uniform,
+  though, and the honest counterexample matters: `apt-get`'s zero flags is
+  **correct** — apt 2.8.3's help has no options section at all — so the 378
+  is an upper bound on what any single grammar could recover, not a target.
+
+- **[M-17] The `/dev/tty` hazard behind the `mandible systemctl` freeze
+  report, and what actually triggers it** (2026-08-11, systemd 255, less
+  643, dash (Ubuntu `/bin/sh`), aarch64, Ubuntu 24.04). A user reported
+  `mandible systemctl` freezing their entire TUI, with a pager observed.
+  The working theory — `env_clear()` leaves `PAGER` merely *absent*,
+  which lets a pager-searching tool go find `less` itself, combined with
+  `process_group(0)` not severing the controlling terminal — turned out to
+  be right about the mechanism and wrong about which half of it fires for
+  `systemctl` specifically.
+
+  **The `PAGER`-absence half does not hold, measured.** systemd's own
+  pager gate checks `isatty` on its *own* stdout and stderr before ever
+  consulting `PAGER`, and `run_inert` always makes both pipes. A sweep of
+  all 74 `systemctl` verbs plus the root, each probed with both `--help`
+  and `-h` under the exact sanitized environment `run_inert` uses (run
+  inside `unshare -rpf --mount-proc` — read-only queries only, no
+  privileged verb was actually dispatched, confirmed by identical output
+  across every verb, see the second half below), found **zero** pager
+  invocations: every one of the 148 probes produced byte-identical global
+  help text to plain `systemctl --help`, with empty stderr and no
+  descendant process of any kind. Confirmed at the `less`-binary level
+  too, directly via `strace -f -e trace=openat,open`: `less` never
+  attempts `open("/dev/tty")` once its own stdout is non-tty — true both
+  with no controlling terminal available at all, and (built for this
+  measurement, using `openpty()` + `login_tty()` to give a throwaway
+  process a real pty as its controlling terminal, standing in for a real
+  interactive session) with one genuinely available. `less`'s decision is
+  keyed entirely on its own fds, not on whether a reachable controlling
+  terminal exists.
+
+  **The session half is real, demonstrated with a positive control.**
+  Confirming `process_group(0)`'s residual risk needed a program that
+  wants a controlling terminal *unconditionally*, since no argv this
+  crate actually constructs against any known tool was found to do so in
+  this environment. Built directly: a shim run under the same rig (real
+  pty as controlling terminal via `login_tty`, probe spawned exactly as
+  `run_inert` spawns it) that does nothing but `open("/dev/tty")`.
+  **Under `process_group(0)` alone, it succeeds** — the descendant reaches
+  the real controlling terminal, exactly the mechanism the bug report
+  pointed at, regardless of which tool or argv triggers it. **Spawning the
+  probe as the leader of a new session** (`pre_exec` + `setsid()`, this
+  crate's one audited `unsafe`) **makes the same call fail with `ENXIO`.**
+  This is `tests/exec_policy.rs`'s `dev_tty_hazard::
+  probe_cannot_reopen_the_controlling_terminal` test, verified to fail
+  against the pre-fix code and pass against the fix — the AGENTS.md §2
+  discipline of a fixture that has actually been made to fail once, not
+  prose alone.
+
+  Building the positive control itself needed two non-obvious fixes,
+  recorded here since they'd otherwise cost the next person the same
+  half-day: (a) `openpty()` must happen *before* the worker becomes a
+  ctty-less session leader, or a plain `open()` risks auto-acquiring the
+  terminal ambiguously; and more load-bearing, (b) **the pty's master
+  side must stay open** — closing it (even in a different process that
+  merely held a copy of the fd) hangs up the slave, and `TIOCSCTTY`/
+  `login_tty` on a hung-up slave fails with `EIO`, which is easy to
+  misread as "the fix already worked" when it is actually a broken rig.
+
+  **Net effect:** both fixes shipped regardless of which half caused the
+  original freeze — the pager variables (rule 6) as defense-in-depth
+  against a tool whose own pager gate is weaker than systemd's `isatty`
+  check, and the session change (also rule 6) because it is the only one
+  of the two demonstrated, by measurement, to actually close a real
+  `open("/dev/tty")` path. The exact trigger on the reporting user's own
+  machine remains unreproduced — this sandbox has no controlling terminal
+  at all ([`AGENTS.md` §3.2](./AGENTS.md)), so the user-visible freeze
+  itself could not be attempted directly, only the underlying mechanism.
+
+- **[M-18] `systemctl <verb> --help` is safe — measured, not assumed**
+  (2026-08-11, same environment as [M-17]). Prompted by rule 0's own
+  precedent: `shutdown -h` looked harmless until measured and turned out
+  to attempt the real halt, stopped only by polkit. `systemctl`'s verb
+  list includes `reboot`, `poweroff`, `kexec`, `halt` and other
+  machine-state actions, and the background tree warmer will probe
+  `HelpLongForPath` (`systemctl <verb> --help`) for every one of them —
+  `HELP_ONLY_PROBE` (rule 0) matches on the *binary's file name*, so it
+  restricts the standalone `reboot`/`poweroff`/`halt`/`shutdown`
+  multi-call symlinks but not `systemctl` invoked with one of those words
+  as a verb.
+
+  All 74 verbs from `systemctl --help`'s own listing, each probed as
+  `systemctl <verb> --help` and `systemctl <verb> -h` under the sanitized
+  environment (inside `unshare -rpf --mount-proc`), produced output
+  **byte-identical** to plain `systemctl --help` — including `reboot`,
+  `poweroff`, `kexec`, and `halt` — with empty stderr and exit 0 for
+  every case. This is the opposite finding from `shutdown -h`: on
+  `systemctl` (unlike its standalone multi-call-binary symlinks), `-h` is
+  a genuine alias for `--help`, and GNU getopt's permutation intercepts
+  it globally before verb dispatch, for every verb tested, not just the
+  ones already covered by rule 0. No change to `HELP_ONLY_PROBE` or any
+  other safety list is needed; this closes the concern rather than
+  extending the list.
+
+- **[M-19] The actual mechanism behind the `mandible systemctl` freeze:
+  a self-similar background-warmer fan-out, not a pager and not `/dev/tty`**
+  (2026-08-12, systemd 255, mandible at `fd5212f`, aarch64, 4-core sandbox
+  with a working `systemctl`/PID 1 — not the bare container [M-5]/[M-17]
+  measured in). [M-17] and [M-18] closed the tty-reachability and per-verb
+  safety questions but left the freeze itself unreproduced. It reproduces.
+
+  **Reproduced under `scripts/pty_screenshot.py`, which forks a real pty.**
+  `mandible systemctl` under the harness: pressing `j` (move selection
+  down) up to 75 times in a row produced **zero change on screen** — same
+  frame, byte-for-byte, every capture — while `mandible git` under the
+  identical harness updates on every single keystroke. Eventually (around
+  the 75th key, ~45s of wall time on this machine) exactly one keystroke
+  got through, then it froze again. Ruled out as a screenshot-tooling
+  artifact by first confirming `git` visibly changes pane content (not
+  just highlight color, which the plain-text capture can't see) on one
+  `j`, and by checking with `ps`/`/proc` mid-run.
+
+  **Failure shape: the event loop starved, not a blocked process.** While
+  frozen, the `mandible` process was in state `S` (interruptible sleep,
+  not `D`), and `ps` showed **132% CPU** across its threads — actively
+  running, contending for the CPU, not blocked on a syscall. This is the
+  fourth shape the investigation brief distinguished ("the event loop
+  starved"), not a hung child, not a `/dev/tty` reopen, not corrupted
+  terminal state — the terminal state and the process were both fine, the
+  main thread just never got scheduled back around to `event::poll` and
+  `term.draw` (`mandible/src/app_runner.rs`'s `run_loop`) for tens of
+  seconds.
+
+  **Root mechanism, confirmed at the shell and then via the extraction
+  API directly.** `systemctl`'s GNU getopt permutes `--help` to the front
+  of argv regardless of what precedes it, and `systemctl` never validates
+  a verb before help dispatch — so `systemctl <anything...> --help`
+  prints the tool's own root help, byte-identical, no matter how many
+  words come first or what they are:
+
+  ```text
+  $ diff <(systemctl --help) <(systemctl preset-all get-default daemon-reload halt reboot --help)
+  (no difference; exit 0)
+  ```
+
+  Calling `Runner::fill_node` directly (the same call the background
+  warmer makes) against `systemctl`, `systemctl preset-all`, and
+  `systemctl preset-all get-default` in turn showed all three reporting
+  **the same 18 subcommands** — because `HelpTextTier::extract_node`
+  (`mandible-extract/src/help_text/mod.rs`) has no way to know a probe's
+  output describes the root rather than the node it was asked about, so
+  it reads the root's "Commands:" section a second (third, fourth…) time
+  and reports it as that subcommand's own children.
+
+  **Why that becomes a freeze, not just wrong data.** The background
+  `Warmer` (`mandible/src/background.rs`) cascades every discovered
+  child's fill unconditionally — "every fill queues the children it just
+  discovered" — with no cycle or self-similarity detection (unlike the
+  cobra tier's own visited-set protocol, [M-2]). 18 children each
+  (wrongly) reporting 18 children of their own is 18², then 18³ = 5,832,
+  bounded only by `MAX_WARMED_NODES` (4,096) — a global submission cap,
+  not a depth cap. Reaching it means thousands of concurrent
+  `systemctl <phantom path...> --help` spawns queued on a
+  16-thread pool (`available_parallelism() * 4` clamped to `[4, 32]`; 4
+  cores here) plus their stdout/stderr reader threads, all contending
+  with the single UI thread for the same 4 cores — enough scheduler
+  pressure, measured, to starve a 100ms poll loop for 45+ seconds, which
+  is exactly what a user experiences as "the TUI froze."
+
+  **The fix: recognize the hazard from an observable property of the
+  output, the same discipline [M-16] used for man-page detection — never
+  the tool's name.** `HelpTextTier` now remembers each tool's root
+  `--help` text (keyed by resolved binary path) the first time it probes
+  the root, and compares every later subcommand probe's raw text against
+  it. A byte-identical match degrades that node to verbatim (spec §7
+  Tier B step 3 — "never fabricate, degrade to verbatim", the same
+  existing machinery a structurally-implausible parse already uses,
+  factored out as `verbatim_node`) instead of reporting the root's
+  subcommands as its own: `children_filled: true`, `subcommands: []`, raw
+  text still available to the `t` view. An empty `subcommands` list is
+  what stops `Warmer::warm_children`'s loop from queuing anything further
+  for that node, so the cascade halts at depth 1 instead of growing
+  exponentially. This generalizes to any multi-call binary or getopt
+  permutation with the same behavior, not just `systemctl` — the check
+  never inspects the tool's name.
+
+  **Verified no longer reproducing, same pty harness, same commands.**
+  Post-fix, `mandible systemctl` under `pty_screenshot.py`: every `j`
+  press updates the pane immediately (`preset-all` →`get-default` →
+  `show-environment` → …, all 18 of the root's children, one per
+  keystroke), matching `git`'s responsiveness exactly. A 40-keystroke
+  stress run completed in the harness's own nominal wall-clock time
+  (~26s for 40 keys at the harness's fixed pacing) with no stall at any
+  point. `HelpTextTier::extract_node`, called the same way against the
+  same three-level `systemctl` path directly, now reports 18 subcommands
+  at the root and **0** at the first child (previously 18/18/18).
+  Regression tests
+  (`mandible-extract/src/help_text/mod.rs::tests::
+  a_subcommand_probe_identical_to_the_root_does_not_fan_out` and
+  `::a_subcommand_probe_merely_similar_to_the_root_is_parsed_normally`)
+  pin both the positive case and the negative one (a subcommand that
+  shares a preamble with the root but is not byte-identical still parses
+  its own real flags) — the first, verified against this section's own
+  discipline, fails against the pre-fix tier with the exact symptom
+  above (`["preset-all", "get-default"]` reported as the child's own
+  children) and passes against the fix.
+
+  The full workspace test suite (584 tests, two more than the 582 this
+  investigation started from) and all 6 corpus fixtures stayed green
+  throughout — the guard is keyed on exact byte equality to the root, so
+  it never fires for a genuinely distinct subcommand's genuinely distinct
+  help text, corpus fixtures included.
+
 ---
 
 ## Appendix B — What changed in revision 2
@@ -1607,3 +2508,65 @@ any of these as current.
 | Packaging | Absent | §15 | Shipping to crates.io/deb/rpm constrains layout from day one |
 | NL search | Phase 6 feature | §17, deferred with reasoning preserved | Registry-size claim fails on real data; needs a fine-tune project |
 | UX | — | `y` copy, `?` overlay, `--doctor`, designed degraded states | Copying the flag is the end of the core journey |
+
+**Post-revision-2 note (2026-08-11): `pct_described`'s denominator changed.**
+Not a revision bump on its own, but worth recording here because it changes
+what every historical scoreboard number *means* — a reader comparing an old
+`coverage-scoreboard.txt`/`coverage-scoreboard.ci.txt` figure against a new
+one needs to know the ratio itself moved, not just the tools underneath it.
+`pct_described` was `described / total`; it is now `described / describable`
+(§13.1b's metric design rules), excluding flags whose only source is a usage
+synopsis (`mandible_core::Source::HelpTextSynopsis`, spec [M-15]) from the
+denominator, since a synopsis carries spellings, never prose, by
+construction. A scoreboard produced before this change has no
+`describable_flags` field in its `# aggregate:` footer at all (it defaults
+to `0.0` on parse, per `parse_aggregate_footer`'s doc comment) and its
+`pct_described` was computed over raw `total_flags`; a scoreboard produced
+after it has both fields, and `pct_described` is over `describable_flags`.
+The raw flag count (`total_flags`, and the per-row `flags` column) is
+unaffected either way and remains directly comparable across the change.
+
+**Post-revision-2 note (2026-08-11, later same day): the column was renamed,
+its ratio unchanged.** A second, independent change from the denominator one
+above — worth its own entry because it changes what a historical
+scoreboard's *column header* means, not what any number in it is. The
+scoreboard's `%described` column and its `pct_described` aggregate/footer
+field are renamed `%flags_text`/`pct_flags_with_text`: same computation
+(`described / describable`, per the note above), same value on any given
+scoreboard, only the name changed. The rename exists because `%described`
+reads as an accuracy claim — "this flag's text is correct" — when all it has
+ever measured is presence — "this flag has text attached" — and `lsof`
+(`corpus/lsof/4.95.0`, `[xfail]`) is the proof the gap is real: it scored 79%
+"described" while roughly a quarter of its flags carried a different flag's
+description, misread from a three-column options table the generic parser
+reads as one. See §13.1's note on the misattribution detector
+(`xtask/src/misattribution.rs`), the instrument this incident motivated, and
+§13.1b's added fifth metric-design rule on names as part of a metric's
+design. A scoreboard written before this rename has `pct_described=` in its
+`# aggregate:` footer instead of `pct_flags_with_text=`;
+`parse_aggregate_footer` reads both, mapped to the same field, so `--check`
+against an old baseline still works. Every scoreboard, old or new, also now
+carries a literal `# accuracy: unmeasured` line — not parsed by `--check`,
+just a standing, honest reminder that nothing here measures correctness yet.
+
+**Post-revision-2 note (2026-08-12): the "anti-fabrication oracle" is two
+checks, not one.** WS4 originally described a single instrument; building it
+found that misattribution (`xtask/src/misattribution.rs`, added first) and
+existence (`xtask/src/existence.rs`, added by this note) check different
+things with different victims — see §13.1's own account of both. The
+scoreboard gains an `exist` column (right after `misattr`, same tightly-packed
+right-aligned style) and the `# aggregate:` footer gains
+`existence_fabrication_tools=`, appended after
+`misattribution_column_aligned_tools=` and before `total=`. A scoreboard
+written before this change has neither key; `parse_aggregate_footer` defaults
+`existence_fabrication_tools` to `0` on such a scoreboard, so `--check`
+against an old baseline still works. `xtask/src/transition.rs`'s fixed-offset
+row parser (`row_offsets`) was updated in the same change to recognize the new
+column's width (`has_existence_column`, mirroring the existing
+`has_misattr_column`) — without it, `sweep-diff` would have silently misread
+every `status` field on any scoreboard carrying the new column, since that
+field is sliced by trailing character offset, not by name. Caught by
+strengthening `parses_a_freshly_rendered_scoreboard_back_out` to assert
+`status`'s actual value (not just that a row with the right key exists)
+rather than by any gate — worth recording here because the failure mode is
+exactly the kind a presence-only test stays green through.

@@ -8,7 +8,16 @@
 //! whole workspace — permitted to use `std::process`. See `exec`'s
 //! documentation and `tests/no_process_outside_exec.rs`.
 
-#![forbid(unsafe_code)]
+// `deny`, not `forbid`: `exec/spawn.rs` carries exactly one scoped
+// `#[allow(unsafe_code)]`, on the probe-spawning function, for the
+// `pre_exec` + `setsid` call that gives every probe a new *session* (not
+// just a new process group) so a descendant cannot reopen the controlling
+// terminal via `/dev/tty` (see that function's doc comment, and spec §6
+// rule 6). Every other item in this crate — and every other crate in the
+// workspace — still carries `#![forbid(unsafe_code)]`; `deny` here is what
+// lets that one exception exist without silently disabling the lint
+// everywhere else in this crate too.
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 pub mod exec;
@@ -38,32 +47,47 @@ pub use errors::ExtractError;
 pub use exec::is_help_only_probe;
 pub use resolve::{resolve_tool, ResolvedTool};
 pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
-pub use tier::ExtractionTier;
+pub use tier::{ExtractionTier, NodeHints};
+
+use std::sync::Arc;
 
 /// Build the default set of tiers: B (`help_text`), C (`completion_script`),
-/// E (`native`), F (`overrides`), in cost-attempt order (spec §7). Revision
-/// 3 deleted Tier A (the vendored catalog, spec §7 "Tier A — REMOVED"): Tier
-/// B now leads, dispatched on the framework identified by Tier A′ (spec §7
-/// Tier A′), and costs 1-2 spawns but exists for every tool everywhere;
-/// Tier C generates and parses a completion script; Tier E speaks a tool's
-/// own dynamic completion protocol; Tier F is a local file read, attempted
-/// last since most tools have no override at all. Tier D (man pages)
+/// E (`native`), F (`overrides`), in cost-attempt order (spec §7), each
+/// probing tier driven by [`exec::LiveProbe`] — the real pipeline. See
+/// [`default_tiers_with_probe`] for the replay-seam variant (batch:
+/// rework/regression-net-and-recall) that lets a caller (a future corpus
+/// runner) drive the same tiers from frozen bytes instead.
+pub fn default_tiers() -> Vec<Box<dyn ExtractionTier>> {
+    default_tiers_with_probe(Arc::new(exec::LiveProbe))
+}
+
+/// [`default_tiers`], but every probing tier is built against `probe`
+/// instead of always [`exec::LiveProbe`]. Revision 3 deleted Tier A (the
+/// vendored catalog, spec §7 "Tier A — REMOVED"): Tier B now leads,
+/// dispatched on the framework identified by Tier A′ (spec §7 Tier A′), and
+/// costs 1-2 spawns but exists for every tool everywhere; Tier C generates
+/// and parses a completion script; Tier E speaks a tool's own dynamic
+/// completion protocol; Tier F is a local file read, attempted last since
+/// most tools have no override at all and never probes anything (spec §6
+/// machinery doesn't apply to it, so it takes no probe). Tier D (man pages)
 /// remains unimplemented (deferred entirely, per spec's roadmap). Whichever
 /// features are enabled contributes its tier; conflict resolution between
 /// tiers (when more than one contributes the same node) is by
 /// [`mandible_core::Authority`], not attempt order.
 // `vec![]` can't express the cfg-gated pushes below (each tier only
 // exists to push when its feature is enabled).
-#[allow(clippy::vec_init_then_push)]
-pub fn default_tiers() -> Vec<Box<dyn ExtractionTier>> {
+#[allow(clippy::vec_init_then_push, clippy::redundant_clone, unused_variables)]
+pub fn default_tiers_with_probe(probe: Arc<dyn exec::Probe>) -> Vec<Box<dyn ExtractionTier>> {
     #[allow(unused_mut)]
     let mut tiers: Vec<Box<dyn ExtractionTier>> = Vec::new();
     #[cfg(feature = "help-text")]
-    tiers.push(Box::new(help_text::HelpTextTier));
+    tiers.push(Box::new(help_text::HelpTextTier::new(probe.clone())));
     #[cfg(feature = "completion-script")]
-    tiers.push(Box::new(completion_script::CompletionScriptTier));
+    tiers.push(Box::new(completion_script::CompletionScriptTier::new(
+        probe.clone(),
+    )));
     #[cfg(feature = "native")]
-    tiers.push(Box::new(native::NativeTier::default()));
+    tiers.push(Box::new(native::NativeTier::new(probe.clone())));
     tiers.push(Box::new(overrides::OverridesTier));
     tiers
 }

@@ -1,0 +1,299 @@
+name: gcc
+description: 'Options:'
+usage:
+- 'Usage: gcc [options] file...'
+flags:
+- short: 'p'
+  value_name: ass-exit-codes
+  value_kind: Required
+  description: Exit with highest error code from a phase.
+  provenance:
+    sources:
+    - help-text
+- long: help
+  description: Display this information.
+  provenance:
+    sources:
+    - help-text
+- long: target-help
+  description: Display target specific command line options (including assembler and linker options).
+  provenance:
+    sources:
+    - help-text
+- long: help
+  value_name: '{common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].'
+  value_kind: Required
+  description: Display specific types of command line options.
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: Display compiler version information.
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: umpspecs
+  value_kind: Required
+  description: Display all of the built in spec strings.
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: umpversion
+  value_kind: Required
+  description: Display the version of the compiler.
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: umpmachine
+  value_kind: Required
+  description: Display the compiler's target processor.
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: offload=<targets>
+  value_kind: Required
+  description: Specify offloading targets.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-search-dirs
+  value_kind: Required
+  description: Display the directories in the compiler's search path.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-libgcc-file-name
+  value_kind: Required
+  description: Display the name of the compiler's companion library.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-file-name=<lib>
+  value_kind: Required
+  description: Display the full path to library <lib>.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-prog-name=<prog>
+  value_kind: Required
+  description: Display the full path to compiler component <prog>.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-multiarch
+  value_kind: Required
+  description: Display the target's normalized GNU triplet, used as a component in the library path.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-multi-directory
+  value_kind: Required
+  description: Display the root directory for versions of libgcc.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-multi-lib
+  value_kind: Required
+  description: Display the mapping between command line options and multiple library search directories.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-multi-os-directory
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-sysroot
+  value_kind: Required
+  description: Display the target libraries directory.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: rint-sysroot-headers-suffix
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  value_name: a,<options>
+  value_kind: Required
+  description: Pass comma-separated <options> on to the assembler.
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  value_name: p,<options>
+  value_kind: Required
+  description: Pass comma-separated <options> on to the preprocessor.
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  value_name: l,<options>
+  value_kind: Required
+  description: Pass comma-separated <options> on to the linker.
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  value_name: assembler
+  value_kind: Required
+  description: Pass <arg> on to the assembler.
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  value_name: preprocessor
+  value_kind: Required
+  description: Pass <arg> on to the preprocessor.
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  value_name: linker
+  value_kind: Required
+  description: Pass <arg> on to the linker.
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: ave-temps
+  value_kind: Required
+  description: Do not delete intermediate files.
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: ave-temps=<arg>
+  value_kind: Required
+  description: Do not delete intermediate files.
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  value_name: o-canonical-prefixes
+  value_kind: Required
+  description: Do not canonicalize paths when building relative prefixes to other gcc components.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: ipe
+  value_kind: Required
+  description: Use pipes rather than intermediate files.
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: ime
+  value_kind: Required
+  description: Time the execution of each subprocess.
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: pecs=<file>
+  value_kind: Required
+  description: Override built-in specs with the contents of <file>.
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: td=<standard>
+  value_kind: Required
+  description: Assume that the input sources are for <standard>.
+  provenance:
+    sources:
+    - help-text
+- long: sysroot
+  value_name: <directory>
+  value_kind: Required
+  description: Use <directory> as the root directory for headers and libraries.
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  value_name: <directory>
+  value_kind: Required
+  description: Add <directory> to the compiler's search paths.
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  description: Display the programs invoked by the compiler.
+  provenance:
+    sources:
+    - help-text
+- short: '#'
+  value_name: '##'
+  value_kind: Required
+  description: Like -v but options quoted and commands not executed.
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  description: Preprocess only; do not compile, assemble or link.
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  description: Compile only; do not assemble or link.
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  description: Compile and assemble, but do not link.
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  value_name: <file>
+  value_kind: Required
+  description: Place the output into <file>.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: ie
+  value_kind: Required
+  description: Create a dynamically linked position independent executable.
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: hared
+  value_kind: Required
+  description: Create a shared library.
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  value_name: <language>
+  value_kind: Required
+  description: 'Specify the language of the following input files. Permissible languages include: c c++ assembler none ''none'' means revert to the default behavior of guessing the language based on the file''s extension.'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+confession:
+  word: common
+  flag: --help
+  followed: false

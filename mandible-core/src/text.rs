@@ -88,6 +88,54 @@ impl Text {
         truncate_chars(&trimmed, MAX_TEXT_CHARS)
     }
 
+    /// Like [`Text::sanitize`], but for the raw-help display path (the
+    /// verbatim pane, `t`), whose entire job is showing a tool's own bytes
+    /// as they arrived — not turning them into IR prose. `Text::sanitize`
+    /// is the wrong gate there: its steps 6-8 (unwrap hard-wrapped
+    /// paragraphs, collapse whitespace runs, trim leading/trailing
+    /// whitespace) are exactly what destroy column alignment, and column
+    /// alignment is the one thing a side-by-side "does this match the raw
+    /// pane's ground truth" review depends on.
+    ///
+    /// This still neutralizes terminal control sequences — the one thing
+    /// the raw pane cannot safely pass through, since ANSI/OSC/DCS escapes,
+    /// stray carriage returns, and other C0 controls could scramble the
+    /// reader's terminal or misrepresent what arrived — and nothing else:
+    ///
+    /// 1. Strip ANSI/OSC/DCS escape sequences (shares [`strip_escapes`]
+    ///    with [`Text::sanitize`] — same hazard, same fix).
+    /// 2. Strip remaining C0 control characters and DEL, **including a
+    ///    stray `\r`** — callers pass one already-line-split string at a
+    ///    time (see below), so any `\r` still present did not terminate a
+    ///    line and is exactly the "carriage return that lies about what's
+    ///    on screen" hazard, not useful structure.
+    /// 3. Expand tabs to spaces at 8-column stops. This is a neutralization
+    ///    too, not a formatting choice: `ratatui` does not interpret `\t`
+    ///    as a tab stop the way a real terminal does (`unicode-width`
+    ///    gives it zero display width), so a raw tab left in would
+    ///    *misalign* columns in the pane relative to what the reader's own
+    ///    terminal shows for the same bytes — the opposite of this
+    ///    function's purpose.
+    /// 4. Truncate to [`MAX_TEXT_CHARS`], the same bound [`Text::sanitize`]
+    ///    applies, so a pathological single line cannot blow up the pane.
+    ///
+    /// Deliberately **not** applied: unwrapping, whitespace-collapsing,
+    /// trimming, or paragraph-break normalization — indentation and
+    /// internal column alignment are preserved exactly as fetched, and
+    /// blank lines are whatever the caller's own line-splitting already
+    /// produced.
+    ///
+    /// Only [`mandible-extract`'s `help_text::raw_help*` functions] call
+    /// this; every other consumer of a `--help` probe keeps going through
+    /// [`Text::sanitize`] unchanged — this is an additional path for
+    /// display, not a redefinition of the existing one.
+    pub fn sanitize_preserving_layout(raw: &str) -> Text {
+        let no_escapes = strip_escapes(raw);
+        let no_control = strip_c0_keep_tabs(&no_escapes);
+        let tabs_expanded = expand_tabs(&no_control, 8);
+        Text(truncate_chars(&tabs_expanded, MAX_TEXT_CHARS))
+    }
+
     /// Borrow the sanitized string.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -241,6 +289,25 @@ fn strip_c0(input: &str) -> String {
             let is_c0 = ('\u{0}'..='\u{1f}').contains(&c);
             let keep = c == '\t' || c == '\n' || c == '\r';
             !(is_c0 && !keep) && c != '\u{7f}'
+        })
+        .collect()
+}
+
+/// Like [`strip_c0`], but for [`Text::sanitize_preserving_layout`]: strips
+/// every C0 control character and DEL **except** `\t` (kept so
+/// [`expand_tabs`] can still turn it into alignment-preserving spaces
+/// afterward). Unlike `strip_c0`, `\n` and `\r` are *not* kept — this
+/// function's only caller passes one already-line-split string at a time,
+/// so a `\n`/`\r` reaching here did not terminate a line and is exactly the
+/// "control character that could scramble the terminal" hazard
+/// [`Text::sanitize_preserving_layout`] exists to neutralize, not
+/// structure worth preserving.
+fn strip_c0_keep_tabs(input: &str) -> String {
+    input
+        .chars()
+        .filter(|&c| {
+            let is_c0 = ('\u{0}'..='\u{1f}').contains(&c);
+            !(is_c0 && c != '\t') && c != '\u{7f}'
         })
         .collect()
 }
@@ -974,5 +1041,82 @@ mod tests {
         let json = serde_json::to_string(&t).unwrap();
         let back: Text = serde_json::from_str(&json).unwrap();
         assert_eq!(t, back);
+    }
+
+    // --- sanitize_preserving_layout: the raw-help display path ---
+
+    #[test]
+    fn preserving_layout_keeps_leading_indentation() {
+        // The defect this function exists to fix: `Text::sanitize` would
+        // trim this to "-a, --all  write counts for all files".
+        let t = Text::sanitize_preserving_layout("  -a, --all  write counts for all files");
+        assert_eq!(t.as_str(), "  -a, --all  write counts for all files");
+    }
+
+    #[test]
+    fn preserving_layout_keeps_internal_column_gaps() {
+        // `Text::sanitize` would collapse the multi-space gap between the
+        // flag spelling and its description to a single space.
+        let t = Text::sanitize_preserving_layout("--block-size=SIZE    scale sizes by SIZE");
+        assert_eq!(t.as_str(), "--block-size=SIZE    scale sizes by SIZE");
+    }
+
+    #[test]
+    fn preserving_layout_still_strips_ansi_escapes() {
+        let t = Text::sanitize_preserving_layout("\x1b[31mred\x1b[0m text");
+        assert_eq!(t.as_str(), "red text");
+    }
+
+    #[test]
+    fn preserving_layout_strips_osc_sequence() {
+        let t = Text::sanitize_preserving_layout("\x1b]0;window title\x07visible");
+        assert_eq!(t.as_str(), "visible");
+    }
+
+    #[test]
+    fn preserving_layout_strips_stray_carriage_return() {
+        // A `\r` mid-line (progress-bar style) would otherwise scramble a
+        // real terminal by moving the cursor back to column 0; the raw
+        // pane must not pass that through.
+        let t = Text::sanitize_preserving_layout("done\rDONE");
+        assert_eq!(t.as_str(), "doneDONE");
+        assert!(!t.as_str().contains('\r'));
+    }
+
+    #[test]
+    fn preserving_layout_strips_other_c0_controls() {
+        let t = Text::sanitize_preserving_layout("hello\x01\x02world");
+        assert_eq!(t.as_str(), "helloworld");
+    }
+
+    #[test]
+    fn preserving_layout_expands_tabs_instead_of_leaving_them_raw() {
+        // ratatui gives `\t` zero display width, so leaving it raw would
+        // misalign columns rather than preserve them — expansion is the
+        // neutralization that keeps this function's own promise.
+        let t = Text::sanitize_preserving_layout("a\tb");
+        assert_eq!(t.as_str(), "a       b");
+        assert!(!t.as_str().contains('\t'));
+    }
+
+    #[test]
+    fn preserving_layout_does_not_trim_or_collapse_whitespace() {
+        let t = Text::sanitize_preserving_layout("   a    b   ");
+        assert_eq!(t.as_str(), "   a    b   ");
+    }
+
+    #[test]
+    fn preserving_layout_bounds_pathological_length() {
+        let raw = "x".repeat(10 * 1024 * 1024);
+        let t = Text::sanitize_preserving_layout(&raw);
+        assert!(t.as_str().chars().count() <= MAX_TEXT_CHARS);
+    }
+
+    #[test]
+    fn preserving_layout_is_idempotent() {
+        let raw = "\x1b[1mBold\x1b[0m\t  text  with\rstray CR";
+        let once = Text::sanitize_preserving_layout(raw);
+        let twice = Text::sanitize_preserving_layout(once.as_str());
+        assert_eq!(once, twice);
     }
 }

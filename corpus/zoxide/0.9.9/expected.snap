@@ -1,0 +1,72 @@
+name: zoxide
+description: A smarter cd command for your terminal
+usage:
+- 'Usage:'
+- zoxide <COMMAND>
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'h'
+  long: help
+  description: Print help
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: Print version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: add
+  summary: Add a new directory or increment its rank
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: edit
+  summary: Edit the database
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: import
+  summary: Import entries from another application
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Generate shell configuration
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: query
+  summary: Search for a directory in the database
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: remove
+  summary: Remove a directory from the database
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

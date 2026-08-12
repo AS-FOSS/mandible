@@ -1,0 +1,42 @@
+[tool]
+name = "ffmpeg"
+version = "6.1.1"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.2.2"
+
+# A truncation-confession specimen (spec §6 rule 2b's detection-only
+# extension, WS5b): ffmpeg's own `--help` prints its own "Getting help:"
+# block —
+#
+#   Getting help:
+#       -h      -- print basic options
+#       -h long -- print more options
+#       -h full -- print all options (including all format and codec
+#                  specific options, very long)
+#       -h type=name -- print all options for the named
+#                  decoder/encoder/demuxer/muxer/filter/bsf/protocol
+#       See man ffmpeg for detailed description of the options.
+#
+# — unquoted, inside a flag-table row, not curl's quoted prose shape. Before
+# this extension, `help_text::confession::detect_directives` only recognized
+# curl's quoted form, so this row went entirely unseen and the tool reported
+# `ok` at full confidence over a document its own text says is a "basic"
+# subset. `long` and `full` are both detected now
+# (`match_unquoted_table_row`), neither is in `FOLLOWABLE_WORDS`, so nothing
+# is followed and the status caps at `incomplete` — exactly the same
+# "detected but not followed" shape as curl's own `--help category`.
+[[capture]]
+argv = ["ffmpeg", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "incomplete"
+min_subcommands = 0
+# Spot-checked flags the root `--help` document itself lists, so a
+# regression that stops recovering even this "basic options" document is
+# still caught, distinct from the confession detection this fixture exists
+# to exercise.
+must_contain_flags = ["-f", "-c", "-y", "-loglevel", "-report"]

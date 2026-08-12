@@ -58,16 +58,16 @@
 //! system's often-terse or absent ones.
 
 use crate::errors::ExtractError;
-use crate::exec::{run_inert, InertArgv};
+use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{
     is_command_name_shaped, Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind,
 };
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Wall-clock cap for a `detect` probe (spec §6 rule 4).
@@ -94,7 +94,6 @@ enum Protocol {
 }
 
 /// Tier E: cobra `__complete` dynamic-completion probes.
-#[derive(Debug, Default)]
 pub struct NativeTier {
     /// Which protocol each tool name was found to speak. Bounded by the
     /// number of distinct tool names probed in this process's lifetime —
@@ -105,6 +104,27 @@ pub struct NativeTier {
     /// echoes it back can be recognized as not-real-structure rather than
     /// trusted (see the module doc's "echoed-root guard").
     root_fingerprint_cache: Mutex<HashMap<String, u64>>,
+    /// The source of a `__complete` probe's output — [`LiveProbe`] in
+    /// production ([`Self::default`]), or a [`crate::exec::Transcript`] to
+    /// replay frozen bytes with zero subprocesses.
+    probe: Arc<dyn Probe>,
+}
+
+impl Default for NativeTier {
+    fn default() -> Self {
+        Self::new(Arc::new(LiveProbe))
+    }
+}
+
+impl NativeTier {
+    /// Build this tier against an explicit probe.
+    pub fn new(probe: Arc<dyn Probe>) -> Self {
+        Self {
+            protocol_cache: Mutex::new(HashMap::new()),
+            root_fingerprint_cache: Mutex::new(HashMap::new()),
+            probe,
+        }
+    }
 }
 
 impl ExtractionTier for NativeTier {
@@ -126,7 +146,7 @@ impl ExtractionTier for NativeTier {
         if self.cached_protocol(&tool.name).is_some() {
             return true;
         }
-        if probe_cobra_list(tool_path, &[], "", DETECT_TIMEOUT).is_some() {
+        if probe_cobra_list(self.probe.as_ref(), tool_path, &[], "", DETECT_TIMEOUT).is_some() {
             self.set_protocol(&tool.name, Protocol::Cobra);
             return true;
         }
@@ -137,6 +157,7 @@ impl ExtractionTier for NativeTier {
         &self,
         tool: &ResolvedTool,
         path: &[String],
+        _hints: NodeHints,
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
@@ -213,7 +234,9 @@ impl NativeTier {
             return node;
         }
 
-        if let Some(candidates) = probe_cobra_list(tool_path, words, "", EXTRACT_TIMEOUT) {
+        if let Some(candidates) =
+            probe_cobra_list(self.probe.as_ref(), tool_path, words, "", EXTRACT_TIMEOUT)
+        {
             let fingerprint = fingerprint_candidates(&candidates);
             let is_root = words.is_empty();
             if is_root {
@@ -226,7 +249,9 @@ impl NativeTier {
             }
         }
 
-        if let Some(candidates) = probe_cobra_list(tool_path, words, "-", EXTRACT_TIMEOUT) {
+        if let Some(candidates) =
+            probe_cobra_list(self.probe.as_ref(), tool_path, words, "-", EXTRACT_TIMEOUT)
+        {
             for (value, description) in candidates {
                 if let Some(flag) = flag_from_candidate(&value, &description, &provenance) {
                     node.flags.push(flag);
@@ -244,6 +269,7 @@ impl NativeTier {
 /// — the general signal that this isn't a cobra-speaking tool, not a
 /// per-tool special case.
 fn probe_cobra_list(
+    probe: &dyn Probe,
     tool_path: &Path,
     words: &[String],
     trailing: &str,
@@ -257,12 +283,13 @@ fn probe_cobra_list(
     // never the first positional, always shielded behind the `__complete`
     // sentinel, which a non-cobra tool rejects. See spec §6 rule 2a.
     argv_words.push(trailing.to_string());
-    let out = run_inert(
-        tool_path,
-        &InertArgv::CobraComplete { words: argv_words },
-        timeout,
-    )
-    .ok()?;
+    let out = probe
+        .run(
+            tool_path,
+            &InertArgv::CobraComplete { words: argv_words },
+            timeout,
+        )
+        .ok()?;
     parse_cobra_response(&out.stdout)
 }
 
@@ -387,6 +414,7 @@ fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) 
         choices: Vec::new(),
         repeatable: false,
         required: false,
+        negatable: false,
         hidden: false,
         deprecated: None,
         inherited: false,
@@ -649,6 +677,87 @@ mod tests {
         assert!(
             tier.detect(&tool),
             "cobra detection must send the literal `__complete` word"
+        );
+    }
+
+    // --- the replay seam: real-argv tests against a `Transcript` ---
+
+    fn exec_output(stdout: &str) -> crate::exec::ExecOutput {
+        crate::exec::ExecOutput {
+            stdout: stdout.as_bytes().to_vec(),
+            stderr: Vec::new(),
+            exit_code: Some(0),
+            timed_out: false,
+        }
+    }
+
+    /// Real argv, replayed: the subcommands probe is `CobraComplete {
+    /// words: [""] }`, rendering to `["__complete", ""]`
+    /// (`InertArgv::args`), and the flags probe is `["__complete", "-"]`.
+    /// A transcript keyed on exactly those two argvs must let `detect`
+    /// and `extract_node` recover a cobra node through the tier's actual
+    /// probe construction — the same protocol
+    /// `detect_sends_the_literal_dunder_complete_word_in_argv` proves with
+    /// a real shim binary, but with zero subprocesses.
+    #[test]
+    fn extract_node_replays_cobra_candidates_from_a_transcript_keyed_on_the_real_argv() {
+        let transcript = crate::exec::Transcript::new([
+            (
+                vec!["__complete".to_string(), String::new()],
+                exec_output("build\tBuild the thing\n:0\n"),
+            ),
+            (
+                vec!["__complete".to_string(), "-".to_string()],
+                exec_output("--all\tAll of it\n:0\n"),
+            ),
+        ]);
+        let tier = NativeTier::new(Arc::new(transcript));
+        let tool = ResolvedTool {
+            name: "cobratool".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/cobratool")),
+            version: None,
+        };
+        assert!(
+            tier.detect(&tool),
+            "transcript covers the real subcommands-probe argv"
+        );
+        let node = tier
+            .extract_node(
+                &tool,
+                &["cobratool".to_string()],
+                NodeHints {
+                    heading_attested: true,
+                },
+            )
+            .expect("detect having succeeded, extract_node must too");
+        let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["build"], "{names:?}");
+        assert!(node.flags.iter().any(|f| f.long.as_deref() == Some("all")));
+    }
+
+    /// The negative case: a transcript that does not cover the exact
+    /// subcommands-probe argv (`["__complete", ""]`) must not be
+    /// mistaken for a cobra-speaking tool — `detect` must come back
+    /// `false`, not silently succeed with an empty candidate list treated
+    /// as a confident (if empty) detection.
+    #[test]
+    fn detect_is_false_against_a_transcript_missing_the_real_argv() {
+        let transcript = crate::exec::Transcript::new([(
+            // Deliberately the wrong argv: a bare `__complete` with no
+            // trailing word at all, which this tier never sends (spec §6
+            // rule 2a requires the trailing word be present, even empty).
+            vec!["__complete".to_string()],
+            exec_output("build\tBuild the thing\n:0\n"),
+        )]);
+        let tier = NativeTier::new(Arc::new(transcript));
+        let tool = ResolvedTool {
+            name: "cobratool".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/cobratool")),
+            version: None,
+        };
+        assert!(
+            !tier.detect(&tool),
+            "a transcript miss must not be mistaken for a successful cobra detection"
         );
     }
 }

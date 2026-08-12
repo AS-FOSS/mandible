@@ -1,11 +1,50 @@
+tmp/
 /target
 *.swp
+
+# Agent worktrees and local tooling state. `.claude/worktrees/` holds
+# throwaway checkouts used to run several agents against the same repo
+# without their in-flight edits corrupting each other's gate runs; they are
+# scratch by construction and are merged back as commits, never as files.
+.claude/
+
+# Working notes and running TODO state for whoever (human or agent) is
+# mid-project — now `tmp/HANDOVER.md`, covered by `tmp/` above. Deliberately
+# untracked: spec.md is the design authority and AGENTS.md the operational
+# one, and a third committed document that describes plans would drift out
+# of agreement with both. Anything in here that turns out to be durable
+# belongs in spec.md instead. The root path stays listed so an older working
+# copy (or an agent following a stale instruction) can't accidentally commit
+# one that predates the move.
+HANDOVER.md
 
 # The full-PATH scoreboard is a snapshot of one machine's installed tools,
 # not a portable baseline — spec §13.1a: this is "the natural home for the
 # §13.1 scoreboard once it stops depending on whatever happens to be
 # installed on a developer's laptop." Generate it locally with
-# `cargo xtask coverage`. The checked-in regression gate is
-# coverage-scoreboard.ci.txt over a fixed tool list; the broad measurement
-# is the CI PATH sweep, where the inventory is at least reproducible.
+# `cargo xtask coverage`, which now writes it under `tmp/` by default so it
+# stops accumulating in the repo root. The checked-in regression gate is
+# coverage-scoreboard.ci.txt over a fixed tool list — that one IS tracked
+# and IS at the root, because CI names that path explicitly; the broad
+# measurement is the CI PATH sweep, where the inventory is at least
+# reproducible. The bare name stays listed for any older working copy that
+# still has one at the root.
 coverage-scoreboard.txt
+
+# `xtask audit` (spec.md Appendix A's provenance discipline: a measurement
+# whose evidence lives untracked on one contributor's laptop is a claim
+# without evidence, exactly what Appendix A exists to rule out). Tracked:
+# the sample manifest + per-tool verdicts (`audit/<seed>.toml` — one file
+# serves both roles, since a verdict is recorded directly onto its sample
+# entry) and the rendered report (`audit/<seed>-report.txt`, `xtask audit
+# report`'s output). This is *data*, not a third committed prose doc
+# competing with spec.md/AGENTS.md — no conclusion is ever stated here, only
+# the sample and the verdicts a conclusion would cite. The conclusion itself
+# goes to spec.md Appendix A as [M-20], once the audit has actually run.
+#
+# NOT tracked, and explicitly ignored below: `audit/<seed>/fixtures/`,
+# `xtask audit fixtures`' staging output. `corpus/README.md`'s own workflow
+# is to review a staged fixture by hand and manually promote what's ready
+# into `corpus/`; the staging tree is scratch by design, the same reasoning
+# `coverage-scoreboard.txt` above gets for being a snapshot, not a baseline.
+audit/*/fixtures/

@@ -16,10 +16,15 @@ name = "mandible_core"
 path = "src/lib.rs"
 
 [dependencies]
+anyhow.workspace = true
 serde.workspace = true
 smallvec.workspace = true
 thiserror.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
 serde_json.workspace = true
+serde_yaml.workspace = true
+insta = { workspace = true, features = ["yaml"] }
+tempfile.workspace = true

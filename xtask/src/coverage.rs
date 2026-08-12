@@ -11,11 +11,13 @@
 //! scoreboard, plus a `--format markdown` mode the framework-support CI
 //! workflow (batch 6 part 6, spec §13.1a) consumes.
 
-use mandible_core::{is_command_name_shaped, CommandNode};
-use mandible_extract::{default_tiers, resolve_tool, ExtractionResult, Runner};
+use crate::existence;
+use crate::misattribution::{self, RecordingProbe};
+use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 /// Fixed display width for the `tool` column in [`ScoreFormat::Text`]
@@ -25,11 +27,42 @@ use std::time::Instant;
 /// (31 chars) — and an untruncated long name shoves every column after it
 /// out of alignment for that one row, which is exactly the bug this
 /// constant (and [`truncate_col`]) exists to fix.
-const TOOL_COL_WIDTH: usize = 24;
+pub(crate) const TOOL_COL_WIDTH: usize = 24;
 /// Fixed display width for the `tier(s)` column, same reasoning.
-const TIER_COL_WIDTH: usize = 18;
+pub(crate) const TIER_COL_WIDTH: usize = 18;
 /// Fixed display width for the new `framework` column, same reasoning.
-const FRAMEWORK_COL_WIDTH: usize = 26;
+pub(crate) const FRAMEWORK_COL_WIDTH: usize = 26;
+/// Fixed display width for the right-aligned `nodes` column.
+pub(crate) const NODES_COL_WIDTH: usize = 7;
+/// Fixed display width for the right-aligned `flags` column.
+pub(crate) const FLAGS_COL_WIDTH: usize = 8;
+/// Fixed display width for the right-aligned `%flags_text` column.
+pub(crate) const PCT_COL_WIDTH: usize = 13;
+/// Fixed display width for the right-aligned `ms` column.
+pub(crate) const MS_COL_WIDTH: usize = 7;
+/// Fixed display width for the right-aligned `suspect` column.
+pub(crate) const SUSPECT_COL_WIDTH: usize = 8;
+/// Fixed display width for the right-aligned `man` column.
+pub(crate) const MAN_COL_WIDTH: usize = 6;
+/// Fixed display width for the right-aligned `misattr` column.
+///
+/// All eight widths above are `pub(crate)` (not just local to
+/// [`render_text`]) for one reason: [`crate::transition`] parses a
+/// rendered `ScoreFormat::Text` scoreboard back into rows — two
+/// independently-generated sweeps, diffed — and it must slice each line at
+/// *exactly* the offsets [`render_text`] wrote them at. Duplicating these
+/// numbers as a second set of literals in that module would be exactly the
+/// kind of drift risk `status.rs`'s own doc comment warns about ("two
+/// independent definitions... will drift, and the drift will be discovered
+/// at the worst possible time") — one column added here and the parser
+/// silently misreads every field after it. A single source of truth means
+/// a future column can't do that.
+pub(crate) const MISATTR_COL_WIDTH: usize = 9;
+/// Fixed display width for the right-aligned `exist` column
+/// ([`crate::existence`] — the fabrication count twin of `misattr` above,
+/// same reasoning for why the width lives here rather than local to
+/// [`render_text`]).
+pub(crate) const EXISTENCE_COL_WIDTH: usize = 6;
 
 /// One tool's row in the scoreboard.
 struct Row {
@@ -40,12 +73,36 @@ struct Row {
     /// [`framework_label`].
     framework: String,
     nodes: usize,
+    /// Raw flag count, including flags whose only source is a usage
+    /// synopsis and can therefore never carry a description ([M-15]).
+    /// Deliberately kept as its own column, separate from [`Self::describable`]
+    /// — spec §13's metric design rules: a spelling-only flag is real
+    /// information, just not part of the ratio [`Self::pct_flags_with_text`] gates
+    /// on.
     flags: usize,
-    /// `None` when there are no flags to compute a percentage over.
-    pct_described: Option<f64>,
+    /// Flags whose source *could*, in principle, have supplied a
+    /// description (spec §13's metric design rules) — the denominator
+    /// [`Self::pct_flags_with_text`] is actually computed over. See
+    /// [`mandible_extract::ExtractionResult::describable_flag_count`].
+    describable: usize,
+    /// `None` when there are no *describable* flags to compute a
+    /// percentage over (which includes the case where `flags > 0` but
+    /// every one of them is usage-synopsis-derived).
+    ///
+    /// **This is presence, not correctness.** Renamed from `pct_flags_with_text`
+    /// (the scoreboard's own former column header) because that name reads
+    /// as an accuracy claim to anyone who hasn't read this doc comment, and
+    /// this number has never checked whether the attached text is the
+    /// *right* text — `lsof` scored 79% on the old name while roughly a
+    /// quarter of its flags were actually correct (`corpus/lsof/4.95.0`,
+    /// `[xfail]`; see [`crate::misattribution`] for the instrument that
+    /// measures the thing this field's old name implied). Until an
+    /// accuracy instrument exists, every scoreboard also carries a literal
+    /// `accuracy: unmeasured` line — see [`accuracy_unmeasured_line`].
+    pct_flags_with_text: Option<f64>,
     ms: u128,
     /// Structure-sanity count (spec §13.1): descendant nodes whose name
-    /// fails [`is_command_name_shaped`], plus descendant nodes with no
+    /// fails [`mandible_core::is_command_name_shaped`], plus descendant nodes with no
     /// flags, no children, and no summary. Non-zero means `status` is
     /// forced to `"suspicious"` regardless of `%described` — the whole
     /// point of this column is that `%described` alone cannot detect
@@ -55,10 +112,79 @@ struct Row {
     /// verbatim rendering (`CommandNode::unparsed` non-empty) rather than
     /// producing any structure at all.
     verbatim: bool,
+    /// True when the root `--help` probe's captured output was detected as
+    /// a rendered man page (spec [M-16]) rather than ordinary help text —
+    /// see [`root_is_man_shaped`]. A measurement column only: this is the
+    /// exposure enumeration for a pending, not-yet-implemented safety
+    /// decision (falling back to `-h` when this fires), so it is reported
+    /// but never gated (spec [M-16], [`compute_aggregate`]'s doc comment
+    /// on why `verbatim_count` gets the same treatment).
+    man_shaped: bool,
+    /// [`crate::misattribution`]'s own measurement: count of this tool's
+    /// flag descriptions that contain a flag-shaped token attested at a
+    /// column-aligned definition position elsewhere in the tool's raw
+    /// captured `--help` text — `lsof`'s bug, generalized. **Not gated**
+    /// (see that module's doc comment): a brand-new detector with a
+    /// measured, nonzero false-positive rate must not fail a build the
+    /// first time it runs.
+    misattribution_suspect_count: usize,
+    /// [`misattribution::MisattributionReport::column_aligned`]'s own
+    /// report: whether this tool's raw text had at least one column offset
+    /// that met the column-alignment recurrence bar at all — reported
+    /// separately from `misattribution_suspect_count` because a tool can
+    /// have a real multi-column table (`column_aligned: true`) whose
+    /// descriptions just never happen to mention a neighbouring column, and
+    /// that's a materially different "nothing to find here" than a tool
+    /// whose text never had a second column in the first place.
+    misattribution_column_aligned: bool,
+    /// A few of this row's own suspects, pre-formatted for the sweep's
+    /// `# misattribution-suspects (sample)` section — capped per row
+    /// ([`MISATTRIBUTION_SAMPLES_PER_ROW`]) so one pathological tool with
+    /// hundreds of suspect flags can't crowd out every other tool's sample
+    /// from a fleet-wide report.
+    misattribution_samples: Vec<String>,
+    /// [`crate::existence`]'s own measurement: count of this tool's help-
+    /// text-sourced subcommand names and flag spellings that do not occur
+    /// literally in the tool's own raw captured `--help` text — [M-10]'s
+    /// shape, generalized, and this task's own instrument. **Not gated**,
+    /// same reasoning as `misattribution_suspect_count`: a brand-new
+    /// detector with no fleet-wide baseline must not fail a build the
+    /// first time it runs (spec §13.1b).
+    existence_fabrication_count: usize,
+    /// A few of this row's own fabrications, pre-formatted, mirroring
+    /// [`Self::misattribution_samples`] — capped per row
+    /// ([`EXISTENCE_SAMPLES_PER_ROW`]).
+    existence_samples: Vec<String>,
     status: &'static str,
 }
 
-/// Aggregate stats. `pct_described`, `no_tier_count`, and
+/// Cap on how many of one tool's own suspect descriptions feed the
+/// fleet-wide sample section — see [`Row::misattribution_samples`].
+const MISATTRIBUTION_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on the total number of sample lines the fleet-wide
+/// `# misattribution-suspects (sample)` section prints, mirroring
+/// [`WORST_PARSED_LIMIT`]'s reasoning: a work-queue/audit aid needs to stay
+/// scannable, not exhaustive — a human judging the false-positive rate
+/// needs "enough to see the shape," not every hit on a full sweep.
+const MISATTRIBUTION_SAMPLE_LIMIT: usize = 20;
+
+/// Truncate a suspect's description to a length that keeps one sample line
+/// readable — the full text is still in the tree the sweep already wrote,
+/// this is a display concern only.
+const MISATTRIBUTION_DESC_DISPLAY_LEN: usize = 70;
+
+/// Cap on how many of one tool's own [`crate::existence`] fabrications feed
+/// the fleet-wide sample section — mirrors
+/// [`MISATTRIBUTION_SAMPLES_PER_ROW`]'s reasoning exactly.
+const EXISTENCE_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on the total number of sample lines the fleet-wide
+/// `# existence-fabrications (sample)` section prints — mirrors
+/// [`MISATTRIBUTION_SAMPLE_LIMIT`]'s reasoning exactly.
+const EXISTENCE_SAMPLE_LIMIT: usize = 20;
+
+/// Aggregate stats. `pct_flags_with_text`, `no_tier_count`, and
 /// `suspicious_count` are the regression gate (spec §13.1: "may not
 /// worsen"); `verbatim_count`, `framework_detected_count`, and
 /// `framework_counts` are reported for visibility but deliberately **not**
@@ -69,11 +195,11 @@ pub struct Aggregate {
     /// flags across every tool (not an average of per-tool percentages,
     /// so a handful of huge catalogs don't get diluted by many small
     /// no-flag tools).
-    pub pct_described: f64,
+    pub pct_flags_with_text: f64,
     /// Tools for which no tier produced a root node at all.
     pub no_tier_count: usize,
     /// Tools with at least one structurally-suspicious node (spec §13.1):
-    /// a name failing [`is_command_name_shaped`], or a node with no flags,
+    /// a name failing [`mandible_core::is_command_name_shaped`], or a node with no flags,
     /// no children, and no summary. Gated exactly like `no_tier_count` —
     /// [M-10] shipped as `ok` at `100% described` because `%described`
     /// alone can't see fabricated structure; this is the column that can.
@@ -81,6 +207,46 @@ pub struct Aggregate {
     /// Tools whose root degraded to verbatim (spec §7 Tier B step 3).
     /// **Not gated** — see [`compute_aggregate`].
     pub verbatim_count: usize,
+    /// Tools at status `incomplete` (spec §6 rule 2b): a truncation
+    /// confession was detected but not followed — an unrecognised word,
+    /// a failed probe, or a rule 0 refusal — so the tree still reflects
+    /// the tool's own admittedly-incomplete document. **Not gated**, same
+    /// reasoning as `verbatim_count`/`man_shaped_count`: this is a
+    /// brand-new measurement (this batch) with no baseline to regress
+    /// against, and it is the interesting number precisely because it
+    /// names tools mandible was previously confidently wrong about
+    /// (reporting `ok` on a document the tool's own text said was
+    /// truncated) — a shrinking gate would incentivize hiding it, not
+    /// following more confessions.
+    pub incomplete_count: usize,
+    /// Tools whose root `--help` output was detected as a rendered man
+    /// page (spec [M-16]) — the exposure set for the pending `-h`
+    /// fallback decision. A subset of `verbatim_count`: every man-shaped
+    /// root degrades to verbatim, but not every verbatim root is a man
+    /// page (some tools just print nothing this grammar can use). **Not
+    /// gated** — this is a brand-new measurement with no baseline to
+    /// regress against, and per the task this metric measures, it is not
+    /// itself changing any execution.
+    pub man_shaped_count: usize,
+    /// Tools at status `ok` with zero flags at all — [M-15]'s own measure
+    /// ("378 of 1,895 `ok` tools carry no flags at all"), reported here so
+    /// a parser change's effect on *recall* is visible as its own number.
+    ///
+    /// Before spec §13's metric redefinition, finding a usage-only flag set
+    /// *lowered* `pct_flags_with_text` (a synopsis flag added to the denominator
+    /// with nothing to add to the numerator), which is the exact defect
+    /// [M-15] and this metric redefinition exist to fix — see
+    /// [`mandible_extract::ExtractionResult::describable_flag_count`]'s doc
+    /// comment. After the fix, a synopsis flag is excluded from
+    /// `pct_flags_with_text`'s denominator entirely, so recovering one moves this
+    /// count down without moving `pct_flags_with_text` down at all: the two
+    /// numbers are no longer in tension, which was the whole point.
+    /// **Not gated**, same reasoning as `man_shaped_count`: this is a
+    /// brand-new measurement with no baseline to regress against, and the
+    /// whole point of adding it is to give a human the number the existing
+    /// gate can't see, not to invent a second automatic gate the same trap
+    /// could defeat.
+    pub zero_flag_ok_count: usize,
     /// Tools for which Tier A′ identified a framework at all (spec §7
     /// Tier A′), regardless of method.
     pub framework_detected_count: usize,
@@ -91,16 +257,53 @@ pub struct Aggregate {
     pub framework_counts: BTreeMap<String, usize>,
     /// Total tools scanned.
     pub total: usize,
-    /// Raw numerator/denominator behind `pct_described`, carried in the
-    /// footer so a scoreboard produced in *shards* can be merged exactly.
-    /// Recomputing the aggregate from the per-row `%described` column
-    /// cannot be exact — that column is rounded to whole percent — and a
-    /// gated regression baseline must not be approximate. A full-PATH
-    /// sweep is long enough to be worth running in shards, and CI's PATH
-    /// sweep will want the same.
+    /// Raw numerator behind `pct_flags_with_text`, carried in the footer so a
+    /// scoreboard produced in *shards* can be merged exactly. Recomputing
+    /// the aggregate from the per-row `%flags_text` column cannot be exact
+    /// — that column is rounded to whole percent — and a gated regression
+    /// baseline must not be approximate. A full-PATH sweep is long enough
+    /// to be worth running in shards, and CI's PATH sweep will want the
+    /// same.
     pub described_flags: f64,
-    /// Denominator for [`Self::described_flags`].
+    /// **The** denominator behind `pct_flags_with_text` (spec §13's metric
+    /// design rules) — the sum, across every tool, of flags whose source
+    /// could have supplied a description. Excludes usage-synopsis-only
+    /// flags; see
+    /// [`mandible_extract::ExtractionResult::describable_flag_count`].
+    pub describable_flags: f64,
+    /// Raw flag total across every tool, including usage-synopsis-only
+    /// ones — **not** `pct_flags_with_text`'s denominator (that's
+    /// [`Self::describable_flags`]). Kept as its own number precisely so a
+    /// fix that recovers real, honestly-undescribable flags is visible as
+    /// recall gained rather than silently absent from every footer field,
+    /// per spec §13's "keep the raw flag count visible" rule.
     pub total_flags: usize,
+    /// Tools with at least one [`crate::misattribution`] suspect — the
+    /// answer to "is `lsof` isolated, or is misattribution widespread?"
+    /// **Not gated**: a brand-new detector with a measured, nonzero false-
+    /// positive rate (see that module's doc comment) must not fail a build
+    /// the first time it runs. Reported every run, compared against the
+    /// previous one for visibility only (`xtask/src/main.rs`).
+    pub misattribution_suspect_tools: usize,
+    /// Tools whose raw captured text had at least one column-aligned
+    /// secondary definition position at all — see
+    /// [`Row::misattribution_column_aligned`]. Always `>=
+    /// misattribution_suspect_tools`, and reported alongside it so a reader
+    /// can see how often the strengthening signal fires versus how often it
+    /// actually turns up a suspect. **Not gated**, same reasoning as
+    /// `misattribution_suspect_tools`.
+    pub misattribution_column_aligned_tools: usize,
+    /// Tools with at least one [`crate::existence`] fabrication — a help-
+    /// text-sourced subcommand name or flag spelling that does not occur
+    /// literally in that tool's own raw captured text. This is the *other*
+    /// half of what spec.md's WS4 originally called one "anti-fabrication
+    /// oracle" — [`Self::misattribution_suspect_tools`]'s twin, with a
+    /// different victim: [M-10]'s invented `tar`/`dd`/`less`/`apt-get`
+    /// nodes, not `lsof`'s column-bled descriptions. **Not gated**, same
+    /// reasoning as `misattribution_suspect_tools`: a brand-new detector
+    /// with no fleet-wide baseline must not fail a build the first time it
+    /// runs (spec §13.1b).
+    pub existence_fabrication_tools: usize,
 }
 
 /// Output format for the rendered scoreboard.
@@ -160,8 +363,6 @@ pub fn run_over(
     if let Some((index, total)) = shard {
         tools = select_shard(tools, index, total);
     }
-    let runner = Runner::new(default_tiers());
-
     let mut rows: Vec<Row> = tools
         .par_iter()
         .map(|tool| {
@@ -178,7 +379,7 @@ pub fn run_over(
                 let _ = writeln!(err, "probe-start: {tool}");
                 let _ = err.flush();
             }
-            let row = score_one(&runner, tool);
+            let row = score_one(tool);
             if progress {
                 use std::io::Write;
                 let mut err = std::io::stderr().lock();
@@ -198,8 +399,17 @@ pub fn run_over(
     (table, aggregate)
 }
 
-fn score_one(runner: &Runner, tool: &str) -> Row {
+fn score_one(tool: &str) -> Row {
     let start = Instant::now();
+    // A fresh [`RecordingProbe`] per tool (never shared across the sweep):
+    // it's a transparent passthrough to [`mandible_extract::exec::LiveProbe`]
+    // that also remembers the bytes each call returned, so
+    // [`crate::misattribution`] can read the tool's own raw `--help` text
+    // after extraction without a second probe — see that module's doc
+    // comment. This spawns nothing a plain `default_tiers()` runner
+    // wouldn't already have spawned.
+    let probe = Arc::new(RecordingProbe::new());
+    let runner = Runner::new(default_tiers_with_probe(probe.clone()));
     let result = runner.extract_full(tool);
     let ms = start.elapsed().as_millis();
 
@@ -216,44 +426,58 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
     };
 
     let framework = framework_label(tool, &result);
-
     let nodes = result.node_count();
     let flags = result.flag_count();
-    let pct_described = if flags == 0 {
-        None
-    } else {
-        Some(result.flag_description_ratio() * 100.0)
-    };
+    let describable = result.describable_flag_count();
 
-    let suspicious_nodes = result.root.as_ref().map(structure_sanity).unwrap_or(0);
-    let verbatim = result.root.as_ref().is_some_and(|r| !r.unparsed.is_empty());
+    // Status derivation (structure-sanity count, verbatim flag,
+    // %described, and the final label) is computed once in `status.rs`
+    // and shared verbatim with the corpus runner — see that module's doc
+    // comment for why an independent second definition here would be a
+    // drift risk, not a convenience.
+    let status = crate::status::compute(&result);
+    let man_shaped = root_is_man_shaped(&result);
 
-    let status = if result.root.is_none() {
-        "no-tier"
-    } else if verbatim {
-        // Spec §7 Tier B step 3: this tool produced no structure at all
-        // and is showing the author's own raw text instead — distinct
-        // from `suspicious` (fabricated structure) and from `no-tier`
-        // (nothing at all, not even raw text). Checked before
-        // `suspicious`/`%described` for the same reason both of those
-        // are checked in the order they are: a verbatim root always has
-        // zero subcommands by construction (level 3 clears them), so it
-        // can never also be `suspicious` — this ordering just documents
-        // that rather than relying on it being an accident.
-        "verbatim"
-    } else if suspicious_nodes > 0 {
-        // Checked before %described on purpose: a tool that's tripping
-        // the structure-sanity check is suspicious regardless of how
-        // "described" its (possibly fabricated) flags look — [M-10]
-        // reported `tar` as `ok` at `100% described` while 39 of its 40
-        // nodes were invented, because the invented nodes inflated the
-        // metric instead of depressing it.
-        "suspicious"
-    } else if pct_described.map(|p| p < 50.0).unwrap_or(false) {
-        "low-confidence"
-    } else {
-        "ok"
-    };
+    // Zero additional probes: `probe.root_help_text()` reads bytes the
+    // `runner.extract_full` call above already fetched (see the doc
+    // comment on `probe` above and `crate::misattribution`'s own doc
+    // comment). Both the raw text and a root node are required — a tool
+    // with no root, or whose only text came back empty, has nothing to
+    // check.
+    let (misattribution_suspect_count, misattribution_column_aligned, misattribution_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = misattribution::detect(&raw, root);
+                let samples = report
+                    .suspects
+                    .iter()
+                    .take(MISATTRIBUTION_SAMPLES_PER_ROW)
+                    .map(format_misattribution_sample)
+                    .collect();
+                (report.suspect_count(), report.column_aligned, samples)
+            }
+            _ => (0, false, Vec::new()),
+        };
+
+    // Same captured text, zero additional probes — [`crate::existence`]'s
+    // own doc comment on why re-reading `probe.root_help_text()` a second
+    // time here (rather than sharing one `raw` binding with the
+    // misattribution block above) costs nothing: both are cheap `Option<String>`
+    // clones of bytes already in memory, not a second fetch.
+    let (existence_fabrication_count, existence_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = existence::detect(&raw, root);
+                let samples = report
+                    .fabrications
+                    .iter()
+                    .take(EXISTENCE_SAMPLES_PER_ROW)
+                    .map(format_existence_sample)
+                    .collect();
+                (report.fabrication_count(), samples)
+            }
+            _ => (0, Vec::new()),
+        };
 
     Row {
         tool: tool.to_string(),
@@ -261,12 +485,77 @@ fn score_one(runner: &Runner, tool: &str) -> Row {
         framework,
         nodes,
         flags,
-        pct_described,
+        describable,
+        pct_flags_with_text: status.pct_flags_with_text,
         ms,
-        suspicious_nodes,
-        verbatim,
-        status,
+        suspicious_nodes: status.suspicious_nodes,
+        verbatim: status.verbatim,
+        man_shaped,
+        misattribution_suspect_count,
+        misattribution_column_aligned,
+        misattribution_samples,
+        existence_fabrication_count,
+        existence_samples,
+        status: status.label,
     }
+}
+
+/// One suspect, rendered as a single audit-section line: the tool/path, the
+/// flag, its (length-capped) description, and which tokens triggered it.
+fn format_misattribution_sample(suspect: &misattribution::Suspect) -> String {
+    let mut desc = suspect.description.clone();
+    if desc.chars().count() > MISATTRIBUTION_DESC_DISPLAY_LEN {
+        desc = truncate_col(&desc, MISATTRIBUTION_DESC_DISPLAY_LEN);
+    }
+    format!(
+        "{}: {} {:?} contains {}",
+        suspect.path,
+        suspect.flag,
+        desc,
+        suspect.offending_tokens.join(", "),
+    )
+}
+
+/// One fabrication, rendered as a single audit-section line: which node
+/// path carries it, whether it's a subcommand or a flag, and the specific
+/// offending spelling — mirrors [`format_misattribution_sample`]'s shape.
+fn format_existence_sample(fabrication: &existence::Fabrication) -> String {
+    let kind = match fabrication.kind {
+        existence::FabricationKind::Subcommand => "subcommand",
+        existence::FabricationKind::Flag => "flag",
+    };
+    format!(
+        "{}: invented {kind} {:?} not found in raw text",
+        fabrication.path, fabrication.name,
+    )
+}
+
+/// True when the root's captured `--help` output was detected as a
+/// rendered man page (spec [M-16]) — the measurement this whole module
+/// change exists to add.
+///
+/// **Sends nothing new.** This reads text the pipeline already captured
+/// rather than probing the tool again: [`help_text::build_node`] sets
+/// `CommandNode::unparsed` to the raw `--help` lines precisely when
+/// nothing parsed as structure, which includes (but is not limited to) the
+/// man-page case — `sections::parse_with_profile` returns an empty parse
+/// immediately once it sees the banner (spec §7 Tier B step 3). Only that
+/// tier ever populates `unparsed` (`mandible-extract/src/help_text/mod.rs`
+/// is the sole writer, grepped), so if it survived merge (spec §4.4:
+/// `pick_vec` skips empty contributors, and every other tier's `unparsed`
+/// is always empty), it is exactly the text `--help` produced. Re-running
+/// [`mandible_extract::help_text::is_man_page_banner`] — the identical
+/// rule `build_node` already applied — over that captured first line tells
+/// the two "gave up" reasons apart (a banner vs. output the grammar simply
+/// couldn't use) without a second invocation of the tool.
+fn root_is_man_shaped(result: &ExtractionResult) -> bool {
+    let Some(root) = result.root.as_ref() else {
+        return false;
+    };
+    let Some(first_line) = root.unparsed.iter().find(|t| !t.as_str().trim().is_empty()) else {
+        return false;
+    };
+    mandible_extract::help_text::is_man_page_banner(first_line.as_str())
 }
 
 /// Compact `"<framework name> (<method>)"` label for the scoreboard's
@@ -304,51 +593,6 @@ fn framework_label(tool: &str, result: &ExtractionResult) -> String {
     format!("{name} ({method})")
 }
 
-/// Count descendant nodes (not the root itself — see below) that fail
-/// either half of spec §13.1's structure-sanity check: a name that
-/// doesn't look like a real command (`is_command_name_shaped`), or a node
-/// with no flags, no children, no summary, and — this is the half issue
-/// #2 changed — no [`CommandNode::heading_attested`] evidence either.
-///
-/// **Why emptiness alone isn't enough (issue #2).** A node that exists but
-/// carries nothing is exactly what a mis-parsed continuation line or
-/// enum-value-turned-subcommand looks like — *and* exactly what a real,
-/// legitimately description-less command looks like: `openssl --help`
-/// lists 152 real commands (`asn1parse`, `ca`, `ciphers`, ...) as a bare
-/// word grid with no per-entry description at all, so all but one were
-/// getting flagged `suspicious` by emptiness alone. The distinguishing
-/// signal is *provenance, not emptiness*: `heading_attested` is set only
-/// at the parser call sites already gated on positive evidence of a real
-/// command list (a recognized heading, or a chain/pseudo-entry started by
-/// one — see [`CommandNode::heading_attested`]'s doc comment), so an empty
-/// node without it is still exactly [M-10]'s phantom-subcommand shape
-/// (`tar`'s 39 wrapped-description-fragment nodes, none of which came
-/// from any such evidence) and stays suspicious. A node whose *name* is
-/// bad-shaped stays suspicious regardless of `heading_attested` — that
-/// half of the check is orthogonal to provenance and must not be weakened
-/// by it.
-///
-/// The root is deliberately excluded from the name-shape half: it's the
-/// literal executable name resolved from `PATH`, never something a tier
-/// guessed at, and plenty of completely legitimate real-world binaries
-/// (`NetworkManager`, `FileCheck-18`, `aarch64-linux-gnu-cpp-13`) fail
-/// `^[a-z][a-z0-9_.-]*$` on casing or a leading digit alone. Counting
-/// those would swamp the signal this column exists to carry — a metric
-/// too noisy to trust is exactly as useless as one that's gameable.
-fn structure_sanity(root: &CommandNode) -> usize {
-    root.subcommands.iter().map(count_suspicious).sum()
-}
-
-fn count_suspicious(node: &CommandNode) -> usize {
-    let bad_name = !is_command_name_shaped(&node.name);
-    let empty = node.flags.is_empty()
-        && node.subcommands.is_empty()
-        && node.summary.is_none()
-        && !node.heading_attested;
-    let this_node = usize::from(bad_name || empty);
-    this_node + node.subcommands.iter().map(count_suspicious).sum::<usize>()
-}
-
 /// Shorten a tier's internal name (e.g. `"known_specs::carapace"`) to the
 /// spec's scoreboard vocabulary (`"carapace"`, `"help"`).
 fn short_tier_name(name: &str) -> &str {
@@ -375,22 +619,47 @@ fn short_tier_name(name: &str) -> &str {
 /// never a regression to block on.
 fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let total_flags: usize = rows.iter().map(|r| r.flags).sum();
+    let describable_flags: f64 = rows.iter().map(|r| r.describable as f64).sum();
+    // Weighted by each row's *describable* count, not its raw flag count
+    // (spec §13's metric design rules) — a row's `pct_flags_with_text` is
+    // already described/describable, so multiplying it back by
+    // `r.flags` here would silently reintroduce [M-15]'s defect by
+    // crediting synopsis-only flags into a denominator they were just
+    // excluded from.
     let described_flags: f64 = rows
         .iter()
         .map(|r| {
-            r.pct_described
-                .map(|p| p / 100.0 * r.flags as f64)
+            r.pct_flags_with_text
+                .map(|p| p / 100.0 * r.describable as f64)
                 .unwrap_or(0.0)
         })
         .sum();
-    let pct_described = if total_flags == 0 {
+    let pct_flags_with_text = if describable_flags == 0.0 {
         0.0
     } else {
-        described_flags / total_flags as f64 * 100.0
+        described_flags / describable_flags * 100.0
     };
     let no_tier_count = rows.iter().filter(|r| r.status == "no-tier").count();
     let suspicious_count = rows.iter().filter(|r| r.status == "suspicious").count();
     let verbatim_count = rows.iter().filter(|r| r.verbatim).count();
+    let incomplete_count = rows.iter().filter(|r| r.status == "incomplete").count();
+    let man_shaped_count = rows.iter().filter(|r| r.man_shaped).count();
+    let zero_flag_ok_count = rows
+        .iter()
+        .filter(|r| r.status == "ok" && r.flags == 0)
+        .count();
+    let misattribution_suspect_tools = rows
+        .iter()
+        .filter(|r| r.misattribution_suspect_count > 0)
+        .count();
+    let misattribution_column_aligned_tools = rows
+        .iter()
+        .filter(|r| r.misattribution_column_aligned)
+        .count();
+    let existence_fabrication_tools = rows
+        .iter()
+        .filter(|r| r.existence_fabrication_count > 0)
+        .count();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -401,15 +670,22 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let framework_detected_count: usize = framework_counts.values().sum();
 
     Aggregate {
-        pct_described,
+        pct_flags_with_text,
         no_tier_count,
         suspicious_count,
         verbatim_count,
+        incomplete_count,
+        man_shaped_count,
+        zero_flag_ok_count,
         framework_detected_count,
         framework_counts,
         total: rows.len(),
         described_flags,
+        describable_flags,
         total_flags,
+        misattribution_suspect_tools,
+        misattribution_column_aligned_tools,
+        existence_fabrication_tools,
     }
 }
 
@@ -451,27 +727,42 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     // alignment for that row.
     let mut out = String::new();
     out.push_str(&format!(
-        "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}  {}\n",
+        "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}  {}\n",
         "tool",
         "tier(s)",
         "framework",
         "nodes",
         "flags",
-        "%described",
+        // Renamed from "%described" (spec §13.1/§13.1b): this column has
+        // only ever measured whether a flag has text attached, never
+        // whether the text is right — see `Row::pct_flags_with_text`'s doc
+        // comment and the `accuracy: unmeasured` line below.
+        "%flags_text",
         "ms",
         "suspect",
+        "man",
+        "misattr",
+        "exist",
         "status",
         tw = TOOL_COL_WIDTH,
         iw = TIER_COL_WIDTH,
         fw = FRAMEWORK_COL_WIDTH,
+        nw = NODES_COL_WIDTH,
+        flw = FLAGS_COL_WIDTH,
+        pw = PCT_COL_WIDTH,
+        msw = MS_COL_WIDTH,
+        sw = SUSPECT_COL_WIDTH,
+        manw = MAN_COL_WIDTH,
+        miw = MISATTR_COL_WIDTH,
+        ew = EXISTENCE_COL_WIDTH,
     ));
     for row in rows {
         let pct = row
-            .pct_described
+            .pct_flags_with_text
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "{:<tw$} {:<iw$} {:<fw$} {:>7}{:>8}{:>13}{:>7}{:>8}  {}\n",
+            "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}  {}\n",
             truncate_col(&row.tool, TOOL_COL_WIDTH),
             truncate_col(&row.tiers, TIER_COL_WIDTH),
             truncate_col(&row.framework, FRAMEWORK_COL_WIDTH),
@@ -480,17 +771,47 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             pct,
             row.ms,
             row.suspicious_nodes,
+            if row.man_shaped { "yes" } else { "-" },
+            row.misattribution_suspect_count,
+            row.existence_fabrication_count,
             row.status,
             tw = TOOL_COL_WIDTH,
             iw = TIER_COL_WIDTH,
             fw = FRAMEWORK_COL_WIDTH,
+            nw = NODES_COL_WIDTH,
+            flw = FLAGS_COL_WIDTH,
+            pw = PCT_COL_WIDTH,
+            msw = MS_COL_WIDTH,
+            sw = SUSPECT_COL_WIDTH,
+            manw = MAN_COL_WIDTH,
+            miw = MISATTR_COL_WIDTH,
+            ew = EXISTENCE_COL_WIDTH,
         ));
     }
     out.push_str(&aggregate_footer_line(aggregate));
     out.push('\n');
+    out.push_str(&accuracy_unmeasured_line());
     out.push_str(&framework_summary_lines(aggregate));
     out.push_str(&worst_parsed_lines_text(&worst_parsed(rows)));
+    out.push_str(&misattribution_sample_lines_text(rows));
+    out.push_str(&existence_sample_lines_text(rows));
     out
+}
+
+/// The literal line every scoreboard carries until an instrument actually
+/// measures whether a flag's attached text is *correct*, not just present
+/// (spec §13.1's rename note): `%flags_text`/`pct_flags_with_text` answers
+/// "does this flag have text at all," which is exactly the question `lsof`
+/// (`corpus/lsof/4.95.0`, `[xfail]`) proves is not the same question as "is
+/// the text right" — it scored 79% on the old, accuracy-sounding name while
+/// roughly a quarter of its flags were actually correct.
+/// [`crate::misattribution`] is a first step toward an actual accuracy
+/// signal (it measures one specific, real failure mode), but it is a
+/// heuristic with a nonzero, unquantified-at-fleet-scale false-positive
+/// rate — not a general "is this description correct" oracle — so this
+/// line stays until something is.
+fn accuracy_unmeasured_line() -> String {
+    "# accuracy: unmeasured\n".to_string()
 }
 
 /// Cap on the worst-parsed audit section. Not load-bearing (this is a
@@ -498,15 +819,22 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
 /// rather than dumping every imperfect tool on a full-`PATH` sweep.
 const WORST_PARSED_LIMIT: usize = 25;
 
-/// How many of a tool's flags the grammar failed to find a description
-/// for. The ranking key below.
+/// How many of a tool's *describable* flags the grammar failed to find a
+/// description for. The ranking key below.
+///
+/// Measured against `row.describable`, not `row.flags` (spec §13's metric
+/// design rules): a usage-synopsis-only flag was never a candidate for a
+/// description in the first place, so counting it as "missing" here would
+/// reopen exactly the trap this whole redefinition closes — a tool that
+/// gains recall in flags nothing could ever describe would rank as having
+/// gotten *worse*.
 fn undescribed_flags(row: &Row) -> usize {
-    match row.pct_described {
+    match row.pct_flags_with_text {
         Some(pct) => {
-            let described = (row.flags as f64) * (pct / 100.0);
-            row.flags.saturating_sub(described.round() as usize)
+            let described = (row.describable as f64) * (pct / 100.0);
+            row.describable.saturating_sub(described.round() as usize)
         }
-        // No flags at all, so nothing was missed.
+        // No describable flags at all, so nothing was missed.
         None => 0,
     }
 }
@@ -553,7 +881,7 @@ fn worst_parsed_lines_text(worst: &[&Row]) -> String {
         String::from("# worst-parsed (most missing flag descriptions — the real work queue):\n");
     for (rank, row) in worst.iter().enumerate() {
         let pct = row
-            .pct_described
+            .pct_flags_with_text
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "-".to_string());
         out.push_str(&format!(
@@ -576,11 +904,11 @@ fn worst_parsed_section_markdown(worst: &[&Row]) -> String {
         return String::new();
     }
     let mut out = String::from(
-        "\n**Worst-parsed tools** (most missing flag descriptions, which is where grammar work pays off):\n\n| tool | undescribed | flags | %described | framework |\n|---|---|---|---|---|\n",
+        "\n**Worst-parsed tools** (most missing flag descriptions, which is where grammar work pays off):\n\n| tool | undescribed | flags | %flags_text | framework |\n|---|---|---|---|---|\n",
     );
     for row in worst {
         let pct = row
-            .pct_described
+            .pct_flags_with_text
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "-".to_string());
         out.push_str(&format!(
@@ -595,6 +923,92 @@ fn worst_parsed_section_markdown(worst: &[&Row]) -> String {
     out
 }
 
+/// Plain-text rendering of every row's [`Row::misattribution_samples`],
+/// flattened and capped at [`MISATTRIBUTION_SAMPLE_LIMIT`] — a human-
+/// readable sample of what [`crate::misattribution`] flagged, for judging
+/// the false-positive rate (spec's own instruction: "report the rate, show
+/// a sample of what it flags"). Mirrors [`worst_parsed_lines_text`]'s
+/// "nothing to report → no section" convention.
+fn misattribution_sample_lines_text(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.misattribution_samples.iter())
+        .take(MISATTRIBUTION_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "# misattribution-suspects (sample — not gated; judge the false-positive rate yourself):\n",
+    );
+    for (rank, sample) in samples.iter().enumerate() {
+        out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
+    }
+    out
+}
+
+/// Plain-text rendering of every row's [`Row::existence_samples`], flattened
+/// and capped at [`EXISTENCE_SAMPLE_LIMIT`] — mirrors
+/// [`misattribution_sample_lines_text`]'s shape and "nothing to report → no
+/// section" convention exactly.
+fn existence_sample_lines_text(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.existence_samples.iter())
+        .take(EXISTENCE_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "# existence-fabrications (sample — not gated; judge the false-positive rate yourself):\n",
+    );
+    for (rank, sample) in samples.iter().enumerate() {
+        out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
+    }
+    out
+}
+
+/// Markdown rendering of [`existence_sample_lines_text`]'s result, for
+/// [`render_markdown`].
+fn existence_sample_section_markdown(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.existence_samples.iter())
+        .take(EXISTENCE_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\n**Existence fabrications** (sample, not gated — see `xtask/src/existence.rs`):\n\n| sample |\n|---|\n",
+    );
+    for sample in samples {
+        out.push_str(&format!("| {} |\n", md_escape(sample)));
+    }
+    out
+}
+
+/// Markdown rendering of [`misattribution_sample_lines_text`]'s result, for
+/// [`render_markdown`].
+fn misattribution_sample_section_markdown(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.misattribution_samples.iter())
+        .take(MISATTRIBUTION_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\n**Misattribution suspects** (sample, not gated — see `xtask/src/misattribution.rs`):\n\n| sample |\n|---|\n",
+    );
+    for sample in samples {
+        out.push_str(&format!("| {} |\n", md_escape(sample)));
+    }
+    out
+}
+
 /// GitHub-flavored markdown table plus the same aggregate footer,
 /// rendered as prose — spec §13.1a's framework-support workflow (batch 6
 /// part 6) writes this straight to `$GITHUB_STEP_SUMMARY`, which GitHub
@@ -602,16 +1016,16 @@ fn worst_parsed_section_markdown(worst: &[&Row]) -> String {
 fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     let mut out = String::new();
     out.push_str(
-        "| tool | tier(s) | framework | nodes | flags | %described | ms | suspect | status |\n",
+        "| tool | tier(s) | framework | nodes | flags | %flags_text | ms | suspect | man | misattr | exist | status |\n",
     );
-    out.push_str("|---|---|---|---|---|---|---|---|---|\n");
+    out.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for row in rows {
         let pct = row
-            .pct_described
+            .pct_flags_with_text
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.tool),
             md_escape(&row.tiers),
             md_escape(&row.framework),
@@ -620,17 +1034,37 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             pct,
             row.ms,
             row.suspicious_nodes,
+            if row.man_shaped { "yes" } else { "-" },
+            row.misattribution_suspect_count,
+            row.existence_fabrication_count,
             row.status,
         ));
     }
     out.push('\n');
     out.push_str(&format!(
-        "**Aggregate:** {:.2}% described across {} tools, {} no-tier, {} suspicious, {} verbatim.\n\n",
-        aggregate.pct_described,
+        "**Aggregate:** {:.2}% of flags carry text across {} tools, {} no-tier, {} suspicious, {} verbatim, {} man-shaped.\n\n",
+        aggregate.pct_flags_with_text,
         aggregate.total,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
         aggregate.verbatim_count,
+        aggregate.man_shaped_count,
+    ));
+    // See `accuracy_unmeasured_line`'s doc comment (the text format's
+    // twin): `%flags_text` is presence, never correctness, and nothing yet
+    // measures the latter fleet-wide.
+    out.push_str("**Accuracy:** unmeasured.\n\n");
+    out.push_str(&format!(
+        "**Misattribution suspects:** {} tool(s) with at least one flag description containing \
+         a flag-shaped token attested at a column-aligned position elsewhere in that tool's own \
+         raw help text — not gated, see `xtask/src/misattribution.rs`.\n\n",
+        aggregate.misattribution_suspect_tools,
+    ));
+    out.push_str(&format!(
+        "**Existence fabrications:** {} tool(s) with at least one help-text-sourced subcommand \
+         name or flag spelling not found literally in that tool's own raw help text — [M-10]'s \
+         shape, generalized; not gated, see `xtask/src/existence.rs`.\n\n",
+        aggregate.existence_fabrication_tools,
     ));
     out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
@@ -645,11 +1079,13 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         }
     }
     out.push_str(&worst_parsed_section_markdown(&worst_parsed(rows)));
+    out.push_str(&misattribution_sample_section_markdown(rows));
+    out.push_str(&existence_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
     // only be merged by re-deriving totals from the rounded per-row
-    // %described column, which is exactly the approximation
+    // %flags_text column, which is exactly the approximation
     // `described_flags`/`total_flags` exist to avoid.
     out.push_str("\n<!-- ");
     out.push_str(aggregate_footer_line(aggregate).trim_end());
@@ -680,13 +1116,20 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_described={:.2} no_tier_count={} suspicious_count={} verbatim_count={} total={} described_flags={:.4} total_flags={}\n",
-        aggregate.pct_described,
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
         aggregate.verbatim_count,
+        aggregate.incomplete_count,
+        aggregate.man_shaped_count,
+        aggregate.zero_flag_ok_count,
+        aggregate.misattribution_suspect_tools,
+        aggregate.misattribution_column_aligned_tools,
+        aggregate.existence_fabrication_tools,
         aggregate.total,
         aggregate.described_flags,
+        aggregate.describable_flags,
         aggregate.total_flags,
     )
 }
@@ -720,48 +1163,104 @@ fn framework_summary_lines(aggregate: &Aggregate) -> String {
 /// round-trip through this parser.
 pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     let line = scoreboard.lines().find(|l| l.starts_with("# aggregate:"))?;
-    let mut pct_described = None;
+    let mut pct_flags_with_text = None;
     let mut no_tier_count = None;
-    // Older scoreboards (pre structure-sanity / pre-framework columns)
-    // are missing `suspicious_count`/`verbatim_count` entirely; default
-    // both to 0 rather than failing to parse, so `--check` against a
-    // not-yet-regenerated baseline still works for the fields that did
-    // exist.
+    // Older scoreboards (pre structure-sanity / pre-framework / pre-man-
+    // shaped / pre-zero-flag columns) are missing `suspicious_count`/
+    // `verbatim_count`/`man_shaped_count`/`zero_flag_ok_count` entirely;
+    // default all four to 0 rather than failing to parse, so `--check`
+    // against a not-yet-regenerated baseline still works for the fields
+    // that did exist.
     let mut suspicious_count = 0usize;
     let mut verbatim_count = 0usize;
+    // Brand-new field (spec §6 rule 2b, this batch): a scoreboard from
+    // before the `incomplete` status existed has no such key at all, so
+    // `--check` against one must still work.
+    let mut incomplete_count = 0usize;
+    let mut man_shaped_count = 0usize;
+    let mut zero_flag_ok_count = 0usize;
     let mut described_flags = 0.0f64;
+    // A scoreboard from before spec §13's metric redefinition has no
+    // `describable_flags` field at all — its `pct_flags_with_text` was computed
+    // over raw `total_flags` instead. Defaulting to 0.0 here (same pattern
+    // as every other new-field default above) only affects reconstructing
+    // an *exact* numerator/denominator for shard merging; `--check`
+    // compares `pct_flags_with_text` values directly and never recomputes them
+    // from this pair, so an old baseline still round-trips.
+    let mut describable_flags = 0.0f64;
     let mut total_flags = 0usize;
     let mut total = None;
+    // Brand-new field (spec §13.1's rename note, this task): a scoreboard
+    // from before the misattribution detector existed has no such key at
+    // all, so `--check` against one must still work.
+    let mut misattribution_suspect_tools = 0usize;
+    let mut misattribution_column_aligned_tools = 0usize;
+    // Same reasoning, same pattern, brand new field (this task): a
+    // scoreboard from before the existence detector existed has no such
+    // key at all, so `--check` against one must still work.
+    let mut existence_fabrication_tools = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
-            "pct_described" => pct_described = value.parse::<f64>().ok(),
+            "pct_flags_with_text" => pct_flags_with_text = value.parse::<f64>().ok(),
+            // Backward compatibility with every scoreboard written before
+            // this rename (spec §13.1/§13.1b, Appendix B): the field is the
+            // same ratio under its old, accuracy-implying name —
+            // `pct_described`. Never written by this module anymore (see
+            // `aggregate_footer_line`), only read.
+            "pct_described" => pct_flags_with_text = value.parse::<f64>().ok(),
             "no_tier_count" => no_tier_count = value.parse::<usize>().ok(),
             "suspicious_count" => suspicious_count = value.parse::<usize>().ok()?,
             "verbatim_count" => verbatim_count = value.parse::<usize>().ok()?,
+            "incomplete_count" => incomplete_count = value.parse::<usize>().ok()?,
+            "man_shaped_count" => man_shaped_count = value.parse::<usize>().ok()?,
+            "zero_flag_ok_count" => zero_flag_ok_count = value.parse::<usize>().ok()?,
+            "misattribution_suspect_tools" => {
+                misattribution_suspect_tools = value.parse::<usize>().ok()?
+            }
+            "misattribution_column_aligned_tools" => {
+                misattribution_column_aligned_tools = value.parse::<usize>().ok()?
+            }
+            "existence_fabrication_tools" => {
+                existence_fabrication_tools = value.parse::<usize>().ok()?
+            }
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
+            "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
             "total" => total = value.parse::<usize>().ok(),
             _ => {}
         }
     }
     Some(Aggregate {
-        pct_described: pct_described?,
+        pct_flags_with_text: pct_flags_with_text?,
         no_tier_count: no_tier_count?,
         suspicious_count,
         verbatim_count,
+        incomplete_count,
+        man_shaped_count,
+        zero_flag_ok_count,
         framework_detected_count: 0,
         framework_counts: BTreeMap::new(),
         total: total?,
         described_flags,
+        describable_flags,
         total_flags,
+        misattribution_suspect_tools,
+        misattribution_column_aligned_tools,
+        existence_fabrication_tools,
     })
 }
 
 /// Every uniquely-named executable file found in a `PATH` directory,
 /// deduplicated by basename (the first directory to have a given name
 /// wins, matching normal `PATH` resolution order) and sorted.
-fn unique_executables_on_path() -> Vec<String> {
+///
+/// `pub(crate)`, not `pub`: `crate::audit`'s `sample` subcommand needs the
+/// same population this module's own `run` scans by default (spec's audit
+/// brief: "a deterministic draw from the tools on `PATH`"), and re-walking
+/// `PATH` a second, independent way would risk the two enumerations quietly
+/// disagreeing about what "every tool" means.
+pub(crate) fn unique_executables_on_path() -> Vec<String> {
     let mut seen: BTreeMap<String, PathBuf> = BTreeMap::new();
     let Some(path_var) = std::env::var_os("PATH") else {
         return Vec::new();
@@ -803,12 +1302,15 @@ mod tests {
 
     #[test]
     fn parses_its_own_footer_format() {
-        let table = "tool  tier(s)\nfoo   carapace\n\n# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=2 verbatim_count=1 total=10\n";
+        let table = "tool  tier(s)\nfoo   carapace\n\n# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=2 verbatim_count=1 man_shaped_count=1 zero_flag_ok_count=4 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
-        assert_eq!(agg.pct_described, 42.5);
+        assert_eq!(agg.pct_flags_with_text, 42.5);
         assert_eq!(agg.no_tier_count, 3);
         assert_eq!(agg.suspicious_count, 2);
         assert_eq!(agg.verbatim_count, 1);
+        assert_eq!(agg.incomplete_count, 0);
+        assert_eq!(agg.man_shaped_count, 1);
+        assert_eq!(agg.zero_flag_ok_count, 4);
         assert_eq!(agg.total, 10);
     }
 
@@ -818,7 +1320,7 @@ mod tests {
     /// as unparseable.
     #[test]
     fn footer_without_suspicious_count_defaults_to_zero() {
-        let table = "# aggregate: pct_described=42.50 no_tier_count=3 total=10\n";
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
         assert_eq!(agg.suspicious_count, 0);
     }
@@ -828,9 +1330,137 @@ mod tests {
     #[test]
     fn footer_without_verbatim_count_defaults_to_zero() {
         let table =
-            "# aggregate: pct_described=42.50 no_tier_count=3 suspicious_count=1 total=10\n";
+            "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
         assert_eq!(agg.verbatim_count, 0);
+    }
+
+    /// Same for `incomplete_count` (spec §6 rule 2b, this batch): a
+    /// scoreboard from before the `incomplete` status existed has no such
+    /// field.
+    #[test]
+    fn footer_without_incomplete_count_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.incomplete_count, 0);
+    }
+
+    /// Round-trips through a freshly-written footer, unlike the
+    /// backward-compatibility tests above which parse a hand-written one.
+    #[test]
+    fn incomplete_count_round_trips_through_a_freshly_written_footer() {
+        let rows = vec![
+            row("curl", 12, Some(100.0), "incomplete"),
+            row("git", 34, Some(100.0), "ok"),
+        ];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.incomplete_count, 1);
+        let line = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&line).unwrap();
+        assert_eq!(parsed.incomplete_count, 1);
+    }
+
+    /// Same for `man_shaped_count`, added by this batch ([M-16]'s
+    /// exposure enumeration): a scoreboard from before it exists has no
+    /// such field, and `--check` against it must still work.
+    #[test]
+    fn footer_without_man_shaped_count_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.man_shaped_count, 0);
+    }
+
+    /// Same for `zero_flag_ok_count` ([M-15]): a scoreboard from before
+    /// this metric existed has no such field, and `--check` against it
+    /// must still work.
+    #[test]
+    fn footer_without_zero_flag_ok_count_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 man_shaped_count=1 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.zero_flag_ok_count, 0);
+    }
+
+    /// Same for `describable_flags` (spec §13's metric redefinition): a
+    /// scoreboard from before it exists has no such field, and `--check`
+    /// against it must still work — `--check` compares `pct_flags_with_text`
+    /// values directly and never reconstructs them from this pair, so a
+    /// pre-redefinition baseline still round-trips (see
+    /// `parse_aggregate_footer`'s doc comment on this field).
+    #[test]
+    fn footer_without_describable_flags_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 man_shaped_count=1 zero_flag_ok_count=1 total=10 described_flags=4.2000 total_flags=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.describable_flags, 0.0);
+    }
+
+    /// A freshly-written footer round-trips `describable_flags` exactly —
+    /// this is the field a sharded `--check` run needs to merge partial
+    /// scoreboards without re-deriving `pct_flags_with_text` from the rounded
+    /// per-row percentage column.
+    #[test]
+    fn footer_round_trips_describable_flags() {
+        let rows = vec![row("git", 34, Some(100.0), "ok")];
+        let mut only_row = rows;
+        only_row[0].describable = 16;
+        let agg = compute_aggregate(&only_row);
+        let footer = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&footer).unwrap();
+        assert_eq!(parsed.describable_flags, 16.0);
+    }
+
+    /// spec §13.1/§13.1b's rename (this task): a scoreboard written under
+    /// the old, accuracy-implying `pct_described` key must still parse —
+    /// `--check` against a not-yet-regenerated baseline must not suddenly
+    /// start failing to parse the footer at all just because the field
+    /// changed names. See `aggregate_footer_line`: nothing written by this
+    /// module ever emits the old key again, this is read-only compatibility.
+    #[test]
+    fn footer_reads_the_legacy_pct_described_key_name() {
+        let table = "# aggregate: pct_described=42.50 no_tier_count=3 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.pct_flags_with_text, 42.5);
+    }
+
+    /// Same pattern as every other new-column default: a scoreboard from
+    /// before the misattribution detector existed has no such field.
+    #[test]
+    fn footer_without_misattribution_suspect_tools_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.misattribution_suspect_tools, 0);
+    }
+
+    #[test]
+    fn footer_round_trips_misattribution_suspect_tools() {
+        let mut suspect_row = row("lsof", 42, Some(79.0), "ok");
+        suspect_row.misattribution_suspect_count = 1;
+        let rows = vec![row("git", 34, Some(100.0), "ok"), suspect_row];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.misattribution_suspect_tools, 1);
+        let footer = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&footer).unwrap();
+        assert_eq!(parsed.misattribution_suspect_tools, 1);
+    }
+
+    /// Same pattern as every other new-column default: a scoreboard from
+    /// before the existence detector existed has no such field.
+    #[test]
+    fn footer_without_existence_fabrication_tools_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.existence_fabrication_tools, 0);
+    }
+
+    #[test]
+    fn footer_round_trips_existence_fabrication_tools() {
+        let mut fabricated_row = row("tar", 42, Some(79.0), "ok");
+        fabricated_row.existence_fabrication_count = 1;
+        let rows = vec![row("git", 34, Some(100.0), "ok"), fabricated_row];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.existence_fabrication_tools, 1);
+        let footer = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&footer).unwrap();
+        assert_eq!(parsed.existence_fabrication_tools, 1);
     }
 
     #[test]
@@ -845,17 +1475,100 @@ mod tests {
         assert_eq!(short_tier_name("something_else"), "something_else");
     }
 
-    fn row(tool: &str, flags: usize, pct_described: Option<f64>, status: &'static str) -> Row {
+    fn extraction_result_with_unparsed(tool: &str, first_line: &str) -> ExtractionResult {
+        use mandible_core::{CommandNode, Provenance, Source, Text};
+        let mut root = CommandNode::new(tool, Provenance::with_confidence(Source::HelpText, 0.0));
+        root.unparsed = vec![Text::sanitize(first_line)];
+        ExtractionResult {
+            tool: tool.to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        }
+    }
+
+    /// True positive: a captured `unparsed` first line carrying the man
+    /// banner shape is detected, via the exact same rule
+    /// `sections::is_man_page_banner` exposes — this is `root_is_man_shaped`
+    /// reading data the pipeline already captured, not a second probe.
+    #[test]
+    fn root_is_man_shaped_true_positive_on_a_captured_man_banner() {
+        let result = extraction_result_with_unparsed(
+            "git-bisect",
+            "GIT-BISECT(1)     Git Manual     GIT-BISECT(1)",
+        );
+        assert!(root_is_man_shaped(&result));
+    }
+
+    /// A root that degraded to verbatim for an *ordinary* reason (the
+    /// grammar just found nothing usable, no man banner involved) must not
+    /// be counted as man-shaped — the two "gave up" reasons are distinct,
+    /// which is the entire reason this function re-checks the captured
+    /// text instead of trusting `verbatim` alone.
+    #[test]
+    fn root_is_man_shaped_false_when_verbatim_for_a_non_man_reason() {
+        let result = extraction_result_with_unparsed(
+            "mystery",
+            "This tool prints only a friendly banner and nothing else.",
+        );
+        assert!(!root_is_man_shaped(&result));
+    }
+
+    /// git's own *root* must never register as man-shaped ([M-16]'s
+    /// central subtlety: only its subcommands render man pages). A root
+    /// that parsed real structure never carries `unparsed` at all, so
+    /// there is no captured text to test the banner against.
+    #[test]
+    fn root_is_man_shaped_false_when_root_parsed_structurally() {
+        use mandible_core::{CommandNode, Provenance, Source};
+        let root = CommandNode::new("git", Provenance::with_confidence(Source::HelpText, 0.8));
+        let result = ExtractionResult {
+            tool: "git".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        assert!(!root_is_man_shaped(&result));
+    }
+
+    #[test]
+    fn root_is_man_shaped_false_when_no_tier_produced_a_root() {
+        let result = ExtractionResult {
+            tool: "nothing".to_string(),
+            root: None,
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        assert!(!root_is_man_shaped(&result));
+    }
+
+    /// `describable` defaults to `flags` — most tests here aren't about the
+    /// synopsis-exclusion split itself, so every flag is describable unless
+    /// a test overrides `.describable` afterwards (same pattern as
+    /// `.verbatim`/`.man_shaped` below).
+    fn row(
+        tool: &str,
+        flags: usize,
+        pct_flags_with_text: Option<f64>,
+        status: &'static str,
+    ) -> Row {
         Row {
             tool: tool.to_string(),
             tiers: "help".to_string(),
             framework: "—".to_string(),
             nodes: 1,
             flags,
-            pct_described,
+            describable: flags,
+            pct_flags_with_text,
             ms: 1,
             suspicious_nodes: 0,
             verbatim: false,
+            man_shaped: false,
+            misattribution_suspect_count: 0,
+            misattribution_column_aligned: false,
+            misattribution_samples: Vec::new(),
+            existence_fabrication_count: 0,
+            existence_samples: Vec::new(),
             status,
         }
     }
@@ -868,7 +1581,24 @@ mod tests {
         ];
         let agg = compute_aggregate(&rows);
         // 100 described out of 101 total, not (100% + 0%)/2 = 50%.
-        assert!((agg.pct_described - (100.0 / 101.0 * 100.0)).abs() < 0.01);
+        assert!((agg.pct_flags_with_text - (100.0 / 101.0 * 100.0)).abs() < 0.01);
+    }
+
+    /// spec §13's metric redefinition, at aggregate granularity: a tool
+    /// whose flags are mostly undescribable-by-construction (synopsis-only)
+    /// must not drag the fleet-wide ratio down for that reason — the
+    /// aggregate is weighted by each row's *describable* count, not its
+    /// raw flag count. Models the git shape directly: 34 raw flags, only
+    /// 16 describable, all 16 described (spec's git fixture, post-fix).
+    #[test]
+    fn aggregate_weights_by_describable_count_not_raw_flag_count() {
+        let mut git_like = row("git", 34, Some(100.0), "ok");
+        git_like.describable = 16;
+        let rows = vec![git_like];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.pct_flags_with_text, 100.0);
+        assert_eq!(agg.describable_flags, 16.0);
+        assert_eq!(agg.described_flags, 16.0);
     }
 
     #[test]
@@ -896,6 +1626,46 @@ mod tests {
         // not forgotten — the *not gated* half is enforced by
         // `xtask/src/main.rs` never comparing it, covered by reading that
         // function, not a unit test over a private struct.
+    }
+
+    /// [M-16]'s enumeration column: a man-shaped root is a *subset* of
+    /// verbatim (git's subcommands are both), but not every verbatim root
+    /// is man-shaped (some tools produce output the grammar just can't
+    /// use, with no man banner in sight) — so the two counts must move
+    /// independently, and `man_shaped_count` must never be gated (this is
+    /// a brand-new measurement with no baseline, per the task).
+    #[test]
+    fn aggregate_counts_man_shaped_separately_from_plain_verbatim() {
+        let mut man_shaped_row = row("git-bisect", 0, None, "verbatim");
+        man_shaped_row.verbatim = true;
+        man_shaped_row.man_shaped = true;
+        let mut plain_verbatim_row = row("mystery", 0, None, "verbatim");
+        plain_verbatim_row.verbatim = true;
+        let rows = vec![
+            row("clean", 10, Some(100.0), "ok"),
+            man_shaped_row,
+            plain_verbatim_row,
+        ];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.verbatim_count, 2);
+        assert_eq!(agg.man_shaped_count, 1);
+    }
+
+    /// [M-15]'s own measure: a tool at status `ok` with zero flags at all
+    /// (the shape 378 of 1,895 `ok` tools had fleet-wide before the usage-
+    /// synopsis flag grammar). A `low-confidence` or `no-tier` tool with
+    /// zero flags must not count — only `ok` ones do, since those are the
+    /// ones a reader would otherwise trust as "nothing more to find here."
+    #[test]
+    fn aggregate_counts_ok_tools_with_zero_flags() {
+        let rows = vec![
+            row("git-like", 0, None, "ok"),
+            row("has-flags", 10, Some(90.0), "ok"),
+            row("weak", 0, None, "low-confidence"),
+            row("nothing", 0, None, "no-tier"),
+        ];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.zero_flag_ok_count, 1);
     }
 
     #[test]
@@ -1103,85 +1873,8 @@ mod tests {
         assert!(table.starts_with("| tool |"));
     }
 
-    fn leaf(name: &str) -> CommandNode {
-        CommandNode::new(
-            name,
-            mandible_core::Provenance::single(mandible_core::Source::HelpText),
-        )
-    }
-
-    /// The exact regression this column exists for: a tool whose
-    /// subcommands are all fabricated fragments must not be structurally
-    /// clean just because each fragment happens to have "a description"
-    /// (its own trailing prose, in [M-10]'s case).
-    #[test]
-    fn structure_sanity_flags_fabricated_names() {
-        let mut root = leaf("tar");
-        let mut phantom = leaf("treat them as errors");
-        phantom.summary = Some(mandible_core::Text::sanitize(
-            "some trailing description text",
-        ));
-        root.subcommands.push(phantom);
-        assert_eq!(structure_sanity(&root), 1);
-    }
-
-    /// A node that exists but carries nothing (no flags, no children, no
-    /// summary) is exactly the shape a mis-parsed continuation line takes
-    /// even when its *name* happens to pass the shape test (an enum value
-    /// like `gnu` parses as a fine identifier; it's still not a command).
-    #[test]
-    fn structure_sanity_flags_empty_nodes_with_valid_names() {
-        let mut root = leaf("tar");
-        root.subcommands.push(leaf("gnu"));
-        assert_eq!(structure_sanity(&root), 1);
-    }
-
-    #[test]
-    fn structure_sanity_ignores_the_roots_own_name() {
-        // Root names are real executable filenames from PATH, not
-        // something a tier guessed — e.g. "NetworkManager" fails the
-        // lowercase-start regex but is a completely real binary.
-        let mut root = leaf("NetworkManager");
-        let mut child = leaf("status");
-        child.summary = Some(mandible_core::Text::sanitize("Show status"));
-        root.subcommands.push(child);
-        assert_eq!(structure_sanity(&root), 0);
-    }
-
-    /// The core regression for issue #2: an empty node with no
-    /// `heading_attested` evidence (the shape a phantom node — tar's 39
-    /// wrapped-description-fragment "subcommands" — always has) must stay
-    /// suspicious, while an otherwise-identical empty node that *does*
-    /// carry that evidence (openssl's bare command grid: real commands,
-    /// no per-entry description) must not. Provenance, not emptiness, is
-    /// what the check now discriminates on.
-    #[test]
-    fn structure_sanity_distinguishes_fabricated_empty_nodes_from_heading_attested_ones() {
-        let mut fabricated_root = leaf("tar");
-        fabricated_root.subcommands.push(leaf("gnu"));
-        assert_eq!(
-            structure_sanity(&fabricated_root),
-            1,
-            "an empty node with no heading evidence must stay suspicious"
-        );
-
-        let mut openssl_like_root = leaf("openssl");
-        let mut attested = leaf("asn1parse");
-        attested.heading_attested = true;
-        openssl_like_root.subcommands.push(attested);
-        assert_eq!(
-            structure_sanity(&openssl_like_root),
-            0,
-            "an empty node with heading evidence must not be flagged just for being empty"
-        );
-    }
-
-    #[test]
-    fn structure_sanity_is_zero_for_a_clean_tree() {
-        let mut root = leaf("git");
-        let mut child = leaf("commit");
-        child.summary = Some(mandible_core::Text::sanitize("Record changes"));
-        root.subcommands.push(child);
-        assert_eq!(structure_sanity(&root), 0);
-    }
+    // `structure_sanity`'s own unit tests (fabricated names, empty nodes,
+    // the root-name exclusion, `heading_attested` provenance, a clean
+    // tree) now live in `status.rs`'s test module, alongside the function
+    // itself — see that module's doc comment for why it moved.
 }

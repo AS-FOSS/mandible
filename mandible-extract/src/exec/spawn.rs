@@ -61,6 +61,23 @@ pub enum ExecError {
         /// The path that was refused.
         path: String,
     },
+    /// [`crate::exec::Transcript`] has no recording for the exact argv a
+    /// tier asked for (keyed on [`InertArgv::args`], not on the enum
+    /// variant or the tool name — see that type's doc comment for why).
+    /// Distinct from every other variant above: those all describe a real
+    /// spawn attempt being refused or failing, while this one means no
+    /// process was ever meant to run — the replay fixture simply doesn't
+    /// cover this argv. A future corpus runner reports this verbatim
+    /// ("the tier asked for `git commit --help`, which this fixture
+    /// doesn't contain") rather than a tier silently producing an empty,
+    /// confidently-wrong node.
+    #[error("no transcript recording for `{tool} {}`", argv.join(" "))]
+    TranscriptMiss {
+        /// The tool path the tier asked to probe.
+        tool: String,
+        /// The exact argument vector requested ([`InertArgv::args`]).
+        argv: Vec<String>,
+    },
 }
 
 /// The captured result of running a tool under the exec policy.
@@ -83,9 +100,13 @@ pub struct ExecOutput {
 /// - stdin is always `/dev/null` (rule 3).
 /// - the environment is cleared and re-populated with only `PATH` plus the
 ///   sanitized baseline (`TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`,
-///   `LC_ALL=C.UTF-8`) and whatever `argv` itself requires (rule 6).
-/// - the child is placed in its own process group, so a timeout kills the
-///   whole group, not just the direct child (rule 4).
+///   `LC_ALL=C.UTF-8`, and `PAGER`/`MANPAGER`/`GIT_PAGER`/`SYSTEMD_PAGER`
+///   all set to `cat`) and whatever `argv` itself requires (rule 6).
+/// - the child is the leader of a brand-new **session**, not just a new
+///   process group, so it has no controlling terminal: a timeout kills the
+///   whole process group, not just the direct child (rule 4), and no
+///   descendant can `open("/dev/tty")` to reach the real one out from
+///   under whatever we redirected fds 0/1/2 to ([M-17], rule 6).
 /// - output is read on background threads and capped (rule 5), so neither
 ///   a pipe deadlock nor unbounded memory growth is possible.
 ///
@@ -157,6 +178,30 @@ pub fn run_inert(
     cmd.env("NO_COLOR", "1");
     cmd.env("COLUMNS", "100");
     cmd.env("LC_ALL", "C.UTF-8");
+    // Rule 6, revised: *set* every pager variable to `cat` rather than
+    // leaving it absent. Absence is the weaker property — it means "we
+    // didn't say", which a tool is free to read as "go find one yourself"
+    // (that's the documented fallback behavior for `PAGER`/`MANPAGER` in
+    // both GNU and BSD userlands, and `SYSTEMD_PAGER`/`GIT_PAGER` follow
+    // the same convention for their own ecosystems). `cat` is the
+    // universally-understood no-op pager, so this is ecosystem-level
+    // knowledge — the same class as `TOOLCHAIN_RESOLUTION_VARS` below —
+    // not the per-tool logic §1 forbids.
+    //
+    // This alone would not have stopped the freeze this rule was revised
+    // for ([M-17]): systemd's own pager gate already checks `isatty` on
+    // its *own* stdout/stderr, which are always pipes here, so it never
+    // even reaches the `PAGER` lookup for any argv this crate constructs
+    // — measured, not assumed, see [M-17]. It is kept anyway as
+    // defense-in-depth against a tool whose own pager gate is weaker than
+    // systemd's (some page unconditionally on "long" output with no
+    // `isatty` check at all), and because it costs nothing and closes the
+    // *documented* half of the original bug report even though the
+    // measured mechanism turned out to be the session fix below, not this.
+    cmd.env("PAGER", "cat");
+    cmd.env("MANPAGER", "cat");
+    cmd.env("GIT_PAGER", "cat");
+    cmd.env("SYSTEMD_PAGER", "cat");
     for (key, default_subpath) in TOOLCHAIN_RESOLUTION_VARS {
         match std::env::var_os(key) {
             // Explicitly set: pass it through unchanged.
@@ -184,11 +229,61 @@ pub fn run_inert(
         cmd.env(k, v);
     }
 
+    // Give every probe its own *session*, not just its own process group
+    // (spec §6 rule 6, [M-17]). `process_group(0)` alone (the prior code)
+    // creates a new process group but leaves the child in the *same
+    // session* as mandible itself, so the session's controlling terminal
+    // is still reachable: any descendant can `open("/dev/tty")` and get
+    // it, bypassing whatever we redirected fds 0/1/2 to entirely. That is
+    // exactly how a program that explicitly wants a controlling terminal
+    // — a pager reading keystrokes, a password prompt, `readpassphrase`-
+    // style code — reads real keyboard input and leaves real termios
+    // changes behind, regardless of piped stdout. `kill_process_group`'s
+    // SIGKILL on timeout does not undo that: termios state lives on the
+    // tty device, not the process, so a change made before the kill lands
+    // persists after it. [M-17] measured that no argv this crate actually
+    // constructs against `systemctl` triggers this in practice (systemd's
+    // own pager already gates on `isatty`, which a piped stdout always
+    // fails) — but confirmed via a shim that the underlying mechanism is
+    // real: under the old code a descendant's `open("/dev/tty")` *can*
+    // succeed given a real controlling terminal; `setsid()` before `exec`
+    // makes the child (and everything under it, short of a further
+    // `setsid` call of its own) the leader of a brand-new session with no
+    // controlling terminal at all, so that same `open` fails with `ENXIO`
+    // — proven by `tests/exec_policy.rs`'s `/dev/tty` shim test, which
+    // fails without this and passes with it.
+    //
+    // `setsid(2)` also makes the caller its own process-group leader as a
+    // side effect of starting the new session (pgid becomes its own pid),
+    // which is the exact property `process_group(0)` used to provide —
+    // so that call is removed rather than kept alongside this one:
+    // `setsid()` fails with `EPERM` if the caller is *already* a process
+    // group leader, and `process_group(0)` (applied by `std` before any
+    // `pre_exec` closure runs) would make it one. `kill_process_group`'s
+    // `Pid::from_raw(-pid)` still targets the right group unchanged.
+    //
+    // # Safety
+    //
+    // `pre_exec` runs the closure in the freshly-forked child, after
+    // `fork` and before `exec` — a window where only async-signal-safe
+    // operations are sound (see `CommandExt::pre_exec`'s own doc comment:
+    // the allocator, mutexes, and most of the standard library are
+    // unsafe to touch there because other threads mid-operation were not
+    // forked). `nix::unistd::setsid` performs exactly one raw `setsid(2)`
+    // syscall with no allocation and no locking, which is safe in that
+    // window. This is the one audited exception in this crate — see
+    // `mandible-extract/src/lib.rs`'s `#![deny(unsafe_code)]`.
     #[cfg(unix)]
+    #[allow(unsafe_code)]
     {
         use std::os::unix::process::CommandExt;
-        // pgroup 0 => new process group whose pgid equals the child's pid.
-        cmd.process_group(0);
+        unsafe {
+            cmd.pre_exec(|| {
+                nix::unistd::setsid()
+                    .map(|_| ())
+                    .map_err(std::io::Error::from)
+            });
+        }
     }
 
     // Redirect every writable location a probe might reach (spec §6 rule
@@ -589,6 +684,28 @@ const HELP_ONLY_PROBE: &[&str] = &[
     "telinit",
     "init",
     "systemctl-shutdown",
+    // Message delivery: an unrecognised positional is the message, and the
+    // message goes somewhere a person will see it.
+    //
+    // Reported from real use, 2026-08-12: probing `wall` broadcast the text
+    // `__complete` to every logged-in terminal on the machine. Tier E's cobra
+    // detection sends `__complete <word>` to every tool speculatively, to
+    // find out whether it answers, and `wall` treats that word as the
+    // message. The reporter could not reproduce it at first because the
+    // broadcast lands on *other* terminals while the interface repaints over
+    // the one it was launched from.
+    //
+    // This is the `pkill -- ""` shape again (see this module's rule 2a
+    // handling): an argv that is inert for almost every tool and an action
+    // for one family. `wall` is the measured case; the rest are the same
+    // mechanism by inspection, each one delivering its first positional to a
+    // terminal, a log, a desktop, or a speaker.
+    "wall",
+    "write",
+    "logger",
+    "notify-send",
+    "say",
+    "xmessage",
 ];
 
 /// True if `tool_path` names a program from [`HELP_ONLY_PROBE`], i.e. one
@@ -638,10 +755,14 @@ fn kill_process_group(child: &mut Child) {
     use nix::sys::signal::{kill, Signal};
     use nix::unistd::Pid;
     let pid = child.id() as i32;
-    // Negative pid means "the process group" in POSIX kill(2) semantics.
-    // `nix::sys::signal::kill` is a safe wrapper, so this crate's
-    // `#![forbid(unsafe_code)]` holds even though the underlying syscall
-    // is unsafe FFI inside `nix`.
+    // Negative pid means "the process group" in POSIX kill(2) semantics —
+    // still correct after the session change above: `setsid()` makes the
+    // child its own process-group leader (pgid == pid) exactly as
+    // `process_group(0)` used to. `nix::sys::signal::kill` is a safe
+    // wrapper, so this function itself needs no `unsafe`, even though the
+    // underlying syscall is unsafe FFI inside `nix`. (This crate's one
+    // audited exception is the `setsid` `pre_exec` call in `run_inert`,
+    // not this.)
     let _ = kill(Pid::from_raw(-pid), Signal::SIGKILL);
 }
 
@@ -697,6 +818,17 @@ mod tests {
             InertArgv::CompletionScript {
                 shell: "zsh".to_string(),
             },
+            // Spec §6 rule 2b's new shape must be refused exactly like
+            // every other non-`["--help"]` argv — even when `word` is the
+            // one this tier would actually follow ("all"). This is the
+            // structural proof that rule 0 wins regardless of the
+            // confession machinery: `run_inert`'s own chokepoint check
+            // (`argv.args() != ["--help"]`) rejects it with no special
+            // case needed anywhere in `help_text::confession`.
+            InertArgv::HelpExpand {
+                words: vec![],
+                word: "all".to_string(),
+            },
         ] {
             let result = run_inert(&path, &argv, Duration::from_secs(2));
             assert!(
@@ -737,6 +869,12 @@ mod tests {
             "this list must not become a catalogue"
         );
         assert!(is_help_only_probe(Path::new("/usr/bin/pkill")));
+        // The message-delivery class. `wall` is the measured case: probing it
+        // broadcast `__complete` to every logged-in terminal, because Tier E
+        // sends that word to every tool speculatively and `wall` treats its
+        // first positional as the message.
+        assert!(is_help_only_probe(Path::new("/usr/bin/wall")));
+        assert!(is_help_only_probe(Path::new("/usr/bin/logger")));
         assert!(is_help_only_probe(Path::new("/some/other/place/killall")));
         // A tool that merely *contains* a listed name is not matched.
         assert!(!is_help_only_probe(Path::new(
@@ -841,10 +979,23 @@ mod tests {
         let shim = write_shim(dir.path(), "envdump.sh", "#!/bin/sh\nenv\n");
         let out = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(2)).unwrap();
         let env_text = String::from_utf8_lossy(&out.stdout);
-        for forbidden in ["LESS=", "PAGER=", "MANPAGER=", "GIT_PAGER="] {
+        // `LESS` stays merely absent — nothing in this crate sets it, and
+        // there's no equivalent "no-op" spelling the way `cat` is for a
+        // pager. The four pager variables are asserted *present and equal
+        // to `cat`* below, not just absent: [M-17] found that absence is
+        // the weaker property, since several ecosystems (systemd, git,
+        // man) read an unset pager variable as "go find one yourself"
+        // rather than "don't page".
+        assert!(!env_text.contains("LESS="), "child env leaked LESS=");
+        for forced in [
+            "PAGER=cat",
+            "MANPAGER=cat",
+            "GIT_PAGER=cat",
+            "SYSTEMD_PAGER=cat",
+        ] {
             assert!(
-                !env_text.contains(forbidden),
-                "child env leaked {forbidden}"
+                env_text.contains(forced),
+                "child env missing {forced}: {env_text}"
             );
         }
         assert!(env_text.contains("TERM=dumb"));

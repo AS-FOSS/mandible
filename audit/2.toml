@@ -1,0 +1,569 @@
+[meta]
+seed = 2
+sample_size = 80
+
+[[entry]]
+tool = "VGAuthService"
+stratum = "verbatim"
+verdict = "wrong"
+note = "it shits out a bunch of error/warning logs, i couldnt even get the help manually, probably does not even have one. If not possible then just skip"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ar"
+stratum = "ok"
+verdict = "wrong"
+note = "raw help shows bunch of commands but weirdly shaped, and looks like flags, so its understandable why code got it wrong"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ar"
+stratum = "ok"
+verdict = "wrong"
+note = "same as similar other command"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-nm-13"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "apport-cli"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "apt-extracttemplates"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "apt-ftparchive"
+stratum = "ok"
+verdict = "incomplete"
+note = "missing commands, I can see in help text, but not parsed"
+k1 = true
+
+[[entry]]
+tool = "ar"
+stratum = "ok"
+verdict = "wrong"
+note = "help text shows subcommands but they are not parsed, weirdly displayed. one other command had similar format"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "automat-visualize3"
+stratum = "verbatim"
+verdict = "wrong"
+note = "was not able to get --help because env missing a library and create a compile time error. Probably not worth taking this into account ,sin"
+
+[[entry]]
+tool = "bashbug"
+stratum = "ok"
+verdict = "incomplete"
+note = "not sure if changing width would help or not but the 'bug-report-email-address' flag has lost right closing bracket in the TUI. and the"
+
+[[entry]]
+tool = "btrfs"
+stratum = "ok"
+verdict = "incomplete"
+note = "it lists out the subcommands as combinations of the options therefore current framework detection failed to detect subcommmands."
+
+[[entry]]
+tool = "byobu-janitor"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "bzless"
+stratum = "ok"
+verdict = "wrong"
+note = "it just is wrong, nothing was parsed and nothing shows, it only displays weird header decorator"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "bzmore"
+stratum = "ok"
+verdict = "skip"
+note = "same weird decorator issue, nothing is detected or parsed"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "cache_restore"
+stratum = "ok"
+verdict = "wrong"
+note = "flags were not detected"
+
+[[entry]]
+tool = "cargo-fmt"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "chgrp"
+stratum = "ok"
+verdict = "incomplete"
+note = 'for the 2nd section of the flags it partially selected the section header from the last 3 words of that sections header. As " ONE TAKES EFFECT."'
+
+[[entry]]
+tool = "compactsnoop-bpfcc"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "dbus-uuidgen"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dcsnoop-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dpkg-statoverride"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "editres"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "eqn"
+stratum = "ok"
+verdict = "incomplete"
+note = "it shows almost everything correctly, but there is an optional -v and --version, but it only displays --version"
+k1 = true
+
+[[entry]]
+tool = "expand"
+stratum = "ok"
+verdict = "incomplete"
+note = "the flags -t, --tabs take two different types like as follows, but it only shows 'N': -t, --tabs=N have tabs N characters apart, not 8"
+
+[[entry]]
+tool = "fc-validate"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "filefrag"
+stratum = "ok"
+verdict = "wrong"
+note = "possibly wrong flags"
+k1 = true
+
+[[entry]]
+tool = "filegone-bpfcc"
+stratum = "ok"
+verdict = "incomplete"
+note = "detected -p, but not optional --pid"
+k1 = true
+
+[[entry]]
+tool = "fsck"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "gcc"
+stratum = "incomplete"
+verdict = "wrong"
+note = "this one is in the similar category of curl's help, where we had a group of separate help texts, in this case we have: common|optimizers|params|target|warnings|[^]{joined|separate|undocumented"
+k1 = true
+
+[[entry]]
+tool = "gcc-ar"
+stratum = "ok"
+verdict = "incomplete"
+note = "commands are not detected, 2-3 similar issues. Weirdly formatted command names within []"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "gcc-ar-13"
+stratum = "ok"
+verdict = "incomplete"
+note = "similar subcommands issue"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "gethostlatency-bpfcc"
+stratum = "ok"
+verdict = "wrong"
+note = "similar -p and --pid issue"
+k1 = true
+
+[[entry]]
+tool = "gpgsplit"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "grub-set-default"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "helpztags"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "ip"
+stratum = "ok"
+verdict = "wrong"
+note = "new formatting/framework where author kind of programmatically puts flag combinations into OPTIONS or OBJECT"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "ip6tables-apply"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "iptables-apply"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "javaflow-bpfcc"
+stratum = "ok"
+verdict = "incomplete"
+note = "there is a positional argument 'pid' which is not parsed, but im not sure how it should be"
+k1 = true
+
+[[entry]]
+tool = "jconsole"
+stratum = "ok"
+verdict = "wrong"
+note = "does not print anything, opens up some console where user can type. not sure if it has help at all, but can be a candidate for skip if not"
+
+[[entry]]
+tool = "jdeprscan"
+stratum = "low-confidence"
+verdict = "wrong"
+note = "flags are not properly matched together, or missing"
+
+[[entry]]
+tool = "killsnoop.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "flags are missing. for example -vv and -dd missing from 'TROUBLESHOOTING OPTIONS'"
+k1 = true
+
+[[entry]]
+tool = "lessecho"
+stratum = "ok"
+verdict = "wrong"
+note = "almost no description or structure, all flags are given within square brackets but got parsed wrongly, for example '[-ox]' -> '-o x'"
+k1 = true
+
+[[entry]]
+tool = "llvm-jitlink-executor-18"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "llvm-modextract-18"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "lzgrep"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "lzless"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "man-recode"
+stratum = "ok"
+verdict = "wrong"
+note = "usage is not properly shown, maybe next fix can fix it. for now deferred"
+k1 = true
+
+[[entry]]
+tool = "mariadb-repair"
+stratum = "ok"
+verdict = "incomplete"
+note = "code has done its job, but the variables are genuinely something new, not sure if how we should handle those"
+
+[[entry]]
+tool = "mariadbcheck"
+stratum = "ok"
+verdict = "incomplete"
+note = "same mariadb class issue"
+
+[[entry]]
+tool = "mysqld_multi"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "naptime.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "similar issue to a command before where '-vv' and '-dd' flags are missing"
+k1 = true
+
+[[entry]]
+tool = "nfsidmap"
+stratum = "verbatim"
+verdict = "correct"
+
+[[entry]]
+tool = "nstat"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ntfsfallocate"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "opensnoop.bt"
+stratum = "ok"
+verdict = "wrong"
+note = "similar issue to '-vv' and '-dd', but this time it happened to '-kk'"
+k1 = true
+
+[[entry]]
+tool = "pastebinit"
+stratum = "ok"
+verdict = "incomplete"
+note = "description of flags are missing"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "pcre2-config"
+stratum = "ok"
+verdict = "wrong"
+note = "problem with the width, has nothing to do with parasing or code at all. For some reason it goes out of bounds. does not wrap the long text"
+
+[[entry]]
+tool = "ping4"
+stratum = "ok"
+verdict = "incomplete"
+note = "almost perfect, but there flagless argument is missing, here is a line from help-text: '<destination DNS name or IP address'"
+k1 = true
+
+[[entry]]
+tool = "pkg-config"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pptpsetup"
+stratum = "ok"
+verdict = "incomplete"
+note = "bad parse"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "psfaddtable"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ptargrep"
+stratum = "ok"
+verdict = "wrong"
+note = "tools problem: typing --help shits out some code, but without --help it really prints the help text for some reasonm"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "qemu-arm64-static"
+stratum = "ok"
+verdict = "wrong"
+note = "new 3 column format, also badly parsed flags, it separated the -help into '-h elp'"
+k1 = true
+
+[[entry]]
+tool = "renice"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "rmiregistry"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "rubycalls-bpfcc"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "rubyobjnew-bpfcc"
+stratum = "ok"
+verdict = "incomplete"
+note = "missing positinal arguments, i think we never taken those into account"
+k1 = true
+
+[[entry]]
+tool = "run-one-until-failure"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "rust-lldb"
+stratum = "verbatim"
+verdict = "correct"
+
+[[entry]]
+tool = "sbverify"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "scsi_ready"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "setsid"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sg"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sg_dd"
+stratum = "ok"
+verdict = "wrong"
+note = "same conditional dynamic flags or whatever bullshit this is"
+
+[[entry]]
+tool = "sg_emc_trespass"
+stratum = "ok"
+verdict = "wrong"
+note = "some flags have no description, some got split because of that single dash not being able to take more than 1 character"
+k1 = true
+
+[[entry]]
+tool = "sg_sanitize"
+stratum = "ok"
+verdict = "incomplete"
+note = "close enough, verify if this '--count OC|-c OC' getting parsed into this is correct: '--count OC|c'"
+
+[[entry]]
+tool = "sha1sum"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ssh-keygen"
+stratum = "ok"
+verdict = "wrong"
+note = "this help text just prints out all the possible combinations together with tools name. kind of got parsed, but i feel like incomplete"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "strace-log-merge"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tclsh"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tcpaccept.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "similar '-vv', '-dd' missing issue"
+k1 = true
+
+[[entry]]
+tool = "tcpdump"
+stratum = "ok"
+verdict = "wrong"
+note = "single dash, single characater issue"
+k1 = true
+
+[[entry]]
+tool = "threadsnoop.bt"
+stratum = "ok"
+verdict = "wrong"
+note = "'-vv' issue"
+k1 = true
+
+[[entry]]
+tool = "tmux"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "update-xmlcatalog"
+stratum = "ok"
+verdict = "wrong"
+note = "mostly looks fine, but not sure how to make sanitization on this one. Because this tool uses '=' to start the description of flag, which propogates to the tool"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "vgck"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "verbatim"
+
+[[entry]]
+tool = "vgextend"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "verbatim"
+
+[[entry]]
+tool = "vgrename"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "verbatim"
+
+[[entry]]
+tool = "vim.basic"
+stratum = "ok"
+verdict = "wrong"
+note = "i think the same positional arguements issue, we should come back to this"
+k1 = true
+
+[[entry]]
+tool = "wall"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_mysqldump"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_io"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "xzgrep"
+stratum = "ok"

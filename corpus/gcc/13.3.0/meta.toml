@@ -1,0 +1,39 @@
+[tool]
+name = "gcc"
+version = "13.3.0"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.2.2"
+
+# A truncation-confession specimen (spec §6 rule 2b's detection-only
+# extension, WS5b): gcc's own `--help` lists `--help` itself as taking a
+# value, in its own flag-table row —
+#
+#   --help={common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].
+#                            Display specific types of command line options.
+#
+# — a flag *definition*, not a quoted invocation example, so curl's quoted
+# `"--help all"` shape never matched it and neither did ffmpeg's `-h word
+# -- description` table row. Before this extension, mandible reported gcc's
+# 43-flag root document as `ok` at full confidence; the real option set
+# lives behind `--help=<class>` (`common`, `optimizers`, `params`, `target`,
+# `warnings`, ...), each a *further* probe rather than one complete
+# document. `match_flag_value_row` now detects this row (word: `common`,
+# the first class name, taken verbatim), which is not in
+# `FOLLOWABLE_WORDS` — following it would mean enumerating every class as
+# its own probe, the same deferred "menu, not a single document" shape as
+# curl's own `--help category` — so nothing is followed and status caps at
+# `incomplete`.
+[[capture]]
+argv = ["gcc", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "incomplete"
+min_subcommands = 0
+# Spot-checked flags the root `--help` document itself lists, so a
+# regression that stops recovering even this 43-flag document is still
+# caught, distinct from the confession detection this fixture exists to
+# exercise.
+must_contain_flags = ["-c", "-E", "-S", "-o", "--version"]

@@ -30,8 +30,16 @@ pub struct FlagSpec {
     /// warrant a `Vec`).
     pub short: Option<char>,
     /// The first long spelling found (tar-style multi-alias specs like
-    /// `--catenate, --concatenate` only keep the first).
+    /// `--catenate, --concatenate` only keep the first), always the *base*
+    /// name — never containing `[` or `]` even when the source spelled it
+    /// `--[no-]foo` (see `negatable`).
     pub long: Option<String>,
+    /// True if the long spelling was written as GNU getopt_long's
+    /// negatable-boolean convention, `--[no-]foo` (git's `--help`
+    /// formatter renders every negatable boolean this way — a shape, not a
+    /// tool name; any framework using the same convention gets the same
+    /// treatment). `long` is always `"foo"`, never `"[no-]foo"`.
+    pub negatable: bool,
     /// The value placeholder text, if a value spec was recognized.
     pub value_name: Option<String>,
     /// Whether the value (if any) is required or optional.
@@ -59,9 +67,10 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             rest = tail;
             continue;
         }
-        if let Some((name, tail)) = try_long(rest) {
+        if let Some((name, negatable, tail)) = try_long(rest) {
             if spec.long.is_none() {
                 spec.long = Some(name);
+                spec.negatable = negatable;
             }
             rest = tail;
             continue;
@@ -124,12 +133,31 @@ fn try_short(input: &str) -> Option<(char, &str)> {
     Some((c, s))
 }
 
-/// `--long-name` (letters, digits, `-`).
-fn try_long(input: &str) -> Option<(String, &str)> {
+/// `--long-name` (letters, digits, `-`), optionally prefixed with GNU
+/// getopt_long's negatable-boolean bracket, `--[no-]long-name` or
+/// `--[no]long-name`. Returns `(base_name, negatable, rest)` — `base_name`
+/// never contains `[`/`]` either way.
+fn try_long(input: &str) -> Option<(String, bool, &str)> {
     let mut s = input;
     long_dashes(&mut s).ok()?;
+    let negatable = strip_negatable_prefix(s).is_some_and(|rest| {
+        s = rest;
+        true
+    });
     let name = long_name(&mut s).ok()?;
-    Some((name.to_string(), s))
+    Some((name.to_string(), negatable, s))
+}
+
+/// Strips a leading `[no-]` or `[no]` from `input`, if present — the
+/// bracketed negation prefix `--[no-]foo` puts right after its dashes.
+/// Recognized structurally (an optional-looking bracket whose content is
+/// exactly `no`/`no-`), never by which tool happens to emit it: any
+/// getopt_long-style formatter uses the identical convention.
+fn strip_negatable_prefix(input: &str) -> Option<&str> {
+    let rest = input.strip_prefix('[')?;
+    let rest = rest.strip_prefix("no")?;
+    let rest = rest.strip_prefix('-').unwrap_or(rest);
+    rest.strip_prefix(']')
 }
 
 fn open_bracket(input: &mut &str) -> Res<char> {
@@ -263,6 +291,50 @@ mod tests {
         assert_eq!(spec.short, Some('S'));
         assert_eq!(spec.long.as_deref(), Some("gpg-sign"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
+    }
+
+    /// GNU getopt_long's negatable-boolean convention, `--[no-]name` (git's
+    /// own `--help` formatter uses it for every negatable boolean). Before
+    /// this, `try_long` required an alphanumeric immediately after `--`,
+    /// so `--[no-]staged` matched neither `try_short` nor `try_long` at
+    /// all. The recovered `long` must be the base name, never containing
+    /// `[`/`]`.
+    #[test]
+    fn parses_negatable_long_with_short() {
+        let spec = parse_flag_spec("-S, --[no-]staged");
+        assert_eq!(spec.short, Some('S'));
+        assert_eq!(spec.long.as_deref(), Some("staged"));
+        assert!(spec.negatable);
+        assert!(spec.fully_consumed);
+    }
+
+    #[test]
+    fn parses_negatable_long_only() {
+        let spec = parse_flag_spec("--[no-]ignore-unmerged");
+        assert_eq!(spec.short, None);
+        assert_eq!(spec.long.as_deref(), Some("ignore-unmerged"));
+        assert!(spec.negatable);
+    }
+
+    /// `--[no-]source <tree-ish>`: the negatable prefix and a required
+    /// value spec must compose, since git uses both together.
+    #[test]
+    fn parses_negatable_long_with_value_spec() {
+        let spec = parse_flag_spec("-s, --[no-]source <tree-ish>");
+        assert_eq!(spec.short, Some('s'));
+        assert_eq!(spec.long.as_deref(), Some("source"));
+        assert!(spec.negatable);
+        assert_eq!(spec.value_name.as_deref(), Some("<tree-ish>"));
+        assert_eq!(spec.value_kind, ValueKind::Required);
+    }
+
+    /// Control case: a flag with no `[no-]` prefix must come back with
+    /// `negatable: false`, unaffected.
+    #[test]
+    fn non_negatable_flag_is_unaffected() {
+        let spec = parse_flag_spec("-2, --ours");
+        assert_eq!(spec.long.as_deref(), Some("ours"));
+        assert!(!spec.negatable);
     }
 
     #[test]

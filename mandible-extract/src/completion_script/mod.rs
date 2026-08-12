@@ -46,12 +46,13 @@
 //! `--help` or a hand-maintained catalog entry.
 
 use crate::errors::ExtractError;
-use crate::exec::{run_inert, InertArgv};
+use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
-use crate::tier::ExtractionTier;
+use crate::tier::{ExtractionTier, NodeHints};
 use brush_parser::ast;
 use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Wall-clock cap for a `detect`/`extract_node` probe (spec §6 rule 4).
@@ -62,8 +63,25 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Tier C: parses a generated zsh (preferred) or bash completion script
 /// for flag spellings and descriptions.
-#[derive(Debug, Default)]
-pub struct CompletionScriptTier;
+pub struct CompletionScriptTier {
+    /// The source of a `completion <shell>` probe's output — [`LiveProbe`]
+    /// in production ([`Self::default`]), or a [`crate::exec::Transcript`]
+    /// to replay frozen bytes with zero subprocesses.
+    probe: Arc<dyn Probe>,
+}
+
+impl Default for CompletionScriptTier {
+    fn default() -> Self {
+        Self::new(Arc::new(LiveProbe))
+    }
+}
+
+impl CompletionScriptTier {
+    /// Build this tier against an explicit probe.
+    pub fn new(probe: Arc<dyn Probe>) -> Self {
+        Self { probe }
+    }
+}
 
 impl ExtractionTier for CompletionScriptTier {
     fn name(&self) -> &'static str {
@@ -81,13 +99,14 @@ impl ExtractionTier for CompletionScriptTier {
         let Some(tool_path) = &tool.path else {
             return false;
         };
-        probe_and_extract_flags(tool_path).is_some()
+        probe_and_extract_flags(self.probe.as_ref(), tool_path).is_some()
     }
 
     fn extract_node(
         &self,
         tool: &ResolvedTool,
         path: &[String],
+        _hints: NodeHints,
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         // Root-only contribution (see module doc). `is_incremental() ==
@@ -97,7 +116,7 @@ impl ExtractionTier for CompletionScriptTier {
         if path.len() > 1 {
             return Err(ExtractError::PathNotFound);
         }
-        let (shell, flags) = probe_and_extract_flags(tool_path)
+        let (shell, flags) = probe_and_extract_flags(self.probe.as_ref(), tool_path)
             .ok_or_else(|| ExtractError::Other("no usable completion script found".to_string()))?;
         let name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
         let mut node =
@@ -116,9 +135,9 @@ impl ExtractionTier for CompletionScriptTier {
 /// Request zsh first, bash as fallback (spec §7 Tier C); return the shell
 /// name used and the flags recovered, or `None` if neither produced a
 /// script with anything this tier recognizes.
-fn probe_and_extract_flags(tool_path: &Path) -> Option<(String, Vec<Flag>)> {
+fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(String, Vec<Flag>)> {
     for shell in ["zsh", "bash"] {
-        let Ok(out) = run_inert(
+        let Ok(out) = probe.run(
             tool_path,
             &InertArgv::CompletionScript {
                 shell: shell.to_string(),
@@ -374,6 +393,7 @@ impl ParsedArgSpec {
             choices: Vec::new(),
             repeatable: false,
             required: false,
+            negatable: false,
             hidden: false,
             deprecated: None,
             inherited: false,
@@ -592,7 +612,7 @@ _mytool "$@"
 
     #[test]
     fn detect_false_for_a_tool_with_no_completion_subcommand() {
-        let tier = CompletionScriptTier;
+        let tier = CompletionScriptTier::default();
         let tool = ResolvedTool {
             name: "sh".to_string(),
             path: Some(Path::new("/bin/sh").to_path_buf()),
@@ -603,13 +623,100 @@ _mytool "$@"
 
     #[test]
     fn extract_node_declines_non_root_paths() {
-        let tier = CompletionScriptTier;
+        let tier = CompletionScriptTier::default();
         let tool = ResolvedTool {
             name: "mytool".to_string(),
             path: Some(Path::new("/bin/sh").to_path_buf()),
             version: None,
         };
-        let result = tier.extract_node(&tool, &["mytool".to_string(), "sub".to_string()]);
+        let result = tier.extract_node(
+            &tool,
+            &["mytool".to_string(), "sub".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));
+    }
+
+    // --- the replay seam: real-argv tests against a `Transcript` ---
+
+    fn exec_output(stdout: &str) -> crate::exec::ExecOutput {
+        crate::exec::ExecOutput {
+            stdout: stdout.as_bytes().to_vec(),
+            stderr: Vec::new(),
+            exit_code: Some(0),
+            timed_out: false,
+        }
+    }
+
+    /// Real argv, replayed: the root probe tries zsh first, which renders
+    /// to exactly `["completion", "zsh"]` (`InertArgv::args`). A transcript
+    /// keyed on that argv, holding a real-shaped `_arguments` script, must
+    /// let `extract_node` recover flags through the tier's actual probe
+    /// construction — not by handing `extract_zsh_flags` the script text
+    /// directly, which is what the parser-level tests above already cover.
+    #[test]
+    fn extract_node_replays_flags_from_a_transcript_keyed_on_the_real_argv() {
+        let script = r#"
+#compdef mytool
+_mytool() {
+    _arguments \
+        '(-v --verbose)'{-v,--verbose}'[enable verbose output]'
+}
+_mytool "$@"
+"#;
+        let transcript = crate::exec::Transcript::new([(
+            vec!["completion".to_string(), "zsh".to_string()],
+            exec_output(script),
+        )]);
+        let tier = CompletionScriptTier::new(std::sync::Arc::new(transcript));
+        let tool = ResolvedTool {
+            name: "mytool".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/mytool")),
+            version: None,
+        };
+        let node = tier
+            .extract_node(
+                &tool,
+                &["mytool".to_string()],
+                NodeHints {
+                    heading_attested: true,
+                },
+            )
+            .expect("the transcript covers the exact `completion zsh` argv this tier sends");
+        assert!(node
+            .flags
+            .iter()
+            .any(|f| f.long.as_deref() == Some("verbose")));
+    }
+
+    /// The negative case: a transcript that covers neither `completion
+    /// zsh` nor `completion bash` — the only two argvs this tier ever
+    /// sends — must not produce a fabricated, silently-empty node. It must
+    /// come back as an explicit error.
+    #[test]
+    fn extract_node_against_a_transcript_missing_both_shell_argvs_is_an_error_not_empty_success() {
+        let transcript = crate::exec::Transcript::new([(
+            vec!["completion".to_string(), "fish".to_string()],
+            exec_output("this key can never be requested by this tier"),
+        )]);
+        let tier = CompletionScriptTier::new(std::sync::Arc::new(transcript));
+        let tool = ResolvedTool {
+            name: "mytool".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/mytool")),
+            version: None,
+        };
+        let result = tier.extract_node(
+            &tool,
+            &["mytool".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        );
+        assert!(
+            matches!(result, Err(ExtractError::Other(_))),
+            "expected an explicit error, got {result:?}"
+        );
     }
 }

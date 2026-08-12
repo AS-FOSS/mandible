@@ -1,6 +1,6 @@
 <div align="center">
      
-<img width="256" height="256" alt="logo" src="https://github.com/user-attachments/assets/9cc704a2-8176-49d1-bdb3-3646ae74f152" />
+<img width="256" height="256" alt="logo" src="https://github.com/user-attachments/assets/c1f6d254-1488-4d4d-ac94-b3ad273d7bb7" />
 
 <!-- LOGO: a ~96px mark goes here. Something jaw/mandible-shaped reads well at this
      size. Replace this comment with: <img src="docs/logo.png" width="96" alt="mandible logo"> -->
@@ -39,6 +39,11 @@ $ mandible docker
 
 > [!TIP]
 > Try running `mandible mandible`
+
+> [!TIP]
+> Something parses wrong? Run `mandible --report <tool>` and paste the output
+> into [an issue](../../issues/new?template=parsing-issue.yml). That takes two
+> minutes and is a complete contribution on its own.
 
 ## Install
 
@@ -179,3 +184,26 @@ Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
 containment described above relies on POSIX process groups, and native Windows tools
 use conventions (`/?`, PowerShell's own help system) that this project does not yet
 speak.
+
+## Contributing
+
+If a tool renders wrong, that is worth reporting even if you never look at the
+code. Run `mandible --report <tool>` and paste the output into an issue. Your
+tool's version and its exact help text vanish when you upgrade, and nobody else
+can recover them. Everything after that can be done later by anyone.
+
+There is a second thing you can do that is hard for us to do ourselves. Every
+accuracy figure here comes from one Ubuntu machine on ARM, so whatever is
+installed on your `PATH` is probably software this project has never seen. The
+built-in audit tool samples your own commands, shows you the parse next to the
+real help text, and records what you think of each one:
+
+```console
+$ cargo run -p xtask -- audit sample --seed 42 --sample 20
+$ mandible --review 42
+```
+
+Attach the resulting `audit/42.toml` to an issue. Twenty tools is plenty.
+
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) covers both, plus writing tests and
+changing the parser.

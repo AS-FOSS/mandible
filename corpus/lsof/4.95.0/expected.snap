@@ -1,0 +1,246 @@
+name: lsof
+description: 'lsof: illegal option character: - lsof: -e not followed by a file system path: "lp" lsof 4.95.0 Defaults in parentheses; comma-separated set (s) items; dash-separated ranges. Anyone can list all files; /dev warnings disabled; kernel ID check disabled.'
+usage:
+- 'usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]] [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s] [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]'
+flags:
+- short: '?'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list help
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: AND selections (OR)
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: avoid kernel blocks
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: c cmd c ^c /c/[bix]
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: s select by FD set
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: select IPv[46] files
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: '[i] list|(i)gn tasKs'
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list UID numbers
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: no host names
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: select NFS files
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list file offset
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: no overhead *RISKY*
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: no port names
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: allow failed search
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list paRent PID
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list file size
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: terse listing
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: disable TCP/TPI info
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: select Unix socket
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: list version info
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: verbose search
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: skip TCP&UDP* files
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: Z context [Z] -- end option scan
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  group: Defaults in parentheses; comma-separated set (s) items; dash-separated ranges.
+  description: display endpoint info
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  value_name: f
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: s
+  value_kind: Required
+  description: exclude(^)|select PIDs -S [t] t second stat timeout (15)
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  value_name: fqs
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  value_name: s
+  value_kind: Optional
+  description: exclude(^)|select and print process group IDs
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  value_name: i
+  value_kind: Required
+  description: 'select by IPv[46] address: [46][proto][@host|addr][:svc_list|port_list]'
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: p:s
+  value_kind: Required
+  description: exclude(^)|select protocol (p = TCP|UDP) states by name(s).
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  value_name: s
+  value_kind: Required
+  description: exclude(^)|select login|UID set s
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  value_name: fl
+  value_kind: Optional
+  description: cross over +d|+D File systems or symbolic Links
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  value_name: s
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'f'
+  value_name: gG
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'L'
+  value_name: l
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'M'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'r'
+  value_name: t
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'S'
+  value_name: t
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'w'
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

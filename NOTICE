@@ -42,9 +42,14 @@ either is added:
   license must be independently re-verified at vendoring time, the same way
   the (now-removed) carapace-bin license was for this file in an earlier
   revision.
-- **mandoc source** (spec §7 Tier D, deferred entirely so far, feature-gated
-  behind `manpage`). ISC-licensed per spec.md's dependency table
-  (mandoc.bsd.lv); not vendored, no build has been attempted.
+- **mandoc source** — *no longer anticipated.* Earlier revisions planned to
+  vendor mandoc (ISC, mandoc.bsd.lv) and build it with `cc` for Tier D. That
+  plan is superseded: spec §7 Tier D is now a pure-Rust subset parser, since
+  mandoc is not a system library on Linux [M-6] and `#![forbid(unsafe_code)]`
+  rules out the FFI regardless. Nothing was ever vendored and no build was
+  attempted, so no obligation was ever incurred; the entry is kept, rather
+  than deleted, so a reader comparing against an older revision can see the
+  plan was dropped rather than quietly forgotten.
 
 Crate (code) dependency licenses
 ----------------------------------

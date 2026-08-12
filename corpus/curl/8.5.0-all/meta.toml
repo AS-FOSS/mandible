@@ -1,0 +1,55 @@
+[tool]
+name = "curl"
+version = "8.5.0"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.2.2"
+
+# The matched pair to `corpus/curl/8.5.0/` — same root 915-byte summary
+# capture, same confession, but this fixture *also* captures the advertised
+# `--help all` follow-up, so `HelpTextTier`'s confession-aware probe
+# (spec §6 rule 2b) actually finds it in the transcript, follows it, and
+# the tree ends up built from the full 258-flag document instead of the
+# 12-flag summary. The contrast between the two fixtures is the point: the
+# same tool, the same root bytes, `incomplete` when the expansion isn't
+# available and `ok` when it is.
+#
+# `help-all.txt` is ~14.6 KiB — over corpus/README.md's few-KiB norm but
+# comfortably under its 256 KiB justification threshold, and it earns its
+# size: 258 flags is what makes this fixture stress column detection the
+# way the README's own size-hygiene note calls out ("`curl --help all` is
+# legitimate").
+[[capture]]
+argv = ["curl", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["curl", "--help", "all"]
+stdout = "help-all.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# A spread of flags from across the expanded document — early, middle, and
+# late in the file — so a regression that only recovers part of the
+# 258-flag table (e.g. a column-detection bug that silently truncates)
+# still fails this contract rather than passing on the strength of the
+# first few lines alone. Deliberately not `--tlsv1.3`: curl's own dotted
+# suffix family (`--tlsv1.0`/`.1`/`.2`/`.3` alongside bare `--tlsv1`) hits
+# a pre-existing, unrelated grammar quirk — the generic long-flag
+# tokenizer reads the trailing `.3` as a bolted-on value rather than part
+# of the name (`long: tlsv1`, `value_name: '.3'`) — orthogonal to this
+# fixture's own subject (the confession follow-up and the single-space
+# description-gap fix) and out of this batch's scope to fix.
+must_contain_flags = [
+    "--abstract-unix-socket",
+    "--anyauth",
+    "--capath",
+    "--data",
+    "--fail",
+    "--trace",
+    "--variable",
+    "--xattr",
+]

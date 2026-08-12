@@ -1,0 +1,51 @@
+name: Add support for a CLI framework
+description: A library that generates help text, which mandible does not recognize yet
+title: "Support <framework>"
+labels:
+  - framework
+body:
+  - type: markdown
+    attributes:
+      value: |
+        mandible learns help text formats per library, never per tool. Teaching
+        it one format covers every command line tool that library has ever
+        generated, so this is one of the highest-leverage things you can file.
+
+  - type: input
+    id: framework
+    attributes:
+      label: Which library?
+      description: Name, language, and a link if you have one.
+      placeholder: Typer (Python), https://typer.tiangolo.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: example-tools
+    attributes:
+      label: A couple of real tools that use it
+      placeholder: |
+        httpie
+        sqlmodel
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample-help
+    attributes:
+      label: Help output from one of them
+      description: The output of `<tool> --help`, pasted as-is.
+      render: console
+    validations:
+      required: true
+
+  - type: textarea
+    id: signals
+    attributes:
+      label: Anything that identifies it (optional)
+      description: |
+        A phrase that shows up in every tool's help text is ideal. argparse,
+        for example, always prints "show this help message and exit". A string
+        embedded in the binary, or the import line in a script, works too.
+    validations:
+      required: false

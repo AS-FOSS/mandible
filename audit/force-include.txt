@@ -1,0 +1,30 @@
+# Tools that must enter every audit sample regardless of the random draw.
+#
+# These are the 14 tools that commit 3464b0c ("feat(help-text): follow the
+# truncation-confession convention") promoted low-confidence -> ok fleet-wide,
+# via an unaudited change to find_description_gap that shipped during a
+# declared grammar freeze. Their `ok` labels were minted by a heuristic nobody
+# reviewed, and they now sit in the exact stratum the audit samples from, so
+# leaving them to chance would be the one place a random draw is the wrong
+# instrument.
+#
+# Identified by a full-PATH sweep at ef1da6f (the commit immediately before
+# 3464b0c) versus the branch tip, diffed with `cargo run -p xtask -- sweep-diff`.
+# This is that diff's entire "low-confidence -> ok" section: nothing filtered
+# out, nothing added by hand.
+#
+# Format: `<tool> <reason>`, one per line; `#` comments and blank lines ignored.
+aarch64-linux-gnu-ar unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+aarch64-linux-gnu-gcc-ar unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+ar unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+bzless unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+bzmore unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+gcc-ar unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+gcc-ar-13 unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+ip unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+pastebinit unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+pptpsetup unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+ptargrep unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+rmiregistry unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+ssh-keygen unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+update-xmlcatalog unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed

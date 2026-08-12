@@ -1,0 +1,12 @@
+# corpus/ fixtures are byte-exact captures of real tools' `--help` output
+# (corpus/README.md). Git's CRLF normalization, "fix trailing whitespace"
+# safe-crlf checks, and any editor/formatter that "cleans up" text on save
+# must never touch them — the mess in the raw bytes is the test. `-text`
+# disables Git's own text handling (autocrlf conversion, diff EOL fixups)
+# for everything under this path.
+corpus/** -text
+
+# `audit/<seed>/fixtures/**` (cargo xtask audit fixtures) are the same kind
+# of byte-exact capture, staged before a deliberate promotion into corpus/
+# — same reasoning, same rule.
+audit/**/fixtures/** -text

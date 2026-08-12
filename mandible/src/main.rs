@@ -9,6 +9,7 @@ mod background;
 mod cli;
 mod doctor;
 mod pipeline;
+mod report;
 
 use clap::{CommandFactory, Parser};
 use cli::Cli;
@@ -29,8 +30,20 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if let Some(seed) = cli.review {
+        if !mandible_tui::terminal::stdout_is_tty() {
+            anyhow::bail!(
+                "mandible --review requires an interactive terminal (stdout is not a tty)."
+            );
+        }
+        return app_runner::run_review(&cli.audit_dir, seed);
+    }
+
     let Some(tool) = cli.target_tool() else {
-        anyhow::bail!("usage: mandible <tool>  (or: mandible --doctor <tool>)");
+        anyhow::bail!(
+            "usage: mandible <tool>  (or: mandible --doctor <tool>, mandible --report <tool>, \
+             mandible --review <seed>)"
+        );
     };
     let tool = tool.to_string();
 
@@ -38,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     // the binary's own `--help`. Self-introspection is still available
     // through `mandible --doctor mandible`, which runs the real pipeline
     // against it — the form anyone actually wants for that purpose.
-    if cli.doctor.is_none() && tool == env!("CARGO_PKG_NAME") {
+    if cli.doctor.is_none() && cli.report.is_none() && tool == env!("CARGO_PKG_NAME") {
         about::print();
         return Ok(());
     }
@@ -50,6 +63,19 @@ fn main() -> anyhow::Result<()> {
     // chokepoint restricts them to that one shape (spec §6 rule 0). The
     // visible consequence is that they never gain a subcommand tree, which
     // is correct — they do not have one.
+
+    if let Some(report_tool) = &cli.report {
+        let loaded = pipeline::load(report_tool);
+        report::print_report(&loaded);
+        // Unlike `--doctor` below, this never bails on an empty root: the
+        // whole point of `--report` is to hand a maintainer *something*
+        // paste-ready even when extraction found nothing at all — the
+        // printed block already says so (`doctor::build_report`'s own
+        // "no tier produced a root node" line), and a non-zero exit here
+        // would just make that block harder to pipe/redirect for no
+        // benefit.
+        return Ok(());
+    }
 
     if let Some(doctor_tool) = &cli.doctor {
         let loaded = pipeline::load(doctor_tool);

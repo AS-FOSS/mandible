@@ -87,6 +87,40 @@ pub struct CommandNode {
     /// evidence — [M-10]'s exact shape — regardless of whether its name
     /// happens to look plausible.
     pub heading_attested: bool,
+    /// What this node's own `--help` text said about being an incomplete
+    /// document, if anything (spec §6 rule 2b: the "truncation confession"
+    /// convention — curl's `--help` ending "For all options use the manual
+    /// or \"--help all\"."). `None` means the tool's text printed no such
+    /// confession at all, which is the overwhelming common case and is
+    /// never treated as evidence of anything.
+    pub confession: Option<Confession>,
+}
+
+/// A truncation confession a tool's own `--help` text printed, and what
+/// this extraction did about it (spec §6 rule 2b).
+///
+/// Two states share this one type deliberately, rather than a bare `bool`:
+/// a confession that was *detected* is worth recording even when it
+/// couldn't be *followed* (an unrecognised word, a failed or refused
+/// follow-up probe) — that is exactly the case the `incomplete` status
+/// exists to name honestly, and a reader (`--doctor`, the detail pane's
+/// footer) needs the word and flag to explain *why* a tree is capped, not
+/// just that it is.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Confession {
+    /// The directive word, taken verbatim from the tool's own text — e.g.
+    /// `"all"` for curl. Never fabricated, never guessed (spec §6 rule 2b).
+    pub word: String,
+    /// The flag the directive printed alongside `word` — `"--help"` or
+    /// `"-h"`.
+    pub flag: String,
+    /// True when the advertised argv (`<flag> <word>`) was actually
+    /// re-probed and this node's own fields were built from *that*
+    /// document. False means the confession was detected but not
+    /// followed — an unrecognised word/shape, a failed probe, or a rule 0
+    /// refusal — and this node still reflects the original, truncated
+    /// text; the status ladder caps at `incomplete` for exactly this case.
+    pub followed: bool,
 }
 
 /// True if `s` looks like a real command/subcommand name: lowercase,
@@ -140,6 +174,7 @@ impl CommandNode {
             detected_framework: None,
             provenance,
             heading_attested: false,
+            confession: None,
         }
     }
 }
@@ -162,6 +197,16 @@ pub struct Flag {
     pub repeatable: bool,
     /// True if this flag is required.
     pub required: bool,
+    /// True if the tool documents this boolean flag's negation inline —
+    /// GNU getopt_long's `--[no-]foo` convention (git's own `--help`
+    /// formatter renders every negatable boolean this way). `long` always
+    /// holds the *base* name (`"foo"`, never `"[no-]foo"` or `"no-foo"`):
+    /// this field is what lets the negatability survive the parse without
+    /// smuggling `[`/`]` into the spelling users search and copy. See
+    /// `mandible-extract/src/help_text/grammar.rs`'s `try_long` for where
+    /// this is recognized, structurally, from the bracketed-prefix shape —
+    /// never from a tool name.
+    pub negatable: bool,
     /// True if this flag should be hidden by default.
     pub hidden: bool,
     /// `Some(reason)` when this flag is deprecated.
@@ -193,6 +238,7 @@ impl Flag {
             choices: Vec::new(),
             repeatable: false,
             required: false,
+            negatable: false,
             hidden: false,
             deprecated: None,
             inherited: false,
@@ -226,14 +272,21 @@ impl Flag {
     }
 
     /// A human-readable spelling for display and clipboard copy, e.g.
-    /// `"-i, --interactive"`, `"--output FILE"`.
+    /// `"-i, --interactive"`, `"--output FILE"`, or `"-S, --[no-]staged"`
+    /// for a negatable boolean — the `[no-]` is reconstructed for display
+    /// from `negatable`, never stored in `long` itself (see the field's
+    /// doc comment).
     pub fn spelling(&self) -> String {
         let mut parts = Vec::new();
         if let Some(s) = self.short {
             parts.push(format!("-{s}"));
         }
         if let Some(l) = &self.long {
-            parts.push(format!("--{l}"));
+            if self.negatable {
+                parts.push(format!("--[no-]{l}"));
+            } else {
+                parts.push(format!("--{l}"));
+            }
         }
         let mut spelling = parts.join(", ");
         if let Some(name) = &self.value_name {

@@ -35,7 +35,9 @@
 //! inertness.
 
 mod policy;
+mod probe;
 mod spawn;
 
 pub use policy::InertArgv;
+pub use probe::{LiveProbe, Probe, Transcript};
 pub use spawn::{is_help_only_probe, run_inert, ExecError, ExecOutput, MAX_OUTPUT_BYTES};

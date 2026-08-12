@@ -143,10 +143,15 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 /// tool that prints nothing looks like, and telling those apart is the
 /// entire reason someone pressed the key.
 fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::RawHelp) {
-    let heading = format!(
-        "verbatim {} the tool's own --help output",
-        app.glyphs.absent
-    );
+    // Named from the argv actually run, never a hardcoded spelling — see
+    // `RawHelp::Ready`. Only `Ready` knows it; the other two states have no
+    // output to attribute, so they stay generic.
+    let heading = match raw {
+        crate::app::RawHelp::Ready(_, argv) => {
+            format!("verbatim {} output of `{argv}`", app.glyphs.absent)
+        }
+        _ => format!("verbatim {} the tool's own help output", app.glyphs.absent),
+    };
     match raw {
         crate::app::RawHelp::Pending => {
             render_verbatim(
@@ -157,7 +162,7 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
                 std::iter::once("running the probe…".to_string()),
             );
         }
-        crate::app::RawHelp::Ready(lines) => {
+        crate::app::RawHelp::Ready(lines, _) => {
             render_verbatim(
                 frame,
                 inner,
@@ -195,8 +200,14 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// column 0), but the important safety property — content never reflows,
 /// and can therefore never smear into the pane border the way an
 /// unsanitized newline once did (spec §9) — holds regardless. Safe to hand
-/// straight to a `Span` because `Text::sanitize` already guarantees no
-/// embedded control characters or newlines reach here.
+/// straight to a `Span` because every `Text` reaching here already went
+/// through one of `mandible_core::Text`'s sanitizing constructors —
+/// `Text::sanitize` for `node.unparsed` (level-3 degradation), or
+/// `Text::sanitize_preserving_layout` for the verbatim view's own lines
+/// (`mandible-extract`'s `help_text::raw_help*`) — both of which guarantee
+/// no embedded control characters or newlines reach here; they differ only
+/// in whether whitespace/indentation is collapsed, never in that safety
+/// property.
 fn render_verbatim(
     frame: &mut Frame,
     inner: Rect,
@@ -707,6 +718,13 @@ fn flag_name_spec(flag: &Flag) -> String {
     }
     if let Some(l) = &flag.long {
         spec.push_str("--");
+        // Reconstruct the getopt_long `--[no-]foo` convention for display
+        // from `negatable` — the IR's `long` is always the base name
+        // (never `[no-]foo`/`no-foo`), so this is the one place that
+        // spelling comes back together.
+        if flag.negatable {
+            spec.push_str("[no-]");
+        }
         spec.push_str(l);
     }
     spec
@@ -902,6 +920,26 @@ pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
     if !node.unparsed.is_empty() {
         return None;
     }
+
+    // Spec §6 rule 2b: the tool's own text said this document is
+    // incomplete, and mandible could not (or did not) follow it — an
+    // unrecognised word/shape, a failed probe, or a rule 0 refusal.
+    // Checked ahead of the confidence caveat below and unconditionally
+    // (not gated on confidence at all): a node can parse *perfectly* —
+    // every flag on this page correctly recognized and described — and
+    // still be the wrong page, which is exactly curl's `--help` before
+    // this feature existed. A *followed* confession (`followed: true`)
+    // says nothing here; the tree already reflects the expanded document
+    // and there is nothing left to flag.
+    if let Some(confession) = &node.confession {
+        if !confession.followed {
+            return Some(format!(
+                "incomplete: this tool's help said more is available (`{} {}`)",
+                confession.flag, confession.word
+            ));
+        }
+    }
+
     let confidence = node.provenance.confidence?;
     if confidence >= LOW_CONFIDENCE {
         return None;
@@ -1226,6 +1264,38 @@ mod tests {
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
     }
 
+    /// Spec §6 rule 2b: an unfollowed confession is flagged even on an
+    /// otherwise perfectly-confident node — curl's `--help` parses every
+    /// one of its 12 flags cleanly, and the problem is entirely that it's
+    /// the wrong document, which confidence alone can never see.
+    #[test]
+    fn an_unfollowed_confession_warns_with_the_advertised_argv() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
+        node.confession = Some(mandible_core::Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: false,
+        });
+        let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
+            .expect("an unfollowed confession must be surfaced even on a confident parse");
+        assert!(caveat.contains("--help all"), "{caveat:?}");
+    }
+
+    /// A *followed* confession is the success case — the tree already
+    /// reflects the expanded document — and must say nothing here.
+    #[test]
+    fn a_followed_confession_gets_no_caveat() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
+        node.confession = Some(mandible_core::Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: true,
+        });
+        assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
+    }
+
     /// A barely-parsed node says so. `find` scores 0.11 and `ip` 0.09 in
     /// practice, and both used to report `structure ✓ · prose ✓`.
     #[test]
@@ -1429,7 +1499,10 @@ mod tests {
 
         app.set_raw_help(
             path.clone(),
-            RawHelp::Ready(vec![Text::sanitize("RAW-HELP-LINE-FROM-THE-TOOL")]),
+            RawHelp::Ready(
+                vec![Text::sanitize("RAW-HELP-LINE-FROM-THE-TOOL")],
+                "git --help".to_string(),
+            ),
         );
         let ready = screen(&app);
         assert!(ready.contains("RAW-HELP-LINE-FROM-THE-TOOL"), "{ready}");

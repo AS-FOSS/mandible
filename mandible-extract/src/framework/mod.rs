@@ -32,7 +32,7 @@
 mod artifact;
 mod help_text_signature;
 
-use crate::exec::{run_inert, InertArgv};
+use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -221,7 +221,18 @@ pub fn identify_from_help_text(help_text: &str) -> Option<Framework> {
 /// This is what `--doctor` uses: it wants a standalone answer without
 /// depending on Tier B having already run (Tier B may be disabled, or may
 /// not have reached this tool's node yet).
+///
+/// A thin [`LiveProbe`] wrapper over [`identify_with_probe`] — every real
+/// caller wants the live tool, so this keeps their call site unchanged
+/// while still funneling through the same probe-taking function a replay
+/// caller (a future corpus runner) would use.
 pub fn identify(tool: &ResolvedTool) -> FrameworkDetection {
+    identify_with_probe(&LiveProbe, tool)
+}
+
+/// [`identify`], but against an explicit [`Probe`] rather than always the
+/// live one.
+pub fn identify_with_probe(probe: &dyn Probe, tool: &ResolvedTool) -> FrameworkDetection {
     if let Some(framework) = identify_from_artifact(tool) {
         return FrameworkDetection {
             framework: Some(framework),
@@ -232,7 +243,7 @@ pub fn identify(tool: &ResolvedTool) -> FrameworkDetection {
     let Some(path) = tool.path.as_ref() else {
         return FrameworkDetection::unidentified();
     };
-    let Ok(out) = run_inert(path, &InertArgv::HelpLong, PROBE_TIMEOUT) else {
+    let Ok(out) = probe.run(path, &InertArgv::HelpLong, PROBE_TIMEOUT) else {
         return FrameworkDetection::unidentified();
     };
     let text = if !out.stdout.is_empty() {
@@ -317,6 +328,63 @@ mod tests {
             version: None,
         };
         let detection = identify(&tool);
+        assert!(detection.framework.is_none());
+    }
+
+    // --- the replay seam: real-argv tests against a `Transcript` ---
+
+    /// Real argv, replayed: when artifact scanning misses, `identify`'s own
+    /// fallback probe is exactly `InertArgv::HelpLong`, which renders to
+    /// `["--help"]`. A transcript keyed on that argv, holding text that
+    /// carries argparse's help-text signature, must let
+    /// `identify_with_probe` recover the same detection as the real-shim
+    /// test above — through the same probe construction, zero
+    /// subprocesses.
+    #[test]
+    fn identify_with_probe_replays_from_a_transcript_keyed_on_the_real_argv() {
+        let raw = "usage: shim [-h]\n\nshow this help message and exit\n";
+        let transcript = crate::exec::Transcript::new([(
+            vec!["--help".to_string()],
+            crate::exec::ExecOutput {
+                stdout: raw.as_bytes().to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        )]);
+        let tool = ResolvedTool {
+            name: "shim".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/shim")),
+            version: None,
+        };
+        let detection = identify_with_probe(&transcript, &tool);
+        assert_eq!(detection.framework, Some(Framework::Argparse));
+        assert_eq!(detection.method, Some(DetectionMethod::HelpTextSignature));
+    }
+
+    /// The negative case: a transcript missing the real fallback argv
+    /// (`["--help"]`) must not be mistaken for a successful probe —
+    /// `identify_with_probe` degrades to unidentified, exactly as it does
+    /// for any other probe failure, rather than fabricating a detection.
+    #[test]
+    fn identify_with_probe_is_unidentified_against_a_transcript_missing_the_argv() {
+        let transcript = crate::exec::Transcript::new([(
+            // Deliberately the wrong argv: `identify`'s fallback probe
+            // never sends `-h`, only `--help`.
+            vec!["-h".to_string()],
+            crate::exec::ExecOutput {
+                stdout: b"usage: shim [-h]\n".to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        )]);
+        let tool = ResolvedTool {
+            name: "shim".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/shim")),
+            version: None,
+        };
+        let detection = identify_with_probe(&transcript, &tool);
         assert!(detection.framework.is_none());
     }
 }

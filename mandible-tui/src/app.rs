@@ -82,8 +82,15 @@ pub enum Effect {
 pub enum RawHelp {
     /// The probe was requested but hasn't returned yet.
     Pending,
-    /// The tool's own output, one sanitized line per entry.
-    Ready(Vec<Text>),
+    /// The tool's own output, one sanitized line per entry, paired with
+    /// the argv that produced it (e.g. `"git commit -h"`).
+    ///
+    /// The argv is carried, not assumed, because since [M-16] a
+    /// subcommand's text may come from `--help` *or* `-h`, and this view's
+    /// only job is telling the reader exactly what we were given. A pane
+    /// that hardcodes one spelling while showing the other's bytes states
+    /// something untrue in the one place a reader comes to check us.
+    Ready(Vec<Text>, String),
     /// The probe failed or was refused (spec §6 rule 0). Carries the
     /// reason, which is shown in place of the text — a verbatim view that
     /// silently shows nothing would be indistinguishable from a tool that
@@ -202,6 +209,14 @@ pub struct App {
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
+    /// `Some` for the duration of one tool's session inside `mandible
+    /// --review`, `None` in the ordinary `mandible <tool>` path. Carries the
+    /// tool's stratum, pre-tag suggestions, and sample progress for the
+    /// review overlay to display, plus any in-progress verdict draft — see
+    /// [`crate::app_review`]. `App` itself never sets this; the caller
+    /// (`mandible/src/app_runner.rs`'s `run_review`) attaches it right
+    /// after building the app for each sampled tool.
+    pub review: Option<crate::app_review::ReviewOverlay>,
 }
 
 /// How long a status message stays in the footer before the keybinding
@@ -266,6 +281,7 @@ impl App {
             color_enabled: crate::style::color_enabled_from_env(),
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
+            review: None,
         };
         app.ensure_rows_fresh();
         app
@@ -1114,7 +1130,7 @@ mod tests {
         app.toggle_raw_mode();
         app.set_raw_help(
             vec!["git".to_string()],
-            RawHelp::Ready(vec![Text::sanitize("stale")]),
+            RawHelp::Ready(vec![Text::sanitize("stale")], "t --help".to_string()),
         );
         assert!(app.raw_help_for_selected().is_some());
 
@@ -1162,7 +1178,7 @@ mod tests {
         app.toggle_raw_mode();
         app.set_raw_help(
             vec!["git".to_string()],
-            RawHelp::Ready(vec![Text::sanitize("usage: git")]),
+            RawHelp::Ready(vec![Text::sanitize("usage: git")], "git --help".to_string()),
         );
         assert!(app.raw_help_for_selected().is_some());
 
@@ -1177,7 +1193,10 @@ mod tests {
     fn moving_the_selection_in_raw_mode_fetches_the_new_node() {
         let mut app = App::new("git".to_string(), sample_tree());
         app.toggle_raw_mode();
-        app.set_raw_help(vec!["git".to_string()], RawHelp::Ready(Vec::new()));
+        app.set_raw_help(
+            vec!["git".to_string()],
+            RawHelp::Ready(Vec::new(), "git --help".to_string()),
+        );
         assert_eq!(app.raw_fetch_needed(), None, "root is already in hand");
 
         app.move_down(); // add

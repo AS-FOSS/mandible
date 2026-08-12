@@ -1,0 +1,33 @@
+[tool]
+name = "du"
+version = "9.4"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.2.2"
+
+[[capture]]
+argv = ["du", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+# `du --help` (GNU coreutils, argp/getopt_long) fingerprints as this
+# framework from its own output — see `mandible --doctor du`.
+expected_framework = "GNU argp/getopt_long"
+min_status = "ok"
+# `du` has no subcommands at all; its usage block is two *alternative root
+# invocation forms*, not a command list.
+min_subcommands = 0
+must_contain_flags = ["--human-readable", "--summarize", "--files0-from"]
+
+# The over-join guard: `du --help` prints
+#
+#   Usage: du [OPTION]... [FILE]...
+#     or:  du [OPTION]... --files0-from=F
+#
+# two genuinely different invocation forms joined by GNU coreutils' `or:`
+# marker, as distinct from a single form wrapped across physical lines
+# (`corpus/git/2.43.0`, five lines that are one form). A parser fix that
+# joins every indented usage-block line onto the entry above it — correct
+# for git's wrapped synopsis — would also swallow `or:` and silently merge
+# these into one fabricated form. `expected.snap`'s `usage:` list must
+# stay at exactly two entries; nothing else in this repo pins that.

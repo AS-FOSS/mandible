@@ -1,0 +1,1713 @@
+name: curl
+usage:
+- 'Usage: curl [options...] <url>'
+positionals:
+- name: url
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: abstract-unix-socket
+  value_name: <path>
+  value_kind: Required
+  description: Connect via abstract Unix domain socket
+  provenance:
+    sources:
+    - help-text
+- long: alt-svc
+  value_name: <file name>
+  value_kind: Required
+  description: Enable alt-svc with this cache file
+  provenance:
+    sources:
+    - help-text
+- long: anyauth
+  description: Pick any authentication method
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: append
+  description: Append to target file when uploading
+  provenance:
+    sources:
+    - help-text
+- long: aws-sigv4
+  value_name: <provider1[:provider2[:region[:service]]]>
+  value_kind: Required
+  description: Use AWS V4 signature authentication
+  provenance:
+    sources:
+    - help-text
+- long: basic
+  description: Use HTTP Basic Authentication
+  provenance:
+    sources:
+    - help-text
+- long: ca-native
+  description: Use CA certificates from the native OS
+  provenance:
+    sources:
+    - help-text
+- long: cacert
+  value_name: <file>
+  value_kind: Required
+  description: CA certificate to verify peer against
+  provenance:
+    sources:
+    - help-text
+- long: capath
+  value_name: <dir>
+  value_kind: Required
+  description: CA directory to verify peer against
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  long: cert
+  value_name: <certificate[:password]>
+  value_kind: Required
+  description: Client certificate file and password
+  provenance:
+    sources:
+    - help-text
+- long: cert-status
+  value_name: Verify
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: cert-type
+  value_name: <type>
+  value_kind: Required
+  description: Certificate type (DER/PEM/ENG/P12)
+  provenance:
+    sources:
+    - help-text
+- long: ciphers
+  value_name: <list of ciphers>
+  value_kind: Required
+  description: SSL ciphers to use
+  provenance:
+    sources:
+    - help-text
+- long: compressed
+  description: Request compressed response
+  provenance:
+    sources:
+    - help-text
+- long: compressed-ssh
+  value_name: Enable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  long: config
+  value_name: <file>
+  value_kind: Required
+  description: Read config from a file
+  provenance:
+    sources:
+    - help-text
+- long: connect-timeout
+  value_name: <fractional seconds>
+  value_kind: Required
+  description: Maximum time allowed for connection
+  provenance:
+    sources:
+    - help-text
+- long: connect-to
+  value_name: <HOST1:PORT1:HOST2:PORT2>
+  value_kind: Required
+  description: Connect to host
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: continue-at
+  value_name: <offset>
+  value_kind: Required
+  description: Resumed transfer offset
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  long: cookie
+  value_name: <data|filename>
+  value_kind: Required
+  description: Send cookies from string/file
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: cookie-jar
+  value_name: <filename>
+  value_kind: Required
+  description: Write cookies to <filename> after operation
+  provenance:
+    sources:
+    - help-text
+- long: create-dirs
+  value_name: Create
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: create-file-mode
+  value_name: <mode>
+  value_kind: Required
+  description: File mode for created files
+  provenance:
+    sources:
+    - help-text
+- long: crlf
+  description: Convert LF to CRLF in upload
+  provenance:
+    sources:
+    - help-text
+- long: crlfile
+  value_name: <file>
+  value_kind: Required
+  description: Use this CRL list
+  provenance:
+    sources:
+    - help-text
+- long: curves
+  value_name: <algorithm list>
+  value_kind: Required
+  description: (EC) TLS key exchange algorithm(s) to request
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: data
+  value_name: <data>
+  value_kind: Required
+  description: HTTP POST data
+  provenance:
+    sources:
+    - help-text
+- long: data-ascii
+  value_name: <data>
+  value_kind: Required
+  description: HTTP POST ASCII data
+  provenance:
+    sources:
+    - help-text
+- long: data-binary
+  value_name: <data>
+  value_kind: Required
+  description: HTTP POST binary data
+  provenance:
+    sources:
+    - help-text
+- long: data-raw
+  value_name: <data>
+  value_kind: Required
+  description: HTTP POST data, '@' allowed
+  provenance:
+    sources:
+    - help-text
+- long: data-urlencode
+  value_name: <data>
+  value_kind: Required
+  description: HTTP POST data URL encoded
+  provenance:
+    sources:
+    - help-text
+- long: delegation
+  value_name: <LEVEL>
+  value_kind: Required
+  description: GSS-API delegation permission
+  provenance:
+    sources:
+    - help-text
+- long: digest
+  description: Use HTTP Digest Authentication
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: disable
+  description: Disable .curlrc
+  provenance:
+    sources:
+    - help-text
+- long: disable-eprt
+  value_name: Inhibit
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: disable-epsv
+  value_name: Inhibit
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: disallow-username-in-url
+  value_name: Disallow
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: dns-interface
+  value_name: <interface>
+  value_kind: Required
+  description: Interface to use for DNS requests
+  provenance:
+    sources:
+    - help-text
+- long: dns-ipv4-addr
+  value_name: <address>
+  value_kind: Required
+  description: IPv4 address to use for DNS requests
+  provenance:
+    sources:
+    - help-text
+- long: dns-ipv6-addr
+  value_name: <address>
+  value_kind: Required
+  description: IPv6 address to use for DNS requests
+  provenance:
+    sources:
+    - help-text
+- long: dns-servers
+  value_name: <addresses>
+  value_kind: Required
+  description: DNS server addrs to use
+  provenance:
+    sources:
+    - help-text
+- long: doh-cert-status
+  value_name: Verify
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: doh-insecure
+  value_name: Allow
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: doh-url
+  value_name: <URL>
+  value_kind: Required
+  description: Resolve host names over DoH
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: dump-header
+  value_name: <filename>
+  value_kind: Required
+  description: Write the received headers to <filename>
+  provenance:
+    sources:
+    - help-text
+- long: egd-file
+  value_name: <file>
+  value_kind: Required
+  description: EGD socket path for random data
+  provenance:
+    sources:
+    - help-text
+- long: engine
+  value_name: <name>
+  value_kind: Required
+  description: Crypto engine to use
+  provenance:
+    sources:
+    - help-text
+- long: etag-compare
+  value_name: <file>
+  value_kind: Required
+  description: Pass an ETag from a file as a custom header
+  provenance:
+    sources:
+    - help-text
+- long: etag-save
+  value_name: <file>
+  value_kind: Required
+  description: Parse ETag from a request and save it to a file
+  provenance:
+    sources:
+    - help-text
+- long: expect100-timeout
+  value_name: <seconds>
+  value_kind: Required
+  description: How long to wait for 100-continue
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: fail
+  description: Fail fast with no output on HTTP errors
+  provenance:
+    sources:
+    - help-text
+- long: fail-early
+  description: Fail on first transfer error, do not continue
+  provenance:
+    sources:
+    - help-text
+- long: fail-with-body
+  value_name: Fail
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: false-start
+  value_name: Enable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  long: form
+  value_name: <name=content>
+  value_kind: Required
+  description: Specify multipart MIME data
+  provenance:
+    sources:
+    - help-text
+- long: form-escape
+  value_name: Escape
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: form-string
+  value_name: <name=string>
+  value_kind: Required
+  description: Specify multipart MIME data
+  provenance:
+    sources:
+    - help-text
+- long: ftp-account
+  value_name: <data>
+  value_kind: Required
+  description: Account data string
+  provenance:
+    sources:
+    - help-text
+- long: ftp-alternative-to-user
+  value_name: <command>
+  value_kind: Required
+  description: String to replace USER [name]
+  provenance:
+    sources:
+    - help-text
+- long: ftp-create-dirs
+  value_name: Create
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: ftp-method
+  value_name: <method>
+  value_kind: Required
+  description: Control CWD usage
+  provenance:
+    sources:
+    - help-text
+- long: ftp-pasv
+  description: Use PASV/EPSV instead of PORT
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: ftp-port
+  value_name: <address>
+  value_kind: Required
+  description: Use PORT instead of PASV
+  provenance:
+    sources:
+    - help-text
+- long: ftp-pret
+  description: Send PRET before PASV
+  provenance:
+    sources:
+    - help-text
+- long: ftp-skip-pasv-ip
+  value_name: Skip
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: ftp-ssl-ccc
+  value_name: Send
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: ftp-ssl-ccc-mode
+  value_name: <active/passive>
+  value_kind: Required
+  description: Set CCC mode
+  provenance:
+    sources:
+    - help-text
+- long: ftp-ssl-control
+  value_name: Require
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'G'
+  long: get
+  description: Put the post data in the URL and use GET
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  long: globoff
+  description: Disable URL sequences and ranges using {} and []
+  provenance:
+    sources:
+    - help-text
+- long: happy-eyeballs-timeout-ms
+  value_name: <milliseconds>
+  value_kind: Required
+  description: Time for IPv6 before trying IPv4
+  provenance:
+    sources:
+    - help-text
+- long: haproxy-clientip
+  value_name: Sets
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: haproxy-protocol
+  value_name: Send
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: head
+  description: Show document info only
+  provenance:
+    sources:
+    - help-text
+- short: 'H'
+  long: header
+  value_name: <header/@file>
+  value_kind: Required
+  description: Pass custom header(s) to server
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  value_name: <category>
+  value_kind: Required
+  description: Get help for commands
+  provenance:
+    sources:
+    - help-text
+- long: hostpubmd5
+  value_name: <md5>
+  value_kind: Required
+  description: Acceptable MD5 hash of the host public key
+  provenance:
+    sources:
+    - help-text
+- long: hostpubsha256
+  value_name: <sha256>
+  value_kind: Required
+  description: Acceptable SHA256 hash of the host public key
+  provenance:
+    sources:
+    - help-text
+- long: hsts
+  value_name: <file name>
+  value_kind: Required
+  description: Enable HSTS with this cache file
+  provenance:
+    sources:
+    - help-text
+- long: http0
+  value_name: '.9'
+  value_kind: Required
+  description: Allow HTTP 0.9 responses
+  provenance:
+    sources:
+    - help-text
+- short: '0'
+  long: http1
+  value_name: '.0'
+  value_kind: Required
+  description: Use HTTP 1.0
+  provenance:
+    sources:
+    - help-text
+- long: http1
+  value_name: '.1'
+  value_kind: Required
+  description: Use HTTP 1.1
+  provenance:
+    sources:
+    - help-text
+- long: http2
+  description: Use HTTP/2
+  provenance:
+    sources:
+    - help-text
+- long: http2-prior-knowledge
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: http3
+  description: Use HTTP v3
+  provenance:
+    sources:
+    - help-text
+- long: http3-only
+  description: Use HTTP v3 only
+  provenance:
+    sources:
+    - help-text
+- long: ignore-content-length
+  value_name: Ignore
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: include
+  description: Include protocol response headers in the output
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  long: insecure
+  description: Allow insecure server connections
+  provenance:
+    sources:
+    - help-text
+- long: interface
+  value_name: <name>
+  value_kind: Required
+  description: Use network INTERFACE (or address)
+  provenance:
+    sources:
+    - help-text
+- long: ipfs-gateway
+  value_name: <URL>
+  value_kind: Required
+  description: Gateway for IPFS
+  provenance:
+    sources:
+    - help-text
+- short: '4'
+  long: ipv4
+  description: Resolve names to IPv4 addresses
+  provenance:
+    sources:
+    - help-text
+- short: '6'
+  long: ipv6
+  description: Resolve names to IPv6 addresses
+  provenance:
+    sources:
+    - help-text
+- long: json
+  value_name: <data>
+  value_kind: Required
+  description: HTTP POST JSON
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: junk-session-cookies
+  value_name: Ignore
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: keepalive-time
+  value_name: <seconds>
+  value_kind: Required
+  description: Interval time for keepalive probes
+  provenance:
+    sources:
+    - help-text
+- long: key
+  value_name: <key>
+  value_kind: Required
+  description: Private key file name
+  provenance:
+    sources:
+    - help-text
+- long: key-type
+  value_name: <type>
+  value_kind: Required
+  description: Private key file type (DER/PEM/ENG)
+  provenance:
+    sources:
+    - help-text
+- long: krb
+  value_name: <level>
+  value_kind: Required
+  description: Enable Kerberos with security <level>
+  provenance:
+    sources:
+    - help-text
+- long: libcurl
+  value_name: <file>
+  value_kind: Required
+  description: Dump libcurl equivalent code of this command line
+  provenance:
+    sources:
+    - help-text
+- long: limit-rate
+  value_name: <speed>
+  value_kind: Required
+  description: Limit transfer speed to RATE
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: list-only
+  description: List only mode
+  provenance:
+    sources:
+    - help-text
+- long: local-port
+  value_name: <num/range>
+  value_kind: Required
+  description: Force use of RANGE for local port numbers
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: location
+  description: Follow redirects
+  provenance:
+    sources:
+    - help-text
+- long: location-trusted
+  value_name: Like
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: login-options
+  value_name: <options>
+  value_kind: Required
+  description: Server login options
+  provenance:
+    sources:
+    - help-text
+- long: mail-auth
+  value_name: <address>
+  value_kind: Required
+  description: Originator address of the original email
+  provenance:
+    sources:
+    - help-text
+- long: mail-from
+  value_name: <address>
+  value_kind: Required
+  description: Mail from this address
+  provenance:
+    sources:
+    - help-text
+- long: mail-rcpt
+  value_name: <address>
+  value_kind: Required
+  description: Mail to this address
+  provenance:
+    sources:
+    - help-text
+- long: mail-rcpt-allowfails
+  value_name: Allow
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  long: manual
+  description: Display the full manual
+  provenance:
+    sources:
+    - help-text
+- long: max-filesize
+  value_name: <bytes>
+  value_kind: Required
+  description: Maximum file size to download
+  provenance:
+    sources:
+    - help-text
+- long: max-redirs
+  value_name: <num>
+  value_kind: Required
+  description: Maximum number of redirects allowed
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  long: max-time
+  value_name: <fractional seconds>
+  value_kind: Required
+  description: Maximum time allowed for transfer
+  provenance:
+    sources:
+    - help-text
+- long: metalink
+  description: Process given URLs as metalink XML file
+  provenance:
+    sources:
+    - help-text
+- long: negotiate
+  description: Use HTTP Negotiate (SPNEGO) authentication
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: netrc
+  description: Must read .netrc for user name and password
+  provenance:
+    sources:
+    - help-text
+- long: netrc-file
+  value_name: <filename>
+  value_kind: Required
+  description: Specify FILE for netrc
+  provenance:
+    sources:
+    - help-text
+- long: netrc-optional
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: ':'
+  long: next
+  description: Make next URL use its separate set of options
+  provenance:
+    sources:
+    - help-text
+- long: no-alpn
+  description: Disable the ALPN TLS extension
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  long: no-buffer
+  description: Disable buffering of the output stream
+  provenance:
+    sources:
+    - help-text
+- long: no-clobber
+  description: Do not overwrite files that already exist
+  provenance:
+    sources:
+    - help-text
+- long: no-keepalive
+  value_name: Disable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: no-npn
+  description: Disable the NPN TLS extension
+  provenance:
+    sources:
+    - help-text
+- long: no-progress-meter
+  value_name: Do
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: no-sessionid
+  value_name: Disable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: noproxy
+  value_name: <no-proxy-list>
+  value_kind: Required
+  description: List of hosts which do not use proxy
+  provenance:
+    sources:
+    - help-text
+- long: ntlm
+  description: Use HTTP NTLM authentication
+  provenance:
+    sources:
+    - help-text
+- long: ntlm-wb
+  description: Use HTTP NTLM authentication with winbind
+  provenance:
+    sources:
+    - help-text
+- long: oauth2-bearer
+  value_name: <token>
+  value_kind: Required
+  description: OAuth 2 Bearer Token
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  long: output
+  value_name: <file>
+  value_kind: Required
+  description: Write to file instead of stdout
+  provenance:
+    sources:
+    - help-text
+- long: output-dir
+  value_name: <dir>
+  value_kind: Required
+  description: Directory to save files in
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  long: parallel
+  description: Perform transfers in parallel
+  provenance:
+    sources:
+    - help-text
+- long: parallel-immediate
+  value_name: Do
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: parallel-max
+  value_name: <num>
+  value_kind: Required
+  description: Maximum concurrency for parallel transfers
+  provenance:
+    sources:
+    - help-text
+- long: pass
+  value_name: <phrase>
+  value_kind: Required
+  description: Pass phrase for the private key
+  provenance:
+    sources:
+    - help-text
+- long: path-as-is
+  description: Do not squash .. sequences in URL path
+  provenance:
+    sources:
+    - help-text
+- long: pinnedpubkey
+  value_name: <hashes>
+  value_kind: Required
+  description: FILE/HASHES Public key to verify peer against
+  provenance:
+    sources:
+    - help-text
+- long: post301
+  description: Do not switch to GET after following a 301
+  provenance:
+    sources:
+    - help-text
+- long: post302
+  description: Do not switch to GET after following a 302
+  provenance:
+    sources:
+    - help-text
+- long: post303
+  description: Do not switch to GET after following a 303
+  provenance:
+    sources:
+    - help-text
+- long: preproxy
+  value_name: protocol://
+  value_kind: Optional
+  description: Use this proxy first
+  provenance:
+    sources:
+    - help-text
+- short: '#'
+  long: progress-bar
+  value_name: Display
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proto
+  value_name: <protocols>
+  value_kind: Required
+  description: Enable/disable PROTOCOLS
+  provenance:
+    sources:
+    - help-text
+- long: proto-default
+  value_name: <protocol>
+  value_kind: Required
+  description: Use PROTOCOL for any URL missing a scheme
+  provenance:
+    sources:
+    - help-text
+- long: proto-redir
+  value_name: <protocols>
+  value_kind: Required
+  description: Enable/disable PROTOCOLS on redirect
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  long: proxy
+  value_name: protocol://
+  value_kind: Optional
+  description: Use this proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-anyauth
+  value_name: Pick
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-basic
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-ca-native
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-cacert
+  value_name: <file>
+  value_kind: Required
+  description: CA certificate to verify peer against for proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-capath
+  value_name: <dir>
+  value_kind: Required
+  description: CA directory to verify peer against for proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-cert
+  value_name: <cert[:passwd]>
+  value_kind: Required
+  description: Set client certificate for proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-cert-type
+  value_name: <type>
+  value_kind: Required
+  description: Client certificate type for HTTPS proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-ciphers
+  value_name: <list>
+  value_kind: Required
+  description: SSL ciphers to use for proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-crlfile
+  value_name: <file>
+  value_kind: Required
+  description: Set a CRL list for proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-digest
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-header
+  value_name: <header/@file>
+  value_kind: Required
+  description: Pass custom header(s) to proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-http2
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-insecure
+  value_name: Do
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-key
+  value_name: <key>
+  value_kind: Required
+  description: Private key for HTTPS proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-key-type
+  value_name: <type>
+  value_kind: Required
+  description: Private key file type for proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-negotiate
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-ntlm
+  description: Use NTLM authentication on the proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-pass
+  value_name: <phrase>
+  value_kind: Required
+  description: Pass phrase for the private key for HTTPS proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-pinnedpubkey
+  value_name: <hashes>
+  value_kind: Required
+  description: FILE/HASHES public key to verify proxy with
+  provenance:
+    sources:
+    - help-text
+- long: proxy-service-name
+  value_name: <name>
+  value_kind: Required
+  description: SPNEGO proxy service name
+  provenance:
+    sources:
+    - help-text
+- long: proxy-ssl-allow-beast
+  value_name: Allow
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-ssl-auto-client-cert
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: proxy-tls13-ciphers
+  value_name: <ciphersuite list>
+  value_kind: Required
+  description: TLS 1.3 proxy cipher suites
+  provenance:
+    sources:
+    - help-text
+- long: proxy-tlsauthtype
+  value_name: <type>
+  value_kind: Required
+  description: TLS authentication type for HTTPS proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-tlspassword
+  value_name: <string>
+  value_kind: Required
+  description: TLS password for HTTPS proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-tlsuser
+  value_name: <name>
+  value_kind: Required
+  description: TLS username for HTTPS proxy
+  provenance:
+    sources:
+    - help-text
+- long: proxy-tlsv1
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  long: proxy-user
+  value_name: <user:password>
+  value_kind: Required
+  description: Proxy user and password
+  provenance:
+    sources:
+    - help-text
+- long: proxy1
+  value_name: '.0'
+  value_kind: Required
+  description: Use HTTP/1.0 proxy on given port
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: proxytunnel
+  value_name: Operate
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: pubkey
+  value_name: <key>
+  value_kind: Required
+  description: SSH Public key file name
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  long: quote
+  value_name: <command>
+  value_kind: Required
+  description: Send command(s) to server before transfer
+  provenance:
+    sources:
+    - help-text
+- long: random-file
+  value_name: <file>
+  value_kind: Required
+  description: File for reading random data from
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: range
+  value_name: <range>
+  value_kind: Required
+  description: Retrieve only the bytes within RANGE
+  provenance:
+    sources:
+    - help-text
+- long: rate
+  value_name: <max request rate>
+  value_kind: Required
+  description: Request rate for serial transfers
+  provenance:
+    sources:
+    - help-text
+- long: raw
+  description: Do HTTP "raw"; no transfer decoding
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  long: referer
+  value_name: <URL>
+  value_kind: Required
+  description: Referrer URL
+  provenance:
+    sources:
+    - help-text
+- short: 'J'
+  long: remote-header-name
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  long: remote-name
+  value_name: Write
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: remote-name-all
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  long: remote-time
+  value_name: Set
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: remove-on-error
+  value_name: Remove
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  long: request
+  value_name: <method>
+  value_kind: Required
+  description: Specify request method to use
+  provenance:
+    sources:
+    - help-text
+- long: request-target
+  value_name: <path>
+  value_kind: Required
+  description: Specify the target for this request
+  provenance:
+    sources:
+    - help-text
+- long: resolve
+  value_name: <[+]host:port:addr[,addr]...>
+  value_kind: Required
+  description: Resolve the host+port to this address
+  provenance:
+    sources:
+    - help-text
+- long: retry
+  value_name: <num>
+  value_kind: Required
+  description: Retry request if transient problems occur
+  provenance:
+    sources:
+    - help-text
+- long: retry-all-errors
+  value_name: Retry
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: retry-connrefused
+  value_name: Retry
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: retry-delay
+  value_name: <seconds>
+  value_kind: Required
+  description: Wait time between retries
+  provenance:
+    sources:
+    - help-text
+- long: retry-max-time
+  value_name: <seconds>
+  value_kind: Required
+  description: Retry only within this period
+  provenance:
+    sources:
+    - help-text
+- long: sasl-authzid
+  value_name: <identity>
+  value_kind: Required
+  description: Identity for SASL PLAIN authentication
+  provenance:
+    sources:
+    - help-text
+- long: sasl-ir
+  description: Enable initial response in SASL authentication
+  provenance:
+    sources:
+    - help-text
+- long: service-name
+  value_name: <name>
+  value_kind: Required
+  description: SPNEGO service name
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: show-error
+  description: Show error even when -s is used
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: silent
+  description: Silent mode
+  provenance:
+    sources:
+    - help-text
+- long: socks4
+  value_name: <host[:port]>
+  value_kind: Required
+  description: SOCKS4 proxy on given host + port
+  provenance:
+    sources:
+    - help-text
+- long: socks4a
+  value_name: <host[:port]>
+  value_kind: Required
+  description: SOCKS4a proxy on given host + port
+  provenance:
+    sources:
+    - help-text
+- long: socks5
+  value_name: <host[:port]>
+  value_kind: Required
+  description: SOCKS5 proxy on given host + port
+  provenance:
+    sources:
+    - help-text
+- long: socks5-basic
+  value_name: Enable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: socks5-gssapi
+  value_name: Enable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: socks5-gssapi-nec
+  value_name: Compatibility
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: socks5-gssapi-service
+  value_name: <name>
+  value_kind: Required
+  description: SOCKS5 proxy service name for GSS-API
+  provenance:
+    sources:
+    - help-text
+- long: socks5-hostname
+  value_name: <host[:port]>
+  value_kind: Required
+  description: SOCKS5 proxy, pass host name to proxy
+  provenance:
+    sources:
+    - help-text
+- short: 'Y'
+  long: speed-limit
+  value_name: <speed>
+  value_kind: Required
+  description: Stop transfers slower than this
+  provenance:
+    sources:
+    - help-text
+- short: 'y'
+  long: speed-time
+  value_name: <seconds>
+  value_kind: Required
+  description: Trigger 'speed-limit' abort after this time
+  provenance:
+    sources:
+    - help-text
+- long: ssl
+  description: Try SSL/TLS
+  provenance:
+    sources:
+    - help-text
+- long: ssl-allow-beast
+  value_name: Allow
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: ssl-auto-client-cert
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: ssl-no-revoke
+  value_name: Disable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: ssl-reqd
+  description: Require SSL/TLS
+  provenance:
+    sources:
+    - help-text
+- long: ssl-revoke-best-effort
+  value_name: Ignore
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: '2'
+  long: sslv2
+  description: Use SSLv2
+  provenance:
+    sources:
+    - help-text
+- short: '3'
+  long: sslv3
+  description: Use SSLv3
+  provenance:
+    sources:
+    - help-text
+- long: stderr
+  value_name: <file>
+  value_kind: Required
+  description: Where to redirect stderr
+  provenance:
+    sources:
+    - help-text
+- long: styled-output
+  value_name: Enable
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: suppress-connect-headers
+  value_name: Suppress
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: tcp-fastopen
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: tcp-nodelay
+  value_name: Use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: telnet-option
+  value_name: <opt=val>
+  value_kind: Required
+  description: Set telnet option
+  provenance:
+    sources:
+    - help-text
+- long: tftp-blksize
+  value_name: <value>
+  value_kind: Required
+  description: Set TFTP BLKSIZE option
+  provenance:
+    sources:
+    - help-text
+- long: tftp-no-options
+  value_name: Do
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  long: time-cond
+  value_name: <time>
+  value_kind: Required
+  description: Transfer based on a time condition
+  provenance:
+    sources:
+    - help-text
+- long: tls-max
+  value_name: <VERSION>
+  value_kind: Required
+  description: Set maximum allowed TLS version
+  provenance:
+    sources:
+    - help-text
+- long: tls13-ciphers
+  value_name: <ciphersuite list>
+  value_kind: Required
+  description: TLS 1.3 cipher suites to use
+  provenance:
+    sources:
+    - help-text
+- long: tlsauthtype
+  value_name: <type>
+  value_kind: Required
+  description: TLS authentication type
+  provenance:
+    sources:
+    - help-text
+- long: tlspassword
+  value_name: <string>
+  value_kind: Required
+  description: TLS password
+  provenance:
+    sources:
+    - help-text
+- long: tlsuser
+  value_name: <name>
+  value_kind: Required
+  description: TLS user name
+  provenance:
+    sources:
+    - help-text
+- short: '1'
+  long: tlsv1
+  description: Use TLSv1.0 or greater
+  provenance:
+    sources:
+    - help-text
+- long: tlsv1
+  value_name: '.0'
+  value_kind: Required
+  description: Use TLSv1.0 or greater
+  provenance:
+    sources:
+    - help-text
+- long: tlsv1
+  value_name: '.1'
+  value_kind: Required
+  description: Use TLSv1.1 or greater
+  provenance:
+    sources:
+    - help-text
+- long: tlsv1
+  value_name: '.2'
+  value_kind: Required
+  description: Use TLSv1.2 or greater
+  provenance:
+    sources:
+    - help-text
+- long: tlsv1
+  value_name: '.3'
+  value_kind: Required
+  description: Use TLSv1.3 or greater
+  provenance:
+    sources:
+    - help-text
+- long: tr-encoding
+  value_name: Request
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: trace
+  value_name: <file>
+  value_kind: Required
+  description: Write a debug trace to FILE
+  provenance:
+    sources:
+    - help-text
+- long: trace-ascii
+  value_name: <file>
+  value_kind: Required
+  description: Like --trace, but without hex output
+  provenance:
+    sources:
+    - help-text
+- long: trace-config
+  value_name: <string>
+  value_kind: Required
+  description: Details to log in trace/verbose output
+  provenance:
+    sources:
+    - help-text
+- long: trace-ids
+  description: Add transfer and connection identifiers to trace/verbose output
+  provenance:
+    sources:
+    - help-text
+- long: trace-time
+  description: Add time stamps to trace/verbose output
+  provenance:
+    sources:
+    - help-text
+- long: unix-socket
+  value_name: <path>
+  value_kind: Required
+  description: Connect through this Unix domain socket
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  long: upload-file
+  value_name: <file>
+  value_kind: Required
+  description: Transfer local FILE to destination
+  provenance:
+    sources:
+    - help-text
+- long: url
+  value_name: <url>
+  value_kind: Required
+  description: URL to work with
+  provenance:
+    sources:
+    - help-text
+- long: url-query
+  value_name: <data>
+  value_kind: Required
+  description: Add a URL query part
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: use-ascii
+  description: Use ASCII/text transfer
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  long: user
+  value_name: <user:password>
+  value_kind: Required
+  description: Server user and password
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  long: user-agent
+  value_name: <name>
+  value_kind: Required
+  description: Send User-Agent <name> to server
+  provenance:
+    sources:
+    - help-text
+- long: variable
+  value_name: <[%]name=text/@file>
+  value_kind: Required
+  description: Set variable
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: Make the operation more talkative
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: Show version number and quit
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  long: write-out
+  value_name: <format>
+  value_kind: Required
+  description: Use output FORMAT after completion
+  provenance:
+    sources:
+    - help-text
+- long: xattr
+  description: Store metadata in extended file attributes
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+confession:
+  word: all
+  flag: --help
+  followed: true

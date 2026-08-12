@@ -1,0 +1,62 @@
+name: A tool renders wrong
+description: mandible shows wrong flags or commands for a tool, or shows fewer than the tool documents
+title: "<tool> renders incorrectly"
+labels:
+  - parsing
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This is a complete contribution on its own, and
+        you do not need to read anything else in the repo first.
+
+        The fastest way to fill this in is to run `mandible --report <tool>`
+        and paste the whole block into the second field. That one command
+        collects everything we need.
+
+  - type: dropdown
+    id: failure-kind
+    attributes:
+      label: What went wrong?
+      options:
+        - mandible shows something incorrect
+        - mandible shows less than the tool documents
+        - something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Output of `mandible --report <tool>`
+      description: |
+        If your build does not have `--report`, paste `mandible --doctor <tool>`
+        and the tool's own `--help` output instead.
+      placeholder: |
+        $ mandible --report docker
+        mandible:   v0.2.2
+        docker version: (not printed in --help ...)
+
+        --- mandible --doctor docker ---
+        ...
+      render: console
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+      description: |
+        A sentence is fine. "The -X flag is missing" or "the description on
+        --format belongs to --filter" tells us plenty. A screenshot works too.
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system
+      placeholder: Ubuntu 24.04 x86_64
+    validations:
+      required: false
