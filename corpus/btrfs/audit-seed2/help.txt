@@ -1,0 +1,185 @@
+usage: btrfs [global] <group> [<group>...] <command> [<args>]
+
+Global options:
+  --format <format> if supported, print subcommand output in that format (text, json)
+  -v|--verbose      increase verbosity of the subcommand
+  -q|--quiet        print only errors
+  --log <level>     set log level (default, info, verbose, debug, quiet)
+  --dry-run         if supported, do not do any active/changing actions
+
+Options for the main command only:
+  --help            print condensed help for all subcommands
+  --version         print version string
+
+    btrfs balance start [options] <path>
+        Balance chunks across the devices
+    btrfs balance pause <path>
+        Pause running balance
+    btrfs balance cancel <path>
+        Cancel running or paused balance
+    btrfs balance resume <path>
+        Resume interrupted balance
+    btrfs balance status [-v] <path>
+        Show status of running or paused balance
+
+    btrfs check [options] <device>
+        Check structural integrity of a filesystem (unmounted).
+
+    btrfs device add [options] <device> [<device>...] <path>
+        Add one or more devices to a mounted filesystem.
+    btrfs device delete <device>|<devid> [<device>|<devid>...] <path>
+    btrfs device remove <device>|<devid> [<device>|<devid>...] <path>
+        Remove a device from a filesystem
+    btrfs device replace <command> [...]
+    	Replace a device (alias of "btrfs replace")
+    btrfs device scan [-d|--all-devices] <device> [<device>...]
+    btrfs device scan -u|--forget [<device>...]
+        Scan or forget (unregister) devices of btrfs filesystems
+    btrfs device ready <device>
+        Check and wait until a group of devices of a filesystem is ready for mount
+    btrfs device stats [options] <path>|<device>
+        Show device IO error statistics
+    btrfs device usage [options] <path> [<path>..]
+        Show detailed information about internal allocations in devices.
+
+    btrfs filesystem df [options] <path>
+        Show space usage information for a mount point
+    btrfs filesystem du [options] <path> [<path>..]
+        Summarize disk usage of each file.
+    btrfs filesystem show [options] [<path>|<uuid>|<device>|label]
+        Show the structure of a filesystem
+    btrfs filesystem sync <path>
+        Force a sync on a filesystem
+    btrfs filesystem defragment [options] <file>|<dir> [<file>|<dir>...]
+        Defragment a file or a directory
+    btrfs filesystem resize [options] [devid:][+/-]<newsize>[kKmMgGtTpPeE]|[devid:]max <path>
+        Resize a filesystem
+    btrfs filesystem label [<device>|<mount_point>] [<newlabel>]
+        Get or change the label of a filesystem
+    btrfs filesystem usage [options] <path> [<path>..]
+        Show detailed information about internal filesystem usage .
+    btrfs filesystem mkswapfile <file>
+        Create a new file that's suitable and formatted as a swapfile.
+
+    btrfs inspect-internal inode-resolve [-v] <inode> <path>
+        Get file system paths for the given inode
+    btrfs inspect-internal logical-resolve [-Pvo] [-s bufsize] <logical> <path>
+        Get file system paths for the given logical address
+    btrfs inspect-internal subvolid-resolve <subvolid> <path>
+        Get file system paths for the given subvolume ID.
+    btrfs inspect-internal rootid <path>
+        Get tree ID of the containing subvolume of path.
+    btrfs inspect-internal map-swapfile <file>
+        Print physical offset of first block and resume offset if file is suitable as swapfile
+    btrfs inspect-internal min-dev-size [options] <path>
+        Get the minimum size the device can be shrunk to
+    btrfs inspect-internal dump-tree [options] <device> [<device> ..]
+        Dump tree structures from a given device
+    btrfs inspect-internal dump-super [options] device [device...]
+        Dump superblock from a device in a textual form
+    btrfs inspect-internal tree-stats [options] <device>
+        Print various stats for trees
+
+    btrfs property get [-t <type>] <object> [<name>]
+        Get a property value of a btrfs object
+    btrfs property set [-f] [-t <type>] <object> <name> <value>
+        Set a property on a btrfs object
+    btrfs property list [-t <type>] <object>
+        Lists available properties with their descriptions for the given object
+
+    btrfs qgroup assign [options] <src> <dst> <path>
+        Assign SRC as the child qgroup of DST.
+    btrfs qgroup remove [options] <src> <dst> <path>
+        Remove the relation between child qgroup SRC from DST.
+    btrfs qgroup create <qgroupid> <path>
+        Create a subvolume quota group.
+    btrfs qgroup clear-stale <path>
+        Clear all stale qgroups (level 0/subvolid), without a subvolume.
+    btrfs qgroup destroy <qgroupid> <path>
+        Destroy a quota group.
+    btrfs qgroup show [options] <path>
+        List subvolume quota groups.
+    btrfs qgroup limit [options] <size>|none [<qgroupid>] <path>
+        Set the limits a subvolume quota group.
+
+    btrfs quota enable <path>
+        Enable subvolume quota support for a filesystem.
+    btrfs quota disable <path>
+        Disable subvolume quota support for a filesystem.
+    btrfs quota rescan [-sw] <path>
+        Trash all qgroup numbers and scan the metadata again with the current config.
+
+    btrfs receive [options] <mount>
+    btrfs receive --dump [options]
+        Receive subvolumes from a stream
+
+    btrfs replace start [-Bfr] <srcdev>|<devid> <targetdev> <mount_point>
+        Replace device of a btrfs filesystem.
+    btrfs replace status [-1] <mount_point>
+        Print status and progress information of a running device replace operation
+    btrfs replace cancel <mount_point>
+        Cancel a running device replace operation.
+
+    btrfs rescue chunk-recover [options] <device>
+        Recover the chunk tree by scanning the devices one by one.
+    btrfs rescue super-recover [options] <device>
+        Recover bad superblocks from good copies
+    btrfs rescue zero-log <device>
+        Clear the tree log. Usable if it's corrupted and prevents mount.
+    btrfs rescue fix-device-size <device>
+        Re-align device and super block sizes. Usable if newer kernel refuse to mount it due to mismatch super size
+    btrfs rescue create-control-device
+        Create /dev/btrfs-control (see 'CONTROL DEVICE' in btrfs(5))
+    btrfs rescue clear-ino-cache <device>
+        remove leftover items pertaining to the deprecated inode cache feature
+    btrfs rescue clear-space-cache (v1|v2) <device>
+        completely remove the v1 or v2 free space cache
+    btrfs rescue clear-uuid-tree
+        Delete uuid tree so that kernel can rebuild it at mount time
+
+    btrfs restore [options] <device> <path>
+    btrfs restore [options] -l <device>
+        Try to restore files from a damaged filesystem (unmounted)
+
+    btrfs scrub start [-BdqrRf] [-c ioprio_class -n ioprio_classdata] <path>|<device>
+        Start a new scrub. If a scrub is already running, the new one fails.
+    btrfs scrub cancel <path>|<device>
+        Cancel a running scrub
+    btrfs scrub resume [-BdqrR] [-c ioprio_class -n ioprio_classdata] <path>|<device>
+        Resume previously canceled or interrupted scrub
+    btrfs scrub status [-dR] <path>|<device>
+        Show status of running or finished scrub
+    btrfs scrub limit [options] <path>
+        Show or set scrub limits on devices of the given filesystem.
+
+    btrfs send [-ve] [-p <parent>] [-c <clone-src>] [-f <outfile>] <subvol> [<subvol>...]
+        Send the subvolume(s) to stdout.
+
+    btrfs subvolume create [options] [<dest>/]<name> [[<dest2>/]<name2> ...]
+        Create subvolume(s)
+    btrfs subvolume delete [options] <subvolume> [<subvolume>...]
+    btrfs subvolume delete [options] -i|--subvolid <subvolid> <path>
+        Delete subvolume(s)
+    btrfs subvolume list [options] <path>
+        List subvolumes and snapshots in the filesystem.
+    btrfs subvolume snapshot [-r] [-i <qgroupid>] <subvolume> { <subdir>/<name> | <subdir> }
+        
+    btrfs subvolume get-default <path>
+        Get the default subvolume of a filesystem
+    btrfs subvolume set-default <subvolume>
+    btrfs subvolume set-default <subvolid> <path>
+        Set the default subvolume of the filesystem mounted as default.
+    btrfs subvolume find-new <path> <lastgen>
+        List the recently modified files in a filesystem
+    btrfs subvolume show [options] <path>
+        Show more information about the subvolume (UUIDs, generations, times, snapshots)
+    btrfs subvolume sync <path> [<subvolid>...]
+        Wait until given subvolume(s) are completely removed from the filesystem.
+
+    btrfs help [--full] [--box]
+        Display help information
+    btrfs version
+        Display btrfs-progs version
+
+Use --help as an argument for information on a specific group or command.
+Options for --format are: text, json
