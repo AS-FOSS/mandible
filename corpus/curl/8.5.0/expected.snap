@@ -100,3 +100,4 @@ children_filled: true
 confession:
   word: all
   flag: --help
+  followed: false

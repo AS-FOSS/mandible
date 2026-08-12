@@ -341,12 +341,20 @@ pub struct ConfessionSnapshot {
     /// The flag printed alongside it (`"--help"` or `"-h"`).
     pub flag: String,
     /// True when the advertised argv was actually re-probed and this
-    /// node's fields reflect that document. Omitted when `false` — same
-    /// "loss is still visible as a removed key" reasoning [`is_false`]
-    /// documents — so a snapshot only ever spells this out when there is
-    /// something to explain (an unfollowed confession, which caps status
-    /// at `incomplete`), not on every successfully-expanded node.
-    #[serde(skip_serializing_if = "is_false")]
+    /// node's fields reflect that document; false when the confession was
+    /// detected but not followed (an unrecognised word, a failed probe, a
+    /// rule 0 refusal) and the node still reflects the truncated text.
+    ///
+    /// **Always written, unlike this module's other booleans.** The
+    /// omit-when-false rule the rest of the format follows ([`is_false`])
+    /// rests on `false` being the unremarkable default, so its absence
+    /// says nothing worth reading. Here the polarity is the other way
+    /// round: `false` is the *noteworthy* state — it is precisely what
+    /// caps a tree at `incomplete` — and encoding the interesting half of
+    /// a two-state field as a missing key would make the fixture that
+    /// exists to demonstrate that state (`corpus/curl/8.5.0`) show it by
+    /// omission, indistinguishable on sight from a snapshot written
+    /// before this field existed.
     pub followed: bool,
 }
 
