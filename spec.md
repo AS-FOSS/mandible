@@ -280,6 +280,36 @@ otherwise need its own defense. Widgets are permitted to assume `Text` is clean.
 `Text` retains paragraph breaks (`\n\n`) for the detail pane's description
 rendering; the tree pane collapses to a single line at render time.
 
+**The raw pane (key `t`, §2) deliberately does not go through
+`Text::sanitize`.** Its whole job is showing the tool's own bytes, and
+`sanitize`'s whitespace-collapsing and paragraph-unwrapping are exactly what
+would destroy the column alignment a reviewer needs to judge the parser
+against. A second constructor, `Text::sanitize_preserving_layout`, exists for
+this one path: it strips ANSI/OSC/DCS escapes, stray carriage returns, and
+other C0 controls (a raw terminal escape or a lying `\r` could scramble the
+reader's terminal, so this much neutralization is not optional even for a
+"raw" view), and expands tabs to spaces at 8-column stops, because `ratatui`
+gives a bare `\t` zero display width and leaving it unexpanded would misalign
+columns rather than preserve them. It does not collapse whitespace, trim, or
+unwrap paragraphs, and it is truncated to the same `MAX_TEXT_CHARS` bound as
+`sanitize`. `Text::sanitize` itself, and every use of it on the path that
+feeds the IR, is untouched; only `mandible-extract`'s `help_text::raw_help*`
+functions call the preserving variant. The two constructors are verified
+apart: diffing the raw pane against independently captured `--help` output
+for `du` (column alignment) and `curl --help all` (large output) came back
+byte-identical.
+
+One consequence worth knowing when comparing the pane to your own terminal:
+mandible probes tools by absolute resolved path, so a tool that echoes its
+own `argv[0]` prints `Usage: /usr/bin/du` in the pane and `Usage: du` in a
+shell where `du` was found via `PATH`. That difference is correct: it is
+what the tool actually received as `argv[0]` in each case, not a defect in
+either the probe or the pane.
+
+The raw pane also displays stdout and stderr **both**, labelled, even though
+§7 Tier B's parser reads only one of the two per its own rule. See that
+section for why the two paths differ.
+
 ### 4.2 Provenance is per field, not per node
 
 ```rust
@@ -455,6 +485,27 @@ the `?` overlay and in `mandible --doctor <tool>`, so "why is this flag missing"
 is answerable without a debugger.
 
 The runner errors only when *no* tier produced a root node.
+
+**`mandible --report <TOOL>`** assembles a paste-ready bug report: mandible's
+own version, the target tool's version when recoverable, the `--doctor`
+diagnostic (reusing its report-building code rather than re-deriving it), and
+a raw `--help` capture, followed by the repository's issues URL. It goes
+through the same sanctioned probe chokepoint every other tier uses and adds
+no new argv shape. The honest limitation: a tool's version is scraped
+best-effort from the same `--help` banner already captured (clap's own
+template opens with `"<name> <version>"`, which this recognizes), but most
+tools never print a version in `--help` at all, so the report usually asks
+the person filing it to paste `<tool> --version` themselves. Recovering it
+automatically would mean issuing a `--version` probe, which is a new argv
+shape against §6 rule 2's closed list and has deliberately not been taken.
+
+**`mandible --review <SEED>`** (with `--audit-dir`, default `audit`) opens
+the audit review loop (§13.1c) inside the real TUI: it walks
+`audit/<SEED>.toml`'s pending entries in file order, opening each tool
+exactly as `mandible <tool>` would (same tree, same lazy fill, same raw
+pane), and saves a verdict to the manifest immediately after every
+confirmation, never batched, so a killed session resumes at the next pending
+entry with everything answered so far intact.
 
 ---
 
@@ -1037,7 +1088,42 @@ The generic fallback parser (step 2) is built with `winnow`:
 - **Read stdout *and* stderr, and do not require exit 0.** Measured: `openssl
   --help` writes 0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255
   with output only on stderr [M-8]. Both are exactly the "older Unix utility"
-  this tier exists for. Prefer stdout when both are non-empty.
+  this tier exists for. The rule for which of the two the *parser* reads is
+  not "stdout if non-empty, else stderr": that rule shipped first and was
+  wrong. `openssl cmp --help` prints two `CMP info: ...` diagnostic lines to
+  stdout and its entire ~60-line help to stderr, so it handed the parser the
+  banner and threw the document away, reachable by roughly 150 openssl
+  subcommands in the same shape. The rule now judges each stream on its own
+  with a help-shaped-output check (`looks_like_help_output`, D1.3.1) and
+  parses whichever stream looks like help:
+
+  | stdout empty? | stderr empty? | picks |
+  |---|---|---|
+  | yes | yes | stdout (empty; nothing to pick) |
+  | yes | no | stderr, the only stream available |
+  | no | yes | stdout, the only stream available |
+  | no | no, stdout help-shaped | stdout, regardless of stderr |
+  | no | no, stdout not help-shaped, stderr help-shaped | stderr |
+  | no | no, neither help-shaped | stdout, the default when there is nothing to prefer |
+
+  Ties (both streams help-shaped) break toward stdout, the conventional
+  stream for a well-behaved tool's `--help`. The streams are never
+  concatenated for the parser: merging a diagnostic preamble into the
+  document is how banner text becomes fabricated flags. `pick_stream` in
+  `mandible-extract/src/help_text/mod.rs` carries the full truth table and
+  reasoning above its definition.
+
+  This is the *parsing* path only. The verbatim/raw pane (key `t`, §2) shows **both**
+  streams, labelled, independent of what the parser chose to read. A
+  reviewer checking the parser's work needs to see the diagnostic lines the
+  parser correctly discarded, not just the document it kept. See §4.1 for
+  the raw pane's own sanitization rule, which is deliberately different from
+  the IR's.
+
+  Measured, full PATH, 2,240 tools joined, before and after the fix: 0
+  flag-count losses across any tool, 169 flags gained across 11 tools (every
+  one from zero), 13 tools moving `verbatim` → `ok`, `verbatim_count` 321 →
+  308.
 - **Attach `confidence: f32`** derived from how much of the output the grammar
   actually consumed, and surface it. Being honest about a best guess is better UX
   than presenting heuristic output with man-page confidence.
@@ -1708,6 +1794,104 @@ still reads a scoreboard's old `pct_described=` key for backward
 compatibility; it never writes one. See Appendix B for the historical note on
 the column-name change.
 
+### 13.1c The audit instrument: comparing against truth
+
+Misattribution and existence (§13.1) each re-examine text the pipeline
+already captured, so both are still, structurally, comparisons against the
+parser's own prior output. `xtask audit` and `mandible --review` are the
+project's fourth testing instrument and the first to compare output against
+independently established truth: a human reads the tool's own raw `--help`
+text side by side with the parsed tree and judges whether the tree is right.
+
+**Subcommands** (`xtask audit <subcommand>`): `sample` draws and persists a
+sample; `review` is the interactive terminal loop; `emit`/`ingest` are its
+non-interactive twin, since this project's CI has no tty (AGENTS.md §3.2):
+`emit` writes every pending pair to a file for offline reading, `ingest`
+reads a plain-text verdicts file back in; `report` renders accuracy;
+`fixtures` turns a reviewed tool into a staged `corpus/`-shaped fixture, a
+`correct` verdict becoming a real `expected.snap` and a `wrong`/`incomplete`
+verdict becoming `[xfail]` with the reviewer's note as `reason` (`--bless`'s
+own reasoning, applied to a human read instead of an automated one).
+`mandible --review <SEED>` (§5.3) is a fifth entry point onto the same
+manifest, reviewing inside the real TUI instead of a terminal loop.
+
+**The draw is stratified, deterministic, and force-includable.** `xtask
+audit sample` draws proportionally by parse status (`ok`/`low-confidence`/
+`verbatim`/`no-tier`/`suspicious`, whatever `status::compute` actually
+produces for the population, not a fixed bucket set) so the sample's status
+mix reflects the real population's, seeded so the same `--seed` and
+`--sample` size always produce the same draw. A tool can additionally be
+force-included outside the stratified quota, but only with a recorded
+reason (`audit/force-include.txt`, `<tool> <reason...>` per line). An
+unconditional inclusion with no stated reason is exactly the kind of
+unauditable claim this instrument exists to rule out, so force-included
+entries are tallied under their own `forced-inclusion` stratum in `audit
+report` rather than blended into the random draw's numbers.
+
+**Verdicts are `correct`, `incomplete`, `wrong`, or `skip`.** A `wrong` or
+`incomplete` verdict must carry a note, enforced identically in both entry
+paths (the TUI refuses to save a blank-note draft; `xtask audit ingest`
+fails the line): for those two verdicts the note *is* the finding, and a bare
+`wrong` with nothing recorded about what was wrong is useless to whatever
+fix the audit is meant to feed. `correct` and `skip` do not require one,
+since forcing prose out of a reviewer with nothing to add is how a review
+loop starts collecting "n/a". `skip` is recorded, not omitted: a skipped
+entry still occupies its slot and appears in `audit report`, just excluded
+from the accuracy ratio.
+
+**Three pre-tagged known-defect classes** are computed once at sample time
+and shown to the reviewer before they record a verdict, so confirming is
+"leave it alone" and overriding is one `k1=`/`k2=`/`k3=` token in the
+verdict line or note:
+
+- **K1**: the GCC-family single-dash-long-option mis-parse. A flag like
+  `-fdump-scos` is stored as short flag `-f` with `value_name` `dump-scos`
+  instead of as the long-form spelling it actually is. This is a real,
+  measured parser defect, not a detector artifact, and is scheduled as
+  grammar item 1 once the parser freeze the audit is running under lifts.
+- **K2**: the existence detector's own tokenizer gap (`xtask::existence`),
+  not a parser defect. `line_start_words` only considers a line's *first*
+  whitespace-delimited token, so a multi-column or comma-separated
+  subcommand/applet list reports every column after the first as fabricated
+  even though it is right there in the raw text.
+- **K3**: a subcommand stub whose help was never fetched, from either of
+  two causes. Either the attestation gate permanently refused to probe a
+  name that came from a native/cobra artifact rather than a recognized
+  `--help` heading (never a "not yet fetched", a "cannot ever be fetched"),
+  or the tool's subcommands simply carry no flags because their own help
+  was never probed by the single-pass extraction the sample is drawn from.
+
+**`audit report` states accuracy per stratum with a Wilson 95% confidence
+interval, never a bare percentage.** This is the same discipline `%flags_text`'s
+own history (§13.1b) exists to enforce elsewhere. It also reports accuracy
+under views with each known class excluded (K1-excluded, K2-excluded,
+K3-excluded, and all three excluded together), so a reader can see how much
+of the raw number is attributable to a known, already-scheduled cause versus
+genuinely unexplained.
+
+**Scope, decided for the seed-2 run:** the audit measures flag accuracy and
+command/subcommand accuracy only. A node's own prose description and
+usage-section formatting are explicitly out of scope and deferred, so
+neither drives a verdict here. The boundary that keeps this consistent: a
+*flag's* description attached to the *wrong* flag is in scope, because that
+is flag data mis-attribution (the same shape `lsof`'s bug was, §13.1); the
+*node's* own prose description is not, because that is a different kind of
+claim this audit is not yet reviewing.
+
+**`audit/<seed>.toml` is tracked.** It is both the sample manifest and the
+verdict record, a verdict written directly onto its own sample entry, so an
+accuracy claim carries its evidence rather than depending on a file that
+lived on one contributor's machine. **`audit/<seed>/fixtures/` is not
+tracked**: it is `xtask audit fixtures`' staging output, and
+`corpus/README.md`'s own workflow is to review a staged fixture by hand and
+deliberately promote what's ready into `corpus/`, so the staging tree is
+scratch by design.
+
+The audit has not finished running. This section documents the instrument,
+not a result: no accuracy number is stated here, and none should be read
+into anything above. The result, and the final statement of scope, belong in
+Appendix A as **[M-20]**, once the audit actually completes.
+
 ### 13.2 Fixed corpus
 
 Golden-file tests snapshot **both** the raw tool output and the resulting
@@ -1743,6 +1927,21 @@ against yesterday's bytes.
 - **Fuzzing** the Tier B grammar (`cargo-fuzz`) — it consumes untrusted text.
 - **Merge property tests**: merge is associative over authority; a `None` never
   displaces a `Some`; alias pairing is idempotent.
+
+**The workspace runs under `cargo nextest run --workspace` in CI**, never
+`cargo test --workspace` piped into a text-processing tool. The rule behind
+this is not that nextest is faster: it is that human-format test output must
+never be parsed, by anyone, for any reason. The concrete failure, self-reported
+(AGENTS.md §3.3): `grep -c FAILED` against `cargo test`'s output false-positived on
+test *data* that happened to contain the literal word "FAIL" (fixture text,
+a variant name, a snapshot value all share one output stream with no
+structural separation from the test runner's own report), producing a
+confident, wrong pass or fail count. `cargo nextest run` reports a real
+nonzero exit code on any failure and can emit `--message-format
+libtest-json` when a structured result is actually needed. Read that, or the
+exit code, never the prose. Nextest cannot run doctests (an upstream
+limitation), so CI runs a separate `cargo test --doc --workspace` step to
+cover them.
 
 ---
 
