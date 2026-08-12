@@ -4,36 +4,201 @@
 //! both live here rather than in `mandible-tui`, since `App` is pure state
 //! with no extraction I/O of its own.
 //!
+//! [`run_review`] is the `mandible --review <seed>` entry point: it drives
+//! the *same* [`run_loop`] a plain `mandible <tool>` session uses, one tool
+//! at a time, over a persistent terminal session — a reviewer gets the real
+//! product (lazy subcommand fill, the raw pane, search, everything) rather
+//! than a second, parallel UI. What's added on top is a key interception
+//! (`app.review.is_some()`, checked before the ordinary
+//! `mandible_tui::event::handle_key`) that lets `c`/`i`/`w`/`s` start a
+//! verdict draft and `Enter` confirm it, and the surrounding manifest I/O
+//! (`mandible_core::audit::{load, save}`), which is the only file access
+//! `mandible --review` performs — never a second probe of the tool beyond
+//! what the ordinary tree view already does.
+//!
 //! **Not exercised by the automated test suite.** This sandbox has no tty
 //! (`enable_raw_mode` fails with "No such device or address" here), so
 //! this module's correctness rests on `mandible-tui`'s own state-machine and
 //! render tests (which cover everything below the terminal I/O boundary),
 //! `mandible-extract`'s `Runner::fill_node` tests (which cover the
-//! extraction/merge logic this module calls), and manual review. See the
-//! batch report for this called out explicitly.
+//! extraction/merge logic this module calls), `mandible_tui::app_review`'s
+//! own key-handling tests, and manual review via `scripts/pty_screenshot.py`
+//! (AGENTS.md §3.2). See the batch report for this called out explicitly.
 
 use crate::background::Warmer;
 use anyhow::Context;
 use crossterm::event::{self, Event};
+use mandible_core::audit::{self, Entry};
 use mandible_extract::{default_tiers, resolve_tool, Runner};
 use mandible_tui::app::{App, RawHelp};
+use mandible_tui::app_review::{
+    handle_review_key, ReviewKeyOutcome, ReviewOverlay, ReviewSubmission,
+};
 use mandible_tui::{clipboard, event as tui_event, layout, render, terminal, Effect};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 /// Upper bound on events dropped after a blocking re-extract.
 const MAX_DISCARDED_EVENTS: usize = 1024;
 
+/// Why [`run_loop`] returned.
+enum LoopExit {
+    /// The user quit (`q`, `Ctrl-C`, or the search-box `q` special case) —
+    /// terminates the whole session, review or not.
+    Quit,
+    /// A review draft was confirmed with `Enter`. Only ever produced when
+    /// `app.review.is_some()`; [`run`]'s plain single-tool path never sees
+    /// this variant since it never attaches a review overlay.
+    ReviewSubmit(ReviewSubmission),
+}
+
 /// Run the interactive TUI for `app` until the user quits. Always restores
 /// the terminal on the way out, even if the loop returns an error.
 pub fn run(mut app: App) -> anyhow::Result<()> {
     let mut term = terminal::init().context("failed to initialize the terminal")?;
-    let result = run_loop(&mut term, &mut app);
+    let result = run_loop(&mut term, &mut app).map(|_| ());
     let restore_result = terminal::restore().context("failed to restore the terminal");
     result.and(restore_result)
 }
 
-fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
+/// `mandible --review <seed>`: walk `<dir>/<seed>.toml`'s pending entries in
+/// order, opening each tool in the normal TUI exactly as `mandible <tool>`
+/// would, and saving a verdict to the manifest after every one — so an
+/// interrupted session (killed process, closed terminal) resumes at the
+/// next still-pending entry rather than restarting (`xtask audit`'s own
+/// review loop, `xtask/src/audit.rs`'s `cmd_review`, already takes this
+/// discipline seriously; this matches it).
+///
+/// One terminal session spans the whole sample: `terminal::init`/`restore`
+/// run once here, not once per tool, so moving from one tool to the next
+/// never flashes back to a bare shell prompt.
+pub fn run_review(dir: &Path, seed: u64) -> anyhow::Result<()> {
+    let path = audit::verdict_path(dir, seed);
+    let manifest = audit::load(&path)?;
+    if manifest.pending().next().is_none() {
+        // Nothing to do: report it plainly and skip the raw-mode dance
+        // entirely, same as `xtask audit review`'s own "nothing pending"
+        // message — a `--review` run after everything's already judged
+        // shouldn't flash into the alternate screen for zero frames.
+        println!("nothing pending in {}", path.display());
+        return Ok(());
+    }
+
+    let mut term = terminal::init().context("failed to initialize the terminal")?;
+    let result = run_review_loop(&mut term, dir, seed);
+    let restore_result = terminal::restore().context("failed to restore the terminal");
+    result.and(restore_result)
+}
+
+fn run_review_loop(term: &mut terminal::Term, dir: &Path, seed: u64) -> anyhow::Result<()> {
+    let path = audit::verdict_path(dir, seed);
+    let mut manifest = audit::load(&path)?;
+
+    loop {
+        let Some(idx) = manifest.pending().next() else {
+            break;
+        };
+        let entry = manifest.entries[idx].clone();
+        let remaining = manifest.pending().count();
+        let total = manifest.entries.len();
+
+        let resolved = resolve_tool(&entry.tool);
+        if resolved.path.is_none() {
+            // The tool was on PATH when `xtask audit sample` drew it but
+            // isn't now (uninstalled, a stale sample, a different
+            // machine). Record that honestly and move on rather than
+            // blocking the whole session on one unreachable tool — a
+            // `skip` is exactly the recorded-not-omitted vocabulary
+            // `cmd_review` already uses for "nothing to judge".
+            record_skip(
+                &path,
+                &mut manifest,
+                idx,
+                "tool not found on PATH during --review",
+            )?;
+            continue;
+        }
+
+        let stub = mandible_core::CommandNode::new(
+            entry.tool.clone(),
+            mandible_core::Provenance::default(),
+        );
+        let mut app = App::new(entry.tool.clone(), stub);
+        app.review = Some(review_overlay_for(&entry, remaining, total));
+
+        match run_loop(term, &mut app)? {
+            LoopExit::Quit => break,
+            LoopExit::ReviewSubmit(submission) => {
+                apply_submission(&path, &mut manifest, idx, submission)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Build the display-only review context for `entry`, attached to the
+/// freshly-built [`App`] before its first frame.
+fn review_overlay_for(entry: &Entry, remaining: usize, total: usize) -> ReviewOverlay {
+    ReviewOverlay {
+        tool: entry.tool.clone(),
+        stratum: entry.stratum.clone(),
+        k1: entry.k1,
+        k2: entry.k2,
+        k3: entry.k3,
+        include_reason: entry.include_reason.clone(),
+        remaining,
+        total,
+        draft: None,
+    }
+}
+
+/// Apply a confirmed [`ReviewSubmission`] to `manifest.entries[idx]` and
+/// save immediately — called for every single verdict, never batched, so a
+/// killed process afterward leaves this one recorded and only the rest
+/// pending.
+fn apply_submission(
+    path: &Path,
+    manifest: &mut audit::AuditFile,
+    idx: usize,
+    submission: ReviewSubmission,
+) -> anyhow::Result<()> {
+    let mut note = submission.note;
+    let k1 = audit::extract_tag_override(&mut note, "k1");
+    let k2 = audit::extract_tag_override(&mut note, "k2");
+    let k3 = audit::extract_tag_override(&mut note, "k3");
+
+    let entry = &mut manifest.entries[idx];
+    entry.verdict = Some(submission.verdict.to_string());
+    entry.note = note;
+    if let Some(v) = k1 {
+        entry.k1 = Some(v);
+    }
+    if let Some(v) = k2 {
+        entry.k2 = Some(v);
+    }
+    if let Some(v) = k3 {
+        entry.k3 = Some(v);
+    }
+    audit::save(path, manifest)
+}
+
+/// Record an unconditional `skip` for `manifest.entries[idx]` (the tool
+/// couldn't even be opened) and save immediately, same discipline as
+/// [`apply_submission`].
+fn record_skip(
+    path: &Path,
+    manifest: &mut audit::AuditFile,
+    idx: usize,
+    reason: &str,
+) -> anyhow::Result<()> {
+    let entry = &mut manifest.entries[idx];
+    entry.verdict = Some("skip".to_string());
+    entry.note = reason.to_string();
+    audit::save(path, manifest)
+}
+
+fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit> {
     let runner = Arc::new(Runner::new(default_tiers()));
     let resolved = resolve_tool(&app.tool);
     let warmer = Warmer::new();
@@ -105,10 +270,29 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
 
         match event::read()? {
             Event::Key(key) => {
-                if let Some(effect) = tui_event::handle_key(app, key) {
-                    if !apply_effect(app, effect, &runner, &resolved, &warmer) {
-                        warmer.cancel();
-                        return Ok(());
+                // The review overlay gets first refusal on every keystroke
+                // while it's attached: a verdict letter or a note character
+                // must never also be interpreted as tree navigation or a
+                // search query. `handle_review_key` itself declines
+                // Ctrl-chords and (outside a draft) declines while the
+                // search box has focus, so `Ctrl-C` and ordinary typing
+                // still reach the ordinary handler below in those cases.
+                let mut claimed = false;
+                if app.review.is_some() {
+                    if let Some(outcome) = handle_review_key(app, key) {
+                        claimed = true;
+                        if let ReviewKeyOutcome::Submit(submission) = outcome {
+                            warmer.cancel();
+                            return Ok(LoopExit::ReviewSubmit(submission));
+                        }
+                    }
+                }
+                if !claimed {
+                    if let Some(effect) = tui_event::handle_key(app, key) {
+                        if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+                            warmer.cancel();
+                            return Ok(LoopExit::Quit);
+                        }
                     }
                 }
             }
@@ -119,7 +303,7 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
                 if let Some(effect) = tui_event::handle_mouse(app, mouse, &regions) {
                     if !apply_effect(app, effect, &runner, &resolved, &warmer) {
                         warmer.cancel();
-                        return Ok(());
+                        return Ok(LoopExit::Quit);
                     }
                 }
             }
@@ -142,7 +326,7 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<()> {
         if let Some(effect) = app.raw_fetch_needed() {
             if !apply_effect(app, effect, &runner, &resolved, &warmer) {
                 warmer.cancel();
-                return Ok(());
+                return Ok(LoopExit::Quit);
             }
         }
     }

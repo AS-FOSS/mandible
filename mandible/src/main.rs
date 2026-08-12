@@ -30,9 +30,19 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if let Some(seed) = cli.review {
+        if !mandible_tui::terminal::stdout_is_tty() {
+            anyhow::bail!(
+                "mandible --review requires an interactive terminal (stdout is not a tty)."
+            );
+        }
+        return app_runner::run_review(&cli.audit_dir, seed);
+    }
+
     let Some(tool) = cli.target_tool() else {
         anyhow::bail!(
-            "usage: mandible <tool>  (or: mandible --doctor <tool>, mandible --report <tool>)"
+            "usage: mandible <tool>  (or: mandible --doctor <tool>, mandible --report <tool>, \
+             mandible --review <seed>)"
         );
     };
     let tool = tool.to_string();
