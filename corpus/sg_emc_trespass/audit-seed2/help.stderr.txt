@@ -1,0 +1,11 @@
+Unrecognized switch: --help
+Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE
+  Change ownership of a LUN from another SP to this one.
+  EMC CLARiiON CX-/AX-family + FC5300/FC4500/FC4700.
+    -d : output debug
+    -hr: Set Honor Reservation bit
+    -s : Send Short Trespass Command page (default: long)
+         (for FC series)
+    -V: print version string then exit
+     DEVICE   sg or block device (latter in lk 2.6 or lk 3 series)
+        Example: sg_emc_trespass /dev/sda

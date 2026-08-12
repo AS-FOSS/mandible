@@ -1,0 +1,2 @@
+/usr/sbin/xfs_io: invalid option -- '-'
+Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file
