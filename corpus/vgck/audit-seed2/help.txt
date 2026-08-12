@@ -1,0 +1,33 @@
+  vgck - Check the consistency of volume group(s)
+
+  Read and display information about a VG.
+  vgck
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag ... ]
+
+  Rewrite VG metadata to correct problems.
+  vgck --updatemetadata VG
+	[ COMMON_OPTIONS ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.

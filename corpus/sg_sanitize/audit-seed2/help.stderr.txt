@@ -1,0 +1,39 @@
+Usage: sg_sanitize [--ause] [--block] [--count=OC] [--crypto] [--dry-run]
+                   [--early] [--fail] [--help] [--invert] [--ipl=LEN]
+                   [--overwrite] [--pattern=PF] [--quick] [--test=TE]
+                   [--timeout=SECS] [--verbose] [--version] [--wait]
+                   [--zero] [--znr] DEVICE
+  where:
+    --ause|-A            set AUSE bit in cdb
+    --block|-B           do BLOCK ERASE sanitize
+    --count=OC|-c OC     OC is overwrite count field (from 1 (def) to 31)
+    --crypto|-C          do CRYPTOGRAPHIC ERASE sanitize
+    --desc|-d            polling request sense sets 'desc' field
+                         (def: clear 'desc' field)
+    --dry-run|-D         to preparation but bypass SANITIZE commnd
+    --early|-e           exit once sanitize started (IMMED set in cdb)
+                         user can monitor progress with REQUEST SENSE
+    --fail|-F            do EXIT FAILURE MODE sanitize
+    --help|-h            print out usage message
+    --invert|-I          set INVERT bit in OVERWRITE parameter list
+    --ipl=LEN|-i LEN     initialization pattern length (in bytes)
+    --overwrite|-O       do OVERWRITE sanitize
+    --pattern=PF|-p PF    PF is file containing initialization pattern
+                          for OVERWRITE
+    --quick|-Q           start sanitize without pause for user
+                         intervention (i.e. no time to reconsider)
+    --test=TE|-T TE      TE is placed in TEST field of OVERWRITE
+                         parameter list (def: 0)
+    --timeout=SECS|-t SECS    SANITIZE command timeout in seconds
+    --verbose|-v         increase verbosity
+    --version|-V         print version string then exit
+    --wait|-w            wait for command to finish (could take hours)
+    --zero|-z            use pattern of zeros for OVERWRITE
+    --znr|-Z             set ZNR (zone no reset) bit in cdb
+
+Performs a SCSI SANITIZE command.
+    <<<WARNING>>>: all data on DEVICE will be lost.
+Default action is to give user time to reconsider; then execute SANITIZE
+command with IMMED bit set; then use REQUEST SENSE command every 60
+seconds to poll for a progress indication; then exit when there is no
+more progress indication.
