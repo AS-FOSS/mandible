@@ -101,14 +101,57 @@ pub struct Entry {
     /// ordinary stratified sample.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_reason: Option<String>,
+    /// A history of corrections applied to this entry's original verdict,
+    /// oldest first — **appended to, never used to overwrite [`Self::verdict`]
+    /// or [`Self::note`]**. Empty for the overwhelming majority of entries,
+    /// which is exactly why this is a `Vec` that serializes to nothing when
+    /// empty rather than a field every existing manifest would need
+    /// migrating to carry: an `audit/<seed>.toml` written before this field
+    /// existed deserializes with `amendments: vec![]`, identical in every
+    /// observable way to a freshly reviewed entry that has never been
+    /// amended. See [`Self::effective_verdict`]/[`Self::effective_note`] for
+    /// what a caller should actually read, and [`amend`] for how an entry
+    /// gets one of these appended.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub amendments: Vec<Amendment>,
 }
 
 impl Entry {
+    /// The verdict every aggregate computation (accuracy tallies, the
+    /// wrong/incomplete listing, fixture generation) should read: the
+    /// `new_verdict` of the most recent [`Amendment`] if this entry has any,
+    /// else the original [`Self::verdict`] untouched. A verdict amendment
+    /// changes what the project believes about a tool without destroying
+    /// the record of what a reviewer originally wrote — see [`amend`]'s doc
+    /// comment for the full rationale.
+    pub fn effective_verdict(&self) -> Option<&str> {
+        match self.amendments.last() {
+            Some(a) => Some(a.new_verdict.as_str()),
+            None => self.verdict.as_deref(),
+        }
+    }
+
+    /// The note that belongs to [`Self::effective_verdict`]: the most
+    /// recent amendment's `new_note` if this entry has been amended, else
+    /// the original [`Self::note`]. Never a concatenation of both — an
+    /// amendment's `new_note` is a complete, self-contained note for the
+    /// corrected verdict (enforced by [`amend`]), not a delta on top of the
+    /// original.
+    pub fn effective_note(&self) -> &str {
+        match self.amendments.last() {
+            Some(a) => a.new_note.as_str(),
+            None => self.note.as_str(),
+        }
+    }
+
     /// True when this entry's note is obligatory but missing or blank — a
     /// `wrong`/`incomplete` verdict with nothing recorded about *what* was
-    /// wrong. See [`verdict_requires_note`].
+    /// wrong. Reads the *effective* verdict/note, so an amendment that
+    /// corrects a bare-note defect heals this the same way a plain
+    /// re-review would. See [`verdict_requires_note`].
     pub fn missing_required_note(&self) -> bool {
-        self.verdict.as_deref().is_some_and(verdict_requires_note) && self.note.trim().is_empty()
+        self.effective_verdict().is_some_and(verdict_requires_note)
+            && self.effective_note().trim().is_empty()
     }
 
     /// True when a review session should still stop at this entry: no
@@ -116,6 +159,109 @@ impl Entry {
     pub fn needs_attention(&self) -> bool {
         self.verdict.is_none() || self.missing_required_note()
     }
+}
+
+/// One recorded correction to an [`Entry`]'s verdict — the audit's amendment
+/// mechanism (see the module's own doc comment for why this exists: a
+/// reviewer error, once identified, must be fixable without either silently
+/// rewriting history or leaving a known-false record standing).
+///
+/// **Appended, never mutated once written**, and the `Entry` this lives on
+/// never has [`Entry::verdict`]/[`Entry::note`] overwritten by [`amend`]
+/// either — an amendment is additive by construction, so `git blame` and a
+/// plain read of the TOML both show the original verdict sitting right there
+/// next to the record of what it became and why, rather than requiring
+/// reconstruction from a diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Amendment {
+    /// The verdict this amendment supersedes: the entry's original
+    /// [`Entry::verdict`] for a first amendment, or the previous
+    /// amendment's `new_verdict` for a second — recorded explicitly (not
+    /// left to be inferred by walking the list) so each amendment reads as
+    /// a complete, self-contained "was X, became Y, because Z" statement on
+    /// its own.
+    pub previous_verdict: String,
+    /// The corrected verdict, in effect from this amendment forward.
+    pub new_verdict: String,
+    /// The note attached to `new_verdict`, required under the same rule
+    /// [`verdict_requires_note`] applies to an ordinary verdict — an
+    /// amendment to `wrong`/`incomplete` with nothing recorded about what
+    /// is actually wrong is exactly as useless as a bare initial verdict
+    /// would be. Stored separately from [`Entry::note`] so the original
+    /// note (which may itself be empty, e.g. a `correct` being amended
+    /// away) survives untouched as history.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub new_note: String,
+    /// Why the original verdict was wrong and is being corrected. Always
+    /// required, regardless of what the new verdict is — an amendment with
+    /// no stated reason is exactly the kind of unauditable rewrite this
+    /// mechanism exists to prevent, the same precedent
+    /// [`Entry::include_reason`] already sets for force-inclusion.
+    pub reason: String,
+}
+
+/// Append an [`Amendment`] to `entry`, correcting its effective verdict
+/// without overwriting anything already on disk. Fails loudly, before
+/// touching `entry`, on every way an amendment could become an unauditable
+/// or incomplete record:
+///
+/// - `entry` has no verdict yet (nothing to amend — record an initial
+///   verdict first, this is not a shortcut around the ordinary review
+///   flow);
+/// - `reason` is blank (the whole point of this function over hand-editing
+///   the TOML directly);
+/// - `new_verdict` obliges a note ([`verdict_requires_note`]) and
+///   `new_note` is blank, the same obligation an ordinary verdict carries;
+/// - `new_verdict` is identical to the entry's current effective verdict
+///   (nothing is actually changing — that is an edit to the note, a
+///   different operation this function does not perform, not a verdict
+///   amendment).
+///
+/// `new_verdict` must already be a canonical word (run it through
+/// [`parse_verdict_word`] first, the same as every other entry point that
+/// accepts one) — this function does not parse `c`/`i`/`w`/`s` shorthand
+/// itself, so a caller's typo surfaces as a rejected value rather than a
+/// silently accepted wrong one.
+pub fn amend(
+    entry: &mut Entry,
+    new_verdict: &str,
+    new_note: String,
+    reason: String,
+) -> anyhow::Result<()> {
+    let Some(previous_verdict) = entry.effective_verdict().map(str::to_string) else {
+        anyhow::bail!(
+            "{:?} has no verdict yet — nothing to amend (record an initial verdict first, via \
+             `xtask audit review`/`ingest` or `mandible --review`)",
+            entry.tool
+        );
+    };
+    if reason.trim().is_empty() {
+        anyhow::bail!(
+            "amending {:?} needs a reason — an amendment with nothing recorded about why is \
+             exactly the unauditable change this mechanism exists to prevent",
+            entry.tool
+        );
+    }
+    if verdict_requires_note(new_verdict) && new_note.trim().is_empty() {
+        anyhow::bail!(
+            "amending {:?} to {new_verdict:?} needs a note — the same obligation an ordinary \
+             wrong/incomplete verdict carries, now aimed at the corrected value",
+            entry.tool
+        );
+    }
+    if previous_verdict == new_verdict {
+        anyhow::bail!(
+            "{:?} is already {new_verdict:?} (after any prior amendments) — nothing to amend",
+            entry.tool
+        );
+    }
+    entry.amendments.push(Amendment {
+        previous_verdict,
+        new_verdict: new_verdict.to_string(),
+        new_note,
+        reason,
+    });
+    Ok(())
 }
 
 /// The persisted state of one audit run: everything needed to resume, and
@@ -299,6 +445,7 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            amendments: Vec::new(),
         }
     }
 
@@ -373,6 +520,13 @@ mod tests {
                     k2: Some(false),
                     k3: Some(true),
                     include_reason: None,
+                    amendments: vec![Amendment {
+                        previous_verdict: "incomplete".to_string(),
+                        new_verdict: "wrong".to_string(),
+                        new_note: "actually a genuine parser defect, not just unfetched help"
+                            .to_string(),
+                        reason: "re-read after a related tool surfaced the same shape".to_string(),
+                    }],
                 },
                 Entry {
                     tool: "zoxide".to_string(),
@@ -383,6 +537,7 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: Some("unaudited promotion".to_string()),
+                    amendments: Vec::new(),
                 },
             ],
         };
@@ -392,8 +547,20 @@ mod tests {
         assert_eq!(loaded.meta.sample_size, 2);
         assert_eq!(loaded.entries.len(), 2);
         assert_eq!(loaded.entries[0].tool, "openssl");
+        // The original verdict/note are untouched by the amendment: the
+        // file still shows what the reviewer originally wrote.
         assert_eq!(loaded.entries[0].verdict.as_deref(), Some("incomplete"));
+        assert_eq!(loaded.entries[0].note, "subcommand help never fetched");
         assert_eq!(loaded.entries[0].k3, Some(true));
+        // ...while the amendment history carries the correction.
+        assert_eq!(loaded.entries[0].amendments.len(), 1);
+        assert_eq!(
+            loaded.entries[0].amendments[0].previous_verdict,
+            "incomplete"
+        );
+        assert_eq!(loaded.entries[0].amendments[0].new_verdict, "wrong");
+        assert_eq!(loaded.entries[0].effective_verdict(), Some("wrong"));
+        assert_eq!(loaded.entries[1].amendments.len(), 0);
         assert_eq!(
             loaded.entries[1].include_reason.as_deref(),
             Some("unaudited promotion")
@@ -455,5 +622,195 @@ mod tests {
         assert!(tag_display("K3", Some(true), "k3").contains("suggested TRUE"));
         assert!(tag_display("K3", Some(false), "k3").contains("suggested FALSE"));
         assert!(tag_display("K3", None, "k3").contains("not flagged"));
+    }
+
+    // ------------------------------------------------------------------
+    // Amendment mechanism
+    // ------------------------------------------------------------------
+
+    /// A manifest written before `amendments` existed — no `[[entry.
+    /// amendments]]` block anywhere, exactly what every `audit/<seed>.toml`
+    /// committed before this field was added looks like on disk — must
+    /// still load, with every entry's `amendments` simply empty. This is
+    /// the schema's whole backward-compatibility contract: an old file is
+    /// not a migration, it's already valid.
+    #[test]
+    fn a_manifest_with_no_amendments_field_still_loads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = verdict_path(tmp.path(), 99);
+        let raw = r#"
+[meta]
+seed = 99
+sample_size = 1
+
+[[entry]]
+tool = "tmux"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+"#;
+        std::fs::write(&path, raw).unwrap();
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.entries.len(), 1);
+        assert!(loaded.entries[0].amendments.is_empty());
+        assert_eq!(loaded.entries[0].effective_verdict(), Some("correct"));
+        assert_eq!(loaded.entries[0].effective_note(), "");
+    }
+
+    /// The ordinary case: a `correct` verdict amended to `wrong`, with a
+    /// required reason and a required note on the new value (since `wrong`
+    /// obliges one). `effective_verdict`/`effective_note` must report the
+    /// amendment; `verdict`/`note` must report the original, untouched.
+    #[test]
+    fn amend_appends_history_without_touching_the_original_fields() {
+        let mut e = entry("tmux", Some("correct"), "");
+        amend(
+            &mut e,
+            "wrong",
+            "bundled-short-flag collapse, same shape judged wrong elsewhere".to_string(),
+            "reviewer missed the same defect confirmed on other tools in this review".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(e.verdict.as_deref(), Some("correct"), "original preserved");
+        assert_eq!(e.note, "", "original note preserved");
+        assert_eq!(e.effective_verdict(), Some("wrong"));
+        assert_eq!(
+            e.effective_note(),
+            "bundled-short-flag collapse, same shape judged wrong elsewhere"
+        );
+        assert_eq!(e.amendments.len(), 1);
+        assert_eq!(e.amendments[0].previous_verdict, "correct");
+        assert_eq!(e.amendments[0].new_verdict, "wrong");
+        assert!(!e.amendments[0].reason.is_empty());
+    }
+
+    /// A blank or whitespace-only reason is refused — the required-reason
+    /// rule this function exists to enforce, mirroring
+    /// `verdict_requires_note`'s treatment of a blank note.
+    #[test]
+    fn amend_refuses_a_blank_reason() {
+        let mut e = entry("tmux", Some("correct"), "");
+        let err = amend(
+            &mut e,
+            "wrong",
+            "a real finding".to_string(),
+            "   ".to_string(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("reason"));
+        assert!(
+            e.amendments.is_empty(),
+            "a rejected amendment leaves no trace"
+        );
+    }
+
+    /// Amending *to* `wrong`/`incomplete` still needs a note on the new
+    /// value, exactly as an ordinary verdict would — the reason explains
+    /// why the verdict changed, the note explains what is wrong, and they
+    /// are not substitutes for each other.
+    #[test]
+    fn amend_refuses_a_wrong_verdict_with_no_new_note() {
+        let mut e = entry("tmux", Some("correct"), "");
+        let err = amend(&mut e, "wrong", "".to_string(), "a real reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("note"));
+        assert!(e.amendments.is_empty());
+    }
+
+    /// `correct` and `skip` carry no note obligation, so amending *to*
+    /// either needs no `new_note` — same asymmetry `verdict_requires_note`
+    /// already encodes for an ordinary verdict.
+    #[test]
+    fn amend_to_correct_needs_no_note() {
+        let mut e = entry("openssl", Some("wrong"), "flags missing");
+        amend(
+            &mut e,
+            "correct",
+            String::new(),
+            "re-read against a later capture; the flags were there after all".to_string(),
+        )
+        .unwrap();
+        assert_eq!(e.effective_verdict(), Some("correct"));
+        assert_eq!(e.effective_note(), "");
+    }
+
+    /// Amending an entry with no verdict yet is refused — this is not a
+    /// backdoor around the ordinary review flow.
+    #[test]
+    fn amend_refuses_an_entry_with_no_verdict_yet() {
+        let mut e = entry("tmux", None, "");
+        let err = amend(&mut e, "wrong", "note".to_string(), "reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("no verdict yet"));
+    }
+
+    /// Amending to the same verdict the entry already effectively has is
+    /// refused — nothing is actually changing, so recording an "amendment"
+    /// would just be noise.
+    #[test]
+    fn amend_refuses_a_no_op_amendment() {
+        let mut e = entry("tmux", Some("correct"), "");
+        let err = amend(&mut e, "correct", String::new(), "reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("already"));
+    }
+
+    /// A second amendment chains onto the first: its `previous_verdict` is
+    /// the first amendment's `new_verdict`, not the entry's original
+    /// verdict, so the history reads as a true sequence of corrections.
+    #[test]
+    fn a_second_amendment_chains_onto_the_first() {
+        let mut e = entry("tmux", Some("correct"), "");
+        amend(
+            &mut e,
+            "wrong",
+            "first finding".to_string(),
+            "first reason".to_string(),
+        )
+        .unwrap();
+        amend(
+            &mut e,
+            "incomplete",
+            "actually just incomplete, not fully wrong".to_string(),
+            "reconsidered after further review".to_string(),
+        )
+        .unwrap();
+        assert_eq!(e.amendments.len(), 2);
+        assert_eq!(e.amendments[0].previous_verdict, "correct");
+        assert_eq!(e.amendments[0].new_verdict, "wrong");
+        assert_eq!(e.amendments[1].previous_verdict, "wrong");
+        assert_eq!(e.amendments[1].new_verdict, "incomplete");
+        assert_eq!(e.effective_verdict(), Some("incomplete"));
+    }
+
+    /// An amendment round-trips through `save`/`load` byte-for-byte in
+    /// meaning: every field of the [`Amendment`] survives, and
+    /// `effective_verdict`/`effective_note` on the reloaded entry agree
+    /// with the in-memory value before it was written.
+    #[test]
+    fn an_amendment_round_trips_through_save_and_load() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = verdict_path(tmp.path(), 2);
+        let mut e = entry("tmux", Some("correct"), "");
+        amend(
+            &mut e,
+            "wrong",
+            "bundled-short-flag collapse".to_string(),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+        let file = AuditFile {
+            meta: AuditMeta {
+                seed: 2,
+                sample_size: 1,
+            },
+            entries: vec![e],
+        };
+        save(&path, &file).unwrap();
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.entries[0].verdict.as_deref(), Some("correct"));
+        assert_eq!(loaded.entries[0].effective_verdict(), Some("wrong"));
+        assert_eq!(
+            loaded.entries[0].amendments[0].reason,
+            "reviewer inconsistency caught in reconciliation"
+        );
     }
 }

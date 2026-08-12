@@ -289,6 +289,39 @@ enum AuditAction {
         #[arg(long)]
         force: bool,
     },
+    /// Correct one already-recorded verdict without destroying it: the
+    /// original verdict and note stay exactly as reviewed, and a new
+    /// `[[amendments]]` entry records what it became and why. Aggregate
+    /// computation (`report`, `fixtures`) uses the amended value; a plain
+    /// read of the TOML still shows the original. Requires a reason
+    /// (distinct from `--note`, which is the note attached to the new
+    /// verdict, obligatory only when the new verdict is `wrong`/
+    /// `incomplete` — same rule an ordinary verdict follows). See
+    /// `mandible_core::audit::amend`'s doc comment for the full mechanism.
+    Amend {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// The tool whose verdict is being corrected.
+        #[arg(long)]
+        tool: String,
+        /// The corrected verdict (`c`/`correct`, `i`/`incomplete`,
+        /// `w`/`wrong`, `s`/`skip`).
+        #[arg(long)]
+        verdict: String,
+        /// The note attached to the corrected verdict. Required when
+        /// `--verdict` is `wrong`/`incomplete`, same obligation an ordinary
+        /// verdict carries.
+        #[arg(long)]
+        note: Option<String>,
+        /// Why the original verdict was wrong and is being corrected.
+        /// Always required — an amendment with nothing recorded about why
+        /// is exactly the unauditable change this command exists to
+        /// prevent.
+        #[arg(long)]
+        reason: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -369,6 +402,14 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 corpus_dir.unwrap_or_else(|| dir.join(seed.to_string()).join("fixtures"));
             audit::cmd_fixtures(&dir, seed, &corpus_dir, only, force)
         }
+        AuditAction::Amend {
+            seed,
+            dir,
+            tool,
+            verdict,
+            note,
+            reason,
+        } => audit::cmd_amend(&dir, seed, &tool, &verdict, note, reason),
     }
 }
 

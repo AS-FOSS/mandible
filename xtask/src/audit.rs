@@ -399,6 +399,7 @@ fn entry_from_classified(
         k2,
         k3,
         include_reason,
+        amendments: Vec::new(),
     }
 }
 
@@ -927,6 +928,61 @@ pub fn cmd_ingest(
     Ok(())
 }
 
+/// `xtask audit amend`: correct one already-recorded verdict without
+/// destroying it — see `mandible_core::audit::amend`'s doc comment for the
+/// full mechanism this wraps. This is the **only** entry point that touches
+/// [`mandible_core::audit::Entry::amendments`]; there is deliberately no
+/// TUI counterpart (unlike `review`, which has both a terminal loop here
+/// and an in-app twin in `mandible --review`).
+///
+/// **Why a subcommand and not a TUI flow:** `mandible --review`'s own loop
+/// (`mandible/src/app_runner.rs::run_review`) walks
+/// [`mandible_core::audit::AuditFile::needing_attention`] — pending entries
+/// and verdicts with a missing obligatory note — and stops there by
+/// construction; it never revisits an entry that already carries a
+/// complete `correct` verdict, which is exactly the shape an amendment
+/// needs to reach (`tmux` was `correct`, with a note that satisfied every
+/// obligation already in place). Adding "browse every already-judged entry
+/// and pick one to correct" to that loop is a real, separate feature — a
+/// new navigation mode orthogonal to the linear pending-entry walk the
+/// rest of that module is built around — not a natural extension of it.
+/// This command needs no tty (AGENTS.md §3.2, same reasoning `emit`/
+/// `ingest` already documented for this module) and is fully covered by
+/// `cargo nextest run`, whereas a TUI flow would join `run_review` on the
+/// "not exercised by the automated test suite" list. Nothing here stops a
+/// future in-app amend key from being added on top of the same
+/// `mandible_core::audit::amend` function this calls — see that function's
+/// own doc comment, which already treats `mandible --review` as sharing the
+/// schema `xtask` owns — but it is not required to satisfy this task's "not
+/// by hand-editing TOML" bar, since this command already clears it.
+pub fn cmd_amend(
+    dir: &Path,
+    seed: u64,
+    tool: &str,
+    new_verdict_word: &str,
+    new_note: Option<String>,
+    reason: String,
+) -> anyhow::Result<()> {
+    let path = verdict_path(dir, seed);
+    let mut file = load(&path)?;
+    let new_verdict = mandible_core::audit::parse_verdict_word(new_verdict_word)?;
+    let entry = file
+        .entries
+        .iter_mut()
+        .find(|e| e.tool == tool)
+        .ok_or_else(|| anyhow::anyhow!("{tool:?} not found in {}", path.display()))?;
+    let previous_effective = entry.effective_verdict().map(str::to_string);
+    mandible_core::audit::amend(entry, new_verdict, new_note.unwrap_or_default(), reason)?;
+    let amendment_count = entry.amendments.len();
+    save(&path, &file)?;
+    println!(
+        "amended {tool}: {} -> {new_verdict} ({amendment_count} amendment(s) now recorded for \
+         this entry)",
+        previous_effective.as_deref().unwrap_or("(none)"),
+    );
+    Ok(())
+}
+
 /// Wilson score interval for a binomial proportion at (approximately) 95%
 /// confidence (`z = 1.96`). Chosen over the naive
 /// `p ± z*sqrt(p(1-p)/n)` normal approximation because that one produces
@@ -976,11 +1032,17 @@ fn effective_stratum(entry: &Entry) -> &str {
 /// entries `keep` selects — the shared machinery behind every accuracy
 /// number [`cmd_report`] prints, all-inclusive or K1/K2-filtered alike, so
 /// every view is computed the same way.
+///
+/// Reads [`Entry::effective_verdict`], never the raw [`Entry::verdict`]
+/// field directly — an amended entry's corrected verdict is what the
+/// project actually believes about that tool, and every aggregate number
+/// this instrument reports must reflect that correction, not the
+/// superseded original sitting in the file for history's sake.
 fn accuracy_over<'a>(entries: impl Iterator<Item = &'a Entry>) -> (usize, usize) {
     let mut correct = 0usize;
     let mut judged = 0usize;
     for entry in entries {
-        match entry.verdict.as_deref() {
+        match entry.effective_verdict() {
             Some("correct") => {
                 correct += 1;
                 judged += 1;
@@ -1006,6 +1068,90 @@ fn print_accuracy_line(label: &str, correct: usize, judged: usize) {
         lo * 100.0,
         hi * 100.0,
     );
+}
+
+/// How favorable a verdict word is to the parser, for [`print_wilson_caveat`]'s
+/// amendment-direction tally: `correct` is the best outcome, `wrong` the
+/// worst, `incomplete` between the two. `skip` has no comparable
+/// favorability (there is nothing to judge), so it is deliberately absent —
+/// an amendment into or out of `skip` is not counted as a directional move
+/// either way.
+fn verdict_favorability(verdict: &str) -> Option<i32> {
+    match verdict {
+        "correct" => Some(2),
+        "incomplete" => Some(1),
+        "wrong" => Some(0),
+        _ => None,
+    }
+}
+
+/// Print the standing caveat every accuracy figure this report produces
+/// needs: a Wilson interval bounds *sampling* error — how much this
+/// particular sample's accuracy could plausibly differ from a fresh draw of
+/// the same size — and says nothing about *reviewer* error, since every
+/// verdict in the file came from one person's read with no independent
+/// cross-check. The one thing this module can say honestly about reviewer
+/// error is derived from the amendment record itself, never asserted as a
+/// standing fact: it tallies, from every [`Entry::amendments`] entry in
+/// `file`, how many corrections moved a verdict toward a more favorable
+/// outcome (`wrong`/`incomplete` -> `correct`, an original that was too
+/// harsh) versus a less favorable one (`correct`/`incomplete` -> `wrong`,
+/// an original that was too generous, via [`verdict_favorability`]) and
+/// reports the actual balance rather than a hardcoded claim about which
+/// direction reviewer error tends to run — that balance is exactly the
+/// kind of thing that changes as more amendments are recorded, and a
+/// caveat that stopped being true the day after it was written would be
+/// worse than no caveat at all.
+fn print_wilson_caveat(file: &AuditFile) {
+    let mut amended_count = 0usize;
+    let mut toward_more_favorable = 0usize;
+    let mut toward_less_favorable = 0usize;
+    for entry in &file.entries {
+        if !entry.amendments.is_empty() {
+            amended_count += 1;
+        }
+        for amendment in &entry.amendments {
+            if let (Some(before), Some(after)) = (
+                verdict_favorability(&amendment.previous_verdict),
+                verdict_favorability(&amendment.new_verdict),
+            ) {
+                match after.cmp(&before) {
+                    std::cmp::Ordering::Greater => toward_more_favorable += 1,
+                    std::cmp::Ordering::Less => toward_less_favorable += 1,
+                    std::cmp::Ordering::Equal => {}
+                }
+            }
+        }
+    }
+    println!(
+        "\nnote: the 95% CI above bounds sampling error only — how much this sample's accuracy \
+         could plausibly vary on a fresh draw of the same size — never reviewer error. Read the \
+         accuracy figure as \"accuracy of the parser as judged by this reviewer,\" not an \
+         absolute truth."
+    );
+    if amended_count == 0 {
+        println!(
+            "note: no verdict in this file has been amended yet (`xtask audit amend`) — this \
+             says nothing about whether the recorded verdicts are all correct, only that none \
+             has been corrected so far."
+        );
+    } else {
+        println!(
+            "note: {amended_count} verdict(s) carry a recorded amendment; of the corrections \
+             with a comparable direction, {toward_less_favorable} made the verdict less \
+             favorable to the parser (an originally too-generous read) and \
+             {toward_more_favorable} made it more favorable (an originally too-harsh read).{}",
+            if toward_less_favorable > toward_more_favorable {
+                " More corrections have gone the generous-to-harsh direction than the reverse \
+                 so far, so this accuracy figure likely still reads a little high."
+            } else if toward_more_favorable > toward_less_favorable {
+                " More corrections have gone the harsh-to-generous direction than the reverse \
+                 so far, so this accuracy figure likely still reads a little low."
+            } else {
+                " The corrections so far do not lean toward either direction."
+            }
+        );
+    }
 }
 
 /// `xtask audit report`: per-stratum and overall accuracy, each stated as a
@@ -1035,7 +1181,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
                 skipped: 0,
                 pending: 0,
             });
-        match entry.verdict.as_deref() {
+        match entry.effective_verdict() {
             None => tally.pending += 1,
             Some("skip") => tally.skipped += 1,
             Some("correct") => {
@@ -1103,6 +1249,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
              keep reviewing for a number worth acting on (spec's own target is ~60-100)."
         );
     }
+    print_wilson_caveat(&file);
 
     let k1_tagged = file.entries.iter().filter(|e| e.k1 == Some(true)).count();
     let k2_tagged = file.entries.iter().filter(|e| e.k2 == Some(true)).count();
@@ -1134,17 +1281,22 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let mut flagged: Vec<&Entry> = file
         .entries
         .iter()
-        .filter(|e| matches!(e.verdict.as_deref(), Some("wrong") | Some("incomplete")))
+        .filter(|e| matches!(e.effective_verdict(), Some("wrong") | Some("incomplete")))
         .collect();
     flagged.sort_by(|a, b| a.tool.cmp(&b.tool));
     if !flagged.is_empty() {
         println!("\ntools judged wrong or incomplete (the next bugs):");
         for entry in flagged {
+            let amended_tag = if entry.amendments.is_empty() {
+                ""
+            } else {
+                " [amended]"
+            };
             println!(
-                "  {:<24} {:<11} {}",
+                "  {:<24} {:<11} {}{amended_tag}",
                 entry.tool,
-                entry.verdict.as_deref().unwrap_or(""),
-                entry.note,
+                entry.effective_verdict().unwrap_or(""),
+                entry.effective_note(),
             );
         }
     }
@@ -1197,9 +1349,17 @@ pub fn cmd_fixtures(
     let mut skipped_exists = 0usize;
 
     for entry in &file.entries {
-        let Some(verdict) = entry.verdict.as_deref() else {
+        // Reads the effective (post-amendment) verdict and note: a fixture
+        // generated from an entry that was amended after review must
+        // reflect the corrected truth, not the superseded original — the
+        // whole point of an amendment is that the project's belief about
+        // the tool changed, and a fixture is exactly the kind of durable
+        // artifact that would otherwise silently encode the old, wrong
+        // belief forever.
+        let Some(verdict) = entry.effective_verdict() else {
             continue;
         };
+        let note = entry.effective_note();
         if verdict == "skip" {
             skipped_verdict += 1;
             continue;
@@ -1307,13 +1467,13 @@ pub fn cmd_fixtures(
                 );
                 meta.push_str("[xfail]\n");
                 meta.push_str("broken = true\n");
-                let reason = if entry.note.is_empty() {
+                let reason = if note.is_empty() {
                     format!(
                         "reviewer marked this {verdict} under xtask audit (seed {seed}); \
                          no note was recorded"
                     )
                 } else {
-                    entry.note.clone()
+                    note.to_string()
                 };
                 meta.push_str(&format!("reason = {reason:?}\n"));
             }
@@ -1537,6 +1697,7 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: None,
+                    amendments: Vec::new(),
                 })
                 .collect(),
         };
@@ -2037,6 +2198,7 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            amendments: Vec::new(),
         };
         assert_eq!(effective_stratum(&e), "ok");
         e.include_reason = Some("unaudited promotion".to_string());
@@ -2053,6 +2215,7 @@ mod tests {
             k2,
             k3: None,
             include_reason: None,
+            amendments: Vec::new(),
         }
     }
 
@@ -2128,5 +2291,158 @@ mod tests {
         save(&path, &f).unwrap();
 
         cmd_report(tmp.path(), 42).unwrap();
+    }
+
+    // -------------------------------------------------------------
+    // Amendment: `cmd_amend` and aggregate computation reading it
+    // -------------------------------------------------------------
+
+    /// `cmd_amend` end to end: the original verdict/note on disk are
+    /// untouched, the amendment is appended, and `accuracy_over` — the
+    /// shared machinery every accuracy number in `cmd_report` goes through
+    /// — counts the *amended* value, not the original. This is the
+    /// concrete regression test for "aggregate computation uses the
+    /// amended verdict, while the file still shows the original".
+    #[test]
+    fn cmd_amend_updates_aggregate_accuracy_while_preserving_the_original_on_disk() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 900, &[("tmux", "ok"), ("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            f.entries[0].k1 = Some(true);
+            f.entries[1].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+
+        // Before amending: both entries count as correct.
+        let before = load(&path).unwrap();
+        assert_eq!(accuracy_over(before.entries.iter()), (2, 2));
+
+        cmd_amend(
+            tmp.path(),
+            900,
+            "tmux",
+            "wrong",
+            Some("bundled-short-flag collapse, same shape judged wrong elsewhere".to_string()),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+
+        let after = load(&path).unwrap();
+        let tmux = after.entries.iter().find(|e| e.tool == "tmux").unwrap();
+        // The file still shows the original verdict and (empty) note.
+        assert_eq!(tmux.verdict.as_deref(), Some("correct"));
+        assert_eq!(tmux.note, "");
+        // ...plus a complete amendment record.
+        assert_eq!(tmux.amendments.len(), 1);
+        assert_eq!(tmux.amendments[0].previous_verdict, "correct");
+        assert_eq!(tmux.amendments[0].new_verdict, "wrong");
+        assert_eq!(
+            tmux.amendments[0].reason,
+            "reviewer inconsistency caught in reconciliation"
+        );
+        // Aggregate accuracy now reflects the amendment: one correct, one
+        // wrong, out of two judged — not two correct.
+        assert_eq!(accuracy_over(after.entries.iter()), (1, 2));
+    }
+
+    #[test]
+    fn cmd_amend_rejects_an_unknown_tool() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_sample_file(tmp.path(), 901, &[("sh", "ok")]);
+        let err = cmd_amend(
+            tmp.path(),
+            901,
+            "does-not-exist",
+            "wrong",
+            Some("note".to_string()),
+            "reason".to_string(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("does-not-exist"));
+    }
+
+    #[test]
+    fn cmd_amend_rejects_a_blank_reason_and_leaves_the_file_untouched() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 902, &[("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+        let err = cmd_amend(
+            tmp.path(),
+            902,
+            "sh",
+            "wrong",
+            Some("note".to_string()),
+            "   ".to_string(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("reason"));
+        let after = load(&path).unwrap();
+        assert!(after.entries[0].amendments.is_empty());
+        assert_eq!(after.entries[0].verdict.as_deref(), Some("correct"));
+    }
+
+    #[test]
+    fn cmd_amend_rejects_a_wrong_verdict_missing_its_note() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 903, &[("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+        let err =
+            cmd_amend(tmp.path(), 903, "sh", "wrong", None, "reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("note"));
+    }
+
+    /// A manifest with no amended entries at all still reports cleanly —
+    /// `print_wilson_caveat`'s zero-amendment branch, exercised through the
+    /// same `cmd_report` entry point real usage goes through.
+    #[test]
+    fn cmd_report_runs_cleanly_with_zero_amendments() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 904, &[("sh", "ok")]);
+        let mut f = load(&path).unwrap();
+        f.entries[0].verdict = Some("correct".to_string());
+        save(&path, &f).unwrap();
+        cmd_report(tmp.path(), 904).unwrap();
+    }
+
+    /// `cmd_report` (and therefore its printed accuracy figures) run
+    /// cleanly over a manifest containing an amendment, exercising
+    /// `print_wilson_caveat`'s non-zero branch end to end.
+    #[test]
+    fn cmd_report_runs_cleanly_with_an_amended_entry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 905, &[("tmux", "ok"), ("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            f.entries[1].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+        cmd_amend(
+            tmp.path(),
+            905,
+            "tmux",
+            "wrong",
+            Some("bundled-short-flag collapse".to_string()),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+        cmd_report(tmp.path(), 905).unwrap();
+    }
+
+    #[test]
+    fn verdict_favorability_orders_correct_above_incomplete_above_wrong() {
+        assert!(verdict_favorability("correct") > verdict_favorability("incomplete"));
+        assert!(verdict_favorability("incomplete") > verdict_favorability("wrong"));
+        assert_eq!(verdict_favorability("skip"), None);
     }
 }
