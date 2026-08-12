@@ -24,9 +24,20 @@ HANDOVER.md
 # is the CI PATH sweep, where the inventory is at least reproducible.
 coverage-scoreboard.txt
 
-# Audit review records and staged fixtures (`xtask audit`). Untracked by
-# maintainer decision 2026-08-12 — pending a call on whether the review
-# record belongs in the repo. It is a parallel fixture tree the corpus
-# runner does not execute, so tracking it risks a junk drawer; not tracking
-# it risks losing the review. Decide before the first real 80-tool run.
-audit/
+# `xtask audit` (spec.md Appendix A's provenance discipline: a measurement
+# whose evidence lives untracked on one contributor's laptop is a claim
+# without evidence, exactly what Appendix A exists to rule out). Tracked:
+# the sample manifest + per-tool verdicts (`audit/<seed>.toml` — one file
+# serves both roles, since a verdict is recorded directly onto its sample
+# entry) and the rendered report (`audit/<seed>-report.txt`, `xtask audit
+# report`'s output). This is *data*, not a third committed prose doc
+# competing with spec.md/AGENTS.md — no conclusion is ever stated here, only
+# the sample and the verdicts a conclusion would cite. The conclusion itself
+# goes to spec.md Appendix A as [M-20], once the audit has actually run.
+#
+# NOT tracked, and explicitly ignored below: `audit/<seed>/fixtures/`,
+# `xtask audit fixtures`' staging output. `corpus/README.md`'s own workflow
+# is to review a staged fixture by hand and manually promote what's ready
+# into `corpus/`; the staging tree is scratch by design, the same reasoning
+# `coverage-scoreboard.txt` above gets for being a snapshot, not a baseline.
+audit/*/fixtures/

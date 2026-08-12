@@ -1,0 +1,33 @@
+[meta]
+seed = 20260811
+sample_size = 5
+
+[[entry]]
+tool = "du"
+stratum = "ok"
+verdict = "correct"
+note = "short flag table with cross-references (-H/-D) parses cleanly, matches corpus/du/9.4's established-good parse"
+
+[[entry]]
+tool = "git"
+stratum = "ok"
+verdict = "correct"
+note = "root usage/options and restore's -h fallback all match corpus/git/2.43.0's own established-good parse"
+
+[[entry]]
+tool = "lsof"
+stratum = "ok"
+verdict = "wrong"
+note = 'three-column options table read as one column: -? is described as "-a AND selections (OR) -b avoid kernel blocks", swallowing -a/-b entirely -- the exact corpus/lsof/4.95.0 xfail defect'
+
+[[entry]]
+tool = "tar"
+stratum = "ok"
+verdict = "correct"
+note = "171-flag options table, grouped by heading, matches corpus/tar/1.35's established-good parse"
+
+[[entry]]
+tool = "zoxide"
+stratum = "ok"
+verdict = "incomplete"
+note = """structure (6 subcommands, 2 root flags) is fully correct and matches the real --help, but the description field runs the version banner, author email and repo URL straight into the one real description sentence ("zoxide 0.9.9 Ajeet D'Souza <...> https://... A smarter cd command for your terminal") instead of isolating "A smarter cd command for your terminal" -- misleading in the TUI detail pane even though nothing is fabricated"""
