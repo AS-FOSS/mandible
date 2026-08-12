@@ -522,19 +522,27 @@ k1 = true
 [[entry]]
 tool = "update-xmlcatalog"
 stratum = "ok"
+verdict = "wrong"
+note = "mostly looks fine, but not sure how to make sanitization on this one. Because this tool uses '=' to start the description of flag, which propogates to the tool"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "vgck"
 stratum = "verbatim"
+verdict = "incomplete"
+note = "verbatim"
 
 [[entry]]
 tool = "vgextend"
 stratum = "verbatim"
+verdict = "incomplete"
+note = "verbatim"
 
 [[entry]]
 tool = "vgrename"
 stratum = "verbatim"
+verdict = "incomplete"
+note = "verbatim"
 
 [[entry]]
 tool = "vim.basic"
