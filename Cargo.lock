@@ -928,13 +928,16 @@ dependencies = [
 name = "mandible-core"
 version = "0.2.2"
 dependencies = [
+ "anyhow",
  "insta",
  "proptest",
  "serde",
  "serde_json",
  "serde_yaml",
  "smallvec",
+ "tempfile",
  "thiserror 1.0.69",
+ "toml",
 ]
 
 [[package]]
