@@ -1,11 +1,10 @@
 [meta]
-seed = 1
+seed = 2
 sample_size = 80
 
 [[entry]]
-tool = "FileCheck-18"
-stratum = "ok"
-k1 = true
+tool = "VGAuthService"
+stratum = "verbatim"
 
 [[entry]]
 tool = "aarch64-linux-gnu-ar"
@@ -13,28 +12,28 @@ stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "aarch64-linux-gnu-cpp-13"
-stratum = "ok"
-k1 = true
-
-[[entry]]
 tool = "aarch64-linux-gnu-gcc-ar"
 stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "apport-collect"
+tool = "aarch64-linux-gnu-gcc-nm-13"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "apt-add-repository"
+tool = "apport-cli"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "apt-cdrom"
+tool = "apt-extracttemplates"
 stratum = "ok"
+
+[[entry]]
+tool = "apt-ftparchive"
+stratum = "ok"
+k1 = true
 
 [[entry]]
 tool = "ar"
@@ -42,20 +41,19 @@ stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "bashreadline-bpfcc"
-stratum = "ok"
-k1 = true
+tool = "automat-visualize3"
+stratum = "verbatim"
 
 [[entry]]
-tool = "bcache-super-show"
-stratum = "ok"
-
-[[entry]]
-tool = "byobu-launcher-uninstall"
+tool = "bashbug"
 stratum = "ok"
 
 [[entry]]
-tool = "bzcmp"
+tool = "btrfs"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-janitor"
 stratum = "ok"
 
 [[entry]]
@@ -69,13 +67,16 @@ stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "c_rehash"
-stratum = "verbatim"
+tool = "cache_restore"
+stratum = "ok"
 
 [[entry]]
-tool = "chat"
+tool = "cargo-fmt"
 stratum = "ok"
-k1 = true
+
+[[entry]]
+tool = "chgrp"
+stratum = "ok"
 
 [[entry]]
 tool = "compactsnoop-bpfcc"
@@ -83,37 +84,52 @@ stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "deb-systemd-invoke"
+tool = "dbus-uuidgen"
+stratum = "ok"
+
+[[entry]]
+tool = "dcsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-statoverride"
+stratum = "ok"
+
+[[entry]]
+tool = "editres"
 stratum = "verbatim"
 
 [[entry]]
-tool = "debconf-show"
-stratum = "ok"
-
-[[entry]]
-tool = "delv"
-stratum = "ok"
-
-[[entry]]
-tool = "dmidecode"
-stratum = "ok"
-
-[[entry]]
-tool = "e2mmpstatus"
+tool = "eqn"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "e2scrub"
-stratum = "verbatim"
-
-[[entry]]
-tool = "elfedit"
+tool = "expand"
 stratum = "ok"
 
 [[entry]]
-tool = "fakeroot-sysv"
+tool = "fc-validate"
 stratum = "ok"
+
+[[entry]]
+tool = "filefrag"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "filegone-bpfcc"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "fsck"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "gcc"
+stratum = "incomplete"
 k1 = true
 
 [[entry]]
@@ -127,40 +143,20 @@ stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "gencat"
-stratum = "ok"
-
-[[entry]]
-tool = "gencmn"
-stratum = "ok"
-
-[[entry]]
-tool = "getconf"
+tool = "gethostlatency-bpfcc"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "gh"
+tool = "gpgsplit"
 stratum = "ok"
 
 [[entry]]
-tool = "glib-compile-resources"
+tool = "grub-set-default"
 stratum = "ok"
 
 [[entry]]
-tool = "gpg-connect-agent"
-stratum = "ok"
-
-[[entry]]
-tool = "gtester-report"
-stratum = "ok"
-
-[[entry]]
-tool = "guards"
-stratum = "verbatim"
-
-[[entry]]
-tool = "gzexe"
+tool = "helpztags"
 stratum = "ok"
 
 [[entry]]
@@ -170,92 +166,94 @@ k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "iptables-restore"
+tool = "ip6tables-apply"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "kbdinfo"
-stratum = "ok"
-
-[[entry]]
-tool = "linux-update-symlinks"
-stratum = "ok"
-
-[[entry]]
-tool = "llvm-bitcode-strip-18"
+tool = "iptables-apply"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "lshw"
+tool = "javaflow-bpfcc"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "lspower"
+tool = "jconsole"
+stratum = "ok"
+
+[[entry]]
+tool = "jdeprscan"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "killsnoop.bt"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "lessecho"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "llvm-jitlink-executor-18"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-modextract-18"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "lzgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "lzless"
+stratum = "ok"
+
+[[entry]]
+tool = "man-recode"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "mariadb-repair"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadbcheck"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqld_multi"
+stratum = "ok"
+
+[[entry]]
+tool = "naptime.bt"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "nfsidmap"
 stratum = "verbatim"
 
 [[entry]]
-tool = "lvextend"
-stratum = "verbatim"
+tool = "nstat"
+stratum = "ok"
 
 [[entry]]
-tool = "lvmsadc"
-stratum = "verbatim"
-
-[[entry]]
-tool = "mandoc"
+tool = "ntfsfallocate"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "mdflush-bpfcc"
-stratum = "verbatim"
-
-[[entry]]
-tool = "mdflush.bt"
+tool = "opensnoop.bt"
 stratum = "ok"
 k1 = true
-
-[[entry]]
-tool = "mount.fuse3"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "mtr"
-stratum = "ok"
-
-[[entry]]
-tool = "mysqladmin"
-stratum = "ok"
-
-[[entry]]
-tool = "nft"
-stratum = "ok"
-
-[[entry]]
-tool = "nm-online"
-stratum = "ok"
-
-[[entry]]
-tool = "nodegc-bpfcc"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "numactl"
-stratum = "ok"
-
-[[entry]]
-tool = "obj2yaml-18"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "opencode"
-stratum = "ok"
 
 [[entry]]
 tool = "pastebinit"
@@ -264,18 +262,17 @@ k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "patch"
+tool = "pcre2-config"
+stratum = "ok"
+
+[[entry]]
+tool = "ping4"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "pkaction"
+tool = "pkg-config"
 stratum = "ok"
-
-[[entry]]
-tool = "pppoe-discovery"
-stratum = "ok"
-k1 = true
 
 [[entry]]
 tool = "pptpsetup"
@@ -283,7 +280,7 @@ stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "pro"
+tool = "psfaddtable"
 stratum = "ok"
 
 [[entry]]
@@ -293,36 +290,14 @@ k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "pvs"
-stratum = "verbatim"
-
-[[entry]]
-tool = "python3"
+tool = "qemu-arm64-static"
 stratum = "ok"
 k1 = true
 
 [[entry]]
-tool = "qemu-aarch64_be-static"
+tool = "renice"
 stratum = "ok"
 k1 = true
-
-[[entry]]
-tool = "qemu-amd64-static"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "qemu-armeb-static"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "remove-shell"
-stratum = "verbatim"
-
-[[entry]]
-tool = "rm"
-stratum = "ok"
 
 [[entry]]
 tool = "rmiregistry"
@@ -331,37 +306,54 @@ k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "rst2latex"
-stratum = "ok"
+tool = "rubycalls-bpfcc"
+stratum = "verbatim"
 
 [[entry]]
-tool = "rst2xetex"
-stratum = "ok"
-
-[[entry]]
-tool = "rustup"
-stratum = "ok"
-
-[[entry]]
-tool = "scsi_readcap"
-stratum = "ok"
-
-[[entry]]
-tool = "sg_write_same"
-stratum = "ok"
-
-[[entry]]
-tool = "shutdown"
-stratum = "ok"
-
-[[entry]]
-tool = "speedtest"
-stratum = "ok"
-
-[[entry]]
-tool = "sqlite3"
+tool = "rubyobjnew-bpfcc"
 stratum = "ok"
 k1 = true
+
+[[entry]]
+tool = "run-one-until-failure"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rust-lldb"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sbverify"
+stratum = "ok"
+
+[[entry]]
+tool = "scsi_ready"
+stratum = "ok"
+
+[[entry]]
+tool = "setsid"
+stratum = "ok"
+
+[[entry]]
+tool = "sg"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_dd"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_emc_trespass"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "sg_sanitize"
+stratum = "ok"
+
+[[entry]]
+tool = "sha1sum"
+stratum = "ok"
 
 [[entry]]
 tool = "ssh-keygen"
@@ -370,27 +362,30 @@ k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "stty"
+tool = "strace-log-merge"
 stratum = "ok"
 
 [[entry]]
-tool = "sulogin"
+tool = "tclsh"
 stratum = "ok"
 
 [[entry]]
-tool = "tcpdrop-bpfcc"
+tool = "tcpaccept.bt"
 stratum = "ok"
+k1 = true
 
 [[entry]]
-tool = "time"
+tool = "tcpdump"
 stratum = "ok"
+k1 = true
 
 [[entry]]
-tool = "ubuntu-bug"
+tool = "threadsnoop.bt"
 stratum = "ok"
+k1 = true
 
 [[entry]]
-tool = "uclampset"
+tool = "tmux"
 stratum = "ok"
 k1 = true
 
@@ -400,28 +395,35 @@ stratum = "ok"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
-tool = "uuid-config"
-stratum = "ok"
-
-[[entry]]
-tool = "whatis"
-stratum = "ok"
-
-[[entry]]
-tool = "whois"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "wpa_supplicant"
-stratum = "low-confidence"
-k1 = true
-
-[[entry]]
-tool = "zfsdist-bpfcc"
-stratum = "ok"
-k1 = true
-
-[[entry]]
-tool = "zic"
+tool = "vgck"
 stratum = "verbatim"
+
+[[entry]]
+tool = "vgextend"
+stratum = "verbatim"
+
+[[entry]]
+tool = "vgrename"
+stratum = "verbatim"
+
+[[entry]]
+tool = "vim.basic"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "wall"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_mysqldump"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_io"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "xzgrep"
+stratum = "ok"
