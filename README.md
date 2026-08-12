@@ -48,6 +48,11 @@ cargo install mandible
 
 ### Pre-built binaries
 
+Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
+containment described above relies on POSIX process groups, and native Windows tools
+use conventions (`/?`, PowerShell's own help system) that this project does not yet
+speak.
+
 <div align="center">
 
 | Platform              | Download |
@@ -178,12 +183,6 @@ cobra grammar mishandles Y", which is a bug someone can actually fix.
 | [`spec.md`](./spec.md) | Design authority: the source model, the safety policy, and the measurement behind every non-obvious decision |
 | [`AGENTS.md`](./AGENTS.md) | The invariants table. Every entry names the failure it prevents |
 
-## Platforms
-
-Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
-containment described above relies on POSIX process groups, and native Windows tools
-use conventions (`/?`, PowerShell's own help system) that this project does not yet
-speak.
 
 ## Contributing
 
