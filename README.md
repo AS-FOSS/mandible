@@ -40,11 +40,6 @@ $ mandible docker
 > [!TIP]
 > Try running `mandible mandible`
 
-> [!TIP]
-> Something parses wrong? Run `mandible --report <tool>` and paste the output
-> into [an issue](../../issues/new?template=parsing-issue.yml). That takes two
-> minutes and is a complete contribution on its own.
-
 ## Install
 
 ```console
@@ -106,6 +101,11 @@ prose. A metric that improves when the tool gets worse is worse than no metric.
 CI gates every change against a fixed tool list, and sweeps the whole `PATH`
 separately for the broad picture.
 
+
+> [!TIP]
+> Something parses wrong? Run `mandible --report <tool>` and paste the output
+> into [an issue](../../issues/new?template=parsing-issue.yml). That takes two
+> minutes and is a complete contribution on its own.
 
 <details>
 <summary><h2>Configurations</h2></summary>
