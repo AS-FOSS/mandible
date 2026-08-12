@@ -1,0 +1,54 @@
+Usage: sg_dd  [bs=BS] [conv=CONV] [count=COUNT] [ibs=BS] [if=IFILE]
+              [iflag=FLAGS] [obs=BS] [of=OFILE] [oflag=FLAGS] [seek=SEEK]
+              [skip=SKIP] [--dry-run] [--help] [--verbose] [--version]
+
+              [blk_sgio=0|1] [bpt=BPT] [cdbsz=6|10|12|16] [cdl=CDL]
+              [coe=0|1|2|3] [coe_limit=CL] [dio=0|1] [odir=0|1]
+              [of2=OFILE2] [retries=RETR] [sync=0|1] [time=0|1[,TO]]
+              [verbose=VERB] [--progress] [--verify]
+  where:
+    blk_sgio    0->block device use normal I/O(def), 1->use SG_IO
+    bpt         is blocks_per_transfer (default is 128 or 32 when BS>=2048)
+    bs          logical block size (default is 512)
+    cdbsz       size of SCSI READ or WRITE cdb (default is 10)
+    cdl         command duration limits value 0 to 7 (def: 0 (no cdl))
+    coe         0->exit on error (def), 1->continue on sg error (zero
+                fill), 2->also try read_long on unrecovered reads,
+                3->and set the CORRCT bit on the read long
+    coe_limit   limit consecutive 'bad' blocks on reads to CL times
+                when COE>1 (default: 0 which is no limit)
+    conv        comma separated list from: [nocreat,noerror,notrunc,
+                null,sparse,sync]
+    count       number of blocks to copy (def: device size)
+    dio         for direct IO, 1->attempt, 0->indirect IO (def)
+    ibs         input logical block size (if given must be same as 'bs=')
+    if          file or device to read from (def: stdin)
+    iflag       comma separated list from: [00,coe,dio,direct,dpo,dsync,
+                excl,ff,flock,fua,nocache,null,random,sgio]
+    obs         output logical block size (if given must be same as 'bs=')
+    odir        1->use O_DIRECT when opening block dev, 0->don't(def)
+    of          file or device to write to (def: stdout), OFILE of '.'
+                treated as /dev/null
+    of2         additional output file (def: /dev/null), OFILE2 should be
+                normal file or pipe
+    oflag       comma separated list from: [append,coe,dio,direct,dpo,
+                dsync,excl,flock,fua,nocache,nocreat,null,sgio,sparse]
+    retries     retry sgio errors RETR times (def: 0)
+    seek        block position to start writing to OFILE
+    skip        block position to start reading from IFILE
+    sync        0->no sync(def), 1->SYNCHRONIZE CACHE on OFILE after copy
+    time        0->no timing(def), 1->time plus calculate throughput;
+                TO is command timeout in seconds (def: 60)
+    verbose     0->quiet(def), 1->some noise, 2->more noise, etc
+    --dry-run    do preparation but bypass copy (or read)
+    --help|-h    print out this usage message then exit
+    --progress|-p    print progress report every 2 minutes
+    --verbose|-v   same as 'verbose=1', can be used multiple times
+    --verify|-x    do verify/compare rather than copy (OFILE must
+                   be a sg device)
+    --version|-V    print version information then exit
+
+Copy from IFILE to OFILE, similar to dd command; specialized for SCSI
+devices. If the --verify option is given then IFILE is read and that data
+is used to compare with OFILE using the VERIFY(n) SCSI command (with
+BYTCHK=1).

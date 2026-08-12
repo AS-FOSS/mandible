@@ -1,0 +1,30 @@
+Usage:
+    update-xmlcatalog <options> --add --root --type <type> \
+                                                --id <id> --package <package>
+    update-xmlcatalog <options> --del --root --type <type> \
+                                                --id <id>
+
+    update-xmlcatalog <options> --add --package <package> --type <type> \
+                                                --id <id> --local <local>
+    update-xmlcatalog <options> --del --package <package> --type <type> \
+                                                --id <id>
+
+    update-xmlcatalog <options> --add --local <local> --type <type> \
+                                                --id <id> --file <file>
+    update-xmlcatalog <options> --del --local <local> --type <type> \
+                                                --id <id>
+
+    update-xmlcatalog --help
+
+With:
+    --file <file>       = a local filename
+    --id <id>           = catalog entry idenitifier
+    --local <local>     = a local XML catalog
+    --package <package> = a package XML catalog
+    --root              = the root XML catalog (= /etc/xml/catalog)
+    --type <type>       = catalog entry type (= public, system, uri)
+
+Options:
+    --verbose = be verbose
+    --sort = sorts the manipulated catalog content
+
