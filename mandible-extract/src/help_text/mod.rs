@@ -36,7 +36,7 @@ mod sections;
 pub use sections::is_man_page_banner;
 
 use crate::errors::ExtractError;
-use crate::exec::{InertArgv, LiveProbe, Probe};
+use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
@@ -512,6 +512,38 @@ pub fn raw_help(
 /// spec's own example of what the pane must keep honest: "the verbatim
 /// pane already names its own argv... make sure that keeps working and
 /// shows the expanded form when expansion happened."
+///
+/// **Rewritten for the raw pane's two remaining defects** (the doc comment
+/// above predates both fixes):
+///
+/// - **Defect 1 (alignment).** Lines are now built with [`Text::
+///   sanitize_preserving_layout`], not [`Text::sanitize`] — see that
+///   function's own doc comment for exactly what it neutralizes (terminal
+///   control sequences) versus what it preserves (everything else,
+///   including indentation and internal column gaps). `Text::sanitize`
+///   remains exactly what it always was, unused on this path now, still
+///   used everywhere parsing happens (`build_node`, `verbatim_node`).
+/// - **Defect 2 (one stream only).** [`pick_stream`] merges stdout/stderr
+///   into whichever one the *parser* should read — correct for parsing,
+///   wrong for a pane whose job is showing what the parser had to choose
+///   between (`openssl cmp --help`: diagnostics on stderr, usage on
+///   stdout). This function therefore probes through
+///   [`raw_probe_streams_confession_aware`], a **separate, display-only**
+///   probing pipeline that keeps both streams apart instead of merging
+///   them early, and hands them to [`format_streams`] to render — labelled
+///   when both carry content, unlabelled (today's shape) when only one
+///   does. `pick_stream` itself, and the parsing path's own probing
+///   functions (`probe_help_text_reporting_flag`,
+///   `probe_help_text_confession_aware`) that call it, are untouched: this
+///   is deliberate duplication of a handful of `probe.run` calls rather
+///   than threading a new return shape through code `extract_node` depends
+///   on, so there is no way this change can alter what any tier parses.
+/// - **Defect 3 (illegible refusal).** When the attestation gate (spec §6
+///   rule 0's closing paragraph) refuses this node specifically because its
+///   name isn't `heading_attested`, [`not_attested_fallback`] explains that
+///   plainly and shows the tool's own root `--help` instead of nothing —
+///   see that function's doc comment. The gate itself is untouched; only
+///   what the pane says about hitting it changed.
 pub fn raw_help_with_probe(
     probe: &dyn Probe,
     tool: &ResolvedTool,
@@ -520,24 +552,272 @@ pub fn raw_help_with_probe(
 ) -> Result<(Vec<Text>, String), ExtractError> {
     let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
     let words: Vec<String> = path.iter().skip(1).cloned().collect();
-    let (raw, flag, _confession) =
-        probe_help_text_confession_aware(probe, tool_path, &words, hints)?;
-    Ok((
-        raw.lines()
-            .take(MAX_UNPARSED_LINES)
-            .map(Text::sanitize)
-            .collect(),
-        flag,
-    ))
+
+    match raw_probe_streams_confession_aware(probe, tool_path, &words, hints)? {
+        RawProbeOutcome::Streams(streams, flag) => Ok((format_streams(&streams), flag)),
+        RawProbeOutcome::NotAttested => Ok(not_attested_fallback(probe, tool_path, &words)),
+    }
 }
 
 /// Prefer stdout when both streams are non-empty (spec §7 Tier B).
+///
+/// **Parsing-path only.** The raw display path (`raw_help*`, this module's
+/// display-only probing functions below) keeps both streams apart instead
+/// — see [`RawStreams`] and [`raw_help_with_probe`]'s doc comment.
 fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     if !stdout.is_empty() {
         String::from_utf8_lossy(stdout).into_owned()
     } else {
         String::from_utf8_lossy(stderr).into_owned()
     }
+}
+
+// --- raw pane display path: defects 1-3 ---
+//
+// Everything below is used only by [`raw_help`]/[`raw_help_with_probe`],
+// never by [`HelpTextTier::extract_node`] or anything the parser depends
+// on. It exists apart from `probe_help_text_reporting_flag`/
+// `probe_help_text_confession_aware` above by design (see
+// `raw_help_with_probe`'s doc comment): the parser-freeze constraint this
+// crate operates under is easiest to keep literal by never letting the
+// display path share a return type, and therefore a call site, with code
+// `extract_node` calls.
+
+/// Both raw streams from a single probe result, kept apart rather than
+/// merged through [`pick_stream`] — the raw pane's whole reason to exist is
+/// showing which bytes came from where. Real specimen: `openssl cmp --help`
+/// prints two `CMP info: ...` diagnostic lines on stderr *and* its usage on
+/// stdout; `pick_stream` (correctly, for parsing) picks one, and a reader
+/// checking the parser's work needs to see both.
+struct RawStreams {
+    stdout: String,
+    stderr: String,
+}
+
+impl RawStreams {
+    fn from_output(out: &ExecOutput) -> Self {
+        Self {
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.stdout.is_empty() && self.stderr.is_empty()
+    }
+
+    /// The same selection [`pick_stream`] performs, used internally by this
+    /// display path only to decide *plausibility* — the man-page-banner
+    /// check, [`looks_like_help_output`], and truncation-confession
+    /// detection all need one string to test, the same way the parsing
+    /// path does — never to decide what gets *shown*. [`format_streams`]
+    /// is what renders both streams for the reader.
+    fn merged(&self) -> String {
+        pick_stream(self.stdout.as_bytes(), self.stderr.as_bytes())
+    }
+}
+
+/// The result of the display-only probe sequence below: either both
+/// streams from whichever probe answered, or a refusal specific to the
+/// attestation gate (defect 3) that [`raw_help_with_probe`] handles
+/// separately from any other [`ExtractError`].
+enum RawProbeOutcome {
+    Streams(RawStreams, String),
+    /// This node's name did not come from a recognized heading (spec §6
+    /// rule 0's closing paragraph): refused before any probe was sent, the
+    /// same gate [`probe_help_text_reporting_flag`] applies on the parsing
+    /// path, checked here independently rather than shared (see this
+    /// section's own doc comment on why).
+    NotAttested,
+}
+
+/// The display path's base probe sequence — mirrors
+/// [`probe_help_text_reporting_flag`]'s attestation gate, long-probe/
+/// short-fallback, and [M-16] sub-case (a)'s man-page fallback exactly,
+/// but returns both streams instead of one merged string, and returns the
+/// attestation refusal as a value ([`RawProbeOutcome::NotAttested`]) rather
+/// than an [`ExtractError`], so [`raw_help_with_probe`] can show a
+/// fallback instead of just failing (defect 3).
+fn raw_probe_streams(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+    hints: NodeHints,
+) -> Result<RawProbeOutcome, ExtractError> {
+    if !words.is_empty() && !hints.heading_attested {
+        return Ok(RawProbeOutcome::NotAttested);
+    }
+
+    let long = probe.run(
+        tool_path,
+        &InertArgv::HelpLongForPath {
+            words: words.to_vec(),
+        },
+        EXTRACT_TIMEOUT,
+    )?;
+    let long_streams = RawStreams::from_output(&long);
+    if long_streams.is_empty() {
+        let short = probe.run(
+            tool_path,
+            &InertArgv::HelpShortForPath {
+                words: words.to_vec(),
+            },
+            EXTRACT_TIMEOUT,
+        )?;
+        return Ok(RawProbeOutcome::Streams(
+            RawStreams::from_output(&short),
+            "-h".to_string(),
+        ));
+    }
+
+    if !words.is_empty() && sections::is_man_page_banner(&long_streams.merged()) {
+        if let Ok(short) = probe.run(
+            tool_path,
+            &InertArgv::HelpShortForPath {
+                words: words.to_vec(),
+            },
+            EXTRACT_TIMEOUT,
+        ) {
+            let short_streams = RawStreams::from_output(&short);
+            if looks_like_help_output(&short_streams.merged()) {
+                return Ok(RawProbeOutcome::Streams(short_streams, "-h".to_string()));
+            }
+        }
+        // `-h` was refused, errored, timed out, or didn't validate: keep
+        // the man page text, exactly as the parsing path does.
+    }
+
+    Ok(RawProbeOutcome::Streams(long_streams, "--help".to_string()))
+}
+
+/// [`raw_probe_streams`], further resolved against the truncation-
+/// confession convention (spec §6 rule 2b) — mirrors
+/// [`probe_help_text_confession_aware`]'s single, never-chained follow-up
+/// probe, but keeps both streams of whichever document (original or
+/// expanded) ends up being shown.
+fn raw_probe_streams_confession_aware(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+    hints: NodeHints,
+) -> Result<RawProbeOutcome, ExtractError> {
+    let outcome = raw_probe_streams(probe, tool_path, words, hints)?;
+    let RawProbeOutcome::Streams(streams, flag) = outcome else {
+        return Ok(outcome);
+    };
+
+    let merged = streams.merged();
+    let directives = confession::detect_directives(&merged);
+    if directives.is_empty() {
+        return Ok(RawProbeOutcome::Streams(streams, flag));
+    }
+    let Some(chosen) = confession::expandable(&directives) else {
+        return Ok(RawProbeOutcome::Streams(streams, flag));
+    };
+
+    let expand_argv = InertArgv::HelpExpand {
+        words: words.to_vec(),
+        word: chosen.word.clone(),
+    };
+    match probe.run(tool_path, &expand_argv, EXTRACT_TIMEOUT) {
+        Ok(out) => {
+            let expanded = RawStreams::from_output(&out);
+            if expanded.is_empty() {
+                // Follow-up came back empty on both streams: keep the
+                // original, truncated document rather than show nothing.
+                Ok(RawProbeOutcome::Streams(streams, flag))
+            } else {
+                Ok(RawProbeOutcome::Streams(
+                    expanded,
+                    format!("{} {}", chosen.flag, chosen.word),
+                ))
+            }
+        }
+        // The follow-up probe failed, timed out, or was refused (rule 0):
+        // keep the original text.
+        Err(_) => Ok(RawProbeOutcome::Streams(streams, flag)),
+    }
+}
+
+/// Render a fetched document's lines for the raw pane: one [`Text::
+/// sanitize_preserving_layout`] entry per line (defect 1), both streams
+/// shown and clearly labelled when both carry content (defect 2) —
+/// unlabelled, today's shape, when only one does, so the overwhelming
+/// majority of tools (a single stream) see no cosmetic change at all.
+/// Bounded to [`MAX_UNPARSED_LINES`], same cap [`CommandNode::unparsed`]
+/// uses, so a pathological tool can't blow up the pane.
+fn format_streams(streams: &RawStreams) -> Vec<Text> {
+    let stdout_present = !streams.stdout.is_empty();
+    let stderr_present = !streams.stderr.is_empty();
+
+    let mut lines: Vec<Text> = Vec::new();
+    if stdout_present && stderr_present {
+        lines.push(Text::sanitize_preserving_layout("── stdout ──"));
+        lines.extend(streams.stdout.lines().map(Text::sanitize_preserving_layout));
+        lines.push(Text::sanitize_preserving_layout(""));
+        lines.push(Text::sanitize_preserving_layout("── stderr ──"));
+        lines.extend(streams.stderr.lines().map(Text::sanitize_preserving_layout));
+    } else if stdout_present {
+        lines.extend(streams.stdout.lines().map(Text::sanitize_preserving_layout));
+    } else {
+        lines.extend(streams.stderr.lines().map(Text::sanitize_preserving_layout));
+    }
+
+    lines.truncate(MAX_UNPARSED_LINES);
+    lines
+}
+
+/// Defect 3: the attestation gate (spec §6 rule 0's closing paragraph)
+/// refused to probe this node because its name did not come from a
+/// recognized `--help` heading — typically a name a native/cobra artifact
+/// scan produced instead. **Fixing that gate is out of scope here**
+/// (spec's own instruction: it changes what the coverage audit measures,
+/// and is deliberately scheduled after it) — this only makes hitting the
+/// gate legible instead of a bare, jargon-heavy error string, and shows
+/// the one document that's always safe to fetch in its place: the tool's
+/// own root `--help`, unconditionally exempt from this exact gate by
+/// construction (`words.is_empty()` in [`raw_probe_streams`]) — never a
+/// second, potentially-fabricated word.
+fn not_attested_fallback(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+) -> (Vec<Text>, String) {
+    let attempted = words.join(" ");
+    let mut lines = vec![Text::sanitize_preserving_layout(&format!(
+        "mandible could not verify \"{attempted}\" as a real subcommand name: it came from a \
+         source the probe-safety gate does not accept (a native/cobra artifact scan, not a \
+         --help heading), so it was never sent as an argument. This is a known limitation of \
+         the gate, not something already worked around."
+    ))];
+
+    // `words` is `&[]` here, so `heading_attested`'s value is irrelevant —
+    // `raw_probe_streams`'s gate only ever checks it when `words` is
+    // non-empty. `true` is chosen only to read honestly at the call site
+    // (the root probe genuinely is attested, by construction).
+    if let Ok(RawProbeOutcome::Streams(root_streams, _)) = raw_probe_streams_confession_aware(
+        probe,
+        tool_path,
+        &[],
+        NodeHints {
+            heading_attested: true,
+        },
+    ) {
+        if !root_streams.is_empty() {
+            lines.push(Text::sanitize_preserving_layout(""));
+            lines.push(Text::sanitize_preserving_layout(
+                "Showing the tool's own root --help instead, labelled below:",
+            ));
+            lines.push(Text::sanitize_preserving_layout(""));
+            lines.extend(format_streams(&root_streams));
+        }
+    }
+
+    lines.truncate(MAX_UNPARSED_LINES);
+    (
+        lines,
+        "(name not heading-attested — showing root --help as a fallback)".to_string(),
+    )
 }
 
 /// Build a [`CommandNode`] from one probe's raw `--help` text, staging
@@ -752,6 +1032,61 @@ mod tests {
             ),
             "expected a refusal, got {err:?}"
         );
+    }
+
+    /// Defect 3: a subcommand whose name is not `heading_attested` (spec §6
+    /// rule 0's closing paragraph — e.g. a name a native/cobra artifact
+    /// scan produced rather than a real `--help` heading) must not surface
+    /// the old terse `ExtractError::Other` string as the pane's *entire*
+    /// answer. The gate itself is untouched (still refused, still no probe
+    /// sent for the unattested node — that assertion is what
+    /// `raw_help_allows_the_root_but_refuses_a_deeper_path_for_a_help_only_tool`
+    /// above already pins for the *other* refusal kind); what changed is
+    /// that this specific refusal now resolves to `Ok` with an explanation
+    /// plus the tool's own root text, not `Err`.
+    #[test]
+    fn raw_help_explains_a_not_attested_refusal_and_falls_back_to_root_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("shimtool");
+        std::fs::write(
+            &path,
+            "#!/bin/sh\necho 'Usage: shimtool [COMMAND]'\necho ''\necho 'Commands:'\necho '  clean   tidy up'\n",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let mut tool = resolve_tool("shimtool");
+        tool.path = Some(path);
+
+        // "ghost" stands in for a name a native/cobra artifact scan
+        // produced that never appeared under any recognized heading in
+        // this shim's own `--help` text above.
+        let (lines, flag) = raw_help(
+            &tool,
+            &["shimtool".to_string(), "ghost".to_string()],
+            NodeHints {
+                heading_attested: false,
+            },
+        )
+        .expect("a not-attested refusal must resolve to Ok with an explanation, not Err");
+
+        let joined: String = lines
+            .iter()
+            .map(|t| t.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(joined.contains("ghost"), "{joined}");
+        assert!(
+            joined.to_lowercase().contains("known limitation"),
+            "{joined}"
+        );
+        // The one document that's always safe to fetch — the tool's own
+        // root `--help` — must actually appear, not just be described.
+        assert!(joined.contains("Usage: shimtool [COMMAND]"), "{joined}");
+        assert!(flag.contains("not heading-attested"), "{flag:?}");
     }
 
     #[test]

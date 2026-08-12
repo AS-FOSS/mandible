@@ -200,8 +200,14 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// column 0), but the important safety property — content never reflows,
 /// and can therefore never smear into the pane border the way an
 /// unsanitized newline once did (spec §9) — holds regardless. Safe to hand
-/// straight to a `Span` because `Text::sanitize` already guarantees no
-/// embedded control characters or newlines reach here.
+/// straight to a `Span` because every `Text` reaching here already went
+/// through one of `mandible_core::Text`'s sanitizing constructors —
+/// `Text::sanitize` for `node.unparsed` (level-3 degradation), or
+/// `Text::sanitize_preserving_layout` for the verbatim view's own lines
+/// (`mandible-extract`'s `help_text::raw_help*`) — both of which guarantee
+/// no embedded control characters or newlines reach here; they differ only
+/// in whether whitespace/indentation is collapsed, never in that safety
+/// property.
 fn render_verbatim(
     frame: &mut Frame,
     inner: Rect,
