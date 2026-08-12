@@ -316,3 +316,23 @@ jobs:
             baseline_args=(--baseline-dir corpus-baseline/corpus)
           fi
           cargo xtask corpus --format markdown "${baseline_args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # A released changelog section is history. This checks that every `## [X.Y.Z]`
+  # with a matching `vX.Y.Z` tag still says what that tag published.
+  #
+  # The failure it prevents happened on 2026-08-12: a change appended ~56 lines
+  # of unreleased work under `## [0.2.2]`, a version tagged and published weeks
+  # earlier, and nothing noticed. Because the release body is generated from a
+  # changelog section, that misattribution would have shipped.
+  changelog:
+    name: changelog (released sections are immutable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The guard compares each section against the tag that published it,
+          # so it needs the tags and their history. The default shallow,
+          # tagless checkout would make every section look unreleased and the
+          # check would pass vacuously.
+          fetch-depth: 0
+      - run: ./scripts/changelog_guard.sh

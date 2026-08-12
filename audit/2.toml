@@ -428,72 +428,95 @@ verdict = "skip"
 [[entry]]
 tool = "rust-lldb"
 stratum = "verbatim"
+verdict = "correct"
 
 [[entry]]
 tool = "sbverify"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "scsi_ready"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "setsid"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "sg"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "sg_dd"
 stratum = "ok"
+verdict = "wrong"
+note = "same conditional dynamic flags or whatever bullshit this is"
 
 [[entry]]
 tool = "sg_emc_trespass"
 stratum = "ok"
+verdict = "wrong"
+note = "some flags have no description, some got split because of that single dash not being able to take more than 1 character"
 k1 = true
 
 [[entry]]
 tool = "sg_sanitize"
 stratum = "ok"
+verdict = "incomplete"
+note = "close enough, verify if this '--count OC|-c OC' getting parsed into this is correct: '--count OC|c'"
 
 [[entry]]
 tool = "sha1sum"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "ssh-keygen"
 stratum = "ok"
+verdict = "wrong"
+note = "this help text just prints out all the possible combinations together with tools name. kind of got parsed, but i feel like incomplete"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "strace-log-merge"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "tclsh"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "tcpaccept.bt"
 stratum = "ok"
+verdict = "incomplete"
+note = "similar '-vv', '-dd' missing issue"
 k1 = true
 
 [[entry]]
 tool = "tcpdump"
 stratum = "ok"
+verdict = "wrong"
+note = "single dash, single characater issue"
 k1 = true
 
 [[entry]]
 tool = "threadsnoop.bt"
 stratum = "ok"
+verdict = "wrong"
+note = "'-vv' issue"
 k1 = true
 
 [[entry]]
 tool = "tmux"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]

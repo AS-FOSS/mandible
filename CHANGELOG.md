@@ -6,43 +6,149 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
-## [0.2.2]
+## [0.3.0]
 
-Three general parser fixes plus a new safety-gated argv shape (below).
-Between the parser fixes, described coverage across the PATH sweep moves
-**89.23% → 94.77%** on ~2266 tools, with no tool losing anything.
+Recovery work, mostly. Several tools were reporting confident results over
+documents mandible had never actually read, and the fixes for that are the
+bulk of this release. Across the PATH sweep, flags carrying text moves
+94.18% to 94.82% on ~2,290 tools, but the aggregate is the least interesting
+number here: 23 tools stopped claiming to be complete when they were not,
+13 stopped being unparseable, and `curl` went from 12 flags to 258.
+
+Accuracy remains unmeasured. Every figure in this project counts things; none
+of them yet checks whether what was extracted is correct. The audit tool added
+below exists to answer that, and it has not finished running.
 
 ### Added
 
-- **The truncation-confession follow-up (spec §6 rule 2b).** `curl --help`
-  prints 12 flags and ends with its own admission that the reader hasn't
-  seen everything: `For all options use the manual or "--help all".`
-  mandible now recognizes that convention — a quoted `"--help <word>"`/
-  `"-h <word>"` directive, closed and content-keyed, never keyed on a tool's
-  name — and re-probes with exactly the word the tool itself printed.
-  `curl --help` now recovers all **258** flags instead of 12. Only the
-  single "expand to one complete document" shape ships (`--help all`);
-  curl's *other* directive, `--help category` (a menu requiring its own
-  further probes to resolve), is detected but deliberately not followed —
-  a materially bigger feature this batch does not build.
+- **`mandible --report <tool>`.** Assembles a paste-ready bug report: the
+  mandible version, the tool's version when it can be recovered, the
+  `--doctor` diagnostic, and the raw `--help` capture, followed by the issues
+  URL. It goes through the same sanctioned probe path as everything else and
+  adds no new argv shape. Most tools never print their version in `--help`,
+  so that line usually asks the reporter to supply it rather than guessing.
 
-  This is a new `InertArgv` shape (`HelpExpand`), so it went through spec
-  §6's own amendment process: `--help` always precedes the word (a getopt
-  that stops at the first non-option still reaches it first), the word is
-  never fabricated (copied verbatim from the tool's own already-probed,
-  already-trusted output), expansion happens **at most once** — never
-  chained into a confession printed inside the expanded document itself —
-  and it is refused outright, with no special case, for any tool on the
-  rule 0 never-probe list (`pkill --help` confessing does not unlock
-  `pkill --help all`).
+- **`mandible --review <seed>`.** The audit review loop, run inside the real
+  interface. Each sampled tool opens exactly as `mandible <tool>` would, a
+  verdict is a keypress, and the manifest is written after every one, so an
+  interrupted session resumes instead of restarting.
 
-  A confession that's detected but can't be followed — an unrecognised
-  word, a failed probe, a rule 0 refusal — caps the tool's status at a new
-  **`incomplete`** (`ok > incomplete > low-confidence > verbatim >
-  no-tier`) instead of reporting a confident `ok` on a document the tool's
-  own text already said was truncated. `corpus/curl/8.5.0` fixtures the
-  honest case (root `--help` alone, no expansion captured, `incomplete`);
-  its sibling `corpus/curl/8.5.0-all` fixtures the followed case (`ok`).
+- **The audit instrument (`xtask audit`).** A bounded, random, human-reviewed
+  sample comparing what mandible extracted against what the tool actually
+  prints. This is the first thing in the project that measures agreement with
+  truth rather than with the parser's own prior output. It draws a
+  deterministic stratified sample, presents raw text beside the parse, records
+  verdicts with notes, reports accuracy per stratum with confidence intervals
+  and never as a bare percentage, and turns each reviewed tool into a corpus
+  fixture. Known defect classes are pre-tagged so a reviewer confirms them
+  once instead of re-deriving them per flag.
+
+- **Truncation-confession detection (spec §6 rule 2b).** Some tools admit in
+  their own output that what you just read is not everything. `curl --help`
+  ends with `For all options use the manual or "--help all".` mandible now
+  recognizes that convention, closed and content-keyed, never keyed on a
+  tool's name, and re-probes with exactly the word the tool printed. `curl`
+  recovers 258 flags instead of 12.
+
+  This added an `InertArgv` shape, so it went through spec §6's amendment
+  process: `--help` always precedes the word, so a getopt that stops at the
+  first non-option still reaches it; the word is copied from the tool's own
+  already-trusted output and never fabricated; expansion happens at most once
+  and is never chained into a confession printed inside the expanded document;
+  and it is refused outright for any tool on the never-probe list, with no
+  special case (`pkill` confessing does not unlock `pkill --help all`).
+
+  Where a confession is detected but cannot be followed, the tool's status
+  caps at a new **`incomplete`** rather than reporting a confident `ok` on a
+  document the tool itself called partial. Two further shapes are detected
+  but deliberately not followed yet: ffmpeg's unquoted `-h full` table row and
+  gcc's `--help=<class>`. Following either means new argv shapes, each needing
+  its own deliberation. Detecting them moved 23 tools to `incomplete`: the
+  whole gcc and clang family, plus ffmpeg.
+
+### Fixed
+
+- **The parser was reading the wrong stream.** Which of stdout and stderr the
+  parser read was decided by "stdout if non-empty, else stderr". `openssl cmp
+  --help` prints two diagnostic lines to stdout and its entire help to stderr,
+  so the parser received the banner and discarded the document. Roughly 150
+  openssl subcommands share that shape. Each stream is now judged on its own
+  and the help-shaped one is parsed. Measured across the full sweep: no tool
+  lost a single flag, 11 tools gained 169 flags between them, all from zero,
+  and 13 moved from `verbatim` to `ok`. Recovered outright include `mkfs.fat`
+  and its aliases, `tune2fs`, `btrfs-convert`, and `xfs_scrub`.
+
+- **The verbatim pane now shows what the probe received.** It previously ran
+  the text through the same sanitizer that prepares strings for the data
+  model, which collapses runs of whitespace, so column alignment was destroyed
+  and the pane could never match what a terminal shows. Indentation and
+  alignment are preserved, both streams are displayed and labelled, and only
+  terminal control sequences are neutralized. This is what exposed the stream
+  bug above, one commit after it landed.
+
+- **`--doctor` was computing a superseded metric.** It divided described flags
+  by all flags, a definition replaced some time ago by one that excludes flags
+  which could never carry text. So `mandible --doctor git` printed
+  `0.0% described`, reading as total failure, where the truth is that nothing
+  in git's help is describable at all. It now reuses the same accessors the
+  scoreboard does, prints a dash rather than a zero when nothing is
+  describable, and states `accuracy: unmeasured` in its own output.
+
+- **The background warmer could hang the interface.** `systemctl <anything>
+  --help` returns the root help byte-for-byte at any depth, so every
+  subcommand appeared to have the same 18 children and the warmer expanded 18
+  to 18² to 18³ until it hit its cap, starving the interface thread. Root text
+  is now cached and a subcommand whose output is byte-identical to it degrades
+  to verbatim.
+
+- **Multi-column option tables and wrapped usage lines** parse correctly, and
+  flag spellings are recovered from usage synopses where the flag table omits
+  them.
+
+### Changed
+
+- **`pct_described` is now `pct_flags_with_text`,** and the scoreboard prints
+  `accuracy: unmeasured` beside it. The old name claimed something the number
+  never measured: it counts whether a flag has text attached, not whether the
+  text is right. `lsof` scored 79% under it while roughly a quarter of its
+  flags were actually correct. The denominator also changed, to exclude flags
+  whose only source is a usage synopsis and which therefore could never carry
+  a description.
+
+- **Tests run under `cargo nextest`,** with a separate `cargo test --doc` step
+  because nextest cannot run doctests. The rule behind it is that test results
+  are read by machine and never by grepping the human-readable output. A
+  `grep -c FAILED` had matched test data containing the word FAIL and reported
+  a confidently wrong count.
+
+- **Contributor documentation** leads with what a reader can do rather than
+  what the project requires them to know, and both issue templates are forms
+  that guide rather than briefs to absorb.
+
+### Known defects
+
+Stated plainly, because they are visible in normal use:
+
+- **Single-dash long options are mis-parsed.** GCC-family options like
+  `-fdump-scos` are stored as a short `-f` carrying the value `dump-scos`, and
+  openssl's `-help` becomes `-h` with the value `elp`. This affects gcc, clang,
+  lto-dump, openssl and their relatives, which is a large share of any
+  developer machine. It predates this release. It is the first grammar item
+  scheduled once the audit finishes.
+
+- **Node descriptions are unreliable.** Of the ten curated corpus fixtures,
+  four carry a correct description, three carry something wrong (a section
+  heading, the tool's own error output, a version banner) and two carry none.
+
+- **Subcommands discovered from a compiled artifact are not probed.** A name
+  read from a cobra binary's own command table is refused by the gate that
+  exists to stop invented names becoming arguments, so tools like `git-lfs`
+  show their subcommands as bare stubs.
+
+## [0.2.2]
+
+Two general parser fixes. Between them, described coverage across the PATH
+sweep moves **89.23% → 94.18%** on 2266 tools, with no tool losing anything.
 
 ### Fixed
 
@@ -74,29 +180,6 @@ Between the parser fixes, described coverage across the PATH sweep moves
   requires a real `-`-leading row — bounded deliberately, since "look harder for
   flags" is how fabrication starts. A bare-word command table contains no such
   row and is unaffected.
-
-- **A line with no aligned column at all lost its description entirely.**
-  Some tools (`curl --help all`, the expansion above's own fixture) right-pad
-  *short* option specs to a fixed width but simply run a single space after a
-  *long* one — `--abstract-unix-socket <path> Connect via abstract Unix
-  domain socket` has no 2+-space gap anywhere, so the whole line, placeholder
-  and description together, was read as the flag spec with an empty
-  description. curl's `--help all` measured **25.2% described before this
-  fix, 77.1% after**; `lsof`'s existing fixture recovers two more real
-  descriptions the same way. The fallback only ever fires when the ordinary
-  aligned-column rule finds nothing at all, so no already-working split
-  moves.
-
-### Fixed (measurement tooling)
-
-- **A followed confession threw off the misattribution/existence
-  detectors.** Both compare a tool's extracted tree against the raw text a
-  probe returned, read via a shared recorder that only knew about `--help`/
-  `-h`. Once a confession is followed, the tree is built from the *expanded*
-  document instead, so every flag unique to it — 246 of curl's 258 — wasn't
-  in the recorded raw text, and read as fabricated: curl alone contributed
-  293 spurious existence "suspects" on a full sweep before this fix. The
-  recorder now prefers a recorded root expansion when one exists.
 
 ## [0.2.1]
 
