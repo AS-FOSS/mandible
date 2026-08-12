@@ -1,0 +1,69 @@
+audit seed=2 sample_size=80 (94 entries total)
+
+stratum             correct/judged   accuracy   95% CI            skipped   pending
+forced-inclusion        1/13       7.7%   [  1.4%,  33.3%]         1         0
+incomplete              0/1        0.0%   [  0.0%,  79.3%]         0         0
+low-confidence          0/1        0.0%   [  0.0%,  79.3%]         0         0
+ok                     33/64      51.6%   [ 39.6%,  63.4%]         3         0
+verbatim                2/7       28.6%   [  8.2%,  64.1%]         4         0
+OVERALL                36/86      41.9%   [ 32.0%,  52.4%]         8         0
+
+K1/K2/K3 sensitivity (36 entries tagged K1, 0 entries tagged K2, 0 entries tagged K3 — see mandible_core::audit's Entry::k1/k2/k3 doc comments and this module's *_signature functions):
+view                      correct/judged   accuracy   95% CI
+all-inclusive                36/86      41.9%   [ 32.0%,  52.4%]
+K1-excluded                  25/50      50.0%   [ 36.6%,  63.4%]
+K2-excluded                  36/86      41.9%   [ 32.0%,  52.4%]
+K3-excluded                  36/86      41.9%   [ 32.0%,  52.4%]
+K1+K2+K3-excluded            25/50      50.0%   [ 36.6%,  63.4%]
+
+tools judged wrong or incomplete (the next bugs):
+  VGAuthService            wrong       it shits out a bunch of error/warning logs, i couldnt even get the help manually, probably does not even have one. If not possible then just skip
+  aarch64-linux-gnu-ar     wrong       raw help shows bunch of commands but weirdly shaped, and looks like flags, so its understandable why code got it wrong
+  aarch64-linux-gnu-gcc-ar wrong       same as similar other command
+  apt-ftparchive           incomplete  missing commands, I can see in help text, but not parsed
+  ar                       wrong       help text shows subcommands but they are not parsed, weirdly displayed. one other command had similar format
+  automat-visualize3       wrong       was not able to get --help because env missing a library and create a compile time error. Probably not worth taking this into account ,sin
+  bashbug                  incomplete  not sure if changing width would help or not but the 'bug-report-email-address' flag has lost right closing bracket in the TUI. and the
+  btrfs                    incomplete  it lists out the subcommands as combinations of the options therefore current framework detection failed to detect subcommmands.
+  bzless                   wrong       it just is wrong, nothing was parsed and nothing shows, it only displays weird header decorator
+  cache_restore            wrong       flags were not detected
+  chgrp                    incomplete  for the 2nd section of the flags it partially selected the section header from the last 3 words of that sections header. As " ONE TAKES EFFECT."
+  eqn                      incomplete  it shows almost everything correctly, but there is an optional -v and --version, but it only displays --version
+  expand                   incomplete  the flags -t, --tabs take two different types like as follows, but it only shows 'N': -t, --tabs=N have tabs N characters apart, not 8
+  filefrag                 wrong       possibly wrong flags
+  filegone-bpfcc           incomplete  detected -p, but not optional --pid
+  gcc                      wrong       this one is in the similar category of curl's help, where we had a group of separate help texts, in this case we have: common|optimizers|params|target|warnings|[^]{joined|separate|undocumented
+  gcc-ar                   incomplete  commands are not detected, 2-3 similar issues. Weirdly formatted command names within []
+  gcc-ar-13                incomplete  similar subcommands issue
+  gethostlatency-bpfcc     wrong       similar -p and --pid issue
+  ip                       wrong       new formatting/framework where author kind of programmatically puts flag combinations into OPTIONS or OBJECT
+  javaflow-bpfcc           incomplete  there is a positional argument 'pid' which is not parsed, but im not sure how it should be
+  jconsole                 wrong       does not print anything, opens up some console where user can type. not sure if it has help at all, but can be a candidate for skip if not
+  jdeprscan                wrong       flags are not properly matched together, or missing
+  killsnoop.bt             incomplete  flags are missing. for example -vv and -dd missing from 'TROUBLESHOOTING OPTIONS'
+  lessecho                 wrong       almost no description or structure, all flags are given within square brackets but got parsed wrongly, for example '[-ox]' -> '-o x'
+  man-recode               wrong       usage is not properly shown, maybe next fix can fix it. for now deferred
+  mariadb-repair           incomplete  code has done its job, but the variables are genuinely something new, not sure if how we should handle those
+  mariadbcheck             incomplete  same mariadb class issue
+  naptime.bt               incomplete  similar issue to a command before where '-vv' and '-dd' flags are missing
+  opensnoop.bt             wrong       similar issue to '-vv' and '-dd', but this time it happened to '-kk'
+  pastebinit               incomplete  description of flags are missing
+  pcre2-config             wrong       problem with the width, has nothing to do with parasing or code at all. For some reason it goes out of bounds. does not wrap the long text
+  ping4                    incomplete  almost perfect, but there flagless argument is missing, here is a line from help-text: '<destination DNS name or IP address'
+  pptpsetup                incomplete  bad parse
+  ptargrep                 wrong       tools problem: typing --help shits out some code, but without --help it really prints the help text for some reasonm
+  qemu-arm64-static        wrong       new 3 column format, also badly parsed flags, it separated the -help into '-h elp'
+  rubyobjnew-bpfcc         incomplete  missing positinal arguments, i think we never taken those into account
+  sg_dd                    wrong       same conditional dynamic flags or whatever bullshit this is
+  sg_emc_trespass          wrong       some flags have no description, some got split because of that single dash not being able to take more than 1 character
+  sg_sanitize              incomplete  close enough, verify if this '--count OC|-c OC' getting parsed into this is correct: '--count OC|c'
+  ssh-keygen               wrong       this help text just prints out all the possible combinations together with tools name. kind of got parsed, but i feel like incomplete
+  tcpaccept.bt             incomplete  similar '-vv', '-dd' missing issue
+  tcpdump                  wrong       single dash, single characater issue
+  threadsnoop.bt           wrong       '-vv' issue
+  update-xmlcatalog        wrong       mostly looks fine, but not sure how to make sanitization on this one. Because this tool uses '=' to start the description of flag, which propogates to the tool
+  vgck                     incomplete  verbatim
+  vgextend                 incomplete  verbatim
+  vgrename                 incomplete  verbatim
+  vim.basic                wrong       i think the same positional arguements issue, we should come back to this
+  xfs_io                   wrong       singe dash issue + missing -c and -C, see the original text

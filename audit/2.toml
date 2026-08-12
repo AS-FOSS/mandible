@@ -554,16 +554,21 @@ k1 = true
 [[entry]]
 tool = "wall"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "wsrep_sst_mysqldump"
 stratum = "verbatim"
+verdict = "skip"
 
 [[entry]]
 tool = "xfs_io"
 stratum = "ok"
+verdict = "wrong"
+note = "singe dash issue + missing -c and -C, see the original text"
 k1 = true
 
 [[entry]]
 tool = "xzgrep"
 stratum = "ok"
+verdict = "skip"
