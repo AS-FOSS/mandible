@@ -832,7 +832,9 @@ pub fn cmd_emit(dir: &Path, seed: u64, emit_dir: &Path) -> anyhow::Result<()> {
 /// never contains `/` (§ `resolve_tool`'s own PATH-search doesn't accept
 /// path separators in a bare tool name either), so this exists only to be
 /// defensive about the one other filesystem-hostile case worth naming.
-fn sanitize_filename(tool: &str) -> String {
+/// `pub(crate)` so `crate::queue`'s capture directory naming
+/// (`queue-captures/<tool>/`) can use the same rule.
+pub(crate) fn sanitize_filename(tool: &str) -> String {
     tool.chars()
         .map(|c| if c == '/' || c == '\\' { '_' } else { c })
         .collect()

@@ -8,6 +8,8 @@ mod corpus;
 mod coverage;
 mod existence;
 mod misattribution;
+mod queue;
+mod rng;
 mod status;
 mod transition;
 
