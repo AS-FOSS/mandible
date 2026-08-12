@@ -1,0 +1,40 @@
+[tool]
+name = "curl"
+version = "8.5.0"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.2.2"
+
+# The truncation-confession specimen (spec §6 rule 2b, WS5): curl's plain
+# `--help` prints 12 flags and ends with its own admission that this is a
+# stripped-down summary —
+#
+#   This is not the full help, this menu is stripped into categories.
+#   Use "--help category" to get an overview of all categories.
+#   For all options use the manual or "--help all".
+#
+# This fixture deliberately captures **only** the root `--help` probe, with
+# no `[[capture]]` entry for the advertised `--help all` follow-up. That
+# means the confession is genuinely detected but the follow-up probe misses
+# the transcript (`ExecError::TranscriptMiss`, swallowed by
+# `probe_help_text_confession_aware` exactly like a failed live probe would
+# be) — this is the "probe failed" branch of the `incomplete` status, not a
+# contrived one: replaying a fixture that truthfully only has the summary
+# capture *is* what "the follow-up wasn't available" looks like. See the
+# matched sibling fixture `corpus/curl/8.5.0-all/`, which adds the second
+# capture and reaches `ok` instead — the pair is the whole point, proving
+# the same 915 root bytes produce two different honest outcomes depending
+# on whether the advertised document was actually available to read.
+[[capture]]
+argv = ["curl", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "incomplete"
+min_subcommands = 0
+# The 12 flags the summary document itself lists — spot-checked so a
+# regression that stops recovering even the stripped-down document is
+# still caught, distinct from the expansion this fixture deliberately
+# does not exercise.
+must_contain_flags = ["--data", "--fail", "--help", "--output", "--verbose"]

@@ -87,6 +87,40 @@ pub struct CommandNode {
     /// evidence — [M-10]'s exact shape — regardless of whether its name
     /// happens to look plausible.
     pub heading_attested: bool,
+    /// What this node's own `--help` text said about being an incomplete
+    /// document, if anything (spec §6 rule 2b: the "truncation confession"
+    /// convention — curl's `--help` ending "For all options use the manual
+    /// or \"--help all\"."). `None` means the tool's text printed no such
+    /// confession at all, which is the overwhelming common case and is
+    /// never treated as evidence of anything.
+    pub confession: Option<Confession>,
+}
+
+/// A truncation confession a tool's own `--help` text printed, and what
+/// this extraction did about it (spec §6 rule 2b).
+///
+/// Two states share this one type deliberately, rather than a bare `bool`:
+/// a confession that was *detected* is worth recording even when it
+/// couldn't be *followed* (an unrecognised word, a failed or refused
+/// follow-up probe) — that is exactly the case the `incomplete` status
+/// exists to name honestly, and a reader (`--doctor`, the detail pane's
+/// footer) needs the word and flag to explain *why* a tree is capped, not
+/// just that it is.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Confession {
+    /// The directive word, taken verbatim from the tool's own text — e.g.
+    /// `"all"` for curl. Never fabricated, never guessed (spec §6 rule 2b).
+    pub word: String,
+    /// The flag the directive printed alongside `word` — `"--help"` or
+    /// `"-h"`.
+    pub flag: String,
+    /// True when the advertised argv (`<flag> <word>`) was actually
+    /// re-probed and this node's own fields were built from *that*
+    /// document. False means the confession was detected but not
+    /// followed — an unrecognised word/shape, a failed probe, or a rule 0
+    /// refusal — and this node still reflects the original, truncated
+    /// text; the status ladder caps at `incomplete` for exactly this case.
+    pub followed: bool,
 }
 
 /// True if `s` looks like a real command/subcommand name: lowercase,
@@ -140,6 +174,7 @@ impl CommandNode {
             detected_framework: None,
             provenance,
             heading_attested: false,
+            confession: None,
         }
     }
 }

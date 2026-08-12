@@ -212,17 +212,25 @@ impl RecordingProbe {
         }
     }
 
-    /// The raw text Tier B's root `--help` probe actually returned — the
-    /// same stream [`pick_stream`] would select, under the same "prefer
+    /// The raw text Tier B's root probe actually built the tree from —
+    /// `--help`, `-h`, or (spec §6 rule 2b) the truncation-confession
+    /// follow-up when one was recorded and followed. Same "prefer
     /// `--help`'s stdout/stderr; fall back to `-h` only if `--help`
     /// produced nothing on either stream" rule
-    /// `help_text::probe_help_text_reporting_flag` already applies. This
-    /// reads what that call already decided; it decides nothing itself and
-    /// issues no probe of its own. `None` when the tool has no recording
-    /// for either shape at all (nothing was ever detected, or the tier
-    /// never ran for it).
+    /// `help_text::probe_help_text_reporting_flag` already applies, with
+    /// the expansion checked first — see [`Self::find_root_expansion`]'s
+    /// doc comment for why that ordering is load-bearing. This reads what
+    /// that call already decided; it decides nothing itself and issues no
+    /// probe of its own. `None` when the tool has no recording for any
+    /// shape at all (nothing was ever detected, or the tier never ran for
+    /// it).
     pub fn root_help_text(&self) -> Option<String> {
         let recordings = self.recordings.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(expanded) = Self::find_root_expansion(&recordings) {
+            if !expanded.stdout.is_empty() || !expanded.stderr.is_empty() {
+                return Some(pick_stream(&expanded.stdout, &expanded.stderr));
+            }
+        }
         if let Some(long) = recordings.get(&InertArgv::HelpLong.args()) {
             if !long.stdout.is_empty() || !long.stderr.is_empty() {
                 return Some(pick_stream(&long.stdout, &long.stderr));
@@ -234,15 +242,20 @@ impl RecordingProbe {
     }
 
     /// The full recorded `(argv, output)` pair behind [`Self::root_help_text`]
-    /// — same "prefer `--help`, fall back to `-h` only if `--help` produced
-    /// nothing on either stream" selection, but handing back the raw
-    /// [`ExecOutput`] (separate stdout/stderr, exit code) and the exact argv
-    /// used, rather than one merged string. `crate::audit` uses this to
-    /// write a corpus-shaped capture (`corpus/README.md`'s `[[capture]]`)
-    /// without a second probe of the tool — same "no new probes" property
+    /// — same "expansion, then `--help`, then `-h` only if the one before it
+    /// produced nothing" selection, but handing back the raw [`ExecOutput`]
+    /// (separate stdout/stderr, exit code) and the exact argv used, rather
+    /// than one merged string. `crate::audit` uses this to write a
+    /// corpus-shaped capture (`corpus/README.md`'s `[[capture]]`) without a
+    /// second probe of the tool — same "no new probes" property
     /// [`Self::root_help_text`] already documents.
     pub fn root_help_capture(&self) -> Option<(Vec<String>, ExecOutput)> {
         let recordings = self.recordings.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((argv, expanded)) = Self::find_root_expansion_capture(&recordings) {
+            if !expanded.stdout.is_empty() || !expanded.stderr.is_empty() {
+                return Some((argv, expanded.clone()));
+            }
+        }
         if let Some(long) = recordings.get(&InertArgv::HelpLong.args()) {
             if !long.stdout.is_empty() || !long.stderr.is_empty() {
                 return Some((InertArgv::HelpLong.args(), long.clone()));
@@ -252,6 +265,55 @@ impl RecordingProbe {
             .get(&InertArgv::HelpShort.args())
             .map(|short| (InertArgv::HelpShort.args(), short.clone()))
     }
+
+    /// Find a recorded root [`InertArgv::HelpExpand`] entry (spec §6 rule
+    /// 2b), if any, by its **rendered shape** rather than the `InertArgv`
+    /// value that produced it — [`RecordingProbe`] only ever sees rendered
+    /// argv (same design `mandible_extract::exec::Transcript` keys on, and
+    /// for the identical reason). A root expansion always renders to
+    /// exactly `["--help", word]`: two elements, `"--help"` first. No other
+    /// variant renders that way — `HelpLongForPath`'s `[..words, "--help"]`
+    /// always *ends* in `--help` for non-empty `words`, never starts with
+    /// it, so this is unambiguous without needing to track which
+    /// `InertArgv` constructed which recording.
+    ///
+    /// **Checked before the plain `--help` recording, not after.** Once a
+    /// confession is followed, `HelpTextTier::extract_node` builds the
+    /// tree from the *expanded* document — the tree's own flags simply
+    /// aren't in the original summary text at all. Preferring the plain
+    /// `--help` recording here would hand `existence::detect`/
+    /// `misattribution::detect` the wrong ground truth for every flag the
+    /// expansion recovered, and both would report them as fabricated
+    /// spellings that don't occur in "the raw text" — a false-positive
+    /// storm with nothing to do with either detector's own logic. Measured
+    /// on a full PATH sweep: curl alone produced 293 spurious existence
+    /// "fabrications" before this ordering, zero after.
+    fn find_root_expansion(recordings: &HashMap<Vec<String>, ExecOutput>) -> Option<&ExecOutput> {
+        recordings
+            .iter()
+            .find(|(argv, _)| is_root_help_expansion_argv(argv))
+            .map(|(_, output)| output)
+    }
+
+    /// [`Self::find_root_expansion`], also handing back the matched argv —
+    /// the `(Vec<String>, &ExecOutput)` shape [`Self::root_help_capture`]
+    /// needs.
+    fn find_root_expansion_capture(
+        recordings: &HashMap<Vec<String>, ExecOutput>,
+    ) -> Option<(Vec<String>, &ExecOutput)> {
+        recordings
+            .iter()
+            .find(|(argv, _)| is_root_help_expansion_argv(argv))
+            .map(|(argv, output)| (argv.clone(), output))
+    }
+}
+
+/// True when `argv` is the rendered shape of a *root* [`InertArgv::HelpExpand`]
+/// (`words` empty): exactly `["--help", word]`. See
+/// [`RecordingProbe::find_root_expansion`]'s doc comment for why this is
+/// unambiguous against every other `InertArgv` shape.
+fn is_root_help_expansion_argv(argv: &[String]) -> bool {
+    argv.len() == 2 && argv.first().map(String::as_str) == Some("--help")
 }
 
 impl Default for RecordingProbe {
@@ -1101,5 +1163,80 @@ mod tests {
             },
         );
         assert_eq!(probe.root_help_text().as_deref(), Some("short output"));
+    }
+
+    /// Spec §6 rule 2b regression: when a root confession was followed,
+    /// the recorded expansion (`["--help", "all"]`) must win over the
+    /// plain `--help` recording — the tree was built from the expanded
+    /// document, so that is the "raw text" `existence`/`misattribution`
+    /// must compare against. Before this fix, every flag unique to the
+    /// expansion read as fabricated: curl alone produced 293 spurious
+    /// existence suspects on a full sweep.
+    #[test]
+    fn recording_probe_prefers_a_followed_root_expansion_over_plain_help() {
+        let probe = RecordingProbe::new();
+        probe.recordings.lock().unwrap().insert(
+            InertArgv::HelpLong.args(),
+            ExecOutput {
+                stdout: b"summary output".to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        );
+        probe.recordings.lock().unwrap().insert(
+            InertArgv::HelpExpand {
+                words: vec![],
+                word: "all".to_string(),
+            }
+            .args(),
+            ExecOutput {
+                stdout: b"expanded output".to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        );
+        assert_eq!(probe.root_help_text().as_deref(), Some("expanded output"));
+        let (argv, capture) = probe
+            .root_help_capture()
+            .expect("an expansion was recorded");
+        assert_eq!(argv, vec!["--help".to_string(), "all".to_string()]);
+        assert_eq!(capture.stdout, b"expanded output");
+    }
+
+    /// The common case (no confession printed at all, or one detected but
+    /// not followed) must be entirely unaffected: with no expansion
+    /// recording, behavior is identical to before this fix.
+    #[test]
+    fn recording_probe_falls_back_to_plain_help_when_no_expansion_was_recorded() {
+        let probe = RecordingProbe::new();
+        probe.recordings.lock().unwrap().insert(
+            InertArgv::HelpLong.args(),
+            ExecOutput {
+                stdout: b"summary output".to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        );
+        assert_eq!(probe.root_help_text().as_deref(), Some("summary output"));
+    }
+
+    /// A subcommand's own `HelpLongForPath` probe (`[..words, "--help"]`)
+    /// must never be mistaken for a root expansion, even though both end
+    /// in `"--help"` — the discriminator is *position* (root expansion has
+    /// `"--help"` first; a subcommand path has it last), not mere presence
+    /// of the string.
+    #[test]
+    fn a_subcommand_help_probe_is_never_mistaken_for_a_root_expansion() {
+        assert!(!is_root_help_expansion_argv(&[
+            "sub".to_string(),
+            "--help".to_string()
+        ]));
+        assert!(is_root_help_expansion_argv(&[
+            "--help".to_string(),
+            "all".to_string()
+        ]));
     }
 }

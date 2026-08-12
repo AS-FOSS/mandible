@@ -115,6 +115,17 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
             .map(|c| (&c.provenance, c.detected_framework.as_ref())),
         Axis::Structural,
     );
+    // Same authority reasoning as `detected_framework` immediately above:
+    // this is a fact about how a contributor's *own* text was obtained
+    // (spec §6 rule 2b), never something to merge piecewise across
+    // sources. Only `HelpTextTier` ever sets this, so in practice there is
+    // rarely more than one non-`None` candidate to pick between at all.
+    let confession = pick_option(
+        candidates
+            .iter()
+            .map(|c| (&c.provenance, c.confession.as_ref())),
+        Axis::Structural,
+    );
 
     let structural_winner_idx =
         best_index(candidates.iter().map(|c| &c.provenance), Axis::Structural);
@@ -159,6 +170,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         detected_framework,
         provenance,
         heading_attested,
+        confession,
     })
 }
 

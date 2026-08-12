@@ -101,8 +101,9 @@ exit_code = 0                        # optional, defaults to 0
 expected_framework = "generic"       # from `mandible --doctor git`; the
                                      # detected Framework's name, or
                                      # "generic" when Tier A′ found none
-min_status = "ok"                    # floor: ok > low-confidence > verbatim
-                                     # > no-tier ("suspicious" meets no floor)
+min_status = "ok"                    # floor: ok > incomplete > low-confidence
+                                     # > verbatim > no-tier ("suspicious"
+                                     # meets no floor)
 min_subcommands = 20                 # coarse floor, not an exact count
 must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 

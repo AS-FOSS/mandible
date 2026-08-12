@@ -798,3 +798,245 @@ fn attestation_gate_is_load_bearing_probe_would_have_fired_without_it() {
         "expected the man-page banner the fix now prevents this argv from ever fetching: {text}"
     );
 }
+
+// --- spec §6 rule 2b: the truncation-confession follow-up
+// (`InertArgv::HelpExpand`), end to end through `HelpTextTier::extract_node`
+// against real shim binaries — the same discipline the [M-16] section above
+// uses (real spawns through the real `run_inert` chokepoint), for the exact
+// reason AGENTS.md §3.1 gives: a tier that builds the wrong argv should miss
+// here, not pass because a test mocked the probe.
+
+fn attested() -> NodeHints {
+    NodeHints {
+        heading_attested: true,
+    }
+}
+
+/// A shim whose root `--help` confesses (curl's own wording, `"--help
+/// all"`) and, when followed, prints a strictly larger flag set.
+fn confessing_shim_script(short_flags: &str, long_flags: &str) -> String {
+    format!(
+        r#"#!/bin/sh
+if [ "$#" -eq 1 ] && [ "$1" = "--help" ]; then
+    touch "$0.root_ran"
+    printf '%s' '{short_flags}'
+    exit 0
+fi
+if [ "$#" -eq 2 ] && [ "$1" = "--help" ] && [ "$2" = "all" ]; then
+    touch "$0.expand_ran"
+    printf '%s' '{long_flags}'
+    exit 0
+fi
+touch "$0.other_ran_$#"
+echo "unexpected argv: $@" >&2
+exit 1
+"#,
+    )
+}
+
+/// Half one, the positive case: a shim that confesses **does** get the
+/// expansion probe, and the tree it produces reflects the *expanded*
+/// document — more flags than the summary alone ever had.
+#[test]
+fn a_confessing_shim_is_followed_and_the_tree_reflects_the_expanded_document() {
+    let dir = tempfile::tempdir().unwrap();
+    let short = "Usage: widget [options]\n\n -v, --verbose  Be louder\n\nFor all options use the manual or \"--help all\".\n";
+    let long = "Usage: widget [options]\n\n -v, --verbose  Be louder\n -q, --quiet    Be quieter\n --extra        Only in the expanded document\n";
+    let shim = write_named_shim(dir.path(), "widget", &confessing_shim_script(short, long));
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "widget".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(&tool, &["widget".to_string()], attested())
+        .expect("both probes are answered");
+
+    assert!(
+        dir.path().join("widget.root_ran").exists(),
+        "the root --help probe never ran"
+    );
+    assert!(
+        dir.path().join("widget.expand_ran").exists(),
+        "the confession was detected but never followed — the expansion probe never ran"
+    );
+    let long_flags: Vec<&str> = node
+        .flags
+        .iter()
+        .filter_map(|f| f.long.as_deref())
+        .collect();
+    assert!(
+        long_flags.contains(&"extra"),
+        "the tree must reflect the expanded document, not the 2-flag summary: {long_flags:?}"
+    );
+    let confession = node
+        .confession
+        .as_ref()
+        .expect("a confession was printed and must be recorded");
+    assert_eq!(confession.word, "all");
+    assert_eq!(confession.flag, "--help");
+    assert!(
+        confession.followed,
+        "the expansion succeeded and must say so"
+    );
+}
+
+/// Half two, the negative case: a shim whose text merely *mentions*
+/// `--help` in passing — no quoted directive — must never receive the
+/// expansion probe at all. Proves the negative actually fails without the
+/// grammar being strict: a looser match (e.g. any line containing both
+/// `--help` and a following word) would fire on this text too.
+#[test]
+fn a_shim_that_merely_mentions_help_in_passing_is_not_followed() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = r#"#!/bin/sh
+if [ "$#" -eq 1 ] && [ "$1" = "--help" ]; then
+    touch "$0.root_ran"
+    echo "Usage: mentioner [options]"
+    echo ""
+    echo " -v, --verbose  Be louder"
+    echo ""
+    echo "Run with --help for more information."
+    exit 0
+fi
+touch "$0.expand_ran"
+echo "unexpected argv: $@" >&2
+exit 1
+"#;
+    let shim = write_named_shim(dir.path(), "mentioner", script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "mentioner".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(&tool, &["mentioner".to_string()], attested())
+        .expect("the root probe is answered");
+
+    assert!(dir.path().join("mentioner.root_ran").exists());
+    assert!(
+        !dir.path().join("mentioner.expand_ran").exists(),
+        "prose that merely mentions --help in passing must never trigger the expansion probe"
+    );
+    assert_eq!(
+        node.confession, None,
+        "no directive was printed, so nothing should be recorded"
+    );
+}
+
+/// Half three: no chaining. A shim whose *expanded* document also
+/// confesses must not be probed a third time — the follow-up's own text is
+/// simply never checked for a further directive.
+#[test]
+fn an_expanded_document_that_also_confesses_is_not_probed_a_third_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = r#"#!/bin/sh
+if [ "$#" -eq 1 ] && [ "$1" = "--help" ]; then
+    touch "$0.root_ran"
+    echo "Usage: nested [options]"
+    echo ""
+    echo " -v, --verbose  Be louder"
+    echo ""
+    echo "For all options use the manual or \"--help all\"."
+    exit 0
+fi
+if [ "$#" -eq 2 ] && [ "$1" = "--help" ] && [ "$2" = "all" ]; then
+    touch "$0.expand_ran"
+    echo "Usage: nested [options]"
+    echo ""
+    echo " -v, --verbose  Be louder"
+    echo " -q, --quiet    Be quieter"
+    echo ""
+    echo "For all options use the manual or \"--help all\"."
+    exit 0
+fi
+touch "$0.third_probe_ran"
+echo "unexpected argv: $@" >&2
+exit 1
+"#;
+    let shim = write_named_shim(dir.path(), "nested", script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "nested".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(&tool, &["nested".to_string()], attested())
+        .expect("both probes this test cares about are answered");
+
+    assert!(dir.path().join("nested.root_ran").exists());
+    assert!(
+        dir.path().join("nested.expand_ran").exists(),
+        "the first, legitimate expansion must still happen"
+    );
+    assert!(
+        !dir.path().join("nested.third_probe_ran").exists(),
+        "a confession inside the expanded document triggered a second \
+         expansion — chaining must never happen"
+    );
+    let long_flags: Vec<&str> = node
+        .flags
+        .iter()
+        .filter_map(|f| f.long.as_deref())
+        .collect();
+    assert!(long_flags.contains(&"quiet"), "{long_flags:?}");
+    let confession = node.confession.as_ref().expect("must be recorded");
+    assert!(confession.followed);
+}
+
+/// Half four: rule 0 still wins. A shim named like a never-probe tool
+/// (spec §6 rule 0) that confesses must not receive the expansion argv —
+/// `run_inert`'s own chokepoint refuses `HelpExpand`'s
+/// `["--help", "all"]` for the exact same reason it refuses every other
+/// non-`["--help"]` shape, with no special case anywhere in
+/// `help_text::confession` or `HelpTextTier`.
+#[test]
+fn a_never_probe_named_shim_that_confesses_does_not_receive_the_expansion_argv() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(dir.path(), "pkill", &confessing_shim_script(
+        "Usage: pkill [options]\n\n -f, --full  Match against full argument list\n\nFor all options use the manual or \"--help all\".\n",
+        "Usage: pkill [options]\n\n -f, --full  Match against full argument list\n --extra     Only in the expanded document\n",
+    ));
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkill".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    // The root probe itself (`InertArgv::HelpLongForPath { words: [] }`)
+    // renders to exactly `["--help"]`, the one shape rule 0 permits, so
+    // the confession is genuinely detected here — this test is about what
+    // happens *after* detection, not about the root probe being refused.
+    let node = tier
+        .extract_node(&tool, &["pkill".to_string()], attested())
+        .expect("the root --help probe is the one permitted shape and must succeed");
+
+    assert!(dir.path().join("pkill.root_ran").exists());
+    assert!(
+        !dir.path().join("pkill.expand_ran").exists(),
+        "rule 0 must refuse the expansion argv before the shim ever sees it"
+    );
+    let long_flags: Vec<&str> = node
+        .flags
+        .iter()
+        .filter_map(|f| f.long.as_deref())
+        .collect();
+    assert!(
+        !long_flags.contains(&"extra"),
+        "the tree must still reflect the un-expanded summary: {long_flags:?}"
+    );
+    let confession = node.confession.as_ref().expect("must be recorded");
+    assert_eq!(confession.word, "all");
+    assert!(
+        !confession.followed,
+        "rule 0's refusal must be recorded as an unfollowed confession, \
+         which is what caps the status at `incomplete`"
+    );
+}

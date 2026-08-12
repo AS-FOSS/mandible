@@ -796,6 +796,17 @@ mod tests {
             InertArgv::CompletionScript {
                 shell: "zsh".to_string(),
             },
+            // Spec §6 rule 2b's new shape must be refused exactly like
+            // every other non-`["--help"]` argv — even when `word` is the
+            // one this tier would actually follow ("all"). This is the
+            // structural proof that rule 0 wins regardless of the
+            // confession machinery: `run_inert`'s own chokepoint check
+            // (`argv.args() != ["--help"]`) rejects it with no special
+            // case needed anywhere in `help_text::confession`.
+            InertArgv::HelpExpand {
+                words: vec![],
+                word: "all".to_string(),
+            },
         ] {
             let result = run_inert(&path, &argv, Duration::from_secs(2));
             assert!(

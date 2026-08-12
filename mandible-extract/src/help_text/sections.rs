@@ -2195,6 +2195,17 @@ fn split_at_dash(line: &str, dash_idx: usize) -> (&str, String) {
 /// described**, while the descriptions were sitting right there in the
 /// output.
 fn find_description_gap(line: &str) -> Option<usize> {
+    if let Some(col) = find_multi_space_gap(line) {
+        return Some(col);
+    }
+    // Only ever consulted when the rule above found nothing anywhere in
+    // the line — see `find_placeholder_boundary_gap`'s own doc comment.
+    find_placeholder_boundary_gap(line)
+}
+
+/// The original heuristic, unchanged: a run of two or more spaces, or any
+/// run containing a tab, after some non-whitespace content.
+fn find_multi_space_gap(line: &str) -> Option<usize> {
     let bytes = line.as_bytes();
     let mut i = 0;
     let mut seen_content = false;
@@ -2213,6 +2224,62 @@ fn find_description_gap(line: &str) -> Option<usize> {
         } else {
             seen_content = true;
             i += 1;
+        }
+    }
+    None
+}
+
+/// Fallback for a line with no aligned column at all — some tools (`curl
+/// --help all`, spec §6 rule 2b's own fixture, `corpus/curl/8.5.0-all`,
+/// is what surfaced this) right-pad *short* specs to a fixed width but
+/// simply run a single space after a *long* one:
+///
+/// ```text
+///      --abstract-unix-socket <path> Connect via abstract Unix domain socket
+///  -a, --append      Append to target file when uploading
+/// ```
+///
+/// The second row has real column padding and [`find_multi_space_gap`]
+/// finds it; the first has none at all, so without this fallback the
+/// whole line — placeholder and description together — reads as the flag
+/// spec with an empty description, and a real, present description is
+/// silently lost (curl's `--help all` measured 25.2% described before this
+/// fix, almost entirely from short flags that happened to have padding).
+///
+/// **Only ever consulted when [`find_multi_space_gap`] found no gap
+/// anywhere in the line at all** — every line with a real aligned column
+/// keeps taking that path completely unchanged, so this cannot move where
+/// an already-working split happens; it only recovers a description that
+/// would otherwise be lost entirely.
+///
+/// Splits right after the first `>` or `]` that closes a value-placeholder
+/// -shaped token (`<value>`, `[value]` — the two spellings this project's
+/// own flag grammar, `grammar.rs`, already recognizes) when it is
+/// immediately followed by exactly one space and then more content.
+/// Content-keyed on that closing-bracket shape, never on a tool name —
+/// the same discipline every other layout heuristic in this file follows.
+/// A `]` that closes a bracket *inside* a placeholder (`<[%]name=...>`)
+/// is never mistaken for the boundary: nothing follows it but more of the
+/// placeholder, never a single space, so it fails the "immediately
+/// followed by exactly one space" test and scanning continues to the
+/// placeholder's real closing `>`.
+fn find_placeholder_boundary_gap(line: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b != b'>' && b != b']' {
+            continue;
+        }
+        let after = i + 1;
+        if bytes.get(after) != Some(&b' ') {
+            continue;
+        }
+        // Exactly one space: a second space here would mean
+        // `find_multi_space_gap` already matched above, so reaching this
+        // function at all guarantees no run of 2+ spaces exists anywhere
+        // in `line` — no need to re-check that this isn't a longer run.
+        let desc_start = after + 1;
+        if matches!(bytes.get(desc_start), Some(c) if *c != b' ') {
+            return Some(after);
         }
     }
     None
@@ -3601,6 +3668,93 @@ mod tests {
         assert!(
             described.contains(&("import", "Import a key")),
             "{described:?}"
+        );
+    }
+
+    /// The single-space fallback (spec §6 rule 2b's own fixture,
+    /// `corpus/curl/8.5.0-all`, is what surfaced this): a tool that
+    /// right-pads *short* specs to a fixed column but simply runs one
+    /// space after a *long* one has no aligned column at all for those
+    /// rows, so the original 2+-space/tab rule found nothing and the
+    /// whole line — placeholder and description together — was read as
+    /// the flag spec with an empty description. Measured on real
+    /// `curl --help all`: 25.2% described before this fix, 77.1% after.
+    #[test]
+    fn a_single_space_after_a_value_placeholder_recovers_the_description() {
+        let help = "Usage: curl [options...] <url>\n\
+                    Options:\n  \
+                    --abstract-unix-socket <path> Connect via abstract Unix domain socket\n  \
+                    --anyauth     Pick any authentication method\n";
+        let parsed = parse(help);
+        let described: Vec<(&str, &str)> = parsed
+            .flags
+            .iter()
+            .map(|f| {
+                (
+                    f.long.as_deref().unwrap_or(""),
+                    f.description.as_ref().map(|d| d.as_str()).unwrap_or(""),
+                )
+            })
+            .collect();
+        assert!(
+            described.contains(&(
+                "abstract-unix-socket",
+                "Connect via abstract Unix domain socket"
+            )),
+            "{described:?}"
+        );
+        // The ordinary, already-working padded row must be unaffected.
+        assert!(
+            described.contains(&("anyauth", "Pick any authentication method")),
+            "{described:?}"
+        );
+    }
+
+    /// The fallback must never fire when an ordinary aligned gap already
+    /// exists — it is consulted only when [`find_multi_space_gap`] finds
+    /// nothing anywhere in the line, so a `>`/`]` that happens to sit
+    /// inside an already-correctly-split spec (value placeholder) must
+    /// not move where the real split lands.
+    #[test]
+    fn the_single_space_fallback_never_overrides_an_existing_aligned_gap() {
+        let help = "Usage: tool [options]\n\nOptions:\n  \
+                    -o, --output <file>          Write to file instead of stdout\n";
+        let parsed = parse(help);
+        let flag = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("output"))
+            .expect("--output must be recovered");
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("Write to file instead of stdout")
+        );
+    }
+
+    /// A closing `]` that sits *inside* a placeholder (`[%]` as part of a
+    /// larger `<[%]name=...>` token) must never be mistaken for the real
+    /// boundary — nothing follows it but more of the placeholder, never a
+    /// single space, so scanning must continue to the placeholder's real
+    /// closing `>`.
+    #[test]
+    fn a_bracket_nested_inside_a_placeholder_is_not_mistaken_for_the_boundary() {
+        let help = "Usage: curl [options...] <url>\n\
+                    Options:\n  \
+                    --variable <[%]name=text/@file> Set variable\n";
+        let parsed = parse(help);
+        let flag = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("variable"))
+            .expect("--variable must be recovered");
+        assert_eq!(
+            flag.value_name.as_deref(),
+            Some("<[%]name=text/@file>"),
+            "the nested `]` must not truncate the placeholder"
+        );
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("Set variable")
         );
     }
 

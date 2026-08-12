@@ -8,8 +8,41 @@ once it reaches a published 0.1.0 release.
 
 ## [0.2.2]
 
-Two general parser fixes. Between them, described coverage across the PATH
-sweep moves **89.23% → 94.18%** on 2266 tools, with no tool losing anything.
+Three general parser fixes plus a new safety-gated argv shape (below).
+Between the parser fixes, described coverage across the PATH sweep moves
+**89.23% → 94.77%** on ~2266 tools, with no tool losing anything.
+
+### Added
+
+- **The truncation-confession follow-up (spec §6 rule 2b).** `curl --help`
+  prints 12 flags and ends with its own admission that the reader hasn't
+  seen everything: `For all options use the manual or "--help all".`
+  mandible now recognizes that convention — a quoted `"--help <word>"`/
+  `"-h <word>"` directive, closed and content-keyed, never keyed on a tool's
+  name — and re-probes with exactly the word the tool itself printed.
+  `curl --help` now recovers all **258** flags instead of 12. Only the
+  single "expand to one complete document" shape ships (`--help all`);
+  curl's *other* directive, `--help category` (a menu requiring its own
+  further probes to resolve), is detected but deliberately not followed —
+  a materially bigger feature this batch does not build.
+
+  This is a new `InertArgv` shape (`HelpExpand`), so it went through spec
+  §6's own amendment process: `--help` always precedes the word (a getopt
+  that stops at the first non-option still reaches it first), the word is
+  never fabricated (copied verbatim from the tool's own already-probed,
+  already-trusted output), expansion happens **at most once** — never
+  chained into a confession printed inside the expanded document itself —
+  and it is refused outright, with no special case, for any tool on the
+  rule 0 never-probe list (`pkill --help` confessing does not unlock
+  `pkill --help all`).
+
+  A confession that's detected but can't be followed — an unrecognised
+  word, a failed probe, a rule 0 refusal — caps the tool's status at a new
+  **`incomplete`** (`ok > incomplete > low-confidence > verbatim >
+  no-tier`) instead of reporting a confident `ok` on a document the tool's
+  own text already said was truncated. `corpus/curl/8.5.0` fixtures the
+  honest case (root `--help` alone, no expansion captured, `incomplete`);
+  its sibling `corpus/curl/8.5.0-all` fixtures the followed case (`ok`).
 
 ### Fixed
 
@@ -41,6 +74,29 @@ sweep moves **89.23% → 94.18%** on 2266 tools, with no tool losing anything.
   requires a real `-`-leading row — bounded deliberately, since "look harder for
   flags" is how fabrication starts. A bare-word command table contains no such
   row and is unaffected.
+
+- **A line with no aligned column at all lost its description entirely.**
+  Some tools (`curl --help all`, the expansion above's own fixture) right-pad
+  *short* option specs to a fixed width but simply run a single space after a
+  *long* one — `--abstract-unix-socket <path> Connect via abstract Unix
+  domain socket` has no 2+-space gap anywhere, so the whole line, placeholder
+  and description together, was read as the flag spec with an empty
+  description. curl's `--help all` measured **25.2% described before this
+  fix, 77.1% after**; `lsof`'s existing fixture recovers two more real
+  descriptions the same way. The fallback only ever fires when the ordinary
+  aligned-column rule finds nothing at all, so no already-working split
+  moves.
+
+### Fixed (measurement tooling)
+
+- **A followed confession threw off the misattribution/existence
+  detectors.** Both compare a tool's extracted tree against the raw text a
+  probe returned, read via a shared recorder that only knew about `--help`/
+  `-h`. Once a confession is followed, the tree is built from the *expanded*
+  document instead, so every flag unique to it — 246 of curl's 258 — wasn't
+  in the recorded raw text, and read as fabricated: curl alone contributed
+  293 spurious existence "suspects" on a full sweep before this fix. The
+  recorder now prefers a recorded root expansion when one exists.
 
 ## [0.2.1]
 

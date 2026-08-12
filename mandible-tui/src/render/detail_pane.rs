@@ -914,6 +914,26 @@ pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
     if !node.unparsed.is_empty() {
         return None;
     }
+
+    // Spec §6 rule 2b: the tool's own text said this document is
+    // incomplete, and mandible could not (or did not) follow it — an
+    // unrecognised word/shape, a failed probe, or a rule 0 refusal.
+    // Checked ahead of the confidence caveat below and unconditionally
+    // (not gated on confidence at all): a node can parse *perfectly* —
+    // every flag on this page correctly recognized and described — and
+    // still be the wrong page, which is exactly curl's `--help` before
+    // this feature existed. A *followed* confession (`followed: true`)
+    // says nothing here; the tree already reflects the expanded document
+    // and there is nothing left to flag.
+    if let Some(confession) = &node.confession {
+        if !confession.followed {
+            return Some(format!(
+                "incomplete: this tool's help said more is available (`{} {}`)",
+                confession.flag, confession.word
+            ));
+        }
+    }
+
     let confidence = node.provenance.confidence?;
     if confidence >= LOW_CONFIDENCE {
         return None;
@@ -1235,6 +1255,38 @@ mod tests {
         let mut node = node_with_flags();
         node.provenance = Provenance::with_confidence(Source::HelpText, 0.0);
         node.unparsed = vec![Text::sanitize("GIT-CLONE(1) Git Manual GIT-CLONE(1)")];
+        assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
+    }
+
+    /// Spec §6 rule 2b: an unfollowed confession is flagged even on an
+    /// otherwise perfectly-confident node — curl's `--help` parses every
+    /// one of its 12 flags cleanly, and the problem is entirely that it's
+    /// the wrong document, which confidence alone can never see.
+    #[test]
+    fn an_unfollowed_confession_warns_with_the_advertised_argv() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
+        node.confession = Some(mandible_core::Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: false,
+        });
+        let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
+            .expect("an unfollowed confession must be surfaced even on a confident parse");
+        assert!(caveat.contains("--help all"), "{caveat:?}");
+    }
+
+    /// A *followed* confession is the success case — the tree already
+    /// reflects the expanded document — and must say nothing here.
+    #[test]
+    fn a_followed_confession_gets_no_caveat() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
+        node.confession = Some(mandible_core::Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: true,
+        });
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
     }
 

@@ -46,6 +46,28 @@ pub enum InertArgv {
         /// The subcommand path words already typed.
         words: Vec<String>,
     },
+    /// `<words...> --help <word>` — spec §6 rule 2b, the "truncation
+    /// confession" follow-up: re-probes with exactly the argv a tool's own
+    /// printed text recommended, when that text confesses that a plain
+    /// `--help` is not the complete document (curl's `--help` ends `For
+    /// all options use the manual or "--help all".`).
+    ///
+    /// **`--help` always precedes `word`.** A getopt that stops at the
+    /// first non-option (BSD/busybox-style, unlike glibc's permuting one)
+    /// still reaches `--help` before ever considering `word` — this can
+    /// never degrade into a bare positional some other getopt routes
+    /// elsewhere, unlike a shape that put `word` first. `word` must come
+    /// from the tool's own printed directive
+    /// (`crate::help_text::confession::Directive`), never fabricated —
+    /// the same discipline rule 0's closing paragraph already requires of
+    /// [`InertArgv::HelpLongForPath`]'s subcommand words.
+    HelpExpand {
+        /// The subcommand path words already typed, if any (empty for the
+        /// root — the only case shipped so far).
+        words: Vec<String>,
+        /// The word the tool's own text recommended, verbatim.
+        word: String,
+    },
     /// `<tool> --` under `COMPLETE=<shell>`, used to detect clap
     /// `CompleteEnv` support (spec §7 Tier E). Never invoked without the
     /// trailing `--`.
@@ -90,6 +112,12 @@ impl InertArgv {
                 a.push("-h".to_string());
                 a
             }
+            InertArgv::HelpExpand { words, word } => {
+                let mut a = words.clone();
+                a.push("--help".to_string());
+                a.push(word.clone());
+                a
+            }
             InertArgv::ClapCompleteEnvProbe { .. } => vec!["--".to_string()],
             InertArgv::ClapCompleteEnvComplete { partial, .. } => {
                 vec!["--".to_string(), partial.clone()]
@@ -129,6 +157,10 @@ mod tests {
             InertArgv::HelpSubcommand { words: vec![] },
             InertArgv::HelpLongForPath { words: vec![] },
             InertArgv::HelpShortForPath { words: vec![] },
+            InertArgv::HelpExpand {
+                words: vec![],
+                word: "all".to_string(),
+            },
             InertArgv::ClapCompleteEnvProbe {
                 shell: "zsh".to_string(),
             },
@@ -159,5 +191,25 @@ mod tests {
             words: vec!["pr".to_string()],
         };
         assert_eq!(v.args(), vec!["__complete".to_string(), "pr".to_string()]);
+    }
+
+    /// Spec §6 rule 2b: `--help` always precedes the word, for both the
+    /// root (empty `words`) and a subcommand path.
+    #[test]
+    fn help_expand_args_put_help_immediately_before_the_word() {
+        let root = InertArgv::HelpExpand {
+            words: vec![],
+            word: "all".to_string(),
+        };
+        assert_eq!(root.args(), vec!["--help".to_string(), "all".to_string()]);
+
+        let sub = InertArgv::HelpExpand {
+            words: vec!["sub".to_string()],
+            word: "all".to_string(),
+        };
+        assert_eq!(
+            sub.args(),
+            vec!["sub".to_string(), "--help".to_string(), "all".to_string()]
+        );
     }
 }

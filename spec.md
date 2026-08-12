@@ -475,10 +475,13 @@ damage a user's machine, and it gets its own section and its own tests.
    opposite of inert.
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
-   [<words...>]`, or `-- <partial>` under `COMPLETE=`. Any other shape requires a
-   spec amendment. The last of those is currently **unused** — no tier constructs
-   it since Tier E's clap probe was removed — and it is retained on the type only
-   so removing a public enum variant is not forced into a patch release.
+   [<words...>]`, `<words...> --help`/`-h` (a subcommand path's own probe,
+   `HelpLongForPath`/`HelpShortForPath`), `<words...> --help <word>` (rule
+   2b, below), or `-- <partial>` under `COMPLETE=`. Any other shape requires a
+   spec amendment. The `COMPLETE=` shape is currently **unused** — no tier
+   constructs it since Tier E's clap probe was removed — and it is retained on
+   the type only so removing a public enum variant is not forced into a patch
+   release.
 
    2a. **No empty argument the tool could read as its first positional.** Rule 1
    only counts arguments, and an empty string satisfies it while being the
@@ -497,6 +500,104 @@ damage a user's machine, and it gets its own section and its own tests.
    `__complete` sentinel precedes it, and a non-cobra tool rejects that word
    rather than acting on it. So the rule is checkable: an empty element is
    allowed only behind a guard word, never straight after `--`.
+
+   2b. **`InertArgv::HelpExpand` — the truncation-confession follow-up
+   (WS5, approved amendment).** `curl --help` ends its own output:
+
+   ```text
+   This is not the full help, this menu is stripped into categories.
+   Use "--help category" to get an overview of all categories.
+   For all options use the manual or "--help all".
+   ```
+
+   That is a **truncation confession** — the tool telling the reader, in its
+   own words, that what was just printed is not the complete document.
+   Measured: `curl --help` recovers 12 flags; `curl --help all` recovers
+   258, and mandible was reporting the 12-flag document as `ok` at full
+   confidence. It is a convention, not a curl quirk (`ffmpeg -h long`/`-h
+   full`, `git help -a`, `gcc --help=<class>` are the same genus), so this is
+   a new, general argv shape rather than a curl special case — which is
+   exactly why rule 2's closed list needs a new member, not a `mandible-
+   extract` patch that quietly bypasses it.
+
+   A new shape needs an amendment because it is new *argv the crate can
+   construct*, not because it is dangerous by any measure this section
+   already tracks: it is refused by rule 0 exactly like every other non-
+   `["--help"]` shape (`run_inert`'s own `argv.args() != ["--help"]` check
+   needs no change to cover it), it cannot produce an empty argument (rule
+   2a — `word` is checked non-empty before this shape is even constructed,
+   see below), and it is bounded by the same timeout, output cap, and
+   scratch-directory redirect as every other probe. What rule 2 exists to
+   police is the *shape*, and this is a shape nothing on the closed list
+   already covers: `--help` followed by a second, tool-supplied word.
+
+   **`InertArgv::HelpExpand { words, word }`** renders as `[..words,
+   "--help", word]` (`mandible-extract/src/exec/policy.rs`). Three
+   constraints, all enforced in `help_text::confession` and
+   `HelpTextTier`, not left to caller discipline:
+
+   - **`word` comes from the tool's own printed directive, never a prose
+     heuristic and never a fabricated word.** `help_text::confession::
+     detect_directives` recognizes a closed, content-keyed grammar — a
+     quoted `"--help <word>"`/`"-h <word>"` shape, the word bare and the
+     quote immediately closing right after it (curl's own `"--help all"`)
+     — never keyed on the tool's name, so it fires identically for any
+     tool that happens to print the same convention. `word` is copied
+     verbatim from what matched; nothing about the word is invented,
+     guessed, or derived from the tool's identity.
+   - **`--help` precedes `word`.** So a getopt that stops at the first
+     non-option (BSD/busybox-style, unlike glibc's permuting one) still
+     reaches `--help` before ever considering `word` as a positional —
+     this can never degrade into a bare positional some other getopt
+     routes elsewhere, the exact hazard rule 2a exists to close for a
+     *different* shape (`-- ""`). Putting `word` first was never on the
+     table for this reason alone.
+   - **Expansion is followed at most once, never chained.** A confession
+     detected inside an *expanded* document is not looked at: the probe
+     that fetches the expanded text returns it as-is, with no second call
+     back into `detect_directives` on that result. This is structural, not
+     a depth counter that could be miscalibrated — the function that
+     issues the one follow-up probe simply never recurses into itself.
+
+   **Interaction with rule 0 (the never-probe list) and the attestation
+   gate (`heading_attested`, this section's closing paragraph on
+   `HelpTextTier`).** Neither conflicts with this amendment, and both are
+   worth saying explicitly rather than leaving a reader to wonder:
+
+   - **Rule 0 wins unconditionally.** `HelpExpand`'s rendered argv is never
+     exactly `["--help"]` (it is always `[..words, "--help", word]`, `word`
+     non-empty), so `run_inert`'s existing check refuses it for every
+     tool on the never-probe list with no code change and no special
+     case — a `pkill`-named tool that confesses is refused the expansion
+     exactly as it is refused every other non-`--help` shape.
+   - **A directive-sourced word is structurally attested by construction.**
+     The attestation gate exists to stop a *fabricated* word — one a
+     grammar guessed at from layout — from becoming argv (this section's
+     closing paragraph). A confession's `word` is not fabricated and is
+     not a subcommand name any grammar inferred: it is copied verbatim
+     from text the tool itself already printed, in response to a probe
+     that was itself already attested (the root by construction, or a
+     subcommand path that already passed the gate to be probed at all).
+     So `word` needs no *separate* attestation check — it inherits the
+     attestation of the probe that produced it, the same way the root's
+     own `--help` probe is exempt from the gate because it is the name
+     the user typed, not a word any parser invented.
+
+   **Scope, deliberately narrow.** Only the single-word "expand to one
+   complete document" shape ships (`help_text::confession`'s closed
+   `FOLLOWABLE_WORDS` vocabulary, `all` only for now). curl's *other*
+   directive, `--help category`, is detected (so `incomplete` still fires
+   honestly) but not followed: following it returns a menu of category
+   *names*, not flags, and turning that into real recovery needs
+   enumerating each category as its own probe — a materially bigger
+   feature (`--help category` → N probes) this amendment does not cover
+   and does not partially build.
+
+   A confession that is detected but not followed — an unrecognised
+   word/shape, a failed follow-up probe, or a rule 0 refusal — caps the
+   node's status at `incomplete` (§13.1's status ladder: `ok > incomplete >
+   low-confidence > verbatim > no-tier`) rather than reporting a confident
+   `ok` on a document the tool's own text already said was truncated.
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
    kill the **process group**, not just the child — completion scripts spawn

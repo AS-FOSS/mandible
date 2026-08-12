@@ -326,6 +326,38 @@ pub struct NodeSnapshot {
     /// **never** reordered. See this module's doc comment.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub subcommands: Vec<NodeSnapshot>,
+    /// What this node's own `--help` text said about being an incomplete
+    /// document, if anything (spec §6 rule 2b). Omitted entirely for the
+    /// overwhelmingly common case, no confession printed at all.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confession: Option<ConfessionSnapshot>,
+}
+
+/// Snapshot form of [`crate::node::Confession`].
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConfessionSnapshot {
+    /// The directive word, verbatim from the tool's own text.
+    pub word: String,
+    /// The flag printed alongside it (`"--help"` or `"-h"`).
+    pub flag: String,
+    /// True when the advertised argv was actually re-probed and this
+    /// node's fields reflect that document. Omitted when `false` — same
+    /// "loss is still visible as a removed key" reasoning [`is_false`]
+    /// documents — so a snapshot only ever spells this out when there is
+    /// something to explain (an unfollowed confession, which caps status
+    /// at `incomplete`), not on every successfully-expanded node.
+    #[serde(skip_serializing_if = "is_false")]
+    pub followed: bool,
+}
+
+impl From<&crate::node::Confession> for ConfessionSnapshot {
+    fn from(c: &crate::node::Confession) -> Self {
+        ConfessionSnapshot {
+            word: c.word.clone(),
+            flag: c.flag.clone(),
+            followed: c.followed,
+        }
+    }
 }
 
 impl From<&CommandNode> for NodeSnapshot {
@@ -351,6 +383,7 @@ impl From<&CommandNode> for NodeSnapshot {
             // straight `iter().map().collect()` over `n.subcommands`, no
             // sort, no re-grouping.
             subcommands: n.subcommands.iter().map(NodeSnapshot::from).collect(),
+            confession: n.confession.as_ref().map(ConfessionSnapshot::from),
         }
     }
 }

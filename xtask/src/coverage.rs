@@ -207,6 +207,18 @@ pub struct Aggregate {
     /// Tools whose root degraded to verbatim (spec §7 Tier B step 3).
     /// **Not gated** — see [`compute_aggregate`].
     pub verbatim_count: usize,
+    /// Tools at status `incomplete` (spec §6 rule 2b): a truncation
+    /// confession was detected but not followed — an unrecognised word,
+    /// a failed probe, or a rule 0 refusal — so the tree still reflects
+    /// the tool's own admittedly-incomplete document. **Not gated**, same
+    /// reasoning as `verbatim_count`/`man_shaped_count`: this is a
+    /// brand-new measurement (this batch) with no baseline to regress
+    /// against, and it is the interesting number precisely because it
+    /// names tools mandible was previously confidently wrong about
+    /// (reporting `ok` on a document the tool's own text said was
+    /// truncated) — a shrinking gate would incentivize hiding it, not
+    /// following more confessions.
+    pub incomplete_count: usize,
     /// Tools whose root `--help` output was detected as a rendered man
     /// page (spec [M-16]) — the exposure set for the pending `-h`
     /// fallback decision. A subset of `verbatim_count`: every man-shaped
@@ -630,6 +642,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let no_tier_count = rows.iter().filter(|r| r.status == "no-tier").count();
     let suspicious_count = rows.iter().filter(|r| r.status == "suspicious").count();
     let verbatim_count = rows.iter().filter(|r| r.verbatim).count();
+    let incomplete_count = rows.iter().filter(|r| r.status == "incomplete").count();
     let man_shaped_count = rows.iter().filter(|r| r.man_shaped).count();
     let zero_flag_ok_count = rows
         .iter()
@@ -661,6 +674,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         no_tier_count,
         suspicious_count,
         verbatim_count,
+        incomplete_count,
         man_shaped_count,
         zero_flag_ok_count,
         framework_detected_count,
@@ -1102,11 +1116,12 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
         aggregate.verbatim_count,
+        aggregate.incomplete_count,
         aggregate.man_shaped_count,
         aggregate.zero_flag_ok_count,
         aggregate.misattribution_suspect_tools,
@@ -1158,6 +1173,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // that did exist.
     let mut suspicious_count = 0usize;
     let mut verbatim_count = 0usize;
+    // Brand-new field (spec §6 rule 2b, this batch): a scoreboard from
+    // before the `incomplete` status existed has no such key at all, so
+    // `--check` against one must still work.
+    let mut incomplete_count = 0usize;
     let mut man_shaped_count = 0usize;
     let mut zero_flag_ok_count = 0usize;
     let mut described_flags = 0.0f64;
@@ -1193,6 +1212,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "no_tier_count" => no_tier_count = value.parse::<usize>().ok(),
             "suspicious_count" => suspicious_count = value.parse::<usize>().ok()?,
             "verbatim_count" => verbatim_count = value.parse::<usize>().ok()?,
+            "incomplete_count" => incomplete_count = value.parse::<usize>().ok()?,
             "man_shaped_count" => man_shaped_count = value.parse::<usize>().ok()?,
             "zero_flag_ok_count" => zero_flag_ok_count = value.parse::<usize>().ok()?,
             "misattribution_suspect_tools" => {
@@ -1216,6 +1236,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         no_tier_count: no_tier_count?,
         suspicious_count,
         verbatim_count,
+        incomplete_count,
         man_shaped_count,
         zero_flag_ok_count,
         framework_detected_count: 0,
@@ -1287,6 +1308,7 @@ mod tests {
         assert_eq!(agg.no_tier_count, 3);
         assert_eq!(agg.suspicious_count, 2);
         assert_eq!(agg.verbatim_count, 1);
+        assert_eq!(agg.incomplete_count, 0);
         assert_eq!(agg.man_shaped_count, 1);
         assert_eq!(agg.zero_flag_ok_count, 4);
         assert_eq!(agg.total, 10);
@@ -1311,6 +1333,31 @@ mod tests {
             "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 total=10\n";
         let agg = parse_aggregate_footer(table).unwrap();
         assert_eq!(agg.verbatim_count, 0);
+    }
+
+    /// Same for `incomplete_count` (spec §6 rule 2b, this batch): a
+    /// scoreboard from before the `incomplete` status existed has no such
+    /// field.
+    #[test]
+    fn footer_without_incomplete_count_defaults_to_zero() {
+        let table = "# aggregate: pct_flags_with_text=42.50 no_tier_count=3 suspicious_count=1 verbatim_count=1 total=10\n";
+        let agg = parse_aggregate_footer(table).unwrap();
+        assert_eq!(agg.incomplete_count, 0);
+    }
+
+    /// Round-trips through a freshly-written footer, unlike the
+    /// backward-compatibility tests above which parse a hand-written one.
+    #[test]
+    fn incomplete_count_round_trips_through_a_freshly_written_footer() {
+        let rows = vec![
+            row("curl", 12, Some(100.0), "incomplete"),
+            row("git", 34, Some(100.0), "ok"),
+        ];
+        let agg = compute_aggregate(&rows);
+        assert_eq!(agg.incomplete_count, 1);
+        let line = aggregate_footer_line(&agg);
+        let parsed = parse_aggregate_footer(&line).unwrap();
+        assert_eq!(parsed.incomplete_count, 1);
     }
 
     /// Same for `man_shaped_count`, added by this batch ([M-16]'s

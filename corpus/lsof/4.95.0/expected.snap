@@ -169,6 +169,7 @@ flags:
 - short: 'g'
   value_name: s
   value_kind: Optional
+  description: exclude(^)|select and print process group IDs
   provenance:
     sources:
     - help-text
@@ -196,6 +197,7 @@ flags:
 - short: 'x'
   value_name: fl
   value_kind: Optional
+  description: cross over +d|+D File systems or symbolic Links
   provenance:
     sources:
     - help-text

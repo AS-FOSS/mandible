@@ -22,6 +22,7 @@
 //! no profile. See [`build_node`] for the three-level staged degradation
 //! this produces (spec §7 Tier B).
 
+pub mod confession;
 mod grammar;
 mod profile;
 mod sections;
@@ -39,7 +40,7 @@ use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
-use mandible_core::{Authority, CommandNode, Provenance, Source, Text};
+use mandible_core::{Authority, CommandNode, Confession, Provenance, Source, Text};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -127,7 +128,8 @@ impl ExtractionTier for HelpTextTier {
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
-        let raw = probe_help_text(self.probe.as_ref(), tool_path, &words, hints)?;
+        let (raw, _argv_display, confession) =
+            probe_help_text_confession_aware(self.probe.as_ref(), tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
         if words.is_empty() {
@@ -181,7 +183,9 @@ impl ExtractionTier for HelpTextTier {
                     let detected_framework = framework::identify_from_artifact(tool)
                         .or_else(|| framework::identify_from_help_text(&raw))
                         .map(|f| f.name().to_string());
-                    return Ok(verbatim_node(&node_name, &raw, detected_framework));
+                    let mut node = verbatim_node(&node_name, &raw, detected_framework);
+                    node.confession = confession;
+                    return Ok(node);
                 }
             }
         }
@@ -194,7 +198,9 @@ impl ExtractionTier for HelpTextTier {
         // the text this call already fetched above for its own parsing.
         let detected = framework::identify_from_artifact(tool)
             .or_else(|| framework::identify_from_help_text(&raw));
-        Ok(build_node(&node_name, &raw, detected, &tool.name))
+        let mut node = build_node(&node_name, &raw, detected, &tool.name);
+        node.confession = confession;
+        Ok(node)
     }
 
     fn is_incremental(&self) -> bool {
@@ -253,17 +259,8 @@ impl ExtractionTier for HelpTextTier {
 /// (spec §6 rule 0) regardless of any of the above — that refusal is
 /// swallowed here exactly like a validation failure, not propagated as a
 /// fatal error, so the node still degrades to verbatim.
-fn probe_help_text(
-    probe: &dyn Probe,
-    tool_path: &Path,
-    words: &[String],
-    hints: NodeHints,
-) -> Result<String, ExtractError> {
-    probe_help_text_reporting_flag(probe, tool_path, words, hints).map(|(text, _flag)| text)
-}
-
-/// [`probe_help_text`], also reporting **which flag actually produced the
-/// text** — `"--help"` or `"-h"`.
+/// Run `<tool> [<path>...] --help`, falling back to `-h`, also reporting
+/// **which flag actually produced the text** — `"--help"` or `"-h"`.
 ///
 /// The verbatim view (`t`) needs this to label itself honestly. Since
 /// [M-16] sub-case (a) a subcommand's text may come from either probe, and
@@ -339,6 +336,97 @@ fn probe_help_text_reporting_flag(
     Ok((long_text, "--help"))
 }
 
+/// [`probe_help_text_reporting_flag`], further resolved against the tool's
+/// own truncation-confession convention (spec §6 rule 2b, `help_text::
+/// confession`): if that probe's text confesses to being an incomplete
+/// document and names a word this tier knows how to follow
+/// (`confession::expandable`), this issues exactly **one** additional
+/// probe with the advertised argv (`InertArgv::HelpExpand`) and returns
+/// *that* document instead.
+///
+/// **Never chained.** The expanded document's own text is returned as-is
+/// — this function does not call itself, and does not run
+/// `confession::detect_directives` a second time on the expanded text — so
+/// a confession printed inside an expanded document (verification's "no
+/// chaining" case) is structurally never looked at, not merely
+/// discouraged by convention.
+///
+/// **Interaction with spec §6 rule 0 and the attestation gate.** The
+/// `InertArgv::HelpExpand` probe below goes through the same
+/// `probe.run` → `run_inert` chokepoint as every other shape, so a
+/// never-probe tool (`pkill`, `shutdown`, ...) refuses it exactly as it
+/// refuses every non-`--help` shape — `run_inert`'s own check
+/// (`argv.args() != ["--help"]`) rejects `HelpExpand`'s
+/// `[..words, "--help", word]` unconditionally, with no special case
+/// needed here. Attestation (`hints.heading_attested`) is not
+/// re-checked for `word` itself: the word is not a subcommand name a
+/// grammar guessed at, it is a word the tool's *own already-probed and
+/// already-trusted* output printed, so it is attested by construction —
+/// the same way the root path itself is exempt from the gate (spec §6
+/// rule 0's closing paragraph; see the amendment in spec.md §6 rule 2b).
+///
+/// Returns the confession info alongside the text/flag regardless of
+/// whether following it succeeded, so a caller (`extract_node`,
+/// `raw_help_with_probe`) can record it on the node — `None` only when no
+/// confession was printed at all.
+fn probe_help_text_confession_aware(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+    hints: NodeHints,
+) -> Result<(String, String, Option<Confession>), ExtractError> {
+    let (text, flag) = probe_help_text_reporting_flag(probe, tool_path, words, hints)?;
+    let directives = confession::detect_directives(&text);
+    if directives.is_empty() {
+        return Ok((text, flag.to_string(), None));
+    }
+
+    let Some(chosen) = confession::expandable(&directives) else {
+        // Detected, but no shape this tier follows yet (spec's scope
+        // discipline — curl's own `--help category` is exactly this: a
+        // menu of further probes, not a single complete document).
+        return Ok((
+            text,
+            flag.to_string(),
+            Some(Confession {
+                word: directives[0].word.clone(),
+                flag: directives[0].flag.to_string(),
+                followed: false,
+            }),
+        ));
+    };
+
+    let expand_argv = InertArgv::HelpExpand {
+        words: words.to_vec(),
+        word: chosen.word.clone(),
+    };
+    match probe.run(tool_path, &expand_argv, EXTRACT_TIMEOUT) {
+        Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
+            pick_stream(&out.stdout, &out.stderr),
+            format!("{} {}", chosen.flag, chosen.word),
+            Some(Confession {
+                word: chosen.word.clone(),
+                flag: chosen.flag.to_string(),
+                followed: true,
+            }),
+        )),
+        // The follow-up probe failed, timed out, was refused (rule 0), or
+        // came back empty on both streams: keep the original, truncated
+        // text — the status ladder caps this at `incomplete` rather than
+        // reporting a confident `ok` on the document we already know is
+        // incomplete.
+        _ => Ok((
+            text,
+            flag.to_string(),
+            Some(Confession {
+                word: chosen.word.clone(),
+                flag: chosen.flag.to_string(),
+                followed: false,
+            }),
+        )),
+    }
+}
+
 /// D1.3.1: is `text` plausibly real help output, rather than a tool having
 /// *acted* on an argument it didn't recognise (and printed nothing
 /// help-shaped as a side effect) or having rendered a man page under a
@@ -397,7 +485,7 @@ pub fn raw_help(
     tool: &ResolvedTool,
     path: &[String],
     hints: NodeHints,
-) -> Result<(Vec<Text>, &'static str), ExtractError> {
+) -> Result<(Vec<Text>, String), ExtractError> {
     raw_help_with_probe(&LiveProbe, tool, path, hints)
 }
 
@@ -416,15 +504,24 @@ pub fn raw_help(
 /// call site could not verify attestation, which is true of the *function*
 /// but not of its caller — the TUI resolves the `CommandNode` at `path`
 /// before requesting raw help, and that node carries the bit.
+///
+/// **Confession-aware** (spec §6 rule 2b), same as the extraction path:
+/// when the fetched text confesses to being incomplete and names a
+/// followable word, this shows the *expanded* document instead, and the
+/// returned argv string reflects that (`"--help all"`, not `"--help"`) —
+/// spec's own example of what the pane must keep honest: "the verbatim
+/// pane already names its own argv... make sure that keeps working and
+/// shows the expanded form when expansion happened."
 pub fn raw_help_with_probe(
     probe: &dyn Probe,
     tool: &ResolvedTool,
     path: &[String],
     hints: NodeHints,
-) -> Result<(Vec<Text>, &'static str), ExtractError> {
+) -> Result<(Vec<Text>, String), ExtractError> {
     let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
     let words: Vec<String> = path.iter().skip(1).cloned().collect();
-    let (raw, flag) = probe_help_text_reporting_flag(probe, tool_path, &words, hints)?;
+    let (raw, flag, _confession) =
+        probe_help_text_confession_aware(probe, tool_path, &words, hints)?;
     Ok((
         raw.lines()
             .take(MAX_UNPARSED_LINES)
@@ -524,6 +621,10 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         // set this `true`, for the stub entries `parsed.subcommands`
         // already carries into this node's `subcommands` list above.
         heading_attested: false,
+        // Set by the caller (`HelpTextTier::extract_node`), which is the
+        // only place with the confession-aware probe result this function
+        // doesn't see — see `build_node`'s own callers.
+        confession: None,
     }
 }
 

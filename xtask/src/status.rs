@@ -40,7 +40,7 @@ pub struct Status {
     /// `restore`'s described ones).
     pub pct_flags_with_text: Option<f64>,
     /// One of `"no-tier"`, `"verbatim"`, `"suspicious"`, `"low-confidence"`,
-    /// `"ok"` — see [`compute`] for the derivation order.
+    /// `"incomplete"`, `"ok"` — see [`compute`] for the derivation order.
     pub label: &'static str,
 }
 
@@ -86,6 +86,17 @@ pub fn compute(result: &ExtractionResult) -> Status {
         "suspicious"
     } else if pct_flags_with_text.map(|p| p < 50.0).unwrap_or(false) {
         "low-confidence"
+    } else if result.root.as_ref().is_some_and(has_unfollowed_confession) {
+        // Spec §6 rule 2b: a confession was printed and detected but not
+        // followed — an unrecognised word/shape, a failed probe, or a
+        // rule 0 refusal. Only ever reached from the `ok` branch's
+        // territory: `verbatim`/`suspicious`/`low-confidence` are all
+        // already worse than `incomplete` on the ladder and stay exactly
+        // as they were — this caps an otherwise-`ok` result, it never
+        // raises a worse one. curl's real failure mode was a confident
+        // `ok` on a document its own text said was truncated;
+        // `incomplete` is the honest answer instead.
+        "incomplete"
     } else {
         "ok"
     };
@@ -124,6 +135,16 @@ pub fn structure_sanity(root: &CommandNode) -> usize {
     root.subcommands.iter().map(count_suspicious).sum()
 }
 
+/// True when `root` or any descendant carries a confession that was
+/// detected but not followed (spec §6 rule 2b): `Confession { followed:
+/// false, .. }` anywhere in the tree. Recursive because a subcommand's own
+/// `--help` text can confess exactly as a root's can — the ladder cap
+/// isn't a root-only special case.
+fn has_unfollowed_confession(node: &CommandNode) -> bool {
+    node.confession.as_ref().is_some_and(|c| !c.followed)
+        || node.subcommands.iter().any(has_unfollowed_confession)
+}
+
 fn count_suspicious(node: &CommandNode) -> usize {
     let bad_name = !is_command_name_shaped(&node.name);
     let empty = node.flags.is_empty()
@@ -138,19 +159,24 @@ fn count_suspicious(node: &CommandNode) -> usize {
 /// coarsest to finest. Defined exactly once so `xtask corpus`'s contract
 /// check and any future consumer agree on what "at least ok" means.
 ///
-/// A future `incomplete` status (noted in the corpus work order as
-/// "will slot in after `ok`") is a one-line addition here — append it
-/// after `"ok"` — which is the whole reason this is a lookup table rather
-/// than a hand-written comparison chain.
+/// `"incomplete"` (spec §6 rule 2b) slots in **between** `"low-confidence"`
+/// and `"ok"`, not after `"ok"` — an earlier doc comment here anticipated
+/// the field name but guessed the wrong end of the ladder; WS5's approved
+/// amendment is explicit: `ok > incomplete > low-confidence > verbatim >
+/// no-tier`. A tool this status names had its structure and prose parsed
+/// exactly as well as an `ok` tool — the *only* thing wrong is that its
+/// own text said the document was incomplete and following it didn't
+/// happen, which is a narrower, better-understood gap than
+/// `low-confidence`'s "the grammar barely understood this at all".
 ///
 /// **`"suspicious"` is deliberately not on this ladder.** It is not a
 /// coarser or finer degree of the same "how much did we recover" scale
-/// the other four measure — it means the parser recovered structure that
+/// the other five measure — it means the parser recovered structure that
 /// isn't real. AGENTS.md's structure-sanity invariant is explicit that
 /// fabricated structure is *worse* than missing structure, so no
 /// `min_status` floor is satisfiable by a suspicious result:
 /// [`meets_min_status`] fails it outright rather than ranking it.
-const STATUS_LADDER: &[&str] = &["no-tier", "verbatim", "low-confidence", "ok"];
+const STATUS_LADDER: &[&str] = &["no-tier", "verbatim", "low-confidence", "incomplete", "ok"];
 
 /// `label`'s position on [`STATUS_LADDER`] (coarsest = 0), for callers that
 /// need to compare two `min_status` values directly rather than just ask
@@ -276,7 +302,137 @@ mod tests {
 
     #[test]
     fn unrecognized_labels_fail_closed() {
-        assert!(!meets_min_status("ok", "incomplete"));
+        assert!(!meets_min_status("ok", "bogus-status"));
         assert!(!meets_min_status("typo'd-status", "ok"));
+    }
+
+    // --- spec §6 rule 2b: the `incomplete` status ---
+
+    fn node_with_unfollowed_confession() -> CommandNode {
+        use mandible_core::{Confession, Provenance, Source};
+        let mut root = CommandNode::new("curl", Provenance::single(Source::HelpText));
+        root.confession = Some(Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: false,
+        });
+        let mut f = mandible_core::Flag::long("verbose", Provenance::single(Source::HelpText));
+        f.description = Some(mandible_core::Text::sanitize("be more talkative"));
+        root.flags.push(f);
+        root
+    }
+
+    /// The exact defect this status exists to fix: curl's real failure was
+    /// a confident `ok` on a document its own text said was truncated.
+    /// An otherwise-perfectly-described tree with an unfollowed confession
+    /// must report `incomplete`, not `ok`.
+    #[test]
+    fn an_otherwise_ok_tree_with_an_unfollowed_confession_is_incomplete() {
+        let result = ExtractionResult {
+            tool: "curl".to_string(),
+            root: Some(node_with_unfollowed_confession()),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let status = compute(&result);
+        assert_eq!(status.label, "incomplete");
+    }
+
+    /// The cap only ever pulls an `ok` result down — it must never turn a
+    /// `low-confidence` result into something that reads as *better*.
+    #[test]
+    fn incomplete_never_elevates_a_worse_status() {
+        use mandible_core::{Confession, Provenance, Source};
+        let mut root = CommandNode::new("mystery", Provenance::single(Source::HelpText));
+        root.confession = Some(Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: false,
+        });
+        // No description at all -> pct_flags_with_text stays None-or-low;
+        // add one undescribed flag to force `low-confidence` via the
+        // existing 50% rule rather than `pct_flags_with_text: None`.
+        root.flags.push(mandible_core::Flag::long(
+            "verbose",
+            Provenance::single(Source::HelpText),
+        ));
+        root.flags.push({
+            let mut f = mandible_core::Flag::long("quiet", Provenance::single(Source::HelpText));
+            f.description = None;
+            f
+        });
+        let result = ExtractionResult {
+            tool: "mystery".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let status = compute(&result);
+        assert_eq!(status.label, "low-confidence");
+    }
+
+    /// A confession on a *subcommand*, not just the root, still caps the
+    /// whole tree's status — the cap is not a root-only special case.
+    #[test]
+    fn an_unfollowed_confession_on_a_subcommand_still_caps_the_tree() {
+        use mandible_core::{Confession, Provenance, Source};
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        let mut f = mandible_core::Flag::long("verbose", Provenance::single(Source::HelpText));
+        f.description = Some(mandible_core::Text::sanitize("be more talkative"));
+        root.flags.push(f);
+
+        let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
+        child.confession = Some(Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: false,
+        });
+        let mut cf = mandible_core::Flag::long("amend", Provenance::single(Source::HelpText));
+        cf.description = Some(mandible_core::Text::sanitize("amend the previous thing"));
+        child.flags.push(cf);
+        root.subcommands.push(child);
+
+        let result = ExtractionResult {
+            tool: "tool".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let status = compute(&result);
+        assert_eq!(status.label, "incomplete");
+    }
+
+    /// A *followed* confession (the expanded document is what the tree
+    /// reflects) must never cap anything — this is the success case, and
+    /// it reports `ok` exactly like a tool that never confessed at all.
+    #[test]
+    fn a_followed_confession_does_not_cap_the_status() {
+        use mandible_core::{Confession, Provenance, Source};
+        let mut root = CommandNode::new("curl", Provenance::single(Source::HelpText));
+        root.confession = Some(Confession {
+            word: "all".to_string(),
+            flag: "--help".to_string(),
+            followed: true,
+        });
+        let mut f = mandible_core::Flag::long("verbose", Provenance::single(Source::HelpText));
+        f.description = Some(mandible_core::Text::sanitize("be more talkative"));
+        root.flags.push(f);
+
+        let result = ExtractionResult {
+            tool: "curl".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let status = compute(&result);
+        assert_eq!(status.label, "ok");
+    }
+
+    #[test]
+    fn incomplete_ranks_between_low_confidence_and_ok() {
+        assert!(meets_min_status("ok", "incomplete"));
+        assert!(!meets_min_status("low-confidence", "incomplete"));
+        assert!(meets_min_status("incomplete", "low-confidence"));
+        assert!(!meets_min_status("incomplete", "ok"));
     }
 }
