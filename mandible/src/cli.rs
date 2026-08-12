@@ -21,6 +21,16 @@ pub struct Cli {
     #[arg(long, value_name = "TOOL")]
     pub doctor: Option<String>,
 
+    /// Print a paste-ready bug report for TOOL (mandible's version, TOOL's
+    /// version if resolvable, the `--doctor` diagnostic, and a raw `--help`
+    /// capture) instead of opening the TUI, followed by the issues URL.
+    /// Symmetric with `--doctor`, not a `report` subcommand: `mandible`
+    /// already takes a bare `[TOOL]` positional (`mandible git`), so a
+    /// `report` subcommand would be ambiguous against a tool literally
+    /// named `report`.
+    #[arg(long, value_name = "TOOL")]
+    pub report: Option<String>,
+
     /// Print a shell completion script for SHELL to stdout and exit,
     /// instead of opening the TUI. Packaged builds also install
     /// pre-generated completions to the standard per-distro paths (spec
@@ -33,8 +43,14 @@ pub struct Cli {
 
 impl Cli {
     /// The tool name this invocation is ultimately about, whether given as
-    /// the positional argument or as `--doctor`'s value.
+    /// the positional argument, as `--doctor`'s value, or as `--report`'s
+    /// value. `--report` is checked first: if both diagnostic flags are
+    /// somehow given together, the more specific ask (a bug report) wins
+    /// over the plainer diagnostic dump.
     pub fn target_tool(&self) -> Option<&str> {
-        self.doctor.as_deref().or(self.tool.as_deref())
+        self.report
+            .as_deref()
+            .or(self.doctor.as_deref())
+            .or(self.tool.as_deref())
     }
 }

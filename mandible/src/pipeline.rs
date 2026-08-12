@@ -12,36 +12,26 @@
 //! §5.2) is what makes removing the cache affordable: a cold launch only
 //! ever extracts the root node, not the whole tree.
 
-use mandible_core::CommandNode;
-use mandible_extract::{Runner, TierStatus};
-use std::time::{Duration, Instant};
+use mandible_extract::Runner;
 
-/// The result of extracting one tool's tree.
-pub struct LoadedTool {
-    /// The tool name.
-    pub tool: String,
-    /// The merged tree, or `None` if no tier could extract anything.
-    pub root: Option<CommandNode>,
-    /// Per-tier outcome, for `--doctor` and the `?` overlay.
-    pub tier_statuses: Vec<TierStatus>,
-    /// Wall-clock time this call spent extracting.
-    pub elapsed: Duration,
-}
+/// The result of extracting one tool's tree. An alias, not a distinct
+/// struct: `LoadedTool` used to duplicate [`mandible_extract::ExtractionResult`]
+/// field-for-field (`tool`, `root`, `tier_statuses`, `elapsed`), which is
+/// exactly the shape of drift that let `--doctor` compute `%described`
+/// from a hand-rolled tree walk instead of the runner's own
+/// `flag_description_ratio` — a second copy of the same data invites a
+/// second, divergent copy of the arithmetic over it. Callers (`--doctor`,
+/// the TUI's background warmer) get the counting accessors
+/// (`flag_count`, `describable_flag_count`, `flag_description_ratio`) for
+/// free this way, and there is no longer a seam where the two could say
+/// different things about the same extraction.
+pub type LoadedTool = mandible_extract::ExtractionResult;
 
 /// Extract `tool_name`'s tree, running the full extraction pipeline fresh
 /// every time (spec §11: there is no cache to consult first).
 pub fn load(tool_name: &str) -> LoadedTool {
     let runner = Runner::new(mandible_extract::default_tiers());
-    let start = Instant::now();
-    let result = runner.extract_full(tool_name);
-    let elapsed = start.elapsed();
-
-    LoadedTool {
-        tool: tool_name.to_string(),
-        root: result.root,
-        tier_statuses: result.tier_statuses,
-        elapsed,
-    }
+    runner.extract_full(tool_name)
 }
 
 #[cfg(test)]
