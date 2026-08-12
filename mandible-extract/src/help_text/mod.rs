@@ -559,16 +559,52 @@ pub fn raw_help_with_probe(
     }
 }
 
-/// Prefer stdout when both streams are non-empty (spec §7 Tier B).
+/// Choose which stream the *parser* reads (spec §7 Tier B).
 ///
 /// **Parsing-path only.** The raw display path (`raw_help*`, this module's
 /// display-only probing functions below) keeps both streams apart instead
 /// — see [`RawStreams`] and [`raw_help_with_probe`]'s doc comment.
+///
+/// "Non-empty" alone is the wrong test: `openssl cmp --help` prints two
+/// `CMP info: ...` diagnostic lines to **stdout** and its entire ~60-line
+/// help (`Usage: cmp [options]`, `Valid options are:`, the flag list) to
+/// **stderr**. The old rule ("stdout if non-empty, else stderr") handed the
+/// parser two banner lines and threw the actual document away — reachable
+/// by roughly 150 openssl subcommands in the same shape. The truth table,
+/// using [`looks_like_help_output`] (D1.3.1) to judge each stream on its
+/// own:
+///
+/// | stdout empty? | stderr empty? | stdout help-shaped? | stderr help-shaped? | picks |
+/// |---|---|---|---|---|
+/// | yes | yes | – | – | stdout (empty; nothing to pick) |
+/// | yes | no  | – | – | stderr — only stream available |
+/// | no  | yes | – | – | stdout — only stream available |
+/// | no  | no  | yes | any | stdout — already correct, unchanged |
+/// | no  | no  | no  | yes | stderr — **the bug fix**: the merely non-empty stream loses to the help-shaped one |
+/// | no  | no  | no  | no  | stdout — neither is recognizably help; keep today's default rather than invent a new failure mode |
+///
+/// Both-help-shaped is folded into the first "yes" row above: when stdout
+/// is help-shaped it always wins, deliberately, per the same row — stdout
+/// is the conventional stream for a well-behaved tool's `--help`, so ties
+/// break toward it.
 fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
-    if !stdout.is_empty() {
-        String::from_utf8_lossy(stdout).into_owned()
+    let stdout_text = String::from_utf8_lossy(stdout).into_owned();
+    let stderr_text = String::from_utf8_lossy(stderr).into_owned();
+
+    if stdout_text.is_empty() {
+        return stderr_text;
+    }
+    if stderr_text.is_empty() {
+        return stdout_text;
+    }
+
+    // Both non-empty: only the case where stdout looks *nothing* like help
+    // and stderr does hands the document to stderr. Every other
+    // combination — including both being help-shaped — keeps stdout.
+    if !looks_like_help_output(&stdout_text) && looks_like_help_output(&stderr_text) {
+        stderr_text
     } else {
-        String::from_utf8_lossy(stderr).into_owned()
+        stdout_text
     }
 }
 
@@ -1808,5 +1844,72 @@ mod tests {
             }
             other => panic!("expected a named TranscriptMiss, got {other:?}"),
         }
+    }
+
+    /// The real-world specimen behind [`pick_stream`]'s fix, replayed
+    /// verbatim (bytes measured by hand from `openssl cmp --help` on a real
+    /// machine): two `CMP info: ...` diagnostic lines land on **stdout**,
+    /// and the tool's entire help — `Usage: cmp [options]`, `Valid options
+    /// are:`, the flag list — lands on **stderr**. Before the fix,
+    /// `pick_stream` preferred the merely non-empty stdout and handed the
+    /// parser two banner lines instead of the document, so this node came
+    /// back with zero flags; openssl has ~150 subcommands in this exact
+    /// shape. Driven through the tier's real `extract_node`, not
+    /// `build_node` directly, so it also proves argv construction
+    /// (AGENTS.md §3.1).
+    #[test]
+    fn openssl_cmp_shape_prefers_the_help_shaped_stderr_over_diagnostic_stdout() {
+        let stdout_diagnostics = "cmp_main:../apps/cmp.c:2832:CMP info: using section(s) 'cmp' of OpenSSL configuration file '/usr/lib/ssl/openssl.cnf'\ncmp_main:../apps/cmp.c:2840:CMP info: no [cmp] section found in config file '/usr/lib/ssl/openssl.cnf'; will thus use just [default] and unnamed section if present\n";
+        let stderr_help = "Usage: cmp [options]\nValid options are:\n -help                  Display this summary\n -config val            Configuration file to use. \"\" = none. Default from env variable OPENSSL_CONF\n -section val           Section(s) in config file to get options from. \"\" = 'default'. Default 'cmp'\n -verbosity nonneg      Log level; 3=ERR, 4=WARN, 6=INFO, 7=DEBUG, 8=TRACE. Default 6 = INFO\n -cmd val               CMP request to send: ir/cr/kur/p10cr/rr/genm\n -infotype val          InfoType name for requesting specific info in genm, e.g. 'signKeyPairTypes'\n";
+
+        let output = crate::exec::ExecOutput {
+            stdout: stdout_diagnostics.as_bytes().to_vec(),
+            stderr: stderr_help.as_bytes().to_vec(),
+            exit_code: Some(0),
+            timed_out: false,
+        };
+        let transcript =
+            crate::exec::Transcript::new([(vec!["cmp".to_string(), "--help".to_string()], output)]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "openssl".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/openssl")),
+            version: None,
+        };
+
+        let node = tier
+            .extract_node(&tool, &["openssl".to_string(), "cmp".to_string()], ATTESTED)
+            .expect("the transcript covers the exact argv this tier sends");
+
+        assert!(
+            !node.usage.is_empty() || !node.flags.is_empty(),
+            "expected the parser to read stderr's help-shaped document \
+             instead of stdout's two diagnostic lines; got usage={:?} flags={:?}",
+            node.usage,
+            node.flags
+        );
+        // openssl spells its long options single-dash (`-cmd val`), so the
+        // generic grammar reads them as a short flag plus a value name
+        // (`short: 'c'`, `value_name: "md"`) rather than a `--long` — that
+        // is a grammar detail unrelated to this fix. What this assertion
+        // pins is that the six real flags from stderr's document parsed at
+        // all (the pre-fix bug produced zero: the two stdout diagnostic
+        // lines contain no flag syntax whatsoever), identified by
+        // descriptions that only the real document has.
+        assert!(
+            node.flags.len() >= 5,
+            "expected the ~6 real flags from stderr's document, not the \
+             empty parse the two stdout diagnostic lines would produce: {:?}",
+            node.flags
+        );
+        assert!(
+            node.flags.iter().any(|f| f
+                .description
+                .as_ref()
+                .is_some_and(|d| d.as_str().contains("CMP request to send"))),
+            "expected the `-cmd` flag's real description from stderr's \
+             document to have parsed: {:?}",
+            node.flags
+        );
     }
 }
