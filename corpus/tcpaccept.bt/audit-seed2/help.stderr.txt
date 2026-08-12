@@ -1,0 +1,60 @@
+USAGE:
+    bpftrace [options] filename
+    bpftrace [options] - <stdin input>
+    bpftrace [options] -e 'program'
+
+OPTIONS:
+    -B MODE        output buffering mode ('full', 'none')
+    -f FORMAT      output format ('text', 'json')
+    -o file        redirect bpftrace output to file
+    -e 'program'   execute this program
+    -h, --help     show this help message
+    -I DIR         add the directory to the include search path
+    --include FILE add an #include file before preprocessing
+    -l [search]    list probes
+    -p PID         enable USDT probes on PID
+    -c 'CMD'       run CMD and enable USDT probes on resulting process
+    --usdt-file-activation
+                   activate usdt semaphores based on file path
+    --unsafe       allow unsafe builtin functions
+    -q             keep messages quiet
+    --info         Print information about kernel BPF support
+    -k             emit a warning when a bpf helper returns an error (except read functions)
+    -kk            check all bpf helper functions
+    -V, --version  bpftrace version
+    --no-warnings  disable all warning messages
+
+TROUBLESHOOTING OPTIONS:
+    -v                      verbose messages
+    -vv                     more verbose messages (max 2)
+    -d                      (dry run) debug info
+    -dd                     (dry run) verbose debug info
+    --emit-elf FILE         (dry run) generate ELF file with bpf programs and write to FILE
+    --emit-llvm FILE        write LLVM IR to FILE.original.ll and FILE.optimized.ll
+
+ENVIRONMENT:
+    BPFTRACE_BTF                      [default: none] BTF file
+    BPFTRACE_CACHE_USER_SYMBOLS       [default: auto] enable user symbol cache
+    BPFTRACE_CPP_DEMANGLE             [default: 1] enable C++ symbol demangling
+    BPFTRACE_DEBUG_OUTPUT             [default: 0] enable bpftrace's internal debugging outputs
+    BPFTRACE_KERNEL_BUILD             [default: /lib/modules/$(uname -r)] kernel build directory
+    BPFTRACE_KERNEL_SOURCE            [default: /lib/modules/$(uname -r)] kernel headers directory
+    BPFTRACE_LOG_SIZE                 [default: 1000000] log size in bytes
+    BPFTRACE_MAX_BPF_PROGS            [default: 512] max number of generated BPF programs
+    BPFTRACE_MAX_CAT_BYTES            [default: 10k] maximum bytes read by cat builtin
+    BPFTRACE_MAX_MAP_KEYS             [default: 4096] max keys in a map
+    BPFTRACE_MAX_PROBES               [default: 512] max number of probes
+    BPFTRACE_MAX_STRLEN               [default: 64] bytes on BPF stack per str()
+    BPFTRACE_MAX_TYPE_RES_ITERATIONS  [default: 0] number of levels of nested field accesses for tracepoint args
+    BPFTRACE_PERF_RB_PAGES            [default: 64] pages per CPU to allocate for ring buffer
+    BPFTRACE_STACK_MODE               [default: bpftrace] Output format for ustack and kstack builtins
+    BPFTRACE_STR_TRUNC_TRAILER        [default: '..'] string truncation trailer
+    BPFTRACE_VMLINUX                  [default: none] vmlinux path used for kernel symbol resolution
+
+EXAMPLES:
+bpftrace -l '*sleep*'
+    list probes containing "sleep"
+bpftrace -e 'kprobe:do_nanosleep { printf("PID %d sleeping...\n", pid); }'
+    trace processes calling sleep
+bpftrace -e 'tracepoint:raw_syscalls:sys_enter { @[comm] = count(); }'
+    count syscalls by process name

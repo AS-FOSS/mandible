@@ -1,0 +1,11 @@
+usage: gethostlatency-bpfcc [-h] [-p PID]
+
+Show latency for getaddrinfo/gethostbyname[2] calls
+
+options:
+  -h, --help         show this help message and exit
+  -p PID, --pid PID  trace this PID only
+
+examples:
+    ./gethostlatency           # time getaddrinfo/gethostbyname[2] calls
+    ./gethostlatency -p 181    # only trace PID 181
