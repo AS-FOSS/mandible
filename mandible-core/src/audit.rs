@@ -103,6 +103,21 @@ pub struct Entry {
     pub include_reason: Option<String>,
 }
 
+impl Entry {
+    /// True when this entry's note is obligatory but missing or blank — a
+    /// `wrong`/`incomplete` verdict with nothing recorded about *what* was
+    /// wrong. See [`verdict_requires_note`].
+    pub fn missing_required_note(&self) -> bool {
+        self.verdict.as_deref().is_some_and(verdict_requires_note) && self.note.trim().is_empty()
+    }
+
+    /// True when a review session should still stop at this entry: no
+    /// verdict yet, or a verdict whose obligatory note never got written.
+    pub fn needs_attention(&self) -> bool {
+        self.verdict.is_none() || self.missing_required_note()
+    }
+}
+
 /// The persisted state of one audit run: everything needed to resume, and
 /// nothing that would make two runs of `sample` with the same `--seed`
 /// disagree with each other.
@@ -139,6 +154,38 @@ impl AuditFile {
             .filter(|(_, e)| e.verdict.is_none())
             .map(|(i, _)| i)
     }
+
+    /// Indices of entries a review session should still stop at, in file
+    /// order: everything [`Self::pending`] yields, plus anything already
+    /// judged `wrong`/`incomplete` whose note is missing or blank
+    /// ([`verdict_requires_note`]).
+    ///
+    /// The second half exists because such an entry is a *record* that is
+    /// incomplete even though a verdict was given. For accuracy arithmetic
+    /// it counts as judged and always did — the tool really was judged
+    /// wrong — but for the triage the audit exists to feed it is useless: it
+    /// names a tool and says nothing about what was wrong with it. Rather
+    /// than a separate repair command, the ordinary walk simply stops there
+    /// again, so a session that recorded bare verdicts before this rule
+    /// existed heals itself on the next run.
+    pub fn needing_attention(&self) -> impl Iterator<Item = usize> + '_ {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.needs_attention())
+            .map(|(i, _)| i)
+    }
+}
+
+/// Whether a verdict word obliges the reviewer to write a note.
+///
+/// `wrong` and `incomplete` do: for those two the note *is* the finding, and
+/// the whole point of the audit is to hand a later fix something actionable.
+/// `correct` and `skip` do not — "it parsed correctly" is complete on its
+/// own, and forcing prose out of a reviewer who has nothing to add is how a
+/// review loop starts collecting "n/a".
+pub fn verdict_requires_note(verdict: &str) -> bool {
+    matches!(verdict, "wrong" | "incomplete")
 }
 
 /// The path a given `(dir, seed)` pair resolves to: `<dir>/<seed>.toml`.
@@ -241,6 +288,63 @@ pub fn tag_display(label: &str, tag: Option<bool>, override_syntax: &str) -> Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn entry(tool: &str, verdict: Option<&str>, note: &str) -> Entry {
+        Entry {
+            tool: tool.to_string(),
+            stratum: "ok".to_string(),
+            verdict: verdict.map(str::to_string),
+            note: note.to_string(),
+            k1: None,
+            k2: None,
+            k3: None,
+            include_reason: None,
+        }
+    }
+
+    /// `wrong`/`incomplete` oblige a note; `correct`/`skip` do not. Forcing
+    /// prose out of a reviewer with nothing to add is how a review loop
+    /// starts collecting "n/a".
+    #[test]
+    fn only_wrong_and_incomplete_require_a_note() {
+        assert!(verdict_requires_note("wrong"));
+        assert!(verdict_requires_note("incomplete"));
+        assert!(!verdict_requires_note("correct"));
+        assert!(!verdict_requires_note("skip"));
+    }
+
+    #[test]
+    fn a_blank_or_whitespace_note_does_not_satisfy_the_obligation() {
+        assert!(entry("a", Some("wrong"), "").missing_required_note());
+        assert!(entry("a", Some("wrong"), "   ").missing_required_note());
+        assert!(!entry("a", Some("wrong"), "descriptions off by one").missing_required_note());
+        assert!(!entry("a", Some("correct"), "").missing_required_note());
+        assert!(!entry("a", None, "").missing_required_note());
+    }
+
+    /// The self-healing property: three `wrong` verdicts were recorded with
+    /// no note before this rule existed, and the ordinary review walk must
+    /// stop at them again rather than needing a separate repair command.
+    #[test]
+    fn the_walk_revisits_a_verdict_whose_required_note_is_missing() {
+        let file = AuditFile {
+            meta: AuditMeta {
+                seed: 2,
+                sample_size: 4,
+            },
+            entries: vec![
+                entry("noted", Some("wrong"), "real finding"),
+                entry("bare", Some("wrong"), ""),
+                entry("fine", Some("correct"), ""),
+                entry("fresh", None, ""),
+            ],
+        };
+        // `pending` keeps its old meaning, so accuracy arithmetic that
+        // counts a bare `wrong` as judged is unaffected.
+        assert_eq!(file.pending().collect::<Vec<_>>(), vec![3]);
+        // The review walk stops at the bare verdict too.
+        assert_eq!(file.needing_attention().collect::<Vec<_>>(), vec![1, 3]);
+    }
 
     #[test]
     fn verdict_path_joins_seed_as_a_toml_filename() {

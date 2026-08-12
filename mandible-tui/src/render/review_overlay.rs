@@ -44,10 +44,27 @@ pub fn render(frame: &mut Frame, full_area: Rect, state: &ReviewOverlay, glyphs:
     frame.render_widget(Clear, bar);
 
     let text = match &state.draft {
-        Some(draft) => format!(
-            "verdict: {}  note (optional): {}{}   Enter save   Esc cancel",
-            draft.verdict, draft.note, glyphs.prompt,
-        ),
+        Some(draft) => {
+            // The label tells the truth about this specific verdict rather
+            // than saying "optional" and then refusing to save: `wrong` and
+            // `incomplete` oblige a note, because for those two the note is
+            // the finding a later fix has to work from.
+            let required = mandible_core::audit::verdict_requires_note(draft.verdict);
+            let label = if required {
+                "note (required)"
+            } else {
+                "note (optional)"
+            };
+            let tail = if draft.note_required {
+                "   a note is required for wrong/incomplete — what was wrong?"
+            } else {
+                "   Enter save   Esc cancel"
+            };
+            format!(
+                "verdict: {}  {}: {}{}{}",
+                draft.verdict, label, draft.note, glyphs.prompt, tail,
+            )
+        }
         None => {
             let reason = state
                 .include_reason
@@ -123,6 +140,7 @@ mod tests {
         state.draft = Some(ReviewDraft {
             verdict: "incomplete",
             note: "flags missing".to_string(),
+            note_required: false,
         });
         terminal
             .draw(|frame| render(frame, frame.area(), &state, crate::glyphs::UNICODE))

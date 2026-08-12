@@ -76,7 +76,7 @@ pub fn run(mut app: App) -> anyhow::Result<()> {
 pub fn run_review(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let path = audit::verdict_path(dir, seed);
     let manifest = audit::load(&path)?;
-    if manifest.pending().next().is_none() {
+    if manifest.needing_attention().next().is_none() {
         // Nothing to do: report it plainly and skip the raw-mode dance
         // entirely, same as `xtask audit review`'s own "nothing pending"
         // message — a `--review` run after everything's already judged
@@ -96,11 +96,11 @@ fn run_review_loop(term: &mut terminal::Term, dir: &Path, seed: u64) -> anyhow::
     let mut manifest = audit::load(&path)?;
 
     loop {
-        let Some(idx) = manifest.pending().next() else {
+        let Some(idx) = manifest.needing_attention().next() else {
             break;
         };
         let entry = manifest.entries[idx].clone();
-        let remaining = manifest.pending().count();
+        let remaining = manifest.needing_attention().count();
         let total = manifest.entries.len();
 
         let resolved = resolve_tool(&entry.tool);

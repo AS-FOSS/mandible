@@ -60,6 +60,11 @@ pub struct ReviewDraft {
     /// caller so a verdict entered here and one entered via `xtask audit
     /// ingest` parse identically.
     pub note: String,
+    /// Set when `Enter` was pressed on a `wrong`/`incomplete` draft whose
+    /// note was still blank, so the overlay can say why nothing happened.
+    /// Cleared as soon as the reviewer types anything, because by then the
+    /// complaint has been answered and a stale warning is worse than none.
+    pub note_required: bool,
 }
 
 /// What pressing a key did to an active review overlay. `None` from
@@ -105,12 +110,25 @@ pub fn handle_review_key(app: &mut App, key: KeyEvent) -> Option<ReviewKeyOutcom
         // half-typed search query while a verdict is in flight.
         return Some(match key.code {
             KeyCode::Enter => {
-                let submission = ReviewSubmission {
-                    verdict: draft.verdict,
-                    note: std::mem::take(&mut draft.note),
-                };
-                overlay.draft = None;
-                ReviewKeyOutcome::Submit(submission)
+                // A `wrong`/`incomplete` verdict with a blank note is
+                // refused rather than recorded: for those two the note *is*
+                // the finding, and an entry naming a tool with nothing about
+                // what was wrong with it gives later triage nothing to act
+                // on. The draft stays open with everything typed so far, so
+                // this costs a keystroke, never work.
+                if mandible_core::audit::verdict_requires_note(draft.verdict)
+                    && draft.note.trim().is_empty()
+                {
+                    draft.note_required = true;
+                    ReviewKeyOutcome::Consumed
+                } else {
+                    let submission = ReviewSubmission {
+                        verdict: draft.verdict,
+                        note: std::mem::take(&mut draft.note),
+                    };
+                    overlay.draft = None;
+                    ReviewKeyOutcome::Submit(submission)
+                }
             }
             KeyCode::Esc => {
                 overlay.draft = None;
@@ -122,6 +140,7 @@ pub fn handle_review_key(app: &mut App, key: KeyEvent) -> Option<ReviewKeyOutcom
             }
             KeyCode::Char(c) => {
                 draft.note.push(c);
+                draft.note_required = false;
                 ReviewKeyOutcome::Consumed
             }
             _ => ReviewKeyOutcome::Consumed,
@@ -146,6 +165,7 @@ pub fn handle_review_key(app: &mut App, key: KeyEvent) -> Option<ReviewKeyOutcom
     overlay.draft = Some(ReviewDraft {
         verdict,
         note: String::new(),
+        note_required: false,
     });
     Some(ReviewKeyOutcome::Consumed)
 }
@@ -184,6 +204,58 @@ mod tests {
             CommandNode::new("git", Provenance::single(Source::HelpText)),
         );
         assert_eq!(handle_review_key(&mut app, key(KeyCode::Char('c'))), None);
+    }
+
+    /// Enter on a blank-note `wrong` draft must refuse: no submission, the
+    /// draft stays open with whatever was typed, and the overlay is told to
+    /// explain itself.
+    #[test]
+    fn enter_refuses_a_wrong_verdict_with_no_note() {
+        let mut app = app_with_review();
+        handle_review_key(&mut app, key(KeyCode::Char('w')));
+        let outcome = handle_review_key(&mut app, key(KeyCode::Enter));
+        assert_eq!(outcome, Some(ReviewKeyOutcome::Consumed));
+        let draft = app.review.as_ref().unwrap().draft.as_ref().unwrap();
+        assert_eq!(draft.verdict, "wrong");
+        assert!(draft.note_required, "the overlay must be told to explain");
+    }
+
+    /// Typing answers the complaint, so the warning must clear rather than
+    /// linger while the reviewer is visibly doing what it asked.
+    #[test]
+    fn typing_clears_the_note_required_warning_and_then_enter_submits() {
+        let mut app = app_with_review();
+        handle_review_key(&mut app, key(KeyCode::Char('w')));
+        handle_review_key(&mut app, key(KeyCode::Enter));
+        handle_review_key(&mut app, key(KeyCode::Char('x')));
+        assert!(
+            !app.review
+                .as_ref()
+                .unwrap()
+                .draft
+                .as_ref()
+                .unwrap()
+                .note_required
+        );
+        let outcome = handle_review_key(&mut app, key(KeyCode::Enter));
+        match outcome {
+            Some(ReviewKeyOutcome::Submit(s)) => {
+                assert_eq!(s.verdict, "wrong");
+                assert_eq!(s.note, "x");
+            }
+            other => panic!("expected a submission, got {other:?}"),
+        }
+    }
+
+    /// `correct` carries no obligation, so Enter submits immediately.
+    #[test]
+    fn enter_submits_a_correct_verdict_with_no_note() {
+        let mut app = app_with_review();
+        handle_review_key(&mut app, key(KeyCode::Char('c')));
+        match handle_review_key(&mut app, key(KeyCode::Enter)) {
+            Some(ReviewKeyOutcome::Submit(s)) => assert_eq!(s.verdict, "correct"),
+            other => panic!("expected a submission, got {other:?}"),
+        }
     }
 
     #[test]

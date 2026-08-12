@@ -5,15 +5,18 @@ sample_size = 80
 [[entry]]
 tool = "VGAuthService"
 stratum = "verbatim"
+verdict = "wrong"
 
 [[entry]]
 tool = "aarch64-linux-gnu-ar"
 stratum = "ok"
+verdict = "wrong"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "aarch64-linux-gnu-gcc-ar"
 stratum = "ok"
+verdict = "wrong"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]

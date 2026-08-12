@@ -875,6 +875,22 @@ pub fn cmd_ingest(
         let k2_override = extract_tag_override(&mut note, "k2");
         let k3_override = extract_tag_override(&mut note, "k3");
 
+        // The same obligation the TUI enforces, applied here so the two
+        // entry paths cannot disagree about what a complete record is. The
+        // override tokens are already stripped above, so a line whose only
+        // content was `k1=false` correctly counts as noteless.
+        if mandible_core::audit::verdict_requires_note(verdict) && note.trim().is_empty() {
+            anyhow::bail!(
+                "{}:{}: verdict {:?} for {:?} needs a note — for wrong/incomplete the note is \
+                 the finding, and an entry naming a tool with nothing about what was wrong \
+                 gives later triage nothing to act on",
+                verdicts_path.display(),
+                lineno + 1,
+                verdict,
+                tool,
+            );
+        }
+
         let Some(entry) = file.entries.iter_mut().find(|e| e.tool == tool) else {
             unknown.push(tool.to_string());
             continue;
