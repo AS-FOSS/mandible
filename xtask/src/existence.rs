@@ -219,9 +219,31 @@ fn spelling_occurs(raw: &str, candidate: &str) -> bool {
 /// trimming only leading whitespace — see this module's doc comment on why
 /// "line-start-ish" is checked this way), for the "is this subcommand name
 /// where a real command-list entry actually sits" half of the rule.
+///
+/// Trailing `:`/`,`/`;` is stripped from that first token before it enters
+/// the set — a tokenizer fix, not a loosening of "line-start-ish": a real
+/// command-list row commonly glues punctuation straight onto the name with
+/// no separating space (`gh --help`'s `  auth:        Authenticate gh and
+/// git with GitHub`), so the untrimmed token was `"auth:"` while the stored
+/// name is `"auth"`, and the two were never going to match byte-for-byte no
+/// matter how real the entry was. Measured fleet-wide as part of this same
+/// false-positive class: `gh` alone reported 27 fabrications this way. Only
+/// these three characters are stripped, deliberately — they are not legal
+/// command-name characters (`mandible_core::is_command_name_shaped` doesn't
+/// allow them at all), so stripping them can never turn a genuinely
+/// different word into a false match. This does **not** address the other,
+/// larger false-positive class in the same fleet measurement — a name
+/// sitting in column 2+ of a multi-column table (`busybox`, `openssl`) is
+/// still missed, because only the first token of each line is considered at
+/// all; broadening that would mean accepting a match anywhere on a line,
+/// which is a real weakening of the "line-start-ish" guard this module's own
+/// doc comment explains (it exists specifically to keep ordinary prose words
+/// from false-matching), not a tokenizer bug — deferred, see `xtask audit`'s
+/// K2 pre-tag instead of a detector rewrite here.
 fn line_start_words(raw: &str) -> HashSet<&str> {
     raw.lines()
         .filter_map(|line| line.split_whitespace().next())
+        .map(|word| word.trim_end_matches([':', ',', ';']))
         .collect()
 }
 

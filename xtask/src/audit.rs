@@ -64,9 +64,10 @@
 //! which only ever sees `(tool, stratum)` pairs and a seeded shuffle.
 
 use crate::coverage::unique_executables_on_path;
+use crate::existence::{self, FabricationKind};
 use crate::misattribution::RecordingProbe;
 use crate::status;
-use mandible_core::CommandNode;
+use mandible_core::{CommandNode, Flag};
 use mandible_extract::exec::ExecOutput;
 use mandible_extract::{default_tiers_with_probe, ExtractionResult, Runner};
 use rayon::prelude::*;
@@ -100,7 +101,59 @@ pub struct Entry {
     /// `wrong`/`incomplete` fixture (see [`cmd_fixtures`]).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub note: String,
+    /// **K1 pre-tag**: the GCC-family single-dash-long-option parser defect
+    /// (`short.is_some() && long.is_none() && value_name.is_some()`, spec's
+    /// grammar item №1, deliberately not fixed before this audit runs — see
+    /// this module's own doc comment on why teaching to the test would
+    /// defeat the audit's purpose). Auto-suggested at draw time from
+    /// [`k1_signature`] (`Some(true)` when the tool's tree has at least one
+    /// matching flag, `None` when it has none), so a reviewer looking at a
+    /// GCC/Clang-family tool sees the defect already named instead of
+    /// re-deriving it flag by flag — confirmed by leaving it alone, or
+    /// overridden with a `k1=true`/`k1=false` token anywhere in the verdict
+    /// line ([`cmd_review`]/[`cmd_ingest`]). [`cmd_report`] excludes
+    /// `Some(true)` entries from its "K1-excluded" accuracy view.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k1: Option<bool>,
+    /// **K2 pre-tag**: the existence detector's own tokenizer gap
+    /// (`xtask/src/existence.rs`'s `line_start_words` only ever considered
+    /// each line's *first* token — a multi-column or comma-separated
+    /// applet/subcommand list, e.g. `busybox`/`openssl`, reports every
+    /// column after the first as "fabricated" even though it is right there
+    /// in the raw text). Auto-suggested at draw time from
+    /// [`k2_signature`]: `Some(true)` when every subcommand-kind existence
+    /// fabrication for this tool is explained by a token appearing
+    /// somewhere else on its line (detector noise, not parser fabrication),
+    /// `Some(false)` when at least one is not so explained (worth a real
+    /// look), `None` when the tool has no subcommand-kind fabrications to
+    /// judge at all. Same confirm-by-leaving-alone /
+    /// override-with-`k2=true`/`k2=false` treatment as `k1`, and its own
+    /// "K2-excluded" view in [`cmd_report`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k2: Option<bool>,
+    /// `Some(reason)` when this entry was force-included in the sample
+    /// outside the normal stratified draw — the motivating case is the 14
+    /// tools `find_description_gap` (commit `3464b0c`) promoted
+    /// `low-confidence` -> `ok` during a declared grammar freeze: an
+    /// unaudited heuristic minted `ok` labels that now sit in the exact
+    /// stratum this audit samples from, so they are included
+    /// *unconditionally* rather than trusted to turn up in the random draw
+    /// (see [`cmd_sample`]'s `force_include` parameter and
+    /// `load_force_include`). `None` for an entry drawn by the ordinary
+    /// stratified sample. [`cmd_report`] tallies these under their own
+    /// synthetic stratum rather than blending them into the tool's nominal
+    /// status stratum, so the forced inclusion stays visible and auditable
+    /// instead of silently diluting (or inflating) the random draw's own
+    /// numbers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_reason: Option<String>,
 }
+
+/// The synthetic stratum label [`cmd_report`] uses for every entry carrying
+/// an [`Entry::include_reason`], so a force-included tool is tallied
+/// separately from the ordinary stratified draw rather than blended into
+/// its nominal [`Entry::stratum`] — see that field's doc comment.
+const FORCED_INCLUSION_STRATUM: &str = "forced-inclusion";
 
 /// The persisted state of one audit run: everything needed to resume, and
 /// nothing that would make two runs of `sample` with the same `--seed`
@@ -225,6 +278,133 @@ fn classify_all(tools: &[String]) -> Vec<(String, Classified)> {
         .collect()
 }
 
+// ---------------------------------------------------------------------
+// K1/K2 pre-tagging (see [`Entry::k1`]/[`Entry::k2`]'s doc comments for the
+// full rationale). Each `_signature` function derives a suggested tag from
+// structural properties of the extracted tree/raw text alone — no tool name
+// is ever consulted, so these stay within AGENTS.md §1's "no per-tool
+// logic" invariant exactly like every other detector in this workspace.
+// ---------------------------------------------------------------------
+
+/// True for a flag matching the GCC-family single-dash-long-option defect
+/// signature: the short-flag grammar took one character as `short` and
+/// glued the rest of a multi-character single-dash spelling onto
+/// `value_name` (`-fdump-scos` -> `short=Some('f')`, `long=None`,
+/// `value_name=Some("dump-scos")`). See [`Entry::k1`].
+fn is_k1_flag(flag: &Flag) -> bool {
+    flag.short.is_some() && flag.long.is_none() && flag.value_name.is_some()
+}
+
+/// `(matching, total)` flag counts across `node` and every descendant, for
+/// the K1 pre-tag's display line (e.g. "839/1454 flags match").
+fn k1_signature_stats(node: &CommandNode) -> (usize, usize) {
+    let mut matching = node.flags.iter().filter(|f| is_k1_flag(f)).count();
+    let mut total = node.flags.len();
+    for child in &node.subcommands {
+        let (m, t) = k1_signature_stats(child);
+        matching += m;
+        total += t;
+    }
+    (matching, total)
+}
+
+/// The K1 pre-tag suggestion: `Some(true)` when `root`'s tree contains at
+/// least one [`is_k1_flag`] match anywhere, `None` when it contains none
+/// (nothing to flag — never `Some(false)`, since there is no "confirmed not
+/// K1" state worth asserting for a tool that never exhibited the shape in
+/// the first place).
+fn k1_signature(root: &CommandNode) -> Option<bool> {
+    let (matching, _) = k1_signature_stats(root);
+    if matching > 0 {
+        Some(true)
+    } else {
+        None
+    }
+}
+
+/// True when `name` occurs as *some* whitespace-delimited token anywhere in
+/// `raw` — not restricted to a line's first token the way
+/// `existence::line_start_words` is. Punctuation immediately touching the
+/// token (as in a comma-separated list) is trimmed the same way the K2
+/// false-positive class actually presents. Used only to *explain* an
+/// existing existence-detector fabrication, never to suppress one directly
+/// — see [`k2_signature_stats`].
+fn token_occurs_anywhere(raw: &str, name: &str) -> bool {
+    raw.split_whitespace().any(|tok| {
+        tok.trim_matches(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_')) == name
+    })
+}
+
+/// `(attributable, total)` counts of `report`'s subcommand-kind
+/// fabrications that are plausibly explained by the existence detector's
+/// own known multi-column/comma-separated tokenization gap (K2, see
+/// `xtask/src/existence.rs`'s `line_start_words` doc comment) rather than
+/// genuine parser fabrication: a fabrication is "attributable" when its
+/// name occurs as *some* token anywhere in the raw text
+/// ([`token_occurs_anywhere`]), just not at the line-start position the
+/// detector itself requires. Flag-kind fabrications are out of scope here —
+/// the tokenizer gap this class explains is specific to how
+/// `line_start_words` reads *lines*, which only ever gates subcommand
+/// names; a flag spelling's existence check ([`existence::spelling_occurs`])
+/// already scans the whole raw text unconditionally and has no equivalent
+/// gap to explain.
+fn k2_signature_stats(report: &existence::ExistenceReport, raw: &str) -> (usize, usize) {
+    let subcommand_names: Vec<&str> = report
+        .fabrications
+        .iter()
+        .filter(|f| f.kind == FabricationKind::Subcommand)
+        .map(|f| f.name.as_str())
+        .collect();
+    let total = subcommand_names.len();
+    let attributable = subcommand_names
+        .iter()
+        .filter(|name| token_occurs_anywhere(raw, name))
+        .count();
+    (attributable, total)
+}
+
+/// The K2 pre-tag suggestion: `Some(true)` when *every* subcommand-kind
+/// existence fabrication for this tool is attributable to the detector's
+/// own tokenizer gap (near-certainly detector noise, not a parser defect),
+/// `Some(false)` when at least one is not (worth a real look — could be a
+/// genuine [M-10]-shaped fabrication), `None` when the tool has no
+/// subcommand-kind fabrications to judge at all.
+fn k2_signature(report: &existence::ExistenceReport, raw: &str) -> Option<bool> {
+    let (attributable, total) = k2_signature_stats(report, raw);
+    if total == 0 {
+        None
+    } else {
+        Some(attributable == total)
+    }
+}
+
+/// Build one [`Entry`] from a classified tool, computing both pre-tag
+/// suggestions from the same single extraction pass — no second probe, same
+/// property [`Classified`]'s own doc comment describes. Shared by
+/// [`sample_stratified`] (the ordinary draw) and [`cmd_sample`]'s
+/// force-include path, so the two can never compute a K1/K2 suggestion
+/// differently.
+fn entry_from_classified(
+    tool: String,
+    classified: &Classified,
+    include_reason: Option<String>,
+) -> Entry {
+    let k1 = classified.result.root.as_ref().and_then(k1_signature);
+    let k2 = match (&classified.result.root, &classified.raw_text) {
+        (Some(root), Some(raw)) => k2_signature(&existence::detect(raw, root), raw),
+        _ => None,
+    };
+    Entry {
+        tool,
+        stratum: classified.stratum.to_string(),
+        verdict: None,
+        note: String::new(),
+        k1,
+        k2,
+        include_reason,
+    }
+}
+
 /// A drawn sample's per-stratum accounting, for [`cmd_sample`]'s printed
 /// proof that the draw is proportionally stratified: `(drawn, population)`.
 type StratumCounts = BTreeMap<String, (usize, usize)>;
@@ -246,6 +426,8 @@ fn sample_stratified(
     seed: u64,
 ) -> (Vec<Entry>, StratumCounts) {
     let total = classified.len();
+    let by_tool: std::collections::HashMap<&str, &Classified> =
+        classified.iter().map(|(t, c)| (t.as_str(), c)).collect();
     let mut by_stratum: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (tool, c) in classified {
         by_stratum
@@ -300,12 +482,10 @@ fn sample_stratified(
         let quota = quotas.get(&stratum).copied().unwrap_or(0).min(tools.len());
         counts.insert(stratum.clone(), (quota, population));
         for tool in tools.into_iter().take(quota) {
-            entries.push(Entry {
-                tool,
-                stratum: stratum.clone(),
-                verdict: None,
-                note: String::new(),
-            });
+            let c = by_tool
+                .get(tool.as_str())
+                .expect("every drawn tool came from `classified`");
+            entries.push(entry_from_classified(tool, c, None));
         }
     }
     entries.sort_by(|a, b| a.tool.cmp(&b.tool));
@@ -338,15 +518,50 @@ fn save(path: &Path, file: &AuditFile) -> anyhow::Result<()> {
     std::fs::write(path, text).map_err(|e| anyhow::anyhow!("writing {}: {e}", path.display()))
 }
 
+/// Read a force-include file: `<tool> <reason...>` per line (`#` comments
+/// and blank lines ignored — the same convention [`cmd_ingest`]'s verdicts
+/// file uses), for [`cmd_sample`]'s `force_include` parameter. A reason is
+/// required, not optional: an unconditional inclusion with no stated reason
+/// is exactly the kind of unauditable claim spec.md Appendix A exists to
+/// rule out (see `Entry::include_reason`'s doc comment).
+pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> {
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+    let mut out = Vec::new();
+    for (lineno, raw_line) in raw.lines().enumerate() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut parts = line.splitn(2, char::is_whitespace);
+        let tool = parts.next().unwrap_or("").to_string();
+        let reason = parts.next().unwrap_or("").trim().to_string();
+        if reason.is_empty() {
+            anyhow::bail!(
+                "{}:{}: force-include line for {tool:?} has no reason",
+                path.display(),
+                lineno + 1
+            );
+        }
+        out.push((tool, reason));
+    }
+    Ok(out)
+}
+
 /// `xtask audit sample`: (re)compute the deterministic, stratified draw and
 /// merge it into `path`, never disturbing an entry already present (so a
 /// resumed or repeated `sample` invocation is a no-op on top of prior
-/// progress — see this module's doc comment).
+/// progress — see this module's doc comment). `force_include` entries
+/// (`(tool, reason)`, see [`load_force_include`]) are merged in
+/// *unconditionally*, in addition to the stratified draw and independent of
+/// `sample_size` — the draw's quota accounting in `counts` never counts
+/// them, so a force-included tool never displaces a randomly-drawn one.
 pub fn cmd_sample(
     seed: u64,
     sample_size: usize,
     tools: Option<Vec<String>>,
     dir: &Path,
+    force_include: &[(String, String)],
 ) -> anyhow::Result<()> {
     let path = verdict_path(dir, seed);
     let population = tools.unwrap_or_else(unique_executables_on_path);
@@ -359,6 +574,30 @@ pub fn cmd_sample(
     );
     let classified = classify_all(&population);
     let (drawn, counts) = sample_stratified(&classified, sample_size, seed);
+
+    // Force-included tools are classified independently of `population`:
+    // the whole point (spec-cited case: the 14 `find_description_gap`
+    // promotions) is that they must appear in the sample regardless of
+    // whether a `--tools` shortcut or a stale `PATH` happens to include
+    // them (see this task's own doc comment: "`--tools` shortcuts will not
+    // find them").
+    let mut forced_entries = Vec::new();
+    for (tool, reason) in force_include {
+        let already_classified = classified.iter().find(|(t, _)| t == tool);
+        let c;
+        let classified_ref = match already_classified {
+            Some((_, existing)) => existing,
+            None => {
+                c = classify_one(tool);
+                &c
+            }
+        };
+        forced_entries.push(entry_from_classified(
+            tool.clone(),
+            classified_ref,
+            Some(reason.clone()),
+        ));
+    }
 
     let mut file = if path.is_file() {
         let existing = load(&path)?;
@@ -383,7 +622,7 @@ pub fn cmd_sample(
     let existing_tools: std::collections::HashSet<String> =
         file.entries.iter().map(|e| e.tool.clone()).collect();
     let mut added = 0usize;
-    for entry in drawn {
+    for entry in drawn.into_iter().chain(forced_entries) {
         if !existing_tools.contains(&entry.tool) {
             file.entries.push(entry);
             added += 1;
@@ -409,9 +648,10 @@ pub fn cmd_sample(
         );
     }
     println!(
-        "{added} new pending entr{s} written to {} ({} pending total)",
+        "{added} new pending entr{s} written to {} ({} pending total, {} force-included)",
         path.display(),
         file.pending().count(),
+        force_include.len(),
         s = if added == 1 { "y" } else { "ies" },
     );
     Ok(())
@@ -442,6 +682,53 @@ fn parse_verdict_word(word: &str) -> anyhow::Result<&'static str> {
             "unrecognized verdict {other:?} — expected one of: c/correct, i/incomplete, w/wrong, s/skip"
         ),
     }
+}
+
+/// Human-readable line for a pre-tag, shown to the reviewer before they
+/// type a verdict — the whole point of [`Entry::k1`]/[`Entry::k2`] is that
+/// this line lets a reviewer confirm-or-override in one glance instead of
+/// re-deriving the same known defect per flag.
+fn tag_display(label: &str, tag: Option<bool>, override_syntax: &str) -> String {
+    match tag {
+        Some(true) => format!(
+            "{label}: suggested TRUE — leave as-is to confirm, or add `{override_syntax}=false` \
+             to your verdict to override"
+        ),
+        Some(false) => format!(
+            "{label}: suggested FALSE (fabrications present but not fully explained by the \
+             known class — worth a real look) — add `{override_syntax}=true` to override"
+        ),
+        None => format!("{label}: not flagged (nothing of this class detected)"),
+    }
+}
+
+/// Pull any `k1=true`/`k1=false`/`k2=true`/`k2=false` token (case-
+/// insensitive) for `key` out of `text`, in place, returning the override it
+/// specified (if any). The token is removed from `text` regardless of
+/// position — a reviewer's note is free-form prose, not a fixed field
+/// order — so what remains is the plain note with no tag syntax left in it.
+/// Shared by [`cmd_review`] and [`cmd_ingest`] so a verdict typed live and
+/// one read from a verdicts file parse identically.
+fn extract_tag_override(text: &mut String, key: &str) -> Option<bool> {
+    let true_tok = format!("{key}=true");
+    let false_tok = format!("{key}=false");
+    let mut found = None;
+    let kept: Vec<&str> = text
+        .split_whitespace()
+        .filter(|tok| {
+            if tok.eq_ignore_ascii_case(&true_tok) {
+                found = Some(true);
+                false
+            } else if tok.eq_ignore_ascii_case(&false_tok) {
+                found = Some(false);
+                false
+            } else {
+                true
+            }
+        })
+        .collect();
+    *text = kept.join(" ");
+    found
 }
 
 /// `xtask audit review`: the interactive loop. Presents the raw `--help`
@@ -477,8 +764,10 @@ pub fn cmd_review(
     writeln!(
         output,
         "{} pending of {} total. Verdict: c(orrect) / i(ncomplete) / w(rong) / s(kip), \
-         optionally followed by a space and a note. Blank line or end of input stops \
-         (already-recorded verdicts are saved after every tool).",
+         optionally followed by a space and a note. Add `k1=true`/`k1=false`/`k2=true`/\
+         `k2=false` anywhere in the note to override a pre-tag; omitting it confirms the \
+         suggestion shown below. Blank line or end of input stops (already-recorded \
+         verdicts are saved after every tool).",
         pending.len(),
         file.entries.len()
     )?;
@@ -486,8 +775,24 @@ pub fn cmd_review(
     for idx in pending {
         let tool = file.entries[idx].tool.clone();
         let stratum = file.entries[idx].stratum.clone();
+        let k1 = file.entries[idx].k1;
+        let k2 = file.entries[idx].k2;
+        let include_reason = file.entries[idx].include_reason.clone();
         let classified = classify_one(&tool);
         writeln!(output, "\n=== {tool}  (stratum: {stratum}) ===")?;
+        if let Some(reason) = &include_reason {
+            writeln!(output, "forced inclusion: {reason}")?;
+        }
+        writeln!(
+            output,
+            "{}",
+            tag_display("K1 (single-dash-long defect)", k1, "k1")
+        )?;
+        writeln!(
+            output,
+            "{}",
+            tag_display("K2 (existence-detector tokenizer gap)", k2, "k2")
+        )?;
         writeln!(output, "--- raw --help ---")?;
         writeln!(
             output,
@@ -518,11 +823,19 @@ pub fn cmd_review(
         }
         let mut parts = line.splitn(2, char::is_whitespace);
         let word = parts.next().unwrap_or("");
-        let note = parts.next().unwrap_or("").trim().to_string();
+        let mut note = parts.next().unwrap_or("").trim().to_string();
         let verdict = parse_verdict_word(word)?;
+        let k1_override = extract_tag_override(&mut note, "k1");
+        let k2_override = extract_tag_override(&mut note, "k2");
 
         file.entries[idx].verdict = Some(verdict.to_string());
         file.entries[idx].note = note;
+        if let Some(v) = k1_override {
+            file.entries[idx].k1 = Some(v);
+        }
+        if let Some(v) = k2_override {
+            file.entries[idx].k2 = Some(v);
+        }
         save(&path, &file)?;
         writeln!(output, "recorded: {verdict}")?;
     }
@@ -556,8 +869,16 @@ pub fn cmd_emit(dir: &Path, seed: u64, emit_dir: &Path) -> anyhow::Result<()> {
         let classified = classify_one(&entry.tool);
         let mut buf = String::new();
         buf.push_str(&format!(
-            "tool: {}\nstratum: {}\n\n",
+            "tool: {}\nstratum: {}\n",
             entry.tool, entry.stratum
+        ));
+        if let Some(reason) = &entry.include_reason {
+            buf.push_str(&format!("forced inclusion: {reason}\n"));
+        }
+        buf.push_str(&format!(
+            "{}\n{}\n\n",
+            tag_display("K1 (single-dash-long defect)", entry.k1, "k1"),
+            tag_display("K2 (existence-detector tokenizer gap)", entry.k2, "k2"),
         ));
         buf.push_str("=== raw --help ===\n");
         buf.push_str(
@@ -579,8 +900,10 @@ pub fn cmd_emit(dir: &Path, seed: u64, emit_dir: &Path) -> anyhow::Result<()> {
         emit_dir.display()
     );
     println!(
-        "review offline, then write a verdicts file (one line per tool: `<tool> <verdict> [note...]`) \
-         and run: cargo run -p xtask -- audit ingest --seed {seed} --verdicts <file>"
+        "review offline, then write a verdicts file (one line per tool: `<tool> <verdict> \
+         [note...]`, optionally including `k1=true`/`k1=false`/`k2=true`/`k2=false` anywhere \
+         in the note to override a pre-tag) and run: \
+         cargo run -p xtask -- audit ingest --seed {seed} --verdicts <file>"
     );
     Ok(())
 }
@@ -626,9 +949,11 @@ pub fn cmd_ingest(
         let mut parts = line.splitn(3, char::is_whitespace);
         let tool = parts.next().unwrap_or("");
         let word = parts.next().unwrap_or("");
-        let note = parts.next().unwrap_or("").trim().to_string();
+        let mut note = parts.next().unwrap_or("").trim().to_string();
         let verdict = parse_verdict_word(word)
             .map_err(|e| anyhow::anyhow!("{}:{}: {e}", verdicts_path.display(), lineno + 1))?;
+        let k1_override = extract_tag_override(&mut note, "k1");
+        let k2_override = extract_tag_override(&mut note, "k2");
 
         let Some(entry) = file.entries.iter_mut().find(|e| e.tool == tool) else {
             unknown.push(tool.to_string());
@@ -640,6 +965,12 @@ pub fn cmd_ingest(
         }
         entry.verdict = Some(verdict.to_string());
         entry.note = note;
+        if let Some(v) = k1_override {
+            entry.k1 = Some(v);
+        }
+        if let Some(v) = k2_override {
+            entry.k2 = Some(v);
+        }
         applied += 1;
     }
 
@@ -690,11 +1021,67 @@ struct StratumTally {
     pending: usize,
 }
 
+/// The stratum label a report groups `entry` under: [`FORCED_INCLUSION_STRATUM`]
+/// for a force-included entry regardless of its nominal [`Entry::stratum`],
+/// so it never silently blends into (and skews) the random draw's own
+/// per-status numbers — see [`Entry::include_reason`]'s doc comment.
+fn effective_stratum(entry: &Entry) -> &str {
+    if entry.include_reason.is_some() {
+        FORCED_INCLUSION_STRATUM
+    } else {
+        entry.stratum.as_str()
+    }
+}
+
+/// A plain `(correct, judged)` accuracy tally over whatever subset of
+/// entries `keep` selects — the shared machinery behind every accuracy
+/// number [`cmd_report`] prints, all-inclusive or K1/K2-filtered alike, so
+/// every view is computed the same way.
+fn accuracy_over<'a>(entries: impl Iterator<Item = &'a Entry>) -> (usize, usize) {
+    let mut correct = 0usize;
+    let mut judged = 0usize;
+    for entry in entries {
+        match entry.verdict.as_deref() {
+            Some("correct") => {
+                correct += 1;
+                judged += 1;
+            }
+            Some("incomplete") | Some("wrong") => judged += 1,
+            _ => {}
+        }
+    }
+    (correct, judged)
+}
+
+/// Print one `label`, count, accuracy and 95% CI line, in the shared format
+/// every accuracy line in this report uses — never a bare percentage.
+fn print_accuracy_line(label: &str, correct: usize, judged: usize) {
+    let (lo, hi) = wilson_interval(correct, judged);
+    let acc = if judged == 0 {
+        "  n/a".to_string()
+    } else {
+        format!("{:>4.1}%", correct as f64 / judged as f64 * 100.0)
+    };
+    println!(
+        "{label:<24}  {correct:>5}/{judged:<6}  {acc}   [{:>5.1}%, {:>5.1}%]",
+        lo * 100.0,
+        hi * 100.0,
+    );
+}
+
 /// `xtask audit report`: per-stratum and overall accuracy, each stated as a
 /// count and a confidence interval — never a bare percentage (spec's own
 /// complaint about `%flags_text`/`%described`, spec §13.1b, is exactly what
 /// this line format exists to avoid repeating). Also lists every tool
 /// judged `wrong` or `incomplete`, since those are the next bugs to fix.
+///
+/// Also reports accuracy under four K1/K2 views — all-inclusive,
+/// K1-excluded, K2-excluded, and both-excluded — rather than every
+/// combination separately: [`Entry::k1`]/[`Entry::k2`]'s doc comments have
+/// the full rationale for each known class, and reporting all four
+/// pairwise combinations here would be unwieldy for the same "never a bare
+/// percentage, but also never noise" discipline this module already
+/// applies everywhere else.
 pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let path = verdict_path(dir, seed);
     let file = load(&path)?;
@@ -702,7 +1089,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let mut by_stratum: BTreeMap<String, StratumTally> = BTreeMap::new();
     for entry in &file.entries {
         let tally = by_stratum
-            .entry(entry.stratum.clone())
+            .entry(effective_stratum(entry).to_string())
             .or_insert(StratumTally {
                 correct: 0,
                 judged: 0,
@@ -777,6 +1164,28 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
              keep reviewing for a number worth acting on (spec's own target is ~60-100)."
         );
     }
+
+    let k1_tagged = file.entries.iter().filter(|e| e.k1 == Some(true)).count();
+    let k2_tagged = file.entries.iter().filter(|e| e.k2 == Some(true)).count();
+    println!(
+        "\nK1/K2 sensitivity ({k1_tagged} entr{k1_s} tagged K1, {k2_tagged} entr{k2_s} tagged \
+         K2 — see xtask/src/audit.rs's Entry::k1/k2 doc comments):",
+        k1_s = if k1_tagged == 1 { "y" } else { "ies" },
+        k2_s = if k2_tagged == 1 { "y" } else { "ies" },
+    );
+    println!("view                      correct/judged   accuracy   95% CI");
+    let (c, j) = accuracy_over(file.entries.iter());
+    print_accuracy_line("all-inclusive", c, j);
+    let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k1 != Some(true)));
+    print_accuracy_line("K1-excluded", c, j);
+    let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k2 != Some(true)));
+    print_accuracy_line("K2-excluded", c, j);
+    let (c, j) = accuracy_over(
+        file.entries
+            .iter()
+            .filter(|e| e.k1 != Some(true) && e.k2 != Some(true)),
+    );
+    print_accuracy_line("K1+K2-excluded", c, j);
 
     let mut flagged: Vec<&Entry> = file
         .entries
@@ -1011,6 +1420,7 @@ fn sample_flag_specs(root: &CommandNode) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mandible_core::{Provenance, Source};
     use std::io::Cursor;
 
     fn synthetic_classified(specs: &[(&str, &str)]) -> Vec<(String, Classified)> {
@@ -1178,6 +1588,9 @@ mod tests {
                     stratum: stratum.to_string(),
                     verdict: None,
                     note: String::new(),
+                    k1: None,
+                    k2: None,
+                    include_reason: None,
                 })
                 .collect(),
         };
@@ -1260,7 +1673,7 @@ mod tests {
         }
         // Re-running sample with the same population/seed/size must not
         // disturb the already-recorded verdict.
-        cmd_sample(55, 1, Some(vec!["sh".to_string()]), tmp.path()).unwrap();
+        cmd_sample(55, 1, Some(vec!["sh".to_string()]), tmp.path(), &[]).unwrap();
         let after = load(&path).unwrap();
         assert_eq!(after.entries.len(), 1);
         assert_eq!(after.entries[0].verdict.as_deref(), Some("correct"));
@@ -1314,5 +1727,352 @@ mod tests {
         assert_eq!(after.entries.len(), 2, "a skip must still occupy its slot");
         let sh = after.entries.iter().find(|e| e.tool == "sh").unwrap();
         assert_eq!(sh.verdict.as_deref(), Some("skip"));
+    }
+
+    // -------------------------------------------------------------
+    // K1 pre-tag
+    // -------------------------------------------------------------
+
+    fn k1_flag() -> Flag {
+        let mut f = Flag::long("", Provenance::single(Source::HelpText));
+        f.short = Some('f');
+        f.long = None;
+        f.value_name = Some("dump-scos".to_string());
+        f
+    }
+
+    fn ordinary_flag(short: char, long: &str) -> Flag {
+        let mut f = Flag::long(long, Provenance::single(Source::HelpText));
+        f.short = Some(short);
+        f
+    }
+
+    #[test]
+    fn k1_signature_flags_the_gcc_single_dash_long_shape() {
+        let mut root = CommandNode::new("clang", Provenance::single(Source::HelpText));
+        root.flags.push(k1_flag());
+        root.flags.push(ordinary_flag('v', "verbose"));
+        assert_eq!(k1_signature(&root), Some(true));
+    }
+
+    #[test]
+    fn k1_signature_is_none_when_no_flag_matches() {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        root.flags.push(ordinary_flag('v', "verbose"));
+        assert_eq!(
+            k1_signature(&root),
+            None,
+            "a tool with no K1-shaped flag anywhere gets no suggestion, not Some(false)"
+        );
+    }
+
+    #[test]
+    fn k1_signature_recurses_into_subcommands() {
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
+        child.flags.push(k1_flag());
+        root.subcommands.push(child);
+        assert_eq!(
+            k1_signature(&root),
+            Some(true),
+            "the defect can appear on any subcommand's flags, not just the root's"
+        );
+    }
+
+    #[test]
+    fn k1_signature_stats_counts_matching_and_total_across_the_tree() {
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        root.flags.push(k1_flag());
+        root.flags.push(ordinary_flag('v', "verbose"));
+        let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
+        child.flags.push(k1_flag());
+        root.subcommands.push(child);
+        assert_eq!(k1_signature_stats(&root), (2, 3));
+    }
+
+    // -------------------------------------------------------------
+    // K2 pre-tag
+    // -------------------------------------------------------------
+
+    #[test]
+    fn k2_signature_is_true_when_every_fabrication_is_a_multi_column_token() {
+        // Real busybox/openssl shape: several names on one line, only the
+        // first is a "line start word", but every name is a whitespace
+        // token somewhere on that line.
+        let raw = "asn1parse         ca                ciphers           cmp\n";
+        let mut root = CommandNode::new("openssl", Provenance::single(Source::HelpText));
+        for name in ["asn1parse", "ca", "ciphers", "cmp"] {
+            root.subcommands
+                .push(CommandNode::new(name, Provenance::single(Source::HelpText)));
+        }
+        let report = existence::detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            3,
+            "only the first column is a line-start word; the other three are flagged"
+        );
+        assert_eq!(k2_signature(&report, raw), Some(true));
+    }
+
+    #[test]
+    fn k2_signature_is_false_when_a_fabrication_is_not_explained() {
+        let raw = "asn1parse         ca\n";
+        let mut root = CommandNode::new("openssl", Provenance::single(Source::HelpText));
+        root.subcommands.push(CommandNode::new(
+            "asn1parse",
+            Provenance::single(Source::HelpText),
+        ));
+        root.subcommands
+            .push(CommandNode::new("ca", Provenance::single(Source::HelpText)));
+        // A third, wholly invented name that occurs nowhere in the raw
+        // text at all — a genuine [M-10]-shaped fabrication, not a
+        // tokenizer artifact.
+        root.subcommands.push(CommandNode::new(
+            "totally-invented",
+            Provenance::single(Source::HelpText),
+        ));
+        let report = existence::detect(raw, &root);
+        assert_eq!(
+            k2_signature(&report, raw),
+            Some(false),
+            "a fabrication with no raw-text occurrence at all must not be waved through as K2"
+        );
+    }
+
+    #[test]
+    fn k2_signature_is_none_with_no_subcommand_fabrications() {
+        let raw = "clone     Clone a repository\n";
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        root.subcommands.push(CommandNode::new(
+            "clone",
+            Provenance::single(Source::HelpText),
+        ));
+        let report = existence::detect(raw, &root);
+        assert_eq!(k2_signature(&report, raw), None);
+    }
+
+    // -------------------------------------------------------------
+    // Tag-override parsing
+    // -------------------------------------------------------------
+
+    #[test]
+    fn extract_tag_override_pulls_the_token_out_of_the_note() {
+        let mut note =
+            "the extra flags were genuinely wrong k1=false not the gcc defect".to_string();
+        let k1 = extract_tag_override(&mut note, "k1");
+        assert_eq!(k1, Some(false));
+        assert_eq!(
+            note, "the extra flags were genuinely wrong not the gcc defect",
+            "the token is removed, the rest of the note survives untouched"
+        );
+    }
+
+    #[test]
+    fn extract_tag_override_is_case_insensitive_and_absent_returns_none() {
+        let mut note = "K1=TRUE looks like the known defect".to_string();
+        assert_eq!(extract_tag_override(&mut note, "k1"), Some(true));
+        assert_eq!(extract_tag_override(&mut note, "k2"), None);
+    }
+
+    #[test]
+    fn extract_tag_override_handles_both_keys_in_one_note() {
+        let mut note = "k1=true k2=false mixed causes".to_string();
+        assert_eq!(extract_tag_override(&mut note, "k1"), Some(true));
+        assert_eq!(extract_tag_override(&mut note, "k2"), Some(false));
+        assert_eq!(note, "mixed causes");
+    }
+
+    #[test]
+    fn review_verdict_line_applies_a_k1_override() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 21, &[("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].k1 = Some(true);
+            save(&path, &f).unwrap();
+        }
+        let mut input =
+            Cursor::new(b"w k1=false actually a real bug, not the gcc defect\n".to_vec());
+        let mut out = Vec::new();
+        cmd_review(tmp.path(), 21, &mut input, &mut out).unwrap();
+        let after = load(&path).unwrap();
+        assert_eq!(after.entries[0].k1, Some(false), "override must persist");
+        assert_eq!(after.entries[0].verdict.as_deref(), Some("wrong"));
+        assert_eq!(
+            after.entries[0].note,
+            "actually a real bug, not the gcc defect"
+        );
+    }
+
+    #[test]
+    fn review_verdict_line_without_override_leaves_the_suggestion_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 22, &[("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].k1 = Some(true);
+            save(&path, &f).unwrap();
+        }
+        let mut input = Cursor::new(b"c known defect, confirmed\n".to_vec());
+        let mut out = Vec::new();
+        cmd_review(tmp.path(), 22, &mut input, &mut out).unwrap();
+        let after = load(&path).unwrap();
+        assert_eq!(
+            after.entries[0].k1,
+            Some(true),
+            "leaving the tag out of the verdict line confirms the pre-tagged suggestion"
+        );
+    }
+
+    // -------------------------------------------------------------
+    // Force-include (Task C: unaudited-promotion tools)
+    // -------------------------------------------------------------
+
+    #[test]
+    fn load_force_include_parses_tool_and_reason_and_skips_comments() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("force.txt");
+        std::fs::write(
+            &path,
+            "# unaudited promotions\nzoxide unaudited promotion, low-confidence -> ok\n\ncurl another reason\n",
+        )
+        .unwrap();
+        let parsed = load_force_include(&path).unwrap();
+        assert_eq!(
+            parsed,
+            vec![
+                (
+                    "zoxide".to_string(),
+                    "unaudited promotion, low-confidence -> ok".to_string()
+                ),
+                ("curl".to_string(), "another reason".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn load_force_include_rejects_a_line_with_no_reason() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("force.txt");
+        std::fs::write(&path, "zoxide\n").unwrap();
+        assert!(load_force_include(&path).is_err());
+    }
+
+    #[test]
+    fn cmd_sample_force_includes_tools_outside_the_stratified_draw() {
+        let tmp = tempfile::tempdir().unwrap();
+        // sample_size=0: nothing from the stratified draw at all, so any
+        // entry present afterward must have come from force_include.
+        let force = vec![("sh".to_string(), "unaudited promotion example".to_string())];
+        cmd_sample(
+            100,
+            0,
+            Some(vec!["sh".to_string(), "cat".to_string()]),
+            tmp.path(),
+            &force,
+        )
+        .unwrap();
+        let file = load(&verdict_path(tmp.path(), 100)).unwrap();
+        assert_eq!(file.entries.len(), 1, "only the forced tool is present");
+        assert_eq!(
+            file.entries[0].include_reason.as_deref(),
+            Some("unaudited promotion example")
+        );
+    }
+
+    #[test]
+    fn cmd_sample_force_include_is_idempotent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let force = vec![("sh".to_string(), "reason one".to_string())];
+        cmd_sample(101, 0, Some(vec!["sh".to_string()]), tmp.path(), &force).unwrap();
+        cmd_sample(101, 0, Some(vec!["sh".to_string()]), tmp.path(), &force).unwrap();
+        let file = load(&verdict_path(tmp.path(), 101)).unwrap();
+        assert_eq!(
+            file.entries.len(),
+            1,
+            "re-running sample must not duplicate an already force-included tool"
+        );
+    }
+
+    // -------------------------------------------------------------
+    // Report: effective stratum and accuracy views
+    // -------------------------------------------------------------
+
+    #[test]
+    fn effective_stratum_buckets_forced_entries_separately() {
+        let mut e = Entry {
+            tool: "zoxide".to_string(),
+            stratum: "ok".to_string(),
+            verdict: None,
+            note: String::new(),
+            k1: None,
+            k2: None,
+            include_reason: None,
+        };
+        assert_eq!(effective_stratum(&e), "ok");
+        e.include_reason = Some("unaudited promotion".to_string());
+        assert_eq!(effective_stratum(&e), FORCED_INCLUSION_STRATUM);
+    }
+
+    fn entry(tool: &str, verdict: Option<&str>, k1: Option<bool>, k2: Option<bool>) -> Entry {
+        Entry {
+            tool: tool.to_string(),
+            stratum: "ok".to_string(),
+            verdict: verdict.map(str::to_string),
+            note: String::new(),
+            k1,
+            k2,
+            include_reason: None,
+        }
+    }
+
+    #[test]
+    fn accuracy_over_excludes_pending_and_skip_from_the_denominator() {
+        let entries = [
+            entry("a", Some("correct"), None, None),
+            entry("b", Some("wrong"), None, None),
+            entry("c", None, None, None),
+            entry("d", Some("skip"), None, None),
+        ];
+        let (correct, judged) = accuracy_over(entries.iter());
+        assert_eq!((correct, judged), (1, 2));
+    }
+
+    #[test]
+    fn k1_excluded_view_drops_only_k1_true_entries() {
+        let entries = [
+            entry("a", Some("correct"), Some(true), None),
+            entry("b", Some("wrong"), Some(false), None),
+            entry("c", Some("wrong"), None, None),
+        ];
+        let (correct, judged) = accuracy_over(entries.iter().filter(|e| e.k1 != Some(true)));
+        assert_eq!(
+            (correct, judged),
+            (0, 2),
+            "the K1-tagged entry must not count toward this view at all"
+        );
+    }
+
+    #[test]
+    fn cmd_report_runs_cleanly_over_a_mixed_k1_k2_and_forced_sample() {
+        // Smoke test: build a verdict file exercising every field this
+        // task added (k1, k2, include_reason) and confirm `cmd_report`
+        // runs to completion without panicking on any of them.
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(
+            tmp.path(),
+            42,
+            &[("clang", "ok"), ("busybox", "ok"), ("zoxide", "ok")],
+        );
+        let mut f = load(&path).unwrap();
+        f.entries[0].verdict = Some("wrong".to_string());
+        f.entries[0].k1 = Some(true);
+        f.entries[1].verdict = Some("wrong".to_string());
+        f.entries[1].k2 = Some(true);
+        f.entries[2].verdict = Some("correct".to_string());
+        f.entries[2].include_reason = Some("unaudited promotion example".to_string());
+        save(&path, &f).unwrap();
+
+        cmd_report(tmp.path(), 42).unwrap();
     }
 }
