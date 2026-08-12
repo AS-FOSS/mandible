@@ -12,17 +12,12 @@ argv = ["lzless", "--help"]
 stdout = "help.txt"
 
 [contract]
-# SCOPE OF REVIEW: the human reviewer (audit seed 2) judged this fixture
-# "correct" on flag accuracy and subcommand/command accuracy only --
-# the audit was explicitly scoped to those two dimensions, never to
-# prose. The [contract] fields below encode exactly what was judged.
-# expected.snap's node/flag *descriptions* were NOT reviewed and are not
-# asserted correct; they are the parser's current output, frozen only so
-# a future grammar change surfaces the diff for review -- see
-# corpus/README.md's lsof cautionary tale (a description-column defect
-# that a full, unread --bless committed as "verified"). Do not read a
-# match against expected.snap's prose as a correctness claim.
+# SCOPE OF REVIEW: see corpus/README.md's "verdict_scope" section --
+# this fixture was promoted from the seed-2 audit, whose "correct"
+# verdict covers exactly the dimensions verdict_scope lists below, never
+# prose. expected.snap freezes descriptions too, but they were not part
+# of that review.
+verdict_scope = ["flags", "subcommands"]
 expected_framework = "generic"
 min_status = "ok"
 min_subcommands = 0
-
