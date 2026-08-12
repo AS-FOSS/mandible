@@ -684,6 +684,28 @@ const HELP_ONLY_PROBE: &[&str] = &[
     "telinit",
     "init",
     "systemctl-shutdown",
+    // Message delivery: an unrecognised positional is the message, and the
+    // message goes somewhere a person will see it.
+    //
+    // Reported from real use, 2026-08-12: probing `wall` broadcast the text
+    // `__complete` to every logged-in terminal on the machine. Tier E's cobra
+    // detection sends `__complete <word>` to every tool speculatively, to
+    // find out whether it answers, and `wall` treats that word as the
+    // message. The reporter could not reproduce it at first because the
+    // broadcast lands on *other* terminals while the interface repaints over
+    // the one it was launched from.
+    //
+    // This is the `pkill -- ""` shape again (see this module's rule 2a
+    // handling): an argv that is inert for almost every tool and an action
+    // for one family. `wall` is the measured case; the rest are the same
+    // mechanism by inspection, each one delivering its first positional to a
+    // terminal, a log, a desktop, or a speaker.
+    "wall",
+    "write",
+    "logger",
+    "notify-send",
+    "say",
+    "xmessage",
 ];
 
 /// True if `tool_path` names a program from [`HELP_ONLY_PROBE`], i.e. one
@@ -847,6 +869,12 @@ mod tests {
             "this list must not become a catalogue"
         );
         assert!(is_help_only_probe(Path::new("/usr/bin/pkill")));
+        // The message-delivery class. `wall` is the measured case: probing it
+        // broadcast `__complete` to every logged-in terminal, because Tier E
+        // sends that word to every tool speculatively and `wall` treats its
+        // first positional as the message.
+        assert!(is_help_only_probe(Path::new("/usr/bin/wall")));
+        assert!(is_help_only_probe(Path::new("/usr/bin/logger")));
         assert!(is_help_only_probe(Path::new("/some/other/place/killall")));
         // A tool that merely *contains* a listed name is not matched.
         assert!(!is_help_only_probe(Path::new(

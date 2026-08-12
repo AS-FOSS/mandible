@@ -547,6 +547,8 @@ note = "verbatim"
 [[entry]]
 tool = "vim.basic"
 stratum = "ok"
+verdict = "wrong"
+note = "i think the same positional arguements issue, we should come back to this"
 k1 = true
 
 [[entry]]
