@@ -184,6 +184,16 @@ enum AuditAction {
         /// Directory holding verdict files (`<dir>/<seed>.toml`).
         #[arg(long, default_value = "audit")]
         dir: PathBuf,
+        /// A plain-text file of `<tool> <reason...>` lines (`#` comments and
+        /// blank lines ignored, same convention as `ingest --verdicts`)
+        /// naming tools to include in the sample *unconditionally*, on top
+        /// of the stratified random draw. The motivating case: 14 tools an
+        /// unaudited heuristic (commit `3464b0c`) promoted `low-confidence`
+        /// -> `ok` mid-freeze, identified via `xtask sweep-diff` — a
+        /// `--tools` shortcut population would not reliably re-draw them,
+        /// so they are named explicitly instead of left to chance.
+        #[arg(long)]
+        force_include_file: Option<PathBuf>,
     },
     /// The interactive review loop: raw `--help` text and the parsed tree,
     /// side by side, one verdict at a time. Reads `<word> [note...]` lines
@@ -298,7 +308,14 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             sample,
             tools,
             dir,
-        } => audit::cmd_sample(seed, sample, tools, &dir),
+            force_include_file,
+        } => {
+            let force_include = match force_include_file {
+                Some(path) => audit::load_force_include(&path)?,
+                None => Vec::new(),
+            };
+            audit::cmd_sample(seed, sample, tools, &dir, &force_include)
+        }
         AuditAction::Review { seed, dir } => {
             let stdin = std::io::stdin();
             let mut input = stdin.lock();

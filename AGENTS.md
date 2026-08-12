@@ -49,6 +49,7 @@ Breaking any of these produces a bug that tests will not catch.
 | An argv element is **never the empty string**, unless a guard word precedes it | `mandible-extract/src/exec/spawn.rs` (`run_inert`) | Rule 1 ("never a bare invocation") only counts arguments. `--` is the option terminator essentially every getopt program discards, so `<tool> -- ""` delivers the empty string as the tool's *first positional*, and a program whose first positional is a pattern reads that as “match everything”. Measured: `pkill -- ""` terminated every process in a private PID namespace, pkill included (rc=143). This was the real mechanism behind the reported machine reset — the never-probe list masked it for thirteen tools while the same argv went to the other 2253. The one exception, cobra's completion word, is safe because `__complete` shields it: it is never the first positional. Note the near-miss fix: respelling it as `--` alone is harmless but *wrong* — `--` is a no-op for most tools, so they print their ordinary output and the completion heuristic reads it as candidates (`whoami --` → a username). The sweep caught that at 16 newly “native” tools, 8 of them `suspicious`. |
 | Never check whether a process is alive with `pgrep -f <string>` when your own command line contains that string | any agent driving a long background job | `pgrep -f` matches the full command line, so an `until ! pgrep -f "xtask coverage"` poller **matches itself** and reports the job alive forever. Cost a long stretch of this project reporting a sweep as running when it had died. Use `pgrep -x <binary>` (matches the process name), or record the PID. |
 | Never call an O(n)-or-worse function from inside a `while` loop's own *condition* | general Rust pitfall, not specific to one file | It reruns every iteration, turning a linear function quadratic. Found via the coverage harness on a genuinely degenerate input (a REPL that ignores `--help` and free-runs printing its own banner): one tool took 153s instead of milliseconds. Compute it once, before the loop. |
+| **A reproduction beats three rounds of reasoning.** When a bug resists explanation, reproduce it under the real harness (§3.2) before trusting the next theory. | general debugging method, not one file | [M-19], the `mandible systemctl` freeze: two successive theories — a pager, then a `/dev/tty`/session hazard ([M-17]) — were each individually *disproved by measurement*, not settled by more reasoning about the code. The real mechanism: `systemctl <anything...> --help` returns the tool's own root help byte-identically no matter what precedes it or how deep, so the background warmer's per-node probing treated every one of those fabricated "deeper" nodes as real, cascading 18 → 18² → 18³ subcommands toward the 4,096-node cap and starving the UI thread's own scheduling. Nobody was going to reason their way to that from the code; a `scripts/pty_screenshot.py` reproduction found it directly. |
 
 ---
 
@@ -111,6 +112,27 @@ descriptions at three different columns in the same list. **When you change
 rendering, capture a screen before and after**, and when a rendering test
 passes first try, suspect the fixture before believing the result.
 
+### 3.3 Never parse human-format test output
+
+Run tests with `cargo nextest run --workspace` (CI and this playbook both use
+it), never `cargo test --workspace` piped into `grep`/`awk`/similar. The rule
+is not "use nextest because it's faster" — it is that **human-format test
+output must never be parsed, by anyone, for any reason**, and nextest exists
+here specifically so nobody has to.
+
+The concrete failure, self-reported twice in consecutive reports before it
+became this rule: `grep -c FAILED` against `cargo test`'s output false-
+positived on test *data* that happened to contain the literal word "FAIL"
+(fixture text, a variant name, a snapshot value — the output stream mixes
+program output and test-runner output with no structural separation),
+producing a confident, wrong pass/fail count. Nothing about that failure was
+exotic; it is the generic risk of treating a human-readable report as a data
+format, and it will keep recurring for as long as a human-format stream is
+the thing being read. `cargo nextest run` reports a real nonzero exit code on
+any failure and can emit `--message-format libtest-json` when a structured
+result is actually needed — read *that*, or read the exit code, never the
+prose.
+
 ---
 
 ## 4. Environment facts
@@ -154,7 +176,8 @@ update Appendix A in the same commit, with the method.
   obligations, and it is the most likely genuine legal exposure in this project.
 - Gates before reporting done: `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`,
-  `cargo test --workspace`, `cargo build --release`.
+  `cargo nextest run --workspace` (§3.3 — never `cargo test --workspace`
+  piped into a text-parsing tool), `cargo build --release`.
 - `#![forbid(unsafe_code)]` in every crate except `mandible-extract`, which
   carries `#![deny(unsafe_code)]` plus exactly one scoped
   `#[allow(unsafe_code)]` on the probe-spawning function in `exec/`, for the
