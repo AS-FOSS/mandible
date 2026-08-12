@@ -519,6 +519,12 @@ stratum = "ok"
 verdict = "correct"
 k1 = true
 
+[[entry.amendments]]
+previous_verdict = "correct"
+new_verdict = "wrong"
+new_note = "bundled-short-flag collapse: [-2CDlNuVv] parses as one flag '-2' with a required value 'CDlNuVv' instead of 8 separate boolean flags. Same defect judged wrong on tcpdump, filefrag, ssh-keygen and xfs_io in this same review."
+reason = "reviewer inconsistency caught in post-review reconciliation, not by the reviewer: tmux exhibits the identical bundled-short-flag collapse judged wrong on tcpdump, filefrag, ssh-keygen and xfs_io in the same review, but was recorded correct"
+
 [[entry]]
 tool = "update-xmlcatalog"
 stratum = "ok"
