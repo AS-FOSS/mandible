@@ -125,6 +125,18 @@ enum Command {
         /// the intended one. Omit it and nothing about this run changes.
         #[arg(long)]
         baseline_dir: Option<PathBuf>,
+        /// Print one fixture's captured help text beside the tree the
+        /// parser makes of it, and exit without checking anything.
+        ///
+        /// Exists because a fixture is otherwise only inspectable by
+        /// reading a `meta.toml`, an `expected.snap` and a capture file
+        /// separately and holding all three in your head. That is the same
+        /// comparison `xtask audit emit` renders for a live tool, sourced
+        /// from the frozen capture instead, so what a fixture actually
+        /// encodes can be checked by looking rather than by trusting a
+        /// summary of it. Matches on a substring of `<tool>/<version>`.
+        #[arg(long)]
+        show: Option<String>,
     },
     /// A semantic per-tool diff between two coverage scoreboards (WS2 part
     /// 1, `transition.rs`'s own doc comment): status transitions, flag-
@@ -298,7 +310,11 @@ fn main() -> anyhow::Result<()> {
             dir,
             format,
             baseline_dir,
-        } => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+            show,
+        } => match show {
+            Some(pattern) => corpus::show_fixture(&dir, &pattern),
+            None => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+        },
         Command::SweepDiff {
             before,
             after,

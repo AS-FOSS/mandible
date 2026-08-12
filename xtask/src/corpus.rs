@@ -1421,6 +1421,87 @@ impl CorpusReport {
     }
 }
 
+/// Print one fixture's captured help text beside the tree the parser makes
+/// of it, then return.
+///
+/// A fixture is otherwise only inspectable by opening a `meta.toml`, an
+/// `expected.snap` and one or more capture files separately and holding all
+/// three in your head, which makes "what does this fixture actually claim"
+/// a question answered by trusting a summary rather than by looking. This
+/// renders the same side-by-side comparison `xtask audit emit` produces for
+/// a live tool, sourced from the frozen capture instead, so an `[xfail]`
+/// fixture's asserted defect can be seen directly in the parse.
+///
+/// Deliberately read-only and separate from the checking run: it neither
+/// blesses nor fails, so it can be used freely while investigating.
+pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
+    let fixtures = discover_fixtures(corpus_root)?;
+    let matches: Vec<&Fixture> = fixtures
+        .iter()
+        .filter(|f| f.label.contains(pattern))
+        .collect();
+
+    let fixture = match matches.as_slice() {
+        [] => anyhow::bail!(
+            "no fixture matching {pattern:?} under {}. Available: {}",
+            corpus_root.display(),
+            fixtures
+                .iter()
+                .map(|f| f.label.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        [one] => *one,
+        many => anyhow::bail!(
+            "{pattern:?} matches {} fixtures: {}. Narrow it.",
+            many.len(),
+            many.iter()
+                .map(|f| f.label.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+
+    println!("fixture: {}", fixture.label);
+    println!("path:    {}", fixture.dir.display());
+    if let Some(xfail) = &fixture.meta.xfail {
+        println!(
+            "status:  [xfail] {}",
+            xfail.reason.as_deref().unwrap_or("(no reason recorded)")
+        );
+    } else {
+        println!("status:  expected to pass");
+    }
+    println!();
+
+    for capture in &fixture.meta.captures {
+        let argv = capture.argv.join(" ");
+        let files: [(&str, Option<&str>); 2] = [
+            ("stdout", Some(capture.stdout.as_str())),
+            ("stderr", capture.stderr.as_deref()),
+        ];
+        for (label, file) in files {
+            let Some(name) = file else { continue };
+            let bytes = std::fs::read(fixture.dir.join(name))?;
+            if bytes.is_empty() {
+                continue;
+            }
+            println!("=== captured: {argv}  ({label}) ===");
+            println!("{}", String::from_utf8_lossy(&bytes));
+        }
+    }
+
+    let transcript = fixture.build_transcript()?;
+    let runner = Runner::new(default_tiers_with_probe(Arc::new(transcript)));
+    let resolved = fixture.resolved_tool();
+    println!("=== parsed tree ===");
+    match extract_tree(&runner, &resolved) {
+        Some(node) => println!("{}", render_snapshot(&node)?),
+        None => println!("(no tier produced a root node)"),
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
