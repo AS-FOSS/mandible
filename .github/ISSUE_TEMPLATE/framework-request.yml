@@ -1,0 +1,58 @@
+name: Add support for a CLI framework
+description: A generator mandible does not recognize yet
+title: "Support <framework>"
+labels:
+  - framework
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Support is per *framework*, never per tool — one grammar covers
+        every CLI that framework ever generated. Adding one is one `match`
+        arm in `mandible-extract/src/help_text/profile.rs` plus one
+        fingerprint in `mandible-extract/src/framework/`.
+
+  - type: input
+    id: framework
+    attributes:
+      label: Framework
+      description: Name, language, and a link (repo or docs).
+      placeholder: e.g. Typer (Python), https://typer.tiangolo.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifact-signal
+    attributes:
+      label: How to identify it from the artifact
+      description: >-
+        A string embedded in compiled binaries, or the import line in
+        scripts. This is the reliable signal; help-text headings are the
+        fallback.
+    validations:
+      required: false
+
+  - type: textarea
+    id: help-text-signal
+    attributes:
+      label: How to identify it from help text
+      description: >-
+        A distinctive marker string, e.g. argparse's "show this help
+        message and exit".
+    validations:
+      required: false
+
+  - type: textarea
+    id: example-tools
+    attributes:
+      label: Two or three real tools that use it
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample-help
+    attributes:
+      label: A representative `--help` output
+      render: console
+    validations:
+      required: true

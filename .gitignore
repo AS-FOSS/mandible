@@ -2,6 +2,12 @@ tmp/
 /target
 *.swp
 
+# Agent worktrees and local tooling state. `.claude/worktrees/` holds
+# throwaway checkouts used to run several agents against the same repo
+# without their in-flight edits corrupting each other's gate runs; they are
+# scratch by construction and are merged back as commits, never as files.
+.claude/
+
 # Working notes and running TODO state for whoever (human or agent) is
 # mid-project. Deliberately untracked: spec.md is the design authority and
 # AGENTS.md the operational one, and a third committed document that

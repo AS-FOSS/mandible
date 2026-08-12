@@ -40,6 +40,12 @@ $ mandible docker
 > [!TIP]
 > Try running `mandible mandible`
 
+> [!TIP]
+> Something parses wrong? Run `mandible --report <tool>`, paste the output
+> into [a two-minute issue](../../issues/new?template=parsing-issue.yml) —
+> that's a complete contribution, no repo knowledge required. See
+> [CONTRIBUTING.md](./CONTRIBUTING.md#rung-0--file-an-issue-naming-a-tool).
+
 ## Install
 
 ```console

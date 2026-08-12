@@ -4,20 +4,44 @@ Thank you for considering a contribution. Please read this before opening a
 PR — the project has one rule that overrides most instincts about how to fix
 a bug.
 
-## Two kinds of contribution
+## Three ways to contribute
 
-**Found a tool that mandible parses badly?** You don't need to write Rust.
-The project accepts *fixtures*: a frozen capture of the tool's real help
-output plus a short contract file, checked into [`corpus/`](./corpus/README.md)
-and marked as a known failure. That turns your bug report into an executable,
-reproducible test the next grammar fix must satisfy — and it is the only
-per-tool artifact this repository accepts. The full workflow (capture,
-`meta.toml`, xfail lifecycle) lives in [`corpus/README.md`](./corpus/README.md).
+Every rung below is a complete contribution in its own right — the ladder
+exists so nobody has to climb higher than their bug requires, not so the
+lower rungs feel like a consolation prize. **Moving a report up a rung is
+the maintainer's job, or the tooling's — never the reporter's.**
 
-**Changing the source** — grammars, tiers, TUI, exec policy — is what the
-rest of this document covers. One rule that binds both kinds: a parser change
-must keep every already-green fixture green, and a new parsing rule should
-arrive with the fixture that made it necessary.
+### Rung 0 — file an issue naming a tool
+
+Found a tool that renders wrong? Open an issue — run `mandible --report
+<tool>` and paste the output. That's a complete contribution, full stop.
+
+It costs zero repo knowledge and about two minutes. Its only job is to
+capture the part that's *perishable*: your tool's version and its raw
+`--help` bytes, both of which are gone the moment you upgrade. Everything
+downstream of that — turning the report into a fixture, writing the grammar
+fix — can be done by anyone, later, from what you filed. (Text pasted into
+a GitHub textarea isn't byte-exact — trailing whitespace dies in markdown —
+and that's fine at this rung; byte-exactness is rung 1's concern, handled
+by `mandible capture` or a maintainer re-capture.)
+
+An issue with good bytes gets a `needs-fixture` label. Nobody is going to
+tell you to go read `corpus/README.md` first.
+
+### Rung 1 — a fixture PR, no Rust
+
+An optional escalation, never required. [`corpus/README.md`](./corpus/README.md)
+is the entry point: capture the same failure as a frozen, byte-exact fixture
+and mark it `[xfail]`, and CI turns the report into an executable,
+reproducible backlog entry instead of a prose one.
+
+### Rung 2 — a grammar fix
+
+Changing the source — grammars, tiers, TUI, exec policy — is what the rest
+of this document covers, starting with the invariant below. One rule binds
+every rung above it: a parser change must keep every already-green fixture
+green, and a new parsing rule should arrive with the fixture that made it
+necessary.
 
 ## The invariant (read this first)
 

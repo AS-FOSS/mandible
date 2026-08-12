@@ -1,0 +1,97 @@
+name: A tool renders wrong
+description: mandible shows the wrong flags, missing commands, invented ones, or less than the tool actually documents
+title: "<tool> renders incorrectly"
+labels:
+  - parsing
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a complete contribution on its own — you do not need to read
+        anything else in the repo first. The most useful field below is
+        `--doctor`'s output, because it names the *framework* mandible thinks
+        generated the tool's help text. That turns "mandible is wrong about
+        tool X" into "the argparse grammar mishandles Y" — a general,
+        fixable bug instead of a per-tool complaint.
+
+  - type: input
+    id: tool-version
+    attributes:
+      label: Tool and version
+      description: The command you ran to check, and its output.
+      placeholder: |
+        $ docker --version
+        Docker version 24.0.5, build ced0996
+    validations:
+      required: true
+
+  - type: dropdown
+    id: failure-kind
+    attributes:
+      label: What kind of wrong is this?
+      description: >-
+        "Wrong" means mandible shows something incorrect for a flag or
+        command that is there. "Missing" means mandible shows less
+        structure than the tool's own --help actually documents.
+      options:
+        - mandible shows wrong information
+        - mandible shows less than the tool has
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: "`--doctor` output"
+      description: |
+        Run `mandible --doctor <tool>` (or `mandible --report <tool>`, if
+        your build has it) and paste the output here.
+      placeholder: |
+        $ mandible --doctor docker
+        framework: cobra (from artifact)
+        nodes: 47
+        flags: 12 (83.3% described)
+      render: console
+    validations:
+      required: true
+
+  - type: textarea
+    id: help-output
+    attributes:
+      label: What the tool actually prints
+      description: Raw output of `<tool> --help` (or the closest equivalent).
+      placeholder: |
+        $ docker --help
+        ...
+      render: console
+    validations:
+      required: false
+
+  - type: textarea
+    id: mandible-shows
+    attributes:
+      label: What mandible shows instead
+      description: >-
+        Paste the pane's content, describe it, or drop a screenshot here —
+        whatever's fastest for you.
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/platform and mandible's own version (`mandible --version`).
+      placeholder: Ubuntu 24.04 x86_64, mandible 0.2.2
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        One honest caveat: text pasted into this box isn't byte-exact —
+        GitHub's markdown rendering drops trailing whitespace. That's fine
+        here; byte-exactness only matters once this becomes a fixture in
+        `corpus/`, which is optional follow-up work for later, done with
+        `mandible capture` or a maintainer re-capture — not something you
+        need to do now.
