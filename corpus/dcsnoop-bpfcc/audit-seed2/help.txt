@@ -1,0 +1,11 @@
+usage: dcsnoop-bpfcc [-h] [-a]
+
+Trace directory entry cache (dcache) lookups
+
+options:
+  -h, --help  show this help message and exit
+  -a, --all   trace all lookups (default is fails only)
+
+examples:
+    ./dcsnoop           # trace failed dcache lookups
+    ./dcsnoop -a        # trace all dcache lookups

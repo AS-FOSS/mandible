@@ -1,0 +1,29 @@
+name: rmiregistry
+description: port argument, --help, is not a number.
+usage:
+- 'Usage: rmiregistry <options> <port>'
+positionals:
+- name: options
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: port
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'J'
+  value_name: <runtime flag>
+  value_kind: Required
+  group: 'where <options> includes:'
+  description: Pass argument to the java interpreter
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

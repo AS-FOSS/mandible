@@ -1,0 +1,8 @@
+name: psfaddtable
+usage:
+- 'Usage: psfaddtable infont intable outfont'
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,44 @@
+name: iptables-apply
+description: iptables-apply 1.1 -- a safer way to update iptables remotely
+usage:
+- 'Usage:'
+- iptables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}
+flags:
+- short: 't'
+  value_name: seconds,
+  value_kind: Required
+  description: 'Specify the timeout in seconds (default: 10).'
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  value_name: savefile,
+  value_kind: Required
+  description: 'Specify the savefile where successfully applied rules will be written to (default if empty string is given: /etc/network/iptables.up.rules).'
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: runcmd,
+  value_kind: Required
+  description: 'Run command runcmd to configure iptables instead of applying a rulesfile (default: /etc/network/iptables.up.run).'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: Display this help text.
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: Display version information.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.33
+children_filled: true

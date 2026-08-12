@@ -1,0 +1,363 @@
+name: rust-lldb
+description: 'OVERVIEW: LLDB'
+usage:
+- 'USAGE: lldb [options]'
+flags:
+- long: attach-name
+  value_name: <name>
+  value_kind: Required
+  group: 'ATTACHING:'
+  description: Tells the debugger to attach to a process with the given name.
+  provenance:
+    sources:
+    - help-text
+- long: attach-pid
+  value_name: <pid>
+  value_kind: Required
+  group: 'ATTACHING:'
+  description: Tells the debugger to attach to a process with the given pid.
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  value_name: <value>
+  value_kind: Required
+  group: 'ATTACHING:'
+  description: Alias for --attach-name
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: <value>
+  value_kind: Required
+  group: 'ATTACHING:'
+  description: Alias for --attach-pid
+  provenance:
+    sources:
+    - help-text
+- long: wait-for
+  group: 'ATTACHING:'
+  description: Tells the debugger to wait for a process with the given pid or name to launch before attaching.
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  group: 'ATTACHING:'
+  description: Alias for --wait-for
+  provenance:
+    sources:
+    - help-text
+- long: batch
+  group: 'COMMANDS:'
+  description: Tells the debugger to run the commands from -s, -S, -o & -O, and then quit.
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  group: 'COMMANDS:'
+  description: Alias for --batch
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  value_name: <value>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Alias for --source-on-crash
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  value_name: <value>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Alias for --one-line-on-crash
+  provenance:
+    sources:
+    - help-text
+- long: local-lldbinit
+  group: 'COMMANDS:'
+  description: Allow the debugger to parse the .lldbinit files in the current working directory, unless --no-lldbinit is passed.
+  provenance:
+    sources:
+    - help-text
+- long: no-lldbinit
+  group: 'COMMANDS:'
+  description: Do not automatically parse any '.lldbinit' files.
+  provenance:
+    sources:
+    - help-text
+- long: one-line-before-file
+  value_name: <command>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Tells the debugger to execute this one-line lldb command before any file provided on the command line has been loaded.
+  provenance:
+    sources:
+    - help-text
+- long: one-line-on-crash
+  value_name: <command>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: When in batch mode, tells the debugger to run this one-line lldb command if the target crashes.
+  provenance:
+    sources:
+    - help-text
+- long: one-line
+  value_name: <command>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Tells the debugger to execute this one-line lldb command after any file provided on the command line has been loaded.
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  value_name: <value>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Alias for --one-line-before-file
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  value_name: <value>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Alias for --one-line
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  group: 'COMMANDS:'
+  description: Alias for --source-quietly
+  provenance:
+    sources:
+    - help-text
+- long: source-before-file
+  value_name: <file>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Tells the debugger to read in and execute the lldb commands in the given file, before any file has been loaded.
+  provenance:
+    sources:
+    - help-text
+- long: source-on-crash
+  value_name: <file>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: When in batch mode, tells the debugger to source this file of lldb commands if the target crashes.
+  provenance:
+    sources:
+    - help-text
+- long: source-quietly
+  group: 'COMMANDS:'
+  description: Tells the debugger not to echo commands while sourcing files or one-line commands provided on the command line.
+  provenance:
+    sources:
+    - help-text
+- long: source
+  value_name: <file>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Tells the debugger to read in and execute the lldb commands in the given file, after any file has been loaded.
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  value_name: <value>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Alias for --source-before-file
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: <value>
+  value_kind: Required
+  group: 'COMMANDS:'
+  description: Alias for --source
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  group: 'COMMANDS:'
+  description: Alias for --no-lldbinit
+  provenance:
+    sources:
+    - help-text
+- long: arch
+  value_name: <architecture>
+  value_kind: Required
+  description: Tells the debugger to use the specified architecture when starting and running the program.
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: <value>
+  value_kind: Required
+  description: Alias for --arch
+  provenance:
+    sources:
+    - help-text
+- long: core
+  value_name: <filename>
+  value_kind: Required
+  description: Tells the debugger to use the full path to <filename> as the core file.
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: <value>
+  value_kind: Required
+  description: Alias for --core
+  provenance:
+    sources:
+    - help-text
+- long: debug
+  description: Tells the debugger to print out extra information for debugging itself.
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  description: Alias for --debug
+  provenance:
+    sources:
+    - help-text
+- long: editor
+  description: Tells the debugger to open source files using the host's "external editor" mechanism.
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  description: Alias for --editor
+  provenance:
+    sources:
+    - help-text
+- long: file
+  value_name: <filename>
+  value_kind: Required
+  description: Tells the debugger to use the file <filename> as the program to be debugged.
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: <value>
+  value_kind: Required
+  description: Alias for --file
+  provenance:
+    sources:
+    - help-text
+- long: help
+  description: Prints out the usage information for the LLDB debugger.
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  description: Alias for --help
+  provenance:
+    sources:
+    - help-text
+- long: no-use-colors
+  description: Do not use colors.
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: Prints out the current version number of the LLDB debugger.
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  description: Alias for --version
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  description: Alias for --no-use-color
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: <flags>
+  value_kind: Required
+  group: 'REPL:'
+  description: Alias for --repl=<flags>
+  provenance:
+    sources:
+    - help-text
+- long: repl-language
+  value_name: <language>
+  value_kind: Required
+  group: 'REPL:'
+  description: Chooses the language for the REPL.
+  provenance:
+    sources:
+    - help-text
+- long: repl
+  value_name: <flags>
+  value_kind: Required
+  group: 'REPL:'
+  description: Runs lldb in REPL mode with a stub process with the given flags.
+  provenance:
+    sources:
+    - help-text
+- long: repl
+  group: 'REPL:'
+  description: Runs lldb in REPL mode with a stub process.
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  value_name: <value>
+  value_kind: Required
+  group: 'REPL:'
+  description: Alias for --repl-language
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  group: 'REPL:'
+  description: Alias for --repl
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  value_name: <value>
+  value_kind: Required
+  group: 'SCRIPTING:'
+  description: Alias for --script-language
+  provenance:
+    sources:
+    - help-text
+- long: print-script-interpreter-info
+  group: 'SCRIPTING:'
+  description: Prints out a json dictionary with information about the scripting language interpreter.
+  provenance:
+    sources:
+    - help-text
+- long: python-path
+  value_name: Prints
+  value_kind: Required
+  group: 'SCRIPTING:'
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  group: 'SCRIPTING:'
+  description: Alias for --python-path
+  provenance:
+    sources:
+    - help-text
+- long: script-language
+  value_name: <language>
+  value_kind: Required
+  group: 'SCRIPTING:'
+  description: Tells the debugger to use the specified scripting language for user-defined scripts.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

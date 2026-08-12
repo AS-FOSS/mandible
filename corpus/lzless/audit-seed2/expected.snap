@@ -1,0 +1,20 @@
+name: lzless
+description: Like 'less', but operate on the uncompressed contents of xz compressed FILEs.
+usage:
+- 'Usage: lzless [OPTION]... [FILE]...'
+positionals:
+- name: OPTION
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

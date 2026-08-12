@@ -1,0 +1,21 @@
+Usage: dpkg-statoverride [<option> ...] <command>
+
+Commands:
+  --add <owner> <group> <mode> <path>
+                           add a new <path> entry into the database.
+  --remove <path>          remove <path> from the database.
+  --list [<glob-pattern>]  list current overrides in the database.
+
+Options:
+  --admindir <directory>   set the directory with the statoverride file.
+  --instdir <directory>    set the root directory, but not the admin dir.
+  --root <directory>       set the directory of the root filesystem.
+  --update                 immediately update <path> permissions.
+  --force                  deprecated alias for --force-all.
+  --force-<thing>[,...]    override problems (see --force-help).
+  --no-force-<thing>[,...] stop when problems encountered.
+  --refuse-<thing>[,...]   ditto.
+  --quiet                  quiet operation, minimal output.
+  --help                   show this help message.
+  --version                show the version.
+

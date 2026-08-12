@@ -1,0 +1,14 @@
+name: strace-log-merge
+usage:
+- 'Usage: strace-log-merge STRACE_LOG'
+positionals:
+- name: STRACE_LOG
+  required: true
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

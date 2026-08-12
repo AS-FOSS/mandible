@@ -1,0 +1,110 @@
+name: dpkg-statoverride
+usage:
+- 'Usage: dpkg-statoverride [<option> ...] <command>'
+positionals:
+- name: option
+  provenance:
+    sources:
+    - help-text
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: add
+  value_name: <owner>
+  value_kind: Required
+  group: 'Commands:'
+  description: <group> <mode> <path> add a new <path> entry into the database.
+  provenance:
+    sources:
+    - help-text
+- long: remove
+  value_name: <path>
+  value_kind: Required
+  group: 'Commands:'
+  description: remove <path> from the database.
+  provenance:
+    sources:
+    - help-text
+- long: list
+  value_name: <glob-pattern>
+  value_kind: Optional
+  group: 'Commands:'
+  description: list current overrides in the database.
+  provenance:
+    sources:
+    - help-text
+- long: admindir
+  value_name: <directory>
+  value_kind: Required
+  description: set the directory with the statoverride file.
+  provenance:
+    sources:
+    - help-text
+- long: instdir
+  value_name: <directory>
+  value_kind: Required
+  description: set the root directory, but not the admin dir.
+  provenance:
+    sources:
+    - help-text
+- long: root
+  value_name: <directory>
+  value_kind: Required
+  description: set the directory of the root filesystem.
+  provenance:
+    sources:
+    - help-text
+- long: update
+  description: immediately update <path> permissions.
+  provenance:
+    sources:
+    - help-text
+- long: force
+  description: deprecated alias for --force-all.
+  provenance:
+    sources:
+    - help-text
+- long: force-
+  value_name: <thing>
+  value_kind: Required
+  description: override problems (see --force-help).
+  provenance:
+    sources:
+    - help-text
+- long: no-force-
+  value_name: <thing>
+  value_kind: Required
+  description: stop when problems encountered.
+  provenance:
+    sources:
+    - help-text
+- long: refuse-
+  value_name: <thing>
+  value_kind: Required
+  description: ditto.
+  provenance:
+    sources:
+    - help-text
+- long: quiet
+  description: quiet operation, minimal output.
+  provenance:
+    sources:
+    - help-text
+- long: help
+  description: show this help message.
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: show the version.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

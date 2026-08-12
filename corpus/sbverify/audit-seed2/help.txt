@@ -1,0 +1,8 @@
+Usage: sbverify [options] --cert <certfile> <efi-boot-image>
+Verify a UEFI secure boot image.
+
+Options:
+	--cert <certfile>  certificate (x509 certificate)
+	--list             list all signatures (but don't verify)
+	--detached <file>  read signature from <file>, instead of
+	                    looking for an embedded signature

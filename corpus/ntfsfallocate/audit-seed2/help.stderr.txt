@@ -1,0 +1,16 @@
+/usr/bin/ntfsfallocate v2022.10.3 (libntfs-3g)
+Copyright (c) 2013-2014 Jean-Pierre Andre
+Allocate clusters to a specified attribute of a specified file.
+Usage: /usr/bin/ntfsfallocate [options] -l length device file [attr-type [attr-name]]
+    If attr-type is not specified, 0x80 (i.e. $DATA) is assumed.
+    If attr-name is not specified, an unnamed attribute is assumed.
+    -f         Force execution despite errors
+    -n         Do not change the apparent size of file
+    -l length  Allocate length bytes
+    -o offset  Start allocating at offset
+    -v         Verbose execution
+    -vv        Very verbose execution
+    -V         Display version information
+    -h         Display this help
+Developers' email address: ntfs-3g-devel@lists.sf.net
+News, support and information:  https://github.com/tuxera/ntfs-3g/

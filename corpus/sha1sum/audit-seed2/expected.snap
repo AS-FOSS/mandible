@@ -1,0 +1,98 @@
+name: sha1sum
+description: Print or check SHA1 (160-bit) checksums.
+usage:
+- 'Usage: /usr/bin/sha1sum [OPTION]... [FILE]...'
+positionals:
+- name: OPTION
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'b'
+  long: binary
+  group: With no FILE, or when FILE is -, read standard input.
+  description: read in binary mode
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: check
+  group: With no FILE, or when FILE is -, read standard input.
+  description: read checksums from the FILEs and check them
+  provenance:
+    sources:
+    - help-text
+- long: tag
+  group: With no FILE, or when FILE is -, read standard input.
+  description: create a BSD-style checksum
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: text
+  group: With no FILE, or when FILE is -, read standard input.
+  description: read in text mode (default)
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  long: zero
+  group: With no FILE, or when FILE is -, read standard input.
+  description: end each output line with NUL, not newline, and disable file name escaping
+  provenance:
+    sources:
+    - help-text
+- long: ignore-missing
+  group: 'The following five options are useful only when verifying checksums:'
+  description: don't fail or report status for missing files
+  provenance:
+    sources:
+    - help-text
+- long: quiet
+  group: 'The following five options are useful only when verifying checksums:'
+  description: don't print OK for each successfully verified file
+  provenance:
+    sources:
+    - help-text
+- long: status
+  group: 'The following five options are useful only when verifying checksums:'
+  description: don't output anything, status code shows success
+  provenance:
+    sources:
+    - help-text
+- long: strict
+  group: 'The following five options are useful only when verifying checksums:'
+  description: exit non-zero for improperly formatted checksum lines
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  long: warn
+  group: 'The following five options are useful only when verifying checksums:'
+  description: warn about improperly formatted checksum lines
+  provenance:
+    sources:
+    - help-text
+- long: help
+  group: 'The following five options are useful only when verifying checksums:'
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'The following five options are useful only when verifying checksums:'
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,46 @@
+name: setsid
+usage:
+- 'Usage:'
+- setsid [options] <program> [arguments ...]
+positionals:
+- name: program
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'c'
+  long: ctty
+  description: set the controlling terminal to the current one
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: fork
+  description: always fork
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  long: wait
+  description: wait program to exit, and use the same return
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

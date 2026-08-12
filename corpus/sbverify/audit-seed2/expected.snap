@@ -1,0 +1,35 @@
+name: sbverify
+description: Verify a UEFI secure boot image.
+usage:
+- 'Usage: sbverify [options] --cert <certfile> <efi-boot-image>'
+positionals:
+- name: efi-boot-image
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: cert
+  value_name: <certfile>
+  value_kind: Required
+  description: certificate (x509 certificate)
+  provenance:
+    sources:
+    - help-text
+- long: list
+  description: list all signatures (but don't verify)
+  provenance:
+    sources:
+    - help-text
+- long: detached
+  value_name: <file>
+  value_kind: Required
+  description: read signature from <file>, instead of looking for an embedded signature
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

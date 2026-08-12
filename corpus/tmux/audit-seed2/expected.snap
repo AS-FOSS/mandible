@@ -1,0 +1,46 @@
+name: tmux
+usage:
+- 'usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name] [-S socket-path] [-T features] [command [flags]]'
+flags:
+- short: '2'
+  value_name: CDlNuVv
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'c'
+  value_name: shell-command
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'f'
+  value_name: file
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'L'
+  value_name: socket-name
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'S'
+  value_name: socket-path
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'T'
+  value_name: features
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

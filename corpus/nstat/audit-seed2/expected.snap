@@ -1,0 +1,88 @@
+name: nstat
+usage:
+- 'Usage: nstat [OPTION] [ PATTERN [ PATTERN ] ]'
+positionals:
+- name: OPTION
+  provenance:
+    sources:
+    - help-text
+- name: PATTERN
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'h'
+  long: help
+  description: this message
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: ignore
+  description: ignore history
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: scan
+  value_name: SECS
+  value_kind: Required
+  description: sample every statistics every SECS
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: json
+  description: format output in JSON
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: nooutput
+  description: do history only
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: pretty
+  description: pretty print
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: reset
+  description: reset history
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: noupdate
+  description: don't update history
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: interval
+  value_name: SECS
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: output version information
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  long: zeros
+  description: show entries with zero activity
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

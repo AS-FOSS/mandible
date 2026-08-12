@@ -1,0 +1,48 @@
+Usage: /usr/bin/nm [option(s)] [file(s)]
+ List symbols in [file(s)] (a.out by default).
+ The options are:
+  -a, --debug-syms       Display debugger-only symbols
+  -A, --print-file-name  Print name of the input file before every symbol
+  -B                     Same as --format=bsd
+  -C, --demangle[=STYLE] Decode mangled/processed symbol names
+                           STYLE can be "none", "auto", "gnu-v3", "java",
+                           "gnat", "dlang", "rust"
+      --no-demangle      Do not demangle low-level symbol names
+      --recurse-limit    Enable a demangling recursion limit.  (default)
+      --no-recurse-limit Disable a demangling recursion limit.
+  -D, --dynamic          Display dynamic symbols instead of normal symbols
+  -e                     (ignored)
+  -f, --format=FORMAT    Use the output format FORMAT.  FORMAT can be `bsd',
+                           `sysv', `posix' or 'just-symbols'.
+                           The default is `bsd'
+  -g, --extern-only      Display only external symbols
+    --ifunc-chars=CHARS  Characters to use when displaying ifunc symbols
+  -j, --just-symbols     Same as --format=just-symbols
+  -l, --line-numbers     Use debugging information to find a filename and
+                           line number for each symbol
+  -n, --numeric-sort     Sort symbols numerically by address
+  -o                     Same as -A
+  -p, --no-sort          Do not sort the symbols
+  -P, --portability      Same as --format=posix
+  -r, --reverse-sort     Reverse the sense of the sort
+      --plugin NAME      Load the specified plugin
+  -S, --print-size       Print size of defined symbols
+  -s, --print-armap      Include index for symbols from archive members
+      --quiet            Suppress "no symbols" diagnostic
+      --size-sort        Sort symbols by size
+      --special-syms     Include special symbols in the output
+      --synthetic        Display synthetic symbols as well
+  -t, --radix=RADIX      Use RADIX for printing symbol values
+      --target=BFDNAME   Specify the target object format as BFDNAME
+  -u, --undefined-only   Display only undefined symbols
+  -U, --defined-only     Display only defined symbols
+      --unicode={default|show|invalid|hex|escape|highlight}
+                         Specify how to treat UTF-8 encoded unicode characters
+  -W, --no-weak          Ignore weak symbols
+      --without-symbol-versions  Do not display version strings after symbol names
+  -X 32_64               (ignored)
+  @FILE                  Read options from FILE
+  -h, --help             Display this information
+  -V, --version          Display this program's version number
+/usr/bin/nm: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin
+Report bugs to <https://sourceware.org/bugzilla/>.

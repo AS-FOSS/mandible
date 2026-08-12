@@ -1,0 +1,20 @@
+OVERVIEW: Module extractor
+USAGE: llvm-modextract-18 [options] <input bitcode>
+
+OPTIONS:
+
+Color Options:
+
+  --color       - Use colors in output (default=autodetect)
+
+Generic Options:
+
+  --help        - Display available options (--help-hidden for more)
+  --help-list   - Display list of available options (--help-list-hidden for more)
+  --version     - Display the version of this program
+
+Modextract Options:
+
+  -b            - Whether to perform binary extraction
+  -n <index>    - Index of module to extract
+  -o <filename> - Output filename
