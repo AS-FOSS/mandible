@@ -39,7 +39,15 @@ enum Command {
         #[arg(long)]
         check: bool,
         /// Where to read/write the scoreboard.
-        #[arg(long, default_value = "coverage-scoreboard.txt")]
+        ///
+        /// Defaults under `tmp/` (gitignored) rather than the repo root: a
+        /// full-PATH scoreboard is a snapshot of one machine's installed
+        /// tools, never a portable baseline (spec §13.1a), so it is scratch
+        /// by construction and does not belong beside the tracked files. The
+        /// one scoreboard that *is* a baseline, `coverage-scoreboard.ci.txt`,
+        /// stays at the root because CI names that path explicitly — it is
+        /// checked in, and `--check` diffs against it.
+        #[arg(long, default_value = "tmp/coverage-scoreboard.txt")]
         out: PathBuf,
         /// Scan only this comma-separated list of tool names instead of
         /// every executable on `PATH`. Pins a fixed, reproducible
@@ -405,8 +413,7 @@ fn run_sweep_diff(
     println!("{rendered}");
 
     if let Some(out) = out {
-        std::fs::write(out, &rendered)
-            .map_err(|e| anyhow::anyhow!("failed to write report to {}: {e}", out.display()))?;
+        write_out(out, &rendered, "report")?;
         println!("wrote {}", out.display());
     }
     Ok(())
@@ -592,8 +599,27 @@ fn run_coverage(
         return Ok(());
     }
 
-    std::fs::write(out, &table)
-        .map_err(|e| anyhow::anyhow!("failed to write scoreboard to {}: {e}", out.display()))?;
+    write_out(out, &table, "scoreboard")?;
     println!("wrote {}", out.display());
     Ok(())
+}
+
+/// Write `contents` to `out`, creating `out`'s parent directory first.
+///
+/// `std::fs::write` does not create intermediate directories, so without
+/// this a perfectly reasonable `--out tmp/scoreboard.txt` fails on any
+/// checkout that doesn't already happen to have a `tmp/`. That matters now
+/// that the default `--out` *is* under `tmp/` (see `Coverage::out`): a fresh
+/// clone has no such directory, and the sweep would die at the very end,
+/// after twenty minutes of work, with nothing written.
+fn write_out(out: &std::path::Path, contents: &str, what: &str) -> anyhow::Result<()> {
+    if let Some(parent) = out.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                anyhow::anyhow!("failed to create {} for {what}: {e}", parent.display())
+            })?;
+        }
+    }
+    std::fs::write(out, contents)
+        .map_err(|e| anyhow::anyhow!("failed to write {what} to {}: {e}", out.display()))
 }
