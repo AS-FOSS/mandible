@@ -41,10 +41,9 @@ $ mandible docker
 > Try running `mandible mandible`
 
 > [!TIP]
-> Something parses wrong? Run `mandible --report <tool>`, paste the output
-> into [a two-minute issue](../../issues/new?template=parsing-issue.yml) —
-> that's a complete contribution, no repo knowledge required. See
-> [CONTRIBUTING.md](./CONTRIBUTING.md#rung-0--file-an-issue-naming-a-tool).
+> Something parses wrong? Run `mandible --report <tool>` and paste the output
+> into [an issue](../../issues/new?template=parsing-issue.yml). That takes two
+> minutes and is a complete contribution on its own.
 
 ## Install
 
@@ -185,3 +184,26 @@ Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
 containment described above relies on POSIX process groups, and native Windows tools
 use conventions (`/?`, PowerShell's own help system) that this project does not yet
 speak.
+
+## Contributing
+
+If a tool renders wrong, that is worth reporting even if you never look at the
+code. Run `mandible --report <tool>` and paste the output into an issue. Your
+tool's version and its exact help text vanish when you upgrade, and nobody else
+can recover them. Everything after that can be done later by anyone.
+
+There is a second thing you can do that is hard for us to do ourselves. Every
+accuracy figure here comes from one Ubuntu machine on ARM, so whatever is
+installed on your `PATH` is probably software this project has never seen. The
+built-in audit tool samples your own commands, shows you the parse next to the
+real help text, and records what you think of each one:
+
+```console
+$ cargo run -p xtask -- audit sample --seed 42 --sample 20
+$ mandible --review 42
+```
+
+Attach the resulting `audit/42.toml` to an issue. Twenty tools is plenty.
+
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) covers both, plus writing tests and
+changing the parser.
