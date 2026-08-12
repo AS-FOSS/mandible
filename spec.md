@@ -2049,6 +2049,63 @@ the relationship clear.
 
 ## 16. Open risks & honest caveats
 
+### Maintainer decisions, recorded so they are not re-litigated
+
+**A tool that returns its root help for every subcommand is shown as-is
+(2026-08-12).** After [M-19], every `systemctl` subcommand's verbatim pane
+shows the same root help, because `systemctl <verb> --help` genuinely returns
+it. A special-case message ("this tool returns its root help for every
+subcommand") was proposed and **declined**: if that is how the tool behaves,
+showing it is honest, and a reader seeing identical text across 18 subcommands
+can draw the conclusion without being told. **Do not re-propose.** The one
+residual is that each degraded node keeps its own copy of that text instead of
+sharing one, which is a memory cost rather than a correctness one, and does not
+justify a special case either.
+
+**Enrichment by authority merge is off by default (2026-08-11).** Shown a
+mockup of `git restore` with man prose merged into its 16 already-parsed
+flags, the maintainer judged it "nice to have, but kind of defeats the
+cleanliness, maybe as an opt-in later." This resolved a contradiction inside
+this document rather than demoting an agreed plan: §7 Tier D described prose
+backfill as enrichment via authority merge, while [M-14] specified it fires
+only as a zero-confidence fallback, which never touches a tool that already
+parsed. [M-14]'s reading wins. A tool whose only good documentation is a man
+page stays shallow in the tree, and that is a stated limit rather than a bug
+to chase.
+
+### Deferred, with the reason each is not simply undone
+
+**Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until
+it is measured on disposable infrastructure.** Sending `-h` to a *root* whose
+own `--help` is man-shaped is unknown territory, distinct from the shipped
+sub-case (a), where a well-behaved root's subcommands detour to man pages.
+Six such roots are known. The measurement belongs on an ephemeral CI runner
+inside a PID or user namespace under full §6 containment, instrumented on both
+sides for files written, children spawned, exit code and wall time, and
+recorded as a new `[M-n]` with method. **Never on a development machine.** The
+standing posture is that an unmeasured argv broadening is refused: the burden
+is on the measurement, not on the objection. Two hardenings ship with the
+feature whatever its final scope, namely that `-h` output must itself pass
+help-shape validation before being consumed, and that the exec-policy shim
+suite covers both halves, the fallback being attempted for a permitted shim
+and refused for a `pkill`-shaped one even when that shim's `--help` is
+man-shaped.
+
+**`xtask audit sample` reclassifies the whole `PATH` on every draw**, which
+costs roughly twenty minutes each time and makes incremental review painful.
+The intended fix is to freeze the tool list and its classification once, then
+have each subsequent draw take the next slice from that frozen, ordered queue.
+That removes both the repeated sweep and any need to compare a new draw
+against already-reviewed tools, which would otherwise be a set difference
+computed against a population that drifts as software is installed or removed.
+
+**The invariant table in `AGENTS.md` is due a prune.** Its own maintenance
+policy prefers making a mistake impossible over documenting it, and every
+parser-lesson row that now exists as a corpus fixture should be deleted in the
+same change that lands the fixture. The exec-policy rows stay, since shim
+tests enforce them and the rows record why, though each is worth checking:
+where the shim test's own comment carries the reasoning, the row can go too.
+
 1. **Cold-start cost is the top UX risk.** 10–25 s for cobra-heavy tools if
    extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2) and
    caching (§11) — both of which must exist early, not in a polish phase.

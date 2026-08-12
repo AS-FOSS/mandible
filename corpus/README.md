@@ -196,6 +196,11 @@ regressions are gated on `expected_framework` exactly like parse regressions.
 - Captures are text, typically a few KiB. Anything over 256 KiB needs a
   justification in the PR (some tools are genuinely huge; `curl --help all`
   is legitimate).
+- **Deduplicate hash-identical captures across versions.** Many tools change
+  their version string without changing a byte of their help text, and a
+  second copy of the same bytes buys nothing while adding a file every future
+  reader has to check against the first. Two fixtures may reference one
+  capture; two copies of one capture is waste.
 - **Never commit a binary.** If a fixture concerns artifact fingerprinting
   (detection from the compiled binary rather than its output), record the
   extracted marker strings in `meta.toml`, not the executable.

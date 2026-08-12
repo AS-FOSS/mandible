@@ -138,6 +138,30 @@ prose.
 
 ## 4. Environment facts
 
+### Facts about this repository's own tooling
+
+These cost real time when rediscovered.
+
+- **A fresh agent worktree is created from the repository's default branch, not
+  from the branch you are working on.** Five of six agents in one session began
+  on a months-old release tag, and one of them wrote an entire task against it
+  before anyone noticed. Start every delegated task by comparing `git log -1`
+  against the intended base and resetting if it is a strict ancestor.
+- **CI never runs on a feature branch push.** `ci.yml`, `frameworks.yml` and
+  `path-sweep.yml` all trigger on a push to `main` or a pull request targeting
+  it. A long-lived branch can accumulate dozens of commits with nothing gating
+  them, and the `CONTRACT WEAKENED` detector in particular is pull-request-only,
+  so it does not run at all until a PR exists.
+- **All three workflows carry `paths-ignore` for `**/*.md`, `docs/**`,
+  `LICENSE-*`, `NOTICE` and `.gitignore`.** A documentation-only push skips CI
+  entirely, which is correct but surprising the first time.
+- **`repeated_identical_banner_does_not_explode_into_duplicate_subcommands`
+  asserts wall-clock under 5 seconds** on a 20,000-times-repeated input. It
+  fails under heavy machine load while the property it guards, that parsing
+  does not go quadratic, still holds. The guard works equally well at a much
+  larger budget, since a quadratic parse of that input would never finish.
+
+
 Do not re-derive these. They are measured, with method, in **`spec.md`
 Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
 
