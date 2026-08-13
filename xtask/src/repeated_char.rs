@@ -96,7 +96,7 @@
 //! which is the right direction for a number that becomes a gate.
 
 use crate::existence::spelling_occurs;
-use mandible_core::{CommandNode, Flag, ValueKind};
+use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
 
 /// True when `value` is one or more copies of `short` and nothing else.
 ///
@@ -227,8 +227,6 @@ pub fn detect(raw: &str, root: &CommandNode) -> RepeatReport {
 // fleet count of zero, because `count == 0` on its own is satisfied by
 // deleting the detector. Neither runs under the test harness, so a
 // `#[cfg(test)]` assertion cannot serve either.
-
-use mandible_core::{Provenance, Source};
 
 /// A flag as `sections::emit_flags` builds one from an option-table row:
 /// short spelling, no long name, whatever value the grammar read, and the
