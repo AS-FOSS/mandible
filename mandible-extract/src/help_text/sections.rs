@@ -2327,6 +2327,19 @@ fn find_description_gap(line: &str) -> Option<usize> {
     find_placeholder_boundary_gap(line)
 }
 
+/// The fewest consecutive spaces that separate a row's columns rather than
+/// merely decorating it — the boundary [`find_multi_space_gap`] cuts at.
+///
+/// Named rather than left as a literal `2` because it is what puts a whole
+/// shape out of the flag-spec grammar's reach: `jdeprscan`'s
+/// `  -l    --list` writes its two spellings four spaces apart, so the long
+/// form arrives as a *description* and no fragment ever names both. A
+/// detector that declares that shape out of its scope has to cite this
+/// constant to say so structurally (`xtask`'s
+/// `detector::Ground::AcrossDescriptionColumn`), and a retyped copy of the
+/// value could drift away from the splitter it claims to describe.
+pub const MIN_COLUMN_GAP_SPACES: usize = 2;
+
 /// The original heuristic, unchanged: a run of two or more spaces, or any
 /// run containing a tab, after some non-whitespace content.
 fn find_multi_space_gap(line: &str) -> Option<usize> {
@@ -2341,7 +2354,7 @@ fn find_multi_space_gap(line: &str) -> Option<usize> {
                 had_tab |= bytes[j] == b'\t';
                 j += 1;
             }
-            if seen_content && (had_tab || j - i >= 2) {
+            if seen_content && (had_tab || j - i >= MIN_COLUMN_GAP_SPACES) {
                 return Some(i);
             }
             i = j;

@@ -190,7 +190,7 @@ use std::collections::HashSet;
 /// the case of one spelling being a strict prefix of a different, longer
 /// one (`--foo` inside `--foobar`), not to recognize every legal short-flag
 /// character shape.
-fn is_word_char(c: char) -> bool {
+pub(crate) fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '-' || c == '_'
 }
 

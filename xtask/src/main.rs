@@ -10,6 +10,7 @@ mod commandtable;
 mod corpus;
 mod coverage;
 mod detector;
+mod dropped_alias;
 mod existence;
 mod misattribution;
 mod queue;
