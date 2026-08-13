@@ -187,6 +187,34 @@ enum Command {
 
 #[derive(Subcommand)]
 enum AuditAction {
+    /// Sweep `PATH` once, classify every tool, and write the
+    /// shuffle-stratified frozen queue (`<dir>/queue.toml`) plus its
+    /// captured raw bytes (`<dir>/queue-captures/`, gitignored) that a
+    /// future `crate::queue::cmd_sample` cursor draw will read from — see
+    /// `crate::queue`'s own doc comment for the full design. This is the
+    /// ~20-minute, PATH-probing step, meant to run once rather than on
+    /// every draw; `sample` below is still the old live-sweep path until
+    /// the next commit switches it over to the queue this builds.
+    Freeze {
+        /// Seed for the shuffle-stratification (`crate::queue::shuffle_stratify`)
+        /// that decides the queue's cursor order.
+        #[arg(long)]
+        seed: u64,
+        /// Freeze this fixed, comma-separated list instead of scanning
+        /// `PATH` — pins a reproducible population, which is what tests and
+        /// CI use (mirrors `coverage --tools`).
+        #[arg(long, value_delimiter = ',')]
+        tools: Option<Vec<String>>,
+        /// Directory holding the queue (`<dir>/queue.toml`) and its
+        /// captures (`<dir>/queue-captures/`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Skip probing entirely: just hash the current `PATH` population
+        /// and report whether it still matches the existing queue's,
+        /// without writing anything. Mirrors `coverage --check`.
+        #[arg(long)]
+        check: bool,
+    },
     /// Draw a deterministic, stratified sample of tools and write/merge a
     /// resumable verdict file at `<dir>/<seed>.toml`.
     Sample {
@@ -362,6 +390,12 @@ fn main() -> anyhow::Result<()> {
 
 fn run_audit(action: AuditAction) -> anyhow::Result<()> {
     match action {
+        AuditAction::Freeze {
+            seed,
+            tools,
+            dir,
+            check,
+        } => queue::cmd_freeze(seed, tools, &dir, check),
         AuditAction::Sample {
             seed,
             sample,

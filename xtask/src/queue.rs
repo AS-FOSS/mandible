@@ -103,11 +103,12 @@
 //!   not purely "what changed in the parser" unless the machine's installed
 //!   tools are also unchanged since freeze.
 
-use crate::audit::sanitize_filename;
+use crate::audit::{classify_all_with_recordings, sanitize_filename};
+use crate::coverage::unique_executables_on_path;
 use crate::rng::{fnv1a64, seeded_shuffle, stratum_seed};
 use mandible_extract::exec::ExecOutput;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// One entry in a frozen queue: a tool name and the stratum it carried when
@@ -408,6 +409,114 @@ fn load_captures_for_tool(
     Ok(map)
 }
 
+/// `xtask audit freeze`: sweep `PATH` (or `tools`, for a pinned,
+/// reproducible population — the same role `--tools` played on the old,
+/// removed live-sweep `cmd_sample`, moved here since freezing is now the
+/// only place a `PATH` sweep happens at all), classify every tool, capture
+/// its raw bytes, and write the shuffle-stratified queue plus its captures.
+///
+/// `check: true` skips all of that (no probing, no writing) and instead
+/// just enumerates the current population, hashes it
+/// ([`population_hash`]), and reports whether it still matches the existing
+/// queue's — the cheap staleness check review addition 1 asked for. Mirrors
+/// `xtask coverage --check`'s "report, don't rewrite" shape.
+pub fn cmd_freeze(
+    seed: u64,
+    tools: Option<Vec<String>>,
+    dir: &Path,
+    check: bool,
+) -> anyhow::Result<()> {
+    let population = tools.unwrap_or_else(unique_executables_on_path);
+    if population.is_empty() {
+        anyhow::bail!("no tools found to freeze (empty PATH population and no --tools given)");
+    }
+    let qpath = queue_path(dir);
+
+    if check {
+        let current_hash = population_hash(&population);
+        if !qpath.is_file() {
+            anyhow::bail!(
+                "{} does not exist yet — run `xtask audit freeze` (without --check) first",
+                qpath.display()
+            );
+        }
+        let queue = load_queue(&qpath)?;
+        if queue.meta.population_hash == current_hash {
+            println!(
+                "population unchanged since freeze on {} ({} tool(s), hash {})",
+                queue.meta.freeze_date,
+                population.len(),
+                current_hash
+            );
+        } else {
+            let frozen: HashSet<&str> = queue.entries.iter().map(|e| e.tool.as_str()).collect();
+            let current: HashSet<&str> = population.iter().map(String::as_str).collect();
+            let added: Vec<&str> = current.difference(&frozen).copied().collect();
+            let removed: Vec<&str> = frozen.difference(&current).copied().collect();
+            println!(
+                "population drift since freeze on {} (hash {} -> {}): {} tool(s) added, {} \
+                 removed. Re-run `xtask audit freeze` to build a fresh queue when this matters.",
+                queue.meta.freeze_date,
+                queue.meta.population_hash,
+                current_hash,
+                added.len(),
+                removed.len(),
+            );
+        }
+        return Ok(());
+    }
+
+    println!(
+        "classifying {} tool(s) to build the frozen queue (this sweeps PATH and probes every \
+         tool once — the one-time cost this command exists to pay so `audit sample` never has \
+         to again)...",
+        population.len()
+    );
+    let classified = classify_all_with_recordings(&population);
+
+    let cdir = captures_dir(dir);
+    std::fs::create_dir_all(&cdir)
+        .map_err(|e| anyhow::anyhow!("creating {}: {e}", cdir.display()))?;
+    for (tool, _classified, recordings) in &classified {
+        write_captures_for_tool(&cdir, tool, recordings)?;
+    }
+
+    let pairs: Vec<(String, String)> = classified
+        .iter()
+        .map(|(tool, c, _)| (tool.clone(), c.stratum.to_string()))
+        .collect();
+    let entries = shuffle_stratify(&pairs, seed);
+
+    let mut by_stratum: BTreeMap<String, usize> = BTreeMap::new();
+    for e in &entries {
+        *by_stratum.entry(e.stratum.clone()).or_insert(0) += 1;
+    }
+
+    let queue = Queue {
+        meta: QueueMeta {
+            freeze_date: today_iso8601(),
+            population_hash: population_hash(&population),
+            seed,
+            cursor: 0,
+        },
+        entries,
+    };
+    save_queue(&qpath, &queue)?;
+
+    println!(
+        "froze {} tool(s) into {} (seed={seed}, population_hash={}, captures under {})",
+        queue.entries.len(),
+        qpath.display(),
+        queue.meta.population_hash,
+        cdir.display(),
+    );
+    println!("stratum            count");
+    for (stratum, count) in &by_stratum {
+        println!("{stratum:<18} {count:>6}");
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,5 +677,59 @@ mod tests {
         assert_eq!(civil_from_days(0), (1970, 1, 1));
         assert_eq!(civil_from_days(19_584), (2023, 8, 15));
         assert_eq!(civil_from_days(20_678), (2026, 8, 13));
+    }
+
+    // -------------------------------------------------------------
+    // `xtask audit freeze` (real binaries, real argv — AGENTS.md §3.1)
+    // -------------------------------------------------------------
+
+    #[test]
+    fn freeze_writes_a_queue_with_a_zero_cursor() {
+        let tmp = tempfile::tempdir().unwrap();
+        cmd_freeze(
+            1,
+            Some(vec!["sh".to_string(), "cat".to_string()]),
+            tmp.path(),
+            false,
+        )
+        .unwrap();
+        let queue = load_queue(&queue_path(tmp.path())).unwrap();
+        assert_eq!(queue.entries.len(), 2);
+        assert_eq!(queue.meta.cursor, 0);
+        assert_eq!(queue.meta.seed, 1);
+        let mut names: Vec<&str> = queue.entries.iter().map(|e| e.tool.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec!["cat", "sh"]);
+    }
+
+    #[test]
+    fn freeze_check_reports_no_drift_against_the_same_population() {
+        let tmp = tempfile::tempdir().unwrap();
+        let tools = vec!["sh".to_string(), "cat".to_string()];
+        cmd_freeze(3, Some(tools.clone()), tmp.path(), false).unwrap();
+        // `--check` doesn't touch the queue; just confirm it runs cleanly
+        // against an unchanged population.
+        cmd_freeze(3, Some(tools), tmp.path(), true).unwrap();
+    }
+
+    #[test]
+    fn freeze_check_reports_drift_against_a_changed_population() {
+        let tmp = tempfile::tempdir().unwrap();
+        cmd_freeze(
+            4,
+            Some(vec!["sh".to_string(), "cat".to_string()]),
+            tmp.path(),
+            false,
+        )
+        .unwrap();
+        // A different --tools population simulates PATH drift without
+        // depending on what's actually installed on the test machine.
+        cmd_freeze(
+            4,
+            Some(vec!["sh".to_string(), "cat".to_string(), "ls".to_string()]),
+            tmp.path(),
+            true,
+        )
+        .unwrap();
     }
 }

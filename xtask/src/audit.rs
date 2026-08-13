@@ -163,12 +163,15 @@ fn stratum_seed(seed: u64, stratum: &str) -> u64 {
 /// tree, and (when available) the raw captured text and the exact capture
 /// needed to write a corpus fixture — all obtained from **one** extraction
 /// pass, via [`RecordingProbe`], never a second probe of the tool (same "no
-/// new probes" property [`crate::misattribution`] documents).
-struct Classified {
-    stratum: &'static str,
-    result: ExtractionResult,
-    raw_text: Option<String>,
-    raw_capture: Option<(Vec<String>, ExecOutput)>,
+/// new probes" property [`crate::misattribution`] documents). `pub(crate)`
+/// so `crate::queue` (the freeze/cursor-draw implementation) can read a
+/// tool's stratum the same way [`entry_from_classified`] already does,
+/// without a second copy of this shape.
+pub(crate) struct Classified {
+    pub(crate) stratum: &'static str,
+    pub(crate) result: ExtractionResult,
+    pub(crate) raw_text: Option<String>,
+    pub(crate) raw_capture: Option<(Vec<String>, ExecOutput)>,
 }
 
 fn classify_one(tool: &str) -> Classified {
@@ -191,6 +194,51 @@ fn classify_all(tools: &[String]) -> Vec<(String, Classified)> {
     tools
         .par_iter()
         .map(|t| (t.clone(), classify_one(t)))
+        .collect()
+}
+
+/// [`classify_one`], plus every `(argv, output)` pair the extraction pass
+/// actually recorded — not just the root `--help` capture
+/// [`RecordingProbe::root_help_capture`] singles out, but everything the
+/// pipeline sent, so `crate::queue::cmd_freeze` can persist enough bytes for
+/// `crate::queue::cmd_reclassify` to replay the *exact same* extraction via
+/// [`mandible_extract::exec::Transcript`] later, with zero subprocess
+/// spawns, regardless of how many probes a given tool's framework needed
+/// (cobra's two-probe protocol included).
+pub(crate) fn classify_one_with_recordings(
+    tool: &str,
+) -> (
+    Classified,
+    std::collections::HashMap<Vec<String>, ExecOutput>,
+) {
+    let probe = Arc::new(RecordingProbe::new());
+    let runner = Runner::new(default_tiers_with_probe(probe.clone()));
+    let result = runner.extract_full(tool);
+    let stratum = status::compute(&result).label;
+    let classified = Classified {
+        stratum,
+        raw_text: probe.root_help_text(),
+        raw_capture: probe.root_help_capture(),
+        result,
+    };
+    (classified, probe.all_recordings())
+}
+
+/// [`classify_one_with_recordings`], run in parallel across `tools` — same
+/// reasoning as [`classify_all`].
+pub(crate) fn classify_all_with_recordings(
+    tools: &[String],
+) -> Vec<(
+    String,
+    Classified,
+    std::collections::HashMap<Vec<String>, ExecOutput>,
+)> {
+    tools
+        .par_iter()
+        .map(|t| {
+            let (classified, recordings) = classify_one_with_recordings(t);
+            (t.clone(), classified, recordings)
+        })
         .collect()
 }
 
