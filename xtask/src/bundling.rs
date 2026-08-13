@@ -96,6 +96,36 @@
 //!    counter-example sets.
 //! 7. **At least [`MIN_BUNDLED_MEMBERS`] members are being swallowed.**
 //!
+//! # Three defect families share this structural fingerprint
+//!
+//! `short && !long && value_name` — a bare short flag carrying a value —
+//! is not one bug. The calibration work against `audit/2.toml` found
+//! **three** distinct families producing it, all filed under the same
+//! `k1` label, and only the first is this module's:
+//!
+//! | family | example | stored as | is it this module's? |
+//! |---|---|---|---|
+//! | bundled shorts | `tmux [-2CDlNuVv]` | `-2` + `CDlNuVv` | **yes** |
+//! | single-dash long options | `gcc -pass-exit-codes` | `-p` + `ass-exit-codes` | no |
+//! | repeated-character flags | `bpftrace -vv` | `-v` + `v` | no |
+//!
+//! Firing on the other two would corrupt this module's fleet count in the
+//! most damaging possible way — plausibly, with a number that looks like
+//! evidence. The discriminator is the *shape of the swallowed text*, and
+//! each family is rejected by a condition that already exists for its own
+//! reasons:
+//!
+//! - A **single-dash long option** swallows a word: hyphens and repeated
+//!   letters (condition 4 and condition 5), uniformly cased and unordered
+//!   (condition 6). `-pass-exit-codes`, `-Zscript`, `-Dname`, `-Tutf8`,
+//!   `-Idirectory` are all rejected several times over —
+//!   `real_single_dash_long_options_stay_silent` and
+//!   `a_single_dash_long_option_with_hyphens_stays_silent`.
+//! - A **repeated-character flag** swallows one or more copies of the
+//!   flag's own letter: `-vv` is a single swallowed member (condition 7),
+//!   and `-vvv`/`-DDD` repeat it (condition 5) —
+//!   `repeated_character_flags_stay_silent`.
+//!
 //! # What it deliberately does not catch
 //!
 //! `MIN_BUNDLED_MEMBERS = 2` costs a real hit — `ssh-keygen`'s `[-hU]`,
@@ -669,6 +699,44 @@ mod tests {
             let raw = format!("usage: t [{cluster}]\n");
             let r = report(&raw, "t", vec![synopsis_flag(short, Some(value))]);
             assert_eq!(r.collapse_count(), 0, "{cluster} must not fire");
+        }
+    }
+
+    // --- the other two families with the same fingerprint ----------------
+
+    /// Family 2 of the three that produce `short && !long && value_name`
+    /// (this module's doc comment): a single-dash *long option*, whose
+    /// swallowed text is a hyphenated word. Byte-exact from `gcc --help`.
+    /// It is rejected on the value's own shape — hyphens are not flag
+    /// names — so the rejection does not depend on the source check,
+    /// which is asserted here by giving it the synopsis source it would
+    /// never really have.
+    #[test]
+    fn a_single_dash_long_option_with_hyphens_stays_silent() {
+        let raw = "  -pass-exit-codes         Exit with highest error code from a phase.\n";
+        let r = report(raw, "gcc", vec![synopsis_flag('p', Some("ass-exit-codes"))]);
+        assert_eq!(r.collapse_count(), 0);
+        assert!(!"ass-exit-codes".chars().all(is_bundle_member_char));
+    }
+
+    /// Family 3: a flag repeated to mean "more of it". `bpftrace -vv` is
+    /// stored as `-v` carrying the value `v`, which is one swallowed
+    /// member ([`MIN_BUNDLED_MEMBERS`]); `-vvv` and `strace`'s real
+    /// `[-DDD]` carry two, and are rejected by distinctness instead. Both
+    /// halves are asserted because they are rejected by *different*
+    /// conditions, and a change to either one could silently admit this
+    /// whole family.
+    #[test]
+    fn repeated_character_flags_stay_silent() {
+        let raw = "usage: t [-v] [-vv] [-vvv] [-dd] [-DDD]\n";
+        for (short, value) in [('v', "v"), ('d', "d")] {
+            let r = report(raw, "t", vec![synopsis_flag(short, Some(value))]);
+            assert_eq!(r.collapse_count(), 0, "-{short}{value} must not fire");
+        }
+        for (short, value) in [('v', "vv"), ('D', "DD")] {
+            let r = report(raw, "t", vec![synopsis_flag(short, Some(value))]);
+            assert_eq!(r.collapse_count(), 0, "-{short}{value} must not fire");
+            assert!(!members_are_distinct(&format!("{short}{value}")));
         }
     }
 
