@@ -461,10 +461,28 @@ pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> 
 /// edge case the bundled-short-flag backfill (5 promoted tools, below the
 /// 5–10 target because the family had only 5 audited members) hits.
 ///
-/// Idempotent the same way [`crate::queue::cmd_sample`] is: a tool already
-/// present in the verdict file (by name, regardless of which stratum drew
-/// it) is left untouched rather than duplicated, so re-running this command
-/// with the same inputs is safe.
+/// **A tool already present in the verdict file is tagged, never
+/// duplicated or silently skipped.** A promotion event's own promoted set
+/// frequently overlaps the ordinary stratified draw that a prior audit
+/// already sampled — the motivating case here (spec §13.1b's backfill) is
+/// exactly this: all 5 bundled-short-flag-promoted tools were already
+/// present in `audit/2.toml`, reviewed **against the pre-fix parse**, and
+/// three were judged `wrong`/one `incomplete` *for that same
+/// bundled-short-flag defect* — the tool a promotion event just fixed.
+/// Silently skipping an already-present tool (this function's first
+/// version did) would mean the spot-audit stratum never gains a row for
+/// it at all, defeating the entire point. Re-classifying and overwriting
+/// its verdict outright would silently destroy a real prior human
+/// judgment. So instead: an already-present entry is re-tagged with
+/// [`Entry::spot_audit_event`] (moving it into this event's reported row
+/// without touching its stratum, verdict, note, or history), and its
+/// existing verdict — now potentially stale against a changed parse — is
+/// left exactly as recorded for a human to re-review and correct via
+/// `xtask audit amend` (never for this function to overwrite; amending is
+/// a deliberate, reasoned act, not a side effect of a draw). Only a tool
+/// genuinely new to the file is classified fresh and added as a pending
+/// entry. Re-running this command with the same inputs is safe either way:
+/// an already-tagged entry is left alone on a second pass.
 pub fn cmd_spot_audit(
     dir: &Path,
     seed: u64,
@@ -514,8 +532,18 @@ pub fn cmd_spot_audit(
 
     let existing_tools: HashSet<String> = file.entries.iter().map(|e| e.tool.clone()).collect();
     let mut added = 0usize;
+    let mut tagged_existing = 0usize;
     for tool in &drawn {
         if existing_tools.contains(tool) {
+            if let Some(existing) = file.entries.iter_mut().find(|e| &e.tool == tool) {
+                if existing.spot_audit_event.is_none() {
+                    existing.spot_audit_event = Some(event.to_string());
+                    if existing.include_reason.is_none() {
+                        existing.include_reason = Some(reason.clone());
+                    }
+                    tagged_existing += 1;
+                }
+            }
             continue;
         }
         let classified = classify_one(tool);
@@ -541,11 +569,21 @@ pub fn cmd_spot_audit(
         );
     }
     println!(
-        "{added} new pending entr{s} written to {} ({} tool(s) now in stratum spot-audit:{event})",
+        "{added} new pending entr{s} written, {tagged_existing} already-present entr{s2} tagged \
+         into this stratum, at {} ({} tool(s) now in stratum spot-audit:{event})",
         path.display(),
         drawn.len(),
         s = if added == 1 { "y" } else { "ies" },
+        s2 = if tagged_existing == 1 { "y" } else { "ies" },
     );
+    if tagged_existing > 0 {
+        println!(
+            "note: {tagged_existing} of those were already in the file with a prior verdict — \
+             that verdict is left exactly as recorded (it may now be stale against a changed \
+             parse) for a human to re-review and correct via `xtask audit amend`, never \
+             overwritten by this draw."
+        );
+    }
     Ok(())
 }
 
@@ -2211,6 +2249,59 @@ mod tests {
         cmd_spot_audit(tmp.path(), 730, "repeat-event", &promoted, 8, 3).unwrap();
         let file = load(&verdict_path(tmp.path(), 730)).unwrap();
         assert_eq!(file.entries.len(), 2, "re-running must not duplicate tools");
+    }
+
+    /// The exact shape of the real bundled-short-flag backfill (spec
+    /// §13.1b): a tool the spot-audit's random draw names is *already* in
+    /// the manifest with a real prior verdict, recorded against a parse a
+    /// grammar fix has since changed. `cmd_spot_audit` must tag it into the
+    /// new stratum without duplicating it, without touching its verdict or
+    /// note, and without silently dropping it from the draw either.
+    #[test]
+    fn spot_audit_tags_an_already_reviewed_entry_without_touching_its_verdict() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 740, &[("tmux", "ok"), ("cat", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            let tmux = f.entries.iter_mut().find(|e| e.tool == "tmux").unwrap();
+            tmux.verdict = Some("wrong".to_string());
+            tmux.note = "bundled-short-flag collapse, pre-fix".to_string();
+            save(&path, &f).unwrap();
+        }
+
+        let promoted = vec!["tmux".to_string()];
+        cmd_spot_audit(
+            tmp.path(),
+            740,
+            "bundled-short-flag-942890d",
+            &promoted,
+            8,
+            11,
+        )
+        .unwrap();
+
+        let after = load(&path).unwrap();
+        assert_eq!(
+            after.entries.len(),
+            2,
+            "the existing entry must not be duplicated"
+        );
+        let tmux = after.entries.iter().find(|e| e.tool == "tmux").unwrap();
+        assert_eq!(
+            tmux.spot_audit_event.as_deref(),
+            Some("bundled-short-flag-942890d"),
+            "an already-present tool named in the draw must still be tagged into the stratum"
+        );
+        assert_eq!(
+            tmux.verdict.as_deref(),
+            Some("wrong"),
+            "a pre-existing verdict must survive untouched — only `xtask audit amend` may \
+             correct it, never a draw"
+        );
+        assert_eq!(tmux.note, "bundled-short-flag collapse, pre-fix");
+        // The untouched second tool is unaffected.
+        let cat = after.entries.iter().find(|e| e.tool == "cat").unwrap();
+        assert!(cat.spot_audit_event.is_none());
     }
 
     #[test]
