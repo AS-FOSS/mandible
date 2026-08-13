@@ -11,6 +11,7 @@
 //! scoreboard, plus a `--format markdown` mode the framework-support CI
 //! workflow (batch 6 part 6, spec §13.1a) consumes.
 
+use crate::alternation;
 use crate::bundling;
 use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
@@ -179,6 +180,15 @@ struct Row {
     /// [`Self::existence_samples`] — capped per row
     /// ([`BUNDLE_SAMPLES_PER_ROW`]).
     bundle_samples: Vec<String>,
+    /// [`crate::alternation`]'s own measurement: flag spellings this tool
+    /// writes inside a delimited alternation group (`{-i|--input}`,
+    /// `[[-c|-C] cmd]`) that reach no flag in its tree, plus any that reach
+    /// one still carrying the group's punctuation as a value.
+    alternation_defect_count: usize,
+    /// A few of this row's own, pre-formatted, mirroring
+    /// [`Self::bundle_samples`] — capped per row
+    /// ([`ALTERNATION_SAMPLES_PER_ROW`]).
+    alternation_samples: Vec<String>,
     status: &'static str,
 }
 
@@ -216,6 +226,15 @@ const BUNDLE_SAMPLES_PER_ROW: usize = 3;
 /// `# bundled-short-flag collapses (sample)` section prints — mirrors
 /// [`EXISTENCE_SAMPLE_LIMIT`].
 const BUNDLE_SAMPLE_LIMIT: usize = 20;
+
+/// Cap on how many of one tool's own [`crate::alternation`] findings feed
+/// the fleet-wide sample section — mirrors [`BUNDLE_SAMPLES_PER_ROW`].
+const ALTERNATION_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on the total number of sample lines the fleet-wide
+/// `# brace-alternation-flag defects (sample)` section prints — mirrors
+/// [`BUNDLE_SAMPLE_LIMIT`].
+const ALTERNATION_SAMPLE_LIMIT: usize = 20;
 
 /// Aggregate stats. `pct_flags_with_text`, `no_tier_count`, and
 /// `suspicious_count` are the regression gate (spec §13.1: "may not
@@ -352,6 +371,21 @@ pub struct Aggregate {
     /// member after the first. This is the recall number;
     /// `bundle_collapse_tools` is only the blast radius.
     pub bundle_destroyed_flags: usize,
+    /// Tools with at least one [`crate::alternation`] finding — a flag
+    /// spelling written inside a delimited alternation group that reaches no
+    /// flag in the tree, or one that reaches a flag still carrying the
+    /// group's own punctuation as its value. The fourth oracle, and the one
+    /// the three before it are blind to for three different reasons:
+    /// `eqn`'s `--version` occurs literally in its raw text (so
+    /// [`Self::existence_fabrication_tools`]'s check attests it), it carries
+    /// no description for [`Self::misattribution_suspect_tools`]'s to
+    /// misjudge, and its members are separated by `|` rather than glued, so
+    /// the cluster grammar behind [`Self::bundle_collapse_tools`] neither
+    /// helps nor hinders it.
+    pub alternation_defect_tools: usize,
+    /// Flag spellings those tools lost or mangled, fleet-wide. The recall
+    /// number; `alternation_defect_tools` is only the blast radius.
+    pub alternation_defect_flags: usize,
 }
 
 /// Output format for the rendered scoreboard.
@@ -550,6 +584,22 @@ fn score_one(tool: &str) -> Row {
             _ => (0, 0, Vec::new()),
         };
 
+    // Fourth read of the same already-fetched capture, still zero probes.
+    let (alternation_defect_count, alternation_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = alternation::detect(&raw, root);
+                let samples = report
+                    .findings
+                    .iter()
+                    .take(ALTERNATION_SAMPLES_PER_ROW)
+                    .map(format_alternation_sample)
+                    .collect();
+                (report.finding_count(), samples)
+            }
+            _ => (0, Vec::new()),
+        };
+
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -570,8 +620,16 @@ fn score_one(tool: &str) -> Row {
         bundle_collapse_count,
         bundle_destroyed_flags,
         bundle_samples,
+        alternation_defect_count,
+        alternation_samples,
         status: status.label,
     }
+}
+
+/// One [`crate::alternation`] finding, rendered as a single audit-section
+/// line: the group as the tool wrote it, and what went wrong with it.
+fn format_alternation_sample(finding: &alternation::Finding) -> String {
+    format!("{}: {} — {}", finding.path, finding.group, finding.detail)
 }
 
 /// One suspect, rendered as a single audit-section line: the tool/path, the
@@ -746,6 +804,11 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         .count();
     let bundle_collapse_tools = rows.iter().filter(|r| r.bundle_collapse_count > 0).count();
     let bundle_destroyed_flags: usize = rows.iter().map(|r| r.bundle_destroyed_flags).sum();
+    let alternation_defect_tools = rows
+        .iter()
+        .filter(|r| r.alternation_defect_count > 0)
+        .count();
+    let alternation_defect_flags: usize = rows.iter().map(|r| r.alternation_defect_count).sum();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -774,6 +837,8 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         existence_fabrication_tools,
         bundle_collapse_tools,
         bundle_destroyed_flags,
+        alternation_defect_tools,
+        alternation_defect_flags,
     }
 }
 
@@ -888,6 +953,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&misattribution_sample_lines_text(rows));
     out.push_str(&existence_sample_lines_text(rows));
     out.push_str(&bundle_sample_lines_text(rows));
+    out.push_str(&alternation_sample_lines_text(rows));
     out
 }
 
@@ -1084,6 +1150,48 @@ fn bundle_sample_lines_text(rows: &[Row]) -> String {
     out
 }
 
+/// Plain-text rendering of every row's [`Row::alternation_samples`],
+/// flattened and capped at [`ALTERNATION_SAMPLE_LIMIT`] — mirrors
+/// [`bundle_sample_lines_text`] exactly, including the "nothing to report →
+/// no section" convention.
+fn alternation_sample_lines_text(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.alternation_samples.iter())
+        .take(ALTERNATION_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "# brace-alternation-flag defects (sample — ratcheted at zero; see xtask/src/alternation.rs):\n",
+    );
+    for (rank, sample) in samples.iter().enumerate() {
+        out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
+    }
+    out
+}
+
+/// Markdown rendering of [`alternation_sample_lines_text`]'s result, for
+/// [`render_markdown`].
+fn alternation_sample_section_markdown(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.alternation_samples.iter())
+        .take(ALTERNATION_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\n**Brace-alternation-flag defects** (sample, ratcheted at zero — see `xtask/src/alternation.rs`):\n\n| sample |\n|---|\n",
+    );
+    for sample in samples {
+        out.push_str(&format!("| {} |\n", md_escape(sample)));
+    }
+    out
+}
+
 /// Markdown rendering of [`bundle_sample_lines_text`]'s result, for
 /// [`render_markdown`].
 fn bundle_sample_section_markdown(rows: &[Row]) -> String {
@@ -1209,6 +1317,12 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.bundle_collapse_tools, aggregate.bundle_destroyed_flags,
     ));
     out.push_str(&format!(
+        "**Brace-alternation-flag defects:** {} tool(s) whose delimited flag alternation \
+         (`{{-i|--input}}`, `[[-c|-C] cmd]`) lost or mangled {} flag spelling(s) fleet-wide — \
+         ratcheted at zero, see `xtask/src/alternation.rs`.\n\n",
+        aggregate.alternation_defect_tools, aggregate.alternation_defect_flags,
+    ));
+    out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
         aggregate.total,
@@ -1224,6 +1338,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&misattribution_sample_section_markdown(rows));
     out.push_str(&existence_sample_section_markdown(rows));
     out.push_str(&bundle_sample_section_markdown(rows));
+    out.push_str(&alternation_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
@@ -1259,7 +1374,7 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -1272,6 +1387,8 @@ fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.existence_fabrication_tools,
         aggregate.bundle_collapse_tools,
         aggregate.bundle_destroyed_flags,
+        aggregate.alternation_defect_tools,
+        aggregate.alternation_defect_flags,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -1349,6 +1466,11 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // such key at all, so `--check` against one must still work.
     let mut bundle_collapse_tools = 0usize;
     let mut bundle_destroyed_flags = 0usize;
+    // Same reasoning again, brand new field (this task): a scoreboard
+    // written before the brace-alternation detector existed carries no such
+    // key, so `--check` against one must still work.
+    let mut alternation_defect_tools = 0usize;
+    let mut alternation_defect_flags = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -1376,6 +1498,12 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             }
             "bundle_collapse_tools" => bundle_collapse_tools = value.parse::<usize>().ok()?,
             "bundle_destroyed_flags" => bundle_destroyed_flags = value.parse::<usize>().ok()?,
+            "alternation_defect_tools" => {
+                alternation_defect_tools = value.parse::<usize>().ok()?
+            }
+            "alternation_defect_flags" => {
+                alternation_defect_flags = value.parse::<usize>().ok()?
+            }
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -1402,6 +1530,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         existence_fabrication_tools,
         bundle_collapse_tools,
         bundle_destroyed_flags,
+        alternation_defect_tools,
+        alternation_defect_flags,
     })
 }
 

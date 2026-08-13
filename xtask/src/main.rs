@@ -1008,6 +1008,37 @@ fn run_coverage(
         if !ratchet.holds() {
             regressed = true;
         }
+        // `alternation_defect_tools`/`alternation_defect_flags`
+        // (`crate::alternation`, the fourth oracle) follow
+        // `bundle_collapse_tools` exactly, for the same reason and with the
+        // same two-part gate: the family is fixed
+        // (`grammar::parse_flag_alternation`), the sweep that measured it
+        // before the fix now reads what the report above prints, and a
+        // literal zero is the only baseline that a commit reintroducing the
+        // defect cannot quietly raise for itself. The gate is never
+        // `count == 0` alone — that is satisfied by deleting the detector —
+        // so `ratchet_at_zero` re-runs the detector's own hand-built cases
+        // and refuses a zero it cannot explain.
+        if fresh.alternation_defect_tools != previous.alternation_defect_tools
+            || fresh.alternation_defect_flags != previous.alternation_defect_flags
+        {
+            println!(
+                "brace-alternation-flag defects changed from {} tool(s)/{} flag spelling(s) to {} tool(s)/{} flag spelling(s)",
+                previous.alternation_defect_tools,
+                previous.alternation_defect_flags,
+                fresh.alternation_defect_tools,
+                fresh.alternation_defect_flags,
+            );
+        }
+        let alternation_ratchet = detector::ratchet_at_zero(
+            detector::find("brace-alternation-flag")?.as_ref(),
+            fresh.alternation_defect_tools,
+            fresh.alternation_defect_flags,
+        );
+        println!("\n{}", alternation_ratchet.report());
+        if !alternation_ratchet.holds() {
+            regressed = true;
+        }
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }
