@@ -245,8 +245,10 @@ enum AuditAction {
     },
     /// Recompute every queued tool's stratum against the *current* parser
     /// from the bytes `freeze` already captured — no `PATH` sweep, no
-    /// subprocess spawned. Reports transitions and the wall-clock cost
-    /// (seconds, not the ~20 minutes a full re-probe costs).
+    /// subprocess spawned, run in parallel across the queue. Reports
+    /// transitions and the wall-clock cost (measured: roughly half of a
+    /// live re-probe's time on this batch's evaluation machine, see
+    /// `crate::queue::cmd_reclassify`'s doc comment for the honest number).
     Reclassify {
         /// Directory holding the queue (`<dir>/queue.toml`) and its
         /// captures (`<dir>/queue-captures/`).
