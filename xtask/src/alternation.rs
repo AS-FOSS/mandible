@@ -232,7 +232,9 @@ fn leaked_value(node: &CommandNode, member: &str) -> Option<String> {
             }
         }
     }
-    node.subcommands.iter().find_map(|c| leaked_value(c, member))
+    node.subcommands
+        .iter()
+        .find_map(|c| leaked_value(c, member))
 }
 
 /// True when `node` and everything below it carries no flag, no positional
@@ -378,7 +380,12 @@ pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
             raw: EQN_HELP.to_string(),
             root: tree(
                 "eqn",
-                vec![flag(None, Some("version"), Some("}"), Source::HelpTextSynopsis)],
+                vec![flag(
+                    None,
+                    Some("version"),
+                    Some("}"),
+                    Source::HelpTextSynopsis,
+                )],
             ),
         },
         SelfCheck {
@@ -496,7 +503,12 @@ mod tests {
     fn finds_the_nested_group_inside_an_outer_bracket() {
         let g = groups(XFS_IO_USAGE);
         let inner: Vec<&Group> = g.iter().filter(|g| g.text == "[-c|-C]").collect();
-        assert_eq!(inner.len(), 1, "{:?}", g.iter().map(|g| &g.text).collect::<Vec<_>>());
+        assert_eq!(
+            inner.len(),
+            1,
+            "{:?}",
+            g.iter().map(|g| &g.text).collect::<Vec<_>>()
+        );
         assert_eq!(inner[0].members, vec!["-c", "-C"]);
     }
 

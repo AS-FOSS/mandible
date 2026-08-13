@@ -1498,12 +1498,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             }
             "bundle_collapse_tools" => bundle_collapse_tools = value.parse::<usize>().ok()?,
             "bundle_destroyed_flags" => bundle_destroyed_flags = value.parse::<usize>().ok()?,
-            "alternation_defect_tools" => {
-                alternation_defect_tools = value.parse::<usize>().ok()?
-            }
-            "alternation_defect_flags" => {
-                alternation_defect_flags = value.parse::<usize>().ok()?
-            }
+            "alternation_defect_tools" => alternation_defect_tools = value.parse::<usize>().ok()?,
+            "alternation_defect_flags" => alternation_defect_flags = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -1856,6 +1852,8 @@ mod tests {
             bundle_collapse_count: 0,
             bundle_destroyed_flags: 0,
             bundle_samples: Vec::new(),
+            alternation_defect_count: 0,
+            alternation_samples: Vec::new(),
             status,
         }
     }

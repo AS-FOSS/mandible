@@ -267,8 +267,7 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
 /// call, never a second copy of it.
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
-    trimmed.starts_with('-')
-        || parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
+    trimmed.starts_with('-') || parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
 }
 
 // --- the flag-alternation group ----------------------------------------
