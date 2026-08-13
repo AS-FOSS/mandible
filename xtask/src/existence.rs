@@ -256,10 +256,25 @@ fn line_start_words(raw: &str) -> HashSet<&str> {
 
 /// Minimum number of items a line must break into before it can be read as
 /// a **list row** at all. A single item is just a word on a line; it takes
-/// at least two side by side, separated by a real item separator rather
-/// than by the single space that separates ordinary prose words, before the
-/// line is evidence of a *list* instead of evidence of a sentence.
-const MIN_LIST_ROW_ITEMS: usize = 2;
+/// several side by side, separated by a real item separator rather than by
+/// the single space that separates ordinary prose words, before the line is
+/// evidence of a *list* instead of evidence of a sentence.
+///
+/// Three, not two, and the difference is a false-negative this oracle would
+/// otherwise carry silently. At two, *any* two-column table whose right-hand
+/// cell happens to be a single word reads as a list row and attests that
+/// word — an `ENVIRONMENT` section pairing `TMPDIR` with `directory`, or an
+/// index pairing `add` with the description `adds`, would attest
+/// `directory`, `editor`, `adds`. A fabricated subcommand that collided with
+/// one of those description words would then go unreported, which is the one
+/// failure this module must not have: a permissive oracle hides the defects
+/// it exists to find, and is worse than one that over-reports.
+///
+/// Three costs nothing against the real layouts the list-row rule exists to
+/// read, which was measured rather than assumed: every qualifying line in
+/// `openssl`'s command grid carries 4 items, and in `busybox`'s applet list
+/// 9 to 11. Genuine indexes are wide; description tables are two columns.
+const MIN_LIST_ROW_ITEMS: usize = 3;
 
 /// Split one physical line into the items a list row would carry: first at
 /// tabs and at column gaps (runs of two or more spaces), then at commas,
@@ -988,6 +1003,42 @@ mod tests {
         let words = list_row_words(raw);
         assert!(words.is_empty(), "{words:?}");
         assert!(line_start_words(raw).contains("clone"));
+    }
+
+    /// A two-column table whose right-hand cell is a single word must not
+    /// attest that word. This is the shape `MIN_LIST_ROW_ITEMS = 2` let
+    /// through: an `ENVIRONMENT` section and a one-word-description index
+    /// are both indistinguishable from a real command grid by every other
+    /// rule here, and only their *width* separates them.
+    #[test]
+    fn a_two_column_table_never_attests_its_right_hand_column() {
+        let env = "  TMPDIR    directory\n  EDITOR    editor\n";
+        let words = list_row_words(env);
+        assert!(!words.contains("directory"), "{words:?}");
+        assert!(!words.contains("editor"), "{words:?}");
+
+        let index = "  add       adds\n  remove    removes\n";
+        let words = list_row_words(index);
+        assert!(!words.contains("adds"), "{words:?}");
+        assert!(!words.contains("removes"), "{words:?}");
+
+        // ...and the fabrication that hid behind it is reported again.
+        let mut root = help_text_node("t");
+        root.subcommands.push(help_text_node("editor"));
+        let report = detect(env, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "editor");
+    }
+
+    /// The left-hand column of such a table is still attested, by the
+    /// unchanged first-token rule — tightening the width threshold must
+    /// not cost a real index entry that happens to sit in a narrow table.
+    #[test]
+    fn a_two_column_tables_left_column_is_still_attested() {
+        let index = "  add       adds\n  remove    removes\n";
+        let starts = line_start_words(index);
+        assert!(starts.contains("add"));
+        assert!(starts.contains("remove"));
     }
 
     #[test]
