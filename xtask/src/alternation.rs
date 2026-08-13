@@ -126,6 +126,13 @@ use std::collections::BTreeSet;
 /// measure of unparsed flags generally — a real defect, with its own family
 /// (`unparsed-flag`) and its own reasons — under a name that claims to be
 /// about alternation.
+///
+/// That reasoning was later confirmed from the other end: `unparsed-flag` was
+/// read in full and **no detector was built for it**, precisely because the
+/// name is a symptom rather than a shape and anything generalizing it is the
+/// recall counter this constant refuses to become. See
+/// `mandible_core::audit::DEFECT_FAMILIES`' comment above that family, and
+/// spec §13.1e.
 pub(crate) const MIN_ALTERNATIVES: usize = 2;
 
 /// Characters that mean a group delimiter, or the alternation bar itself,
