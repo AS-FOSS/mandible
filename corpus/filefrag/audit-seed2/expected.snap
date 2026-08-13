@@ -1,0 +1,48 @@
+name: filefrag
+description: '/usr/sbin/filefrag: invalid option -- ''-'''
+usage:
+- 'Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...'
+flags:
+- short: 'b'
+  value_name: '{blocksize}[KMG]'
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'B'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'e'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'E'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'k'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'v'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'x'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'X'
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

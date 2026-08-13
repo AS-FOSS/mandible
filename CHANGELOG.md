@@ -6,7 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
-## [0.3.0]
+## [Unreleased]
+
+### Fixed
+
+- **Bundled short flags in a usage synopsis are read as the set of switches
+  they are.** A line opening `[-2CDlNuVv]` names eight boolean flags in the
+  ordinary getopt convention; the grammar read it as one flag, `-2`, carrying
+  a required value named `CDlNuVv`, so one switch survived and the rest were
+  destroyed. Measured across this machine's 2,302 `PATH` tools by the
+  bundled-short-flag oracle added last release: **58 tools, 465 destroyed
+  flags**, an average of 8 lost per affected tool and 22 at the worst
+  (`groff`'s `[-abcCeEgGijklNpRsStUVXzZ]`). `tcpdump` alone recovers 25.
+
+  The split is keyed on the shape of the swallowed text — a run of distinct
+  single-character flag names, either alphabetized or spanning both cases —
+  never on a tool name, and it is asked only of a synopsis token. Two other
+  defect families produce the identical stored shape and are deliberately
+  untouched, because in both of them the parse is already correct: the
+  GCC/Clang single-dash convention (`-Zscript`, `-Idirectory`,
+  `-fdump-scos`), where the glued text really is a value, and flags repeated
+  to mean "more of it" (`-vv`, `-DDD`). A two-character cluster is left alone
+  as well — the fleet's two-character population is about half real collapses
+  (`ssh-keygen`'s `[-hU]`) and half genuine multi-character flags (`xxd -ps`,
+  `rpcgen -Ss`), with nothing separating them on shape, so that recall is
+  given up rather than risk splitting a working tool.
+
+
 
 Recovery work, mostly. Several tools were reporting confident results over
 documents mandible had never actually read, and the fixes for that are the

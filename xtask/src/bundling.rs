@@ -174,6 +174,43 @@
 //! is exactly the population this module reports, and the reason it reads
 //! the tree rather than grepping the text.
 //!
+//! # The fix, and what this oracle became
+//!
+//! **The defect is closed.** `help_text::grammar::parse_bundled_shorts`
+//! reads a synopsis cluster as the set of switches it is, and the same full
+//! `PATH` sweep that measured 58 tools / 465 destroyed flags now reports
+//! **0 tools and 0 destroyed flags**. A `sweep-diff` across the two
+//! scoreboards shows **0 flag-count losses across 0 tools** and no status
+//! transition outside the near-cap timing set, against **489 flags gained
+//! across 67 tools** — `tcpdump` +25, `groff` +22, `ssh` +22, `dhcpcd` +21.
+//!
+//! 67 gaining tools against 58 reported ones is the text-versus-tree gap
+//! this section already described, seen from the other side: nine more
+//! tools had a cluster whose *first* member was already in an options table
+//! (so no collapse survived into the tree for this module to see) while the
+//! rest of the cluster was documented nowhere else.
+//!
+//! **The fix and this module share their rule deliberately.** The five
+//! conditions `parse_bundled_shorts` applies are these seven minus the two
+//! that only make sense when reading a tree (the source check and the
+//! reconstruct-and-search check, both structural consequences of asking the
+//! question at the synopsis token instead). A detector meant to be ratcheted
+//! at zero and a fix meant to reach zero have to agree character for
+//! character on what the defect *is*, or the zero means nothing.
+//!
+//! **Calibration now inverts, and that is expected.** `xtask detector
+//! calibrate --detector bundled-short-flag` reported 4 hits before the fix
+//! and reports 0% recall after it, naming `tcpdump`, `tmux`, `filefrag`,
+//! `xfs_io`, `ssh-keygen` and `eqn` as misses — because every one of those
+//! fixtures is now parsed correctly and there is no longer a defect to fire
+//! on. Spec §13.1e's precondition ("not quotable until it has passed") is a
+//! claim about the labels, which were recorded against the *pre-fix* parser;
+//! once a family is fixed, its labelled set can no longer confirm anything,
+//! and a detector that keeps reading zero is doing its job. What still
+//! demonstrates the rule has teeth is this module's own hand-built tests:
+//! they build the collapsed shape directly and assert every condition fires
+//! on it.
+//!
 //! # No new probes, not gated
 //!
 //! Identical to [`crate::existence`] on both counts, for identical reasons:
@@ -939,52 +976,81 @@ mod tests {
 
     /// `tcpdump`'s committed capture, through the real parser: the tree
     /// this asserts against is the one `mandible` would actually build, so
-    /// the fields the rule reads (`HelpTextSynopsis`, no long name,
-    /// `ValueKind::Required`, the verbatim `value_name`) are the parser's,
-    /// not this test author's.
+    /// what it reports is the parser's answer, not this test author's.
+    ///
+    /// **It now reports nothing, and that is the fix landing.**
+    /// `help_text::grammar::parse_bundled_shorts` reads the cluster as the
+    /// 26 switches it is, so there is no collapse left to find. Every
+    /// hand-built test above still asserts the *rule* fires on the
+    /// collapsed shape — the oracle stays live, it just no longer has a
+    /// real tree to fire on, which is exactly the state a ratchet-gated
+    /// metric is supposed to reach.
     #[test]
-    fn the_real_parser_on_tcpdumps_real_capture_yields_exactly_one_collapse() {
+    fn the_real_parser_on_tcpdumps_real_capture_no_longer_collapses_it() {
         let raw = include_str!("../../corpus/tcpdump/audit-seed2/help.txt");
         let root = parse_through_the_real_pipeline("tcpdump", raw);
-        let r = detect(raw, &root);
-        assert_eq!(
-            r.collapse_count(),
-            1,
-            "expected exactly tcpdump's own cluster: {:?}",
-            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
-        );
-        assert_eq!(r.collapses[0].cluster, "-AbdDefhHIJKlLnNOpqStuUvxX#");
-        assert_eq!(r.destroyed_flag_count(), 25);
-    }
-
-    /// The false-positive side, through the real parser. `tmux`'s capture
-    /// is the one that matters most: five genuine value-taking short flags
-    /// on the same physical line as the collapse, all five parsed into the
-    /// same `short + value_name` shape the rule keys on, and only the
-    /// cluster may fire.
-    #[test]
-    fn the_real_parser_on_tmuxs_real_capture_fires_only_on_the_cluster() {
-        let raw = include_str!("../../corpus/tmux/audit-seed2/help.stderr.txt");
-        let root = parse_through_the_real_pipeline("tmux", raw);
-        // The five real valued flags are genuinely in the tree — otherwise
-        // this test would pass for the wrong reason (nothing to fire on).
-        let valued: Vec<char> = root
-            .flags
-            .iter()
-            .filter(|f| f.short.is_some() && f.value_name.is_some())
-            .filter_map(|f| f.short)
-            .collect();
-        for short in ['c', 'f', 'L', 'S', 'T'] {
-            assert!(valued.contains(&short), "-{short} missing from {valued:?}");
+        // Every member is its own flag now — asserted before the detector
+        // runs, so this cannot pass for the wrong reason (a tree with no
+        // synopsis flags at all would also report zero collapses).
+        let shorts: Vec<char> = root.flags.iter().filter_map(|f| f.short).collect();
+        for member in "AbdDefhHIJKlLnNOpqStuUvxX#".chars() {
+            assert!(
+                shorts.contains(&member),
+                "-{member} missing from {shorts:?}"
+            );
         }
         let r = detect(raw, &root);
         assert_eq!(
             r.collapse_count(),
-            1,
-            "only the cluster may fire: {:?}",
+            0,
+            "the collapse is fixed; nothing may fire: {:?}",
             r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
         );
-        assert_eq!(r.collapses[0].cluster, "-2CDlNuVv");
+        assert_eq!(r.destroyed_flag_count(), 0);
+    }
+
+    /// The false-positive side, through the real parser. `tmux`'s capture
+    /// is the one that matters most, and for the same reason after the fix
+    /// as before it: five genuine value-taking short flags sit on the same
+    /// physical line as the cluster, and the *only* thing separating them
+    /// from it is a space. The eight bundled switches must all be present
+    /// as bare booleans and the five valued flags must all still carry
+    /// their values — a fix that split `-c shell-command` too would satisfy
+    /// the detector and destroy the tool.
+    #[test]
+    fn the_real_parser_on_tmuxs_real_capture_splits_only_the_cluster() {
+        let raw = include_str!("../../corpus/tmux/audit-seed2/help.stderr.txt");
+        let root = parse_through_the_real_pipeline("tmux", raw);
+        for member in "2CDlNuVv".chars() {
+            let flag = root
+                .flags
+                .iter()
+                .find(|f| f.short == Some(member))
+                .unwrap_or_else(|| panic!("-{member} missing from tmux's tree"));
+            assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
+            assert_eq!(flag.value_kind, ValueKind::None, "-{member} takes no value");
+        }
+        for (short, value) in [
+            ('c', "shell-command"),
+            ('f', "file"),
+            ('L', "socket-name"),
+            ('S', "socket-path"),
+            ('T', "features"),
+        ] {
+            let flag = root
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("-{short} missing from tmux's tree"));
+            assert_eq!(flag.value_name.as_deref(), Some(value));
+        }
+        let r = detect(raw, &root);
+        assert_eq!(
+            r.collapse_count(),
+            0,
+            "the collapse is fixed; nothing may fire: {:?}",
+            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
+        );
     }
 
     /// `lessecho`'s seven genuine glued character-argument flags, through

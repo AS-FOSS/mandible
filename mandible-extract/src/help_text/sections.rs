@@ -41,7 +41,7 @@
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
-use super::grammar::{looks_like_flag_start, parse_flag_spec, FlagSpec};
+use super::grammar::{looks_like_flag_start, parse_bundled_shorts, parse_flag_spec, FlagSpec};
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
     is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
@@ -2419,7 +2419,13 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
                     // short goes with which long. A wrong pairing asserts a
                     // false equivalence a user would act on — worse than an
                     // unpaired entry, which is merely incomplete.
-                    if flaggy.len() == 2 {
+                    // A bundle is never one half of an alternation pair:
+                    // `pair_short_and_long` would happily take `-2CDlNuVv`
+                    // as the "short" side (it has a short and no long) and
+                    // silently discard seven flags, so the cluster question
+                    // is asked first.
+                    if flaggy.len() == 2 && flaggy.iter().all(|m| parse_bundled_shorts(m).is_none())
+                    {
                         let a = parse_flag_spec(flaggy[0]);
                         let b = parse_flag_spec(flaggy[1]);
                         if let Some(paired) = pair_short_and_long(a, b) {
@@ -2428,12 +2434,12 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
                         }
                     }
                     for m in flaggy {
-                        push_usage_flag(&mut out, parse_flag_spec(m));
+                        push_usage_token(&mut out, m);
                     }
                 }
                 UsageSegment::Bare(tok) => {
                     if tok.starts_with('-') {
-                        push_usage_flag(&mut out, parse_flag_spec(tok));
+                        push_usage_token(&mut out, tok);
                     }
                 }
             }
@@ -2464,6 +2470,45 @@ fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
         (candidate.long.is_some() && f.long == candidate.long)
             || (candidate.short.is_some() && f.short == candidate.short)
     })
+}
+
+/// Push the flag(s) one synopsis token names: either a bundle of
+/// single-character boolean switches, one [`Flag`] per member, or — for
+/// every other shape — the single flag [`parse_flag_spec`] reads.
+///
+/// The bundle question is asked *here*, on the synopsis path only, and
+/// never inside [`parse_flag_spec`]: an option-*table* row of the identical
+/// shape is the GCC/Clang single-dash convention (`-fdump-scos`, `-Wall`,
+/// `-Idirectory`), where the glued text genuinely is a value — thousands of
+/// correct parses fleet-wide that splitting would destroy. Only a usage
+/// synopsis writes a getopt cluster, so only this caller asks. See
+/// [`parse_bundled_shorts`] for the five conditions and the two families
+/// (single-dash long options, repeated-character flags) that share the
+/// cluster's structural fingerprint and must not be split.
+///
+/// Members are emitted as bare booleans — no value, no description — which
+/// is what they are: `[-2CDlNuVv]` says `-2`, `-C`, `-D`, `-l`, `-N`, `-u`,
+/// `-V` and `-v` are eight switches and says nothing else about any of
+/// them. Fabricating a description from the usage line's own text is the
+/// same spec §7 Tier B violation [`extract_usage_flags`] forbids.
+fn push_usage_token(out: &mut Vec<Flag>, token: &str) {
+    if let Some(members) = parse_bundled_shorts(token) {
+        for member in members {
+            if out.len() >= MAX_RECOVERED_ENTRIES {
+                return;
+            }
+            push_usage_flag(
+                out,
+                FlagSpec {
+                    short: Some(member),
+                    fully_consumed: true,
+                    ..FlagSpec::default()
+                },
+            );
+        }
+        return;
+    }
+    push_usage_flag(out, parse_flag_spec(token));
 }
 
 /// Turn a [`FlagSpec`] into a [`Flag`] and push it, unless the spec
@@ -3380,6 +3425,126 @@ mod tests {
             .find(|f| f.long.as_deref() == Some("git-dir"))
             .expect("--git-dir recovered");
         assert_eq!(git_dir.value_kind, mandible_core::ValueKind::Required);
+    }
+
+    /// The bundled-short-flag collapse, end to end through `parse`:
+    /// `tmux`'s real synopsis line, byte-exact. Its `[-2CDlNuVv]` must
+    /// become eight boolean switches, and the five genuine value-taking
+    /// short flags sharing the same physical line must be untouched — the
+    /// only thing separating them from the cluster is a space, so this
+    /// asserts both halves together or it asserts nothing useful.
+    #[test]
+    fn a_synopsis_short_flag_cluster_becomes_one_flag_per_member() {
+        let raw = "usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name]\n            [-S socket-path] [-T features] [command [flags]]\n";
+        let parsed = parse(raw);
+        for member in "2CDlNuVv".chars() {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(member))
+                .unwrap_or_else(|| panic!("-{member} missing from {:?}", parsed.flags));
+            assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
+            assert_eq!(
+                flag.value_kind,
+                mandible_core::ValueKind::None,
+                "-{member} takes no value"
+            );
+            assert_eq!(flag.long, None);
+            assert!(flag.description.is_none(), "a usage line describes nothing");
+        }
+        for (short, value) in [
+            ('c', "shell-command"),
+            ('f', "file"),
+            ('L', "socket-name"),
+            ('S', "socket-path"),
+            ('T', "features"),
+        ] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("-{short} missing from {:?}", parsed.flags));
+            assert_eq!(flag.value_name.as_deref(), Some(value));
+            assert_eq!(flag.value_kind, mandible_core::ValueKind::Required);
+        }
+    }
+
+    /// The counterweight, and the reason the cluster question is asked on
+    /// the *synopsis* path only: `filefrag`'s real usage line carries a
+    /// cluster and a glued value spec side by side. `[-b{blocksize}[KMG]]`
+    /// is synopsis-sourced and glued exactly like the cluster is, and must
+    /// stay one valued flag.
+    #[test]
+    fn a_glued_value_spec_beside_a_cluster_stays_one_flag() {
+        let raw = "Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...\n";
+        let parsed = parse(raw);
+        let b = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('b'))
+            .expect("-b recovered");
+        assert_eq!(b.value_name.as_deref(), Some("{blocksize}[KMG]"));
+        for member in "BeEksvxX".chars() {
+            assert!(
+                parsed.flags.iter().any(|f| f.short == Some(member)),
+                "-{member} missing from {:?}",
+                parsed.flags
+            );
+        }
+    }
+
+    /// An option-*table* row of the identical shape is the GCC/Clang
+    /// single-dash convention and is genuinely one flag with a glued
+    /// value. Only the synopsis path splits, so a described row keeps its
+    /// description and its value — splitting it would destroy thousands of
+    /// correct fleet-wide parses to fix 58 tools.
+    #[test]
+    fn an_options_block_row_of_the_same_shape_is_never_split() {
+        let raw = "Options:\n  -Zscript      run a script\n  -DMACRO       define a macro\n";
+        let parsed = parse(raw);
+        let z = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('Z'))
+            .expect("-Zscript recovered");
+        assert_eq!(z.value_name.as_deref(), Some("script"));
+        assert!(
+            !parsed.flags.iter().any(|f| f.short == Some('s')),
+            "-Zscript must not have been split: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// A cluster in a synopsis whose members are *also* documented in an
+    /// options block must not double-count: `flag_spelling_already_present`
+    /// already drops a usage-derived duplicate, and expansion feeds it one
+    /// candidate per member rather than one for the whole cluster. `od`'s
+    /// real shape — a bundle in the usage line, the same switches described
+    /// in a table below it.
+    #[test]
+    fn cluster_members_already_described_in_a_block_are_not_added_twice() {
+        let raw = "Usage: od [-abcdfilosx]... [FILE]...\n\nOptions:\n  -a    named characters\n  -b    octal bytes\n";
+        let parsed = parse(raw);
+        for member in ['a', 'b'] {
+            let matches: Vec<&Flag> = parsed
+                .flags
+                .iter()
+                .filter(|f| f.short == Some(member))
+                .collect();
+            assert_eq!(matches.len(), 1, "-{member}: {matches:?}");
+            assert!(
+                matches[0].description.is_some(),
+                "-{member} must keep the described version"
+            );
+        }
+        // ...and the members the table never described are still recovered.
+        for member in ['c', 'd', 'f', 'i', 'l', 'o', 's', 'x'] {
+            assert!(
+                parsed.flags.iter().any(|f| f.short == Some(member)),
+                "-{member} missing from {:?}",
+                parsed.flags
+            );
+        }
     }
 
     /// Do-not-double-count: a flag documented in *both* the usage synopsis

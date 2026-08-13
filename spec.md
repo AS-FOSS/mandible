@@ -2258,6 +2258,24 @@ happened to type. Prioritising by the word itself would retroactively make
 an inconsistently applied distinction load-bearing, which is exactly the
 kind of claim this project's verdicts were never built to support.
 
+**A fixed family inverts its own calibration, and the precondition must be
+read accordingly.** The bundled-short-flag detector is the first one whose
+family was actually repaired, and the moment the grammar landed its
+calibration went from 4 hits to **0% recall**, naming `tcpdump`, `tmux`,
+`filefrag`, `xfs_io`, `ssh-keygen` and `eqn` as misses. Nothing about the
+detector changed; those six fixtures simply parse correctly now, so the
+labelled set has nothing left to confirm against. The precondition above is
+a claim about *labels recorded against a particular parser*, and it expires
+for a family on the commit that fixes it. Two things carry the weight
+afterwards, and both are cheaper than re-auditing: the detector's own
+hand-built tests, which construct the defective shape directly and assert
+the rule still fires on it, and `sweep-diff`, which is the instrument that
+actually answers "did fixing this break anything else". A detector reading
+zero because the bug is gone and a detector reading zero because it stopped
+working are indistinguishable from the fleet number alone — so the
+distinguishing evidence has to live in tests, and the fix's own commit
+should say which.
+
 ### 13.2 Fixed corpus
 
 Golden-file tests snapshot **both** the raw tool output and the resulting

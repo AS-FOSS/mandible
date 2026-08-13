@@ -1,0 +1,262 @@
+name: tcpdump
+description: tcpdump version 4.99.4 libpcap version 1.10.4 (with TPACKET_V3) OpenSSL 3.0.13 30 Jan 2024
+usage:
+- 'Usage: tcpdump [-AbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ] [ -c count ] [--count] [ -C file_size ] [ -E algo:secret ] [ -F file ] [ -G seconds ] [ -i interface ] [ --immediate-mode ] [ -j tstamptype ] [ -M secret ] [ --number ] [ --print ] [ -Q in|out|inout ] [ -r file ] [ -s snaplen ] [ -T type ] [ --version ] [ -V file ] [ -w file ] [ -W filecount ] [ -y datalinktype ] [ --time-stamp-precision precision ] [ --micro ] [ --nano ] [ -z postrotate-command ] [ -Z user ] [ expression ]'
+flags:
+- short: 'A'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'b'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'd'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'D'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'e'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'f'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'h'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'H'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'I'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'J'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'K'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'l'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'L'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'n'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'N'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'O'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'p'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'q'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'S'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 't'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'u'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'U'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'v'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'x'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'X'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: '#'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'B'
+  value_name: size
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'c'
+  value_name: count
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: count
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'C'
+  value_name: file_size
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'E'
+  value_name: algo:secret
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'F'
+  value_name: file
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'G'
+  value_name: seconds
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'i'
+  value_name: interface
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: immediate-mode
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'j'
+  value_name: tstamptype
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'M'
+  value_name: secret
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: number
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: print
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'Q'
+  value_name: in
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'r'
+  value_name: file
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  value_name: snaplen
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'T'
+  value_name: type
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: version
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'V'
+  value_name: file
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'w'
+  value_name: file
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'W'
+  value_name: filecount
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'y'
+  value_name: datalinktype
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: time-stamp-precision
+  value_name: precision
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: micro
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: nano
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'z'
+  value_name: postrotate-command
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'Z'
+  value_name: user
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
