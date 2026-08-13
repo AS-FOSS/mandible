@@ -41,7 +41,7 @@
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
-use super::grammar::{looks_like_flag_start, parse_flag_spec, FlagSpec};
+use super::grammar::{looks_like_flag_start, parse_bundled_shorts, parse_flag_spec, FlagSpec};
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
     is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
@@ -2403,7 +2403,13 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
                     // short goes with which long. A wrong pairing asserts a
                     // false equivalence a user would act on — worse than an
                     // unpaired entry, which is merely incomplete.
-                    if flaggy.len() == 2 {
+                    // A bundle is never one half of an alternation pair:
+                    // `pair_short_and_long` would happily take `-2CDlNuVv`
+                    // as the "short" side (it has a short and no long) and
+                    // silently discard seven flags, so the cluster question
+                    // is asked first.
+                    if flaggy.len() == 2 && flaggy.iter().all(|m| parse_bundled_shorts(m).is_none())
+                    {
                         let a = parse_flag_spec(flaggy[0]);
                         let b = parse_flag_spec(flaggy[1]);
                         if let Some(paired) = pair_short_and_long(a, b) {
@@ -2412,12 +2418,12 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
                         }
                     }
                     for m in flaggy {
-                        push_usage_flag(&mut out, parse_flag_spec(m));
+                        push_usage_token(&mut out, m);
                     }
                 }
                 UsageSegment::Bare(tok) => {
                     if tok.starts_with('-') {
-                        push_usage_flag(&mut out, parse_flag_spec(tok));
+                        push_usage_token(&mut out, tok);
                     }
                 }
             }
@@ -2448,6 +2454,45 @@ fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
         (candidate.long.is_some() && f.long == candidate.long)
             || (candidate.short.is_some() && f.short == candidate.short)
     })
+}
+
+/// Push the flag(s) one synopsis token names: either a bundle of
+/// single-character boolean switches, one [`Flag`] per member, or — for
+/// every other shape — the single flag [`parse_flag_spec`] reads.
+///
+/// The bundle question is asked *here*, on the synopsis path only, and
+/// never inside [`parse_flag_spec`]: an option-*table* row of the identical
+/// shape is the GCC/Clang single-dash convention (`-fdump-scos`, `-Wall`,
+/// `-Idirectory`), where the glued text genuinely is a value — thousands of
+/// correct parses fleet-wide that splitting would destroy. Only a usage
+/// synopsis writes a getopt cluster, so only this caller asks. See
+/// [`parse_bundled_shorts`] for the five conditions and the two families
+/// (single-dash long options, repeated-character flags) that share the
+/// cluster's structural fingerprint and must not be split.
+///
+/// Members are emitted as bare booleans — no value, no description — which
+/// is what they are: `[-2CDlNuVv]` says `-2`, `-C`, `-D`, `-l`, `-N`, `-u`,
+/// `-V` and `-v` are eight switches and says nothing else about any of
+/// them. Fabricating a description from the usage line's own text is the
+/// same spec §7 Tier B violation [`extract_usage_flags`] forbids.
+fn push_usage_token(out: &mut Vec<Flag>, token: &str) {
+    if let Some(members) = parse_bundled_shorts(token) {
+        for member in members {
+            if out.len() >= MAX_RECOVERED_ENTRIES {
+                return;
+            }
+            push_usage_flag(
+                out,
+                FlagSpec {
+                    short: Some(member),
+                    fully_consumed: true,
+                    ..FlagSpec::default()
+                },
+            );
+        }
+        return;
+    }
+    push_usage_flag(out, parse_flag_spec(token));
 }
 
 /// Turn a [`FlagSpec`] into a [`Flag`] and push it, unless the spec

@@ -11,6 +11,7 @@
 //! `help_text::sections` uses to compute this tier's confidence score.
 
 use mandible_core::ValueKind;
+use std::collections::HashSet;
 use winnow::ascii::multispace0;
 use winnow::error::ContextError;
 use winnow::prelude::*;
@@ -230,6 +231,212 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
     trimmed.starts_with('-')
+}
+
+// --- the bundled-short-flag cluster ------------------------------------
+//
+// A usage synopsis that opens `[-2CDlNuVv]` or `[-AbdDefhHIJKlLnNOpqStuUvxX#]`
+// is naming a *set* of bundled boolean switches in the ordinary getopt
+// convention, not one flag. [`parse_flag_spec`] alone cannot see that:
+// `try_short` takes the first character and `try_value` glues every
+// remaining character on as a required value, so the tree gains `-2` with
+// `value_name: "CDlNuVv"` and loses the other seven flags entirely. A
+// fleet sweep of this machine's 2,302 `PATH` tools measured the cost at
+// **58 tools and 465 destroyed flags**, an average of 8 lost flags per
+// affected tool and 22 at the worst (`groff`'s `[-abcCeEgGijklNpRsStUVXzZ]`).
+//
+// [`parse_bundled_shorts`] recognizes the cluster so the synopsis path can
+// emit one boolean flag per member instead. It is *not* wired into
+// [`parse_flag_spec`], and must not be: the identical shape from an
+// option-*table* row is the GCC/Clang single-dash convention
+// (`-fdump-scos`, `-Wall`, `-Idirectory`) where the glued text really is a
+// value, thousands of correct parses fleet-wide. Only the synopsis produces
+// the collapse, so only the synopsis caller (`sections::extract_usage_flags`)
+// asks this question.
+//
+// **Three defect families share the structural fingerprint** `short &&
+// !long && value_name`, and only the first is a bundle:
+//
+// | family | example | is it a bundle? |
+// |---|---|---|
+// | bundled shorts | `tmux [-2CDlNuVv]` | **yes** |
+// | single-dash long options | `cargo -Zscript`, `gcc -pass-exit-codes` | no |
+// | repeated-character flags | `bpftrace -vv`, `strace [-DDD]` | no |
+//
+// The discriminator is the *shape of the swallowed text*, never the tool.
+// The predicates below are the same ones `xtask`'s `bundling` oracle uses
+// to count the defect fleet-wide, deliberately so: that detector is meant
+// to read zero once this is fixed, and it can only do that if the fix and
+// the measurement agree character for character on what a bundle is. Each
+// one carries the real counter-example that forced it — a false positive
+// here destroys a *correct* parse, which is strictly worse than leaving the
+// bundle collapsed.
+
+/// The fewest members a cluster must carry to be read as a bundle: a
+/// surviving flag plus at least two swallowed ones.
+///
+/// Three, not two, and the difference is deliberate lost recall. At one
+/// swallowed member the shape is genuinely ambiguous, and the fleet scan
+/// says so out loud: of the two-character clusters, roughly half are real
+/// collapses (`ssh-keygen`'s `[-hU]`, `umount`'s `[-hV]`, `ssh-agent`'s
+/// `[-Dd]`) and the rest are entirely correct parses of genuine
+/// multi-character single-dash flags — `rpcgen`'s `[-Sc]`/`[-Ss]`/`[-Sm]`,
+/// `psfxtable`'s `[-it]`/`[-ot]`, `sg_map`'s `[-st]`, `setfont`'s `[-ou]`,
+/// `mandoc`'s `[-ac]`, `which`'s `[-as]`, `xxd`'s `[-ps]`, plus `lessecho`'s
+/// seven character-argument flags. Nothing about their *shape* separates the
+/// two halves, so the whole class is left alone.
+const MIN_CLUSTER_MEMBERS: usize = 3;
+
+/// The fewest ASCII letters a cluster must carry before [`cluster_is_ordered`]
+/// is allowed to vouch for it.
+///
+/// A cluster with no letters at all — `-1024`, `-0777` — is *vacuously*
+/// ordered, and a glued numeric default (`[-b4096]`) would ride that
+/// vacuous truth into being split into four flags. Two letters is the floor
+/// at which "the letters are in order" is a statement about anything.
+const MIN_ORDERED_LETTERS: usize = 2;
+
+/// Whether `c` could be a single-character flag name, i.e. a plausible
+/// member of a bundle.
+///
+/// ASCII alphanumeric covers every letter and digit case observed (`tmux`'s
+/// `-2` is a real digit flag). `#` is the one non-alphanumeric member in the
+/// fleet — the last character of `tcpdump`'s `[-AbdDefhHIJKlLnNOpqStuUvxX#]`,
+/// which is `tcpdump`'s real "print packet number" switch. Nothing else is
+/// admitted: the point of this predicate is to reject a *value spec*, and
+/// every value-spec punctuation character (`{`, `<`, `[`, `=`, `:`, `.`,
+/// `-`, `_`, `/`, `|`) is exactly what it rejects — `filefrag`'s own
+/// `[-b{blocksize}[KMG]]` fails here and nowhere else, and every hyphenated
+/// single-dash long option (`-pass-exit-codes`) fails here too.
+fn is_bundle_member_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '#'
+}
+
+/// True when `members` carries at least [`MIN_ORDERED_LETTERS`] ASCII
+/// letters and all of them are in non-decreasing case-insensitive order —
+/// the *listing* convention a hand-written flag bundle follows, and one half
+/// of the two-signal test.
+///
+/// Case is folded rather than compared raw because the convention
+/// interleaves the two cases of one letter (`hH`, `lL`, `uU`, `xX`, `Vv`); a
+/// raw ASCII comparison would call every one of those a break in the order.
+/// Non-letters are skipped rather than ordered — `tcpdump` parks its `#` at
+/// the end of an otherwise perfectly alphabetical bundle and `tmux` parks
+/// its `2` at the front.
+///
+/// It is the *only* signal that vouches for a uniformly-cased bundle, which
+/// is what it is for: `od`'s `[-abcdfilosx]`, `pod2text`'s `[-aclostu]`,
+/// `showmount`'s `[-adehv]`, `e2image`'s `[-cfnp]` and `whereis`'s `[-BMS]`
+/// have nothing else going for them. Against word-shaped values it stays
+/// quiet on its own terms: `-oOUTFILE`, `-Ipath`, `-DMACRO`, `cargo`'s real
+/// `-Zscript`, `rpcgen`'s real `-Dname` and `makewhatis`'s real `-Tutf8` are
+/// every one of them unordered.
+fn cluster_is_ordered(members: &str) -> bool {
+    let letters = || members.chars().filter(|c| c.is_ascii_alphabetic());
+    if letters().count() < MIN_ORDERED_LETTERS {
+        return false;
+    }
+    let mut previous: Option<char> = None;
+    for c in letters() {
+        let folded = c.to_ascii_lowercase();
+        if previous.is_some_and(|prev| folded < prev) {
+            return false;
+        }
+        previous = Some(folded);
+    }
+    true
+}
+
+/// True when `swallowed` — every member after the first, i.e. exactly the
+/// text [`parse_flag_spec`] would have stored as a `value_name` — contains
+/// both an ASCII uppercase and an ASCII lowercase letter. The other half of
+/// the two-signal test.
+///
+/// A value placeholder is written in one case (`file`, `size`, `mode`,
+/// `prog`, `OUTFILE`, `MACRO`), so a *swallowed* run spanning both cases is
+/// not a placeholder at all — it is a switch set that inherited whatever
+/// cases its tool's flags happen to have. This carries every real bundle
+/// whose author listed the switches unsorted, roughly a third of them, which
+/// [`cluster_is_ordered`] alone would miss entirely: `tree`'s
+/// `[-acdfghilnpqrstuvxACDFJQNSUX]` (a sorted lowercase run then a sorted
+/// uppercase one — sorted twice, so not sorted), `e2fsck`'s `[-panyrcdfktvDFV]`,
+/// `tic`'s `[-1aCDcfGgIKLNrsTtUx]`, `mkfs.ext4`'s `[-jnqvDFSV]`,
+/// `badblocks`'s `[-svwnfBX]`, `zipinfo`'s `[-12smlvChMtTz]`.
+///
+/// Measured on the *swallowed* half rather than the whole cluster
+/// deliberately, and the difference is the entire single-dash-long-option
+/// population: `-Zscript`, `-Dname`, `-Tutf8`, `-Idirectory` all mix case as
+/// clusters (an uppercase flag letter with a lowercase word glued on) and
+/// are all completely correct parses. Their swallowed halves — `script`,
+/// `name`, `utf8`, `directory` — do not mix, and that is what tells them
+/// apart from a bundle.
+fn swallowed_members_mix_case(swallowed: &str) -> bool {
+    swallowed.chars().any(|c| c.is_ascii_uppercase())
+        && swallowed.chars().any(|c| c.is_ascii_lowercase())
+}
+
+/// True when every character of `members` is distinct, compared
+/// case-sensitively.
+///
+/// A bundle is a *set* of switches, so it never repeats one. Case matters:
+/// `-v` and `-V` are different flags and real bundles carry both (`Vv` in
+/// `tmux`, `uU`/`xX`/`hH`/`lL` in `tcpdump`), so folding case here would
+/// reject the very cases this exists for. Against words it is a weak filter
+/// on its own (`file`, `size` and `mode` all have distinct letters) and a
+/// decisive one against the commonest doubled-letter shapes — `-Wall`,
+/// `-ldl`, and the whole repeated-character family (`-vvv`, `strace`'s real
+/// `[-DDD]`).
+fn members_are_distinct(members: &str) -> bool {
+    let mut seen = HashSet::new();
+    members.chars().all(|c| seen.insert(c))
+}
+
+/// Read `token` — one whitespace-delimited synopsis token, brackets already
+/// stripped by the caller — as a bundle of single-character boolean short
+/// flags, returning its members in source order.
+///
+/// `None` unless **all** of these hold, each condition rejecting a specific
+/// real counter-example (see the module-level notes above and each
+/// predicate's own doc comment):
+///
+/// 1. The token is exactly one `-` followed by member characters, with no
+///    whitespace, no second dash, and nothing else. This is the load-bearing
+///    separator check: `tmux`'s own synopsis writes `[-c shell-command]`,
+///    `[-f file]`, `[-L socket-name]`, `[-S socket-path]` and `[-T features]`
+///    on the same physical line as its `[-2CDlNuVv]`, and every one of those
+///    is a genuine value-taking short flag distinguished *only* by the space.
+/// 2. Every member is a plausible single-character flag name
+///    ([`is_bundle_member_char`]).
+/// 3. There are at least [`MIN_CLUSTER_MEMBERS`] of them.
+/// 4. They are pairwise distinct ([`members_are_distinct`]).
+/// 5. Either the cluster is alphabetized ([`cluster_is_ordered`]) or the
+///    swallowed half spans both cases ([`swallowed_members_mix_case`]) — two
+///    independent pieces of evidence for "this is a switch set, not a word",
+///    each carrying a large real family the other cannot see.
+///
+/// The knowing false negatives, both measured on the fleet and both left
+/// alone under the no-false-positives rule: **unsorted, uniformly-cased
+/// bundles** (`rpcbind`'s `[-adhilswfr]`, `umount.nfs`'s `[-fvnrlh]`,
+/// `fc-validate`'s `[-Vhv]`) fire neither signal and are indistinguishable
+/// on shape from a lowercase word; **bundles that repeat a switch to mean
+/// "more of it"** (`strace`'s `[-ACdffhiqqrtttTvVwxxyyzZ]`,
+/// `wpa_supplicant`'s `[-BddhKLqqstuvW]`) are rejected by condition 4.
+pub fn parse_bundled_shorts(token: &str) -> Option<Vec<char>> {
+    let members = token.strip_prefix('-')?;
+    if members.chars().count() < MIN_CLUSTER_MEMBERS {
+        return None;
+    }
+    if !members.chars().all(is_bundle_member_char) {
+        return None;
+    }
+    if !members_are_distinct(members) {
+        return None;
+    }
+    let swallowed: String = members.chars().skip(1).collect();
+    if !cluster_is_ordered(members) && !swallowed_members_mix_case(&swallowed) {
+        return None;
+    }
+    Some(members.chars().collect())
 }
 
 #[cfg(test)]
