@@ -59,7 +59,7 @@ use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -1529,6 +1529,67 @@ impl CorpusReport {
 ///
 /// Deliberately read-only and separate from the checking run: it neither
 /// blesses nor fails, so it can be used freely while investigating.
+/// One fixture replayed through the real pipeline: the raw help text the
+/// tiers built from, and the tree they produced.
+pub struct ReplayedFixture {
+    /// The fixture's tool name (`meta.tool.name`), which is what an audit
+    /// entry is keyed on.
+    pub tool: String,
+    /// The raw help text, chosen by the same expansion/`--help`/`-h` rule
+    /// the live oracles use ([`crate::misattribution::root_help_text_from`])
+    /// so a fixture-sourced detector run and a sweep-sourced one are reading
+    /// the same bytes for the same tool.
+    pub raw: String,
+    /// The extracted root, or `None` when no tier produced one.
+    pub root: Option<CommandNode>,
+}
+
+/// Replay every fixture whose directory name is `version` (e.g.
+/// `audit-seed2`) and hand back what each one parsed to.
+///
+/// Zero subprocesses, exactly like [`run`]: this is the same frozen-bytes
+/// replay the corpus suite performs, exposed so `crate::detector` can run a
+/// detector over the audited tools without a `PATH` sweep. Fixtures that
+/// carry no usable help capture are skipped rather than yielded with an
+/// empty `raw`, so a caller cannot mistake "nothing was captured" for "the
+/// tool's help text is empty".
+pub fn replay_version(corpus_root: &Path, version: &str) -> anyhow::Result<Vec<ReplayedFixture>> {
+    let mut out = Vec::new();
+    for fixture in discover_fixtures(corpus_root)? {
+        if !fixture.label.ends_with(&format!("/{version}")) {
+            continue;
+        }
+        let transcript = fixture.build_transcript()?;
+        let mut recordings = HashMap::new();
+        for capture in &fixture.meta.captures {
+            let key = capture.argv[1..].to_vec();
+            recordings.insert(
+                key,
+                ExecOutput {
+                    stdout: read_capture_file(&fixture.dir, &capture.stdout)?,
+                    stderr: match &capture.stderr {
+                        Some(name) => read_capture_file(&fixture.dir, name)?,
+                        None => Vec::new(),
+                    },
+                    exit_code: Some(capture.exit_code.unwrap_or(0)),
+                    timed_out: false,
+                },
+            );
+        }
+        let Some(raw) = crate::misattribution::root_help_text_from(&recordings) else {
+            continue;
+        };
+        let runner = Runner::new(default_tiers_with_probe(Arc::new(transcript)));
+        let root = extract_tree(&runner, &fixture.resolved_tool());
+        out.push(ReplayedFixture {
+            tool: fixture.meta.tool.name.clone(),
+            raw,
+            root,
+        });
+    }
+    Ok(out)
+}
+
 pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
     let fixtures = discover_fixtures(corpus_root)?;
     let matches: Vec<&Fixture> = fixtures

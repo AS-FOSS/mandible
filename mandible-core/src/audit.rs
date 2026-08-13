@@ -347,6 +347,11 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   not extracted at all",
     },
     DefectFamily {
+        name: "brace-alternation-flag",
+        meaning: "a flag written as a brace alternation of its own spellings (`{-i|--input} \
+                  <file>`, `{-v | --version}`) is dropped entirely or keeps a brace as its value",
+    },
+    DefectFamily {
         name: "dropped-alias",
         meaning: "one half of a documented short/long alias pair is missing from the extracted \
                   flag (`-p` kept, `--pid` dropped, or the reverse)",
@@ -367,6 +372,11 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   a node name",
     },
     DefectFamily {
+        name: "unparsed-flag",
+        meaning: "flag spellings plainly present in the help text produce no flag at all — a \
+                  partial recall gap, distinct from `verbatim-fallback`'s total one",
+    },
+    DefectFamily {
         name: "unparsed-subcommand",
         meaning: "subcommand names are plainly present in the help text but no child node is \
                   produced for them",
@@ -384,9 +394,15 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   table that is not a flag list, multi-column layouts)",
     },
     DefectFamily {
+        name: "wrong-stream",
+        meaning: "the tool wrote its real help to one stream and a banner or decorator to the \
+                  other, and the parser read the decorator — the whole tree is built from the \
+                  wrong bytes",
+    },
+    DefectFamily {
         name: "verbatim-fallback",
-        meaning: "help text was captured but no structure came out of it, so the tool falls back \
-                  to verbatim display",
+        meaning: "help text was captured but no structure came out of it at all, so the tool \
+                  falls back to verbatim display",
     },
     DefectFamily {
         name: "display-only",

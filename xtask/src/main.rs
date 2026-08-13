@@ -6,6 +6,7 @@
 mod audit;
 mod corpus;
 mod coverage;
+mod detector;
 mod existence;
 mod misattribution;
 mod queue;
@@ -182,6 +183,52 @@ enum Command {
     Audit {
         #[command(subcommand)]
         action: AuditAction,
+    },
+    /// The family-detector calibration harness (`detector.rs`'s own doc
+    /// comment has the full rationale): a fleet-wide defect detector
+    /// generalizes one human finding across every tool on `PATH`, which
+    /// makes its fleet number confident and unverified at the same time.
+    /// This checks a detector against the audit's own labelled tools —
+    /// it must fire on the known-bad and stay silent on the known-good —
+    /// and **a detector's fleet-wide number is not quotable until it has
+    /// passed** (spec §13.1e).
+    Detector {
+        #[command(subcommand)]
+        action: DetectorAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum DetectorAction {
+    /// Every registered detector, the defect family it claims to
+    /// generalize, and how many audited tools carry that family label —
+    /// i.e. how much evidence a calibration run can possibly have.
+    List {
+        #[arg(long, default_value_t = 2)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// A detector's confusion matrix against the labelled set: fires on
+    /// labelled-bad, misses, silence on labelled-good, false alarms — with
+    /// every cell's tools named so a human can check the disagreements.
+    Calibrate {
+        /// Which detector, by registered name. Omit to calibrate all of
+        /// them.
+        #[arg(long)]
+        detector: Option<String>,
+        #[arg(long, default_value_t = 2)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// The corpus root holding the audited tools' fixtures.
+        #[arg(long, default_value = "corpus")]
+        corpus_dir: PathBuf,
+        /// The fixture directory name to replay under each tool — the
+        /// audit's own staged fixtures live at
+        /// `corpus/<tool>/audit-seed2/`.
+        #[arg(long, default_value = "audit-seed2")]
+        fixture_version: String,
     },
 }
 
@@ -400,6 +447,18 @@ fn main() -> anyhow::Result<()> {
             format,
         } => run_sweep_diff(&before, &after, out.as_deref(), format),
         Command::Audit { action } => run_audit(action),
+        Command::Detector { action } => match action {
+            DetectorAction::List { seed, dir } => detector::cmd_list(&dir, seed),
+            DetectorAction::Calibrate {
+                detector: name,
+                seed,
+                dir,
+                corpus_dir,
+                fixture_version,
+            } => {
+                detector::cmd_calibrate(&dir, seed, &corpus_dir, &fixture_version, name.as_deref())
+            }
+        },
     }
 }
 
