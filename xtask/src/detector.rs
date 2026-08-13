@@ -1044,10 +1044,13 @@ mod tests {
                 entry.tool
             );
         }
-        // Both known-unclassifiable entries are still recorded as such, and
-        // not quietly labelled by a later edit.
+        // vim.basic was confirmed `unparsed-positional` and labelled
+        // accordingly; man-recode's defect is the wrapped usage synopsis,
+        // outside the audit's declared flags/subcommand scope, so it stays
+        // unclassified rather than being labelled on a guess. Still
+        // recorded as such, and not quietly labelled by a later edit.
         let unclassified: Vec<&str> = file.unclassified().map(|e| e.tool.as_str()).collect();
-        assert_eq!(unclassified, vec!["man-recode", "vim.basic"]);
+        assert_eq!(unclassified, vec!["man-recode"]);
     }
 
     // --- the detectors' own rules ---------------------------------------

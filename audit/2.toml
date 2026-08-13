@@ -342,7 +342,7 @@ verdict = "correct"
 tool = "man-recode"
 stratum = "ok"
 verdict = "wrong"
-note = "usage is not properly shown, maybe next fix can fix it. for now deferred"
+note = "usage is not properly shown, maybe next fix can fix it. for now deferred. CONFIRMED against the real parse: all 9 flags parse correctly; the defect is entirely the wrapped two-line usage synopsis, which is outside the audit's declared flags/subcommand scope. Verdict deliberately left unchanged — whether a presentation-only finding like this should still count as `wrong` is a separate open accounting decision (task #13), not decided here."
 k1 = true
 
 [[entry]]
@@ -379,6 +379,7 @@ families_derived = true
 tool = "nfsidmap"
 stratum = "verbatim"
 verdict = "correct"
+note = "maintainer decision: left verbatim/correct after review, despite the verbatim-fallback detector firing on it (2 unparsed lines, no extracted structure). Not re-litigated. Consequence recorded wherever the detector's calibration is reported: verbatim-fallback keeps this one false alarm and stays DOES NOT PASS — the honest outcome of this decision, not a defect in the detector."
 
 [[entry]]
 tool = "nstat"
@@ -652,6 +653,8 @@ stratum = "ok"
 verdict = "wrong"
 note = "i think the same positional arguements issue, we should come back to this"
 k1 = true
+families = ["unparsed-positional"]
+families_derived = true
 
 [[entry]]
 tool = "wall"

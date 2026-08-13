@@ -45,7 +45,7 @@ tools judged wrong or incomplete (the next bugs):
   jdeprscan                wrong       flags are not properly matched together, or missing
   killsnoop.bt             incomplete  flags are missing. for example -vv and -dd missing from 'TROUBLESHOOTING OPTIONS'
   lessecho                 wrong       almost no description or structure, all flags are given within square brackets but got parsed wrongly, for example '[-ox]' -> '-o x'
-  man-recode               wrong       usage is not properly shown, maybe next fix can fix it. for now deferred
+  man-recode               wrong       usage is not properly shown, maybe next fix can fix it. for now deferred. CONFIRMED against the real parse: all 9 flags parse correctly; the defect is entirely the wrapped two-line usage synopsis, which is outside the audit's declared flags/subcommand scope. Verdict deliberately left unchanged — whether a presentation-only finding like this should still count as `wrong` is a separate open accounting decision (task #13), not decided here.
   mariadb-repair           incomplete  code has done its job, but the variables are genuinely something new, not sure if how we should handle those
   mariadbcheck             incomplete  same mariadb class issue
   naptime.bt               incomplete  similar issue to a command before where '-vv' and '-dd' flags are missing
