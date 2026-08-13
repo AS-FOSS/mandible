@@ -1880,6 +1880,20 @@ verdict line or note:
   instead of as the long-form spelling it actually is. This is a real,
   measured parser defect, not a detector artifact, and is scheduled as
   grammar item 1 once the parser freeze the audit is running under lifts.
+
+  **K1's signature is a shape three defect families share**, which is why
+  the tag alone cannot stand in for a family label (§13.1e). `short.is_some()
+  && long.is_none() && value_name.is_some()` is produced by the GCC case
+  (`-pass-exit-codes` → `-p` + `ass-exit-codes`), by a collapsed bundle
+  (`tmux`'s `[-2CDlNuVv]` → `-2` + `CDlNuVv`), *and* by a repeated-character
+  flag (`bpftrace`'s `-vv` → `-v` + value `v`, measured on all five `.bt`
+  tools in the seed-2 sample — the reviewer read these as "missing", since
+  the TUI shows two `-v` rows and no `-vv`). All three sit under `k1 = true`
+  in `audit/2.toml`. The families are distinguished by what the value text
+  *is*: a long-option word, a run of distinct single-character flag letters,
+  or a repeat of the flag's own letter. A detector for any one of them will
+  fire on the other two unless it makes that distinction, which is precisely
+  the kind of thing calibration surfaces and a fleet count alone hides.
 - **K2**: the existence detector's own tokenizer gap (`xtask::existence`),
   not a parser defect. **Closed.** It was characterized on a full
   2302-tool `PATH` sweep — 656 fabrications, hand-classified by the shape
@@ -2092,6 +2106,101 @@ already-captured bytes. The stratum a tool is classified into is still
 computed by the same general, framework-keyed parser every other instrument
 in this project uses (spec §1) — freezing the queue changes *when*
 classification happens, never *how*.
+
+### 13.1e Family detectors and the calibration precondition
+
+A **family detector** generalizes one human finding across the fleet. The
+audit (§13.1c) is slow and bounded: a human reads one tool's real output,
+one tool at a time, and 94 of them took a full review session. A detector
+takes the *shape* that human found — `[-abcXYZ]` collapsing into one flag
+with the rest as a value — and asks whether it occurs on each of ~2,300
+`PATH` tools, in seconds. `xtask detector` is the harness they register in
+(`xtask/src/detector.rs`).
+
+**A family detector is not a correctness instrument and does not need to
+be.** The audit remains the only instrument in this project that touches
+truth, because only there did a human compare output against the tool's own
+reality. A detector's claim is narrower: *this same shape occurs here too*.
+
+That narrowness is exactly where the danger is. A detector produces a
+confident fleet-wide number — *"814 tools exhibit this defect"* — and
+nothing inside that number knows whether the detector fires on the defect it
+names. This project has already shipped that mistake twice with metrics
+(§13.1b): [M-10]'s fabricated `tar` nodes *inflated* `%described`, and
+`%flags_text` carried a name that read as an accuracy claim it never earned.
+A detector is the third instance of the same shape, and the rule that
+follows is stated as a precondition rather than a recommendation:
+
+> **A detector's fleet-wide number is not quotable until it has passed
+> calibration against the human labels: it must fire on the known-bad tools
+> and stay silent on the known-good ones.** A detector that has not passed
+> this check is measuring itself. One that has is an amplifier of a verified
+> human judgment.
+
+**The labelled set, and why it is a weaker claim than the verdicts.** A
+verdict is `correct`/`wrong`/`incomplete` overall; it does not say which
+defect family a wrong parse belongs to, and a detector for one family cannot
+be calibrated against "wrong in general". `mandible_core::audit::Entry`
+therefore carries `families` — a list from the closed `DEFECT_FAMILIES` set
+— alongside `families_derived`, which records that those labels are a
+**machine reading of the reviewer's note plus the fixture evidence**, not
+the reviewer's own classification. The distinction is the same one
+`verdict_scope` exists for and the same one §13.1b's fifth rule demands: a
+claim must be labelled with its real strength. `families_derived` is an
+`Option<bool>` and not a plain `bool` precisely so its *absence* cannot read
+as "a human said so" — labels with no recorded provenance are refused, as
+are labels on a `correct` or `skip` verdict, which would put a tool into a
+detector's expected-fires set on a verdict saying nothing is wrong with it.
+
+**Families are shapes; tool names are data** (§1). The set was derived from
+the seed-2 notes rather than drawn up in advance, and no family is in it
+without a reviewer's note behind it — a family with no labelled member
+calibrates nothing and only makes the set look more complete than the
+evidence supports.
+
+**Unclassified is a recorded state, not a gap to fill.** A judged defect
+whose note nobody could confidently sort — a hedged by-reference note with
+no fixture to check it against — carries no label, and both `xtask detector
+list` and every calibration report print that count. A visible hole bounds
+how complete any family's calibration can be; a hole papered over with a
+guess silently corrupts a cell of the matrix.
+
+**The confusion matrix has five cells, not four.** Beyond fires-on-bad,
+misses, silence-on-good and false alarms, there is *fires on a tool judged
+defective of a **different** family*. That is neither a hit nor a false
+alarm: the human already said this parse is wrong, so a fire there may be a
+mislabel or a genuine second family. Counting it as a false alarm understates
+the detector; counting it as a true positive overstates it. Every cell names
+its tools, because a disagreement is only useful if a human can go look at
+it.
+
+**Not-evaluable is counted, never dropped.** Calibration replays each
+audited tool's `corpus/<tool>/audit-seed2/` fixture — the same frozen-bytes,
+zero-subprocess replay §13.2 uses, so calibration spawns nothing. A labelled
+tool with no fixture is listed by name rather than omitted: a "perfect"
+matrix computed over half the labelled set is a worse claim than an
+imperfect one computed over all of it.
+
+**A detector may legitimately be uncalibratable, and says so.**
+`Detector::family` returns an `Option`, and `None` means "generalizes no
+family this labelled set contains". Both existing fleet oracles return it:
+across all 94 verdicts, **not one reviewer reported a fabricated subcommand
+or flag spelling**, so the existence oracle — the instrument built for
+[M-10], this project's worst shipped defect — can be neither confirmed nor
+refuted here. That is a property of the sample, not of the oracle, and
+reporting it is the honest result. Forcing such a detector onto the nearest
+family would manufacture a matrix out of a correspondence nobody verified,
+which is the original defect one level up.
+
+**Every report states its own limits, in full, every time.** Not a footnote
+and not abbreviated on repeat runs: calibration is against *derived labels*
+over the audit's judged tools — a bounded sample of roughly 4% of `PATH`,
+not the fleet, and not ground truth about the fleet. Passing means a
+detector works on those tools; it says nothing about whether its fleet-wide
+count is right. This is the same discipline the coverage scoreboard's
+literal `accuracy: unmeasured` line enforces (§13.1b), for the same reason:
+a number travels without its context unless the context is printed beside
+it.
 
 ### 13.2 Fixed corpus
 

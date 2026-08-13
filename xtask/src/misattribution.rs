@@ -226,19 +226,7 @@ impl RecordingProbe {
     /// it).
     pub fn root_help_text(&self) -> Option<String> {
         let recordings = self.recordings.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(expanded) = Self::find_root_expansion(&recordings) {
-            if !expanded.stdout.is_empty() || !expanded.stderr.is_empty() {
-                return Some(pick_stream(&expanded.stdout, &expanded.stderr));
-            }
-        }
-        if let Some(long) = recordings.get(&InertArgv::HelpLong.args()) {
-            if !long.stdout.is_empty() || !long.stderr.is_empty() {
-                return Some(pick_stream(&long.stdout, &long.stderr));
-            }
-        }
-        recordings
-            .get(&InertArgv::HelpShort.args())
-            .map(|short| pick_stream(&short.stdout, &short.stderr))
+        root_help_text_from(&recordings)
     }
 
     /// The full recorded `(argv, output)` pair behind [`Self::root_help_text`]
@@ -323,6 +311,35 @@ impl RecordingProbe {
             .find(|(argv, _)| is_root_help_expansion_argv(argv))
             .map(|(argv, output)| (argv.clone(), output))
     }
+}
+
+/// The raw help text a set of recorded `(argv, output)` pairs represents:
+/// prefer a root `--help <topic>` expansion (spec §6 rule 2b), then plain
+/// `--help`, and fall back to `-h` only when the one before it produced
+/// nothing on either stream.
+///
+/// **Factored out of [`RecordingProbe::root_help_text`] rather than
+/// restated**, because a second copy of this selection is precisely the bug
+/// spec §13.1c's K2 table records: `RecordingProbe` once carried its own
+/// superseded copy of [`pick_stream`], and on every tool that banners to
+/// stdout and helps to stderr the existence oracle compared a correct tree
+/// against a version string — 200 spurious fabrications from one duplicated
+/// decision. `crate::detector` needs the same selection over a corpus
+/// fixture's frozen captures rather than a live probe's, so it calls this.
+pub fn root_help_text_from(recordings: &HashMap<Vec<String>, ExecOutput>) -> Option<String> {
+    if let Some(expanded) = RecordingProbe::find_root_expansion(recordings) {
+        if !expanded.stdout.is_empty() || !expanded.stderr.is_empty() {
+            return Some(pick_stream(&expanded.stdout, &expanded.stderr));
+        }
+    }
+    if let Some(long) = recordings.get(&InertArgv::HelpLong.args()) {
+        if !long.stdout.is_empty() || !long.stderr.is_empty() {
+            return Some(pick_stream(&long.stdout, &long.stderr));
+        }
+    }
+    recordings
+        .get(&InertArgv::HelpShort.args())
+        .map(|short| pick_stream(&short.stdout, &short.stderr))
 }
 
 /// True when `argv` is the rendered shape of a *root* [`InertArgv::HelpExpand`]

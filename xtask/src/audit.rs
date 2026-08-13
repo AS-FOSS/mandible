@@ -391,6 +391,12 @@ pub(crate) fn entry_from_classified(
         k2,
         k3,
         include_reason,
+        // A freshly drawn entry has no verdict yet, so it can carry no
+        // defect family either — a family names what is wrong, and nothing
+        // has been judged wrong at draw time. Labels arrive later, either
+        // from a reviewer or (marked as such) derived from their note.
+        families: Vec::new(),
+        families_derived: None,
         amendments: Vec::new(),
     }
 }
@@ -1380,6 +1386,8 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: None,
+                    families: Vec::new(),
+                    families_derived: None,
                     amendments: Vec::new(),
                 })
                 .collect(),
@@ -1845,6 +1853,8 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            families: Vec::new(),
+            families_derived: None,
             amendments: Vec::new(),
         };
         assert_eq!(effective_stratum(&e), "ok");
@@ -1862,6 +1872,8 @@ mod tests {
             k2,
             k3: None,
             include_reason: None,
+            families: Vec::new(),
+            families_derived: None,
             amendments: Vec::new(),
         }
     }
