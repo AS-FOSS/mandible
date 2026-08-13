@@ -2675,7 +2675,10 @@ mod tests {
             cluster,
             constant,
             threshold,
-        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground;
+        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground
+        else {
+            panic!("bundled-short-flag's one exclusion is an arithmetic ground, not a shape one");
+        };
         assert_eq!(threshold, crate::bundling::MIN_BUNDLED_MEMBERS);
         assert_eq!(constant, "bundling::MIN_BUNDLED_MEMBERS");
         assert_eq!(cluster, crate::bundling::SSH_KEYGEN_CLUSTER);

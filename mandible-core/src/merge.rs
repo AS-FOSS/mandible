@@ -241,6 +241,12 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
     let repeatable = bucket.iter().any(|f| f.repeatable);
     let required = bucket.iter().any(|f| f.required);
     let negatable = bucket.iter().any(|f| f.negatable);
+    // Same rule as `negatable`, and for the same reason: one dash or
+    // two is a fact about how the tool spells this option, so a single
+    // source that saw the single-dash spelling is enough — no other
+    // source can have seen it spelled with two and be describing the
+    // same flag.
+    let single_dash = bucket.iter().any(|f| f.single_dash);
     let hidden = bucket.iter().all(|f| f.hidden) && !bucket.is_empty();
     let deprecated = pick_option(
         bucket
@@ -282,6 +288,7 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
         repeatable,
         required,
         negatable,
+        single_dash,
         hidden,
         deprecated,
         inherited,

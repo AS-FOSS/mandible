@@ -178,11 +178,8 @@ fn tail_repeats_short(short: char, tail: &str) -> bool {
 /// usage synopsis — this module's condition 1, and the exact mirror of
 /// [`crate::bundling`]'s.
 fn is_table_sourced(provenance: &Provenance) -> bool {
-    provenance.sources.iter().any(|s| *s == Source::HelpText)
-        && !provenance
-            .sources
-            .iter()
-            .any(|s| *s == Source::HelpTextSynopsis)
+    provenance.sources.contains(&Source::HelpText)
+        && !provenance.sources.contains(&Source::HelpTextSynopsis)
 }
 
 /// One single-dash long option split into a short flag plus a value.

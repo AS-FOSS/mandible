@@ -170,6 +170,10 @@ pub struct FlagSnapshot {
     /// (`--[no-]foo`). `long` holds the base name either way.
     #[serde(skip_serializing_if = "is_false")]
     pub negatable: bool,
+    /// True when `long` is spelled with one dash rather than two (`-help`,
+    /// `-vv`). `long` holds the bare name either way.
+    #[serde(skip_serializing_if = "is_false")]
+    pub single_dash: bool,
     /// True if this flag should be hidden by default.
     #[serde(skip_serializing_if = "is_false")]
     pub hidden: bool,
@@ -206,6 +210,7 @@ impl From<&Flag> for FlagSnapshot {
             repeatable: f.repeatable,
             required: f.required,
             negatable: f.negatable,
+            single_dash: f.single_dash,
             hidden: f.hidden,
             deprecated: f.deprecated.as_ref().map(|t| t.as_str().to_string()),
             inherited: f.inherited,

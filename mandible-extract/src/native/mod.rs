@@ -493,6 +493,7 @@ fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) 
         repeatable: false,
         required: false,
         negatable: false,
+        single_dash: false,
         hidden: false,
         deprecated: None,
         inherited: false,

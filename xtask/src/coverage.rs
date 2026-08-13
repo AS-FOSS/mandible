@@ -14,6 +14,8 @@
 use crate::bundling;
 use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
+use crate::repeated_char;
+use crate::single_dash_long;
 use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
 use rayon::prelude::*;
 use std::collections::BTreeMap;
@@ -179,6 +181,26 @@ struct Row {
     /// [`Self::existence_samples`] — capped per row
     /// ([`BUNDLE_SAMPLES_PER_ROW`]).
     bundle_samples: Vec<String>,
+    /// [`crate::single_dash_long`]'s own measurement: count of this tool's
+    /// option-table rows naming a single-dash long option (`-help`) that
+    /// split into a one-character short flag plus a required value. The
+    /// second of the three families sharing the `short && !long &&
+    /// value_name` fingerprint. **Not gated until the family is repaired**,
+    /// same reasoning as every count above: a brand-new detector with no
+    /// fleet-wide baseline must not fail a build the first time it runs
+    /// (spec §13.1b).
+    single_dash_split_count: usize,
+    /// A few of this row's own splits, pre-formatted, capped per row
+    /// ([`SPLIT_SAMPLES_PER_ROW`]).
+    single_dash_samples: Vec<String>,
+    /// [`crate::repeated_char`]'s own measurement: count of this tool's
+    /// repeated-character flags (`-vv`) read as the bare short flag carrying
+    /// its own letter as a required value. The third family. Same gating
+    /// note as above.
+    repeated_char_misread_count: usize,
+    /// A few of this row's own misreads, pre-formatted, capped per row
+    /// ([`SPLIT_SAMPLES_PER_ROW`]).
+    repeated_char_samples: Vec<String>,
     status: &'static str,
 }
 
@@ -216,6 +238,17 @@ const BUNDLE_SAMPLES_PER_ROW: usize = 3;
 /// `# bundled-short-flag collapses (sample)` section prints — mirrors
 /// [`EXISTENCE_SAMPLE_LIMIT`].
 const BUNDLE_SAMPLE_LIMIT: usize = 20;
+
+/// Cap on how many of one tool's own [`crate::single_dash_long`] splits or
+/// [`crate::repeated_char`] misreads feed their fleet-wide sample sections —
+/// mirrors [`BUNDLE_SAMPLES_PER_ROW`]. One constant for both because the two
+/// families are read from the same capture on the same pass and neither has
+/// a reason to be sampled at a different depth than the other.
+const SPLIT_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on the total number of sample lines each of the two
+/// fingerprint-sibling sections prints — mirrors [`BUNDLE_SAMPLE_LIMIT`].
+const SPLIT_SAMPLE_LIMIT: usize = 20;
 
 /// Aggregate stats. `pct_flags_with_text`, `no_tier_count`, and
 /// `suspicious_count` are the regression gate (spec §13.1: "may not
@@ -352,6 +385,24 @@ pub struct Aggregate {
     /// member after the first. This is the recall number;
     /// `bundle_collapse_tools` is only the blast radius.
     pub bundle_destroyed_flags: usize,
+    /// Tools with at least one [`crate::single_dash_long`] split — an
+    /// option-table row naming a single-dash long option (`-help`) read as a
+    /// one-character short flag plus a required value. The second of the
+    /// three families sharing `bundle_collapse_tools`'s structural
+    /// fingerprint, and blind to the same two oracles for the same reason:
+    /// `-h` occurs in `qemu`'s raw text and carries a description, so
+    /// nothing before this counted it.
+    pub single_dash_split_tools: usize,
+    /// Real flags lost to those splits, fleet-wide — one per split (the long
+    /// spelling itself). Carried beside the tool count for the same reason
+    /// `bundle_destroyed_flags` is, even though the ratio is milder here:
+    /// the tool count is the blast radius, this is the recall cost.
+    pub single_dash_split_flags: usize,
+    /// Tools with at least one [`crate::repeated_char`] misread — `-vv` read
+    /// as `-v` carrying its own letter as a value. The third family.
+    pub repeated_char_tools: usize,
+    /// Real flags lost to those misreads, fleet-wide — one per misread.
+    pub repeated_char_flags: usize,
 }
 
 /// Output format for the rendered scoreboard.
@@ -550,6 +601,38 @@ fn score_one(tool: &str) -> Row {
             _ => (0, 0, Vec::new()),
         };
 
+    // The two remaining families of the three that share the `short &&
+    // !long && value_name` fingerprint, read off the same capture on the
+    // same pass and costing the same zero additional subprocess spawns.
+    let (single_dash_split_count, single_dash_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = single_dash_long::detect(&raw, root);
+                let samples = report
+                    .splits
+                    .iter()
+                    .take(SPLIT_SAMPLES_PER_ROW)
+                    .map(format_single_dash_sample)
+                    .collect();
+                (report.split_count(), samples)
+            }
+            _ => (0, Vec::new()),
+        };
+    let (repeated_char_misread_count, repeated_char_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = repeated_char::detect(&raw, root);
+                let samples = report
+                    .misreads
+                    .iter()
+                    .take(SPLIT_SAMPLES_PER_ROW)
+                    .map(format_repeated_char_sample)
+                    .collect();
+                (report.misread_count(), samples)
+            }
+            _ => (0, Vec::new()),
+        };
+
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -570,6 +653,10 @@ fn score_one(tool: &str) -> Row {
         bundle_collapse_count,
         bundle_destroyed_flags,
         bundle_samples,
+        single_dash_split_count,
+        single_dash_samples,
+        repeated_char_misread_count,
+        repeated_char_samples,
         status: status.label,
     }
 }
@@ -611,6 +698,24 @@ fn format_bundle_sample(collapse: &bundling::Collapse) -> String {
     format!(
         "{}: {:?} read as {} with a required value — {} real flag(s) destroyed",
         collapse.path, collapse.cluster, collapse.spelling, collapse.destroyed,
+    )
+}
+
+/// One split, rendered as a single audit-section line — mirrors
+/// [`format_bundle_sample`]'s shape.
+fn format_single_dash_sample(split: &single_dash_long::Split) -> String {
+    format!(
+        "{}: {:?} split into {} plus a required value",
+        split.path, split.token, split.spelling,
+    )
+}
+
+/// One repeated-character misread, rendered as a single audit-section line —
+/// mirrors [`format_single_dash_sample`]'s shape.
+fn format_repeated_char_sample(misread: &repeated_char::Misread) -> String {
+    format!(
+        "{}: {:?} read as {} carrying its own letter as a value",
+        misread.path, misread.token, misread.spelling,
     )
 }
 
@@ -746,6 +851,16 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         .count();
     let bundle_collapse_tools = rows.iter().filter(|r| r.bundle_collapse_count > 0).count();
     let bundle_destroyed_flags: usize = rows.iter().map(|r| r.bundle_destroyed_flags).sum();
+    let single_dash_split_tools = rows
+        .iter()
+        .filter(|r| r.single_dash_split_count > 0)
+        .count();
+    let single_dash_split_flags: usize = rows.iter().map(|r| r.single_dash_split_count).sum();
+    let repeated_char_tools = rows
+        .iter()
+        .filter(|r| r.repeated_char_misread_count > 0)
+        .count();
+    let repeated_char_flags: usize = rows.iter().map(|r| r.repeated_char_misread_count).sum();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -774,6 +889,10 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         existence_fabrication_tools,
         bundle_collapse_tools,
         bundle_destroyed_flags,
+        single_dash_split_tools,
+        single_dash_split_flags,
+        repeated_char_tools,
+        repeated_char_flags,
     }
 }
 
@@ -888,6 +1007,8 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&misattribution_sample_lines_text(rows));
     out.push_str(&existence_sample_lines_text(rows));
     out.push_str(&bundle_sample_lines_text(rows));
+    out.push_str(&single_dash_sample_lines_text(rows));
+    out.push_str(&repeated_char_sample_lines_text(rows));
     out
 }
 
@@ -1084,6 +1205,76 @@ fn bundle_sample_lines_text(rows: &[Row]) -> String {
     out
 }
 
+/// Plain-text rendering of every row's [`Row::single_dash_samples`] — the
+/// second of the three families that share the `short && !long &&
+/// value_name` fingerprint, printed as its own section for the same reason
+/// [`bundle_sample_lines_text`] prints one: a count with no sample beside it
+/// cannot be judged for false positives by anyone but its author. Mirrors
+/// that function's "nothing to report -> no section" convention exactly.
+fn single_dash_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.single_dash_samples.iter()),
+        "# single-dash-long splits (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for [`crate::repeated_char`].
+fn repeated_char_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.repeated_char_samples.iter()),
+        "# repeated-char-flag misreads (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// The shared body of the two functions above: up to [`SPLIT_SAMPLE_LIMIT`]
+/// samples under `heading`, or nothing at all when there are none. Factored
+/// out rather than copied a fourth time — the three older sections predate
+/// it and are left alone, but a fifth hand-written copy of the same ten
+/// lines is exactly the drift risk `status.rs`'s own doc comment names.
+fn sample_lines_text<'a>(samples: impl Iterator<Item = &'a String>, heading: &str) -> String {
+    let samples: Vec<&String> = samples.take(SPLIT_SAMPLE_LIMIT).collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(heading);
+    for (rank, sample) in samples.iter().enumerate() {
+        out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
+    }
+    out
+}
+
+/// Markdown twin of [`single_dash_sample_lines_text`], for
+/// [`render_markdown`].
+fn single_dash_sample_section_markdown(rows: &[Row]) -> String {
+    sample_section_markdown(
+        rows.iter().flat_map(|r| r.single_dash_samples.iter()),
+        "\n**Single-dash-long splits** (sample — see \
+         `xtask/src/single_dash_long.rs`):\n\n| sample |\n|---|\n",
+    )
+}
+
+/// Markdown twin of [`repeated_char_sample_lines_text`].
+fn repeated_char_sample_section_markdown(rows: &[Row]) -> String {
+    sample_section_markdown(
+        rows.iter().flat_map(|r| r.repeated_char_samples.iter()),
+        "\n**Repeated-char-flag misreads** (sample — see \
+         `xtask/src/repeated_char.rs`):\n\n| sample |\n|---|\n",
+    )
+}
+
+/// The shared body of the two markdown sections above.
+fn sample_section_markdown<'a>(samples: impl Iterator<Item = &'a String>, heading: &str) -> String {
+    let samples: Vec<&String> = samples.take(SPLIT_SAMPLE_LIMIT).collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(heading);
+    for sample in samples {
+        out.push_str(&format!("| {} |\n", md_escape(sample)));
+    }
+    out
+}
+
 /// Markdown rendering of [`bundle_sample_lines_text`]'s result, for
 /// [`render_markdown`].
 fn bundle_sample_section_markdown(rows: &[Row]) -> String {
@@ -1209,6 +1400,18 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.bundle_collapse_tools, aggregate.bundle_destroyed_flags,
     ));
     out.push_str(&format!(
+        "**Single-dash-long splits:** {} tool(s) whose option table names a single-dash long \
+         option that was read as a one-character short flag plus a required value, losing {} \
+         real flag(s) fleet-wide — see `xtask/src/single_dash_long.rs`.\n\n",
+        aggregate.single_dash_split_tools, aggregate.single_dash_split_flags,
+    ));
+    out.push_str(&format!(
+        "**Repeated-char-flag misreads:** {} tool(s) whose `-vv`-shaped flag was read as `-v` \
+         carrying its own letter as a value, losing {} real flag(s) fleet-wide — see \
+         `xtask/src/repeated_char.rs`.\n\n",
+        aggregate.repeated_char_tools, aggregate.repeated_char_flags,
+    ));
+    out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
         aggregate.total,
@@ -1224,6 +1427,8 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&misattribution_sample_section_markdown(rows));
     out.push_str(&existence_sample_section_markdown(rows));
     out.push_str(&bundle_sample_section_markdown(rows));
+    out.push_str(&single_dash_sample_section_markdown(rows));
+    out.push_str(&repeated_char_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
@@ -1259,7 +1464,7 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -1272,6 +1477,10 @@ fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.existence_fabrication_tools,
         aggregate.bundle_collapse_tools,
         aggregate.bundle_destroyed_flags,
+        aggregate.single_dash_split_tools,
+        aggregate.single_dash_split_flags,
+        aggregate.repeated_char_tools,
+        aggregate.repeated_char_flags,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -1349,6 +1558,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // such key at all, so `--check` against one must still work.
     let mut bundle_collapse_tools = 0usize;
     let mut bundle_destroyed_flags = 0usize;
+    let mut single_dash_split_tools = 0usize;
+    let mut single_dash_split_flags = 0usize;
+    let mut repeated_char_tools = 0usize;
+    let mut repeated_char_flags = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -1376,6 +1589,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             }
             "bundle_collapse_tools" => bundle_collapse_tools = value.parse::<usize>().ok()?,
             "bundle_destroyed_flags" => bundle_destroyed_flags = value.parse::<usize>().ok()?,
+            "single_dash_split_tools" => single_dash_split_tools = value.parse::<usize>().ok()?,
+            "single_dash_split_flags" => single_dash_split_flags = value.parse::<usize>().ok()?,
+            "repeated_char_tools" => repeated_char_tools = value.parse::<usize>().ok()?,
+            "repeated_char_flags" => repeated_char_flags = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -1402,6 +1619,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         existence_fabrication_tools,
         bundle_collapse_tools,
         bundle_destroyed_flags,
+        single_dash_split_tools,
+        single_dash_split_flags,
+        repeated_char_tools,
+        repeated_char_flags,
     })
 }
 
@@ -1726,6 +1947,10 @@ mod tests {
             bundle_collapse_count: 0,
             bundle_destroyed_flags: 0,
             bundle_samples: Vec::new(),
+            single_dash_split_count: 0,
+            single_dash_samples: Vec::new(),
+            repeated_char_misread_count: 0,
+            repeated_char_samples: Vec::new(),
             status,
         }
     }

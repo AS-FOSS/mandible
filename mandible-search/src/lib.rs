@@ -242,6 +242,7 @@ mod tests {
             repeatable: false,
             required: false,
             negatable: false,
+            single_dash: false,
             hidden: false,
             deprecated: None,
             inherited: false,
