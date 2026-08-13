@@ -13,15 +13,16 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# "[-AbdDefhHIJKlLnNOpqStuUvxX#]" — a bundle of ~24 single-char boolean
-# flags at the start of the synopsis — verified this becomes ONE flag:
-# short='A', value_name='bdDefhHIJKlLnNOpqStuUvxX#', value_kind=Required,
-# i.e. every letter after the first is read as a single giant required
-# value on "-A". None of those bundled letters exists as its own flag;
-# "-v" is picked here since no currently-detected flag shares its
-# (case-sensitive) first character.
-must_contain_flags = ["-v"]
-
-[xfail]
-broken = true
-reason = "single dash, single characater issue"
+# "[-AbdDefhHIJKlLnNOpqStuUvxX#]" is a bundle of 26 single-char boolean
+# flags. It used to become ONE flag — short='A' carrying the other 25 as
+# value_name='bdDefhHIJKlLnNOpqStuUvxX#' — and the whole bundle is now
+# listed member by member below, including tcpdump's real '#' switch. The
+# widest cluster in the corpus, so it is the one that pins every branch of
+# the rule at once: alphabetized, case-interleaved (hH/lL/uU/xX), and
+# carrying a non-alphanumeric member.
+must_contain_flags = [
+    "-A", "-b", "-d", "-D", "-e", "-f", "-h", "-H", "-I", "-J", "-K", "-l",
+    "-L", "-n", "-N", "-O", "-p", "-q", "-S", "-t", "-u", "-U", "-v", "-x",
+    "-X", "-#",
+]
+verdict_scope = ["flags", "subcommands"]

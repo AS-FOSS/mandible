@@ -15,13 +15,13 @@ exit_code = 1
 
 [contract]
 expected_framework = "generic"
-# "[-BeEksvxX]" (a bundle of single-char flags) becomes ONE entry:
-# short='B', value_name='eEksvxX', value_kind=Required — every letter
-# after the first is swallowed as a single required value. No flag
-# currently has short=='v' (the only other flag is 'b', lowercase,
-# distinct from this bundle).
-must_contain_flags = ["-v"]
-
-[xfail]
-broken = true
-reason = "possibly wrong flags"
+# "[-BeEksvxX]" is a bundle of 8 single-char flags. It used to become ONE
+# entry — short='B' carrying value_name='eEksvxX' — and all eight are now
+# their own flag.
+#
+# The reason this fixture is worth keeping beside tmux's: the same synopsis
+# line also carries "[-b{blocksize}[KMG]]", which is glued, synopsis-sourced
+# and bundle-shaped in every way except that its value opens with '{'. It
+# must stay a single valued flag, and the snapshot asserts that it does.
+must_contain_flags = ["-B", "-e", "-E", "-k", "-s", "-v", "-x", "-X"]
+verdict_scope = ["flags", "subcommands"]
