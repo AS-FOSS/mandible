@@ -717,7 +717,12 @@ fn flag_name_spec(flag: &Flag) -> String {
         spec.push_str(", ");
     }
     if let Some(l) = &flag.long {
-        spec.push_str("--");
+        // One dash or two is reconstructed for display from `single_dash`,
+        // exactly like `[no-]` below: the IR's `long` is always the bare
+        // name (`"help"`, never `"-help"`), so a tool spelling its long
+        // options with one dash (`qemu -help`, `bpftrace -vv`) would
+        // otherwise be shown a spelling that does not work.
+        spec.push_str(if flag.single_dash { "-" } else { "--" });
         // Reconstruct the getopt_long `--[no-]foo` convention for display
         // from `negatable` — the IR's `long` is always the base name
         // (never `[no-]foo`/`no-foo`), so this is the one place that

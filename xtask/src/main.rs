@@ -14,7 +14,9 @@ mod dropped_alias;
 mod existence;
 mod misattribution;
 mod queue;
+mod repeated_char;
 mod rng;
+mod single_dash_long;
 mod status;
 mod transition;
 
@@ -1110,6 +1112,60 @@ fn run_coverage(
         if !table_ratchet.holds() {
             regressed = true;
         }
+
+        // `repeated-char-flag` (`crate::repeated_char`), the second of the
+        // three families sharing the `short && !long && value_name`
+        // fingerprint, on exactly the terms `bundled-short-flag` reached
+        // above and after the same movement: reported-and-ungated while the
+        // number had no baseline, ratcheted at a literal zero once the
+        // repair landed (`help_text::sections::repair_repeated_character_flags`).
+        // Gated against `0` and not against `previous` for the same reason —
+        // the checked-in scoreboard is editable, so a commit reintroducing
+        // the defect would otherwise raise its own baseline — and gated on
+        // the detector's own self-checks alongside the count, because a gate
+        // on `count == 0` alone is satisfied by deleting the detector.
+        if fresh.repeated_char_tools != previous.repeated_char_tools
+            || fresh.repeated_char_flags != previous.repeated_char_flags
+        {
+            println!(
+                "repeated-char-flag misreads changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
+                previous.repeated_char_tools,
+                previous.repeated_char_flags,
+                fresh.repeated_char_tools,
+                fresh.repeated_char_flags,
+            );
+        }
+        let repeat_ratchet = detector::ratchet_at_zero(
+            detector::find("repeated-char-flag")?.as_ref(),
+            fresh.repeated_char_tools,
+            fresh.repeated_char_flags,
+        );
+        println!("\n{}", repeat_ratchet.report());
+        if !repeat_ratchet.holds() {
+            regressed = true;
+        }
+
+        // `single-dash-long` (`crate::single_dash_long`), the third family,
+        // is **reported and deliberately not gated**: its detector passes
+        // calibration but the family is NOT repaired — there is no fix for
+        // it in this tree, so its fleet count is a live defect measurement,
+        // not a zero to hold. Gating it now would fail every build for a bug
+        // nobody has fixed yet, which is the same "a metric with no measured
+        // baseline must not silently fail a run" rule (spec §13.1b) read in
+        // the other direction. It becomes a ratchet on the commit that
+        // repairs it, exactly as the two above did.
+        if fresh.single_dash_split_tools != previous.single_dash_split_tools
+            || fresh.single_dash_split_flags != previous.single_dash_split_flags
+        {
+            println!(
+                "single-dash-long splits changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s) (reported, not gated — the family is not repaired)",
+                previous.single_dash_split_tools,
+                previous.single_dash_split_flags,
+                fresh.single_dash_split_tools,
+                fresh.single_dash_split_flags,
+            );
+        }
+
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }

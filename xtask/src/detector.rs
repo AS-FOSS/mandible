@@ -269,6 +269,26 @@ pub enum Ground {
         token: &'static str,
         family: &'static str,
     },
+    /// The witness writes its tail in brackets, so the grammar records the
+    /// value as `ValueKind::Optional` — outside a Required-only fingerprint
+    /// by construction. A property of the token's shape, not of the tool.
+    OptionalBracketedTail { token: &'static str },
+    /// The witness carries a tail that is not an option name, so no rule
+    /// reading a tail as the rest of a name can claim it. Again a property
+    /// of the token, checked rather than asserted.
+    TailIsNotAnOptionName { token: &'static str },
+}
+
+/// Characters an option name may be spelled with — used by
+/// [`Ground::TailIsNotAnOptionName`] to recompute its own disqualification
+/// rather than take an author's word for it.
+fn is_option_name_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '-'
+}
+
+/// Everything after a witness token's leading `-` and first flag character.
+fn witness_tail(token: &str) -> String {
+    token.chars().skip(2).collect()
 }
 
 /// The widest run of spaces in `row` that sits between two `-`-initial
@@ -311,7 +331,9 @@ impl Ground {
             // decision here instead of silently defaulting to zero.
             Ground::UnreadableEntryShape { .. }
             | Ground::AcrossDescriptionColumn { .. }
-            | Ground::InsideAlternationGroup { .. } => 0,
+            | Ground::InsideAlternationGroup { .. }
+            | Ground::OptionalBracketedTail { .. }
+            | Ground::TailIsNotAnOptionName { .. } => 0,
         }
     }
 
@@ -423,6 +445,40 @@ impl Ground {
                 }
                 Ok(())
             }
+            Ground::OptionalBracketedTail { token } => {
+                if !token.starts_with('-') || token.chars().count() < 2 {
+                    return Err(format!(
+                        "witness {token:?} is not a flag token (it must start with `-` and name \
+                         at least one flag character)"
+                    ));
+                }
+                let tail = witness_tail(token);
+                if !tail.contains('[') || !tail.contains(']') {
+                    return Err(format!(
+                        "witness {token:?} writes no bracketed tail, so its value is not \
+                         Optional and this tool is inside the detector's declared scope — a miss \
+                         on it is a false negative, not an exclusion"
+                    ));
+                }
+                Ok(())
+            }
+            Ground::TailIsNotAnOptionName { token } => {
+                if !token.starts_with('-') || token.chars().count() < 3 {
+                    return Err(format!(
+                        "witness {token:?} is not a flag token with a tail (it must start with \
+                         `-`, name a flag character, and carry at least one more)"
+                    ));
+                }
+                let tail = witness_tail(token);
+                if tail.chars().all(is_option_name_char) {
+                    return Err(format!(
+                        "witness {token:?} has the option-name-shaped tail {tail:?}, so this tool \
+                         is inside the detector's declared scope — a miss on it is a false \
+                         negative, not an exclusion"
+                    ));
+                }
+                Ok(())
+            }
         }
     }
 
@@ -465,6 +521,20 @@ impl Ground {
                     .count(),
                 mandible_core::audit::family_meaning(family).unwrap_or("(undeclared)"),
             ),
+            Ground::OptionalBracketedTail { token } => format!(
+                "the real token {token:?} writes its tail in brackets, which the grammar records \
+                 as ValueKind::Optional — outside a Required-only fingerprint by construction, \
+                 a property of the token's shape, not of the tool"
+            ),
+            Ground::TailIsNotAnOptionName { token } => {
+                let tail = witness_tail(token);
+                let offender: String = tail.chars().filter(|c| !is_option_name_char(*c)).collect();
+                format!(
+                    "the real token {token:?} has the tail {tail:?}, which carries {offender:?} — \
+                     not an option-name character, so no rule that reads a tail as the rest of a \
+                     name can claim it. A property of the token's shape, not of the tool"
+                )
+            }
         }
     }
 }
@@ -641,6 +711,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(BraceAlternationFlag),
         Box::new(UnparsedCommandTable),
         Box::new(DroppedAliasDetector),
+        Box::new(SingleDashLong),
+        Box::new(RepeatedCharFlag),
         Box::new(ExistenceOracle),
         Box::new(MisattributionOracle),
     ]
@@ -2041,6 +2113,126 @@ pub fn cmd_self_check(detector: Option<&str>) -> anyhow::Result<()> {
         );
     }
     Ok(())
+}
+
+/// The single-dash long-option split (`crate::single_dash_long`): `-help`
+/// read as `-h` carrying a required value `"elp"`.
+///
+/// The second of the three families sharing `short && !long && value_name`,
+/// and the one spec §13.1's K1 pre-tag is named after. Registered beside
+/// [`BundledShortFlag`] and [`RepeatedCharFlag`] specifically so the
+/// harness's "fired on a tool judged defective of another family" cell can
+/// answer the question the three of them exist to keep honest: whether a
+/// detector for one family is quietly counting another's findings.
+pub(crate) struct SingleDashLong;
+
+/// `single-dash-long`'s declared exclusions. Both are labelled members of the
+/// family that this detector's own conditions refuse, each carrying the
+/// witness token its [`Ground`] recomputes the refusal from.
+const SINGLE_DASH_LONG_EXCLUSIONS: &[Exclusion] = &[
+    Exclusion {
+        tool: "ip",
+        ground: Ground::OptionalBracketedTail {
+            token: crate::single_dash_long::IP_BRACKETED_TOKEN,
+        },
+        note: "ip writes its long options as abbreviation-plus-bracketed-tail \
+               (`-h[uman-readable]`, `-b[atch]`, `-rc[vbuf]`), which the grammar records as an \
+               Optional value — a value spec a human deliberately typed, which this detector's \
+               Required-only fingerprint excludes for the same reason bundling's does",
+    },
+    Exclusion {
+        tool: "sg_emc_trespass",
+        ground: Ground::TailIsNotAnOptionName {
+            token: crate::single_dash_long::SG_EMC_TRESPASS_TOKEN,
+        },
+        note: "its help text glues the layout's own colon onto the flag (`-hr: Set Honor \
+               Reservation bit`), so the tree stores `-h` + \"r:\" and the tail is not a name. \
+               A real miss, and one no tail-shape rule can claim without also admitting every \
+               value spec that leaks punctuation",
+    },
+];
+
+impl Detector for SingleDashLong {
+    fn name(&self) -> &'static str {
+        "single-dash-long"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("single-dash-long")
+    }
+    fn describes(&self) -> &'static str {
+        "an option-table row naming a single-dash long option (`-help`, `-fdump-scos`) parsed as \
+         a one-character short flag carrying the rest of the name as a required value"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::single_dash_long::detect(evidence.raw, evidence.root)
+            .splits
+            .iter()
+            .map(|s| {
+                format!(
+                    "{:?} at {:?} was split into {:?} plus a required value",
+                    s.token, s.path, s.spelling
+                )
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "option-table-sourced (never synopsis) single-dash tokens whose tail is \
+                    option-name-shaped, at least `single_dash_long::MIN_SWALLOWED_CHARS` long, \
+                    not a repeat of the flag's own letter, and uniformly lowercase. The case \
+                    condition is the load-bearing one and it is not free: it is what keeps the \
+                    entire GCC/Clang glued-value convention out (`cargo -Zscript`, `rpcgen \
+                    -Dname`, `makewhatis -Tutf8`, `perl -Idirectory`, `cc -oOUTFILE`), all of \
+                    them correct parses, and it is equally why an UPPERCASE-led long option is \
+                    knowingly out of reach — no measured signal separates the two",
+            known_exclusions: SINGLE_DASH_LONG_EXCLUSIONS,
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::single_dash_long::self_checks()
+    }
+}
+
+pub(crate) struct RepeatedCharFlag;
+
+impl Detector for RepeatedCharFlag {
+    fn name(&self) -> &'static str {
+        "repeated-char-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("repeated-char-flag")
+    }
+    fn describes(&self) -> &'static str {
+        "a flag whose required value is its own short character repeated (`-vv` -> `-v` + \"v\"), \
+         in a document that also declares the bare short flag a boolean"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::repeated_char::detect(evidence.raw, evidence.root)
+            .misreads
+            .iter()
+            .map(|m| {
+                format!(
+                    "{:?} at {:?} was read as {:?} carrying its own letter as a value",
+                    m.token, m.path, m.spelling
+                )
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "repeated-character tokens in a document that ALSO writes the bare short flag \
+                    as a boolean row. That last condition is the whole safety argument and it \
+                    costs real recall: `strace`'s `[-DDD]` and every other synopsis that repeats \
+                    a switch without also writing it alone is out of reach, because the only \
+                    evidence that would admit them is the token's shape — and `lessecho`'s real \
+                    `[-nn]` (a genuine `-n` taking a number) has exactly that shape and is a \
+                    correct parse. No labelled member of this family is excluded",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::repeated_char::self_checks()
+    }
 }
 
 #[cfg(test)]

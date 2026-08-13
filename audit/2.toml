@@ -51,7 +51,10 @@ stratum = "ok"
 verdict = "incomplete"
 note = "missing commands, I can see in help text, but not parsed"
 k1 = true
-families = ["unparsed-subcommand", "value-name-mangled"]
+families = [
+    "unparsed-subcommand",
+    "value-name-mangled",
+]
 families_derived = true
 
 [[entry]]
@@ -113,7 +116,10 @@ tool = "cache_restore"
 stratum = "ok"
 verdict = "wrong"
 note = "flags were not detected"
-families = ["brace-alternation-flag", "unparsed-flag"]
+families = [
+    "brace-alternation-flag",
+    "unparsed-flag",
+]
 families_derived = true
 
 [[entry]]
@@ -161,7 +167,11 @@ stratum = "ok"
 verdict = "incomplete"
 note = "it shows almost everything correctly, but there is an optional -v and --version, but it only displays --version"
 k1 = true
-families = ["bundled-short-flag", "dropped-alias", "brace-alternation-flag"]
+families = [
+    "bundled-short-flag",
+    "dropped-alias",
+    "brace-alternation-flag",
+]
 families_derived = true
 
 [[entry]]
@@ -207,7 +217,10 @@ stratum = "incomplete"
 verdict = "wrong"
 note = "this one is in the similar category of curl's help, where we had a group of separate help texts, in this case we have: common|optimizers|params|target|warnings|[^]{joined|separate|undocumented"
 k1 = true
-families = ["single-dash-long", "unmodeled-help-shape"]
+families = [
+    "single-dash-long",
+    "unmodeled-help-shape",
+]
 families_derived = true
 
 [[entry]]
@@ -259,7 +272,11 @@ verdict = "wrong"
 note = "new formatting/framework where author kind of programmatically puts flag combinations into OPTIONS or OBJECT"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
-families = ["unparsed-subcommand", "single-dash-long", "unparsed-flag"]
+families = [
+    "unparsed-subcommand",
+    "single-dash-long",
+    "unparsed-flag",
+]
 families_derived = true
 
 [[entry]]
@@ -280,7 +297,10 @@ stratum = "ok"
 verdict = "incomplete"
 note = "there is a positional argument 'pid' which is not parsed, but im not sure how it should be"
 k1 = true
-families = ["unparsed-positional", "dropped-alias"]
+families = [
+    "unparsed-positional",
+    "dropped-alias",
+]
 families_derived = true
 
 [[entry]]
@@ -393,6 +413,14 @@ tool = "ntfsfallocate"
 stratum = "ok"
 verdict = "correct"
 k1 = true
+families = ["repeated-char-flag"]
+families_derived = true
+
+[[entry.amendments]]
+previous_verdict = "correct"
+new_verdict = "incomplete"
+new_note = "repeated-char-flag misread: the help text writes '-v  Verbose execution' and '-vv  Very verbose execution' as two rows with two descriptions, and the tree has -v twice — once as a boolean and once carrying a required value 'v'. -vv is not present under any spelling a user could type. Identical defect judged incomplete/wrong on killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt and threadsnoop.bt in this same review."
+reason = "reviewer inconsistency caught in post-review reconciliation, not by the reviewer: ntfsfallocate exhibits the identical repeated-character-flag misread judged incomplete or wrong on all five .bt tools in the same review, but was recorded correct. Same reconciliation the tmux entry already records for the bundled-short-flag collapse."
 
 [[entry]]
 tool = "opensnoop.bt"
@@ -410,7 +438,10 @@ verdict = "incomplete"
 note = "description of flags are missing"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
-families = ["missing-flag-description", "value-name-mangled"]
+families = [
+    "missing-flag-description",
+    "value-name-mangled",
+]
 families_derived = true
 
 [[entry]]
@@ -465,7 +496,10 @@ stratum = "ok"
 verdict = "wrong"
 note = "new 3 column format, also badly parsed flags, it separated the -help into '-h elp'"
 k1 = true
-families = ["single-dash-long", "unmodeled-help-shape"]
+families = [
+    "single-dash-long",
+    "unmodeled-help-shape",
+]
 families_derived = true
 
 [[entry]]
@@ -492,7 +526,10 @@ stratum = "ok"
 verdict = "incomplete"
 note = "missing positinal arguments, i think we never taken those into account"
 k1 = true
-families = ["unparsed-positional", "dropped-alias"]
+families = [
+    "unparsed-positional",
+    "dropped-alias",
+]
 families_derived = true
 
 [[entry]]
@@ -530,7 +567,10 @@ tool = "sg_dd"
 stratum = "ok"
 verdict = "wrong"
 note = "same conditional dynamic flags or whatever bullshit this is"
-families = ["unmodeled-help-shape", "unparsed-flag"]
+families = [
+    "unmodeled-help-shape",
+    "unparsed-flag",
+]
 families_derived = true
 
 [[entry]]
@@ -539,7 +579,10 @@ stratum = "ok"
 verdict = "wrong"
 note = "some flags have no description, some got split because of that single dash not being able to take more than 1 character"
 k1 = true
-families = ["single-dash-long", "missing-flag-description"]
+families = [
+    "single-dash-long",
+    "missing-flag-description",
+]
 families_derived = true
 
 [[entry]]
@@ -547,7 +590,10 @@ tool = "sg_sanitize"
 stratum = "ok"
 verdict = "incomplete"
 note = "close enough, verify if this '--count OC|-c OC' getting parsed into this is correct: '--count OC|c'"
-families = ["value-name-mangled", "dropped-alias"]
+families = [
+    "value-name-mangled",
+    "dropped-alias",
+]
 families_derived = true
 
 [[entry]]
@@ -562,7 +608,10 @@ verdict = "wrong"
 note = "this help text just prints out all the possible combinations together with tools name. kind of got parsed, but i feel like incomplete"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
-families = ["bundled-short-flag", "unmodeled-help-shape"]
+families = [
+    "bundled-short-flag",
+    "unmodeled-help-shape",
+]
 families_derived = true
 
 [[entry]]
@@ -622,7 +671,10 @@ stratum = "ok"
 verdict = "wrong"
 note = "mostly looks fine, but not sure how to make sanitization on this one. Because this tool uses '=' to start the description of flag, which propogates to the tool"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
-families = ["value-name-mangled", "missing-flag-description"]
+families = [
+    "value-name-mangled",
+    "missing-flag-description",
+]
 families_derived = true
 
 [[entry]]
@@ -674,7 +726,10 @@ stratum = "ok"
 verdict = "wrong"
 note = "singe dash issue + missing -c and -C, see the original text"
 k1 = true
-families = ["bundled-short-flag", "unparsed-flag"]
+families = [
+    "bundled-short-flag",
+    "unparsed-flag",
+]
 families_derived = true
 
 [[entry]]

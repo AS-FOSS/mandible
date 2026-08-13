@@ -545,14 +545,22 @@ fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
 /// value spec is still reported (`detect_still_flags_a_genuinely_
 /// fabricated_long_flag_with_a_value_name`).
 fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
+    // One dash or two, from the flag itself. A single-dash long option
+    // (`mandible_core::Flag::single_dash` — `qemu -help`, `bpftrace -vv`,
+    // `lto-dump -CC`) holds its bare name in `long` exactly as a `--`
+    // option does, so searching the raw text for `--vv` would report a
+    // perfectly real, correctly-parsed flag as an invention. Measured: the
+    // repeated-character repair moved `lto-dump` from 10 fabrications to 12
+    // until this was fixed, and both were `-CC`/`-MM`.
+    let dashes = if flag.single_dash { "-" } else { "--" };
     let bases = if flag.negatable {
         vec![
-            format!("--[no-]{long}"),
-            format!("--[no]{long}"),
-            format!("--{long}"),
+            format!("{dashes}[no-]{long}"),
+            format!("{dashes}[no]{long}"),
+            format!("{dashes}{long}"),
         ]
     } else {
-        vec![format!("--{long}")]
+        vec![format!("{dashes}{long}")]
     };
     let Some(value) = &flag.value_name else {
         return bases;
@@ -570,10 +578,11 @@ fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
 /// negatable long flag, `--foo` otherwise, matching
 /// `mandible_core::Flag::spelling`'s own convention for the long half.
 fn display_long(flag: &Flag, long: &str) -> String {
+    let dashes = if flag.single_dash { "-" } else { "--" };
     if flag.negatable {
-        format!("--[no-]{long}")
+        format!("{dashes}[no-]{long}")
     } else {
-        format!("--{long}")
+        format!("{dashes}{long}")
     }
 }
 
@@ -1038,6 +1047,33 @@ mod tests {
         let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].name, "--perf-no");
+    }
+
+    /// A single-dash long option is searched for with one dash, because
+    /// that is how the tool spells it. Left at two, the repeated-character
+    /// repair (`help_text::sections::repair_repeated_character_flags`)
+    /// would have this oracle report `lto-dump`'s perfectly real `-CC` and
+    /// `-MM` as inventions — a correctly-parsed flag counted as a
+    /// fabrication, which is the exact false positive this oracle's zero is
+    /// meant to be trustworthy about. Measured before the fix: `lto-dump`
+    /// went from 10 fabrications to 12, and both were this.
+    #[test]
+    fn a_single_dash_long_option_is_searched_for_with_one_dash() {
+        let raw = "    -v      verbose messages\n    -vv     more verbose messages\n";
+        let mut root = help_text_node("t");
+        let mut flag = help_text_flag(None, Some("vv"), false);
+        flag.single_dash = true;
+        root.flags.push(flag);
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+        // ...and a genuinely invented one is still reported, with the
+        // single-dash spelling it claims to have.
+        let mut root = help_text_node("t");
+        let mut flag = help_text_flag(None, Some("qq"), false);
+        flag.single_dash = true;
+        root.flags.push(flag);
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "-qq");
     }
 
     #[test]

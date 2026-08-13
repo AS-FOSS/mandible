@@ -14,15 +14,15 @@ stderr = "help.stderr.txt"
 
 [contract]
 expected_framework = "generic"
-# "-vv" / "-dd" (repeated-letter bpftrace troubleshooting flags) become
-# short='v'/value_name='v' and short='d'/value_name='d' — the second
-# letter read as a spurious required value instead of part of the flag's
-# own spelling (long stays None). No flag currently has long=="vv" or
-# long=="dd" (bare specs below match `Flag::long` exactly, unlike a
-# "-vv"-style spec which would only check the first character and
-# spuriously match the real, separate "-v"/"-d" flags).
-must_contain_flags = ["vv", "dd"]
+# "-vv" / "-dd" / "-kk" (repeated-letter bpftrace flags). These used to
+# parse as short='v'/value_name='v' and so on — the second letter read as
+# a spurious required value instead of as part of the flag's own spelling,
+# which is what the [xfail] this fixture carried was about. They are now
+# whole single-dash long options: long=="vv", single_dash==true, no value.
+# The bare specs below match `Flag::long` exactly (unlike a "-vv"-style
+# spec, which would only check the first character and spuriously match
+# the real, separate "-v"/"-d" flags), so each one asserts the repaired
+# shape and nothing weaker. "-v"/"-d"/"-k" are asserted alongside them
+# because the repair must not consume the boolean it reads as evidence.
+must_contain_flags = ["vv", "dd", "kk", "-v", "-d", "-k"]
 
-[xfail]
-broken = true
-reason = "flags are missing. for example -vv and -dd missing from 'TROUBLESHOOTING OPTIONS'"

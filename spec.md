@@ -2007,6 +2007,29 @@ verdict line or note:
   or a repeat of the flag's own letter. A detector for any one of them will
   fire on the other two unless it makes that distinction, which is precisely
   the kind of thing calibration surfaces and a fleet count alone hides.
+
+  **All three are now detected separately, and two of the three are
+  repaired.** `bundled-short-flag` (`xtask/src/bundling.rs`) was fixed at
+  `942890d`; `repeated-char-flag` (`xtask/src/repeated_char.rs`) was fixed by
+  `help_text::sections::repair_repeated_character_flags`, and both are
+  ratchet-gated at zero. `single-dash-long` (`xtask/src/single_dash_long.rs`)
+  is **measured but not repaired**: its detector passes calibration and its
+  fleet count is reported, deliberately ungated, because gating a live defect
+  at its own current value would fail every build for a bug nobody has fixed.
+  Repairing it needs the model change `mandible_core::Flag::single_dash`
+  already provides — a long option spelled with one dash — applied to a much
+  larger and more ambiguous population than the repeated-character family's,
+  and it is not attempted here.
+
+  **The families' hardest boundaries are documented in the detectors, not
+  guessed.** Each is a case where two shapes are identical and only one is a
+  defect: `lessecho`'s real `[-nn]` (a genuine `-n` taking a *number*) has
+  the repeated-character family's exact token shape and is a correct parse,
+  separated only by `lessecho` never writing a bare `-n`; and `cargo
+  -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8` have the single-dash-long
+  family's exact shape and are correct parses, separated only by the
+  uppercase flag letter the glued-value convention uses. Both boundaries are
+  asserted as must-stay-silent self-checks rather than described in prose.
 - **K2**: the existence detector's own tokenizer gap (`xtask::existence`),
   not a parser defect. **Closed.** It was characterized on a full
   2302-tool `PATH` sweep — 656 fabrications, hand-classified by the shape
@@ -2476,7 +2499,39 @@ threshold of zero and a witness that is not a cluster token are refused too.
 Prose survives as a `note` printed *beside* the generated structural
 sentence, never instead of it. A new kind of exclusion means a new `Ground`
 variant with its own predicate — a reviewable change to the vocabulary,
-which typing a new sentence into a `&str` was not.
+which typing a new sentence into a `&str` was not. Two more variants exist
+now, both added for `single-dash-long`'s declared misses and both computed
+from their witness the same way: `OptionalBracketedTail` (`ip`'s real
+`-h[uman-readable]` writes its tail in brackets, so the grammar records
+`ValueKind::Optional` and a `Required`-only fingerprint cannot admit it) and
+`TailIsNotAnOptionName` (`sg_emc_trespass`'s real `-hr:` carries the
+layout's own colon, which is not an option-name character). A witness whose
+tail is clean, or which writes no bracket, is refused — the exclusion cannot
+be claimed for a tool that is squarely inside the scope.
+
+**All three families sharing the K1 fingerprint now have a detector, and
+each is written to reject the other two.** The discriminator is what the
+swallowed text *is* — a switch set, a word, or a run of the flag's own
+letter — never the tool, and each detector asserts the disjointness with its
+own must-stay-silent self-check against the other two families' real tokens.
+Their measured cross-family cell reads 0 in every direction, which is
+exactly the confusion this cell exists to surface: a fleet count alone
+cannot tell "my family occurs 800 times" from "I am counting somebody
+else's."
+
+**Calibration can find a mislabel, and finding one is the mechanism
+working.** `repeated-char-flag`'s first calibration run reported one false
+alarm: `ntfsfallocate`, judged `correct`, whose help text writes `-v
+Verbose execution` and `-vv Very verbose execution` as two rows and whose
+tree loses the second — character for character the defect the same review
+judged `incomplete`/`wrong` on five `.bt` tools. The alternative to amending
+it was loosening the detector until it stopped seeing a defect it can see,
+and there was no room to loosen anyway: the two documents are structurally
+identical. It was amended through `xtask audit amend` (previous verdict, new
+verdict and reason recorded in the entry), on the same mechanism and the
+same justification as the `tmux` amendment §13.1c already carries. **A false
+alarm is never waived — it is either a detector bug or a label bug, and
+which one has to be argued in the commit that resolves it.**
 
 ### 13.2 Fixed corpus
 
@@ -2534,6 +2589,15 @@ mechanism working exactly as intended: `xfs_io`'s gap was
 `[[-c|-C] cmd]...` and `eqn`'s was `{-v | --version}`, both of them the
 alternation family rather than the bundle one, and both fixture comments
 said so in words while they were still red. Both directions are checked on every run, not
+this particular fix closed. The repeated-character-flag repair (§13.1e) is
+the second case and a cleaner one: **all five** of that family's `[xfail]`
+fixtures — `killsnoop.bt`, `naptime.bt`, `opensnoop.bt`, `tcpaccept.bt`,
+`threadsnoop.bt` — flipped in the run that landed the fix and were promoted,
+and their contracts were *strengthened* on promotion rather than merely
+un-marked: each now also asserts the bare `-v`/`-d`/`-k` booleans the repair
+reads as its own evidence, because a repair that consumed them would satisfy
+the old `must_contain_flags = ["vv", "dd"]` and destroy the tool. Both
+directions are checked on every run, not
 only the "did it get fixed" one: a fixture claiming to be broken while
 every check quietly passes is exactly as much a bug as an unmarked
 regression.

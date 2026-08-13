@@ -32,9 +32,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'v'
-  value_name: v
-  value_kind: Required
+- long: vv
+  single_dash: true
   description: Very verbose execution
   provenance:
     sources:

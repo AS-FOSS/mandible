@@ -641,7 +641,12 @@ fn own_spellings(flag: &Flag) -> Vec<String> {
         spellings.push(format!("-{short}"));
     }
     if let Some(long) = &flag.long {
-        spellings.push(format!("--{long}"));
+        // One dash or two, from the flag itself — a single-dash long option
+        // (`mandible_core::Flag::single_dash`) is spelled `-vv`, never
+        // `--vv`, and getting this wrong would stop excluding a flag's own
+        // spelling from its own description.
+        let dashes = if flag.single_dash { "-" } else { "--" };
+        spellings.push(format!("{dashes}{long}"));
     }
     spellings
 }

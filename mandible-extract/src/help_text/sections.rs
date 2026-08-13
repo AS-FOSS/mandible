@@ -785,8 +785,146 @@ pub fn parse_with_profile(
         }
     }
 
+    // Last, over everything both scans produced: the repeated-character
+    // flag repair needs the whole node's flag list to answer its own
+    // question (see [`repair_repeated_character_flags`]), so it cannot run
+    // at the row that produced any one flag.
+    repair_repeated_character_flags(&mut result.flags, raw);
+
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result
+}
+
+/// Re-read every `-vv`-shaped flag in `flags` as the multi-character
+/// single-dash option it is, instead of as its own first character carrying
+/// a required value.
+///
+/// # The defect
+///
+/// `bpftrace`'s option table writes six rows and this parser produced four
+/// flags from them:
+///
+/// ```text
+///     -k             emit a warning when a bpf helper returns an error
+///     -kk            check all bpf helper functions
+///     -v                      verbose messages
+///     -vv                     more verbose messages (max 2)
+///     -d                      (dry run) debug info
+///     -dd                     (dry run) verbose debug info
+/// ```
+///
+/// [`parse_flag_spec`] has no way to read `-vv` as one name: `try_short`
+/// takes the `v` and `try_value` glues the second one on as a required
+/// value. So `-k`, `-v` and `-d` land correctly as booleans and `-kk`,
+/// `-vv` and `-dd` land as *the same three letters again*, each carrying one
+/// copy of its own letter — three real, separately-described switches that
+/// are not in the tree under any spelling a user could type. Six of the
+/// seed-2 audit's 94 verdicts are this defect (all five `.bt` wrappers
+/// around `bpftrace`, plus `ntfsfallocate`, whose help text has the identical
+/// `-v`/`-vv` pair).
+///
+/// # The rule, and why it needs the whole list
+///
+/// A flag is rewritten when **all** of these hold — the same four conditions
+/// `xtask`'s `repeated_char` oracle counts the defect with, deliberately and
+/// character for character, because that detector is meant to read zero once
+/// this lands and it can only do that if the fix and the measurement agree
+/// on what the defect is:
+///
+/// 1. it has a short spelling, no long name, and a `Required` value;
+/// 2. the value is that short character repeated
+///    ([`value_repeats_short`]);
+/// 3. **another flag in the same node is the bare boolean spelling of the
+///    same character** ([`documents_bare_boolean`]);
+/// 4. the reconstructed token occurs glued and delimited in the tool's own
+///    raw text ([`token_occurs_glued`]).
+///
+/// **Condition 3 is the whole safety argument, and it is why this is a
+/// post-pass rather than a change to [`parse_flag_spec`].** Conditions 1, 2
+/// and 4 alone are satisfied by `lessecho`'s real `[-nn]`, which is its
+/// genuine "-n followed by a number" flag and a correct parse. Nothing about
+/// the *token* separates the two: same length, same shape, same glued
+/// spelling. What separates them is the document — `bpftrace` writes a row
+/// for `-v` and a row for `-vv` with two different descriptions, while
+/// `lessecho` writes `[-nn]` and never mentions a bare `-n` at all. A tool
+/// that documents `-v` as taking no value has said, in its own words, that
+/// `-vv` cannot be `-v` carrying a value. One fragment cannot see that;
+/// the assembled list can.
+///
+/// The knowing false negative, measured on the fleet and left alone under
+/// the no-false-positives rule: a repeated-character flag whose bare form the
+/// tool never writes on its own row (`strace`'s `[-DDD]`,
+/// `wpa_supplicant`'s `[-BddhKLqqstuvW]`) stays split, because the only
+/// evidence that would admit it is the token's shape and `lessecho`'s `-nn`
+/// has exactly that shape.
+fn repair_repeated_character_flags(flags: &mut [Flag], raw: &str) {
+    let booleans: Vec<char> = flags
+        .iter()
+        .filter(|f| f.value_kind == ValueKind::None)
+        .filter_map(|f| f.short)
+        .collect();
+    for flag in flags.iter_mut() {
+        let Some(short) = flag.short else { continue };
+        if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+            continue;
+        }
+        let Some(value) = flag.value_name.as_deref() else {
+            continue;
+        };
+        if !value_repeats_short(short, value) {
+            continue;
+        }
+        if !booleans.contains(&short) {
+            continue;
+        }
+        let token = format!("-{short}{value}");
+        if !token_occurs_glued(raw, &token) {
+            continue;
+        }
+        // The name is the whole run, `long` holds it bare, and
+        // `single_dash` is what puts one dash in front of it at display
+        // time — see `mandible_core::Flag::single_dash`.
+        flag.long = Some(token[1..].to_string());
+        flag.single_dash = true;
+        flag.short = None;
+        flag.value_name = None;
+        flag.value_kind = ValueKind::None;
+    }
+}
+
+/// True when `value` is one or more copies of `short` and nothing else.
+///
+/// `-vv` stores `"v"`, `-vvv` stores `"vv"`, `strace`'s `[-DDD]` stores
+/// `"DD"`. The emptiness guard matters: an empty value is `Required` with
+/// nothing in it, which `chars().all(..)` would call vacuously true.
+/// Case-sensitive, like every other spelling comparison here — `-v` and `-V`
+/// are different flags, so `-vV` is two flags glued, not one repeated.
+fn value_repeats_short(short: char, value: &str) -> bool {
+    !value.is_empty() && value.chars().all(|c| c == short)
+}
+
+/// True when `candidate` occurs in `raw` as an isolated token: nothing
+/// word-shaped immediately before or after it.
+///
+/// The twin of `xtask::existence::spelling_occurs`, and deliberately the
+/// same rule: `value_name` alone cannot tell `-vv` from `-v v`, since
+/// [`parse_flag_spec`] reads both into the identical fields, and only the
+/// raw text says which one the tool wrote. Char-indexed throughout, never a
+/// byte-offset `&str` slice — AGENTS.md's rule against slicing captured tool
+/// output at a raw byte offset.
+fn token_occurs_glued(raw: &str, candidate: &str) -> bool {
+    let is_word_char = |c: char| c.is_alphanumeric() || c == '-' || c == '_';
+    let hay: Vec<char> = raw.chars().collect();
+    let needle: Vec<char> = candidate.chars().collect();
+    if needle.is_empty() || hay.len() < needle.len() {
+        return false;
+    }
+    (0..=(hay.len() - needle.len())).any(|start| {
+        let end = start + needle.len();
+        hay[start..end] == needle[..]
+            && (start == 0 || !is_word_char(hay[start - 1]))
+            && (end == hay.len() || !is_word_char(hay[end]))
+    })
 }
 
 fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: bool) -> f32 {
@@ -1320,6 +1458,7 @@ fn emit_flags(
             repeatable: false,
             required: false,
             negatable: spec.negatable,
+            single_dash: false,
             hidden: false,
             deprecated: None,
             inherited: false,
@@ -2747,6 +2886,7 @@ fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
         repeatable: false,
         required: false,
         negatable: spec.negatable,
+        single_dash: false,
         hidden: false,
         deprecated: None,
         inherited: false,
@@ -2930,6 +3070,143 @@ fn split_top_level_pipe(content: &str) -> Vec<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- the repeated-character flag repair -----------------------------
+
+    /// `bpftrace`'s real troubleshooting block, byte-exact from
+    /// `corpus/killsnoop.bt/audit-seed2/help.stderr.txt`. Four rows, four
+    /// real flags; before the repair the tree had two.
+    const BPFTRACE_TROUBLESHOOTING: &str = concat!(
+        "TROUBLESHOOTING OPTIONS:\n",
+        "    -v                      verbose messages\n",
+        "    -vv                     more verbose messages (max 2)\n",
+        "    -d                      (dry run) debug info\n",
+        "    -dd                     (dry run) verbose debug info\n",
+    );
+
+    fn flag_named(parsed: &ParsedHelp, long: &str) -> Flag {
+        parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some(long))
+            .unwrap_or_else(|| {
+                panic!(
+                    "no flag long=={long:?} in {:?}",
+                    parsed
+                        .flags
+                        .iter()
+                        .map(|f| f.spelling())
+                        .collect::<Vec<_>>()
+                )
+            })
+            .clone()
+    }
+
+    #[test]
+    fn bpftraces_repeated_character_flags_become_single_dash_long_options() {
+        let parsed = parse(BPFTRACE_TROUBLESHOOTING);
+        for (name, description) in [
+            ("vv", "more verbose messages (max 2)"),
+            ("dd", "(dry run) verbose debug info"),
+        ] {
+            let flag = flag_named(&parsed, name);
+            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            assert_eq!(flag.spelling(), format!("-{name}"));
+            assert_eq!(flag.short, None);
+            assert_eq!(flag.value_name, None);
+            assert_eq!(flag.value_kind, ValueKind::None);
+            assert_eq!(
+                flag.description.as_ref().map(|t| t.as_str()),
+                Some(description),
+                "the row's own description must survive the repair"
+            );
+        }
+        // ...and the booleans the repair reads as its evidence are still
+        // there, untouched. A repair that consumed them would satisfy the
+        // must_contain_flags contract and destroy the tool.
+        for short in ['v', 'd'] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("-{short} must survive"));
+            assert_eq!(flag.value_kind, ValueKind::None);
+        }
+    }
+
+    /// The false positive the whole design turns on: `lessecho`'s `[-nn]`
+    /// is character-for-character this shape and is a correct parse of a
+    /// real flag taking a number. It survives only because `lessecho` never
+    /// writes a bare `-n`.
+    #[test]
+    fn lessechos_real_glued_character_arguments_are_left_alone() {
+        let raw = "usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-a] file ...\n";
+        let parsed = parse(raw);
+        assert!(
+            parsed.flags.iter().all(|f| f.long.is_none()),
+            "no lessecho flag may be rewritten: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+        // ...and the identical token *is* repaired the moment a document
+        // declares the bare spelling a boolean, confirming that condition
+        // is what was doing the work rather than some other one failing.
+        let parsed = parse("  -n         never overwrite\n  -nn        never ever overwrite\n");
+        assert!(flag_named(&parsed, "nn").single_dash);
+    }
+
+    /// A spaced value is indistinguishable from a glued one once
+    /// [`parse_flag_spec`] has stored it, so the raw text is what decides.
+    #[test]
+    fn a_spaced_value_is_never_repaired() {
+        let parsed = parse("  -v         verbose\n  -v v       take a v\n");
+        assert!(
+            parsed.flags.iter().all(|f| f.long.is_none()),
+            "only a glued token may be repaired: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// The other two families sharing the `short && !long && value_name`
+    /// fingerprint must come through untouched, even when the document
+    /// offers the bare boolean the repair looks for.
+    #[test]
+    fn the_bundle_and_long_option_families_are_not_repaired_as_repeats() {
+        let parsed = parse("  -2         two\n  -2CDlNuVv  a cluster\n  -Z         z\n  -Zscript   an unstable flag\n");
+        assert!(
+            parsed.flags.iter().all(|f| f.long.is_none()),
+            "{:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn value_repeats_short_is_case_sensitive_and_rejects_empty() {
+        assert!(value_repeats_short('v', "v"));
+        assert!(value_repeats_short('v', "vv"));
+        assert!(!value_repeats_short('v', "V"));
+        assert!(!value_repeats_short('W', "all"));
+        assert!(!value_repeats_short('v', ""));
+    }
+
+    #[test]
+    fn token_occurs_glued_needs_both_boundaries() {
+        assert!(token_occurs_glued("    -vv    more verbose\n", "-vv"));
+        assert!(!token_occurs_glued("    -vvv   even more\n", "-vv"));
+        assert!(!token_occurs_glued("    -v v   spaced\n", "-vv"));
+        assert!(!token_occurs_glued("", "-vv"));
+    }
 
     // These two captures live once, as the corpus regression fixtures
     // (`corpus/tar/1.35/help.txt`, `corpus/git/2.43.0/help.txt` — see
