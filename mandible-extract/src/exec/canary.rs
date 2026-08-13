@@ -110,6 +110,18 @@ pub struct PtyCanary {
     slave_path: Option<PathBuf>,
     tripped: Arc<AtomicBool>,
     captured: Arc<Mutex<Vec<u8>>>,
+    /// Held for the canary's whole lifetime, deliberately never dropped
+    /// early. Measured directly while building this module: dropping the
+    /// slave fd right after reading its path (keeping only the master
+    /// open) let a *second, external* open of the same `/proc/self/fd`-
+    /// resolved path fail with `ENOENT` moments later — i.e. the devpts
+    /// entry did not reliably outlive the slave fd the way the "only one
+    /// side needs to stay open" folklore suggests on every kernel. Keeping
+    /// both fds referenced for as long as this struct lives is the
+    /// version that was actually verified to keep the path openable by
+    /// something else throughout, which is the whole point of exposing a
+    /// path at all.
+    _slave: std::os::fd::OwnedFd,
     _reader: JoinHandle<()>,
 }
 
@@ -125,9 +137,6 @@ impl PtyCanary {
 
         let slave_raw_fd: std::os::fd::RawFd = std::os::fd::AsRawFd::as_raw_fd(&pty.slave);
         let slave_path = std::fs::read_link(format!("/proc/self/fd/{slave_raw_fd}")).ok();
-        // Drop the slave fd now that its path is captured — the master
-        // alone keeps the pty alive (see this struct's doc comment).
-        drop(pty.slave);
 
         let tripped = Arc::new(AtomicBool::new(false));
         let captured = Arc::new(Mutex::new(Vec::new()));
@@ -155,6 +164,7 @@ impl PtyCanary {
             slave_path,
             tripped,
             captured,
+            _slave: pty.slave,
             _reader: reader,
         })
     }
@@ -511,7 +521,7 @@ mod tests {
     /// short-circuiting on the first one found.
     #[test]
     fn canary_set_reports_every_trip_a_misbehaving_probe_causes() {
-        let watch_dir = tempfile::tempdir().unwrap().into_path();
+        let watch_dir = tempfile::tempdir().unwrap().keep();
         let mut set = CanarySet::spawn(watch_dir.clone()).expect("canary set should spawn");
         assert!(
             set.check().is_empty(),

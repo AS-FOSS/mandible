@@ -272,3 +272,132 @@ pub fn default_watch_dir() -> io::Result<PathBuf> {
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    /// **Checked, not assumed.** This module's own doc comment says every
+    /// namespace type it needs was "confirmed working on this host before
+    /// this module was written" — this test is what keeps that claim
+    /// honest on every future run rather than letting it go stale. If a
+    /// CI image or dev box loses one of the three (an old kernel,
+    /// `CONFIG_USER_NS` disabled, a container denying nested namespaces),
+    /// this fails loudly instead of `enter_or_refuse` silently starting to
+    /// refuse every sweep with no test ever having said why.
+    #[test]
+    fn namespace_support_is_confirmed_on_this_host() {
+        let support = probe_namespace_support();
+        assert!(
+            support.all_supported(),
+            "expected user+PID+mount namespaces all available on this host, got {support:?} — \
+             see this module's doc comment for the exact `unshare` invocations probed"
+        );
+    }
+
+    /// The failure path of the underlying probe: an invocation `unshare`
+    /// itself rejects must report `false`, not panic or silently succeed.
+    /// Deterministic and independent of any real namespace working —
+    /// unlike the positive test above, this does not depend on host
+    /// capabilities at all, only on `unshare` recognizing its own flags.
+    #[test]
+    fn unshare_probe_reports_false_on_a_failing_invocation() {
+        assert!(!unshare_probe(&["--this-flag-does-not-exist", "--", "true"]));
+    }
+
+    /// `NamespaceSupport::all_supported` is conjunctive: any single `false`
+    /// must fail it, not just all three at once. Partial support is
+    /// treated as no support, per this module's own containment claim.
+    #[test]
+    fn all_supported_requires_every_axis() {
+        let combos = [
+            (false, true, true),
+            (true, false, true),
+            (true, true, false),
+            (true, true, true),
+        ];
+        for (user, pid, mount) in combos {
+            let support = NamespaceSupport { user, pid, mount };
+            assert_eq!(support.all_supported(), user && pid && mount, "{support:?}");
+        }
+    }
+
+    const ROLE_VAR: &str = "MANDIBLE_CONTAINMENT_TEST_ROLE";
+    const WORKER_ROLE: &str = "reexec-worker";
+
+    /// End-to-end proof that [`enter_or_refuse`] actually lands the
+    /// process inside a fresh user+PID+mount namespace — not just that it
+    /// constructs a plausible-looking argv. Uses the same "spawn a fresh
+    /// copy of this test binary" pattern as `tests/exec_policy.rs`'s
+    /// `dev_tty_hazard` test, for the same reason: the real behaviour only
+    /// happens through a full process-image replacement (`exec`), which
+    /// cannot be exercised safely inside the already-running,
+    /// multi-threaded test process itself.
+    #[test]
+    fn enter_or_refuse_lands_inside_a_fresh_namespace() {
+        if std::env::var(ROLE_VAR).as_deref() == Ok(WORKER_ROLE) {
+            run_reexec_worker();
+        }
+
+        if !probe_namespace_support().all_supported() {
+            // Already asserted by `namespace_support_is_confirmed_on_this_host`
+            // above; this test only adds the re-exec proof on top and
+            // would be a redundant, confusing second failure here.
+            panic!("namespace support is missing — see namespace_support_is_confirmed_on_this_host for the breakdown");
+        }
+
+        let exe = std::env::current_exe().expect("path to this test binary");
+        let output = Command::new(&exe)
+            .arg("--exact")
+            .arg("exec::containment::tests::enter_or_refuse_lands_inside_a_fresh_namespace")
+            .arg("--nocapture")
+            .arg("--test-threads=1")
+            .env(ROLE_VAR, WORKER_ROLE)
+            .env_remove(CONTAINED_ENV_VAR)
+            .output()
+            .expect("spawn a fresh worker copy of this test binary");
+
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        assert!(
+            stdout.contains("CONTAINED:uid=0"),
+            "worker did not report landing inside the namespace as uid 0 (exit={:?}):\nstdout={stdout}\nstderr={stderr}",
+            output.status.code()
+        );
+    }
+
+    /// Becomes the re-exec target. On its first run (uncontained) it calls
+    /// the real production function under test; `unshare` replaces this
+    /// very process, so a *second* incarnation of this same function runs
+    /// afterward, this time contained, and reports what it observed.
+    /// Always exits the process rather than returning, exactly like
+    /// `dev_tty_hazard`'s worker — it must never fall back into the
+    /// orchestrator's own test-body logic above.
+    fn run_reexec_worker() -> ! {
+        if is_contained() {
+            let uid = effective_uid().map(|u| u.to_string()).unwrap_or_else(|| "?".to_string());
+            let pid = std::process::id();
+            println!("CONTAINED:uid={uid},pid={pid}");
+            std::process::exit(0);
+        }
+        let err = enter_or_refuse();
+        eprintln!("enter_or_refuse did not land inside the namespace: {err}");
+        std::process::exit(2);
+    }
+
+    /// The effective UID, read from `/proc/self/status` rather than a
+    /// `libc`/`nix` syscall wrapper: this crate's `#![deny(unsafe_code)]`
+    /// allows exactly one audited exception (`spawn.rs`'s `setsid`
+    /// `pre_exec`), and `nix::unistd::Uid` additionally needs a crate
+    /// feature this workspace does not enable — plain, safe file I/O
+    /// avoids both for what is only ever a test-diagnostic read.
+    fn effective_uid() -> Option<u32> {
+        let status = std::fs::read_to_string("/proc/self/status").ok()?;
+        for line in status.lines() {
+            if let Some(rest) = line.strip_prefix("Uid:") {
+                return rest.split_whitespace().nth(1)?.parse().ok();
+            }
+        }
+        None
+    }
+}
