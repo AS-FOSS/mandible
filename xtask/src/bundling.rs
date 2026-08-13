@@ -174,6 +174,43 @@
 //! is exactly the population this module reports, and the reason it reads
 //! the tree rather than grepping the text.
 //!
+//! # The fix, and what this oracle became
+//!
+//! **The defect is closed.** `help_text::grammar::parse_bundled_shorts`
+//! reads a synopsis cluster as the set of switches it is, and the same full
+//! `PATH` sweep that measured 58 tools / 465 destroyed flags now reports
+//! **0 tools and 0 destroyed flags**. A `sweep-diff` across the two
+//! scoreboards shows **0 flag-count losses across 0 tools** and no status
+//! transition outside the near-cap timing set, against **489 flags gained
+//! across 67 tools** — `tcpdump` +25, `groff` +22, `ssh` +22, `dhcpcd` +21.
+//!
+//! 67 gaining tools against 58 reported ones is the text-versus-tree gap
+//! this section already described, seen from the other side: nine more
+//! tools had a cluster whose *first* member was already in an options table
+//! (so no collapse survived into the tree for this module to see) while the
+//! rest of the cluster was documented nowhere else.
+//!
+//! **The fix and this module share their rule deliberately.** The five
+//! conditions `parse_bundled_shorts` applies are these seven minus the two
+//! that only make sense when reading a tree (the source check and the
+//! reconstruct-and-search check, both structural consequences of asking the
+//! question at the synopsis token instead). A detector meant to be ratcheted
+//! at zero and a fix meant to reach zero have to agree character for
+//! character on what the defect *is*, or the zero means nothing.
+//!
+//! **Calibration now inverts, and that is expected.** `xtask detector
+//! calibrate --detector bundled-short-flag` reported 4 hits before the fix
+//! and reports 0% recall after it, naming `tcpdump`, `tmux`, `filefrag`,
+//! `xfs_io`, `ssh-keygen` and `eqn` as misses — because every one of those
+//! fixtures is now parsed correctly and there is no longer a defect to fire
+//! on. Spec §13.1e's precondition ("not quotable until it has passed") is a
+//! claim about the labels, which were recorded against the *pre-fix* parser;
+//! once a family is fixed, its labelled set can no longer confirm anything,
+//! and a detector that keeps reading zero is doing its job. What still
+//! demonstrates the rule has teeth is this module's own hand-built tests:
+//! they build the collapsed shape directly and assert every condition fires
+//! on it.
+//!
 //! # No new probes, not gated
 //!
 //! Identical to [`crate::existence`] on both counts, for identical reasons:
