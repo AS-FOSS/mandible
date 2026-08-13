@@ -110,6 +110,46 @@ pub trait Detector {
     /// bare `bool` is what makes a disagreement checkable by hand: a false
     /// alarm is only useful if you can see what the detector thought it saw.
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String>;
+
+    /// What this detector claims to catch, and — by name — what it
+    /// deliberately does not, mirroring `corpus/README.md`'s
+    /// `verdict_scope`: a narrower, explicit claim is honest where a silent
+    /// one would overclaim. The default is the full family with no declared
+    /// exclusion, which is the right answer for a detector with no measured,
+    /// deliberate gap.
+    ///
+    /// A tool named in [`Scope::known_exclusions`] moves calibration's
+    /// silent-on-labelled-bad cell from a false negative to a named
+    /// out-of-scope miss ([`Calibration::out_of_scope_misses`]) *only when
+    /// it is actually silent this run* — it never excuses a false alarm,
+    /// and [`render`] prints the whole declared list on every run,
+    /// regardless of whether the detector otherwise looks clean, so the
+    /// exclusion can never quietly stop being named.
+    fn scope(&self) -> Scope {
+        Scope::full()
+    }
+}
+
+/// A detector's declared scope: see [`Detector::scope`].
+pub struct Scope {
+    /// One line saying what the detector claims to catch, printed above
+    /// every calibration matrix next to [`Detector::describes`].
+    pub claim: &'static str,
+    /// Tools the detector's own author already knows it will not catch,
+    /// each paired with the reason it is out of bounds. `(tool, reason)`.
+    pub known_exclusions: &'static [(&'static str, &'static str)],
+}
+
+impl Scope {
+    /// No declared exclusion: every labelled member of the family is in
+    /// scope. The default for a detector that has not measured a
+    /// deliberate gap.
+    pub fn full() -> Self {
+        Scope {
+            claim: "every labelled member of the family (no declared exclusion)",
+            known_exclusions: &[],
+        }
+    }
 }
 
 /// Every detector this build knows about.
@@ -310,6 +350,21 @@ impl Detector for BundledShortFlag {
             })
             .collect()
     }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "synopsis-sourced short-flag clusters with 2 or more swallowed members \
+                    (`bundling::MIN_BUNDLED_MEMBERS`); a single swallowed member is deliberately \
+                    excluded because the fleet scan found it genuinely ambiguous — see this \
+                    detector's own module doc comment for the measured counter-examples \
+                    (`xxd -ps`, `which -as`, `sg_map -st`, `mandoc -ac`) that a looser threshold \
+                    would false-positive on",
+            known_exclusions: &[(
+                "ssh-keygen",
+                "[-hU] swallows one member, below MIN_BUNDLED_MEMBERS=2 — a real collapse this \
+                 detector knowingly does not claim, not an oversight",
+            )],
+        }
+    }
 }
 
 /// The existence oracle (`crate::existence`), registered so the harness's
@@ -423,10 +478,25 @@ pub struct Calibration {
     /// below is then empty and [`render`] says why instead of printing a
     /// matrix of zeroes that would read as a perfect score.
     pub family: Option<&'static str>,
+    /// The detector's own declared scope ([`Detector::scope`]) — carried on
+    /// the result so [`render`] can print the whole declared exclusion list
+    /// unconditionally, independent of what this particular run found.
+    pub scope: Scope,
     /// Labelled with the family, and the detector fired. `(tool, reasons)`.
     pub true_positives: Vec<(String, Vec<String>)>,
-    /// Labelled with the family, and the detector was silent.
+    /// Labelled with the family, and the detector was silent — **and the
+    /// tool is not a declared exclusion of [`Calibration::scope`].** This is
+    /// the cell recall is computed over, i.e. recall *within* the declared
+    /// scope.
     pub false_negatives: Vec<String>,
+    /// Labelled with the family, the detector was silent, **and the tool is
+    /// named in [`Calibration::scope`]'s declared exclusions.** A miss the
+    /// detector never claimed to catch — counted, named and reasoned
+    /// separately from [`Calibration::false_negatives`] rather than folded
+    /// into recall, but never dropped from the report: [`render`] prints
+    /// every declared exclusion every time, in red, whether or not this run
+    /// found it here. `(tool, reason it is out of scope)`.
+    pub out_of_scope_misses: Vec<(String, &'static str)>,
     /// Judged `correct` by a human, and the detector fired anyway.
     pub false_alarms: Vec<(String, Vec<String>)>,
     /// Judged `correct` by a human, and the detector stayed silent.
@@ -449,8 +519,11 @@ pub struct Calibration {
 }
 
 impl Calibration {
-    /// Fired-when-expected over expected — recall against the labelled set,
-    /// `None` when the family has no evaluable labelled member.
+    /// Fired-when-expected over expected, **within the detector's declared
+    /// scope** — [`Calibration::out_of_scope_misses`] is deliberately not in
+    /// either term, because a detector is scored against what it claims,
+    /// not against every shape of the family. `None` when the family has no
+    /// evaluable labelled member in scope.
     pub fn recall(&self) -> Option<f64> {
         let expected = self.true_positives.len() + self.false_negatives.len();
         (expected > 0).then(|| self.true_positives.len() as f64 / expected as f64)
@@ -463,13 +536,17 @@ impl Calibration {
         (good > 0).then(|| self.true_negatives.len() as f64 / good as f64)
     }
 
-    /// The precondition itself: fires on every labelled member it can see,
-    /// and never on a tool a human judged correct.
+    /// The precondition itself: fires on every labelled member within its
+    /// declared scope, and never on a tool a human judged correct.
     ///
-    /// Silence on `correct` tools is required absolutely, while recall is
-    /// required only over what is evaluable — a detector cannot be blamed
-    /// for a tool with no fixture. A detector with no evaluable labelled
-    /// member has demonstrated nothing and does not pass.
+    /// Silence on `correct` tools is required absolutely — scope narrows
+    /// what a detector may be scored on *missing*, never what excuses it
+    /// for *firing wrongly*, so [`Calibration::false_alarms`] blocks a pass
+    /// exactly as before this field existed. Recall is required only over
+    /// what is evaluable and in scope — a detector cannot be blamed for a
+    /// tool with no fixture, nor for a tool it never claimed. A named
+    /// out-of-scope miss never blocks a pass, and it never stops being
+    /// printed either: see [`render`].
     pub fn passes(&self) -> bool {
         self.family.is_some()
             && self.false_alarms.is_empty()
@@ -524,12 +601,15 @@ pub fn calibrate(
     cases: &[Case],
     unclassified: Vec<String>,
 ) -> Calibration {
+    let scope = detector.scope();
     let mut cal = Calibration {
         detector: detector.name(),
         describes: detector.describes(),
         family: detector.family(),
+        scope,
         true_positives: Vec::new(),
         false_negatives: Vec::new(),
+        out_of_scope_misses: Vec::new(),
         false_alarms: Vec::new(),
         true_negatives: Vec::new(),
         fires_on_other_defect: Vec::new(),
@@ -556,9 +636,29 @@ pub fn calibrate(
         });
         match (case.expected(family), case.judged_defect, hits.is_empty()) {
             (true, _, false) => cal.true_positives.push((case.tool.clone(), hits)),
-            (true, _, true) => cal.false_negatives.push(case.tool.clone()),
+            // A labelled miss is only ever *reclassified*, never dropped: a
+            // declared exclusion moves it from false_negatives (which blocks
+            // a pass) to out_of_scope_misses (which does not) — it is still
+            // named, still counted, and render() prints the whole declared
+            // list unconditionally regardless of which cell it lands in.
+            (true, _, true) => {
+                let exclusion = cal
+                    .scope
+                    .known_exclusions
+                    .iter()
+                    .find(|pair| pair.0 == case.tool)
+                    .map(|pair| pair.1);
+                match exclusion {
+                    Some(reason) => cal.out_of_scope_misses.push((case.tool.clone(), reason)),
+                    None => cal.false_negatives.push(case.tool.clone()),
+                }
+            }
             (false, true, false) => cal.fires_on_other_defect.push((case.tool.clone(), hits)),
             (false, true, true) => {}
+            // Scope narrows what a detector may be scored on missing; it
+            // never excuses firing on a tool a human judged correct. A false
+            // alarm reaches this arm unconditionally, declared exclusion or
+            // not.
             (false, false, false) => cal.false_alarms.push((case.tool.clone(), hits)),
             (false, false, true) => cal.true_negatives.push(case.tool.clone()),
         }
@@ -623,6 +723,7 @@ pub fn render(cal: &Calibration, set: &SetSize) -> String {
         Some(f) => s.push_str(&format!("family:   {f}\n")),
         None => s.push_str("family:   (none in the labelled set)\n"),
     }
+    s.push_str(&format!("scope:    {}\n", cal.scope.claim));
     s.push('\n');
     s.push_str(&caveat(set, cal.unclassified.len()));
     s.push_str("\n\n");
@@ -645,6 +746,11 @@ pub fn render(cal: &Calibration, set: &SetSize) -> String {
     s.push_str(&row(
         "silent on labelled-bad  (FALSE NEGATIVE)",
         cal.false_negatives.len(),
+    ));
+    s.push_str(&format!(
+        "  {RED}{:<46}{}{RESET}\n",
+        "silent on labelled-bad, DECLARED OUT OF SCOPE",
+        cal.out_of_scope_misses.len()
     ));
     s.push_str(&row(
         "silent on labelled-good (true negative)",
@@ -679,13 +785,37 @@ pub fn render(cal: &Calibration, set: &SetSize) -> String {
     }
     s.push('\n');
     s.push_str(if cal.passes() {
-        "VERDICT: PASSES calibration. Fires on every evaluable labelled tool and on no \
-         human-judged-correct one. Its fleet-wide count may be quoted — with the caveat above \
-         attached to it.\n"
+        "VERDICT: PASSES calibration within its declared scope. Fires on every evaluable \
+         labelled tool it claims and on no human-judged-correct one. Its fleet-wide count may be \
+         quoted — with the caveat above attached to it, AND with the out-of-scope misses named \
+         immediately below, which a pass never erases.\n"
     } else {
         "VERDICT: DOES NOT PASS calibration. Its fleet-wide count is not quotable yet; see the \
          named tools below.\n"
     });
+
+    // Printed unconditionally — a declared exclusion is a permanent part of
+    // this detector's identity (`Detector::scope`), not data that can
+    // happen to be empty this run. A PASSing verdict above must never be
+    // read as "nothing was missed": if this detector declares any
+    // exclusion, the tool and the reason it doesn't count sit right here,
+    // in red, next to the verdict that would otherwise look complete
+    // without them.
+    s.push_str(&format!(
+        "\n{RED}KNOWN OUT-OF-SCOPE MISSES — declared in code, not measured, never suppressed \
+         ({} declared):{RESET}\n",
+        cal.scope.known_exclusions.len()
+    ));
+    if cal.scope.known_exclusions.is_empty() {
+        s.push_str("  (this detector declares no exclusion — its scope is the full family)\n");
+    } else {
+        for (tool, reason) in cal.scope.known_exclusions {
+            s.push_str(&format!(
+                "  {RED}{tool}{RESET} — {}\n      why out of scope: {reason}\n",
+                exclusion_status(cal, tool)
+            ));
+        }
+    }
 
     s.push_str(&named(
         "fires on labelled (true positives)",
@@ -716,6 +846,27 @@ pub fn render(cal: &Calibration, set: &SetSize) -> String {
         &cal.unclassified,
     ));
     s
+}
+
+/// ANSI red, used only for the known-out-of-scope-misses section: the one
+/// part of the report that must be visually impossible to skim past even in
+/// a run that otherwise PASSES cleanly.
+const RED: &str = "\x1b[31m";
+const RESET: &str = "\x1b[0m";
+
+/// What happened to one of a detector's declared exclusions in this
+/// particular calibration run, cross-checked against every cell it could
+/// have landed in rather than assumed to be a miss.
+fn exclusion_status(cal: &Calibration, tool: &str) -> &'static str {
+    if cal.out_of_scope_misses.iter().any(|(t, _)| t == tool) {
+        "MISSED this run, exactly as declared"
+    } else if cal.true_positives.iter().any(|(t, _)| t == tool) {
+        "fired anyway this run — the declared exclusion did not hold; check by hand"
+    } else if cal.not_evaluable.iter().any(|t| t == tool) {
+        "no fixture this run — not evaluable, so this exclusion was not exercised"
+    } else {
+        "not in this labelled set at all — this exclusion was not exercised"
+    }
 }
 
 fn named(title: &str, rows: &[(String, Vec<String>)]) -> String {
@@ -945,6 +1096,159 @@ mod tests {
         assert!(cal.false_alarms.is_empty());
         assert!(cal.true_positives.is_empty());
         assert_eq!(cal.fires_on_other_defect.len(), 1);
+    }
+
+    /// A [`Stub`] whose declared scope excludes a fixed list of tool names —
+    /// the harness's stand-in for `BundledShortFlag` excluding `ssh-keygen`,
+    /// so the reclassification logic is checked against a known answer
+    /// rather than against `bundling::detect`'s real heuristic.
+    struct StubWithScope {
+        fires_on: Vec<&'static str>,
+        excluded: &'static [(&'static str, &'static str)],
+    }
+
+    impl Detector for StubWithScope {
+        fn name(&self) -> &'static str {
+            "stub-with-scope"
+        }
+        fn family(&self) -> Option<&'static str> {
+            Some("verbatim-fallback")
+        }
+        fn describes(&self) -> &'static str {
+            "fires on a fixed list of node names, with a declared exclusion list"
+        }
+        fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+            if self.fires_on.contains(&evidence.root.name.as_str()) {
+                vec!["stub fired".to_string()]
+            } else {
+                Vec::new()
+            }
+        }
+        fn scope(&self) -> Scope {
+            Scope {
+                claim: "everything except the declared exclusion(s)",
+                known_exclusions: self.excluded,
+            }
+        }
+    }
+
+    /// A declared exclusion reclassifies a genuine miss out of
+    /// `false_negatives` (which blocks a pass) and into
+    /// `out_of_scope_misses` (which does not) — the exact shape of
+    /// `bundled-short-flag` excluding `ssh-keygen`. Recall is then computed
+    /// only over what remains in scope, and the tool is never simply
+    /// dropped: it is still named, with its reason, in a different cell.
+    #[test]
+    fn a_declared_exclusion_moves_a_miss_out_of_false_negatives_without_dropping_it() {
+        const EXCLUDED: &[(&str, &str)] =
+            &[("ssh-keygen", "single-member cluster, below the threshold")];
+        let cases = vec![
+            case("hit", true, &["verbatim-fallback"], node("hit")),
+            case(
+                "ssh-keygen",
+                true,
+                &["verbatim-fallback"],
+                node("ssh-keygen"),
+            ),
+        ];
+        let stub = StubWithScope {
+            fires_on: vec!["hit"],
+            excluded: EXCLUDED,
+        };
+        let cal = calibrate(&stub, &cases, Vec::new());
+
+        assert!(
+            cal.false_negatives.is_empty(),
+            "the declared exclusion must not count as an in-scope miss: {:?}",
+            cal.false_negatives
+        );
+        assert_eq!(cal.out_of_scope_misses.len(), 1);
+        assert_eq!(cal.out_of_scope_misses[0].0, "ssh-keygen");
+        assert_eq!(
+            cal.out_of_scope_misses[0].1,
+            "single-member cluster, below the threshold"
+        );
+        // Recall is 100% *within scope*: one expected-in-scope tool, one hit.
+        assert_eq!(cal.recall(), Some(1.0));
+        assert!(
+            cal.passes(),
+            "an out-of-scope miss must not block a pass on its own"
+        );
+    }
+
+    /// The out-of-scope section is driven by the detector's declared scope,
+    /// not by what this run happened to find — so it appears, in red, even
+    /// on a run that otherwise PASSES cleanly. This is the literal
+    /// requirement that a reader must not be able to skim a passing verdict
+    /// and conclude nothing was missed.
+    #[test]
+    fn a_passing_verdict_still_renders_its_declared_exclusion_in_red() {
+        const EXCLUDED: &[(&str, &str)] =
+            &[("ssh-keygen", "single-member cluster, below the threshold")];
+        let cases = vec![
+            case("hit", true, &["verbatim-fallback"], node("hit")),
+            case(
+                "ssh-keygen",
+                true,
+                &["verbatim-fallback"],
+                node("ssh-keygen"),
+            ),
+        ];
+        let stub = StubWithScope {
+            fires_on: vec!["hit"],
+            excluded: EXCLUDED,
+        };
+        let cal = calibrate(&stub, &cases, Vec::new());
+        assert!(cal.passes());
+
+        let text = render(
+            &cal,
+            &SetSize {
+                sampled: 94,
+                judged: 86,
+                evaluable: 71,
+            },
+        );
+        assert!(text.contains("VERDICT: PASSES"), "{text}");
+        assert!(
+            text.contains("KNOWN OUT-OF-SCOPE MISSES"),
+            "the declared-exclusion section must survive a passing verdict: {text}"
+        );
+        assert!(text.contains("ssh-keygen"), "{text}");
+        assert!(
+            text.contains("single-member cluster, below the threshold"),
+            "{text}"
+        );
+        assert!(
+            text.contains(RED) && text.contains(RESET),
+            "the out-of-scope section must be visually distinct: {text}"
+        );
+        // The literal ANSI-red tool name must appear, not merely the name
+        // and the color codes somewhere unrelated in the report.
+        assert!(text.contains(&format!("{RED}ssh-keygen{RESET}")), "{text}");
+    }
+
+    /// A false alarm on a tool that also happens to be named in the
+    /// detector's declared exclusions must still fail calibration: scope
+    /// narrows what a detector may be scored on *missing*, never what
+    /// excuses it for *firing on a human-judged-correct tool*. This is the
+    /// `nfsidmap` guard in miniature — the reclassification logic must
+    /// never be reachable from the false-alarm arm.
+    #[test]
+    fn a_declared_exclusion_never_launders_a_false_alarm() {
+        const EXCLUDED: &[(&str, &str)] =
+            &[("nfsidmap", "declared out of scope for an unrelated reason")];
+        let cases = vec![case("nfsidmap", false, &[], node("nfsidmap"))];
+        let stub = StubWithScope {
+            fires_on: vec!["nfsidmap"],
+            excluded: EXCLUDED,
+        };
+        let cal = calibrate(&stub, &cases, Vec::new());
+
+        assert_eq!(cal.false_alarms.len(), 1, "{:?}", cal.false_alarms);
+        assert_eq!(cal.false_alarms[0].0, "nfsidmap");
+        assert!(cal.out_of_scope_misses.is_empty());
+        assert!(!cal.passes(), "a false alarm must still block a pass");
     }
 
     #[test]
