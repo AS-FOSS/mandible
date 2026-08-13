@@ -33,7 +33,20 @@
 //!
 //! # The signature, and how it was derived
 //!
-//! Every condition below is a discriminator against a specific real
+//! Not from the five tools above — from the fleet. `xtask audit freeze`
+//! captured every one of this machine's 2,304 `PATH` tools' raw `--help`
+//! bytes, and the signature was tuned against *every glued short-flag
+//! token in every synopsis on the box*, looking at both what it caught and
+//! what it rejected. Two rounds of that changed the rule materially, and
+//! both changes are recorded on the predicates below: a first version
+//! required the cluster to be alphabetized, which the fleet says misses
+//! about a third of real bundles (`tree`, `e2fsck`, `tic`, `mkfs.ext4`,
+//! `badblocks`, `zipinfo` and the whole `fc-*` family all list their
+//! switches unsorted), and a first version measured case-mixing across the
+//! whole cluster, which admits every single-dash long option there is
+//! (`cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`).
+//!
+//! Every condition is a discriminator against a specific real
 //! counter-example, because the failure that matters here is the false
 //! positive: `tmux`'s own synopsis line carries `[-c shell-command]`,
 //! `[-f file]`, `[-L socket-name]`, `[-S socket-path]` and `[-T features]`
@@ -74,44 +87,42 @@
 //!    otherwise pass — its value starts with `{`, which is not a flag name.
 //! 5. **The members are pairwise distinct**, case-sensitively. A bundle is
 //!    a *set* of switches; `-Wall`'s doubled `l` is a word.
-//! 6. **The members' letters are in non-decreasing case-insensitive order**
-//!    ([`letters_are_ordered`]) — the convention every observed bundle
-//!    follows, and the one a value placeholder essentially never does.
-//! 7. **The cluster mixes case** ([`mixes_case`]). A placeholder is
-//!    uniformly cased (`file`, `mode`, `rounds`, `OUTFILE`); a bundle drawn
-//!    from a flag set is not.
-//! 8. **At least [`MIN_BUNDLED_MEMBERS`] members are being swallowed.**
-//!
-//! Conditions 6 and 7 are the two that separate a bundle from a
-//! *word-shaped* glued value, and both are needed. `-oOUTFILE` (a real
-//! convention: a lowercase flag with an ALLCAPS placeholder glued on)
-//! mixes case and has distinct characters, and is rejected only because
-//! `o, O, U, T, F, I, L, E` is not ordered. `cost`, `host`, `first` are
-//! all ordered, distinct, alphanumeric English words, and are rejected only
-//! because they do not mix case.
+//! 6. **Either** the members are alphabetized ([`is_alphabetized`]) **or**
+//!    the swallowed members alone span both cases
+//!    ([`swallowed_members_mix_case`]). Two independent pieces of evidence
+//!    for "this is a switch set, not a word", each measured against the
+//!    fleet, each carrying a large family the other cannot see — the
+//!    predicates' own doc comments name both families and both
+//!    counter-example sets.
+//! 7. **At least [`MIN_BUNDLED_MEMBERS`] members are being swallowed.**
 //!
 //! # What it deliberately does not catch
 //!
 //! `MIN_BUNDLED_MEMBERS = 2` costs a real hit — `ssh-keygen`'s `[-hU]`,
-//! one of the five human-labelled examples — and it is still right, because
-//! at one swallowed member the shape is genuinely ambiguous and the ambiguity
-//! is resolved *against* firing:
+//! one of the five human-labelled examples — and it is still right: at one
+//! swallowed member the shape is genuinely ambiguous, and the fleet's
+//! one-member population is roughly half real collapses and half completely
+//! correct parses of real multi-character single-dash flags (`rpcgen -Ss`,
+//! `psfxtable -it`, `sg_map -st`, `mandoc -ac`, `which -as`, `xxd -ps`,
+//! `lessecho`'s seven `[-ox]`-shaped character arguments). See that
+//! constant's own doc comment for the full list.
 //!
-//! - `lessecho`'s synopsis is `[-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex]`,
-//!   where (per its own man page) `x` is a literal character argument and
-//!   `n` a number — seven genuine value-taking flags, glued, in brackets,
-//!   in a synopsis. They survive here on case alone (all lowercase), which
-//!   is a thin margin to be resting a gate on.
-//! - `-jN`, `-cN`, `-nN` — a lowercase flag with a single uppercase
-//!   placeholder — is a widespread real convention, and passes conditions
-//!   1-7 in full. Nothing about its *shape* distinguishes it from
-//!   `ssh-keygen`'s `-hU`.
+//! Two further families are knowingly out of reach, both from the fleet
+//! scan:
 //!
-//! So one-member clusters are excluded as a class rather than admitted with
-//! a caveat. The fleet count this module reports is therefore a **lower
-//! bound** on the defect, which is the correct direction for a number that
-//! will become a gate: a false negative leaves a real bug unreported, a
-//! false positive blocks the fix.
+//! - **Unsorted, uniformly-cased bundles** — `rpcbind`'s `[-adhilswfr]`,
+//!   `umount.nfs`'s `[-fvnrlh]`, `blkmapd`'s `[-hdf]`,
+//!   `debconf-set-selections`'s `[-vcu]`, `fc-validate`'s `[-Vhv]`. Neither
+//!   signal fires, and nothing distinguishes them on shape from a
+//!   lowercase word.
+//! - **Bundles that repeat a switch to mean "more of it"** — `strace`'s
+//!   `[-ACdffhiqqrtttTvVwxxyyzZ]`, `wpa_supplicant`'s `[-BddhKLqqstuvW]`.
+//!   Condition 5 rejects them by construction.
+//!
+//! The fleet count this module reports is therefore a **lower bound** on
+//! the defect, which is the correct direction for a number that will become
+//! a gate: a false negative leaves a real bug unreported, a false positive
+//! blocks the fix.
 //!
 //! # No new probes, not gated
 //!
@@ -129,12 +140,31 @@ use std::collections::HashSet;
 /// The fewest swallowed members a cluster must have before it is reported.
 ///
 /// Two, not one, and the difference is deliberate lost recall — see this
-/// module's doc comment: at one member, `ssh-keygen`'s genuinely-collapsed
-/// `[-hU]` and the entirely real `-jN`/`-cN` convention have the same
-/// shape, so admitting one admits the other. This detector is meant to be
+/// module's doc comment. At one swallowed member the shape is genuinely
+/// ambiguous, and the fleet scan says so out loud: of the one-member
+/// clusters that satisfy every other condition, roughly half are real
+/// collapses (`ssh-keygen`'s `[-hU]`, `umount`'s `[-hV]`, `ssh-agent`'s
+/// `[-Dd]`) and the rest are entirely correct parses of genuine
+/// multi-character single-dash flags — `rpcgen`'s `[-Sc]`/`[-Ss]`/`[-Sm]`
+/// (generate sample client/server/makefile), `psfxtable`'s
+/// `[-it]`/`[-ot]`/`[-nt]` (input/output/new table), `sg_map`'s `[-st]`,
+/// `setfont`'s `[-ou]`, `mandoc`'s `[-ac]`, `which`'s `[-as]`, `xxd`'s
+/// `[-ps]`, plus `lessecho`'s seven character-argument flags. Nothing about
+/// their *shape* separates the two halves. This detector is meant to be
 /// gated at zero, and a gate that fires on a correct parse cannot be fixed
-/// by anyone.
+/// by anyone, so the whole class is excluded.
 const MIN_BUNDLED_MEMBERS: usize = 2;
+
+/// The fewest ASCII letters a cluster must carry before [`is_alphabetized`]
+/// is allowed to vouch for it.
+///
+/// A cluster with no letters at all — `-1024`, `-0777` — is *vacuously*
+/// alphabetized, and a glued numeric default (`[-b4096]`) would ride that
+/// vacuous truth straight into the report. Two letters is the floor at
+/// which "the letters are in order" is a statement about anything; every
+/// real bundle in the fleet clears it by a wide margin (the narrowest,
+/// `xfs_copy`'s `[-bdV]`, carries three).
+const MIN_ORDERED_LETTERS: usize = 2;
 
 /// Whether `c` could be a single-character flag name, i.e. a plausible
 /// member of a bundle.
@@ -152,31 +182,37 @@ fn is_bundle_member_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '#'
 }
 
-/// True when every ASCII letter in `cluster` is in non-decreasing
-/// case-insensitive order — the ordering convention a hand-written flag
-/// bundle follows and a value placeholder does not.
+/// True when `members` carries at least [`MIN_ORDERED_LETTERS`] ASCII
+/// letters and all of them are in non-decreasing case-insensitive order —
+/// the *listing* convention a hand-written flag bundle follows, and one
+/// half of the two-signal test in this module's doc comment.
 ///
-/// Every bundle in this module's own table is alphabetical when case is
-/// folded away: `A b d D e f h H I J K l L n N O p q S t u U v x X`,
-/// `B e E k s v x X`, `a d f i n r R s t V x`, `C D l N u V v`. Case is
-/// folded rather than compared raw because the convention interleaves the
-/// two cases of the same letter (`hH`, `lL`, `uU`, `xX`, `Vv`) — a raw
-/// ASCII comparison would call every one of those a break in the order.
+/// Case is folded rather than compared raw because the convention
+/// interleaves the two cases of the same letter (`hH`, `lL`, `uU`, `xX`,
+/// `Vv`) — a raw ASCII comparison would call every one of those a break in
+/// the order.
 ///
 /// **Non-letters are skipped rather than ordered.** `tcpdump` parks its
 /// `#` at the end of an otherwise perfectly alphabetical bundle, and
 /// `tmux` parks its `2` at the front; requiring those to sort with the
-/// letters would reject both real cases while adding nothing — a digit or
-/// `#` sitting anywhere in a cluster is already evidence of a switch set,
-/// not of a word.
+/// letters would reject both real cases while adding nothing.
 ///
-/// The discriminating power is against *word-shaped* glued values, which
-/// is where it earns its place: `-oOUTFILE` and `-Wall` and `-Ipath` and
-/// `-DMACRO` are all rejected here. It costs the (real, accepted) false
-/// negative of a bundle whose author listed the switches unsorted.
-fn letters_are_ordered(cluster: &str) -> bool {
+/// It is the *only* signal that vouches for a uniformly-cased bundle, and
+/// that is what it is for. Nine real all-one-case bundles in the fleet scan
+/// have nothing else going for them: `od`'s `[-abcdfilosx]`, `pod2text`'s
+/// `[-aclostu]`, `showmount`'s `[-adehv]`, `e2image`'s `[-cfnp]`,
+/// `whereis`'s `[-BMS]`, `vm-support`'s `[-hux]`, `sm-notify`'s `[-dfq]`,
+/// `logsave`'s `[-asv]`, `grops`'s `[-glm]`. Against word-shaped values it
+/// stays quiet on its own terms: `-oOUTFILE`, `-Wall`, `-Ipath`,
+/// `-DMACRO`, `cargo`'s real `-Zscript`, `rpcgen`'s real `-Dname` and
+/// `makewhatis`'s real `-Tutf8` are every one of them unordered.
+fn is_alphabetized(members: &str) -> bool {
+    let letters = || members.chars().filter(|c| c.is_ascii_alphabetic());
+    if letters().count() < MIN_ORDERED_LETTERS {
+        return false;
+    }
     let mut previous: Option<char> = None;
-    for c in cluster.chars().filter(|c| c.is_ascii_alphabetic()) {
+    for c in letters() {
         let folded = c.to_ascii_lowercase();
         if let Some(prev) = previous {
             if folded < prev {
@@ -188,21 +224,34 @@ fn letters_are_ordered(cluster: &str) -> bool {
     true
 }
 
-/// True when `cluster` contains both an ASCII uppercase and an ASCII
-/// lowercase letter.
+/// True when `swallowed` — the members after the surviving first one, i.e.
+/// the stored `value_name` — contains both an ASCII uppercase and an ASCII
+/// lowercase letter. The other half of the two-signal test.
 ///
-/// The other half of the word-versus-bundle discrimination
-/// ([`letters_are_ordered`] is the first). A value placeholder is written
-/// in one case — `file`, `size`, `mode`, `prog`, `rounds`, `bits`,
-/// `OUTFILE`, `MACRO` — while a bundle inherits whatever cases its tool's
-/// switches happen to have, and a switch set large enough to matter almost
-/// always spans both. It is what keeps `lessecho`'s seven genuine
-/// all-lowercase glued values (`[-ox]`, `[-cx]`, `[-mx]`, `[-ex]`, ...)
-/// out of this report, and what keeps ordered English words like `cost`
-/// and `first` out of it.
-fn mixes_case(cluster: &str) -> bool {
-    cluster.chars().any(|c| c.is_ascii_uppercase())
-        && cluster.chars().any(|c| c.is_ascii_lowercase())
+/// A value placeholder is written in one case (`file`, `size`, `mode`,
+/// `prog`, `rounds`, `bits`, `OUTFILE`, `MACRO`), so a *swallowed* run that
+/// spans both cases is not a placeholder at all — it is a switch set that
+/// inherited whatever cases its tool's flags happen to have.
+///
+/// This is the signal that carries every real bundle whose author listed
+/// the switches *unsorted*, which the fleet scan puts at roughly a third of
+/// them and which [`is_alphabetized`] alone would have missed entirely:
+/// `tree`'s `[-acdfghilnpqrstuvxACDFJQNSUX]` (a sorted lowercase run, then
+/// a sorted uppercase one — sorted twice, so not sorted), `e2fsck`'s
+/// `[-panyrcdfktvDFV]`, `tic`'s `[-1aCDcfGgIKLNrsTtUx]`, `mkfs.ext4`'s
+/// `[-jnqvDFSV]`, `dumpe2fs`'s `[-bfghimxV]`, `badblocks`'s `[-svwnfBX]`,
+/// `zipinfo`'s `[-12smlvChMtTz]`, and the whole `fc-*` family's `[-...Vh]`.
+///
+/// Measured on the *swallowed* half rather than on the whole cluster
+/// deliberately, and the difference is the entire single-dash-long-option
+/// population: `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8` and
+/// `perl -Idirectory` all mix case *as clusters* (an uppercase flag letter
+/// with a lowercase word glued on) and are all completely correct parses.
+/// Their swallowed halves — `script`, `name`, `utf8`, `directory` — do not
+/// mix, and that is what tells them apart from a bundle.
+fn swallowed_members_mix_case(swallowed: &str) -> bool {
+    swallowed.chars().any(|c| c.is_ascii_uppercase())
+        && swallowed.chars().any(|c| c.is_ascii_lowercase())
 }
 
 /// True when every character of `cluster` is distinct, compared
@@ -274,7 +323,7 @@ impl BundleReport {
 /// Whether `flag` is a collapsed bundle, and the raw cluster it collapsed
 /// from — `None` when any condition in this module's doc comment fails.
 ///
-/// Split out from [`detect`]'s walk so the eight conditions are readable in
+/// Split out from [`detect`]'s walk so the seven conditions are readable in
 /// one place and testable one at a time.
 fn collapsed_cluster(flag: &Flag, raw: &str) -> Option<String> {
     // 1. Synopsis-sourced.
@@ -287,7 +336,7 @@ fn collapsed_cluster(flag: &Flag, raw: &str) -> Option<String> {
         return None;
     }
     let value = flag.value_name.as_deref()?;
-    // 8. Enough swallowed members to be unambiguous.
+    // 7. Enough swallowed members to be unambiguous.
     if value.chars().count() < MIN_BUNDLED_MEMBERS {
         return None;
     }
@@ -299,8 +348,13 @@ fn collapsed_cluster(flag: &Flag, raw: &str) -> Option<String> {
     }
     let cluster = format!("-{short}{value}");
     let members: String = cluster.chars().skip(1).collect();
-    // 5, 6, 7.
-    if !members_are_distinct(&members) || !letters_are_ordered(&members) || !mixes_case(&members) {
+    // 5.
+    if !members_are_distinct(&members) {
+        return None;
+    }
+    // 6. Either signal is enough; neither on its own would see the whole
+    //    family (see both predicates' doc comments for the measured halves).
+    if !is_alphabetized(&members) && !swallowed_members_mix_case(value) {
         return None;
     }
     // 3. The whole cluster occurs, glued and delimited, in the raw text.
@@ -496,6 +550,34 @@ mod tests {
         assert_eq!(r.collapse_count(), 0);
     }
 
+    /// The unsorted-bundle branch, on real fleet text: `tree`'s synopsis
+    /// lists its lowercase switches in order and then its uppercase ones in
+    /// (their own, also broken) order, so the cluster is not alphabetized
+    /// at all. Only [`swallowed_members_mix_case`] sees it, and 27 real
+    /// flags ride on that.
+    #[test]
+    fn detects_trees_real_unsorted_bundle() {
+        let raw = "usage: tree [-acdfghilnpqrstuvxACDFJQNSUX] [--inodes] [-L level [-R]]\n";
+        let value = "cdfghilnpqrstuvxACDFJQNSUX";
+        let r = report(raw, "tree", vec![synopsis_flag('a', Some(value))]);
+        assert!(!is_alphabetized(&format!("a{value}")));
+        assert_eq!(r.collapse_count(), 1);
+        assert_eq!(r.destroyed_flag_count(), 26);
+    }
+
+    /// The alphabetized branch, on real fleet text: `od`'s traditional
+    /// switches are all lowercase, so nothing about their case is evidence
+    /// of anything. Only [`is_alphabetized`] sees it.
+    #[test]
+    fn detects_ods_real_uniformly_cased_bundle() {
+        let raw = "Usage: od [-abcdfilosx]... [FILE]... [[+]OFFSET[.][b]]\n";
+        let value = "bcdfilosx";
+        let r = report(raw, "od", vec![synopsis_flag('a', Some(value))]);
+        assert!(!swallowed_members_mix_case(value));
+        assert_eq!(r.collapse_count(), 1);
+        assert_eq!(r.destroyed_flag_count(), 9);
+    }
+
     // --- the false-positive side, which is the side that matters ---------
 
     #[test]
@@ -536,25 +618,69 @@ mod tests {
 
     #[test]
     fn an_uppercase_placeholder_glued_to_a_lowercase_flag_stays_silent() {
-        // `-oOUTFILE`: mixed case, distinct characters, alphanumeric,
-        // glued, synopsis-sourced — everything but the ordering, which is
-        // the condition carrying this case.
+        // `-oOUTFILE`: distinct, alphanumeric, glued, synopsis-sourced, and
+        // case-mixing *as a cluster* — the shape that made the first
+        // version of this rule wrong. Both surviving signals reject it: the
+        // swallowed half is uniformly uppercase, and the letters are not in
+        // order.
         let raw = "usage: t [-oOUTFILE]\n";
         let r = report(raw, "t", vec![synopsis_flag('o', Some("OUTFILE"))]);
         assert_eq!(r.collapse_count(), 0);
-        assert!(!letters_are_ordered("oOUTFILE"));
+        assert!(!is_alphabetized("oOUTFILE"));
+        assert!(!swallowed_members_mix_case("OUTFILE"));
+    }
+
+    /// The single-dash long option, which is the largest genuinely-correct
+    /// population sharing this shape — every one of these is real, glued,
+    /// synopsis-sourced, distinct and case-mixing as a whole cluster, and
+    /// every one is rejected because its *swallowed* half is one word in
+    /// one case.
+    #[test]
+    fn real_single_dash_long_options_stay_silent() {
+        for (short, value) in [
+            ('Z', "script"), // cargo -Zscript
+            ('D', "name"),   // rpcgen -Dname
+            ('T', "utf8"),   // makewhatis -Tutf8
+            ('O', "level"),  // find -Olevel
+            ('S', "cd"),     // sg_map -scd, minus its own repeat
+        ] {
+            let cluster = format!("-{short}{value}");
+            let raw = format!("usage: t [{cluster}]\n");
+            let r = report(&raw, "t", vec![synopsis_flag(short, Some(value))]);
+            assert_eq!(r.collapse_count(), 0, "{cluster} must not fire");
+        }
     }
 
     #[test]
-    fn an_ordered_lowercase_word_value_stays_silent() {
-        // `cost`, `host`, `first` are ordered, distinct and alphanumeric;
-        // only the mixed-case condition rejects them.
-        for value in ["ost", "irst", "int"] {
-            let cluster = format!("-c{value}");
+    fn an_ordered_lowercase_word_value_only_survives_on_its_own_shape() {
+        // `cost`, `first`, `int` are ordered, distinct, alphanumeric words.
+        // Ordering is one of the two accepted signals, so these *do* fire —
+        // which is the honest cost of the signal that catches `od`'s
+        // `[-abcdfilosx]`. Asserted rather than hidden: a value placeholder
+        // whose letters happen to be alphabetical is indistinguishable, on
+        // shape, from a small alphabetized bundle.
+        let raw = "usage: t [-cost]\n";
+        let r = report(raw, "t", vec![synopsis_flag('c', Some("ost"))]);
+        assert_eq!(r.collapse_count(), 1);
+        // The commoner shapes are still rejected — an unordered word, and
+        // any word that repeats a letter, which most do.
+        for (short, value) in [('n', "ame"), ('f', "ile"), ('m', "ode"), ('s', "ize")] {
+            let cluster = format!("-{short}{value}");
             let raw = format!("usage: t [{cluster}]\n");
-            let r = report(&raw, "t", vec![synopsis_flag('c', Some(value))]);
+            let r = report(&raw, "t", vec![synopsis_flag(short, Some(value))]);
             assert_eq!(r.collapse_count(), 0, "{cluster} must not fire");
         }
+    }
+
+    /// A numeric run orders vacuously — there are no letters to be out of
+    /// order — so [`MIN_ORDERED_LETTERS`] is what stops a glued numeric
+    /// default from riding that vacuous truth into the report.
+    #[test]
+    fn a_glued_numeric_default_stays_silent() {
+        let raw = "usage: t [-b1024]\n";
+        let r = report(raw, "t", vec![synopsis_flag('b', Some("1024"))]);
+        assert_eq!(r.collapse_count(), 0);
+        assert!(!is_alphabetized("b1024"));
     }
 
     #[test]
@@ -571,8 +697,8 @@ mod tests {
 
     #[test]
     fn a_doubled_letter_value_stays_silent() {
-        // `-Wall`: ordered (`a`, `l`, `l`), mixed case, alphanumeric,
-        // glued. Only distinctness rejects it.
+        // `-Wall`: alphabetized (`a`, `l`, `l`), alphanumeric, glued.
+        // Only distinctness rejects it.
         let raw = "usage: t [-Wall]\n";
         let r = report(raw, "t", vec![synopsis_flag('W', Some("all"))]);
         assert_eq!(r.collapse_count(), 0);
@@ -636,21 +762,27 @@ mod tests {
     // --- predicates, one at a time ---------------------------------------
 
     #[test]
-    fn letters_are_ordered_folds_case_and_skips_non_letters() {
-        assert!(letters_are_ordered("AbdDefhHIJKlLnNOpqStuUvxX#"));
-        assert!(letters_are_ordered("2CDlNuVv"));
-        assert!(letters_are_ordered("BeEksvxX"));
-        assert!(letters_are_ordered("adfinrRstVx"));
-        assert!(!letters_are_ordered("verbose"));
-        assert!(!letters_are_ordered("socket-name"));
+    fn is_alphabetized_folds_case_and_skips_non_letters() {
+        assert!(is_alphabetized("AbdDefhHIJKlLnNOpqStuUvxX#"));
+        assert!(is_alphabetized("2CDlNuVv"));
+        assert!(is_alphabetized("BeEksvxX"));
+        assert!(is_alphabetized("adfinrRstVx"));
+        assert!(!is_alphabetized("verbose"));
+        assert!(!is_alphabetized("socket-name"));
+        // Fewer than `MIN_ORDERED_LETTERS` letters is not an ordering claim.
+        assert!(!is_alphabetized("1024"));
+        assert!(!is_alphabetized("b1024"));
     }
 
     #[test]
-    fn mixes_case_rejects_a_uniformly_cased_placeholder() {
-        assert!(mixes_case("2CDlNuVv"));
-        assert!(!mixes_case("file"));
-        assert!(!mixes_case("OUTFILE"));
-        assert!(!mixes_case("1234"));
+    fn swallowed_members_mix_case_rejects_a_uniformly_cased_placeholder() {
+        assert!(swallowed_members_mix_case("CDlNuVv"));
+        assert!(!swallowed_members_mix_case("file"));
+        assert!(!swallowed_members_mix_case("OUTFILE"));
+        assert!(!swallowed_members_mix_case("1234"));
+        // The distinction the whole-cluster version got wrong: `script` is
+        // `cargo -Zscript`'s swallowed half, and it does not mix.
+        assert!(!swallowed_members_mix_case("script"));
     }
 
     #[test]
