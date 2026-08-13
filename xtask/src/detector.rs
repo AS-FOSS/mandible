@@ -432,7 +432,7 @@ pub fn render_self_checks(outcomes: &[SelfCheckOutcome]) -> String {
         };
         let mark = if o.held { "held" } else { "FAILED" };
         s.push_str(&format!(
-            "  [{mark}] {:<14} {}\n      why: {}\n",
+            "  [{mark:<6}] {:<16} {}\n      why: {}\n",
             demand, o.name, o.why
         ));
         if !o.held {
@@ -1680,7 +1680,10 @@ mod tests {
         assert_eq!(cal.fires_on_other_defect[0].0, "other");
         assert_eq!(cal.not_evaluable, vec!["nofixture"]);
         assert_eq!(cal.unclassified, vec!["mystery"]);
-        assert!(cal.verdict() != Verdict::Passes, "a false alarm and a miss must both block");
+        assert!(
+            cal.verdict() != Verdict::Passes,
+            "a false alarm and a miss must both block"
+        );
     }
 
     /// A tool a human judged wrong but nobody could classify must not count
@@ -1692,7 +1695,10 @@ mod tests {
         let cal = calibrate(&Stub { fires_on: vec![] }, &cases, Vec::new());
         assert!(cal.false_negatives.is_empty());
         assert!(cal.true_positives.is_empty());
-        assert!(cal.verdict() != Verdict::Passes, "nothing was demonstrated, so it cannot pass");
+        assert!(
+            cal.verdict() != Verdict::Passes,
+            "nothing was demonstrated, so it cannot pass"
+        );
     }
 
     /// Firing on a tool judged defective *of another family* is its own
@@ -1880,7 +1886,10 @@ mod tests {
         assert_eq!(cal.false_alarms.len(), 1, "{:?}", cal.false_alarms);
         assert_eq!(cal.false_alarms[0].0, "nfsidmap");
         assert!(cal.out_of_scope_misses.is_empty());
-        assert!(cal.verdict() != Verdict::Passes, "a false alarm must still block a pass");
+        assert!(
+            cal.verdict() != Verdict::Passes,
+            "a false alarm must still block a pass"
+        );
     }
 
     #[test]
@@ -2061,6 +2070,476 @@ mod tests {
                 })
                 .len(),
             1
+        );
+    }
+
+    // --- a repaired family, and the evidence that says so ----------------
+
+    fn set_size() -> SetSize {
+        SetSize {
+            sampled: 94,
+            judged: 86,
+            evaluable: 71,
+        }
+    }
+
+    /// A [`Stub`] that also carries hand-built self-checks, so the REPAIRED
+    /// verdict's evidence requirement is exercised against a known answer
+    /// rather than against `bundling`'s real rule.
+    struct StubWithSelfChecks {
+        fires_on: Vec<&'static str>,
+        checks: Vec<(&'static str, Expect, &'static str)>,
+    }
+
+    impl Detector for StubWithSelfChecks {
+        fn name(&self) -> &'static str {
+            "stub-with-self-checks"
+        }
+        fn family(&self) -> Option<&'static str> {
+            Some("verbatim-fallback")
+        }
+        fn describes(&self) -> &'static str {
+            "fires on a fixed list of node names, and declares self-checks"
+        }
+        fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+            if self.fires_on.contains(&evidence.root.name.as_str()) {
+                vec!["stub fired".to_string()]
+            } else {
+                Vec::new()
+            }
+        }
+        fn self_checks(&self) -> Vec<SelfCheck> {
+            self.checks
+                .iter()
+                .map(|(name, expect, on)| SelfCheck {
+                    name,
+                    why: "a stub case",
+                    expect: *expect,
+                    raw: String::new(),
+                    root: node(on),
+                })
+                .collect()
+        }
+    }
+
+    /// A stub that is both self-checked and scoped, for the one test that
+    /// needs a REPAIRED verdict and a declared exclusion together.
+    struct StubWithSelfChecksAndScope {
+        inner: StubWithSelfChecks,
+    }
+
+    impl Detector for StubWithSelfChecksAndScope {
+        fn name(&self) -> &'static str {
+            self.inner.name()
+        }
+        fn family(&self) -> Option<&'static str> {
+            self.inner.family()
+        }
+        fn describes(&self) -> &'static str {
+            self.inner.describes()
+        }
+        fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+            self.inner.hits(evidence)
+        }
+        fn self_checks(&self) -> Vec<SelfCheck> {
+            self.inner.self_checks()
+        }
+        fn scope(&self) -> Scope {
+            Scope {
+                claim: "everything except the declared exclusion(s)",
+                known_exclusions: TEST_EXCLUSIONS,
+            }
+        }
+    }
+
+    /// The self-check list a healthy stub declares: one case it must fire
+    /// on, one it must stay silent on. Both directions, because
+    /// [`self_checks_are_conclusive`] requires both.
+    fn healthy_checks() -> Vec<(&'static str, Expect, &'static str)> {
+        vec![
+            ("the defective shape", Expect::Fires(1), "shape"),
+            ("a correct parse that resembles it", Expect::Silent, "clean"),
+        ]
+    }
+
+    /// Two labelled tools that no longer fire — a family that was repaired.
+    fn inverted_cases() -> Vec<Case> {
+        vec![
+            case("was-bad", true, &["verbatim-fallback"], node("was-bad")),
+            case("also-bad", true, &["verbatim-fallback"], node("also-bad")),
+            case("quiet", false, &[], node("quiet")),
+        ]
+    }
+
+    /// The whole of the repaired-family verdict: an inverted calibration
+    /// reads REPAIRED **only** because the detector's own hand-built cases
+    /// still fire. Nothing else changed — same cells, same 0% recall.
+    #[test]
+    fn a_repaired_family_reads_as_repaired_when_its_self_checks_still_hold() {
+        let stub = StubWithSelfChecks {
+            fires_on: vec!["shape"],
+            checks: healthy_checks(),
+        };
+        let cal = calibrate(&stub, &inverted_cases(), Vec::new());
+
+        assert!(cal.calibration_inverted());
+        assert!(cal.self_checks_are_conclusive());
+        assert_eq!(cal.verdict(), Verdict::Repaired);
+        // The cells are untouched: the misses are still misses.
+        assert_eq!(cal.false_negatives, vec!["was-bad", "also-bad"]);
+        assert_eq!(cal.recall(), Some(0.0));
+    }
+
+    /// The other half, and the reason the evidence requirement exists at
+    /// all: the identical inverted matrix with a *broken* detector must
+    /// **not** read as repaired. This is the case spec §13.1e says the
+    /// fleet number alone cannot distinguish.
+    #[test]
+    fn an_inverted_matrix_with_broken_self_checks_is_not_repaired() {
+        // Fires on nothing at all — including its own must-fire case.
+        let stub = StubWithSelfChecks {
+            fires_on: vec![],
+            checks: healthy_checks(),
+        };
+        let cal = calibrate(&stub, &inverted_cases(), Vec::new());
+
+        assert!(cal.calibration_inverted());
+        assert!(!cal.self_checks_are_conclusive());
+        assert_eq!(cal.verdict(), Verdict::DoesNotPass);
+
+        let text = render(&cal, &set_size());
+        assert!(text.contains("DOES NOT PASS"), "{text}");
+        assert!(
+            text.contains("this is the dangerous shape"),
+            "an inverted matrix with failing self-checks must be called out as its own case, \
+             not rendered as an ordinary failure: {text}"
+        );
+        assert!(text.contains("[FAILED"), "{text}");
+    }
+
+    /// A detector that declares no self-check can never be called repaired.
+    /// The empty case is called out because `[].iter().all(..)` is
+    /// vacuously true, which is the exact shape of hole that would let a
+    /// deleted detector claim a clean bill of health.
+    #[test]
+    fn a_detector_with_no_self_check_can_never_read_as_repaired() {
+        let cal = calibrate(&Stub { fires_on: vec![] }, &inverted_cases(), Vec::new());
+        assert!(cal.calibration_inverted());
+        assert!(cal.self_checks.is_empty());
+        assert_eq!(cal.verdict(), Verdict::DoesNotPass);
+        let text = render(&cal, &set_size());
+        assert!(text.contains("declares NO self-check"), "{text}");
+    }
+
+    /// One direction of evidence is never enough. A detector that only
+    /// declares must-fire cases is satisfied by firing on everything; one
+    /// that only declares must-stay-silent cases is satisfied by being
+    /// deleted. Both halves are asserted because the two failures are
+    /// opposites and a single-direction check would catch neither.
+    #[test]
+    fn self_check_evidence_needs_both_directions() {
+        let fire_only = StubWithSelfChecks {
+            fires_on: vec!["shape", "clean"],
+            checks: vec![("the defective shape", Expect::Fires(1), "shape")],
+        };
+        let cal = calibrate(&fire_only, &inverted_cases(), Vec::new());
+        assert!(
+            !cal.self_checks_are_conclusive(),
+            "a detector that fires indiscriminately satisfies every must-fire case there is"
+        );
+        assert_eq!(cal.verdict(), Verdict::DoesNotPass);
+
+        let silence_only = StubWithSelfChecks {
+            fires_on: vec![],
+            checks: vec![("a correct parse", Expect::Silent, "clean")],
+        };
+        let cal = calibrate(&silence_only, &inverted_cases(), Vec::new());
+        assert!(
+            !cal.self_checks_are_conclusive(),
+            "a deleted detector satisfies every must-stay-silent case there is"
+        );
+        assert_eq!(cal.verdict(), Verdict::DoesNotPass);
+    }
+
+    /// A false alarm blocks REPAIRED exactly as it blocks PASSES. Firing on
+    /// a tool a human judged correct is never excused — not by a declared
+    /// scope, and not by the family having been fixed.
+    #[test]
+    fn a_repaired_family_still_cannot_launder_a_false_alarm() {
+        let stub = StubWithSelfChecks {
+            fires_on: vec!["shape", "quiet"],
+            checks: healthy_checks(),
+        };
+        let cal = calibrate(&stub, &inverted_cases(), Vec::new());
+        assert_eq!(cal.false_alarms.len(), 1);
+        assert_eq!(cal.verdict(), Verdict::DoesNotPass);
+    }
+
+    /// The hard constraint: REPAIRED is a *stated claim*, never a
+    /// suppression. The rendered report must still print 0% recall, still
+    /// name every missed tool, and still print the declared out-of-scope
+    /// miss in red — otherwise "the family was repaired" becomes the excuse
+    /// that hides a genuinely broken detector.
+    #[test]
+    fn a_repaired_verdict_suppresses_nothing() {
+        let mut cases = inverted_cases();
+        cases.push(case(
+            "ssh-keygen",
+            true,
+            &["verbatim-fallback"],
+            node("ssh-keygen"),
+        ));
+        let stub = StubWithSelfChecksAndScope {
+            inner: StubWithSelfChecks {
+                fires_on: vec!["shape"],
+                checks: healthy_checks(),
+            },
+        };
+        let cal = calibrate(&stub, &cases, Vec::new());
+        assert_eq!(cal.verdict(), Verdict::Repaired);
+
+        let text = render(&cal, &set_size());
+        assert!(text.contains("VERDICT: REPAIRED"), "{text}");
+        assert!(
+            text.contains("recall over evaluable labelled: 0%"),
+            "recall must still read what it reads: {text}"
+        );
+        assert!(
+            text.contains("MISSED labelled tools (false negatives)")
+                && text.contains("was-bad")
+                && text.contains("also-bad"),
+            "every missed tool must still be named: {text}"
+        );
+        assert!(
+            text.contains("KNOWN OUT-OF-SCOPE MISSES")
+                && text.contains(&format!("{RED}ssh-keygen{RESET}")),
+            "the out-of-scope miss must still print, in red: {text}"
+        );
+        assert!(
+            text.contains("NOTHING IS SUPPRESSED"),
+            "the verdict must say so in its own words: {text}"
+        );
+        // The evidence the verdict rests on is printed with it.
+        assert!(text.contains("SELF-CHECK EVIDENCE"), "{text}");
+    }
+
+    /// The self-check block is printed on every run, not only the ones that
+    /// use it — the same rule the declared-exclusion list follows, for the
+    /// same reason: the first time a reader sees the evidence must not be
+    /// the run where it is being used to excuse a zero.
+    #[test]
+    fn the_self_check_block_prints_even_on_a_passing_verdict() {
+        let stub = StubWithSelfChecks {
+            fires_on: vec!["hit", "shape"],
+            checks: healthy_checks(),
+        };
+        let cal = calibrate(
+            &stub,
+            &[case("hit", true, &["verbatim-fallback"], node("hit"))],
+            Vec::new(),
+        );
+        assert_eq!(cal.verdict(), Verdict::Passes);
+        let text = render(&cal, &set_size());
+        assert!(text.contains("SELF-CHECK EVIDENCE"), "{text}");
+        assert!(text.contains("the defective shape"), "{text}");
+    }
+
+    // --- the ratchet gate, and an attack on it ---------------------------
+
+    /// The gate holds on the real detector at the real post-fix numbers.
+    #[test]
+    fn the_ratchet_holds_on_the_live_detector_at_zero() {
+        let outcome = ratchet_at_zero(&BundledShortFlag, 0, 0);
+        assert!(outcome.holds(), "{:?}", outcome.failures);
+        assert!(outcome.report().contains("GATE HOLDS"));
+    }
+
+    /// **The attack.** `bundled-short-flag` with its rule removed — the
+    /// detector deleted, its declared self-checks left behind — reporting
+    /// the perfect fleet count of 0 tools / 0 destroyed flags.
+    ///
+    /// A gate asserting `count == 0` alone passes this. It is the whole
+    /// reason the gate has a second half, and the reason that half is not
+    /// optional: a metric a commit can improve by breaking the instrument
+    /// that measures it is the failure spec §13.1b already records twice.
+    #[test]
+    fn deleting_the_detector_fails_the_ratchet_even_at_a_perfect_zero() {
+        struct DeletedRule;
+        impl Detector for DeletedRule {
+            fn name(&self) -> &'static str {
+                "bundled-short-flag"
+            }
+            fn family(&self) -> Option<&'static str> {
+                Some("bundled-short-flag")
+            }
+            fn describes(&self) -> &'static str {
+                "the real detector with its rule removed"
+            }
+            fn hits(&self, _evidence: &ToolEvidence<'_>) -> Vec<String> {
+                Vec::new()
+            }
+            fn self_checks(&self) -> Vec<SelfCheck> {
+                crate::bundling::self_checks()
+            }
+        }
+
+        // The fleet count is as clean as it can possibly be.
+        let outcome = ratchet_at_zero(&DeletedRule, 0, 0);
+        assert!(
+            !outcome.holds(),
+            "a gate that only checks the count is satisfied by deleting the detector"
+        );
+        let report = outcome.report();
+        assert!(report.contains("GATE FAILS"), "{report}");
+        assert!(
+            report.contains("tcpdump's real 26-member cluster"),
+            "the failing case must be named: {report}"
+        );
+        assert!(
+            outcome
+                .failures
+                .iter()
+                .any(|f| f.contains("fleet-wide zero means nothing")),
+            "{:?}",
+            outcome.failures
+        );
+    }
+
+    /// The other way to delete a detector: remove its self-checks too. An
+    /// empty evidence list must fail closed, not vacuously pass.
+    #[test]
+    fn a_detector_with_no_self_check_fails_the_ratchet_at_zero() {
+        let outcome = ratchet_at_zero(&Stub { fires_on: vec![] }, 0, 0);
+        assert!(!outcome.holds());
+        assert!(
+            outcome.failures.iter().any(|f| f.contains("NO self-check")),
+            "{:?}",
+            outcome.failures
+        );
+    }
+
+    /// The ratchet half proper: a live, healthy detector still fails the
+    /// gate the moment the fleet count leaves zero, and both columns are
+    /// reported independently rather than netted.
+    #[test]
+    fn a_nonzero_fleet_count_fails_the_ratchet_however_healthy_the_detector() {
+        let outcome = ratchet_at_zero(&BundledShortFlag, 1, 7);
+        assert!(!outcome.holds());
+        assert_eq!(
+            outcome.failures.len(),
+            2,
+            "tools and destroyed flags are separate reasons: {:?}",
+            outcome.failures
+        );
+        assert!(outcome.failures.iter().any(|f| f.contains("1 tool(s)")));
+        assert!(outcome
+            .failures
+            .iter()
+            .any(|f| f.contains("7 real flag(s) destroyed")));
+    }
+
+    // --- declared exclusions must name a structural property -------------
+
+    /// Every exclusion every registered detector declares must survive its
+    /// own witness's arithmetic. This is the guard on the last remaining
+    /// goalpost-moving lever: adding an entry converts a blocking false
+    /// negative into a non-blocking named miss, and before [`Ground`]
+    /// existed nothing checked that the reason named a property of the
+    /// *shape* rather than a preference about the tool.
+    #[test]
+    fn every_declared_exclusion_in_the_registry_holds_structurally() {
+        validate_registry_scopes().expect("a declared exclusion must survive its own witness");
+    }
+
+    /// The live exclusion cites the constant itself, not a copy of its
+    /// value — so changing `MIN_BUNDLED_MEMBERS` cannot leave a stale
+    /// justification behind.
+    #[test]
+    fn the_live_exclusion_references_the_real_constant() {
+        let Ground::BelowMemberThreshold {
+            cluster,
+            constant,
+            threshold,
+        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground;
+        assert_eq!(threshold, crate::bundling::MIN_BUNDLED_MEMBERS);
+        assert_eq!(constant, "bundling::MIN_BUNDLED_MEMBERS");
+        assert_eq!(cluster, crate::bundling::SSH_KEYGEN_CLUSTER);
+        assert_eq!(BUNDLED_SHORT_FLAG_EXCLUSIONS[0].tool, "ssh-keygen");
+    }
+
+    /// The exclusion's witness is also asserted as a must-stay-silent
+    /// self-check, which closes the loop: the tool is out of scope because
+    /// of a structural property, *and* the detector is separately shown to
+    /// stay silent on that exact token.
+    #[test]
+    fn the_exclusions_witness_is_also_a_self_check_the_detector_must_stay_silent_on() {
+        let outcomes = run_self_checks(&BundledShortFlag);
+        let witness = outcomes
+            .iter()
+            .find(|o| o.name.starts_with("ssh-keygen"))
+            .expect("the declared exclusion's witness must be asserted, not merely described");
+        assert_eq!(witness.expect, Expect::Silent);
+        assert!(witness.held);
+    }
+
+    /// An exclusion whose witness is squarely *inside* the detector's scope
+    /// is refused. This is the goalpost-move the type exists to prevent:
+    /// before [`Ground`], excluding `tcpdump` needed only a sentence.
+    #[test]
+    fn an_exclusion_whose_witness_is_in_scope_is_refused() {
+        let inside = Ground::BelowMemberThreshold {
+            cluster: "-AbdDefhHIJKlLnNOpqStuUvxX#",
+            constant: "bundling::MIN_BUNDLED_MEMBERS",
+            threshold: 2,
+        };
+        assert_eq!(inside.swallowed_members(), 25);
+        let err = inside.holds().expect_err("25 members is not below 2");
+        assert!(err.contains("is NOT below"), "{err}");
+        assert!(err.contains("false negative, not an exclusion"), "{err}");
+    }
+
+    /// A threshold of zero excludes everything and justifies nothing, and a
+    /// witness that is not a cluster token is not evidence about a shape.
+    /// Both are refused, so the escape hatches out of the arithmetic are
+    /// closed too.
+    #[test]
+    fn a_vacuous_ground_is_refused() {
+        assert!(Ground::BelowMemberThreshold {
+            cluster: "-hU",
+            constant: "SOME_CONSTANT",
+            threshold: 0,
+        }
+        .holds()
+        .is_err());
+        for cluster in ["", "hU", "-"] {
+            assert!(
+                Ground::BelowMemberThreshold {
+                    cluster,
+                    constant: "bundling::MIN_BUNDLED_MEMBERS",
+                    threshold: 2,
+                }
+                .holds()
+                .is_err(),
+                "{cluster:?} is not a cluster token"
+            );
+        }
+    }
+
+    /// The structural sentence in the report is generated from the witness,
+    /// not written by the exclusion's author — so the prose beside it can
+    /// never be the whole justification.
+    #[test]
+    fn the_rendered_reason_is_generated_from_the_witness() {
+        let explain = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground.explain();
+        assert!(explain.contains("\"-hU\""), "{explain}");
+        assert!(explain.contains("swallows 1 member(s)"), "{explain}");
+        assert!(
+            explain.contains("bundling::MIN_BUNDLED_MEMBERS = 2"),
+            "{explain}"
+        );
+        assert!(
+            explain.contains("a property of the token's shape, not of the tool"),
+            "{explain}"
         );
     }
 }
