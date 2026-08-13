@@ -1149,7 +1149,40 @@ which is the safety property that matters when processing untrusted output.
 - Walk `complete -F`/`compgen -W` registrations and `case "$prev" in` branches as
   typed AST nodes.
 
-### Tier D — man page prose backfill
+**Measured cost on a full-screen program with no `completion` subcommand**
+(task #14, 2026-08-13): `vim.basic` extracts in **~21.25s**, a ~200x outlier
+against the fleet, even though its 45 flags all parse correctly and Tier B's
+own probe/parse together cost single-digit milliseconds. Isolated with
+`CompletionScriptTier::detect()` called directly against the real binary:
+**20.03s**, which is the whole story. `vim.basic` has no `completion`
+subcommand, so `probe_and_extract_flags`'s two sequential probes — argv
+`["completion", "zsh"]`, then `["completion", "bash"]` (spec's own request-
+zsh-first-bash-fallback order above) — each land on vim's ordinary "open
+these two file names" behavior: it enters its normal full-screen editor
+session (confirmed by the alternate-screen-buffer escape sequence,
+`\x1b[?1049h`, appearing in the captured stdout) instead of erroring out on
+an unrecognized subcommand. Given no controlling terminal (`run_inert`'s
+sandboxing gives every probe its own session, spec §6 rule 6), it neither
+produces the completion output Tier C wants nor exits — it just sits until
+each probe's own `PROBE_TIMEOUT` (10s) kills it. Two probes × 10s ≈ the
+entire measured 21.25s; parse time is not involved at all, and there is no
+superlinear behaviour in `help_text::sections`'s parser to fix here — this
+is pure probe time, correctly bounded by the existing timeout rather than
+hanging forever.
+
+This is a shape, not a `vim` special case: any interactive full-screen
+program that (a) has no `completion` subcommand and (b) does not validate
+an unrecognized positional before entering its main loop pays the same
+2×`PROBE_TIMEOUT` tax from this tier's detection probe alone. No fix is
+applied here. The two changes that would plausibly help — shortening
+`PROBE_TIMEOUT`, or an early-exit heuristic that watches for alt-screen
+escape sequences in the probe's streamed output and kills the child before
+the timeout — both touch the exec sandboxing path spec §6/§8 gates behind a
+fleet measurement (a shortened timeout risks turning a genuinely slow but
+real completion-script generator into a failure; an escape-sequence
+early-exit is a new detection mechanism, not yet measured against the
+fleet for false positives). Recorded here per the same discipline as [M-16]
+and D3: a diagnosis is durable, a speculative change to `exec/` is not.
 
 **Not built.** Measured before building ([M-14]), re-scoped after a second
 measurement contradicted its headline case ([M-16]), and deliberately
