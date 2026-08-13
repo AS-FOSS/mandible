@@ -189,15 +189,15 @@ enum Command {
 enum AuditAction {
     /// Sweep `PATH` once, classify every tool, and write the
     /// shuffle-stratified frozen queue (`<dir>/queue.toml`) plus its
-    /// captured raw bytes (`<dir>/queue-captures/`, gitignored) that a
-    /// future `crate::queue::cmd_sample` cursor draw will read from — see
-    /// `crate::queue`'s own doc comment for the full design. This is the
-    /// ~20-minute, PATH-probing step, meant to run once rather than on
-    /// every draw; `sample` below is still the old live-sweep path until
-    /// the next commit switches it over to the queue this builds.
+    /// captured raw bytes (`<dir>/queue-captures/`, gitignored) that
+    /// `sample` draws from and `reclassify` replays — see `crate::queue`'s
+    /// own doc comment for the full design. This is the ~20-minute,
+    /// PATH-probing step; run it once, not on every draw.
     Freeze {
         /// Seed for the shuffle-stratification (`crate::queue::shuffle_stratify`)
-        /// that decides the queue's cursor order.
+        /// that decides the queue's cursor order. Distinct from `sample`'s
+        /// `--seed`, which only names a verdict file — see `crate::queue`'s
+        /// doc comment.
         #[arg(long)]
         seed: u64,
         /// Freeze this fixed, comma-separated list instead of scanning
@@ -215,33 +215,31 @@ enum AuditAction {
         #[arg(long)]
         check: bool,
     },
-    /// Draw a deterministic, stratified sample of tools and write/merge a
-    /// resumable verdict file at `<dir>/<seed>.toml`.
+    /// Advance `<dir>/queue.toml`'s cursor by `--sample` tools and
+    /// write/merge them into a resumable verdict file at
+    /// `<dir>/<seed>.toml`. Requires a queue built by `freeze` first — this
+    /// no longer sweeps `PATH` or reclassifies anything itself.
     Sample {
-        /// Random seed. Same seed (and same `--sample`/`--tools`) always
-        /// draws the same tools; a different seed draws a different set.
+        /// Names the verdict file (`<dir>/<seed>.toml`) this draw is merged
+        /// into. No longer a draw seed — the draw's only randomness was
+        /// already spent once, at `freeze` time.
         #[arg(long)]
         seed: u64,
-        /// How many tools to draw in total, split proportionally across
-        /// the parse-status strata found in the population.
+        /// How many tools to draw from the queue's current cursor.
         #[arg(long)]
         sample: usize,
-        /// Sample from this fixed, comma-separated list instead of
-        /// scanning `PATH` — pins a reproducible population, which is what
-        /// tests and CI use (mirrors `coverage --tools`).
-        #[arg(long, value_delimiter = ',')]
-        tools: Option<Vec<String>>,
-        /// Directory holding verdict files (`<dir>/<seed>.toml`).
+        /// Directory holding the queue (`<dir>/queue.toml`) and verdict
+        /// files (`<dir>/<seed>.toml`).
         #[arg(long, default_value = "audit")]
         dir: PathBuf,
         /// A plain-text file of `<tool> <reason...>` lines (`#` comments and
         /// blank lines ignored, same convention as `ingest --verdicts`)
         /// naming tools to include in the sample *unconditionally*, on top
-        /// of the stratified random draw. The motivating case: 14 tools an
-        /// unaudited heuristic (commit `3464b0c`) promoted `low-confidence`
-        /// -> `ok` mid-freeze, identified via `xtask sweep-diff` — a
-        /// `--tools` shortcut population would not reliably re-draw them,
-        /// so they are named explicitly instead of left to chance.
+        /// of the queue draw. The motivating case: 14 tools an unaudited
+        /// heuristic (commit `3464b0c`) promoted `low-confidence` -> `ok`
+        /// mid-freeze, identified via `xtask sweep-diff` — independent of
+        /// the queue's cursor, so they are named explicitly instead of left
+        /// to chance.
         #[arg(long)]
         force_include_file: Option<PathBuf>,
     },
@@ -399,7 +397,6 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
         AuditAction::Sample {
             seed,
             sample,
-            tools,
             dir,
             force_include_file,
         } => {
@@ -407,7 +404,7 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 Some(path) => audit::load_force_include(&path)?,
                 None => Vec::new(),
             };
-            audit::cmd_sample(seed, sample, tools, &dir, &force_include)
+            queue::cmd_sample(seed, sample, &dir, &force_include)
         }
         AuditAction::Review { seed, dir } => {
             let stdin = std::io::stdin();

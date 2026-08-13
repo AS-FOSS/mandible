@@ -103,9 +103,13 @@
 //!   not purely "what changed in the parser" unless the machine's installed
 //!   tools are also unchanged since freeze.
 
-use crate::audit::{classify_all_with_recordings, sanitize_filename};
+use crate::audit::{
+    classify_all_with_recordings, classify_one, entry_from_classified, sanitize_filename,
+    Classified,
+};
 use crate::coverage::unique_executables_on_path;
 use crate::rng::{fnv1a64, seeded_shuffle, stratum_seed};
+use mandible_core::audit::{load, save, verdict_path, AuditFile, AuditMeta, Entry};
 use mandible_extract::exec::ExecOutput;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -517,6 +521,144 @@ pub fn cmd_freeze(
     Ok(())
 }
 
+/// Pure, side-effect-free draw: the slice of `queue.entries` starting at
+/// `cursor` and containing up to `sample_size` entries (fewer once the
+/// queue is exhausted — never wrapping around to the front, since that
+/// would silently redraw tools a prior slice already covered), plus the
+/// cursor position the *next* draw should start from. Same `queue` and
+/// `cursor` always yield the same slice: nothing here consults time,
+/// randomness, or any verdict file.
+pub fn draw_at_cursor(
+    queue: &Queue,
+    cursor: usize,
+    sample_size: usize,
+) -> (Vec<QueueEntry>, usize) {
+    let start = cursor.min(queue.entries.len());
+    let end = start.saturating_add(sample_size).min(queue.entries.len());
+    (queue.entries[start..end].to_vec(), end)
+}
+
+/// `xtask audit sample`: draw the next `sample_size` tools off `<dir>/queue.toml`'s
+/// cursor, classify just those (cheap — `sample_size` is small, unlike the
+/// full population `freeze` already paid for), merge them into
+/// `<dir>/<seed>.toml`, and persist the queue's advanced cursor.
+///
+/// `seed` here names the verdict file only (`<dir>/<seed>.toml`); it plays
+/// no role in the draw itself — the draw's only randomness was spent once,
+/// at freeze time. Calling `sample` again (same or different `seed`)
+/// advances the *shared* queue cursor and therefore always draws a fresh,
+/// never-before-drawn slice — this replaces the old live-sweep
+/// `cmd_sample`'s "re-running with the same seed/size is a safe no-op"
+/// idempotence with a deliberately different guarantee: an already-recorded
+/// verdict is still never disturbed, but re-running now *advances*, exactly
+/// the "next K off the cursor" semantics this module exists to give.
+///
+/// `force_include` entries (`(tool, reason)`) are still classified live and
+/// independently of the queue, exactly as before — force-inclusion exists
+/// precisely for tools that must not depend on where the cursor happens to
+/// be.
+pub fn cmd_sample(
+    seed: u64,
+    sample_size: usize,
+    dir: &Path,
+    force_include: &[(String, String)],
+) -> anyhow::Result<()> {
+    let qpath = queue_path(dir);
+    let mut queue = load_queue(&qpath)?;
+
+    let mut pop_by_stratum: BTreeMap<String, usize> = BTreeMap::new();
+    for e in &queue.entries {
+        *pop_by_stratum.entry(e.stratum.clone()).or_insert(0) += 1;
+    }
+
+    let (drawn, next_cursor) = draw_at_cursor(&queue, queue.meta.cursor, sample_size);
+    if drawn.len() < sample_size {
+        println!(
+            "note: only {} tool(s) remain in the queue from cursor {} ({} requested) — \
+             re-run `xtask audit freeze` to build a fresh queue for a bigger draw.",
+            drawn.len(),
+            queue.meta.cursor,
+            sample_size
+        );
+    }
+
+    let mut drawn_entries = Vec::with_capacity(drawn.len());
+    let mut counts: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for qe in &drawn {
+        let c = classify_one(&qe.tool);
+        counts
+            .entry(qe.stratum.clone())
+            .and_modify(|(d, _)| *d += 1)
+            .or_insert((1, *pop_by_stratum.get(&qe.stratum).unwrap_or(&0)));
+        drawn_entries.push(entry_from_classified(qe.tool.clone(), &c, None));
+    }
+
+    // Force-included tools are classified independently of the queue: the
+    // whole point (spec-cited case: the 14 `find_description_gap`
+    // promotions) is that they must appear regardless of where the cursor
+    // is or whether they were even part of the frozen population.
+    let mut forced_entries = Vec::with_capacity(force_include.len());
+    for (tool, reason) in force_include {
+        let c: Classified = classify_one(tool);
+        forced_entries.push(entry_from_classified(
+            tool.clone(),
+            &c,
+            Some(reason.clone()),
+        ));
+    }
+
+    let vpath = verdict_path(dir, seed);
+    let mut file = if vpath.is_file() {
+        load(&vpath)?
+    } else {
+        AuditFile {
+            meta: AuditMeta { seed, sample_size },
+            entries: Vec::new(),
+        }
+    };
+    file.meta.sample_size = sample_size;
+
+    let existing_tools: HashSet<String> = file
+        .entries
+        .iter()
+        .map(|e: &Entry| e.tool.clone())
+        .collect();
+    let mut added = 0usize;
+    for entry in drawn_entries.into_iter().chain(forced_entries) {
+        if !existing_tools.contains(&entry.tool) {
+            file.entries.push(entry);
+            added += 1;
+        }
+    }
+    file.entries.sort_by(|a, b| a.tool.cmp(&b.tool));
+    save(&vpath, &file)?;
+
+    queue.meta.cursor = next_cursor;
+    save_queue(&qpath, &queue)?;
+
+    println!(
+        "drew {} tool(s) from queue cursor {} -> {} (queue population {})",
+        drawn.len(),
+        next_cursor - drawn.len(),
+        next_cursor,
+        queue.entries.len(),
+    );
+    println!("stratum            drawn   population   %pop");
+    for (stratum, (n_drawn, n_pop)) in &counts {
+        println!(
+            "{stratum:<18}  {n_drawn:>4}  {n_pop:>10}  {:>5.1}%",
+            *n_pop as f64 / queue.entries.len().max(1) as f64 * 100.0,
+        );
+    }
+    println!(
+        "{added} new pending entr{s} written to {} ({} pending total, {} force-included)",
+        vpath.display(),
+        file.pending().count(),
+        force_include.len(),
+        s = if added == 1 { "y" } else { "ies" },
+    );
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -731,5 +873,182 @@ mod tests {
             true,
         )
         .unwrap();
+    }
+
+    fn entries(specs: &[(&str, &str)]) -> Vec<QueueEntry> {
+        specs
+            .iter()
+            .map(|(tool, stratum)| QueueEntry {
+                tool: tool.to_string(),
+                stratum: stratum.to_string(),
+            })
+            .collect()
+    }
+
+    fn queue_with(specs: &[(&str, &str)], cursor: usize) -> Queue {
+        Queue {
+            meta: QueueMeta {
+                freeze_date: "2026-08-13".to_string(),
+                population_hash: "deadbeef".to_string(),
+                seed: 1,
+                cursor,
+            },
+            entries: entries(specs),
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Cursor determinism
+    // -------------------------------------------------------------
+
+    #[test]
+    fn same_queue_and_cursor_yields_identical_tools_every_time() {
+        let q = queue_with(&[("a", "ok"), ("b", "ok"), ("c", "low"), ("d", "ok")], 0);
+        let (first, next1) = draw_at_cursor(&q, 1, 2);
+        let (second, next2) = draw_at_cursor(&q, 1, 2);
+        assert_eq!(first, second);
+        assert_eq!(next1, next2);
+    }
+
+    #[test]
+    fn successive_draws_advance_through_disjoint_slices() {
+        let q = queue_with(&[("a", "ok"), ("b", "ok"), ("c", "ok"), ("d", "ok")], 0);
+        let (first, cursor1) = draw_at_cursor(&q, 0, 2);
+        let (second, cursor2) = draw_at_cursor(&q, cursor1, 2);
+        assert_eq!(
+            first.iter().map(|e| &e.tool).collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+        assert_eq!(
+            second.iter().map(|e| &e.tool).collect::<Vec<_>>(),
+            vec!["c", "d"]
+        );
+        assert_eq!(cursor2, 4);
+        let disjoint: HashSet<&str> = first
+            .iter()
+            .chain(second.iter())
+            .map(|e| e.tool.as_str())
+            .collect();
+        assert_eq!(disjoint.len(), 4, "no tool should be drawn twice");
+    }
+
+    #[test]
+    fn draw_past_the_end_returns_fewer_than_requested_without_wrapping() {
+        let q = queue_with(&[("a", "ok"), ("b", "ok")], 1);
+        let (drawn, next) = draw_at_cursor(&q, 1, 5);
+        assert_eq!(drawn.iter().map(|e| &e.tool).collect::<Vec<_>>(), vec!["b"]);
+        assert_eq!(next, 2, "cursor must cap at the queue length, not wrap");
+        let (drawn_again, next_again) = draw_at_cursor(&q, next, 5);
+        assert!(drawn_again.is_empty(), "an exhausted queue draws nothing");
+        assert_eq!(next_again, 2);
+    }
+
+    // -------------------------------------------------------------
+    // `xtask audit sample` (real binaries, real argv — AGENTS.md §3.1)
+    // -------------------------------------------------------------
+
+    #[test]
+    fn freeze_then_sample_round_trips() {
+        let tmp = tempfile::tempdir().unwrap();
+        cmd_freeze(
+            1,
+            Some(vec!["sh".to_string(), "cat".to_string()]),
+            tmp.path(),
+            false,
+        )
+        .unwrap();
+        let qpath = queue_path(tmp.path());
+        assert!(qpath.is_file());
+        let queue = load_queue(&qpath).unwrap();
+        assert_eq!(queue.entries.len(), 2);
+        assert_eq!(queue.meta.cursor, 0);
+
+        cmd_sample(100, 1, tmp.path(), &[]).unwrap();
+        let after_first = load_queue(&qpath).unwrap();
+        assert_eq!(
+            after_first.meta.cursor, 1,
+            "cursor must advance by the draw size"
+        );
+
+        cmd_sample(101, 1, tmp.path(), &[]).unwrap();
+        let after_second = load_queue(&qpath).unwrap();
+        assert_eq!(after_second.meta.cursor, 2);
+
+        // The two verdict files must have drawn disjoint tools (the whole
+        // point of a cursor that only ever moves forward).
+        let v1 = load(&verdict_path(tmp.path(), 100)).unwrap();
+        let v2 = load(&verdict_path(tmp.path(), 101)).unwrap();
+        assert_eq!(v1.entries.len(), 1);
+        assert_eq!(v2.entries.len(), 1);
+        assert_ne!(v1.entries[0].tool, v2.entries[0].tool);
+    }
+
+    #[test]
+    fn sample_never_disturbs_an_already_recorded_verdict() {
+        let tmp = tempfile::tempdir().unwrap();
+        cmd_freeze(
+            2,
+            Some(vec!["sh".to_string(), "cat".to_string(), "ls".to_string()]),
+            tmp.path(),
+            false,
+        )
+        .unwrap();
+        cmd_sample(200, 1, tmp.path(), &[]).unwrap();
+        let vpath = verdict_path(tmp.path(), 200);
+        {
+            let mut f = load(&vpath).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            f.entries[0].note = "looked right".to_string();
+            save(&vpath, &f).unwrap();
+        }
+        // A second draw against the *same* verdict file (same seed) must
+        // add the newly-advanced tool without disturbing the first one's
+        // recorded verdict.
+        cmd_sample(200, 1, tmp.path(), &[]).unwrap();
+        let after = load(&vpath).unwrap();
+        assert_eq!(after.entries.len(), 2);
+        let first = after
+            .entries
+            .iter()
+            .find(|e| e.verdict.as_deref() == Some("correct"))
+            .expect("the already-recorded verdict must survive");
+        assert_eq!(first.note, "looked right");
+    }
+
+    #[test]
+    fn force_include_appears_outside_the_queue_draw() {
+        let tmp = tempfile::tempdir().unwrap();
+        cmd_freeze(
+            5,
+            Some(vec!["sh".to_string(), "cat".to_string()]),
+            tmp.path(),
+            false,
+        )
+        .unwrap();
+        // sample=0: nothing drawn from the queue at all, so any entry
+        // present afterward must have come from force_include.
+        let force = vec![("sh".to_string(), "unaudited promotion example".to_string())];
+        cmd_sample(300, 0, tmp.path(), &force).unwrap();
+        let file = load(&verdict_path(tmp.path(), 300)).unwrap();
+        assert_eq!(file.entries.len(), 1, "only the forced tool is present");
+        assert_eq!(
+            file.entries[0].include_reason.as_deref(),
+            Some("unaudited promotion example")
+        );
+    }
+
+    #[test]
+    fn force_include_is_idempotent_across_repeated_draws() {
+        let tmp = tempfile::tempdir().unwrap();
+        cmd_freeze(6, Some(vec!["sh".to_string()]), tmp.path(), false).unwrap();
+        let force = vec![("sh".to_string(), "reason one".to_string())];
+        cmd_sample(301, 0, tmp.path(), &force).unwrap();
+        cmd_sample(301, 0, tmp.path(), &force).unwrap();
+        let file = load(&verdict_path(tmp.path(), 301)).unwrap();
+        assert_eq!(
+            file.entries.len(),
+            1,
+            "re-running sample must not duplicate an already force-included tool"
+        );
     }
 }

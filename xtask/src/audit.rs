@@ -27,11 +27,19 @@
 //!
 //! # Shape
 //!
-//! - [`cmd_sample`] draws a **deterministic, stratified** sample (by parse
-//!   status — `ok`/`low-confidence`/`verbatim`/`no-tier`, plus whatever
-//!   other status [`crate::status::compute`] actually produces for the
-//!   population, e.g. `suspicious` — never a fixed four-way bucket forced
-//!   onto the real data) and persists it to a resumable verdict file.
+//! - `xtask audit freeze` (`crate::queue::cmd_freeze`) sweeps `PATH` once,
+//!   classifies every tool by parse status (`ok`/`low-confidence`/
+//!   `verbatim`/`no-tier`, plus whatever other status
+//!   [`crate::status::compute`] actually produces for the population, e.g.
+//!   `suspicious` — never a fixed four-way bucket forced onto the real
+//!   data), shuffle-stratifies the result with a recorded seed, and writes
+//!   the ordered list plus the raw captured bytes behind it to
+//!   `<dir>/queue.toml` / `<dir>/queue-captures/`. `xtask audit sample`
+//!   (`crate::queue::cmd_sample`) then just advances a cursor through that
+//!   frozen queue and persists the next slice to a resumable verdict file —
+//!   see `crate::queue`'s own doc comment for the full design, why it
+//!   replaced a live re-sweep on every draw, and the caveats freezing a
+//!   population honestly carries.
 //! - [`cmd_review`] is the interactive loop: raw text and parsed tree side
 //!   by side, a one-word verdict, persisted after every tool so an
 //!   interrupted session resumes rather than restarts.
@@ -60,16 +68,16 @@
 //! occupies its slot in the verdict file and is visible in
 //! [`cmd_report`]'s output, just excluded from the accuracy ratio (there is
 //! nothing to judge). The draw itself never consults the tool's own status
-//! or name when deciding who gets sampled — see [`sample_stratified`],
-//! which only ever sees `(tool, stratum)` pairs and a seeded shuffle.
+//! or name when deciding who gets sampled — see
+//! `crate::queue::shuffle_stratify`, which only ever sees `(tool, stratum)`
+//! pairs and a seeded shuffle.
 
-use crate::coverage::unique_executables_on_path;
 use crate::existence::{self, FabricationKind};
 use crate::misattribution::RecordingProbe;
 use crate::status;
 use mandible_core::audit::{
     extract_tag_override, load, parse_verdict_word, save, tag_display, verdict_path, AuditFile,
-    AuditMeta, Entry,
+    Entry,
 };
 use mandible_core::{CommandNode, Flag};
 use mandible_extract::exec::ExecOutput;
@@ -97,68 +105,6 @@ use std::sync::Arc;
 /// its nominal [`Entry::stratum`] — see that field's doc comment.
 const FORCED_INCLUSION_STRATUM: &str = "forced-inclusion";
 
-// ---------------------------------------------------------------------
-// A minimal, dependency-free deterministic PRNG.
-//
-// The workspace carries no `rand` dependency, and this task doesn't need
-// cryptographic quality — only that the same seed always produces the same
-// draw and different seeds produce (with overwhelming probability)
-// different draws. SplitMix64 is the standard, well-analyzed choice for
-// exactly that: one multiply-xor-shift step per call, no external state
-// beyond a single u64.
-// ---------------------------------------------------------------------
-
-struct SplitMix64(u64);
-
-impl SplitMix64 {
-    fn new(seed: u64) -> Self {
-        SplitMix64(seed)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    /// A uniform value in `0..n`. Not perfectly unbiased (the classic
-    /// modulo-reduction skew), which is irrelevant here: `n` is a tool
-    /// count in the thousands at most, `u64::MAX / n` is astronomically
-    /// larger, and the property this whole module needs is
-    /// reproducibility, not cryptographic uniformity.
-    fn below(&mut self, n: usize) -> usize {
-        debug_assert!(n > 0);
-        (self.next_u64() % n as u64) as usize
-    }
-}
-
-/// Deterministic Fisher-Yates shuffle, seeded — the only source of
-/// randomness [`sample_stratified`] uses. Same `seed` and `items`, in the
-/// same starting order, always produces the same permutation.
-fn seeded_shuffle<T>(items: &mut [T], seed: u64) {
-    let mut rng = SplitMix64::new(seed);
-    for i in (1..items.len()).rev() {
-        let j = rng.below(i + 1);
-        items.swap(i, j);
-    }
-}
-
-/// Derive a per-stratum seed from the run's `--seed` and the stratum's own
-/// name, via a small FNV-1a mix. Without this, shuffling every stratum with
-/// the *same* raw seed would make the strata's internal orders correlated
-/// (the same relative shuffle pattern applied to each), which is a subtler
-/// but real form of non-independence in the draw.
-fn stratum_seed(seed: u64, stratum: &str) -> u64 {
-    let mut h: u64 = 0xcbf2_9ce4_8422_2325 ^ seed;
-    for b in stratum.as_bytes() {
-        h ^= u64::from(*b);
-        h = h.wrapping_mul(0x0000_0001_0000_01B3);
-    }
-    h
-}
-
 /// One tool's classification: its drawn/measured stratum, the extracted
 /// tree, and (when available) the raw captured text and the exact capture
 /// needed to write a corpus fixture — all obtained from **one** extraction
@@ -174,7 +120,7 @@ pub(crate) struct Classified {
     pub(crate) raw_capture: Option<(Vec<String>, ExecOutput)>,
 }
 
-fn classify_one(tool: &str) -> Classified {
+pub(crate) fn classify_one(tool: &str) -> Classified {
     let probe = Arc::new(RecordingProbe::new());
     let runner = Runner::new(default_tiers_with_probe(probe.clone()));
     let result = runner.extract_full(tool);
@@ -185,16 +131,6 @@ fn classify_one(tool: &str) -> Classified {
         raw_capture: probe.root_help_capture(),
         result,
     }
-}
-
-/// Classify every tool in `tools` in parallel (each is an independent
-/// subprocess round-trip, same reasoning as `coverage::run_over`'s own
-/// `par_iter`).
-fn classify_all(tools: &[String]) -> Vec<(String, Classified)> {
-    tools
-        .par_iter()
-        .map(|t| (t.clone(), classify_one(t)))
-        .collect()
 }
 
 /// [`classify_one`], plus every `(argv, output)` pair the extraction pass
@@ -424,10 +360,10 @@ fn k3_signature(root: &CommandNode) -> Option<bool> {
 /// Build one [`Entry`] from a classified tool, computing every pre-tag
 /// suggestion from the same single extraction pass — no second probe, same
 /// property [`Classified`]'s own doc comment describes. Shared by
-/// [`sample_stratified`] (the ordinary draw) and [`cmd_sample`]'s
-/// force-include path, so the two can never compute a K1/K2/K3 suggestion
-/// differently.
-fn entry_from_classified(
+/// `crate::queue::cmd_sample`'s drawn-tool and force-include paths, so the
+/// two can never compute a K1/K2/K3 suggestion differently. `pub(crate)`
+/// for exactly that cross-module reuse.
+pub(crate) fn entry_from_classified(
     tool: String,
     classified: &Classified,
     include_reason: Option<String>,
@@ -451,99 +387,12 @@ fn entry_from_classified(
     }
 }
 
-/// A drawn sample's per-stratum accounting, for [`cmd_sample`]'s printed
-/// proof that the draw is proportionally stratified: `(drawn, population)`.
-type StratumCounts = BTreeMap<String, (usize, usize)>;
-
-/// Draw a **proportionally stratified** sample of size `sample_size` from
-/// `classified`: each stratum's share of the sample matches its share of
-/// the population (largest-remainder rounding to land on the requested
-/// total exactly), and within a stratum the specific tools are chosen by a
-/// seeded, deterministic shuffle (see [`seeded_shuffle`]).
-///
-/// Proportional, not equal-quota per stratum: the audit's whole purpose is
-/// to find out whether `ok` means anything, which requires the sample to
-/// reflect how the real population actually splits across statuses, not a
-/// fixed quota that would either starve a tiny stratum or force-inflate it
-/// relative to its real share.
-fn sample_stratified(
-    classified: &[(String, Classified)],
-    sample_size: usize,
-    seed: u64,
-) -> (Vec<Entry>, StratumCounts) {
-    let total = classified.len();
-    let by_tool: std::collections::HashMap<&str, &Classified> =
-        classified.iter().map(|(t, c)| (t.as_str(), c)).collect();
-    let mut by_stratum: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for (tool, c) in classified {
-        by_stratum
-            .entry(c.stratum.to_string())
-            .or_default()
-            .push(tool.clone());
-    }
-
-    // Largest-remainder allocation: base quota is the floor of the exact
-    // proportional share, then the leftover slots (sample_size minus the
-    // sum of floors) go to the strata with the largest fractional
-    // remainder, ties broken by stratum name for determinism.
-    let mut quotas: BTreeMap<String, usize> = BTreeMap::new();
-    let mut remainders: Vec<(String, f64)> = Vec::new();
-    let mut allocated = 0usize;
-    for (stratum, tools) in &by_stratum {
-        let exact = if total == 0 {
-            0.0
-        } else {
-            sample_size as f64 * tools.len() as f64 / total as f64
-        };
-        let base = (exact.floor() as usize).min(tools.len());
-        quotas.insert(stratum.clone(), base);
-        allocated += base;
-        remainders.push((stratum.clone(), exact - base as f64));
-    }
-    remainders.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.0.cmp(&b.0))
-    });
-    let mut leftover = sample_size
-        .saturating_sub(allocated)
-        .min(total.saturating_sub(allocated));
-    for (stratum, _) in &remainders {
-        if leftover == 0 {
-            break;
-        }
-        let cap = by_stratum[stratum].len();
-        let q = quotas.get_mut(stratum).expect("stratum present");
-        if *q < cap {
-            *q += 1;
-            leftover -= 1;
-        }
-    }
-
-    let mut entries = Vec::new();
-    let mut counts: StratumCounts = BTreeMap::new();
-    for (stratum, mut tools) in by_stratum {
-        let population = tools.len();
-        seeded_shuffle(&mut tools, stratum_seed(seed, &stratum));
-        let quota = quotas.get(&stratum).copied().unwrap_or(0).min(tools.len());
-        counts.insert(stratum.clone(), (quota, population));
-        for tool in tools.into_iter().take(quota) {
-            let c = by_tool
-                .get(tool.as_str())
-                .expect("every drawn tool came from `classified`");
-            entries.push(entry_from_classified(tool, c, None));
-        }
-    }
-    entries.sort_by(|a, b| a.tool.cmp(&b.tool));
-    (entries, counts)
-}
-
 /// Read a force-include file: `<tool> <reason...>` per line (`#` comments
 /// and blank lines ignored — the same convention [`cmd_ingest`]'s verdicts
-/// file uses), for [`cmd_sample`]'s `force_include` parameter. A reason is
-/// required, not optional: an unconditional inclusion with no stated reason
-/// is exactly the kind of unauditable claim spec.md Appendix A exists to
-/// rule out (see `Entry::include_reason`'s doc comment).
+/// file uses), for `crate::queue::cmd_sample`'s `force_include` parameter. A
+/// reason is required, not optional: an unconditional inclusion with no
+/// stated reason is exactly the kind of unauditable claim spec.md Appendix A
+/// exists to rule out (see `Entry::include_reason`'s doc comment).
 pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
@@ -568,116 +417,10 @@ pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> 
     Ok(out)
 }
 
-/// `xtask audit sample`: (re)compute the deterministic, stratified draw and
-/// merge it into `path`, never disturbing an entry already present (so a
-/// resumed or repeated `sample` invocation is a no-op on top of prior
-/// progress — see this module's doc comment). `force_include` entries
-/// (`(tool, reason)`, see [`load_force_include`]) are merged in
-/// *unconditionally*, in addition to the stratified draw and independent of
-/// `sample_size` — the draw's quota accounting in `counts` never counts
-/// them, so a force-included tool never displaces a randomly-drawn one.
-pub fn cmd_sample(
-    seed: u64,
-    sample_size: usize,
-    tools: Option<Vec<String>>,
-    dir: &Path,
-    force_include: &[(String, String)],
-) -> anyhow::Result<()> {
-    let path = verdict_path(dir, seed);
-    let population = tools.unwrap_or_else(unique_executables_on_path);
-    if population.is_empty() {
-        anyhow::bail!("no tools found to sample from (empty PATH population and no --tools given)");
-    }
-    println!(
-        "classifying {} tool(s) to stratify by parse status...",
-        population.len()
-    );
-    let classified = classify_all(&population);
-    let (drawn, counts) = sample_stratified(&classified, sample_size, seed);
-
-    // Force-included tools are classified independently of `population`:
-    // the whole point (spec-cited case: the 14 `find_description_gap`
-    // promotions) is that they must appear in the sample regardless of
-    // whether a `--tools` shortcut or a stale `PATH` happens to include
-    // them (see this task's own doc comment: "`--tools` shortcuts will not
-    // find them").
-    let mut forced_entries = Vec::new();
-    for (tool, reason) in force_include {
-        let already_classified = classified.iter().find(|(t, _)| t == tool);
-        let c;
-        let classified_ref = match already_classified {
-            Some((_, existing)) => existing,
-            None => {
-                c = classify_one(tool);
-                &c
-            }
-        };
-        forced_entries.push(entry_from_classified(
-            tool.clone(),
-            classified_ref,
-            Some(reason.clone()),
-        ));
-    }
-
-    let mut file = if path.is_file() {
-        let existing = load(&path)?;
-        if existing.meta.seed != seed || existing.meta.sample_size != sample_size {
-            anyhow::bail!(
-                "{} already exists with seed={} sample_size={} (asked for seed={seed} \
-                 sample_size={sample_size}) — use a different --dir/--seed, or delete it \
-                 if this is a deliberate re-draw",
-                path.display(),
-                existing.meta.seed,
-                existing.meta.sample_size,
-            );
-        }
-        existing
-    } else {
-        AuditFile {
-            meta: AuditMeta { seed, sample_size },
-            entries: Vec::new(),
-        }
-    };
-
-    let existing_tools: std::collections::HashSet<String> =
-        file.entries.iter().map(|e| e.tool.clone()).collect();
-    let mut added = 0usize;
-    for entry in drawn.into_iter().chain(forced_entries) {
-        if !existing_tools.contains(&entry.tool) {
-            file.entries.push(entry);
-            added += 1;
-        }
-    }
-    file.entries.sort_by(|a, b| a.tool.cmp(&b.tool));
-    save(&path, &file)?;
-
-    println!(
-        "seed={seed} sample_size={sample_size} population={}",
-        population.len()
-    );
-    println!("stratum            drawn   population   %pop   %sample");
-    for (stratum, (n_drawn, n_pop)) in &counts {
-        println!(
-            "{stratum:<18}  {n_drawn:>4}  {n_pop:>10}  {:>5.1}%  {:>6.1}%",
-            *n_pop as f64 / population.len() as f64 * 100.0,
-            if sample_size == 0 {
-                0.0
-            } else {
-                *n_drawn as f64 / sample_size as f64 * 100.0
-            },
-        );
-    }
-    println!(
-        "{added} new pending entr{s} written to {} ({} pending total, {} force-included)",
-        path.display(),
-        file.pending().count(),
-        force_include.len(),
-        s = if added == 1 { "y" } else { "ies" },
-    );
-    Ok(())
-}
-
-fn render_snapshot(node: Option<&CommandNode>) -> String {
+/// Render `node` as the same YAML snapshot shown side by side with a tool's
+/// raw `--help` text in [`cmd_review`]/[`cmd_emit`] — shared so the two
+/// entry points can never render a tree differently.
+pub(crate) fn render_snapshot(node: Option<&CommandNode>) -> String {
     match node {
         Some(node) => {
             let snapshot = mandible_core::to_snapshot(node);
@@ -894,8 +637,8 @@ pub(crate) fn sanitize_filename(tool: &str) -> String {
 /// silently dropped. An entry that already carries a verdict is left alone
 /// unless `overwrite` is set — so re-running `ingest` on a file that
 /// includes already-applied lines is safe and idempotent, the same
-/// resumability property [`cmd_sample`]/[`cmd_review`] give the rest of
-/// this workflow.
+/// resumability property `crate::queue::cmd_sample`/[`cmd_review`] give the
+/// rest of this workflow.
 pub fn cmd_ingest(
     dir: &Path,
     seed: u64,
@@ -1574,128 +1317,10 @@ fn sample_flag_specs(root: &CommandNode) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mandible_core::audit::AuditMeta;
     use mandible_core::{Provenance, Source};
     use std::io::Cursor;
     use std::path::PathBuf;
-
-    fn synthetic_classified(specs: &[(&str, &str)]) -> Vec<(String, Classified)> {
-        // Builds fake (tool, stratum) pairs without touching a real
-        // extraction pipeline, so `sample_stratified`'s allocation math can
-        // be tested in isolation from anything that spawns a process.
-        specs
-            .iter()
-            .map(|(tool, stratum)| {
-                let stratum_static: &'static str = match *stratum {
-                    "ok" => "ok",
-                    "low-confidence" => "low-confidence",
-                    "verbatim" => "verbatim",
-                    "no-tier" => "no-tier",
-                    "suspicious" => "suspicious",
-                    other => panic!("unexpected test stratum {other}"),
-                };
-                (
-                    tool.to_string(),
-                    Classified {
-                        stratum: stratum_static,
-                        result: ExtractionResult {
-                            tool: tool.to_string(),
-                            root: None,
-                            tier_statuses: Vec::new(),
-                            elapsed: std::time::Duration::ZERO,
-                        },
-                        raw_text: None,
-                        raw_capture: None,
-                    },
-                )
-            })
-            .collect()
-    }
-
-    fn population_80_20() -> Vec<(String, Classified)> {
-        // 80 "ok", 20 "low-confidence" — an easy-to-check 4:1 split.
-        let mut specs: Vec<(String, &str)> = Vec::new();
-        for i in 0..80 {
-            specs.push((format!("ok{i}"), "ok"));
-        }
-        for i in 0..20 {
-            specs.push((format!("lc{i}"), "low-confidence"));
-        }
-        let borrowed: Vec<(&str, &str)> = specs.iter().map(|(t, s)| (t.as_str(), *s)).collect();
-        synthetic_classified(&borrowed)
-    }
-
-    #[test]
-    fn same_seed_draws_the_same_sample_twice() {
-        let population = population_80_20();
-        let (a, _) = sample_stratified(&population, 10, 42);
-        let (b, _) = sample_stratified(&population, 10, 42);
-        let names_a: Vec<&str> = a.iter().map(|e| e.tool.as_str()).collect();
-        let names_b: Vec<&str> = b.iter().map(|e| e.tool.as_str()).collect();
-        assert_eq!(names_a, names_b, "identical seed must draw identical tools");
-    }
-
-    #[test]
-    fn different_seed_draws_a_different_sample() {
-        let population = population_80_20();
-        let (a, _) = sample_stratified(&population, 10, 1);
-        let (b, _) = sample_stratified(&population, 10, 2);
-        let names_a: std::collections::BTreeSet<&str> = a.iter().map(|e| e.tool.as_str()).collect();
-        let names_b: std::collections::BTreeSet<&str> = b.iter().map(|e| e.tool.as_str()).collect();
-        assert_ne!(
-            names_a, names_b,
-            "different seeds should (overwhelmingly) draw different sets"
-        );
-    }
-
-    #[test]
-    fn sample_is_proportionally_stratified() {
-        let population = population_80_20();
-        // 100 population, 4:1 split; a sample of 20 should draw ~16 ok / ~4
-        // low-confidence (exact, since 20 * 0.8 = 16 and 20 * 0.2 = 4 land
-        // on whole numbers with no rounding ambiguity).
-        let (entries, counts) = sample_stratified(&population, 20, 7);
-        assert_eq!(entries.len(), 20);
-        let (ok_drawn, ok_pop) = counts["ok"];
-        let (lc_drawn, lc_pop) = counts["low-confidence"];
-        assert_eq!(ok_pop, 80);
-        assert_eq!(lc_pop, 20);
-        assert_eq!(
-            ok_drawn, 16,
-            "80% of the population should be ~80% of the sample"
-        );
-        assert_eq!(
-            lc_drawn, 4,
-            "20% of the population should be ~20% of the sample"
-        );
-    }
-
-    #[test]
-    fn sample_never_exceeds_a_strata_population() {
-        // A stratum with only 2 tools can never contribute more than 2,
-        // even if proportional rounding would otherwise ask for more.
-        let population =
-            synthetic_classified(&[("a", "ok"), ("b", "ok"), ("c", "no-tier"), ("d", "no-tier")]);
-        let (entries, counts) = sample_stratified(&population, 4, 99);
-        assert_eq!(
-            entries.len(),
-            4,
-            "cannot draw more than the total population"
-        );
-        for (_, (drawn, pop)) in counts {
-            assert!(drawn <= pop);
-        }
-    }
-
-    #[test]
-    fn sample_total_never_exceeds_requested_size_or_population() {
-        let population = population_80_20();
-        let (entries, _) = sample_stratified(&population, 1000, 5);
-        assert_eq!(
-            entries.len(),
-            100,
-            "requesting more than the population caps at the population"
-        );
-    }
 
     #[test]
     fn wilson_interval_is_wide_for_small_perfect_samples() {
@@ -1816,25 +1441,6 @@ mod tests {
         let after_second = load(&verdict_path(tmp.path(), 12345)).unwrap();
         assert!(after_second.entries.iter().all(|e| e.verdict.is_some()));
         assert_eq!(after_second.pending().count(), 0);
-    }
-
-    #[test]
-    fn sample_merge_is_idempotent_and_never_touches_recorded_verdicts() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = write_sample_file(tmp.path(), 55, &[("sh", "ok")]);
-        {
-            let mut f = load(&path).unwrap();
-            f.entries[0].verdict = Some("correct".to_string());
-            f.entries[0].note = "already reviewed".to_string();
-            save(&path, &f).unwrap();
-        }
-        // Re-running sample with the same population/seed/size must not
-        // disturb the already-recorded verdict.
-        cmd_sample(55, 1, Some(vec!["sh".to_string()]), tmp.path(), &[]).unwrap();
-        let after = load(&path).unwrap();
-        assert_eq!(after.entries.len(), 1);
-        assert_eq!(after.entries[0].verdict.as_deref(), Some("correct"));
-        assert_eq!(after.entries[0].note, "already reviewed");
     }
 
     #[test]
@@ -2197,41 +1803,9 @@ mod tests {
         assert!(load_force_include(&path).is_err());
     }
 
-    #[test]
-    fn cmd_sample_force_includes_tools_outside_the_stratified_draw() {
-        let tmp = tempfile::tempdir().unwrap();
-        // sample_size=0: nothing from the stratified draw at all, so any
-        // entry present afterward must have come from force_include.
-        let force = vec![("sh".to_string(), "unaudited promotion example".to_string())];
-        cmd_sample(
-            100,
-            0,
-            Some(vec!["sh".to_string(), "cat".to_string()]),
-            tmp.path(),
-            &force,
-        )
-        .unwrap();
-        let file = load(&verdict_path(tmp.path(), 100)).unwrap();
-        assert_eq!(file.entries.len(), 1, "only the forced tool is present");
-        assert_eq!(
-            file.entries[0].include_reason.as_deref(),
-            Some("unaudited promotion example")
-        );
-    }
-
-    #[test]
-    fn cmd_sample_force_include_is_idempotent() {
-        let tmp = tempfile::tempdir().unwrap();
-        let force = vec![("sh".to_string(), "reason one".to_string())];
-        cmd_sample(101, 0, Some(vec!["sh".to_string()]), tmp.path(), &force).unwrap();
-        cmd_sample(101, 0, Some(vec!["sh".to_string()]), tmp.path(), &force).unwrap();
-        let file = load(&verdict_path(tmp.path(), 101)).unwrap();
-        assert_eq!(
-            file.entries.len(),
-            1,
-            "re-running sample must not duplicate an already force-included tool"
-        );
-    }
+    // `cmd_sample`'s force-include behavior (independent of the queue draw
+    // itself, unconditional inclusion, idempotent re-run) is now exercised
+    // in `crate::queue`'s own tests, alongside the queue it now requires.
 
     // -------------------------------------------------------------
     // Report: effective stratum and accuracy views
