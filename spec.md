@@ -2359,6 +2359,35 @@ member rule and asserted as a must-stay-silent self-check: nothing on its
 shape says whether one value or two are meant, so claiming it would trade a
 known miss for a possible fabrication.
 
+`unparsed-flag` is **not one shape either**, and it dissolves for a second
+reason worth stating separately: the name describes a *symptom* ("no flag
+came out"), so anything that generalizes it is a recall counter rather than
+a family detector — the thing `brace-alternation-flag`'s own
+`MIN_ALTERNATIVES` comment refuses to become. Its five labelled tools are
+five dispositions, and three of them are already somebody else's:
+
+| tool | as written | disposition |
+|---|---|---|
+| `cache_restore` | `{-i\|--input} <input xml file>` | `brace-alternation-flag`, **already fixed**; fixture green |
+| `xfs_io` | `[[-c\|-C] cmd]...`, `[-adfinrRstVx]` | `brace-alternation-flag` + `bundled-short-flag`, **already fixed**; fixture green |
+| `ip` | `OPTIONS := { -V[ersion] \| -s[tatistics] \| … }` | `unparsed-subcommand` **shape D**, already declared NOT BUILT and excluded by witness in `xtask::commandtable`; its `OBJECT` and `OPTIONS` sets are one grammar, and the survivors are additionally `single-dash-long` (`-V` carrying the value `"ersion"`) |
+| `sg_dd` | a second synopsis paragraph after a blank line | singleton — the usage block ends at the blank line, losing `--progress` and `--verify` and nothing else |
+| `pptpsetup` | `pptpsetup --create <TUNNEL> …`, no `usage:` label | singleton — no `usage:` anchor, so no usage block exists and no synopsis flag is extracted |
+
+The two singletons share no witness token, so no one predicate reaches both
+and each fix would flip exactly one fixture. The `pptpsetup` shape is worse
+than merely small: *any* predicate reading "the tool's own name leads a line
+carrying flag-shaped tokens, with no `usage:` at line start" also claims
+`vgck`, `vgextend` and `vgrename` — labelled `verbatim-fallback`, a
+cross-family fire — and `nfsidmap` (`nfsidmap: Usage: nfsidmap [-vh] …`),
+judged **`correct`** by an explicit maintainer decision that the audit note
+records as not to be re-litigated. Anchoring the usage block on the tool's
+own name would hand all four a synopsis they do not have today, re-opening a
+signed-off verdict as a side effect of a different family's fix, with no
+fleet measurement available to bound it. **No detector was built, and that
+is the finding** — the same outcome as `value-name-mangled` above, reached
+the same way.
+
 **Unclassified is a recorded state, not a gap to fill.** A judged defect
 whose note nobody could confidently sort — a hedged by-reference note with
 no fixture to check it against — carries no label, and both `xtask detector

@@ -431,10 +431,59 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
         meaning: "text belonging to a section heading is absorbed into a flag, a description, or \
                   a node name",
     },
+    // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. The name describes a
+    // *symptom* — "no flag came out" — not a shape, which is exactly the
+    // `value-name-mangled` failure mode (spec §13.1e) rather than the
+    // `brace-alternation-flag` one. Its five labelled tools are five
+    // unrelated dispositions, and three of them are not this family's work
+    // at all:
+    //
+    //   cache_restore  `{-i|--input} <input xml file>`   brace-alternation-flag,
+    //                                                    ALREADY FIXED — fixture green
+    //   xfs_io         `[[-c|-C] cmd]...`, `[-adfinrRstVx]`
+    //                                                    brace-alternation-flag +
+    //                                                    bundled-short-flag,
+    //                                                    ALREADY FIXED — fixture green
+    //                                                    (its own note says "singe dash
+    //                                                    issue + missing -c and -C";
+    //                                                    the label, not the parse, is
+    //                                                    what is stale here)
+    //   ip             `OPTIONS := { -V[ersion] | ... }` unparsed-subcommand SHAPE D,
+    //                                                    already declared NOT BUILT and
+    //                                                    already excluded by witness in
+    //                                                    `xtask::commandtable`. Its
+    //                                                    OBJECT set and its OPTIONS set
+    //                                                    are one grammar; the survivors
+    //                                                    are additionally single-dash-long
+    //                                                    (`-V` + value `"ersion"`)
+    //   sg_dd          a second synopsis paragraph       singleton: the usage block ends
+    //                  after a blank line                at the blank line, losing
+    //                                                    `--progress` and `--verify` and
+    //                                                    nothing else
+    //   pptpsetup      `pptpsetup --create <TUNNEL> ...` singleton: a synopsis with no
+    //                  with no `usage:` label            `usage:` anchor, so no usage
+    //                                                    block exists and no synopsis flag
+    //                                                    is ever extracted
+    //
+    // The two singletons share no witness token, so no one predicate reaches
+    // both, and each fix would flip exactly one fixture — "a tool, not a
+    // family". Worse, the pptpsetup shape cannot be claimed at all without
+    // breaking two boundaries: *any* predicate reading "the tool's own name
+    // leads a line carrying flag-shaped tokens, with no `usage:` at line
+    // start" also claims `vgck`, `vgextend` and `vgrename` (labelled
+    // verbatim-fallback — a cross-family fire) and `nfsidmap` (`nfsidmap:
+    // Usage: nfsidmap [-vh] ...`, judged **correct** by maintainer decision
+    // and explicitly not re-litigated — a false alarm). Anchoring the usage
+    // block on the tool's own name would hand all four of them a synopsis
+    // they do not have today, re-opening a signed-off `correct` verdict as a
+    // side effect of a different family's fix, with no fleet measurement
+    // available to bound the damage.
     DefectFamily {
         name: "unparsed-flag",
         meaning: "flag spellings plainly present in the help text produce no flag at all — a \
-                  partial recall gap, distinct from `verbatim-fallback`'s total one",
+                  partial recall gap, distinct from `verbatim-fallback`'s total one. A SYMPTOM, \
+                  not a shape: its five labelled tools are five unrelated dispositions and no \
+                  detector generalizes them; see the comment above",
     },
     // NOT ONE DEFECT. The seed-2 audit's 8 `unparsed-subcommand` tools —
     // the largest family in the set — write their subcommand lists in four
