@@ -159,12 +159,8 @@ fn groups(raw: &str) -> Vec<Group> {
             if alt.members.len() < MIN_ALTERNATIVES {
                 continue;
             }
-            // `parse_flag_alternation` hands back the members and the
-            // trailing text, not the span; recover the span from the two so
-            // the report quotes what the tool actually wrote.
-            let consumed = line[byte_pos..].len() - alt.rest.len();
             out.push(Group {
-                text: line[byte_pos..byte_pos + consumed].trim_end().to_string(),
+                text: alt.group,
                 members: alt.members,
             });
         }

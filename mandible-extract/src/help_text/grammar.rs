@@ -311,6 +311,15 @@ pub struct FlagAlternation {
     /// The opening delimiter actually used, `'{'` or `'['`. Callers that
     /// only trust one of the two filter on this rather than on a re-parse.
     pub open: char,
+    /// The delimited span exactly as the tool wrote it, delimiters included
+    /// and nothing after them: `"{-v | --version}"`.
+    ///
+    /// Carried rather than left for the caller to reconstruct from `members`
+    /// and `rest`. Subtracting the *trimmed* `rest`'s length from the input's
+    /// gets the span wrong whenever the text after the group has leading or
+    /// trailing whitespace — a report that quotes the tool's own text has to
+    /// quote it, not approximate it.
+    pub group: String,
     /// Each alternative's bare spelling in source order, delimiters and
     /// surrounding whitespace stripped: `["-i", "--input"]`.
     pub members: Vec<String>,
@@ -350,8 +359,10 @@ pub fn parse_flag_alternation(input: &str) -> Option<FlagAlternation> {
     if members.is_empty() || !members.iter().all(|m| is_bare_flag_spelling(m)) {
         return None;
     }
+    let span = trimmed.len() - rest.len();
     Some(FlagAlternation {
         open,
+        group: trimmed[..span].to_string(),
         members: members.into_iter().map(str::to_string).collect(),
         rest: rest.trim().to_string(),
     })
