@@ -4,20 +4,19 @@ stratum             correct/judged   accuracy   95% CI            skipped   pend
 forced-inclusion        1/13       7.7%   [  1.4%,  33.3%]         1         0
 incomplete              0/1        0.0%   [  0.0%,  79.3%]         0         0
 low-confidence          0/1        0.0%   [  0.0%,  79.3%]         0         0
-ok                     32/59      54.2%   [ 41.7%,  66.3%]         3         0
-spot-audit:bundled-short-flag-942890d      5/5       100.0%   [ 56.6%, 100.0%]         0         0
+ok                     32/64      50.0%   [ 38.1%,  61.9%]         3         0
 verbatim                2/7       28.6%   [  8.2%,  64.1%]         4         0
-OVERALL                40/86      46.5%   [ 36.3%,  57.0%]         8         0
+OVERALL                35/86      40.7%   [ 30.9%,  51.3%]         8         0
 
 note: the 95% CI above bounds sampling error only — how much this sample's accuracy could plausibly vary on a fresh draw of the same size — never reviewer error. Read the accuracy figure as "accuracy of the parser as judged by this reviewer," not an absolute truth.
-note: 5 verdict(s) carry a recorded amendment; of the corrections with a comparable direction, 1 made the verdict less favorable to the parser (an originally too-generous read) and 5 made it more favorable (an originally too-harsh read). More corrections have gone the harsh-to-generous direction than the reverse so far, so this accuracy figure likely still reads a little low.
+note: 1 verdict(s) carry a recorded amendment; of the corrections with a comparable direction, 1 made the verdict less favorable to the parser (an originally too-generous read) and 0 made it more favorable (an originally too-harsh read). More corrections have gone the generous-to-harsh direction than the reverse so far, so this accuracy figure likely still reads a little high.
 
 K1/K2/K3 sensitivity (36 entries tagged K1, 0 entries tagged K2, 0 entries tagged K3 — see mandible_core::audit's Entry::k1/k2/k3 doc comments and this module's *_signature functions):
 view                      correct/judged   accuracy   95% CI
-all-inclusive                40/86      46.5%   [ 36.3%,  57.0%]
+all-inclusive                35/86      40.7%   [ 30.9%,  51.3%]
 K1-excluded                  25/50      50.0%   [ 36.6%,  63.4%]
-K2-excluded                  40/86      46.5%   [ 36.3%,  57.0%]
-K3-excluded                  40/86      46.5%   [ 36.3%,  57.0%]
+K2-excluded                  35/86      40.7%   [ 30.9%,  51.3%]
+K3-excluded                  35/86      40.7%   [ 30.9%,  51.3%]
 K1+K2+K3-excluded            25/50      50.0%   [ 36.6%,  63.4%]
 
 tools judged wrong or incomplete (the next bugs):
@@ -32,7 +31,9 @@ tools judged wrong or incomplete (the next bugs):
   bzless                   wrong       it just is wrong, nothing was parsed and nothing shows, it only displays weird header decorator
   cache_restore            wrong       flags were not detected
   chgrp                    incomplete  for the 2nd section of the flags it partially selected the section header from the last 3 words of that sections header. As " ONE TAKES EFFECT."
+  eqn                      incomplete  it shows almost everything correctly, but there is an optional -v and --version, but it only displays --version
   expand                   incomplete  the flags -t, --tabs take two different types like as follows, but it only shows 'N': -t, --tabs=N have tabs N characters apart, not 8
+  filefrag                 wrong       possibly wrong flags
   filegone-bpfcc           incomplete  detected -p, but not optional --pid
   gcc                      wrong       this one is in the similar category of curl's help, where we had a group of separate help texts, in this case we have: common|optimizers|params|target|warnings|[^]{joined|separate|undocumented
   gcc-ar                   incomplete  commands are not detected, 2-3 similar issues. Weirdly formatted command names within []
@@ -61,9 +62,12 @@ tools judged wrong or incomplete (the next bugs):
   sg_sanitize              incomplete  close enough, verify if this '--count OC|-c OC' getting parsed into this is correct: '--count OC|c'
   ssh-keygen               wrong       this help text just prints out all the possible combinations together with tools name. kind of got parsed, but i feel like incomplete
   tcpaccept.bt             incomplete  similar '-vv', '-dd' missing issue
+  tcpdump                  wrong       single dash, single characater issue
   threadsnoop.bt           wrong       '-vv' issue
+  tmux                     wrong       bundled-short-flag collapse: [-2CDlNuVv] parses as one flag '-2' with a required value 'CDlNuVv' instead of 8 separate boolean flags. Same defect judged wrong on tcpdump, filefrag, ssh-keygen and xfs_io in this same review. [amended]
   update-xmlcatalog        wrong       mostly looks fine, but not sure how to make sanitization on this one. Because this tool uses '=' to start the description of flag, which propogates to the tool
   vgck                     incomplete  verbatim
   vgextend                 incomplete  verbatim
   vgrename                 incomplete  verbatim
   vim.basic                wrong       i think the same positional arguements issue, we should come back to this
+  xfs_io                   wrong       singe dash issue + missing -c and -C, see the original text
