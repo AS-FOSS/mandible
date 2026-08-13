@@ -939,52 +939,81 @@ mod tests {
 
     /// `tcpdump`'s committed capture, through the real parser: the tree
     /// this asserts against is the one `mandible` would actually build, so
-    /// the fields the rule reads (`HelpTextSynopsis`, no long name,
-    /// `ValueKind::Required`, the verbatim `value_name`) are the parser's,
-    /// not this test author's.
+    /// what it reports is the parser's answer, not this test author's.
+    ///
+    /// **It now reports nothing, and that is the fix landing.**
+    /// `help_text::grammar::parse_bundled_shorts` reads the cluster as the
+    /// 26 switches it is, so there is no collapse left to find. Every
+    /// hand-built test above still asserts the *rule* fires on the
+    /// collapsed shape — the oracle stays live, it just no longer has a
+    /// real tree to fire on, which is exactly the state a ratchet-gated
+    /// metric is supposed to reach.
     #[test]
-    fn the_real_parser_on_tcpdumps_real_capture_yields_exactly_one_collapse() {
+    fn the_real_parser_on_tcpdumps_real_capture_no_longer_collapses_it() {
         let raw = include_str!("../../corpus/tcpdump/audit-seed2/help.txt");
         let root = parse_through_the_real_pipeline("tcpdump", raw);
-        let r = detect(raw, &root);
-        assert_eq!(
-            r.collapse_count(),
-            1,
-            "expected exactly tcpdump's own cluster: {:?}",
-            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
-        );
-        assert_eq!(r.collapses[0].cluster, "-AbdDefhHIJKlLnNOpqStuUvxX#");
-        assert_eq!(r.destroyed_flag_count(), 25);
-    }
-
-    /// The false-positive side, through the real parser. `tmux`'s capture
-    /// is the one that matters most: five genuine value-taking short flags
-    /// on the same physical line as the collapse, all five parsed into the
-    /// same `short + value_name` shape the rule keys on, and only the
-    /// cluster may fire.
-    #[test]
-    fn the_real_parser_on_tmuxs_real_capture_fires_only_on_the_cluster() {
-        let raw = include_str!("../../corpus/tmux/audit-seed2/help.stderr.txt");
-        let root = parse_through_the_real_pipeline("tmux", raw);
-        // The five real valued flags are genuinely in the tree — otherwise
-        // this test would pass for the wrong reason (nothing to fire on).
-        let valued: Vec<char> = root
-            .flags
-            .iter()
-            .filter(|f| f.short.is_some() && f.value_name.is_some())
-            .filter_map(|f| f.short)
-            .collect();
-        for short in ['c', 'f', 'L', 'S', 'T'] {
-            assert!(valued.contains(&short), "-{short} missing from {valued:?}");
+        // Every member is its own flag now — asserted before the detector
+        // runs, so this cannot pass for the wrong reason (a tree with no
+        // synopsis flags at all would also report zero collapses).
+        let shorts: Vec<char> = root.flags.iter().filter_map(|f| f.short).collect();
+        for member in "AbdDefhHIJKlLnNOpqStuUvxX#".chars() {
+            assert!(
+                shorts.contains(&member),
+                "-{member} missing from {shorts:?}"
+            );
         }
         let r = detect(raw, &root);
         assert_eq!(
             r.collapse_count(),
-            1,
-            "only the cluster may fire: {:?}",
+            0,
+            "the collapse is fixed; nothing may fire: {:?}",
             r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
         );
-        assert_eq!(r.collapses[0].cluster, "-2CDlNuVv");
+        assert_eq!(r.destroyed_flag_count(), 0);
+    }
+
+    /// The false-positive side, through the real parser. `tmux`'s capture
+    /// is the one that matters most, and for the same reason after the fix
+    /// as before it: five genuine value-taking short flags sit on the same
+    /// physical line as the cluster, and the *only* thing separating them
+    /// from it is a space. The eight bundled switches must all be present
+    /// as bare booleans and the five valued flags must all still carry
+    /// their values — a fix that split `-c shell-command` too would satisfy
+    /// the detector and destroy the tool.
+    #[test]
+    fn the_real_parser_on_tmuxs_real_capture_splits_only_the_cluster() {
+        let raw = include_str!("../../corpus/tmux/audit-seed2/help.stderr.txt");
+        let root = parse_through_the_real_pipeline("tmux", raw);
+        for member in "2CDlNuVv".chars() {
+            let flag = root
+                .flags
+                .iter()
+                .find(|f| f.short == Some(member))
+                .unwrap_or_else(|| panic!("-{member} missing from tmux's tree"));
+            assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
+            assert_eq!(flag.value_kind, ValueKind::None, "-{member} takes no value");
+        }
+        for (short, value) in [
+            ('c', "shell-command"),
+            ('f', "file"),
+            ('L', "socket-name"),
+            ('S', "socket-path"),
+            ('T', "features"),
+        ] {
+            let flag = root
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("-{short} missing from tmux's tree"));
+            assert_eq!(flag.value_name.as_deref(), Some(value));
+        }
+        let r = detect(raw, &root);
+        assert_eq!(
+            r.collapse_count(),
+            0,
+            "the collapse is fixed; nothing may fire: {:?}",
+            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
+        );
     }
 
     /// `lessecho`'s seven genuine glued character-argument flags, through

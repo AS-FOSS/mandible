@@ -563,4 +563,160 @@ mod tests {
     fn looks_like_flag_start_false_for_bare_word() {
         assert!(!looks_like_flag_start("clone     Clone a repository"));
     }
+
+    // --- the bundled-short-flag cluster ---------------------------------
+
+    /// Helper: the members `parse_bundled_shorts` recovers, as a `String`,
+    /// or `"-"` when it declined — so a test can assert both answers with
+    /// one comparison and a failure message shows what was recovered.
+    fn bundle(token: &str) -> String {
+        match parse_bundled_shorts(token) {
+            Some(members) => members.into_iter().collect(),
+            None => "-".to_string(),
+        }
+    }
+
+    /// The five real clusters from the seed-2 human audit, byte-exact from
+    /// their own captures. Each is a *whole* set of switches, so the
+    /// recovered members must be the token minus its dash, exactly.
+    #[test]
+    fn the_five_audited_clusters_split_into_their_members() {
+        assert_eq!(
+            bundle("-AbdDefhHIJKlLnNOpqStuUvxX#"),
+            "AbdDefhHIJKlLnNOpqStuUvxX#" // tcpdump, 26 members
+        );
+        assert_eq!(bundle("-2CDlNuVv"), "2CDlNuVv"); // tmux
+        assert_eq!(bundle("-adfinrRstVx"), "adfinrRstVx"); // xfs_io
+        assert_eq!(bundle("-BeEksvxX"), "BeEksvxX"); // filefrag
+        assert_eq!(
+            bundle("-abcCeEgGijklNpRsStUVXzZ"),
+            "abcCeEgGijklNpRsStUVXzZ"
+        ); // groff
+    }
+
+    /// The two signals in condition 5 each carry a large real family the
+    /// other cannot see, so both are exercised on fleet text.
+    #[test]
+    fn either_ordering_or_a_case_mixing_swallowed_half_is_enough() {
+        // Ordered only: `od`'s traditional switches are all lowercase, so
+        // nothing about their case is evidence of anything.
+        assert!(!swallowed_members_mix_case("bcdfilosx"));
+        assert_eq!(bundle("-abcdfilosx"), "abcdfilosx");
+        // Case-mixing only: `tree` sorts its lowercase run and then its
+        // uppercase one — sorted twice, so not sorted.
+        assert!(!cluster_is_ordered("acdfghilnpqrstuvxACDFJQNSUX"));
+        assert_eq!(
+            bundle("-acdfghilnpqrstuvxACDFJQNSUX"),
+            "acdfghilnpqrstuvxACDFJQNSUX"
+        );
+    }
+
+    /// Family 2 of the three sharing the `short && !long && value_name`
+    /// fingerprint: a **single-dash long option**. Every one of these is a
+    /// completely correct parse today and splitting one would destroy a
+    /// working tool, which is strictly worse than leaving a bundle
+    /// collapsed. They mix case *as clusters* (an uppercase flag letter
+    /// with a lowercase word glued on) and are rejected because their
+    /// swallowed halves — `script`, `name`, `utf8`, `directory` — do not.
+    #[test]
+    fn single_dash_long_options_are_never_split() {
+        for token in [
+            "-Zscript",           // cargo
+            "-Dname",             // rpcgen
+            "-Tutf8",             // makewhatis
+            "-Olevel",            // find
+            "-Idirectory",        // perl
+            "-oOUTFILE",          // the uppercase-placeholder shape
+            "-pass-exit-codes",   // gcc, hyphenated
+            "-fdump-scos",        // gcc, hyphenated
+            "-b{blocksize}[KMG]", // filefrag's own braced value
+        ] {
+            assert_eq!(bundle(token), "-", "{token} must not be split");
+        }
+    }
+
+    /// Family 3: a flag **repeated** to mean "more of it". `-vv` is below
+    /// the member floor; `-vvv` and `strace`'s real `[-DDD]` are rejected
+    /// by distinctness instead. Both halves are asserted because they fail
+    /// *different* conditions, so a change to either one could silently
+    /// admit the whole family.
+    #[test]
+    fn repeated_character_flags_are_never_split() {
+        for token in ["-vv", "-dd", "-qq"] {
+            assert_eq!(bundle(token), "-", "{token} must not be split");
+            assert!(token.strip_prefix('-').unwrap().chars().count() < MIN_CLUSTER_MEMBERS);
+        }
+        for token in ["-vvv", "-DDD", "-ffff"] {
+            assert_eq!(bundle(token), "-", "{token} must not be split");
+            assert!(!members_are_distinct(token.strip_prefix('-').unwrap()));
+        }
+    }
+
+    /// The deliberate lost recall at [`MIN_CLUSTER_MEMBERS`]: `ssh-keygen`'s
+    /// `[-hU]` is a genuine collapse a human labelled `wrong`, and it is
+    /// left alone because nothing about its *shape* separates it from
+    /// `rpcgen`'s real `-Ss` or `xxd`'s real `-ps`. Asserted, not merely
+    /// described, so lowering the floor has to come with a decision about
+    /// `lessecho` rather than happening by accident.
+    #[test]
+    fn a_two_character_cluster_is_deliberately_left_alone() {
+        assert_eq!(bundle("-hU"), "-"); // ssh-keygen, a real collapse
+        for token in [
+            "-Ss", "-it", "-st", "-ou", "-ac", "-as", "-ps", "-ox", "-pn",
+        ] {
+            assert_eq!(bundle(token), "-", "{token} is a real flag with a value");
+        }
+    }
+
+    /// The separator is the whole difference between `tmux`'s collapsed
+    /// `[-2CDlNuVv]` and the five genuine valued flags on its own synopsis
+    /// line, so it is asserted directly rather than left implicit.
+    #[test]
+    fn a_spaced_value_is_never_a_cluster_however_bundle_shaped_it_looks() {
+        for token in [
+            "-c shell-command",
+            "-f file",
+            "-L socket-name",
+            "-T features",
+        ] {
+            assert_eq!(bundle(token), "-", "{token} must not be split");
+        }
+        // ...and a token that is glued and ordered *does* split, confirming
+        // the space was doing the work above rather than some other
+        // condition failing silently.
+        assert_eq!(bundle("-cDeF"), "cDeF");
+    }
+
+    /// A numeric run orders vacuously — no letters to be out of order — so
+    /// [`MIN_ORDERED_LETTERS`] is what keeps a glued numeric default from
+    /// riding that vacuous truth into being split into digits.
+    #[test]
+    fn a_glued_numeric_default_is_never_split() {
+        for token in ["-b1024", "-j4", "-n0777"] {
+            assert_eq!(bundle(token), "-", "{token} must not be split");
+        }
+        assert!(!cluster_is_ordered("b1024"));
+    }
+
+    /// Long options and the bare option terminator are not clusters, and
+    /// the `--` case matters: `-` -> `-name` would otherwise look like a
+    /// perfectly ordinary member run.
+    #[test]
+    fn a_long_option_is_never_a_cluster() {
+        for token in ["--verbose", "--no-pager", "--", "-", "abc", ""] {
+            assert_eq!(bundle(token), "-", "{token:?} must not be split");
+        }
+    }
+
+    /// `parse_flag_spec` itself is deliberately *unchanged* — it still
+    /// reads a cluster as one valued flag, because the identical shape from
+    /// an option-table row is the GCC single-dash convention and is
+    /// genuinely one flag. The split lives at the synopsis call site.
+    #[test]
+    fn parse_flag_spec_still_reads_a_cluster_as_one_valued_flag() {
+        let spec = parse_flag_spec("-2CDlNuVv");
+        assert_eq!(spec.short, Some('2'));
+        assert_eq!(spec.value_name.as_deref(), Some("CDlNuVv"));
+        assert_eq!(spec.value_kind, ValueKind::Required);
+    }
 }
