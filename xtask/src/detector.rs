@@ -496,6 +496,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(VerbatimFallback),
         Box::new(UnparsedArgparsePositional),
         Box::new(BundledShortFlag),
+        Box::new(BraceAlternationFlag),
         Box::new(UnparsedCommandTable),
         Box::new(ExistenceOracle),
         Box::new(MisattributionOracle),
@@ -713,6 +714,80 @@ impl Detector for BundledShortFlag {
     }
     fn self_checks(&self) -> Vec<SelfCheck> {
         crate::bundling::self_checks()
+    }
+}
+
+/// `brace-alternation-flag` (`crate::alternation`), the fourth oracle and
+/// the second family detector.
+///
+/// It is the first one whose *rule* is imported from the extractor rather
+/// than restated beside it: `hits` calls the same
+/// `help_text::parse_flag_alternation` the grammar calls, so the detector
+/// and the fix cannot drift into disagreeing about what the defect is. That
+/// is the lesson `crate::misattribution`'s hand-copied `pick_stream` cost
+/// 200 of 656 fabrications to learn.
+///
+/// **Its fleet count is reported, not ratcheted at zero**, and the reason is
+/// a named residual rather than a missing gate: `btrfs` writes
+/// `btrfs device scan [-d|--all-devices] <device>` in a repeated-prefix
+/// usage catalogue, so the alternation is read correctly and its flags
+/// belong to a subcommand node that `unparsed-subcommand` prevents from
+/// existing. The only node left to hang them on is the root, and `-d` is not
+/// a root flag of `btrfs` — reaching further would assert something false
+/// about the tool rather than recover anything. See `crate::alternation`'s
+/// module doc comment for the full argument and `crate::main`'s
+/// `coverage --check` arm for the ungated wiring.
+///
+/// **`btrfs` is the same tool [`UnparsedCommandTable`] excludes as its own
+/// shape C**, and the two exclusions are one fact seen from two sides: there
+/// is no node for `btrfs device scan` because that catalogue has no grammar
+/// yet, so this detector cannot place the flags and that one cannot recover
+/// the names. Whichever lands first, the other's residual goes to zero for
+/// free.
+///
+/// **Its declared scope names no excluded tool, and that is the honest
+/// answer rather than a missing one.** An [`Exclusion`] converts a blocking
+/// false negative into a named miss, so it may only name a tool the detector
+/// actually misses; both labelled members of this family — `cache_restore`
+/// and `eqn` — are squarely inside the claim below, and [`Ground::holds`]
+/// would refuse a witness for either. What the claim does carry is the two
+/// shapes this detector knowingly does not reach, stated in the same place
+/// an exclusion would have been printed.
+pub(crate) struct BraceAlternationFlag;
+
+impl Detector for BraceAlternationFlag {
+    fn name(&self) -> &'static str {
+        "brace-alternation-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("brace-alternation-flag")
+    }
+    fn describes(&self) -> &'static str {
+        "a delimited alternation of bare flag spellings (`{-i|--input}`, `[[-c|-C] cmd]`) whose \
+         members reach no flag in the tree, or whose surviving member kept the group's own \
+         punctuation as its value"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::alternation::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{} at {:?}: {}", f.group, f.path, f.detail))
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "delimited groups offering at least 2 bare flag spellings \
+                    (`alternation::MIN_ALTERNATIVES`); a one-member group is an ordinary \
+                    bracketed optional flag the synopsis path already reads correctly, and an \
+                    alternation whose members carry their own values (`sg_sanitize`'s \
+                    `--count=OC|-c OC`) is the value-name-mangled family — genuinely ambiguous \
+                    about whether one value or two are meant, so neither this detector nor the \
+                    grammar claims it",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::alternation::self_checks()
     }
 }
 

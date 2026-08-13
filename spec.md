@@ -2299,6 +2299,43 @@ without a reviewer's note behind it — a family with no labelled member
 calibrates nothing and only makes the set look more complete than the
 evidence supports.
 
+**A family name can turn out to cover more than one shape, and then it must
+be split rather than detected.** Two names were taken up together because
+both looked like they were about how a bracketed or braced value spec is
+read; only one of them survived the reading.
+
+`brace-alternation-flag` is **one shape** with three renderings, and the
+detector and the fix are both single rules: a `{...}` or `[...]` group whose
+`|`-separated members are bare flag spellings. `cache_restore`'s
+`{-i|--input} <input xml file>` reaches the grammar through an options
+table, `eqn`'s `{-v | --version}` through a spaced synopsis group, `xfs_io`'s
+`[[-c|-C] cmd]...` through a nested one; one predicate
+(`grammar::parse_flag_alternation`) closed all three, and all three fixtures
+flipped on the run that landed it.
+
+`value-name-mangled` is **not one shape**. Its five labelled tools are at
+least four unrelated defects, sharing only the *symptom* that `value_name`
+came out wrong:
+
+| tool | as written | what is actually wrong |
+|---|---|---|
+| `apt-ftparchive` | `-s=?` | the `=?` placeholder convention |
+| `expand` | `-t, --tabs=N` | a second accepted value form documented only in the description prose |
+| `pastebinit` | `-b <pastebin> (default is 'dpaste.com')` | a trailing parenthetical default beside the value |
+| `sg_sanitize` | `--count=OC\|-c OC` | an alias alternation whose members each restate the value |
+| `update-xmlcatalog` | `--root  = the root XML catalog` | `=` used as a *description* delimiter, read as a value assignment |
+
+A single detector over that list would fire on whatever the author happened
+to encode and miss the rest, and its fleet number would name a population no
+one could check — the precise failure §13.1e's precondition exists to
+prevent, arriving through the *label* rather than through the detector.
+The name should be split before any detector is built for it. Note that the
+one entry adjacent to the alternation family, `sg_sanitize`'s
+`--count=OC|-c OC`, is deliberately refused by `parse_flag_alternation`'s
+member rule and asserted as a must-stay-silent self-check: nothing on its
+shape says whether one value or two are meant, so claiming it would trade a
+known miss for a possible fabrication.
+
 **Unclassified is a recorded state, not a gap to fill.** A judged defect
 whose note nobody could confidently sort — a hedged by-reference note with
 no fixture to check it against — carries no label, and both `xtask detector
@@ -2489,14 +2526,19 @@ The bundled-short-flag grammar fix (§13.1e) is the worked case: three of
 the six fixtures its own family originally judged `wrong` in the seed-2
 audit — `tcpdump`, `tmux`, `filefrag` — flipped from `[xfail]` to passing
 the run that landed the fix, exactly because leaving them labelled broken
-would itself have failed; `xfs_io`, `ssh-keygen`, and `eqn` are still
+would itself have failed; `xfs_io`, `ssh-keygen`, and `eqn` stayed
 `[xfail]`, their own `must_contain_flags` gaps unrelated to the collapse
-this particular fix closed. Both directions are checked on every run, not
+this particular fix closed. Two of those three have since been promoted by
+the *next* family's fix (`brace-alternation-flag`, §13.1e), which is the
+mechanism working exactly as intended: `xfs_io`'s gap was
+`[[-c|-C] cmd]...` and `eqn`'s was `{-v | --version}`, both of them the
+alternation family rather than the bundle one, and both fixture comments
+said so in words while they were still red. Both directions are checked on every run, not
 only the "did it get fixed" one: a fixture claiming to be broken while
 every check quietly passes is exactly as much a bug as an unmarked
 regression.
 
-**Current scale: 81 fixtures — 48 passing, 33 `[xfail]`, 0 unexpectedly
+**Current scale: 81 fixtures — 51 passing, 30 `[xfail]`, 0 unexpectedly
 failing.** Ten are hand-captured against a real installed version (`git`,
 `tar`, `curl` — two versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`,
 `zoxide`); the other 71 are `audit-seed2` fixtures, `xtask audit fixtures`

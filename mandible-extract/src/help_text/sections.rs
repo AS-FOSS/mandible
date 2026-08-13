@@ -41,10 +41,12 @@
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
-use super::grammar::{looks_like_flag_start, parse_bundled_shorts, parse_flag_spec, FlagSpec};
+use super::grammar::{
+    looks_like_flag_start, parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, FlagSpec,
+};
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text,
+    is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text, ValueKind,
 };
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
@@ -2514,8 +2516,26 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
             }
             match segment {
                 UsageSegment::Group(members) => {
-                    let flaggy: Vec<&str> =
-                        members.into_iter().filter(|m| m.starts_with('-')).collect();
+                    let mut flaggy: Vec<&str> = Vec::new();
+                    for m in members {
+                        if m.starts_with('-') {
+                            flaggy.push(m);
+                            continue;
+                        }
+                        // A member that is *itself* a delimited alternation
+                        // of flag spellings, optionally followed by one
+                        // shared operand — `xfs_io`'s `[[-c|-C] cmd]...`,
+                        // whose outer group has exactly this one member.
+                        // Neither `-c` nor `-C` reached the tree at all
+                        // before this arm existed: the member does not start
+                        // with `-`, so the filter above dropped it whole.
+                        for spec in nested_alternation_specs(m) {
+                            if out.len() >= MAX_RECOVERED_ENTRIES {
+                                return out;
+                            }
+                            push_usage_flag(&mut out, spec);
+                        }
+                    }
                     // spec [M-15]'s conservative-pairing rule: within one
                     // bracket group, pair a short with a long only when the
                     // group has exactly one of each. `[-v | --version]`
@@ -2552,6 +2572,80 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
         }
     }
     out
+}
+
+/// The fewest alternatives a *nested* group must carry before
+/// [`nested_alternation_specs`] will read it as one.
+///
+/// Two, and unlike `grammar::looks_like_flag_start`'s floor of one this is
+/// not a judgment call about ambiguity — it is a statement about who already
+/// owns the shape. A one-member nested group is `[[-v] file]`, an ordinary
+/// optional flag inside an outer group, and [`usage_segments`] plus the
+/// pairing rule above already read it correctly. Claiming it here would put
+/// two rules on one shape for no recall at all.
+const MIN_NESTED_ALTERNATIVES: usize = 2;
+
+/// Read one member of a usage-synopsis group as a nested alternation of
+/// flag spellings sharing a single operand — `xfs_io`'s `[[-c|-C] cmd]...`,
+/// where the outer group's only member is the string `[-c|-C] cmd`.
+///
+/// Returns one [`FlagSpec`] per alternative, each carrying the shared
+/// operand as a required value, or the *paired* single spec when the
+/// alternatives are exactly one short and one long (spec [M-15]'s
+/// conservative-pairing rule, the same one the caller applies to a flat
+/// group — `{-i|--input} <file>` and `[-i|--input] <file>` must not disagree
+/// about whether they name one flag or two). Empty when the member is not
+/// this shape.
+///
+/// **The operand is refused unless it is one clean token.** `cmd` is taken;
+/// anything with a second word, or that is itself flag-shaped, yields no
+/// value rather than a guessed one — the alternatives are still emitted,
+/// because their spellings are in the tool's own text either way, and
+/// dropping real flags to avoid an unsure value spec would be the wrong
+/// trade in the other direction. What is never done is inventing a value
+/// name out of text this function could not read.
+fn nested_alternation_specs(member: &str) -> Vec<FlagSpec> {
+    let Some(alt) = parse_flag_alternation(member) else {
+        return Vec::new();
+    };
+    if alt.members.len() < MIN_NESTED_ALTERNATIVES {
+        return Vec::new();
+    }
+    let shared_value = shared_operand(&alt.rest);
+    let specs: Vec<FlagSpec> = alt
+        .members
+        .iter()
+        .map(|m| {
+            let mut spec = parse_flag_spec(m);
+            if let Some(value) = &shared_value {
+                spec.value_name = Some(value.clone());
+                spec.value_kind = ValueKind::Required;
+            }
+            spec
+        })
+        .collect();
+    if let [a, b] = specs.as_slice() {
+        if let Some(paired) = pair_short_and_long(a.clone(), b.clone()) {
+            return vec![paired];
+        }
+    }
+    specs
+}
+
+/// The operand a nested alternation's members share, when the text after
+/// the group is one clean value token and nothing else.
+///
+/// `None` for empty text, for anything with a second word, and for a
+/// flag-shaped token (`[[-a|-b] -c]` is not an operand, whatever it is).
+fn shared_operand(rest: &str) -> Option<String> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() || trimmed.split_whitespace().nth(1).is_some() {
+        return None;
+    }
+    if is_flag_shaped(trimmed) {
+        return None;
+    }
+    Some(trimmed.to_string())
 }
 
 /// True if `candidate` shares a spelling — its short letter, or its long
@@ -2718,8 +2812,17 @@ fn usage_segments(line: &str) -> Vec<UsageSegment<'_>> {
             idx += 1;
             continue;
         }
-        if c == '[' {
-            if let Some((content_range, close_idx)) = matched_bracket_group(&chars, idx) {
+        // `{` opens a group on exactly the same terms as `[`. `eqn`'s
+        // synopsis writes `usage: eqn {-v | --version}`, and while the
+        // brackets-only version of this loop was running, the spaces around
+        // that `|` split it into three bare tokens — `{-v` (discarded, it
+        // does not start with `-`), `|`, and `--version}` (parsed as
+        // `--version` carrying the literal value `"}"`). A brace group whose
+        // members are *not* flag-shaped is unaffected: `{start|stop}` became
+        // a bare token that was skipped before and becomes a group with no
+        // flaggy member now, which `extract_usage_flags` skips just the same.
+        if let Some(close) = group_close_delimiter(c) {
+            if let Some((content_range, close_idx)) = matched_group(&chars, idx, c, close) {
                 let content = &line[content_range.0..content_range.1];
                 out.push(UsageSegment::Group(split_top_level_pipe(content)));
                 idx = close_idx + 1;
@@ -2737,16 +2840,32 @@ fn usage_segments(line: &str) -> Vec<UsageSegment<'_>> {
     out
 }
 
+/// The closing delimiter that matches `c`, when `c` opens a synopsis group
+/// at all. The two pairs a usage line uses for grouping; `<`/`>` is
+/// deliberately absent, since it delimits a value placeholder and never a
+/// group of alternatives.
+fn group_close_delimiter(c: char) -> Option<char> {
+    match c {
+        '[' => Some(']'),
+        '{' => Some('}'),
+        _ => None,
+    }
+}
+
 /// Find the byte range of the content strictly between `chars[open_idx]`
-/// (a `[`) and its matching `]`, and the char-index of that `]` —
-/// bracket-depth aware, so `[--exec-path[=<path>]]`'s inner `[...]` (an
-/// optional value spec on the one alternative) is consumed as part of the
-/// outer group's content instead of closing the group early. `None` when
-/// `open_idx`'s bracket is never closed (malformed input); the caller
-/// falls back to treating it as an ordinary bare token.
-fn matched_bracket_group(
+/// (an `open` delimiter) and its matching `close`, and the char-index of
+/// that close — depth aware over that one pair, so
+/// `[--exec-path[=<path>]]`'s inner `[...]` (an optional value spec on the
+/// one alternative) is consumed as part of the outer group's content
+/// instead of closing the group early, and `[[-c|-C] cmd]`'s inner `]` does
+/// not end the outer group either. `None` when `open_idx`'s delimiter is
+/// never closed (malformed input); the caller falls back to treating it as
+/// an ordinary bare token.
+fn matched_group(
     chars: &[(usize, char)],
     open_idx: usize,
+    open: char,
+    close: char,
 ) -> Option<((usize, usize), usize)> {
     let (open_byte, open_c) = chars[open_idx];
     let content_start = open_byte + open_c.len_utf8();
@@ -2754,33 +2873,35 @@ fn matched_bracket_group(
     let mut j = open_idx + 1;
     while j < chars.len() {
         let (byte_pos, c) = chars[j];
-        match c {
-            '[' => depth += 1,
-            ']' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(((content_start, byte_pos), j));
-                }
+        if c == open {
+            depth += 1;
+        } else if c == close {
+            depth -= 1;
+            if depth == 0 {
+                return Some(((content_start, byte_pos), j));
             }
-            _ => {}
         }
         j += 1;
     }
     None
 }
 
-/// Split a bracket group's content on `|` at that content's own nesting
-/// depth 0, so a nested `[...]` (an optional value spec on one of the
-/// alternatives) is never itself split on. Empty fragments (a stray
-/// leading/trailing `|`, or `||`) are dropped.
+/// Split a group's content on `|` at that content's own nesting depth 0, so
+/// a nested `[...]`/`{...}` (an optional value spec, or a value alternation,
+/// on one of the alternatives) is never itself split on. Empty fragments (a
+/// stray leading/trailing `|`, or `||`) are dropped.
+///
+/// Both delimiter pairs count toward the depth. Counting only brackets read
+/// `[--color={always|never}]` as the two alternatives `--color={always` and
+/// `never}`, emitting a flag whose value was the fragment `{always`.
 fn split_top_level_pipe(content: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut depth = 0i32;
     let mut start = 0usize;
     for (i, c) in content.char_indices() {
         match c {
-            '[' => depth += 1,
-            ']' => depth -= 1,
+            '[' | '{' => depth += 1,
+            ']' | '}' => depth -= 1,
             '|' if depth == 0 => {
                 out.push(content[start..i].trim());
                 start = i + c.len_utf8();

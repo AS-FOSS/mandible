@@ -21,14 +21,11 @@ expected_framework = "generic"
 # entry — short='a', value_name='dfinrRstVx' — and all eleven members are
 # their own flag now, along with -m and -p keeping their values.
 #
-# STILL BROKEN, and what keeps this fixture [xfail]: "[[-c|-C] cmd]..." is a
-# nested bracket group — an alternation of two flags sharing one operand —
-# and neither -c nor -C reaches the tree at all. That is a different family
-# from the bundle (the members are separated by '|', not glued), so the
-# cluster grammar neither helps nor hinders it, and this fixture goes on
-# holding the line for it.
+# ALSO FIXED: "[[-c|-C] cmd]..." is a nested bracket group — an alternation
+# of two flags sharing one operand — and neither -c nor -C used to reach the
+# tree at all. It was correctly diagnosed as a different family from the
+# bundle (the members are separated by '|', not glued), which is why the
+# cluster grammar neither helped nor hindered it; the family that closed it
+# is brace-alternation-flag (`grammar::parse_flag_alternation`), and both
+# flags now arrive carrying their shared operand `cmd`.
 must_contain_flags = ["-c", "-C"]
-
-[xfail]
-broken = true
-reason = "the bundle half ([-adfinrRstVx]) is fixed; what remains is the nested alternation group [[-c|-C] cmd]..., whose two flags reach the tree not at all"

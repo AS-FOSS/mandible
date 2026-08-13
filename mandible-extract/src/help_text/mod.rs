@@ -39,6 +39,16 @@ mod sections;
 pub use grammar::parse_bundled_shorts;
 pub use sections::is_man_page_banner;
 
+/// Re-exported for `xtask/src/alternation.rs`, the `brace-alternation-flag`
+/// detector: the *same* rule this tier's own grammar applies when it decides
+/// that `{-i|--input}` / `[-c|-C]` names flags rather than values. Shared
+/// rather than restated for the reason the block just below records at
+/// length — a detector meant to be ratcheted at zero and the fix meant to
+/// reach zero have to agree, character for character, on what the defect is,
+/// and this project has already paid once (200 of 656 fleet-wide
+/// fabrications) for letting an oracle keep its own copy of a predicate.
+pub use grammar::{parse_flag_alternation, FlagAlternation};
+
 /// Re-exported for `xtask/src/misattribution.rs`: the multi-column-table
 /// vocabulary this tier's own splitter uses to decide what counts as a
 /// flag-shaped token, where a line's cells fall, and what a bare value
