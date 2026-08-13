@@ -337,19 +337,25 @@ impl Probe for RecordingProbe {
     }
 }
 
-/// Prefer stdout when both streams are non-empty. A small, deliberate
-/// duplicate of `help_text::pick_stream` (private to that module) rather
-/// than a visibility change to production code for a dev-only instrument —
-/// the rule itself is two lines and unlikely to drift silently, and is
-/// covered by this module's own tests against the same real captures the
-/// production code was measured against.
-fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
-    if !stdout.is_empty() {
-        String::from_utf8_lossy(stdout).into_owned()
-    } else {
-        String::from_utf8_lossy(stderr).into_owned()
-    }
-}
+/// The parser's own stream choice, imported rather than restated.
+///
+/// This used to be a two-line local copy ("stdout if non-empty, else
+/// stderr"), justified in a comment on the grounds that the rule was small
+/// and "unlikely to drift silently". It drifted silently. `help_text::
+/// pick_stream` had already been corrected to judge each stream on whether
+/// it *looks like help output* — because `openssl cmp --help` prints two
+/// diagnostic lines to stdout and its whole help document to stderr — and
+/// the copy here was never updated. Every tool of that shape therefore had
+/// its correctly-parsed tree compared against a version banner, so both
+/// oracles reported all of its flags as invented: 200 of 656 fleet-wide
+/// existence fabrications, every one of them false, on tools like
+/// `mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub` and `encguess`.
+///
+/// An oracle that reads different bytes than the parser read is not
+/// measuring the parser. There is exactly one right answer to "which
+/// stream did Tier B parse", it lives in Tier B, and this instrument asks
+/// it rather than guessing.
+use mandible_extract::help_text::pick_stream;
 
 /// Whether `token` is shaped like a flag spelling: `-x`, `--word`, `+x`, or
 /// `+|-x`. Deliberately permissive on the single character after a short
@@ -1163,6 +1169,60 @@ mod tests {
             },
         );
         assert_eq!(probe.root_help_text().as_deref(), Some("short output"));
+    }
+
+    /// The drift regression: a banner on stdout must not beat the real
+    /// help document on stderr.
+    ///
+    /// `mkfs.fat --help` prints exactly `mkfs.fat 4.2 (2021-01-31)` to
+    /// stdout and its whole option table to stderr; `tune2fs`,
+    /// `btrfs-convert`, `xfs_scrub`, `ntfssecaudit` and `encguess` all do
+    /// the same thing. Tier B reads stderr for these (its own `pick_stream`
+    /// judges each stream on whether it *looks like help output*), so an
+    /// oracle that read stdout was comparing a correct tree against a
+    /// version string and calling every flag in it invented — 200 of 656
+    /// fleet-wide existence fabrications. This asserts the two now agree,
+    /// which they do by construction: there is one `pick_stream` and this
+    /// module imports it.
+    #[test]
+    fn recording_probe_reads_the_stream_the_parser_read_not_merely_stdout() {
+        let probe = RecordingProbe::new();
+        probe.recordings.lock().unwrap().insert(
+            InertArgv::HelpLong.args(),
+            ExecOutput {
+                stdout: b"mkfs.fat 4.2 (2021-01-31)\n".to_vec(),
+                stderr: b"Usage: mkfs.fat [OPTIONS] TARGET [BLOCKS]\n\
+                          Options:\n  -a              Disable alignment of data structures\n\
+                          \x20 -A              Toggle Atari variant\n"
+                    .to_vec(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        );
+        let text = probe.root_help_text().expect("a recording exists");
+        assert!(
+            text.contains("-A              Toggle Atari variant"),
+            "the help document on stderr must win over the stdout banner, got: {text:?}"
+        );
+    }
+
+    /// The other direction of the same rule: when stdout *is* the help
+    /// document, a noisy stderr must not displace it.
+    #[test]
+    fn recording_probe_keeps_stdout_when_stdout_is_the_help_document() {
+        let probe = RecordingProbe::new();
+        probe.recordings.lock().unwrap().insert(
+            InertArgv::HelpLong.args(),
+            ExecOutput {
+                stdout: b"Usage: t [OPTIONS]\nOptions:\n  -v, --verbose  be verbose\n".to_vec(),
+                stderr: b"warning: locale not set\n".to_vec(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        );
+        let text = probe.root_help_text().expect("a recording exists");
+        assert!(text.contains("--verbose"), "got: {text:?}");
+        assert!(!text.contains("locale not set"), "got: {text:?}");
     }
 
     /// Spec §6 rule 2b regression: when a root confession was followed,
