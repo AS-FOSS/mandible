@@ -3,6 +3,7 @@
 
 #![forbid(unsafe_code)]
 
+mod alternation;
 mod audit;
 mod bundling;
 mod corpus;
