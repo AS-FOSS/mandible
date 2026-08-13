@@ -397,10 +397,28 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
         meaning: "flag spellings plainly present in the help text produce no flag at all — a \
                   partial recall gap, distinct from `verbatim-fallback`'s total one",
     },
+    // NOT ONE DEFECT. The seed-2 audit's 8 `unparsed-subcommand` tools —
+    // the largest family in the set — write their subcommand lists in four
+    // unrelated grammars, and only the first has been built and fixed:
+    //
+    //   A  dash-separated command table       ar, gcc-ar, gcc-ar-13,        FIXED
+    //      (` commands:` + `d  - desc`)       aarch64-linux-gnu-{ar,gcc-ar}
+    //   B  inline label + continuation        apt-ftparchive                NOT BUILT
+    //      (`Commands: packages binarypath`, first entry on the label's line)
+    //   C  repeated-prefix usage catalogue    btrfs                         NOT BUILT
+    //      (`    btrfs balance start <path>`, no heading, two levels deep)
+    //   D  metavariable alternation set       ip                            NOT BUILT
+    //      (`where  OBJECT := { address | addrlabel | ... }`)
+    //
+    // `xtask`'s `unparsed-command-table` detector claims shape A only and
+    // names B, C and D as declared exclusions with a witness line each (see
+    // `xtask/src/commandtable.rs`). A zero count for that detector therefore
+    // means shape A is repaired — it does NOT mean this family is done.
     DefectFamily {
         name: "unparsed-subcommand",
         meaning: "subcommand names are plainly present in the help text but no child node is \
-                  produced for them",
+                  produced for them — four unrelated grammars share this label; see the comment \
+                  above, only shape A (the dash-separated command table) is fixed",
     },
     DefectFamily {
         name: "unparsed-positional",
