@@ -1740,7 +1740,12 @@ fn emit_declared_positionals(
             // its usage line): a declared positional is required unless
             // something says otherwise, and the block's own row may still
             // carry the notation even when the synopsis does not.
-            .unwrap_or_else(|| (!spec_text.contains('['), spec_text.trim_end().ends_with("...")));
+            .unwrap_or_else(|| {
+                (
+                    !spec_text.contains('['),
+                    spec_text.trim_end().ends_with("..."),
+                )
+            });
         out.positionals.push(Positional {
             name,
             required,
@@ -4006,6 +4011,152 @@ mod tests {
         let parsed = parse("usage: widget [-C <dir>] [--tag=<name>] <target> [--config FILE]\n");
         let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, vec!["target"], "{names:?}");
+    }
+
+    /// `vim.basic`, the anchor case for [`OPTION_LIST_PLACEHOLDERS`],
+    /// confirmed with the maintainer on 2026-08-13: in
+    /// `Usage: vim [arguments] [file ..]`, `[arguments]` is the placeholder
+    /// for vim's own 45-flag list and `[file ..]` is a real variadic
+    /// operand. Extracting `arguments` would be a fabrication, not a recall
+    /// gain, and this asserts it stays out no matter which of the two rules
+    /// (bare-lowercase, or the placeholder list) is doing the work.
+    #[test]
+    fn a_usage_lines_option_list_placeholder_is_never_an_operand() {
+        for line in [
+            "Usage: vim [arguments] [file ..]\n",
+            "usage: pkgconf [OPTIONS] [LIBRARIES]\n",
+            "Usage: dpkg-statoverride [<option> ...] <command>\n",
+            "Usage: tar [OPTION...] [FILE]...\n",
+            "USAGE: widget [FLAGS] [OPTIONS] <input>\n",
+        ] {
+            let names: Vec<String> = parse(line)
+                .positionals
+                .into_iter()
+                .map(|p| p.name)
+                .collect();
+            assert!(
+                !names
+                    .iter()
+                    .any(|n| OPTION_LIST_PLACEHOLDERS.contains(&n.to_lowercase().as_str())),
+                "{line:?} yielded {names:?}"
+            );
+        }
+    }
+
+    /// The other direction, and the reason `args`/`arg` are absent from
+    /// [`OPTION_LIST_PLACEHOLDERS`]: an operand whose name merely *reads*
+    /// like a generic word is still an operand, and the guard must not
+    /// reach it.
+    #[test]
+    fn a_real_operand_is_not_mistaken_for_an_option_list_placeholder() {
+        let parsed = parse("usage: git [<options>] <command> [<args>]\n");
+        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["command", "args"], "{names:?}");
+    }
+
+    /// The recall half: argparse declares its operands in a block, and the
+    /// synopsis supplies only the notation. `uobjnew`'s real shape —
+    /// `pid` required (bare in the synopsis), `interval` optional
+    /// (bracketed), both described.
+    #[test]
+    fn a_declared_positional_block_supplies_names_the_synopsis_cannot() {
+        let raw = "usage: uobjnew [-h] [-l {c,java}] [-v] pid [interval]\n\npositional \
+                   arguments:\n  pid                   process id to attach to\n  interval        \
+                   print every specified number of seconds\n\noptions:\n  -h, --help            \
+                   show this help message and exit\n";
+        let parsed = parse_with_profile(
+            raw,
+            Some(&crate::help_text::profile::profile(
+                crate::framework::Framework::Argparse,
+            )),
+            None,
+        );
+        let shapes: Vec<(&str, bool, bool, Option<&str>)> = parsed
+            .positionals
+            .iter()
+            .map(|p| {
+                (
+                    p.name.as_str(),
+                    p.required,
+                    p.variadic,
+                    p.description.as_ref().map(|d| d.as_str()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shapes,
+            vec![
+                ("pid", true, false, Some("process id to attach to")),
+                (
+                    "interval",
+                    false,
+                    false,
+                    Some("print every specified number of seconds")
+                ),
+            ],
+            "{shapes:?}"
+        );
+        // The identical bytes with no framework identified recover nothing:
+        // this is a *declaration* being read, never a bare-lowercase-word
+        // rule that would also invent `vim`'s `arguments`.
+        assert!(parse(raw).positionals.is_empty());
+    }
+
+    /// The declared block must never cost the subparser scan its first
+    /// refusal: argparse writes subcommands under the same heading, and
+    /// those stay subcommands — with no positional invented from the
+    /// `{...}` pseudo-entry or the rows beneath it.
+    #[test]
+    fn a_declared_block_holding_subparsers_still_yields_subcommands() {
+        let raw = "usage: widget [-h] {init,build} ...\n\npositional arguments:\n  \
+                   {init,build}\n    init          Initialize a new widget\n    build         \
+                   Build the widget\n\noptions:\n  -h, --help    show this help message and \
+                   exit\n";
+        let parsed = parse_with_profile(
+            raw,
+            Some(&crate::help_text::profile::profile(
+                crate::framework::Framework::Argparse,
+            )),
+            None,
+        );
+        let subs: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(subs, vec!["init", "build"], "{subs:?}");
+        assert!(
+            parsed.positionals.is_empty(),
+            "{:?}",
+            parsed
+                .positionals
+                .iter()
+                .map(|p| &p.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// A declared block whose first column is prose rather than one
+    /// operand-shaped word recovers nothing from that row and says so
+    /// (`saw_unattributable_content`) — the [M-10] refusal, applied to the
+    /// one block this change newly reads.
+    #[test]
+    fn a_declared_block_never_promotes_prose_to_an_operand() {
+        let raw = "usage: widget [-h]\n\npositional arguments:\n  the files you want to \
+                   process\n\noptions:\n  -h, --help  show this help message and exit\n";
+        let parsed = parse_with_profile(
+            raw,
+            Some(&crate::help_text::profile::profile(
+                crate::framework::Framework::Argparse,
+            )),
+            None,
+        );
+        assert!(
+            parsed.positionals.is_empty(),
+            "{:?}",
+            parsed
+                .positionals
+                .iter()
+                .map(|p| &p.name)
+                .collect::<Vec<_>>()
+        );
+        assert!(parsed.saw_unattributable_content);
     }
 
     /// [M-15]'s headline case, straight from the reference example in the

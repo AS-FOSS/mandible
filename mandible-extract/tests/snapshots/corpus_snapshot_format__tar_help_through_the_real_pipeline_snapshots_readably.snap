@@ -7,10 +7,6 @@ description: "GNU 'tar' saves many files together into a single tape or disk arc
 usage:
   - "Usage: tar [OPTION...] [FILE]..."
 positionals:
-  - name: OPTION
-    provenance:
-      sources:
-        - help-text
   - name: FILE
     variadic: true
     provenance:
