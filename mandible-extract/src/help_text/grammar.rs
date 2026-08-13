@@ -53,7 +53,8 @@ pub struct FlagSpec {
 /// Parse a flag-spec fragment (the part of a `--help` entry line before
 /// the description column — already isolated by the layout parser).
 pub fn parse_flag_spec(input: &str) -> FlagSpec {
-    let mut rest = input.trim();
+    let normalized = unwrap_brace_alternation(input.trim());
+    let mut rest = normalized.as_ref().trim();
     let mut spec = FlagSpec::default();
 
     loop {
@@ -97,6 +98,30 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
     }
 
     spec
+}
+
+/// Rewrite a brace-delimited alternation of flag spellings into the
+/// comma-free alias list the rest of [`parse_flag_spec`] already reads:
+/// `{-i|--input} <input xml file>` becomes `-i --input <input xml file>`.
+/// Anything else is returned untouched, borrowed.
+///
+/// **Braces only.** A leading `[` is left alone here for the reason
+/// [`looks_like_flag_start`] gives: in an options *table* a bracket means
+/// "optional" far more often than it introduces an entry, and this function
+/// runs on every table row in the fleet. The synopsis path, where a bracket
+/// group is already understood as a group, handles `[` itself.
+///
+/// The rewrite is a normalization rather than a new parse: `skip_separators`
+/// already treats `|` and whitespace as alias separators, so once the
+/// delimiters are gone the existing short/long loop reads
+/// `{-h|--help}` exactly the way it reads `-h, --help`.
+fn unwrap_brace_alternation(input: &str) -> std::borrow::Cow<'_, str> {
+    match parse_flag_alternation(input) {
+        Some(alt) if alt.open == '{' => {
+            std::borrow::Cow::Owned(format!("{} {}", alt.members.join(" "), alt.rest))
+        }
+        _ => std::borrow::Cow::Borrowed(input),
+    }
 }
 
 fn skip_separators(input: &str) -> &str {
@@ -228,9 +253,181 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
 /// True if `input` (an already-isolated potential flag-spec fragment)
 /// starts with something recognizable as a flag at all — used by the
 /// layout parser to decide whether a line begins a new flag entry.
+///
+/// The `-` prefix is the original and still the dominant answer. The second
+/// arm is a **brace-delimited alternation of bare flag spellings**,
+/// `{-i|--input}` / `{--omit-clean-shutdown}` — `cache_restore` writes every
+/// row of its own `Options:` block that way and lost all eight flags to this
+/// check returning `false`. Braces only, never brackets, and the asymmetry
+/// is deliberate: a leading `[` in an options block means "optional" far
+/// more often than it introduces a flag entry, while a leading `{` around
+/// nothing but flag spellings has no other reading. See
+/// [`parse_flag_alternation`] for what "bare flag spellings" is allowed to
+/// mean — it is the same rule the synopsis path and `xtask`'s detector both
+/// call, never a second copy of it.
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
     trimmed.starts_with('-')
+        || parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
+}
+
+// --- the flag-alternation group ----------------------------------------
+//
+// A *delimited alternation of flag spellings* is one notation with three
+// renderings in the seed-2 audit, all three of which lost real flags:
+//
+// | tool | as written | was parsed as |
+// |---|---|---|
+// | `cache_restore` | `{-i\|--input} <input xml file>` | nothing at all — the row never started a flag entry |
+// | `eqn` | `{-v \| --version}` | `--version` carrying the literal value `"}"`, `-v` gone |
+// | `xfs_io` | `[[-c\|-C] cmd]...` | nothing at all — the group is not a token starting with `-` |
+//
+// One rule serves all three, and serves `xtask`'s `brace-alternation-flag`
+// detector too (which imports this function rather than restating it —
+// `help_text/mod.rs`'s re-export block records what a second copy of a
+// shared predicate has already cost this project once).
+//
+// **The member rule is the whole safety story.** Every alternative must be
+// a *bare* flag spelling — `-c` or `--input`, nothing else — so a value
+// alternation (`--color={always|never|auto}`, `[{start|stop}]`) can never be
+// read as flags: its members are not flag-shaped. A member carrying its own
+// value (`[--count=OC|-c OC]`) is refused too, deliberately: that shape is
+// the `value-name-mangled` family, it is genuinely ambiguous about which
+// value belongs to which alternative, and guessing would trade a known miss
+// for a possible fabrication.
+//
+// **The member-count threshold belongs to the caller, not here.** The three
+// callers want three different floors and each one's reason is local:
+// `looks_like_flag_start` accepts a single braced spelling (`cache_restore`'s
+// `{--omit-clean-shutdown}` is a real row); the synopsis path requires two,
+// because a one-member `[-v]` is an ordinary optional flag its existing
+// bracket-group path already handles correctly; the detector requires two,
+// because "an alternation of one" is not the shape it is counting.
+
+/// A delimited alternation of bare flag spellings, plus whatever followed
+/// the closing delimiter — see [`parse_flag_alternation`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlagAlternation {
+    /// The opening delimiter actually used, `'{'` or `'['`. Callers that
+    /// only trust one of the two filter on this rather than on a re-parse.
+    pub open: char,
+    /// Each alternative's bare spelling in source order, delimiters and
+    /// surrounding whitespace stripped: `["-i", "--input"]`.
+    pub members: Vec<String>,
+    /// The text after the closing delimiter, trimmed — the operand the
+    /// alternatives *share* when it is one (`xfs_io`'s `cmd`), empty when
+    /// the group stands alone. Left verbatim rather than interpreted here;
+    /// deciding whether it is a usable value spec is the caller's business.
+    pub rest: String,
+}
+
+/// Read `input` as a delimited alternation of bare flag spellings —
+/// `{-i|--input} <input xml file>`, `{-v | --version}`, `[-c|-C] cmd` —
+/// anchored at `input`'s first non-whitespace character.
+///
+/// `None` unless **all** of these hold:
+///
+/// 1. The first non-whitespace character is `{` or `[`, and that delimiter
+///    has a matching close (depth-counted over its own pair, so
+///    `[[-c|-C] cmd]`'s outer bracket is not closed by the inner one).
+/// 2. Splitting the content on `|` at the content's own nesting depth
+///    yields at least one non-empty alternative.
+/// 3. **Every** alternative is a bare flag spelling
+///    ([`is_bare_flag_spelling`]) — this is the condition that keeps a value
+///    alternation (`{always|never|auto}`) and a subcommand alternation
+///    (`{start|stop}`) out entirely.
+pub fn parse_flag_alternation(input: &str) -> Option<FlagAlternation> {
+    let trimmed = input.trim_start();
+    let mut chars = trimmed.chars();
+    let open = chars.next()?;
+    let close = match open {
+        '{' => '}',
+        '[' => ']',
+        _ => return None,
+    };
+    let (content, rest) = split_at_matching_close(trimmed, open, close)?;
+    let members: Vec<&str> = split_alternatives(content);
+    if members.is_empty() || !members.iter().all(|m| is_bare_flag_spelling(m)) {
+        return None;
+    }
+    Some(FlagAlternation {
+        open,
+        members: members.into_iter().map(str::to_string).collect(),
+        rest: rest.trim().to_string(),
+    })
+}
+
+/// Split `input` (whose first character is `open`) into the content between
+/// `open` and its matching `close`, and everything after that close.
+///
+/// Depth is counted over the `open`/`close` pair only, which is what makes
+/// `[[-c|-C] cmd]` work: the inner `]` decrements to depth 1, not 0. Every
+/// boundary comes from `char_indices`, never a raw byte offset
+/// (`AGENTS.md`'s slicing rule).
+fn split_at_matching_close(input: &str, open: char, close: char) -> Option<(&str, &str)> {
+    let mut depth = 0i32;
+    let mut content_start = None;
+    for (byte_pos, c) in input.char_indices() {
+        if c == open {
+            depth += 1;
+            if content_start.is_none() {
+                content_start = Some(byte_pos + c.len_utf8());
+            }
+        } else if c == close {
+            depth -= 1;
+            if depth == 0 {
+                let start = content_start?;
+                return Some((&input[start..byte_pos], &input[byte_pos + c.len_utf8()..]));
+            }
+        }
+    }
+    None
+}
+
+/// Split an alternation group's content on `|` at its own nesting depth 0,
+/// dropping empty fragments. Depth is counted over both bracket pairs, so a
+/// nested value spec on one alternative is never split through.
+fn split_alternatives(content: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    for (i, c) in content.char_indices() {
+        match c {
+            '[' | '{' => depth += 1,
+            ']' | '}' => depth -= 1,
+            '|' if depth == 0 => {
+                out.push(content[start..i].trim());
+                start = i + c.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    out.push(content[start..].trim());
+    out.retain(|s| !s.is_empty());
+    out
+}
+
+/// True when `token` is a *bare* flag spelling and nothing else: `--name`
+/// (ASCII letter first, then alphanumerics and `-`) or `-c` (exactly one
+/// [`is_bundle_member_char`] character).
+///
+/// Everything a flag entry can additionally carry is refused here — a value
+/// (`-c OC`, `--count=OC`), a bundle (`-abc`), a single-dash long option
+/// (`-pass-exit-codes`), punctuation, whitespace. Narrow on purpose: this
+/// predicate is the only thing standing between "an alternation of flags"
+/// and "an alternation of anything at all", and the shapes it turns away
+/// are every one of them a *different* defect family with its own ambiguity.
+fn is_bare_flag_spelling(token: &str) -> bool {
+    if let Some(name) = token.strip_prefix("--") {
+        let mut cs = name.chars();
+        return cs.next().is_some_and(|c| c.is_ascii_alphabetic())
+            && cs.all(|c| c.is_ascii_alphanumeric() || c == '-');
+    }
+    if let Some(name) = token.strip_prefix('-') {
+        let mut cs = name.chars();
+        return cs.next().is_some_and(is_bundle_member_char) && cs.next().is_none();
+    }
+    false
 }
 
 // --- the bundled-short-flag cluster ------------------------------------
