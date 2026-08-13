@@ -86,6 +86,21 @@ enum Command {
         /// `$GITHUB_STEP_SUMMARY`).
         #[arg(long, value_enum, default_value = "text")]
         format: ScoreFormat,
+        /// Run a full-`PATH` sweep (no `--tools`) directly on this machine,
+        /// with no namespace containment and no canary tripwires.
+        ///
+        /// Without this flag, a full-`PATH` sweep re-execs itself under a
+        /// fresh user/PID/mount namespace (`mandible_extract::exec::
+        /// containment`) and seeds three canary tripwires
+        /// (`mandible_extract::exec::canary`) before probing, refusing to
+        /// run at all if the host cannot provide all three namespace
+        /// types — see that module's doc comment for exactly what this
+        /// buys and what it does not (notably: no network containment).
+        /// A `--tools`-pinned run (a fixed, small, reviewed list) is never
+        /// gated by this — only an unbounded scan of everything on `PATH`
+        /// is.
+        #[arg(long)]
+        allow_uncontained: bool,
     },
     /// Replay every fixture under `corpus/<tool>/<version>/` through the
     /// real tiered extraction pipeline with zero subprocesses (spec
@@ -262,6 +277,12 @@ enum AuditAction {
         /// without writing anything. Mirrors `coverage --check`.
         #[arg(long)]
         check: bool,
+        /// Same escape hatch as `coverage --allow-uncontained`, and the
+        /// same default: a full-`PATH` freeze (no `--tools`, and not
+        /// `--check`, which probes nothing) is namespace-contained and
+        /// canary-seeded unless this is passed.
+        #[arg(long)]
+        allow_uncontained: bool,
     },
     /// Advance `<dir>/queue.toml`'s cursor by `--sample` tools and
     /// write/merge them into a resumable verdict file at
@@ -427,9 +448,18 @@ fn main() -> anyhow::Result<()> {
             shard,
             progress,
             format,
+            allow_uncontained,
         } => {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
-            run_coverage(check, &out, tools, shard, progress, format)
+            run_coverage(
+                check,
+                &out,
+                tools,
+                shard,
+                progress,
+                format,
+                allow_uncontained,
+            )
         }
         Command::Corpus {
             bless,
@@ -470,7 +500,17 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             tools,
             dir,
             check,
-        } => queue::cmd_freeze(seed, tools, &dir, check),
+            allow_uncontained,
+        } => {
+            // `--check` probes nothing (see `queue::cmd_freeze`'s early
+            // return): only a real, tools-unbounded sweep needs
+            // containment.
+            let is_full_path_sweep = tools.is_none() && !check;
+            let canaries = sweep_guard(is_full_path_sweep, allow_uncontained)?;
+            let freeze_result = queue::cmd_freeze(seed, tools, &dir, check);
+            finish_sweep_guard(canaries)?;
+            freeze_result
+        }
         AuditAction::Sample {
             seed,
             sample,
@@ -604,6 +644,101 @@ fn parse_shard(spec: &str) -> anyhow::Result<(usize, usize)> {
     Ok((index, total))
 }
 
+/// Guard the front of a full-`PATH` sweep entrypoint (`coverage`, `audit
+/// freeze`): namespace-contain it by default and seed the three canary
+/// tripwires, refusing to run uncontained unless `allow_uncontained` was
+/// passed explicitly.
+///
+/// `is_full_path_sweep` is `false` for a `--tools`-pinned run (a fixed,
+/// small, reviewed list — what CI and tests use) or a `--check`-only dry
+/// run that probes nothing; neither needs containment, and `Ok(None)` is
+/// returned immediately for both, matching every earlier caller's
+/// unguarded behavior exactly.
+///
+/// **This function does not itself decide whether the current process
+/// already is the contained one.** It asks
+/// `mandible_extract::exec::containment::is_contained()`. The *first*
+/// invocation of `xtask coverage`/`xtask audit freeze` (no sentinel env
+/// var set) falls through to `containment::enter_or_refuse()`, which —
+/// when namespaces are available — replaces this process's image via
+/// `exec` and never returns; control lands back here a second time, in a
+/// freshly re-exec'd process, with the sentinel now set, and this
+/// function's first branch fires instead.
+fn sweep_guard(
+    is_full_path_sweep: bool,
+    allow_uncontained: bool,
+) -> anyhow::Result<Option<mandible_extract::exec::canary::CanarySet>> {
+    use mandible_extract::exec::{canary::CanarySet, containment};
+
+    if !is_full_path_sweep {
+        return Ok(None);
+    }
+
+    if containment::is_contained() {
+        let watch_dir = containment::default_watch_dir()
+            .map_err(|e| anyhow::anyhow!("failed to create canary watch directory: {e}"))?;
+        let set = CanarySet::spawn(watch_dir)
+            .map_err(|e| anyhow::anyhow!("failed to spawn canary tripwires: {e}"))?;
+        println!(
+            "sweep is namespace-contained; canary tripwires armed (pty={:?})",
+            set.pty_slave_path()
+        );
+        return Ok(Some(set));
+    }
+
+    if allow_uncontained {
+        eprintln!(
+            "WARNING: running a full-PATH sweep WITHOUT namespace containment or canary \
+             tripwires (--allow-uncontained was passed). Evidence-before-argv gating (spec §6) \
+             is still in effect — this does not loosen what argv a probe can be sent — but the \
+             containment and detection layers this project's third safety layer adds are not \
+             present for this run. See spec.md §6/§8 and \
+             mandible_extract::exec::containment's doc comment."
+        );
+        return Ok(None);
+    }
+
+    let err = containment::enter_or_refuse();
+    anyhow::bail!(
+        "refusing to run a full-PATH sweep uncontained: {err}\n\
+         Namespace containment (user+PID+mount, spec §6/§8) is the default for a full-PATH \
+         sweep — a coverage/audit run invokes --help on every executable on PATH, and no \
+         static check can enumerate what those binaries do. Pass --allow-uncontained to run \
+         without it anyway (not recommended off CI/a disposable machine), or run somewhere \
+         `unshare --user --map-root-user --pid --mount` works."
+    )
+}
+
+/// Check every canary after a contained sweep, tear them all down
+/// regardless of the outcome (so a tripped canary's own processes never
+/// leak past this function), and fail loudly if anything tripped.
+///
+/// A no-op — correctly — when `canaries` is `None`: either this was not a
+/// full-`PATH` sweep, or the operator explicitly passed
+/// `--allow-uncontained`, and either way there was nothing to check.
+fn finish_sweep_guard(
+    canaries: Option<mandible_extract::exec::canary::CanarySet>,
+) -> anyhow::Result<()> {
+    let Some(mut set) = canaries else {
+        return Ok(());
+    };
+    let trips = set.check();
+    set.teardown();
+    if trips.is_empty() {
+        println!("canary tripwires: none fired");
+        return Ok(());
+    }
+    for trip in &trips {
+        eprintln!("CANARY TRIPPED: {trip}");
+    }
+    anyhow::bail!(
+        "{} canary tripwire(s) fired during the sweep — a probed tool had a real side effect \
+         the namespace did not prevent (see mandible_extract::exec::canary's doc comment for \
+         what each canary catches)",
+        trips.len()
+    );
+}
+
 fn run_coverage(
     check: bool,
     out: &PathBuf,
@@ -611,7 +746,11 @@ fn run_coverage(
     shard: Option<(usize, usize)>,
     progress: bool,
     format: ScoreFormat,
+    allow_uncontained: bool,
 ) -> anyhow::Result<()> {
+    let is_full_path_sweep = tools.is_none();
+    let canaries = sweep_guard(is_full_path_sweep, allow_uncontained)?;
+
     let (table, fresh) = match tools {
         Some(tools) => {
             println!(
@@ -626,6 +765,13 @@ fn run_coverage(
             coverage::run(shard, progress, format)
         }
     };
+
+    // Check and tear down the canaries right after the sweep that could
+    // have tripped them, before this function's own regression-check
+    // logic below (an unrelated concern) — a tripped canary is reported
+    // immediately rather than buried after a possibly-long `--check` diff.
+    finish_sweep_guard(canaries)?;
+
     println!("{table}");
     println!(
         "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {} bundle-collapse ({} real flags destroyed), {}/{} framework-detected",
