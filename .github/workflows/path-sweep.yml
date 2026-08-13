@@ -84,6 +84,59 @@ jobs:
     # own commit — see the header comment for why that's the whole point.
     container:
       image: ubuntu:22.04@sha256:3b06811b2afd352be909dd088a004166d665dc76d38b13eada33522a9d915c6f
+      # `--privileged`, not a reflex, not `--allow-uncontained`. Namespace
+      # containment (`mandible_extract::exec::containment`, spec §6/§8)
+      # defaults on for a full-PATH sweep as of 153034c, and this job is
+      # exactly that (no `--tools`) — so it needs a working
+      # `unshare --user --map-root-user --pid --mount --fork` inside this
+      # container, or every shard refuses to run and the job goes red.
+      #
+      # It does not, without this flag, and the reason is two separate
+      # blockers stacked, not one — measured directly against this exact
+      # pinned image on a real `ubuntu-latest` runner (task #19), not
+      # inferred: `ubuntu-latest` is Ubuntu 24.04, whose host kernel ships
+      # `kernel.apparmor_restrict_unprivileged_userns=1`, which alone
+      # blocks unprivileged `unshare --user` (measured: bare runner,
+      # `unshare: write failed /proc/self/uid_map: Operation not
+      # permitted`). But toggling *only* that host sysctl
+      # (`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`)
+      # fixes the bare-runner case and does **not** fix this containerized
+      # one — a plain `docker run` of this same image still refuses
+      # (`unshare: unshare failed: Operation not permitted`) even with the
+      # host sysctl at 0, because Docker's own default capability set is
+      # a second, independent blocker. Granting only `--cap-add=SYS_ADMIN`
+      # gets past *that* (namespace creation itself starts working) but
+      # then fails one step later, at the mount step (`unshare: cannot
+      # change root filesystem propagation: Permission denied`) — Docker
+      # only relaxes root-filesystem mount propagation under full
+      # `--privileged`. Confirmed working (exit 0) both as a manual
+      # `docker run --privileged` and, faithfully, via this exact
+      # `container: options:` mechanism on a throwaway branch
+      # (`scratch/verify-unshare-ci`, since deleted) — see task #19's
+      # write-up for the run logs.
+      #
+      # The tradeoff this is actually making, spelled out rather than
+      # assumed: `--privileged` widens what *this* container — which runs
+      # only this repo's own build and `xtask` code — can do relative to
+      # the disposable runner VM underneath it. It does **not** widen what
+      # the ~1,500 arbitrary, untrusted third-party binaries this sweep
+      # probes can do: `xtask`'s own first action is to `unshare` into a
+      # *further*, narrower user/PID/mount namespace mapped to an
+      # unprivileged UID (`containment::enter_or_refuse`), and every probe
+      # runs inside *that* inner namespace, never directly in this
+      # privileged one — the same shape a privileged Docker-in-Docker
+      # sitter uses to hand out an unprivileged inner sandbox. The
+      # privilege granted here is spent once, by trusted code, to build
+      # the actual protection the untrusted code runs inside; it is not
+      # handed to the untrusted code itself. This is why it is a better
+      # trade than `--allow-uncontained` here, not just a more convenient
+      # one: `--allow-uncontained` would mean the probed binaries run with
+      # *zero* namespace containment at all, directly in this container —
+      # strictly worse than `--privileged` plus a working inner `unshare`,
+      # which is full containment. The blast radius this flag actually
+      # costs is bounded to this one ephemeral, single-use runner VM,
+      # already destroyed after the job regardless of this flag.
+      options: --privileged
     # Job-level, not step-level. When the runner is reclaimed the *job* is
     # killed rather than any step failing — every step reports success or
     # skipped and the job still fails — so `continue-on-error` on the step
