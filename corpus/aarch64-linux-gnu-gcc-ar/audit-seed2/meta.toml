@@ -13,12 +13,17 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# Byte-identical binutils `ar` help format (same as corpus/ar's fixture,
-# just the tool name substituted). Verified the whole " commands:" section
-# and everything after it gets swallowed into one giant `usage` string;
-# zero subcommands currently. Conservative floor, not the real count (8).
-min_subcommands = 1
-
-[xfail]
-broken = true
-reason = "same as similar other command"
+# Promoted: the ` commands:` table now reaches the tree in full. All 8
+# binutils operation letters (d/m/p/q/r/s/t/x) are recovered — the five
+# spelled with bracketed modifier groups (`m[ab]`, `q[f]`, `r[ab][f][u]`,
+# `t[O][v]`, `x[o]`) name the command before the brackets. 8 is the real
+# count, not a conservative floor.
+min_subcommands = 8
+# The four long flags in ` generic modifiers:` plus ` optional:`'s
+# `--plugin`. These are pinned because recovering the command table nearly
+# cost them: that section opens with eight `[c]`/`[l <text> ]`/`@<file>`
+# rows before its first `--`-led row, and while the whole block was being
+# swallowed into the usage string they survived only because the usage
+# block happened to end exactly at `--target`. They are the regression
+# this fixture exists to catch.
+must_contain_flags = ["--target", "--output", "--record-libdeps", "--thin", "--plugin"]

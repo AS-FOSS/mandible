@@ -95,13 +95,12 @@ fn indent_of(line: &str) -> usize {
 /// would agree with the parser by construction, and agreeing with the
 /// thing under test is exactly what an oracle must not do.
 fn mentions_commands_word(s: &str) -> bool {
-    s.split(|c: char| !c.is_alphanumeric())
-        .any(|w| {
-            matches!(
-                w.to_lowercase().as_str(),
-                "command" | "commands" | "subcommand" | "subcommands"
-            )
-        })
+    s.split(|c: char| !c.is_alphanumeric()).any(|w| {
+        matches!(
+            w.to_lowercase().as_str(),
+            "command" | "commands" | "subcommand" | "subcommands"
+        )
+    })
 }
 
 /// True if `line` introduces a command block: a short, colon-terminated
@@ -401,7 +400,9 @@ mod tests {
     fn a_usage_fragment_is_not_a_command_heading() {
         assert!(is_command_heading(" commands:"));
         assert!(is_command_heading("Available Commands:"));
-        assert!(!is_command_heading("Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }"));
+        assert!(!is_command_heading(
+            "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }"
+        ));
         assert!(!is_command_heading("Options:"));
     }
 

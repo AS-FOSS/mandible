@@ -2585,7 +2585,10 @@ mod tests {
             cluster,
             constant,
             threshold,
-        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground;
+        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground
+        else {
+            panic!("the bundled-short-flag exclusion is a member-threshold ground");
+        };
         assert_eq!(threshold, crate::bundling::MIN_BUNDLED_MEMBERS);
         assert_eq!(constant, "bundling::MIN_BUNDLED_MEMBERS");
         assert_eq!(cluster, crate::bundling::SSH_KEYGEN_CLUSTER);
