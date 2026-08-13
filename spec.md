@@ -2333,20 +2333,69 @@ should say which.
 
 ### 13.2 Fixed corpus
 
-Golden-file tests snapshot **both** the raw tool output and the resulting
-`CommandNode` tree. Snapshotting only the IR means a tool-version bump forces you
-to re-derive from scratch; snapshotting the raw output lets you re-run the parser
-against yesterday's bytes.
+A fixture (`corpus/<tool>/<version>/`) freezes **both halves** of one
+extraction pass: the raw bytes a real probe produced, byte-exact
+(`.gitattributes` marks everything under `corpus/` `-text` specifically so
+Git's own CRLF/whitespace normalization can never be the thing that quietly
+"fixes" a capture), and the `CommandNode` tree mandible's actual tiered
+pipeline produces from those bytes today — replayed with **zero
+subprocesses**, through the same `Transcript` seam §13.1c's and §13.1d's
+own replay uses. **Snapshotting only the IR is not enough**: an IR-only
+snapshot can only assert "the tree once looked like this," and a
+tool-version bump or a grammar rewrite leaves nothing to re-derive from.
+Keeping the raw capture beside it turns every fixture into a live
+regression check against whatever the parser does *today*, forever — not a
+frozen fact about a parser that no longer exists. There is no more
+per-tier bucketing here: §7's Tier A (a vendored catalog) is removed, and
+a fixture is no longer filed by which tier resolved it, only by tool and
+version — `corpus/README.md` has the full layout and the `meta.toml`
+contract (a *descriptive* half, `expected.snap`, that `--bless` rewrites
+wholesale, and a *normative* half, `[contract]`, that only an explicit,
+reviewed edit may weaken) and the `lsof` cautionary tale
+(`corpus/lsof/4.95.0`, `[xfail]` again after being blessed once without
+the raw-text-side-by-side review `--bless` does not itself perform).
 
-- **Tier A**: `git` (a good stress test — its own completion is hand-written bash,
-  so the catalog is doing real work), `docker`, `kubectl`.
-- **Tier B only**: `curl`, `tar` (171 flags in named groups), `openssl` (help on
-  stderr), `ip` (exit 255), and a deliberately malformed fixture.
-- **Tier C**: a tool shipping `completion zsh` but absent from the catalog.
-- **Tier D**: one `mdoc` page and one `man(7)` page, to verify the AST-vs-heuristic
-  split inside the tier behaves as designed.
-- **Tier E**: a recorded cobra transcript (both probe forms), replayed through a
-  mock so the test needs no network or installed tool.
+**`verdict_scope` records which dimensions of the tree a human actually
+looked at before blessing it** — some subset of `"flags"`,
+`"subcommands"`, `"descriptions"`, `"usage"`. **Absent means no scope was
+claimed, never every scope**: a bless freezes every field in the tree
+whether or not a human read it, so treating silence as "everything
+verified" would let exactly the overclaim `lsof` cost this project
+survive by omission — the conservative reading is deliberate, since it is
+always safe to add a truthful claim later and never safe to have quietly
+claimed one that was not made. Fixtures promoted from the seed-2 human
+audit (§13.1c) carry `verdict_scope = ["flags", "subcommands"]`, matching
+that audit's own declared scope: the reviewer judged structure, never
+prose.
+
+**Strict xfail, in the direction that matters here: an `[xfail]` fixture
+whose snapshot and every `[contract]` field now pass fails the run.**
+`cargo xtask corpus` does not read that as success — a fixture marked
+broken that quietly stops being broken means the bug appears fixed and the
+fixture is stale, and the run demands it be promoted (`[xfail]` removed,
+the now-passing `expected.snap` kept) rather than staying silently green
+under a label that no longer applies. This is how a fix announces itself.
+The bundled-short-flag grammar fix (§13.1e) is the worked case: three of
+the six fixtures its own family originally judged `wrong` in the seed-2
+audit — `tcpdump`, `tmux`, `filefrag` — flipped from `[xfail]` to passing
+the run that landed the fix, exactly because leaving them labelled broken
+would itself have failed; `xfs_io`, `ssh-keygen`, and `eqn` are still
+`[xfail]`, their own `must_contain_flags` gaps unrelated to the collapse
+this particular fix closed. Both directions are checked on every run, not
+only the "did it get fixed" one: a fixture claiming to be broken while
+every check quietly passes is exactly as much a bug as an unmarked
+regression.
+
+**Current scale: 81 fixtures — 48 passing, 33 `[xfail]`, 0 unexpectedly
+failing.** Ten are hand-captured against a real installed version (`git`,
+`tar`, `curl` — two versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`,
+`zoxide`); the other 71 are `audit-seed2` fixtures, `xtask audit fixtures`
+turning a seed-2 human verdict directly into a fixture (`correct` → a real
+`expected.snap`, `wrong`/`incomplete` → `[xfail]` with the reviewer's note
+as `reason`, §13.1c). The corpus is now substantially the audit's own
+output, staged and promoted, rather than a hand-curated tier list — see
+`corpus/README.md` for the fixture layout, the full `meta.toml` contract,
+and the contribution workflow (a fixture-only PR needs no Rust).
 
 ### 13.3 Required test classes
 
@@ -2381,6 +2430,101 @@ libtest-json` when a structured result is actually needed. Read that, or the
 exit code, never the prose. Nextest cannot run doctests (an upstream
 limitation), so CI runs a separate `cargo test --doc --workspace` step to
 cover them.
+
+### 13.4 The detect-to-fix loop, end to end
+
+§13.1–§13.2 introduce five instruments at five different points, each for its
+own immediate reason, and nowhere states how they compose. They do, in this
+order:
+
+1. **Corpus fixtures** (§13.2) — per-document. Frozen bytes plus the tree
+   they should produce; `cargo xtask corpus` catches a regression on one
+   tool someone already looked at, replayed through the real pipeline with
+   zero subprocesses.
+2. **Sweep-diff** (`xtask sweep-diff`) — fleet-wide, not per-document: a
+   semantic diff between two full-`PATH` scoreboards, gains and losses
+   always reported as two separate totals, never netted, because summing
+   them hides exactly the losses that motivated building it — two grammar
+   fixes shipped regressions (228 flags across 72 tools; 6 on `lsof` plus 34
+   across four more) that both the aggregate `%flags_text` gate and the
+   whole corpus stayed green through, caught only by a human diffing a
+   before/after sweep by hand. It is the instrument that answers *did fixing
+   this break anything else*, and non-blocking by construction (maintainer
+   decision D4): `cargo xtask sweep-diff` always exits `0`, and there is no
+   `--check`/`--gate` flag to wire to a nonzero exit by accident.
+3. **Oracles** — existence and misattribution (§13.1) — fleet-wide
+   self-consistency checks: does every extracted name occur in the tool's
+   own captured text (existence, built for [M-10]'s fabricated `tar`
+   subcommands), and is a description attached to the flag it actually
+   describes (misattribution, built for `lsof`'s column-bled options table).
+   Neither compares against the tool's real behavior; both re-examine text
+   the pipeline already captured.
+4. **Audit** (§13.1c) — sampled, and the *only* instrument in this list that
+   touches truth. A human reads a tool's own raw `--help` text beside the
+   parsed tree and judges it. Everything above this line is
+   self-consistency — internally coherent output can still be uniformly
+   wrong — which is why the audit exists at all, on 94 tools so far
+   (the seed-2 sample).
+5. **Family detectors + calibration** (§13.1e) — generalizes one human
+   finding across the fleet. A detector encodes the *shape* a human found
+   wrong and checks every `PATH` tool for it in seconds; its fleet-wide
+   count is not quotable until calibrated against the audit's own labelled
+   verdicts — it must fire on the tools the audit called defective for that
+   shape and stay silent on the ones it called correct.
+
+**The loop these five compose into:** a human audit finding gets a **family
+label** (one of `DEFECT_FAMILIES`, derived from the reviewer's note plus
+fixture evidence) → a **detector** generalizes that label's shape across the
+fleet → the detector is **calibrated** against the labelled verdicts (fires
+on known-bad, silent on known-good) → only once calibrated does its
+fleet-wide count become **quotable** → the count motivates a **grammar fix**
+in `mandible-extract` → the fix makes the family's **xfail fixtures flip** to
+passing, which `cargo xtask corpus`'s strict xfail (§13.2) reads as a demand
+to **promote** them rather than a quiet pass → **sweep-diff** runs a
+before/after full-`PATH` sweep to prove the fix broke nothing else → the
+detector's fleet count is **ratchet-gated at zero** going forward, so any
+future regression in that family is visible the moment the count leaves
+zero.
+
+**The worked example is the bundled-short-flag family, run start to finish
+this week.** The seed-2 audit judged five tools `wrong`/`incomplete` for a
+synopsis cluster like `[-AbdDefhHIJKlLnNOpqStuUvxX#]` collapsing into one
+flag (`-A`) with every other letter glued on as its value — `tcpdump` losing
+25 real flags this way, `xfs_io` 10, `tmux` 7, `filefrag` 7, `ssh-keygen` 1
+— plus a sixth, `eqn`, labelled `bundled-short-flag` among several
+overlapping families in its own audit note. The detector
+(`xtask/src/bundling.rs`) generalized that shape and, on the same full
+`PATH` sweep the audit's queue was frozen from (2,302 tools), reported **58
+tools with a collapse, destroying 465 real flags** — a number that became
+quotable only once every one of the 58 was checked by hand against its own
+captured text and no false positive turned up. `help_text::grammar::
+parse_bundled_shorts` then read the same synopsis cluster as the *set* of
+switches it actually is, and the identical sweep that had measured 58/465
+came back at **0 tools, 0 destroyed flags**; `sweep-diff` across the
+before/after scoreboards showed 0 flag-count losses against 489 flags
+*gained* across 67 tools (nine more than the 58 — the text-versus-tree gap
+§13.1e's own doc comment explains: a cluster whose first member also
+appeared in an ordinary options table never survived into the tree for the
+detector to see, but the fix, reading the raw synopsis directly, recovers it
+anyway). Three of the six originally-labelled fixtures — `tcpdump`, `tmux`,
+`filefrag` — flipped from `[xfail]` to passing in the run that landed the
+fix and were promoted (§13.2); `xfs_io`, `ssh-keygen`, and `eqn` remain
+`[xfail]` for gaps this particular fix did not close.
+
+**And the fix inverted its own calibration** — §13.1e states this as the
+general rule; this is where it was first observed. Before the fix,
+calibrating this detector against the labelled set reported 4 hits; the
+moment the grammar landed, the identical calibration run reported **0%
+recall**, naming all six labelled tools — `tcpdump`, `tmux`, `filefrag`,
+`xfs_io`, `ssh-keygen`, `eqn` — as misses, because every one of those
+fixtures now parses correctly and the labelled set has nothing left to
+confirm against. A detector reading zero because the bug is fixed and one
+reading zero because it silently broke are indistinguishable from the fleet
+number alone once that happens; what carries the weight afterward is the
+detector's own hand-built tests (which construct the defective shape
+directly, independent of any tool ever having exhibited it) and `sweep-diff`
+against a fresh full sweep — not the calibration number, which has nothing
+left to say once its family is fixed.
 
 ---
 
