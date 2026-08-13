@@ -449,6 +449,42 @@ enum AuditAction {
         #[arg(long)]
         reason: String,
     },
+    /// Spot-audit one mass-`ok` promotion event (spec §13.1b's sixth rule:
+    /// "any change that promotes more than a handful of tools to `ok` must
+    /// include a spot-audit of 5-10 randomly drawn promoted tools, recorded
+    /// in the audit manifest as its own stratum"). Draws `--sample` tools
+    /// at random — via a seeded, reproducible shuffle, never hand-picked —
+    /// from `--promoted`'s own tool list, classifies each with one fresh
+    /// extraction pass, and records them in `<dir>/<seed>.toml` as their
+    /// own `spot-audit:<event>` stratum, reported by `report` alongside the
+    /// ordinary parse-status strata and `forced-inclusion`.
+    SpotAudit {
+        /// Names the verdict file (`<dir>/<seed>.toml`) this draw is merged
+        /// into — same meaning as `sample`'s `--seed`.
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Names this promotion event; becomes the reported stratum label
+        /// `spot-audit:<event>`.
+        #[arg(long)]
+        event: String,
+        /// The tools this event actually promoted — the population this
+        /// spot-check draws from, never the whole fleet.
+        #[arg(long, value_delimiter = ',')]
+        promoted: Vec<String>,
+        /// How many to draw. Spec §13.1b's sixth rule asks for 5-10. If
+        /// `--promoted` names fewer tools than this, every one of them is
+        /// audited and the shortfall is reported explicitly — never a
+        /// silently smaller sample, never a padded count.
+        #[arg(long, default_value_t = 8)]
+        sample: usize,
+        /// Seed for the reproducible random draw over `--promoted`, mixed
+        /// with `--event` (via `crate::rng::stratum_seed`) so two
+        /// promotion events never share a correlated draw pattern.
+        #[arg(long)]
+        draw_seed: u64,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -577,6 +613,14 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             note,
             reason,
         } => audit::cmd_amend(&dir, seed, &tool, &verdict, note, reason),
+        AuditAction::SpotAudit {
+            seed,
+            dir,
+            event,
+            promoted,
+            sample,
+            draw_seed,
+        } => audit::cmd_spot_audit(&dir, seed, &event, &promoted, sample, draw_seed),
     }
 }
 

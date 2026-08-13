@@ -1896,19 +1896,44 @@ of tools to `ok` must therefore include a spot-audit of 5–10 randomly drawn
 promoted tools, recorded in the audit manifest as its own stratum** — the
 same discipline §13.1d's frozen queue applies to the whole population and
 §13.1e's calibration applies to a detector's fleet-wide count, now applied to
-a promotion event specifically, before its count is trusted. **This
-mechanism does not exist yet.** The closest present machinery is
-`Entry::include_reason` / `audit/force-include.txt`, which lets a tool enter
-a sample outside the ordinary stratified draw with a recorded reason, and
-`cmd_report`'s `FORCED_INCLUSION_STRATUM` constant, which tallies every such
-entry under one hardcoded `"forced-inclusion"` label — but that label names
-*why a tool bypassed the draw*, not *which promotion event it was drawn to
-spot-check*, and it is singular where this rule needs a stratum per
-promotion. Naming the gap here rather than building a mechanism to fill it
-under this same change is deliberate: the rule is worth stating before the
-tooling exists to enforce it, and inventing the tooling under a change whose
-own point is "do not skip the spot-audit" would be the same shortcut this
-rule exists to close off.
+a promotion event specifically, before its count is trusted.
+
+**The mechanism now exists**: `xtask audit spot-audit --event <name>
+--promoted <tool,tool,...> --sample <n> --draw-seed <seed>`. The draw is
+reproducible, not hand-picked — `--draw-seed` mixed with `--event` (via
+`rng::stratum_seed`, the same per-stratum seed mix the frozen queue's own
+shuffle-stratification uses) seeds a Fisher-Yates shuffle over `--promoted`,
+so the same event name and seed always draw the same tools. Each drawn tool
+is tagged with `Entry::spot_audit_event`, reported by `cmd_report` as its
+own `spot-audit:<event>` row, distinct from both the ordinary parse-status
+strata and `FORCED_INCLUSION_STRATUM` — the gap this section originally
+named: `include_reason`/`forced-inclusion` answers *why a tool bypassed the
+draw* and tallies every such tool under one label regardless of reason,
+which is wrong for a mechanism needing one row *per promotion event*. When
+`--promoted` names fewer tools than `--sample` (the exact shape of the first
+real case below), every promoted tool is drawn and the shortfall is stated
+explicitly — never a silently smaller sample, never a padded count. A tool
+already present in the manifest (the common case: a promotion event's
+tools were usually already sampled by the ordinary draw, under a now-stale
+pre-fix verdict) is tagged into the new stratum without its verdict, note,
+or amendment history being touched — only `xtask audit amend` may correct
+a verdict, never a draw.
+
+**First promotion event, backfilled**: 942890d's synopsis short-flag-cluster
+fix changed 5 of the 94 seed-2-audited tools (tcpdump, xfs_io, filefrag,
+tmux, eqn — all gaining flags, none losing any), all already present in
+`audit/2.toml` with pre-fix verdicts (`wrong`/`incomplete`, all four
+non-tmux entries carrying the `bundled-short-flag` defect family the fix
+addressed). `xtask audit spot-audit --event bundled-short-flag-942890d
+--promoted tcpdump,xfs_io,filefrag,tmux,eqn --sample 8 --draw-seed 942890`
+drew all 5 (below the 5–10 target, reported as such) into
+`spot-audit:bundled-short-flag-942890d`; the maintainer's 2026-08-13 TUI
+re-inspection confirming all 5 now parse correctly is recorded as five
+`xtask audit amend` corrections, each preserving the original verdict in
+its amendment history. Headline: 35/86 (40.7%, 95% CI [30.9%, 51.3%]) ->
+40/86 (46.5%, 95% CI [36.3%, 57.0%]) — denominator unchanged (the same 86
+already-judged entries), only the numerator moves, since five tools already
+counted as judged were legitimately re-verified correct after a real fix.
 
 ### 13.1c The audit instrument: comparing against truth
 

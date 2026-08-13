@@ -111,6 +111,26 @@ pub struct Entry {
     /// ordinary stratified sample.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_reason: Option<String>,
+    /// `Some(event)` when this entry was drawn by `xtask audit spot-audit`
+    /// (spec §13.1b's sixth rule) to spot-check one specific mass-`ok`
+    /// promotion event named `event` — `None` for every other entry.
+    ///
+    /// **Why this cannot just reuse [`Self::include_reason`]/
+    /// [`FORCED_INCLUSION_STRATUM`]-style bucketing.** That mechanism
+    /// answers *why a tool bypassed the ordinary stratified draw*, and
+    /// tallies every such tool under one hardcoded label regardless of
+    /// reason — correct for its own purpose, but a spot-audit needs the
+    /// opposite property: *which promotion event* a tool's read is
+    /// evidence for, kept separate *per event*, since a promotion next
+    /// month must never blend into this month's numbers. `xtask::audit`'s
+    /// `effective_stratum` reads this field first and reports
+    /// `spot-audit:<event>` as its own row — one stratum per promotion,
+    /// never a single catch-all. An entry may carry both this field and
+    /// `include_reason` (the latter documents the draw itself: which event,
+    /// how many of the promoted set were available, the seed) — this field
+    /// alone decides the reported stratum.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_audit_event: Option<String>,
     /// **Defect-family labels** for a `wrong`/`incomplete` verdict: which
     /// *shapes* of defect this tool exhibits, drawn from the closed set in
     /// [`DEFECT_FAMILIES`]. Empty for a `correct`/`skip` entry (there is no
@@ -755,6 +775,7 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            spot_audit_event: None,
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
@@ -840,6 +861,7 @@ mod tests {
                     k2: Some(false),
                     k3: Some(true),
                     include_reason: None,
+                    spot_audit_event: None,
                     families: vec!["unparsed-subcommand".to_string()],
                     families_derived: Some(true),
                     amendments: vec![Amendment {
@@ -859,6 +881,7 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: Some("unaudited promotion".to_string()),
+                    spot_audit_event: Some("bundled-short-flag-942890d".to_string()),
                     families: Vec::new(),
                     families_derived: None,
                     amendments: Vec::new(),
@@ -892,6 +915,11 @@ mod tests {
             loaded.entries[1].include_reason.as_deref(),
             Some("unaudited promotion")
         );
+        assert_eq!(
+            loaded.entries[1].spot_audit_event.as_deref(),
+            Some("bundled-short-flag-942890d")
+        );
+        assert!(loaded.entries[0].spot_audit_event.is_none());
         assert_eq!(loaded.pending().collect::<Vec<_>>(), vec![1]);
     }
 
