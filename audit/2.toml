@@ -344,6 +344,8 @@ stratum = "ok"
 verdict = "wrong"
 note = "usage is not properly shown, maybe next fix can fix it. for now deferred. CONFIRMED against the real parse: all 9 flags parse correctly; the defect is entirely the wrapped two-line usage synopsis, which is outside the audit's declared flags/subcommand scope. Verdict deliberately left unchanged — whether a presentation-only finding like this should still count as `wrong` is a separate open accounting decision (task #13), not decided here."
 k1 = true
+families = ["display-only"]
+families_derived = true
 
 [[entry]]
 tool = "mariadb-repair"
