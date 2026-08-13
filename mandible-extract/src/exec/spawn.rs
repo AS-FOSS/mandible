@@ -3,6 +3,7 @@
 //! policy and returns its bounded, captured output.
 
 use super::policy::InertArgv;
+use super::reap::{self, ProbeToken};
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -107,6 +108,12 @@ pub struct ExecOutput {
 ///   whole process group, not just the direct child (rule 4), and no
 ///   descendant can `open("/dev/tty")` to reach the real one out from
 ///   under whatever we redirected fds 0/1/2 to ([M-17], rule 6).
+/// - **nothing the probe started outlives it** (rule 4): a program that
+///   daemonises leaves both the process group and the session on its own,
+///   so before returning, every descendant still alive is identified by
+///   the per-invocation token in its inherited environment and killed —
+///   see [`super::reap`] for the mechanism and for the 622 leaked
+///   processes that motivated it.
 /// - output is read on background threads and capped (rule 5), so neither
 ///   a pipe deadlock nor unbounded memory growth is possible.
 ///
@@ -326,6 +333,18 @@ pub fn run_inert(
         scratch.apply(&mut cmd);
     }
 
+    // Rule 4's other half: a probe is not complete while its descendants
+    // are alive. `arm_subreaper` makes orphaned descendants reparent to
+    // *this* process instead of init (so they can be found at all, however
+    // many times they forked or `setsid`ed), and the token below is what
+    // attributes one to *this* invocation rather than to a concurrent
+    // probe. Both are inert on their own — nothing is signalled until the
+    // reap after the wait loop, and nothing without this exact token is
+    // ever signalled at all. See [`super::reap`].
+    reap::arm_subreaper();
+    let token = ProbeToken::new();
+    token.apply(&mut cmd);
+
     let spawn_result = spawn_with_etxtbsy_retry(&mut cmd);
     let mut child = match spawn_result {
         Ok(child) => child,
@@ -366,6 +385,17 @@ pub fn run_inert(
         kill_process_group(&mut child);
         let _ = child.wait();
     }
+
+    // Before joining the readers, not after. A descendant that escaped the
+    // process group still holds the inherited write end of both pipes, so
+    // the reader threads below would sit at a never-arriving EOF until it
+    // finally exited — the same escapee, showing up as a second symptom.
+    // Killing it first is what makes the join prompt as well as what stops
+    // the leak. Deliberately unconditional: the measured leak came from
+    // probes that *completed normally* (all 2,302 `probe-start` lines in a
+    // traced sweep had a matching `probe-done`), so gating this on
+    // `timed_out` would miss every case it exists for.
+    reap::reap_probe_descendants(token.value());
 
     let stdout = stdout_handle.join().unwrap_or_default();
     let stderr = stderr_handle.join().unwrap_or_default();

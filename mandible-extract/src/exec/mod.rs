@@ -51,6 +51,7 @@ pub mod canary;
 pub mod containment;
 mod policy;
 mod probe;
+mod reap;
 mod spawn;
 
 pub use policy::InertArgv;
