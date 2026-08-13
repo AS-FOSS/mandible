@@ -877,6 +877,113 @@ mod tests {
         assert_eq!(r.collapses[0].path, "t sub");
     }
 
+    // --- the real pipeline, over the committed corpus captures ------------
+
+    /// Parse `help` through the **real** tiered pipeline — real argv
+    /// construction, real grammar, real merge — by replaying it from a
+    /// frozen [`Transcript`] keyed on the exact `--help` argv the help-text
+    /// tier builds, exactly as `crate::corpus` replays a fixture. Spawns
+    /// nothing.
+    ///
+    /// This exists because AGENTS.md §3.1 has a named failure for the
+    /// alternative: a tier whose unit tests all passed against a mock while
+    /// the tier was completely dead in the real pipeline. Every other test
+    /// in this module hands [`detect`] a tree built by hand, which proves
+    /// the *rule* and proves nothing about whether the parser really
+    /// produces the shape the rule is written against.
+    fn parse_through_the_real_pipeline(tool: &str, help: &str) -> CommandNode {
+        use mandible_extract::exec::{ExecOutput, Transcript};
+        use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
+        use std::sync::Arc;
+
+        let transcript = Transcript::new([(
+            vec!["--help".to_string()],
+            ExecOutput {
+                stdout: help.as_bytes().to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                timed_out: false,
+            },
+        )]);
+        let runner = Runner::new(default_tiers_with_probe(Arc::new(transcript)));
+        let resolved = ResolvedTool {
+            name: tool.to_string(),
+            path: Some(std::path::PathBuf::from(format!("/corpus-replay/{tool}"))),
+            version: None,
+        };
+        runner
+            .extract_full_for(&resolved)
+            .root
+            .expect("the help-text tier must produce a root from a real capture")
+    }
+
+    /// `tcpdump`'s committed capture, through the real parser: the tree
+    /// this asserts against is the one `mandible` would actually build, so
+    /// the fields the rule reads (`HelpTextSynopsis`, no long name,
+    /// `ValueKind::Required`, the verbatim `value_name`) are the parser's,
+    /// not this test author's.
+    #[test]
+    fn the_real_parser_on_tcpdumps_real_capture_yields_exactly_one_collapse() {
+        let raw = include_str!("../../corpus/tcpdump/audit-seed2/help.txt");
+        let root = parse_through_the_real_pipeline("tcpdump", raw);
+        let r = detect(raw, &root);
+        assert_eq!(
+            r.collapse_count(),
+            1,
+            "expected exactly tcpdump's own cluster: {:?}",
+            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
+        );
+        assert_eq!(r.collapses[0].cluster, "-AbdDefhHIJKlLnNOpqStuUvxX#");
+        assert_eq!(r.destroyed_flag_count(), 25);
+    }
+
+    /// The false-positive side, through the real parser. `tmux`'s capture
+    /// is the one that matters most: five genuine value-taking short flags
+    /// on the same physical line as the collapse, all five parsed into the
+    /// same `short + value_name` shape the rule keys on, and only the
+    /// cluster may fire.
+    #[test]
+    fn the_real_parser_on_tmuxs_real_capture_fires_only_on_the_cluster() {
+        let raw = include_str!("../../corpus/tmux/audit-seed2/help.stderr.txt");
+        let root = parse_through_the_real_pipeline("tmux", raw);
+        // The five real valued flags are genuinely in the tree — otherwise
+        // this test would pass for the wrong reason (nothing to fire on).
+        let valued: Vec<char> = root
+            .flags
+            .iter()
+            .filter(|f| f.short.is_some() && f.value_name.is_some())
+            .filter_map(|f| f.short)
+            .collect();
+        for short in ['c', 'f', 'L', 'S', 'T'] {
+            assert!(valued.contains(&short), "-{short} missing from {valued:?}");
+        }
+        let r = detect(raw, &root);
+        assert_eq!(
+            r.collapse_count(),
+            1,
+            "only the cluster may fire: {:?}",
+            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
+        );
+        assert_eq!(r.collapses[0].cluster, "-2CDlNuVv");
+    }
+
+    /// `lessecho`'s seven genuine glued character-argument flags, through
+    /// the real parser — the closest real thing to a false positive this
+    /// detector has, asserted against the parser's own output rather than
+    /// against a hand-built stand-in.
+    #[test]
+    fn the_real_parser_on_lessechos_real_synopsis_fires_on_nothing() {
+        let raw = "usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-a] file ...\n";
+        let root = parse_through_the_real_pipeline("lessecho", raw);
+        let r = detect(raw, &root);
+        assert_eq!(
+            r.collapse_count(),
+            0,
+            "lessecho's real flags must not fire: {:?}",
+            r.collapses.iter().map(|c| &c.cluster).collect::<Vec<_>>()
+        );
+    }
+
     #[test]
     fn empty_text_and_empty_tree_report_nothing() {
         let r = detect("", &node("nothing"));
