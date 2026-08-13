@@ -246,6 +246,19 @@ enum DetectorAction {
         #[arg(long, default_value = "audit-seed2")]
         fixture_version: String,
     },
+    /// Re-run a detector's own hand-built cases: the defective shape built
+    /// directly, plus the correct parses that resemble it.
+    ///
+    /// This is the evidence that tells a *repaired* family apart from a
+    /// *broken* detector (spec §13.1e) — a distinction the fleet-wide count
+    /// cannot make, since both read zero. It is also the half of
+    /// `coverage --check`'s ratchet gate that needs no `PATH` sweep: it
+    /// spawns nothing, reads no fixture, and runs in a second.
+    SelfCheck {
+        /// Which detector, by registered name. Omit to check all of them.
+        #[arg(long)]
+        detector: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -488,6 +501,9 @@ fn main() -> anyhow::Result<()> {
                 fixture_version,
             } => {
                 detector::cmd_calibrate(&dir, seed, &corpus_dir, &fixture_version, name.as_deref())
+            }
+            DetectorAction::SelfCheck { detector: name } => {
+                detector::cmd_self_check(name.as_deref())
             }
         },
     }
@@ -909,23 +925,43 @@ fn run_coverage(
             );
         }
         // `bundle_collapse_tools`/`bundle_destroyed_flags`
-        // (`crate::bundling`, the third oracle) are deliberately **not
-        // gated**, for the same reason as the two above and one more of
-        // their own: this metric is expected to move the moment the
-        // synopsis grammar learns to split a bundle, and that movement is
-        // the fix landing, not a regression. It is reported so the fix is
-        // visible when it happens, and so the number is on the record
-        // before anyone ratchets it to zero.
+        // (`crate::bundling`, the third oracle) used to be reported and not
+        // gated, because the numbers were expected to move the moment the
+        // synopsis grammar learned to split a bundle — and that movement was
+        // the fix landing, not a regression.
+        //
+        // **The fix landed** (`help_text::grammar::parse_bundled_shorts`;
+        // 58 tools / 465 destroyed flags -> 0 / 0 fleet-wide), so the
+        // number is now ratcheted at zero instead. It is gated against a
+        // literal 0 rather than against `previous`: the checked-in
+        // scoreboard is itself editable, so gating on it would let a commit
+        // that reintroduced the defect raise its own baseline.
+        //
+        // The gate is deliberately NOT `count == 0` on its own — that is
+        // satisfied by deleting the detector, and it is the exact metric
+        // trap spec §13.1b records twice. `detector::ratchet_at_zero` also
+        // requires the detector's own hand-built self-checks to still hold,
+        // which is the evidence that a zero means "repaired" rather than
+        // "broken".
         if fresh.bundle_collapse_tools != previous.bundle_collapse_tools
             || fresh.bundle_destroyed_flags != previous.bundle_destroyed_flags
         {
             println!(
-                "bundled-short-flag collapse changed from {} tool(s)/{} destroyed flag(s) to {} tool(s)/{} destroyed flag(s) (reported, not gated)",
+                "bundled-short-flag collapse changed from {} tool(s)/{} destroyed flag(s) to {} tool(s)/{} destroyed flag(s)",
                 previous.bundle_collapse_tools,
                 previous.bundle_destroyed_flags,
                 fresh.bundle_collapse_tools,
                 fresh.bundle_destroyed_flags,
             );
+        }
+        let ratchet = detector::ratchet_at_zero(
+            detector::find("bundled-short-flag")?.as_ref(),
+            fresh.bundle_collapse_tools,
+            fresh.bundle_destroyed_flags,
+        );
+        println!("\n{}", ratchet.report());
+        if !ratchet.holds() {
+            regressed = true;
         }
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
