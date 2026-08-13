@@ -77,13 +77,13 @@ use crate::misattribution::RecordingProbe;
 use crate::status;
 use mandible_core::audit::{
     extract_tag_override, load, parse_verdict_word, save, tag_display, verdict_path, AuditFile,
-    Entry,
+    AuditMeta, Entry,
 };
 use mandible_core::{CommandNode, Flag};
 use mandible_extract::exec::ExecOutput;
 use mandible_extract::{default_tiers_with_probe, ExtractionResult, Runner};
 use rayon::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::{BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -391,6 +391,10 @@ pub(crate) fn entry_from_classified(
         k2,
         k3,
         include_reason,
+        // Set by `cmd_spot_audit` after this call returns — this
+        // constructor is also used by the ordinary queue draw and
+        // force-include paths, neither of which is a spot-audit.
+        spot_audit_event: None,
         // A freshly drawn entry has no verdict yet, so it can carry no
         // defect family either — a family names what is wrong, and nothing
         // has been judged wrong at draw time. Labels arrive later, either
@@ -429,6 +433,120 @@ pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> 
         out.push((tool, reason));
     }
     Ok(out)
+}
+
+/// `xtask audit spot-audit` (spec §13.1b's sixth rule): the spot-audit
+/// stratum mechanism that section named as missing. Draws `--sample` tools
+/// **at random** from `promoted` — the tool list one specific mass-`ok`
+/// promotion event actually changed, never the whole fleet — classifies
+/// each with one fresh extraction pass ([`classify_one`], same "no second
+/// probe" property [`Classified`]'s doc comment already gives every other
+/// entry point here), and merges them into `<dir>/<seed>.toml` as their own
+/// `spot-audit:<event>` stratum ([`effective_stratum`]), reported by
+/// [`cmd_report`] alongside the ordinary parse-status strata and
+/// [`FORCED_INCLUSION_STRATUM`].
+///
+/// **The draw is reproducible, not hand-picked.** `draw_seed` mixed with
+/// `event` via [`crate::rng::stratum_seed`] — the exact per-stratum seed
+/// mix `crate::queue::shuffle_stratify` already uses for the frozen
+/// queue — seeds a Fisher-Yates shuffle ([`crate::rng::seeded_shuffle`])
+/// over `promoted`; the same event name and seed always draw the same
+/// tools, and two different events never share a correlated draw pattern.
+///
+/// **A promoted set smaller than `sample` is handled explicitly, never
+/// silently.** When `promoted.len() < sample`, every promoted tool is
+/// drawn — not a padded count pretending the full sample size was met, and
+/// not a silently smaller draw with nothing said about it — and the
+/// printed summary states the shortfall in plain words. This is the exact
+/// edge case the bundled-short-flag backfill (5 promoted tools, below the
+/// 5–10 target because the family had only 5 audited members) hits.
+///
+/// Idempotent the same way [`crate::queue::cmd_sample`] is: a tool already
+/// present in the verdict file (by name, regardless of which stratum drew
+/// it) is left untouched rather than duplicated, so re-running this command
+/// with the same inputs is safe.
+pub fn cmd_spot_audit(
+    dir: &Path,
+    seed: u64,
+    event: &str,
+    promoted: &[String],
+    sample: usize,
+    draw_seed: u64,
+) -> anyhow::Result<()> {
+    if promoted.is_empty() {
+        anyhow::bail!("--promoted named no tools — nothing to spot-audit for event {event:?}");
+    }
+
+    let mut pool = promoted.to_vec();
+    crate::rng::seeded_shuffle(&mut pool, crate::rng::stratum_seed(draw_seed, event));
+    let take_n = sample.min(pool.len());
+    let drawn: Vec<String> = pool.into_iter().take(take_n).collect();
+
+    let path = verdict_path(dir, seed);
+    let mut file = if path.is_file() {
+        load(&path)?
+    } else {
+        AuditFile {
+            meta: AuditMeta {
+                seed,
+                sample_size: 0,
+            },
+            entries: Vec::new(),
+        }
+    };
+
+    let reason = if promoted.len() < sample {
+        format!(
+            "spot-audit of promotion event {event:?}: {} of {} promoted tool(s) drawn (seed \
+             {draw_seed}) — every promoted tool was audited because the promoted set was \
+             smaller than the requested sample size ({sample})",
+            drawn.len(),
+            promoted.len(),
+        )
+    } else {
+        format!(
+            "spot-audit of promotion event {event:?}: {} of {} promoted tool(s) drawn at random \
+             (seed {draw_seed})",
+            drawn.len(),
+            promoted.len(),
+        )
+    };
+
+    let existing_tools: HashSet<String> = file.entries.iter().map(|e| e.tool.clone()).collect();
+    let mut added = 0usize;
+    for tool in &drawn {
+        if existing_tools.contains(tool) {
+            continue;
+        }
+        let classified = classify_one(tool);
+        let mut entry = entry_from_classified(tool.clone(), &classified, Some(reason.clone()));
+        entry.spot_audit_event = Some(event.to_string());
+        file.entries.push(entry);
+        added += 1;
+    }
+    file.entries.sort_by(|a, b| a.tool.cmp(&b.tool));
+    save(&path, &file)?;
+
+    println!(
+        "spot-audit:{event}: drew {} of {} promoted tool(s)",
+        drawn.len(),
+        promoted.len(),
+    );
+    if promoted.len() < sample {
+        println!(
+            "note: the promoted set has only {} tool(s), fewer than the requested sample size \
+             {sample} — every promoted tool was audited rather than silently sampling fewer or \
+             padding the count to look like a full draw.",
+            promoted.len(),
+        );
+    }
+    println!(
+        "{added} new pending entr{s} written to {} ({} tool(s) now in stratum spot-audit:{event})",
+        path.display(),
+        drawn.len(),
+        s = if added == 1 { "y" } else { "ies" },
+    );
+    Ok(())
 }
 
 /// Render `node` as the same YAML snapshot shown side by side with a tool's
@@ -823,15 +941,27 @@ struct StratumTally {
     pending: usize,
 }
 
-/// The stratum label a report groups `entry` under: [`FORCED_INCLUSION_STRATUM`]
-/// for a force-included entry regardless of its nominal [`Entry::stratum`],
-/// so it never silently blends into (and skews) the random draw's own
-/// per-status numbers — see [`Entry::include_reason`]'s doc comment.
-fn effective_stratum(entry: &Entry) -> &str {
-    if entry.include_reason.is_some() {
-        FORCED_INCLUSION_STRATUM
+/// The stratum label a report groups `entry` under.
+///
+/// Checked in priority order:
+/// 1. [`Entry::spot_audit_event`], if present — `spot-audit:<event>`, one
+///    row **per promotion event** (spec §13.1b's sixth rule). Checked
+///    first because a spot-audit entry may also carry an
+///    [`Entry::include_reason`] documenting the draw itself (which event,
+///    how many of the promoted set existed, the seed) — that field is
+///    provenance here, not the bucketing signal.
+/// 2. [`FORCED_INCLUSION_STRATUM`], for any other force-included entry
+///    (`include_reason.is_some()`), so it never silently blends into (and
+///    skews) the random draw's own per-status numbers.
+/// 3. The entry's own nominal [`Entry::stratum`] (its parse status at draw
+///    time) otherwise.
+fn effective_stratum(entry: &Entry) -> String {
+    if let Some(event) = &entry.spot_audit_event {
+        format!("spot-audit:{event}")
+    } else if entry.include_reason.is_some() {
+        FORCED_INCLUSION_STRATUM.to_string()
     } else {
-        entry.stratum.as_str()
+        entry.stratum.clone()
     }
 }
 
@@ -981,7 +1111,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let mut by_stratum: BTreeMap<String, StratumTally> = BTreeMap::new();
     for entry in &file.entries {
         let tally = by_stratum
-            .entry(effective_stratum(entry).to_string())
+            .entry(effective_stratum(entry))
             .or_insert(StratumTally {
                 correct: 0,
                 judged: 0,
@@ -1386,6 +1516,7 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: None,
+                    spot_audit_event: None,
                     families: Vec::new(),
                     families_derived: None,
                     amendments: Vec::new(),
@@ -1853,6 +1984,7 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            spot_audit_event: None,
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
@@ -1860,6 +1992,35 @@ mod tests {
         assert_eq!(effective_stratum(&e), "ok");
         e.include_reason = Some("unaudited promotion".to_string());
         assert_eq!(effective_stratum(&e), FORCED_INCLUSION_STRATUM);
+    }
+
+    /// A spot-audit entry is bucketed under its own `spot-audit:<event>`
+    /// row, per promotion event — never blended into the single
+    /// `forced-inclusion` catch-all, even though it also carries an
+    /// `include_reason` documenting the draw itself.
+    #[test]
+    fn effective_stratum_gives_spot_audit_its_own_row_per_event() {
+        let mut e = Entry {
+            tool: "tcpdump".to_string(),
+            stratum: "ok".to_string(),
+            verdict: None,
+            note: String::new(),
+            k1: None,
+            k2: None,
+            k3: None,
+            include_reason: Some("spot-audit of promotion event \"x\": 5 of 5 drawn".to_string()),
+            spot_audit_event: Some("bundled-short-flag-942890d".to_string()),
+            families: Vec::new(),
+            families_derived: None,
+            amendments: Vec::new(),
+        };
+        assert_eq!(
+            effective_stratum(&e),
+            "spot-audit:bundled-short-flag-942890d"
+        );
+        // A different event never collides with this one's row.
+        e.spot_audit_event = Some("other-promotion".to_string());
+        assert_eq!(effective_stratum(&e), "spot-audit:other-promotion");
     }
 
     fn entry(tool: &str, verdict: Option<&str>, k1: Option<bool>, k2: Option<bool>) -> Entry {
@@ -1872,6 +2033,7 @@ mod tests {
             k2,
             k3: None,
             include_reason: None,
+            spot_audit_event: None,
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
@@ -1950,6 +2112,136 @@ mod tests {
         save(&path, &f).unwrap();
 
         cmd_report(tmp.path(), 42).unwrap();
+    }
+
+    // -------------------------------------------------------------
+    // `xtask audit spot-audit` (spec §13.1b's sixth rule) — real binaries,
+    // real argv (AGENTS.md §3.1), same convention `queue.rs`'s own
+    // `cmd_sample` tests use.
+    // -------------------------------------------------------------
+
+    #[test]
+    fn spot_audit_draws_the_same_tools_for_the_same_event_and_seed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string(), "ls".to_string()];
+        cmd_spot_audit(tmp.path(), 700, "demo-event", &promoted, 2, 99).unwrap();
+        let first: Vec<String> = load(&verdict_path(tmp.path(), 700))
+            .unwrap()
+            .entries
+            .into_iter()
+            .map(|e| e.tool)
+            .collect();
+
+        // A second, independent verdict file drawn with the same event name
+        // and draw seed must draw exactly the same tools — the whole point
+        // of a reproducible draw (never hand-picked, never re-rolled).
+        cmd_spot_audit(tmp.path(), 701, "demo-event", &promoted, 2, 99).unwrap();
+        let second: Vec<String> = load(&verdict_path(tmp.path(), 701))
+            .unwrap()
+            .entries
+            .into_iter()
+            .map(|e| e.tool)
+            .collect();
+
+        assert_eq!(first.len(), 2);
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn spot_audit_different_events_can_draw_different_tools() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string(), "ls".to_string()];
+        cmd_spot_audit(tmp.path(), 710, "event-a", &promoted, 1, 5).unwrap();
+        cmd_spot_audit(tmp.path(), 711, "event-b", &promoted, 1, 5).unwrap();
+        let a = load(&verdict_path(tmp.path(), 710)).unwrap();
+        let b = load(&verdict_path(tmp.path(), 711)).unwrap();
+        // Same draw seed, different event names: `stratum_seed` mixes the
+        // event name in, so the two draws are not forced to correlate.
+        // This does not assert they *always* differ (a same-tool draw is
+        // possible by chance with only 3 candidates) — it asserts the
+        // mechanism actually consulted the event name, via the stratum
+        // labels below, which is the property that matters.
+        assert_eq!(
+            effective_stratum(&a.entries[0]),
+            "spot-audit:event-a".to_string()
+        );
+        assert_eq!(
+            effective_stratum(&b.entries[0]),
+            "spot-audit:event-b".to_string()
+        );
+    }
+
+    #[test]
+    fn spot_audit_takes_the_whole_promoted_set_when_smaller_than_the_sample_size() {
+        let tmp = tempfile::tempdir().unwrap();
+        // The exact edge case named in spec §13.1b: the bundled-short-flag
+        // promotion had only 5 promoted tools, below the 5-10 target.
+        // Modeled here with 2 real tools against a sample of 8.
+        let promoted = vec!["sh".to_string(), "cat".to_string()];
+        cmd_spot_audit(tmp.path(), 720, "small-family", &promoted, 8, 1).unwrap();
+        let file = load(&verdict_path(tmp.path(), 720)).unwrap();
+        assert_eq!(
+            file.entries.len(),
+            2,
+            "every promoted tool must be audited when the promoted set is smaller than --sample \
+             — never a padded count, never a silently smaller draw"
+        );
+        for entry in &file.entries {
+            assert_eq!(
+                entry.spot_audit_event.as_deref(),
+                Some("small-family"),
+                "every drawn tool must be tagged with the promotion event it spot-checks"
+            );
+            assert!(
+                entry
+                    .include_reason
+                    .as_deref()
+                    .unwrap()
+                    .contains("smaller than the requested sample size"),
+                "the shortfall must be recorded in the entry, not just printed and forgotten"
+            );
+        }
+    }
+
+    #[test]
+    fn spot_audit_is_idempotent_and_does_not_duplicate_an_already_present_tool() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string()];
+        cmd_spot_audit(tmp.path(), 730, "repeat-event", &promoted, 8, 3).unwrap();
+        cmd_spot_audit(tmp.path(), 730, "repeat-event", &promoted, 8, 3).unwrap();
+        let file = load(&verdict_path(tmp.path(), 730)).unwrap();
+        assert_eq!(file.entries.len(), 2, "re-running must not duplicate tools");
+    }
+
+    #[test]
+    fn spot_audit_refuses_an_empty_promoted_list() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err = cmd_spot_audit(tmp.path(), 740, "empty-event", &[], 8, 1).unwrap_err();
+        assert!(err.to_string().contains("named no tools"));
+    }
+
+    #[test]
+    fn spot_audit_entries_are_reported_under_their_own_stratum_row_in_cmd_report() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string()];
+        cmd_spot_audit(tmp.path(), 750, "reported-event", &promoted, 8, 2).unwrap();
+        {
+            let mut f = load(&verdict_path(tmp.path(), 750)).unwrap();
+            for e in &mut f.entries {
+                e.verdict = Some("correct".to_string());
+            }
+            save(&verdict_path(tmp.path(), 750), &f).unwrap();
+        }
+        // Smoke test: must not panic, and every entry's effective stratum
+        // must be the per-event row, distinct from ordinary parse-status
+        // strata and from `forced-inclusion`.
+        cmd_report(tmp.path(), 750).unwrap();
+        let f = load(&verdict_path(tmp.path(), 750)).unwrap();
+        for e in &f.entries {
+            let stratum = effective_stratum(e);
+            assert_eq!(stratum, "spot-audit:reported-event");
+            assert_ne!(stratum, FORCED_INCLUSION_STRATUM);
+        }
     }
 
     // -------------------------------------------------------------
