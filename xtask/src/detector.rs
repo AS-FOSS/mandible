@@ -122,6 +122,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
     vec![
         Box::new(VerbatimFallback),
         Box::new(UnparsedArgparsePositional),
+        Box::new(BundledShortFlag),
         Box::new(ExistenceOracle),
         Box::new(MisattributionOracle),
     ]
@@ -267,6 +268,48 @@ fn argparse_positional_names(raw: &str) -> Vec<String> {
         out.push(word.to_string());
     }
     out
+}
+
+/// The bundled-short-flag collapse (`crate::bundling`): a synopsis bundle
+/// of boolean short flags parsed as one flag swallowing the rest as a value.
+///
+/// This is the first detector built *after* the harness existed, and the
+/// first whose family was chosen because the existing oracles are blind to
+/// it: a collapsed `-2` carrying `CDlNuVv` occurs literally in the raw text,
+/// so `crate::existence` attests it cleanly while the parse destroys seven
+/// flags. Zero fabrications is not a claim of a correct parse.
+///
+/// Its family shares a structural fingerprint (`short && !long &&
+/// value_name`) with `single-dash-long` and `repeated-char-flag`, all three
+/// of which sit under `k1 = true` in the labelled set. `crate::bundling`
+/// discriminates on what the swallowed text *is*, not on the structure —
+/// which is exactly the confusion this harness's own "fired on a tool
+/// judged defective of another family" cell exists to surface.
+struct BundledShortFlag;
+
+impl Detector for BundledShortFlag {
+    fn name(&self) -> &'static str {
+        "bundled-short-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("bundled-short-flag")
+    }
+    fn describes(&self) -> &'static str {
+        "a synopsis bundle of boolean short flags (`[-abcXYZ]`) parsed as one flag carrying the \
+         rest as a required value, destroying every other member"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::bundling::detect(evidence.raw, evidence.root)
+            .collapses
+            .iter()
+            .map(|c| {
+                format!(
+                    "{:?} at {:?} swallows {} member(s) of the cluster {:?}",
+                    c.spelling, c.path, c.destroyed, c.cluster
+                )
+            })
+            .collect()
+    }
 }
 
 /// The existence oracle (`crate::existence`), registered so the harness's
