@@ -109,11 +109,15 @@ use crate::audit::{
 };
 use crate::coverage::unique_executables_on_path;
 use crate::rng::{fnv1a64, seeded_shuffle, stratum_seed};
+use crate::status;
 use mandible_core::audit::{load, save, verdict_path, AuditFile, AuditMeta, Entry};
-use mandible_extract::exec::ExecOutput;
+use mandible_extract::exec::{ExecOutput, Transcript};
+use mandible_extract::{default_tiers_with_probe, Runner};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
 
 /// One entry in a frozen queue: a tool name and the stratum it carried when
 /// it was frozen (or last reclassified, see [`cmd_reclassify`]'s `--update`).
@@ -659,6 +663,102 @@ pub fn cmd_sample(
     );
     Ok(())
 }
+
+/// `xtask audit reclassify`: recompute every queue entry's stratum against
+/// the **current** parser, from the bytes `xtask audit freeze` already
+/// captured — no `PATH` sweep, no subprocess spawned at all. Each tool's
+/// cached `(argv, output)` pairs are replayed through the real extraction
+/// pipeline via [`Transcript`] (`mandible_extract::exec`), the same replay
+/// seam the corpus regression runner uses, so this exercises the *actual*
+/// tiers and merge logic, not a re-derived approximation of them.
+///
+/// Prints per-tool transitions (old stratum -> new) and the new per-stratum
+/// counts, plus the wall-clock cost — this is the number this command
+/// exists to make small: reclassifying the whole frozen population should
+/// take seconds, not the ~20 minutes a full re-probe costs.
+///
+/// `update: true` writes the recomputed strata back into `<dir>/queue.toml`
+/// in place — see this module's own doc comment for what that does and
+/// does not change (the *order* of the queue never moves; only each
+/// entry's own `stratum` field does).
+pub fn cmd_reclassify(dir: &Path, update: bool) -> anyhow::Result<()> {
+    let qpath = queue_path(dir);
+    let mut queue = load_queue(&qpath)?;
+    let cdir = captures_dir(dir);
+
+    let start = Instant::now();
+    let mut new_strata: Vec<Option<String>> = Vec::with_capacity(queue.entries.len());
+    let mut transitions: Vec<(String, String, String)> = Vec::new();
+    let mut by_new_stratum: BTreeMap<String, usize> = BTreeMap::new();
+    let mut missing_captures = 0usize;
+
+    for entry in &queue.entries {
+        match load_captures_for_tool(&cdir, &entry.tool) {
+            Ok(recordings) => {
+                let transcript: Arc<dyn mandible_extract::exec::Probe> =
+                    Arc::new(Transcript::new(recordings));
+                let runner = Runner::new(default_tiers_with_probe(transcript));
+                let result = runner.extract_full(&entry.tool);
+                let new_label = status::compute(&result).label.to_string();
+                *by_new_stratum.entry(new_label.clone()).or_insert(0) += 1;
+                if new_label != entry.stratum {
+                    transitions.push((
+                        entry.tool.clone(),
+                        entry.stratum.clone(),
+                        new_label.clone(),
+                    ));
+                }
+                new_strata.push(Some(new_label));
+            }
+            Err(_) => {
+                missing_captures += 1;
+                new_strata.push(None);
+            }
+        }
+    }
+    let elapsed = start.elapsed();
+
+    println!(
+        "reclassified {} tool(s) from cached bytes in {elapsed:.2?} ({missing_captures} missing \
+         capture(s), left unchanged, no PATH sweep, zero subprocess spawns)",
+        queue.entries.len() - missing_captures,
+    );
+    println!("stratum            count");
+    for (stratum, count) in &by_new_stratum {
+        println!("{stratum:<18} {count:>6}");
+    }
+    if transitions.is_empty() {
+        println!("\nno stratum changed since the queue was last classified.");
+    } else {
+        println!("\n{} tool(s) changed stratum:", transitions.len());
+        for (tool, old, new) in &transitions {
+            println!("  {tool:<28} {old:<16} -> {new}");
+        }
+    }
+
+    if update {
+        for (entry, new) in queue.entries.iter_mut().zip(new_strata) {
+            if let Some(s) = new {
+                entry.stratum = s;
+            }
+        }
+        save_queue(&qpath, &queue)?;
+        println!(
+            "\nupdated {} in place ({} tool(s) changed stratum; queue order and cursor \
+             untouched — see this module's doc comment on what reclassification does and does \
+             not change).",
+            qpath.display(),
+            transitions.len()
+        );
+    } else {
+        println!(
+            "\ndry run — pass --update to write these strata back into {}",
+            qpath.display()
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -948,7 +1048,7 @@ mod tests {
     // -------------------------------------------------------------
 
     #[test]
-    fn freeze_then_sample_round_trips() {
+    fn freeze_then_sample_then_reclassify_round_trips() {
         let tmp = tempfile::tempdir().unwrap();
         cmd_freeze(
             1,
@@ -981,6 +1081,11 @@ mod tests {
         assert_eq!(v1.entries.len(), 1);
         assert_eq!(v2.entries.len(), 1);
         assert_ne!(v1.entries[0].tool, v2.entries[0].tool);
+
+        cmd_reclassify(tmp.path(), false).unwrap();
+        // Dry run must not touch the queue at all.
+        let unchanged = load_queue(&qpath).unwrap();
+        assert_eq!(unchanged.meta.cursor, 2);
     }
 
     #[test]

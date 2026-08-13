@@ -243,6 +243,21 @@ enum AuditAction {
         #[arg(long)]
         force_include_file: Option<PathBuf>,
     },
+    /// Recompute every queued tool's stratum against the *current* parser
+    /// from the bytes `freeze` already captured — no `PATH` sweep, no
+    /// subprocess spawned. Reports transitions and the wall-clock cost
+    /// (seconds, not the ~20 minutes a full re-probe costs).
+    Reclassify {
+        /// Directory holding the queue (`<dir>/queue.toml`) and its
+        /// captures (`<dir>/queue-captures/`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Write the recomputed strata back into `queue.toml` in place.
+        /// Without this, the command only reports what would change — the
+        /// queue's order and cursor are never touched either way.
+        #[arg(long)]
+        update: bool,
+    },
     /// The interactive review loop: raw `--help` text and the parsed tree,
     /// side by side, one verdict at a time. Reads `<word> [note...]` lines
     /// from stdin and saves after every tool, so an interrupted session
@@ -406,6 +421,7 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             };
             queue::cmd_sample(seed, sample, &dir, &force_include)
         }
+        AuditAction::Reclassify { dir, update } => queue::cmd_reclassify(&dir, update),
         AuditAction::Review { seed, dir } => {
             let stdin = std::io::stdin();
             let mut input = stdin.lock();
