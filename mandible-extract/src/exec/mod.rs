@@ -30,10 +30,25 @@
 //! path some other way entirely — an absolute path baked into the binary
 //! itself, say — sits outside what an environment/CWD redirect can reach.
 //! Full containment needs OS-level sandboxing (a container, a restricted
-//! mount namespace, seccomp), which is out of scope here; that residual
-//! risk is documented rather than papered over with a claim of full
-//! inertness.
+//! mount namespace, seccomp) — no longer purely "out of scope," see below.
+//!
+//! **Three layers, not one, for a full-`PATH` sweep specifically.** Probing
+//! one tool a user named is one thing; a coverage/audit sweep invokes
+//! `--help` on every executable on `PATH` — dozens to low thousands of
+//! arbitrary binaries nobody chose individually. [`run_inert`]'s rules
+//! above (never bare, only inert shapes, the never-probe list, the scratch
+//! redirect) are the first layer and **prevent** what can be reasoned
+//! about from argv shape alone. [`containment`] is the second layer: it
+//! **contains** what runs anyway, by running the sweep inside a fresh
+//! user/PID/mount namespace instead of directly on the operator's machine.
+//! [`canary`] is the third: it **detects** a side effect that happens
+//! despite the first two, turning it into a failing test rather than a
+//! silent surprise. Containment must never become a reason to loosen the
+//! first layer — running inside a namespace does not make a riskier argv
+//! safe to send, see [`containment`]'s own doc comment.
 
+pub mod canary;
+pub mod containment;
 mod policy;
 mod probe;
 mod spawn;
