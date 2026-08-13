@@ -111,6 +111,49 @@ pub struct Entry {
     /// ordinary stratified sample.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_reason: Option<String>,
+    /// **Defect-family labels** for a `wrong`/`incomplete` verdict: which
+    /// *shapes* of defect this tool exhibits, drawn from the closed set in
+    /// [`DEFECT_FAMILIES`]. Empty for a `correct`/`skip` entry (there is no
+    /// defect to name), and — importantly — also empty for a
+    /// `wrong`/`incomplete` entry nobody could confidently classify. That
+    /// second case is [`Entry::is_unclassified`], and it is deliberately
+    /// representable: an honest "we do not know which family this is" is
+    /// worth far more than a fabricated label, because the whole purpose of
+    /// these labels is to calibrate a detector against them.
+    ///
+    /// Stored as plain strings rather than an enum for the same reason
+    /// [`Self::verdict`] is: a hand-edited manifest with an unrecognized
+    /// family fails loudly at the point of use
+    /// ([`Entry::validate_families`]) rather than silently at
+    /// deserialization, where the error would name a line number and not a
+    /// tool.
+    ///
+    /// **A family is a shape, never a tool.** spec §1's no-per-tool-logic
+    /// rule applies here exactly as it does to a parser: `tcpdump` is not a
+    /// family, `bundled-short-flag` is, and the tool name is data.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub families: Vec<String>,
+    /// Provenance of [`Self::families`], and the reason that field is safe
+    /// to have in a tracked manifest at all.
+    ///
+    /// A verdict is a **human judgment**: a reviewer read the tool's real
+    /// output. A family label derived by a machine *reading that reviewer's
+    /// prose* is a strictly weaker claim, and this project's posture (spec
+    /// §13.1b's fifth rule: a name a reader could mistake for a stronger
+    /// claim is itself a defect) is that a weaker claim must be labelled as
+    /// one rather than left to be inferred.
+    ///
+    /// - `Some(true)` — derived by machine from the reviewer's note plus the
+    ///   fixture evidence. **Not** a reviewer's own classification.
+    /// - `Some(false)` — the reviewer classified it themselves.
+    /// - `None` — no provenance recorded, which
+    ///   [`Entry::validate_families`] rejects whenever `families` is
+    ///   non-empty. Absence must never silently read as "a human said so":
+    ///   a writer that forgets this field would otherwise launder a machine
+    ///   reading into a human judgment, which is the single worst outcome
+    ///   this schema can produce.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub families_derived: Option<bool>,
     /// A history of corrections applied to this entry's original verdict,
     /// oldest first — **appended to, never used to overwrite [`Self::verdict`]
     /// or [`Self::note`]**. Empty for the overwhelming majority of entries,
@@ -169,6 +212,227 @@ impl Entry {
     pub fn needs_attention(&self) -> bool {
         self.verdict.is_none() || self.missing_required_note()
     }
+
+    /// True when this entry is a judged defect — `wrong` or `incomplete`
+    /// under [`Self::effective_verdict`]. The population a family label is
+    /// *about*, and the population a detector is expected to fire on once
+    /// the label says it belongs to that detector's family.
+    pub fn is_judged_defect(&self) -> bool {
+        self.effective_verdict()
+            .is_some_and(|v| matches!(v, "wrong" | "incomplete"))
+    }
+
+    /// True when this entry is a judged non-defect — `correct` under
+    /// [`Self::effective_verdict`]. The population a detector must stay
+    /// **silent** on: a fire here is a false alarm against a human who read
+    /// the tool's real output and said the parse was right.
+    ///
+    /// `skip` is neither this nor [`Self::is_judged_defect`]. A skipped
+    /// entry carries no judgment about the parse at all (spec §13.1c
+    /// excludes it from the accuracy ratio for the same reason), so it can
+    /// neither confirm nor refute a detector and is excluded from
+    /// calibration entirely rather than silently counted as "good".
+    pub fn is_judged_correct(&self) -> bool {
+        self.effective_verdict() == Some("correct")
+    }
+
+    /// True when this entry is a judged defect that carries no family label
+    /// — the honest "nobody could tell which family this is" state. Counted
+    /// and printed rather than hidden, because an unclassified entry is a
+    /// known hole in a detector's calibration set, and a hole you can see is
+    /// not the same kind of problem as a hole papered over with a guess.
+    pub fn is_unclassified(&self) -> bool {
+        self.is_judged_defect() && self.families.is_empty()
+    }
+
+    /// True when this entry carries `family` among its labels.
+    pub fn has_family(&self, family: &str) -> bool {
+        self.families.iter().any(|f| f == family)
+    }
+
+    /// Check this entry's [`Self::families`]/[`Self::families_derived`] pair
+    /// for every way it could be a claim nobody can evaluate later:
+    ///
+    /// - a family word outside the closed [`DEFECT_FAMILIES`] set (a typo,
+    ///   or an ad-hoc family invented in a hand edit and therefore invisible
+    ///   to every reader that matches on the set);
+    /// - the same family listed twice (harmless to a matcher, but it makes a
+    ///   per-family count wrong, and counts are what calibration reports);
+    /// - labels with no recorded provenance — see
+    ///   [`Self::families_derived`] for why silence there is unacceptable;
+    /// - labels on a verdict that names no defect (`correct`/`skip`), which
+    ///   would put a tool into a detector's expected-fires set on the
+    ///   strength of a verdict that says nothing is wrong with it.
+    pub fn validate_families(&self) -> anyhow::Result<()> {
+        for (i, family) in self.families.iter().enumerate() {
+            if family_meaning(family).is_none() {
+                anyhow::bail!(
+                    "{:?}: unrecognized defect family {family:?} — expected one of: {}",
+                    self.tool,
+                    family_names().join(", ")
+                );
+            }
+            if self.families[..i].contains(family) {
+                anyhow::bail!("{:?}: defect family {family:?} listed twice", self.tool);
+            }
+        }
+        if !self.families.is_empty() {
+            if self.families_derived.is_none() {
+                anyhow::bail!(
+                    "{:?} carries family labels with no `families_derived` provenance — a machine \
+                     reading of a reviewer's note must never be mistakable for the reviewer's own \
+                     classification",
+                    self.tool
+                );
+            }
+            if !self.is_judged_defect() {
+                anyhow::bail!(
+                    "{:?} is {:?}, which names no defect, yet carries family labels {:?} — a \
+                     family describes what is wrong, so labelling a non-defect would put this \
+                     tool in a detector's expected-fires set on a verdict that says nothing is \
+                     wrong with it",
+                    self.tool,
+                    self.effective_verdict().unwrap_or("pending"),
+                    self.families,
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+/// One shape of defect, as a machine-readable label plus what it means.
+///
+/// **Derived from the seed-2 audit's own notes, not asserted in advance.**
+/// Every family here is backed by at least one reviewer note that describes
+/// that shape; nothing was added on the strength of "a parser could
+/// plausibly do this", because a family with no labelled member calibrates
+/// nothing and would only make the set look more complete than the evidence
+/// supports.
+pub struct DefectFamily {
+    /// The label as it appears in [`Entry::families`]. Kebab-case, names a
+    /// shape.
+    pub name: &'static str,
+    /// One line describing the shape — what a detector for this family
+    /// would have to recognize.
+    pub meaning: &'static str,
+}
+
+/// The closed set of defect families (see [`DefectFamily`]).
+///
+/// Ordered roughly by how directly each one is a *parser* defect: the first
+/// group is the grammar getting a flag's structure wrong, then recall gaps,
+/// then help text whose shape the grammar has no model for at all, and last
+/// the two families that are honest about **not** being extraction defects
+/// (`display-only`, `no-usable-help`). Keeping those last two in the same
+/// closed set is deliberate — a reviewer's `wrong` verdict on a tool with no
+/// help text is a real recorded judgment, and dropping it from the labelled
+/// set would quietly inflate every detector's apparent recall by removing
+/// tools it was never going to fire on for a reason that has nothing to do
+/// with the detector.
+pub const DEFECT_FAMILIES: &[DefectFamily] = &[
+    DefectFamily {
+        name: "bundled-short-flag",
+        meaning: "a bundle of boolean short flags (`[-abcXYZ]`) collapses into one flag `-a` \
+                  carrying the rest as a value, instead of N separate flags",
+    },
+    DefectFamily {
+        name: "single-dash-long",
+        meaning: "a single-dash long option (`-help`, `-fdump-scos`) splits into a one-character \
+                  short flag plus the remainder as a value name (the K1 pre-tag's shape)",
+    },
+    DefectFamily {
+        name: "repeated-char-flag",
+        meaning: "a repeated-character flag (`-vv`, `-dd`, `-kk`) documented in the help text is \
+                  not extracted at all",
+    },
+    DefectFamily {
+        name: "dropped-alias",
+        meaning: "one half of a documented short/long alias pair is missing from the extracted \
+                  flag (`-p` kept, `--pid` dropped, or the reverse)",
+    },
+    DefectFamily {
+        name: "value-name-mangled",
+        meaning: "a flag's value spec is mis-captured: an alternative form, an alias spelling, or \
+                  a second accepted type is swallowed into or dropped from `value_name`",
+    },
+    DefectFamily {
+        name: "missing-flag-description",
+        meaning: "flags are extracted but carry no description text, though the help text \
+                  attaches one",
+    },
+    DefectFamily {
+        name: "section-header-bleed",
+        meaning: "text belonging to a section heading is absorbed into a flag, a description, or \
+                  a node name",
+    },
+    DefectFamily {
+        name: "unparsed-subcommand",
+        meaning: "subcommand names are plainly present in the help text but no child node is \
+                  produced for them",
+    },
+    DefectFamily {
+        name: "unparsed-positional",
+        meaning: "a positional operand in the usage line (`<destination>`, `pid`) is never \
+                  extracted — the IR has nowhere to put it",
+    },
+    DefectFamily {
+        name: "unmodeled-help-shape",
+        meaning: "the help text is structured in a way the grammar has no model for at all \
+                  (topic-partitioned `--help=<topic>` pages, a combinatorial synopsis that \
+                  reprints the tool name per variant, `KEY=VALUE` operands, a settings/variables \
+                  table that is not a flag list, multi-column layouts)",
+    },
+    DefectFamily {
+        name: "verbatim-fallback",
+        meaning: "help text was captured but no structure came out of it, so the tool falls back \
+                  to verbatim display",
+    },
+    DefectFamily {
+        name: "display-only",
+        meaning: "the extraction is right and the defect is in how the TUI renders it (width, \
+                  wrapping, a truncated bracket) — recorded as not-an-extraction-defect rather \
+                  than dropped, so it cannot be mistaken for one",
+    },
+    DefectFamily {
+        name: "no-usable-help",
+        meaning: "the tool yields no help text to parse under the allowlisted probe argv (prints \
+                  nothing, errors, opens a REPL, or emits something that is not help) — a \
+                  property of the tool, not of the parser",
+    },
+];
+
+/// Every family name, in [`DEFECT_FAMILIES`] order.
+pub fn family_names() -> Vec<&'static str> {
+    DEFECT_FAMILIES.iter().map(|f| f.name).collect()
+}
+
+/// The one-line meaning of `name`, or `None` if it is not a recognized
+/// family. The membership test every reader of [`Entry::families`] should
+/// use, so an unrecognized word can never be silently treated as a family
+/// nobody has heard of.
+pub fn family_meaning(name: &str) -> Option<&'static str> {
+    DEFECT_FAMILIES
+        .iter()
+        .find(|f| f.name == name)
+        .map(|f| f.meaning)
+}
+
+/// Parse a family word to its canonical `'static` spelling, failing loudly
+/// (and naming the whole valid set) on anything else — the family
+/// counterpart of [`parse_verdict_word`], and shared for the same reason:
+/// every entry point that accepts a family must agree on what one is.
+pub fn parse_family(word: &str) -> anyhow::Result<&'static str> {
+    DEFECT_FAMILIES
+        .iter()
+        .find(|f| f.name == word)
+        .map(|f| f.name)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "unrecognized defect family {word:?} — expected one of: {}",
+                family_names().join(", ")
+            )
+        })
 }
 
 /// One recorded correction to an [`Entry`]'s verdict — the audit's amendment
@@ -331,6 +595,25 @@ impl AuditFile {
             .filter(|(_, e)| e.needs_attention())
             .map(|(i, _)| i)
     }
+
+    /// Run [`Entry::validate_families`] over every entry, reporting the
+    /// first failure. Called by every command that reads family labels
+    /// before it computes anything from them, so a hand edit that
+    /// mistypes a family or forgets its provenance fails at the top of the
+    /// run rather than quietly changing a confusion matrix.
+    pub fn validate_families(&self) -> anyhow::Result<()> {
+        for entry in &self.entries {
+            entry.validate_families()?;
+        }
+        Ok(())
+    }
+
+    /// Judged defects carrying no family label, in file order — the
+    /// `unclassified` population every calibration report prints. See
+    /// [`Entry::is_unclassified`].
+    pub fn unclassified(&self) -> impl Iterator<Item = &Entry> + '_ {
+        self.entries.iter().filter(|e| e.is_unclassified())
+    }
 }
 
 /// Whether a verdict word obliges the reviewer to write a note.
@@ -455,7 +738,17 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            families: Vec::new(),
+            families_derived: None,
             amendments: Vec::new(),
+        }
+    }
+
+    fn labelled(tool: &str, verdict: &str, families: &[&str]) -> Entry {
+        Entry {
+            families: families.iter().map(|f| f.to_string()).collect(),
+            families_derived: Some(true),
+            ..entry(tool, Some(verdict), "a real finding")
         }
     }
 
@@ -530,6 +823,8 @@ mod tests {
                     k2: Some(false),
                     k3: Some(true),
                     include_reason: None,
+                    families: vec!["unparsed-subcommand".to_string()],
+                    families_derived: Some(true),
                     amendments: vec![Amendment {
                         previous_verdict: "incomplete".to_string(),
                         new_verdict: "wrong".to_string(),
@@ -547,6 +842,8 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: Some("unaudited promotion".to_string()),
+                    families: Vec::new(),
+                    families_derived: None,
                     amendments: Vec::new(),
                 },
             ],
@@ -562,6 +859,9 @@ mod tests {
         assert_eq!(loaded.entries[0].verdict.as_deref(), Some("incomplete"));
         assert_eq!(loaded.entries[0].note, "subcommand help never fetched");
         assert_eq!(loaded.entries[0].k3, Some(true));
+        assert_eq!(loaded.entries[0].families, vec!["unparsed-subcommand"]);
+        assert_eq!(loaded.entries[0].families_derived, Some(true));
+        assert!(loaded.entries[1].families.is_empty());
         // ...while the amendment history carries the correction.
         assert_eq!(loaded.entries[0].amendments.len(), 1);
         assert_eq!(
@@ -822,5 +1122,155 @@ k1 = true
             loaded.entries[0].amendments[0].reason,
             "reviewer inconsistency caught in reconciliation"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Defect-family labels
+    // ------------------------------------------------------------------
+
+    /// A manifest written before `families` existed loads unchanged, with
+    /// every entry simply unlabelled — the same backward-compatibility
+    /// contract `amendments` carries, and the reason the seed-2 file could
+    /// be backfilled incrementally rather than migrated wholesale.
+    #[test]
+    fn a_manifest_with_no_families_field_still_loads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = verdict_path(tmp.path(), 98);
+        std::fs::write(
+            &path,
+            "[meta]\nseed = 98\nsample_size = 1\n\n[[entry]]\ntool = \"tcpdump\"\nstratum = \
+             \"ok\"\nverdict = \"wrong\"\nnote = \"single dash issue\"\n",
+        )
+        .unwrap();
+        let loaded = load(&path).unwrap();
+        assert!(loaded.entries[0].families.is_empty());
+        assert_eq!(loaded.entries[0].families_derived, None);
+        loaded.validate_families().unwrap();
+        // ...and an unlabelled judged defect reads as unclassified, not as
+        // "no defect family applies".
+        assert!(loaded.entries[0].is_unclassified());
+    }
+
+    #[test]
+    fn every_family_name_is_kebab_case_and_unique() {
+        let mut seen = Vec::new();
+        for f in DEFECT_FAMILIES {
+            assert!(
+                f.name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c == '-' || c.is_ascii_digit()),
+                "{:?} is not kebab-case",
+                f.name
+            );
+            assert!(!f.meaning.trim().is_empty(), "{:?} has no meaning", f.name);
+            assert!(!seen.contains(&f.name), "{:?} listed twice", f.name);
+            seen.push(f.name);
+        }
+    }
+
+    #[test]
+    fn parse_family_accepts_the_set_and_names_it_on_failure() {
+        assert_eq!(
+            parse_family("bundled-short-flag").unwrap(),
+            "bundled-short-flag"
+        );
+        let err = parse_family("bundled_short_flag").unwrap_err().to_string();
+        assert!(err.contains("unrecognized defect family"));
+        assert!(
+            err.contains("bundled-short-flag"),
+            "the error must name the valid set, not just reject: {err}"
+        );
+        assert!(family_meaning("no-such-family").is_none());
+    }
+
+    /// The claim-strength rule this field exists for: labels with no
+    /// recorded provenance are refused outright, so a writer that forgets
+    /// the field cannot launder a machine reading of a reviewer's prose
+    /// into the reviewer's own classification.
+    #[test]
+    fn families_without_recorded_provenance_are_refused() {
+        let mut e = entry("tcpdump", Some("wrong"), "single dash issue");
+        e.families = vec!["bundled-short-flag".to_string()];
+        let err = e.validate_families().unwrap_err().to_string();
+        assert!(err.contains("families_derived"), "{err}");
+
+        e.families_derived = Some(true);
+        e.validate_families().unwrap();
+    }
+
+    #[test]
+    fn an_unrecognized_or_duplicated_family_is_refused() {
+        let mut e = labelled("tcpdump", "wrong", &["not-a-real-family"]);
+        assert!(e.validate_families().is_err());
+
+        e.families = vec![
+            "bundled-short-flag".to_string(),
+            "bundled-short-flag".to_string(),
+        ];
+        let err = e.validate_families().unwrap_err().to_string();
+        assert!(err.contains("twice"), "{err}");
+    }
+
+    /// A family says what is *wrong*, so a verdict that names no defect
+    /// cannot carry one — otherwise a `correct` tool would sit in a
+    /// detector's expected-fires set on the strength of a verdict saying
+    /// nothing is wrong with it.
+    #[test]
+    fn a_correct_verdict_may_not_carry_family_labels() {
+        let e = labelled("tmux", "correct", &["bundled-short-flag"]);
+        let err = e.validate_families().unwrap_err().to_string();
+        assert!(err.contains("names no defect"), "{err}");
+    }
+
+    /// Labels follow the *effective* verdict, so an amendment that turns a
+    /// `correct` into a `wrong` makes that entry labellable — which is
+    /// exactly how `tmux` entered the bundled-short-flag calibration set.
+    #[test]
+    fn an_amended_verdict_decides_whether_labels_are_allowed() {
+        let mut e = labelled("tmux", "correct", &["bundled-short-flag"]);
+        assert!(e.validate_families().is_err());
+        e.verdict = Some("correct".to_string());
+        amend(
+            &mut e,
+            "wrong",
+            "bundled-short-flag collapse".to_string(),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+        e.validate_families().unwrap();
+        assert!(e.is_judged_defect());
+        assert!(!e.is_judged_correct());
+        assert!(e.has_family("bundled-short-flag"));
+        assert!(!e.is_unclassified());
+    }
+
+    /// `skip` is neither good nor bad for calibration purposes: it records
+    /// no judgment about the parse, so counting it as either side would put
+    /// a number in a confusion matrix that no human ever supported.
+    #[test]
+    fn skip_is_neither_a_judged_defect_nor_a_judged_correct() {
+        let e = entry("xzgrep", Some("skip"), "");
+        assert!(!e.is_judged_defect());
+        assert!(!e.is_judged_correct());
+        assert!(!e.is_unclassified());
+    }
+
+    #[test]
+    fn unclassified_lists_judged_defects_with_no_label() {
+        let file = AuditFile {
+            meta: AuditMeta {
+                seed: 2,
+                sample_size: 4,
+            },
+            entries: vec![
+                labelled("tcpdump", "wrong", &["bundled-short-flag"]),
+                entry("pptpsetup", Some("incomplete"), "bad parse"),
+                entry("wall", Some("correct"), ""),
+                entry("xzgrep", Some("skip"), ""),
+            ],
+        };
+        file.validate_families().unwrap();
+        let names: Vec<&str> = file.unclassified().map(|e| e.tool.as_str()).collect();
+        assert_eq!(names, vec!["pptpsetup"]);
     }
 }
