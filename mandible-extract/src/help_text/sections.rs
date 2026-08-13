@@ -657,6 +657,32 @@ pub fn parse_with_profile(
             }
         }
 
+        // A framework-declared *positional-operand* heading (see
+        // `FrameworkProfile::positional_heading_markers`). Sits directly
+        // below the subparser scan on purpose: for argparse the two read
+        // the *same* heading, and the subparser scan gets first refusal
+        // because a `{...}` pseudo-entry with real entries beneath it is
+        // strictly stronger evidence than the heading text alone. Only once
+        // that scan has declined does the block mean what its heading says
+        // — a list of the tool's plain positional operands.
+        //
+        // Like a non-command heading below, this also breaks the sticky
+        // `command_mode` chain: a block the framework itself labels
+        // "positional arguments" is positive evidence that whatever
+        // command list was being followed has ended.
+        if profile.is_some_and(|p| {
+            heading_matches_markers(&heading.to_lowercase(), p.positional_heading_markers)
+        }) {
+            let (end, entries) = scan_bare_block(&lines, i, heading_indent, false);
+            i = end;
+            command_mode = false;
+            let (block_seen, block_clean) =
+                emit_declared_positionals(entries, &usage_lines, &mut result);
+            total_entries += block_seen;
+            clean_entries += block_clean;
+            continue;
+        }
+
         // A framework-declared *non*-command heading (spec §7 Tier B,
         // batch 6 part 4 — see `FrameworkProfile::non_command_heading_markers`'s
         // doc comment) both refuses this block and breaks the engine's
@@ -1608,6 +1634,120 @@ fn emit_choices(
             // grammar not fully understanding this content.
             out.saw_unattributable_content = true;
         }
+    }
+    (seen, clean)
+}
+
+/// The bare name a positional-block row or a usage-synopsis token carries,
+/// with the notation stripped: `[interval]` -> `interval`,
+/// `<destination>` -> `destination`, `[rustfmt_options]...` ->
+/// `rustfmt_options`. `None` for anything that is not a single
+/// notation-wrapped word — a row whose first column is several words is
+/// prose, not an operand name, and prose promoted to structure is [M-10].
+///
+/// The `<...>` rule is [`extract_positionals`]'s, character for character
+/// (nearest `>`, not the outermost), so a name found in a declared block and
+/// the same name found in the synopsis normalize identically and can be
+/// matched against each other.
+fn operand_name(token: &str) -> Option<String> {
+    let token = token.trim();
+    if token.is_empty() || token.split_whitespace().count() != 1 {
+        return None;
+    }
+    let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
+    let name = match cleaned.strip_prefix('<') {
+        Some(stripped) => stripped.get(..stripped.find('>')?)?.to_string(),
+        None => cleaned.to_string(),
+    };
+    // Never a flag (a `positional arguments:` block that somehow contains a
+    // dash-led row is not the shape this reads), and never something with
+    // no word content at all (`..]`, `|`, `{`).
+    if name.starts_with('-') || !name.chars().any(char::is_alphanumeric) {
+        return None;
+    }
+    Some(name)
+}
+
+/// The `(required, variadic)` shape the usage synopsis states for the
+/// operand called `name`, or `None` if the synopsis never mentions it.
+///
+/// The declaring block says *which* tokens are operands but not whether
+/// each is optional or repeatable — argparse's `positional arguments:` rows
+/// are bare names with no notation on them at all. The synopsis states
+/// exactly those two bits and nothing else useful, so this reads only them,
+/// with the identical expressions [`extract_positionals`] uses (`[x]` is
+/// optional; a trailing `...` is variadic) rather than a second opinion
+/// about the same notation.
+fn usage_operand_shape(usage_lines: &[String], name: &str) -> Option<(bool, bool)> {
+    for line in usage_lines {
+        for token in line.split_whitespace() {
+            if operand_name(token).as_deref() != Some(name) {
+                continue;
+            }
+            let required = !token.contains('[') && !line.contains(&format!("[{token}"));
+            return Some((required, token.ends_with("...")));
+        }
+    }
+    None
+}
+
+/// Emit a framework-declared positional block's rows as real positionals
+/// (see [`FrameworkProfile::positional_heading_markers`] for why a declared
+/// block is a different kind of evidence from a synopsis guess).
+///
+/// Merges rather than appends: the synopsis scan already ran, so an operand
+/// written `<file>` in the synopsis *and* listed in the block is one
+/// positional that gains a description, not two. Order follows the block,
+/// which is the order the framework itself prints and the order the user
+/// types them in.
+///
+/// Returns the `(seen, clean)` pair every `emit_*` returns, so a row this
+/// refuses lowers the node's confidence instead of vanishing silently.
+fn emit_declared_positionals(
+    entries: Vec<(&str, String)>,
+    usage_lines: &[String],
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let mut seen = 0usize;
+    let mut clean = 0usize;
+    for (spec_text, desc_text) in entries {
+        if out.positionals.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        seen += 1;
+        let Some(name) = operand_name(spec_text) else {
+            // A row whose first column is not one operand-shaped word.
+            // Counted above, dropped here, and flagged — the same "the
+            // grammar did not understand this content" signal `emit_choices`
+            // raises, never a guess at what it meant.
+            out.saw_unattributable_content = true;
+            continue;
+        };
+        clean += 1;
+        let description = non_empty_text(&desc_text);
+        if let Some(existing) = out.positionals.iter_mut().find(|p| p.name == name) {
+            // The synopsis found this one first and has no description to
+            // offer; the block does. Nothing else is overwritten — the
+            // synopsis is the authority on `required`/`variadic` because it
+            // is the only place that notation appears.
+            if existing.description.is_none() {
+                existing.description = description;
+            }
+            continue;
+        }
+        let (required, variadic) = usage_operand_shape(usage_lines, &name)
+            // Not in the synopsis at all (a tool whose block is fuller than
+            // its usage line): a declared positional is required unless
+            // something says otherwise, and the block's own row may still
+            // carry the notation even when the synopsis does not.
+            .unwrap_or_else(|| (!spec_text.contains('['), spec_text.trim_end().ends_with("...")));
+        out.positionals.push(Positional {
+            name,
+            required,
+            variadic,
+            description,
+            provenance: Provenance::single(Source::HelpText),
+        });
     }
     (seen, clean)
 }
@@ -2572,11 +2712,58 @@ fn split_at_column(line: &str, col: Option<usize>) -> (&str, String) {
     }
 }
 
+/// Usage-synopsis tokens that stand in for the tool's **own option list**
+/// rather than naming an operand, matched case-insensitively after the
+/// notation wrapper (`<>`, `[]`, `...`) is stripped.
+///
+/// A synopsis says where the flags go the same way it says where the
+/// operands go, and it says it with a word: `tar [OPTION...] [FILE]...`,
+/// `pkgconf [OPTIONS] [LIBRARIES]`, `dpkg-statoverride [<option> ...]
+/// <command>`, `vim [arguments] [file ..]`. Only the *second* token in each
+/// of those pairs is an argument the user supplies; the first is the
+/// synopsis pointing at its own options table. Reading it as a positional
+/// invents an operand no tool has — the fabrication class spec §7 Tier B
+/// forbids, arrived at by a plausible-looking rule rather than by
+/// mis-parsing anything.
+///
+/// **The anchor case is `vim`,** confirmed with the maintainer on
+/// 2026-08-13: in `Usage: vim [arguments] [file ..]`, `[file ..]` is a real
+/// variadic operand and `[arguments]` is the flag list. Today `arguments`
+/// is skipped only incidentally — [`extract_positionals`] happens not to
+/// accept bare lowercase words — so widening that rule for any reason at
+/// all would silently start fabricating it. Naming the shape here makes the
+/// exclusion survive such a change instead of depending on it not happening.
+///
+/// **`args`/`arg` are deliberately absent.** `git`'s `[<args>]` (the
+/// arguments forwarded to the chosen subcommand) and every `sh -c
+/// command_string [args]`-shaped synopsis use it as a genuine operand, so
+/// excluding it would delete real structure to prevent a defect it does not
+/// have. The list holds only words that name an option list and nothing
+/// else.
+pub(super) const OPTION_LIST_PLACEHOLDERS: &[&str] =
+    &["option", "options", "flag", "flags", "arguments"];
+
+/// True when `name` (already unwrapped from its notation) is one of
+/// [`OPTION_LIST_PLACEHOLDERS`].
+fn is_option_list_placeholder(name: &str) -> bool {
+    OPTION_LIST_PLACEHOLDERS
+        .iter()
+        .any(|p| name.eq_ignore_ascii_case(p))
+}
+
 /// Pull placeholder tokens (`<value>`, bare `UPPERCASE` words not preceded
 /// by `-`) out of usage lines as positionals. Best-effort: usage-line
 /// grammar is genuinely varied (docopt-style `[OPTIONS]`, `<required>`,
 /// `...`, `|`, `{a|b|c}`), so this recognizes the common placeholder
 /// shapes rather than fully parsing the grammar.
+///
+/// What it recognizes is *inference from notation*, so it stays narrow, and
+/// [`OPTION_LIST_PLACEHOLDERS`] carves out the one family of tokens whose
+/// notation is indistinguishable from an operand's while its meaning is the
+/// opposite. The declarative counterpart — a framework's own positional
+/// block, which needs no inference at all — is
+/// [`FrameworkProfile::positional_heading_markers`] and
+/// [`emit_declared_positionals`].
 fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
@@ -2618,7 +2805,7 @@ fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
             } else {
                 continue;
             };
-            if name.is_empty() || !seen.insert(name.clone()) {
+            if name.is_empty() || is_option_list_placeholder(&name) || !seen.insert(name.clone()) {
                 continue;
             }
             let required = !token.contains('[') && !line.contains(&format!("[{token}"));

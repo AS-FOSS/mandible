@@ -2,10 +2,6 @@ name: dpkg-statoverride
 usage:
 - 'Usage: dpkg-statoverride [<option> ...] <command>'
 positionals:
-- name: option
-  provenance:
-    sources:
-    - help-text
 - name: command
   required: true
   provenance:

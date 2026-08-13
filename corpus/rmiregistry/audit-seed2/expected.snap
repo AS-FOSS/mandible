@@ -3,11 +3,6 @@ description: port argument, --help, is not a number.
 usage:
 - 'Usage: rmiregistry <options> <port>'
 positionals:
-- name: options
-  required: true
-  provenance:
-    sources:
-    - help-text
 - name: port
   required: true
   provenance:

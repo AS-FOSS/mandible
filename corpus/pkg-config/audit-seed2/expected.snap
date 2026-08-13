@@ -2,10 +2,6 @@ name: pkg-config
 usage:
 - 'usage: pkgconf [OPTIONS] [LIBRARIES]'
 positionals:
-- name: OPTIONS
-  provenance:
-    sources:
-    - help-text
 - name: LIBRARIES
   provenance:
     sources:
