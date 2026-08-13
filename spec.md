@@ -2331,6 +2331,63 @@ working are indistinguishable from the fleet number alone — so the
 distinguishing evidence has to live in tests, and the fix's own commit
 should say which.
 
+**A repaired family is reported as repaired, and the report carries its own
+evidence.** Calibration has three verdicts, not two. `REPAIRED` is reached
+only when calibration has *inverted* (nothing labelled fires any more, and
+there was something to fire on) **and** the detector's own hand-built cases
+still hold. Those cases are `Detector::self_checks` — promoted out of
+`#[cfg(test)]` and onto the trait precisely because neither consumer runs
+under a test harness — and each names the exact number of findings the
+detector must report on a hand-built input. The list is only evidence if it
+covers **both directions**: at least one case the rule must fire on, because
+a deleted detector satisfies every must-stay-silent case, and at least one it
+must stay silent on, because a detector firing indiscriminately satisfies
+every must-fire case. An empty list is refused rather than passing
+vacuously. A detector with no self-checks can never be called repaired.
+
+**REPAIRED is a stated claim, never a suppression**, and the distinction is
+the whole point: "the family was repaired" is otherwise the perfect excuse
+for a broken detector. So nothing moves between cells to reach it. Recall
+still reads 0%, every missed tool stays counted in the FALSE-NEGATIVE cell
+and stays named, the declared out-of-scope miss still prints in red, and the
+self-check block prints on *every* run — including the ones that do not
+reach REPAIRED — so the first time a reader sees the evidence is never the
+run where it is being used to excuse a zero. A false alarm blocks REPAIRED
+exactly as it blocks PASSES. And an inverted matrix whose self-checks did
+*not* hold gets its own loud verdict naming it as the dangerous case, rather
+than being rendered as an ordinary failure.
+
+**A ratchet gate asserts the detector alongside the count.** Once a family
+is repaired its fleet count is gated at zero (`coverage --check`, via
+`detector::ratchet_at_zero`) — against a literal `0` rather than against the
+checked-in scoreboard, which is editable and would otherwise let a
+reintroducing commit raise its own baseline. The gate's second half is not
+optional: **a gate asserting `count == 0` is satisfied by deleting the
+detector**, which is [M-10]'s "a metric improved by breaking the thing that
+measures it" one level up. So the gate requires the same self-check evidence
+the REPAIRED verdict does, and refuses a zero without it. Verified by
+attacking it: with `bundling::detect` returning an empty report and the fleet
+count at a perfect 0 tools / 0 destroyed flags, `coverage --check` exits 1
+and names the six cases that stopped firing.
+
+**A declared scope exclusion must carry a structural predicate, not prose.**
+`Scope::known_exclusions` was `(tool, &'static str)`, and adding an entry
+silently converted a blocking false negative into a non-blocking named miss
+with nothing checking that the sentence named a property of the *shape*.
+That was the last goalpost-moving lever, so the reason is now a closed
+`Ground` enum carrying a **witness** — the literal token from the tool's own
+help text — plus the constant it falls below, referenced rather than
+retyped. The arithmetic is computed from the witness and has to agree:
+`ssh-keygen`'s `-hU` swallows one member, below `MIN_BUNDLED_MEMBERS = 2`,
+so it holds; an author trying to exclude `tcpdump` would have to supply
+`-AbdDefhHIJKlLnNOpqStuUvxX#`, whose 25 members are below no threshold, and
+the entry is refused as a false negative rather than an exclusion. A
+threshold of zero and a witness that is not a cluster token are refused too.
+Prose survives as a `note` printed *beside* the generated structural
+sentence, never instead of it. A new kind of exclusion means a new `Ground`
+variant with its own predicate — a reviewable change to the vocabulary,
+which typing a new sentence into a `&str` was not.
+
 ### 13.2 Fixed corpus
 
 A fixture (`corpus/<tool>/<version>/`) freezes **both halves** of one

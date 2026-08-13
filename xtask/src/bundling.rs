@@ -206,19 +206,38 @@
 //! on. Spec §13.1e's precondition ("not quotable until it has passed") is a
 //! claim about the labels, which were recorded against the *pre-fix* parser;
 //! once a family is fixed, its labelled set can no longer confirm anything,
-//! and a detector that keeps reading zero is doing its job. What still
-//! demonstrates the rule has teeth is this module's own hand-built tests:
-//! they build the collapsed shape directly and assert every condition fires
-//! on it.
+//! and a detector that keeps reading zero is doing its job.
 //!
-//! # No new probes, not gated
+//! **The harness says so in its own words now.** `xtask detector calibrate`
+//! reports `VERDICT: REPAIRED` for this family rather than rendering a
+//! healthy state in the vocabulary of failure — but only because the
+//! hand-built cases below still fire. That is the whole mechanism: what
+//! demonstrates the rule has teeth is [`self_checks`], which builds the
+//! collapsed shape directly and asserts the rule still fires on it, and
+//! which is checked *at runtime* by both the calibration verdict and the
+//! ratchet gate. Neither will accept a zero without it. See
+//! [`crate::detector::Verdict::Repaired`] and
+//! [`crate::detector::ratchet_at_zero`].
 //!
-//! Identical to [`crate::existence`] on both counts, for identical reasons:
+//! # No new probes — and now gated, at zero
+//!
+//! Identical to [`crate::existence`] on the probes, for identical reasons:
 //! it reads the same [`crate::misattribution::RecordingProbe`] capture the
-//! sweep already paid for, so it costs zero additional subprocess spawns,
-//! and it is reported in every scoreboard footer without ever contributing
-//! to `--check`'s pass/fail decision (spec §13.1b: a metric with no measured
-//! baseline must not silently fail a run the first time it is computed).
+//! sweep already paid for, so it costs zero additional subprocess spawns.
+//!
+//! **It is no longer ungated.** It was reported-only while there was no
+//! baseline to regress against and while the number was expected to move
+//! the moment the grammar learned to split a bundle (spec §13.1b: a metric
+//! with no measured baseline must not silently fail a run the first time it
+//! is computed). That movement has happened — 58 tools / 465 destroyed
+//! flags to 0 / 0 — so `coverage --check` now ratchets both columns at a
+//! literal zero.
+//!
+//! Gated against `0` and not against the checked-in scoreboard, because the
+//! scoreboard is itself editable and a commit reintroducing the defect
+//! would otherwise raise its own baseline. And gated on the self-checks
+//! *alongside* the count, because `count == 0` on its own is satisfied by
+//! deleting this module.
 
 use crate::existence::spelling_occurs;
 use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
@@ -240,7 +259,7 @@ use std::collections::HashSet;
 /// their *shape* separates the two halves. This detector is meant to be
 /// gated at zero, and a gate that fires on a correct parse cannot be fixed
 /// by anyone, so the whole class is excluded.
-const MIN_BUNDLED_MEMBERS: usize = 2;
+pub(crate) const MIN_BUNDLED_MEMBERS: usize = 2;
 
 /// The fewest ASCII letters a cluster must carry before [`is_alphabetized`]
 /// is allowed to vouch for it.
@@ -486,75 +505,309 @@ pub fn detect(raw: &str, root: &CommandNode) -> BundleReport {
     BundleReport { collapses }
 }
 
+// ----------------------------------------------------------------------
+// The hand-built evidence, promoted out of `#[cfg(test)]`
+// ----------------------------------------------------------------------
+//
+// Everything below is the same hand-built material this module's own tests
+// were already written against, moved into always-compiled code because
+// **two consumers outside the test binary now depend on it** (spec §13.1e's
+// "a fixed family inverts its own calibration"):
+//
+// * `crate::detector::calibrate` cross-checks it before it will call this
+//   family REPAIRED rather than broken, and
+// * `crate::detector::ratchet_at_zero` cross-checks it before it will accept
+//   a fleet count of zero — because `count == 0` on its own is satisfied by
+//   deleting the detector.
+//
+// A `#[cfg(test)]` assertion cannot serve either: neither runs under the
+// test harness. The tests below still exist and still assert the richer
+// facts (which cluster, how many flags destroyed); these cases are the
+// subset a shipped binary can re-run on demand.
+
+/// A short flag carrying `value`, sourced from `source` — built the way
+/// `mandible_core::Flag`'s own constructors allow (there is only a
+/// `Flag::long`), then corrected, exactly as `crate::existence`'s own
+/// helper does.
+fn short_flag(short: char, value: Option<&str>, source: Source) -> Flag {
+    let mut flag = Flag::long("", Provenance::single(source));
+    flag.long = None;
+    flag.short = Some(short);
+    flag.value_name = value.map(str::to_string);
+    flag.value_kind = if value.is_some() {
+        ValueKind::Required
+    } else {
+        ValueKind::None
+    };
+    flag
+}
+
+/// A synopsis-sourced flag exactly as `sections::push_usage_flag` builds
+/// it: short spelling, no long name, a required value, no description (a
+/// usage line has none to give).
+fn synopsis_flag(short: char, value: Option<&str>) -> Flag {
+    short_flag(short, value, Source::HelpTextSynopsis)
+}
+
+fn synopsis_node(name: &str) -> CommandNode {
+    CommandNode::new(name, Provenance::single(Source::HelpTextSynopsis))
+}
+
+/// A one-node tree named `name` carrying `flags`.
+fn tree(name: &str, flags: Vec<Flag>) -> CommandNode {
+    let mut root = synopsis_node(name);
+    root.flags = flags;
+    root
+}
+
+// --- the known tools, byte-exact from their corpus captures -------------
+
+/// `tcpdump --help`'s real fourth line, byte-exact from
+/// `corpus/tcpdump/audit-seed2/help.txt`. 26 members, one flag.
+const TCPDUMP_USAGE: &str =
+    "Usage: tcpdump [-AbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ] [ -c count ] [--count]\n";
+
+/// `tmux`'s real usage line, byte-exact from
+/// `corpus/tmux/audit-seed2/help.stderr.txt` — the whole reason the
+/// false-positive side of this detector matters, since five genuine
+/// value-taking short flags sit on the same line as the collapse.
+const TMUX_USAGE: &str = "usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name]\n            [-S socket-path] [-T features] [command [flags]]\n";
+
+/// `filefrag`'s real usage line, byte-exact. Carries the collapse *and*
+/// `[-b{blocksize}[KMG]]`, a glued synopsis value that must not fire.
+const FILEFRAG_USAGE: &str =
+    "Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...\n";
+
+/// `xfs_io`'s real usage line, byte-exact.
+const XFS_IO_USAGE: &str =
+    "Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file\n";
+
+/// `lessecho`'s real usage line, byte-exact from its own `--help`. Seven
+/// genuine value-taking glued short flags (its man page: `x` is a
+/// character, `n` a number) — the closest real thing to a false positive
+/// this detector has, and it must stay silent on all seven.
+const LESSECHO_USAGE: &str =
+    "usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-a] file ...\n";
+
+/// `ssh-keygen`'s real one-member cluster — the declared out-of-scope
+/// miss, carried here as the witness its [`crate::detector::Ground`] cites.
+pub(crate) const SSH_KEYGEN_CLUSTER: &str = "-hU";
+
+const SSH_KEYGEN_USAGE: &str =
+    "       ssh-keygen -I certificate_identity -s ca_key [-hU] [-D pkcs11_provider]\n";
+
+/// The hand-built cases this detector is willing to be judged on when the
+/// labelled set has nothing left to say — see the section comment above.
+///
+/// Both halves are present on purpose, and
+/// [`crate::detector::Calibration::self_checks_are_conclusive`] requires
+/// both: a detector that fired on *everything* would satisfy every
+/// must-fire case here, so the must-stay-silent cases are what make the
+/// evidence mean anything. They are also this project's standing rule
+/// (no false positives over recall) expressed as a gate input rather than
+/// as a comment.
+pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
+    use crate::detector::{Expect, SelfCheck};
+
+    let fires = |name: &'static str, why: &'static str, raw: &str, root: CommandNode| SelfCheck {
+        name,
+        why,
+        expect: Expect::Fires(1),
+        raw: raw.to_string(),
+        root,
+    };
+    let silent = |name: &'static str, why: &'static str, raw: &str, root: CommandNode| SelfCheck {
+        name,
+        why,
+        expect: Expect::Silent,
+        raw: raw.to_string(),
+        root,
+    };
+
+    let mut cases = vec![
+        fires(
+            "tcpdump's real 26-member cluster",
+            "the largest collapse in the audit: -A swallowing 25 real switches",
+            TCPDUMP_USAGE,
+            tree(
+                "tcpdump",
+                vec![synopsis_flag('A', Some("bdDefhHIJKlLnNOpqStuUvxX#"))],
+            ),
+        ),
+        fires(
+            "tmux's cluster beside its five real valued flags",
+            "the false-positive case that matters most: -c/-f/-L/-S/-T are genuine \
+             value-taking short flags on the same physical line as the collapse, and only \
+             the space separates them",
+            TMUX_USAGE,
+            tree(
+                "tmux",
+                vec![
+                    synopsis_flag('2', Some("CDlNuVv")),
+                    synopsis_flag('c', Some("shell-command")),
+                    synopsis_flag('f', Some("file")),
+                    synopsis_flag('L', Some("socket-name")),
+                    synopsis_flag('S', Some("socket-path")),
+                    synopsis_flag('T', Some("features")),
+                ],
+            ),
+        ),
+        fires(
+            "filefrag's cluster beside its braced block-size value",
+            "-b{blocksize}[KMG] is glued and synopsis-sourced and must not fire; only \
+             is_bundle_member_char separates them",
+            FILEFRAG_USAGE,
+            tree(
+                "filefrag",
+                vec![
+                    synopsis_flag('b', Some("{blocksize}[KMG]")),
+                    synopsis_flag('B', Some("eEksvxX")),
+                ],
+            ),
+        ),
+        fires(
+            "xfs_io's cluster beside its spaced values",
+            "-m mode and -p prog store a value_name just as a cluster does",
+            XFS_IO_USAGE,
+            tree(
+                "xfs_io",
+                vec![
+                    synopsis_flag('a', Some("dfinrRstVx")),
+                    synopsis_flag('m', Some("mode")),
+                    synopsis_flag('p', Some("prog")),
+                ],
+            ),
+        ),
+        fires(
+            "tree's real unsorted bundle",
+            "the swallowed_members_mix_case branch alone — the cluster is not alphabetized \
+             at all, and 26 real flags ride on that signal",
+            "usage: tree [-acdfghilnpqrstuvxACDFJQNSUX] [--inodes] [-L level [-R]]\n",
+            tree(
+                "tree",
+                vec![synopsis_flag('a', Some("cdfghilnpqrstuvxACDFJQNSUX"))],
+            ),
+        ),
+        fires(
+            "od's real uniformly-cased bundle",
+            "the is_alphabetized branch alone — nothing about od's all-lowercase switches \
+             is evidence of anything else",
+            "Usage: od [-abcdfilosx]... [FILE]... [[+]OFFSET[.][b]]\n",
+            tree("od", vec![synopsis_flag('a', Some("bcdfilosx"))]),
+        ),
+        silent(
+            "lessecho's seven real glued character-argument flags",
+            "the closest real thing to a false positive this detector has",
+            LESSECHO_USAGE,
+            tree(
+                "lessecho",
+                vec![
+                    synopsis_flag('o', Some("x")),
+                    synopsis_flag('c', Some("x")),
+                    synopsis_flag('p', Some("n")),
+                    synopsis_flag('d', Some("n")),
+                    synopsis_flag('m', Some("x")),
+                    synopsis_flag('n', Some("n")),
+                    synopsis_flag('e', Some("x")),
+                ],
+            ),
+        ),
+        silent(
+            "ssh-keygen's one-member cluster, the declared out-of-scope miss",
+            "a real collapse below MIN_BUNDLED_MEMBERS — the witness the declared exclusion \
+             cites, asserted rather than described",
+            SSH_KEYGEN_USAGE,
+            tree("ssh-keygen", vec![synopsis_flag('h', Some("U"))]),
+        ),
+        silent(
+            "a spaced value that looks exactly like a cluster",
+            "-c shell-command stores a value_name like a bundle does; only the raw text's \
+             space tells them apart",
+            "usage: t [-c shell-command]\n",
+            tree("t", vec![synopsis_flag('c', Some("shell-command"))]),
+        ),
+    ];
+
+    // Family 2 of the three sharing this fingerprint: real single-dash long
+    // options, the largest genuinely-correct population there is.
+    for (name, short, value) in [
+        ("cargo's real -Zscript", 'Z', "script"),
+        ("rpcgen's real -Dname", 'D', "name"),
+        ("makewhatis's real -Tutf8", 'T', "utf8"),
+    ] {
+        cases.push(SelfCheck {
+            name,
+            why: "a single-dash long option: case-mixing as a cluster, uniformly cased in its \
+                  swallowed half, and a completely correct parse",
+            expect: Expect::Silent,
+            raw: format!("usage: t [-{short}{value}]\n"),
+            root: tree("t", vec![synopsis_flag(short, Some(value))]),
+        });
+    }
+
+    // Family 3: a flag repeated to mean "more of it".
+    for (name, short, value) in [
+        ("bpftrace's real -vv", 'v', "v"),
+        ("strace's real -DDD", 'D', "DD"),
+    ] {
+        cases.push(SelfCheck {
+            name,
+            why: "a repeated-character flag, rejected by MIN_BUNDLED_MEMBERS and by \
+                  members_are_distinct respectively",
+            expect: Expect::Silent,
+            raw: "usage: t [-v] [-vv] [-vvv] [-dd] [-DDD]\n".to_string(),
+            root: tree("t", vec![synopsis_flag(short, Some(value))]),
+        });
+    }
+
+    cases
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::Provenance;
-
-    /// A short flag carrying `value`, sourced from `source` — built the
-    /// way `mandible_core::Flag`'s own constructors allow (there is only a
-    /// `Flag::long`), then corrected, exactly as
-    /// `crate::existence`'s own test helper does.
-    fn short_flag(short: char, value: Option<&str>, source: Source) -> Flag {
-        let mut flag = Flag::long("", Provenance::single(source));
-        flag.long = None;
-        flag.short = Some(short);
-        flag.value_name = value.map(str::to_string);
-        flag.value_kind = if value.is_some() {
-            ValueKind::Required
-        } else {
-            ValueKind::None
-        };
-        flag
-    }
-
-    /// A synopsis-sourced flag exactly as `sections::push_usage_flag`
-    /// builds it: short spelling, no long name, a required value, no
-    /// description (a usage line has none to give).
-    fn synopsis_flag(short: char, value: Option<&str>) -> Flag {
-        short_flag(short, value, Source::HelpTextSynopsis)
-    }
 
     fn node(name: &str) -> CommandNode {
-        CommandNode::new(name, Provenance::single(Source::HelpTextSynopsis))
+        synopsis_node(name)
     }
 
     /// Build a one-node tree carrying `flags` and run [`detect`] over it.
     fn report(raw: &str, name: &str, flags: Vec<Flag>) -> BundleReport {
-        let mut root = node(name);
-        root.flags = flags;
-        detect(raw, &root)
+        detect(raw, &tree(name, flags))
     }
 
-    // --- the five known-bad tools, byte-exact from their corpus captures -
-
-    /// `tcpdump --help`'s real fourth line, byte-exact from
-    /// `corpus/tcpdump/audit-seed2/help.txt`. 26 members, one flag.
-    const TCPDUMP_USAGE: &str =
-        "Usage: tcpdump [-AbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ] [ -c count ] [--count]\n";
-
-    /// `tmux`'s real usage line, byte-exact from
-    /// `corpus/tmux/audit-seed2/help.stderr.txt` — the whole reason the
-    /// false-positive side of this detector matters, since five genuine
-    /// value-taking short flags sit on the same line as the collapse.
-    const TMUX_USAGE: &str = "usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name]\n            [-S socket-path] [-T features] [command [flags]]\n";
-
-    /// `filefrag`'s real usage line, byte-exact. Carries the collapse
-    /// *and* `[-b{blocksize}[KMG]]`, a glued synopsis value that must not
-    /// fire.
-    const FILEFRAG_USAGE: &str =
-        "Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...\n";
-
-    /// `xfs_io`'s real usage line, byte-exact.
-    const XFS_IO_USAGE: &str =
-        "Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file\n";
-
-    /// `lessecho`'s real usage line, byte-exact from its own `--help`.
-    /// Seven genuine value-taking glued short flags (its man page: `x` is
-    /// a character, `n` a number) — the closest real thing to a false
-    /// positive this detector has, and it must stay silent on all seven.
-    const LESSECHO_USAGE: &str =
-        "usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-a] file ...\n";
+    /// Every promoted case must hold, run through the same
+    /// [`crate::detector::run_self_checks`] the calibration verdict and the
+    /// ratchet gate use — so a case that stops holding fails the test suite
+    /// too, not only the two runtime consumers.
+    #[test]
+    fn every_promoted_self_check_case_holds() {
+        let outcomes = crate::detector::run_self_checks(&crate::detector::BundledShortFlag);
+        assert!(!outcomes.is_empty());
+        for outcome in &outcomes {
+            assert!(
+                outcome.held,
+                "{}: expected {:?}, got {} hit(s): {:?}",
+                outcome.name,
+                outcome.expect,
+                outcome.hits.len(),
+                outcome.hits
+            );
+        }
+        assert!(
+            outcomes
+                .iter()
+                .any(|o| matches!(o.expect, crate::detector::Expect::Fires(_))),
+            "the evidence is worthless without a case the detector must fire on"
+        );
+        assert!(
+            outcomes
+                .iter()
+                .any(|o| matches!(o.expect, crate::detector::Expect::Silent)),
+            "the evidence is worthless without a case the detector must stay silent on — a \
+             detector firing on everything would pass the must-fire half"
+        );
+    }
 
     #[test]
     fn detects_tcpdumps_real_twenty_five_member_cluster() {
