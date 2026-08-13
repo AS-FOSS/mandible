@@ -55,6 +55,16 @@ pub use sections::{
     cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_RECURRENCE,
 };
 
+/// Re-exported for `xtask/src/existence.rs`, and for exactly the reason the
+/// block above gives. This tier reads binutils `ar`'s ` commands:` table by
+/// taking the command name from the front of a token that carries its
+/// optional modifier groups glued on (`m[ab]` names `m`), so the existence
+/// oracle has to attest names the same way — its tokenizer sees the raw
+/// token `m[ab]`, and without this it reports five perfectly real `ar`
+/// commands as invented. A second copy of "where does the name end" is the
+/// same drift hazard as a second copy of "what is a flag".
+pub use sections::strip_optional_modifier_suffix;
+
 use crate::errors::ExtractError;
 use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};

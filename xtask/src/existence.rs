@@ -254,10 +254,32 @@ pub(crate) fn spelling_occurs(raw: &str, candidate: &str) -> bool {
 /// `openssl`); [`list_row_words`] does, and [`attested_name_positions`]
 /// unions the two.
 fn line_start_words(raw: &str) -> HashSet<&str> {
-    raw.lines()
-        .filter_map(|line| line.split_whitespace().next())
-        .map(|word| word.trim_end_matches([':', ',', ';']))
-        .collect()
+    let mut out = HashSet::new();
+    for line in raw.lines() {
+        let Some(word) = line.split_whitespace().next() else {
+            continue;
+        };
+        let word = word.trim_end_matches([':', ',', ';']);
+        out.insert(word);
+        // Same class of tokenizer fix as the `:` strip above, and it must
+        // use the *parser's* rule rather than a second copy of it: binutils
+        // `ar` writes each command with its optional modifier groups glued
+        // on (`m[ab]`, `r[ab][f][u]`), so the row's first token is not the
+        // name the tree stores, and the two were never going to match
+        // byte-for-byte however real the command is. Without this the five
+        // bracketed `ar` operations are reported as invented — five real
+        // commands, in the tool's own help text, called fabrications.
+        //
+        // Additive and prefix-only: `strip_optional_modifier_suffix`
+        // returns its input untouched unless the whole suffix is
+        // well-formed `[...]` groups, so this can only ever attest a
+        // *prefix of a token that is already on the line*.
+        let bare = mandible_extract::help_text::strip_optional_modifier_suffix(word);
+        if bare.len() < word.len() && !bare.is_empty() {
+            out.insert(bare);
+        }
+    }
+    out
 }
 
 /// Minimum number of items a line must break into before it can be read as
@@ -1037,6 +1059,26 @@ mod tests {
         assert!(words.contains("clone"));
         assert!(words.contains("init"));
         assert!(!words.contains("area"));
+    }
+
+    /// binutils `ar`'s real command table, byte-exact. Each row glues the
+    /// command's optional modifier groups onto its name, so the row's first
+    /// token is `m[ab]` while the tree stores `m`. Both must be attested,
+    /// or five real `ar` commands get reported as invented — measured: the
+    /// fleet sweep went from 0 to 5 fabrications on exactly this.
+    #[test]
+    fn line_start_words_attests_a_command_carrying_its_modifier_groups() {
+        let raw = " commands:\n  d            - delete file(s) from the archive\n  m[ab]        - move file(s) in the archive\n  r[ab][f][u]  - replace existing or insert new file(s) into the archive\n";
+        let words = line_start_words(raw);
+        assert!(words.contains("d"));
+        assert!(words.contains("m"), "m[ab] must attest the command m");
+        assert!(words.contains("r"), "r[ab][f][u] must attest the command r");
+        // The whole token stays attested too — this is additive.
+        assert!(words.contains("m[ab]"));
+        // A bracket-led token names no command and must attest nothing new.
+        let modifiers = line_start_words("  [a]          - put file(s) after [member-name]\n");
+        assert!(!modifiers.contains(""));
+        assert!(modifiers.contains("[a]"));
     }
 
     #[test]

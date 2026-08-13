@@ -1394,7 +1394,7 @@ fn emit_subcommands(
 /// `[...]` groups, so a token that merely contains a bracket
 /// (`[a]`, `[l <text> ]`) keeps failing the shape check as before rather
 /// than being trimmed down to something that passes.
-fn strip_optional_modifier_suffix(name: &str) -> &str {
+pub fn strip_optional_modifier_suffix(name: &str) -> &str {
     let Some(open) = name.find('[') else {
         return name;
     };
