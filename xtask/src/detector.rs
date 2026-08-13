@@ -2115,12 +2115,20 @@ mod tests {
             );
         }
         // vim.basic was confirmed `unparsed-positional` and labelled
-        // accordingly; man-recode's defect is the wrapped usage synopsis,
-        // outside the audit's declared flags/subcommand scope, so it stays
-        // unclassified rather than being labelled on a guess. Still
-        // recorded as such, and not quietly labelled by a later edit.
+        // accordingly. man-recode was left unclassified for a while — its
+        // note confirms all 9 flags parse correctly and the defect is
+        // entirely the wrapped usage synopsis, outside the audit's
+        // declared flags/subcommand scope — but task #28 gave that exact
+        // shape a real closed-set label (`display-only`) rather than
+        // leaving it as an unclassified guess, so man-recode now carries
+        // it and the tracked manifest has nothing left unclassified.
         let unclassified: Vec<&str> = file.unclassified().map(|e| e.tool.as_str()).collect();
-        assert_eq!(unclassified, vec!["man-recode"]);
+        assert_eq!(
+            unclassified,
+            Vec::<&str>::new(),
+            "if this fails because a *different* tool is unclassified, that's a real, new gap — \
+             go label it or investigate; don't just widen this assertion"
+        );
     }
 
     // --- the detectors' own rules ---------------------------------------

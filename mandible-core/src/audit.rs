@@ -270,6 +270,45 @@ impl Entry {
         self.families.iter().any(|f| f == family)
     }
 
+    /// True when this judged defect (`wrong`/`incomplete`) is **entirely**
+    /// a display/rendering issue — the extraction itself is right, and
+    /// what the reviewer actually judged wrong is how `mandible --review`'s
+    /// TUI draws it (width, wrapping, a truncated bracket). Spec §13.1c
+    /// already draws this boundary for the audit's *scope* ("usage-section
+    /// formatting" is explicitly deferred); this is that same boundary
+    /// applied to the accuracy *denominator*: a finding this method returns
+    /// `true` for must be excluded from [`crate::audit`]'s accuracy
+    /// arithmetic (`xtask::audit::accuracy_over`) while remaining fully
+    /// visible everywhere else — [`Self::effective_note`], `xtask audit
+    /// report`'s stratum table and its own out-of-scope line, and every
+    /// fixture `xtask audit fixtures` writes.
+    ///
+    /// **Structural, not an assertion — this is the part of the task that
+    /// actually matters.** The tempting shortcut is "any entry that
+    /// mentions `display-only` in `families`," but that alone would let a
+    /// *mixed* defect — a genuine parse-shape family (`bundled-short-flag`,
+    /// `unparsed-flag`, …) with `display-only` tacked on beside it — escape
+    /// the denominator on the strength of one true-but-irrelevant label.
+    /// That is exactly the free-text-reason failure mode
+    /// `xtask::detector::Ground::BelowMemberThreshold` replaced this week:
+    /// an exclusion must be computed from a witness the author cannot
+    /// forge by writing a persuasive sentence, not claimed by assertion.
+    /// The witness here is cheaper than `Ground`'s (no arithmetic to
+    /// compute — a label set has no continuous "how much"), but the same
+    /// discipline applies in the one dimension available: `display-only`
+    /// must be this entry's **only** family. A tool with a real parse
+    /// defect can never also claim this exclusion just by naming
+    /// `display-only` as a second label, because a second label is exactly
+    /// what this check refuses. Composed with what [`Self::validate_families`]
+    /// already enforces — `display-only` must come from the closed
+    /// [`DEFECT_FAMILIES`] set, must carry [`Self::families_derived`]
+    /// provenance, and can only appear on a judged defect in the first
+    /// place — an entry cannot reach `true` here by hand-editing a stray
+    /// word into the manifest.
+    pub fn is_display_only(&self) -> bool {
+        self.is_judged_defect() && self.families.len() == 1 && self.families[0] == "display-only"
+    }
+
     /// Check this entry's [`Self::families`]/[`Self::families_derived`] pair
     /// for every way it could be a claim nobody can evaluate later:
     ///
@@ -1316,6 +1355,40 @@ k1 = true
         assert!(!e.is_judged_defect());
         assert!(!e.is_judged_correct());
         assert!(!e.is_unclassified());
+    }
+
+    /// task #28: a judged defect whose only family is `display-only` is
+    /// out of `xtask::audit::accuracy_over`'s denominator, but nothing
+    /// about the record itself changes — it is still `wrong`/`incomplete`,
+    /// still carries its note, still `is_judged_defect()`.
+    #[test]
+    fn is_display_only_true_for_a_pure_display_only_verdict() {
+        let e = labelled("pcre2-config", "wrong", &["display-only"]);
+        assert!(e.is_display_only());
+        assert!(e.is_judged_defect());
+        assert!(!e.is_unclassified());
+    }
+
+    /// The precedent this method follows —
+    /// `xtask::detector::Ground::BelowMemberThreshold` — exists because a
+    /// free-text exclusion reason can justify anything. Here the
+    /// equivalent forgeable move is tacking `display-only` onto an entry
+    /// that already carries a real parse-shape family: two true labels
+    /// must not add up to an exclusion neither one earns alone.
+    #[test]
+    fn is_display_only_false_when_a_real_family_rides_along() {
+        let e = labelled("tcpdump", "wrong", &["bundled-short-flag", "display-only"]);
+        assert!(!e.is_display_only());
+    }
+
+    /// `correct`/`skip`/pending entries are never display-only-excludable
+    /// — there is no accuracy exclusion to grant an entry with no judged
+    /// defect on it in the first place.
+    #[test]
+    fn is_display_only_false_off_a_judged_defect() {
+        assert!(!labelled("tmux", "correct", &[]).is_display_only());
+        assert!(!entry("xzgrep", Some("skip"), "").is_display_only());
+        assert!(!entry("fresh", None, "").is_display_only());
     }
 
     #[test]
