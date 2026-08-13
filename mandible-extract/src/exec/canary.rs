@@ -225,9 +225,7 @@ impl ProcessCanary {
                 "no `sleep` binary on PATH to back a process canary",
             )
         })?;
-        let symlink_dir = tempfile::Builder::new()
-            .prefix("mnd-canary-")
-            .tempdir()?;
+        let symlink_dir = tempfile::Builder::new().prefix("mnd-canary-").tempdir()?;
         let link_path = symlink_dir.path().join(name);
         #[cfg(unix)]
         std::os::unix::fs::symlink(&sleep_bin, &link_path)?;
@@ -404,10 +402,7 @@ mod tests {
     #[test]
     fn pty_canary_trips_when_slave_is_written_to() {
         let canary = PtyCanary::spawn().expect("pty canary should spawn in this sandbox");
-        assert!(
-            canary.check().is_none(),
-            "canary must start untripped"
-        );
+        assert!(canary.check().is_none(), "canary must start untripped");
 
         let slave_path = canary
             .slave_path()

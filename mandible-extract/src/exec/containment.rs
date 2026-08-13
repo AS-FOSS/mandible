@@ -166,14 +166,7 @@ pub enum ContainmentError {
 #[cfg(target_os = "linux")]
 pub fn probe_namespace_support() -> NamespaceSupport {
     let user = unshare_probe(&["--user", "--map-root-user", "--", "true"]);
-    let pid = unshare_probe(&[
-        "--user",
-        "--map-root-user",
-        "--pid",
-        "--fork",
-        "--",
-        "true",
-    ]);
+    let pid = unshare_probe(&["--user", "--map-root-user", "--pid", "--fork", "--", "true"]);
     let mount = unshare_probe(&["--user", "--map-root-user", "--mount", "--", "true"]);
     NamespaceSupport { user, pid, mount }
 }
@@ -239,7 +232,14 @@ pub fn enter_or_refuse() -> ContainmentError {
     let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
 
     let mut cmd = Command::new("unshare");
-    cmd.args(["--user", "--map-root-user", "--pid", "--mount", "--fork", "--"]);
+    cmd.args([
+        "--user",
+        "--map-root-user",
+        "--pid",
+        "--mount",
+        "--fork",
+        "--",
+    ]);
     cmd.arg(&exe);
     cmd.args(&args);
     cmd.env(CONTAINED_ENV_VAR, "1");
@@ -302,7 +302,11 @@ mod tests {
     /// capabilities at all, only on `unshare` recognizing its own flags.
     #[test]
     fn unshare_probe_reports_false_on_a_failing_invocation() {
-        assert!(!unshare_probe(&["--this-flag-does-not-exist", "--", "true"]));
+        assert!(!unshare_probe(&[
+            "--this-flag-does-not-exist",
+            "--",
+            "true"
+        ]));
     }
 
     /// `NamespaceSupport::all_supported` is conjunctive: any single `false`
@@ -375,7 +379,9 @@ mod tests {
     /// orchestrator's own test-body logic above.
     fn run_reexec_worker() -> ! {
         if is_contained() {
-            let uid = effective_uid().map(|u| u.to_string()).unwrap_or_else(|| "?".to_string());
+            let uid = effective_uid()
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| "?".to_string());
             let pid = std::process::id();
             println!("CONTAINED:uid={uid},pid={pid}");
             std::process::exit(0);
