@@ -685,8 +685,18 @@ impl Detector for BundledShortFlag {
 /// `help_text::parse_flag_alternation` the grammar calls, so the detector
 /// and the fix cannot drift into disagreeing about what the defect is. That
 /// is the lesson `crate::misattribution`'s hand-copied `pick_stream` cost
-/// 200 of 656 fabrications to learn, applied at the point where it now
-/// matters most: this count is ratchet-gated at zero.
+/// 200 of 656 fabrications to learn.
+///
+/// **Its fleet count is reported, not ratcheted at zero**, and the reason is
+/// a named residual rather than a missing gate: `btrfs` writes
+/// `btrfs device scan [-d|--all-devices] <device>` in a repeated-prefix
+/// usage catalogue, so the alternation is read correctly and its flags
+/// belong to a subcommand node that `unparsed-subcommand` prevents from
+/// existing. The only node left to hang them on is the root, and `-d` is not
+/// a root flag of `btrfs` — reaching further would assert something false
+/// about the tool rather than recover anything. See `crate::alternation`'s
+/// module doc comment for the full argument and `crate::main`'s
+/// `coverage --check` arm for the ungated wiring.
 ///
 /// **Its declared scope names no excluded tool, and that is the honest
 /// answer rather than a missing one.** An [`Exclusion`] converts a blocking

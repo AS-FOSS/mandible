@@ -1164,7 +1164,7 @@ fn alternation_sample_lines_text(rows: &[Row]) -> String {
         return String::new();
     }
     let mut out = String::from(
-        "# brace-alternation-flag defects (sample — ratcheted at zero; see xtask/src/alternation.rs):\n",
+        "# brace-alternation-flag defects (sample — reported, NOT gated; the residual is a subcommand-scoped flag this family cannot place, see xtask/src/main.rs):\n",
     );
     for (rank, sample) in samples.iter().enumerate() {
         out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
@@ -1184,7 +1184,7 @@ fn alternation_sample_section_markdown(rows: &[Row]) -> String {
         return String::new();
     }
     let mut out = String::from(
-        "\n**Brace-alternation-flag defects** (sample, ratcheted at zero — see `xtask/src/alternation.rs`):\n\n| sample |\n|---|\n",
+        "\n**Brace-alternation-flag defects** (sample, reported and NOT gated — see `xtask/src/main.rs`):\n\n| sample |\n|---|\n",
     );
     for sample in samples {
         out.push_str(&format!("| {} |\n", md_escape(sample)));
@@ -1319,7 +1319,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&format!(
         "**Brace-alternation-flag defects:** {} tool(s) whose delimited flag alternation \
          (`{{-i|--input}}`, `[[-c|-C] cmd]`) lost or mangled {} flag spelling(s) fleet-wide — \
-         ratcheted at zero, see `xtask/src/alternation.rs`.\n\n",
+         reported and NOT gated, see `xtask/src/main.rs` for the named residual.\n\n",
         aggregate.alternation_defect_tools, aggregate.alternation_defect_flags,
     ));
     out.push_str(&format!(

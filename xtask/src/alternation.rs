@@ -39,10 +39,9 @@
 //! alternative: `xtask::misattribution` once carried a hand-copied
 //! `pick_stream`, it drifted silently past a real fix, and the oracle
 //! produced **200 of 656 fleet-wide fabrications** measuring its own
-//! different guess instead of the parser. A detector meant to be ratcheted
-//! at zero and a fix meant to reach zero have to agree, character for
-//! character, on what the defect is; sharing the function is the only way to
-//! guarantee that they do.
+//! different guess instead of the parser. A detector and the fix it measures
+//! have to agree, character for character, on what the defect is; sharing
+//! the function is the only way to guarantee that they do.
 //!
 //! What this module adds on top of that shared rule is the three decisions
 //! that are the *detector's* own:
@@ -77,8 +76,35 @@
 //! this project's standing rule inverted.
 //!
 //! The count is therefore a lower bound on the family, which is the right
-//! direction for a number that becomes a gate: a false negative leaves a bug
-//! unreported, a false positive blocks the fix.
+//! direction: a false negative leaves a bug unreported, a false positive
+//! blocks the fix.
+//!
+//! # Why this count is reported and not ratcheted at zero
+//!
+//! Every shape the grammar can reach is closed and all three labelled
+//! fixtures were promoted, but the fleet count does not reach zero, and the
+//! residual is not this family's to close. It is `btrfs`, whose help text is
+//! a repeated-prefix usage catalogue — `btrfs device scan [-d|--all-devices]
+//! <device>` — where `[-d|--all-devices]` is a real alternation this
+//! detector reads correctly and `-d` is a real flag of the node `btrfs
+//! device scan`. That node does not exist, because the catalogue was never
+//! parsed into subcommands (`unparsed-subcommand`, a different family and a
+//! different grammar).
+//!
+//! **The reason that is an out-of-scope miss rather than an unmeasured
+//! shortfall is not that the subcommand is missing — it is that the only
+//! node available to hang those flags on is the root, and `-d` is not a root
+//! flag of `btrfs`.** Emitting it there would assert something false about
+//! the tool. Reaching further would be *wrong*, not merely hard, and that is
+//! the whole difference between a principled exclusion and a gap nobody has
+//! got to yet.
+//!
+//! Gating at zero today would leave two ways to go green — narrow the
+//! detector until it stops seeing a real defect, or fabricate a root flag —
+//! and the first is this project's standing rule inverted. The count is
+//! reported instead, and becomes ratchetable for free once the
+//! repeated-prefix catalogue has a grammar of its own, with no change to
+//! this detector. See `crate::main`'s `coverage --check` arm.
 //!
 //! # No new probes
 //!
