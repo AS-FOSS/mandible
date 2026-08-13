@@ -198,16 +198,36 @@ pub struct DroppedAlias {
 
 /// The result of analyzing one tool.
 ///
-/// Deliberately no `drop_count()` convenience and **no scoreboard column
-/// yet**. [`crate::bundling`] earned its gated `bundle` column by first
-/// measuring the defect fleet-wide (58 tools, 465 destroyed flags) and then
-/// measuring it again at zero; spec §13.1b is explicit that a metric with
-/// no measured baseline must not silently fail a run the first time it is
-/// computed. On the machine this was written on, a full-`PATH` sweep cannot
-/// complete — a probed tool trips the pty canary by binding a port, which
-/// namespace containment does not cover — so this family has no fleet
-/// baseline and there is nothing honest to ratchet against. The detector
-/// stands on its calibration and its self-checks until one exists.
+/// # Why there is no scoreboard column, and no `drop_count()`
+///
+/// **This family costs zero flags by construction.** It never removed a
+/// flag — it removed a flag's *long spelling*. `-p PID, --pid PID` yielded
+/// one flag before the fix and yields one flag after it; all that changed
+/// is whether that flag also answers to `--pid`. So every existing
+/// fleet-wide number is blind to it *by arithmetic*, not by oversight:
+/// `total_flags` cannot move, `pct_flags_with_text` cannot move, and a
+/// `sweep-diff` across the whole of `PATH` reports 0 losses **and 0 gains**.
+/// That is the honest explanation for how a defect this common survived
+/// ~2,300 tools of repeated measurement without once showing up — and it is
+/// why a column counting it would have to be a new number rather than a
+/// movement in an old one.
+///
+/// Measured, not assumed: 2,014 tools swept with identical binaries either
+/// side of the grammar fix produced byte-identical scoreboards apart from
+/// three tools whose wall clock crossed the 10s cap (0 flags on both
+/// sides — the near-cap timing set `sweep-diff` already excludes).
+///
+/// A column is therefore deliberately *not* added here yet, and the reason
+/// is spec §13.1b rather than effort. [`crate::bundling`] earned its gated
+/// `bundle` column by first measuring the defect fleet-wide (58 tools, 465
+/// destroyed flags) and then measuring it again at zero. This family has no
+/// such before-number: the sweep that would establish one cannot complete
+/// on this machine — a probed tool trips the pty canary by binding a port
+/// on every run, which namespace containment does not cover — so the only
+/// available fleet figures come from 7 of 8 shards. Gating on a number
+/// whose baseline was never measured is exactly what §13.1b forbids. The
+/// detector stands on its calibration and its self-checks until a baseline
+/// exists.
 pub struct AliasReport {
     pub drops: Vec<DroppedAlias>,
 }
