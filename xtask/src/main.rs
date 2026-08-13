@@ -1008,6 +1008,28 @@ fn run_coverage(
         if !ratchet.holds() {
             regressed = true;
         }
+        // Same ratchet, same two halves, for shape A of the
+        // `unparsed-subcommand` split (`crate::commandtable`). The fix
+        // landed — `ar` and its four aliases went from 1 node to 9 with no
+        // flag lost anywhere — so this is gated at a literal 0 rather than
+        // against the checked-in scoreboard, for the reason spelled out
+        // above: a baseline the commit can edit is a baseline the commit
+        // can raise. A scoreboard written before `command_table_tools`
+        // existed parses that key as 0, which is exactly what a healthy
+        // fleet reports, so an older baseline stays comparable.
+        //
+        // This gate says nothing about shapes B, C and D — they have no
+        // detector, and `mandible_core::audit`'s family table records that
+        // a zero here does NOT mean `unparsed-subcommand` is finished.
+        let table_ratchet = detector::ratchet_at_zero(
+            detector::find("unparsed-command-table")?.as_ref(),
+            fresh.command_table_tools,
+            0,
+        );
+        println!("\n{}", table_ratchet.report());
+        if !table_ratchet.holds() {
+            regressed = true;
+        }
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }
