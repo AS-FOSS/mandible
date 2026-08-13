@@ -1881,10 +1881,31 @@ verdict line or note:
   measured parser defect, not a detector artifact, and is scheduled as
   grammar item 1 once the parser freeze the audit is running under lifts.
 - **K2**: the existence detector's own tokenizer gap (`xtask::existence`),
-  not a parser defect. `line_start_words` only considers a line's *first*
-  whitespace-delimited token, so a multi-column or comma-separated
-  subcommand/applet list reports every column after the first as fabricated
-  even though it is right there in the raw text.
+  not a parser defect. **Closed.** It was characterized on a full
+  2302-tool `PATH` sweep — 656 fabrications, hand-classified by the shape
+  of their raw-text occurrence — and 613 of the 656 (93%) turned out to be
+  detector artifacts of three kinds, all now fixed:
+
+  | n | shape |
+  |---|---|
+  | 359 | a subcommand at an item position of a multi-column or comma-joined index (`busybox` 247, `openssl` 112). `line_start_words` only considered a line's *first* token; `list_row_words` now reads a whole list row. |
+  | 200 | the oracle read the **wrong stream**. `RecordingProbe` carried its own superseded copy of `help_text::pick_stream` ("stdout if non-empty"), so on every tool that banners to stdout and helps to stderr (`mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub`, `encguess`, …) it compared a correct tree against a version string. The decision is now exported from `mandible-extract` and imported, not restated. |
+  | 54 | a long flag whose value spec is glued on with a word-shaped first character (`--perf-no_read_workqueue` → `long: "perf-no"`, `value_name: "_read_workqueue"`). `long_candidates` now reconstructs it, as `short_candidates` already did for `-fdump-scos`. |
+
+  The residual 43 are **genuine**: 42 are the short half of a flag alias
+  `merge::pair_aliases` mis-merged (GCC's `-f…` rows paired with
+  `--param=…` rows), and one is an invented short alias (`dockerd`'s `-h`,
+  whose help text documents only `--help`). Both are parser defects the
+  oracle is correctly reporting, so K2 no longer explains anything and the
+  pre-tag exists only to catch a regression.
+
+  **What the oracle still cannot see, and never could:** it checks whether
+  a reported spelling *occurs*, not whether the parse that produced it is
+  right. A *collapsed* bundled short flag — `tmux`'s `[-2CDlNuVv]` read as
+  a single flag `-2` taking a required value `CDlNuVv` — occurs literally
+  in the help text, so it attests cleanly while being badly wrong. Zero
+  fabrications is not a claim of a correct parse. That belongs to the
+  family-detector work, not to K2.
 - **K3**: a subcommand stub whose help was never fetched, from either of
   two causes. Either the attestation gate permanently refused to probe a
   name that came from a native/cobra artifact rather than a recognized

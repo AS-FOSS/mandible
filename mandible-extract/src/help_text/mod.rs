@@ -590,7 +590,20 @@ pub fn raw_help_with_probe(
 /// is help-shaped it always wins, deliberately, per the same row — stdout
 /// is the conventional stream for a well-behaved tool's `--help`, so ties
 /// break toward it.
-fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
+///
+/// **Public because a second copy of this decision is a measured defect,
+/// not a theoretical one.** `xtask`'s anti-fabrication oracles
+/// (`xtask::misattribution::RecordingProbe`, `xtask::existence`) have to
+/// re-derive, after extraction, which bytes the parser actually read. They
+/// carried their own "stdout if non-empty, else stderr" copy of this
+/// function — the exact rule the truth table above replaced — so on every
+/// tool that prints a version banner to stdout and its real help to stderr
+/// (`mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub`, `encguess`,
+/// `ntfssecaudit`, …) the oracle compared a correctly-parsed tree against a
+/// one-line banner and reported **every flag in it as fabricated**: 200 of
+/// 656 fleet-wide fabrications, all false. Export the decision instead of
+/// letting a second definition drift from it.
+pub fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     let stdout_text = String::from_utf8_lossy(stdout).into_owned();
     let stderr_text = String::from_utf8_lossy(stderr).into_owned();
 

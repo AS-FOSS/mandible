@@ -61,10 +61,20 @@ pub struct Entry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub k1: Option<bool>,
     /// **K2 pre-tag**: the existence detector's own tokenizer gap
-    /// (`xtask::existence`'s `line_start_words` only considers each line's
+    /// (`xtask::existence`'s `line_start_words` only considered each line's
     /// *first* token, so a multi-column or comma-separated
-    /// applet/subcommand list reports every column after the first as
+    /// applet/subcommand list reported every column after the first as
     /// "fabricated" even though it's right there in the raw text).
+    ///
+    /// **The gap itself is closed** — `existence::list_row_words` now reads
+    /// a whole list row, and the 359 fleet-wide fabrications this tag
+    /// existed to explain away are gone (spec §K2). Existing entries keep
+    /// their recorded tag, since a verdict is a record of what the reviewer
+    /// was shown; freshly sampled tools of the same shape simply produce no
+    /// fabrication to tag. Retained so an old manifest still round-trips,
+    /// and so a regression in the list-row rule shows up as this tag coming
+    /// back rather than as silent noise.
+    ///
     /// Computed once, at sample time, by `xtask::audit::k2_signature`.
     /// `Some(true)` when every subcommand-kind existence fabrication for
     /// this tool is explained by the known tokenizer gap, `Some(false)`

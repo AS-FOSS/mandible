@@ -237,9 +237,17 @@ fn token_occurs_anywhere(raw: &str, name: &str) -> bool {
 
 /// `(attributable, total)` counts of `report`'s subcommand-kind
 /// fabrications that are plausibly explained by the existence detector's
-/// own known multi-column/comma-separated tokenization gap (K2, see
-/// `xtask/src/existence.rs`'s `line_start_words` doc comment) rather than
-/// genuine parser fabrication: a fabrication is "attributable" when its
+/// own multi-column/comma-separated tokenization gap (K2) rather than
+/// genuine parser fabrication.
+///
+/// **That gap is closed** — `existence::list_row_words` reads a whole list
+/// row now, so a real grid or comma-joined index produces no fabrication
+/// for this to attribute, and in practice this returns `(0, 0)` for the
+/// tools it was written for. It is kept, unchanged in behaviour, as the
+/// regression signal: a fabrication that *is* attributable here again means
+/// the list-row rule stopped recognising a layout it used to.
+///
+/// A fabrication is "attributable" when its
 /// name occurs as *some* token anywhere in the raw text
 /// ([`token_occurs_anywhere`]), just not at the line-start position the
 /// detector itself requires. Flag-kind fabrications are out of scope here —
@@ -1557,11 +1565,21 @@ mod tests {
     // K2 pre-tag
     // -------------------------------------------------------------
 
+    /// The multi-column case this pre-tag was built to explain is now
+    /// **fixed at the source**, so there is nothing left for it to explain.
+    ///
+    /// `existence::list_row_words` reads a column-aligned or comma-joined
+    /// index as a list row and attests every item on it, not just the
+    /// line's first token. This test used to assert three fabrications on
+    /// exactly this input, with `k2_signature` waving all three through;
+    /// the detector now emits none, so the suggestion is `None` — the same
+    /// answer it gives for any tool with no subcommand fabrications to
+    /// judge. Kept as a regression test in the new direction: if the
+    /// list-row rule ever regresses, this fails.
     #[test]
-    fn k2_signature_is_true_when_every_fabrication_is_a_multi_column_token() {
+    fn a_multi_column_index_no_longer_produces_a_fabrication_to_pre_tag() {
         // Real busybox/openssl shape: several names on one line, only the
-        // first is a "line start word", but every name is a whitespace
-        // token somewhere on that line.
+        // first of which is a "line start word".
         let raw = "asn1parse         ca                ciphers           cmp\n";
         let mut root = CommandNode::new("openssl", Provenance::single(Source::HelpText));
         for name in ["asn1parse", "ca", "ciphers", "cmp"] {
@@ -1571,10 +1589,15 @@ mod tests {
         let report = existence::detect(raw, &root);
         assert_eq!(
             report.fabrication_count(),
-            3,
-            "only the first column is a line-start word; the other three are flagged"
+            0,
+            "every column of a real command grid is attested: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
         );
-        assert_eq!(k2_signature(&report, raw), Some(true));
+        assert_eq!(k2_signature(&report, raw), None);
     }
 
     #[test]

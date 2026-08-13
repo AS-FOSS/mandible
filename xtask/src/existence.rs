@@ -38,7 +38,7 @@
 //!
 //! > Every subcommand name and flag spelling the help-text tier emits must
 //! > occur literally in the raw input — and for a subcommand, at a
-//! > line-start-ish position.
+//! > position where a real command-list entry actually sits.
 //!
 //! **Flags** are checked by literal substring occurrence anywhere in the
 //! raw text, at a word boundary (never embedded inside a longer, unrelated
@@ -49,25 +49,27 @@
 //! (alphanumeric, `-`, `_`) immediately follows the candidate spelling —
 //! `[`, `=`, `,`, `.`, whitespace, and end-of-text are all valid neighbours.
 //!
-//! **Subcommand names** additionally require the occurrence to be the
-//! first whitespace-delimited word on some physical line of the raw text
-//! (after trimming only leading whitespace) — the real, measured shape of
-//! every genuine command-list entry this project's own corpus carries
-//! (`corpus/git/2.43.0/help.txt`: `"   clone     Clone a repository..."`,
-//! one name per line, indented, nothing before it). A bare substring check
-//! alone would be too weak here in the other direction from flags:
-//! ordinary English words (`"list"`, `"add"`, `"get"`) are exactly the
-//! words real subcommands are named, and exactly the words that turn up
-//! constantly in unrelated running prose — a substring-only check would
-//! wave through a name manufactured from a random sentence as long as that
-//! sentence happened to contain the same word once, anywhere. Requiring
-//! line-start position doesn't fully close that gap (a word-grid layout —
-//! several names on one line, no single one of them at true column zero —
-//! would false-positive under a *stricter* reading of "line start"; this
-//! project's own corpus has no such fixture to measure against, so the
-//! honest thing is to say so rather than silently harden against a case
-//! never actually observed) but it is the rule spec asked for, checked
-//! against the one real layout this project has actually captured.
+//! **Subcommand names** additionally require the occurrence to sit at a
+//! position a genuine command-list entry actually occupies — either the
+//! first whitespace-delimited word of some physical line
+//! ([`line_start_words`]: `corpus/git/2.43.0/help.txt`'s `"   clone
+//! Clone a repository..."`, one name per line, indented, nothing before
+//! it), or an item of a **list row** ([`list_row_words`]: `openssl`'s
+//! column-aligned command grid, `busybox`'s comma-joined applet index).
+//! A bare substring check alone would be too weak here in the other
+//! direction from flags: ordinary English words (`"list"`, `"add"`,
+//! `"get"`) are exactly the words real subcommands are named, and exactly
+//! the words that turn up constantly in unrelated running prose — a
+//! substring-only check would wave through a name manufactured from a
+//! random sentence as long as that sentence happened to contain the same
+//! word once, anywhere.
+//!
+//! The first-token half alone did not close the *other* direction, and the
+//! cost was measured rather than guessed: the word-grid layout this
+//! module's own doc comment once called "a case never actually observed"
+//! is 359 of 656 fleet-wide fabrications, all false, all from two tools.
+//! [`list_row_words`] carries the rule that admits them without admitting
+//! prose, and its doc comment carries the evidence.
 //!
 //! # Pre-normalization spellings — the part a naive comparison gets wrong
 //!
@@ -115,6 +117,16 @@
 //!   `-x<value_name>` (and `-x=<value_name>`, covering the other branch of
 //!   `grammar::try_value`) as a fallback and checks that instead — see its
 //!   own doc comment, and the general lesson below.
+//! - **A long flag's value spec glued on with a word-shaped first
+//!   character** (`--perf-no_read_workqueue` stored as `long: "perf-no"`,
+//!   `value_name: "_read_workqueue"`): the same split, on the other half
+//!   of the flag identity. `_` is word-shaped for [`spelling_occurs`]'s
+//!   boundary — deliberately, so `--foo` cannot attest inside an unrelated
+//!   `--foo_bar` — which meant the bare stored spelling was rejected
+//!   against its own raw token. 54 of 656 fleet-wide fabrications, all
+//!   false; [`long_candidates`] reconstructs `--<long><value>` the way
+//!   [`short_candidates`] already reconstructed `-x<value>`, and carries
+//!   the measured table.
 //!
 //! **The general lesson, worth stating because the next reader will be
 //! tempted the same way:** [`spelling_occurs`]'s strict-prefix boundary
@@ -231,20 +243,154 @@ fn spelling_occurs(raw: &str, candidate: &str) -> bool {
 /// these three characters are stripped, deliberately — they are not legal
 /// command-name characters (`mandible_core::is_command_name_shaped` doesn't
 /// allow them at all), so stripping them can never turn a genuinely
-/// different word into a false match. This does **not** address the other,
-/// larger false-positive class in the same fleet measurement — a name
-/// sitting in column 2+ of a multi-column table (`busybox`, `openssl`) is
-/// still missed, because only the first token of each line is considered at
-/// all; broadening that would mean accepting a match anywhere on a line,
-/// which is a real weakening of the "line-start-ish" guard this module's own
-/// doc comment explains (it exists specifically to keep ordinary prose words
-/// from false-matching), not a tokenizer bug — deferred, see `xtask audit`'s
-/// K2 pre-tag instead of a detector rewrite here.
+/// different word into a false match. This does **not** by itself address a
+/// name sitting in column 2+ of a multi-column table (`busybox`,
+/// `openssl`); [`list_row_words`] does, and [`attested_name_positions`]
+/// unions the two.
 fn line_start_words(raw: &str) -> HashSet<&str> {
     raw.lines()
         .filter_map(|line| line.split_whitespace().next())
         .map(|word| word.trim_end_matches([':', ',', ';']))
         .collect()
+}
+
+/// Minimum number of items a line must break into before it can be read as
+/// a **list row** at all. A single item is just a word on a line; it takes
+/// several side by side, separated by a real item separator rather than by
+/// the single space that separates ordinary prose words, before the line is
+/// evidence of a *list* instead of evidence of a sentence.
+///
+/// Three, not two, and the difference is a false-negative this oracle would
+/// otherwise carry silently. At two, *any* two-column table whose right-hand
+/// cell happens to be a single word reads as a list row and attests that
+/// word — an `ENVIRONMENT` section pairing `TMPDIR` with `directory`, or an
+/// index pairing `add` with the description `adds`, would attest
+/// `directory`, `editor`, `adds`. A fabricated subcommand that collided with
+/// one of those description words would then go unreported, which is the one
+/// failure this module must not have: a permissive oracle hides the defects
+/// it exists to find, and is worse than one that over-reports.
+///
+/// Three costs nothing against the real layouts the list-row rule exists to
+/// read, which was measured rather than assumed: every qualifying line in
+/// `openssl`'s command grid carries 4 items, and in `busybox`'s applet list
+/// 9 to 11. Genuine indexes are wide; description tables are two columns.
+const MIN_LIST_ROW_ITEMS: usize = 3;
+
+/// Split one physical line into the items a list row would carry: first at
+/// tabs and at column gaps (runs of two or more spaces), then at commas,
+/// trimming each result and dropping the empties a trailing separator
+/// leaves behind.
+///
+/// Both separators are needed because the two real layouts in the fleet
+/// measurement use one each — `openssl`'s command index is space-aligned
+/// into columns, `busybox`'s applet index is comma-joined and wrapped —
+/// and a tool is free to combine them.
+///
+/// Every piece is a `&str` borrowed from `line` via `str::split` and
+/// `str::trim` only. There is no offset arithmetic anywhere in here, which
+/// is what keeps AGENTS.md's rule against slicing captured tool output at a
+/// raw byte offset satisfied by construction rather than by care.
+fn list_row_items(line: &str) -> Vec<&str> {
+    line.split(['\t'])
+        .flat_map(|cell| cell.split("  "))
+        .flat_map(|cell| cell.split(','))
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+/// The set of every word that sits at an item position of a **list row** —
+/// the second half of "is this subcommand name where a real command-list
+/// entry actually sits", covering the entries [`line_start_words`]
+/// structurally cannot see.
+///
+/// # Why the first-token rule alone was not enough
+///
+/// It is the single largest false-positive source this detector had: **359
+/// of 656 fleet-wide fabrications, every one of them false**, and both
+/// offenders publish their command list as a grid rather than one entry per
+/// line. `openssl --help` (112 of them) prints
+///
+/// ```text
+/// asn1parse         ca                ciphers           cmp
+/// cms               crl               crl2pkcs7         dgst
+/// ```
+///
+/// and `busybox --help` (247) prints
+///
+/// ```text
+///     [, [[, acpid, adjtimex, ar, arch, arp, arping, ascii, ash, awk,
+/// ```
+///
+/// Only `asn1parse` and `[` are a line's first token, so every other
+/// genuine command on both lists was reported as invented.
+///
+/// # The rule, and why it is not just "anywhere on the line"
+///
+/// Accepting a match anywhere on a line would be a real weakening: this
+/// detector's whole reason for a position rule is that ordinary English
+/// words (`list`, `add`, `get`) are exactly what real subcommands are
+/// named *and* exactly what turns up in running prose, so a name
+/// manufactured from a sentence would sail through. [M-10] is that failure,
+/// and it is what this module exists to catch.
+///
+/// So the line has to earn the reading first. A line is a list row when all
+/// three hold:
+///
+/// 1. It breaks into at least [`MIN_LIST_ROW_ITEMS`] items at a *list*
+///    separator — a tab, a column gap of two or more spaces, or a comma.
+///    Single spaces are not separators here, which is the load-bearing
+///    part: prose is words joined by single spaces, so a sentence stays one
+///    item no matter how many words it has.
+/// 2. **Every** item is a single whitespace-delimited word. One multi-word
+///    item is enough to disqualify the line, because that item is prose and
+///    a row that carries prose is a description row, not an index row.
+/// 3. **No** item is flag-shaped (leading `-` or `+`). A row that names a
+///    flag is an option table, and an option table's second column is its
+///    *description* — admitting it would let a one-word description like
+///    the `verbose` in `-v, --verbose      verbose` attest a fabricated
+///    subcommand named "verbose".
+///
+/// Against [M-10]'s own text every rule fires, and rule 2 fires hardest:
+/// `tar`'s continuation line `treat them as errors` has no separator on it
+/// at all, so it is one four-word item and cannot be a list row — which is
+/// why `errors` is still reported, and why the [M-10] replay test against
+/// `tar`'s real corpus capture still passes.
+///
+/// # What this still cannot see
+///
+/// A two-item row whose items are both bare single words and neither is a
+/// flag is indistinguishable, on shape alone, from a genuine two-column
+/// index — `  fast    quick` reads as a list row. A fabricated subcommand
+/// whose name happened to be the one-word right-hand column of some
+/// non-option table would be missed. No such case occurs in the fleet
+/// measurement this rule was derived from, and the honest thing is to say
+/// so rather than pretend the rule is exact.
+fn list_row_words(raw: &str) -> HashSet<&str> {
+    let mut out = HashSet::new();
+    for line in raw.lines() {
+        let items = list_row_items(line);
+        if items.len() < MIN_LIST_ROW_ITEMS {
+            continue;
+        }
+        let is_list_row = items
+            .iter()
+            .all(|item| item.split_whitespace().count() == 1 && !item.starts_with(['-', '+']));
+        if is_list_row {
+            out.extend(items);
+        }
+    }
+    out
+}
+
+/// Every position in `raw` at which a genuine command-list entry is
+/// attested: a line's first token ([`line_start_words`]) or an item of a
+/// list row ([`list_row_words`]). A subcommand name occurring at neither is
+/// what this module calls fabricated.
+fn attested_name_positions(raw: &str) -> HashSet<&str> {
+    let mut set = line_start_words(raw);
+    set.extend(list_row_words(raw));
+    set
 }
 
 /// Candidate raw-text spellings for `flag`'s short spelling — the bare
@@ -284,12 +430,41 @@ fn short_candidates(flag: &Flag, short: char) -> Vec<String> {
     candidates
 }
 
-/// Candidate raw-text spellings for `flag`'s long name, covering the
-/// negatable-boolean bracket convention (this module's doc comment) — any
-/// one matching is sufficient. Non-negatable flags get exactly one
-/// candidate, the plain `--name` form.
+/// Candidate raw-text spellings for `flag`'s long name: the negatable-
+/// boolean bracket convention (this module's doc comment), each also in the
+/// *value-reconstructed* form [`short_candidates`] already builds for the
+/// short half. Any one matching is sufficient.
+///
+/// # Why the long half needs the same reconstruction the short half got
+///
+/// [`spelling_occurs`]'s boundary treats `_` as word-shaped, deliberately —
+/// it is a legal identifier character, so `--foo` matching inside an
+/// unrelated `--foo_bar` would be the same false attestation `--foo` inside
+/// `--foobar` is. But a flag whose *own* value spec is glued straight onto
+/// it with no separator hits that guard for the opposite reason: nothing
+/// unrelated follows, it is the rest of the same token, split off into
+/// `value_name` by `grammar::try_value` exactly as `-fdump-scos`'s tail is.
+///
+/// Measured, not hypothesized — 54 of 656 fleet-wide fabrications, all
+/// false, every one of this shape:
+///
+/// | raw text | stored `long` | stored `value_name` |
+/// |---|---|---|
+/// | `--perf-no_read_workqueue` (`cryptsetup`) | `perf-no` | `_read_workqueue` |
+/// | `--is-x86_64-xen-domu` (`grub-file`) | `is-x86` | `_64-xen-domu` |
+/// | `--fwparam_connect` (`iscsistart`) | `fwparam` | `_connect` |
+/// | `--auto_toc_prefix` (`icupkg`) | `auto` | `_toc_prefix` |
+/// | `--extended_fields` (`compactsnoop-bpfcc`) | `extended` | `_fields` |
+/// | `--load_hidden=<string>` (`llvm-jitlink-18`) | `load` | `_hidden=<string>` |
+///
+/// The same reasoning `short_candidates` closes with applies unchanged
+/// here: these are fallbacks, reached only after the plain form already
+/// failed, and each demands an exact boundary-respecting match of the
+/// *actual extracted value text*, so a genuinely invented long flag with a
+/// value spec is still reported (`detect_still_flags_a_genuinely_
+/// fabricated_long_flag_with_a_value_name`).
 fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
-    if flag.negatable {
+    let bases = if flag.negatable {
         vec![
             format!("--[no-]{long}"),
             format!("--[no]{long}"),
@@ -297,7 +472,17 @@ fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
         ]
     } else {
         vec![format!("--{long}")]
+    };
+    let Some(value) = &flag.value_name else {
+        return bases;
+    };
+    let mut candidates = Vec::with_capacity(bases.len() * 3);
+    for base in bases {
+        candidates.push(format!("{base}{value}"));
+        candidates.push(format!("{base}={value}"));
+        candidates.push(base);
     }
+    candidates
 }
 
 /// The display spelling for a fabrication report — `--[no-]foo` for a
@@ -390,12 +575,12 @@ fn walk(
     node: &CommandNode,
     path: &str,
     raw: &str,
-    line_starts: &HashSet<&str>,
+    attested: &HashSet<&str>,
     out: &mut Vec<Fabrication>,
 ) {
     check_flags(node, path, raw, out);
     for child in &node.subcommands {
-        if is_help_text_sourced(&child.provenance) && !line_starts.contains(child.name.as_str()) {
+        if is_help_text_sourced(&child.provenance) && !attested.contains(child.name.as_str()) {
             out.push(Fabrication {
                 path: path.to_string(),
                 kind: FabricationKind::Subcommand,
@@ -403,7 +588,7 @@ fn walk(
             });
         }
         let child_path = format!("{path} {}", child.name);
-        walk(child, &child_path, raw, line_starts, out);
+        walk(child, &child_path, raw, attested, out);
     }
 }
 
@@ -419,9 +604,9 @@ fn walk(
 /// never a candidate a parser could have fabricated. Its *flags* are
 /// checked like any other node's.
 pub fn detect(raw: &str, root: &CommandNode) -> ExistenceReport {
-    let line_starts = line_start_words(raw);
+    let attested = attested_name_positions(raw);
     let mut fabrications = Vec::new();
-    walk(root, &root.name, raw, &line_starts, &mut fabrications);
+    walk(root, &root.name, raw, &attested, &mut fabrications);
     ExistenceReport { fabrications }
 }
 
@@ -608,6 +793,69 @@ mod tests {
         assert_eq!(report.fabrications[0].name, "-z");
     }
 
+    // --- long-flag value reconstruction ----------------------------------
+
+    /// `cryptsetup --help`'s real line, byte-exact. The parser stores this
+    /// as `long: "perf-no"`, `value_name: "_read_workqueue"`, so the bare
+    /// `--perf-no` is followed in the raw text by `_` — word-shaped, and
+    /// therefore rejected by [`spelling_occurs`]'s boundary until
+    /// [`long_candidates`] learned to put the value back.
+    const CRYPTSETUP_UNDERSCORE_LINE: &str =
+        "      --perf-no_read_workqueue          Bypass dm-crypt workqueue and process\n";
+
+    #[test]
+    fn long_candidates_reconstructs_a_glued_underscore_value() {
+        let mut flag = help_text_flag(None, Some("perf-no"), false);
+        flag.value_name = Some("_read_workqueue".to_string());
+        let candidates = long_candidates(&flag, "perf-no");
+        assert!(candidates.contains(&"--perf-no_read_workqueue".to_string()));
+        assert!(candidates
+            .iter()
+            .any(|c| spelling_occurs(CRYPTSETUP_UNDERSCORE_LINE, c)));
+    }
+
+    #[test]
+    fn bare_long_alone_does_not_occur_in_cryptsetups_real_line() {
+        // The other half of the regression, stated the same way the GCC
+        // short-flag pair is: confirms *why* the bare form was failing.
+        assert!(!spelling_occurs(CRYPTSETUP_UNDERSCORE_LINE, "--perf-no"));
+    }
+
+    #[test]
+    fn detect_does_not_flag_cryptsetups_real_underscore_flag() {
+        let mut root = help_text_node("cryptsetup");
+        let mut flag = help_text_flag(None, Some("perf-no"), false);
+        flag.value_name = Some("_read_workqueue".to_string());
+        root.flags.push(flag);
+        let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
+        assert_eq!(report.fabrication_count(), 0);
+    }
+
+    #[test]
+    fn detect_still_flags_a_genuinely_fabricated_long_flag_with_a_value_name() {
+        // The mirror of `detect_still_flags_a_genuinely_fabricated_short_
+        // flag_with_a_value_name`: the reconstruction fallback must not
+        // blanket-suppress every long flag that carries a `value_name`,
+        // only one whose reconstructed spelling genuinely occurs.
+        let mut root = help_text_node("t");
+        let mut flag = help_text_flag(None, Some("perf-no"), false);
+        flag.value_name = Some("_totally_invented".to_string());
+        root.flags.push(flag);
+        let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "--perf-no");
+    }
+
+    #[test]
+    fn a_negatable_long_still_gets_its_bracketed_forms_when_it_has_a_value() {
+        let mut flag = help_text_flag(None, Some("source"), true);
+        flag.value_name = Some("<tree-ish>".to_string());
+        let candidates = long_candidates(&flag, "source");
+        assert!(candidates.contains(&"--[no-]source".to_string()));
+        assert!(candidates.contains(&"--[no-]source<tree-ish>".to_string()));
+        assert!(candidates.contains(&"--source".to_string()));
+    }
+
     // --- line-start-ish subcommand rule ----------------------------------
 
     #[test]
@@ -631,6 +879,188 @@ mod tests {
         // line," not "belongs to a real command-list section"; see the
         // module doc comment on what's left unverified.
         assert!(words.contains("treat"));
+    }
+
+    // --- list rows (the multi-column / comma-joined index) ---------------
+
+    /// `openssl --help`'s real command index, byte-exact from the fleet
+    /// capture: four commands per line, column-aligned, only the first of
+    /// them at a line start. 112 of the 656 fleet-wide fabrications were
+    /// this one layout.
+    const OPENSSL_GRID: &str = "Standard commands\nasn1parse         ca                ciphers           cmp\ncms               crl               crl2pkcs7         dgst\n";
+
+    /// `busybox --help`'s real applet index, byte-exact: comma-joined and
+    /// wrapped, trailing comma included. 247 of the 656.
+    const BUSYBOX_LIST: &str = "Currently defined functions:\n    [, [[, acpid, adjtimex, ar, arch, arp, arping, ascii, ash, awk,\n    base64, basename, bc, bunzip2, busybox, bzcat, bzip2, cal, cat,\n";
+
+    #[test]
+    fn list_row_words_finds_a_column_aligned_command_grid() {
+        let words = list_row_words(OPENSSL_GRID);
+        for name in ["asn1parse", "ca", "ciphers", "cmp", "crl2pkcs7", "dgst"] {
+            assert!(words.contains(name), "missing {name}: {words:?}");
+        }
+        // The section heading is prose on its own line — two words joined
+        // by a single space, which is not an item separator.
+        assert!(!words.contains("Standard"));
+        assert!(!words.contains("commands"));
+    }
+
+    #[test]
+    fn list_row_words_finds_a_comma_joined_applet_list() {
+        let words = list_row_words(BUSYBOX_LIST);
+        for name in ["acpid", "adjtimex", "arping", "base64", "bunzip2", "cat"] {
+            assert!(words.contains(name), "missing {name}: {words:?}");
+        }
+        assert!(!words.contains("Currently"));
+        assert!(!words.contains("defined"));
+    }
+
+    #[test]
+    fn detect_does_not_flag_opensslfs_real_grid_entries() {
+        let mut root = help_text_node("openssl");
+        for name in ["ca", "ciphers", "cmp", "crl2pkcs7", "dgst"] {
+            root.subcommands.push(help_text_node(name));
+        }
+        let report = detect(OPENSSL_GRID, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "openssl's own real command grid must attest: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn detect_does_not_flag_busyboxs_real_applet_list() {
+        let mut root = help_text_node("busybox");
+        for name in ["acpid", "adjtimex", "arping", "bunzip2", "cat"] {
+            root.subcommands.push(help_text_node(name));
+        }
+        let report = detect(BUSYBOX_LIST, &root);
+        assert_eq!(report.fabrication_count(), 0);
+    }
+
+    // --- list rows: the true positives that must survive the loosening ---
+
+    #[test]
+    fn a_prose_line_is_never_a_list_row_however_many_words_it_has() {
+        // [M-10]'s own shape. Single spaces are not item separators, so
+        // this whole continuation line is one item and the line breaks
+        // into fewer than `MIN_LIST_ROW_ITEMS`.
+        let raw = "                             treat them as errors\n";
+        let words = list_row_words(raw);
+        assert!(words.is_empty(), "{words:?}");
+    }
+
+    #[test]
+    fn detect_still_flags_prose_words_from_a_wrapped_continuation_line() {
+        let raw = "  -k, --keep-old-files       don't replace existing files when extracting,\n                             treat them as errors\n";
+        let mut root = help_text_node("tar");
+        for name in ["them", "as", "errors"] {
+            root.subcommands.push(help_text_node(name));
+        }
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            3,
+            "every mid-prose word must still be caught: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// The description column of an *option* table must not attest a
+    /// subcommand, even when that description happens to be one word.
+    /// Rule 3 (no flag-shaped item) is the one doing the work here: the
+    /// row names `-v`, so it is an option row, not an index row.
+    #[test]
+    fn an_option_row_never_attests_its_own_one_word_description() {
+        let raw = "  -v, --verbose      verbose\n  -q, --quiet        silent\n";
+        let words = list_row_words(raw);
+        assert!(!words.contains("verbose"), "{words:?}");
+        assert!(!words.contains("silent"), "{words:?}");
+
+        let mut root = help_text_node("t");
+        root.subcommands.push(help_text_node("silent"));
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "silent");
+    }
+
+    #[test]
+    fn a_row_carrying_any_multi_word_item_is_not_a_list_row() {
+        // A genuine two-column *description* table. `clone` is still
+        // attested — by the first-token rule, which has not changed — but
+        // nothing from the right-hand column is.
+        let raw = "   clone     Clone a repository into a new directory\n";
+        let words = list_row_words(raw);
+        assert!(words.is_empty(), "{words:?}");
+        assert!(line_start_words(raw).contains("clone"));
+    }
+
+    /// A two-column table whose right-hand cell is a single word must not
+    /// attest that word. This is the shape `MIN_LIST_ROW_ITEMS = 2` let
+    /// through: an `ENVIRONMENT` section and a one-word-description index
+    /// are both indistinguishable from a real command grid by every other
+    /// rule here, and only their *width* separates them.
+    #[test]
+    fn a_two_column_table_never_attests_its_right_hand_column() {
+        let env = "  TMPDIR    directory\n  EDITOR    editor\n";
+        let words = list_row_words(env);
+        assert!(!words.contains("directory"), "{words:?}");
+        assert!(!words.contains("editor"), "{words:?}");
+
+        let index = "  add       adds\n  remove    removes\n";
+        let words = list_row_words(index);
+        assert!(!words.contains("adds"), "{words:?}");
+        assert!(!words.contains("removes"), "{words:?}");
+
+        // ...and the fabrication that hid behind it is reported again.
+        let mut root = help_text_node("t");
+        root.subcommands.push(help_text_node("editor"));
+        let report = detect(env, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "editor");
+    }
+
+    /// The left-hand column of such a table is still attested, by the
+    /// unchanged first-token rule — tightening the width threshold must
+    /// not cost a real index entry that happens to sit in a narrow table.
+    #[test]
+    fn a_two_column_tables_left_column_is_still_attested() {
+        let index = "  add       adds\n  remove    removes\n";
+        let starts = line_start_words(index);
+        assert!(starts.contains("add"));
+        assert!(starts.contains("remove"));
+    }
+
+    #[test]
+    fn a_single_item_line_is_not_a_list_row() {
+        let raw = "        solo\n";
+        assert!(list_row_words(raw).is_empty());
+    }
+
+    /// The [M-10] replay, re-run against `tar`'s real corpus capture with
+    /// the loosened rule in place: the whole point of the loosening is that
+    /// it must not reach real prose, and `tar --help` is nothing but
+    /// option rows and wrapped prose.
+    #[test]
+    fn list_rows_admit_nothing_from_tars_real_corpus_text() {
+        let raw = include_str!("../../corpus/tar/1.35/help.txt");
+        let admitted = list_row_words(raw);
+        let already = line_start_words(raw);
+        let newly: Vec<&&str> = admitted.iter().filter(|w| !already.contains(*w)).collect();
+        assert!(
+            newly.is_empty(),
+            "the list-row rule must admit no new name position in tar's own text: {newly:?}"
+        );
     }
 
     // --- detect: flags ----------------------------------------------------
