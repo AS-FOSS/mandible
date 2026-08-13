@@ -206,19 +206,38 @@
 //! on. Spec §13.1e's precondition ("not quotable until it has passed") is a
 //! claim about the labels, which were recorded against the *pre-fix* parser;
 //! once a family is fixed, its labelled set can no longer confirm anything,
-//! and a detector that keeps reading zero is doing its job. What still
-//! demonstrates the rule has teeth is this module's own hand-built tests:
-//! they build the collapsed shape directly and assert every condition fires
-//! on it.
+//! and a detector that keeps reading zero is doing its job.
 //!
-//! # No new probes, not gated
+//! **The harness says so in its own words now.** `xtask detector calibrate`
+//! reports `VERDICT: REPAIRED` for this family rather than rendering a
+//! healthy state in the vocabulary of failure — but only because the
+//! hand-built cases below still fire. That is the whole mechanism: what
+//! demonstrates the rule has teeth is [`self_checks`], which builds the
+//! collapsed shape directly and asserts the rule still fires on it, and
+//! which is checked *at runtime* by both the calibration verdict and the
+//! ratchet gate. Neither will accept a zero without it. See
+//! [`crate::detector::Verdict::Repaired`] and
+//! [`crate::detector::ratchet_at_zero`].
 //!
-//! Identical to [`crate::existence`] on both counts, for identical reasons:
+//! # No new probes — and now gated, at zero
+//!
+//! Identical to [`crate::existence`] on the probes, for identical reasons:
 //! it reads the same [`crate::misattribution::RecordingProbe`] capture the
-//! sweep already paid for, so it costs zero additional subprocess spawns,
-//! and it is reported in every scoreboard footer without ever contributing
-//! to `--check`'s pass/fail decision (spec §13.1b: a metric with no measured
-//! baseline must not silently fail a run the first time it is computed).
+//! sweep already paid for, so it costs zero additional subprocess spawns.
+//!
+//! **It is no longer ungated.** It was reported-only while there was no
+//! baseline to regress against and while the number was expected to move
+//! the moment the grammar learned to split a bundle (spec §13.1b: a metric
+//! with no measured baseline must not silently fail a run the first time it
+//! is computed). That movement has happened — 58 tools / 465 destroyed
+//! flags to 0 / 0 — so `coverage --check` now ratchets both columns at a
+//! literal zero.
+//!
+//! Gated against `0` and not against the checked-in scoreboard, because the
+//! scoreboard is itself editable and a commit reintroducing the defect
+//! would otherwise raise its own baseline. And gated on the self-checks
+//! *alongside* the count, because `count == 0` on its own is satisfied by
+//! deleting this module.
 
 use crate::existence::spelling_occurs;
 use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
