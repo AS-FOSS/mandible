@@ -266,6 +266,23 @@ impl RecordingProbe {
             .map(|short| (InertArgv::HelpShort.args(), short.clone()))
     }
 
+    /// A clone of **every** `(argv, output)` pair this probe recorded during
+    /// the single extraction pass it drove — not just the root `--help`
+    /// capture [`Self::root_help_capture`] picks out, but everything sent,
+    /// however many probes the tool's framework needed (cobra's two-probe
+    /// protocol included). Fed into [`mandible_extract::exec::Transcript`]
+    /// by `crate::queue::cmd_freeze` so `crate::queue::cmd_reclassify` can
+    /// replay the exact same extraction later with zero subprocess spawns —
+    /// same "no new probes" property [`Self::root_help_text`] already
+    /// documents, extended to cover a full re-run rather than just the
+    /// display pair.
+    pub fn all_recordings(&self) -> HashMap<Vec<String>, ExecOutput> {
+        self.recordings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
     /// Find a recorded root [`InertArgv::HelpExpand`] entry (spec §6 rule
     /// 2b), if any, by its **rendered shape** rather than the `InertArgv`
     /// value that produced it — [`RecordingProbe`] only ever sees rendered

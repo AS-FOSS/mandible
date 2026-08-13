@@ -8,6 +8,8 @@ mod corpus;
 mod coverage;
 mod existence;
 mod misattribution;
+mod queue;
+mod rng;
 mod status;
 mod transition;
 
@@ -185,35 +187,78 @@ enum Command {
 
 #[derive(Subcommand)]
 enum AuditAction {
-    /// Draw a deterministic, stratified sample of tools and write/merge a
-    /// resumable verdict file at `<dir>/<seed>.toml`.
-    Sample {
-        /// Random seed. Same seed (and same `--sample`/`--tools`) always
-        /// draws the same tools; a different seed draws a different set.
+    /// Sweep `PATH` once, classify every tool, and write the
+    /// shuffle-stratified frozen queue (`<dir>/queue.toml`) plus its
+    /// captured raw bytes (`<dir>/queue-captures/`, gitignored) that
+    /// `sample` draws from and `reclassify` replays — see `crate::queue`'s
+    /// own doc comment for the full design. This is the ~20-minute,
+    /// PATH-probing step; run it once, not on every draw.
+    Freeze {
+        /// Seed for the shuffle-stratification (`crate::queue::shuffle_stratify`)
+        /// that decides the queue's cursor order. Distinct from `sample`'s
+        /// `--seed`, which only names a verdict file — see `crate::queue`'s
+        /// doc comment.
         #[arg(long)]
         seed: u64,
-        /// How many tools to draw in total, split proportionally across
-        /// the parse-status strata found in the population.
-        #[arg(long)]
-        sample: usize,
-        /// Sample from this fixed, comma-separated list instead of
-        /// scanning `PATH` — pins a reproducible population, which is what
-        /// tests and CI use (mirrors `coverage --tools`).
+        /// Freeze this fixed, comma-separated list instead of scanning
+        /// `PATH` — pins a reproducible population, which is what tests and
+        /// CI use (mirrors `coverage --tools`).
         #[arg(long, value_delimiter = ',')]
         tools: Option<Vec<String>>,
-        /// Directory holding verdict files (`<dir>/<seed>.toml`).
+        /// Directory holding the queue (`<dir>/queue.toml`) and its
+        /// captures (`<dir>/queue-captures/`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Skip probing entirely: just hash the current `PATH` population
+        /// and report whether it still matches the existing queue's,
+        /// without writing anything. Mirrors `coverage --check`.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Advance `<dir>/queue.toml`'s cursor by `--sample` tools and
+    /// write/merge them into a resumable verdict file at
+    /// `<dir>/<seed>.toml`. Requires a queue built by `freeze` first — this
+    /// no longer sweeps `PATH` or reclassifies anything itself.
+    Sample {
+        /// Names the verdict file (`<dir>/<seed>.toml`) this draw is merged
+        /// into. No longer a draw seed — the draw's only randomness was
+        /// already spent once, at `freeze` time.
+        #[arg(long)]
+        seed: u64,
+        /// How many tools to draw from the queue's current cursor.
+        #[arg(long)]
+        sample: usize,
+        /// Directory holding the queue (`<dir>/queue.toml`) and verdict
+        /// files (`<dir>/<seed>.toml`).
         #[arg(long, default_value = "audit")]
         dir: PathBuf,
         /// A plain-text file of `<tool> <reason...>` lines (`#` comments and
         /// blank lines ignored, same convention as `ingest --verdicts`)
         /// naming tools to include in the sample *unconditionally*, on top
-        /// of the stratified random draw. The motivating case: 14 tools an
-        /// unaudited heuristic (commit `3464b0c`) promoted `low-confidence`
-        /// -> `ok` mid-freeze, identified via `xtask sweep-diff` — a
-        /// `--tools` shortcut population would not reliably re-draw them,
-        /// so they are named explicitly instead of left to chance.
+        /// of the queue draw. The motivating case: 14 tools an unaudited
+        /// heuristic (commit `3464b0c`) promoted `low-confidence` -> `ok`
+        /// mid-freeze, identified via `xtask sweep-diff` — independent of
+        /// the queue's cursor, so they are named explicitly instead of left
+        /// to chance.
         #[arg(long)]
         force_include_file: Option<PathBuf>,
+    },
+    /// Recompute every queued tool's stratum against the *current* parser
+    /// from the bytes `freeze` already captured — no `PATH` sweep, no
+    /// subprocess spawned, run in parallel across the queue. Reports
+    /// transitions and the wall-clock cost (measured: roughly half of a
+    /// live re-probe's time on this batch's evaluation machine, see
+    /// `crate::queue::cmd_reclassify`'s doc comment for the honest number).
+    Reclassify {
+        /// Directory holding the queue (`<dir>/queue.toml`) and its
+        /// captures (`<dir>/queue-captures/`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Write the recomputed strata back into `queue.toml` in place.
+        /// Without this, the command only reports what would change — the
+        /// queue's order and cursor are never touched either way.
+        #[arg(long)]
+        update: bool,
     },
     /// The interactive review loop: raw `--help` text and the parsed tree,
     /// side by side, one verdict at a time. Reads `<word> [note...]` lines
@@ -360,10 +405,15 @@ fn main() -> anyhow::Result<()> {
 
 fn run_audit(action: AuditAction) -> anyhow::Result<()> {
     match action {
+        AuditAction::Freeze {
+            seed,
+            tools,
+            dir,
+            check,
+        } => queue::cmd_freeze(seed, tools, &dir, check),
         AuditAction::Sample {
             seed,
             sample,
-            tools,
             dir,
             force_include_file,
         } => {
@@ -371,8 +421,9 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 Some(path) => audit::load_force_include(&path)?,
                 None => Vec::new(),
             };
-            audit::cmd_sample(seed, sample, tools, &dir, &force_include)
+            queue::cmd_sample(seed, sample, &dir, &force_include)
         }
+        AuditAction::Reclassify { dir, update } => queue::cmd_reclassify(&dir, update),
         AuditAction::Review { seed, dir } => {
             let stdin = std::io::stdin();
             let mut input = stdin.lock();

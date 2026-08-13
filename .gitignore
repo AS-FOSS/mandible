@@ -48,3 +48,13 @@ coverage-scoreboard.txt
 # into `corpus/`; the staging tree is scratch by design, the same reasoning
 # `coverage-scoreboard.txt` above gets for being a snapshot, not a baseline.
 audit/*/fixtures/
+
+# `audit/queue-captures/` (`xtask::queue`'s doc comment has the full design):
+# `xtask audit freeze`'s captured raw `--help` bytes behind `audit/queue.toml`
+# (which IS tracked — the ordered tool list + strata is small, auditable
+# data). The captures are real bulk (one small file set per frozen tool) and
+# machine-generated content, which the fixture-promotion workflow above
+# already treats as something that must never land in a tracked file.
+# Regenerate locally with `xtask audit freeze`; `xtask audit reclassify`
+# needs this directory present to avoid a full PATH re-sweep.
+audit/queue-captures/
