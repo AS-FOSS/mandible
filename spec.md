@@ -1822,6 +1822,39 @@ still reads a scoreboard's old `pct_described=` key for backward
 compatibility; it never writes one. See Appendix B for the historical note on
 the column-name change.
 
+**A sixth rule: a mass status promotion must carry its own spot-audit
+stratum, sampled at random, not asserted from the aggregate that produced
+it.** Corpus-green (§13.2) plus a clean scoreboard sweep-diff (§13.1) prove
+that nothing which worked before **broke** — every existing fixture still
+passes and no tool transitioned to a worse status. They can **never** prove
+that the tools newly promoted to `ok` are actually right, because neither
+instrument looks at a single one of them with a human eye; both are
+structurally blind to a defect the promoting change itself introduces. The
+narrow lesson behind this rule is measured, not hypothetical: of the seed-2
+audit's 13 `forced-inclusion`
+entries — tools promoted `low-confidence` → `ok` by an earlier change and
+never independently reviewed before being force-included into this audit —
+only **1 of 13** (7.7%, §13.1c) held up as `correct` once a human actually
+read the output. A same-sized ordinary random draw would not have missed
+that badly by chance alone. **Any change that promotes more than a handful
+of tools to `ok` must therefore include a spot-audit of 5–10 randomly drawn
+promoted tools, recorded in the audit manifest as its own stratum** — the
+same discipline §13.1d's frozen queue applies to the whole population and
+§13.1e's calibration applies to a detector's fleet-wide count, now applied to
+a promotion event specifically, before its count is trusted. **This
+mechanism does not exist yet.** The closest present machinery is
+`Entry::include_reason` / `audit/force-include.txt`, which lets a tool enter
+a sample outside the ordinary stratified draw with a recorded reason, and
+`cmd_report`'s `FORCED_INCLUSION_STRATUM` constant, which tallies every such
+entry under one hardcoded `"forced-inclusion"` label — but that label names
+*why a tool bypassed the draw*, not *which promotion event it was drawn to
+spot-check*, and it is singular where this rule needs a stratum per
+promotion. Naming the gap here rather than building a mechanism to fill it
+under this same change is deliberate: the rule is worth stating before the
+tooling exists to enforce it, and inventing the tooling under a change whose
+own point is "do not skip the spot-audit" would be the same shortcut this
+rule exists to close off.
+
 ### 13.1c The audit instrument: comparing against truth
 
 Misattribution and existence (§13.1) each re-examine text the pipeline
@@ -2201,6 +2234,29 @@ count is right. This is the same discipline the coverage scoreboard's
 literal `accuracy: unmeasured` line enforces (§13.1b), for the same reason:
 a number travels without its context unless the context is printed beside
 it.
+
+**`wrong` versus `incomplete` must never become load-bearing.** The boundary
+between the two words is thin, and the maintainer has flagged that it may not
+have been drawn consistently across the 94 seed-2 verdicts — plausible for
+any single reviewer working alone across a full session. Nothing in this
+project currently depends on which of the two a tool got, and nothing
+should: no consumer here read the boundary carefully enough for it to bear
+that weight. Checked directly rather than assumed: `accuracy_over`
+(`xtask::audit`) counts `correct` against everything else, collapsing
+`wrong` and `incomplete` into one "judged defect" bucket; `verdict_requires_note`
+obligates a note under the identical rule for both; `cmd_fixtures` emits the
+identical `[xfail]` shape from one shared `"incomplete" | "wrong"` match arm;
+and a family label (this section) is derived from the reviewer's note text
+plus the fixture evidence, never from which of the two words the reviewer
+chose — `unmodeled-help-shape` labels both a `wrong` entry (`ssh-keygen`) and
+an `incomplete` one (`mariadb-repair`) with no distinction drawn anywhere
+downstream. If a later change ever needs to prioritise which judged defect
+to fix first, the ranking is by **family** (does this shape recur across the
+fleet) and by **detector count** (how many tools a calibrated detector
+actually names) — never by which of the two verdict words a reviewer
+happened to type. Prioritising by the word itself would retroactively make
+an inconsistently applied distinction load-bearing, which is exactly the
+kind of claim this project's verdicts were never built to support.
 
 ### 13.2 Fixed corpus
 

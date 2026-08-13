@@ -343,8 +343,9 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
     },
     DefectFamily {
         name: "repeated-char-flag",
-        meaning: "a repeated-character flag (`-vv`, `-dd`, `-kk`) documented in the help text is \
-                  not extracted at all",
+        meaning: "a repeated-character flag (`-vv`, `-dd`, `-kk`) is stored as its single-letter \
+                  form carrying the repeat as a required value (`-v` + value `\"v\"`) rather than \
+                  as the doubled flag itself — extracted, but as the wrong shape, not absent",
     },
     DefectFamily {
         name: "brace-alternation-flag",
