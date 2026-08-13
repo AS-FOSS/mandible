@@ -436,6 +436,59 @@ fn short_candidates(flag: &Flag, short: char) -> Vec<String> {
     candidates
 }
 
+/// Whether `raw` spells `short` as a member of a **bundled short-flag
+/// cluster** — `-C` inside `tmux`'s `[-2CDlNuVv]`, `-#` inside `tcpdump`'s
+/// `[-AbdDefhHIJKlLnNOpqStuUvxX#]`.
+///
+/// # Why this exists, and why it is not a loosening
+///
+/// This is the same "compare against the pre-normalization spelling"
+/// principle [`short_candidates`] already applies to `-fdump-scos`, and it
+/// arrived for the same reason: the grammar started splitting one raw token
+/// into several flags, and a per-flag literal check cannot see a spelling
+/// that only exists as one character of a token.
+///
+/// `help_text::grammar::parse_bundled_shorts` now reads a synopsis cluster
+/// as the set of switches it is, so `tmux`'s tree carries eight bare
+/// booleans where it used to carry one collapsed `-2`. Seven of those eight
+/// spellings occur **nowhere** in `tmux --help` on their own — `-C` appears
+/// only inside the cluster token — so without this, fixing the collapse
+/// would have converted a real 465-flag recall defect into a fleet-wide
+/// false alarm on the one oracle built for [M-10]. That is the *K2* shape
+/// exactly: 613 of the first sweep's 656 reported fabrications were
+/// detector artifacts of three kinds, every one a case of this module
+/// checking a spelling the parser had legitimately derived from text it
+/// really read.
+///
+/// **It cannot manufacture a false negative.** It is reached only as a
+/// fallback, after the literal forms already failed, and it attests `short`
+/// only when some raw token *is* a cluster by the identical rule the
+/// grammar splits on — the same function, not a restatement of it. So the
+/// oracle attests exactly the spellings the parser derived and nothing
+/// else: a genuinely invented `-Q` is still reported unless the tool's own
+/// text writes a cluster containing `Q`, in which case `-Q` was read, not
+/// invented, and reporting it would be the false alarm.
+///
+/// The raw text is split on brackets, braces, parens, pipes and commas as
+/// well as whitespace, because a synopsis writes its clusters bracketed and
+/// does not reliably put a space between the groups: `rpcgen`'s real usage
+/// line is `rpcgen [-abkCLNTM][-Dname[=value]] [-i size] ...`, where the
+/// cluster and the next option group are **one** whitespace token. Trimming
+/// the outer brackets off that token leaves `-abkCLNTM][-Dname[=value`,
+/// which is not a cluster, and `-k` — a spelling that occurs nowhere else
+/// in `rpcgen --help` — would be reported as invented. Splitting on the
+/// delimiters instead of trimming them costs nothing, since none of them
+/// can be a cluster member in the first place.
+fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
+    raw.split(|c: char| {
+        c.is_whitespace() || matches!(c, '[' | ']' | '{' | '}' | '(' | ')' | '|' | ',')
+    })
+    .any(|token| {
+        mandible_extract::help_text::parse_bundled_shorts(token)
+            .is_some_and(|members| members.contains(&short))
+    })
+}
+
 /// Candidate raw-text spellings for `flag`'s long name: the negatable-
 /// boolean bracket convention (this module's doc comment), each also in the
 /// *value-reconstructed* form [`short_candidates`] already builds for the
@@ -556,7 +609,9 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
         if let Some(short) = flag.short {
             let spelling = format!("-{short}");
             let candidates = short_candidates(flag, short);
-            if !candidates.iter().any(|c| spelling_occurs(raw, c)) {
+            let attested = candidates.iter().any(|c| spelling_occurs(raw, c))
+                || occurs_as_a_bundle_member(raw, short);
+            if !attested {
                 out.push(Fabrication {
                     path: path.to_string(),
                     kind: FabricationKind::Flag,
@@ -719,6 +774,117 @@ mod tests {
         assert!(candidates
             .iter()
             .any(|c| spelling_occurs(GCC_SINGLE_DASH_LINE, c)));
+    }
+
+    // --- bundled short-flag cluster members ------------------------------
+
+    /// `tmux`'s real usage line, byte-exact from
+    /// `corpus/tmux/audit-seed2/help.stderr.txt`.
+    const TMUX_USAGE: &str = "usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name]\n            [-S socket-path] [-T features] [command [flags]]\n";
+
+    /// The half that motivates [`occurs_as_a_bundle_member`]: seven of
+    /// `tmux`'s eight cluster members occur *nowhere* on their own, so the
+    /// literal check alone would report all seven as invented the moment
+    /// the grammar started emitting them as flags.
+    #[test]
+    fn a_cluster_members_bare_spelling_does_not_occur_on_its_own() {
+        for member in ['C', 'D', 'l', 'N', 'u', 'V'] {
+            assert!(
+                !spelling_occurs(TMUX_USAGE, &format!("-{member}")),
+                "-{member} must not occur standalone in tmux's real usage line"
+            );
+        }
+    }
+
+    /// ...and the cluster check attests every one of them, because the raw
+    /// text really does write them — as one token.
+    #[test]
+    fn every_cluster_member_is_attested_by_its_own_cluster() {
+        for member in "2CDlNuVv".chars() {
+            assert!(
+                occurs_as_a_bundle_member(TMUX_USAGE, member),
+                "-{member} must be attested by tmux's own [-2CDlNuVv]"
+            );
+        }
+        // tcpdump's real cluster, including its non-alphanumeric member.
+        let raw = "Usage: tcpdump [-AbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ]\n";
+        for member in "AbdDefhHIJKlLnNOpqStuUvxX#".chars() {
+            assert!(occurs_as_a_bundle_member(raw, member), "-{member}");
+        }
+    }
+
+    /// End to end: the whole split tree over the real capture reports zero
+    /// fabrications. Without the cluster check this is seven.
+    #[test]
+    fn detect_does_not_flag_the_members_of_a_real_cluster() {
+        let mut root = help_text_node("tmux");
+        for member in "2CDlNuVv".chars() {
+            root.flags.push(help_text_flag(Some(member), None, false));
+        }
+        for (short, value) in [('c', "shell-command"), ('f', "file"), ('T', "features")] {
+            let mut flag = help_text_flag(Some(short), None, false);
+            flag.value_name = Some(value.to_string());
+            root.flags.push(flag);
+        }
+        let report = detect(TMUX_USAGE, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "tmux's real flags must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// `rpcgen`'s real usage line, byte-exact: the cluster and the next
+    /// option group are one whitespace token, which is why the tokenizer
+    /// splits on brackets. Found on the fleet sweep, not by reasoning —
+    /// this was the one tool the first version of this check still reported,
+    /// for `-k`, a spelling that appears nowhere else in `rpcgen --help`.
+    const RPCGEN_USAGE: &str =
+        "\trpcgen [-abkCLNTM][-Dname[=value]] [-i size] [-I [-K seconds]] [-Y path] infile\n";
+
+    #[test]
+    fn a_cluster_glued_to_the_next_bracket_group_still_attests_its_members() {
+        for member in "abkCLNTM".chars() {
+            assert!(
+                occurs_as_a_bundle_member(RPCGEN_USAGE, member),
+                "-{member} must be attested by rpcgen's own [-abkCLNTM]"
+            );
+        }
+        // The half that made this a real finding: `-k` occurs nowhere in
+        // rpcgen's output except inside that cluster.
+        assert!(!spelling_occurs(RPCGEN_USAGE, "-k"));
+        // ...and the neighbouring group is still not a cluster, so it
+        // vouches for nothing.
+        for member in ['D', 'n', 'a', 'm', 'e', 'v'] {
+            assert!(!mandible_extract::help_text::parse_bundled_shorts("-Dname")
+                .is_some_and(|m| m.contains(&member)));
+        }
+    }
+
+    /// The check must not become a blanket amnesty for short flags. A
+    /// genuinely invented spelling is still reported when the tool's text
+    /// carries a cluster that does not contain it, and a token that is not
+    /// a cluster by the grammar's own rule attests nothing at all.
+    #[test]
+    fn a_genuinely_invented_short_flag_is_still_reported_beside_a_cluster() {
+        let mut root = help_text_node("tmux");
+        root.flags.push(help_text_flag(Some('Q'), None, false));
+        let report = detect(TMUX_USAGE, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "-Q");
+        // A word-shaped token is not a cluster, so it vouches for nothing:
+        // `-pass-exit-codes` must not attest `-a`, `-s`, `-e`...
+        for member in ['a', 's', 'e', 'x', 'i', 't'] {
+            assert!(!occurs_as_a_bundle_member(
+                "  -pass-exit-codes   Exit with highest error code\n",
+                member
+            ));
+        }
     }
 
     #[test]

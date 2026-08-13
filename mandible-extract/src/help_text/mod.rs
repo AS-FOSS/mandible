@@ -36,6 +36,7 @@ mod sections;
 /// `xtask` can ask "was this root's captured `--help` output a rendered
 /// man page?" without a second copy of the rule and without re-probing the
 /// tool — see [`sections::is_man_page_banner`]'s own doc comment.
+pub use grammar::parse_bundled_shorts;
 pub use sections::is_man_page_banner;
 
 use crate::errors::ExtractError;
