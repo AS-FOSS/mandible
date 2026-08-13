@@ -5,6 +5,7 @@
 
 mod audit;
 mod bundling;
+mod commandtable;
 mod corpus;
 mod coverage;
 mod detector;
