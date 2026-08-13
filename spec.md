@@ -1801,6 +1801,28 @@ asserted in the abstract:
    be distinguishable from an actual regression before either is reported
    as one.
 
+Rule 3 is not scoped to the corpus gate — it applies to any wall-clock
+assertion in the test suite. `mandible-extract/src/help_text/sections.rs`'s
+`repeated_identical_banner_does_not_explode_into_duplicate_subcommands`
+(20,000 repetitions of a banner, guarding the same O(n²)-on-repetitive-input
+class this module's `MAX_RECOVERED_ENTRIES` cap exists for) false-failed
+twice under concurrent-compile load — 7.5s observed at load average 20+ on
+4 cores, 4.3s alone, clean on a quiet re-run — with the parser unchanged
+between runs, matching the `waagent2.0` pattern exactly. Its timing
+assertion was demoted to a non-blocking `eprintln!` warning (budget: 10s,
+comfortably above every observed run) so a genuine reintroduction of the
+blowup — which lands in seconds-to-minutes, not a borderline overage —
+still prints loudly, while the correctness assertion (exactly 2 subcommands
+recovered, not 40,000) stays a blocking `assert_eq!`. A second timing
+assertion (`mandible-extract/src/exec/spawn.rs`'s `timeout_kills_process_group`,
+asserting a 200ms-timeout kill completes within 5s) was surveyed against
+the same rule and left blocking: it carries a 25x margin already, is not
+CPU-bound work competing for cores under contention (so is far less
+exposed to the mechanism that broke the two cases above), has no observed
+false failure, and is one of the few tests that directly exercises the
+process-group-kill safety property in spec §6/§8 — demoting it trades a
+safety check for convenience without evidence it flakes.
+
 `pct_flags_with_text` is `described / describable`. Fleet-wide on this
 aarch64 box (2,266 `PATH` tools), the redefinition returns it to
 **94.19%** — within 0.01 of the 94.18% figure that predates [M-15]'s
