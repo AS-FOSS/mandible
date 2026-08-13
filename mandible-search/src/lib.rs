@@ -198,7 +198,10 @@ fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Flag, pat
         haystack.push(' ');
     }
     if let Some(l) = &flag.long {
-        haystack.push_str("--");
+        // Search on the spelling the user would actually type: a
+        // single-dash long option (`-help`, `-vv`) is never `--help`, and
+        // indexing it that way would make it unfindable by its own name.
+        haystack.push_str(if flag.single_dash { "-" } else { "--" });
         haystack.push_str(l);
         haystack.push(' ');
     }
