@@ -1486,21 +1486,37 @@ fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
 // The detection mechanism (cells → fields → recurring offsets) mirrors
 // `xtask/src/misattribution.rs`'s `DefinitionIndex`, which was built and
 // measured against this exact bug first and already carries the hardening
-// against the false-positive classes below — deliberately duplicated here
-// (like `help_text::pick_stream`/`misattribution::pick_stream` already are)
-// rather than sharing code with that module, which this task's own
-// instructions rule out touching. One difference is load-bearing, not
-// incidental: that module is an *advisory* metric a human reads, so it can
-// afford to under-suppress (its own doc comment names `arptables`' `-A
-// chain` as a known, accepted residual false positive). A splitter's
-// mistakes are not advisory — they fabricate a flag that was never in the
-// tool's own text — so [`fields_in_line`] below is strictly more
-// conservative: it never starts a new field on top of one that hasn't yet
-// earned real description text of its own (see its doc comment), which is
-// exactly what keeps `-A chain`/`-p NUM`-shaped rows (a value placeholder
-// standing in for real trailing text, lower-case so
-// `is_value_placeholder_only` can't recognize it as one) from being read as
-// a second, independent flag.
+// against the false-positive classes below.
+//
+// The vocabulary functions — [`is_flag_shaped`], [`is_flag_char`],
+// [`first_word`], [`cells`], [`MIN_COLUMN_RECURRENCE`], and
+// [`is_value_placeholder_only`] — are `pub` and re-exported from
+// `help_text::mod` (same pattern as [`pick_stream`](super::pick_stream))
+// precisely so `xtask/src/misattribution.rs` imports these instead of
+// restating them: that restatement was tried once, for `pick_stream`, and
+// silently drifted past the openssl stream fix (spec §13.1c's K2 table),
+// producing 200 of 656 fleet-wide fabrications from an oracle that no
+// longer agreed with the parser it was auditing. `is_flag_shaped`/`cells`/
+// `is_value_placeholder_only` are exactly the same hazard: if the splitter
+// here and the misattribution oracle disagree on what counts as a
+// flag-shaped token or a bare placeholder, the oracle stops measuring this
+// parser and starts measuring its own, different guess at the same
+// question.
+//
+// [`fields_in_line`] itself is **not** shared, and this is a real,
+// load-bearing behavioral difference, not an oversight: `misattribution`'s
+// copy is an *advisory* metric a human reads, so it can afford to
+// under-suppress (its own doc comment names `arptables`'s `-A chain` as a
+// known, accepted residual false positive). A splitter's mistakes are not
+// advisory — they fabricate a flag that was never in the tool's own text —
+// so the copy below is strictly more conservative: it never starts a new
+// field on top of one that hasn't yet earned real description text of its
+// own (see its doc comment), which is exactly what keeps `-A chain`/`-p
+// NUM`-shaped rows (a value placeholder standing in for real trailing text,
+// lower-case so `is_value_placeholder_only` can't recognize it as one) from
+// being read as a second, independent flag. If this splitter's fold rule
+// changes, `misattribution::fields_in_line` will not — check both, by hand,
+// on a real change here.
 
 /// Minimum number of distinct entry lines a secondary column offset must
 /// recur at before a block is trusted as genuinely multi-column. Same
@@ -1510,13 +1526,13 @@ fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
 /// block; the worst accidental coincidence measured in this project's own
 /// real-tool sample (`tar`'s `-T` cross-reference) recurs twice, at two
 /// different offsets. `3` sits strictly between the two.
-const MIN_COLUMN_RECURRENCE: usize = 3;
+pub const MIN_COLUMN_RECURRENCE: usize = 3;
 
 /// True if `token` is shaped like a flag spelling: `-x`, `--word`, `+x`, or
 /// `+|-x` — lsof spells several of its own flags with the `+` prefix
 /// (`+d`, `+m`). Deliberately permissive about the character right after a
 /// short prefix (`lsof`'s own `-?`).
-fn is_flag_shaped(token: &str) -> bool {
+pub fn is_flag_shaped(token: &str) -> bool {
     if let Some(rest) = token.strip_prefix("+|-") {
         return rest.chars().next().is_some_and(is_flag_char);
     }
@@ -1541,7 +1557,7 @@ fn is_flag_char(c: char) -> bool {
 
 /// First whitespace-delimited word of `s`, or `""` for an all-whitespace
 /// string.
-fn first_word(s: &str) -> &str {
+pub fn first_word(s: &str) -> &str {
     s.split_whitespace().next().unwrap_or("")
 }
 
@@ -1557,7 +1573,7 @@ fn first_word(s: &str) -> &str {
 /// tab-separated (`-o,  --owner=package\t\tSet the package...`), and only
 /// requiring 2+ spaces would read the tab-glued alias-plus-description as
 /// one cell.
-fn cells(line: &str) -> Vec<(usize, String)> {
+pub fn cells(line: &str) -> Vec<(usize, String)> {
     let chars: Vec<char> = line.chars().collect();
     let n = chars.len();
     let is_gap_start = |i: usize| -> bool {
@@ -1596,7 +1612,7 @@ fn cells(line: &str) -> Vec<(usize, String)> {
 /// cell alone. [`fields_in_line`]'s own fold-while-bare rule is what
 /// actually protects that case (see its doc comment) — this check only
 /// needs to catch the *unambiguous* placeholders, not every one.
-fn is_value_placeholder_only(s: &str) -> bool {
+pub fn is_value_placeholder_only(s: &str) -> bool {
     let mut words = s.split_whitespace();
     let Some(word) = words.next() else {
         return true;

@@ -93,7 +93,7 @@
 //!   `-p NUM  --strip=NUM  Strip NUM leading components...` — `-p NUM` has
 //!   real-looking trailing text (`NUM`), which isn't a description, it's the
 //!   same option's own value notation repeated on both spellings.
-//!   [`is_placeholder_only`] recognizes a bracketed (`<dir>`) or all-
+//!   [`is_value_placeholder_only`] recognizes a bracketed (`<dir>`) or all-
 //!   uppercase (`NUM`, `FILE`) single-word trailing as still-bare.
 //!
 //! Both of those apply to *either* side of an alias pair — a placeholder can
@@ -106,7 +106,7 @@
 //! placeholder-only trailing) before ever looking at the field it might join,
 //! so either order works.
 //!
-//! [`is_placeholder_only`] also recognizes an upper-case *name* followed by
+//! [`is_value_placeholder_only`] also recognizes an upper-case *name* followed by
 //! a bracketed decoration whose own casing is never checked
 //! (`BLOCKSIZE[bskKmMgGtTpPeEzZyY]` — mixed-case unit suffixes, but
 //! `BLOCKSIZE` itself is the all-uppercase shape the check already knew),
@@ -120,7 +120,7 @@
 //! than one cell offers. The same family (`arptables-nft`, `ebtables`/
 //! `ebtables-nft`, `iptables`/`ip6tables` and their `-legacy`/`-nft`/
 //! `-translate` siblings, `ntfswipe`) shares this exact shape.
-//! [`is_placeholder_only`] deliberately doesn't chase a lower-case
+//! [`is_value_placeholder_only`] deliberately doesn't chase a lower-case
 //! placeholder — see its own doc comment on why under-suppressing is the
 //! safer failure direction here. `objcopy --help`'s `--redefine-syms`/
 //! `--strip-symbols`/`--keep-symbols` false-positive for a different reason
@@ -167,18 +167,16 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
 
-/// Minimum number of distinct lines a secondary/tertiary flag-shaped column
-/// offset must recur at before it's trusted as a real table column rather
-/// than an accidental repeat.
-///
-/// Measured, not guessed: real column bleed (`lsof`'s two hidden columns)
-/// recurs 9 times each over its ~10-line options block; the highest
-/// accidental coincidence found in this project's own real-tool sample
-/// (`tar`'s `-T` cross-reference, two different single-column rows whose
-/// descriptions both happen to open with `-T`) recurs twice, at two
-/// *different* offsets, so it never even reaches 2 at one offset. `3` sits
-/// strictly between the two, with a wide margin on the real side.
-const MIN_COLUMN_RECURRENCE: usize = 3;
+// `MIN_COLUMN_RECURRENCE`, `is_flag_shaped`, `cells`, `first_word`, and
+// `is_value_placeholder_only` are imported from `mandible_extract::help_text`
+// rather than restated here — see that module's doc comment on the
+// re-export for why: this crate's own multi-column splitter (the thing this
+// detector audits) needs the exact same vocabulary, and a second copy of
+// "what counts as a flag-shaped token" is precisely the class of bug this
+// module's own doc comment on [`pick_stream`] names by number (200 of 656
+// fabrications). `fields_in_line` below is the one piece that is NOT
+// imported — see its own doc comment for why that difference is deliberate
+// and load-bearing rather than an oversight.
 
 /// A probe that behaves exactly like [`LiveProbe`] — every call is
 /// forwarded to it unmodified, so this spawns nothing [`LiveProbe`] alone
@@ -371,64 +369,46 @@ impl Probe for RecordingProbe {
     }
 }
 
-/// The parser's own stream choice, imported rather than restated.
+/// The parser's own stream choice ([`pick_stream`]) and its multi-column
+/// vocabulary ([`is_flag_shaped`], [`cells`], [`first_word`],
+/// [`is_value_placeholder_only`], [`MIN_COLUMN_RECURRENCE`]) — all five
+/// imported rather than restated.
 ///
-/// This used to be a two-line local copy ("stdout if non-empty, else
-/// stderr"), justified in a comment on the grounds that the rule was small
-/// and "unlikely to drift silently". It drifted silently. `help_text::
-/// pick_stream` had already been corrected to judge each stream on whether
-/// it *looks like help output* — because `openssl cmp --help` prints two
-/// diagnostic lines to stdout and its whole help document to stderr — and
-/// the copy here was never updated. Every tool of that shape therefore had
-/// its correctly-parsed tree compared against a version banner, so both
-/// oracles reported all of its flags as invented: 200 of 656 fleet-wide
-/// existence fabrications, every one of them false, on tools like
-/// `mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub` and `encguess`.
-///
+/// `pick_stream` used to be a two-line local copy here ("stdout if
+/// non-empty, else stderr"), justified in a comment on the grounds that the
+/// rule was small and "unlikely to drift silently". It drifted silently.
+/// `help_text::pick_stream` had already been corrected to judge each stream
+/// on whether it *looks like help output* — because `openssl cmp --help`
+/// prints two diagnostic lines to stdout and its whole help document to
+/// stderr — and the copy here was never updated. Every tool of that shape
+/// therefore had its correctly-parsed tree compared against a version
+/// banner, so both oracles reported all of its flags as invented: 200 of
+/// 656 fleet-wide existence fabrications, every one of them false, on tools
+/// like `mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub` and `encguess`.
 /// An oracle that reads different bytes than the parser read is not
-/// measuring the parser. There is exactly one right answer to "which
-/// stream did Tier B parse", it lives in Tier B, and this instrument asks
-/// it rather than guessing.
-use mandible_extract::help_text::pick_stream;
-
-/// Whether `token` is shaped like a flag spelling: `-x`, `--word`, `+x`, or
-/// `+|-x`. Deliberately permissive on the single character after a short
-/// prefix — real tools spell short options with more than letters and
-/// digits (`lsof`'s own `-?`) — which is the right failure direction for a
-/// detector whose output is judged by a human and never gates a build (see
-/// this module's doc comment).
-fn is_flag_shaped(token: &str) -> bool {
-    if let Some(rest) = token.strip_prefix("+|-") {
-        return rest.chars().next().is_some_and(is_flag_char);
-    }
-    if let Some(rest) = token.strip_prefix("--") {
-        return rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
-    }
-    if let Some(rest) = token.strip_prefix('+') {
-        return rest.chars().next().is_some_and(is_flag_char);
-    }
-    if let Some(rest) = token.strip_prefix('-') {
-        return rest.chars().next().is_some_and(is_flag_char);
-    }
-    false
-}
-
-/// The character class allowed immediately after a short flag's leading
-/// `-`/`+`: alphanumerics cover the overwhelming majority, and the small
-/// punctuation set covers real, measured exceptions (`lsof -?`).
-fn is_flag_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || matches!(c, '?' | '#' | '@')
-}
+/// measuring the parser.
+///
+/// The other four names were audited for the identical hazard and found to
+/// have it: this crate's own multi-column splitter
+/// (`mandible_extract::help_text::sections`) is the thing this whole module
+/// audits, and it needs the exact same definitions of "flag-shaped token",
+/// "cell", and "bare value placeholder" that this module uses to decide
+/// what counts as column-bleed evidence. A second, private copy of any one
+/// of them would let this oracle silently stop agreeing with the parser it
+/// audits — exactly the `pick_stream` failure mode, just in different
+/// vocabulary. There is exactly one right answer to each of "which stream
+/// did Tier B parse", "what does Tier B consider flag-shaped", "where does
+/// Tier B split a table row", and "what does Tier B consider a bare value
+/// placeholder" — all four live in `help_text`, and this instrument asks
+/// rather than guessing.
+use mandible_extract::help_text::{
+    cells, first_word, is_flag_shaped, is_value_placeholder_only, pick_stream,
+    MIN_COLUMN_RECURRENCE,
+};
 
 /// The characters a real flag token in prose is commonly wrapped in
 /// (`(-D)`, `-a,`, `"--foo".`) and never itself starts or ends with.
 const TOKEN_TRIM: [char; 9] = ['(', ')', '[', ']', ',', '.', ';', '\'', '"'];
-
-/// First whitespace-delimited word of `s`, or `""` for an all-whitespace
-/// string.
-fn first_word(s: &str) -> &str {
-    s.split_whitespace().next().unwrap_or("")
-}
 
 /// Every flag-shaped token found in free-form `text` (a flag description,
 /// or a table cell), trimmed of common surrounding punctuation.
@@ -438,55 +418,6 @@ fn flag_tokens_in(text: &str) -> Vec<String> {
         .filter(|word| is_flag_shaped(word))
         .map(str::to_string)
         .collect()
-}
-
-/// Split `line` into cells at a column gap — a run of two or more spaces,
-/// **or any tab** — character-indexed (never byte-indexed — AGENTS.md's
-/// rule against slicing tool output at a raw byte offset applies to column
-/// *math* here just as much as it does to parsing, since a wide character
-/// earlier in a real `--help` line would otherwise desync every offset
-/// after it). Returns `(char offset, cell text)` pairs, trailing whitespace
-/// trimmed off each cell.
-///
-/// A single tab is treated as a boundary on its own — unlike a lone space,
-/// which routinely separates ordinary words within one cell's own prose —
-/// because tab-aligned columns are a real, measured shape: `debconf
-/// --help`'s real table is `-o,  --owner=package\t\tSet the package...`
-/// (two spaces before the alias, two *tabs* before the description). Only
-/// requiring 2+ spaces read that tab-glued alias-plus-description as one
-/// cell with real trailing text, which made `--owner=package` look like a
-/// genuine second flag rather than `-o`'s own bare long alias — the same
-/// false-positive shape `Field::is_bare` exists to rule out, defeated by a
-/// separator this function didn't recognize.
-fn cells(line: &str) -> Vec<(usize, String)> {
-    let chars: Vec<char> = line.chars().collect();
-    let n = chars.len();
-    let is_gap_start = |i: usize| -> bool {
-        chars[i] == '\t' || (chars[i] == ' ' && i + 1 < n && chars[i + 1] == ' ')
-    };
-    let mut out = Vec::new();
-    let mut i = 0usize;
-    while i < n {
-        while i < n && (chars[i] == ' ' || chars[i] == '\t') {
-            i += 1;
-        }
-        if i >= n {
-            break;
-        }
-        let start = i;
-        let mut j = i;
-        while j < n {
-            if is_gap_start(j) {
-                break;
-            }
-            j += 1;
-        }
-        let end = (j + 1).min(n);
-        let content: String = chars[start..end].iter().collect();
-        out.push((start, content.trim_end().to_string()));
-        i = end;
-    }
-    out
 }
 
 /// The set of flag-shaped tokens attested at a column-aligned, secondary
@@ -531,53 +462,8 @@ impl Field {
     /// flag with a description).
     fn is_bare(&self) -> bool {
         let trailing = self.trailing.trim();
-        trailing.is_empty() || is_placeholder_only(trailing)
+        trailing.is_empty() || is_value_placeholder_only(trailing)
     }
-}
-
-/// True when `s` is nothing but a single value-placeholder token — bracket-
-/// wrapped (`<dir>`, `[NUMBER]`, `{fmt}`), fully upper-case (`NUM`, `FILE`,
-/// `WORD`), or an upper-case name with a bracketed decoration
-/// (`BLOCKSIZE[bskKmMgGtTpPeEzZyY]`, `thin_metadata_size --help`'s own unit-
-/// suffix list, upper- and lower-case letters mixed in the *decoration* but
-/// not the name) — with no other words. Folded into [`Field::is_bare`]
-/// because a placeholder attached to a flag's own cell (`patch --help`:
-/// `-p NUM  --strip=NUM  Strip NUM leading components...`, `nano --help`:
-/// `-C <dir>  --backupdir=<dir>  Directory for saving...`) is that flag's
-/// *own* value notation, repeated on both its short and long spellings —
-/// not a description, and specifically not evidence that the row's next
-/// bare-looking cell is a second, different flag. Deliberately narrow (no
-/// attempt to recognize a lower-case placeholder like `arptables --help`'s
-/// `-A chain`): a real English word is not reliably distinguishable from a
-/// real (if terse) description without more context than one cell offers,
-/// and the conservative failure direction here is under-suppressing, not
-/// over-suppressing — a residual false positive is reported and judged by
-/// a human either way (this module's own doc comment), while wrongly
-/// swallowing a genuine second flag's real prose would not be.
-fn is_placeholder_only(s: &str) -> bool {
-    let mut words = s.split_whitespace();
-    let Some(word) = words.next() else {
-        return true;
-    };
-    if words.next().is_some() {
-        return false;
-    }
-    let bracketed = matches!(
-        (word.chars().next(), word.chars().last()),
-        (Some('<'), Some('>')) | (Some('['), Some(']')) | (Some('{'), Some('}'))
-    );
-    let all_upper = word.chars().any(char::is_alphabetic)
-        && word.chars().all(|c| !c.is_alphabetic() || c.is_uppercase());
-    // An upper-case name followed by a bracketed decoration whose own
-    // casing is never checked — `BLOCKSIZE[bskKmMgGtTpPeEzZyY]`'s unit
-    // suffixes are deliberately mixed-case, which fails `all_upper` for the
-    // *whole* token even though `BLOCKSIZE` (the actual placeholder name)
-    // is exactly the shape `all_upper` already recognizes on its own.
-    let upper_name_with_decoration = word.find(['[', '<', '{']).is_some_and(|i| {
-        let name = &word[..i];
-        !name.is_empty() && name.chars().all(|c| c.is_ascii_uppercase())
-    });
-    bracketed || all_upper || upper_name_with_decoration
 }
 
 /// Group `line`'s cells (see [`cells`]) into [`Field`]s: one field per
@@ -635,7 +521,7 @@ fn fields_in_line(line: &str) -> Vec<Field> {
         // itself carries a real description (`unzip`'s `-l  list files
         // (short format)`) never gets swallowed into an open alias chain
         // just because the chain started bare.
-        let own_trailing_weak = own_trailing.is_empty() || is_placeholder_only(&own_trailing);
+        let own_trailing_weak = own_trailing.is_empty() || is_value_placeholder_only(&own_trailing);
         if own_trailing_weak {
             if let Some(last) = fields.last_mut() {
                 if last.is_bare() {
@@ -997,7 +883,7 @@ mod tests {
     /// own cell carries a bare value placeholder (`-p NUM`, `-C <dir>`)
     /// before the bare long alias and shared description — a third,
     /// measured false-positive source distinct from both cases above
-    /// (`Field::is_bare`/`is_placeholder_only`'s own doc comments).
+    /// (`Field::is_bare`/`is_value_placeholder_only`'s own doc comments).
     #[test]
     fn does_not_flag_a_short_flags_own_value_placeholder_as_evidence() {
         let raw = "  -p NUM  --strip=NUM  Strip NUM leading components from file names.\n  -o FILE  --output=FILE  Output patched files to FILE.\n  -r FILE  --reject-file=FILE  Output rejects to FILE.\n";
@@ -1149,6 +1035,49 @@ mod tests {
         // offset 2; the second cell must start at char offset 11, not at
         // whatever a byte count would produce.
         assert_eq!(cs[1].0, 11);
+    }
+
+    /// The duplicated-logic-drift regression this module's own audit was
+    /// commissioned to find: `is_flag_shaped`, `cells`, `first_word`,
+    /// `is_value_placeholder_only` and `MIN_COLUMN_RECURRENCE` used to be
+    /// hand-copied here from `mandible_extract::help_text::sections` (the
+    /// real multi-column splitter this module audits), each carrying its
+    /// own comment claiming the copy was small and safe to keep in sync by
+    /// hand — the exact justification that failed for `pick_stream` (200 of
+    /// 656 fleet-wide existence fabrications, this module's own doc comment
+    /// on that `use`). They are now imports, not copies, so they cannot
+    /// drift apart by construction; this test pins the specific edge case
+    /// that made `is_value_placeholder_only` non-trivial to get right
+    /// (`thin_metadata_size --help`'s `BLOCKSIZE[bskKmMgGtTpPeEzZyY]`: an
+    /// all-uppercase *name* with a deliberately mixed-case bracketed
+    /// decoration) directly against the imported function, so a future
+    /// change to the shared definition that breaks this shape fails here
+    /// too, not just in `sections.rs`'s own suite.
+    #[test]
+    fn is_value_placeholder_only_is_the_imported_extractor_definition() {
+        assert!(is_value_placeholder_only("BLOCKSIZE[bskKmMgGtTpPeEzZyY]"));
+        assert!(is_value_placeholder_only("<dir>"));
+        assert!(is_value_placeholder_only("NUM"));
+        assert!(is_value_placeholder_only(""));
+        // `arptables --help`'s documented residual false positive: a
+        // lower-case English word is deliberately NOT recognized as a
+        // placeholder (see `is_value_placeholder_only`'s own doc comment on
+        // why under-suppressing is the accepted failure direction here).
+        // If a future change to the shared definition starts recognizing
+        // lower-case words, this line is the tripwire.
+        assert!(!is_value_placeholder_only("chain"));
+        assert!(!is_value_placeholder_only("two words"));
+    }
+
+    /// `MIN_COLUMN_RECURRENCE` used to be two independent `const` items (one
+    /// here, one in `sections.rs`) that happened to both read `3` — nothing
+    /// enforced they stayed equal. Now there is exactly one, imported; this
+    /// pins the value so a change to the shared threshold is visible (and
+    /// reviewable) from this module's own test suite, not only from
+    /// `sections.rs`'s.
+    #[test]
+    fn min_column_recurrence_is_the_single_shared_threshold() {
+        assert_eq!(MIN_COLUMN_RECURRENCE, 3);
     }
 
     #[test]
