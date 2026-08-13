@@ -76,8 +76,8 @@ use crate::existence::{self, FabricationKind};
 use crate::misattribution::RecordingProbe;
 use crate::status;
 use mandible_core::audit::{
-    extract_tag_override, load, parse_verdict_word, save, tag_display, verdict_path, AuditFile,
-    AuditMeta, Entry,
+    extract_tag_override, family_meaning, load, parse_verdict_word, save, tag_display,
+    verdict_path, AuditFile, AuditMeta, Entry,
 };
 use mandible_core::{CommandNode, Flag};
 use mandible_extract::exec::ExecOutput;
@@ -977,6 +977,11 @@ struct StratumTally {
     judged: usize,
     skipped: usize,
     pending: usize,
+    /// Judged `wrong`/`incomplete` entries with [`Entry::is_display_only`]
+    /// true — kept out of `judged` (and therefore out of `accuracy_over`'s
+    /// denominator, spec §13.1c/task #28) but still tallied and printed,
+    /// the same "recorded, not omitted" treatment `skipped` already gets.
+    out_of_scope: usize,
 }
 
 /// The stratum label a report groups `entry` under.
@@ -1013,10 +1018,25 @@ fn effective_stratum(entry: &Entry) -> String {
 /// project actually believes about that tool, and every aggregate number
 /// this instrument reports must reflect that correction, not the
 /// superseded original sitting in the file for history's sake.
+///
+/// **Also skips every [`Entry::is_display_only`] entry, unconditionally,
+/// regardless of which caller's filtered iterator it was handed.** The
+/// maintainer's ruling (task #28) is that a display/rendering-only finding
+/// "[is] not accuracy, ... probably [a] UI rendering issue. parsing was
+/// fine" — it is a real, kept finding (still visible in
+/// [`cmd_report`]'s stratum table and its own out-of-scope line, still a
+/// `wrong`/`incomplete` verdict on disk, still a `[xfail]` fixture), just
+/// never part of what this function is answering. Doing the skip in one
+/// shared place, rather than in each of `cmd_report`'s five call sites,
+/// is what makes "out" mean the same thing in the headline figure, every
+/// K-view, and the per-stratum table all at once.
 fn accuracy_over<'a>(entries: impl Iterator<Item = &'a Entry>) -> (usize, usize) {
     let mut correct = 0usize;
     let mut judged = 0usize;
     for entry in entries {
+        if entry.is_display_only() {
+            continue;
+        }
         match entry.effective_verdict() {
             Some("correct") => {
                 correct += 1;
@@ -1155,6 +1175,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
                 judged: 0,
                 skipped: 0,
                 pending: 0,
+                out_of_scope: 0,
             });
         match entry.effective_verdict() {
             None => tally.pending += 1,
@@ -1163,6 +1184,13 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
                 tally.correct += 1;
                 tally.judged += 1;
             }
+            // A display-only finding is judged (`wrong`/`incomplete`, never
+            // `skip` — see `Entry::is_display_only`'s doc comment on why
+            // `skip` is the wrong tool for this), so it must not fall into
+            // the catch-all `judged` arm below: that is precisely the
+            // count `accuracy_over` also excludes it from. Checked before
+            // the catch-all, not after, so it can never double-count.
+            Some(_) if entry.is_display_only() => tally.out_of_scope += 1,
             Some(_) => tally.judged += 1,
         }
     }
@@ -1173,11 +1201,15 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         file.entries.len()
     );
     println!();
-    println!("stratum             correct/judged   accuracy   95% CI            skipped   pending");
+    println!(
+        "stratum             correct/judged   accuracy   95% CI            skipped   pending   \
+         out-of-scope"
+    );
     let mut overall_correct = 0usize;
     let mut overall_judged = 0usize;
     let mut overall_skipped = 0usize;
     let mut overall_pending = 0usize;
+    let mut overall_out_of_scope = 0usize;
     for (stratum, t) in &by_stratum {
         let (lo, hi) = wilson_interval(t.correct, t.judged);
         let acc = if t.judged == 0 {
@@ -1186,18 +1218,20 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             format!("{:>4.1}%", t.correct as f64 / t.judged as f64 * 100.0)
         };
         println!(
-            "{stratum:<18}  {:>5}/{:<6}  {acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}",
+            "{stratum:<18}  {:>5}/{:<6}  {acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}   {:>12}",
             t.correct,
             t.judged,
             lo * 100.0,
             hi * 100.0,
             t.skipped,
             t.pending,
+            t.out_of_scope,
         );
         overall_correct += t.correct;
         overall_judged += t.judged;
         overall_skipped += t.skipped;
         overall_pending += t.pending;
+        overall_out_of_scope += t.out_of_scope;
     }
     let (lo, hi) = wilson_interval(overall_correct, overall_judged);
     let overall_acc = if overall_judged == 0 {
@@ -1209,7 +1243,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         )
     };
     println!(
-        "{:<18}  {:>5}/{:<6}  {overall_acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}",
+        "{:<18}  {:>5}/{:<6}  {overall_acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}   {:>12}",
         "OVERALL",
         overall_correct,
         overall_judged,
@@ -1217,11 +1251,29 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         hi * 100.0,
         overall_skipped,
         overall_pending,
+        overall_out_of_scope,
     );
     if overall_judged > 0 && overall_judged < 30 {
         println!(
             "\nnote: n={overall_judged} judged so far — the interval above is wide at this size; \
              keep reviewing for a number worth acting on (spec's own target is ~60-100)."
+        );
+    }
+    if overall_out_of_scope > 0 {
+        let mut names: Vec<&str> = file
+            .entries
+            .iter()
+            .filter(|e| e.is_display_only())
+            .map(|e| e.tool.as_str())
+            .collect();
+        names.sort_unstable();
+        println!(
+            "\nnote: {overall_out_of_scope} finding(s) are display-only and are excluded from \
+             every accuracy figure above, not dropped — the maintainer's ruling (task #28) is \
+             that a display/rendering defect is a real finding but not an accuracy one: {}. See \
+             the 'display-only findings (kept, out of scope)' section below for each one's note \
+             in full.",
+            names.join(", "),
         );
     }
     print_wilson_caveat(&file);
@@ -1267,8 +1319,42 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             } else {
                 " [amended]"
             };
+            // Stays in this list — it is still a `wrong`/`incomplete`
+            // verdict on disk and a real finding — but tagged so a reader
+            // scanning "the next bugs" does not mistake a rendering fix
+            // for a parser fix. `accuracy_over` has already excluded it
+            // from every count printed above; this tag is why the two
+            // views (this list and the headline) don't silently disagree
+            // about which tools are counted where.
+            let scope_tag = if entry.is_display_only() {
+                " [display-only, excluded from accuracy — see below]"
+            } else {
+                ""
+            };
             println!(
-                "  {:<24} {:<11} {}{amended_tag}",
+                "  {:<24} {:<11} {}{amended_tag}{scope_tag}",
+                entry.tool,
+                entry.effective_verdict().unwrap_or(""),
+                entry.effective_note(),
+            );
+        }
+    }
+
+    let mut out_of_scope: Vec<&Entry> = file
+        .entries
+        .iter()
+        .filter(|e| e.is_display_only())
+        .collect();
+    out_of_scope.sort_by(|a, b| a.tool.cmp(&b.tool));
+    if !out_of_scope.is_empty() {
+        println!(
+            "\ndisplay-only findings (kept, out of scope — real UI bugs, excluded from accuracy \
+             per the maintainer's task #28 ruling; family meaning: {}):",
+            family_meaning("display-only").unwrap_or("?"),
+        );
+        for entry in out_of_scope {
+            println!(
+                "  {:<24} {:<11} {}",
                 entry.tool,
                 entry.effective_verdict().unwrap_or(""),
                 entry.effective_note(),
@@ -2088,6 +2174,47 @@ mod tests {
         ];
         let (correct, judged) = accuracy_over(entries.iter());
         assert_eq!((correct, judged), (1, 2));
+    }
+
+    /// task #28: a judged defect whose *only* family is `display-only` is
+    /// a real finding (still `wrong`/`incomplete` on disk) that must not
+    /// count toward the accuracy denominator at all — not as judged, and
+    /// certainly not as correct.
+    #[test]
+    fn accuracy_over_excludes_pure_display_only_findings() {
+        let mut display_only = entry("bashbug", Some("incomplete"), None, None);
+        display_only.families = vec!["display-only".to_string()];
+        display_only.families_derived = Some(true);
+        let entries = [
+            entry("a", Some("correct"), None, None),
+            entry("b", Some("wrong"), None, None),
+            display_only,
+        ];
+        let (correct, judged) = accuracy_over(entries.iter());
+        assert_eq!(
+            (correct, judged),
+            (1, 2),
+            "the display-only entry must not appear in either count"
+        );
+    }
+
+    /// The mixed-family case `Entry::is_display_only`'s doc comment warns
+    /// about: a real parse-shape family riding alongside `display-only`
+    /// must NOT get the exclusion. Two true labels do not launder a
+    /// genuine defect out of the denominator — this is the whole reason
+    /// the check is "family set == {display-only}", not "contains
+    /// display-only".
+    #[test]
+    fn accuracy_over_keeps_mixed_family_findings_in_the_denominator() {
+        let mut mixed = entry("tcpdump", Some("wrong"), None, None);
+        mixed.families = vec!["bundled-short-flag".to_string(), "display-only".to_string()];
+        mixed.families_derived = Some(true);
+        assert!(
+            !mixed.is_display_only(),
+            "a second, genuine family must block the exclusion"
+        );
+        let (correct, judged) = accuracy_over(std::iter::once(&mixed));
+        assert_eq!((correct, judged), (0, 1));
     }
 
     #[test]

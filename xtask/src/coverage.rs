@@ -189,6 +189,11 @@ struct Row {
     /// [`Self::bundle_samples`] — capped per row
     /// ([`ALTERNATION_SAMPLES_PER_ROW`]).
     alternation_samples: Vec<String>,
+    /// How many `commands:` tables this row's help text offers whose every
+    /// name is missing from the tree (`crate::commandtable`). Shape A of
+    /// the four-grammar `unparsed-subcommand` split; the other three
+    /// shapes are deliberately not counted here — see that module.
+    command_table_count: usize,
     status: &'static str,
 }
 
@@ -386,6 +391,12 @@ pub struct Aggregate {
     /// Flag spellings those tools lost or mangled, fleet-wide. The recall
     /// number; `alternation_defect_tools` is only the blast radius.
     pub alternation_defect_flags: usize,
+    /// Tools with at least one wholly-unparsed `commands:` table, fleet-
+    /// wide. **Ratcheted at zero** (`detector::ratchet_at_zero`) rather
+    /// than merely reported: the shape is fixed, and the gate is paired
+    /// with the detector's own self-checks so a zero cannot be earned by
+    /// deleting the rule.
+    pub command_table_tools: usize,
 }
 
 /// Output format for the rendered scoreboard.
@@ -599,6 +610,15 @@ fn score_one(tool: &str) -> Row {
             }
             _ => (0, Vec::new()),
         };
+    // Fourth read of the same already-fetched capture, still zero probes
+    // — `crate::commandtable`'s shape is visible in the text the sweep
+    // already has, exactly like the three detectors above.
+    let command_table_count = match (probe.root_help_text(), result.root.as_ref()) {
+        (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+            crate::commandtable::detect(&raw, root).missing.len()
+        }
+        _ => 0,
+    };
 
     Row {
         tool: tool.to_string(),
@@ -622,6 +642,7 @@ fn score_one(tool: &str) -> Row {
         bundle_samples,
         alternation_defect_count,
         alternation_samples,
+        command_table_count,
         status: status.label,
     }
 }
@@ -809,6 +830,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         .filter(|r| r.alternation_defect_count > 0)
         .count();
     let alternation_defect_flags: usize = rows.iter().map(|r| r.alternation_defect_count).sum();
+    let command_table_tools = rows.iter().filter(|r| r.command_table_count > 0).count();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -839,6 +861,7 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         bundle_destroyed_flags,
         alternation_defect_tools,
         alternation_defect_flags,
+        command_table_tools,
     }
 }
 
@@ -1374,7 +1397,7 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -1389,6 +1412,7 @@ fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.bundle_destroyed_flags,
         aggregate.alternation_defect_tools,
         aggregate.alternation_defect_flags,
+        aggregate.command_table_tools,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -1471,6 +1495,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // key, so `--check` against one must still work.
     let mut alternation_defect_tools = 0usize;
     let mut alternation_defect_flags = 0usize;
+    let mut command_table_tools = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -1500,6 +1525,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "bundle_destroyed_flags" => bundle_destroyed_flags = value.parse::<usize>().ok()?,
             "alternation_defect_tools" => alternation_defect_tools = value.parse::<usize>().ok()?,
             "alternation_defect_flags" => alternation_defect_flags = value.parse::<usize>().ok()?,
+            // Absent from a scoreboard written before this key existed,
+            // which parses as 0 — the same value a healthy fleet produces,
+            // so an older baseline stays comparable instead of failing.
+            "command_table_tools" => command_table_tools = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -1528,6 +1557,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         bundle_destroyed_flags,
         alternation_defect_tools,
         alternation_defect_flags,
+        command_table_tools,
     })
 }
 
@@ -1836,6 +1866,7 @@ mod tests {
             tool: tool.to_string(),
             tiers: "help".to_string(),
             framework: "—".to_string(),
+            command_table_count: 0,
             nodes: 1,
             flags,
             describable: flags,

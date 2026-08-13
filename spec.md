@@ -2057,6 +2057,34 @@ is flag data mis-attribution (the same shape `lsof`'s bug was, §13.1); the
 *node's* own prose description is not, because that is a different kind of
 claim this audit is not yet reviewing.
 
+**Display-only findings are excluded from the accuracy denominator, never
+from the record (task #28).** A reviewer's `wrong`/`incomplete` verdict
+sometimes lands on a defect that turns out to be `mandible --review`'s TUI
+mis-rendering a correct extraction — a wrapped usage synopsis, a width
+that goes out of bounds — rather than the parser getting the tree wrong.
+The maintainer's ruling: *"those are not accuracy, those are probably UI
+rendering issue. parsing was fine."* `skip` cannot record this, because
+`skip` means "the reviewer did not judge this tool," which is false here —
+the defect *was* judged, and real. Instead, the `display-only`
+[`mandible_core::audit::DEFECT_FAMILIES`] label (already part of the
+closed family set) marks it, and [`Entry::is_display_only`] is what
+`xtask::audit::accuracy_over` (and every view built on it — the K1/K2/K3
+sensitivity table, every per-stratum row in `audit report`) excludes on:
+the verdict, note, and fixture all stay exactly as recorded, and
+`audit report` prints the excluded findings in their own dedicated
+section plus an `out-of-scope` column per stratum, so the number can never
+go quietly missing.
+
+Like `xtask::detector::Ground::BelowMemberThreshold` a commit earlier this
+week made structural for detector-scope exclusions, this exclusion is not
+claimable by free-text assertion: `display-only` must be an entry's
+*only* family (`validate_families` already requires it come from the
+closed set, carry `families_derived` provenance, and sit only on a judged
+defect) — a genuine parse-shape family riding alongside `display-only` on
+the same entry blocks the exclusion rather than granting it, so two true
+labels can never add up to laundering a real defect out of the
+denominator.
+
 **`audit/<seed>.toml` is tracked.** It is both the sample manifest and the
 verdict record, a verdict written directly onto its own sample entry, so an
 accuracy claim carries its evidence rather than depending on a file that

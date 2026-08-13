@@ -6,6 +6,7 @@
 mod alternation;
 mod audit;
 mod bundling;
+mod commandtable;
 mod corpus;
 mod coverage;
 mod detector;
@@ -1036,15 +1037,19 @@ fn run_coverage(
         // which is the whole difference between a principled exclusion and a
         // gap someone has not got to yet.
         //
-        // So this stays reported until the repeated-prefix usage catalogue
-        // has a grammar of its own, at which point the residual goes to zero
-        // on its own and this can be promoted to `ratchet_at_zero` with no
-        // change to the detector. Gating it at zero *now* would leave only
-        // two ways to get green: narrow the detector until it stops seeing a
-        // real defect, or fabricate a root flag. Both are worse than an
-        // ungated number, and the first is this project's standing rule
-        // inverted (spec §13.1b: a metric with no reachable baseline must not
-        // silently fail a run).
+        // **It is the same `btrfs` the ratchet immediately below excludes as
+        // its own shape C**, which is worth reading as one fact rather than
+        // two coincidences: that catalogue has no grammar, so this detector
+        // cannot place the flags and that one cannot recover the names.
+        // Whichever shape lands first, the other's residual goes to zero for
+        // free, and this block can then be promoted to `ratchet_at_zero`
+        // with no change to the detector.
+        //
+        // Gating it at zero *now* would leave only two ways to get green:
+        // narrow the detector until it stops seeing a real defect, or
+        // fabricate a root flag. Both are worse than an ungated number, and
+        // the first is this project's standing rule inverted (spec §13.1b: a
+        // metric with no reachable baseline must not silently fail a run).
         //
         // The self-checks are still re-run and still printed, because the
         // evidence that the detector is alive is worth having whether or not
@@ -1080,6 +1085,28 @@ fn run_coverage(
                 "brace-alternation-flag's own hand-built evidence no longer holds — its fleet \
                  number above cannot be read at all until that is fixed."
             );
+            regressed = true;
+        }
+        // Same ratchet, same two halves, for shape A of the
+        // `unparsed-subcommand` split (`crate::commandtable`). The fix
+        // landed — `ar` and its four aliases went from 1 node to 9 with no
+        // flag lost anywhere — so this is gated at a literal 0 rather than
+        // against the checked-in scoreboard, for the reason spelled out
+        // above: a baseline the commit can edit is a baseline the commit
+        // can raise. A scoreboard written before `command_table_tools`
+        // existed parses that key as 0, which is exactly what a healthy
+        // fleet reports, so an older baseline stays comparable.
+        //
+        // This gate says nothing about shapes B, C and D — they have no
+        // detector, and `mandible_core::audit`'s family table records that
+        // a zero here does NOT mean `unparsed-subcommand` is finished.
+        let table_ratchet = detector::ratchet_at_zero(
+            detector::find("unparsed-command-table")?.as_ref(),
+            fresh.command_table_tools,
+            0,
+        );
+        println!("\n{}", table_ratchet.report());
+        if !table_ratchet.holds() {
             regressed = true;
         }
         if regressed {

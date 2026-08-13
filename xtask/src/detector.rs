@@ -220,6 +220,21 @@ pub enum Ground {
         constant: &'static str,
         threshold: usize,
     },
+    /// The tool writes its subcommand list in a grammar the detector does
+    /// not read at all.
+    ///
+    /// `entry` is a real line from the tool's own help text — the line a
+    /// reader would point at and say *"there are the subcommands"* — and
+    /// the ground holds only when that line does **not** parse as the
+    /// detector's entry shape. The arithmetic runs the detector's own row
+    /// parser over the witness, so an author who tried to exclude a tool
+    /// the detector really can read would have to supply a line that
+    /// parses, and [`Ground::holds`] would refuse it. `grammar` names the
+    /// shape that was looked for, for the report.
+    UnreadableEntryShape {
+        entry: &'static str,
+        grammar: &'static str,
+    },
 }
 
 impl Ground {
@@ -230,6 +245,9 @@ impl Ground {
             Ground::BelowMemberThreshold { cluster, .. } => {
                 cluster.chars().count().saturating_sub(2)
             }
+            // Not a cluster ground: an unreadable entry shape swallows no
+            // members, and nothing reads this for that variant.
+            Ground::UnreadableEntryShape { .. } => 0,
         }
     }
 
@@ -268,6 +286,23 @@ impl Ground {
                 }
                 Ok(())
             }
+            Ground::UnreadableEntryShape { entry, grammar } => {
+                if entry.trim().is_empty() {
+                    return Err(
+                        "the witness line is empty, so it evidences nothing about the tool's \
+                         entry shape"
+                            .to_string(),
+                    );
+                }
+                if crate::commandtable::parse_entry(entry).is_some() {
+                    return Err(format!(
+                        "witness {entry:?} DOES parse as {grammar} — this tool's entry shape is \
+                         one the detector reads, so a miss on it is a false negative, not an \
+                         exclusion"
+                    ));
+                }
+                Ok(())
+            }
         }
     }
 
@@ -283,6 +318,10 @@ impl Ground {
                 "the real token {cluster:?} swallows {} member(s), below {constant} = {threshold} \
                  — a property of the token's shape, not of the tool",
                 self.swallowed_members()
+            ),
+            Ground::UnreadableEntryShape { entry, grammar } => format!(
+                "the tool's own line {entry:?} is not {grammar} — a property of how this tool \
+                 writes its list, not of the tool"
             ),
         }
     }
@@ -458,6 +497,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(UnparsedArgparsePositional),
         Box::new(BundledShortFlag),
         Box::new(BraceAlternationFlag),
+        Box::new(UnparsedCommandTable),
         Box::new(ExistenceOracle),
         Box::new(MisattributionOracle),
     ]
@@ -698,6 +738,13 @@ impl Detector for BundledShortFlag {
 /// module doc comment for the full argument and `crate::main`'s
 /// `coverage --check` arm for the ungated wiring.
 ///
+/// **`btrfs` is the same tool [`UnparsedCommandTable`] excludes as its own
+/// shape C**, and the two exclusions are one fact seen from two sides: there
+/// is no node for `btrfs device scan` because that catalogue has no grammar
+/// yet, so this detector cannot place the flags and that one cannot recover
+/// the names. Whichever lands first, the other's residual goes to zero for
+/// free.
+///
 /// **Its declared scope names no excluded tool, and that is the honest
 /// answer rather than a missing one.** An [`Exclusion`] converts a blocking
 /// false negative into a named miss, so it may only name a tool the detector
@@ -741,6 +788,91 @@ impl Detector for BraceAlternationFlag {
     }
     fn self_checks(&self) -> Vec<SelfCheck> {
         crate::alternation::self_checks()
+    }
+}
+
+pub(crate) struct UnparsedCommandTable;
+
+/// `unparsed-command-table`'s declared exclusions: the three
+/// `unparsed-subcommand` tools that turned out to write their subcommand
+/// lists in entirely different grammars (see `crate::commandtable`'s module
+/// doc comment for the four-shape breakdown). Each cites a real line from
+/// the tool's own capture, and [`Ground::UnreadableEntryShape`] runs this
+/// detector's row parser over it, so none of the three can be excluded by
+/// assertion.
+const UNPARSED_COMMAND_TABLE_EXCLUSIONS: &[Exclusion] = &[
+    Exclusion {
+        tool: "apt-ftparchive",
+        ground: Ground::UnreadableEntryShape {
+            entry: crate::commandtable::APT_FTPARCHIVE_ENTRY,
+            grammar: crate::commandtable::ENTRY_GRAMMAR,
+        },
+        note: "shape B: the `Commands:` label carries the first entry on its own line and the \
+               rest hang under it by alignment, with no dash column anywhere — a different \
+               recovery problem that shares only the audit label",
+    },
+    Exclusion {
+        tool: "btrfs",
+        ground: Ground::UnreadableEntryShape {
+            entry: crate::commandtable::BTRFS_ENTRY,
+            grammar: crate::commandtable::ENTRY_GRAMMAR,
+        },
+        note: "shape C: no command heading exists at all; the names are recoverable only by \
+               stripping the repeated program name off a catalogue of full usage lines, two \
+               levels deep (`btrfs balance start`)",
+    },
+    Exclusion {
+        tool: "ip",
+        ground: Ground::UnreadableEntryShape {
+            entry: crate::commandtable::IP_ENTRY,
+            grammar: crate::commandtable::ENTRY_GRAMMAR,
+        },
+        note: "shape D: the objects are a brace-delimited, pipe-separated alternation set bound \
+               to a metavariable used in the usage line — and this tool's own corpus contract \
+               tests flags (`-V`, `-s`, `-d`), not subcommands, which is its own evidence that \
+               the `unparsed-subcommand` label is not what is chiefly wrong with it",
+    },
+];
+
+impl Detector for UnparsedCommandTable {
+    fn name(&self) -> &'static str {
+        "unparsed-command-table"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("unparsed-subcommand")
+    }
+    fn describes(&self) -> &'static str {
+        "a dash-separated `<name>  - <description>` command table under a `commands:` heading \
+         whose every name is absent from the tree, because the usage-block scanner joined the \
+         heading and all its rows into one synopsis string"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::commandtable::detect(evidence.raw, evidence.root)
+            .missing
+            .iter()
+            .map(|t| {
+                format!(
+                    "{:?} offers {} command(s) {:?}, none of which reached the tree",
+                    t.heading,
+                    t.names.len(),
+                    t.names
+                )
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "shape A only — a `commands:` heading followed by two or more indented \
+                    `<name>  - <description>` rows (`commandtable::MIN_TABLE_ENTRIES`), with \
+                    none of the names in the tree. The `unparsed-subcommand` label covers four \
+                    unrelated grammars and this detector deliberately reads one of them; the \
+                    other three are named below with a witness line each, because one detector \
+                    loose enough to span all four would be worthless in each",
+            known_exclusions: UNPARSED_COMMAND_TABLE_EXCLUSIONS,
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::commandtable::self_checks()
     }
 }
 
@@ -2058,12 +2190,20 @@ mod tests {
             );
         }
         // vim.basic was confirmed `unparsed-positional` and labelled
-        // accordingly; man-recode's defect is the wrapped usage synopsis,
-        // outside the audit's declared flags/subcommand scope, so it stays
-        // unclassified rather than being labelled on a guess. Still
-        // recorded as such, and not quietly labelled by a later edit.
+        // accordingly. man-recode was left unclassified for a while — its
+        // note confirms all 9 flags parse correctly and the defect is
+        // entirely the wrapped usage synopsis, outside the audit's
+        // declared flags/subcommand scope — but task #28 gave that exact
+        // shape a real closed-set label (`display-only`) rather than
+        // leaving it as an unclassified guess, so man-recode now carries
+        // it and the tracked manifest has nothing left unclassified.
         let unclassified: Vec<&str> = file.unclassified().map(|e| e.tool.as_str()).collect();
-        assert_eq!(unclassified, vec!["man-recode"]);
+        assert_eq!(
+            unclassified,
+            Vec::<&str>::new(),
+            "if this fails because a *different* tool is unclassified, that's a real, new gap — \
+             go label it or investigate; don't just widen this assertion"
+        );
     }
 
     // --- the detectors' own rules ---------------------------------------
@@ -2528,7 +2668,10 @@ mod tests {
             cluster,
             constant,
             threshold,
-        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground;
+        } = BUNDLED_SHORT_FLAG_EXCLUSIONS[0].ground
+        else {
+            panic!("the bundled-short-flag exclusion is a member-threshold ground");
+        };
         assert_eq!(threshold, crate::bundling::MIN_BUNDLED_MEMBERS);
         assert_eq!(constant, "bundling::MIN_BUNDLED_MEMBERS");
         assert_eq!(cluster, crate::bundling::SSH_KEYGEN_CLUSTER);

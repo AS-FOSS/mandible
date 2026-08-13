@@ -326,6 +326,22 @@ pub fn parse_with_profile(
                 if looks_like_flag_start(trimmed_start) {
                     break;
                 }
+                // A section heading ends the usage block no matter how far
+                // it is indented. Indentation alone says "continuation"
+                // here, and for a tool that indents its *whole* body under
+                // the synopsis that answer is wrong for every line after
+                // the first heading: binutils `ar` opens `Usage: ar ...`,
+                // then indents ` commands:` by one space and its eight
+                // command rows by two, so the heading, all eight commands
+                // and the two modifier sections after them were joined
+                // into a single `usage` string and the tree got zero
+                // subcommands. A heading is never an alternative
+                // invocation form, which is the only thing a usage
+                // continuation can be, so its shape — and not its column —
+                // is what has to decide.
+                if is_section_heading_line(trimmed_start) {
+                    break;
+                }
                 // Below the base indent (never above it: `leading_whitespace`
                 // is unsigned, so this also covers "equal to"), indentation
                 // alone can't distinguish a genuine continuation (lsof) from
@@ -985,6 +1001,33 @@ fn looks_like_usage_fragment(t: &str) -> bool {
     matches!(t.as_bytes().first(), Some(b'[') | Some(b'<') | Some(b'{'))
 }
 
+/// Longest label this will accept before a `:` still counts as a section
+/// heading. Real headings are a few words (`command specific modifiers:`,
+/// `Available Commands:`); a long colon-terminated line is prose.
+const MAX_HEADING_LABEL: usize = 60;
+
+/// True if `t` (already trimmed of leading whitespace) is a section
+/// heading: a short, colon-terminated label of plain words.
+///
+/// The plain-words test is what keeps usage grammar out. Every delimiter
+/// the docopt-style synopsis grammar uses (`[`, `<`, `{`, `|`, `=`, `.`)
+/// is excluded from the label, so a wrapped synopsis fragment can never
+/// qualify however it is indented, while ` commands:` and ` generic
+/// modifiers:` both do. The colon must terminate the whole line: a
+/// synopsis carrying an interior colon (`host:port`) is untouched.
+fn is_section_heading_line(t: &str) -> bool {
+    let trimmed = t.trim_end();
+    let Some(label) = trimmed.strip_suffix(':') else {
+        return false;
+    };
+    if label.is_empty() || label.chars().count() > MAX_HEADING_LABEL {
+        return false;
+    }
+    label
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '-' || c == '_')
+}
+
 /// True if `line` looks like a row of a bare-name grid (openssl-style
 /// `--help` output: `asn1parse   ca   ciphers   cmp`) rather than prose or
 /// a flag spec — every column is name-shaped (starts with a letter,
@@ -1310,6 +1353,7 @@ fn emit_subcommands(
         // general (any framework's command list may format this way), not
         // gated on a specific one.
         let name = spec_text.trim().trim_end_matches(':').trim();
+        let name = strip_optional_modifier_suffix(name);
         if name.is_empty() {
             continue;
         }
@@ -1335,6 +1379,42 @@ fn emit_subcommands(
         out.try_push_subcommand(node);
     }
     (seen, clean)
+}
+
+/// Strip trailing bracketed optional-modifier groups from a command entry's
+/// name token: `m[ab]` names the command `m`, `r[ab][f][u]` names `r`.
+///
+/// This is the docopt-style optional-group convention spec §7 Tier B
+/// already names (`[optional]`), applied where a command list uses it to
+/// spell a command *and* the modifier letters it accepts in one token —
+/// binutils `ar` writes its whole operation table that way. Purely
+/// additive: a name carrying `[` can never pass
+/// [`is_command_name_shaped`] as written, so every token this changes the
+/// answer for was being dropped outright.
+///
+/// Returns the input untouched unless the suffix is *entirely* well-formed
+/// `[...]` groups, so a token that merely contains a bracket
+/// (`[a]`, `[l <text> ]`) keeps failing the shape check as before rather
+/// than being trimmed down to something that passes.
+pub fn strip_optional_modifier_suffix(name: &str) -> &str {
+    let Some(open) = name.find('[') else {
+        return name;
+    };
+    if open == 0 {
+        return name;
+    }
+    let mut rest = &name[open..];
+    while let Some(after_open) = rest.strip_prefix('[') {
+        match after_open.find(']') {
+            Some(close) => rest = &after_open[close + 1..],
+            None => return name,
+        }
+    }
+    if rest.is_empty() {
+        &name[..open]
+    } else {
+        name
+    }
 }
 
 /// Route an unrecognized bare-word block into the `choices` of whichever
@@ -1436,6 +1516,20 @@ fn emit_choices(
 /// `-`-leading row at that same indent. A bare-word command table contains
 /// no such row, so it is unaffected — the discriminator stays the `-`
 /// marker, which is self-identifying in a way bare words never are.
+/// True if `line`'s left-hand token can open neither a flag entry nor a
+/// command entry — it starts with a character that is neither a flag
+/// prefix (`-`, `+`) nor the start of a name (alphanumeric).
+///
+/// Such a row is structurally *undecidable*: `[c]`, `[l <text> ]`,
+/// `@<file>` and `<pid>` are not flag spellings and not command names, so
+/// they carry no evidence about which kind of block they sit in.
+fn cannot_open_an_entry(line: &str) -> bool {
+    match line.trim_start().chars().next() {
+        Some(c) => !(c.is_ascii_alphanumeric() || c == '-' || c == '+'),
+        None => true,
+    }
+}
+
 fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
     /// How many non-flag rows may precede the first flag row.
     const MAX_SKIPPED_LEADING_ROWS: usize = 3;
@@ -1458,6 +1552,18 @@ fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
         }
         if looks_like_flag_start(line) {
             return Some(offset);
+        }
+        // A row whose left token could not be *either* kind of entry does
+        // not decide what kind of block this is, so it does not spend the
+        // budget for finding out. binutils `ar` opens its ` generic
+        // modifiers:` block with eight `[c]`/`[l <text> ]`/`@<file>` rows
+        // before the first `--target=BFDNAME`, and charging those eight
+        // against a budget of three lost every long flag in the section.
+        // The guard this budget exists for is untouched: a bare-word
+        // command table's rows *are* possible command names, so they still
+        // charge, and a block of them still never becomes a flags block.
+        if cannot_open_an_entry(line) {
+            continue;
         }
         skipped += 1;
         if skipped > MAX_SKIPPED_LEADING_ROWS {
