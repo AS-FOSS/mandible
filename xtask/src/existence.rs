@@ -207,7 +207,13 @@ fn is_word_char(c: char) -> bool {
 /// word-shaped, which is what lets `--gpg-sign` (the stored, value-
 /// stripped spelling) match against `--gpg-sign[=KID]` (the raw text's
 /// actual spelling) — see this module's doc comment on value stripping.
-fn spelling_occurs(raw: &str, candidate: &str) -> bool {
+///
+/// `pub(crate)` for [`crate::bundling`], which asks the identical question
+/// about a reconstructed spelling (does this exact token occur, delimited,
+/// in the tool's own text?) and would otherwise carry a second, drifting
+/// copy of this boundary rule — the duplication hazard `status.rs`'s own
+/// doc comment names.
+pub(crate) fn spelling_occurs(raw: &str, candidate: &str) -> bool {
     let hay: Vec<char> = raw.chars().collect();
     let needle: Vec<char> = candidate.chars().collect();
     if needle.is_empty() || hay.len() < needle.len() {
