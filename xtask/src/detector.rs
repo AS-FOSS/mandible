@@ -594,7 +594,7 @@ pub fn render(cal: &Calibration, set: &SetSize) -> String {
         return s;
     }
 
-    let row = |label: &str, n: usize| format!("  {label:<44}{n}\n");
+    let row = |label: &str, n: usize| format!("  {label:<46}{n}\n");
     s.push_str(&row(
         "fires on labelled-bad   (true positive)",
         cal.true_positives.len(),
