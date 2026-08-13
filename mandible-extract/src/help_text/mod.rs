@@ -38,6 +38,22 @@ mod sections;
 /// tool — see [`sections::is_man_page_banner`]'s own doc comment.
 pub use sections::is_man_page_banner;
 
+/// Re-exported for `xtask/src/misattribution.rs`: the multi-column-table
+/// vocabulary this tier's own splitter uses to decide what counts as a
+/// flag-shaped token, where a line's cells fall, and what a bare value
+/// placeholder looks like. Same rationale as [`pick_stream`] just above —
+/// `misattribution` once carried its own copy of *that* function and it
+/// drifted silently past a real fix (200 of 656 fleet-wide fabrications,
+/// spec §13.1c's K2 table); these five names are the same hazard; a second
+/// copy of "what is a flag" or "what is a bare cell" would let the oracle
+/// silently stop measuring what this splitter actually does. Only
+/// `fields_in_line` itself is deliberately *not* shared — see the block
+/// comment above [`sections::is_flag_shaped`] in `sections.rs` for why that
+/// one difference is load-bearing rather than an oversight.
+pub use sections::{
+    cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_RECURRENCE,
+};
+
 use crate::errors::ExtractError;
 use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
