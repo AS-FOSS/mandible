@@ -58,46 +58,161 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
     let mut spec = FlagSpec::default();
 
     loop {
-        rest = skip_separators(rest);
-        if rest.is_empty() {
+        // One run of alias spellings: `-p`, `--pid`, `-A, --catenate`.
+        loop {
+            rest = skip_separators(rest);
+            if rest.is_empty() {
+                break;
+            }
+            if let Some((c, tail)) = try_short(rest) {
+                if spec.short.is_none() {
+                    spec.short = Some(c);
+                }
+                rest = tail;
+                continue;
+            }
+            if let Some((name, negatable, tail)) = try_long(rest) {
+                if spec.long.is_none() {
+                    spec.long = Some(name);
+                    spec.negatable = negatable;
+                }
+                rest = tail;
+                continue;
+            }
             break;
         }
-        if let Some((c, tail)) = try_short(rest) {
-            if spec.short.is_none() {
-                spec.short = Some(c);
-            }
-            rest = tail;
-            continue;
+
+        rest = skip_separators(rest);
+        if rest.is_empty() {
+            spec.fully_consumed = true;
+            return spec;
         }
-        if let Some((name, negatable, tail)) = try_long(rest) {
-            if spec.long.is_none() {
-                spec.long = Some(name);
-                spec.negatable = negatable;
-            }
-            rest = tail;
-            continue;
+
+        // Whatever remains is treated as a value spec: `=VALUE`, ` VALUE`,
+        // `[=VALUE]`, `[VALUE]`, or a bare `<value>`/`VALUE` token.
+        let Some((value_name, kind, tail)) = try_value(rest) else {
+            spec.fully_consumed = false;
+            return spec;
+        };
+        // First value wins: a repeated placeholder (`-p PID, --pid PID`)
+        // names one value, once, however many spellings carry it.
+        if spec.value_name.is_none() {
+            spec.value_name = Some(value_name);
+            spec.value_kind = kind;
         }
-        break;
-    }
 
-    rest = skip_separators(rest);
-    if rest.is_empty() {
-        spec.fully_consumed = true;
-        return spec;
+        // ...and the alias list may continue past it. See
+        // [`alias_continues`] for why only an explicit `,`/`|` may resume
+        // the run, and never whitespace alone.
+        let Some(next) = alias_continues(tail) else {
+            spec.fully_consumed = tail.trim().is_empty();
+            return spec;
+        };
+        rest = next;
     }
+}
 
-    // Whatever remains is treated as a value spec: `=VALUE`, ` VALUE`,
-    // `[=VALUE]`, `[VALUE]`, or a bare `<value>`/`VALUE` token.
-    if let Some((value_name, kind, tail)) = try_value(rest) {
-        spec.value_name = Some(value_name);
-        spec.value_kind = kind;
-        rest = tail.trim();
-        spec.fully_consumed = rest.is_empty();
-    } else {
-        spec.fully_consumed = false;
-    }
+// --- the alias list a value spec used to terminate ----------------------
+//
+// A flag-spec fragment is a run of spellings followed by a value spec, and
+// reading it that way is correct for `-o, --output FILE`, where the value
+// really is last. It is wrong for every formatter that repeats the
+// placeholder after each spelling — which is what Python's `argparse` does
+// by default, and what the `sg_*` family does with pipes:
+//
+// ```text
+//   -p PID, --pid PID       trace this PID only        (argparse)
+//   --count=OC|-c OC        OC is overwrite count      (sg_sanitize)
+// ```
+//
+// `try_short` took `-p`, `try_value` took everything after it as one token
+// (`PID,` — the separator rode along), and `--pid` was discarded. A fleet
+// oracle for the defect lives in `xtask/src/dropped_alias.rs`; this is the
+// half that closes it, and the two share their rule deliberately, exactly
+// as `parse_bundled_shorts` shares its five conditions with
+// `xtask/src/bundling.rs`: a detector meant to be ratcheted at zero and a
+// fix meant to reach zero have to agree on what the defect *is*, or the
+// zero means nothing.
+//
+// **The hazard runs the opposite way to the bundle's.** There, a false
+// positive destroyed a correct parse. Here, a false positive *merges two
+// genuinely different flags*, which is worse still: dropping a spelling
+// loses information a user can recover from `--help`, while merging
+// invents an alias the tool does not have, and a user who types it gets an
+// error. Both predicates below are written against that, not against
+// recall.
 
-    spec
+/// True when `c` separates the spellings of one flag rather than belonging
+/// to a value: `,` (argparse, GNU getopt_long, tar) or `|` (the `sg_*`
+/// family, and every synopsis alternation).
+///
+/// Whitespace is deliberately *not* a member. A bare space between two
+/// spellings is already handled by [`skip_separators`], and a wide run of
+/// spaces is the description column — so admitting whitespace here would
+/// turn `--output FILE --other` into an alias claim about two unrelated
+/// flags, which is the fabrication this whole change is written against.
+fn is_alias_separator(c: char) -> bool {
+    c == ',' || c == '|'
+}
+
+/// True when `after_separator` — the text immediately following a `,` or
+/// `|` — really is the next spelling in an alias list.
+///
+/// Two conditions, and the second is the load-bearing one:
+///
+/// 1. A spelling parses there at all ([`try_short`]/[`try_long`]).
+/// 2. **What follows that spelling terminates it.** A `}`/`)`/`]` directly
+///    after means the dash was inside a bracketed *value*, not on the right
+///    of an alias separator: `{a,-b}` is a choice list whose member happens
+///    to start with a dash, and without this condition its `-b` would
+///    become a second spelling of the flag. Real aliases are always
+///    followed by whitespace, end-of-fragment, their own value spec
+///    (`=`/`[`), or another separator.
+fn alias_follows(after_separator: &str) -> bool {
+    let after = after_separator.trim_start_matches(' ');
+    let Some(tail) = try_long(after)
+        .map(|(_, _, t)| t)
+        .or_else(|| try_short(after).map(|(_, t)| t))
+    else {
+        return false;
+    };
+    tail.is_empty() || tail.starts_with([' ', '\t', '=', '[', ',', '|'])
+}
+
+/// True when `before_separator` — the value text taken so far — is
+/// something an alias separator could actually be separating *from*.
+///
+/// A separator sits between two things. Its left side has to be a finished
+/// value placeholder, which means it ends in a word character or in the
+/// closer of a bracketed one (`{java,perl,tcl}`, `<file>`, `[n]`). It is
+/// not enough that a separator is present.
+///
+/// The measured counter-example is `lsof`, whose help writes
+/// `+|-e s  exempt s *RISKY*`: a "plus-or-minus" convention meaning `+e` or
+/// `-e`, which is a third shape this grammar does not model at all. Its `|`
+/// has `+` on the left, so nothing is being separated from a placeholder,
+/// and without this condition `lsof` would gain an `-e` carrying the
+/// literal value `+`. Left alone deliberately — `-e` is a real `lsof` flag
+/// and recovering it is a real gain, but not one this change is entitled to
+/// take as a side effect, and not with a placeholder that is wrong.
+fn separator_has_a_left_operand(before_separator: &str) -> bool {
+    before_separator
+        .chars()
+        .next_back()
+        .is_some_and(|c| c.is_alphanumeric() || c == '_' || matches!(c, '}' | ')' | ']' | '>'))
+}
+
+/// The rest of an alias list continuing past a value spec, or `None`.
+///
+/// `after_value` is the text [`try_value`] left behind. An explicit
+/// separator must be the next non-space character there — a space alone
+/// never resumes the run ([`is_alias_separator`]) — and a whole spelling
+/// must follow it ([`alias_follows`]).
+fn alias_continues(after_value: &str) -> Option<&str> {
+    let s = after_value.trim_start_matches(' ');
+    let separator = s.chars().next().filter(|c| is_alias_separator(*c))?;
+    let rest = &s[separator.len_utf8()..];
+    alias_follows(rest).then(|| rest.trim_start_matches(' '))
 }
 
 /// Rewrite a brace-delimited alternation of flag spellings into the
@@ -236,18 +351,36 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
 
 /// Take one "value token": either an angle/brace-delimited placeholder
 /// (`<value>`, `{a|b|c}`) or a run of non-whitespace characters.
+///
+/// The run also stops at an alias separator that the next spelling follows
+/// ([`alias_follows`]) — the boundary a placeholder shares with the rest of
+/// its alias list when no space separates them. `sg_sanitize`'s real
+/// `--count=OC|-c OC` has no whitespace anywhere in `OC|-c`, so without
+/// this the whole thing became the value and `-c` was lost inside it.
+///
+/// A separator the check rejects is kept, which is the entire reason the
+/// check is `alias_follows` and not merely "a separator is here":
+/// `{java,perl,php,python,ruby,tcl}` carries five commas and is one
+/// placeholder, and `jdeprscan`'s `7|8|9|10|11|12|13|14|15|16|17` carries
+/// ten pipes and is one placeholder.
 fn take_rest_value_token(input: &str) -> (String, &str) {
-    let mut s = input;
+    let s = input;
     if let Some(rest) = s.strip_prefix('<') {
         if let Some(end) = rest.find('>') {
             let name = format!("<{}>", &rest[..end]);
             return (name, &rest[end + 1..]);
         }
     }
-    let end = s.find(char::is_whitespace).unwrap_or(s.len());
-    let name = &s[..end];
-    s = &s[end..];
-    (name.to_string(), s)
+    let end = s
+        .char_indices()
+        .find(|(i, c)| {
+            c.is_whitespace()
+                || (is_alias_separator(*c)
+                    && separator_has_a_left_operand(&s[..*i])
+                    && alias_follows(&s[i + c.len_utf8()..]))
+        })
+        .map_or(s.len(), |(i, _)| i);
+    (s[..end].to_string(), &s[end..])
 }
 
 /// True if `input` (an already-isolated potential flag-spec fragment)
@@ -758,6 +891,157 @@ mod tests {
         let spec = parse_flag_spec("--sparse-version=MAJOR[.MINOR]");
         assert_eq!(spec.long.as_deref(), Some("sparse-version"));
         assert!(spec.value_name.is_some());
+    }
+
+    // --- the alias list a value spec used to terminate -------------------
+
+    /// The family's four `argparse` members, byte-exact from their own
+    /// captures. The placeholder is repeated after the long form, and
+    /// before the fix everything after the short flag became one value
+    /// token (`PID,` — separator and all) while the long form was lost.
+    #[test]
+    fn an_argparse_row_keeps_both_spellings_and_one_clean_value() {
+        for (fragment, short, long, value) in [
+            ("-p PID, --pid PID", 'p', "pid", "PID"),
+            (
+                "-d DURATION, --duration DURATION",
+                'd',
+                "duration",
+                "DURATION",
+            ),
+            ("-M METHOD, --method METHOD", 'M', "method", "METHOD"),
+            (
+                "-C TOP_COUNT, --top-count TOP_COUNT",
+                'C',
+                "top-count",
+                "TOP_COUNT",
+            ),
+            // hand-written shell, lowercase placeholders — no framework
+            ("-t seconds, --timeout seconds", 't', "timeout", "seconds"),
+        ] {
+            let spec = parse_flag_spec(fragment);
+            assert_eq!(spec.short, Some(short), "{fragment}");
+            assert_eq!(spec.long.as_deref(), Some(long), "{fragment}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{fragment}");
+            assert_eq!(spec.value_kind, ValueKind::Required, "{fragment}");
+            assert!(spec.fully_consumed, "{fragment}");
+        }
+    }
+
+    /// `sg_sanitize`'s real rows: the *long* form first, `|` as the
+    /// separator, `=` on one side and a space on the other. There is no
+    /// whitespace anywhere in `OC|-c`, so before the fix the entire thing
+    /// became the placeholder and `-c` was lost inside it.
+    #[test]
+    fn a_pipe_separated_row_recovers_the_short_form_from_inside_the_value() {
+        for (fragment, short, long, value) in [
+            ("--count=OC|-c OC", 'c', "count", "OC"),
+            ("--ipl=LEN|-i LEN", 'i', "ipl", "LEN"),
+            ("--pattern=PF|-p PF", 'p', "pattern", "PF"),
+            ("--timeout=SECS|-t SECS", 't', "timeout", "SECS"),
+        ] {
+            let spec = parse_flag_spec(fragment);
+            assert_eq!(spec.short, Some(short), "{fragment}");
+            assert_eq!(spec.long.as_deref(), Some(long), "{fragment}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{fragment}");
+        }
+    }
+
+    /// `javaflow-bpfcc`'s real choice list: six commas inside one
+    /// placeholder. Only [`alias_follows`] keeps the value from being cut
+    /// at the first of them.
+    #[test]
+    fn commas_inside_a_choice_list_never_end_the_value() {
+        let spec = parse_flag_spec(
+            "-l {java,perl,php,python,ruby,tcl}, --language {java,perl,php,python,ruby,tcl}",
+        );
+        assert_eq!(spec.short, Some('l'));
+        assert_eq!(spec.long.as_deref(), Some("language"));
+        assert_eq!(
+            spec.value_name.as_deref(),
+            Some("{java,perl,php,python,ruby,tcl}")
+        );
+    }
+
+    /// The false-positive side, which is the side that matters: merging two
+    /// genuinely different flags invents an alias the tool does not have.
+    /// Every one of these carries a separator and must still yield one
+    /// placeholder and no second spelling.
+    #[test]
+    fn a_separator_inside_a_value_never_becomes_an_alias() {
+        for (fragment, value) in [
+            // jdeprscan's real --release: ten pipes, all followed by digits
+            (
+                "--release 7|8|9|10|11|12|13|14|15|16|17",
+                "7|8|9|10|11|12|13|14|15|16|17",
+            ),
+            ("--format json|yaml|table", "json|yaml|table"),
+            ("--color always|never|auto", "always|never|auto"),
+            // a choice list whose member starts with a dash
+            ("--sign {a,-b}", "{a,-b}"),
+            ("--sign {-1,0,1}", "{-1,0,1}"),
+        ] {
+            let spec = parse_flag_spec(fragment);
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{fragment}");
+            assert_eq!(spec.short, None, "{fragment} must not gain a short");
+        }
+    }
+
+    /// Whitespace alone never resumes an alias run — only an explicit
+    /// `,`/`|` does. Without this, two unrelated flags written next to each
+    /// other in a synopsis would merge into one.
+    #[test]
+    fn whitespace_alone_never_resumes_an_alias_run() {
+        let spec = parse_flag_spec("--output FILE --other");
+        assert_eq!(spec.long.as_deref(), Some("output"));
+        assert_eq!(spec.value_name.as_deref(), Some("FILE"));
+        assert!(
+            !spec.fully_consumed,
+            "the trailing --other is unconsumed, not an alias"
+        );
+    }
+
+    /// `lsof`'s real plus-or-minus convention, byte-exact: `+|-e s` means
+    /// `+e` or `-e`, a third shape this grammar does not model. Its `|` has
+    /// `+` on its left, which is not a finished placeholder, so
+    /// [`separator_has_a_left_operand`] leaves the token alone rather than
+    /// recovering `-e` with a literal `+` as its value.
+    #[test]
+    fn lsofs_plus_or_minus_token_is_left_alone() {
+        assert!(!separator_has_a_left_operand("+"));
+        let spec = parse_flag_spec("+|-e s");
+        assert_eq!(spec.short, None);
+        assert_eq!(spec.long, None);
+    }
+
+    /// The alias run still stops where it always did when nothing follows
+    /// the separator but prose or another line.
+    #[test]
+    fn a_separator_with_no_spelling_after_it_ends_the_run() {
+        for fragment in ["--format FMT,", "--format FMT|", "-o, --output FILE"] {
+            let spec = parse_flag_spec(fragment);
+            assert!(
+                spec.value_name.is_some() || spec.long.is_some(),
+                "{fragment}"
+            );
+        }
+        // `-o, --output FILE` is the shape that always worked; it must be
+        // untouched by any of this.
+        let spec = parse_flag_spec("-o, --output FILE");
+        assert_eq!(spec.short, Some('o'));
+        assert_eq!(spec.long.as_deref(), Some("output"));
+        assert_eq!(spec.value_name.as_deref(), Some("FILE"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// `tar`'s real multi-alias row with a value on each: the first long
+    /// name still wins and the placeholder no longer carries the separator.
+    #[test]
+    fn tars_repeated_long_alias_row_keeps_one_clean_value() {
+        let spec = parse_flag_spec("-F, --info-script=NAME, --new-volume-script=NAME");
+        assert_eq!(spec.short, Some('F'));
+        assert_eq!(spec.long.as_deref(), Some("info-script"));
+        assert_eq!(spec.value_name.as_deref(), Some("NAME"));
     }
 
     #[test]

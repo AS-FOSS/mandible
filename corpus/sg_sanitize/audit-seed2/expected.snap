@@ -1,0 +1,145 @@
+name: sg_sanitize
+usage:
+- 'Usage: sg_sanitize [--ause] [--block] [--count=OC] [--crypto] [--dry-run] [--early] [--fail] [--help] [--invert] [--ipl=LEN] [--overwrite] [--pattern=PF] [--quick] [--test=TE] [--timeout=SECS] [--verbose] [--version] [--wait] [--zero] [--znr] DEVICE where:'
+flags:
+- short: 'A'
+  long: ause
+  description: set AUSE bit in cdb
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: block
+  description: do BLOCK ERASE sanitize
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: count
+  value_name: OC
+  value_kind: Required
+  description: OC is overwrite count field (from 1 (def) to 31)
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: crypto
+  description: do CRYPTOGRAPHIC ERASE sanitize
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: desc
+  description: 'polling request sense sets ''desc'' field (def: clear ''desc'' field)'
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: dry-run
+  description: to preparation but bypass SANITIZE commnd
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  long: early
+  description: exit once sanitize started (IMMED set in cdb) user can monitor progress with REQUEST SENSE
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  long: fail
+  description: do EXIT FAILURE MODE sanitize
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: print out usage message
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: invert
+  description: set INVERT bit in OVERWRITE parameter list
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: ipl
+  value_name: LEN
+  value_kind: Required
+  description: initialization pattern length (in bytes)
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  long: overwrite
+  description: do OVERWRITE sanitize
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: pattern
+  value_name: PF
+  value_kind: Required
+  description: PF is file containing initialization pattern for OVERWRITE
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  long: quick
+  description: start sanitize without pause for user intervention (i.e. no time to reconsider)
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  long: test
+  value_name: TE
+  value_kind: Required
+  description: 'TE is placed in TEST field of OVERWRITE parameter list (def: 0)'
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: timeout
+  value_name: SECS
+  value_kind: Required
+  description: SANITIZE command timeout in seconds
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: increase verbosity
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: print version string then exit
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  long: wait
+  description: wait for command to finish (could take hours)
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  long: zero
+  description: use pattern of zeros for OVERWRITE
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  long: znr
+  description: set ZNR (zone no reset) bit in cdb
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

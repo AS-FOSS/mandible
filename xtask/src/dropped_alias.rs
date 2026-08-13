@@ -25,8 +25,18 @@
 //! exactly why the defect is invisible from a summary count: the tool's
 //! *other* flags are fine.
 //!
-//! Five real examples from `audit/2.toml`'s seed-2 human review, all seven
-//! of them labelled `dropped-alias`, five of them this module's:
+//! # The labelled family, and what survived reading all of it
+//!
+//! `audit/2.toml` labels seven tools `dropped-alias`. **Six, after `eqn`:**
+//! `eqn`'s `{-v | --version}` is a brace alternation, not an interrupted
+//! alias list — the spelling is lost because the synopsis tokenizer never
+//! opens the group, and the same alternation rule that recovers it also
+//! recovers `cache_restore`'s `{-i|--input} <file>` and `xfs_io`'s
+//! `[[-c|-C] cmd]...`, neither of which has a value spec anywhere near it.
+//! That label is an error in the manifest; it is reported (see this
+//! detector's declared exclusions) rather than corrected here.
+//!
+//! Of the six, **five are this module's and one is not**:
 //!
 //! | tool | raw fragment | parsed as | alias lost |
 //! |---|---|---|---|
@@ -35,6 +45,36 @@
 //! | `javaflow-bpfcc` | `-M METHOD, --method METHOD` | `-M` + value `METHOD,` | `--method` |
 //! | `rubyobjnew-bpfcc` | `-C TOP_COUNT, --top-count TOP_COUNT` | `-C` + value `TOP_COUNT,` | `--top-count` |
 //! | `sg_sanitize` | `--count=OC|-c OC` | `--count` + value `OC\|-c` | `-c` |
+//!
+//! `jdeprscan` is the sixth and is two further shapes, both declared out of
+//! scope below.
+//!
+//! # Is this one generator's quirk? No — three, and that is the evidence
+//!
+//! Four of the five are `bpfcc` tools, and four tools sharing one generator
+//! would be one shape wearing four names, not a family. They are not the
+//! whole evidence:
+//!
+//! * **Python `argparse`** (`filegone-bpfcc`, `gethostlatency-bpfcc`,
+//!   `javaflow-bpfcc`, `rubyobjnew-bpfcc`) — short first, `, ` separator,
+//!   placeholder repeated verbatim after the long form.
+//! * **`sg3_utils`' hand-written C** (`sg_sanitize`) — *long* first, `|`
+//!   separator, `=` joiner on the long side and a space on the short side.
+//!   The separator ends up *inside* the stored placeholder rather than
+//!   after it, which is why this module has two arms.
+//! * **Hand-written shell** (`iptables-apply`, `ip6tables-apply`) —
+//!   lowercase placeholders (`-t seconds, --timeout seconds`), no
+//!   framework anywhere near it.
+//!
+//! Those last two are not labelled members: they are among **four tools a
+//! human judged `correct` that this detector fires on**, alongside
+//! `apport-cli` and `compactsnoop-bpfcc`. All four were checked by hand
+//! against their own frozen bytes and all four are genuine — `iptables-apply`
+//! documents `-t seconds, --timeout seconds` and its tree carries `-t` with
+//! the placeholder `seconds,` and no `--timeout` at all. They are the
+//! strongest evidence the family is real and cross-generator, and they are
+//! also why nothing here may be narrowed to fit the labels: the rows are
+//! the same shape, so excluding them would be per-tool logic.
 //!
 //! # Two arms, because the grammar draws the value boundary in two places
 //!
@@ -106,14 +146,14 @@
 //!
 //! # What it deliberately does not catch
 //!
-//! Two of the seven labelled tools, both named in [`Detector::scope`] with a
+//! Two of the labelled tools, both named in [`Detector::scope`] with a
 //! structural [`crate::detector::Ground`] rather than left to look like
 //! recall:
 //!
-//! * **`eqn`'s `{-v | --version}`** — the alias separator is inside a brace
-//!   alternation group, which the manifest labels as its own family
-//!   (`brace-alternation-flag`). Nothing about it is an interrupted value
-//!   spec; the synopsis tokenizer never opened the group at all.
+//! * **`eqn`'s `{-v | --version}`** — the mislabel above. The separator is
+//!   inside a brace alternation group, which the manifest labels as its own
+//!   family (`brace-alternation-flag`). Nothing about it is an interrupted
+//!   value spec; the synopsis tokenizer never opened the group at all.
 //! * **`jdeprscan`'s `-l    --list`** — the two spellings are separated by a
 //!   four-space run, which is the layout splitter's own description-column
 //!   boundary. The two never arrive at the flag-spec grammar as one
@@ -157,15 +197,19 @@ pub struct DroppedAlias {
 }
 
 /// The result of analyzing one tool.
+///
+/// Deliberately no `drop_count()` convenience and **no scoreboard column
+/// yet**. [`crate::bundling`] earned its gated `bundle` column by first
+/// measuring the defect fleet-wide (58 tools, 465 destroyed flags) and then
+/// measuring it again at zero; spec §13.1b is explicit that a metric with
+/// no measured baseline must not silently fail a run the first time it is
+/// computed. On the machine this was written on, a full-`PATH` sweep cannot
+/// complete — a probed tool trips the pty canary by binding a port, which
+/// namespace containment does not cover — so this family has no fleet
+/// baseline and there is nothing honest to ratchet against. The detector
+/// stands on its calibration and its self-checks until one exists.
 pub struct AliasReport {
     pub drops: Vec<DroppedAlias>,
-}
-
-impl AliasReport {
-    /// How many documented spellings this tool lost.
-    pub fn drop_count(&self) -> usize {
-        self.drops.len()
-    }
 }
 
 /// `token` as a whole flag spelling and nothing else — `--long-name` or
@@ -605,7 +649,7 @@ mod tests {
                 ],
             ),
         );
-        assert_eq!(report.drop_count(), 1);
+        assert_eq!(report.drops.len(), 1);
         assert_eq!(report.drops[0].kept, "-p");
         assert_eq!(report.drops[0].dropped, "--pid");
         assert_eq!(report.drops[0].witness, "-p PID, --pid");
@@ -620,7 +664,7 @@ mod tests {
                 vec![row_flag(None, Some("count"), Some("OC|-c"))],
             ),
         );
-        assert_eq!(report.drop_count(), 1);
+        assert_eq!(report.drops.len(), 1);
         assert_eq!(report.drops[0].kept, "--count");
         assert_eq!(report.drops[0].dropped, "-c");
     }
@@ -636,7 +680,7 @@ mod tests {
                 vec![row_flag(Some('p'), Some("pid"), Some("PID"))],
             ),
         );
-        assert_eq!(report.drop_count(), 0);
+        assert_eq!(report.drops.len(), 0);
     }
 
     /// A separator is not evidence on its own — what follows it is.
@@ -654,7 +698,7 @@ mod tests {
                 &raw,
                 &tree("t", vec![row_flag(None, Some("opt"), Some(value))]),
             );
-            assert_eq!(report.drop_count(), 0, "{value} must not fire");
+            assert_eq!(report.drops.len(), 0, "{value} must not fire");
         }
     }
 
@@ -667,7 +711,7 @@ mod tests {
             raw,
             &tree("t", vec![row_flag(None, Some("format"), Some("FMT"))]),
         );
-        assert_eq!(report.drop_count(), 0);
+        assert_eq!(report.drops.len(), 0);
     }
 
     /// A flag with no value spec has no interrupted alias list, whatever
@@ -680,7 +724,7 @@ mod tests {
             raw,
             &tree("jdeprscan", vec![row_flag(Some('l'), None, None)]),
         );
-        assert_eq!(report.drop_count(), 0);
+        assert_eq!(report.drops.len(), 0);
     }
 
     /// The anchor has to be the tool's own text, not merely fields that
@@ -692,7 +736,7 @@ mod tests {
             raw,
             &tree("t", vec![row_flag(Some('p'), None, Some("PID,"))]),
         );
-        assert_eq!(report.drop_count(), 0);
+        assert_eq!(report.drops.len(), 0);
     }
 
     /// An alias on the *next* line is not this flag's alias: only spaces
@@ -704,7 +748,7 @@ mod tests {
             raw,
             &tree("t", vec![row_flag(Some('p'), None, Some("PID,"))]),
         );
-        assert_eq!(report.drop_count(), 0);
+        assert_eq!(report.drops.len(), 0);
     }
 
     #[test]

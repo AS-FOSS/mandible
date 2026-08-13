@@ -22,6 +22,7 @@ expected_framework = "argparse"
 # --top-size are all currently absent.
 must_contain_flags = ["--language", "--top-count", "--top-size"]
 
-[xfail]
-broken = true
-reason = "missing positinal arguments, i think we never taken those into account"
+# NOTE: as with javaflow-bpfcc, the reviewer's note is about the dropped
+# `pid`/`interval` POSITIONALS, which remain unfixed (`unparsed-positional`
+# is a different family). What this fixture asserts, and what was repaired,
+# is the dropped-alias defect above.

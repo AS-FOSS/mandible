@@ -1050,10 +1050,15 @@ const DROPPED_ALIAS_EXCLUSIONS: &[Exclusion] = &[
             token: crate::dropped_alias::EQN_VERSION_GROUP,
             family: "brace-alternation-flag",
         },
-        note: "the reviewer's own anchor case for this family, and a real member of it — but its \
-               mechanism is the brace group, not an interrupted value spec, and the manifest \
-               already carries a separate family for exactly that. Claiming it here would let \
-               this detector's fleet count stand in for two different fixes",
+        note: "A MISLABEL IN THE MANIFEST, reported rather than amended here: `eqn` carries \
+               `dropped-alias` and its shape is brace alternation, which the manifest already \
+               has a family for. The two are not the same defect — a brace group loses the \
+               spelling because the tokenizer never opens the group, not because a value spec \
+               interrupted an alias list — and the same alternation rule closes `cache_restore`'s \
+               `{-i|--input} <file>` and `xfs_io`'s `[[-c|-C] cmd]...` too, neither of which has \
+               a value spec in the way. Claiming it here would let this detector's fleet count \
+               stand in for a fix it did not make, and makes this family look one tool bigger \
+               than it is",
     },
     Exclusion {
         tool: "jdeprscan",

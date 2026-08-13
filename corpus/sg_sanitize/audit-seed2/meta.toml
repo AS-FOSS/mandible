@@ -14,12 +14,16 @@ stderr = "help.stderr.txt"
 
 [contract]
 expected_framework = "generic"
-# Confirms the reviewer's own suspicion: "--count=OC|-c OC" becomes
-# long='count', value_name='OC|-c' (the pipe and short alias leak
-# literally into the value placeholder) with no `short` field set at all
-# — "-c" is not recognized as its own flag identity.
+# Confirmed the reviewer's own suspicion, and it is now fixed.
+# "--count=OC|-c OC" used to become long='count', value_name='OC|-c' —
+# the pipe and the whole short alias leaked literally into the value
+# placeholder — with no `short` set at all. This is the family's second
+# arm: unlike argparse's "-p PID, --pid PID" there is no whitespace
+# anywhere in "OC|-c", so the separator was swallowed INTO the
+# placeholder rather than left beside it. Now short='c', long='count',
+# value_name='OC'. Promoted out of [xfail].
+#
+# The same row is why the fix is not a per-generator rule: sg3_utils
+# writes the long form first, uses `|`, and joins with `=` on one side
+# and a space on the other, and argparse does none of those things.
 must_contain_flags = ["-c"]
-
-[xfail]
-broken = true
-reason = "close enough, verify if this '--count OC|-c OC' getting parsed into this is correct: '--count OC|c'"

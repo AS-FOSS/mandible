@@ -681,7 +681,7 @@ flags:
         - help-text
   - short: F
     long: info-script
-    value_name: "NAME,"
+    value_name: NAME
     value_kind: Required
     group: "Device selection and switching:"
     description: run script at end of each tape (implies -M)
@@ -906,7 +906,7 @@ flags:
         - help-text
   - short: N
     long: newer
-    value_name: "DATE-OR-FILE,"
+    value_name: DATE-OR-FILE
     value_kind: Required
     group: "Local file selection:"
     description: only store files newer than DATE-OR-FILE
@@ -943,7 +943,7 @@ flags:
       sources:
         - help-text
   - long: transform
-    value_name: "EXPRESSION,"
+    value_name: EXPRESSION
     value_kind: Required
     group: "File name transformations:"
     description: use sed replace EXPRESSION to transform file names
@@ -1136,5 +1136,5 @@ detected_framework: GNU argp/getopt_long
 provenance:
   sources:
     - help-text
-  confidence: 0.96
+  confidence: 0.98
 children_filled: true

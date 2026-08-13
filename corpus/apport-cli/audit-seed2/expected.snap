@@ -21,28 +21,32 @@ flags:
     sources:
     - help-text
 - short: 'u'
-  value_name: UPDATE_REPORT,
+  long: update-bug
+  value_name: UPDATE_REPORT
   value_kind: Required
   description: Start in bug updating mode. Can take an optional --package.
   provenance:
     sources:
     - help-text
 - short: 's'
-  value_name: SYMPTOM,
+  long: symptom
+  value_name: SYMPTOM
   value_kind: Required
   description: File a bug report about a symptom. (Implied if symptom name is given as only argument.)
   provenance:
     sources:
     - help-text
 - short: 'p'
-  value_name: PACKAGE,
+  long: package
+  value_name: PACKAGE
   value_kind: Required
   description: Specify package name in --file-bug mode. This is optional if a --pid is specified. (Implied if package name is given as only argument.)
   provenance:
     sources:
     - help-text
 - short: 'P'
-  value_name: PID,
+  long: pid
+  value_name: PID
   value_kind: Required
   description: Specify a running program in --file-bug mode. If this is specified, the bug report will contain more information. (Implied if pid is given as only argument.)
   provenance:
@@ -54,7 +58,8 @@ flags:
     sources:
     - help-text
 - short: 'c'
-  value_name: PATH,
+  long: crash-file
+  value_name: PATH
   value_kind: Required
   description: Report the crash from given .apport or .crash file instead of the pending ones in /var/crash. (Implied if file is given as only argument.)
   provenance:
@@ -84,5 +89,5 @@ detected_framework: argparse
 provenance:
   sources:
   - help-text
-  confidence: 0.58
+  confidence: 1.0
 children_filled: true

@@ -13,11 +13,10 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "argparse"
-# "-p PID, --pid PID  trace this PID only" — verified this becomes
-# short='p', value_name='PID,' (trailing comma bled in from the raw text)
-# with no `long` set at all; "--pid" is dropped entirely.
+# "-p PID, --pid PID  trace this PID only" — the dropped-alias defect:
+# this used to become short='p', value_name='PID,' (the alias separator
+# bled into the placeholder) with no `long` set at all, and "--pid" was
+# dropped entirely. `grammar::alias_continues` now resumes the alias run
+# past the value spec, so the row yields short='p', long='pid',
+# value_name='PID'. Promoted out of [xfail].
 must_contain_flags = ["--pid"]
-
-[xfail]
-broken = true
-reason = "detected -p, but not optional --pid"
