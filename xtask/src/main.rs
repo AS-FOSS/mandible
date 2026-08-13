@@ -11,7 +11,9 @@ mod detector;
 mod existence;
 mod misattribution;
 mod queue;
+mod repeated_char;
 mod rng;
+mod single_dash_long;
 mod status;
 mod transition;
 
