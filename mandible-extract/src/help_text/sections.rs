@@ -3411,6 +3411,126 @@ mod tests {
         assert_eq!(git_dir.value_kind, mandible_core::ValueKind::Required);
     }
 
+    /// The bundled-short-flag collapse, end to end through `parse`:
+    /// `tmux`'s real synopsis line, byte-exact. Its `[-2CDlNuVv]` must
+    /// become eight boolean switches, and the five genuine value-taking
+    /// short flags sharing the same physical line must be untouched — the
+    /// only thing separating them from the cluster is a space, so this
+    /// asserts both halves together or it asserts nothing useful.
+    #[test]
+    fn a_synopsis_short_flag_cluster_becomes_one_flag_per_member() {
+        let raw = "usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name]\n            [-S socket-path] [-T features] [command [flags]]\n";
+        let parsed = parse(raw);
+        for member in "2CDlNuVv".chars() {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(member))
+                .unwrap_or_else(|| panic!("-{member} missing from {:?}", parsed.flags));
+            assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
+            assert_eq!(
+                flag.value_kind,
+                mandible_core::ValueKind::None,
+                "-{member} takes no value"
+            );
+            assert_eq!(flag.long, None);
+            assert!(flag.description.is_none(), "a usage line describes nothing");
+        }
+        for (short, value) in [
+            ('c', "shell-command"),
+            ('f', "file"),
+            ('L', "socket-name"),
+            ('S', "socket-path"),
+            ('T', "features"),
+        ] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| panic!("-{short} missing from {:?}", parsed.flags));
+            assert_eq!(flag.value_name.as_deref(), Some(value));
+            assert_eq!(flag.value_kind, mandible_core::ValueKind::Required);
+        }
+    }
+
+    /// The counterweight, and the reason the cluster question is asked on
+    /// the *synopsis* path only: `filefrag`'s real usage line carries a
+    /// cluster and a glued value spec side by side. `[-b{blocksize}[KMG]]`
+    /// is synopsis-sourced and glued exactly like the cluster is, and must
+    /// stay one valued flag.
+    #[test]
+    fn a_glued_value_spec_beside_a_cluster_stays_one_flag() {
+        let raw = "Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...\n";
+        let parsed = parse(raw);
+        let b = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('b'))
+            .expect("-b recovered");
+        assert_eq!(b.value_name.as_deref(), Some("{blocksize}[KMG]"));
+        for member in "BeEksvxX".chars() {
+            assert!(
+                parsed.flags.iter().any(|f| f.short == Some(member)),
+                "-{member} missing from {:?}",
+                parsed.flags
+            );
+        }
+    }
+
+    /// An option-*table* row of the identical shape is the GCC/Clang
+    /// single-dash convention and is genuinely one flag with a glued
+    /// value. Only the synopsis path splits, so a described row keeps its
+    /// description and its value — splitting it would destroy thousands of
+    /// correct fleet-wide parses to fix 58 tools.
+    #[test]
+    fn an_options_block_row_of_the_same_shape_is_never_split() {
+        let raw = "Options:\n  -Zscript      run a script\n  -DMACRO       define a macro\n";
+        let parsed = parse(raw);
+        let z = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('Z'))
+            .expect("-Zscript recovered");
+        assert_eq!(z.value_name.as_deref(), Some("script"));
+        assert!(
+            !parsed.flags.iter().any(|f| f.short == Some('s')),
+            "-Zscript must not have been split: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// A cluster in a synopsis whose members are *also* documented in an
+    /// options block must not double-count: `flag_spelling_already_present`
+    /// already drops a usage-derived duplicate, and expansion feeds it one
+    /// candidate per member rather than one for the whole cluster. `od`'s
+    /// real shape — a bundle in the usage line, the same switches described
+    /// in a table below it.
+    #[test]
+    fn cluster_members_already_described_in_a_block_are_not_added_twice() {
+        let raw = "Usage: od [-abcdfilosx]... [FILE]...\n\nOptions:\n  -a    named characters\n  -b    octal bytes\n";
+        let parsed = parse(raw);
+        for member in ['a', 'b'] {
+            let matches: Vec<&Flag> = parsed
+                .flags
+                .iter()
+                .filter(|f| f.short == Some(member))
+                .collect();
+            assert_eq!(matches.len(), 1, "-{member}: {matches:?}");
+            assert!(
+                matches[0].description.is_some(),
+                "-{member} must keep the described version"
+            );
+        }
+        // ...and the members the table never described are still recovered.
+        for member in ['c', 'd', 'f', 'i', 'l', 'o', 's', 'x'] {
+            assert!(
+                parsed.flags.iter().any(|f| f.short == Some(member)),
+                "-{member} missing from {:?}",
+                parsed.flags
+            );
+        }
+    }
+
     /// Do-not-double-count: a flag documented in *both* the usage synopsis
     /// and an `Options:` block must collapse to one entry, with the
     /// described version's fields — never two `Flag`s for the same
