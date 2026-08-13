@@ -169,7 +169,6 @@ note = "it shows almost everything correctly, but there is an optional -v and --
 k1 = true
 families = [
     "bundled-short-flag",
-    "dropped-alias",
     "brace-alternation-flag",
 ]
 families_derived = true
@@ -728,7 +727,7 @@ note = "singe dash issue + missing -c and -C, see the original text"
 k1 = true
 families = [
     "bundled-short-flag",
-    "unparsed-flag",
+    "brace-alternation-flag",
 ]
 families_derived = true
 
