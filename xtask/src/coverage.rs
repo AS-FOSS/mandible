@@ -11,6 +11,7 @@
 //! scoreboard, plus a `--format markdown` mode the framework-support CI
 //! workflow (batch 6 part 6, spec §13.1a) consumes.
 
+use crate::bundling;
 use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
 use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
@@ -63,6 +64,11 @@ pub(crate) const MISATTR_COL_WIDTH: usize = 9;
 /// same reasoning for why the width lives here rather than local to
 /// [`render_text`]).
 pub(crate) const EXISTENCE_COL_WIDTH: usize = 6;
+/// Fixed display width for the right-aligned `bundle` column
+/// ([`crate::bundling`] — the bundled-short-flag collapse count, the third
+/// oracle's own per-tool number), same reasoning for why the width lives
+/// here rather than local to [`render_text`].
+pub(crate) const BUNDLE_COL_WIDTH: usize = 7;
 
 /// One tool's row in the scoreboard.
 struct Row {
@@ -155,6 +161,24 @@ struct Row {
     /// [`Self::misattribution_samples`] — capped per row
     /// ([`EXISTENCE_SAMPLES_PER_ROW`]).
     existence_samples: Vec<String>,
+    /// [`crate::bundling`]'s own measurement: count of this tool's synopsis
+    /// flag clusters (`[-2CDlNuVv]`) read as one value-taking flag instead
+    /// of the several boolean flags they name. **Not gated**, same
+    /// reasoning as the two counts above: a brand-new detector with no
+    /// fleet-wide baseline must not fail a build the first time it runs
+    /// (spec §13.1b).
+    bundle_collapse_count: usize,
+    /// How many real flags this row's collapses destroyed — every cluster
+    /// member after the first. Carried separately from
+    /// `bundle_collapse_count` because the two answer different questions
+    /// and differ by more than an order of magnitude on a single tool:
+    /// `tcpdump` is *one* collapse and *25* destroyed flags, so a count of
+    /// collapses alone says nothing about how much recall the defect costs.
+    bundle_destroyed_flags: usize,
+    /// A few of this row's own collapses, pre-formatted, mirroring
+    /// [`Self::existence_samples`] — capped per row
+    /// ([`BUNDLE_SAMPLES_PER_ROW`]).
+    bundle_samples: Vec<String>,
     status: &'static str,
 }
 
@@ -183,6 +207,15 @@ const EXISTENCE_SAMPLES_PER_ROW: usize = 3;
 /// `# existence-fabrications (sample)` section prints — mirrors
 /// [`MISATTRIBUTION_SAMPLE_LIMIT`]'s reasoning exactly.
 const EXISTENCE_SAMPLE_LIMIT: usize = 20;
+
+/// Cap on how many of one tool's own [`crate::bundling`] collapses feed the
+/// fleet-wide sample section — mirrors [`EXISTENCE_SAMPLES_PER_ROW`].
+const BUNDLE_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on the total number of sample lines the fleet-wide
+/// `# bundled-short-flag collapses (sample)` section prints — mirrors
+/// [`EXISTENCE_SAMPLE_LIMIT`].
+const BUNDLE_SAMPLE_LIMIT: usize = 20;
 
 /// Aggregate stats. `pct_flags_with_text`, `no_tier_count`, and
 /// `suspicious_count` are the regression gate (spec §13.1: "may not
@@ -304,6 +337,21 @@ pub struct Aggregate {
     /// with no fleet-wide baseline must not fail a build the first time it
     /// runs (spec §13.1b).
     pub existence_fabrication_tools: usize,
+    /// Tools with at least one [`crate::bundling`] collapse — a synopsis
+    /// cluster of bundled single-character switches (`[-2CDlNuVv]`) parsed
+    /// as one flag carrying the rest as a required value. The third oracle,
+    /// and the one the other two are structurally blind to: a collapsed
+    /// `-2` *is* attested by [`Self::existence_fabrication_tools`]'s check
+    /// (it occurs, literally, in the raw text) and carries no description
+    /// for [`Self::misattribution_suspect_tools`]'s to misjudge, while the
+    /// parse is badly wrong. **Not gated**, same reasoning as both:
+    /// a brand-new detector with no fleet-wide baseline must not fail a
+    /// build the first time it runs (spec §13.1b).
+    pub bundle_collapse_tools: usize,
+    /// Real flags destroyed by those collapses, fleet-wide — every cluster
+    /// member after the first. This is the recall number;
+    /// `bundle_collapse_tools` is only the blast radius.
+    pub bundle_destroyed_flags: usize,
 }
 
 /// Output format for the rendered scoreboard.
@@ -479,6 +527,29 @@ fn score_one(tool: &str) -> Row {
             _ => (0, Vec::new()),
         };
 
+    // Third read of the same already-fetched capture, still zero probes —
+    // see [`crate::bundling`]'s doc comment on why this detector needs no
+    // new argv at all: the collapse is visible in the text the sweep
+    // already has.
+    let (bundle_collapse_count, bundle_destroyed_flags, bundle_samples) =
+        match (probe.root_help_text(), result.root.as_ref()) {
+            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
+                let report = bundling::detect(&raw, root);
+                let samples = report
+                    .collapses
+                    .iter()
+                    .take(BUNDLE_SAMPLES_PER_ROW)
+                    .map(format_bundle_sample)
+                    .collect();
+                (
+                    report.collapse_count(),
+                    report.destroyed_flag_count(),
+                    samples,
+                )
+            }
+            _ => (0, 0, Vec::new()),
+        };
+
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -496,6 +567,9 @@ fn score_one(tool: &str) -> Row {
         misattribution_samples,
         existence_fabrication_count,
         existence_samples,
+        bundle_collapse_count,
+        bundle_destroyed_flags,
+        bundle_samples,
         status: status.label,
     }
 }
@@ -527,6 +601,16 @@ fn format_existence_sample(fabrication: &existence::Fabrication) -> String {
     format!(
         "{}: invented {kind} {:?} not found in raw text",
         fabrication.path, fabrication.name,
+    )
+}
+
+/// One collapse, rendered as a single audit-section line: which node path
+/// carries it, the raw cluster, and how many real flags it destroyed —
+/// mirrors [`format_existence_sample`]'s shape.
+fn format_bundle_sample(collapse: &bundling::Collapse) -> String {
+    format!(
+        "{}: {:?} read as {} with a required value — {} real flag(s) destroyed",
+        collapse.path, collapse.cluster, collapse.spelling, collapse.destroyed,
     )
 }
 
@@ -660,6 +744,8 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         .iter()
         .filter(|r| r.existence_fabrication_count > 0)
         .count();
+    let bundle_collapse_tools = rows.iter().filter(|r| r.bundle_collapse_count > 0).count();
+    let bundle_destroyed_flags: usize = rows.iter().map(|r| r.bundle_destroyed_flags).sum();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -686,6 +772,8 @@ fn compute_aggregate(rows: &[Row]) -> Aggregate {
         misattribution_suspect_tools,
         misattribution_column_aligned_tools,
         existence_fabrication_tools,
+        bundle_collapse_tools,
+        bundle_destroyed_flags,
     }
 }
 
@@ -727,7 +815,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     // alignment for that row.
     let mut out = String::new();
     out.push_str(&format!(
-        "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}  {}\n",
+        "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}{:>bw$}  {}\n",
         "tool",
         "tier(s)",
         "framework",
@@ -743,6 +831,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
         "man",
         "misattr",
         "exist",
+        "bundle",
         "status",
         tw = TOOL_COL_WIDTH,
         iw = TIER_COL_WIDTH,
@@ -755,6 +844,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
         manw = MAN_COL_WIDTH,
         miw = MISATTR_COL_WIDTH,
         ew = EXISTENCE_COL_WIDTH,
+        bw = BUNDLE_COL_WIDTH,
     ));
     for row in rows {
         let pct = row
@@ -762,7 +852,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}  {}\n",
+            "{:<tw$} {:<iw$} {:<fw$} {:>nw$}{:>flw$}{:>pw$}{:>msw$}{:>sw$}{:>manw$}{:>miw$}{:>ew$}{:>bw$}  {}\n",
             truncate_col(&row.tool, TOOL_COL_WIDTH),
             truncate_col(&row.tiers, TIER_COL_WIDTH),
             truncate_col(&row.framework, FRAMEWORK_COL_WIDTH),
@@ -774,6 +864,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             if row.man_shaped { "yes" } else { "-" },
             row.misattribution_suspect_count,
             row.existence_fabrication_count,
+            row.bundle_collapse_count,
             row.status,
             tw = TOOL_COL_WIDTH,
             iw = TIER_COL_WIDTH,
@@ -786,6 +877,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
             manw = MAN_COL_WIDTH,
             miw = MISATTR_COL_WIDTH,
             ew = EXISTENCE_COL_WIDTH,
+            bw = BUNDLE_COL_WIDTH,
         ));
     }
     out.push_str(&aggregate_footer_line(aggregate));
@@ -795,6 +887,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&worst_parsed_lines_text(&worst_parsed(rows)));
     out.push_str(&misattribution_sample_lines_text(rows));
     out.push_str(&existence_sample_lines_text(rows));
+    out.push_str(&bundle_sample_lines_text(rows));
     out
 }
 
@@ -969,6 +1062,48 @@ fn existence_sample_lines_text(rows: &[Row]) -> String {
     out
 }
 
+/// Plain-text rendering of every row's [`Row::bundle_samples`], flattened
+/// and capped at [`BUNDLE_SAMPLE_LIMIT`] — mirrors
+/// [`existence_sample_lines_text`]'s shape and "nothing to report → no
+/// section" convention exactly.
+fn bundle_sample_lines_text(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.bundle_samples.iter())
+        .take(BUNDLE_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "# bundled-short-flag collapses (sample — not gated; judge the false-positive rate yourself):\n",
+    );
+    for (rank, sample) in samples.iter().enumerate() {
+        out.push_str(&format!("#   {:>2}. {sample}\n", rank + 1));
+    }
+    out
+}
+
+/// Markdown rendering of [`bundle_sample_lines_text`]'s result, for
+/// [`render_markdown`].
+fn bundle_sample_section_markdown(rows: &[Row]) -> String {
+    let samples: Vec<&String> = rows
+        .iter()
+        .flat_map(|r| r.bundle_samples.iter())
+        .take(BUNDLE_SAMPLE_LIMIT)
+        .collect();
+    if samples.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\n**Bundled-short-flag collapses** (sample, not gated — see `xtask/src/bundling.rs`):\n\n| sample |\n|---|\n",
+    );
+    for sample in samples {
+        out.push_str(&format!("| {} |\n", md_escape(sample)));
+    }
+    out
+}
+
 /// Markdown rendering of [`existence_sample_lines_text`]'s result, for
 /// [`render_markdown`].
 fn existence_sample_section_markdown(rows: &[Row]) -> String {
@@ -1016,16 +1151,16 @@ fn misattribution_sample_section_markdown(rows: &[Row]) -> String {
 fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     let mut out = String::new();
     out.push_str(
-        "| tool | tier(s) | framework | nodes | flags | %flags_text | ms | suspect | man | misattr | exist | status |\n",
+        "| tool | tier(s) | framework | nodes | flags | %flags_text | ms | suspect | man | misattr | exist | bundle | status |\n",
     );
-    out.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+    out.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for row in rows {
         let pct = row
             .pct_flags_with_text
             .map(|p| format!("{p:.0}%"))
             .unwrap_or_else(|| "—".to_string());
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.tool),
             md_escape(&row.tiers),
             md_escape(&row.framework),
@@ -1037,6 +1172,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
             if row.man_shaped { "yes" } else { "-" },
             row.misattribution_suspect_count,
             row.existence_fabrication_count,
+            row.bundle_collapse_count,
             row.status,
         ));
     }
@@ -1067,6 +1203,12 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.existence_fabrication_tools,
     ));
     out.push_str(&format!(
+        "**Bundled-short-flag collapses:** {} tool(s) whose synopsis flag cluster was read as one \
+         value-taking flag, destroying {} real flag(s) fleet-wide — not gated, see \
+         `xtask/src/bundling.rs`.\n\n",
+        aggregate.bundle_collapse_tools, aggregate.bundle_destroyed_flags,
+    ));
+    out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
         aggregate.total,
@@ -1081,6 +1223,7 @@ fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&worst_parsed_section_markdown(&worst_parsed(rows)));
     out.push_str(&misattribution_sample_section_markdown(rows));
     out.push_str(&existence_sample_section_markdown(rows));
+    out.push_str(&bundle_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
@@ -1116,7 +1259,7 @@ fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -1127,6 +1270,8 @@ fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.misattribution_suspect_tools,
         aggregate.misattribution_column_aligned_tools,
         aggregate.existence_fabrication_tools,
+        aggregate.bundle_collapse_tools,
+        aggregate.bundle_destroyed_flags,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -1199,6 +1344,11 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // scoreboard from before the existence detector existed has no such
     // key at all, so `--check` against one must still work.
     let mut existence_fabrication_tools = 0usize;
+    // Same reasoning, same pattern, brand new field (this task): a
+    // scoreboard from before the bundled-short-flag detector existed has no
+    // such key at all, so `--check` against one must still work.
+    let mut bundle_collapse_tools = 0usize;
+    let mut bundle_destroyed_flags = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -1224,6 +1374,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "existence_fabrication_tools" => {
                 existence_fabrication_tools = value.parse::<usize>().ok()?
             }
+            "bundle_collapse_tools" => bundle_collapse_tools = value.parse::<usize>().ok()?,
+            "bundle_destroyed_flags" => bundle_destroyed_flags = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -1248,6 +1400,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         misattribution_suspect_tools,
         misattribution_column_aligned_tools,
         existence_fabrication_tools,
+        bundle_collapse_tools,
+        bundle_destroyed_flags,
     })
 }
 
@@ -1569,6 +1723,9 @@ mod tests {
             misattribution_samples: Vec::new(),
             existence_fabrication_count: 0,
             existence_samples: Vec::new(),
+            bundle_collapse_count: 0,
+            bundle_destroyed_flags: 0,
+            bundle_samples: Vec::new(),
             status,
         }
     }

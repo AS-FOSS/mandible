@@ -4,6 +4,7 @@
 #![forbid(unsafe_code)]
 
 mod audit;
+mod bundling;
 mod corpus;
 mod coverage;
 mod existence;
@@ -568,7 +569,7 @@ fn run_coverage(
     };
     println!("{table}");
     println!(
-        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {}/{} framework-detected",
+        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {} bundle-collapse ({} real flags destroyed), {}/{} framework-detected",
         fresh.pct_flags_with_text,
         fresh.total,
         fresh.no_tier_count,
@@ -578,6 +579,8 @@ fn run_coverage(
         fresh.zero_flag_ok_count,
         fresh.misattribution_suspect_tools,
         fresh.existence_fabrication_tools,
+        fresh.bundle_collapse_tools,
+        fresh.bundle_destroyed_flags,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -698,6 +701,25 @@ fn run_coverage(
             println!(
                 "existence-fabrication tool count changed from {} to {} (reported, not gated)",
                 previous.existence_fabrication_tools, fresh.existence_fabrication_tools
+            );
+        }
+        // `bundle_collapse_tools`/`bundle_destroyed_flags`
+        // (`crate::bundling`, the third oracle) are deliberately **not
+        // gated**, for the same reason as the two above and one more of
+        // their own: this metric is expected to move the moment the
+        // synopsis grammar learns to split a bundle, and that movement is
+        // the fix landing, not a regression. It is reported so the fix is
+        // visible when it happens, and so the number is on the record
+        // before anyone ratchets it to zero.
+        if fresh.bundle_collapse_tools != previous.bundle_collapse_tools
+            || fresh.bundle_destroyed_flags != previous.bundle_destroyed_flags
+        {
+            println!(
+                "bundled-short-flag collapse changed from {} tool(s)/{} destroyed flag(s) to {} tool(s)/{} destroyed flag(s) (reported, not gated)",
+                previous.bundle_collapse_tools,
+                previous.bundle_destroyed_flags,
+                fresh.bundle_collapse_tools,
+                fresh.bundle_destroyed_flags,
             );
         }
         if regressed {
