@@ -13,13 +13,14 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# Every option here is spelled `{-h|--help}` (curly braces, not the usual
-# `[-h|--help]`) — verified this defeats flag detection completely: the
-# current tree has zero flags at all, and "Options:" itself leaked into
-# the root description instead. Once curly-brace option groups are
-# recognized, at least the plain `--help`/`--version` flags should appear.
+# FIXED. Every option here is spelled `{-h|--help}` (curly braces, not the
+# usual `[-h|--help]`), and that used to defeat flag detection completely:
+# the tree had zero flags at all, because `looks_like_flag_start` required a
+# leading '-' and so no row here ever began an entry. It now accepts a
+# brace-delimited group of bare flag spellings, and all eight rows parse —
+# including the three single-member ones (`{--metadata-version}`,
+# `{--omit-clean-shutdown}`, `{--debug-override-metadata-version}`), which
+# the fleet detector deliberately does not count but the grammar does read.
+# "Options:" still leaks into the root description; that is a separate
+# defect this contract does not assert either way.
 must_contain_flags = ["--help", "--version", "--input", "--output"]
-
-[xfail]
-broken = true
-reason = "flags were not detected"

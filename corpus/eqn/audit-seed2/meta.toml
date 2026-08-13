@@ -13,12 +13,11 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# `usage: /usr/bin/eqn {-v | --version}` — verified the current tree has
-# exactly one flag from this line: long='version' with a spurious
-# value_name of literally '}' (the closing brace leaked in as if it were
-# a value placeholder). '-v' is dropped entirely — no flag has short=='v'.
+# FIXED. `usage: /usr/bin/eqn {-v | --version}` used to yield exactly one
+# flag from this line — long='version' with a spurious value_name of
+# literally '}' (the closing brace leaked in as if it were a value
+# placeholder) — while '-v' was dropped entirely. `usage_segments` now opens
+# a group on '{' on the same terms as '[', so the spaces around that '|' no
+# longer split the line into three bare tokens, and the existing [M-15]
+# pairing rule reads the two spellings as the one flag they are.
 must_contain_flags = ["-v"]
-
-[xfail]
-broken = true
-reason = "it shows almost everything correctly, but there is an optional -v and --version, but it only displays --version"

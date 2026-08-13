@@ -1,0 +1,78 @@
+name: eqn
+usage:
+- 'usage: /usr/bin/eqn [-CNrR] [-d xy] [-f font] [-m n] [-M dir] [-p n] [-s n] [-T name] [file ...]'
+- 'usage: /usr/bin/eqn {-v | --version}'
+- 'usage: /usr/bin/eqn --help'
+flags:
+- short: 'C'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'N'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'r'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'R'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'd'
+  value_name: xy
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'f'
+  value_name: font
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'm'
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'M'
+  value_name: dir
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'p'
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'T'
+  value_name: name
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'v'
+  long: version
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: help
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
