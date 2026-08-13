@@ -1843,18 +1843,21 @@ own reasoning, applied to a human read instead of an automated one).
 `mandible --review <SEED>` (§5.3) is a fifth entry point onto the same
 manifest, reviewing inside the real TUI instead of a terminal loop.
 
-**The draw is stratified, deterministic, and force-includable.** `xtask
-audit sample` draws proportionally by parse status (`ok`/`low-confidence`/
+**The draw is stratified, deterministic, and force-includable — via a
+frozen queue, not a live re-sweep (§13.1d).** `xtask audit freeze` sweeps
+`PATH` once, classifies every tool by parse status (`ok`/`low-confidence`/
 `verbatim`/`no-tier`/`suspicious`, whatever `status::compute` actually
-produces for the population, not a fixed bucket set) so the sample's status
-mix reflects the real population's, seeded so the same `--seed` and
-`--sample` size always produce the same draw. A tool can additionally be
-force-included outside the stratified quota, but only with a recorded
-reason (`audit/force-include.txt`, `<tool> <reason...>` per line). An
-unconditional inclusion with no stated reason is exactly the kind of
-unauditable claim this instrument exists to rule out, so force-included
-entries are tallied under their own `forced-inclusion` stratum in `audit
-report` rather than blended into the random draw's numbers.
+produces for the population, not a fixed bucket set), and shuffle-stratifies
+the result into an ordered queue (`audit/queue.toml`) so the sample's status
+mix reflects the real population's. `xtask audit sample` then just advances
+that queue's cursor by `--sample` tools — no re-probing, no
+reclassification, at draw time. A tool can additionally be force-included
+outside the queue draw, but only with a recorded reason
+(`audit/force-include.txt`, `<tool> <reason...>` per line). An unconditional
+inclusion with no stated reason is exactly the kind of unauditable claim
+this instrument exists to rule out, so force-included entries are tallied
+under their own `forced-inclusion` stratum in `audit report` rather than
+blended into the random draw's numbers.
 
 **Verdicts are `correct`, `incomplete`, `wrong`, or `skip`.** A `wrong` or
 `incomplete` verdict must carry a note, enforced identically in both entry
@@ -1919,6 +1922,155 @@ The audit has not finished running. This section documents the instrument,
 not a result: no accuracy number is stated here, and none should be read
 into anything above. The result, and the final statement of scope, belong in
 Appendix A as **[M-20]**, once the audit actually completes.
+
+### 13.1d The frozen sampling queue
+
+**Why this exists.** Before this design, `xtask audit sample` reclassified
+the whole `PATH` population — probing every one of ~2,300 tools — on
+**every single draw**, costing roughly twenty minutes each time. Worse,
+because the strata were recomputed from whatever the parser happened to be
+on the day of the draw, two draws taken weeks apart were stratifying
+against two different definitions of "ok", so a grammar fix silently
+redefined what an already-drawn `audit sample` run had even measured, and
+successive draws were not directly comparable.
+
+**The fix: freeze the tool list once, walk a cursor through it.**
+`xtask audit freeze` sweeps `PATH` (or a pinned `--tools` list) exactly
+once, classifies every tool, shuffle-stratifies the result with a recorded
+seed, and writes the ordered queue to `audit/queue.toml`. `xtask audit
+sample` then only ever advances that queue's `cursor` by `--sample` tools
+and merges the slice into a verdict file — no re-probing, no
+reclassification, at draw time. **This is deliberately not implemented by
+cross-comparing already-reviewed tools against the current tool list at
+draw time** — no set-difference against "what's been done" computed
+against a population that drifts as software is installed or removed. The
+queue is ordered once, and a cursor advances through it; nothing about a
+draw depends on which tools any verdict file has already recorded, which is
+what makes repeated draws directly comparable and makes "same queue, same
+cursor position" a deterministic, testable guarantee (`xtask/src/queue.rs`
+tests this directly: the same `(queue, cursor)` pair always yields the same
+tools, and successive draws never overlap).
+
+**Three additions from external review, all implemented:**
+
+1. **Freeze date and a population hash in the manifest.** `queue.toml`
+   records `freeze_date` (`YYYY-MM-DD`) and `population_hash` — a stable
+   FNV-1a fingerprint over the sorted, deduplicated tool list — so a queue
+   can be identified and staleness detected. `xtask audit freeze --check`
+   re-hashes the *current* `PATH` population (a directory listing, no
+   probing) and reports drift against the frozen hash without touching
+   anything, the same "report, don't rewrite" shape `coverage --check`
+   already uses.
+2. **Shuffle-stratify at freeze time**, not just concatenate strata. Each
+   stratum is independently seed-shuffled, then every item is given a
+   fractional rank (its position within its own stratum, normalized to
+   `(0, 1)`) and the whole population is merged by sorting on that
+   fraction. Because every stratum's ranks are spread evenly across
+   `(0, 1)`, cutting the merged order at any point yields, from every
+   stratum, very close to that same fraction of its own items — so **any
+   prefix of the frozen queue is itself a valid, proportionally stratified
+   sample**, not just the queue as a whole. (Concatenating shuffled strata
+   instead — all of "ok", then all of "low-confidence" — would make the
+   *total* order proportional but make an early prefix 100% one stratum,
+   exactly the property this rules out.)
+3. **Freeze the captured raw help text alongside the tool list.** This is
+   the change that actually matters: much of the twenty-minute cost was the
+   cost of *probing* (subprocess spawns and their timeouts), not of
+   classifying. `xtask audit freeze` persists every `(argv, output)` pair
+   each tool's extraction pass recorded — not just the root `--help`
+   capture, but every probe a framework's protocol needed (cobra's
+   two-probe shape included) — under `audit/queue-captures/`. `xtask audit
+   reclassify` replays those bytes through the real extraction pipeline via
+   `mandible_extract::exec::Transcript` (the same replay seam the corpus
+   regression runner uses) and recomputes every tool's stratum against the
+   *current* parser, with **no `PATH` sweep and zero subprocess spawns**,
+   running every tool's reclassification in parallel via `rayon` — measured
+   during this batch's own build (a real, naive serial first attempt over a
+   real 500-tool `PATH` slice on a 4-core evaluation machine took *longer*
+   than the parallel live-probing freeze it was meant to replace, 135s
+   versus freeze's own ~123s on the same population, which would have made
+   an unqualified "fast" claim false; parallelizing recovered roughly half
+   that, ~65s). **The honest claim is therefore narrower than "seconds
+   regardless of scale":** what removing every subprocess spawn
+   unconditionally buys is no `PATH` sweep and no probe-timeout cost: what's
+   left is real CPU-bound work — parsing plus the native/cobra artifact
+   tier's own binary-byte scan of each tool's on-disk executable — that
+   scales with population size and available CPU cores, not with a probe
+   count times a timeout. That is still a meaningful, measured win (roughly
+   half the wall-clock of a live re-probe on this evaluation machine, with
+   zero subprocess risk), and it is what removes the "later slices are
+   drawn from stale strata" caveat entirely,
+   rather than merely disclosing it: a stratum label can be kept current
+   against a newer parser without ever re-sweeping `PATH`.
+
+**Storage: `audit/queue.toml` is tracked; `audit/queue-captures/` is not.**
+Same convention `audit/*.toml`/`audit/force-include.txt` already set
+(tracked) versus `audit/*/fixtures/` (gitignored). `queue.toml` is small —
+one line per tool, a name and a short stratum label — and is *evidence* for
+a claim about how the queue was built, the same "a measurement's evidence
+lives in git, not on one contributor's laptop" reasoning this section's own
+Appendix A discipline already applies to `audit/<seed>.toml`. The captures
+are real bulk (one small file set per frozen tool, on the order of several
+thousand files for a full-`PATH` freeze) and, critically, **machine-generated
+content** — exactly the category the fixture-promotion workflow
+(`corpus/README.md`) already treats as something that must never land in a
+tracked human-verdict file, a rule that has already cost this project a
+cleanup once. Captures are regenerable by re-running `xtask audit freeze`
+locally; a queue worth reusing across machines is expected to have its
+captures rebuilt locally, not shipped in the repo.
+
+**`--tools` moved from `sample` to `freeze`.** Before this design, `xtask
+audit sample --tools <list>` pinned a fixed, reproducible population for
+tests and CI. Since `sample` no longer touches `PATH` at all — only
+`freeze` does — the flag moved with the sweep it pins. `sample`'s own
+`--seed` changed meaning to match: it no longer seeds a draw (the draw's
+only randomness is spent once, at `freeze` time, via its own `--seed`), it
+only names which verdict file (`audit/<seed>.toml`) the slice is merged
+into. Force-include is unaffected either way: it was already independent of
+the population, and stays independent of the queue's cursor for the same
+reason.
+
+**Honest caveats, stated rather than merely implied:**
+
+- **A frozen population drifts from the machine's real installed tools over
+  time.** `xtask audit freeze --check` detects this cheaply, but detecting
+  drift is not fixing it — a stale queue still reflects the tool set at
+  freeze time until re-frozen. A frozen queue is a snapshot, not a live
+  view of "everything on this machine right now," and any sample drawn
+  from it should be read that way.
+- **Reclassification updates a tool's reported *stratum*, never its
+  *position* in the queue.** The shuffle-stratified order was computed
+  once, from the strata as they stood at freeze time; recomputing strata
+  later (`xtask audit reclassify --update`) can change what stratum a tool
+  is *reported* under without re-shuffling where it sits in the cursor
+  order. A queue reclassified long after freezing may therefore no longer
+  interleave in exact proportion to its *current* stratum composition, only
+  to its composition at freeze time — a real drift, but a much smaller one
+  than the staleness this design replaces, since the frozen order still
+  visits the same tools in the same sequence regardless, keeping successive
+  draws comparable.
+- **Reclassification still depends on the tool binary resolving on `PATH`
+  at the same path.** The native/cobra framework-detection tier
+  (`mandible_extract::framework::artifact`) reads a binary's own bytes
+  directly off disk to fingerprint it, not from the frozen capture — a tool
+  uninstalled since freeze time will report a degraded stratum for a reason
+  unrelated to any parser change. This is a file read, not a process spawn,
+  so it never reintroduces the *subprocess* cost this design removes — but
+  it is measurably not free either, and is plausibly a real share of the
+  CPU-bound cost measured above (scanning a large on-disk binary for byte
+  markers, once per tool, is real work). Either way, a `reclassify` report
+  is only purely "what changed in the parser" when the machine's installed
+  tools are also unchanged since freeze.
+
+**No new execution-safety surface.** `xtask audit freeze` issues exactly
+the same probes `xtask audit sample`'s old live sweep already issued, all
+through the existing `run_inert` chokepoint (spec §6) — nothing about this
+design broadens argv, adds a probe shape, or touches the never-probe list.
+`xtask audit reclassify` spawns nothing at all: it is a pure replay of
+already-captured bytes. The stratum a tool is classified into is still
+computed by the same general, framework-keyed parser every other instrument
+in this project uses (spec §1) — freezing the queue changes *when*
+classification happens, never *how*.
 
 ### 13.2 Fixed corpus
 
@@ -2091,13 +2243,13 @@ suite covers both halves, the fallback being attempted for a permitted shim
 and refused for a `pkill`-shaped one even when that shim's `--help` is
 man-shaped.
 
-**`xtask audit sample` reclassifies the whole `PATH` on every draw**, which
-costs roughly twenty minutes each time and makes incremental review painful.
-The intended fix is to freeze the tool list and its classification once, then
-have each subsequent draw take the next slice from that frozen, ordered queue.
-That removes both the repeated sweep and any need to compare a new draw
-against already-reviewed tools, which would otherwise be a set difference
-computed against a population that drifts as software is installed or removed.
+**Resolved: `xtask audit sample` no longer reclassifies the whole `PATH` on
+every draw.** `xtask audit freeze` now snapshots the tool list and its
+classification once, into a shuffle-stratified queue, and `xtask audit
+sample` just advances that queue's cursor — see §13.1d for the full design,
+the storage decision, and the honest caveats a frozen population still
+carries (population drift, and reclassification updating a stratum without
+re-shuffling the queue's order).
 
 **The invariant table in `AGENTS.md` is due a prune.** Its own maintenance
 policy prefers making a mistake impossible over documenting it, and every
