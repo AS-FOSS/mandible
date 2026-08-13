@@ -15,13 +15,20 @@ exit_code = 1
 
 [contract]
 expected_framework = "generic"
-# "[-adfinrRstVx]" (a bundle of single-char flags) becomes ONE entry:
-# short='a', value_name='dfinrRstVx', value_kind=Required — every letter
-# after the first is swallowed as a single required value. Reviewer named
-# "-c and -C" specifically (from "[[-c|-C] cmd]..."); verified neither
-# exists as a flag at all right now — only a/m/p survived.
+# Two defects were reported here and only one of them is this contract's.
+#
+# FIXED: "[-adfinrRstVx]" (a bundle of single-char flags) used to become ONE
+# entry — short='a', value_name='dfinrRstVx' — and all eleven members are
+# their own flag now, along with -m and -p keeping their values.
+#
+# STILL BROKEN, and what keeps this fixture [xfail]: "[[-c|-C] cmd]..." is a
+# nested bracket group — an alternation of two flags sharing one operand —
+# and neither -c nor -C reaches the tree at all. That is a different family
+# from the bundle (the members are separated by '|', not glued), so the
+# cluster grammar neither helps nor hinders it, and this fixture goes on
+# holding the line for it.
 must_contain_flags = ["-c", "-C"]
 
 [xfail]
 broken = true
-reason = "singe dash issue + missing -c and -C, see the original text"
+reason = "the bundle half ([-adfinrRstVx]) is fixed; what remains is the nested alternation group [[-c|-C] cmd]..., whose two flags reach the tree not at all"
