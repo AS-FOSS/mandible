@@ -23,6 +23,11 @@ expected_framework = "argparse"
 # group). --language/--method/--class are all currently absent.
 must_contain_flags = ["--language", "--method", "--class"]
 
-[xfail]
-broken = true
-reason = "there is a positional argument 'pid' which is not parsed, but im not sure how it should be"
+# NOTE: the reviewer's own note is about the dropped `pid` POSITIONAL, and
+# that is still unfixed — `unparsed-positional` is a different family with
+# its own work. What this fixture asserts, and what was repaired, is the
+# contract-testable dropped-alias defect above. The `{java,perl,...}`
+# choice list is why `take_rest_value_token` asks what FOLLOWS a separator
+# rather than merely that one is present: six commas sit inside that one
+# placeholder, and a rule that stopped at the first would read the alias
+# as `perl`.

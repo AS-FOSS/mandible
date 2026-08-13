@@ -235,19 +235,83 @@ pub enum Ground {
         entry: &'static str,
         grammar: &'static str,
     },
+
+    /// The two spellings the label is about are not on one flag-spec
+    /// fragment at all: a run of spaces at least `column_gap` wide sits
+    /// between them, which is the layout splitter's own description-column
+    /// boundary (`help_text::MIN_COLUMN_GAP_SPACES`). Everything right of
+    /// that run reaches the grammar as a *description*, so a detector that
+    /// reads a fragment's own value spec has no fragment to read.
+    ///
+    /// `row` is the literal row from the tool's own help text, and the gap
+    /// is measured *from it* rather than asserted: an author who tried to
+    /// excuse `-p PID, --pid PID` on this ground would supply a row whose
+    /// widest run between two spellings is one space, and [`Ground::holds`]
+    /// would refuse it. `column_gap` is meant to be the constant itself,
+    /// never a retyped copy of its value, so it cannot drift.
+    AcrossDescriptionColumn {
+        row: &'static str,
+        constant: &'static str,
+        column_gap: usize,
+    },
+
+    /// The alias separator sits inside a brace alternation group, which the
+    /// manifest labels as a family of its own. The tool is a genuine member
+    /// of *both* families and this detector claims only one of them.
+    ///
+    /// `token` is the literal group from the tool's own help text (e.g.
+    /// `"{-v | --version}"`), and both the group's shape and the named
+    /// family are checked: `family` must be a family the manifest actually
+    /// declares, and the group must really alternate at least two flag
+    /// spellings, so an author cannot name an arbitrary word and call a
+    /// miss deliberate.
+    InsideAlternationGroup {
+        token: &'static str,
+        family: &'static str,
+    },
+}
+
+/// The widest run of spaces in `row` that sits between two `-`-initial
+/// tokens — the measurement [`Ground::AcrossDescriptionColumn`] is judged
+/// on, computed from the witness rather than stated by its author.
+fn widest_gap_between_spellings(row: &str) -> usize {
+    let mut widest = 0usize;
+    let mut seen_spelling = false;
+    let mut run = 0usize;
+    for word in row.split_inclusive(' ') {
+        if word == " " {
+            run += 1;
+            continue;
+        }
+        let token = word.trim_end();
+        if seen_spelling && token.starts_with('-') {
+            widest = widest.max(run);
+        }
+        seen_spelling |= token.starts_with('-');
+        run = if word.ends_with(' ') { 1 } else { 0 };
+    }
+    widest
 }
 
 impl Ground {
     /// Swallowed members implied by the witness: a cluster is one leading
     /// `-`, one surviving flag character, and the rest swallowed.
+    ///
+    /// Zero for every ground that is not about a cluster — the number is
+    /// only meaningful for [`Ground::BelowMemberThreshold`], and
+    /// [`Ground::explain`] never prints it for the others.
     pub fn swallowed_members(&self) -> usize {
         match self {
             Ground::BelowMemberThreshold { cluster, .. } => {
                 cluster.chars().count().saturating_sub(2)
             }
-            // Not a cluster ground: an unreadable entry shape swallows no
-            // members, and nothing reads this for that variant.
-            Ground::UnreadableEntryShape { .. } => 0,
+            // Not cluster grounds: none of these swallows members, and
+            // nothing reads this for them. Listed variant by variant rather
+            // than caught by `_` so that adding a ground has to come with a
+            // decision here instead of silently defaulting to zero.
+            Ground::UnreadableEntryShape { .. }
+            | Ground::AcrossDescriptionColumn { .. }
+            | Ground::InsideAlternationGroup { .. } => 0,
         }
     }
 
@@ -303,6 +367,62 @@ impl Ground {
                 }
                 Ok(())
             }
+            Ground::AcrossDescriptionColumn {
+                row,
+                constant,
+                column_gap,
+            } => {
+                if *column_gap == 0 {
+                    return Err(format!(
+                        "{constant} is 0, so every pair of spellings is 'across the column' and \
+                         this ground would excuse every miss there is"
+                    ));
+                }
+                let gap = widest_gap_between_spellings(row);
+                if gap == 0 {
+                    return Err(format!(
+                        "witness row {row:?} does not carry two `-`-initial spellings with a \
+                         space run between them, so there is no column gap in it to measure"
+                    ));
+                }
+                if gap < *column_gap {
+                    return Err(format!(
+                        "witness row {row:?} separates its spellings by {gap} space(s), which is \
+                         NOT at least {constant} = {column_gap} — the two reach the grammar as \
+                         one fragment and a miss on them is a false negative, not an exclusion"
+                    ));
+                }
+                Ok(())
+            }
+            Ground::InsideAlternationGroup { token, family } => {
+                let inner = token
+                    .strip_prefix('{')
+                    .and_then(|t| t.strip_suffix('}'))
+                    .ok_or_else(|| {
+                        format!(
+                            "witness {token:?} is not a brace alternation group (it must be \
+                             wrapped in `{{`/`}}`)"
+                        )
+                    })?;
+                let spellings = inner
+                    .split(['|', ','])
+                    .filter(|m| m.trim().starts_with('-'))
+                    .count();
+                if spellings < 2 {
+                    return Err(format!(
+                        "witness {token:?} alternates {spellings} flag spelling(s), not the 2 an \
+                         alias pair needs — nothing about it is a dropped alias, so it justifies \
+                         no exclusion"
+                    ));
+                }
+                if mandible_core::audit::family_meaning(family).is_none() {
+                    return Err(format!(
+                        "{family:?} is not a defect family this manifest declares, so naming it \
+                         moves the miss nowhere"
+                    ));
+                }
+                Ok(())
+            }
         }
     }
 
@@ -322,6 +442,28 @@ impl Ground {
             Ground::UnreadableEntryShape { entry, grammar } => format!(
                 "the tool's own line {entry:?} is not {grammar} — a property of how this tool \
                  writes its list, not of the tool"
+            ),
+            Ground::AcrossDescriptionColumn {
+                row,
+                constant,
+                column_gap,
+            } => format!(
+                "the real row {row:?} separates its two spellings by {} space(s), at or above \
+                 {constant} = {column_gap} — so the layout splitter cuts there and the pair never \
+                 reaches the flag-spec grammar as one fragment. A property of the row's spacing, \
+                 not of the tool",
+                widest_gap_between_spellings(row)
+            ),
+            Ground::InsideAlternationGroup { token, family } => format!(
+                "the real token {token:?} alternates {} flag spelling(s) inside a brace group, \
+                 which is the separately-labelled {family:?} family ({}). A property of the \
+                 token's shape, not of the tool",
+                token
+                    .trim_matches(['{', '}'])
+                    .split(['|', ','])
+                    .filter(|m| m.trim().starts_with('-'))
+                    .count(),
+                mandible_core::audit::family_meaning(family).unwrap_or("(undeclared)"),
             ),
         }
     }
@@ -498,6 +640,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(BundledShortFlag),
         Box::new(BraceAlternationFlag),
         Box::new(UnparsedCommandTable),
+        Box::new(DroppedAliasDetector),
         Box::new(ExistenceOracle),
         Box::new(MisattributionOracle),
     ]
@@ -873,6 +1016,103 @@ impl Detector for UnparsedCommandTable {
     }
     fn self_checks(&self) -> Vec<SelfCheck> {
         crate::commandtable::self_checks()
+    }
+}
+
+/// The dropped-alias defect (`crate::dropped_alias`): a flag documented
+/// with both a short and a long spelling reaching the tree with only one of
+/// them, because a value spec interrupted its alias list.
+///
+/// The second detector built after the harness existed, and — like
+/// [`BundledShortFlag`] — one the two anti-fabrication oracles are
+/// structurally blind to. Nothing here is invented: every spelling in the
+/// tree occurs in the raw text, and every description lands on the right
+/// flag. What is wrong is what is *absent*, which is the question neither
+/// `crate::existence` nor `crate::misattribution` asks.
+///
+/// **Its risk runs the opposite way to every other detector's**, and its
+/// scope says so. A detector that over-fires here does not merely produce a
+/// noisy number: it argues for a fix that would merge two genuinely
+/// different flags, and a fabricated alias is strictly worse than a dropped
+/// one — a user who types a flag that does not exist gets an error, where a
+/// user missing a flag can still read `--help`. Two of the seven labelled
+/// tools are therefore declared out of scope with structural grounds rather
+/// than reached for.
+pub(crate) struct DroppedAliasDetector;
+
+/// `dropped-alias`'s declared exclusions: the two labelled tools whose
+/// dropped spelling is not separated from its partner by a value spec at
+/// all, each with the witness its [`Ground`] is computed from.
+const DROPPED_ALIAS_EXCLUSIONS: &[Exclusion] = &[
+    Exclusion {
+        tool: "eqn",
+        ground: Ground::InsideAlternationGroup {
+            token: crate::dropped_alias::EQN_VERSION_GROUP,
+            family: "brace-alternation-flag",
+        },
+        note: "A MISLABEL IN THE MANIFEST, reported rather than amended here: `eqn` carries \
+               `dropped-alias` and its shape is brace alternation, which the manifest already \
+               has a family for. The two are not the same defect — a brace group loses the \
+               spelling because the tokenizer never opens the group, not because a value spec \
+               interrupted an alias list — and the same alternation rule closes `cache_restore`'s \
+               `{-i|--input} <file>` and `xfs_io`'s `[[-c|-C] cmd]...` too, neither of which has \
+               a value spec in the way. Claiming it here would let this detector's fleet count \
+               stand in for a fix it did not make, and makes this family look one tool bigger \
+               than it is",
+    },
+    Exclusion {
+        tool: "jdeprscan",
+        ground: Ground::AcrossDescriptionColumn {
+            row: crate::dropped_alias::JDEPRSCAN_LIST_ROW,
+            constant: "help_text::MIN_COLUMN_GAP_SPACES",
+            column_gap: mandible_extract::help_text::MIN_COLUMN_GAP_SPACES,
+        },
+        note: "two shapes in one tool, neither an interrupted alias list: `-l    --list` puts its \
+               long form past the description column, and `-? -h --help` names a second short \
+               that `mandible_core::Flag` has no field to hold (one `short: Option<char>`), \
+               exactly as `-A, --catenate, --concatenate` names a second long it cannot hold \
+               either",
+    },
+];
+
+impl Detector for DroppedAliasDetector {
+    fn name(&self) -> &'static str {
+        "dropped-alias"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("dropped-alias")
+    }
+    fn describes(&self) -> &'static str {
+        "a flag whose value spec interrupted its own alias list: the tool documents `-p PID, \
+         --pid PID` (or `--count=OC|-c OC`) and the tree carries only one of the two spellings"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::dropped_alias::detect(evidence.raw, evidence.root)
+            .drops
+            .iter()
+            .map(|d| {
+                format!(
+                    "{:?} at {:?} keeps {:?} and drops {:?}, documented together as {:?}",
+                    d.kept, d.path, d.kept, d.dropped, d.witness
+                )
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "alias pairs a VALUE SPEC came between — `-p PID, --pid PID`, \
+                    `--count=OC|-c OC` — where the separator sits at the stored placeholder's own \
+                    boundary and a whole flag spelling follows it. Pairs separated by anything \
+                    else are deliberately not claimed: a wide space run is the description column \
+                    (`jdeprscan`), a brace group is its own labelled family (`eqn`), and a second \
+                    short or a second long has no field in `mandible_core::Flag` to reach at all. \
+                    Narrow on purpose — the loose rule this replaces would merge two genuinely \
+                    different flags, and a fabricated alias is worse than a dropped one",
+            known_exclusions: DROPPED_ALIAS_EXCLUSIONS,
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::dropped_alias::self_checks()
     }
 }
 
@@ -2691,6 +2931,101 @@ mod tests {
             .expect("the declared exclusion's witness must be asserted, not merely described");
         assert_eq!(witness.expect, Expect::Silent);
         assert!(witness.held);
+    }
+
+    /// `dropped-alias`'s two exclusions cite the constants and witnesses
+    /// themselves, not copies — so neither justification can go stale
+    /// behind a changed splitter or a renamed family.
+    #[test]
+    fn the_dropped_alias_exclusions_reference_the_real_witnesses() {
+        let eqn = DROPPED_ALIAS_EXCLUSIONS
+            .iter()
+            .find(|e| e.tool == "eqn")
+            .expect("eqn is a declared exclusion");
+        let Ground::InsideAlternationGroup { token, family } = eqn.ground else {
+            panic!("eqn is excluded on the brace-alternation ground");
+        };
+        assert_eq!(token, crate::dropped_alias::EQN_VERSION_GROUP);
+        assert_eq!(family, "brace-alternation-flag");
+        assert!(mandible_core::audit::family_meaning(family).is_some());
+
+        let jdeprscan = DROPPED_ALIAS_EXCLUSIONS
+            .iter()
+            .find(|e| e.tool == "jdeprscan")
+            .expect("jdeprscan is a declared exclusion");
+        let Ground::AcrossDescriptionColumn {
+            row,
+            constant,
+            column_gap,
+        } = jdeprscan.ground
+        else {
+            panic!("jdeprscan is excluded on the description-column ground");
+        };
+        assert_eq!(row, crate::dropped_alias::JDEPRSCAN_LIST_ROW);
+        assert_eq!(constant, "help_text::MIN_COLUMN_GAP_SPACES");
+        assert_eq!(
+            column_gap,
+            mandible_extract::help_text::MIN_COLUMN_GAP_SPACES
+        );
+    }
+
+    /// The description-column ground is arithmetic over the row, not a
+    /// claim: the very row this detector is *supposed* to catch —
+    /// `-p PID, --pid PID`, one space between its spellings — is refused as
+    /// a justification, which is the whole point of the type.
+    #[test]
+    fn a_description_column_ground_over_a_one_space_row_is_refused() {
+        assert_eq!(
+            widest_gap_between_spellings(crate::dropped_alias::JDEPRSCAN_LIST_ROW),
+            4
+        );
+        let inside = Ground::AcrossDescriptionColumn {
+            row: "  -p PID, --pid PID  trace this PID only",
+            constant: "help_text::MIN_COLUMN_GAP_SPACES",
+            column_gap: mandible_extract::help_text::MIN_COLUMN_GAP_SPACES,
+        };
+        let err = inside
+            .holds()
+            .expect_err("one space is not a column gap, so this row is in scope");
+        assert!(err.contains("false negative, not an exclusion"), "{err}");
+        // ...and a gap of zero would excuse every miss there is.
+        assert!(Ground::AcrossDescriptionColumn {
+            row: crate::dropped_alias::JDEPRSCAN_LIST_ROW,
+            constant: "SOME_CONSTANT",
+            column_gap: 0,
+        }
+        .holds()
+        .is_err());
+    }
+
+    /// The alternation ground checks both halves of what it asserts: the
+    /// token really is a brace group alternating two spellings, and the
+    /// family it hands the miss to is one the manifest declares.
+    #[test]
+    fn an_alternation_ground_with_no_alternation_or_no_family_is_refused() {
+        assert!(Ground::InsideAlternationGroup {
+            token: crate::dropped_alias::EQN_VERSION_GROUP,
+            family: "brace-alternation-flag",
+        }
+        .holds()
+        .is_ok());
+        for token in ["-v | --version", "{--version}", "{dir|jar|class}"] {
+            assert!(
+                Ground::InsideAlternationGroup {
+                    token,
+                    family: "brace-alternation-flag",
+                }
+                .holds()
+                .is_err(),
+                "{token:?} is not an alias alternation"
+            );
+        }
+        assert!(Ground::InsideAlternationGroup {
+            token: crate::dropped_alias::EQN_VERSION_GROUP,
+            family: "no-such-family",
+        }
+        .holds()
+        .is_err());
     }
 
     /// An exclusion whose witness is squarely *inside* the detector's scope

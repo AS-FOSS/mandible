@@ -62,7 +62,8 @@ pub use grammar::{parse_flag_alternation, FlagAlternation};
 /// comment above [`sections::is_flag_shaped`] in `sections.rs` for why that
 /// one difference is load-bearing rather than an oversight.
 pub use sections::{
-    cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_RECURRENCE,
+    cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_GAP_SPACES,
+    MIN_COLUMN_RECURRENCE,
 };
 
 /// Re-exported for `xtask/src/existence.rs`, and for exactly the reason the

@@ -13,11 +13,8 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "argparse"
-# Same "-p PID, --pid PID" line as filegone-bpfcc: verified this becomes
-# short='p', value_name='PID,' with no `long` set; "--pid" is dropped
-# entirely.
+# Same "-p PID, --pid PID" line as filegone-bpfcc: this used to become
+# short='p', value_name='PID,' with no `long` set, and "--pid" was
+# dropped entirely. Now short='p', long='pid', value_name='PID'.
+# Promoted out of [xfail] by the same one-shape fix.
 must_contain_flags = ["--pid"]
-
-[xfail]
-broken = true
-reason = "similar -p and --pid issue"

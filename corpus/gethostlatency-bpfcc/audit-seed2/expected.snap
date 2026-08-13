@@ -1,0 +1,24 @@
+name: gethostlatency-bpfcc
+usage:
+- 'usage: gethostlatency-bpfcc [-h] [-p PID]'
+flags:
+- short: 'h'
+  long: help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: pid
+  value_name: PID
+  value_kind: Required
+  description: trace this PID only
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

@@ -1,0 +1,46 @@
+name: rubyobjnew-bpfcc
+usage:
+- 'usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-S TOP_SIZE] [-v] pid [interval]'
+flags:
+- short: 'h'
+  long: help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: language
+  value_name: '{c,java,ruby,tcl}'
+  value_kind: Required
+  description: language to trace
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: top-count
+  value_name: TOP_COUNT
+  value_kind: Required
+  description: number of most frequently allocated types to print
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: top-size
+  value_name: TOP_SIZE
+  value_kind: Required
+  description: number of largest types by allocated bytes to print
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: 'verbose mode: print the BPF program (for debugging purposes)'
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true
