@@ -253,9 +253,17 @@ fn token_occurs_anywhere(raw: &str, name: &str) -> bool {
 
 /// `(attributable, total)` counts of `report`'s subcommand-kind
 /// fabrications that are plausibly explained by the existence detector's
-/// own known multi-column/comma-separated tokenization gap (K2, see
-/// `xtask/src/existence.rs`'s `line_start_words` doc comment) rather than
-/// genuine parser fabrication: a fabrication is "attributable" when its
+/// own multi-column/comma-separated tokenization gap (K2) rather than
+/// genuine parser fabrication.
+///
+/// **That gap is closed** — `existence::list_row_words` reads a whole list
+/// row now, so a real grid or comma-joined index produces no fabrication
+/// for this to attribute, and in practice this returns `(0, 0)` for the
+/// tools it was written for. It is kept, unchanged in behaviour, as the
+/// regression signal: a fabrication that *is* attributable here again means
+/// the list-row rule stopped recognising a layout it used to.
+///
+/// A fabrication is "attributable" when its
 /// name occurs as *some* token anywhere in the raw text
 /// ([`token_occurs_anywhere`]), just not at the line-start position the
 /// detector itself requires. Flag-kind fabrications are out of scope here —
