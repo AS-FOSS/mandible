@@ -13,21 +13,21 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "argparse"
-# The reviewer's note is about the dropped `pid` positional, but
-# `CommandNode::positionals` has no [contract] field to assert on — see
-# corpus/README.md, no `must_contain_positionals` exists yet. Verified
-# there's a second, contract-testable defect in the same capture: every
+# A second, contract-testable defect in the same capture: every
 # "-x VALUE, --longname VALUE" line loses its long form entirely (e.g.
 # "-l {java,perl,...}, --language {...}" becomes short='l' only, with a
 # garbled value_name carrying a trailing comma and the unclosed brace
-# group). --language/--method/--class are all currently absent.
+# group). --language/--method/--class were all absent until
+# `dropped-alias` was fixed. The `{java,perl,...}` choice list is why
+# `take_rest_value_token` asks what FOLLOWS a separator rather than merely
+# that one is present: six commas sit inside that one placeholder, and a
+# rule that stopped at the first would read the alias as `perl`.
 must_contain_flags = ["--language", "--method", "--class"]
 
-# NOTE: the reviewer's own note is about the dropped `pid` POSITIONAL, and
-# that is still unfixed — `unparsed-positional` is a different family with
-# its own work. What this fixture asserts, and what was repaired, is the
-# contract-testable dropped-alias defect above. The `{java,perl,...}`
-# choice list is why `take_rest_value_token` asks what FOLLOWS a separator
-# rather than merely that one is present: six commas sit inside that one
-# placeholder, and a rule that stopped at the first would read the alias
-# as `perl`.
+# The reviewer's OWN finding, assertable at last: `pid` is listed under
+# argparse's `positional arguments:` heading and was dropped entirely.
+# Repaired by `unparsed-positional` — see this fixture's sibling
+# rubyobjnew-bpfcc, which carries the same assertion for two operands from
+# a different bcc tool, so the rule has two independent members rather
+# than one tool's bytes.
+must_contain_positionals = ["pid"]
