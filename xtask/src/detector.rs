@@ -1382,6 +1382,90 @@ impl Detector for ExistenceOracle {
             })
             .collect()
     }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        existence_self_checks()
+    }
+}
+
+/// `tar --help`'s real first line, byte-exact. Both halves of the operand
+/// rule live in this one string: `OPTION` is the slot that names tar's own
+/// flag list, `FILE` is the operand a user passes, and the two are written
+/// in identical notation one slot apart.
+const TAR_SYNOPSIS: &str = "Usage: tar [OPTION...] [FILE]...\n";
+
+/// `uobjnew`'s real argparse synopsis, byte-exact — the counter-shape: a
+/// synopsis that spells its own flags out, where every slot is an operand.
+const UOBJNEW_SYNOPSIS: &str =
+    "usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-v] pid [interval]\n";
+
+/// A root carrying `positionals` with the given names, all help-text-sourced.
+fn positional_node(name: &str, positionals: &[&str]) -> CommandNode {
+    let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
+    root.positionals = positionals
+        .iter()
+        .map(|p| Positional {
+            name: (*p).to_string(),
+            required: false,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        })
+        .collect();
+    root
+}
+
+/// The existence oracle's own hand-built cases (spec §13.1e).
+///
+/// The oracle is not calibratable against the labelled set — no reviewer in
+/// the seed-2 audit reported a fabricated name — so these cases are the
+/// *only* runtime evidence that it still works, and the operand half needs
+/// them more than the other two: the grammar fix that removed 15 fabricated
+/// operands from the fleet also removed every live example of them, so from
+/// the fleet count alone "zero because the fabrications are gone" and "zero
+/// because nobody ever wired the positional check up" are the same number.
+///
+/// The `Silent` cases are what make the `Fires` ones mean anything. Each is
+/// a real tool whose operand sits in the same notation, one slot over, from
+/// a placeholder — a rule that fired on shape alone would report all of them.
+fn existence_self_checks() -> Vec<SelfCheck> {
+    vec![
+        SelfCheck {
+            name: "tar's OPTION operand",
+            why: "the defect itself, from the tool that shipped it: `OPTION` is lifted out of \
+                  `[OPTION...]`, which names tar's own flag list and is not an argument anyone \
+                  passes",
+            expect: Expect::Fires(1),
+            raw: TAR_SYNOPSIS.to_string(),
+            root: positional_node("tar", &["OPTION", "FILE"]),
+        },
+        SelfCheck {
+            name: "tar's FILE operand alone",
+            why: "the other half of the fleet-count-of-zero question: after the grammar fix the \
+                  same bytes must go silent because the fabricated operand is gone, not because \
+                  the rule stopped looking",
+            expect: Expect::Silent,
+            raw: TAR_SYNOPSIS.to_string(),
+            root: positional_node("tar", &["FILE"]),
+        },
+        SelfCheck {
+            name: "uobjnew's two real operands",
+            why: "the nearest real false positive: a synopsis that writes its own flags needs no \
+                  stand-in for them, so `pid` is an operand in exactly the slot `OPTION` occupies \
+                  in tar's. These two were *recovered* by the same commit that removed the 15; \
+                  reporting them would undo it",
+            expect: Expect::Silent,
+            raw: UOBJNEW_SYNOPSIS.to_string(),
+            root: positional_node("uobjnew", &["pid", "interval"]),
+        },
+        SelfCheck {
+            name: "an operand named nowhere",
+            why: "the base claim underneath the position rule — an operand the document does not \
+                  contain at all is still reported, whatever the synopsis's shape",
+            expect: Expect::Fires(1),
+            raw: TAR_SYNOPSIS.to_string(),
+            root: positional_node("tar", &["TELEPORT"]),
+        },
+    ]
 }
 
 /// The misattribution oracle (`crate::misattribution`), registered on the

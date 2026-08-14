@@ -36,9 +36,23 @@
 //!
 //! # The rule
 //!
-//! > Every subcommand name and flag spelling the help-text tier emits must
-//! > occur literally in the raw input — and for a subcommand, at a
-//! > position where a real command-list entry actually sits.
+//! > Every subcommand name, flag spelling and positional operand the
+//! > help-text tier emits must occur literally in the raw input — and for a
+//! > subcommand, at a position where a real command-list entry actually
+//! > sits; for an operand, at a position where a real operand actually sits.
+//!
+//! **Positional operands** are the third check and the newest
+//! ([`attested_operand_positions`]). It is a position rule for the same
+//! reason the subcommand one is: the word an operand is named is exactly
+//! the word a *placeholder* is named, and the raw text contains both.
+//! `tar [OPTION...] [FILE]...` writes `OPTION` and `FILE` in identical
+//! notation, one slot apart, and only one of them is something the user
+//! passes. 15 tools shipped an operand called `OPTION`/`OPTIONS`/`options`
+//! lifted straight out of that slot, and this module saw every one of them
+//! and said nothing, because until now it did not look at
+//! `CommandNode::positionals` at all. [`option_list_slot`] carries the
+//! shape rule that separates the two, and the reason it is a shape rule
+//! rather than a copy of the tier's own word list.
 //!
 //! **Flags** are checked by literal substring occurrence anywhere in the
 //! raw text, at a word boundary (never embedded inside a longer, unrelated
@@ -421,6 +435,293 @@ fn attested_name_positions(raw: &str) -> HashSet<&str> {
     set
 }
 
+// ----------------------------------------------------------------------
+// Positional operands: where a real one sits, and the one shape that
+// stands in the same slot while meaning the opposite
+// ----------------------------------------------------------------------
+
+/// Strip a usage token's notation down to the bare word inside it.
+///
+/// Only the docopt-style delimiters spec §7 Tier B names are trimmed, and
+/// only from the ends: `[FILE]...` → `FILE`, `<url>` → `url`,
+/// `[<option>` → `option`, `...` → the empty string (dropped by the
+/// caller). A leading `-` is deliberately **not** trimmed, because whether
+/// the token is flag-shaped is the very question [`usage_operands`] asks
+/// next.
+///
+/// `str::trim_matches` returns a sub-slice of its input, so there is no
+/// offset arithmetic here and AGENTS.md's rule against slicing captured
+/// tool output at a raw byte offset is satisfied by construction, exactly
+/// as in [`list_row_items`].
+fn clean_usage_token(token: &str) -> &str {
+    token.trim_matches(|c| matches!(c, '[' | ']' | '<' | '>' | '{' | '}' | '(' | ')' | '|' | '.'))
+}
+
+/// True when a usage token is written in *notation* — opened with one of
+/// the synopsis grammar's group delimiters — rather than as a bare word.
+/// `[OPTION...]`, `<options>` and `[<option>` are notation; `MENU_ENTRY`,
+/// `pid` and `STRACE_LOG` are bare.
+fn is_bracketed(token: &str) -> bool {
+    matches!(
+        token.as_bytes().first(),
+        Some(b'[') | Some(b'<') | Some(b'{')
+    )
+}
+
+/// One physical line of a synopsis, and whether it opens with the program's
+/// own name.
+struct SynopsisLine<'a> {
+    text: &'a str,
+    /// True for a marker line (`Usage: tar ...`) and for a continuation
+    /// under a bare `Usage:` header (`  setsid [options] ...`, which
+    /// repeats the name); false for a wrapped remainder, which resumes
+    /// mid-synopsis and whose first token is therefore already an operand
+    /// or a flag. Getting this wrong in the `false` direction would
+    /// silently eat the first token of every wrapped line — `git`'s own
+    /// `<command>` sits one token into its last one.
+    opens_with_program_name: bool,
+}
+
+/// The physical lines of `raw` that are a synopsis.
+///
+/// Three shapes, all real and all in this project's own corpus:
+///
+/// * the marker and the synopsis on one line — `Usage: tar [OPTION...]
+///   [FILE]...`, `  or:  du [OPTION]... --files0-from=F`;
+/// * that same line **wrapped**, its remainder hanging on the indented
+///   lines below it. `git --help` writes five of them, and its two real
+///   operands `<command>` and `[<args>]` are on the *last* one — reading
+///   only the marker line reported both as invented, which is how this
+///   clause came to exist. A wrapped remainder is recognized by opening
+///   with one of the synopsis grammar's own group delimiters
+///   ([`is_bracketed`], the same three bytes the tier's own
+///   `looks_like_usage_fragment` tests), which is what keeps the ordinary
+///   indented *prose* under a usage line — `du`'s "Summarize device usage
+///   of the set of FILEs..." — from being read as more synopsis; and
+/// * a bare `Usage:` header with the synopsis indented beneath it, which is
+///   util-linux's house style (`setsid`, `wall`, `fsck`) and `zoxide`'s.
+///   Every consecutive indented non-empty line under such a header is
+///   taken, delimiter or not, because the continuation there begins with
+///   the tool's own name rather than with notation.
+///
+/// The marker test itself is `mandible_extract::help_text`'s own
+/// (`starts_with_usage_prefix`/`starts_with_or_marker`, re-exported for this
+/// module) rather than a second copy — see that re-export's doc comment. The
+/// continuation rule *is* this module's own, and is deliberately wider than
+/// the tier's: every line this admits can only add to the attested set
+/// ([`attested_operand_positions`]), and a wider attested set can only make
+/// this oracle report less. An oracle may differ from the parser in that
+/// direction and not the other.
+fn synopsis_lines(raw: &str) -> Vec<SynopsisLine<'_>> {
+    use mandible_extract::help_text::{starts_with_or_marker, starts_with_usage_prefix};
+
+    /// What an indented line under an open usage block has to look like
+    /// before it counts as more synopsis.
+    enum Continuation {
+        /// Nothing is open: the last line was neither a marker nor a
+        /// continuation.
+        None,
+        /// A bare `Usage:` header is open — any indented, non-empty line.
+        Anything,
+        /// A marker line carrying its own synopsis is open — only a wrapped
+        /// remainder, i.e. a line opening with a group delimiter.
+        NotationOnly,
+    }
+
+    let mut out = Vec::new();
+    let mut open = Continuation::None;
+    for line in raw.lines() {
+        let trimmed = line.trim_start();
+        if starts_with_usage_prefix(trimmed) || starts_with_or_marker(trimmed) {
+            out.push(SynopsisLine {
+                text: line,
+                opens_with_program_name: true,
+            });
+            open = match trimmed
+                .split_once(':')
+                .is_some_and(|(_, rest)| rest.trim().is_empty())
+            {
+                true => Continuation::Anything,
+                false => Continuation::NotationOnly,
+            };
+            continue;
+        }
+        let indented = line.starts_with([' ', '\t']) && !trimmed.is_empty();
+        let continues = indented
+            && match open {
+                Continuation::None => false,
+                Continuation::Anything => true,
+                Continuation::NotationOnly => is_bracketed(trimmed),
+            };
+        if continues {
+            out.push(SynopsisLine {
+                text: line,
+                opens_with_program_name: matches!(open, Continuation::Anything),
+            });
+        } else {
+            open = Continuation::None;
+        }
+    }
+    out
+}
+
+/// One synopsis line read as a sequence of operand slots, plus whether the
+/// line writes any literal flag of its own.
+///
+/// The program's own name is dropped when the line opens with it
+/// ([`SynopsisLine::opens_with_program_name`]); it is never an operand.
+/// Every remaining token that is not flag-shaped is a slot, kept in source
+/// order and paired with whether it was written in notation.
+///
+/// A flag's *value* token (`-C <path>`) is deliberately kept as a slot,
+/// unlike in the tier's own `extract_positionals`, which skips it. The
+/// asymmetry is on purpose and it is the safe direction: this set is only
+/// ever used to *attest*, so keeping a token can only make the oracle
+/// report less. Dropping it would have cost a real false alarm —
+/// `lzgrep`'s `Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...` writes its
+/// genuine `PATTERN` operand immediately after a bracketed `[-e]`, and a
+/// value-consuming reader attests `PATTERN` nowhere and reports a real
+/// operand as invented.
+fn usage_operands<'a>(line: &SynopsisLine<'a>) -> (Vec<(&'a str, bool)>, bool) {
+    use mandible_extract::help_text::{starts_with_or_marker, starts_with_usage_prefix};
+    let trimmed = line.text.trim_start();
+    let mut tokens = trimmed.split_whitespace().peekable();
+    if starts_with_usage_prefix(trimmed) || starts_with_or_marker(trimmed) {
+        // The marker may be glued to the program name (`usage:git`) or
+        // stand alone (`Usage: git`); only consume it when it stands alone.
+        if tokens.peek().is_some_and(|t| t.ends_with(':')) {
+            tokens.next();
+        }
+    }
+    if line.opens_with_program_name {
+        tokens.next();
+    }
+    let mut slots = Vec::new();
+    let mut has_literal_flag = false;
+    for token in tokens {
+        let cleaned = clean_usage_token(token);
+        if cleaned.is_empty() {
+            continue;
+        }
+        if cleaned.starts_with('-') {
+            has_literal_flag = true;
+            continue;
+        }
+        slots.push((cleaned, is_bracketed(token)));
+    }
+    (slots, has_literal_flag)
+}
+
+/// The shape rule: which slot of a synopsis line is the tool's **option
+/// list** rather than an operand the user supplies.
+///
+/// # The defect this exists for
+///
+/// A synopsis names its own option list with a word, in the same notation
+/// an operand uses, and only the second half of each of these pairs is
+/// something the user actually passes:
+///
+/// ```text
+/// tar [OPTION...] [FILE]...
+/// pkgconf [OPTIONS] [LIBRARIES]
+/// dpkg-statoverride [<option> ...] <command>
+/// rmiregistry <options> <port>
+/// vim [arguments] [file ..]
+/// ```
+///
+/// Reading the first as an operand invents an argument no tool has. That
+/// was live in **15 of the 26 corpus fixtures carrying a positional** —
+/// `tar`, `du`, `sha1sum`, `lzgrep`, `lzless` each recorded `OPTION`;
+/// `pkg-config`, `ip`, `mysqld_multi` recorded `OPTIONS`;
+/// `dpkg-statoverride` `option`; `rmiregistry`, `update-xmlcatalog`
+/// `options`; and `git restore`'s subtree `options` beside its real `file`
+/// — and this oracle saw every one of them and said nothing, because it did
+/// not look at positionals at all.
+///
+/// # Why a shape rule and not a word list
+///
+/// The tier's own fix names the shape by its vocabulary
+/// (`sections::OPTION_LIST_PLACEHOLDERS`), which is the right call *there*:
+/// a parser deciding whether to emit must decide, and those five words are
+/// the ones the frameworks in the fleet actually use. An oracle must not
+/// share that list. A word list cannot tell you whether the parser is
+/// wrong, only whether it disagreed with the same list — and a fabrication
+/// spelled with a sixth word would be attested by both. So the rule here is
+/// positional, and it reads only shape:
+///
+/// > On a synopsis line that writes **no literal flag of its own**, the
+/// > **first** slot is the option list — provided it is written in
+/// > **notation** and at least one further slot **follows** it.
+///
+/// Each clause carries its own weight, and each is a false alarm this rule
+/// does not have:
+///
+/// 1. **No literal flag on the line.** A synopsis that spells its options
+///    out (`uflow [-h] [-l {java,...}] [-M METHOD] ... pid`) needs no
+///    stand-in for them, so every slot on it is an operand. This alone
+///    keeps `git`, `javaflow-bpfcc`, `rubyobjnew-bpfcc`, `sbverify` and
+///    `fsck` out of the rule's reach entirely.
+/// 2. **Written in notation.** `basename NAME [SUFFIX]` opens with a bare
+///    word, and a bare word is a named operand, never a stand-in for a flag
+///    list — no tool in the corpus writes its option placeholder
+///    unbracketed.
+/// 3. **Something follows it.** A synopsis whose only slot is its first
+///    (`zoxide <COMMAND>`, `strace-log-merge STRACE_LOG`) is naming the one
+///    operand the tool takes. Reading *that* as the option list would delete
+///    a real operand, which is the failure this project ranks worst.
+///
+/// # What it does not catch
+///
+/// A tool whose synopsis is only its option placeholder (`whoami
+/// [OPTION]...`) is missed by clause 3, and one whose synopsis writes a
+/// literal flag *beside* the placeholder (`lzgrep [OPTION]... [-e] PATTERN
+/// [FILE]...`) by clause 1. Both are under-reports, deliberately: this
+/// oracle's own standing rule is that a permissive miss costs a defect
+/// unfound while a false alarm blocks a working tool.
+fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Option<&'a str> {
+    if has_literal_flag || slots.len() < 2 {
+        return None;
+    }
+    let (first, bracketed) = slots[0];
+    bracketed.then_some(first)
+}
+
+/// Every position in `raw` at which a genuine positional operand is
+/// attested — the operand half of what [`attested_name_positions`] is for
+/// subcommand names.
+///
+/// Two sources, mirroring the two ways a tool documents an operand:
+///
+/// * an **operand slot of a synopsis line**, minus the option-list slot
+///   ([`option_list_slot`]); and
+/// * a **line's first token** ([`line_start_words`]) — an entry in a
+///   declared operand block, which is what `argparse` writes under its
+///   `positional arguments:` heading and what
+///   `sections::emit_declared_positionals` reads.
+///
+/// The option-list subtraction is confined to the synopsis set on purpose.
+/// Removing the placeholder word from `line_start_words` as well would be a
+/// second, unmeasured claim — that no document ever documents an operand
+/// under a name some other line uses as its option placeholder — and it
+/// would buy a handful of extra reports at the cost of a false-alarm class
+/// nobody has bounded. The subtraction as written costs `du`'s `OPTION` a
+/// report whenever a second `or:` line re-attests it, and that is the trade
+/// this module takes every time.
+fn attested_operand_positions(raw: &str) -> HashSet<&str> {
+    let mut out = HashSet::new();
+    for line in synopsis_lines(raw) {
+        let (slots, has_literal_flag) = usage_operands(&line);
+        let placeholder = option_list_slot(&slots, has_literal_flag);
+        for (word, _) in &slots {
+            if Some(*word) != placeholder {
+                out.insert(*word);
+            }
+        }
+    }
+    out.extend(line_start_words(raw));
+    out
+}
+
 /// Candidate raw-text spellings for `flag`'s short spelling — the bare
 /// `-x` form, plus, when `flag.value_name` is set, the *reconstructed*
 /// single-dash spelling this module's doc comment describes: GCC/Clang/
@@ -619,6 +920,11 @@ pub enum FabricationKind {
     /// A `Flag` short or long spelling with no boundary-respecting
     /// occurrence anywhere in the raw text.
     Flag,
+    /// A `Positional` name that occurs at no position a real operand
+    /// occupies — nowhere in a declared operand block, and nowhere in a
+    /// synopsis except in the slot that names the tool's own option list
+    /// ([`option_list_slot`]).
+    Positional,
 }
 
 /// The result of analyzing one tool.
@@ -663,14 +969,43 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
     }
 }
 
+/// The positional half of the rule: every help-text-sourced operand this
+/// node records must sit at a position a real operand occupies
+/// ([`attested_operand_positions`]).
+///
+/// Scoped by provenance exactly as [`check_flags`] is, and for the same
+/// reason — a completion script or a `__complete` protocol reply names
+/// operands the tool's prose never prints.
+fn check_positionals(
+    node: &CommandNode,
+    path: &str,
+    operands: &HashSet<&str>,
+    out: &mut Vec<Fabrication>,
+) {
+    for positional in &node.positionals {
+        if !is_help_text_sourced(&positional.provenance) {
+            continue;
+        }
+        if !operands.contains(positional.name.as_str()) {
+            out.push(Fabrication {
+                path: path.to_string(),
+                kind: FabricationKind::Positional,
+                name: positional.name.clone(),
+            });
+        }
+    }
+}
+
 fn walk(
     node: &CommandNode,
     path: &str,
     raw: &str,
     attested: &HashSet<&str>,
+    operands: &HashSet<&str>,
     out: &mut Vec<Fabrication>,
 ) {
     check_flags(node, path, raw, out);
+    check_positionals(node, path, operands, out);
     for child in &node.subcommands {
         if is_help_text_sourced(&child.provenance) && !attested.contains(child.name.as_str()) {
             out.push(Fabrication {
@@ -680,7 +1015,7 @@ fn walk(
             });
         }
         let child_path = format!("{path} {}", child.name);
-        walk(child, &child_path, raw, attested, out);
+        walk(child, &child_path, raw, attested, operands, out);
     }
 }
 
@@ -697,8 +1032,16 @@ fn walk(
 /// checked like any other node's.
 pub fn detect(raw: &str, root: &CommandNode) -> ExistenceReport {
     let attested = attested_name_positions(raw);
+    let operands = attested_operand_positions(raw);
     let mut fabrications = Vec::new();
-    walk(root, &root.name, raw, &attested, &mut fabrications);
+    walk(
+        root,
+        &root.name,
+        raw,
+        &attested,
+        &operands,
+        &mut fabrications,
+    );
     ExistenceReport { fabrications }
 }
 
@@ -1527,6 +1870,266 @@ mod tests {
                 .map(|f| &f.name)
                 .collect::<Vec<_>>()
         );
+    }
+
+    // --- positional operands ---------------------------------------------
+
+    fn help_text_positional(name: &str) -> mandible_core::Positional {
+        mandible_core::Positional {
+            name: name.to_string(),
+            required: false,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        }
+    }
+
+    /// Every option-list placeholder shape the 15-tool fix removed, each
+    /// byte-exact from the tool's own capture, paired with the operand
+    /// standing beside it. The rule has to name the first and spare the
+    /// second in every row.
+    const PLACEHOLDER_PAIRS: &[(&str, &str, &str)] = &[
+        ("Usage: tar [OPTION...] [FILE]...\n", "OPTION", "FILE"),
+        ("Usage: du [OPTION]... [FILE]...\n", "OPTION", "FILE"),
+        (
+            "usage: pkgconf [OPTIONS] [LIBRARIES]\n",
+            "OPTIONS",
+            "LIBRARIES",
+        ),
+        (
+            "Usage: dpkg-statoverride [<option> ...] <command>\n",
+            "option",
+            "command",
+        ),
+        ("Usage: rmiregistry <options> <port>\n", "options", "port"),
+        ("Usage: vim [arguments] [file ..]\n", "arguments", "file"),
+        ("Usage: curl [options...] <url>\n", "options", "url"),
+        (
+            "Usage: grub-set-default [OPTION] MENU_ENTRY\n",
+            "OPTION",
+            "MENU_ENTRY",
+        ),
+    ];
+
+    #[test]
+    fn the_option_list_slot_is_never_an_attested_operand() {
+        for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
+            let attested = attested_operand_positions(raw);
+            assert!(
+                !attested.contains(placeholder),
+                "{placeholder:?} must not be attested by {raw:?}: {attested:?}"
+            );
+            assert!(
+                attested.contains(operand),
+                "{operand:?} must be attested by {raw:?}: {attested:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn detect_flags_the_option_list_placeholder_and_spares_the_operand_beside_it() {
+        for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
+            let mut root = help_text_node("t");
+            root.positionals.push(help_text_positional(placeholder));
+            root.positionals.push(help_text_positional(operand));
+            let report = detect(raw, &root);
+            let names: Vec<&String> = report.fabrications.iter().map(|f| &f.name).collect();
+            assert_eq!(names, vec![placeholder], "for {raw:?}");
+            assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
+        }
+    }
+
+    /// The [M-10]-shaped replay for operands, against `tar`'s own real
+    /// corpus capture rather than a hand-typed line: `tar` shipped an
+    /// operand called `OPTION`, lifted out of `[OPTION...]`, and this
+    /// oracle saw it and said nothing.
+    #[test]
+    fn detects_tars_own_fabricated_option_operand_against_its_real_corpus_text() {
+        let raw = include_str!("../../corpus/tar/1.35/help.txt");
+        let mut root = help_text_node("tar");
+        root.positionals.push(help_text_positional("OPTION"));
+        root.positionals.push(help_text_positional("FILE"));
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            1,
+            "expected exactly the fabricated operand: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
+        assert_eq!(report.fabrications[0].name, "OPTION");
+    }
+
+    /// Clause 1 of [`option_list_slot`]: a synopsis that spells its own
+    /// options out needs no stand-in for them, so the rule stays out of the
+    /// line entirely. `uobjnew`'s real argparse synopsis, byte-exact — its
+    /// `pid` and `interval` are the two operands the same commit
+    /// *recovered*, and reporting either would undo that.
+    #[test]
+    fn a_synopsis_that_writes_its_own_flags_has_no_placeholder_slot() {
+        let raw = "usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-S TOP_SIZE] [-v] pid [interval]\n";
+        let mut root = help_text_node("uobjnew");
+        root.positionals.push(help_text_positional("pid"));
+        root.positionals.push(help_text_positional("interval"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// Clause 2: a bare word is a named operand, never a stand-in for a
+    /// flag list. Without it, `basename`'s own first operand reads as the
+    /// option list.
+    #[test]
+    fn an_unbracketed_first_slot_is_never_the_option_list() {
+        let raw = "Usage: basename NAME [SUFFIX]\n";
+        let mut root = help_text_node("basename");
+        root.positionals.push(help_text_positional("NAME"));
+        root.positionals.push(help_text_positional("SUFFIX"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// Clause 3: a synopsis naming exactly one slot is naming the one
+    /// operand the tool takes. `zoxide` and `strace-log-merge` are both
+    /// real corpus fixtures, and both would lose a genuine operand without
+    /// this.
+    #[test]
+    fn a_sole_slot_is_the_tools_operand_not_its_option_list() {
+        for (raw, name) in [
+            ("Usage:\n  zoxide <COMMAND>\n", "COMMAND"),
+            ("Usage: strace-log-merge STRACE_LOG\n", "STRACE_LOG"),
+        ] {
+            let mut root = help_text_node("t");
+            root.positionals.push(help_text_positional(name));
+            let report = detect(raw, &root);
+            assert_eq!(report.fabrication_count(), 0, "for {raw:?}");
+        }
+    }
+
+    /// A bare `Usage:` header with the synopsis indented beneath it —
+    /// util-linux's house style, and the shape that carries `wall`'s two
+    /// real operands one slot past its `[options]` placeholder.
+    #[test]
+    fn a_bare_usage_header_opens_a_synopsis_block() {
+        let raw = "Usage:\n wall [options] [<file> | <message>]\n\nWrite a message to all users.\n";
+        let attested = attested_operand_positions(raw);
+        assert!(attested.contains("file"), "{attested:?}");
+        assert!(attested.contains("message"), "{attested:?}");
+        assert!(!attested.contains("options"), "{attested:?}");
+    }
+
+    /// `git --help`'s real wrapped synopsis: the two operands sit on the
+    /// *fifth* physical line. Reading only the marker line reported both
+    /// `command` and `args` as invented — measured against the committed
+    /// fixture, not imagined.
+    #[test]
+    fn a_wrapped_synopsis_still_attests_the_operands_on_its_last_line() {
+        let raw = include_str!("../../corpus/git/2.43.0/help.txt");
+        let mut root = help_text_node("git");
+        root.positionals.push(help_text_positional("command"));
+        root.positionals.push(help_text_positional("args"));
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "git's own real operands must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Ordinary indented prose under a usage line is not more synopsis.
+    /// `du --help` writes exactly that, and admitting it would attest every
+    /// word of a sentence as an operand position.
+    #[test]
+    fn indented_prose_under_a_usage_line_is_not_a_synopsis_continuation() {
+        let raw = concat!(
+            "Usage: du [OPTION]... [FILE]...\n",
+            "  or:  du [OPTION]... --files0-from=F\n",
+            "  Summarize device usage of the set of FILEs, recursively for directories.\n",
+        );
+        let attested = attested_operand_positions(raw);
+        assert!(!attested.contains("device"), "{attested:?}");
+        assert!(!attested.contains("recursively"), "{attested:?}");
+        assert!(attested.contains("FILE"), "{attested:?}");
+    }
+
+    /// A real operand that appears only in a declared operand block —
+    /// argparse's `positional arguments:` heading, which
+    /// `sections::emit_declared_positionals` reads — is attested by its
+    /// block entry, not by the synopsis.
+    #[test]
+    fn a_declared_operand_block_entry_attests_its_operand() {
+        let raw = concat!(
+            "usage: uobjnew [-h] pid\n",
+            "\n",
+            "positional arguments:\n",
+            "  pid                   process id to attach to\n",
+            "  interval              print every specified number of seconds\n",
+        );
+        let mut root = help_text_node("uobjnew");
+        root.positionals.push(help_text_positional("interval"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// The other direction, and the one that makes the rest worth
+    /// anything: an operand named by nothing in the document at all is
+    /// still reported.
+    #[test]
+    fn detect_flags_an_operand_that_occurs_nowhere() {
+        let raw = "Usage: tar [OPTION...] [FILE]...\n";
+        let mut root = help_text_node("tar");
+        root.positionals.push(help_text_positional("TELEPORT"));
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
+        assert_eq!(report.fabrications[0].name, "TELEPORT");
+    }
+
+    #[test]
+    fn detect_ignores_positionals_not_sourced_from_help_text() {
+        let raw = "Usage: tar [OPTION...] [FILE]...\n";
+        let mut root = help_text_node("tar");
+        let mut structural = help_text_positional("never-printed");
+        structural.provenance = Provenance::single(Source::NativeDynamic {
+            protocol: "cobra-dunder-complete".to_string(),
+        });
+        root.positionals.push(structural);
+        assert_eq!(
+            detect(raw, &root).fabrication_count(),
+            0,
+            "a structurally-sourced operand must never be checked against help text"
+        );
+    }
+
+    #[test]
+    fn detect_recurses_into_a_subcommands_own_positionals() {
+        let raw = "Usage: t [OPTION...] <file>\n   sub    do a thing\n";
+        let mut root = help_text_node("t");
+        let mut sub = help_text_node("sub");
+        sub.positionals.push(help_text_positional("invented"));
+        root.subcommands.push(sub);
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].path, "t sub");
+        assert_eq!(report.fabrications[0].name, "invented");
+    }
+
+    /// A flag's own value token stays an attested operand position on
+    /// purpose — see [`usage_operands`]. `lzgrep` writes its genuine
+    /// `PATTERN` immediately after a bracketed `[-e]`, and a
+    /// value-consuming reader would report a real operand as invented.
+    #[test]
+    fn an_operand_written_after_a_bracketed_flag_is_still_attested() {
+        let raw = "Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...\n";
+        let mut root = help_text_node("lzgrep");
+        root.positionals.push(help_text_positional("PATTERN"));
+        root.positionals.push(help_text_positional("FILE"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
     }
 
     // --- RecordingProbe wiring sanity (mirrors misattribution's own) -----

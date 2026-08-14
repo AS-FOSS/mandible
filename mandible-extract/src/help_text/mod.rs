@@ -76,6 +76,23 @@ pub use sections::{
 /// same drift hazard as a second copy of "what is a flag".
 pub use sections::strip_optional_modifier_suffix;
 
+/// Re-exported for `xtask/src/existence.rs`'s positional-operand check, and
+/// for the same drift reason as everything above: the oracle has to agree
+/// with this tier on *which physical lines are a synopsis at all* before it
+/// can say anything about where an operand sits on one. These are the two
+/// markers this tier's own usage-block scan opens on
+/// (`sections::parse_with_profile`); a second copy of "does this line say
+/// usage" would be one more predicate free to drift past a fix.
+///
+/// What the oracle does **not** borrow is the block-continuation rule — how
+/// far past the marker line the synopsis runs. That is deliberately the
+/// oracle's own, wider, decision: it reads every indented line under a bare
+/// `Usage:` header, where this tier applies `looks_like_usage_fragment` and
+/// an indent ladder. A wider read can only *attest* more, i.e. report less,
+/// so the difference is safe in the one direction an oracle's difference has
+/// to be safe in.
+pub use sections::{starts_with_or_marker, starts_with_usage_prefix};
+
 use crate::errors::ExtractError;
 use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
