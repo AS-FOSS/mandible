@@ -110,6 +110,12 @@ must_contain_positionals = ["pid"]   # same, for root positional operands —
                                      # matched on the operand's name, which
                                      # is what a user actually types
 
+# The one *negative* claim: root flag spellings the tree must NOT carry.
+# Everything above says "the parser dropped something real"; this says
+# "the parser invented something". See "Stating that a flag does not
+# exist" below for exactly what it does and does not assert.
+must_not_contain_flags = ["--------------------------------"]
+
 # Same idea, for a subcommand's own flags — keyed by its path (space-
 # separated, tool's own name excluded), since `must_contain_flags` alone
 # can only ever assert what a tool publishes at its *root*. Requires a
@@ -128,6 +134,42 @@ broken = true
 reason = "command groups under flush-left headings are dropped; renders verbatim"
 issue = "https://github.com/<org>/<repo>/issues/NNN"  # optional
 ```
+
+### Stating that a flag does *not* exist: `must_not_contain_flags`
+
+Every other `[contract]` field is a **positive** claim — it names something
+the real tool really has, and fails when the parser drops it. That covers
+the omission half of what can go wrong and none of the invention half: a
+parser that reads a table ruler, a decorator, or a stray line of punctuation
+as an option produces a flag nobody can point at, because there is no field
+whose job is to say "this must not be here."
+
+`must_not_contain_flags` is that field, and `corpus/mariadb-check/2.7.4` is
+the instance it was built for. That tool's `Variables (--variable-name=value)`
+defaults table opens with a header ruler, and the parser emits a flag whose
+long name is that ruler. The tool has no such option.
+
+It is matched **exactly the way `must_contain_flags` is**, negated:
+`--foo` asserts no root flag has the long name `foo`, `-x` asserts none has
+the short name `x`, a bare word is matched against the long name verbatim.
+Write the spelling as it would be typed. What it deliberately does *not*
+claim, so a fixture author never asserts more than they looked at:
+
+- **Nothing about the raw capture.** This is a statement about the parsed
+  tree only. The mariadb ruler occurs literally in `help.txt` and must go
+  on occurring there — the capture is byte-exact. (This is also why the
+  existence oracle cannot catch this defect: its question is "does this
+  spelling occur in the raw text", and here it correctly answers yes.)
+- **Nothing about the other spelling.** `--foo` says nothing about a short
+  `-f`, and `-x` says nothing about any long name.
+- **Nothing below the root.** Root flags only, the same scope
+  `must_contain_flags` has. A subcommand inventing a flag would need a
+  by-path analogue; this field does not quietly cover it.
+
+A fixture that produces no root at all satisfies this vacuously and is not
+reported — the one asymmetry with the positive fields, which a missing tree
+trivially breaks. Dropping an entry is a weakening exactly as dropping a
+`must_contain_flags` entry is, and `--baseline-dir` reports it as one.
 
 ### What `--bless` does and does not assert: `verdict_scope`
 
@@ -280,7 +322,7 @@ $ cargo run -p xtask -- corpus --baseline-dir /tmp/corpus-at-main   # also flag 
 corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
 a dropped `must_contain_flags`/`must_contain_flags_by_path`/
-`must_contain_positionals` entry, a fixture
+`must_contain_positionals`/`must_not_contain_flags` entry, a fixture
 newly marked `[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle
 rules above). This binary **has no git access and never will** — the

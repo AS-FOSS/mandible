@@ -287,7 +287,8 @@ jobs:
       # `CONTRACT WEAKENED` detector is actually live in CI instead of inert.
       # Before this step existed, nothing ever passed `--baseline-dir` here,
       # so a PR that quietly weakened a fixture's `[contract]` (lowered
-      # `min_subcommands`, dropped a `must_contain_flags` entry, newly marked
+      # `min_subcommands`, dropped a `must_contain_flags` or
+      # `must_not_contain_flags` entry, newly marked
       # a fixture `[xfail]`) produced no warning at all — legal per
       # `corpus/README.md`'s documented lifecycle, but silent, which is
       # exactly what that detector exists to stop.

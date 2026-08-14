@@ -150,6 +150,27 @@ below exists to answer that, and it has not finished running.
 
 ### Added
 
+- **A corpus fixture can now state that a flag does *not* exist:
+  `must_not_contain_flags`.** Every `[contract]` field until now was a
+  positive claim — it named something a real tool really has and failed
+  when the parser dropped it. That covered the omission half of what can go
+  wrong and none of the invention half, so a phantom flag was a defect no
+  fixture could pin, and a defect that cannot be pinned cannot announce its
+  own repair through strict xfail. The live instance:
+  `mariadb-check --help` prints a `Variables (--variable-name=value)`
+  defaults table whose header ruler is read as a flag row, and the tree
+  gains an option whose long name is thirty-one `-` characters. The
+  existence oracle is correctly silent on it — its question is "does this
+  spelling occur in the raw text", and the ruler does, literally.
+
+  The field is matched by exactly the matcher `must_contain_flags` uses,
+  negated, root flags only; it asserts nothing about the raw capture,
+  nothing about the spelling an entry did not name, and nothing below the
+  root. Dropping an entry is a weakening and is reported by
+  `xtask corpus --baseline-dir` as `CONTRACT WEAKENED`, the same as
+  dropping a positive one. New fixture `corpus/mariadb-check/2.7.4` is its
+  first user, `[xfail]` on that ruler.
+
 - **`mandible --report <tool>`.** Assembles a paste-ready bug report: the
   mandible version, the tool's version when it can be recovered, the
   `--doctor` diagnostic, and the raw `--help` capture, followed by the issues
