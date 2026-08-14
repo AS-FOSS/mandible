@@ -50,93 +50,80 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'h'
-  value_name: elp
-  value_kind: Required
+- long: help
+  single_dash: true
   description: show help
   provenance:
     sources:
     - help-text
-- short: 'v'
-  value_name: ersion
-  value_kind: Required
+- long: version
+  single_dash: true
   description: show version
   provenance:
     sources:
     - help-text
-- short: 'b'
-  value_name: uildconf
-  value_kind: Required
+- long: buildconf
+  single_dash: true
   description: show build configuration
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ormats
-  value_kind: Required
+- long: formats
+  single_dash: true
   description: show available formats
   provenance:
     sources:
     - help-text
-- short: 'm'
-  value_name: uxers
-  value_kind: Required
+- long: muxers
+  single_dash: true
   description: show available muxers
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: emuxers
-  value_kind: Required
+- long: demuxers
+  single_dash: true
   description: show available demuxers
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: evices
-  value_kind: Required
+- long: devices
+  single_dash: true
   description: show available devices
   provenance:
     sources:
     - help-text
-- short: 'c'
-  value_name: odecs
-  value_kind: Required
+- long: codecs
+  single_dash: true
   description: show available codecs
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: ecoders
-  value_kind: Required
+- long: decoders
+  single_dash: true
   description: show available decoders
   provenance:
     sources:
     - help-text
-- short: 'e'
-  value_name: ncoders
-  value_kind: Required
+- long: encoders
+  single_dash: true
   description: show available encoders
   provenance:
     sources:
     - help-text
-- short: 'b'
-  value_name: sfs
-  value_kind: Required
+- long: bsfs
+  single_dash: true
   description: show available bit stream filters
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rotocols
-  value_kind: Required
+- long: protocols
+  single_dash: true
   description: show available protocols
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ilters
-  value_kind: Required
+- long: filters
+  single_dash: true
   description: show available filters
   provenance:
     sources:
@@ -148,9 +135,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'l'
-  value_name: ayouts
-  value_kind: Required
+- long: layouts
+  single_dash: true
   description: show standard channel layouts
   provenance:
     sources:
@@ -162,44 +148,38 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: ispositions
-  value_kind: Required
+- long: dispositions
+  single_dash: true
   description: show available stream dispositions
   provenance:
     sources:
     - help-text
-- short: 'c'
-  value_name: olors
-  value_kind: Required
+- long: colors
+  single_dash: true
   description: show available color names
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: ources
-  value_kind: Required
+- long: sources
+  single_dash: true
   description: list sources of the input device
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: inks
-  value_kind: Required
+- long: sinks
+  single_dash: true
   description: list sinks of the output device
   provenance:
     sources:
     - help-text
-- short: 'h'
-  value_name: waccels
-  value_kind: Required
+- long: hwaccels
+  single_dash: true
   description: show available HW acceleration methods
   provenance:
     sources:
     - help-text
-- short: 'l'
-  value_name: oglevel
-  value_kind: Required
+- long: loglevel
+  single_dash: true
   description: set logging level
   provenance:
     sources:
@@ -211,9 +191,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'r'
-  value_name: eport
-  value_kind: Required
+- long: report
+  single_dash: true
   description: generate a report
   provenance:
     sources:
@@ -256,9 +235,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: tats
-  value_kind: Required
+- long: stats
+  single_dash: true
   description: print progress report during encoding
   provenance:
     sources:
@@ -284,16 +262,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'c'
-  value_name: odec
-  value_kind: Required
+- long: codec
+  single_dash: true
   description: codec name
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: re
-  value_kind: Required
+- long: pre
+  single_dash: true
   description: preset name
   provenance:
     sources:
@@ -333,9 +309,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: seof
-  value_kind: Required
+- long: sseof
+  single_dash: true
   description: set the start time offset relative to EOF
   provenance:
     sources:
@@ -347,51 +322,44 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 't'
-  value_name: imestamp
-  value_kind: Required
+- long: timestamp
+  single_dash: true
   description: set the recording timestamp ('now' to set the current time)
   provenance:
     sources:
     - help-text
-- short: 'm'
-  value_name: etadata
-  value_kind: Required
+- long: metadata
+  single_dash: true
   description: add metadata
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rogram
-  value_kind: Required
+- long: program
+  single_dash: true
   description: add program with specified streams
   provenance:
     sources:
     - help-text
-- short: 't'
-  value_name: arget
-  value_kind: Required
+- long: target
+  single_dash: true
   description: specify target file type ("vcd", "svcd", "dvd", "dv" or "dv50" with optional prefixes "pal-", "ntsc-" or "film-")
   provenance:
     sources:
     - help-text
-- short: 'a'
-  value_name: pad
-  value_kind: Required
+- long: apad
+  single_dash: true
   description: audio pad
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: rames
-  value_kind: Required
+- long: frames
+  single_dash: true
   description: set the number of frames to output
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ilter
-  value_kind: Required
+- long: filter
+  single_dash: true
   description: set stream filtergraph
   provenance:
     sources:
@@ -410,23 +378,20 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: iscard
-  value_kind: Required
+- long: discard
+  single_dash: true
   description: discard
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: isposition
-  value_kind: Required
+- long: disposition
+  single_dash: true
   description: disposition
   provenance:
     sources:
     - help-text
-- short: 'v'
-  value_name: frames
-  value_kind: Required
+- long: vframes
+  single_dash: true
   description: set the number of video frames to output
   provenance:
     sources:
@@ -438,9 +403,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: psmax
-  value_kind: Required
+- long: fpsmax
+  single_dash: true
   description: set max frame rate (Hz value, fraction or abbreviation)
   provenance:
     sources:
@@ -452,9 +416,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'a'
-  value_name: spect
-  value_kind: Required
+- long: aspect
+  single_dash: true
   description: set aspect ratio (4:3, 16:9 or 1.3333, 1.7777)
   provenance:
     sources:
@@ -487,23 +450,20 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'v'
-  value_name: codec
-  value_kind: Required
+- long: vcodec
+  single_dash: true
   description: force video codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
-- short: 't'
-  value_name: imecode
-  value_kind: Required
+- long: timecode
+  single_dash: true
   description: set initial TimeCode value.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: ass
-  value_kind: Required
+- long: pass
+  single_dash: true
   description: select the pass number (1 to 3)
   provenance:
     sources:
@@ -529,9 +489,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'a'
-  value_name: frames
-  value_kind: Required
+- long: aframes
+  single_dash: true
   description: set the number of audio frames to output
   provenance:
     sources:
@@ -564,9 +523,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'a'
-  value_name: codec
-  value_kind: Required
+- long: acodec
+  single_dash: true
   description: force audio codec ('copy' to copy stream)
   provenance:
     sources:
@@ -599,16 +557,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: codec
-  value_kind: Required
+- long: scodec
+  single_dash: true
   description: force subtitle codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: tag
-  value_kind: Required
+- long: stag
+  single_dash: true
   description: force subtitle tag/fourcc
   provenance:
     sources:
@@ -627,9 +583,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: pre
-  value_kind: Required
+- long: spre
+  single_dash: true
   description: set the subtitle options to the indicated preset
   provenance:
     sources:

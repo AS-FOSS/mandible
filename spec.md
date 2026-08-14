@@ -2138,18 +2138,28 @@ verdict line or note:
   fire on the other two unless it makes that distinction, which is precisely
   the kind of thing calibration surfaces and a fleet count alone hides.
 
-  **All three are now detected separately, and two of the three are
-  repaired.** `bundled-short-flag` (`xtask/src/bundling.rs`) was fixed at
-  `942890d`; `repeated-char-flag` (`xtask/src/repeated_char.rs`) was fixed by
-  `help_text::sections::repair_repeated_character_flags`, and both are
-  ratchet-gated at zero. `single-dash-long` (`xtask/src/single_dash_long.rs`)
-  is **measured but not repaired**: its detector passes calibration and its
-  fleet count is reported, deliberately ungated, because gating a live defect
-  at its own current value would fail every build for a bug nobody has fixed.
-  Repairing it needs the model change `mandible_core::Flag::single_dash`
-  already provides — a long option spelled with one dash — applied to a much
-  larger and more ambiguous population than the repeated-character family's,
-  and it is not attempted here.
+  **All three are now detected separately, and all three are repaired and
+  ratchet-gated at zero.** `bundled-short-flag` (`xtask/src/bundling.rs`)
+  was fixed at `942890d`; `repeated-char-flag`
+  (`xtask/src/repeated_char.rs`) was fixed by
+  `help_text::sections::repair_repeated_character_flags`; and
+  `single-dash-long` (`xtask/src/single_dash_long.rs`) — the last and by far
+  the largest, **132 tools and 8,784 flags, 17.6% of every flag mandible
+  extracted** — was fixed by
+  `help_text::sections::repair_single_dash_long_options`, which promoted
+  `corpus/qemu-arm64-static/audit-seed2` out of `[xfail]` and moved that
+  detector to the `REPAIRED` verdict.
+
+  Each repair uses the model `mandible_core::Flag::single_dash` provides —
+  a long option spelled with one dash. The single-dash-long repair is a
+  **post-pass over the assembled node**, not a change to
+  `grammar::parse_flag_spec`, for the same reason the repeated-character one
+  is: two of its seven conditions (the flag's `Source`, and whether the
+  reconstructed token occurs glued in the document) are unanswerable from a
+  single flag-spec fragment. Its admission predicate is the detector's own
+  seven conditions character for character, which is what makes the ratchet
+  meaningful: the fix cannot claim anything the calibrated detector does not,
+  so a fleet zero is reachable by repair and not by loosening.
 
   **The families' hardest boundaries are documented in the detectors, not
   guessed.** Each is a case where two shapes are identical and only one is a

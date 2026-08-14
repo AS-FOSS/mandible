@@ -13,13 +13,21 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# 3-column table (Argument | Env-variable | Description). Verified: the
-# "-help" row (a distinct single-dash multi-char option, immediately after
-# "-h") becomes a SECOND entry with short='h', value_name='elp' — i.e.
-# "-help" reads as "-h" taking a required value literally named "elp".
-# No flag currently has long=="help".
-must_contain_flags = ["help"]
-
-[xfail]
-broken = true
-reason = "new 3 column format, also badly parsed flags, it separated the -help into '-h elp'"
+# 3-column table (Argument | Env-variable | Description). PROMOTED out of
+# [xfail]: the single-dash long-option repair
+# (`sections::repair_single_dash_long_options`) landed and this document is
+# the family's clearest specimen. The "-help" row (a distinct single-dash
+# multi-char option, immediately after "-h") used to become a SECOND entry
+# with short='h', value_name='elp' — "-help" read as "-h" taking a required
+# value literally named "elp". Eleven of this tool's rows went that way;
+# all eleven now carry their real name (`-help`, `-cpu`, `-dfilter`,
+# `-one-insn-per-tb`, `-singlestep`, `-strace`, `-seed`, `-trace`,
+# `-version`, `-perfmap`, `-jitdump`).
+#
+# The rows the repair must NOT touch are the point of keeping this fixture:
+# `-g port`, `-L path`, `-s size`, `-B address`, `-R size`, `-D logfile`,
+# `-p pagesize`, `-r uname`, `-0 argv0` are genuine value-taking short
+# flags on adjacent rows of the same table, separated from the long options
+# by nothing but a space, and `expected.snap` freezes every one of them
+# unchanged.
+must_contain_flags = ["help", "cpu", "one-insn-per-tb"]
