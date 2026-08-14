@@ -8,6 +8,20 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-15
+
+Measured by a blind re-review of the same 94 tools audited at 0.3.0, judged
+in the TUI with no prior verdicts or notes shown: **53/85 correct (62.4%,
+95% CI [51.7%, 71.9%])**, against 30/83 (36.1%) before. The severe category
+is what moved — `wrong` fell 27 → 7 while `incomplete` stayed flat at
+23 → 25, which is the shape a grammar fix should have: tools stop being
+mangled before they stop being partial.
+
+That figure measures this release's work on the set it was developed
+against, and is not a fleet accuracy estimate. An unbiased number needs a
+fresh draw from the frozen queue (`audit/queue.toml`), which is why that
+queue ships here.
+
 ### Fixed
 
 - **A bare-word block no longer swallows the flag table that follows it.**
