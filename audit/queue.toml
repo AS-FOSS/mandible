@@ -1,0 +1,9201 @@
+[meta]
+freeze_date = "2026-08-14"
+population_hash = "9818ac066f23868a"
+seed = 3
+cursor = 0
+
+[[entry]]
+tool = "bzcmp"
+stratum = "ok"
+
+[[entry]]
+tool = "jsondiff"
+stratum = "ok"
+
+[[entry]]
+tool = "msgexec"
+stratum = "ok"
+
+[[entry]]
+tool = "c_rehash"
+stratum = "verbatim"
+
+[[entry]]
+tool = "diffstat"
+stratum = "ok"
+
+[[entry]]
+tool = "rust-lldb"
+stratum = "ok"
+
+[[entry]]
+tool = "rmt-tar"
+stratum = "ok"
+
+[[entry]]
+tool = "faillock"
+stratum = "ok"
+
+[[entry]]
+tool = "mount.ntfs-3g"
+stratum = "ok"
+
+[[entry]]
+tool = "sos-collector"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-argdumper-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "printenv"
+stratum = "ok"
+
+[[entry]]
+tool = "applydeltarpm"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf-escape"
+stratum = "ok"
+
+[[entry]]
+tool = "nice"
+stratum = "ok"
+
+[[entry]]
+tool = "linux32"
+stratum = "ok"
+
+[[entry]]
+tool = "ebtables-nft-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-config"
+stratum = "verbatim"
+
+[[entry]]
+tool = "btrfs-find-root"
+stratum = "ok"
+
+[[entry]]
+tool = "pdb3.12"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "setleds"
+stratum = "ok"
+
+[[entry]]
+tool = "uconv"
+stratum = "ok"
+
+[[entry]]
+tool = "egrep"
+stratum = "ok"
+
+[[entry]]
+tool = "dbiprof"
+stratum = "ok"
+
+[[entry]]
+tool = "setkeycodes"
+stratum = "ok"
+
+[[entry]]
+tool = "rubycalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rnano"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-fix-extensions"
+stratum = "ok"
+
+[[entry]]
+tool = "ischroot"
+stratum = "ok"
+
+[[entry]]
+tool = "autoupdate"
+stratum = "ok"
+
+[[entry]]
+tool = "cpuunclaimed-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "filegone-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "add-shell"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_bg_ctl"
+stratum = "ok"
+
+[[entry]]
+tool = "nm-online"
+stratum = "ok"
+
+[[entry]]
+tool = "uncompress"
+stratum = "ok"
+
+[[entry]]
+tool = "zdiff"
+stratum = "ok"
+
+[[entry]]
+tool = "systemctl"
+stratum = "ok"
+
+[[entry]]
+tool = "pr"
+stratum = "ok"
+
+[[entry]]
+tool = "editres"
+stratum = "verbatim"
+
+[[entry]]
+tool = "byobu-select-profile"
+stratum = "ok"
+
+[[entry]]
+tool = "ubuntu-drivers"
+stratum = "ok"
+
+[[entry]]
+tool = "gencat"
+stratum = "ok"
+
+[[entry]]
+tool = "makeconv"
+stratum = "ok"
+
+[[entry]]
+tool = "invoke-rc.d"
+stratum = "ok"
+
+[[entry]]
+tool = "psfstriptable"
+stratum = "ok"
+
+[[entry]]
+tool = "pvdisplay"
+stratum = "verbatim"
+
+[[entry]]
+tool = "nfsslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "htop"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-g++-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "tcpretrans.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "pip3"
+stratum = "ok"
+
+[[entry]]
+tool = "catman"
+stratum = "ok"
+
+[[entry]]
+tool = "pidof"
+stratum = "ok"
+
+[[entry]]
+tool = "lxd.check-kernel"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apt-sortpkgs"
+stratum = "ok"
+
+[[entry]]
+tool = "busybox"
+stratum = "ok"
+
+[[entry]]
+tool = "sqlite3"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf-set-selections"
+stratum = "ok"
+
+[[entry]]
+tool = "memhog"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "gdk-pixbuf-thumbnailer"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-ranlib-13"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_installxmlcatalogs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "grub-macbless"
+stratum = "ok"
+
+[[entry]]
+tool = "UnicodeNameMappingGenerator-18"
+stratum = "ok"
+
+[[entry]]
+tool = "uuid-config"
+stratum = "ok"
+
+[[entry]]
+tool = "ul"
+stratum = "ok"
+
+[[entry]]
+tool = "fzf"
+stratum = "ok"
+
+[[entry]]
+tool = "tclobjnew-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "col"
+stratum = "ok"
+
+[[entry]]
+tool = "nfsidmap"
+stratum = "verbatim"
+
+[[entry]]
+tool = "grub-mkimage"
+stratum = "ok"
+
+[[entry]]
+tool = "dosfslabel"
+stratum = "ok"
+
+[[entry]]
+tool = "cargo-clippy"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_get_lba_status"
+stratum = "ok"
+
+[[entry]]
+tool = "fdisk"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-server"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-argdumper"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aa-exec"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-extracttemplates"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-scan"
+stratum = "ok"
+
+[[entry]]
+tool = "perlthanks"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-riscv64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "pkcheck"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-enable"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-delta"
+stratum = "ok"
+
+[[entry]]
+tool = "shutdown"
+stratum = "ok"
+
+[[entry]]
+tool = "lshw"
+stratum = "ok"
+
+[[entry]]
+tool = "lcf"
+stratum = "ok"
+
+[[entry]]
+tool = "reset"
+stratum = "ok"
+
+[[entry]]
+tool = "pod2text"
+stratum = "ok"
+
+[[entry]]
+tool = "run-one"
+stratum = "verbatim"
+
+[[entry]]
+tool = "iscsistart"
+stratum = "ok"
+
+[[entry]]
+tool = "fuser"
+stratum = "ok"
+
+[[entry]]
+tool = "diff3"
+stratum = "ok"
+
+[[entry]]
+tool = "rustc"
+stratum = "ok"
+
+[[entry]]
+tool = "hwe-support-status"
+stratum = "ok"
+
+[[entry]]
+tool = "ls"
+stratum = "ok"
+
+[[entry]]
+tool = "lspower"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cache_repair"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "fsck.fat"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-show"
+stratum = "ok"
+
+[[entry]]
+tool = "rpcgen"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsfallocate"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-ring-composer"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-nm-18"
+stratum = "ok"
+
+[[entry]]
+tool = "addgnupghome"
+stratum = "verbatim"
+
+[[entry]]
+tool = "run-parts"
+stratum = "ok"
+
+[[entry]]
+tool = "bzfgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-addr2line"
+stratum = "ok"
+
+[[entry]]
+tool = "loadkeys"
+stratum = "ok"
+
+[[entry]]
+tool = "envsubst"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_fsr"
+stratum = "ok"
+
+[[entry]]
+tool = "update-ca-certificates"
+stratum = "verbatim"
+
+[[entry]]
+tool = "nl"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-strip"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfstune"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf"
+stratum = "ok"
+
+[[entry]]
+tool = "jstack"
+stratum = "ok"
+
+[[entry]]
+tool = "xargs"
+stratum = "ok"
+
+[[entry]]
+tool = "cgdisk"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-ppc64el-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqldump"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_write_buffer"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-install"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_inq"
+stratum = "ok"
+
+[[entry]]
+tool = "pkttyagent"
+stratum = "ok"
+
+[[entry]]
+tool = "tc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lastlog"
+stratum = "ok"
+
+[[entry]]
+tool = "less"
+stratum = "ok"
+
+[[entry]]
+tool = "vdpa"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-pkgconf"
+stratum = "ok"
+
+[[entry]]
+tool = "bc"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-drive-audit"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_safte"
+stratum = "ok"
+
+[[entry]]
+tool = "col2"
+stratum = "ok"
+
+[[entry]]
+tool = "sudo_sendlog"
+stratum = "ok"
+
+[[entry]]
+tool = "era_invalidate"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "link"
+stratum = "ok"
+
+[[entry]]
+tool = "info"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-launcher-uninstall"
+stratum = "ok"
+
+[[entry]]
+tool = "pro"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mkfontscale"
+stratum = "ok"
+
+[[entry]]
+tool = "mount.fuse"
+stratum = "ok"
+
+[[entry]]
+tool = "stdbuf"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-windres-18"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlaccess"
+stratum = "ok"
+
+[[entry]]
+tool = "h2xs"
+stratum = "ok"
+
+[[entry]]
+tool = "ffmpeg"
+stratum = "incomplete"
+
+[[entry]]
+tool = "keep-one-running"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apt"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-escape"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-translate"
+stratum = "ok"
+
+[[entry]]
+tool = "prlimit"
+stratum = "ok"
+
+[[entry]]
+tool = "xtables-monitor"
+stratum = "ok"
+
+[[entry]]
+tool = "innochecksum"
+stratum = "ok"
+
+[[entry]]
+tool = "jfr"
+stratum = "verbatim"
+
+[[entry]]
+tool = "fsfreeze"
+stratum = "ok"
+
+[[entry]]
+tool = "ucfr"
+stratum = "ok"
+
+[[entry]]
+tool = "utmpdump"
+stratum = "ok"
+
+[[entry]]
+tool = "zipgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "pinentry-curses"
+stratum = "ok"
+
+[[entry]]
+tool = "rmt"
+stratum = "ok"
+
+[[entry]]
+tool = "vgrename"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pythonflow-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "uname"
+stratum = "ok"
+
+[[entry]]
+tool = "man"
+stratum = "ok"
+
+[[entry]]
+tool = "userdel"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mklayout"
+stratum = "ok"
+
+[[entry]]
+tool = "mdmon"
+stratum = "ok"
+
+[[entry]]
+tool = "tclcalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mount.fuse3"
+stratum = "ok"
+
+[[entry]]
+tool = "dcb"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-id128"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-sh4-static"
+stratum = "ok"
+
+[[entry]]
+tool = "gencnval"
+stratum = "ok"
+
+[[entry]]
+tool = "aria_ftdump"
+stratum = "ok"
+
+[[entry]]
+tool = "era_check"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "arptables-nft-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-mips64el-static"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-arm64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "sgp_dd"
+stratum = "ok"
+
+[[entry]]
+tool = "memleak-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "pwunconv"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-janitor"
+stratum = "ok"
+
+[[entry]]
+tool = "perldoc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "npm"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpsynbl-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_compare_and_write"
+stratum = "ok"
+
+[[entry]]
+tool = "gapplication"
+stratum = "ok"
+
+[[entry]]
+tool = "blkmapd"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-quiet"
+stratum = "ok"
+
+[[entry]]
+tool = "pidstat"
+stratum = "ok"
+
+[[entry]]
+tool = "vgcfgbackup"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcov-tool-13"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-armel-static"
+stratum = "ok"
+
+[[entry]]
+tool = "zfsslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqldumpslow"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-monitor"
+stratum = "ok"
+
+[[entry]]
+tool = "ldconfig.real"
+stratum = "ok"
+
+[[entry]]
+tool = "multipathc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gethostlatency.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-analyze"
+stratum = "ok"
+
+[[entry]]
+tool = "dockerd-rootless-setuptool.sh"
+stratum = "ok"
+
+[[entry]]
+tool = "xkbprint"
+stratum = "ok"
+
+[[entry]]
+tool = "docutils"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-uuidgen"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-layout"
+stratum = "verbatim"
+
+[[entry]]
+tool = "delv"
+stratum = "ok"
+
+[[entry]]
+tool = "rtacct"
+stratum = "ok"
+
+[[entry]]
+tool = "gresource"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqladmin"
+stratum = "ok"
+
+[[entry]]
+tool = "oslo-config-generator"
+stratum = "ok"
+
+[[entry]]
+tool = "zcmp"
+stratum = "ok"
+
+[[entry]]
+tool = "xtables-legacy-multi"
+stratum = "verbatim"
+
+[[entry]]
+tool = "colrm"
+stratum = "ok"
+
+[[entry]]
+tool = "pam-auth-update"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "chfn"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpdrop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-objcopy-18"
+stratum = "ok"
+
+[[entry]]
+tool = "echo"
+stratum = "ok"
+
+[[entry]]
+tool = "chat"
+stratum = "ok"
+
+[[entry]]
+tool = "vgconvert"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zstdcat"
+stratum = "ok"
+
+[[entry]]
+tool = "cksum"
+stratum = "ok"
+
+[[entry]]
+tool = "gtester-report"
+stratum = "ok"
+
+[[entry]]
+tool = "execsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "zipinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-or1k-static"
+stratum = "ok"
+
+[[entry]]
+tool = "sensible-terminal"
+stratum = "verbatim"
+
+[[entry]]
+tool = "clang"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.bfs"
+stratum = "ok"
+
+[[entry]]
+tool = "strace-log-merge"
+stratum = "ok"
+
+[[entry]]
+tool = "stty"
+stratum = "ok"
+
+[[entry]]
+tool = "biosnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "journalctl"
+stratum = "ok"
+
+[[entry]]
+tool = "ucalls"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zstdless"
+stratum = "ok"
+
+[[entry]]
+tool = "xfsslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "tcplife.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "arch"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-file"
+stratum = "ok"
+
+[[entry]]
+tool = "gi-decompile-typelib"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-import-id-gh"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-binlog"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_prevent"
+stratum = "ok"
+
+[[entry]]
+tool = "json-patch-jsondiff"
+stratum = "ok"
+
+[[entry]]
+tool = "shasum"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-lto-dump-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "hostname"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-dwarfutil-18"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_common"
+stratum = "verbatim"
+
+[[entry]]
+tool = "clear"
+stratum = "ok"
+
+[[entry]]
+tool = "javaobjnew-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "grep"
+stratum = "ok"
+
+[[entry]]
+tool = "chmod"
+stratum = "ok"
+
+[[entry]]
+tool = "era_restore"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "fusermount"
+stratum = "ok"
+
+[[entry]]
+tool = "install-sgmlcatalog"
+stratum = "ok"
+
+[[entry]]
+tool = "pl2pm"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cpudist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "xxd"
+stratum = "ok"
+
+[[entry]]
+tool = "dwp"
+stratum = "ok"
+
+[[entry]]
+tool = "msguniq"
+stratum = "ok"
+
+[[entry]]
+tool = "peekfd"
+stratum = "ok"
+
+[[entry]]
+tool = "resolvectl"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-disable"
+stratum = "verbatim"
+
+[[entry]]
+tool = "view"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfsdist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-bcanalyzer-18"
+stratum = "ok"
+
+[[entry]]
+tool = "rubystat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sha256sum"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_requests"
+stratum = "ok"
+
+[[entry]]
+tool = "lxc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "funclatency-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsclone"
+stratum = "ok"
+
+[[entry]]
+tool = "ubuntu-distro-info"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-apply"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpretrans-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "winpr-makecert"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-service-convert"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-mca-18"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gi-decompile-typelib"
+stratum = "ok"
+
+[[entry]]
+tool = "ginstall-info"
+stratum = "ok"
+
+[[entry]]
+tool = "lessecho"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2man"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-riscv32-static"
+stratum = "ok"
+
+[[entry]]
+tool = "ebtables-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "nsupdate"
+stratum = "ok"
+
+[[entry]]
+tool = "toe"
+stratum = "ok"
+
+[[entry]]
+tool = "openvt"
+stratum = "ok"
+
+[[entry]]
+tool = "uuidd"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlhotcopy"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-elfedit"
+stratum = "ok"
+
+[[entry]]
+tool = "lvcreate"
+stratum = "verbatim"
+
+[[entry]]
+tool = "makedeltarpm"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_check"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "llvm-split-18"
+stratum = "ok"
+
+[[entry]]
+tool = "sha224sum"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gp-display-text"
+stratum = "ok"
+
+[[entry]]
+tool = "runc"
+stratum = "ok"
+
+[[entry]]
+tool = "sosreport"
+stratum = "ok"
+
+[[entry]]
+tool = "git-receive-pack"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-analyze"
+stratum = "ok"
+
+[[entry]]
+tool = "deadlock-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "make-bcache"
+stratum = "ok"
+
+[[entry]]
+tool = "strip"
+stratum = "ok"
+
+[[entry]]
+tool = "boltctl"
+stratum = "ok"
+
+[[entry]]
+tool = "pbr"
+stratum = "ok"
+
+[[entry]]
+tool = "finalrd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zforce"
+stratum = "ok"
+
+[[entry]]
+tool = "mesa-overlay-control.py"
+stratum = "ok"
+
+[[entry]]
+tool = "pldd"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-legacy-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "dircolors"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-hppa-static"
+stratum = "ok"
+
+[[entry]]
+tool = "dbiproxy"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ptargrep"
+stratum = "ok"
+
+[[entry]]
+tool = "vimdiff"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-mount"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-debuginfod-find-18"
+stratum = "ok"
+
+[[entry]]
+tool = "base32"
+stratum = "ok"
+
+[[entry]]
+tool = "printf"
+stratum = "ok"
+
+[[entry]]
+tool = "scsi_logging_level"
+stratum = "ok"
+
+[[entry]]
+tool = "zstdgrep"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_start"
+stratum = "ok"
+
+[[entry]]
+tool = "gpgrt-config"
+stratum = "ok"
+
+[[entry]]
+tool = "lsblk"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-scanpackages"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_sync"
+stratum = "ok"
+
+[[entry]]
+tool = "dcsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-prompt"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sanstats-18"
+stratum = "ok"
+
+[[entry]]
+tool = "javastat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_freeze"
+stratum = "ok"
+
+[[entry]]
+tool = "perlivp"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "jlink"
+stratum = "ok"
+
+[[entry]]
+tool = "ld.so"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-loong64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mtr-packet"
+stratum = "verbatim"
+
+[[entry]]
+tool = "jmod"
+stratum = "ok"
+
+[[entry]]
+tool = "md5sum"
+stratum = "ok"
+
+[[entry]]
+tool = "wget"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gi-compile-repository"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-sysext"
+stratum = "ok"
+
+[[entry]]
+tool = "mbim-network"
+stratum = "ok"
+
+[[entry]]
+tool = "deluser"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pybabel-python3"
+stratum = "ok"
+
+[[entry]]
+tool = "c89-gcc"
+stratum = "incomplete"
+
+[[entry]]
+tool = "dpkg-genchanges"
+stratum = "ok"
+
+[[entry]]
+tool = "gawkbug"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-ring-builder-analyzer"
+stratum = "ok"
+
+[[entry]]
+tool = "sleep"
+stratum = "ok"
+
+[[entry]]
+tool = "pon"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_perl_dbi"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cargo-deb"
+stratum = "ok"
+
+[[entry]]
+tool = "glib-mkenums"
+stratum = "ok"
+
+[[entry]]
+tool = "jshell"
+stratum = "ok"
+
+[[entry]]
+tool = "cmp"
+stratum = "ok"
+
+[[entry]]
+tool = "distro-info"
+stratum = "ok"
+
+[[entry]]
+tool = "dmeventd"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-export"
+stratum = "verbatim"
+
+[[entry]]
+tool = "helpztags"
+stratum = "ok"
+
+[[entry]]
+tool = "ethtool"
+stratum = "ok"
+
+[[entry]]
+tool = "ncursesw6-config"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "ar"
+stratum = "ok"
+
+[[entry]]
+tool = "serialver"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zoxide"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cat-18"
+stratum = "ok"
+
+[[entry]]
+tool = "eqn"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-launcher"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-reboot"
+stratum = "ok"
+
+[[entry]]
+tool = "nmtui-edit"
+stratum = "ok"
+
+[[entry]]
+tool = "cache_writeback"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "pvs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "nfsstat"
+stratum = "ok"
+
+[[entry]]
+tool = "uthreads"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_sat_set_features"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqloptimize"
+stratum = "ok"
+
+[[entry]]
+tool = "iconvconfig"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.ext3"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-nft-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_quota"
+stratum = "ok"
+
+[[entry]]
+tool = "resizepart"
+stratum = "ok"
+
+[[entry]]
+tool = "pkaction"
+stratum = "ok"
+
+[[entry]]
+tool = "gp-display-html"
+stratum = "ok"
+
+[[entry]]
+tool = "look"
+stratum = "ok"
+
+[[entry]]
+tool = "combinedeltarpm"
+stratum = "ok"
+
+[[entry]]
+tool = "not-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gettextize"
+stratum = "ok"
+
+[[entry]]
+tool = "whatis"
+stratum = "ok"
+
+[[entry]]
+tool = "trash-rm"
+stratum = "ok"
+
+[[entry]]
+tool = "nstat"
+stratum = "ok"
+
+[[entry]]
+tool = "clang-cpp-18"
+stratum = "ok"
+
+[[entry]]
+tool = "editor"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_rtcp"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dpkg-shlibdeps"
+stratum = "ok"
+
+[[entry]]
+tool = "rename.ul"
+stratum = "ok"
+
+[[entry]]
+tool = "env"
+stratum = "ok"
+
+[[entry]]
+tool = "locale-check"
+stratum = "ok"
+
+[[entry]]
+tool = "unxz"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqld_safe"
+stratum = "ok"
+
+[[entry]]
+tool = "overlayroot-chroot"
+stratum = "verbatim"
+
+[[entry]]
+tool = "paste"
+stratum = "ok"
+
+[[entry]]
+tool = "tclsh"
+stratum = "ok"
+
+[[entry]]
+tool = "mount.lowntfs-3g"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-s390x-static"
+stratum = "ok"
+
+[[entry]]
+tool = "gzexe"
+stratum = "ok"
+
+[[entry]]
+tool = "logger"
+stratum = "ok"
+
+[[entry]]
+tool = "lvmsadc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadbd-safe"
+stratum = "ok"
+
+[[entry]]
+tool = "getcap"
+stratum = "ok"
+
+[[entry]]
+tool = "wpa_supplicant"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "timeout"
+stratum = "ok"
+
+[[entry]]
+tool = "wdctl"
+stratum = "ok"
+
+[[entry]]
+tool = "gcov-13"
+stratum = "ok"
+
+[[entry]]
+tool = "krb5-config"
+stratum = "ok"
+
+[[entry]]
+tool = "nginx"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ec2metadata"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-alpha-static"
+stratum = "ok"
+
+[[entry]]
+tool = "readlink"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-sim-18"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-readelf-18"
+stratum = "ok"
+
+[[entry]]
+tool = "xz"
+stratum = "ok"
+
+[[entry]]
+tool = "vgcfgrestore"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pivot_root"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-objcopy"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-m68k-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mkntfs"
+stratum = "ok"
+
+[[entry]]
+tool = "pkgconf"
+stratum = "ok"
+
+[[entry]]
+tool = "snice"
+stratum = "ok"
+
+[[entry]]
+tool = "pvcreate"
+stratum = "verbatim"
+
+[[entry]]
+tool = "enc2xs"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.vfat"
+stratum = "ok"
+
+[[entry]]
+tool = "docker-proxy"
+stratum = "ok"
+
+[[entry]]
+tool = "zstd"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.ext2"
+stratum = "ok"
+
+[[entry]]
+tool = "qmicli"
+stratum = "ok"
+
+[[entry]]
+tool = "git-shell"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mysqlanalyze"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-nft-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "libpng-config"
+stratum = "ok"
+
+[[entry]]
+tool = "ncurses6-config"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cxxfilt-18"
+stratum = "ok"
+
+[[entry]]
+tool = "pkcon"
+stratum = "ok"
+
+[[entry]]
+tool = "g++"
+stratum = "incomplete"
+
+[[entry]]
+tool = "lsinitramfs"
+stratum = "ok"
+
+[[entry]]
+tool = "mvnDebug"
+stratum = "verbatim"
+
+[[entry]]
+tool = "snap"
+stratum = "ok"
+
+[[entry]]
+tool = "autoscan"
+stratum = "ok"
+
+[[entry]]
+tool = "groupmems"
+stratum = "ok"
+
+[[entry]]
+tool = "vmstat"
+stratum = "ok"
+
+[[entry]]
+tool = "zfgrep"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "socat-mux.sh"
+stratum = "ok"
+
+[[entry]]
+tool = "vfscount.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "cryptdisks_stop"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-sh4eb-static"
+stratum = "ok"
+
+[[entry]]
+tool = "tput"
+stratum = "ok"
+
+[[entry]]
+tool = "rpcctl"
+stratum = "ok"
+
+[[entry]]
+tool = "cppw"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.ext2"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_sanitize"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsusermap"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ionice"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-list"
+stratum = "ok"
+
+[[entry]]
+tool = "npx"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-legacy"
+stratum = "ok"
+
+[[entry]]
+tool = "nano"
+stratum = "ok"
+
+[[entry]]
+tool = "runqlen.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "lspgpot"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tabs"
+stratum = "ok"
+
+[[entry]]
+tool = "libtoolize"
+stratum = "ok"
+
+[[entry]]
+tool = "fail2ban-testcases"
+stratum = "ok"
+
+[[entry]]
+tool = "xzfgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "installkernel"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf-communicate"
+stratum = "ok"
+
+[[entry]]
+tool = "netaddr"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gpgtar"
+stratum = "ok"
+
+[[entry]]
+tool = "rpc.statd"
+stratum = "ok"
+
+[[entry]]
+tool = "chpasswd"
+stratum = "ok"
+
+[[entry]]
+tool = "threadsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "swapin.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "python3.12"
+stratum = "ok"
+
+[[entry]]
+tool = "nologin"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dirmngr"
+stratum = "ok"
+
+[[entry]]
+tool = "pod2usage"
+stratum = "ok"
+
+[[entry]]
+tool = "ModemManager"
+stratum = "ok"
+
+[[entry]]
+tool = "sbsign"
+stratum = "ok"
+
+[[entry]]
+tool = "json_pp"
+stratum = "ok"
+
+[[entry]]
+tool = "red"
+stratum = "ok"
+
+[[entry]]
+tool = "faked-sysv"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apport-collect"
+stratum = "ok"
+
+[[entry]]
+tool = "jdeprscan"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "readahead-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "lsb_release"
+stratum = "ok"
+
+[[entry]]
+tool = "tar"
+stratum = "ok"
+
+[[entry]]
+tool = "rustfmt"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-realpath"
+stratum = "ok"
+
+[[entry]]
+tool = "purge-old-kernels"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rmiregistry"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_write_long"
+stratum = "ok"
+
+[[entry]]
+tool = "sqfstar"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ar-13"
+stratum = "ok"
+
+[[entry]]
+tool = "ffprobe"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_metadata_size"
+stratum = "ok"
+
+[[entry]]
+tool = "git-upload-pack"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-dwp-18"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-architecture"
+stratum = "ok"
+
+[[entry]]
+tool = "gzip"
+stratum = "ok"
+
+[[entry]]
+tool = "sum"
+stratum = "ok"
+
+[[entry]]
+tool = "sbattach"
+stratum = "ok"
+
+[[entry]]
+tool = "unified-monitoring-agent"
+stratum = "ok"
+
+[[entry]]
+tool = "usbipd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "applydeltaiso"
+stratum = "ok"
+
+[[entry]]
+tool = "sudoedit"
+stratum = "ok"
+
+[[entry]]
+tool = "uniq"
+stratum = "ok"
+
+[[entry]]
+tool = "rpcinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "funcslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-python3-config"
+stratum = "ok"
+
+[[entry]]
+tool = "turbostat"
+stratum = "verbatim"
+
+[[entry]]
+tool = "fold"
+stratum = "ok"
+
+[[entry]]
+tool = "verify-uselistorder-18"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfs"
+stratum = "ok"
+
+[[entry]]
+tool = "dmstats"
+stratum = "ok"
+
+[[entry]]
+tool = "runcon"
+stratum = "ok"
+
+[[entry]]
+tool = "bitesize.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "psfgettable"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-find-rows"
+stratum = "ok"
+
+[[entry]]
+tool = "tac"
+stratum = "ok"
+
+[[entry]]
+tool = "xgettext"
+stratum = "ok"
+
+[[entry]]
+tool = "dosfsck"
+stratum = "ok"
+
+[[entry]]
+tool = "cache_dump"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "wpa_action"
+stratum = "ok"
+
+[[entry]]
+tool = "expand"
+stratum = "ok"
+
+[[entry]]
+tool = "vgimportclone"
+stratum = "verbatim"
+
+[[entry]]
+tool = "clippy-driver"
+stratum = "ok"
+
+[[entry]]
+tool = "rdma"
+stratum = "ok"
+
+[[entry]]
+tool = "rsync-ssl"
+stratum = "ok"
+
+[[entry]]
+tool = "sar"
+stratum = "ok"
+
+[[entry]]
+tool = "addpart"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_test_rwbuf"
+stratum = "ok"
+
+[[entry]]
+tool = "vite"
+stratum = "verbatim"
+
+[[entry]]
+tool = "scsi_satl"
+stratum = "ok"
+
+[[entry]]
+tool = "containerd-shim-runc-v2"
+stratum = "ok"
+
+[[entry]]
+tool = "pango-segmentation"
+stratum = "ok"
+
+[[entry]]
+tool = "vdir"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-lto-dump"
+stratum = "incomplete"
+
+[[entry]]
+tool = "jconsole"
+stratum = "ok"
+
+[[entry]]
+tool = "dirname"
+stratum = "ok"
+
+[[entry]]
+tool = "dbilogstrip"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-dwarfdump-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lsattr"
+stratum = "ok"
+
+[[entry]]
+tool = "fwupdtool"
+stratum = "ok"
+
+[[entry]]
+tool = "pam_namespace_helper"
+stratum = "ok"
+
+[[entry]]
+tool = "setlogcons"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqld_safe_helper"
+stratum = "ok"
+
+[[entry]]
+tool = "ebtables-nft-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "solisten-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "reboot"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-maintscript-helper"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-readobj-18"
+stratum = "ok"
+
+[[entry]]
+tool = "chroot"
+stratum = "ok"
+
+[[entry]]
+tool = "opensnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "hmac256"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sar.sysstat"
+stratum = "ok"
+
+[[entry]]
+tool = "e2image"
+stratum = "ok"
+
+[[entry]]
+tool = "numfmt"
+stratum = "ok"
+
+[[entry]]
+tool = "shadowconfig"
+stratum = "ok"
+
+[[entry]]
+tool = "claude"
+stratum = "ok"
+
+[[entry]]
+tool = "chgrp"
+stratum = "ok"
+
+[[entry]]
+tool = "update-java-alternatives"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "vipw"
+stratum = "ok"
+
+[[entry]]
+tool = "lxd.lxc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xzdiff"
+stratum = "ok"
+
+[[entry]]
+tool = "ttysnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "cifsiostat"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-otool-18"
+stratum = "ok"
+
+[[entry]]
+tool = "pwdx"
+stratum = "ok"
+
+[[entry]]
+tool = "gtbl"
+stratum = "ok"
+
+[[entry]]
+tool = "dpatch2quilt"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-plugin"
+stratum = "ok"
+
+[[entry]]
+tool = "lowntfs-3g"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf-copydb"
+stratum = "ok"
+
+[[entry]]
+tool = "apport-cli"
+stratum = "ok"
+
+[[entry]]
+tool = "sg"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cvtres-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mkfs.vfat"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcov-dump"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlbinlog"
+stratum = "ok"
+
+[[entry]]
+tool = "iconv"
+stratum = "ok"
+
+[[entry]]
+tool = "update-grub2"
+stratum = "ok"
+
+[[entry]]
+tool = "msgcat"
+stratum = "ok"
+
+[[entry]]
+tool = "rls"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tapestat"
+stratum = "ok"
+
+[[entry]]
+tool = "chvt"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mkfont"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-xml"
+stratum = "ok"
+
+[[entry]]
+tool = "cloud-init"
+stratum = "ok"
+
+[[entry]]
+tool = "nmtui-hostname"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-select-session"
+stratum = "verbatim"
+
+[[entry]]
+tool = "usbhid-dump"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-cdrom"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_fix_extensions"
+stratum = "ok"
+
+[[entry]]
+tool = "ld.bfd"
+stratum = "ok"
+
+[[entry]]
+tool = "setpriv"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-mipsn32-static"
+stratum = "ok"
+
+[[entry]]
+tool = "umount.udisks2"
+stratum = "verbatim"
+
+[[entry]]
+tool = "scsi_stop"
+stratum = "ok"
+
+[[entry]]
+tool = "tnftp"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_ls"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "byobu-silent"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-cat"
+stratum = "ok"
+
+[[entry]]
+tool = "rdmaucma-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "init"
+stratum = "ok"
+
+[[entry]]
+tool = "vgck"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-dumpslow"
+stratum = "ok"
+
+[[entry]]
+tool = "rubygc-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "jdeps"
+stratum = "ok"
+
+[[entry]]
+tool = "gennorm2"
+stratum = "ok"
+
+[[entry]]
+tool = "efibootmgr"
+stratum = "ok"
+
+[[entry]]
+tool = "iscsi-iname"
+stratum = "ok"
+
+[[entry]]
+tool = "vgcreate"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb"
+stratum = "ok"
+
+[[entry]]
+tool = "pinentry"
+stratum = "ok"
+
+[[entry]]
+tool = "rubyflow-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "grpck"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-convert-table-format"
+stratum = "ok"
+
+[[entry]]
+tool = "cargo-nextest"
+stratum = "ok"
+
+[[entry]]
+tool = "ubuntu-advantage"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ssh-agent"
+stratum = "ok"
+
+[[entry]]
+tool = "troff"
+stratum = "ok"
+
+[[entry]]
+tool = "du"
+stratum = "ok"
+
+[[entry]]
+tool = "cargo-fmt"
+stratum = "ok"
+
+[[entry]]
+tool = "rvim"
+stratum = "ok"
+
+[[entry]]
+tool = "blkdeactivate"
+stratum = "ok"
+
+[[entry]]
+tool = "wifi-status"
+stratum = "verbatim"
+
+[[entry]]
+tool = "funcinterval-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "rpc.idmapd"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-cache"
+stratum = "ok"
+
+[[entry]]
+tool = "plymouthd"
+stratum = "ok"
+
+[[entry]]
+tool = "logname"
+stratum = "ok"
+
+[[entry]]
+tool = "uptime"
+stratum = "ok"
+
+[[entry]]
+tool = "vgextend"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_dd"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-remarkutil-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lto-dump-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "ptar"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.minix"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-send"
+stratum = "ok"
+
+[[entry]]
+tool = "lvchange"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "mkfs.fat"
+stratum = "ok"
+
+[[entry]]
+tool = "eatmydata"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_stpg"
+stratum = "ok"
+
+[[entry]]
+tool = "mklost+found"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqld_qslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-tblgen-18"
+stratum = "ok"
+
+[[entry]]
+tool = "mdflush.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfstruncate"
+stratum = "ok"
+
+[[entry]]
+tool = "lxd.buginfo"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lessfile"
+stratum = "ok"
+
+[[entry]]
+tool = "pkgdata"
+stratum = "ok"
+
+[[entry]]
+tool = "pic"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfscp"
+stratum = "ok"
+
+[[entry]]
+tool = "trace-cmd"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-restore-translate"
+stratum = "ok"
+
+[[entry]]
+tool = "tkconch3"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mysqlreport"
+stratum = "ok"
+
+[[entry]]
+tool = "devlink"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_sat_identify"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-gsymutil-18"
+stratum = "ok"
+
+[[entry]]
+tool = "pam_getenv"
+stratum = "ok"
+
+[[entry]]
+tool = "opensnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_mariabackup"
+stratum = "verbatim"
+
+[[entry]]
+tool = "reset-trace-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "manpath"
+stratum = "ok"
+
+[[entry]]
+tool = "sudoreplay"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-microblaze-static"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-arm-static"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-buildapi"
+stratum = "ok"
+
+[[entry]]
+tool = "pvscan"
+stratum = "verbatim"
+
+[[entry]]
+tool = "argdist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-admin"
+stratum = "ok"
+
+[[entry]]
+tool = "migspeed"
+stratum = "ok"
+
+[[entry]]
+tool = "sdiff"
+stratum = "ok"
+
+[[entry]]
+tool = "zerofree"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mkdevicemap"
+stratum = "ok"
+
+[[entry]]
+tool = "pwhistory_helper"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apport-bug"
+stratum = "ok"
+
+[[entry]]
+tool = "partx"
+stratum = "ok"
+
+[[entry]]
+tool = "update-rc.d"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "tzselect"
+stratum = "ok"
+
+[[entry]]
+tool = "visudo"
+stratum = "ok"
+
+[[entry]]
+tool = "xml2-config"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-waitpid"
+stratum = "ok"
+
+[[entry]]
+tool = "vgremove"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mount.nfs"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-menulst2cfg"
+stratum = "ok"
+
+[[entry]]
+tool = "ss"
+stratum = "ok"
+
+[[entry]]
+tool = "pppoe-discovery"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_mkfile"
+stratum = "ok"
+
+[[entry]]
+tool = "update-initramfs"
+stratum = "ok"
+
+[[entry]]
+tool = "shred"
+stratum = "ok"
+
+[[entry]]
+tool = "lvremove"
+stratum = "verbatim"
+
+[[entry]]
+tool = "arpd"
+stratum = "ok"
+
+[[entry]]
+tool = "lastb"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-editenv"
+stratum = "ok"
+
+[[entry]]
+tool = "geqn"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-opt-report-18"
+stratum = "ok"
+
+[[entry]]
+tool = "nroff"
+stratum = "ok"
+
+[[entry]]
+tool = "vgs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "derb"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfsck"
+stratum = "ok"
+
+[[entry]]
+tool = "lzmore"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-check"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_rbuf"
+stratum = "ok"
+
+[[entry]]
+tool = "column"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-reconnect-sockets"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-conv"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-distaddfile"
+stratum = "ok"
+
+[[entry]]
+tool = "tbl"
+stratum = "ok"
+
+[[entry]]
+tool = "pygettext3"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfscluster"
+stratum = "ok"
+
+[[entry]]
+tool = "mdadm"
+stratum = "ok"
+
+[[entry]]
+tool = "git-upload-archive"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-loongarch64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "oomkill.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "b2sum"
+stratum = "ok"
+
+[[entry]]
+tool = "objcopy"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_repair"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "sg_opcodes"
+stratum = "ok"
+
+[[entry]]
+tool = "kbdinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "adduser"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zfsdist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "jsonpointer"
+stratum = "ok"
+
+[[entry]]
+tool = "["
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "xdpyinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "choom"
+stratum = "ok"
+
+[[entry]]
+tool = "pam_extrausers_chkpwd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "grub-mkpasswd-pbkdf2"
+stratum = "ok"
+
+[[entry]]
+tool = "kbdrate"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2s5"
+stratum = "ok"
+
+[[entry]]
+tool = "node"
+stratum = "ok"
+
+[[entry]]
+tool = "trash"
+stratum = "ok"
+
+[[entry]]
+tool = "c99-gcc"
+stratum = "incomplete"
+
+[[entry]]
+tool = "ypdomainname"
+stratum = "ok"
+
+[[entry]]
+tool = "pvremove"
+stratum = "verbatim"
+
+[[entry]]
+tool = "msgen"
+stratum = "ok"
+
+[[entry]]
+tool = "pod2man"
+stratum = "ok"
+
+[[entry]]
+tool = "dig"
+stratum = "ok"
+
+[[entry]]
+tool = "setcap"
+stratum = "ok"
+
+[[entry]]
+tool = "hd"
+stratum = "ok"
+
+[[entry]]
+tool = "trash-put"
+stratum = "ok"
+
+[[entry]]
+tool = "run-one-until-success"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pybabel"
+stratum = "ok"
+
+[[entry]]
+tool = "pager"
+stratum = "ok"
+
+[[entry]]
+tool = "exitsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "batcat"
+stratum = "ok"
+
+[[entry]]
+tool = "bzdiff"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cfi-verify-18"
+stratum = "ok"
+
+[[entry]]
+tool = "usb_modeswitch_dispatcher"
+stratum = "verbatim"
+
+[[entry]]
+tool = "execsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_reassign"
+stratum = "ok"
+
+[[entry]]
+tool = "biotop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gp-display-html"
+stratum = "ok"
+
+[[entry]]
+tool = "add-apt-repository"
+stratum = "ok"
+
+[[entry]]
+tool = "loginctl"
+stratum = "ok"
+
+[[entry]]
+tool = "x86_energy_perf_policy"
+stratum = "verbatim"
+
+[[entry]]
+tool = "thin_trim"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "fragiso"
+stratum = "ok"
+
+[[entry]]
+tool = "size"
+stratum = "ok"
+
+[[entry]]
+tool = "gpgconf"
+stratum = "ok"
+
+[[entry]]
+tool = "lsmod"
+stratum = "ok"
+
+[[entry]]
+tool = "pcre2-config"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_decode_sense"
+stratum = "ok"
+
+[[entry]]
+tool = "appres"
+stratum = "verbatim"
+
+[[entry]]
+tool = "vim.basic"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-keyscan"
+stratum = "ok"
+
+[[entry]]
+tool = "od"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsresize"
+stratum = "ok"
+
+[[entry]]
+tool = "compactsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "deallocvt"
+stratum = "ok"
+
+[[entry]]
+tool = "keyring"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sslsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "jimage"
+stratum = "ok"
+
+[[entry]]
+tool = "filelife-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gprof"
+stratum = "ok"
+
+[[entry]]
+tool = "lslogins"
+stratum = "ok"
+
+[[entry]]
+tool = "pythonstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-debootstrap"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-tty-ask-password-agent"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfscmp"
+stratum = "ok"
+
+[[entry]]
+tool = "gprof"
+stratum = "ok"
+
+[[entry]]
+tool = "ctr"
+stratum = "ok"
+
+[[entry]]
+tool = "xzgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "linux-version"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-legacy-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "python3-config"
+stratum = "ok"
+
+[[entry]]
+tool = "slabtop"
+stratum = "ok"
+
+[[entry]]
+tool = "clear_console"
+stratum = "ok"
+
+[[entry]]
+tool = "genbrk"
+stratum = "ok"
+
+[[entry]]
+tool = "loads.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_format"
+stratum = "ok"
+
+[[entry]]
+tool = "compile_et"
+stratum = "verbatim"
+
+[[entry]]
+tool = "writeback.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-dwp"
+stratum = "ok"
+
+[[entry]]
+tool = "cvtsudoers"
+stratum = "ok"
+
+[[entry]]
+tool = "vgchange"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "llvm-addr2line-18"
+stratum = "ok"
+
+[[entry]]
+tool = "usermod"
+stratum = "ok"
+
+[[entry]]
+tool = "klockstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "pbget"
+stratum = "verbatim"
+
+[[entry]]
+tool = "localectl"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-exegesis-18"
+stratum = "ok"
+
+[[entry]]
+tool = "sginfo"
+stratum = "ok"
+
+[[entry]]
+tool = "savelog"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-statoverride"
+stratum = "ok"
+
+[[entry]]
+tool = "xlsclients"
+stratum = "ok"
+
+[[entry]]
+tool = "viewres"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_read"
+stratum = "ok"
+
+[[entry]]
+tool = "sensible-editor"
+stratum = "ok"
+
+[[entry]]
+tool = "dnsmasq"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-size-18"
+stratum = "ok"
+
+[[entry]]
+tool = "jinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-key"
+stratum = "ok"
+
+[[entry]]
+tool = "fmt"
+stratum = "ok"
+
+[[entry]]
+tool = "check-and-update"
+stratum = "verbatim"
+
+[[entry]]
+tool = "paperconfig"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlshow"
+stratum = "ok"
+
+[[entry]]
+tool = "paperconf"
+stratum = "ok"
+
+[[entry]]
+tool = "unlzma"
+stratum = "ok"
+
+[[entry]]
+tool = "sslsniff-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_bmap"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_rsync"
+stratum = "verbatim"
+
+[[entry]]
+tool = "update-fonts-alias"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-nm"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcov-dump-13"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-glue-efi"
+stratum = "ok"
+
+[[entry]]
+tool = "vim"
+stratum = "ok"
+
+[[entry]]
+tool = "mountstats"
+stratum = "ok"
+
+[[entry]]
+tool = "ucs2any"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rst-buildhtml"
+stratum = "ok"
+
+[[entry]]
+tool = "apropos"
+stratum = "ok"
+
+[[entry]]
+tool = "pinky"
+stratum = "ok"
+
+[[entry]]
+tool = "c99"
+stratum = "incomplete"
+
+[[entry]]
+tool = "lzfgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "crontab"
+stratum = "ok"
+
+[[entry]]
+tool = "host"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "snapfuse"
+stratum = "ok"
+
+[[entry]]
+tool = "fixparts"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rsync"
+stratum = "ok"
+
+[[entry]]
+tool = "split-file-18"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-optimize"
+stratum = "ok"
+
+[[entry]]
+tool = "ldd"
+stratum = "ok"
+
+[[entry]]
+tool = "capsh"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-restore-translate"
+stratum = "ok"
+
+[[entry]]
+tool = "myisamlog"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gcov-tool"
+stratum = "ok"
+
+[[entry]]
+tool = "lsof"
+stratum = "ok"
+
+[[entry]]
+tool = "aa-load"
+stratum = "ok"
+
+[[entry]]
+tool = "aria_dump_log"
+stratum = "ok"
+
+[[entry]]
+tool = "mpathpersist"
+stratum = "ok"
+
+[[entry]]
+tool = "whois"
+stratum = "ok"
+
+[[entry]]
+tool = "uvicorn"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dmsetup"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-nm-13"
+stratum = "ok"
+
+[[entry]]
+tool = "aa-features-abi"
+stratum = "ok"
+
+[[entry]]
+tool = "truncate"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-debuginfod-18"
+stratum = "ok"
+
+[[entry]]
+tool = "gp-archive"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-status-detail"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_map26"
+stratum = "ok"
+
+[[entry]]
+tool = "bzgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "ssllatency.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpaccept.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "delpart"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-source"
+stratum = "ok"
+
+[[entry]]
+tool = "tipc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "trash-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfs-map-logical"
+stratum = "ok"
+
+[[entry]]
+tool = "pgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsfix"
+stratum = "ok"
+
+[[entry]]
+tool = "patch"
+stratum = "ok"
+
+[[entry]]
+tool = "nmtui"
+stratum = "ok"
+
+[[entry]]
+tool = "lvmconfig"
+stratum = "verbatim"
+
+[[entry]]
+tool = "colcrt"
+stratum = "ok"
+
+[[entry]]
+tool = "nfsconf"
+stratum = "ok"
+
+[[entry]]
+tool = "pvchange"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "sensible-pager"
+stratum = "ok"
+
+[[entry]]
+tool = "cargo"
+stratum = "ok"
+
+[[entry]]
+tool = "oem-getlogs"
+stratum = "ok"
+
+[[entry]]
+tool = "piconv"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cobjnew-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "hostnamectl"
+stratum = "ok"
+
+[[entry]]
+tool = "bindsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "mkdir"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg"
+stratum = "ok"
+
+[[entry]]
+tool = "curl"
+stratum = "ok"
+
+[[entry]]
+tool = "pidpersec-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "letsencrypt"
+stratum = "ok"
+
+[[entry]]
+tool = "busctl"
+stratum = "ok"
+
+[[entry]]
+tool = "rustup"
+stratum = "ok"
+
+[[entry]]
+tool = "swapoff"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfslabel"
+stratum = "ok"
+
+[[entry]]
+tool = "getent"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-status"
+stratum = "verbatim"
+
+[[entry]]
+tool = "base64"
+stratum = "ok"
+
+[[entry]]
+tool = "qmi-network"
+stratum = "ok"
+
+[[entry]]
+tool = "gcov"
+stratum = "ok"
+
+[[entry]]
+tool = "perlbug"
+stratum = "ok"
+
+[[entry]]
+tool = "timedatectl"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mkrescue"
+stratum = "ok"
+
+[[entry]]
+tool = "vgdisplay"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-microblazeel-static"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-strings"
+stratum = "ok"
+
+[[entry]]
+tool = "gio"
+stratum = "ok"
+
+[[entry]]
+tool = "instmodsh"
+stratum = "ok"
+
+[[entry]]
+tool = "vi"
+stratum = "ok"
+
+[[entry]]
+tool = "certbot"
+stratum = "ok"
+
+[[entry]]
+tool = "remove-shell"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-report"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_readcap"
+stratum = "ok"
+
+[[entry]]
+tool = "mcookie"
+stratum = "ok"
+
+[[entry]]
+tool = "sha384sum"
+stratum = "ok"
+
+[[entry]]
+tool = "pango-view"
+stratum = "ok"
+
+[[entry]]
+tool = "rbash"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "cryptdisks_start"
+stratum = "ok"
+
+[[entry]]
+tool = "codepage"
+stratum = "verbatim"
+
+[[entry]]
+tool = "perror"
+stratum = "ok"
+
+[[entry]]
+tool = "perl5.38-aarch64-linux-gnu"
+stratum = "ok"
+
+[[entry]]
+tool = "objdump"
+stratum = "ok"
+
+[[entry]]
+tool = "pyserial-miniterm"
+stratum = "ok"
+
+[[entry]]
+tool = "basename"
+stratum = "ok"
+
+[[entry]]
+tool = "getkeycodes"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-legacy-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mako-render"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-umount"
+stratum = "ok"
+
+[[entry]]
+tool = "expiry"
+stratum = "ok"
+
+[[entry]]
+tool = "drpmsync"
+stratum = "ok"
+
+[[entry]]
+tool = "znew"
+stratum = "ok"
+
+[[entry]]
+tool = "unminimize"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gprofng"
+stratum = "ok"
+
+[[entry]]
+tool = "myisamchk"
+stratum = "ok"
+
+[[entry]]
+tool = "c++"
+stratum = "incomplete"
+
+[[entry]]
+tool = "vmware-vmblock-fuse"
+stratum = "ok"
+
+[[entry]]
+tool = "bashreadline-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "apport-unpack"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.cramfs"
+stratum = "ok"
+
+[[entry]]
+tool = "vgmerge"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dirmngr-client"
+stratum = "ok"
+
+[[entry]]
+tool = "msgconv"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-mc-18"
+stratum = "ok"
+
+[[entry]]
+tool = "opt-18"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-armeb-static"
+stratum = "ok"
+
+[[entry]]
+tool = "su"
+stratum = "ok"
+
+[[entry]]
+tool = "quilt"
+stratum = "ok"
+
+[[entry]]
+tool = "corepack"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-as-18"
+stratum = "ok"
+
+[[entry]]
+tool = "mkswap"
+stratum = "ok"
+
+[[entry]]
+tool = "ollama"
+stratum = "ok"
+
+[[entry]]
+tool = "nmtui-connect"
+stratum = "ok"
+
+[[entry]]
+tool = "install-info"
+stratum = "ok"
+
+[[entry]]
+tool = "scp"
+stratum = "ok"
+
+[[entry]]
+tool = "cpupower"
+stratum = "verbatim"
+
+[[entry]]
+tool = "thin_rmap"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "twistd3"
+stratum = "ok"
+
+[[entry]]
+tool = "dockerd"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-detect-virt"
+stratum = "ok"
+
+[[entry]]
+tool = "sysctl"
+stratum = "ok"
+
+[[entry]]
+tool = "mount.nfs4"
+stratum = "ok"
+
+[[entry]]
+tool = "do-release-upgrade"
+stratum = "ok"
+
+[[entry]]
+tool = "deb3"
+stratum = "verbatim"
+
+[[entry]]
+tool = "krb5-config.mit"
+stratum = "ok"
+
+[[entry]]
+tool = "javax2jakarta"
+stratum = "ok"
+
+[[entry]]
+tool = "chcpu"
+stratum = "ok"
+
+[[entry]]
+tool = "xkbevd"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-strip-18"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-aarch64_be-static"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_autotools-dev_updateconfig"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qt-faststart"
+stratum = "ok"
+
+[[entry]]
+tool = "biolatency-kp.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "slabratetop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-query"
+stratum = "ok"
+
+[[entry]]
+tool = "kernel-install"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-scansources"
+stratum = "ok"
+
+[[entry]]
+tool = "dash"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ping6"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ranlib"
+stratum = "ok"
+
+[[entry]]
+tool = "hardlink"
+stratum = "ok"
+
+[[entry]]
+tool = "pastebinit"
+stratum = "ok"
+
+[[entry]]
+tool = "gobject-query"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-ar"
+stratum = "ok"
+
+[[entry]]
+tool = "dockerd-rootless.sh"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ntfsmove"
+stratum = "ok"
+
+[[entry]]
+tool = "autoheader"
+stratum = "ok"
+
+[[entry]]
+tool = "agetty"
+stratum = "ok"
+
+[[entry]]
+tool = "automake"
+stratum = "ok"
+
+[[entry]]
+tool = "pygettext3.12"
+stratum = "ok"
+
+[[entry]]
+tool = "xdriinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "xkbbell"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-modextract-18"
+stratum = "ok"
+
+[[entry]]
+tool = "gettext.sh"
+stratum = "ok"
+
+[[entry]]
+tool = "lli-child-target-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lvmdump"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "linux64"
+stratum = "ok"
+
+[[entry]]
+tool = "mt-gnu"
+stratum = "ok"
+
+[[entry]]
+tool = "arptables-nft-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "true"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables"
+stratum = "ok"
+
+[[entry]]
+tool = "gpasswd"
+stratum = "ok"
+
+[[entry]]
+tool = "scriptreplay"
+stratum = "ok"
+
+[[entry]]
+tool = "xvinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_verify"
+stratum = "ok"
+
+[[entry]]
+tool = "pydoc3"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tcpaccept-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-readelf"
+stratum = "ok"
+
+[[entry]]
+tool = "genccode"
+stratum = "ok"
+
+[[entry]]
+tool = "scsi_mandat"
+stratum = "ok"
+
+[[entry]]
+tool = "scsi_temperature"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_admin"
+stratum = "ok"
+
+[[entry]]
+tool = "escapesrc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "trash-list"
+stratum = "ok"
+
+[[entry]]
+tool = "dcstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "aclocal"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-tzinfo-to-sql"
+stratum = "ok"
+
+[[entry]]
+tool = "runlevel"
+stratum = "ok"
+
+[[entry]]
+tool = "qmi-firmware-update"
+stratum = "ok"
+
+[[entry]]
+tool = "rust-gdb"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-ask-password"
+stratum = "ok"
+
+[[entry]]
+tool = "splain"
+stratum = "ok"
+
+[[entry]]
+tool = "bzmore"
+stratum = "ok"
+
+[[entry]]
+tool = "cryptsetup"
+stratum = "ok"
+
+[[entry]]
+tool = "script"
+stratum = "ok"
+
+[[entry]]
+tool = "lsns"
+stratum = "ok"
+
+[[entry]]
+tool = "msql2mysql"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ld"
+stratum = "ok"
+
+[[entry]]
+tool = "md5sum.textutils"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-cryptsetup"
+stratum = "ok"
+
+[[entry]]
+tool = "libpng16-config"
+stratum = "ok"
+
+[[entry]]
+tool = "docker"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-cpp-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "setsid"
+stratum = "ok"
+
+[[entry]]
+tool = "pdb3"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "ps"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ranlib-13"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-size"
+stratum = "ok"
+
+[[entry]]
+tool = "xzcmp"
+stratum = "ok"
+
+[[entry]]
+tool = "cfdisk"
+stratum = "ok"
+
+[[entry]]
+tool = "fwupdmgr"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfswipe"
+stratum = "ok"
+
+[[entry]]
+tool = "nvidia-detector"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-xtensaeb-static"
+stratum = "ok"
+
+[[entry]]
+tool = "veritysetup"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-mips-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mv"
+stratum = "ok"
+
+[[entry]]
+tool = "biolatpcts-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "col8"
+stratum = "ok"
+
+[[entry]]
+tool = "poff"
+stratum = "verbatim"
+
+[[entry]]
+tool = "galera_new_cluster"
+stratum = "ok"
+
+[[entry]]
+tool = "ping"
+stratum = "ok"
+
+[[entry]]
+tool = "xzmore"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_seek"
+stratum = "ok"
+
+[[entry]]
+tool = "msgfmt"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-keygen"
+stratum = "ok"
+
+[[entry]]
+tool = "debugfs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "passwd"
+stratum = "ok"
+
+[[entry]]
+tool = "badblocks"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-mipsel-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mksquashfs"
+stratum = "ok"
+
+[[entry]]
+tool = "more"
+stratum = "ok"
+
+[[entry]]
+tool = "chage"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_backup"
+stratum = "verbatim"
+
+[[entry]]
+tool = "myisampack"
+stratum = "ok"
+
+[[entry]]
+tool = "icupkg"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_tzinfo_to_sql"
+stratum = "ok"
+
+[[entry]]
+tool = "install"
+stratum = "ok"
+
+[[entry]]
+tool = "keytool"
+stratum = "ok"
+
+[[entry]]
+tool = "sudo"
+stratum = "ok"
+
+[[entry]]
+tool = "javaflow-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "acpidbg"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rootlesskit"
+stratum = "ok"
+
+[[entry]]
+tool = "bunzip2"
+stratum = "ok"
+
+[[entry]]
+tool = "awk"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "smokecli"
+stratum = "ok"
+
+[[entry]]
+tool = "update-shells"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-upgrade"
+stratum = "ok"
+
+[[entry]]
+tool = "sos"
+stratum = "ok"
+
+[[entry]]
+tool = "genl"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aa-remove-unknown"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-parsechangelog"
+stratum = "ok"
+
+[[entry]]
+tool = "lzdiff"
+stratum = "ok"
+
+[[entry]]
+tool = "netcat"
+stratum = "ok"
+
+[[entry]]
+tool = "gunzip"
+stratum = "ok"
+
+[[entry]]
+tool = "gdk-pixbuf-csource"
+stratum = "ok"
+
+[[entry]]
+tool = "funzip"
+stratum = "verbatim"
+
+[[entry]]
+tool = "session-migration"
+stratum = "ok"
+
+[[entry]]
+tool = "bpflist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "chattr"
+stratum = "ok"
+
+[[entry]]
+tool = "fusermount3"
+stratum = "ok"
+
+[[entry]]
+tool = "mkpasswd"
+stratum = "ok"
+
+[[entry]]
+tool = "phpflow-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "start-statd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pkill"
+stratum = "ok"
+
+[[entry]]
+tool = "ucfq"
+stratum = "ok"
+
+[[entry]]
+tool = "uobjnew"
+stratum = "ok"
+
+[[entry]]
+tool = "setuids.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-ranlib-18"
+stratum = "ok"
+
+[[entry]]
+tool = "logsave"
+stratum = "ok"
+
+[[entry]]
+tool = "landscape-sysinfo"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lzgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "fakeroot-sysv"
+stratum = "ok"
+
+[[entry]]
+tool = "col3"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_emc_trespass"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_referrals"
+stratum = "ok"
+
+[[entry]]
+tool = "pmap"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-lib-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "df"
+stratum = "ok"
+
+[[entry]]
+tool = "gpg"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_copy_results"
+stratum = "ok"
+
+[[entry]]
+tool = "tic"
+stratum = "ok"
+
+[[entry]]
+tool = "bzegrep"
+stratum = "ok"
+
+[[entry]]
+tool = "zegrep"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "tload"
+stratum = "ok"
+
+[[entry]]
+tool = "splitfont"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_get_config"
+stratum = "ok"
+
+[[entry]]
+tool = "dbstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "xzegrep"
+stratum = "ok"
+
+[[entry]]
+tool = "users"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-server-18"
+stratum = "ok"
+
+[[entry]]
+tool = "ln"
+stratum = "ok"
+
+[[entry]]
+tool = "cargo-miri"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mke2fs"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-add-repository"
+stratum = "ok"
+
+[[entry]]
+tool = "nodegc-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "oslo-config-validator"
+stratum = "ok"
+
+[[entry]]
+tool = "taskset"
+stratum = "ok"
+
+[[entry]]
+tool = "rtcwake"
+stratum = "ok"
+
+[[entry]]
+tool = "rrsync"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-ppc64le-static"
+stratum = "ok"
+
+[[entry]]
+tool = "runqlat.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "shuf"
+stratum = "ok"
+
+[[entry]]
+tool = "git-lfs"
+stratum = "suspicious"
+
+[[entry]]
+tool = "killall5"
+stratum = "no-tier"
+
+[[entry]]
+tool = "cc"
+stratum = "incomplete"
+
+[[entry]]
+tool = "ext4slower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "fail2ban-python"
+stratum = "ok"
+
+[[entry]]
+tool = "libgcrypt-config"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.btrfs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "python3.12-config"
+stratum = "ok"
+
+[[entry]]
+tool = "col6"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.cramfs"
+stratum = "ok"
+
+[[entry]]
+tool = "swaplabel"
+stratum = "ok"
+
+[[entry]]
+tool = "update-fonts-scale"
+stratum = "ok"
+
+[[entry]]
+tool = "setarch"
+stratum = "ok"
+
+[[entry]]
+tool = "vgexport"
+stratum = "verbatim"
+
+[[entry]]
+tool = "virtiostat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-bitcode-strip-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lzcat"
+stratum = "ok"
+
+[[entry]]
+tool = "nmcli"
+stratum = "ok"
+
+[[entry]]
+tool = "nsenter"
+stratum = "ok"
+
+[[entry]]
+tool = "sbsiglist"
+stratum = "ok"
+
+[[entry]]
+tool = "ua"
+stratum = "verbatim"
+
+[[entry]]
+tool = "javap"
+stratum = "ok"
+
+[[entry]]
+tool = "nawk"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "recode-sr-latin"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_get_elem_status"
+stratum = "ok"
+
+[[entry]]
+tool = "xfsdist.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "NF"
+stratum = "ok"
+
+[[entry]]
+tool = "pip3.12"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.xfs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "swift-orphans"
+stratum = "ok"
+
+[[entry]]
+tool = "py3compile"
+stratum = "ok"
+
+[[entry]]
+tool = "setmetamode"
+stratum = "ok"
+
+[[entry]]
+tool = "showmount"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf-show"
+stratum = "ok"
+
+[[entry]]
+tool = "mawk"
+stratum = "ok"
+
+[[entry]]
+tool = "pbputs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_turs"
+stratum = "ok"
+
+[[entry]]
+tool = "tcptop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "rsyslogd"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.ext4"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadbcheck"
+stratum = "ok"
+
+[[entry]]
+tool = "bzcat"
+stratum = "ok"
+
+[[entry]]
+tool = "mk_modmap"
+stratum = "verbatim"
+
+[[entry]]
+tool = "kbd_mode"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-ifs-18"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_vpd"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpstates-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "ranlib"
+stratum = "ok"
+
+[[entry]]
+tool = "nm"
+stratum = "ok"
+
+[[entry]]
+tool = "run-one-constantly"
+stratum = "verbatim"
+
+[[entry]]
+tool = "last"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-conflist"
+stratum = "ok"
+
+[[entry]]
+tool = "asan_symbolize"
+stratum = "ok"
+
+[[entry]]
+tool = "clang-18"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-pdbutil-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lsipc"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-namespace-cmd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "shmsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "appstreamcli"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-xtensa-static"
+stratum = "ok"
+
+[[entry]]
+tool = "pkmon"
+stratum = "ok"
+
+[[entry]]
+tool = "zgrep"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "asan_symbolize-18"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_db"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-daemon"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xlsatoms"
+stratum = "ok"
+
+[[entry]]
+tool = "fail2ban-regex"
+stratum = "ok"
+
+[[entry]]
+tool = "msgattrib"
+stratum = "ok"
+
+[[entry]]
+tool = "gtk-encode-symbolic-svg"
+stratum = "ok"
+
+[[entry]]
+tool = "my_print_defaults"
+stratum = "ok"
+
+[[entry]]
+tool = "rpc.svcgssd"
+stratum = "ok"
+
+[[entry]]
+tool = "stackcount-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "vgimport"
+stratum = "verbatim"
+
+[[entry]]
+tool = "scsi_readcap"
+stratum = "ok"
+
+[[entry]]
+tool = "neqn"
+stratum = "ok"
+
+[[entry]]
+tool = "locale-gen"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.btrfs"
+stratum = "ok"
+
+[[entry]]
+tool = "tail"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlslap"
+stratum = "ok"
+
+[[entry]]
+tool = "ctail"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ctrlaltdel"
+stratum = "ok"
+
+[[entry]]
+tool = "col4"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-readtapi-18"
+stratum = "ok"
+
+[[entry]]
+tool = "quirks-handler"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2latex"
+stratum = "ok"
+
+[[entry]]
+tool = "nohup"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-import-id-lp"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lldb-18"
+stratum = "ok"
+
+[[entry]]
+tool = "javadoc"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_sat_read_gplog"
+stratum = "ok"
+
+[[entry]]
+tool = "lzegrep"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-symbolizer-18"
+stratum = "ok"
+
+[[entry]]
+tool = "msginit"
+stratum = "ok"
+
+[[entry]]
+tool = "pythoncalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "findfs"
+stratum = "ok"
+
+[[entry]]
+tool = "growpart"
+stratum = "ok"
+
+[[entry]]
+tool = "scsi_ready"
+stratum = "ok"
+
+[[entry]]
+tool = "ld.gold"
+stratum = "ok"
+
+[[entry]]
+tool = "py3clean"
+stratum = "ok"
+
+[[entry]]
+tool = "mpstat"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_quilt_patch"
+stratum = "verbatim"
+
+[[entry]]
+tool = "iscsi_discovery"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "clang++-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lto-dump"
+stratum = "incomplete"
+
+[[entry]]
+tool = "sprof"
+stratum = "ok"
+
+[[entry]]
+tool = "pod2html"
+stratum = "ok"
+
+[[entry]]
+tool = "lzless"
+stratum = "ok"
+
+[[entry]]
+tool = "switch_root"
+stratum = "ok"
+
+[[entry]]
+tool = "automake-1.16"
+stratum = "ok"
+
+[[entry]]
+tool = "rtmon"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cachetop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "update-icon-caches"
+stratum = "ok"
+
+[[entry]]
+tool = "tmux"
+stratum = "ok"
+
+[[entry]]
+tool = "llc-18"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_modes"
+stratum = "ok"
+
+[[entry]]
+tool = "FileCheck-18"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-argv0"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_io"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-render-label"
+stratum = "ok"
+
+[[entry]]
+tool = "manifest"
+stratum = "ok"
+
+[[entry]]
+tool = "gencmn"
+stratum = "ok"
+
+[[entry]]
+tool = "pppdump"
+stratum = "ok"
+
+[[entry]]
+tool = "groupmod"
+stratum = "ok"
+
+[[entry]]
+tool = "xprop"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_wr_mode"
+stratum = "ok"
+
+[[entry]]
+tool = "grog"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-jitlink-executor-18"
+stratum = "ok"
+
+[[entry]]
+tool = "dbslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "lesskey"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-vendor"
+stratum = "ok"
+
+[[entry]]
+tool = "wpa_passphrase"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dd"
+stratum = "ok"
+
+[[entry]]
+tool = "rubyobjnew-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "nfnl_osf"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_ses"
+stratum = "ok"
+
+[[entry]]
+tool = "jpackage"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-i386-static"
+stratum = "ok"
+
+[[entry]]
+tool = "sensible-browser"
+stratum = "verbatim"
+
+[[entry]]
+tool = "socat-broker.sh"
+stratum = "ok"
+
+[[entry]]
+tool = "bcache-super-show"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-copy-id"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_restore"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "dpkg-buildtree"
+stratum = "ok"
+
+[[entry]]
+tool = "ebtables"
+stratum = "ok"
+
+[[entry]]
+tool = "arptables"
+stratum = "ok"
+
+[[entry]]
+tool = "rpcdebug"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gprofng"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-dap-18"
+stratum = "ok"
+
+[[entry]]
+tool = "arptables-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "unified-monitoring-agent-gem"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-nft-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "linux-check-removal"
+stratum = "ok"
+
+[[entry]]
+tool = "xtables-nft-multi"
+stratum = "verbatim"
+
+[[entry]]
+tool = "wakeuptime-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "psfxtable"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-sparc64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "gcov-dump-13"
+stratum = "ok"
+
+[[entry]]
+tool = "biopattern-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "starship"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-rpctool"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ntfsls"
+stratum = "ok"
+
+[[entry]]
+tool = "mandb"
+stratum = "ok"
+
+[[entry]]
+tool = "login"
+stratum = "ok"
+
+[[entry]]
+tool = "pyserial-ports"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_write_same"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-ar-13"
+stratum = "ok"
+
+[[entry]]
+tool = "dnf"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_read_attr"
+stratum = "ok"
+
+[[entry]]
+tool = "corelist"
+stratum = "ok"
+
+[[entry]]
+tool = "tplist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "telinit"
+stratum = "ok"
+
+[[entry]]
+tool = "nfsdist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "cachestat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_autotools-dev_restoreconfig"
+stratum = "verbatim"
+
+[[entry]]
+tool = "killsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "ebtables-nft"
+stratum = "ok"
+
+[[entry]]
+tool = "lvmpolld"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-ar-18"
+stratum = "ok"
+
+[[entry]]
+tool = "criticalstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-translate"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfssecaudit"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "guards"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dpkg-buildflags"
+stratum = "ok"
+
+[[entry]]
+tool = "depmod"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-pattern"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2html"
+stratum = "ok"
+
+[[entry]]
+tool = "nc.openbsd"
+stratum = "ok"
+
+[[entry]]
+tool = "namei"
+stratum = "ok"
+
+[[entry]]
+tool = "javacalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apparmor_parser"
+stratum = "ok"
+
+[[entry]]
+tool = "applygnupgdefaults"
+stratum = "ok"
+
+[[entry]]
+tool = "runqslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "resize2fs"
+stratum = "ok"
+
+[[entry]]
+tool = "tee"
+stratum = "ok"
+
+[[entry]]
+tool = "lesspipe"
+stratum = "ok"
+
+[[entry]]
+tool = "trash-empty"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-screen"
+stratum = "verbatim"
+
+[[entry]]
+tool = "speedtest"
+stratum = "ok"
+
+[[entry]]
+tool = "openssl"
+stratum = "ok"
+
+[[entry]]
+tool = "msgcmp"
+stratum = "ok"
+
+[[entry]]
+tool = "killsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "cpp-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "dhcpcd"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlimport"
+stratum = "ok"
+
+[[entry]]
+tool = "select-editor"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ip"
+stratum = "ok"
+
+[[entry]]
+tool = "groff"
+stratum = "ok"
+
+[[entry]]
+tool = "arptables-nft"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_read_buffer"
+stratum = "ok"
+
+[[entry]]
+tool = "mokutil"
+stratum = "ok"
+
+[[entry]]
+tool = "whereis"
+stratum = "ok"
+
+[[entry]]
+tool = "key.dns_resolver"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_rep_zones"
+stratum = "ok"
+
+[[entry]]
+tool = "losetup"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.xfs"
+stratum = "ok"
+
+[[entry]]
+tool = "mpicalc"
+stratum = "ok"
+
+[[entry]]
+tool = "zipdetails"
+stratum = "ok"
+
+[[entry]]
+tool = "c++filt"
+stratum = "ok"
+
+[[entry]]
+tool = "fstab-decode"
+stratum = "verbatim"
+
+[[entry]]
+tool = "date"
+stratum = "ok"
+
+[[entry]]
+tool = "gawk"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "zramctl"
+stratum = "ok"
+
+[[entry]]
+tool = "trial3"
+stratum = "ok"
+
+[[entry]]
+tool = "sha512sum"
+stratum = "ok"
+
+[[entry]]
+tool = "gencfu"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadbd-safe-helper"
+stratum = "ok"
+
+[[entry]]
+tool = "vigpg"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcov-tool"
+stratum = "ok"
+
+[[entry]]
+tool = "java"
+stratum = "ok"
+
+[[entry]]
+tool = "py3versions"
+stratum = "ok"
+
+[[entry]]
+tool = "pwd"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_reset_wp"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-enable-prompt"
+stratum = "ok"
+
+[[entry]]
+tool = "pam_extrausers_update"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-path"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-nm-13"
+stratum = "ok"
+
+[[entry]]
+tool = "mktemp"
+stratum = "ok"
+
+[[entry]]
+tool = "procan"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-ctrl-a"
+stratum = "ok"
+
+[[entry]]
+tool = "unlink"
+stratum = "ok"
+
+[[entry]]
+tool = "jexec"
+stratum = "verbatim"
+
+[[entry]]
+tool = "which"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-launch"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-get-nodes"
+stratum = "ok"
+
+[[entry]]
+tool = "gendict"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-ranlib"
+stratum = "ok"
+
+[[entry]]
+tool = "grpconv"
+stratum = "ok"
+
+[[entry]]
+tool = "xmessage"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mysqld"
+stratum = "ok"
+
+[[entry]]
+tool = "swapon"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-cryptenroll"
+stratum = "ok"
+
+[[entry]]
+tool = "fstrim"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-import"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-sysusers"
+stratum = "ok"
+
+[[entry]]
+tool = "pvmove"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mkhomedir_helper"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-inhibit"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.ext4"
+stratum = "ok"
+
+[[entry]]
+tool = "tcptracer-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_delta"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "llvm-link-18"
+stratum = "ok"
+
+[[entry]]
+tool = "update-catalog"
+stratum = "ok"
+
+[[entry]]
+tool = "unicode_stop"
+stratum = "verbatim"
+
+[[entry]]
+tool = "flock"
+stratum = "ok"
+
+[[entry]]
+tool = "unzstd"
+stratum = "ok"
+
+[[entry]]
+tool = "msgcomm"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-split"
+stratum = "ok"
+
+[[entry]]
+tool = "mount"
+stratum = "ok"
+
+[[entry]]
+tool = "usb-devices"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ustat"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-select-backend"
+stratum = "ok"
+
+[[entry]]
+tool = "man-recode"
+stratum = "ok"
+
+[[entry]]
+tool = "lsusb"
+stratum = "ok"
+
+[[entry]]
+tool = "xdg-user-dirs-update"
+stratum = "ok"
+
+[[entry]]
+tool = "hostid"
+stratum = "ok"
+
+[[entry]]
+tool = "sh"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zmore"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_scrub"
+stratum = "ok"
+
+[[entry]]
+tool = "vfscount-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "dmesg"
+stratum = "ok"
+
+[[entry]]
+tool = "touch"
+stratum = "ok"
+
+[[entry]]
+tool = "phpstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "update-pciids"
+stratum = "verbatim"
+
+[[entry]]
+tool = "getpcaps"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-objdump-18"
+stratum = "ok"
+
+[[entry]]
+tool = "start-stop-daemon"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-undname-18"
+stratum = "ok"
+
+[[entry]]
+tool = "ping4"
+stratum = "ok"
+
+[[entry]]
+tool = "mandoc"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-toolbox-cmd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ssh"
+stratum = "ok"
+
+[[entry]]
+tool = "rustdoc"
+stratum = "ok"
+
+[[entry]]
+tool = "pwck"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-buildpackage"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-nm"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-ppc64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "gdisk"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aclocal-1.16"
+stratum = "ok"
+
+[[entry]]
+tool = "migrate-pubring-from-classic-gpg"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "winpr-hash"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_waitpid"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc"
+stratum = "incomplete"
+
+[[entry]]
+tool = "encguess"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpconnect.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-mergechangelogs"
+stratum = "ok"
+
+[[entry]]
+tool = "deb-systemd-invoke"
+stratum = "verbatim"
+
+[[entry]]
+tool = "unshare"
+stratum = "ok"
+
+[[entry]]
+tool = "cat"
+stratum = "ok"
+
+[[entry]]
+tool = "rpc.gssd"
+stratum = "ok"
+
+[[entry]]
+tool = "cpan5.38-aarch64-linux-gnu"
+stratum = "ok"
+
+[[entry]]
+tool = "bdftopcf"
+stratum = "ok"
+
+[[entry]]
+tool = "biosnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "VGAuthService"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cargo-deny"
+stratum = "ok"
+
+[[entry]]
+tool = "profile-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "locale"
+stratum = "ok"
+
+[[entry]]
+tool = "newusers"
+stratum = "ok"
+
+[[entry]]
+tool = "free"
+stratum = "ok"
+
+[[entry]]
+tool = "pbput"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-xferlogs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "vigr"
+stratum = "ok"
+
+[[entry]]
+tool = "update-fonts-dir"
+stratum = "ok"
+
+[[entry]]
+tool = "grops"
+stratum = "ok"
+
+[[entry]]
+tool = "update-alternatives"
+stratum = "ok"
+
+[[entry]]
+tool = "runqlat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "pollinate"
+stratum = "ok"
+
+[[entry]]
+tool = "modprobe"
+stratum = "ok"
+
+[[entry]]
+tool = "linux-boot-prober"
+stratum = "verbatim"
+
+[[entry]]
+tool = "renice"
+stratum = "ok"
+
+[[entry]]
+tool = "broadwayd"
+stratum = "ok"
+
+[[entry]]
+tool = "readelf"
+stratum = "ok"
+
+[[entry]]
+tool = "varlinkctl"
+stratum = "ok"
+
+[[entry]]
+tool = "wall"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfontdir"
+stratum = "ok"
+
+[[entry]]
+tool = "udisksctl"
+stratum = "verbatim"
+
+[[entry]]
+tool = "streamzip"
+stratum = "ok"
+
+[[entry]]
+tool = "uclampset"
+stratum = "ok"
+
+[[entry]]
+tool = "trace-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "numastat"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "autoconf"
+stratum = "ok"
+
+[[entry]]
+tool = "update-xmlcatalog"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2pseudoxml"
+stratum = "ok"
+
+[[entry]]
+tool = "lvreduce"
+stratum = "verbatim"
+
+[[entry]]
+tool = "jrunscript"
+stratum = "ok"
+
+[[entry]]
+tool = "gensprep"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-syslinux2cfg"
+stratum = "ok"
+
+[[entry]]
+tool = "sudo_logsrvd"
+stratum = "ok"
+
+[[entry]]
+tool = "cpan"
+stratum = "ok"
+
+[[entry]]
+tool = "yaml-bench-18"
+stratum = "ok"
+
+[[entry]]
+tool = "lvconvert"
+stratum = "verbatim"
+
+[[entry]]
+tool = "javathreads-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "loadunimap"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-as"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_rtpg"
+stratum = "ok"
+
+[[entry]]
+tool = "sqfscat"
+stratum = "ok"
+
+[[entry]]
+tool = "filefrag"
+stratum = "ok"
+
+[[entry]]
+tool = "xfontsel"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mysqld_multi"
+stratum = "ok"
+
+[[entry]]
+tool = "xev"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-config"
+stratum = "ok"
+
+[[entry]]
+tool = "sm-notify"
+stratum = "ok"
+
+[[entry]]
+tool = "dir"
+stratum = "ok"
+
+[[entry]]
+tool = "gdk-pixbuf-pixdata"
+stratum = "ok"
+
+[[entry]]
+tool = "lvresize"
+stratum = "verbatim"
+
+[[entry]]
+tool = "zcat"
+stratum = "ok"
+
+[[entry]]
+tool = "id"
+stratum = "ok"
+
+[[entry]]
+tool = "useradd"
+stratum = "ok"
+
+[[entry]]
+tool = "umount"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-genbuildinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "udevadm"
+stratum = "ok"
+
+[[entry]]
+tool = "oomkill-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sgm_dd"
+stratum = "ok"
+
+[[entry]]
+tool = "gold"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mknetdir"
+stratum = "ok"
+
+[[entry]]
+tool = "head"
+stratum = "ok"
+
+[[entry]]
+tool = "fzf-tmux"
+stratum = "ok"
+
+[[entry]]
+tool = "unattended-upgrade"
+stratum = "ok"
+
+[[entry]]
+tool = "validlocale"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "lvscan"
+stratum = "verbatim"
+
+[[entry]]
+tool = "bdftruncate"
+stratum = "ok"
+
+[[entry]]
+tool = "w"
+stratum = "ok"
+
+[[entry]]
+tool = "pstree.x11"
+stratum = "ok"
+
+[[entry]]
+tool = "bzless"
+stratum = "ok"
+
+[[entry]]
+tool = "pzstd"
+stratum = "ok"
+
+[[entry]]
+tool = "e2mmpstatus"
+stratum = "ok"
+
+[[entry]]
+tool = "vgsplit"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-armhf-static"
+stratum = "ok"
+
+[[entry]]
+tool = "pngfix"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2html4"
+stratum = "ok"
+
+[[entry]]
+tool = "dumpe2fs"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-divert"
+stratum = "ok"
+
+[[entry]]
+tool = "kmod"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-lto2-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "grub-mkstandalone"
+stratum = "ok"
+
+[[entry]]
+tool = "factor"
+stratum = "ok"
+
+[[entry]]
+tool = "partprobe"
+stratum = "ok"
+
+[[entry]]
+tool = "jmap"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-lipo-18"
+stratum = "ok"
+
+[[entry]]
+tool = "dnsdomainname"
+stratum = "ok"
+
+[[entry]]
+tool = "xkbvleds"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gdbus"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-g++"
+stratum = "incomplete"
+
+[[entry]]
+tool = "xfs_info"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2odt"
+stratum = "ok"
+
+[[entry]]
+tool = "pptpsetup"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-disable-prompt"
+stratum = "ok"
+
+[[entry]]
+tool = "test"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-alias-import"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-dis-18"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-diff-18"
+stratum = "ok"
+
+[[entry]]
+tool = "scalar"
+stratum = "ok"
+
+[[entry]]
+tool = "sfdisk"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_read_long"
+stratum = "ok"
+
+[[entry]]
+tool = "diff"
+stratum = "ok"
+
+[[entry]]
+tool = "lvmdiskscan"
+stratum = "verbatim"
+
+[[entry]]
+tool = "blkzone"
+stratum = "ok"
+
+[[entry]]
+tool = "strace"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_estimate"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "telnet"
+stratum = "ok"
+
+[[entry]]
+tool = "tsort"
+stratum = "ok"
+
+[[entry]]
+tool = "pppd"
+stratum = "ok"
+
+[[entry]]
+tool = "vfsstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-tmux"
+stratum = "verbatim"
+
+[[entry]]
+tool = "uflow"
+stratum = "ok"
+
+[[entry]]
+tool = "pango-list"
+stratum = "ok"
+
+[[entry]]
+tool = "icuexportdata"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-firstboot"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-extract-18"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_write_verify"
+stratum = "ok"
+
+[[entry]]
+tool = "xlsfonts"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-libtool-darwin-18"
+stratum = "ok"
+
+[[entry]]
+tool = "chrt"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_timestamp"
+stratum = "ok"
+
+[[entry]]
+tool = "opencode"
+stratum = "ok"
+
+[[entry]]
+tool = "xvfb-run"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-dlltool-18"
+stratum = "ok"
+
+[[entry]]
+tool = "vimtutor"
+stratum = "verbatim"
+
+[[entry]]
+tool = "groups"
+stratum = "ok"
+
+[[entry]]
+tool = "msoelim"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cxxmap-18"
+stratum = "ok"
+
+[[entry]]
+tool = "captoinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ar"
+stratum = "ok"
+
+[[entry]]
+tool = "dmidecode"
+stratum = "ok"
+
+[[entry]]
+tool = "zic"
+stratum = "verbatim"
+
+[[entry]]
+tool = "swift-oldies"
+stratum = "ok"
+
+[[entry]]
+tool = "unmkinitramfs"
+stratum = "ok"
+
+[[entry]]
+tool = "dumpsexp"
+stratum = "ok"
+
+[[entry]]
+tool = "jcmd"
+stratum = "ok"
+
+[[entry]]
+tool = "javagc-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "myisam_ftdump"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpdump"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-PerfectShuffle-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gpgsplit"
+stratum = "ok"
+
+[[entry]]
+tool = "sed"
+stratum = "ok"
+
+[[entry]]
+tool = "xzcat"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_logprint"
+stratum = "ok"
+
+[[entry]]
+tool = "find"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "grub-fstest"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-probe"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-checkvm"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sadf"
+stratum = "ok"
+
+[[entry]]
+tool = "tset"
+stratum = "ok"
+
+[[entry]]
+tool = "count-18"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2odt_prepstyles"
+stratum = "ok"
+
+[[entry]]
+tool = "setpci"
+stratum = "ok"
+
+[[entry]]
+tool = "cpuwalk.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "socat"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-nm"
+stratum = "ok"
+
+[[entry]]
+tool = "lzcmp"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-gensymbols"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-cris-static"
+stratum = "ok"
+
+[[entry]]
+tool = "logrotate"
+stratum = "ok"
+
+[[entry]]
+tool = "make"
+stratum = "ok"
+
+[[entry]]
+tool = "lvm"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_repair"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-ml-18"
+stratum = "ok"
+
+[[entry]]
+tool = "aa-enabled"
+stratum = "ok"
+
+[[entry]]
+tool = "gmake"
+stratum = "ok"
+
+[[entry]]
+tool = "msgfilter"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gp-archive"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-cleanup-sockets"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pptp"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-gencontrol"
+stratum = "ok"
+
+[[entry]]
+tool = "multipath"
+stratum = "ok"
+
+[[entry]]
+tool = "rstpep2html"
+stratum = "ok"
+
+[[entry]]
+tool = "gpic"
+stratum = "ok"
+
+[[entry]]
+tool = "sbkeysync"
+stratum = "ok"
+
+[[entry]]
+tool = "usbip"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lslocks"
+stratum = "ok"
+
+[[entry]]
+tool = "snapctl"
+stratum = "ok"
+
+[[entry]]
+tool = "aa-teardown"
+stratum = "ok"
+
+[[entry]]
+tool = "luksformat"
+stratum = "ok"
+
+[[entry]]
+tool = "ldconfig"
+stratum = "ok"
+
+[[entry]]
+tool = "prove"
+stratum = "ok"
+
+[[entry]]
+tool = "bzip2recover"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ebtables-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "pslog"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "sgdisk"
+stratum = "ok"
+
+[[entry]]
+tool = "findmnt"
+stratum = "ok"
+
+[[entry]]
+tool = "isosize"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "systemd-tmpfiles"
+stratum = "ok"
+
+[[entry]]
+tool = "tr"
+stratum = "ok"
+
+[[entry]]
+tool = "ebtables-translate"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gp-collect-app"
+stratum = "ok"
+
+[[entry]]
+tool = "lzma"
+stratum = "ok"
+
+[[entry]]
+tool = "faillog"
+stratum = "ok"
+
+[[entry]]
+tool = "bugpoint-18"
+stratum = "ok"
+
+[[entry]]
+tool = "fail2ban-server"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_copy"
+stratum = "ok"
+
+[[entry]]
+tool = "vgreduce"
+stratum = "verbatim"
+
+[[entry]]
+tool = "offwaketime-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-confext"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-name"
+stratum = "ok"
+
+[[entry]]
+tool = "gpgv"
+stratum = "ok"
+
+[[entry]]
+tool = "rg"
+stratum = "ok"
+
+[[entry]]
+tool = "cut"
+stratum = "ok"
+
+[[entry]]
+tool = "os-prober"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_scan"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cov-18"
+stratum = "ok"
+
+[[entry]]
+tool = "funccount-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sbvarsign"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-reconfigure"
+stratum = "ok"
+
+[[entry]]
+tool = "iostat"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_rsync_wan"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mountpoint"
+stratum = "ok"
+
+[[entry]]
+tool = "e2fsck"
+stratum = "ok"
+
+[[entry]]
+tool = "gi-compile-repository"
+stratum = "ok"
+
+[[entry]]
+tool = "rescan-scsi-bus.sh"
+stratum = "ok"
+
+[[entry]]
+tool = "ext4dist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "blockdev"
+stratum = "ok"
+
+[[entry]]
+tool = "gio-querymodules"
+stratum = "verbatim"
+
+[[entry]]
+tool = "naptime.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_mdrestore"
+stratum = "ok"
+
+[[entry]]
+tool = "lspci"
+stratum = "ok"
+
+[[entry]]
+tool = "gdbus-codegen"
+stratum = "ok"
+
+[[entry]]
+tool = "e2scrub"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "inetutils-telnet"
+stratum = "ok"
+
+[[entry]]
+tool = "xfsdist-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu"
+stratum = "verbatim"
+
+[[entry]]
+tool = "nproc"
+stratum = "ok"
+
+[[entry]]
+tool = "update-locale"
+stratum = "ok"
+
+[[entry]]
+tool = "mt"
+stratum = "ok"
+
+[[entry]]
+tool = "autom4te"
+stratum = "ok"
+
+[[entry]]
+tool = "col5"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-cgtop"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-c-test-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "nisdomainname"
+stratum = "ok"
+
+[[entry]]
+tool = "addr2line"
+stratum = "ok"
+
+[[entry]]
+tool = "debian-distro-info"
+stratum = "ok"
+
+[[entry]]
+tool = "bpftrace-aotrt"
+stratum = "ok"
+
+[[entry]]
+tool = "mkinitramfs"
+stratum = "ok"
+
+[[entry]]
+tool = "chcon"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-nft-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "which.debianutils"
+stratum = "ok"
+
+[[entry]]
+tool = "mkdosfs"
+stratum = "ok"
+
+[[entry]]
+tool = "tarcat"
+stratum = "ok"
+
+[[entry]]
+tool = "ftp"
+stratum = "ok"
+
+[[entry]]
+tool = "cftp3"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfs-convert"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_quilt_unpatch"
+stratum = "verbatim"
+
+[[entry]]
+tool = "whiptail"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlcheck"
+stratum = "ok"
+
+[[entry]]
+tool = "tclstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "rm"
+stratum = "ok"
+
+[[entry]]
+tool = "mount.ntfs"
+stratum = "ok"
+
+[[entry]]
+tool = "llcstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "run-one-until-failure"
+stratum = "verbatim"
+
+[[entry]]
+tool = "scsi_start"
+stratum = "ok"
+
+[[entry]]
+tool = "libtool"
+stratum = "ok"
+
+[[entry]]
+tool = "unpigz"
+stratum = "ok"
+
+[[entry]]
+tool = "tclflow-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "gpgsm"
+stratum = "ok"
+
+[[entry]]
+tool = "rmmod"
+stratum = "ok"
+
+[[entry]]
+tool = "socat1"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cache_check"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "xzless"
+stratum = "ok"
+
+[[entry]]
+tool = "ufw"
+stratum = "ok"
+
+[[entry]]
+tool = "lnstat"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_logs"
+stratum = "ok"
+
+[[entry]]
+tool = "conch3"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mkrelpath"
+stratum = "ok"
+
+[[entry]]
+tool = "mwhatis"
+stratum = "ok"
+
+[[entry]]
+tool = "perf"
+stratum = "verbatim"
+
+[[entry]]
+tool = "routel"
+stratum = "ok"
+
+[[entry]]
+tool = "nfsiostat"
+stratum = "ok"
+
+[[entry]]
+tool = "getconf"
+stratum = "ok"
+
+[[entry]]
+tool = "softirqs-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_read_block_limits"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-stress-18"
+stratum = "ok"
+
+[[entry]]
+tool = "perlcalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "file"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpcong-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mount"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-deb"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-dump"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-cxxdump-18"
+stratum = "ok"
+
+[[entry]]
+tool = "automat-visualize3"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rmdir"
+stratum = "ok"
+
+[[entry]]
+tool = "ipcrm"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-cpp"
+stratum = "incomplete"
+
+[[entry]]
+tool = "time"
+stratum = "ok"
+
+[[entry]]
+tool = "ppchcalls-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sotruss"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-hexagon-static"
+stratum = "ok"
+
+[[entry]]
+tool = "bzexe"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-pkg-config"
+stratum = "ok"
+
+[[entry]]
+tool = "gcov-tool-13"
+stratum = "ok"
+
+[[entry]]
+tool = "make-first-existing-target"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-apply"
+stratum = "ok"
+
+[[entry]]
+tool = "uuidparse"
+stratum = "ok"
+
+[[entry]]
+tool = "ldattach"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-ring-builder"
+stratum = "verbatim"
+
+[[entry]]
+tool = "accessdb"
+stratum = "ok"
+
+[[entry]]
+tool = "pstree"
+stratum = "ok"
+
+[[entry]]
+tool = "wpa_cli"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "makedeltaiso"
+stratum = "ok"
+
+[[entry]]
+tool = "pdata_tools"
+stratum = "ok"
+
+[[entry]]
+tool = "tracepath"
+stratum = "ok"
+
+[[entry]]
+tool = "resolve_stack_dump"
+stratum = "ok"
+
+[[entry]]
+tool = "unzipsfx"
+stratum = "verbatim"
+
+[[entry]]
+tool = "makewhatis"
+stratum = "ok"
+
+[[entry]]
+tool = "pyhtmlizer3"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-import-id"
+stratum = "ok"
+
+[[entry]]
+tool = "inject-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "pico"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-ftparchive"
+stratum = "ok"
+
+[[entry]]
+tool = "gtk-builder-tool"
+stratum = "verbatim"
+
+[[entry]]
+tool = "git"
+stratum = "ok"
+
+[[entry]]
+tool = "fsadm"
+stratum = "ok"
+
+[[entry]]
+tool = "runuser"
+stratum = "ok"
+
+[[entry]]
+tool = "undump.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "bpftrace"
+stratum = "ok"
+
+[[entry]]
+tool = "vim.tiny"
+stratum = "ok"
+
+[[entry]]
+tool = "listres"
+stratum = "verbatim"
+
+[[entry]]
+tool = "fail2ban-client"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpsubnet-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "localedef"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-nios2-static"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-jitlink-18"
+stratum = "ok"
+
+[[entry]]
+tool = "vmhgfs-fuse"
+stratum = "ok"
+
+[[entry]]
+tool = "deb-systemd-helper"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-ac-power"
+stratum = "ok"
+
+[[entry]]
+tool = "jsonpatch"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2xetex"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-aarch64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mmcli"
+stratum = "ok"
+
+[[entry]]
+tool = "bashbug"
+stratum = "ok"
+
+[[entry]]
+tool = "mailmail3"
+stratum = "verbatim"
+
+[[entry]]
+tool = "socat-chain.sh"
+stratum = "ok"
+
+[[entry]]
+tool = "who"
+stratum = "ok"
+
+[[entry]]
+tool = "memusage"
+stratum = "ok"
+
+[[entry]]
+tool = "watch"
+stratum = "ok"
+
+[[entry]]
+tool = "xwininfo"
+stratum = "ok"
+
+[[entry]]
+tool = "jps"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "gi-inspect-typelib"
+stratum = "ok"
+
+[[entry]]
+tool = "multipathd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "glib-compile-schemas"
+stratum = "ok"
+
+[[entry]]
+tool = "perlstat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "mapscrn"
+stratum = "ok"
+
+[[entry]]
+tool = "python3.11"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_growfs"
+stratum = "ok"
+
+[[entry]]
+tool = "xfs_metadump"
+stratum = "ok"
+
+[[entry]]
+tool = "gtk-query-settings"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-sparc32plus-static"
+stratum = "ok"
+
+[[entry]]
+tool = "blkdiscard"
+stratum = "ok"
+
+[[entry]]
+tool = "cp"
+stratum = "ok"
+
+[[entry]]
+tool = "lsmem"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_ident"
+stratum = "ok"
+
+[[entry]]
+tool = "gtk-launch"
+stratum = "ok"
+
+[[entry]]
+tool = "syscount-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "vmtoolsd"
+stratum = "ok"
+
+[[entry]]
+tool = "biostacks.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "top"
+stratum = "ok"
+
+[[entry]]
+tool = "pythongc-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "wc"
+stratum = "ok"
+
+[[entry]]
+tool = "lzmainfo"
+stratum = "ok"
+
+[[entry]]
+tool = "unix_chkpwd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_raw"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfs-3g.probe"
+stratum = "ok"
+
+[[entry]]
+tool = "capable-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "readprofile"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.msdos"
+stratum = "ok"
+
+[[entry]]
+tool = "setfont"
+stratum = "ok"
+
+[[entry]]
+tool = "dh_bash-completion"
+stratum = "verbatim"
+
+[[entry]]
+tool = "fc-validate"
+stratum = "ok"
+
+[[entry]]
+tool = "rtstat"
+stratum = "ok"
+
+[[entry]]
+tool = "sshd"
+stratum = "ok"
+
+[[entry]]
+tool = "basenc"
+stratum = "ok"
+
+[[entry]]
+tool = "networkctl"
+stratum = "ok"
+
+[[entry]]
+tool = "perl"
+stratum = "ok"
+
+[[entry]]
+tool = "addgroup"
+stratum = "verbatim"
+
+[[entry]]
+tool = "markdown-it"
+stratum = "ok"
+
+[[entry]]
+tool = "mman"
+stratum = "ok"
+
+[[entry]]
+tool = "vm-support"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "jsonschema"
+stratum = "ok"
+
+[[entry]]
+tool = "gp-display-text"
+stratum = "ok"
+
+[[entry]]
+tool = "screen"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-cat"
+stratum = "ok"
+
+[[entry]]
+tool = "unix_update"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gettext"
+stratum = "ok"
+
+[[entry]]
+tool = "cpp"
+stratum = "incomplete"
+
+[[entry]]
+tool = "mesg"
+stratum = "ok"
+
+[[entry]]
+tool = "NetworkManager"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-mark"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqlrepair"
+stratum = "ok"
+
+[[entry]]
+tool = "ed"
+stratum = "ok"
+
+[[entry]]
+tool = "pigz"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-recon-cron"
+stratum = "verbatim"
+
+[[entry]]
+tool = "bridge"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld.bfd"
+stratum = "ok"
+
+[[entry]]
+tool = "seq"
+stratum = "ok"
+
+[[entry]]
+tool = "msggrep"
+stratum = "ok"
+
+[[entry]]
+tool = "demandoc"
+stratum = "ok"
+
+[[entry]]
+tool = "setupcon"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-hgfsclient"
+stratum = "verbatim"
+
+[[entry]]
+tool = "infobrowser"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-recon"
+stratum = "ok"
+
+[[entry]]
+tool = "mtrace"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpconnlat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "update-grub"
+stratum = "ok"
+
+[[entry]]
+tool = "apt-get"
+stratum = "ok"
+
+[[entry]]
+tool = "delgroup"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-rtdyld-18"
+stratum = "ok"
+
+[[entry]]
+tool = "biolatency-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "ugc"
+stratum = "ok"
+
+[[entry]]
+tool = "sulogin"
+stratum = "ok"
+
+[[entry]]
+tool = "yes"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld.gold"
+stratum = "ok"
+
+[[entry]]
+tool = "dnf-3"
+stratum = "verbatim"
+
+[[entry]]
+tool = "wipefs"
+stratum = "ok"
+
+[[entry]]
+tool = "ctstat"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gp-display-src"
+stratum = "ok"
+
+[[entry]]
+tool = "tempfile"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf-apt-progress"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "lexgrog"
+stratum = "ok"
+
+[[entry]]
+tool = "nodejs"
+stratum = "ok"
+
+[[entry]]
+tool = "update-ieee-data"
+stratum = "verbatim"
+
+[[entry]]
+tool = "runqlen-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "m4"
+stratum = "ok"
+
+[[entry]]
+tool = "jstatd"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-preconfigure"
+stratum = "ok"
+
+[[entry]]
+tool = "domainname"
+stratum = "ok"
+
+[[entry]]
+tool = "twist3"
+stratum = "ok"
+
+[[entry]]
+tool = "update-secureboot-policy"
+stratum = "verbatim"
+
+[[entry]]
+tool = "pwconv"
+stratum = "ok"
+
+[[entry]]
+tool = "syncsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-setpermission"
+stratum = "ok"
+
+[[entry]]
+tool = "tcpsynbl.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-dispersion-populate"
+stratum = "ok"
+
+[[entry]]
+tool = "genrb"
+stratum = "ok"
+
+[[entry]]
+tool = "replace"
+stratum = "verbatim"
+
+[[entry]]
+tool = "col9"
+stratum = "ok"
+
+[[entry]]
+tool = "nc"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_plugin"
+stratum = "ok"
+
+[[entry]]
+tool = "pathchk"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-slap"
+stratum = "ok"
+
+[[entry]]
+tool = "rgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "ubuntu-security-status"
+stratum = "verbatim"
+
+[[entry]]
+tool = "kbxutil"
+stratum = "ok"
+
+[[entry]]
+tool = "statsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "mdig"
+stratum = "ok"
+
+[[entry]]
+tool = "chown"
+stratum = "ok"
+
+[[entry]]
+tool = "mcatman"
+stratum = "ok"
+
+[[entry]]
+tool = "newgrp"
+stratum = "ok"
+
+[[entry]]
+tool = "nslookup"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xkbcomp"
+stratum = "ok"
+
+[[entry]]
+tool = "cloud-init-per"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-query"
+stratum = "ok"
+
+[[entry]]
+tool = "plymouth"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-instr-18"
+stratum = "ok"
+
+[[entry]]
+tool = "psfaddtable"
+stratum = "ok"
+
+[[entry]]
+tool = "arptables-save"
+stratum = "verbatim"
+
+[[entry]]
+tool = "e2scrub_all"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "kvmexit-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sbverify"
+stratum = "ok"
+
+[[entry]]
+tool = "dumpkeys"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_convert_table_format"
+stratum = "ok"
+
+[[entry]]
+tool = "watchgnupg"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-profgen-18"
+stratum = "ok"
+
+[[entry]]
+tool = "xkbwatch"
+stratum = "verbatim"
+
+[[entry]]
+tool = "cpgr"
+stratum = "ok"
+
+[[entry]]
+tool = "capable.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_install_db"
+stratum = "ok"
+
+[[entry]]
+tool = "pidwait"
+stratum = "ok"
+
+[[entry]]
+tool = "dirtop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "vcs-run"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-form-signature"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcov-13"
+stratum = "ok"
+
+[[entry]]
+tool = "vfsstat.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.msdos"
+stratum = "ok"
+
+[[entry]]
+tool = "sort"
+stratum = "ok"
+
+[[entry]]
+tool = "fgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.ext3"
+stratum = "ok"
+
+[[entry]]
+tool = "setvesablank"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-notify"
+stratum = "ok"
+
+[[entry]]
+tool = "ffplay"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-python3.12-config"
+stratum = "ok"
+
+[[entry]]
+tool = "csplit"
+stratum = "ok"
+
+[[entry]]
+tool = "service"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "tcpdrop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "unicode_start"
+stratum = "verbatim"
+
+[[entry]]
+tool = "preconv"
+stratum = "ok"
+
+[[entry]]
+tool = "pygmentize"
+stratum = "ok"
+
+[[entry]]
+tool = "uuidgen"
+stratum = "ok"
+
+[[entry]]
+tool = "ifnames"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_stream_ctl"
+stratum = "ok"
+
+[[entry]]
+tool = "jstat"
+stratum = "ok"
+
+[[entry]]
+tool = "e2label"
+stratum = "verbatim"
+
+[[entry]]
+tool = "umount.nfs4"
+stratum = "ok"
+
+[[entry]]
+tool = "pidpersec.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_reset"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsrecover"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "hardirqs-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "unsquashfs"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_ses_microcode"
+stratum = "ok"
+
+[[entry]]
+tool = "lvrename"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apt-cache"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-stdio-bridge"
+stratum = "ok"
+
+[[entry]]
+tool = "gp-collect-app"
+stratum = "ok"
+
+[[entry]]
+tool = "kill"
+stratum = "ok"
+
+[[entry]]
+tool = "mknod"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-legacy-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_secure_installation"
+stratum = "verbatim"
+
+[[entry]]
+tool = "chsh"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-ugraph"
+stratum = "ok"
+
+[[entry]]
+tool = "gp-display-src"
+stratum = "ok"
+
+[[entry]]
+tool = "nodestat-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "png-fix-itxt"
+stratum = "ok"
+
+[[entry]]
+tool = "netplan"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-mkconfig"
+stratum = "ok"
+
+[[entry]]
+tool = "usbreset"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-install-db"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-kbdcomp"
+stratum = "ok"
+
+[[entry]]
+tool = "update-mime-database"
+stratum = "ok"
+
+[[entry]]
+tool = "efibootdump"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_map"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-hwdb"
+stratum = "ok"
+
+[[entry]]
+tool = "request-key"
+stratum = "verbatim"
+
+[[entry]]
+tool = "networkd-dispatcher"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-reduce-18"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_rmsn"
+stratum = "ok"
+
+[[entry]]
+tool = "dbxtool"
+stratum = "ok"
+
+[[entry]]
+tool = "syscount.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "strings"
+stratum = "ok"
+
+[[entry]]
+tool = "bpftool"
+stratum = "verbatim"
+
+[[entry]]
+tool = "whoami"
+stratum = "ok"
+
+[[entry]]
+tool = "xkill"
+stratum = "ok"
+
+[[entry]]
+tool = "perlflow-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfs-3g"
+stratum = "ok"
+
+[[entry]]
+tool = "rview"
+stratum = "ok"
+
+[[entry]]
+tool = "xdg-user-dir"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "mapropos"
+stratum = "ok"
+
+[[entry]]
+tool = "galera_recovery"
+stratum = "verbatim"
+
+[[entry]]
+tool = "fakeroot"
+stratum = "ok"
+
+[[entry]]
+tool = "h2ph"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck.minix"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_find_rows"
+stratum = "ok"
+
+[[entry]]
+tool = "obj2yaml-18"
+stratum = "ok"
+
+[[entry]]
+tool = "Xvfb"
+stratum = "ok"
+
+[[entry]]
+tool = "keyctl"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ckeygen3"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-amd64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "unzip"
+stratum = "ok"
+
+[[entry]]
+tool = "gh"
+stratum = "ok"
+
+[[entry]]
+tool = "ngettext"
+stratum = "ok"
+
+[[entry]]
+tool = "mbimcli"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-secure-installation"
+stratum = "verbatim"
+
+[[entry]]
+tool = "grub-script-check"
+stratum = "ok"
+
+[[entry]]
+tool = "apparmor_status"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsdecrypt"
+stratum = "ok"
+
+[[entry]]
+tool = "convert-json"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-machine-id-setup"
+stratum = "ok"
+
+[[entry]]
+tool = "gpg-wks-client"
+stratum = "ok"
+
+[[entry]]
+tool = "jhsdb"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xauth"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-keybindings"
+stratum = "ok"
+
+[[entry]]
+tool = "fonttosfnt"
+stratum = "ok"
+
+[[entry]]
+tool = "fc-match"
+stratum = "ok"
+
+[[entry]]
+tool = "innotop"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-dispersion-report"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-shell"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gtester"
+stratum = "ok"
+
+[[entry]]
+tool = "join"
+stratum = "ok"
+
+[[entry]]
+tool = "jar"
+stratum = "ok"
+
+[[entry]]
+tool = "expr"
+stratum = "ok"
+
+[[entry]]
+tool = "chmem"
+stratum = "ok"
+
+[[entry]]
+tool = "msgunfmt"
+stratum = "ok"
+
+[[entry]]
+tool = "screendump"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_ncheck"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-mipsn32el-static"
+stratum = "ok"
+
+[[entry]]
+tool = "era_dump"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "chardet"
+stratum = "ok"
+
+[[entry]]
+tool = "dcsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "split"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-ulevel"
+stratum = "ok"
+
+[[entry]]
+tool = "iscsiadm"
+stratum = "verbatim"
+
+[[entry]]
+tool = "e2undo"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-init"
+stratum = "ok"
+
+[[entry]]
+tool = "g++-13"
+stratum = "incomplete"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcov"
+stratum = "ok"
+
+[[entry]]
+tool = "tcprtt-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "cpio"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-creds"
+stratum = "ok"
+
+[[entry]]
+tool = "vgscan"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-config-18"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-checkbuilddeps"
+stratum = "ok"
+
+[[entry]]
+tool = "dsymutil-18"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gold"
+stratum = "ok"
+
+[[entry]]
+tool = "tree"
+stratum = "ok"
+
+[[entry]]
+tool = "false"
+stratum = "ok"
+
+[[entry]]
+tool = "lvdisplay"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ar"
+stratum = "ok"
+
+[[entry]]
+tool = "e2freefrag"
+stratum = "ok"
+
+[[entry]]
+tool = "tty"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-run"
+stratum = "ok"
+
+[[entry]]
+tool = "hexdump"
+stratum = "ok"
+
+[[entry]]
+tool = "memusagestat"
+stratum = "ok"
+
+[[entry]]
+tool = "dotenv"
+stratum = "verbatim"
+
+[[entry]]
+tool = "halt"
+stratum = "ok"
+
+[[entry]]
+tool = "scandeps"
+stratum = "ok"
+
+[[entry]]
+tool = "pip"
+stratum = "ok"
+
+[[entry]]
+tool = "getopt"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2xml"
+stratum = "ok"
+
+[[entry]]
+tool = "glib-genmarshal"
+stratum = "ok"
+
+[[entry]]
+tool = "pydoc3.12"
+stratum = "verbatim"
+
+[[entry]]
+tool = "jq"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-run-session"
+stratum = "ok"
+
+[[entry]]
+tool = "mountsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_rdac"
+stratum = "ok"
+
+[[entry]]
+tool = "mtr"
+stratum = "ok"
+
+[[entry]]
+tool = "cache_restore"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "drsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "hdparm"
+stratum = "verbatim"
+
+[[entry]]
+tool = "btrfs-image"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_xcopy"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadbd"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfsslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "showkey"
+stratum = "ok"
+
+[[entry]]
+tool = "pam_timestamp_check"
+stratum = "ok"
+
+[[entry]]
+tool = "e4defrag"
+stratum = "verbatim"
+
+[[entry]]
+tool = "libnetcfg"
+stratum = "ok"
+
+[[entry]]
+tool = "python3"
+stratum = "ok"
+
+[[entry]]
+tool = "containerd"
+stratum = "ok"
+
+[[entry]]
+tool = "fallocate"
+stratum = "ok"
+
+[[entry]]
+tool = "scriptlive"
+stratum = "ok"
+
+[[entry]]
+tool = "filan"
+stratum = "ok"
+
+[[entry]]
+tool = "run-this-one"
+stratum = "verbatim"
+
+[[entry]]
+tool = "resolvconf"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_persist"
+stratum = "ok"
+
+[[entry]]
+tool = "filetop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfifo"
+stratum = "ok"
+
+[[entry]]
+tool = "pkg-config"
+stratum = "ok"
+
+[[entry]]
+tool = "pppstats"
+stratum = "ok"
+
+[[entry]]
+tool = "wsrep_sst_mysqldump"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tcpconnect-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "groupdel"
+stratum = "ok"
+
+[[entry]]
+tool = "icuinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "clang++"
+stratum = "ok"
+
+[[entry]]
+tool = "gsettings"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-ppc-static"
+stratum = "ok"
+
+[[entry]]
+tool = "ipcs"
+stratum = "ok"
+
+[[entry]]
+tool = "static-sh"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aarch64-linux-gnu-objdump"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-legacy"
+stratum = "ok"
+
+[[entry]]
+tool = "rpcbind"
+stratum = "ok"
+
+[[entry]]
+tool = "needrestart"
+stratum = "ok"
+
+[[entry]]
+tool = "update-passwd"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-install-name-tool-18"
+stratum = "ok"
+
+[[entry]]
+tool = "plog"
+stratum = "verbatim"
+
+[[entry]]
+tool = "bash"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "pv"
+stratum = "ok"
+
+[[entry]]
+tool = "dpkg-trigger"
+stratum = "ok"
+
+[[entry]]
+tool = "grub-set-default"
+stratum = "ok"
+
+[[entry]]
+tool = "skill"
+stratum = "ok"
+
+[[entry]]
+tool = "usb_modeswitch"
+stratum = "ok"
+
+[[entry]]
+tool = "zstdmt"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-rc-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sha1sum"
+stratum = "ok"
+
+[[entry]]
+tool = "paster3"
+stratum = "ok"
+
+[[entry]]
+tool = "ucf"
+stratum = "ok"
+
+[[entry]]
+tool = "killall"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-repart"
+stratum = "ok"
+
+[[entry]]
+tool = "byobu-launcher-install"
+stratum = "ok"
+
+[[entry]]
+tool = "update-info-dir"
+stratum = "verbatim"
+
+[[entry]]
+tool = "fgconsole"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gi-inspect-typelib"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-strings-18"
+stratum = "ok"
+
+[[entry]]
+tool = "poweroff"
+stratum = "ok"
+
+[[entry]]
+tool = "groupadd"
+stratum = "ok"
+
+[[entry]]
+tool = "getty"
+stratum = "ok"
+
+[[entry]]
+tool = "mytop"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_scrub_all"
+stratum = "ok"
+
+[[entry]]
+tool = "javac"
+stratum = "ok"
+
+[[entry]]
+tool = "setvtrgb"
+stratum = "ok"
+
+[[entry]]
+tool = "cloud-id"
+stratum = "ok"
+
+[[entry]]
+tool = "msgmerge"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_zone"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-add"
+stratum = "verbatim"
+
+[[entry]]
+tool = "gcc"
+stratum = "incomplete"
+
+[[entry]]
+tool = "gpgparsemail"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-repair"
+stratum = "ok"
+
+[[entry]]
+tool = "prtstat"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-socket-activate"
+stratum = "ok"
+
+[[entry]]
+tool = "fakeroot-tcp"
+stratum = "ok"
+
+[[entry]]
+tool = "sofdsnoop-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "setxkbmap"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ptx"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_sat_phy_event"
+stratum = "ok"
+
+[[entry]]
+tool = "unattended-upgrades"
+stratum = "ok"
+
+[[entry]]
+tool = "cache_metadata_size"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "llvm-debuginfo-analyzer-18"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfs.ntfs"
+stratum = "ok"
+
+[[entry]]
+tool = "umount.nfs"
+stratum = "ok"
+
+[[entry]]
+tool = "threadsnoop-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "llvm-tli-checker-18"
+stratum = "ok"
+
+[[entry]]
+tool = "gethostlatency-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "iscsid"
+stratum = "ok"
+
+[[entry]]
+tool = "on_ac_power"
+stratum = "ok"
+
+[[entry]]
+tool = "zdump"
+stratum = "ok"
+
+[[entry]]
+tool = "ntfsundelete"
+stratum = "ok"
+
+[[entry]]
+tool = "rtla"
+stratum = "verbatim"
+
+[[entry]]
+tool = "bzip2"
+stratum = "ok"
+
+[[entry]]
+tool = "ex"
+stratum = "ok"
+
+[[entry]]
+tool = "autoreconf"
+stratum = "ok"
+
+[[entry]]
+tool = "gpg-agent"
+stratum = "ok"
+
+[[entry]]
+tool = "rst2html5"
+stratum = "ok"
+
+[[entry]]
+tool = "zless"
+stratum = "ok"
+
+[[entry]]
+tool = "phpcalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "eject"
+stratum = "ok"
+
+[[entry]]
+tool = "tclsh8.6"
+stratum = "ok"
+
+[[entry]]
+tool = "slogin"
+stratum = "ok"
+
+[[entry]]
+tool = "grpunconv"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_senddiag"
+stratum = "ok"
+
+[[entry]]
+tool = "col7"
+stratum = "ok"
+
+[[entry]]
+tool = "lxd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aa-status"
+stratum = "ok"
+
+[[entry]]
+tool = "glib-gettextize"
+stratum = "ok"
+
+[[entry]]
+tool = "kmodsign"
+stratum = "ok"
+
+[[entry]]
+tool = "setterm"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_rep_pip"
+stratum = "ok"
+
+[[entry]]
+tool = "gpg-connect-agent"
+stratum = "ok"
+
+[[entry]]
+tool = "lvmsar"
+stratum = "verbatim"
+
+[[entry]]
+tool = "sg_write_x"
+stratum = "ok"
+
+[[entry]]
+tool = "write"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-sparc-static"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-hotcopy"
+stratum = "ok"
+
+[[entry]]
+tool = "linux-update-symlinks"
+stratum = "ok"
+
+[[entry]]
+tool = "showconsolefont"
+stratum = "ok"
+
+[[entry]]
+tool = "netqtop-bpfcc"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "llvm-mt-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mysql_upgrade"
+stratum = "ok"
+
+[[entry]]
+tool = "elfedit"
+stratum = "ok"
+
+[[entry]]
+tool = "gcov-dump"
+stratum = "ok"
+
+[[entry]]
+tool = "ipcmk"
+stratum = "ok"
+
+[[entry]]
+tool = "tune2fs"
+stratum = "ok"
+
+[[entry]]
+tool = "glib-compile-resources"
+stratum = "ok"
+
+[[entry]]
+tool = "vgmknodes"
+stratum = "verbatim"
+
+[[entry]]
+tool = "qemu-mips64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "modinfo"
+stratum = "ok"
+
+[[entry]]
+tool = "podchecker"
+stratum = "ok"
+
+[[entry]]
+tool = "chgpasswd"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_luns"
+stratum = "ok"
+
+[[entry]]
+tool = "integritysetup"
+stratum = "ok"
+
+[[entry]]
+tool = "pvresize"
+stratum = "verbatim"
+
+[[entry]]
+tool = "unexpand"
+stratum = "ok"
+
+[[entry]]
+tool = "grotty"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-xray-18"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-x86_64-static"
+stratum = "ok"
+
+[[entry]]
+tool = "offcputime-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "insmod"
+stratum = "ok"
+
+[[entry]]
+tool = "rust-gdbgui"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lli-18"
+stratum = "ok"
+
+[[entry]]
+tool = "fsck"
+stratum = "ok"
+
+[[entry]]
+tool = "cgi-fcgi"
+stratum = "ok"
+
+[[entry]]
+tool = "perl5.38.2"
+stratum = "ok"
+
+[[entry]]
+tool = "parted"
+stratum = "ok"
+
+[[entry]]
+tool = "iptables-nft"
+stratum = "ok"
+
+[[entry]]
+tool = "mdflush-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "systemd-cgls"
+stratum = "ok"
+
+[[entry]]
+tool = "aria_pack"
+stratum = "ok"
+
+[[entry]]
+tool = "fileslower-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "nft"
+stratum = "ok"
+
+[[entry]]
+tool = "mysql_setpermission"
+stratum = "ok"
+
+[[entry]]
+tool = "resolveip"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_unmap"
+stratum = "ok"
+
+[[entry]]
+tool = "syncsnoop-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-access"
+stratum = "ok"
+
+[[entry]]
+tool = "mvn"
+stratum = "ok"
+
+[[entry]]
+tool = "kpartx"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "gtk-update-icon-cache"
+stratum = "ok"
+
+[[entry]]
+tool = "ubuntu-bug"
+stratum = "ok"
+
+[[entry]]
+tool = "xsubpp"
+stratum = "ok"
+
+[[entry]]
+tool = "bashreadline.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "vcstime"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ntfscat"
+stratum = "ok"
+
+[[entry]]
+tool = "col1"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-lto-18"
+stratum = "ok"
+
+[[entry]]
+tool = "c89"
+stratum = "incomplete"
+
+[[entry]]
+tool = "mandocd"
+stratum = "ok"
+
+[[entry]]
+tool = "numactl"
+stratum = "ok"
+
+[[entry]]
+tool = "xfd"
+stratum = "verbatim"
+
+[[entry]]
+tool = "tcplife-bpfcc"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ranlib"
+stratum = "ok"
+
+[[entry]]
+tool = "jarsigner"
+stratum = "ok"
+
+[[entry]]
+tool = "migratepages"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-nft"
+stratum = "ok"
+
+[[entry]]
+tool = "cron"
+stratum = "ok"
+
+[[entry]]
+tool = "lvs"
+stratum = "verbatim"
+
+[[entry]]
+tool = "aria_chk"
+stratum = "ok"
+
+[[entry]]
+tool = "jdb"
+stratum = "ok"
+
+[[entry]]
+tool = "comm"
+stratum = "ok"
+
+[[entry]]
+tool = "realpath"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-c++filt"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfs-select-super"
+stratum = "ok"
+
+[[entry]]
+tool = "bitesize-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "statsnoop.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-config"
+stratum = "ok"
+
+[[entry]]
+tool = "as"
+stratum = "ok"
+
+[[entry]]
+tool = "e4crypt"
+stratum = "ok"
+
+[[entry]]
+tool = "infocmp"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadbd-multi"
+stratum = "ok"
+
+[[entry]]
+tool = "lvextend"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xfs_spaceman"
+stratum = "ok"
+
+[[entry]]
+tool = "sftp"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables"
+stratum = "ok"
+
+[[entry]]
+tool = "dbus-update-activation-environment"
+stratum = "ok"
+
+[[entry]]
+tool = "infotocap"
+stratum = "ok"
+
+[[entry]]
+tool = "thin_dump"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "blkid"
+stratum = "ok"
+
+[[entry]]
+tool = "pvck"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ckbcomp"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-powerpc-static"
+stratum = "ok"
+
+[[entry]]
+tool = "rev"
+stratum = "ok"
+
+[[entry]]
+tool = "chardetect"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-profdata-18"
+stratum = "ok"
+
+[[entry]]
+tool = "aria_read_log"
+stratum = "ok"
+
+[[entry]]
+tool = "faked-tcp"
+stratum = "verbatim"
+
+[[entry]]
+tool = "ptardiff"
+stratum = "ok"
+
+[[entry]]
+tool = "vmware-vgauth-cmd"
+stratum = "ok"
+
+[[entry]]
+tool = "sync"
+stratum = "ok"
+
+[[entry]]
+tool = "fatlabel"
+stratum = "ok"
+
+[[entry]]
+tool = "biolatency.bt"
+stratum = "ok"
+
+[[entry]]
+tool = "yaml2obj-18"
+stratum = "ok"
+
+[[entry]]
+tool = "rust-analyzer"
+stratum = "verbatim"
+
+[[entry]]
+tool = "lscpu"
+stratum = "ok"
+
+[[entry]]
+tool = "soelim"
+stratum = "ok"
+
+[[entry]]
+tool = "stat"
+stratum = "ok"

@@ -1206,4 +1206,44 @@ mod tests {
             "re-running sample must not duplicate an already force-included tool"
         );
     }
+
+    /// This module's own doc comment says `audit/queue.toml` "is
+    /// **tracked**", and spec §16's storage note says it again. Both said
+    /// so for a day while the file had never been committed by any commit
+    /// on any branch — `xtask audit freeze`, the only thing that writes it,
+    /// had never been run. Two documents asserting a file exists is not
+    /// evidence that it does, and the cost was not cosmetic: the queue is
+    /// the *provenance* of every draw, and without it no sample can be
+    /// traced to the population and cursor that produced it.
+    ///
+    /// A test is the right place for that claim because it is checkable.
+    /// This reads the file rather than asking git about it — this binary
+    /// has no git access, by the same workspace-wide invariant that keeps
+    /// `std::process` out of every crate but `mandible-extract` — and
+    /// reading is sufficient: CI builds from a fresh clone, where an
+    /// untracked file simply is not there. A developer who deletes their
+    /// local copy sees this fail too, which is correct; the fix is to
+    /// restore it from git, and if git cannot, that is exactly the bug.
+    #[test]
+    fn the_frozen_queue_is_committed_and_not_merely_documented_as_committed() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../audit/queue.toml");
+        let raw = std::fs::read_to_string(&path).unwrap_or_else(|err| {
+            panic!(
+                "audit/queue.toml is missing ({err}), but this module's doc comment and spec §16 \
+                 both call it tracked. Either commit the queue (`xtask audit freeze --seed N`, \
+                 then `git add audit/queue.toml`) or stop claiming it is tracked — the one thing \
+                 that must not happen is a third day where the docs and the repository disagree \
+                 about whether the provenance of every audit draw exists."
+            )
+        });
+        let queue: Queue = toml::from_str(&raw).expect("audit/queue.toml must parse as a Queue");
+        assert!(
+            !queue.entries.is_empty(),
+            "a committed queue with no entries is not provenance for anything"
+        );
+        assert!(
+            !queue.meta.population_hash.is_empty(),
+            "the queue must carry the population hash that identifies what it was frozen from"
+        );
+    }
 }
