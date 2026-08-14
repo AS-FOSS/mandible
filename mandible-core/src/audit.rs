@@ -513,12 +513,67 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
         meaning: "a positional operand in the usage line (`<destination>`, `pid`) is never \
                   extracted — the IR has nowhere to put it",
     },
+    // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. This is the vaguest label
+    // in the manifest — its own `meaning` below is a list of five unrelated
+    // layouts, which is the tell — and reading the six labelled tools'
+    // raw help beside their trees confirms it. Two of the six are the same
+    // binary: `/usr/bin/mariadb-repair` and `/usr/bin/mariadbcheck` are both
+    // symlinks to `mariadb-check`, and their help differs only in the
+    // program name it prints. Six labels are therefore five tools, and the
+    // five are five shapes with no witness token in common:
+    //
+    //   gcc          `--help={common|optimizers|...}`   ALREADY MODELED, and
+    //                                                   already deferred:
+    //                `help_text::confession::match_flag_value_row` detects
+    //                this exact row and caps the status at `incomplete`.
+    //                Following it needs a new `exec::InertArgv` for the
+    //                one-token `--help=common` plus its own §6 deliberation
+    //                (WS5b). Nothing here is a grammar defect.
+    //   mariadb-     `Variables (--variable-name=value)` NOTHING TO EXTRACT.
+    //   {repair,     defaults table                      Every one of its 39
+    //    check}                                          rows restates an
+    //                option already in the tree, and adds only a default
+    //                *value*, which the IR has nowhere to put. Recall is
+    //                complete. The table's one tree artifact is a phantom
+    //                flag whose long name is the header ruler
+    //                `---------------------------------`.
+    //   qemu-arm64-  `Argument | Env-variable |          three-column table:
+    //   static        Description` columns              column 2 is swallowed
+    //                                                   into the description
+    //                on 21 of its 23 rows. Its other damage is
+    //                `single-dash-long`, which has its own detector and fix.
+    //   sg_dd        a synopsis paragraph resumed        singleton, and
+    //                after a blank line, plus a          already recorded
+    //                `where:` KEY=VALUE operand table    under `unparsed-flag`
+    //                                                    above — verified again
+    //                here: `--progress`/`--verify` are the only losses.
+    //   ssh-keygen   one synopsis line per invocation    the block IS read —
+    //                variant, each reprinting the        40 flags come out of
+    //                tool's own name                     it. What is unmodeled
+    //                is the mode words (`-Y sign`, `-M generate`,
+    //                `-Y find-principals`), subcommands in all but name.
+    //
+    // The mariadb residue is the only one two labels reach, and it is not a
+    // family: one binary under two names is the same evidence counted twice.
+    // It is also unbuildable today in both directions. There is no
+    // `must_not_contain_flags` contract field, so a fixture cannot state a
+    // *phantom* flag falsifiably (the same gap `must_contain_positionals`
+    // was added to close for operands). And the obvious predicate — a long
+    // option name made only of `-` characters — fires on `bzless`
+    // (`------> --help <------` parses as `--` + `----` carrying the value
+    // `>`), which is labelled `wrong-stream`: a cross-family fire, which no
+    // exclusion may excuse. Narrowing it to "the raw text carries a line of
+    // nothing but dashes" does clear `bzless`, and was scanned mechanically
+    // across all 81 corpus fixtures: **zero** of them carry such a line.
+    // One binary is a tool, not a family.
     DefectFamily {
         name: "unmodeled-help-shape",
         meaning: "the help text is structured in a way the grammar has no model for at all \
                   (topic-partitioned `--help=<topic>` pages, a combinatorial synopsis that \
                   reprints the tool name per variant, `KEY=VALUE` operands, a settings/variables \
-                  table that is not a flag list, multi-column layouts)",
+                  table that is not a flag list, multi-column layouts). A LABEL FOR FIVE \
+                  UNRELATED LAYOUTS, not a shape: its six labels are five tools and five \
+                  shapes, and no detector generalizes them; see the comment above",
     },
     DefectFamily {
         name: "wrong-stream",

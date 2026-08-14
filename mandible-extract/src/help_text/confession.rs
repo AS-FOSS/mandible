@@ -78,6 +78,16 @@
 //! a false `ok`; a detected-but-unfollowed one is an honest `incomplete`
 //! (spec §6 rule 2b's status ladder) — which is the entire point of this
 //! extension.
+//!
+//! **This is also where the seed-2 audit's `unmodeled-help-shape` label on
+//! `gcc` resolves, and why no detector was built for it** (spec §13.1e,
+//! `mandible_core::audit::DEFECT_FAMILIES`). The reviewer's note — *"a
+//! group of separate help texts: common|optimizers|params|target|
+//! warnings"* — names exactly the row [`match_flag_value_row`] already
+//! detects. `gcc`'s topic-partitioned pages are therefore not an unmodeled
+//! *grammar*; they are a modeled confession this crate deliberately does
+//! not follow, pending the §6 argv deliberation above. A family detector
+//! for that label would be re-detecting what this module already detects.
 
 /// One directive a tool's own `--help` text printed, recommending a
 /// further probe. `word` is taken verbatim from the tool's own text —
