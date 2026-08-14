@@ -1,0 +1,507 @@
+[meta]
+seed = 4
+sample_size = 94
+
+[[entry]]
+tool = "VGAuthService"
+stratum = "verbatim"
+verdict = "wrong"
+note = "still prints out random logs"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ar"
+stratum = "ok"
+verdict = "incomplete"
+note = "ok I think the commands are fixed now, but I notice now that it has 'command specific modifiers' + 'generic modifiers'. Not sure what those are and mandible definintely does not take those into account"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ar"
+stratum = "ok"
+verdict = "incomplete"
+note = "same as other gnu"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-nm-13"
+stratum = "ok"
+verdict = "incomplete"
+note = 'there is a line "@FILE Read options from FILE" I suspect this is a positinal argument, and i dont think it got parsed'
+
+[[entry]]
+tool = "apport-cli"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "apt-extracttemplates"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "apt-ftparchive"
+stratum = "ok"
+verdict = "incomplete"
+note = "flags are correct, but missing commands. See for yourself. It also has put desription of 3-4 commands below the list of them a"
+
+[[entry]]
+tool = "ar"
+stratum = "ok"
+verdict = "incomplete"
+note = "same missing modifiers issue"
+
+[[entry]]
+tool = "automat-visualize3"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "bashbug"
+stratum = "ok"
+verdict = "incomplete"
+note = "missing 'bug-report-email-address' flag. in my screen the usage line is missing one character that wraps that flag, the closing square character, might that be the cause?"
+
+[[entry]]
+tool = "btrfs"
+stratum = "ok"
+verdict = "wrong"
+note = "the commands mistakenly got wrapped under --version flag's description, redo"
+
+[[entry]]
+tool = "byobu-janitor"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "bzless"
+stratum = "ok"
+verdict = "wrong"
+note = 'did not parse anything, the weird "------> --help <-----" help text'
+
+[[entry]]
+tool = "bzmore"
+stratum = "ok"
+verdict = "skip"
+note = "same weird arrow --help arrow issue"
+
+[[entry]]
+tool = "cache_restore"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "cargo-fmt"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "chgrp"
+stratum = "ok"
+verdict = "incomplete"
+note = 'The separation between flag sections has this description in between: "The following options modify how a hierarchy is traversed when the -R option is also specified. If more than one is specified, only the final one takes effect." But, it parses and keeps only this: "ONE TAKES EFFECT.". See what can be done, or we should ignore that'
+
+[[entry]]
+tool = "compactsnoop-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dbus-uuidgen"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dcsnoop-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dpkg-statoverride"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "editres"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "eqn"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "expand"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "fc-validate"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "filefrag"
+stratum = "ok"
+verdict = "incomplete"
+note = """shouldnt 'file' be printed infront of those newly fixed single-char flags, just like "blocksize..." is for -b? verifyy and double check if so, otherwise l;ooks correct"""
+
+[[entry]]
+tool = "filegone-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "fsck"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "gcc"
+stratum = "incomplete"
+verdict = "incomplete"
+note = 'still pendingm because gcc has options like "gcc --help=common" or "gcc -v --help", so im marking as incomplete'
+
+[[entry]]
+tool = "gcc-ar"
+stratum = "ok"
+verdict = "incomplete"
+note = "same modifier issue"
+
+[[entry]]
+tool = "gcc-ar-13"
+stratum = "ok"
+verdict = "incomplete"
+note = "same modifier issue"
+
+[[entry]]
+tool = "gethostlatency-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "gpgsplit"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "grub-set-default"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "helpztags"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "ip"
+stratum = "ok"
+verdict = "wrong"
+note = 'ok possibly new family, this shows something like this "-V[ersion]" which probably means "-V" and "--Version"'
+
+[[entry]]
+tool = "ip6tables-apply"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "iptables-apply"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "javaflow-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "jconsole"
+stratum = "ok"
+verdict = "skip"
+note = "it hangs the application, the manual --help also behaves the same, not worth"
+
+[[entry]]
+tool = "jdeprscan"
+stratum = "low-confidence"
+verdict = "incomplete"
+note = "one of previous tools had same structure, where it lists flags then puts their descriptions below as a paragraph"
+
+[[entry]]
+tool = "killsnoop.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "so far everything parses fine, but i noticed the environment variables listed here, decide if and how we want to parse and disply those, otherwise skip"
+
+[[entry]]
+tool = "lessecho"
+stratum = "ok"
+verdict = "incomplete"
+note = "is it missing positional 'file' argument?"
+
+[[entry]]
+tool = "llvm-jitlink-executor-18"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "llvm-modextract-18"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "lzgrep"
+stratum = "ok"
+verdict = "incomplete"
+note = "weird situation, i'd probably make this verbatim, because it abstracts its flags under 'the same as greps' and then some postiinal ones i think"
+
+[[entry]]
+tool = "lzless"
+stratum = "ok"
+verdict = "incomplete"
+note = "same as lzgrep"
+
+[[entry]]
+tool = "man-recode"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "mariadb-repair"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "mariadbcheck"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "mysqld_multi"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "naptime.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "same question regarding the env variables parsing"
+
+[[entry]]
+tool = "nfsidmap"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "im not sure what verdict to put here, it has some more complex than usual structure, but some pattern is there"
+
+[[entry]]
+tool = "nstat"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ntfsfallocate"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "opensnoop.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "same question regarding env vars"
+
+[[entry]]
+tool = "pastebinit"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pcre2-config"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ping4"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pkg-config"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pptpsetup"
+stratum = "ok"
+verdict = "wrong"
+note = "bad parse, not sure why, looks straightforward"
+
+[[entry]]
+tool = "psfaddtable"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ptargrep"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "qemu-arm64-static"
+stratum = "ok"
+verdict = "incomplete"
+note = "same env variables question, but extension, this tool instead maps the variables to some of the flags. meaning that you can either use flag or set env, tat least thats what i think"
+
+[[entry]]
+tool = "renice"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "rmiregistry"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "rubycalls-bpfcc"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "rubyobjnew-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "run-one-until-failure"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "rust-lldb"
+stratum = "verbatim"
+verdict = "correct"
+
+[[entry]]
+tool = "sbverify"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "scsi_ready"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "setsid"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sg"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sg_dd"
+stratum = "ok"
+verdict = "wrong"
+note = "might be new family, but also I think a bug when parsing usage line due to empty line in between options"
+
+[[entry]]
+tool = "sg_emc_trespass"
+stratum = "ok"
+verdict = "wrong"
+note = "wrong parse. might be due to addition of colon"
+
+[[entry]]
+tool = "sg_sanitize"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sha1sum"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ssh-keygen"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "strace-log-merge"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tclsh"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tcpaccept.bt"
+stratum = "ok"
+verdict = "incomplete"
+note = "same question regarding env vars"
+
+[[entry]]
+tool = "tcpdump"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "threadsnoop.bt"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tmux"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "update-xmlcatalog"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "vgck"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "is unparsed, no detector or decided to keep verbatim?"
+
+[[entry]]
+tool = "vgextend"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "same vg family"
+
+[[entry]]
+tool = "vgrename"
+stratum = "verbatim"
+verdict = "incomplete"
+note = "same vg family"
+
+[[entry]]
+tool = "vim.basic"
+stratum = "ok"
+verdict = "incomplete"
+note = "i believe it shows '--' as positional arg"
+
+[[entry]]
+tool = "wall"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "wsrep_sst_mysqldump"
+stratum = "verbatim"
+verdict = "correct"
+
+[[entry]]
+tool = "xfs_io"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "xzgrep"
+stratum = "ok"
+verdict = "correct"
