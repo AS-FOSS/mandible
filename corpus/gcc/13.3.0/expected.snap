@@ -3,9 +3,8 @@ description: 'Options:'
 usage:
 - 'Usage: gcc [options] file...'
 flags:
-- short: 'p'
-  value_name: ass-exit-codes
-  value_kind: Required
+- long: pass-exit-codes
+  single_dash: true
   description: Exit with highest error code from a phase.
   provenance:
     sources:
@@ -32,23 +31,20 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: umpspecs
-  value_kind: Required
+- long: dumpspecs
+  single_dash: true
   description: Display all of the built in spec strings.
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: umpversion
-  value_kind: Required
+- long: dumpversion
+  single_dash: true
   description: Display the version of the compiler.
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: umpmachine
-  value_kind: Required
+- long: dumpmachine
+  single_dash: true
   description: Display the compiler's target processor.
   provenance:
     sources:
@@ -60,16 +56,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-search-dirs
-  value_kind: Required
+- long: print-search-dirs
+  single_dash: true
   description: Display the directories in the compiler's search path.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-libgcc-file-name
-  value_kind: Required
+- long: print-libgcc-file-name
+  single_dash: true
   description: Display the name of the compiler's companion library.
   provenance:
     sources:
@@ -88,43 +82,37 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-multiarch
-  value_kind: Required
+- long: print-multiarch
+  single_dash: true
   description: Display the target's normalized GNU triplet, used as a component in the library path.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-multi-directory
-  value_kind: Required
+- long: print-multi-directory
+  single_dash: true
   description: Display the root directory for versions of libgcc.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-multi-lib
-  value_kind: Required
+- long: print-multi-lib
+  single_dash: true
   description: Display the mapping between command line options and multiple library search directories.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-multi-os-directory
-  value_kind: Required
+- long: print-multi-os-directory
+  single_dash: true
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-sysroot
-  value_kind: Required
+- long: print-sysroot
+  single_dash: true
   description: Display the target libraries directory.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-sysroot-headers-suffix
-  value_kind: Required
+- long: print-sysroot-headers-suffix
+  single_dash: true
   provenance:
     sources:
     - help-text
@@ -170,9 +158,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: ave-temps
-  value_kind: Required
+- long: save-temps
+  single_dash: true
   description: Do not delete intermediate files.
   provenance:
     sources:
@@ -184,23 +171,20 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'n'
-  value_name: o-canonical-prefixes
-  value_kind: Required
+- long: no-canonical-prefixes
+  single_dash: true
   description: Do not canonicalize paths when building relative prefixes to other gcc components.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: ipe
-  value_kind: Required
+- long: pipe
+  single_dash: true
   description: Use pipes rather than intermediate files.
   provenance:
     sources:
     - help-text
-- short: 't'
-  value_name: ime
-  value_kind: Required
+- long: time
+  single_dash: true
   description: Time the execution of each subprocess.
   provenance:
     sources:
@@ -267,16 +251,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: ie
-  value_kind: Required
+- long: pie
+  single_dash: true
   description: Create a dynamically linked position independent executable.
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: hared
-  value_kind: Required
+- long: shared
+  single_dash: true
   description: Create a shared library.
   provenance:
     sources:

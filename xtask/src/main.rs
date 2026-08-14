@@ -1196,25 +1196,49 @@ fn run_coverage(
             regressed = true;
         }
 
-        // `single-dash-long` (`crate::single_dash_long`), the third family,
-        // is **reported and deliberately not gated**: its detector passes
-        // calibration but the family is NOT repaired — there is no fix for
-        // it in this tree, so its fleet count is a live defect measurement,
-        // not a zero to hold. Gating it now would fail every build for a bug
-        // nobody has fixed yet, which is the same "a metric with no measured
-        // baseline must not silently fail a run" rule (spec §13.1b) read in
-        // the other direction. It becomes a ratchet on the commit that
-        // repairs it, exactly as the two above did.
+        // `single-dash-long` (`crate::single_dash_long`), the third and last
+        // family sharing the `short && !long && value_name` fingerprint, on
+        // exactly the terms the two above reached and after the same
+        // movement: reported-and-ungated while the family was unrepaired,
+        // ratcheted at a literal zero on the commit that repaired it
+        // (`help_text::sections::repair_single_dash_long_options`). It was
+        // the largest defect signal in the fleet when it was measured —
+        // 132 tool(s) and 8,784 flag(s), 17.6% of every flag extracted —
+        // which is precisely why it is worth a gate now that it reads zero.
+        //
+        // Gated against `0` and not against `previous` for the same reason
+        // as the other two: the checked-in scoreboard is editable, so a
+        // commit reintroducing the defect would otherwise raise its own
+        // baseline. Gated on the detector's own self-checks alongside the
+        // count, because a gate on `count == 0` alone is satisfied by
+        // deleting the detector — `ratchet_at_zero` requires both halves,
+        // and `detector::tests::deleting_the_detector_fails_the_ratchet_at_
+        // a_perfect_zero` is the test that says so. The complementary
+        // hazard — the detector staying healthy while the *fix* is deleted,
+        // which no fleet count and no hand-built self-check can catch —
+        // is covered by
+        // `single_dash_long::tests::the_real_parser_leaves_no_split_in_any_
+        // audited_fixture`, which replays frozen bytes through the real
+        // parser under `cargo nextest` rather than under a sweep.
         if fresh.single_dash_split_tools != previous.single_dash_split_tools
             || fresh.single_dash_split_flags != previous.single_dash_split_flags
         {
             println!(
-                "single-dash-long splits changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s) (reported, not gated — the family is not repaired)",
+                "single-dash-long splits changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
                 previous.single_dash_split_tools,
                 previous.single_dash_split_flags,
                 fresh.single_dash_split_tools,
                 fresh.single_dash_split_flags,
             );
+        }
+        let single_dash_ratchet = detector::ratchet_at_zero(
+            detector::find("single-dash-long")?.as_ref(),
+            fresh.single_dash_split_tools,
+            fresh.single_dash_split_flags,
+        );
+        println!("\n{}", single_dash_ratchet.report());
+        if !single_dash_ratchet.holds() {
+            regressed = true;
         }
 
         if regressed {

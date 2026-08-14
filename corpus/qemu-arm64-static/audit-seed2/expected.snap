@@ -1,0 +1,178 @@
+name: qemu-arm64-static
+description: Linux CPU emulator (compiled for aarch64 emulation)
+usage:
+- 'usage: qemu-aarch64 [options] program [arguments...]'
+flags:
+- short: 'h'
+  description: print this help
+  provenance:
+    sources:
+    - help-text
+- long: help
+  single_dash: true
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  value_name: port
+  value_kind: Required
+  description: QEMU_GDB wait gdb connection to 'port'
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  value_name: path
+  value_kind: Required
+  description: QEMU_LD_PREFIX set the elf interpreter prefix to 'path'
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: size
+  value_kind: Required
+  description: QEMU_STACK_SIZE set the stack size to 'size' bytes
+  provenance:
+    sources:
+    - help-text
+- long: cpu
+  single_dash: true
+  description: QEMU_CPU select CPU (-cpu help for list)
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  value_name: var=value
+  value_kind: Required
+  description: QEMU_SET_ENV sets targets environment variable (see below)
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  value_name: var
+  value_kind: Required
+  description: QEMU_UNSET_ENV unsets targets environment variable (see below)
+  provenance:
+    sources:
+    - help-text
+- short: '0'
+  value_name: argv0
+  value_kind: Required
+  description: QEMU_ARGV0 forces target process argv[0] to be 'argv0'
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: uname
+  value_kind: Required
+  description: QEMU_UNAME set qemu uname release string to 'uname'
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  value_name: address
+  value_kind: Required
+  description: QEMU_GUEST_BASE set guest_base address to 'address'
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  value_name: size
+  value_kind: Required
+  description: QEMU_RESERVED_VA reserve 'size' bytes for guest virtual address space
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  value_name: item[,...]
+  value_kind: Required
+  description: QEMU_LOG enable logging of specified items (use '-d help' for a list of items)
+  provenance:
+    sources:
+    - help-text
+- long: dfilter
+  single_dash: true
+  description: filter logging based on address range
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  value_name: logfile
+  value_kind: Required
+  description: QEMU_LOG_FILENAME write logs to 'logfile' (default stderr)
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: pagesize
+  value_kind: Required
+  description: QEMU_PAGESIZE set the host page size to 'pagesize'
+  provenance:
+    sources:
+    - help-text
+- long: one-insn-per-tb
+  single_dash: true
+  description: QEMU_ONE_INSN_PER_TB run with one guest instruction per emulated TB
+  provenance:
+    sources:
+    - help-text
+- long: singlestep
+  single_dash: true
+  description: QEMU_SINGLESTEP deprecated synonym for -one-insn-per-tb
+  provenance:
+    sources:
+    - help-text
+- long: strace
+  single_dash: true
+  description: QEMU_STRACE log system calls
+  provenance:
+    sources:
+    - help-text
+- long: seed
+  single_dash: true
+  description: QEMU_RAND_SEED Seed for pseudo-random number generator
+  provenance:
+    sources:
+    - help-text
+- long: trace
+  single_dash: true
+  description: QEMU_TRACE [[enable=]<pattern>][,events=<file>][,file=<file>]
+  provenance:
+    sources:
+    - help-text
+- long: version
+  single_dash: true
+  description: QEMU_VERSION display version information and exit
+  provenance:
+    sources:
+    - help-text
+- long: perfmap
+  single_dash: true
+  description: QEMU_PERFMAP Generate a /tmp/perf-${pid}.map file for perf
+  provenance:
+    sources:
+    - help-text
+- long: jitdump
+  single_dash: true
+  description: QEMU_JITDUMP Generate a jit-${pid}.dump file for perf
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  value_name: var1=val2
+  value_kind: Required
+  group: 'The following lines are equivalent:'
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  value_name: var1=val2,var2=val2
+  value_kind: Required
+  group: 'The following lines are equivalent:'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

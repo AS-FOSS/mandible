@@ -435,7 +435,12 @@ pub struct Aggregate {
     /// three families sharing `bundle_collapse_tools`'s structural
     /// fingerprint, and blind to the same two oracles for the same reason:
     /// `-h` occurs in `qemu`'s raw text and carries a description, so
-    /// nothing before this counted it.
+    /// nothing before this counted it. **Ratcheted at zero**
+    /// (`detector::ratchet_at_zero`) since
+    /// `help_text::sections::repair_single_dash_long_options` landed, on the
+    /// same paired terms as `command_table_tools`: the count and the
+    /// detector's own self-checks together, so a zero cannot be earned by
+    /// deleting the rule.
     pub single_dash_split_tools: usize,
     /// Real flags lost to those splits, fleet-wide — one per split (the long
     /// spelling itself). Carried beside the tool count for the same reason

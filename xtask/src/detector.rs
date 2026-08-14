@@ -3335,6 +3335,7 @@ mod tests {
             "bundled-short-flag",
             "unparsed-command-table",
             "repeated-char-flag",
+            "single-dash-long",
         ] {
             assert!(
                 find(name).is_ok(),

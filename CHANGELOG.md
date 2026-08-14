@@ -10,6 +10,40 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **Single-dash long options keep their real names.** A tool that spells a
+  long option with one dash — `qemu-arm64-static`'s `-help`, `gcc`'s
+  `-pass-exit-codes`, and essentially all of `ffmpeg`'s CLI — had every one
+  of those options read as its own first character carrying the rest of the
+  name as a required value: `-help` became `-h` taking a value literally
+  named `elp`, `-cpu` became `-c` + `pu`, `-print-search-dirs` became `-p` +
+  `rint-search-dirs`. The real option was in the tree under no spelling a
+  user could type. A `PATH` sweep measured **132 tools and 8,784 flags —
+  17.6% of every flag mandible extracts**, the largest remaining defect
+  signal by a wide margin.
+
+  The repair (`help_text::sections::repair_single_dash_long_options`) is a
+  post-pass over each node's assembled flag list, admitting a flag on the
+  same seven conditions the `single-dash-long` detector counts the defect
+  with, character for character. Two of those conditions carry the whole
+  safety argument. The flag must be **option-table-sourced**, which keeps the
+  bundled-short population (`rpcbind`'s `[-adhilswfr]`) out; and the
+  reconstructed token must be **uniformly lowercase**, which is the only
+  thing separating this family from the GCC/Clang glued-value convention —
+  `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`, `perl
+  -Idirectory`, `cc -oOUTFILE` — thousands of **correct** parses fleet-wide
+  that a looser rule would have converted into fabricated long options. The
+  case test reads the whole token rather than the tail, because `-oOUTFILE`
+  has a lowercase flag letter and only its argument shouts.
+
+  Replaying all 81 corpus fixtures before and after changed exactly three —
+  `qemu-arm64-static` (11 options recovered), `gcc` (18) and `ffmpeg` (45) —
+  and left the other 78 byte-identical, including all 30 tools a human
+  reviewer judged correct and both of the family's declared out-of-scope
+  misses (`ip`'s bracketed `-h[uman-readable]`, `sg_emc_trespass`'s
+  `-hr:`). `corpus/qemu-arm64-static/audit-seed2` is promoted out of
+  `[xfail]`, and the family is now ratchet-gated at zero alongside the other
+  two that share its structural fingerprint.
+
 - **mandible no longer starts daemons on the machine it is documenting.**
   Running `mandible blkmapd` — or any of a large class of system binaries —
   started an NFS daemon that outlived the process. **622 leaked processes**

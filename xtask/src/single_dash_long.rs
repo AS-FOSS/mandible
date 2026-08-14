@@ -641,4 +641,105 @@ mod tests {
         );
         assert_eq!(r.split_count(), 0);
     }
+
+    // --- the fix reaches this detector's zero ----------------------------
+
+    /// The assertion the ratchet actually rests on, and the one thing
+    /// neither a fleet count nor a self-check can state on its own: run the
+    /// **real extraction pipeline** over the real captured bytes of every
+    /// audited fixture and confirm this detector finds nothing left.
+    ///
+    /// A ratchet gated on `count == 0` is satisfied by a broken detector,
+    /// which is why `detector::ratchet_at_zero` demands the self-checks too.
+    /// But the self-checks run against *hand-built* trees, so they would go
+    /// on holding if `sections::repair_single_dash_long_options` were
+    /// deleted tomorrow — the detector would still fire on its own fixtures
+    /// and the fleet count would climb back to 8,784 with nothing in the
+    /// test suite noticing until someone ran a twenty-minute sweep. This
+    /// test is the missing link: it replays frozen bytes through the parser
+    /// the fix lives in, so deleting the fix fails here, immediately, with
+    /// the tool and token named.
+    ///
+    /// Zero subprocesses — `corpus::replay_version` is the same frozen-bytes
+    /// replay `detector::calibrate` uses.
+    #[test]
+    fn the_real_parser_leaves_no_split_in_any_audited_fixture() {
+        let corpus_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus");
+        let replayed = crate::corpus::replay_version(&corpus_root, "audit-seed2")
+            .expect("real corpus replays");
+        assert!(
+            replayed.len() > 20,
+            "the audited fixture set should be substantial, got {}",
+            replayed.len()
+        );
+        let mut offenders = Vec::new();
+        for fixture in &replayed {
+            let Some(root) = &fixture.root else { continue };
+            for split in detect(&fixture.raw, root).splits {
+                offenders.push(format!(
+                    "{}: {} split into {}",
+                    fixture.tool, split.token, split.spelling
+                ));
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "the single-dash long-option repair no longer reaches this detector's zero — \
+             the family is ratcheted at 0 in main.rs and these are live splits:\n  {}",
+            offenders.join("\n  ")
+        );
+    }
+
+    /// `qemu-arm64-static` from the other side: the fixture that carried
+    /// this family's `[xfail]` must now produce the eleven real names, and
+    /// must still produce the genuine value-taking short flags that sit on
+    /// adjacent rows of the same table. A repair that reached zero by
+    /// deleting flags would pass the test above and fail this one.
+    #[test]
+    fn qemus_long_options_and_its_valued_shorts_both_survive_the_repair() {
+        let corpus_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus");
+        let replayed = crate::corpus::replay_version(&corpus_root, "audit-seed2")
+            .expect("real corpus replays");
+        let qemu = replayed
+            .iter()
+            .find(|f| f.tool == "qemu-arm64-static")
+            .expect("the qemu fixture is in the corpus");
+        let root = qemu.root.as_ref().expect("qemu extracts a tree");
+        for name in [
+            "help",
+            "cpu",
+            "dfilter",
+            "one-insn-per-tb",
+            "singlestep",
+            "strace",
+            "seed",
+            "trace",
+            "version",
+            "perfmap",
+            "jitdump",
+        ] {
+            assert!(
+                root.flags
+                    .iter()
+                    .any(|f| f.long.as_deref() == Some(name) && f.single_dash),
+                "-{name} is a real qemu option and must be in the tree under its own name"
+            );
+        }
+        // The rows the repair must not touch, still carrying their values.
+        for (short, value) in [
+            ('g', "port"),
+            ('L', "path"),
+            ('s', "size"),
+            ('D', "logfile"),
+        ] {
+            assert!(
+                root.flags.iter().any(|f| {
+                    f.short == Some(short)
+                        && f.long.is_none()
+                        && f.value_name.as_deref() == Some(value)
+                }),
+                "-{short} {value} is a correct parse and must survive untouched"
+            );
+        }
+    }
 }

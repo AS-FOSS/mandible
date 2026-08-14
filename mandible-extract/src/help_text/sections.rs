@@ -816,6 +816,17 @@ pub fn parse_with_profile(
     // question (see [`repair_repeated_character_flags`]), so it cannot run
     // at the row that produced any one flag.
     repair_repeated_character_flags(&mut result.flags, raw);
+    // Then, over the same assembled list and for the same reason (it must
+    // be able to read a flag's `Source`, which only exists once the flag is
+    // built): the single-dash long-option repair. Ordered after the
+    // repeated-character pass deliberately — that pass consumes `-vv` and
+    // friends and rewrites them into `long`/`single_dash`, so by the time
+    // this one runs the whole repeated-character family is already gone
+    // from the `short && !long && Required` fingerprint the two share, and
+    // the disjointness the two detectors assert about each other holds in
+    // the fixes as well. The explicit condition-6 check below is kept
+    // anyway, so the disjointness does not rest on the call order.
+    repair_single_dash_long_options(&mut result.flags, raw);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result
@@ -951,6 +962,198 @@ fn token_occurs_glued(raw: &str, candidate: &str) -> bool {
             && (start == 0 || !is_word_char(hay[start - 1]))
             && (end == hay.len() || !is_word_char(hay[end]))
     })
+}
+
+/// The fewest characters a swallowed tail must carry before it is read as
+/// the rest of a single-dash long option's name.
+///
+/// Two, and the same two `xtask::single_dash_long::MIN_SWALLOWED_CHARS`
+/// counts the defect with — the two numbers are one number, and the
+/// duplication is the same deliberate one `MIN_CLUSTER_MEMBERS` carries
+/// against `bundling::MIN_BUNDLED_MEMBERS`. At one swallowed character the
+/// shape is genuinely ambiguous: `rpcgen`'s `-Ss`, `xxd`'s `-ps`, `sg_map`'s
+/// `-st`, `mandoc`'s `-ac`, `which`'s `-as` are all two-character
+/// single-dash tokens and roughly half of that population is a correct
+/// parse of a real character-argument flag. Deliberate lost recall.
+const MIN_SWALLOWED_NAME_CHARS: usize = 2;
+
+/// Re-read every `-help`-shaped option-table row as the single-dash long
+/// option it is, instead of as its own first character carrying a required
+/// value.
+///
+/// # The defect
+///
+/// `qemu-arm64-static`'s option table writes its long options and its
+/// genuine value-taking short flags on adjacent rows, separated by nothing
+/// but a space:
+///
+/// ```text
+/// -h                                        print this help
+/// -help
+/// -g port              QEMU_GDB             wait gdb connection to 'port'
+/// -cpu model           QEMU_CPU             select CPU (-cpu help for list)
+/// -one-insn-per-tb     QEMU_ONE_INSN_PER_TB run with one guest instruction per emulated TB
+/// -version             QEMU_VERSION         display version information and exit
+/// ```
+///
+/// [`parse_flag_spec`] has no way to read `-help` as one name: `try_short`
+/// takes the `h` and `try_value` glues the rest on as a required value, so
+/// the tree gains a second `-h` carrying the value `"elp"` and loses
+/// `-help` under any spelling a user could type. Eleven of that one tool's
+/// rows go the same way — `-cpu` → `-c` + `"pu"`, `-version` → `-v` +
+/// `"ersion"` — while `-g port`, `-L path` and `-R size` on the same rows
+/// are entirely correct. A fleet sweep of this machine's `PATH` measured
+/// the family at **132 tools and 8,784 flags**, 17.6% of every flag
+/// extracted.
+///
+/// # The rule
+///
+/// A flag is rewritten when **all** of these hold — the same seven
+/// conditions `xtask`'s `single_dash_long` oracle counts the defect with,
+/// deliberately and character for character, because that detector is meant
+/// to read zero once this lands and it can only do that if the fix and the
+/// measurement agree on what the defect *is*:
+///
+/// 1. it is **option-table-sourced** ([`Source::HelpText`], never
+///    [`Source::HelpTextSynopsis`]);
+/// 2. it has a short spelling, no long name, and a `Required` value;
+/// 3. the swallowed text is **option-name-shaped**
+///    ([`is_option_name_tail`]);
+/// 4. at least [`MIN_SWALLOWED_NAME_CHARS`] characters were swallowed;
+/// 5. the whole reconstructed token is **uniformly lowercase**
+///    ([`token_is_uniformly_lowercase`]);
+/// 6. the tail is not the flag's own character repeated — the
+///    [`repair_repeated_character_flags`] family, handed off rather than
+///    claimed twice;
+/// 7. the reconstructed token occurs glued and delimited in the tool's own
+///    raw text ([`token_occurs_glued`]).
+///
+/// **Conditions 1 and 5 are the whole safety argument, and 5 is why this
+/// cannot be a change to [`parse_flag_spec`].** Conditions 2, 3, 4, 6 and 7
+/// are satisfied character for character by the GCC/Clang glued-value
+/// convention — `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`,
+/// `perl -Idirectory`, `find -Olevel`, `cc -oOUTFILE`, `gcc -DMACRO` —
+/// thousands of **correct** parses fleet-wide, every one of which this must
+/// leave alone. What separates them is case, and only case: the convention
+/// is an uppercase flag letter with its argument glued on, while a long
+/// option is a *word* and words in `--help` output are lowercase.
+/// Condition 5 is measured over the whole token rather than the tail alone,
+/// deliberately, and the difference is `-oOUTFILE`: its flag letter is
+/// lowercase and only the argument shouts, so a tail-only test would admit
+/// it and destroy a correct parse. Condition 1 is what keeps the entire
+/// bundled-short population out (`rpcbind`'s `[-adhilswfr]` is
+/// all-lowercase, unsorted and indistinguishable from a long option on
+/// every other condition) — `parse_bundled_shorts` owns that shape from the
+/// synopsis, and the identical shape from an option table is this family.
+///
+/// # What this deliberately does not claim
+///
+/// Named here rather than discovered later, and each one is a place the
+/// oracle is silent too — this fix claims **nothing** the detector does
+/// not:
+///
+/// - **Uppercase-led single-dash long options** (`-Wall`, `-Xlint`).
+///   Excluded by condition 5, which cannot tell them from `-Zscript`.
+/// - **`ip`'s bracketed abbreviations** (`-h[uman-readable]`, `-b[atch]`,
+///   `-rc[vbuf]`). The raw text writes brackets, so the grammar records
+///   `ValueKind::Optional` — a value spec a human deliberately typed — and
+///   condition 2 never admits it.
+/// - **Tails carrying layout punctuation.** `sg_emc_trespass` writes
+///   `-hr: Set Honor Reservation bit`, so the tail is `"r:"` and condition
+///   3 rejects it. No tail-shape rule can claim that without also admitting
+///   every value spec that leaks punctuation.
+/// - **Glued value specs with `=` or brackets in them**, `-mtune=native`
+///   among them: condition 3 rejects `=`, `[`, `<`, `,`, `.`, `/` and `_`
+///   for the same reason the oracle does. `-mtune` really is a long option
+///   and recovering it would be a real gain, but not one this change is
+///   entitled to take as a side effect, and not by loosening the one
+///   predicate that keeps `-E var=value` and `-d item[,...]` out.
+/// - **One-character tails** ([`MIN_SWALLOWED_NAME_CHARS`]).
+///
+/// The value a rewritten row's *real* spaced argument named (`-cpu model`
+/// documents a `model`) is not recovered: by the time the fragment reached
+/// here the grammar had already stored `"pu"` and dropped `"model"` on the
+/// floor. The flag becomes the boolean `-cpu` rather than `-c` taking
+/// `"pu"` — the correct **name** under a missing value spec, which is
+/// strictly better than a fabricated name under a fabricated value spec,
+/// and is exactly what `repair_repeated_character_flags` does with `-vv`.
+fn repair_single_dash_long_options(flags: &mut [Flag], raw: &str) {
+    for flag in flags.iter_mut() {
+        // 1. Option-table-sourced, never synopsis.
+        if !flag.provenance.sources.contains(&Source::HelpText)
+            || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
+        {
+            continue;
+        }
+        // 2. A bare short flag carrying a required value.
+        let Some(short) = flag.short else { continue };
+        if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+            continue;
+        }
+        let Some(tail) = flag.value_name.as_deref() else {
+            continue;
+        };
+        // 4. Enough tail to be a name rather than a character argument.
+        if tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+            continue;
+        }
+        // 3. The tail is option-name-shaped.
+        if !is_option_name_tail(tail) {
+            continue;
+        }
+        // 6. Not the repeated-character family, which is the other repair's.
+        if value_repeats_short(short, tail) {
+            continue;
+        }
+        let token = format!("-{short}{tail}");
+        // 5. Uniformly lowercase — the only thing separating this from the
+        //    glued-value convention. See this function's doc comment.
+        if !token_is_uniformly_lowercase(&token) {
+            continue;
+        }
+        // 7. The token occurs, glued and delimited, in the raw text. Last
+        //    because it is the only condition that scans the document.
+        if !token_occurs_glued(raw, &token) {
+            continue;
+        }
+        // The name is the whole run, `long` holds it bare, and
+        // `single_dash` is what puts one dash in front of it at display
+        // time — see `mandible_core::Flag::single_dash`.
+        flag.long = Some(token[1..].to_string());
+        flag.single_dash = true;
+        flag.short = None;
+        flag.value_name = None;
+        flag.value_kind = ValueKind::None;
+    }
+}
+
+/// True when `tail` could be the rest of a single-dash long option's name:
+/// ASCII alphanumerics and `-`, with at least one ASCII letter in it.
+///
+/// The twin of `xtask::single_dash_long::is_option_name_tail`, character
+/// for character. The letter requirement is what stops a glued *numeric*
+/// argument (`-b4096`, `-j8`) from riding in on a run that is technically
+/// alphanumeric. Everything else is rejected because a long option's name
+/// does not contain it: `=` (`-mtune=native`, `-E var=value`), `:`
+/// (`sg_emc_trespass`'s layout-mangled `-hr:`), `[`/`{`/`<`/`,`
+/// (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths), and `_`.
+fn is_option_name_tail(tail: &str) -> bool {
+    tail.chars().any(|c| c.is_ascii_alphabetic())
+        && tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+}
+
+/// True when `token` carries no ASCII uppercase letter at all — the
+/// discriminator against the GCC/Clang glued-value convention, whose whole
+/// population is an uppercase flag letter with its argument glued on
+/// (`-Zscript`, `-Dname`, `-Tutf8`, `-Idirectory`, `-Olevel`, `-DMACRO`,
+/// `-oOUTFILE`, `-Wall`).
+///
+/// The twin of `xtask::single_dash_long::token_is_uniformly_lowercase`,
+/// and measured over the *whole* token rather than only the tail for the
+/// reason recorded there: `-oOUTFILE`'s flag letter is lowercase and only
+/// its argument shouts, so a tail-only test would admit it.
+fn token_is_uniformly_lowercase(token: &str) -> bool {
+    !token.chars().any(|c| c.is_ascii_uppercase())
 }
 
 fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: bool) -> f32 {
@@ -3398,6 +3601,204 @@ mod tests {
         assert!(!token_occurs_glued("    -vvv   even more\n", "-vv"));
         assert!(!token_occurs_glued("    -v v   spaced\n", "-vv"));
         assert!(!token_occurs_glued("", "-vv"));
+    }
+
+    // --- the single-dash long-option repair -----------------------------
+
+    /// `qemu-arm64-static`'s real option table, byte-exact from
+    /// `corpus/qemu-arm64-static/audit-seed2/help.txt` — the long options
+    /// and the genuine value-taking short flags on adjacent rows, which is
+    /// the whole false-positive problem in six lines.
+    const QEMU_TABLE: &str = concat!(
+        "-h                                        print this help\n",
+        "-help                                     \n",
+        "-g port              QEMU_GDB             wait gdb connection to 'port'\n",
+        "-cpu model           QEMU_CPU             select CPU (-cpu help for list)\n",
+        "-one-insn-per-tb     QEMU_ONE_INSN_PER_TB run with one guest instruction per emulated TB\n",
+        "-version             QEMU_VERSION         display version information and exit\n",
+    );
+
+    #[test]
+    fn qemus_single_dash_long_options_keep_their_real_names() {
+        let parsed = parse(QEMU_TABLE);
+        for name in ["help", "cpu", "one-insn-per-tb", "version"] {
+            let flag = flag_named(&parsed, name);
+            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            assert_eq!(flag.spelling(), format!("-{name}"));
+            assert_eq!(flag.short, None);
+            assert_eq!(flag.value_name, None);
+            assert_eq!(flag.value_kind, ValueKind::None);
+        }
+    }
+
+    /// The false-positive case that matters most, and the reason the
+    /// `qemu` table is carried whole rather than as the `-help` row alone:
+    /// `-g port` stores a `value_name` exactly as `-help` stores `"elp"`,
+    /// and only the space in the raw text tells them apart.
+    #[test]
+    fn qemus_genuine_valued_short_flags_on_adjacent_rows_are_left_alone() {
+        let parsed = parse(QEMU_TABLE);
+        let g = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('g'))
+            .expect("-g must survive as a short flag");
+        assert_eq!(
+            g.long, None,
+            "-g port is a correct parse, not a long option"
+        );
+        assert_eq!(g.value_name.as_deref(), Some("port"));
+        assert_eq!(g.value_kind, ValueKind::Required);
+        // ...and the bare `-h` boolean the document also writes is still a
+        // short flag in its own right. `-h` and `-help` are two different
+        // flags of this tool and the repair must produce both.
+        assert!(parsed
+            .flags
+            .iter()
+            .any(|f| f.short == Some('h') && f.value_kind == ValueKind::None));
+    }
+
+    /// The whole safety argument in one test: the GCC/Clang glued-value
+    /// convention satisfies every condition but the case one, and every
+    /// member of it is a **correct** parse that must survive untouched.
+    /// Each token here is a real flag of a real tool, and `-oOUTFILE` is
+    /// the one that forces the case test to read the whole token rather
+    /// than only the tail.
+    #[test]
+    fn the_glued_value_convention_is_never_repaired() {
+        for row in [
+            "  -Zscript       an unstable flag\n",
+            "  -Dname         define a macro\n",
+            "  -Tutf8         set the output encoding\n",
+            "  -Idirectory    add to the include path\n",
+            "  -Olevel        set the optimization level\n",
+            "  -oOUTFILE      write output here\n",
+            "  -DMACRO        define a macro\n",
+        ] {
+            let parsed = parse(row);
+            assert!(
+                parsed.flags.iter().all(|f| f.long.is_none()),
+                "a correct glued-value parse was destroyed by {row:?}: {:?}",
+                parsed
+                    .flags
+                    .iter()
+                    .map(|f| f.spelling())
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// The two declared out-of-scope misses, asserted rather than
+    /// described — a miss that is only written down in prose stops being
+    /// checked the day the prose goes stale.
+    #[test]
+    fn the_declared_out_of_scope_misses_stay_missed() {
+        // `ip` writes a bracketed tail, so the grammar records
+        // `ValueKind::Optional` — a value spec a human deliberately typed.
+        let parsed = parse("OPTIONS := { -V[ersion] | -h[uman-readable] | -j[son] }\n");
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| f.long.as_deref() != Some("human-readable")),
+            "ip's bracketed abbreviation is outside a Required-only fingerprint by construction"
+        );
+        // `sg_emc_trespass` glues the layout's own colon onto the flag, so
+        // the tail is `"r:"` and is not an option name.
+        let parsed = parse("    -hr: Set Honor Reservation bit\n");
+        assert!(
+            parsed.flags.iter().all(|f| f.long.as_deref() != Some("hr")),
+            "a tail carrying punctuation is not a name"
+        );
+    }
+
+    /// A synopsis-sourced cluster is all-lowercase, unsorted, and
+    /// indistinguishable from a long option on every condition but its
+    /// source. Condition 1 is the only thing keeping the entire bundled-
+    /// short population out of this repair.
+    #[test]
+    fn a_synopsis_sourced_bundle_is_never_read_as_a_long_option() {
+        let parsed = parse("usage: rpcbind [-adhilswfr]\n");
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| f.long.as_deref() != Some("adhilswfr")),
+            "the bundle belongs to parse_bundled_shorts, not to this repair: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// A spaced value is indistinguishable from a glued one once
+    /// [`parse_flag_spec`] has stored it, so the raw text is what decides
+    /// — the same condition 7 the repeated-character repair leans on.
+    #[test]
+    fn a_spaced_value_is_never_read_as_a_long_option() {
+        let parsed = parse("  -g port    wait gdb connection to 'port'\n");
+        assert!(
+            parsed.flags.iter().all(|f| f.long.is_none()),
+            "only a glued token may be repaired: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// The two families that share the `short && !long && value_name`
+    /// fingerprint stay disjoint: a repeated-character flag is handed to
+    /// the other repair and a one-character tail is claimed by neither.
+    #[test]
+    fn the_repeat_and_short_tail_families_are_not_claimed_here() {
+        // `-vvv` satisfies every other condition; condition 6 hands it off.
+        let parsed = parse("  -vvv       even more verbose\n");
+        assert!(
+            parsed.flags.iter().all(|f| f.long.is_none()),
+            "a repeated-character run is the other repair's, and only when it has its boolean"
+        );
+        // A one-character tail is the ambiguous population both repairs
+        // decline: `rpcgen -Ss` and friends are half correct parses.
+        let parsed = parse("  -ps        postscript\n");
+        assert!(parsed.flags.iter().all(|f| f.long.is_none()));
+    }
+
+    #[test]
+    fn is_option_name_tail_rejects_every_value_spec_shape() {
+        assert!(is_option_name_tail("elp"));
+        assert!(is_option_name_tail("one-insn-per-tb"));
+        assert!(is_option_name_tail("utf8"));
+        // No letter at all is a glued numeric argument, not a name.
+        assert!(!is_option_name_tail("4096"));
+        assert!(!is_option_name_tail(""));
+        // Every punctuation character a value spec leaks.
+        for tail in [
+            "r:",
+            "tune=native",
+            "item[,...]",
+            "b{blocksize}",
+            "a<b>",
+            "path/name",
+            "file.txt",
+            "some_name",
+            "a,b",
+        ] {
+            assert!(!is_option_name_tail(tail), "{tail:?} is not an option name");
+        }
+    }
+
+    #[test]
+    fn token_is_uniformly_lowercase_reads_the_whole_token() {
+        assert!(token_is_uniformly_lowercase("-help"));
+        assert!(token_is_uniformly_lowercase("-one-insn-per-tb"));
+        assert!(!token_is_uniformly_lowercase("-Zscript"));
+        // The case the whole-token rule exists for: a lowercase flag
+        // letter with a shouting argument glued on.
+        assert!(!token_is_uniformly_lowercase("-oOUTFILE"));
     }
 
     // These two captures live once, as the corpus regression fixtures
