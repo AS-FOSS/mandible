@@ -10,6 +10,55 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **mandible no longer starts daemons on the machine it is documenting.**
+  Running `mandible blkmapd` — or any of a large class of system binaries —
+  started an NFS daemon that outlived the process. **622 leaked processes**
+  were found on one developer box, the oldest five days old: `blkmapd` ×148,
+  `rpc.idmapd` ×144, `rpc.gssd` ×144, plus `sudo_logsrvd` holding
+  `0.0.0.0:30343` and `[::]:30343`, `guacd` holding `127.0.0.1:4822` for five
+  days, and `pam-auth-update` burning a full core for three days. This was a
+  defect in the shipped tool, not in the test harness: the TUI builds its
+  runner from the same tier stack.
+
+  The cause was a speculative probe. `completion` and `zsh` are a *framework
+  protocol's* words — a subcommand invocation to a tool that speaks the
+  protocol, two ordinary positionals to one that does not. Sending them
+  unasked to every binary on `PATH` is the bare invocation the execution
+  policy has always prohibited, arriving through the list of "inert shapes"
+  because every shape on that list had been validated against tools that
+  *parse* their arguments. A daemon that ignores its arguments and starts
+  anyway falsifies that premise. 437 of the 622 survivors came in through
+  this one argv (219 `completion zsh`, 218 `completion bash`).
+
+  The completion-script tier now asks for that argv only when the tool itself
+  provides evidence the subcommand exists — either the `spf13/cobra` marker
+  in the compiled binary (cobra registers a `completion` command itself, and
+  may hide it, so the bytes are the only evidence available) or the tool's own
+  `--help` naming `completion`/`completions` as a command. Evidence is read
+  from the artifact or from the tool's own output, never from a list of tool
+  names.
+
+  Two other symptoms of the same probe are fixed with it. `docker-proxy
+  completion zsh` left Go's `flag` package stopped at the first non-flag
+  argument, so it attempted to bind `0.0.0.0:-1` and wrote its startup error
+  to a terminal it did not own, aborting full sweeps. And the probe was two
+  thirds of extraction time: over 94 audited tools, three of them accounted
+  for 85.3s of 129.5s. Measured before → after, with every other column of
+  the scoreboard byte-identical: `vim.basic` 20 304 ms → 287 ms, `bashbug`
+  20 657 ms → 49 ms, `jconsole` 40 081 ms → 22 065 ms (its remainder belongs
+  to a different, unrelated probe).
+
+- **A probe that daemonises no longer outlives the probe.** Behind the fix
+  above, as the second layer: killing the probe's process group cannot reach
+  a child that has called `setsid`, and the leak was never a hang to begin
+  with — every one of 2,302 traced probes returned normally, with its escapee
+  already gone. mandible now adopts orphaned descendants instead of leaving
+  them to init, identifies the ones a given probe started by a token in the
+  environment it inherited, and kills and reaps them before that probe is
+  reported complete. Bounded by rounds and a wall-clock budget, so a process
+  that cannot be killed costs milliseconds rather than becoming a new way to
+  hang. Linux only; elsewhere the previously documented residual risk stands.
+
 - **Bundled short flags in a usage synopsis are read as the set of switches
   they are.** A line opening `[-2CDlNuVv]` names eight boolean flags in the
   ordinary getopt convention; the grammar read it as one flag, `-2`, carrying
