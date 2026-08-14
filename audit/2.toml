@@ -40,6 +40,14 @@ stratum = "ok"
 verdict = "correct"
 k1 = true
 
+families = ["dropped-alias"]
+families_derived = true
+[[entry.amendments]]
+previous_verdict = "correct"
+new_verdict = "incomplete"
+new_note = "documented long spellings --update-bug, --symptom and --package are absent from the tree; each is the long half of a value-taking short flag."
+reason = "label bug, confirmed by reading the raw text beside the pre-fix tree (corpus/apport-cli/audit-seed2/expected.snap at c9bfe76). Help documents '-u UPDATE_REPORT, --update-bug UPDATE_REPORT', '-s SYMPTOM, --symptom SYMPTOM', '-p PACKAGE, --package PACKAGE'. The tree held -u/-s/-p with value_name 'UPDATE_REPORT,' 'SYMPTOM,' 'PACKAGE,' -- separator comma swallowed into the value name -- and none of the three long forms. The value-less rows above them (-h/--help, -f/--file-bug, -w/--window) kept their long spellings, which isolates the defect to rows carrying a value rather than to the page. The detector pointed; this rests on the comparison."
+
 [[entry]]
 tool = "apt-extracttemplates"
 stratum = "ok"
@@ -140,6 +148,14 @@ tool = "compactsnoop-bpfcc"
 stratum = "ok"
 verdict = "correct"
 k1 = true
+
+families = ["dropped-alias"]
+families_derived = true
+[[entry.amendments]]
+previous_verdict = "correct"
+new_verdict = "incomplete"
+new_note = "documented long spellings --pid and --duration are absent from the tree; both are the long half of a value-taking short flag."
+reason = "label bug, confirmed by reading the raw text beside the pre-fix tree (corpus/compactsnoop-bpfcc/audit-seed2/expected.snap at c9bfe76). Help documents '-p PID, --pid PID' and '-d DURATION, --duration DURATION'. The tree held -p with value_name 'PID,' and -d with value_name 'DURATION,' -- comma swallowed -- and neither long form. The value-less rows on the same page (-h/--help, -T/--timestamp, -K/--kernel-stack, -e/--extended) all kept their long spellings, isolating the defect to value-carrying rows. The detector pointed; this rests on the comparison."
 
 [[entry]]
 tool = "dbus-uuidgen"
@@ -284,11 +300,27 @@ stratum = "ok"
 verdict = "correct"
 k1 = true
 
+families = ["dropped-alias"]
+families_derived = true
+[[entry.amendments]]
+previous_verdict = "correct"
+new_verdict = "incomplete"
+new_note = "three documented long spellings are absent from the tree: --timeout, --write and --command. Each is the long half of a value-taking short flag."
+reason = "label bug, confirmed by reading the raw text beside the pre-fix tree (corpus/ip6tables-apply/audit-seed2/expected.snap at c9bfe76). Identical shape and identical defect to iptables-apply, which is expected -- the two are the same shell script under different names. Help documents '-t seconds, --timeout seconds', '-w savefile, --write savefile', '-c runcmd, --command runcmd'; the tree held -t/-w/-c with value_name 'seconds,' 'savefile,' 'runcmd,' and none of the three long forms. -h/--help and -V/--version, which carry no value, kept theirs. The detector pointed; this rests on the comparison."
+
 [[entry]]
 tool = "iptables-apply"
 stratum = "ok"
 verdict = "correct"
 k1 = true
+
+families = ["dropped-alias"]
+families_derived = true
+[[entry.amendments]]
+previous_verdict = "correct"
+new_verdict = "incomplete"
+new_note = "three documented long spellings are absent from the tree: --timeout, --write and --command. Each is the long half of a value-taking short flag."
+reason = "label bug, confirmed by reading the raw text beside the pre-fix tree (corpus/iptables-apply/audit-seed2/expected.snap at c9bfe76). Help documents '-t seconds, --timeout seconds', '-w savefile, --write savefile', '-c runcmd, --command runcmd'. The tree held -t/-w/-c with value_name 'seconds,' 'savefile,' 'runcmd,' -- separator comma swallowed into the value name -- and no --timeout, --write or --command anywhere. The value-less rows on the same page (-h, --help and -V, --version) kept their long spellings, which is what isolates the defect to rows carrying a value. The dropped-alias detector was the pointer; this amendment rests on the comparison, not on the detector firing."
 
 [[entry]]
 tool = "javaflow-bpfcc"

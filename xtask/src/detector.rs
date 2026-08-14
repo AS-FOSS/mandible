@@ -3045,6 +3045,37 @@ mod tests {
         );
     }
 
+    /// The third way to delete a detector, and the one no stub can model:
+    /// **deregister it**. Gutting `hits()` is caught by the self-checks, and
+    /// emptying the self-check list is caught by the arm below — but a
+    /// detector removed from [`registry`] altogether is caught by neither,
+    /// because there is no longer anything to run.
+    ///
+    /// What saves the gate is that the ratcheted names live *outside* the
+    /// registry: `main.rs` looks each one up by literal name through
+    /// [`find`], which returns `Err` when the name is absent, and the `?`
+    /// fails the whole `coverage --check` run. That property is load-bearing
+    /// and invisible — nothing else in the file states it — so it is pinned
+    /// here. If a future change ever ratchets by *iterating* the registry
+    /// instead, deregistering would silently drop that family's gate with no
+    /// lookup ever failing, and this test would not notice. Ratchet by name.
+    #[test]
+    fn every_ratcheted_family_is_still_reachable_through_the_registry() {
+        // Keep in step with `main.rs`'s `ratchet_at_zero` call sites.
+        for name in [
+            "bundled-short-flag",
+            "unparsed-command-table",
+            "repeated-char-flag",
+        ] {
+            assert!(
+                find(name).is_ok(),
+                "{name:?} is ratcheted at zero in main.rs but no longer registered — \
+                 deregistering it removes its gate; re-register it or remove its ratchet \
+                 deliberately"
+            );
+        }
+    }
+
     /// The other way to delete a detector: remove its self-checks too. An
     /// empty evidence list must fail closed, not vacuously pass.
     #[test]
