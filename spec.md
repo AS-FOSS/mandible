@@ -2726,6 +2726,69 @@ same justification as the `tmux` amendment §13.1c already carries. **A false
 alarm is never waived — it is either a detector bug or a label bug, and
 which one has to be argued in the commit that resolves it.**
 
+### 13.1f Residue ranking: a discovery instrument, deliberately not a metric
+
+`cargo run -p xtask -- residue` (`xtask/src/residue.rs`) is the complement
+of the existence detector. Existence asks *"is everything in the tree
+attested by the text?"* and catches **invention**; residue asks *"what in
+the text did the tree never account for?"* and catches **omission**, which
+is what every non-K1 family in the seed-2 backlog actually is.
+
+It classifies each physical line of a captured `--help` document by shape
+alone — a dash-led **flag row**, or an indented lowercase
+`name<gutter>description` **name row** — and reports the rows no spelling
+or name in the parsed tree accounts for. Everything else in the document
+(prose, headings, usage lines, uppercase environment/exit-status tables,
+the tool's own examples, wrapped description continuations) is never
+counted, which is the entire substance of the design: a tool whose help is
+one prose paragraph leaves a great deal of unconsumed *text* and zero
+unconsumed *rows*, while a forty-row flag table that lost thirty rows
+produces thirty pieces of line-numbered evidence. It replays
+`corpus/`-shaped fixture directories from frozen bytes and spawns nothing;
+there is no `PATH` sweep here and there must not be one.
+
+**It is not, and must never become, a gate or a quotable number.** The
+reason is a specific asymmetry: a wrong residue candidate costs review time
+and cannot produce a wrong parse, *because nothing downstream reads it*.
+The moment a residue count is treated as a measurement, that asymmetry is
+gone and what remains is an unvalidated number — with a large,
+shape-dependent, unmeasured false-positive rate — competing with the only
+instrument in this project that touches ground truth, the 94 human verdicts
+of §13.1c. That is §13.1b's fifth metric-design incident recognised in
+advance instead of in hindsight. So: nothing in `coverage --check` consults
+it, it appears in no ratchet and no `corpus` contract, there is deliberately
+no `--check` flag to add one to, and
+`xtask::residue::tests::residue_is_reachable_from_no_gate` fails the build
+if `coverage.rs`, `corpus.rs` or `status.rs` ever calls into it. Its output
+is a **reading queue for a human**, who turns a confirmed finding into a
+deterministic, calibrated, ratchet-gated rule the ordinary way.
+
+**What it measured, on the evidence available when it was built.** Against
+the 84 seed-2 tools that carry a verdict and a capture (staged with `xtask
+audit fixtures --seed 2 --corpus-dir tmp/residue-fixtures`, then ranked with
+`xtask residue --dir tmp/residue-fixtures`): 12 tools leave any residue at
+all and **every one of the 12 is already labelled `wrong` or `incomplete`;
+none of the 32 tools judged `correct` leaves a single unaccounted row.** In
+each case the evidence lines up with what the reviewer independently wrote —
+`ar`/`gcc-ar`'s undetected `commands:` table, `rubyobjnew-bpfcc`'s missing
+`positional arguments:` block, `ptargrep`'s `--long|-s` pipe-separated
+aliases, `sg_dd`'s operand table. Recall is the honest weakness: only 8 of
+43 defective tools reach the ranking threshold, because the omission classes
+this shape-based classifier can see are a subset of the ones that exist (a
+description-less word grid — `openssl`'s `Standard commands:` — produces no
+rows at all, so a tool that drops one is invisible here). This is a
+low-recall, high-precision signal, which is the right trade for a review
+queue and the wrong one for a metric — a further reason it is not one.
+
+**It also found something nobody had looked at**, which is what it is for:
+`corpus/tar/1.35` — a committed, green, snapshot-blessed fixture — is
+missing four real GNU tar flags (`--old-archive`, `--portability`,
+`--pax-option`, `--posix`, lines 202-206 of its own capture). They sit
+indented *inside* the nested `FORMAT is one of the following:` choice block
+that belongs to `--format`, and the block parser consumes the whole region
+as choices. Recorded here as a finding, not fixed here: a fix belongs behind
+a calibrated rule and a falsifying `[contract]`, not behind a ranking.
+
 ### 13.2 Fixed corpus
 
 A fixture (`corpus/<tool>/<version>/`) freezes **both halves** of one
