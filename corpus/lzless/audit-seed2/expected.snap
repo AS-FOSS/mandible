@@ -3,11 +3,6 @@ description: Like 'less', but operate on the uncompressed contents of xz compres
 usage:
 - 'Usage: lzless [OPTION]... [FILE]...'
 positionals:
-- name: OPTION
-  variadic: true
-  provenance:
-    sources:
-    - help-text
 - name: FILE
   variadic: true
   provenance:

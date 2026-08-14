@@ -106,6 +106,9 @@ min_status = "ok"                    # floor: ok > incomplete > low-confidence
                                      # meets no floor)
 min_subcommands = 20                 # coarse floor, not an exact count
 must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
+must_contain_positionals = ["pid"]   # same, for root positional operands —
+                                     # matched on the operand's name, which
+                                     # is what a user actually types
 
 # Same idea, for a subcommand's own flags — keyed by its path (space-
 # separated, tool's own name excluded), since `must_contain_flags` alone
@@ -276,7 +279,8 @@ $ cargo run -p xtask -- corpus --baseline-dir /tmp/corpus-at-main   # also flag 
 `--baseline-dir` diffs every fixture's `[contract]` against a second, plain
 corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
-a dropped `must_contain_flags`/`must_contain_flags_by_path` entry, a fixture
+a dropped `must_contain_flags`/`must_contain_flags_by_path`/
+`must_contain_positionals` entry, a fixture
 newly marked `[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle
 rules above). This binary **has no git access and never will** — the

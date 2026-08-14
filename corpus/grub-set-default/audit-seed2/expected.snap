@@ -3,10 +3,6 @@ description: Set the default boot menu entry for GRUB. This requires setting GRU
 usage:
 - 'Usage: grub-set-default [OPTION] MENU_ENTRY'
 positionals:
-- name: OPTION
-  provenance:
-    sources:
-    - help-text
 - name: MENU_ENTRY
   required: true
   provenance:

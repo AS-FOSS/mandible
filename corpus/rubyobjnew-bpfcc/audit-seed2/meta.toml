@@ -13,16 +13,18 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "argparse"
-# The reviewer's note is about the dropped `pid`/`interval` positionals,
-# but `CommandNode::positionals` has no [contract] field to assert on —
-# see corpus/README.md, no `must_contain_positionals` exists yet. Same
-# same-line-long-form-drop defect as javaflow-bpfcc's identical argparse
-# style: "-l {c,java,ruby,tcl}, --language {...}" becomes short='l' only,
-# garbled value_name with trailing comma. --language/--top-count/
-# --top-size are all currently absent.
+# Same same-line-long-form-drop defect as javaflow-bpfcc's identical
+# argparse style: "-l {c,java,ruby,tcl}, --language {...}" becomes
+# short='l' only, garbled value_name with trailing comma. --language/
+# --top-count/--top-size were all absent until `dropped-alias` was fixed.
 must_contain_flags = ["--language", "--top-count", "--top-size"]
 
-# NOTE: as with javaflow-bpfcc, the reviewer's note is about the dropped
-# `pid`/`interval` POSITIONALS, which remain unfixed (`unparsed-positional`
-# is a different family). What this fixture asserts, and what was repaired,
-# is the dropped-alias defect above.
+# The reviewer's OWN finding, assertable at last: `pid` and `interval` are
+# listed under argparse's `positional arguments:` heading and were dropped
+# entirely. Repaired by `unparsed-positional` — the framework's declared
+# block is now read for names and descriptions, with the synopsis consulted
+# only for `[interval]`'s optionality. This fixture is the two-member
+# evidence that the block rule is a shape and not one tool: javaflow-bpfcc
+# carries the identical assertion for its own single `pid`, from a
+# different bcc tool's independently generated help.
+must_contain_positionals = ["pid", "interval"]

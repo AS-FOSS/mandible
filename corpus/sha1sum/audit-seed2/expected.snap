@@ -3,11 +3,6 @@ description: Print or check SHA1 (160-bit) checksums.
 usage:
 - 'Usage: /usr/bin/sha1sum [OPTION]... [FILE]...'
 positionals:
-- name: OPTION
-  variadic: true
-  provenance:
-    sources:
-    - help-text
 - name: FILE
   variadic: true
   provenance:

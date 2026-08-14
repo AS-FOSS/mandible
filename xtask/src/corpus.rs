@@ -35,8 +35,8 @@
 //!   `serde_yaml` serializer `--bless` writes with, never an `insta` run
 //!   (see [`render_snapshot`]'s doc comment on why).
 //! - **(b) `[contract]`**: `expected_framework`, `min_status`,
-//!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`
-//!   (see [`check_contract`]).
+//!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
+//!   `must_contain_positionals` (see [`check_contract`]).
 //! - **(c) Strict xfail**: a fixture marked `[xfail]` whose snapshot and
 //!   contract *both* pass fails the run — the bug got fixed and the
 //!   fixture must be promoted (`corpus/README.md`'s lifecycle rules).
@@ -160,6 +160,26 @@ struct ContractMeta {
     /// changes shows up on a subcommand instead.
     #[serde(default)]
     must_contain_flags_by_path: std::collections::BTreeMap<String, Vec<String>>,
+    /// Root positional operands the tree must carry, by name — the
+    /// `unparsed-positional` family's falsifiable promise, and the one
+    /// dimension of a `CommandNode` that had no `[contract]` field at all.
+    ///
+    /// It is here because its absence was actively distorting fixtures.
+    /// `corpus/javaflow-bpfcc/audit-seed2/meta.toml` records a reviewer's
+    /// finding about a dropped `pid` operand and then asserts something
+    /// else entirely, with a comment explaining that the real defect had no
+    /// field to be written down in — so the fixture named the defect in
+    /// prose and tested a different one. A snapshot does freeze positionals,
+    /// but a snapshot freezes *everything*, which makes it a regression net
+    /// and not a statement of what a fixture is for; only a contract says
+    /// "this operand is the point" in a form that can be pointed at when it
+    /// stops holding.
+    ///
+    /// Matched on `Positional::name` exactly, root only — the same scope
+    /// `must_contain_flags` has, and for the same reason: a name is what a
+    /// user types, and nothing else about the entry is asserted here.
+    #[serde(default)]
+    must_contain_positionals: Vec<String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — the machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment 36 `audit-seed2` fixtures each
@@ -473,6 +493,20 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
             ));
         }
 
+        let missing_positionals: Vec<&str> = b
+            .must_contain_positionals
+            .iter()
+            .filter(|name| !n.must_contain_positionals.iter().any(|s| s == *name))
+            .map(String::as_str)
+            .collect();
+        if !missing_positionals.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_contain_positionals (dropped: {})",
+                base.label,
+                missing_positionals.join(", ")
+            ));
+        }
+
         for (path, base_specs) in &b.must_contain_flags_by_path {
             let now_specs = n.must_contain_flags_by_path.get(path);
             let missing: Vec<&str> = base_specs
@@ -648,6 +682,11 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
                 "must_contain_flags_by_path: no root produced".into(),
             ));
         }
+        if !contract.must_contain_positionals.is_empty() {
+            failures.push(ContractFailure(
+                "must_contain_positionals: no root produced".into(),
+            ));
+        }
         return failures;
     };
 
@@ -693,6 +732,19 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
         failures.push(ContractFailure(format!(
             "must_contain_flags: missing {}",
             missing_flags.join(", ")
+        )));
+    }
+
+    let missing_positionals: Vec<&str> = contract
+        .must_contain_positionals
+        .iter()
+        .filter(|name| !root.positionals.iter().any(|p| &&p.name == name))
+        .map(|s| s.as_str())
+        .collect();
+    if !missing_positionals.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_contain_positionals: missing {}",
+            missing_positionals.join(", ")
         )));
     }
 
@@ -1673,6 +1725,7 @@ pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mandible_core::{Positional, Provenance, Source};
     use std::fs;
 
     /// A minimal but complete two-fixture corpus in a temp dir: one clean
@@ -1804,6 +1857,58 @@ run = ["--source", "--staged"]
             !checked.failed(),
             "freshly-blessed fixture must check clean: {}",
             checked.text
+        );
+    }
+
+    /// `must_contain_positionals` in both directions. A contract field
+    /// that cannot be seen to fail asserts nothing, and this one exists
+    /// precisely because two fixtures spent a release naming a dropped
+    /// operand in a comment while testing something else.
+    #[test]
+    fn must_contain_positionals_names_the_operands_that_are_missing() {
+        let contract = ContractMeta {
+            must_contain_positionals: vec!["pid".into(), "interval".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("uobjnew", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: missing pid, interval"]
+        );
+
+        root.positionals.push(Positional {
+            name: "pid".into(),
+            required: true,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        });
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: missing interval"]
+        );
+
+        root.positionals.push(Positional {
+            name: "interval".into(),
+            required: false,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        });
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+        // No root at all is a failure of the same field, never a silent pass.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: no root produced"]
         );
     }
 

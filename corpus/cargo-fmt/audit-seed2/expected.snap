@@ -2,11 +2,6 @@ name: cargo-fmt
 description: This utility formats all bin and lib files of the current crate using rustfmt.
 usage:
 - 'Usage: cargo fmt [OPTIONS] [-- <rustfmt_options>...]'
-positionals:
-- name: OPTIONS
-  provenance:
-    sources:
-    - help-text
 flags:
 - short: 'q'
   long: quiet

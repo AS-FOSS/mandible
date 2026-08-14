@@ -2,10 +2,6 @@ name: nstat
 usage:
 - 'Usage: nstat [OPTION] [ PATTERN [ PATTERN ] ]'
 positionals:
-- name: OPTION
-  provenance:
-    sources:
-    - help-text
 - name: PATTERN
   required: true
   provenance:

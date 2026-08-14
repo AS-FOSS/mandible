@@ -1,6 +1,13 @@
 name: javaflow-bpfcc
 usage:
 - 'usage: uflow [-h] [-l {java,perl,php,python,ruby,tcl}] [-M METHOD] [-C CLAZZ] [-v] pid'
+positionals:
+- name: pid
+  required: true
+  description: process id to attach to
+  provenance:
+    sources:
+    - help-text
 flags:
 - short: 'h'
   long: help
