@@ -148,7 +148,14 @@ These cost real time when rediscovered.
   from the branch you are working on.** Five of six agents in one session began
   on a months-old release tag, and one of them wrote an entire task against it
   before anyone noticed. Start every delegated task by comparing `git log -1`
-  against the intended base and resetting if it is a strict ancestor.
+  against the intended base — and if it is wrong, **branch from the intended
+  base; never reset to it**. An earlier version of this entry said to reset,
+  which cost a commit: two agents turned out to be in the *shared* main
+  worktree rather than isolated ones, and a `git reset --hard` in one destroyed
+  the other's finished work. It was recovered only because the victim happened
+  to have tagged it. A destructive git command is never the right way to
+  correct a base, and an agent cannot assume the working tree is its own —
+  check `git rev-parse --show-toplevel` before any command that writes.
 - **CI never runs on a feature branch push.** `ci.yml`, `frameworks.yml` and
   `path-sweep.yml` all trigger on a push to `main` or a pull request targeting
   it. A long-lived branch can accumulate dozens of commits with nothing gating
@@ -157,12 +164,6 @@ These cost real time when rediscovered.
 - **All three workflows carry `paths-ignore` for `**/*.md`, `docs/**`,
   `LICENSE-*`, `NOTICE` and `.gitignore`.** A documentation-only push skips CI
   entirely, which is correct but surprising the first time.
-- **`repeated_identical_banner_does_not_explode_into_duplicate_subcommands`
-  asserts wall-clock under 5 seconds** on a 20,000-times-repeated input. It
-  fails under heavy machine load while the property it guards, that parsing
-  does not go quadratic, still holds. The guard works equally well at a much
-  larger budget, since a quadratic parse of that input would never finish.
-
 
 Do not re-derive these. They are measured, with method, in **`spec.md`
 Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
@@ -199,6 +200,13 @@ update Appendix A in the same commit, with the method.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
+- **A result that exists only on one machine is not a result.** `audit/queue.toml`
+  is called *tracked* by `xtask::queue`'s module doc and again by spec §16's
+  storage note — and was never committed by any commit on any branch, because
+  the command that writes it had never been run. Two documents asserting a file
+  exists is not evidence that it does. If something is meant to be tracked,
+  `git add` it and confirm with `git ls-files`; if a doc claims a file is
+  tracked, that claim is checkable and belongs in a test.
 - **`NOTICE` is not optional.** Vendored third-party *data* carries attribution
   obligations, and it is the most likely genuine legal exposure in this project.
 - Gates before reporting done: `cargo fmt --all -- --check`,
