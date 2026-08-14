@@ -524,6 +524,44 @@ damage a user's machine, and it gets its own section and its own tests.
    empty.) Note that rule 2a is the necessary companion: counting arguments is
    not enough, because an *empty* argument satisfies this rule while being the
    opposite of inert.
+
+   **1a. A framework protocol's words are a bare invocation to a tool that
+   does not speak it.** `__complete`, `completion <shell>` and `-- <partial>`
+   are subcommand invocations *only* in the framework that defines them.
+   Fired speculatively at an arbitrary binary they are ordinary positionals,
+   and rule 1's prohibition applies in substance even though the argv is
+   non-empty and sits on rule 2's list. The list is not wrong; its premise is
+   narrower than it reads. **Every shape on it was validated against tools
+   that parse argv** — the measurement was "does a getopt program act on
+   this?", and the answer was no. A program that *ignores* argv and starts
+   anyway is outside that premise entirely, and there is nothing about a
+   shape that can tell you which kind of program is on the other end.
+
+   Both incidents this section records are that same failure, twice: `wall
+   __complete` broadcast a word to every terminal on a machine, and
+   `<tool> completion zsh`/`bash` left 437 daemons running (rule 4's
+   measurement). Neither was a bad *shape*; both were a right shape sent to
+   the wrong program.
+
+   **So a protocol word requires prior evidence that the tool speaks the
+   protocol, from the tool itself, before any argv is constructed.** Tier E
+   gates `__complete` on the `spf13/cobra` marker read out of the compiled
+   binary (§7 Tier E). Tier C gates `completion <shell>` on either that same
+   cobra marker — cobra registers the command itself, possibly hidden, so
+   bytes are the only evidence available — or the tool's own root `--help`
+   naming `completion`/`completions` as a command (§7 Tier C). Evidence is
+   read from the artifact or from the tool's own output, **never from its
+   name**: a per-tool list of who may be probed is §1's forbidden knowledge
+   with a safety label on it, and the never-probe list (rule 0) stays what it
+   is — closed, small, and about programs that act on machine state — rather
+   than becoming the dumping ground for every tool that misbehaves.
+
+   This is also where the leverage is. Framework detection identifies a
+   minority of tools, which reads as a coverage gap until you notice what it
+   implies here: the overwhelming majority of ~2,300 speculative protocol
+   probes per sweep were fired at tools that could never have answered them.
+   That majority is the daemon leak, the PTY-canary abort, and two thirds of
+   sweep time — one defect with three symptoms, not three defects.
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
    [<words...>]`, `<words...> --help`/`-h` (a subcommand path's own probe,
@@ -709,6 +747,49 @@ damage a user's machine, and it gets its own section and its own tests.
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
    kill the **process group**, not just the child — completion scripts spawn
    helpers, and killing only the direct child leaks them.
+
+   **And no probe is complete while its descendants are alive.** The process
+   group is necessary and not sufficient, for a reason the rule as written
+   above missed: a program that daemonises leaves the group *and* the session
+   on its own — `fork`, parent exits, child `setsid`s — after which nothing
+   about the survivor's group, session, or parent points back at the probe.
+   Measured: **622 processes** left behind on a developer box, the oldest five
+   days old — `blkmapd` ×148, `rpc.idmapd` ×144, `rpc.gssd` ×144, plus
+   `sudo_logsrvd` listening on `0.0.0.0:30343` and `[::]:30343`, `guacd` on
+   `127.0.0.1:4822`, and `pam-auth-update` burning a full core for three days.
+   **Not a hang**, which is why no timeout change could have helped: all 2,302
+   `probe-start` lines in a traced sweep had a matching `probe-done`, so every
+   probe involved returned normally and its child was already gone.
+
+   `run_inert` therefore reaps before returning, in two halves
+   (`mandible-extract/src/exec/reap.rs`). The process marks itself a **child
+   subreaper** (`prctl(PR_SET_CHILD_SUBREAPER)`), so an orphaned descendant is
+   reparented to mandible rather than to init however many times it forked or
+   `setsid`ed — the kernel walks up to the nearest subreaper ancestor and
+   neither session nor process group takes part in that walk. That reduces the
+   candidate set to "our own children". A **per-invocation token** in the
+   probe's environment, checked against `/proc/<pid>/environ`, is what then
+   attributes a survivor to *this* probe: adoption alone cannot distinguish a
+   leaked daemon from a child a concurrent probe legitimately owns, and a
+   blunt "kill anything adopted" would be a new hazard rather than a fix.
+   Killing is by pid, never by process group — an escapee's pgid is usually
+   the direct child's pid, already waited on and free to have been recycled.
+   Rounds and a wall-clock budget bound the work, so a process wedged in
+   uninterruptible sleep costs milliseconds instead of turning this into a new
+   way for extraction to hang. Linux only (`/proc` +
+   `PR_SET_CHILD_SUBREAPER`); elsewhere the leak stands as the residual risk
+   rule 8 already documents.
+
+   **This is the second layer, not the fix.** The root cause is a probe that
+   should never have been sent — see rule 1 and §7 Tier C's gate. Reaping
+   contains what runs anyway, exactly as `exec::containment` does for a sweep,
+   and must never become a reason to send a riskier argv.
+   `mandible-extract/tests/exec_policy.rs`'s `double_fork_escape` module is
+   the regression net: its shim starts a `setsid`ed daemon and exits 0, so the
+   probe never reaches a timeout; the test asserts the daemon really did lead
+   its own session (otherwise it would be proving the pre-existing group kill)
+   and that `/proc/<pid>` is gone rather than holding a zombie. It fails
+   without the reap.
 5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation; a tool
    that streams forever must not exhaust memory. Reader threads (or a poll loop)
    are mandatory to avoid pipe deadlock on large output.
@@ -1173,16 +1254,65 @@ hanging forever.
 This is a shape, not a `vim` special case: any interactive full-screen
 program that (a) has no `completion` subcommand and (b) does not validate
 an unrecognized positional before entering its main loop pays the same
-2×`PROBE_TIMEOUT` tax from this tier's detection probe alone. No fix is
-applied here. The two changes that would plausibly help — shortening
-`PROBE_TIMEOUT`, or an early-exit heuristic that watches for alt-screen
-escape sequences in the probe's streamed output and kills the child before
-the timeout — both touch the exec sandboxing path spec §6/§8 gates behind a
-fleet measurement (a shortened timeout risks turning a genuinely slow but
-real completion-script generator into a failure; an escape-sequence
-early-exit is a new detection mechanism, not yet measured against the
-fleet for false positives). Recorded here per the same discipline as [M-16]
-and D3: a diagnosis is durable, a speculative change to `exec/` is not.
+2×`PROBE_TIMEOUT` tax from this tier's detection probe alone.
+
+**Gated on evidence, and that is the fix.** The two changes considered when
+the paragraph above was written — shortening `PROBE_TIMEOUT`, or an
+alt-screen-escape early exit — were both rejected as unmeasured changes to
+`exec/`, and both are still rejected. Neither was the right question. The
+cost is not that the probe waits too long; it is that **the probe should
+never have been sent**: `completion zsh` is a framework protocol's words,
+and sending them to a program that does not speak the protocol is §6 rule
+1a's bare invocation. The same probe was independently measured leaving
+437 daemons running (§6 rule 4) and tripping the sweep's PTY canary via
+`docker-proxy` binding `0.0.0.0:-1`. One defect, three symptoms.
+
+`CompletionScriptTier` therefore constructs a `completion <shell>` argv only
+given prior evidence, from the tool itself, that the subcommand exists:
+
+- **Tier A′'s artifact scan already found the `spf13/cobra` marker.** cobra
+  registers a `completion` command itself from v1.2 on, whether or not the
+  author mentions it, and it may be marked hidden — so for a cobra binary
+  the compiled bytes are the only evidence there is. Free: a memoized file
+  read, no subprocess.
+- **or the tool's own root `--help` names `completion`/`completions` as the
+  first token of a line** — the shape of a command-table row, which is how
+  every framework that ships the command advertises it. `--help` is the argv
+  Tier B already sends to every tool unconditionally, so this adds no shape
+  and no new exposure, and it is capped at rule 4's own 2 s `detect` cap.
+  Anchoring on the first token is the whole grammar, and it is what keeps a
+  flag row (`--completion <shell>`), prose ("generate the shell completion
+  script") and a usage synopsis (`Usage: tool completion <shell>`) from
+  counting as evidence.
+
+The answer is memoized per binary, exactly as framework identity is; the
+script itself is not, so a refresh (`r`) re-fetches the payload as before.
+
+Measured on one box with `coverage --tools`, before → after, every other
+column of the scoreboard byte-identical:
+
+| tool | before | after |
+|---|---|---|
+| `vim.basic` | 20 304 ms | 287 ms |
+| `bashbug` | 20 657 ms | 49 ms |
+| `jconsole` | 40 081 ms | 22 065 ms |
+| `docker-proxy` | 239 ms | 221 ms |
+
+`jconsole`'s remainder is Tier B's own `--help` + `-h` pair, not this tier;
+the ~2 s it gains is the evidence probe on a tool whose `--help` never
+returns, which is the worst case this gate has and is paid once per binary.
+
+**The honest cost.** A tool with a real `completion` subcommand that is
+hidden from `--help` *and* is not cobra loses this tier. No such tool was
+found: across 19 hand-picked real tools — `gh`, `docker`, `rustup`,
+`zoxide`, `cargo`, `rg`, `starship`, `npm`, `pip3`, `curl`, `tar`, `git`,
+`ls`, `sh`, `blkmapd` and the four above — `--doctor` output is
+byte-for-byte identical before and after, and Tier C contributed to **none**
+of them either way (cobra's own zsh script uses `_describe`/`compadd`, not
+`_arguments`, so even `docker`, whose script does contain `_arguments`,
+recovers nothing today). That is a sample, not a fleet measurement: a
+full-`PATH` recall comparison is the orchestrator's, and if it finds a tool
+this gate costs, the finding belongs here rather than in a workaround.
 
 **Not built.** Measured before building ([M-14]), re-scoped after a second
 measurement contradicted its headline case ([M-16]), and deliberately

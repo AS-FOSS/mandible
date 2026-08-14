@@ -1040,3 +1040,193 @@ fn a_never_probe_named_shim_that_confesses_does_not_receive_the_expansion_argv()
          which is what caps the status at `incomplete`"
     );
 }
+
+// --- Rule 4's other half: a probe is not complete while its descendants
+// --- are alive ---
+//
+// Session-and-group reaping is not enough, and this module proves that
+// rather than asserting it. `run_inert` already gives every probe its own
+// session and SIGKILLs its process *group* on timeout. A program that
+// daemonises walks out of both on its own — `fork`, parent exits, child
+// `setsid`s — and from that instant nothing about the survivor's group,
+// session, or parent points back at the probe that started it.
+//
+// Measured on a developer box: 622 processes left behind by sweeps, the
+// oldest five days old (`blkmapd` x148, `rpc.idmapd` x144, `rpc.gssd`
+// x144, plus `sudo_logsrvd` listening on `0.0.0.0:30343`, `guacd` on
+// `127.0.0.1:4822`, and `pam-auth-update` burning a core for three days).
+// And *not* a hang: all 2,302 `probe-start` lines in a traced sweep had a
+// matching `probe-done`, so every probe involved returned normally and a
+// tighter timeout would have changed nothing.
+#[cfg(target_os = "linux")]
+mod double_fork_escape {
+    use super::*;
+
+    /// The daemon body, run under `setsid` by the shim below. Records its
+    /// own pid and session id, then `exec`s a long sleep, so what survives
+    /// is a real, unrelated program image rather than the shell that
+    /// started it — the shape `blkmapd` and friends actually present.
+    const DAEMON: &str = r#"#!/bin/sh
+echo $$ > "$1"
+awk '{print $6}' /proc/$$/stat > "$2"
+exec sleep 300
+"#;
+
+    /// Starts the daemon detached and then **exits successfully**, which
+    /// is the whole point: this shim is not slow, does not hang, and never
+    /// reaches a timeout. It waits only long enough for the daemon to have
+    /// recorded itself, so the test is not racing the shell.
+    fn shim_script(daemon: &Path, pid_file: &Path, sid_file: &Path) -> String {
+        format!(
+            "#!/bin/sh\n\
+             setsid {daemon} {pid_file} {sid_file} </dev/null >/dev/null 2>&1 &\n\
+             n=0\n\
+             while [ ! -s {sid_file} ] && [ $n -lt 200 ]; do sleep 0.05; n=$((n+1)); done\n\
+             echo daemon-started\n\
+             exit 0\n",
+            daemon = daemon.display(),
+            pid_file = pid_file.display(),
+            sid_file = sid_file.display(),
+        )
+    }
+
+    /// This process's own session id, from `/proc/self/stat` — field 6,
+    /// read from after the **last** `)` because field 2 (`comm`) may
+    /// itself contain spaces and parentheses.
+    fn session_of_self() -> i32 {
+        let stat = std::fs::read_to_string("/proc/self/stat").expect("/proc/self/stat");
+        let after_comm = &stat[stat.rfind(')').expect("comm is parenthesised") + 1..];
+        after_comm
+            .split_whitespace()
+            .nth(3)
+            .expect("session field")
+            .parse()
+            .expect("session id is numeric")
+    }
+
+    fn is_alive(pid: i32) -> bool {
+        Path::new(&format!("/proc/{pid}")).exists()
+    }
+
+    fn start_a_daemon_through_a_probe(dir: &Path) -> (i32, i32) {
+        let pid_file = dir.join("daemon.pid");
+        let sid_file = dir.join("daemon.sid");
+        let daemon = write_named_shim(dir, "daemonise.sh", DAEMON);
+        let shim = write_named_shim(
+            dir,
+            "starts_a_daemon.sh",
+            &shim_script(&daemon, &pid_file, &sid_file),
+        );
+
+        let out = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(20)).unwrap();
+        assert!(
+            !out.timed_out,
+            "the shim exits 0 on its own — this leak is not a timeout, and a test \
+             that reached one would be measuring the wrong mechanism"
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout).trim(),
+            "daemon-started",
+            "the shim must have actually started the daemon"
+        );
+
+        let pid = std::fs::read_to_string(&pid_file)
+            .expect("the daemon recorded its pid")
+            .trim()
+            .parse()
+            .expect("pid is numeric");
+        let sid = std::fs::read_to_string(&sid_file)
+            .expect("the daemon recorded its session")
+            .trim()
+            .parse()
+            .expect("session id is numeric");
+        (pid, sid)
+    }
+
+    /// **The core regression.** A probe that starts a double-forked,
+    /// `setsid`ed daemon and then exits 0 must leave nothing behind.
+    ///
+    /// Three assertions, and all are load-bearing:
+    ///
+    /// - The probe returned normally. A leak reproduced via a timeout
+    ///   would be measuring the process-group kill that already existed.
+    /// - The survivor really did escape: its session id is its own pid and
+    ///   is not this process's session, so it is provably outside every
+    ///   process group and session that kill can reach. Without this the
+    ///   test could pass vacuously and prove nothing about the new
+    ///   mechanism.
+    /// - It is nonetheless gone by the time `run_inert` returns — not
+    ///   merely signalled but *reaped*, since `/proc/<pid>` is absent
+    ///   rather than holding a zombie, which is what says this process
+    ///   took responsibility for the descendant it adopted instead of
+    ///   handing a corpse to init.
+    ///
+    /// Verified to fail without the fix: with the `reap_probe_descendants`
+    /// call in `exec/spawn.rs` commented out, the daemon survives and this
+    /// test reports the surviving pid.
+    #[test]
+    fn a_daemon_that_double_forks_out_of_the_probes_session_does_not_survive_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let (daemon_pid, daemon_sid) = start_a_daemon_through_a_probe(dir.path());
+
+        assert_eq!(
+            daemon_sid, daemon_pid,
+            "the daemon should lead its own session — otherwise it never escaped \
+             and this test proves nothing"
+        );
+        assert_ne!(
+            daemon_sid,
+            session_of_self(),
+            "the daemon should be outside this process's session entirely"
+        );
+
+        assert!(
+            !is_alive(daemon_pid),
+            "a daemon started by a probe outlived it: pid {daemon_pid} is still \
+             alive (session {daemon_sid}), which is the 622-process leak"
+        );
+    }
+
+    /// The precision half: reaping must never reach a process this
+    /// invocation did not start.
+    ///
+    /// Adoption alone cannot tell the difference — once this process is a
+    /// child subreaper, *everything* orphaned anywhere beneath it becomes
+    /// its child, including things no probe ever touched. The
+    /// per-invocation token in the probe's environment is what makes the
+    /// distinction, and this is the test that fails if that check is ever
+    /// traded for a blunt "kill anything adopted".
+    ///
+    /// The bystander is a child of the *test process*, started outside
+    /// `run_inert` and so carrying no token at all — the same relationship
+    /// a concurrently running probe's live child has to the probe doing
+    /// the reaping.
+    #[test]
+    fn reaping_leaves_a_process_this_probe_did_not_start_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut bystander = std::process::Command::new("sleep")
+            .arg("30")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn a bystander");
+        let bystander_pid = bystander.id() as i32;
+
+        let (daemon_pid, _) = start_a_daemon_through_a_probe(dir.path());
+        assert!(
+            !is_alive(daemon_pid),
+            "the probe's own daemon is still reaped"
+        );
+
+        let alive = is_alive(bystander_pid);
+        let _ = bystander.kill();
+        let _ = bystander.wait();
+        assert!(
+            alive,
+            "the reap killed pid {bystander_pid}, which no probe started — the token \
+             check is what keeps this from being an indiscriminate sweep of every \
+             adopted process"
+        );
+    }
+}
