@@ -755,12 +755,13 @@ fn format_misattribution_sample(suspect: &misattribution::Suspect) -> String {
 }
 
 /// One fabrication, rendered as a single audit-section line: which node
-/// path carries it, whether it's a subcommand or a flag, and the specific
+/// path carries it, whether it's a subcommand, a flag or an operand, and the specific
 /// offending spelling — mirrors [`format_misattribution_sample`]'s shape.
 fn format_existence_sample(fabrication: &existence::Fabrication) -> String {
     let kind = match fabrication.kind {
         existence::FabricationKind::Subcommand => "subcommand",
         existence::FabricationKind::Flag => "flag",
+        existence::FabricationKind::Positional => "positional",
     };
     format!(
         "{}: invented {kind} {:?} not found in raw text",

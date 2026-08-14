@@ -22,4 +22,4 @@ must_contain_flags = ["hr"]
 
 [xfail]
 broken = true
-reason = "some flags have no description, some got split because of that single dash not being able to take more than 1 character"
+reason = "some flags have no description, some got split because of that single dash not being able to take more than 1 character; and the usage block swallows the two prose lines under it, so `LUN`, `SP` and `EMC` are recorded as operands beside the real `DEVICE` — found by the existence oracle's positional check, which reports the first two (`EMC` escapes it by also being a line's first word)"

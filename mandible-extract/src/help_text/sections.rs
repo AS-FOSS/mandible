@@ -1089,7 +1089,7 @@ fn leading_whitespace(line: &str) -> usize {
 /// `--help` output puts a multi-byte character, e.g. a box-drawing glyph,
 /// early in the first line). `[u8]::get` is bounds-checked and never
 /// panics, and comparing ASCII bytes needs no UTF-8 decoding at all.
-fn starts_with_usage_prefix(t: &str) -> bool {
+pub fn starts_with_usage_prefix(t: &str) -> bool {
     t.as_bytes()
         .get(..6)
         .map(|b| b.eq_ignore_ascii_case(b"usage:"))
@@ -1109,7 +1109,7 @@ fn starts_with_usage_prefix(t: &str) -> bool {
 /// Same bounds-checked byte comparison as [`starts_with_usage_prefix`], for
 /// the same reason: never slice a `&str` derived from tool output at a raw
 /// offset.
-fn starts_with_or_marker(t: &str) -> bool {
+pub fn starts_with_or_marker(t: &str) -> bool {
     t.as_bytes()
         .get(..3)
         .map(|b| b.eq_ignore_ascii_case(b"or:"))
