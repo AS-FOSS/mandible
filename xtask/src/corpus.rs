@@ -186,7 +186,7 @@ struct Meta {
 }
 
 /// One discovered `corpus/<tool>/<version>/` fixture.
-struct Fixture {
+pub(crate) struct Fixture {
     /// `corpus/<tool>/<version>` — used for error messages and to resolve
     /// `expected.snap` and every capture's file path.
     dir: PathBuf,
@@ -196,6 +196,59 @@ struct Fixture {
 }
 
 impl Fixture {
+    /// `<tool>/<version>`, for report labels.
+    pub(crate) fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// The tool this fixture captures, as `meta.toml` names it.
+    pub(crate) fn tool_name(&self) -> &str {
+        &self.meta.tool.name
+    }
+
+    /// The **root help document** this fixture froze: the captured output
+    /// of whichever `[[capture]]` is the plain root `--help`/`-h` probe,
+    /// decoded lossily, preferring stdout and falling back to stderr for
+    /// the tools that print help there and exit nonzero (`openssl`, `ip` —
+    /// spec Appendix A). `None` when the fixture has no such capture, or
+    /// when it captured nothing at all.
+    ///
+    /// Exists for [`crate::residue`], which needs the same bytes a tier
+    /// parsed rather than a re-probe. Chosen by argv *shape* — never by
+    /// capture order, which a multi-probe fixture (a cobra transcript
+    /// carries several) does not guarantee.
+    pub(crate) fn root_help_text(&self) -> anyhow::Result<Option<String>> {
+        let pick = self
+            .meta
+            .captures
+            .iter()
+            .find(|c| c.argv.get(1..) == Some(&["--help".to_string()]))
+            .or_else(|| {
+                self.meta
+                    .captures
+                    .iter()
+                    .find(|c| c.argv.get(1..) == Some(&["-h".to_string()]))
+            });
+        let Some(capture) = pick else {
+            return Ok(None);
+        };
+        let stdout = read_capture_file(&self.dir, &capture.stdout)?;
+        if !stdout.is_empty() {
+            return Ok(Some(String::from_utf8_lossy(&stdout).into_owned()));
+        }
+        match &capture.stderr {
+            Some(name) => {
+                let stderr = read_capture_file(&self.dir, name)?;
+                if stderr.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(String::from_utf8_lossy(&stderr).into_owned()))
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
     fn expected_snap_path(&self) -> PathBuf {
         self.dir.join("expected.snap")
     }
@@ -207,7 +260,7 @@ impl Fixture {
     /// ([`mandible_extract::exec::InertArgv::args`]), which never includes
     /// the tool name itself. `corpus/README.md` documents this same
     /// stripping rule for anyone reading `meta.toml` by hand.
-    fn build_transcript(&self) -> anyhow::Result<Transcript> {
+    pub(crate) fn build_transcript(&self) -> anyhow::Result<Transcript> {
         let mut pairs = Vec::with_capacity(self.meta.captures.len());
         for capture in &self.meta.captures {
             if capture.argv.is_empty() {
@@ -243,7 +296,7 @@ impl Fixture {
     /// `help_text::mod::extract_node_replays_from_a_transcript_keyed_on_the_real_argv`)
     /// — every detecting tier only ever checks `path.is_some()`, never
     /// that the path resolves to a real file.
-    fn resolved_tool(&self) -> ResolvedTool {
+    pub(crate) fn resolved_tool(&self) -> ResolvedTool {
         ResolvedTool {
             name: self.meta.tool.name.clone(),
             path: Some(PathBuf::from(format!(
@@ -262,7 +315,7 @@ fn read_capture_file(fixture_dir: &Path, relative: &str) -> anyhow::Result<Vec<u
 
 /// Discover every `corpus/<tool>/<version>/meta.toml` under `corpus_root`,
 /// in a deterministic (sorted) order so a report is diffable run to run.
-fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixture>> {
+pub(crate) fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixture>> {
     let mut out = Vec::new();
     let mut tool_dirs: Vec<PathBuf> = std::fs::read_dir(corpus_root)
         .map_err(|e| anyhow::anyhow!("reading corpus root {}: {e}", corpus_root.display()))?
@@ -430,7 +483,7 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
 /// Extract a fixture's full tree: root extraction, then a bounded
 /// recursive fill into every discovered subcommand (see this module's doc
 /// comment). Returns `None` when no tier produced a root at all.
-fn extract_tree(runner: &Runner, resolved: &ResolvedTool) -> Option<CommandNode> {
+pub(crate) fn extract_tree(runner: &Runner, resolved: &ResolvedTool) -> Option<CommandNode> {
     let result = runner.extract_full_for(resolved);
     let root = result.root?;
     let mut budget = MAX_FIXTURE_NODES.saturating_sub(1);

@@ -8,6 +8,7 @@ mod corpus;
 mod coverage;
 mod existence;
 mod misattribution;
+mod residue;
 mod status;
 mod transition;
 
@@ -169,6 +170,48 @@ enum Command {
         #[command(subcommand)]
         action: AuditAction,
     },
+    /// Rank captured `--help` documents by how much structurally
+    /// interesting text the parse left on the table — the complement of
+    /// the existence oracle (`existence.rs` catches invention; this
+    /// catches omission). Replays `corpus/`-shaped fixture directories
+    /// from frozen bytes, spawning nothing.
+    ///
+    /// **This is a discovery instrument, never a gate and never a
+    /// measurement.** It emits a reading queue for a human, who turns a
+    /// confirmed finding into a calibrated, ratchet-gated rule. There is
+    /// deliberately no `--check` here to add one to, nothing in `coverage
+    /// --check` consults it, and `residue::tests::
+    /// residue_is_reachable_from_no_gate` fails the build if that ever
+    /// changes. See `xtask/src/residue.rs`'s doc comment and spec §13.1d
+    /// for why an unvalidated number competing with the audit's ground
+    /// truth is the specific harm being designed out.
+    Residue {
+        /// The fixture root to rank. Any directory of
+        /// `<tool>/<version>/meta.toml` fixtures — `corpus/` itself, or
+        /// `xtask audit fixtures`' staging output under `tmp/`.
+        #[arg(long, default_value = "corpus")]
+        dir: PathBuf,
+        /// How many ranked tools to list.
+        #[arg(long, default_value_t = 25)]
+        top: usize,
+        /// How many of the top entries to print block-level evidence for.
+        #[arg(long, default_value_t = 10)]
+        detail: usize,
+        /// Also rank tools whose parse produced no structure at all
+        /// (`verbatim`). Off by default: that is a status the scoreboard
+        /// already counts, and every such tool trivially leaves its whole
+        /// document unaccounted, which would fill the list.
+        #[arg(long)]
+        include_verbatim: bool,
+        /// Verdict directory to cross-reference (`<dir>/<seed>.toml`).
+        /// When the file exists, the run also reports how the ranking
+        /// lines up against the recorded human verdicts — the only honest
+        /// way to find out whether this signal separates anything.
+        #[arg(long, default_value = "audit")]
+        audit_dir: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        seed: u64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -306,6 +349,14 @@ fn main() -> anyhow::Result<()> {
             format,
         } => run_sweep_diff(&before, &after, out.as_deref(), format),
         Command::Audit { action } => run_audit(action),
+        Command::Residue {
+            dir,
+            top,
+            detail,
+            include_verbatim,
+            audit_dir,
+            seed,
+        } => residue::run(&dir, top, detail, include_verbatim, &audit_dir, seed),
     }
 }
 
