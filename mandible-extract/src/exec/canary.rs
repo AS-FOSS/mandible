@@ -171,6 +171,20 @@ impl PtyCanary {
 
     /// The device path a probed tool would have to write to in order to
     /// trip this canary, if it could be resolved.
+    ///
+    /// `None` off Linux, and that is a resolution gap rather than a
+    /// detection gap: the path is read out of `/proc/self/fd/<fd>`, which
+    /// no other platform provides, while the reader thread that actually
+    /// notices a write is portable and still armed either way. Only the
+    /// *name* of the device is unavailable, never the tripwire.
+    ///
+    /// Nothing in production depends on it resolving. Its one non-test
+    /// caller prints it as a diagnostic (`xtask`'s "canary tripwires armed
+    /// (pty=…)"), which renders the `None` honestly, and a `CanarySet` is
+    /// only ever armed inside a namespace-contained sweep — which
+    /// [`super::containment::enter_or_refuse`] refuses to construct off
+    /// Linux in the first place, so the unresolvable case cannot arise
+    /// where the value would matter.
     pub fn slave_path(&self) -> Option<&Path> {
         self.slave_path.as_deref()
     }
@@ -393,12 +407,22 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Only the two `/proc`-dependent pty tests below write, and both are
+    // Linux-gated; on other targets this import would be dead.
+    #[cfg(target_os = "linux")]
     use std::io::Write;
 
     /// Proves the PTY canary's detection path actually fires: writes
     /// directly to the slave device by path (the same way an external
     /// probe reaching it would have to — this process holds no fd on the
     /// slave side, only the path), then asserts `check()` reports it.
+    /// Linux-only: this drives the canary through its slave device *by
+    /// path*, and that path is resolved from `/proc/self/fd` (see
+    /// [`PtyCanary::slave_path`]). The tripwire itself is portable; only
+    /// this way of reaching it is not. Gated rather than relaxed, because
+    /// a `CanarySet` is armed only inside a namespace-contained sweep,
+    /// which cannot be constructed off Linux at all.
+    #[cfg(target_os = "linux")]
     #[test]
     fn pty_canary_trips_when_slave_is_written_to() {
         let canary = PtyCanary::spawn().expect("pty canary should spawn in this sandbox");
@@ -514,6 +538,13 @@ mod tests {
     /// deliberately does all three bad things at once (a stand-in for a
     /// misbehaving probed tool), reports all three trips — never
     /// short-circuiting on the first one found.
+    /// Linux-only: this drives the canary through its slave device *by
+    /// path*, and that path is resolved from `/proc/self/fd` (see
+    /// [`PtyCanary::slave_path`]). The tripwire itself is portable; only
+    /// this way of reaching it is not. Gated rather than relaxed, because
+    /// a `CanarySet` is armed only inside a namespace-contained sweep,
+    /// which cannot be constructed off Linux at all.
+    #[cfg(target_os = "linux")]
     #[test]
     fn canary_set_reports_every_trip_a_misbehaving_probe_causes() {
         let watch_dir = tempfile::tempdir().unwrap().keep();

@@ -63,6 +63,7 @@
 
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(target_os = "linux")]
 use std::time::Duration;
 
 /// The environment variable each probe's unique token is passed in.
