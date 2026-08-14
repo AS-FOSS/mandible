@@ -4006,6 +4006,15 @@ mod tests {
     /// learned to end at a flag row, all six became choices of nothing and
     /// `--progress`/`--verify` — documented nowhere else — were lost
     /// outright (seed-2 verdict `wrong`; `corpus/sg_dd/audit-seed2`).
+    ///
+    /// **More than three operand rows, deliberately.** A first cut of this
+    /// test used two and passed with the fix reverted, which is worse than
+    /// no test: [`flags_block_start`] already tolerates up to
+    /// `MAX_SKIPPED_LEADING_ROWS` non-flag rows before the first flag row,
+    /// so a short table is claimed as a flags block outright and never
+    /// reaches [`bare_block_end`] at all. `sg_dd`'s real table is twenty
+    /// rows; it is the tables *over* that budget that this rule exists for,
+    /// and only those reproduce the defect.
     #[test]
     fn a_bare_operand_table_ends_where_its_flag_rows_begin() {
         let help = "\
@@ -4013,6 +4022,10 @@ Usage: prog [bs=BS] [--help]
   where:
     bs          logical block size (default is 512)
     count       number of blocks to copy
+    ibs         input logical block size
+    obs         output logical block size
+    seek        block position to start writing to OFILE
+    skip        block position to start reading from IFILE
     --progress    print progress report every 2 minutes
     --verify|-x    do verify/compare rather than copy
 ";
