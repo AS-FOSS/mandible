@@ -80,6 +80,7 @@
 
 use std::io;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
 use std::process::Command;
 use thiserror::Error;
 
@@ -171,6 +172,8 @@ pub fn probe_namespace_support() -> NamespaceSupport {
     NamespaceSupport { user, pid, mount }
 }
 
+/// The non-Linux twin of [`probe_namespace_support`], reporting every
+/// namespace type unavailable because none of them exists to probe.
 #[cfg(not(target_os = "linux"))]
 pub fn probe_namespace_support() -> NamespaceSupport {
     // Linux namespaces have no equivalent this module constructs on any
@@ -253,6 +256,8 @@ pub fn enter_or_refuse() -> ContainmentError {
     ContainmentError::Reexec { source }
 }
 
+/// The non-Linux twin of [`enter_or_refuse`]: nothing to enter, so it
+/// always refuses, carrying the same all-unavailable support report.
 #[cfg(not(target_os = "linux"))]
 pub fn enter_or_refuse() -> ContainmentError {
     ContainmentError::Unavailable {

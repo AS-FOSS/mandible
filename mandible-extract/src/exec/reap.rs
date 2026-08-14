@@ -78,18 +78,22 @@ pub(super) const PROBE_TOKEN_VAR: &str = "MANDIBLE_PROBE_ID";
 /// reparents *its* children to us in turn), and real probe descendants
 /// nest one or two levels; the cap is what keeps a fork bomb from turning
 /// this into an unbounded loop.
+#[cfg(target_os = "linux")]
 const MAX_ROUNDS: usize = 8;
 
 /// Total wall-clock budget for one reap, across every round. A process in
 /// uninterruptible sleep cannot be killed at all, and waiting on it
 /// forever would make this a worse hang than the leak it fixes.
+#[cfg(target_os = "linux")]
 const REAP_BUDGET: Duration = Duration::from_millis(500);
 
 /// How long to wait for a single SIGKILLed process to actually go away
 /// before moving on to the next one.
+#[cfg(target_os = "linux")]
 const PER_PROCESS_WAIT: Duration = Duration::from_millis(100);
 
 /// Polling interval while waiting for a killed process to be reaped.
+#[cfg(target_os = "linux")]
 const POLL_INTERVAL: Duration = Duration::from_millis(1);
 
 /// One probe invocation's identity, as seen by its own descendants.

@@ -103,6 +103,19 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest@0.9.143
+      # Ubuntu 24.04 ships `kernel.apparmor_restrict_unprivileged_userns=1`,
+      # which blocks the unprivileged user namespaces
+      # `exec::containment` builds a sweep's containment out of. Grant the
+      # capability rather than relax the assertion: the point of
+      # `namespace_support_is_confirmed_on_this_host` is that a host which
+      # cannot contain a sweep says so loudly, and a CI job that quietly
+      # tolerated the loss would delete exactly the signal that test exists
+      # to carry. This provisions what the test demands; it does not lower
+      # the bar. Linux-only — macOS has no such sysctl and its
+      # `#[cfg(not(target_os = "linux"))]` twins are compiled instead.
+      - name: allow unprivileged user namespaces (containment tests)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: cargo nextest run --workspace
       - run: cargo test --doc --workspace
 
