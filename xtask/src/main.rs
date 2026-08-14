@@ -37,6 +37,18 @@ enum Command {
     /// Run the extraction coverage harness across every executable on
     /// `PATH` (spec §13.1) and print/write the scoreboard.
     Coverage {
+        /// **This flag does not make the command cheap.** "Freshly
+        /// computed" below means exactly that: `--check` probes every tool
+        /// on `PATH` again, the same ~20-minute full sweep as a bare
+        /// `coverage` run, and only *then* compares. It is a gate, not a
+        /// dry run — two agents have read the name as "just verify the
+        /// checked-in file" and burned ten minutes each finding out
+        /// otherwise. The `--check` that genuinely probes nothing is
+        /// `audit freeze --check` (which early-returns after hashing the
+        /// `PATH` population) and `detector self-check` (which spawns
+        /// nothing at all); if you want the half of this gate that needs
+        /// no sweep, run the latter.
+        ///
         /// Compare the freshly computed aggregate against the checked-in
         /// scoreboard and fail (nonzero exit) if `%flags_text` dropped, the
         /// `no-tier` count grew, or the `suspicious` count grew — the

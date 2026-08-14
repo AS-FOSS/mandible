@@ -200,6 +200,11 @@ update Appendix A in the same commit, with the method.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
+- **Commit before you attack your own work.** Disabling a check to prove its
+  test fails is required here (§3.1), and the restore afterwards is a
+  destructive command: an agent ran `git checkout --` on the file it had just
+  written but not yet committed, and lost it. Commit first, then attack, then
+  restore — the restore has something to restore *to*.
 - **A result that exists only on one machine is not a result.** `audit/queue.toml`
   is called *tracked* by `xtask::queue`'s module doc and again by spec §16's
   storage note — and was never committed by any commit on any branch, because
