@@ -771,6 +771,23 @@ flags:
     provenance:
       sources:
         - help-text
+  - long: old-archive
+    description: same as --format=v7
+    provenance:
+      sources:
+        - help-text
+  - long: pax-option
+    value_name: "keyword[[:]=value][,keyword[[:]=value]]..."
+    value_kind: Required
+    description: control pax keywords
+    provenance:
+      sources:
+        - help-text
+  - long: posix
+    description: same as --format=posix
+    provenance:
+      sources:
+        - help-text
   - short: V
     long: label
     value_name: TEXT

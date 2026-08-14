@@ -10,6 +10,26 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A bare-word block no longer swallows the flag table that follows it.**
+  A block of enum values or operands ended only when a line dedented below
+  it, so a tool that nests such a list *inside* its options table and then
+  resumes the table at an equal-or-deeper indent had every flag from that
+  point on recorded as a *choice* instead. `tar --help` lost `--old-archive`,
+  `--pax-option` and `--posix` to the `FORMAT is one of the following:` enum
+  under `--format` — in a corpus fixture that was green, blessed and
+  contract-gated for its entire life while missing them, because the flags
+  were not absent from the tree, they were in the wrong field. `sg_dd` lost
+  `--progress` and `--verify` outright and reached the tree with its four
+  surviving flags stripped of every description.
+
+  A bare block now ends where a flag row resumes. This is the removal of an
+  inconsistency rather than a new heuristic: the section engine already
+  reads a flag-shaped line as a headingless flags block, and the usage-block
+  scan already ends on that same signal. The break is non-destructive — the
+  parser resumes at that exact line, so a wrong break re-routes a tail and
+  never drops it. Scanned across all 81 corpus fixtures before landing:
+  exactly two trees change, and both are the two defects above.
+
 - **mandible no longer starts daemons on the machine it is documenting.**
   Running `mandible blkmapd` — or any of a large class of system binaries —
   started an NFS daemon that outlived the process. **622 leaked processes**

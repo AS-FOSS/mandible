@@ -1,0 +1,44 @@
+name: sg_dd
+usage:
+- 'Usage: sg_dd [bs=BS] [conv=CONV] [count=COUNT] [ibs=BS] [if=IFILE] [iflag=FLAGS] [obs=BS] [of=OFILE] [oflag=FLAGS] [seek=SEEK] [skip=SKIP] [--dry-run] [--help] [--verbose] [--version]'
+flags:
+- long: dry-run
+  description: do preparation but bypass copy (or read)
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: print out this usage message then exit
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: progress
+  description: print progress report every 2 minutes
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: same as 'verbose=1', can be used multiple times
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  long: verify
+  description: do verify/compare rather than copy (OFILE must be a sg device)
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: print version information then exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

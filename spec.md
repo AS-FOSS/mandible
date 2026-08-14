@@ -2552,6 +2552,49 @@ fixtures: **zero** of them carry such a line. **No detector was built, and
 that is the finding** — the third family to dissolve, and the first to do so
 partly because a label count double-counted one binary.
 
+**A fourth family, `block-extent`, was built — and it is the first one
+found by an instrument rather than by a reviewer.** Three defects were
+taken up together on the hypothesis that they were one rule about *how far
+a usage or choice block extends*: `corpus/tar/1.35` (tracker #41, surfaced
+by residue ranking, §13.1f, not by a human), `sg_dd`, and `pptpsetup`. They
+are **two shapes, not one, and not three**:
+
+| tool | where the block ends today | claimed by one rule? |
+|---|---|---|
+| `tar` | a nested `FORMAT is one of the following:` enum at indent 4 never dedents before the options table resumes at indent 6 | **yes** — `bare_block_end` |
+| `sg_dd` | a `where:` operand table at indent 4 whose own last six rows are flag rows at that same indent 4 | **yes** — `bare_block_end` |
+| `pptpsetup` | no block is ever *opened*: `starts_with_usage_prefix` finds no `usage:` anchor | no — a different code path, and the singleton already dissolved above |
+
+The rule is one line in `help_text::sections::bare_block_end`: **a bare
+block ends where a flag row resumes**, `looks_like_flag_start` being the
+witness token. It is not a new heuristic but the removal of an
+inconsistency — the section engine's own first test already reads a
+flag-shaped line as a headingless flags block, and the *usage*-block scan
+already ends on the same signal (`curl`'s 13 flag rows running into its
+synopsis) — `bare_block_end` was the one place where a flag row was not
+structure. The break is also **non-destructive**: the caller resumes the
+main loop at that exact line, so a wrong break re-routes a tail from
+`choices` to `flags` and never drops it.
+
+Scanned mechanically across all 81 corpus fixtures before it was believed
+(the check that killed `unparsed-flag`): **exactly two trees change, and
+both are the two targets** — `tar` gains `--old-archive`, `--pax-option`
+and `--posix`, and `sg_dd` goes from four undescribed synopsis flags to six
+fully described ones, recovering `--progress` and `--verify`. `sg_dd` was
+promoted out of `[xfail]` by the run that landed it, and `tar`'s contract
+now names its three by spelling: that fixture was **green, blessed and
+contract-gated for its entire life while missing three real flags**, which
+is the sharper lesson — a flag count floor could not see it, because the
+flags were not absent from the tree, they were in the wrong field.
+
+Two things this family deliberately does **not** claim. `--portability`,
+the fourth flag on tracker #41, is a second *long* alias on
+`--old-archive`'s row and `Flag` has one `long` slot: that is
+`dropped-alias`, not this. And `sg_dd`'s **synopsis** is still truncated at
+its blank line — the flags come back via the operand table, not via the
+second paragraph — so the blank-line resumption stays exactly the
+unfixed singleton the `unparsed-flag` reading above called it.
+
 **Unclassified is a recorded state, not a gap to fill.** A judged defect
 whose note nobody could confidently sort — a hedged by-reference note with
 no fixture to check it against — carries no label, and both `xtask detector
@@ -2858,7 +2901,7 @@ only the "did it get fixed" one: a fixture claiming to be broken while
 every check quietly passes is exactly as much a bug as an unmarked
 regression.
 
-**Current scale: 81 fixtures — 51 passing, 30 `[xfail]`, 0 unexpectedly
+**Current scale: 81 fixtures — 67 passing, 14 `[xfail]`, 0 unexpectedly
 failing.** Ten are hand-captured against a real installed version (`git`,
 `tar`, `curl` — two versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`,
 `zoxide`); the other 71 are `audit-seed2` fixtures, `xtask audit fixtures`

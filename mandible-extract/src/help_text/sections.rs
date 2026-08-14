@@ -2307,9 +2307,47 @@ fn scan_bare_block<'a>(
 
 /// Find the end of a bare-word block starting at `lines[start]`: its own
 /// indentation is the baseline, and the block runs until a non-blank line
-/// dedents below that baseline. Shared by [`scan_bare_block`] and
-/// [`scan_argparse_subparsers`] so both agree on where a block ends even
-/// though they disagree on how to split its *entries*.
+/// dedents below that baseline **or a flag row resumes**. Shared by
+/// [`scan_bare_block`] and [`scan_argparse_subparsers`] so both agree on
+/// where a block ends even though they disagree on how to split its
+/// *entries*.
+///
+/// # Why a flag row ends a bare block
+///
+/// Indentation alone was the only test here, and it is not sufficient in
+/// one direction that recurs: a tool nests a bare-word list *inside* its
+/// options table and then resumes the table beneath it at an indent that
+/// is still at or beyond the list's own. Dedent never happens, so the
+/// block ran to the end of the table and every flag in it was consumed as
+/// a *choice* (or, under a recognized heading, a subcommand).
+///
+/// This is not a new heuristic; it is the removal of an inconsistency.
+/// The section engine's very first test already says a line that
+/// [`looks_like_flag_start`] begins a flags block with no heading needed,
+/// and the usage-block scan above already ends *its* block on the same
+/// signal for the same reason (`curl`'s 13 flag rows run straight into the
+/// synopsis). `bare_block_end` was the one place that overrode that, so a
+/// flag row was structure everywhere except inside a bare block.
+///
+/// Breaking here **re-routes rather than drops**: the caller resumes the
+/// main loop at exactly this line, whose headingless-flags-block branch
+/// then reads the remainder as the flag table it is. Nothing is lost even
+/// if the break is wrong.
+///
+/// Two real documents, one rule:
+///
+/// - `tar --help` opens a nested `FORMAT is one of the following:` enum
+///   under `--format` at indent 4, then resumes its options table at
+///   indent 6 — so `--old-archive`, `--pax-option` and `--posix` were read
+///   as three more values of `FORMAT` rather than as the three real flags
+///   they are (`corpus/tar/1.35`, which was green and snapshot-blessed
+///   through all of it; found by residue ranking, spec §13.1f).
+/// - `sg_dd --help`'s `where:` operand table at indent 4 ends with its own
+///   flag rows at that same indent 4, so `--dry-run`, `--help`,
+///   `--progress`, `--verbose`, `--verify` and `--version` were choices of
+///   nothing, and the four that also appear in the synopsis reached the
+///   tree stripped of every description
+///   (`corpus/sg_dd/audit-seed2`, seed-2 verdict `wrong`).
 fn bare_block_end(lines: &[&str], start: usize) -> usize {
     let mut i = start;
     let entry_indent = leading_whitespace(lines[start]);
@@ -2319,6 +2357,12 @@ fn bare_block_end(lines: &[&str], start: usize) -> usize {
             continue;
         }
         if leading_whitespace(lines[i]) < entry_indent {
+            break;
+        }
+        // Never the first line: `flags_block_start` has already had first
+        // refusal on it, so reaching here means it is not a flag row —
+        // and a zero-length block would loop forever.
+        if i > start && looks_like_flag_start(lines[i].trim_start()) {
             break;
         }
         i += 1;
@@ -3911,6 +3955,102 @@ mod tests {
             assert!(choice_strs.contains(&want), "{choice_strs:?}");
         }
         assert!(!parsed.subcommands.iter().any(|c| c.name == "gnu"));
+        // The other half of rule 4, and the half that was silently wrong:
+        // the enum list *ends*, and the options table beneath it resumes.
+        // Six values are documented; anything past `v7` is a flag row.
+        assert_eq!(
+            choice_strs,
+            ["gnu", "oldgnu", "pax", "posix", "ustar", "v7"],
+            "the enum swallowed the flag rows beneath it"
+        );
+    }
+
+    /// The three GNU tar flags the `FORMAT is one of the following:` enum
+    /// used to eat (tracker #41). They sit at indent 6 while the enum's own
+    /// values sit at indent 4, so the block never dedented and ran straight
+    /// through them — a green, snapshot-blessed fixture missing three real
+    /// flags. `--portability` is *not* asserted: it is a second **long**
+    /// alias on `--old-archive`'s row, and `Flag` has one `long` slot, so
+    /// losing it is the `dropped-alias` family and not this one.
+    #[test]
+    fn tar_options_table_resumes_after_the_format_enum() {
+        let parsed = parse(TAR_HELP);
+        for want in ["old-archive", "pax-option", "posix"] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some(want))
+                .unwrap_or_else(|| panic!("--{want} consumed by the FORMAT enum"));
+            assert!(
+                !flag
+                    .description
+                    .as_ref()
+                    .is_none_or(|d| d.as_str().is_empty()),
+                "--{want} recovered without its description"
+            );
+        }
+        // The row directly beneath the recovered ones must survive intact:
+        // a break that re-routed too much would take `-V, --label=TEXT`
+        // with it.
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("label") && f.short == Some('V')),
+            "-V, --label lost"
+        );
+    }
+
+    /// `sg_dd`'s shape: a `where:` operand table whose *own* rows are bare
+    /// words, ending in flag rows at that same indent. Before the block
+    /// learned to end at a flag row, all six became choices of nothing and
+    /// `--progress`/`--verify` — documented nowhere else — were lost
+    /// outright (seed-2 verdict `wrong`; `corpus/sg_dd/audit-seed2`).
+    ///
+    /// **More than three operand rows, deliberately.** A first cut of this
+    /// test used two and passed with the fix reverted, which is worse than
+    /// no test: [`flags_block_start`] already tolerates up to
+    /// `MAX_SKIPPED_LEADING_ROWS` non-flag rows before the first flag row,
+    /// so a short table is claimed as a flags block outright and never
+    /// reaches [`bare_block_end`] at all. `sg_dd`'s real table is twenty
+    /// rows; it is the tables *over* that budget that this rule exists for,
+    /// and only those reproduce the defect.
+    #[test]
+    fn a_bare_operand_table_ends_where_its_flag_rows_begin() {
+        let help = "\
+Usage: prog [bs=BS] [--help]
+  where:
+    bs          logical block size (default is 512)
+    count       number of blocks to copy
+    ibs         input logical block size
+    obs         output logical block size
+    seek        block position to start writing to OFILE
+    skip        block position to start reading from IFILE
+    --progress    print progress report every 2 minutes
+    --verify|-x    do verify/compare rather than copy
+";
+        let parsed = parse(help);
+        for want in ["progress", "verify"] {
+            assert!(
+                parsed.flags.iter().any(|f| f.long.as_deref() == Some(want)),
+                "--{want} consumed by the operand table: {:?}",
+                parsed.flags.iter().map(|f| &f.long).collect::<Vec<_>>()
+            );
+        }
+        // And the operands above them are still read as the bare block
+        // they are, not promoted into flags or subcommands.
+        assert!(!parsed.flags.iter().any(|f| f.long.as_deref() == Some("bs")));
+        assert!(parsed.subcommands.is_empty(), "{:?}", parsed.subcommands);
+    }
+
+    /// The break is `i > start` for a reason: `flags_block_start` has
+    /// already declined this block, and a block whose *first* line ended it
+    /// would be zero-length and never advance. A bare-word list is
+    /// unaffected by the rule when no flag row follows it.
+    #[test]
+    fn a_bare_block_with_no_flag_rows_is_unchanged() {
+        let lines = ["  alpha   first", "  beta    second", "  gamma   third"];
+        assert_eq!(bare_block_end(&lines, 0), 3);
     }
 
     /// `--quoting-style`'s valid arguments are introduced by a heading
