@@ -2537,20 +2537,34 @@ prints. Six labels are five tools, and the five are five shapes:
 
 The mariadb residue is the only one two labels reach, and one binary under
 two names is the same evidence counted twice — a tool, not a family. It is
-also blocked in both directions. Its single tree artifact is a *phantom*
-flag, whose long name is the table's header ruler
-`---------------------------------`, and there is no `must_not_contain_flags`
-contract field, so no fixture can state that defect falsifiably (the same
-gap `must_contain_positionals` was added to close for operands, §13.2). The
-obvious predicate — a long option name made only of `-` characters — fires
+also blocked in one direction, and was blocked in both until the corpus
+gained a way to say it. Its single tree artifact is a *phantom* flag, whose
+long name is the table's header ruler `---------------------------------`.
+**That half is now closed**: `[contract]`'s `must_not_contain_flags` (§13.2)
+states the negative claim a fixture could not previously make — the same
+gap `must_contain_positionals` closed for operands, on the invention side
+rather than the omission side — and `corpus/mariadb-check/2.7.4` is its
+first user, `[xfail]` on exactly that ruler and no longer able to be
+repaired silently. Note the existence oracle cannot substitute: its contract
+is "does this spelling occur in the raw text", the ruler does occur
+literally, and it is therefore correctly silent. The *detector* half is
+still blocked. The obvious predicate — a long option name made only of `-` characters — fires
 on `bzless`, whose `------> --help <------` decorator parses as `--` plus
 `----` carrying the value `>`; `bzless` is labelled `wrong-stream`, so that
 is a cross-family fire, and no exclusion may excuse a fire. Narrowing it to
 *"the raw text carries a line of nothing but dashes"* does clear `bzless`,
-and that narrowed predicate was scanned mechanically across all 81 corpus
-fixtures: **zero** of them carry such a line. **No detector was built, and
-that is the finding** — the third family to dissolve, and the first to do so
-partly because a label count double-counted one binary.
+and that narrowed predicate was scanned mechanically across all corpus
+fixtures: **zero** of them carry such a line — re-run over 82 fixtures
+after `corpus/mariadb-check/2.7.4` landed, still zero, because the ruler
+that motivated the predicate is *two* dash runs separated by a space and
+so does not match the strict reading. Relaxing it to allow interior spaces
+finds exactly one witness in the whole corpus, mariadb-check itself, which
+is a witness count of one and not a calibration set. **No detector was
+built, and that is the finding** — the third family to dissolve, and the
+first to do so partly because a label count double-counted one binary. What
+did change is that the defect is now pinned rather than merely described:
+the fixture fails on it today and will announce its own repair the moment
+the ruler stops parsing as a flag.
 
 **Unclassified is a recorded state, not a gap to fill.** A judged defect
 whose note nobody could confidently sort — a hedged by-reference note with
@@ -2813,6 +2827,24 @@ reviewed edit may weaken) and the `lsof` cautionary tale
 (`corpus/lsof/4.95.0`, `[xfail]` again after being blessed once without
 the raw-text-side-by-side review `--bless` does not itself perform).
 
+**`[contract]` can state a negative, not only a positive:
+`must_not_contain_flags`.** Every other field names something the real tool
+really has and fails when the parser drops it, which covers the *omission*
+half of what can go wrong and none of the *invention* half — a parser that
+reads a table ruler or a decorator as an option produces a flag no fixture
+could point at. This field is matched by exactly the matcher
+`must_contain_flags` uses, negated (`--foo` a long name, `-x` a short one,
+a bare word a long name verbatim), root flags only, and it asserts nothing
+about the raw capture, nothing about the spelling the entry did not name,
+and nothing below the root — a fixture author forbids only what they
+looked at. A tree with no root satisfies it vacuously and is not reported:
+a missing tree trivially breaks a positive claim and trivially *keeps* a
+negative one, and reporting otherwise would be a false positive in the one
+gate whose authority rests on having none. Dropping an entry is a
+weakening, reported by `--baseline-dir` exactly as a dropped
+`must_contain_flags` entry is. `corpus/mariadb-check/2.7.4` is its first
+user and the reason it exists (§13.1e's mariadb residue).
+
 **`verdict_scope` records which dimensions of the tree a human actually
 looked at before blessing it** — some subset of `"flags"`,
 `"subcommands"`, `"descriptions"`, `"usage"`. **Absent means no scope was
@@ -2858,10 +2890,12 @@ only the "did it get fixed" one: a fixture claiming to be broken while
 every check quietly passes is exactly as much a bug as an unmarked
 regression.
 
-**Current scale: 81 fixtures — 51 passing, 30 `[xfail]`, 0 unexpectedly
-failing.** Ten are hand-captured against a real installed version (`git`,
-`tar`, `curl` — two versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`,
-`zoxide`); the other 71 are `audit-seed2` fixtures, `xtask audit fixtures`
+**Current scale: 82 fixtures — 66 passing, 16 `[xfail]`, 0 unexpectedly
+failing**, as measured by `cargo run -p xtask -- corpus` (the counts stated
+here had drifted from the runner's own summary line; these are that line).
+Eleven are hand-captured against a real installed version (`git`, `tar`,
+`curl` — two versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`, `zoxide`,
+`mariadb-check`); the other 71 are `audit-seed2` fixtures, `xtask audit fixtures`
 turning a seed-2 human verdict directly into a fixture (`correct` → a real
 `expected.snap`, `wrong`/`incomplete` → `[xfail]` with the reviewer's note
 as `reason`, §13.1c). The corpus is now substantially the audit's own

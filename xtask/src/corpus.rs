@@ -36,7 +36,8 @@
 //!   (see [`render_snapshot`]'s doc comment on why).
 //! - **(b) `[contract]`**: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
-//!   `must_contain_positionals` (see [`check_contract`]).
+//!   `must_contain_positionals`, `must_not_contain_flags` (see
+//!   [`check_contract`]).
 //! - **(c) Strict xfail**: a fixture marked `[xfail]` whose snapshot and
 //!   contract *both* pass fails the run — the bug got fixed and the
 //!   fixture must be promoted (`corpus/README.md`'s lifecycle rules).
@@ -180,6 +181,53 @@ struct ContractMeta {
     /// user types, and nothing else about the entry is asserted here.
     #[serde(default)]
     must_contain_positionals: Vec<String>,
+    /// Root flag spellings the tree must **not** carry — the first
+    /// *negative* claim in a `[contract]`, and the only way a fixture can
+    /// say "the parser invented this".
+    ///
+    /// Every other field here is positive: it names something a real tool
+    /// really has and fails when the parser drops it. That closes the
+    /// omission half of the problem and nothing of the invention half. The
+    /// motivating instance is `corpus/mariadb-check/2.7.4`, whose
+    /// `Variables (--variable-name=value)` defaults table opens with a
+    /// header ruler; the parser reads that ruler as a flag and emits one
+    /// whose long name is thirty-one `-` characters. The tool has no such
+    /// flag, and before this field there was no falsifiable way to say so
+    /// — so the defect could not announce its own repair through strict
+    /// xfail, which is the mechanism the whole corpus repair loop runs on
+    /// (spec §14's mariadb residue names exactly this missing field).
+    ///
+    /// **Matched by [`flag_present`], the same matcher `must_contain_flags`
+    /// uses, negated.** `--foo` asserts no root flag has the long name
+    /// `foo`; `-x` asserts none has the short name `x`; a bare word is
+    /// matched against `long` verbatim. A fixture author therefore writes
+    /// the spelling exactly as it would be typed, and the ruler above is
+    /// written as its full thirty-three-dash form.
+    ///
+    /// **What it deliberately does not claim**, all three of which would be
+    /// broader assertions a fixture author did not make:
+    ///
+    /// - *Nothing about the raw text.* This is a claim about the parsed
+    ///   tree only. The mariadb ruler occurs literally in the capture, and
+    ///   must go on occurring there — the capture is byte-exact. The
+    ///   existence oracle, whose contract is "does this spelling occur in
+    ///   the raw text", is correctly silent on this defect for exactly that
+    ///   reason, which is why the invention side needs its own field.
+    /// - *Nothing about the other spelling.* `--foo` says nothing about a
+    ///   flag with short `f`, and `-x` says nothing about a long name, in
+    ///   the same one-spelling-at-a-time way `flag_present` reads a
+    ///   positive spec. Asserting both from one entry would let a fixture
+    ///   forbid a spelling its author never looked at.
+    /// - *Nothing below the root.* Root flags only, the same scope
+    ///   `must_contain_flags` has. A subcommand inventing a flag is a real
+    ///   defect and would need the by-path analogue; this field does not
+    ///   quietly cover it.
+    ///
+    /// A tree with no root satisfies this vacuously and is *not* reported,
+    /// unlike every positive field above — see [`check_contract`]'s no-root
+    /// branch, where the asymmetry is argued.
+    #[serde(default)]
+    must_not_contain_flags: Vec<String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — the machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment 36 `audit-seed2` fixtures each
@@ -546,6 +594,27 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
             ));
         }
 
+        // A negative claim weakens by *losing an entry*, exactly as a
+        // positive one does — the direction of the claim flips, the
+        // direction of its weakening does not. Dropping
+        // `must_not_contain_flags = ["---...---"]` retires the only
+        // statement that the mariadb ruler is a phantom, and would let the
+        // defect return unremarked. Adding an entry tightens, and is never
+        // flagged, same as `must_contain_flags`.
+        let dropped_forbidden: Vec<&str> = b
+            .must_not_contain_flags
+            .iter()
+            .filter(|spec| !n.must_not_contain_flags.iter().any(|s| s == *spec))
+            .map(String::as_str)
+            .collect();
+        if !dropped_forbidden.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_not_contain_flags (dropped: {})",
+                base.label,
+                dropped_forbidden.join(", ")
+            ));
+        }
+
         let missing_positionals: Vec<&str> = b
             .must_contain_positionals
             .iter()
@@ -740,6 +809,15 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
                 "must_contain_positionals: no root produced".into(),
             ));
         }
+        // `must_not_contain_flags` is deliberately absent from this list.
+        // Every field above is a positive claim, which a missing tree
+        // trivially breaks — "the tool has --paginate" cannot hold of no
+        // tree. A negative claim is the opposite: "no root flag is spelled
+        // X" is *satisfied* by a tree with no flags at all, so reporting it
+        // here would announce a violation of a promise that in fact holds,
+        // which is a false positive in the one place this runner's
+        // authority comes from. A fixture that produced no root still fails
+        // loudly — on its snapshot, and on every positive field it set.
         return failures;
     };
 
@@ -785,6 +863,21 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
         failures.push(ContractFailure(format!(
             "must_contain_flags: missing {}",
             missing_flags.join(", ")
+        )));
+    }
+
+    // The negative claim: spellings the parser must not have invented.
+    // Same matcher as `must_contain_flags`, same root-only scope, negated.
+    let present_forbidden: Vec<&str> = contract
+        .must_not_contain_flags
+        .iter()
+        .filter(|spec| flag_present(root, spec))
+        .map(|s| s.as_str())
+        .collect();
+    if !present_forbidden.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_flags: present {}",
+            present_forbidden.join(", ")
         )));
     }
 
@@ -853,7 +946,9 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 }
 
 /// Whether `node`'s own flags satisfy a `must_contain_flags`/
-/// `must_contain_flags_by_path` spec: `--long-name` matches
+/// `must_contain_flags_by_path`/`must_not_contain_flags` spec (the last
+/// one negated by its caller, so that a positive and a negative claim can
+/// never disagree about what a spelling *means*): `--long-name` matches
 /// [`mandible_core::Flag::long`], `-x` matches [`mandible_core::Flag::short`],
 /// anything else is matched against `long` verbatim. Only ever checks the
 /// one node it's given, never recursing into its subcommands itself —
@@ -1965,6 +2060,133 @@ run = ["--source", "--staged"]
         );
     }
 
+    /// `must_not_contain_flags` in both directions, plus the two things it
+    /// deliberately does not claim. The motivating instance is a phantom
+    /// long name (`corpus/mariadb-check/2.7.4`'s header ruler), so a
+    /// dash-only spelling is the one exercised here rather than a tidy
+    /// synthetic name.
+    #[test]
+    fn must_not_contain_flags_names_the_flags_the_parser_invented() {
+        // Written as a contributor would type it: the full 33-dash ruler,
+        // whose long name after `--` is 31 dashes.
+        let ruler = "---------------------------------";
+        let contract = ContractMeta {
+            must_not_contain_flags: vec![ruler.into(), "--bogus".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("mariadb-check", Provenance::single(Source::HelpText));
+
+        // A tree that invents neither is clean.
+        root.flags
+            .push(Flag::long("check", Provenance::single(Source::HelpText)));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // The phantom appears: reported, and named by the spelling the
+        // fixture author wrote, not by the stripped long name.
+        root.flags.push(Flag::long(
+            "-------------------------------",
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_not_contain_flags: present ---------------------------------"]
+        );
+
+        // Both present, both named, in the fixture's own order.
+        root.flags
+            .push(Flag::long("bogus", Provenance::single(Source::HelpText)));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_not_contain_flags: present ---------------------------------, --bogus"]
+        );
+
+        // What it does not claim (1): nothing about the other spelling. A
+        // `--bogus` entry says nothing about a *short* `-b`.
+        let short_only = ContractMeta {
+            must_not_contain_flags: vec!["--b".into()],
+            ..ContractMeta::default()
+        };
+        let mut shorty = CommandNode::new("t", Provenance::single(Source::HelpText));
+        let mut short_flag = Flag::long("verbose", Provenance::single(Source::HelpText));
+        short_flag.short = Some('b');
+        short_flag.long = None;
+        shorty.flags.push(short_flag);
+        assert!(check_contract(&short_only, Some(&shorty)).is_empty());
+
+        // What it does not claim (2): nothing below the root. A subcommand
+        // carrying the forbidden spelling is out of scope.
+        let mut with_child = CommandNode::new("t", Provenance::single(Source::HelpText));
+        let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
+        child
+            .flags
+            .push(Flag::long("bogus", Provenance::single(Source::HelpText)));
+        with_child.subcommands.push(child);
+        let bogus_only = ContractMeta {
+            must_not_contain_flags: vec!["--bogus".into()],
+            ..ContractMeta::default()
+        };
+        assert!(check_contract(&bogus_only, Some(&with_child)).is_empty());
+
+        // No root at all satisfies a negative claim vacuously — the one
+        // place this field is *not* symmetric with the positive ones, and
+        // reporting it would be a violation of a promise that holds.
+        assert!(check_contract(&contract, None).is_empty());
+    }
+
+    /// End-to-end: a real `[contract]` with `must_not_contain_flags` set,
+    /// read from `meta.toml` rather than constructed in Rust, so the serde
+    /// field name is exercised too. `MYTOOL_HELP` has `--verbose` and no
+    /// `--invented`, so the first spelling fails the run and the second
+    /// does not.
+    #[test]
+    fn must_not_contain_flags_is_read_from_meta_toml_and_fails_the_run() {
+        for (forbidden, should_fail) in [("--verbose", true), ("--invented", false)] {
+            let corpus = setup();
+            let dir = corpus.root.join("negtool/1.0");
+            write(
+                &dir.join("meta.toml"),
+                &format!(
+                    r#"
+[tool]
+name = "negtool"
+version = "1.0"
+
+[[capture]]
+argv = ["negtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_not_contain_flags = ["{forbidden}"]
+"#
+                ),
+            );
+            write(&dir.join("help.txt"), MYTOOL_HELP);
+            run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+            let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+            assert_eq!(
+                report.failed(),
+                should_fail,
+                "must_not_contain_flags = [{forbidden:?}]: {}",
+                report.text
+            );
+            if should_fail {
+                assert!(
+                    report
+                        .text
+                        .contains("must_not_contain_flags: present --verbose"),
+                    "{}",
+                    report.text
+                );
+            }
+        }
+    }
+
     #[test]
     fn xfail_fixture_that_still_fails_does_not_fail_the_run() {
         let corpus = setup();
@@ -2437,6 +2659,80 @@ min_subcommands = {min_subcommands}
         assert!(
             lines.iter().any(|l| l.contains("min_subcommands")),
             "{lines:?}"
+        );
+    }
+
+    /// A `[contract]` carrying only `must_not_contain_flags`, written
+    /// straight into `meta.toml`. `entries` is spliced as a TOML array so
+    /// the baseline and current sides differ in exactly that one field.
+    fn negative_contract_fixture(root: &Path, entries: &[&str]) {
+        let list = entries
+            .iter()
+            .map(|f| format!("{f:?}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write(
+            &root.join("negtool/1.0/meta.toml"),
+            &format!(
+                r#"
+[tool]
+name = "negtool"
+version = "1.0"
+
+[[capture]]
+argv = ["negtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_not_contain_flags = [{list}]
+"#
+            ),
+        );
+        write(&root.join("negtool/1.0/help.txt"), MYTOOL_HELP);
+    }
+
+    /// A negative claim weakens by *losing* an entry, exactly as a positive
+    /// one does. Without this the field could be deleted from a fixture in
+    /// a PR and nothing would say so — which is the whole failure mode
+    /// `contract_weakened_lines` exists to prevent, and a contract field
+    /// that cannot weaken-detect is one that can be quietly deleted.
+    #[test]
+    fn a_dropped_must_not_contain_flag_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        let ruler = "---------------------------------";
+        negative_contract_fixture(&baseline.root, &[ruler, "--invented"]);
+        negative_contract_fixture(&current.root, &["--invented"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_not_contain_flags") && l.contains(ruler)),
+            "{lines:?}"
+        );
+
+        // Dropping the field entirely is the same weakening, not a
+        // special case that slips through.
+        let emptied = setup();
+        negative_contract_fixture(&emptied.root, &[]);
+        let emptied_fixtures = discover_fixtures(&emptied.root).unwrap();
+        let lines = contract_weakened_lines(&emptied_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_not_contain_flags") && l.contains("--invented")),
+            "{lines:?}"
+        );
+
+        // Adding an entry tightens, and is never flagged.
+        let tightened = setup();
+        negative_contract_fixture(&tightened.root, &[ruler, "--invented", "--also"]);
+        let tightened_fixtures = discover_fixtures(&tightened.root).unwrap();
+        assert!(
+            contract_weakened_lines(&tightened_fixtures, &base_fixtures).is_empty(),
+            "a tightened negative contract must never be flagged"
         );
     }
 
