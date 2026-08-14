@@ -2518,6 +2518,40 @@ fleet measurement available to bound it. **No detector was built, and that
 is the finding** — the same outcome as `value-name-mangled` above, reached
 the same way.
 
+`unmodeled-help-shape` is **not one shape either**, and it dissolves for a
+third distinct reason: the name says only *"the parser had no model for
+this"*, so it collects whatever was left over. Its own one-line meaning is a
+list of five unrelated layouts, which is the tell. It also has the smallest
+real membership of the three: **two of its six labels are the same binary**
+— `/usr/bin/mariadb-repair` and `/usr/bin/mariadbcheck` are both symlinks to
+`mariadb-check`, and the two help texts differ only in the program name each
+prints. Six labels are five tools, and the five are five shapes:
+
+| tool | as written | disposition |
+|---|---|---|
+| `gcc` | `--help={common\|optimizers\|params\|target\|warnings\|…}` | **already modeled and already deferred**: `help_text::confession::match_flag_value_row` detects this exact row and caps status at `incomplete`. Following it needs a new `exec::InertArgv` for the one-token `--help=common` and its own §6 deliberation (WS5b, §6 rule 2b). Not a grammar defect at all |
+| `mariadb-repair`, `mariadbcheck` | `Variables (--variable-name=value)` defaults table | **nothing to extract**: all 39 rows restate an option already in the tree and add only a default *value*, which the IR has nowhere to put. One binary, two names |
+| `qemu-arm64-static` | `Argument │ Env-variable │ Description` | a three-column table: column 2 is swallowed into the description on 21 of 23 rows. Its remaining damage is `single-dash-long`, which has its own detector and fix |
+| `sg_dd` | a synopsis paragraph resumed after a blank line, plus a `where:` `KEY=VALUE` operand table | singleton, and already recorded under `unparsed-flag` above — re-verified here: `--progress` and `--verify` are the only losses |
+| `ssh-keygen` | one synopsis line per invocation variant, each reprinting the tool's own name | the block *is* read — 40 flags come out of it. What is unmodeled is the mode words (`-Y sign`, `-M generate`, `-Y find-principals`), subcommands in all but name |
+
+The mariadb residue is the only one two labels reach, and one binary under
+two names is the same evidence counted twice — a tool, not a family. It is
+also blocked in both directions. Its single tree artifact is a *phantom*
+flag, whose long name is the table's header ruler
+`---------------------------------`, and there is no `must_not_contain_flags`
+contract field, so no fixture can state that defect falsifiably (the same
+gap `must_contain_positionals` was added to close for operands, §13.2). The
+obvious predicate — a long option name made only of `-` characters — fires
+on `bzless`, whose `------> --help <------` decorator parses as `--` plus
+`----` carrying the value `>`; `bzless` is labelled `wrong-stream`, so that
+is a cross-family fire, and no exclusion may excuse a fire. Narrowing it to
+*"the raw text carries a line of nothing but dashes"* does clear `bzless`,
+and that narrowed predicate was scanned mechanically across all 81 corpus
+fixtures: **zero** of them carry such a line. **No detector was built, and
+that is the finding** — the third family to dissolve, and the first to do so
+partly because a label count double-counted one binary.
+
 **Unclassified is a recorded state, not a gap to fill.** A judged defect
 whose note nobody could confidently sort — a hedged by-reference note with
 no fixture to check it against — carries no label, and both `xtask detector
