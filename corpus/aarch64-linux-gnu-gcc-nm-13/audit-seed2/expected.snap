@@ -1,0 +1,261 @@
+name: aarch64-linux-gnu-gcc-nm-13
+description: '/usr/bin/nm: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>.'
+usage:
+- 'Usage: /usr/bin/nm [option(s)] [file(s)] List symbols in [file(s)] (a.out by default).'
+flags:
+- short: 'a'
+  long: debug-syms
+  group: 'The options are:'
+  description: Display debugger-only symbols
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  long: print-file-name
+  group: 'The options are:'
+  description: Print name of the input file before every symbol
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  group: 'The options are:'
+  description: Same as --format=bsd
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: demangle
+  value_name: STYLE
+  value_kind: Optional
+  group: 'The options are:'
+  description: Decode mangled/processed symbol names STYLE can be "none", "auto", "gnu-v3", "java", "gnat", "dlang", "rust"
+  provenance:
+    sources:
+    - help-text
+- long: no-demangle
+  group: 'The options are:'
+  description: Do not demangle low-level symbol names
+  provenance:
+    sources:
+    - help-text
+- long: recurse-limit
+  group: 'The options are:'
+  description: Enable a demangling recursion limit. (default)
+  provenance:
+    sources:
+    - help-text
+- long: no-recurse-limit
+  value_name: Disable
+  value_kind: Required
+  group: 'The options are:'
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: dynamic
+  group: 'The options are:'
+  description: Display dynamic symbols instead of normal symbols
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  group: 'The options are:'
+  description: (ignored)
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: format
+  value_name: FORMAT
+  value_kind: Required
+  group: 'The options are:'
+  description: Use the output format FORMAT. FORMAT can be `bsd', `sysv', `posix' or 'just-symbols'. The default is `bsd'
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  long: extern-only
+  group: 'The options are:'
+  description: Display only external symbols
+  provenance:
+    sources:
+    - help-text
+- long: ifunc-chars
+  value_name: CHARS
+  value_kind: Required
+  group: 'The options are:'
+  description: Characters to use when displaying ifunc symbols
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: just-symbols
+  group: 'The options are:'
+  description: Same as --format=just-symbols
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: line-numbers
+  group: 'The options are:'
+  description: Use debugging information to find a filename and line number for each symbol
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: numeric-sort
+  group: 'The options are:'
+  description: Sort symbols numerically by address
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  group: 'The options are:'
+  description: Same as -A
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: no-sort
+  group: 'The options are:'
+  description: Do not sort the symbols
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: portability
+  group: 'The options are:'
+  description: Same as --format=posix
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: reverse-sort
+  group: 'The options are:'
+  description: Reverse the sense of the sort
+  provenance:
+    sources:
+    - help-text
+- long: plugin
+  value_name: NAME
+  value_kind: Required
+  group: 'The options are:'
+  description: Load the specified plugin
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: print-size
+  group: 'The options are:'
+  description: Print size of defined symbols
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: print-armap
+  group: 'The options are:'
+  description: Include index for symbols from archive members
+  provenance:
+    sources:
+    - help-text
+- long: quiet
+  group: 'The options are:'
+  description: Suppress "no symbols" diagnostic
+  provenance:
+    sources:
+    - help-text
+- long: size-sort
+  group: 'The options are:'
+  description: Sort symbols by size
+  provenance:
+    sources:
+    - help-text
+- long: special-syms
+  group: 'The options are:'
+  description: Include special symbols in the output
+  provenance:
+    sources:
+    - help-text
+- long: synthetic
+  group: 'The options are:'
+  description: Display synthetic symbols as well
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: radix
+  value_name: RADIX
+  value_kind: Required
+  group: 'The options are:'
+  description: Use RADIX for printing symbol values
+  provenance:
+    sources:
+    - help-text
+- long: target
+  value_name: BFDNAME
+  value_kind: Required
+  group: 'The options are:'
+  description: Specify the target object format as BFDNAME
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  long: undefined-only
+  group: 'The options are:'
+  description: Display only undefined symbols
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  long: defined-only
+  group: 'The options are:'
+  description: Display only defined symbols
+  provenance:
+    sources:
+    - help-text
+- long: unicode
+  value_name: '{default|show|invalid|hex|escape|highlight}'
+  value_kind: Required
+  group: 'The options are:'
+  description: Specify how to treat UTF-8 encoded unicode characters
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  long: no-weak
+  group: 'The options are:'
+  description: Ignore weak symbols
+  provenance:
+    sources:
+    - help-text
+- long: without-symbol-versions
+  group: 'The options are:'
+  description: Do not display version strings after symbol names
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  value_name: 32_64
+  value_kind: Required
+  group: 'The options are:'
+  description: (ignored)
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: Display this information
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: Display this program's version number
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

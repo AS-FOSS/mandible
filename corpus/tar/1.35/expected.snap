@@ -3,10 +3,6 @@ description: GNU 'tar' saves many files together into a single tape or disk arch
 usage:
 - 'Usage: tar [OPTION...] [FILE]...'
 positionals:
-- name: OPTION
-  provenance:
-    sources:
-    - help-text
 - name: FILE
   variadic: true
   provenance:
@@ -677,7 +673,7 @@ flags:
     - help-text
 - short: 'F'
   long: info-script
-  value_name: NAME,
+  value_name: NAME
   value_kind: Required
   group: 'Device selection and switching:'
   description: run script at end of each tape (implies -M)
@@ -768,6 +764,23 @@ flags:
   - v7
   group: 'Archive format selection:'
   description: create archive of the given format
+  provenance:
+    sources:
+    - help-text
+- long: old-archive
+  description: same as --format=v7
+  provenance:
+    sources:
+    - help-text
+- long: pax-option
+  value_name: keyword[[:]=value][,keyword[[:]=value]]...
+  value_kind: Required
+  description: control pax keywords
+  provenance:
+    sources:
+    - help-text
+- long: posix
+  description: same as --format=posix
   provenance:
     sources:
     - help-text
@@ -902,7 +915,7 @@ flags:
     - help-text
 - short: 'N'
   long: newer
-  value_name: DATE-OR-FILE,
+  value_name: DATE-OR-FILE
   value_kind: Required
   group: 'Local file selection:'
   description: only store files newer than DATE-OR-FILE
@@ -939,7 +952,7 @@ flags:
     sources:
     - help-text
 - long: transform
-  value_name: EXPRESSION,
+  value_name: EXPRESSION
   value_kind: Required
   group: 'File name transformations:'
   description: use sed replace EXPRESSION to transform file names
@@ -1132,5 +1145,5 @@ detected_framework: GNU argp/getopt_long
 provenance:
   sources:
   - help-text
-  confidence: 0.96
+  confidence: 0.98
 children_filled: true

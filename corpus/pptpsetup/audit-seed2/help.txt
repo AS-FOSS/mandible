@@ -1,0 +1,25 @@
+pptpsetup --create <TUNNEL> --server <SERVER> [--domain <DOMAIN>]
+          --username <USERNAME> [--password <PASSWORD>]
+          [--encrypt] [--start]
+
+pptpsetup --delete <TUNNEL>
+
+Options:
+
+* the name you wish to use to refer to the tunnel (you choose it),
+* the IP address or host name of the server,
+* the authentication domain name (optional),
+* the username you are to use,
+* the password you are to use,
+* whether encryption is required,
+* whether to start the connection after configuration.
+
+pptpsetup - Point-to-Point Tunneling Protocol setup
+
+Copyright (C) 2006  Free Software Foundation
+
+pptpsetup comes with ABSOLUTELY NO WARRANTY; for details see source.
+This is free software, and you are welcome to redistribute it
+under certain conditions; see source for details.
+
+Written by Nelson Ferraz.

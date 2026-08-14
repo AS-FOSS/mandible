@@ -1,0 +1,27 @@
+
+Usage:
+ fsck [options] -- [fs-options] [<filesystem> ...]
+
+Check and repair a Linux filesystem.
+
+Options:
+ -A         check all filesystems
+ -C [<fd>]  display progress bar; file descriptor is for GUIs
+ -l         lock the device to guarantee exclusive access
+ -M         do not check mounted filesystems
+ -N         do not execute, just show what would be done
+ -P         check filesystems in parallel, including root
+ -R         skip root filesystem; useful only with '-A'
+ -r [<fd>]  report statistics for each device checked;
+            file descriptor is for GUIs
+ -s         serialize the checking operations
+ -T         do not show the title on startup
+ -t <type>  specify filesystem types to be checked;
+            <type> is allowed to be a comma-separated list
+ -V         explain what is being done
+
+ -?, --help     display this help
+     --version  display version
+
+See the specific fsck.* commands for available fs-options.
+For more details see fsck(8).

@@ -1,0 +1,36 @@
+ip6tables-apply 1.1 -- a safer way to update iptables remotely
+
+Usage:
+  ip6tables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}
+
+The script will try to apply a new rulesfile (as output by iptables-save,
+read by iptables-restore) or run a command to configure iptables and then
+prompt the user whether the changes are okay. If the new iptables rules cut
+the existing connection, the user will not be able to answer affirmatively.
+In this case, the script rolls back to the previous working iptables rules
+after the timeout expires.
+
+Successfully applied rules can also be written to savefile and later used
+to roll back to this state. This can be used to implement a store last good
+configuration mechanism when experimenting with an iptables setup script:
+  ip6tables-apply -w /etc/network/ip6tables.up.rules -c /etc/network/ip6tables.up.run
+
+When called as ip6tables-apply, the script will use ip6tables-save/-restore
+and IPv6 default values instead. Default value for rulesfile is
+'/etc/network/ip6tables.up.rules'.
+
+Options:
+
+-t seconds, --timeout seconds
+  Specify the timeout in seconds (default: 10).
+-w savefile, --write savefile
+  Specify the savefile where successfully applied rules will be written to
+  (default if empty string is given: /etc/network/ip6tables.up.rules).
+-c runcmd, --command runcmd
+  Run command runcmd to configure iptables instead of applying a rulesfile
+  (default: /etc/network/ip6tables.up.run).
+-h, --help
+  Display this help text.
+-V, --version
+  Display version information.
+

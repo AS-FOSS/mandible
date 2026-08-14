@@ -1,0 +1,12 @@
+Usage: grub-set-default [OPTION] MENU_ENTRY
+Set the default boot menu entry for GRUB.
+This requires setting GRUB_DEFAULT=saved in /etc/default/grub.
+
+  -h, --help              print this message and exit
+  -V, --version           print the version information and exit
+  --boot-directory=DIR    expect GRUB images under the directory DIR/grub
+                          instead of the /boot/grub directory
+
+MENU_ENTRY is a number, a menu item title or a menu item identifier.
+
+Report bugs to <bug-grub@gnu.org>.

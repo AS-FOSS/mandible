@@ -3,11 +3,21 @@
 
 #![forbid(unsafe_code)]
 
+mod alternation;
 mod audit;
+mod bundling;
+mod commandtable;
 mod corpus;
 mod coverage;
+mod detector;
+mod dropped_alias;
 mod existence;
 mod misattribution;
+mod queue;
+mod repeated_char;
+mod residue;
+mod rng;
+mod single_dash_long;
 mod status;
 mod transition;
 
@@ -27,6 +37,18 @@ enum Command {
     /// Run the extraction coverage harness across every executable on
     /// `PATH` (spec §13.1) and print/write the scoreboard.
     Coverage {
+        /// **This flag does not make the command cheap.** "Freshly
+        /// computed" below means exactly that: `--check` probes every tool
+        /// on `PATH` again, the same ~20-minute full sweep as a bare
+        /// `coverage` run, and only *then* compares. It is a gate, not a
+        /// dry run — two agents have read the name as "just verify the
+        /// checked-in file" and burned ten minutes each finding out
+        /// otherwise. The `--check` that genuinely probes nothing is
+        /// `audit freeze --check` (which early-returns after hashing the
+        /// `PATH` population) and `detector self-check` (which spawns
+        /// nothing at all); if you want the half of this gate that needs
+        /// no sweep, run the latter.
+        ///
         /// Compare the freshly computed aggregate against the checked-in
         /// scoreboard and fail (nonzero exit) if `%flags_text` dropped, the
         /// `no-tier` count grew, or the `suspicious` count grew — the
@@ -82,6 +104,21 @@ enum Command {
         /// `$GITHUB_STEP_SUMMARY`).
         #[arg(long, value_enum, default_value = "text")]
         format: ScoreFormat,
+        /// Run a full-`PATH` sweep (no `--tools`) directly on this machine,
+        /// with no namespace containment and no canary tripwires.
+        ///
+        /// Without this flag, a full-`PATH` sweep re-execs itself under a
+        /// fresh user/PID/mount namespace (`mandible_extract::exec::
+        /// containment`) and seeds three canary tripwires
+        /// (`mandible_extract::exec::canary`) before probing, refusing to
+        /// run at all if the host cannot provide all three namespace
+        /// types — see that module's doc comment for exactly what this
+        /// buys and what it does not (notably: no network containment).
+        /// A `--tools`-pinned run (a fixed, small, reviewed list) is never
+        /// gated by this — only an unbounded scan of everything on `PATH`
+        /// is.
+        #[arg(long)]
+        allow_uncontained: bool,
     },
     /// Replay every fixture under `corpus/<tool>/<version>/` through the
     /// real tiered extraction pipeline with zero subprocesses (spec
@@ -125,6 +162,18 @@ enum Command {
         /// the intended one. Omit it and nothing about this run changes.
         #[arg(long)]
         baseline_dir: Option<PathBuf>,
+        /// Print one fixture's captured help text beside the tree the
+        /// parser makes of it, and exit without checking anything.
+        ///
+        /// Exists because a fixture is otherwise only inspectable by
+        /// reading a `meta.toml`, an `expected.snap` and a capture file
+        /// separately and holding all three in your head. That is the same
+        /// comparison `xtask audit emit` renders for a live tool, sourced
+        /// from the frozen capture instead, so what a fixture actually
+        /// encodes can be checked by looking rather than by trusting a
+        /// summary of it. Matches on a substring of `<tool>/<version>`.
+        #[arg(long)]
+        show: Option<String>,
     },
     /// A semantic per-tool diff between two coverage scoreboards (WS2 part
     /// 1, `transition.rs`'s own doc comment): status transitions, flag-
@@ -169,39 +218,189 @@ enum Command {
         #[command(subcommand)]
         action: AuditAction,
     },
+    /// The family-detector calibration harness (`detector.rs`'s own doc
+    /// comment has the full rationale): a fleet-wide defect detector
+    /// generalizes one human finding across every tool on `PATH`, which
+    /// makes its fleet number confident and unverified at the same time.
+    /// This checks a detector against the audit's own labelled tools —
+    /// it must fire on the known-bad and stay silent on the known-good —
+    /// and **a detector's fleet-wide number is not quotable until it has
+    /// passed** (spec §13.1e).
+    Detector {
+        #[command(subcommand)]
+        action: DetectorAction,
+    },
+    /// Rank captured `--help` documents by how much structurally
+    /// interesting text the parse left on the table — the complement of
+    /// the existence oracle (`existence.rs` catches invention; this
+    /// catches omission). Replays `corpus/`-shaped fixture directories
+    /// from frozen bytes, spawning nothing.
+    ///
+    /// **This is a discovery instrument, never a gate and never a
+    /// measurement.** It emits a reading queue for a human, who turns a
+    /// confirmed finding into a calibrated, ratchet-gated rule. There is
+    /// deliberately no `--check` here to add one to, nothing in `coverage
+    /// --check` consults it, and `residue::tests::
+    /// residue_is_reachable_from_no_gate` fails the build if that ever
+    /// changes. See `xtask/src/residue.rs`'s doc comment and spec §13.1f
+    /// for why an unvalidated number competing with the audit's ground
+    /// truth is the specific harm being designed out.
+    Residue {
+        /// The fixture root to rank. Any directory of
+        /// `<tool>/<version>/meta.toml` fixtures — `corpus/` itself, or
+        /// `xtask audit fixtures`' staging output under `tmp/`.
+        #[arg(long, default_value = "corpus")]
+        dir: PathBuf,
+        /// How many ranked tools to list.
+        #[arg(long, default_value_t = 25)]
+        top: usize,
+        /// How many of the top entries to print block-level evidence for.
+        #[arg(long, default_value_t = 10)]
+        detail: usize,
+        /// Also rank tools whose parse produced no structure at all
+        /// (`verbatim`). Off by default: that is a status the scoreboard
+        /// already counts, and every such tool trivially leaves its whole
+        /// document unaccounted, which would fill the list.
+        #[arg(long)]
+        include_verbatim: bool,
+        /// Verdict directory to cross-reference (`<dir>/<seed>.toml`).
+        /// When the file exists, the run also reports how the ranking
+        /// lines up against the recorded human verdicts — the only honest
+        /// way to find out whether this signal separates anything.
+        #[arg(long, default_value = "audit")]
+        audit_dir: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        seed: u64,
+    },
+}
+
+#[derive(Subcommand)]
+enum DetectorAction {
+    /// Every registered detector, the defect family it claims to
+    /// generalize, and how many audited tools carry that family label —
+    /// i.e. how much evidence a calibration run can possibly have.
+    List {
+        #[arg(long, default_value_t = 2)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
+    /// A detector's confusion matrix against the labelled set: fires on
+    /// labelled-bad, misses, silence on labelled-good, false alarms — with
+    /// every cell's tools named so a human can check the disagreements.
+    Calibrate {
+        /// Which detector, by registered name. Omit to calibrate all of
+        /// them.
+        #[arg(long)]
+        detector: Option<String>,
+        #[arg(long, default_value_t = 2)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// The corpus root holding the audited tools' fixtures.
+        #[arg(long, default_value = "corpus")]
+        corpus_dir: PathBuf,
+        /// The fixture directory name to replay under each tool — the
+        /// audit's own staged fixtures live at
+        /// `corpus/<tool>/audit-seed2/`.
+        #[arg(long, default_value = "audit-seed2")]
+        fixture_version: String,
+    },
+    /// Re-run a detector's own hand-built cases: the defective shape built
+    /// directly, plus the correct parses that resemble it.
+    ///
+    /// This is the evidence that tells a *repaired* family apart from a
+    /// *broken* detector (spec §13.1e) — a distinction the fleet-wide count
+    /// cannot make, since both read zero. It is also the half of
+    /// `coverage --check`'s ratchet gate that needs no `PATH` sweep: it
+    /// spawns nothing, reads no fixture, and runs in a second.
+    SelfCheck {
+        /// Which detector, by registered name. Omit to check all of them.
+        #[arg(long)]
+        detector: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
 enum AuditAction {
-    /// Draw a deterministic, stratified sample of tools and write/merge a
-    /// resumable verdict file at `<dir>/<seed>.toml`.
-    Sample {
-        /// Random seed. Same seed (and same `--sample`/`--tools`) always
-        /// draws the same tools; a different seed draws a different set.
+    /// Sweep `PATH` once, classify every tool, and write the
+    /// shuffle-stratified frozen queue (`<dir>/queue.toml`) plus its
+    /// captured raw bytes (`<dir>/queue-captures/`, gitignored) that
+    /// `sample` draws from and `reclassify` replays — see `crate::queue`'s
+    /// own doc comment for the full design. This is the ~20-minute,
+    /// PATH-probing step; run it once, not on every draw.
+    Freeze {
+        /// Seed for the shuffle-stratification (`crate::queue::shuffle_stratify`)
+        /// that decides the queue's cursor order. Distinct from `sample`'s
+        /// `--seed`, which only names a verdict file — see `crate::queue`'s
+        /// doc comment.
         #[arg(long)]
         seed: u64,
-        /// How many tools to draw in total, split proportionally across
-        /// the parse-status strata found in the population.
-        #[arg(long)]
-        sample: usize,
-        /// Sample from this fixed, comma-separated list instead of
-        /// scanning `PATH` — pins a reproducible population, which is what
-        /// tests and CI use (mirrors `coverage --tools`).
+        /// Freeze this fixed, comma-separated list instead of scanning
+        /// `PATH` — pins a reproducible population, which is what tests and
+        /// CI use (mirrors `coverage --tools`).
         #[arg(long, value_delimiter = ',')]
         tools: Option<Vec<String>>,
-        /// Directory holding verdict files (`<dir>/<seed>.toml`).
+        /// Directory holding the queue (`<dir>/queue.toml`) and its
+        /// captures (`<dir>/queue-captures/`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Skip probing entirely: just hash the current `PATH` population
+        /// and report whether it still matches the existing queue's,
+        /// without writing anything. Mirrors `coverage --check`.
+        #[arg(long)]
+        check: bool,
+        /// Same escape hatch as `coverage --allow-uncontained`, and the
+        /// same default: a full-`PATH` freeze (no `--tools`, and not
+        /// `--check`, which probes nothing) is namespace-contained and
+        /// canary-seeded unless this is passed.
+        #[arg(long)]
+        allow_uncontained: bool,
+    },
+    /// Advance `<dir>/queue.toml`'s cursor by `--sample` tools and
+    /// write/merge them into a resumable verdict file at
+    /// `<dir>/<seed>.toml`. Requires a queue built by `freeze` first — this
+    /// no longer sweeps `PATH` or reclassifies anything itself.
+    Sample {
+        /// Names the verdict file (`<dir>/<seed>.toml`) this draw is merged
+        /// into. No longer a draw seed — the draw's only randomness was
+        /// already spent once, at `freeze` time.
+        #[arg(long)]
+        seed: u64,
+        /// How many tools to draw from the queue's current cursor.
+        #[arg(long)]
+        sample: usize,
+        /// Directory holding the queue (`<dir>/queue.toml`) and verdict
+        /// files (`<dir>/<seed>.toml`).
         #[arg(long, default_value = "audit")]
         dir: PathBuf,
         /// A plain-text file of `<tool> <reason...>` lines (`#` comments and
         /// blank lines ignored, same convention as `ingest --verdicts`)
         /// naming tools to include in the sample *unconditionally*, on top
-        /// of the stratified random draw. The motivating case: 14 tools an
-        /// unaudited heuristic (commit `3464b0c`) promoted `low-confidence`
-        /// -> `ok` mid-freeze, identified via `xtask sweep-diff` — a
-        /// `--tools` shortcut population would not reliably re-draw them,
-        /// so they are named explicitly instead of left to chance.
+        /// of the queue draw. The motivating case: 14 tools an unaudited
+        /// heuristic (commit `3464b0c`) promoted `low-confidence` -> `ok`
+        /// mid-freeze, identified via `xtask sweep-diff` — independent of
+        /// the queue's cursor, so they are named explicitly instead of left
+        /// to chance.
         #[arg(long)]
         force_include_file: Option<PathBuf>,
+    },
+    /// Recompute every queued tool's stratum against the *current* parser
+    /// from the bytes `freeze` already captured — no `PATH` sweep, no
+    /// subprocess spawned, run in parallel across the queue. Reports
+    /// transitions and the wall-clock cost (measured: roughly half of a
+    /// live re-probe's time on this batch's evaluation machine, see
+    /// `crate::queue::cmd_reclassify`'s doc comment for the honest number).
+    Reclassify {
+        /// Directory holding the queue (`<dir>/queue.toml`) and its
+        /// captures (`<dir>/queue-captures/`).
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Write the recomputed strata back into `queue.toml` in place.
+        /// Without this, the command only reports what would change — the
+        /// queue's order and cursor are never touched either way.
+        #[arg(long)]
+        update: bool,
     },
     /// The interactive review loop: raw `--help` text and the parsed tree,
     /// side by side, one verdict at a time. Reads `<word> [note...]` lines
@@ -277,6 +476,75 @@ enum AuditAction {
         #[arg(long)]
         force: bool,
     },
+    /// Correct one already-recorded verdict without destroying it: the
+    /// original verdict and note stay exactly as reviewed, and a new
+    /// `[[amendments]]` entry records what it became and why. Aggregate
+    /// computation (`report`, `fixtures`) uses the amended value; a plain
+    /// read of the TOML still shows the original. Requires a reason
+    /// (distinct from `--note`, which is the note attached to the new
+    /// verdict, obligatory only when the new verdict is `wrong`/
+    /// `incomplete` — same rule an ordinary verdict follows). See
+    /// `mandible_core::audit::amend`'s doc comment for the full mechanism.
+    Amend {
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// The tool whose verdict is being corrected.
+        #[arg(long)]
+        tool: String,
+        /// The corrected verdict (`c`/`correct`, `i`/`incomplete`,
+        /// `w`/`wrong`, `s`/`skip`).
+        #[arg(long)]
+        verdict: String,
+        /// The note attached to the corrected verdict. Required when
+        /// `--verdict` is `wrong`/`incomplete`, same obligation an ordinary
+        /// verdict carries.
+        #[arg(long)]
+        note: Option<String>,
+        /// Why the original verdict was wrong and is being corrected.
+        /// Always required — an amendment with nothing recorded about why
+        /// is exactly the unauditable change this command exists to
+        /// prevent.
+        #[arg(long)]
+        reason: String,
+    },
+    /// Spot-audit one mass-`ok` promotion event (spec §13.1b's sixth rule:
+    /// "any change that promotes more than a handful of tools to `ok` must
+    /// include a spot-audit of 5-10 randomly drawn promoted tools, recorded
+    /// in the audit manifest as its own stratum"). Draws `--sample` tools
+    /// at random — via a seeded, reproducible shuffle, never hand-picked —
+    /// from `--promoted`'s own tool list, classifies each with one fresh
+    /// extraction pass, and records them in `<dir>/<seed>.toml` as their
+    /// own `spot-audit:<event>` stratum, reported by `report` alongside the
+    /// ordinary parse-status strata and `forced-inclusion`.
+    SpotAudit {
+        /// Names the verdict file (`<dir>/<seed>.toml`) this draw is merged
+        /// into — same meaning as `sample`'s `--seed`.
+        #[arg(long)]
+        seed: u64,
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+        /// Names this promotion event; becomes the reported stratum label
+        /// `spot-audit:<event>`.
+        #[arg(long)]
+        event: String,
+        /// The tools this event actually promoted — the population this
+        /// spot-check draws from, never the whole fleet.
+        #[arg(long, value_delimiter = ',')]
+        promoted: Vec<String>,
+        /// How many to draw. Spec §13.1b's sixth rule asks for 5-10. If
+        /// `--promoted` names fewer tools than this, every one of them is
+        /// audited and the shortfall is reported explicitly — never a
+        /// silently smaller sample, never a padded count.
+        #[arg(long, default_value_t = 8)]
+        sample: usize,
+        /// Seed for the reproducible random draw over `--promoted`, mixed
+        /// with `--event` (via `crate::rng::stratum_seed`) so two
+        /// promotion events never share a correlated draw pattern.
+        #[arg(long)]
+        draw_seed: u64,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -289,16 +557,29 @@ fn main() -> anyhow::Result<()> {
             shard,
             progress,
             format,
+            allow_uncontained,
         } => {
             let shard = shard.as_deref().map(parse_shard).transpose()?;
-            run_coverage(check, &out, tools, shard, progress, format)
+            run_coverage(
+                check,
+                &out,
+                tools,
+                shard,
+                progress,
+                format,
+                allow_uncontained,
+            )
         }
         Command::Corpus {
             bless,
             dir,
             format,
             baseline_dir,
-        } => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+            show,
+        } => match show {
+            Some(pattern) => corpus::show_fixture(&dir, &pattern),
+            None => run_corpus(bless, &dir, format, baseline_dir.as_deref()),
+        },
         Command::SweepDiff {
             before,
             after,
@@ -306,15 +587,53 @@ fn main() -> anyhow::Result<()> {
             format,
         } => run_sweep_diff(&before, &after, out.as_deref(), format),
         Command::Audit { action } => run_audit(action),
+        Command::Detector { action } => match action {
+            DetectorAction::List { seed, dir } => detector::cmd_list(&dir, seed),
+            DetectorAction::Calibrate {
+                detector: name,
+                seed,
+                dir,
+                corpus_dir,
+                fixture_version,
+            } => {
+                detector::cmd_calibrate(&dir, seed, &corpus_dir, &fixture_version, name.as_deref())
+            }
+            DetectorAction::SelfCheck { detector: name } => {
+                detector::cmd_self_check(name.as_deref())
+            }
+        },
+        Command::Residue {
+            dir,
+            top,
+            detail,
+            include_verbatim,
+            audit_dir,
+            seed,
+        } => residue::run(&dir, top, detail, include_verbatim, &audit_dir, seed),
     }
 }
 
 fn run_audit(action: AuditAction) -> anyhow::Result<()> {
     match action {
+        AuditAction::Freeze {
+            seed,
+            tools,
+            dir,
+            check,
+            allow_uncontained,
+        } => {
+            // `--check` probes nothing (see `queue::cmd_freeze`'s early
+            // return): only a real, tools-unbounded sweep needs
+            // containment.
+            let is_full_path_sweep = tools.is_none() && !check;
+            let canaries = sweep_guard(is_full_path_sweep, allow_uncontained)?;
+            let freeze_result = queue::cmd_freeze(seed, tools, &dir, check);
+            finish_sweep_guard(canaries)?;
+            freeze_result
+        }
         AuditAction::Sample {
             seed,
             sample,
-            tools,
             dir,
             force_include_file,
         } => {
@@ -322,8 +641,9 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 Some(path) => audit::load_force_include(&path)?,
                 None => Vec::new(),
             };
-            audit::cmd_sample(seed, sample, tools, &dir, &force_include)
+            queue::cmd_sample(seed, sample, &dir, &force_include)
         }
+        AuditAction::Reclassify { dir, update } => queue::cmd_reclassify(&dir, update),
         AuditAction::Review { seed, dir } => {
             let stdin = std::io::stdin();
             let mut input = stdin.lock();
@@ -353,6 +673,22 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 corpus_dir.unwrap_or_else(|| dir.join(seed.to_string()).join("fixtures"));
             audit::cmd_fixtures(&dir, seed, &corpus_dir, only, force)
         }
+        AuditAction::Amend {
+            seed,
+            dir,
+            tool,
+            verdict,
+            note,
+            reason,
+        } => audit::cmd_amend(&dir, seed, &tool, &verdict, note, reason),
+        AuditAction::SpotAudit {
+            seed,
+            dir,
+            event,
+            promoted,
+            sample,
+            draw_seed,
+        } => audit::cmd_spot_audit(&dir, seed, &event, &promoted, sample, draw_seed),
     }
 }
 
@@ -436,6 +772,101 @@ fn parse_shard(spec: &str) -> anyhow::Result<(usize, usize)> {
     Ok((index, total))
 }
 
+/// Guard the front of a full-`PATH` sweep entrypoint (`coverage`, `audit
+/// freeze`): namespace-contain it by default and seed the three canary
+/// tripwires, refusing to run uncontained unless `allow_uncontained` was
+/// passed explicitly.
+///
+/// `is_full_path_sweep` is `false` for a `--tools`-pinned run (a fixed,
+/// small, reviewed list — what CI and tests use) or a `--check`-only dry
+/// run that probes nothing; neither needs containment, and `Ok(None)` is
+/// returned immediately for both, matching every earlier caller's
+/// unguarded behavior exactly.
+///
+/// **This function does not itself decide whether the current process
+/// already is the contained one.** It asks
+/// `mandible_extract::exec::containment::is_contained()`. The *first*
+/// invocation of `xtask coverage`/`xtask audit freeze` (no sentinel env
+/// var set) falls through to `containment::enter_or_refuse()`, which —
+/// when namespaces are available — replaces this process's image via
+/// `exec` and never returns; control lands back here a second time, in a
+/// freshly re-exec'd process, with the sentinel now set, and this
+/// function's first branch fires instead.
+fn sweep_guard(
+    is_full_path_sweep: bool,
+    allow_uncontained: bool,
+) -> anyhow::Result<Option<mandible_extract::exec::canary::CanarySet>> {
+    use mandible_extract::exec::{canary::CanarySet, containment};
+
+    if !is_full_path_sweep {
+        return Ok(None);
+    }
+
+    if containment::is_contained() {
+        let watch_dir = containment::default_watch_dir()
+            .map_err(|e| anyhow::anyhow!("failed to create canary watch directory: {e}"))?;
+        let set = CanarySet::spawn(watch_dir)
+            .map_err(|e| anyhow::anyhow!("failed to spawn canary tripwires: {e}"))?;
+        println!(
+            "sweep is namespace-contained; canary tripwires armed (pty={:?})",
+            set.pty_slave_path()
+        );
+        return Ok(Some(set));
+    }
+
+    if allow_uncontained {
+        eprintln!(
+            "WARNING: running a full-PATH sweep WITHOUT namespace containment or canary \
+             tripwires (--allow-uncontained was passed). Evidence-before-argv gating (spec §6) \
+             is still in effect — this does not loosen what argv a probe can be sent — but the \
+             containment and detection layers this project's third safety layer adds are not \
+             present for this run. See spec.md §6/§8 and \
+             mandible_extract::exec::containment's doc comment."
+        );
+        return Ok(None);
+    }
+
+    let err = containment::enter_or_refuse();
+    anyhow::bail!(
+        "refusing to run a full-PATH sweep uncontained: {err}\n\
+         Namespace containment (user+PID+mount, spec §6/§8) is the default for a full-PATH \
+         sweep — a coverage/audit run invokes --help on every executable on PATH, and no \
+         static check can enumerate what those binaries do. Pass --allow-uncontained to run \
+         without it anyway (not recommended off CI/a disposable machine), or run somewhere \
+         `unshare --user --map-root-user --pid --mount` works."
+    )
+}
+
+/// Check every canary after a contained sweep, tear them all down
+/// regardless of the outcome (so a tripped canary's own processes never
+/// leak past this function), and fail loudly if anything tripped.
+///
+/// A no-op — correctly — when `canaries` is `None`: either this was not a
+/// full-`PATH` sweep, or the operator explicitly passed
+/// `--allow-uncontained`, and either way there was nothing to check.
+fn finish_sweep_guard(
+    canaries: Option<mandible_extract::exec::canary::CanarySet>,
+) -> anyhow::Result<()> {
+    let Some(mut set) = canaries else {
+        return Ok(());
+    };
+    let trips = set.check();
+    set.teardown();
+    if trips.is_empty() {
+        println!("canary tripwires: none fired");
+        return Ok(());
+    }
+    for trip in &trips {
+        eprintln!("CANARY TRIPPED: {trip}");
+    }
+    anyhow::bail!(
+        "{} canary tripwire(s) fired during the sweep — a probed tool had a real side effect \
+         the namespace did not prevent (see mandible_extract::exec::canary's doc comment for \
+         what each canary catches)",
+        trips.len()
+    );
+}
+
 fn run_coverage(
     check: bool,
     out: &PathBuf,
@@ -443,7 +874,11 @@ fn run_coverage(
     shard: Option<(usize, usize)>,
     progress: bool,
     format: ScoreFormat,
+    allow_uncontained: bool,
 ) -> anyhow::Result<()> {
+    let is_full_path_sweep = tools.is_none();
+    let canaries = sweep_guard(is_full_path_sweep, allow_uncontained)?;
+
     let (table, fresh) = match tools {
         Some(tools) => {
             println!(
@@ -458,9 +893,16 @@ fn run_coverage(
             coverage::run(shard, progress, format)
         }
     };
+
+    // Check and tear down the canaries right after the sweep that could
+    // have tripped them, before this function's own regression-check
+    // logic below (an unrelated concern) — a tripped canary is reported
+    // immediately rather than buried after a possibly-long `--check` diff.
+    finish_sweep_guard(canaries)?;
+
     println!("{table}");
     println!(
-        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {}/{} framework-detected",
+        "aggregate: {:.2}% of flags carry text across {} tools (accuracy: unmeasured), {} with no tier, {} suspicious, {} verbatim, {} man-shaped, {} ok-with-zero-flags, {} misattribution-suspect, {} existence-fabrication, {} bundle-collapse ({} real flags destroyed), {}/{} framework-detected",
         fresh.pct_flags_with_text,
         fresh.total,
         fresh.no_tier_count,
@@ -470,6 +912,8 @@ fn run_coverage(
         fresh.zero_flag_ok_count,
         fresh.misattribution_suspect_tools,
         fresh.existence_fabrication_tools,
+        fresh.bundle_collapse_tools,
+        fresh.bundle_destroyed_flags,
         fresh.framework_detected_count,
         fresh.total,
     );
@@ -592,6 +1036,223 @@ fn run_coverage(
                 previous.existence_fabrication_tools, fresh.existence_fabrication_tools
             );
         }
+        // `bundle_collapse_tools`/`bundle_destroyed_flags`
+        // (`crate::bundling`, the third oracle) used to be reported and not
+        // gated, because the numbers were expected to move the moment the
+        // synopsis grammar learned to split a bundle — and that movement was
+        // the fix landing, not a regression.
+        //
+        // **The fix landed** (`help_text::grammar::parse_bundled_shorts`;
+        // 58 tools / 465 destroyed flags -> 0 / 0 fleet-wide), so the
+        // number is now ratcheted at zero instead. It is gated against a
+        // literal 0 rather than against `previous`: the checked-in
+        // scoreboard is itself editable, so gating on it would let a commit
+        // that reintroduced the defect raise its own baseline.
+        //
+        // The gate is deliberately NOT `count == 0` on its own — that is
+        // satisfied by deleting the detector, and it is the exact metric
+        // trap spec §13.1b records twice. `detector::ratchet_at_zero` also
+        // requires the detector's own hand-built self-checks to still hold,
+        // which is the evidence that a zero means "repaired" rather than
+        // "broken".
+        if fresh.bundle_collapse_tools != previous.bundle_collapse_tools
+            || fresh.bundle_destroyed_flags != previous.bundle_destroyed_flags
+        {
+            println!(
+                "bundled-short-flag collapse changed from {} tool(s)/{} destroyed flag(s) to {} tool(s)/{} destroyed flag(s)",
+                previous.bundle_collapse_tools,
+                previous.bundle_destroyed_flags,
+                fresh.bundle_collapse_tools,
+                fresh.bundle_destroyed_flags,
+            );
+        }
+        let ratchet = detector::ratchet_at_zero(
+            detector::find("bundled-short-flag")?.as_ref(),
+            fresh.bundle_collapse_tools,
+            fresh.bundle_destroyed_flags,
+        );
+        println!("\n{}", ratchet.report());
+        if !ratchet.holds() {
+            regressed = true;
+        }
+        // `alternation_defect_tools`/`alternation_defect_flags`
+        // (`crate::alternation`, the fourth oracle) is **reported and NOT
+        // gated**, and unlike `bundle_collapse_tools` above it cannot yet be
+        // ratcheted at zero. The family is fixed — every shape the grammar
+        // can reach (`grammar::parse_flag_alternation`) is closed, and all
+        // three of its labelled fixtures were promoted — but the fleet count
+        // does not reach zero, and the residual is not this family's to
+        // close.
+        //
+        // **The residual is `btrfs`, named here the way `ssh-keygen` is
+        // named in `bundling`'s declared exclusion.** Its help text is a
+        // repeated-prefix usage catalogue, one line per subcommand:
+        //
+        //     btrfs device scan [-d|--all-devices] <device> [<device>...]
+        //
+        // `[-d|--all-devices]` is a real alternation this detector reads
+        // correctly, and `-d`/`--all-devices` are real flags of the node
+        // `btrfs device scan`. That node does not exist in the tree, because
+        // the catalogue was never parsed into subcommands
+        // (`unparsed-subcommand`, a different family). The reason this is an
+        // out-of-scope miss rather than an unmeasured shortfall is stronger
+        // than "the subcommand is missing": the only node available to hang
+        // those flags on is the **root**, and `-d` is not a root flag of
+        // `btrfs`. Emitting it there would assert something false about the
+        // tool. Reaching further here would be *wrong*, not merely hard —
+        // which is the whole difference between a principled exclusion and a
+        // gap someone has not got to yet.
+        //
+        // **It is the same `btrfs` the ratchet immediately below excludes as
+        // its own shape C**, which is worth reading as one fact rather than
+        // two coincidences: that catalogue has no grammar, so this detector
+        // cannot place the flags and that one cannot recover the names.
+        // Whichever shape lands first, the other's residual goes to zero for
+        // free, and this block can then be promoted to `ratchet_at_zero`
+        // with no change to the detector.
+        //
+        // Gating it at zero *now* would leave only two ways to get green:
+        // narrow the detector until it stops seeing a real defect, or
+        // fabricate a root flag. Both are worse than an ungated number, and
+        // the first is this project's standing rule inverted (spec §13.1b: a
+        // metric with no reachable baseline must not silently fail a run).
+        //
+        // The self-checks are still re-run and still printed, because the
+        // evidence that the detector is alive is worth having whether or not
+        // a gate consumes it.
+        if fresh.alternation_defect_tools != previous.alternation_defect_tools
+            || fresh.alternation_defect_flags != previous.alternation_defect_flags
+        {
+            println!(
+                "brace-alternation-flag defects changed from {} tool(s)/{} flag spelling(s) to {} tool(s)/{} flag spelling(s) (reported, not gated)",
+                previous.alternation_defect_tools,
+                previous.alternation_defect_flags,
+                fresh.alternation_defect_tools,
+                fresh.alternation_defect_flags,
+            );
+        }
+        let alternation_detector = detector::find("brace-alternation-flag")?;
+        let alternation_self_checks = detector::run_self_checks(alternation_detector.as_ref());
+        println!(
+            "\nbrace-alternation-flag: {} tool(s)/{} flag spelling(s) — REPORTED, NOT GATED (the \
+             residual is `btrfs`'s repeated-prefix usage catalogue, whose flags belong to a \
+             subcommand node that does not exist; see xtask/src/main.rs for why hanging them on \
+             the root would be a fabrication rather than a fix).\n{}",
+            fresh.alternation_defect_tools,
+            fresh.alternation_defect_flags,
+            detector::render_self_checks(&alternation_self_checks),
+        );
+        // Not gated on the count — but the self-checks ARE gated, because a
+        // detector whose own evidence has stopped holding is reporting a
+        // number that means nothing, and that is true whether or not the
+        // number is allowed to be non-zero.
+        if !detector::self_checks_are_conclusive(&alternation_self_checks) {
+            println!(
+                "brace-alternation-flag's own hand-built evidence no longer holds — its fleet \
+                 number above cannot be read at all until that is fixed."
+            );
+            regressed = true;
+        }
+        // Same ratchet, same two halves, for shape A of the
+        // `unparsed-subcommand` split (`crate::commandtable`). The fix
+        // landed — `ar` and its four aliases went from 1 node to 9 with no
+        // flag lost anywhere — so this is gated at a literal 0 rather than
+        // against the checked-in scoreboard, for the reason spelled out
+        // above: a baseline the commit can edit is a baseline the commit
+        // can raise. A scoreboard written before `command_table_tools`
+        // existed parses that key as 0, which is exactly what a healthy
+        // fleet reports, so an older baseline stays comparable.
+        //
+        // This gate says nothing about shapes B, C and D — they have no
+        // detector, and `mandible_core::audit`'s family table records that
+        // a zero here does NOT mean `unparsed-subcommand` is finished.
+        let table_ratchet = detector::ratchet_at_zero(
+            detector::find("unparsed-command-table")?.as_ref(),
+            fresh.command_table_tools,
+            0,
+        );
+        println!("\n{}", table_ratchet.report());
+        if !table_ratchet.holds() {
+            regressed = true;
+        }
+
+        // `repeated-char-flag` (`crate::repeated_char`), the second of the
+        // three families sharing the `short && !long && value_name`
+        // fingerprint, on exactly the terms `bundled-short-flag` reached
+        // above and after the same movement: reported-and-ungated while the
+        // number had no baseline, ratcheted at a literal zero once the
+        // repair landed (`help_text::sections::repair_repeated_character_flags`).
+        // Gated against `0` and not against `previous` for the same reason —
+        // the checked-in scoreboard is editable, so a commit reintroducing
+        // the defect would otherwise raise its own baseline — and gated on
+        // the detector's own self-checks alongside the count, because a gate
+        // on `count == 0` alone is satisfied by deleting the detector.
+        if fresh.repeated_char_tools != previous.repeated_char_tools
+            || fresh.repeated_char_flags != previous.repeated_char_flags
+        {
+            println!(
+                "repeated-char-flag misreads changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
+                previous.repeated_char_tools,
+                previous.repeated_char_flags,
+                fresh.repeated_char_tools,
+                fresh.repeated_char_flags,
+            );
+        }
+        let repeat_ratchet = detector::ratchet_at_zero(
+            detector::find("repeated-char-flag")?.as_ref(),
+            fresh.repeated_char_tools,
+            fresh.repeated_char_flags,
+        );
+        println!("\n{}", repeat_ratchet.report());
+        if !repeat_ratchet.holds() {
+            regressed = true;
+        }
+
+        // `single-dash-long` (`crate::single_dash_long`), the third and last
+        // family sharing the `short && !long && value_name` fingerprint, on
+        // exactly the terms the two above reached and after the same
+        // movement: reported-and-ungated while the family was unrepaired,
+        // ratcheted at a literal zero on the commit that repaired it
+        // (`help_text::sections::repair_single_dash_long_options`). It was
+        // the largest defect signal in the fleet when it was measured —
+        // 132 tool(s) and 8,784 flag(s), 17.6% of every flag extracted —
+        // which is precisely why it is worth a gate now that it reads zero.
+        //
+        // Gated against `0` and not against `previous` for the same reason
+        // as the other two: the checked-in scoreboard is editable, so a
+        // commit reintroducing the defect would otherwise raise its own
+        // baseline. Gated on the detector's own self-checks alongside the
+        // count, because a gate on `count == 0` alone is satisfied by
+        // deleting the detector — `ratchet_at_zero` requires both halves,
+        // and `detector::tests::deleting_the_detector_fails_the_ratchet_at_
+        // a_perfect_zero` is the test that says so. The complementary
+        // hazard — the detector staying healthy while the *fix* is deleted,
+        // which no fleet count and no hand-built self-check can catch —
+        // is covered by
+        // `single_dash_long::tests::the_real_parser_leaves_no_split_in_any_
+        // audited_fixture`, which replays frozen bytes through the real
+        // parser under `cargo nextest` rather than under a sweep.
+        if fresh.single_dash_split_tools != previous.single_dash_split_tools
+            || fresh.single_dash_split_flags != previous.single_dash_split_flags
+        {
+            println!(
+                "single-dash-long splits changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
+                previous.single_dash_split_tools,
+                previous.single_dash_split_flags,
+                fresh.single_dash_split_tools,
+                fresh.single_dash_split_flags,
+            );
+        }
+        let single_dash_ratchet = detector::ratchet_at_zero(
+            detector::find("single-dash-long")?.as_ref(),
+            fresh.single_dash_split_tools,
+            fresh.single_dash_split_flags,
+        );
+        println!("\n{}", single_dash_ratchet.report());
+        if !single_dash_ratchet.holds() {
+            regressed = true;
+        }
+
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }

@@ -524,6 +524,44 @@ damage a user's machine, and it gets its own section and its own tests.
    empty.) Note that rule 2a is the necessary companion: counting arguments is
    not enough, because an *empty* argument satisfies this rule while being the
    opposite of inert.
+
+   **1a. A framework protocol's words are a bare invocation to a tool that
+   does not speak it.** `__complete`, `completion <shell>` and `-- <partial>`
+   are subcommand invocations *only* in the framework that defines them.
+   Fired speculatively at an arbitrary binary they are ordinary positionals,
+   and rule 1's prohibition applies in substance even though the argv is
+   non-empty and sits on rule 2's list. The list is not wrong; its premise is
+   narrower than it reads. **Every shape on it was validated against tools
+   that parse argv** — the measurement was "does a getopt program act on
+   this?", and the answer was no. A program that *ignores* argv and starts
+   anyway is outside that premise entirely, and there is nothing about a
+   shape that can tell you which kind of program is on the other end.
+
+   Both incidents this section records are that same failure, twice: `wall
+   __complete` broadcast a word to every terminal on a machine, and
+   `<tool> completion zsh`/`bash` left 437 daemons running (rule 4's
+   measurement). Neither was a bad *shape*; both were a right shape sent to
+   the wrong program.
+
+   **So a protocol word requires prior evidence that the tool speaks the
+   protocol, from the tool itself, before any argv is constructed.** Tier E
+   gates `__complete` on the `spf13/cobra` marker read out of the compiled
+   binary (§7 Tier E). Tier C gates `completion <shell>` on either that same
+   cobra marker — cobra registers the command itself, possibly hidden, so
+   bytes are the only evidence available — or the tool's own root `--help`
+   naming `completion`/`completions` as a command (§7 Tier C). Evidence is
+   read from the artifact or from the tool's own output, **never from its
+   name**: a per-tool list of who may be probed is §1's forbidden knowledge
+   with a safety label on it, and the never-probe list (rule 0) stays what it
+   is — closed, small, and about programs that act on machine state — rather
+   than becoming the dumping ground for every tool that misbehaves.
+
+   This is also where the leverage is. Framework detection identifies a
+   minority of tools, which reads as a coverage gap until you notice what it
+   implies here: the overwhelming majority of ~2,300 speculative protocol
+   probes per sweep were fired at tools that could never have answered them.
+   That majority is the daemon leak, the PTY-canary abort, and two thirds of
+   sweep time — one defect with three symptoms, not three defects.
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
    [<words...>]`, `<words...> --help`/`-h` (a subcommand path's own probe,
@@ -709,6 +747,49 @@ damage a user's machine, and it gets its own section and its own tests.
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
    kill the **process group**, not just the child — completion scripts spawn
    helpers, and killing only the direct child leaks them.
+
+   **And no probe is complete while its descendants are alive.** The process
+   group is necessary and not sufficient, for a reason the rule as written
+   above missed: a program that daemonises leaves the group *and* the session
+   on its own — `fork`, parent exits, child `setsid`s — after which nothing
+   about the survivor's group, session, or parent points back at the probe.
+   Measured: **622 processes** left behind on a developer box, the oldest five
+   days old — `blkmapd` ×148, `rpc.idmapd` ×144, `rpc.gssd` ×144, plus
+   `sudo_logsrvd` listening on `0.0.0.0:30343` and `[::]:30343`, `guacd` on
+   `127.0.0.1:4822`, and `pam-auth-update` burning a full core for three days.
+   **Not a hang**, which is why no timeout change could have helped: all 2,302
+   `probe-start` lines in a traced sweep had a matching `probe-done`, so every
+   probe involved returned normally and its child was already gone.
+
+   `run_inert` therefore reaps before returning, in two halves
+   (`mandible-extract/src/exec/reap.rs`). The process marks itself a **child
+   subreaper** (`prctl(PR_SET_CHILD_SUBREAPER)`), so an orphaned descendant is
+   reparented to mandible rather than to init however many times it forked or
+   `setsid`ed — the kernel walks up to the nearest subreaper ancestor and
+   neither session nor process group takes part in that walk. That reduces the
+   candidate set to "our own children". A **per-invocation token** in the
+   probe's environment, checked against `/proc/<pid>/environ`, is what then
+   attributes a survivor to *this* probe: adoption alone cannot distinguish a
+   leaked daemon from a child a concurrent probe legitimately owns, and a
+   blunt "kill anything adopted" would be a new hazard rather than a fix.
+   Killing is by pid, never by process group — an escapee's pgid is usually
+   the direct child's pid, already waited on and free to have been recycled.
+   Rounds and a wall-clock budget bound the work, so a process wedged in
+   uninterruptible sleep costs milliseconds instead of turning this into a new
+   way for extraction to hang. Linux only (`/proc` +
+   `PR_SET_CHILD_SUBREAPER`); elsewhere the leak stands as the residual risk
+   rule 8 already documents.
+
+   **This is the second layer, not the fix.** The root cause is a probe that
+   should never have been sent — see rule 1 and §7 Tier C's gate. Reaping
+   contains what runs anyway, exactly as `exec::containment` does for a sweep,
+   and must never become a reason to send a riskier argv.
+   `mandible-extract/tests/exec_policy.rs`'s `double_fork_escape` module is
+   the regression net: its shim starts a `setsid`ed daemon and exits 0, so the
+   probe never reaches a timeout; the test asserts the daemon really did lead
+   its own session (otherwise it would be proving the pre-existing group kill)
+   and that `/proc/<pid>` is gone rather than holding a zombie. It fails
+   without the reap.
 5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation; a tool
    that streams forever must not exhaust memory. Reader threads (or a poll loop)
    are mandatory to avoid pipe deadlock on large output.
@@ -1149,7 +1230,89 @@ which is the safety property that matters when processing untrusted output.
 - Walk `complete -F`/`compgen -W` registrations and `case "$prev" in` branches as
   typed AST nodes.
 
-### Tier D — man page prose backfill
+**Measured cost on a full-screen program with no `completion` subcommand**
+(task #14, 2026-08-13): `vim.basic` extracts in **~21.25s**, a ~200x outlier
+against the fleet, even though its 45 flags all parse correctly and Tier B's
+own probe/parse together cost single-digit milliseconds. Isolated with
+`CompletionScriptTier::detect()` called directly against the real binary:
+**20.03s**, which is the whole story. `vim.basic` has no `completion`
+subcommand, so `probe_and_extract_flags`'s two sequential probes — argv
+`["completion", "zsh"]`, then `["completion", "bash"]` (spec's own request-
+zsh-first-bash-fallback order above) — each land on vim's ordinary "open
+these two file names" behavior: it enters its normal full-screen editor
+session (confirmed by the alternate-screen-buffer escape sequence,
+`\x1b[?1049h`, appearing in the captured stdout) instead of erroring out on
+an unrecognized subcommand. Given no controlling terminal (`run_inert`'s
+sandboxing gives every probe its own session, spec §6 rule 6), it neither
+produces the completion output Tier C wants nor exits — it just sits until
+each probe's own `PROBE_TIMEOUT` (10s) kills it. Two probes × 10s ≈ the
+entire measured 21.25s; parse time is not involved at all, and there is no
+superlinear behaviour in `help_text::sections`'s parser to fix here — this
+is pure probe time, correctly bounded by the existing timeout rather than
+hanging forever.
+
+This is a shape, not a `vim` special case: any interactive full-screen
+program that (a) has no `completion` subcommand and (b) does not validate
+an unrecognized positional before entering its main loop pays the same
+2×`PROBE_TIMEOUT` tax from this tier's detection probe alone.
+
+**Gated on evidence, and that is the fix.** The two changes considered when
+the paragraph above was written — shortening `PROBE_TIMEOUT`, or an
+alt-screen-escape early exit — were both rejected as unmeasured changes to
+`exec/`, and both are still rejected. Neither was the right question. The
+cost is not that the probe waits too long; it is that **the probe should
+never have been sent**: `completion zsh` is a framework protocol's words,
+and sending them to a program that does not speak the protocol is §6 rule
+1a's bare invocation. The same probe was independently measured leaving
+437 daemons running (§6 rule 4) and tripping the sweep's PTY canary via
+`docker-proxy` binding `0.0.0.0:-1`. One defect, three symptoms.
+
+`CompletionScriptTier` therefore constructs a `completion <shell>` argv only
+given prior evidence, from the tool itself, that the subcommand exists:
+
+- **Tier A′'s artifact scan already found the `spf13/cobra` marker.** cobra
+  registers a `completion` command itself from v1.2 on, whether or not the
+  author mentions it, and it may be marked hidden — so for a cobra binary
+  the compiled bytes are the only evidence there is. Free: a memoized file
+  read, no subprocess.
+- **or the tool's own root `--help` names `completion`/`completions` as the
+  first token of a line** — the shape of a command-table row, which is how
+  every framework that ships the command advertises it. `--help` is the argv
+  Tier B already sends to every tool unconditionally, so this adds no shape
+  and no new exposure, and it is capped at rule 4's own 2 s `detect` cap.
+  Anchoring on the first token is the whole grammar, and it is what keeps a
+  flag row (`--completion <shell>`), prose ("generate the shell completion
+  script") and a usage synopsis (`Usage: tool completion <shell>`) from
+  counting as evidence.
+
+The answer is memoized per binary, exactly as framework identity is; the
+script itself is not, so a refresh (`r`) re-fetches the payload as before.
+
+Measured on one box with `coverage --tools`, before → after, every other
+column of the scoreboard byte-identical:
+
+| tool | before | after |
+|---|---|---|
+| `vim.basic` | 20 304 ms | 287 ms |
+| `bashbug` | 20 657 ms | 49 ms |
+| `jconsole` | 40 081 ms | 22 065 ms |
+| `docker-proxy` | 239 ms | 221 ms |
+
+`jconsole`'s remainder is Tier B's own `--help` + `-h` pair, not this tier;
+the ~2 s it gains is the evidence probe on a tool whose `--help` never
+returns, which is the worst case this gate has and is paid once per binary.
+
+**The honest cost.** A tool with a real `completion` subcommand that is
+hidden from `--help` *and* is not cobra loses this tier. No such tool was
+found: across 19 hand-picked real tools — `gh`, `docker`, `rustup`,
+`zoxide`, `cargo`, `rg`, `starship`, `npm`, `pip3`, `curl`, `tar`, `git`,
+`ls`, `sh`, `blkmapd` and the four above — `--doctor` output is
+byte-for-byte identical before and after, and Tier C contributed to **none**
+of them either way (cobra's own zsh script uses `_describe`/`compadd`, not
+`_arguments`, so even `docker`, whose script does contain `_arguments`,
+recovers nothing today). That is a sample, not a fleet measurement: a
+full-`PATH` recall comparison is the orchestrator's, and if it finds a tool
+this gate costs, the finding belongs here rather than in a workaround.
 
 **Not built.** Measured before building ([M-14]), re-scoped after a second
 measurement contradicted its headline case ([M-16]), and deliberately
@@ -1230,6 +1393,34 @@ binary.
 Highest structural authority, lowest cost-efficiency. Attempted last for *cost*
 reasons — it is the only tier that spawns a process per node — but it wins
 structural conflicts (§4.4) because it reflects the version actually installed.
+
+**Gated on prior evidence, never speculative (2026-08-12).** This tier only
+constructs a `__complete` argv for a tool whose *own compiled bytes* already
+identify it as cobra, via Tier A′'s `identify_from_artifact`. It used to ask
+every tool on `PATH`, because asking was the only way to find out who answered.
+
+Reported from real use: probing `wall` that way broadcast the literal text
+`__complete` to every logged-in terminal on the reporter's machine, because
+`wall` treats an unrecognized first positional as the message to send. That is
+the same shape as `pkill -- ""` under §6 rule 2a, an argv that is inert for
+nearly every tool and an action for one family, and it is the second time that
+shape has caused a real-world side effect. A containment list
+(`exec::spawn::HELP_ONLY_PROBE`) closes the measured cases. It cannot close the
+general one, because it can only ever name tools somebody has already been
+bitten by. The gate closes the general one.
+
+Measured, full PATH, before and after, 2,248 tools joined: **no status
+transitions, no flag-count gains, no flag-count losses**, and an identical
+aggregate (`pct_flags_with_text` 94.83 both sides). Tools eligible for a
+`__complete` probe fell from every tool swept, 2,302, to **5**: `docker`,
+`dockerd`, `gh`, `git-lfs`, `ollama`. So the speculative form was contributing
+nothing to extraction while carrying the whole risk.
+
+The cost of the gate is that a genuine cobra tool whose artifact check fails,
+a stripped binary being the realistic case, loses this tier rather than being
+probed anyway. Nothing on this machine's PATH was in that position. The
+`HELP_ONLY_PROBE` entries stay in place regardless: an artifact fingerprint is
+a heuristic, and defence in depth costs nothing here.
 
 - **cobra `__complete`** (kubectl, docker, gh, helm, and much of modern infra):
   **the protocol requires two probes per node.** `__complete <path> ""` returns
@@ -1773,6 +1964,28 @@ asserted in the abstract:
    be distinguishable from an actual regression before either is reported
    as one.
 
+Rule 3 is not scoped to the corpus gate — it applies to any wall-clock
+assertion in the test suite. `mandible-extract/src/help_text/sections.rs`'s
+`repeated_identical_banner_does_not_explode_into_duplicate_subcommands`
+(20,000 repetitions of a banner, guarding the same O(n²)-on-repetitive-input
+class this module's `MAX_RECOVERED_ENTRIES` cap exists for) false-failed
+twice under concurrent-compile load — 7.5s observed at load average 20+ on
+4 cores, 4.3s alone, clean on a quiet re-run — with the parser unchanged
+between runs, matching the `waagent2.0` pattern exactly. Its timing
+assertion was demoted to a non-blocking `eprintln!` warning (budget: 10s,
+comfortably above every observed run) so a genuine reintroduction of the
+blowup — which lands in seconds-to-minutes, not a borderline overage —
+still prints loudly, while the correctness assertion (exactly 2 subcommands
+recovered, not 40,000) stays a blocking `assert_eq!`. A second timing
+assertion (`mandible-extract/src/exec/spawn.rs`'s `timeout_kills_process_group`,
+asserting a 200ms-timeout kill completes within 5s) was surveyed against
+the same rule and left blocking: it carries a 25x margin already, is not
+CPU-bound work competing for cores under contention (so is far less
+exposed to the mechanism that broke the two cases above), has no observed
+false failure, and is one of the few tests that directly exercises the
+process-group-kill safety property in spec §6/§8 — demoting it trades a
+safety check for convenience without evidence it flakes.
+
 `pct_flags_with_text` is `described / describable`. Fleet-wide on this
 aarch64 box (2,266 `PATH` tools), the redefinition returns it to
 **94.19%** — within 0.01 of the 94.18% figure that predates [M-15]'s
@@ -1793,6 +2006,64 @@ detector, the first step toward one. `xtask::coverage::parse_aggregate_footer`
 still reads a scoreboard's old `pct_described=` key for backward
 compatibility; it never writes one. See Appendix B for the historical note on
 the column-name change.
+
+**A sixth rule: a mass status promotion must carry its own spot-audit
+stratum, sampled at random, not asserted from the aggregate that produced
+it.** Corpus-green (§13.2) plus a clean scoreboard sweep-diff (§13.1) prove
+that nothing which worked before **broke** — every existing fixture still
+passes and no tool transitioned to a worse status. They can **never** prove
+that the tools newly promoted to `ok` are actually right, because neither
+instrument looks at a single one of them with a human eye; both are
+structurally blind to a defect the promoting change itself introduces. The
+narrow lesson behind this rule is measured, not hypothetical: of the seed-2
+audit's 13 `forced-inclusion`
+entries — tools promoted `low-confidence` → `ok` by an earlier change and
+never independently reviewed before being force-included into this audit —
+only **1 of 13** (7.7%, §13.1c) held up as `correct` once a human actually
+read the output. A same-sized ordinary random draw would not have missed
+that badly by chance alone. **Any change that promotes more than a handful
+of tools to `ok` must therefore include a spot-audit of 5–10 randomly drawn
+promoted tools, recorded in the audit manifest as its own stratum** — the
+same discipline §13.1d's frozen queue applies to the whole population and
+§13.1e's calibration applies to a detector's fleet-wide count, now applied to
+a promotion event specifically, before its count is trusted.
+
+**The mechanism now exists**: `xtask audit spot-audit --event <name>
+--promoted <tool,tool,...> --sample <n> --draw-seed <seed>`. The draw is
+reproducible, not hand-picked — `--draw-seed` mixed with `--event` (via
+`rng::stratum_seed`, the same per-stratum seed mix the frozen queue's own
+shuffle-stratification uses) seeds a Fisher-Yates shuffle over `--promoted`,
+so the same event name and seed always draw the same tools. Each drawn tool
+is tagged with `Entry::spot_audit_event`, reported by `cmd_report` as its
+own `spot-audit:<event>` row, distinct from both the ordinary parse-status
+strata and `FORCED_INCLUSION_STRATUM` — the gap this section originally
+named: `include_reason`/`forced-inclusion` answers *why a tool bypassed the
+draw* and tallies every such tool under one label regardless of reason,
+which is wrong for a mechanism needing one row *per promotion event*. When
+`--promoted` names fewer tools than `--sample` (the exact shape of the first
+real case below), every promoted tool is drawn and the shortfall is stated
+explicitly — never a silently smaller sample, never a padded count. A tool
+already present in the manifest (the common case: a promotion event's
+tools were usually already sampled by the ordinary draw, under a now-stale
+pre-fix verdict) is tagged into the new stratum without its verdict, note,
+or amendment history being touched — only `xtask audit amend` may correct
+a verdict, never a draw.
+
+**First promotion event, backfilled**: 942890d's synopsis short-flag-cluster
+fix changed 5 of the 94 seed-2-audited tools (tcpdump, xfs_io, filefrag,
+tmux, eqn — all gaining flags, none losing any), all already present in
+`audit/2.toml` with pre-fix verdicts (`wrong`/`incomplete`, all four
+non-tmux entries carrying the `bundled-short-flag` defect family the fix
+addressed). `xtask audit spot-audit --event bundled-short-flag-942890d
+--promoted tcpdump,xfs_io,filefrag,tmux,eqn --sample 8 --draw-seed 942890`
+drew all 5 (below the 5–10 target, reported as such) into
+`spot-audit:bundled-short-flag-942890d`; the maintainer's 2026-08-13 TUI
+re-inspection confirming all 5 now parse correctly is recorded as five
+`xtask audit amend` corrections, each preserving the original verdict in
+its amendment history. Headline: 35/86 (40.7%, 95% CI [30.9%, 51.3%]) ->
+40/86 (46.5%, 95% CI [36.3%, 57.0%]) — denominator unchanged (the same 86
+already-judged entries), only the numerator moves, since five tools already
+counted as judged were legitimately re-verified correct after a real fix.
 
 ### 13.1c The audit instrument: comparing against truth
 
@@ -1815,18 +2086,21 @@ own reasoning, applied to a human read instead of an automated one).
 `mandible --review <SEED>` (§5.3) is a fifth entry point onto the same
 manifest, reviewing inside the real TUI instead of a terminal loop.
 
-**The draw is stratified, deterministic, and force-includable.** `xtask
-audit sample` draws proportionally by parse status (`ok`/`low-confidence`/
+**The draw is stratified, deterministic, and force-includable — via a
+frozen queue, not a live re-sweep (§13.1d).** `xtask audit freeze` sweeps
+`PATH` once, classifies every tool by parse status (`ok`/`low-confidence`/
 `verbatim`/`no-tier`/`suspicious`, whatever `status::compute` actually
-produces for the population, not a fixed bucket set) so the sample's status
-mix reflects the real population's, seeded so the same `--seed` and
-`--sample` size always produce the same draw. A tool can additionally be
-force-included outside the stratified quota, but only with a recorded
-reason (`audit/force-include.txt`, `<tool> <reason...>` per line). An
-unconditional inclusion with no stated reason is exactly the kind of
-unauditable claim this instrument exists to rule out, so force-included
-entries are tallied under their own `forced-inclusion` stratum in `audit
-report` rather than blended into the random draw's numbers.
+produces for the population, not a fixed bucket set), and shuffle-stratifies
+the result into an ordered queue (`audit/queue.toml`) so the sample's status
+mix reflects the real population's. `xtask audit sample` then just advances
+that queue's cursor by `--sample` tools — no re-probing, no
+reclassification, at draw time. A tool can additionally be force-included
+outside the queue draw, but only with a recorded reason
+(`audit/force-include.txt`, `<tool> <reason...>` per line). An unconditional
+inclusion with no stated reason is exactly the kind of unauditable claim
+this instrument exists to rule out, so force-included entries are tallied
+under their own `forced-inclusion` stratum in `audit report` rather than
+blended into the random draw's numbers.
 
 **Verdicts are `correct`, `incomplete`, `wrong`, or `skip`.** A `wrong` or
 `incomplete` verdict must carry a note, enforced identically in both entry
@@ -1849,11 +2123,79 @@ verdict line or note:
   instead of as the long-form spelling it actually is. This is a real,
   measured parser defect, not a detector artifact, and is scheduled as
   grammar item 1 once the parser freeze the audit is running under lifts.
+
+  **K1's signature is a shape three defect families share**, which is why
+  the tag alone cannot stand in for a family label (§13.1e). `short.is_some()
+  && long.is_none() && value_name.is_some()` is produced by the GCC case
+  (`-pass-exit-codes` → `-p` + `ass-exit-codes`), by a collapsed bundle
+  (`tmux`'s `[-2CDlNuVv]` → `-2` + `CDlNuVv`), *and* by a repeated-character
+  flag (`bpftrace`'s `-vv` → `-v` + value `v`, measured on all five `.bt`
+  tools in the seed-2 sample — the reviewer read these as "missing", since
+  the TUI shows two `-v` rows and no `-vv`). All three sit under `k1 = true`
+  in `audit/2.toml`. The families are distinguished by what the value text
+  *is*: a long-option word, a run of distinct single-character flag letters,
+  or a repeat of the flag's own letter. A detector for any one of them will
+  fire on the other two unless it makes that distinction, which is precisely
+  the kind of thing calibration surfaces and a fleet count alone hides.
+
+  **All three are now detected separately, and all three are repaired and
+  ratchet-gated at zero.** `bundled-short-flag` (`xtask/src/bundling.rs`)
+  was fixed at `942890d`; `repeated-char-flag`
+  (`xtask/src/repeated_char.rs`) was fixed by
+  `help_text::sections::repair_repeated_character_flags`; and
+  `single-dash-long` (`xtask/src/single_dash_long.rs`) — the last and by far
+  the largest, **132 tools and 8,784 flags, 17.6% of every flag mandible
+  extracted** — was fixed by
+  `help_text::sections::repair_single_dash_long_options`, which promoted
+  `corpus/qemu-arm64-static/audit-seed2` out of `[xfail]` and moved that
+  detector to the `REPAIRED` verdict.
+
+  Each repair uses the model `mandible_core::Flag::single_dash` provides —
+  a long option spelled with one dash. The single-dash-long repair is a
+  **post-pass over the assembled node**, not a change to
+  `grammar::parse_flag_spec`, for the same reason the repeated-character one
+  is: two of its seven conditions (the flag's `Source`, and whether the
+  reconstructed token occurs glued in the document) are unanswerable from a
+  single flag-spec fragment. Its admission predicate is the detector's own
+  seven conditions character for character, which is what makes the ratchet
+  meaningful: the fix cannot claim anything the calibrated detector does not,
+  so a fleet zero is reachable by repair and not by loosening.
+
+  **The families' hardest boundaries are documented in the detectors, not
+  guessed.** Each is a case where two shapes are identical and only one is a
+  defect: `lessecho`'s real `[-nn]` (a genuine `-n` taking a *number*) has
+  the repeated-character family's exact token shape and is a correct parse,
+  separated only by `lessecho` never writing a bare `-n`; and `cargo
+  -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8` have the single-dash-long
+  family's exact shape and are correct parses, separated only by the
+  uppercase flag letter the glued-value convention uses. Both boundaries are
+  asserted as must-stay-silent self-checks rather than described in prose.
 - **K2**: the existence detector's own tokenizer gap (`xtask::existence`),
-  not a parser defect. `line_start_words` only considers a line's *first*
-  whitespace-delimited token, so a multi-column or comma-separated
-  subcommand/applet list reports every column after the first as fabricated
-  even though it is right there in the raw text.
+  not a parser defect. **Closed.** It was characterized on a full
+  2302-tool `PATH` sweep — 656 fabrications, hand-classified by the shape
+  of their raw-text occurrence — and 613 of the 656 (93%) turned out to be
+  detector artifacts of three kinds, all now fixed:
+
+  | n | shape |
+  |---|---|
+  | 359 | a subcommand at an item position of a multi-column or comma-joined index (`busybox` 247, `openssl` 112). `line_start_words` only considered a line's *first* token; `list_row_words` now reads a whole list row. |
+  | 200 | the oracle read the **wrong stream**. `RecordingProbe` carried its own superseded copy of `help_text::pick_stream` ("stdout if non-empty"), so on every tool that banners to stdout and helps to stderr (`mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub`, `encguess`, …) it compared a correct tree against a version string. The decision is now exported from `mandible-extract` and imported, not restated. |
+  | 54 | a long flag whose value spec is glued on with a word-shaped first character (`--perf-no_read_workqueue` → `long: "perf-no"`, `value_name: "_read_workqueue"`). `long_candidates` now reconstructs it, as `short_candidates` already did for `-fdump-scos`. |
+
+  The residual 43 are **genuine**: 42 are the short half of a flag alias
+  `merge::pair_aliases` mis-merged (GCC's `-f…` rows paired with
+  `--param=…` rows), and one is an invented short alias (`dockerd`'s `-h`,
+  whose help text documents only `--help`). Both are parser defects the
+  oracle is correctly reporting, so K2 no longer explains anything and the
+  pre-tag exists only to catch a regression.
+
+  **What the oracle still cannot see, and never could:** it checks whether
+  a reported spelling *occurs*, not whether the parse that produced it is
+  right. A *collapsed* bundled short flag — `tmux`'s `[-2CDlNuVv]` read as
+  a single flag `-2` taking a required value `CDlNuVv` — occurs literally
+  in the help text, so it attests cleanly while being badly wrong. Zero
+  fabrications is not a claim of a correct parse. That belongs to the
+  family-detector work, not to K2.
 - **K3**: a subcommand stub whose help was never fetched, from either of
   two causes. Either the attestation gate permanently refused to probe a
   name that came from a native/cobra artifact rather than a recognized
@@ -1878,6 +2220,34 @@ is flag data mis-attribution (the same shape `lsof`'s bug was, §13.1); the
 *node's* own prose description is not, because that is a different kind of
 claim this audit is not yet reviewing.
 
+**Display-only findings are excluded from the accuracy denominator, never
+from the record (task #28).** A reviewer's `wrong`/`incomplete` verdict
+sometimes lands on a defect that turns out to be `mandible --review`'s TUI
+mis-rendering a correct extraction — a wrapped usage synopsis, a width
+that goes out of bounds — rather than the parser getting the tree wrong.
+The maintainer's ruling: *"those are not accuracy, those are probably UI
+rendering issue. parsing was fine."* `skip` cannot record this, because
+`skip` means "the reviewer did not judge this tool," which is false here —
+the defect *was* judged, and real. Instead, the `display-only`
+[`mandible_core::audit::DEFECT_FAMILIES`] label (already part of the
+closed family set) marks it, and [`Entry::is_display_only`] is what
+`xtask::audit::accuracy_over` (and every view built on it — the K1/K2/K3
+sensitivity table, every per-stratum row in `audit report`) excludes on:
+the verdict, note, and fixture all stay exactly as recorded, and
+`audit report` prints the excluded findings in their own dedicated
+section plus an `out-of-scope` column per stratum, so the number can never
+go quietly missing.
+
+Like `xtask::detector::Ground::BelowMemberThreshold` a commit earlier this
+week made structural for detector-scope exclusions, this exclusion is not
+claimable by free-text assertion: `display-only` must be an entry's
+*only* family (`validate_families` already requires it come from the
+closed set, carry `families_derived` provenance, and sit only on a judged
+defect) — a genuine parse-shape family riding alongside `display-only` on
+the same entry blocks the exclusion rather than granting it, so two true
+labels can never add up to laundering a real defect out of the
+denominator.
+
 **`audit/<seed>.toml` is tracked.** It is both the sample manifest and the
 verdict record, a verdict written directly onto its own sample entry, so an
 accuracy claim carries its evidence rather than depending on a file that
@@ -1892,22 +2262,699 @@ not a result: no accuracy number is stated here, and none should be read
 into anything above. The result, and the final statement of scope, belong in
 Appendix A as **[M-20]**, once the audit actually completes.
 
+### 13.1d The frozen sampling queue
+
+**Why this exists.** Before this design, `xtask audit sample` reclassified
+the whole `PATH` population — probing every one of ~2,300 tools — on
+**every single draw**, costing roughly twenty minutes each time. Worse,
+because the strata were recomputed from whatever the parser happened to be
+on the day of the draw, two draws taken weeks apart were stratifying
+against two different definitions of "ok", so a grammar fix silently
+redefined what an already-drawn `audit sample` run had even measured, and
+successive draws were not directly comparable.
+
+**The fix: freeze the tool list once, walk a cursor through it.**
+`xtask audit freeze` sweeps `PATH` (or a pinned `--tools` list) exactly
+once, classifies every tool, shuffle-stratifies the result with a recorded
+seed, and writes the ordered queue to `audit/queue.toml`. `xtask audit
+sample` then only ever advances that queue's `cursor` by `--sample` tools
+and merges the slice into a verdict file — no re-probing, no
+reclassification, at draw time. **This is deliberately not implemented by
+cross-comparing already-reviewed tools against the current tool list at
+draw time** — no set-difference against "what's been done" computed
+against a population that drifts as software is installed or removed. The
+queue is ordered once, and a cursor advances through it; nothing about a
+draw depends on which tools any verdict file has already recorded, which is
+what makes repeated draws directly comparable and makes "same queue, same
+cursor position" a deterministic, testable guarantee (`xtask/src/queue.rs`
+tests this directly: the same `(queue, cursor)` pair always yields the same
+tools, and successive draws never overlap).
+
+**Three additions from external review, all implemented:**
+
+1. **Freeze date and a population hash in the manifest.** `queue.toml`
+   records `freeze_date` (`YYYY-MM-DD`) and `population_hash` — a stable
+   FNV-1a fingerprint over the sorted, deduplicated tool list — so a queue
+   can be identified and staleness detected. `xtask audit freeze --check`
+   re-hashes the *current* `PATH` population (a directory listing, no
+   probing) and reports drift against the frozen hash without touching
+   anything, the same "report, don't rewrite" shape `coverage --check`
+   already uses.
+2. **Shuffle-stratify at freeze time**, not just concatenate strata. Each
+   stratum is independently seed-shuffled, then every item is given a
+   fractional rank (its position within its own stratum, normalized to
+   `(0, 1)`) and the whole population is merged by sorting on that
+   fraction. Because every stratum's ranks are spread evenly across
+   `(0, 1)`, cutting the merged order at any point yields, from every
+   stratum, very close to that same fraction of its own items — so **any
+   prefix of the frozen queue is itself a valid, proportionally stratified
+   sample**, not just the queue as a whole. (Concatenating shuffled strata
+   instead — all of "ok", then all of "low-confidence" — would make the
+   *total* order proportional but make an early prefix 100% one stratum,
+   exactly the property this rules out.)
+3. **Freeze the captured raw help text alongside the tool list.** This is
+   the change that actually matters: much of the twenty-minute cost was the
+   cost of *probing* (subprocess spawns and their timeouts), not of
+   classifying. `xtask audit freeze` persists every `(argv, output)` pair
+   each tool's extraction pass recorded — not just the root `--help`
+   capture, but every probe a framework's protocol needed (cobra's
+   two-probe shape included) — under `audit/queue-captures/`. `xtask audit
+   reclassify` replays those bytes through the real extraction pipeline via
+   `mandible_extract::exec::Transcript` (the same replay seam the corpus
+   regression runner uses) and recomputes every tool's stratum against the
+   *current* parser, with **no `PATH` sweep and zero subprocess spawns**,
+   running every tool's reclassification in parallel via `rayon` — measured
+   during this batch's own build (a real, naive serial first attempt over a
+   real 500-tool `PATH` slice on a 4-core evaluation machine took *longer*
+   than the parallel live-probing freeze it was meant to replace, 135s
+   versus freeze's own ~123s on the same population, which would have made
+   an unqualified "fast" claim false; parallelizing recovered roughly half
+   that, ~65s). **The honest claim is therefore narrower than "seconds
+   regardless of scale":** what removing every subprocess spawn
+   unconditionally buys is no `PATH` sweep and no probe-timeout cost: what's
+   left is real CPU-bound work — parsing plus the native/cobra artifact
+   tier's own binary-byte scan of each tool's on-disk executable — that
+   scales with population size and available CPU cores, not with a probe
+   count times a timeout. That is still a meaningful, measured win (roughly
+   half the wall-clock of a live re-probe on this evaluation machine, with
+   zero subprocess risk), and it is what removes the "later slices are
+   drawn from stale strata" caveat entirely,
+   rather than merely disclosing it: a stratum label can be kept current
+   against a newer parser without ever re-sweeping `PATH`.
+
+**Storage: `audit/queue.toml` is tracked; `audit/queue-captures/` is not.**
+Same convention `audit/*.toml`/`audit/force-include.txt` already set
+(tracked) versus `audit/*/fixtures/` (gitignored). `queue.toml` is small —
+one line per tool, a name and a short stratum label — and is *evidence* for
+a claim about how the queue was built, the same "a measurement's evidence
+lives in git, not on one contributor's laptop" reasoning this section's own
+Appendix A discipline already applies to `audit/<seed>.toml`. The captures
+are real bulk (one small file set per frozen tool, on the order of several
+thousand files for a full-`PATH` freeze) and, critically, **machine-generated
+content** — exactly the category the fixture-promotion workflow
+(`corpus/README.md`) already treats as something that must never land in a
+tracked human-verdict file, a rule that has already cost this project a
+cleanup once. Captures are regenerable by re-running `xtask audit freeze`
+locally; a queue worth reusing across machines is expected to have its
+captures rebuilt locally, not shipped in the repo.
+
+**`--tools` moved from `sample` to `freeze`.** Before this design, `xtask
+audit sample --tools <list>` pinned a fixed, reproducible population for
+tests and CI. Since `sample` no longer touches `PATH` at all — only
+`freeze` does — the flag moved with the sweep it pins. `sample`'s own
+`--seed` changed meaning to match: it no longer seeds a draw (the draw's
+only randomness is spent once, at `freeze` time, via its own `--seed`), it
+only names which verdict file (`audit/<seed>.toml`) the slice is merged
+into. Force-include is unaffected either way: it was already independent of
+the population, and stays independent of the queue's cursor for the same
+reason.
+
+**Honest caveats, stated rather than merely implied:**
+
+- **A frozen population drifts from the machine's real installed tools over
+  time.** `xtask audit freeze --check` detects this cheaply, but detecting
+  drift is not fixing it — a stale queue still reflects the tool set at
+  freeze time until re-frozen. A frozen queue is a snapshot, not a live
+  view of "everything on this machine right now," and any sample drawn
+  from it should be read that way.
+- **Reclassification updates a tool's reported *stratum*, never its
+  *position* in the queue.** The shuffle-stratified order was computed
+  once, from the strata as they stood at freeze time; recomputing strata
+  later (`xtask audit reclassify --update`) can change what stratum a tool
+  is *reported* under without re-shuffling where it sits in the cursor
+  order. A queue reclassified long after freezing may therefore no longer
+  interleave in exact proportion to its *current* stratum composition, only
+  to its composition at freeze time — a real drift, but a much smaller one
+  than the staleness this design replaces, since the frozen order still
+  visits the same tools in the same sequence regardless, keeping successive
+  draws comparable.
+- **Reclassification still depends on the tool binary resolving on `PATH`
+  at the same path.** The native/cobra framework-detection tier
+  (`mandible_extract::framework::artifact`) reads a binary's own bytes
+  directly off disk to fingerprint it, not from the frozen capture — a tool
+  uninstalled since freeze time will report a degraded stratum for a reason
+  unrelated to any parser change. This is a file read, not a process spawn,
+  so it never reintroduces the *subprocess* cost this design removes — but
+  it is measurably not free either, and is plausibly a real share of the
+  CPU-bound cost measured above (scanning a large on-disk binary for byte
+  markers, once per tool, is real work). Either way, a `reclassify` report
+  is only purely "what changed in the parser" when the machine's installed
+  tools are also unchanged since freeze.
+
+**No new execution-safety surface.** `xtask audit freeze` issues exactly
+the same probes `xtask audit sample`'s old live sweep already issued, all
+through the existing `run_inert` chokepoint (spec §6) — nothing about this
+design broadens argv, adds a probe shape, or touches the never-probe list.
+`xtask audit reclassify` spawns nothing at all: it is a pure replay of
+already-captured bytes. The stratum a tool is classified into is still
+computed by the same general, framework-keyed parser every other instrument
+in this project uses (spec §1) — freezing the queue changes *when*
+classification happens, never *how*.
+
+### 13.1e Family detectors and the calibration precondition
+
+A **family detector** generalizes one human finding across the fleet. The
+audit (§13.1c) is slow and bounded: a human reads one tool's real output,
+one tool at a time, and 94 of them took a full review session. A detector
+takes the *shape* that human found — `[-abcXYZ]` collapsing into one flag
+with the rest as a value — and asks whether it occurs on each of ~2,300
+`PATH` tools, in seconds. `xtask detector` is the harness they register in
+(`xtask/src/detector.rs`).
+
+**A family detector is not a correctness instrument and does not need to
+be.** The audit remains the only instrument in this project that touches
+truth, because only there did a human compare output against the tool's own
+reality. A detector's claim is narrower: *this same shape occurs here too*.
+
+That narrowness is exactly where the danger is. A detector produces a
+confident fleet-wide number — *"814 tools exhibit this defect"* — and
+nothing inside that number knows whether the detector fires on the defect it
+names. This project has already shipped that mistake twice with metrics
+(§13.1b): [M-10]'s fabricated `tar` nodes *inflated* `%described`, and
+`%flags_text` carried a name that read as an accuracy claim it never earned.
+A detector is the third instance of the same shape, and the rule that
+follows is stated as a precondition rather than a recommendation:
+
+> **A detector's fleet-wide number is not quotable until it has passed
+> calibration against the human labels: it must fire on the known-bad tools
+> and stay silent on the known-good ones.** A detector that has not passed
+> this check is measuring itself. One that has is an amplifier of a verified
+> human judgment.
+
+**The labelled set, and why it is a weaker claim than the verdicts.** A
+verdict is `correct`/`wrong`/`incomplete` overall; it does not say which
+defect family a wrong parse belongs to, and a detector for one family cannot
+be calibrated against "wrong in general". `mandible_core::audit::Entry`
+therefore carries `families` — a list from the closed `DEFECT_FAMILIES` set
+— alongside `families_derived`, which records that those labels are a
+**machine reading of the reviewer's note plus the fixture evidence**, not
+the reviewer's own classification. The distinction is the same one
+`verdict_scope` exists for and the same one §13.1b's fifth rule demands: a
+claim must be labelled with its real strength. `families_derived` is an
+`Option<bool>` and not a plain `bool` precisely so its *absence* cannot read
+as "a human said so" — labels with no recorded provenance are refused, as
+are labels on a `correct` or `skip` verdict, which would put a tool into a
+detector's expected-fires set on a verdict saying nothing is wrong with it.
+
+**Families are shapes; tool names are data** (§1). The set was derived from
+the seed-2 notes rather than drawn up in advance, and no family is in it
+without a reviewer's note behind it — a family with no labelled member
+calibrates nothing and only makes the set look more complete than the
+evidence supports.
+
+**A family name can turn out to cover more than one shape, and then it must
+be split rather than detected.** Two names were taken up together because
+both looked like they were about how a bracketed or braced value spec is
+read; only one of them survived the reading.
+
+`brace-alternation-flag` is **one shape** with three renderings, and the
+detector and the fix are both single rules: a `{...}` or `[...]` group whose
+`|`-separated members are bare flag spellings. `cache_restore`'s
+`{-i|--input} <input xml file>` reaches the grammar through an options
+table, `eqn`'s `{-v | --version}` through a spaced synopsis group, `xfs_io`'s
+`[[-c|-C] cmd]...` through a nested one; one predicate
+(`grammar::parse_flag_alternation`) closed all three, and all three fixtures
+flipped on the run that landed it.
+
+`value-name-mangled` is **not one shape**. Its five labelled tools are at
+least four unrelated defects, sharing only the *symptom* that `value_name`
+came out wrong:
+
+| tool | as written | what is actually wrong |
+|---|---|---|
+| `apt-ftparchive` | `-s=?` | the `=?` placeholder convention |
+| `expand` | `-t, --tabs=N` | a second accepted value form documented only in the description prose |
+| `pastebinit` | `-b <pastebin> (default is 'dpaste.com')` | a trailing parenthetical default beside the value |
+| `sg_sanitize` | `--count=OC\|-c OC` | an alias alternation whose members each restate the value |
+| `update-xmlcatalog` | `--root  = the root XML catalog` | `=` used as a *description* delimiter, read as a value assignment |
+
+A single detector over that list would fire on whatever the author happened
+to encode and miss the rest, and its fleet number would name a population no
+one could check — the precise failure §13.1e's precondition exists to
+prevent, arriving through the *label* rather than through the detector.
+The name should be split before any detector is built for it. Note that the
+one entry adjacent to the alternation family, `sg_sanitize`'s
+`--count=OC|-c OC`, is deliberately refused by `parse_flag_alternation`'s
+member rule and asserted as a must-stay-silent self-check: nothing on its
+shape says whether one value or two are meant, so claiming it would trade a
+known miss for a possible fabrication.
+
+`unparsed-flag` is **not one shape either**, and it dissolves for a second
+reason worth stating separately: the name describes a *symptom* ("no flag
+came out"), so anything that generalizes it is a recall counter rather than
+a family detector — the thing `brace-alternation-flag`'s own
+`MIN_ALTERNATIVES` comment refuses to become. Its five labelled tools are
+five dispositions, and three of them are already somebody else's:
+
+| tool | as written | disposition |
+|---|---|---|
+| `cache_restore` | `{-i\|--input} <input xml file>` | `brace-alternation-flag`, **already fixed**; fixture green |
+| `xfs_io` | `[[-c\|-C] cmd]...`, `[-adfinrRstVx]` | `brace-alternation-flag` + `bundled-short-flag`, **already fixed**; fixture green |
+| `ip` | `OPTIONS := { -V[ersion] \| -s[tatistics] \| … }` | `unparsed-subcommand` **shape D**, already declared NOT BUILT and excluded by witness in `xtask::commandtable`; its `OBJECT` and `OPTIONS` sets are one grammar, and the survivors are additionally `single-dash-long` (`-V` carrying the value `"ersion"`) |
+| `sg_dd` | a second synopsis paragraph after a blank line | singleton — the usage block ends at the blank line, losing `--progress` and `--verify` and nothing else |
+| `pptpsetup` | `pptpsetup --create <TUNNEL> …`, no `usage:` label | singleton — no `usage:` anchor, so no usage block exists and no synopsis flag is extracted |
+
+The two singletons share no witness token, so no one predicate reaches both
+and each fix would flip exactly one fixture. The `pptpsetup` shape is worse
+than merely small: *any* predicate reading "the tool's own name leads a line
+carrying flag-shaped tokens, with no `usage:` at line start" also claims
+`vgck`, `vgextend` and `vgrename` — labelled `verbatim-fallback`, a
+cross-family fire — and `nfsidmap` (`nfsidmap: Usage: nfsidmap [-vh] …`),
+judged **`correct`** by an explicit maintainer decision that the audit note
+records as not to be re-litigated. Anchoring the usage block on the tool's
+own name would hand all four a synopsis they do not have today, re-opening a
+signed-off verdict as a side effect of a different family's fix, with no
+fleet measurement available to bound it. **No detector was built, and that
+is the finding** — the same outcome as `value-name-mangled` above, reached
+the same way.
+
+`unmodeled-help-shape` is **not one shape either**, and it dissolves for a
+third distinct reason: the name says only *"the parser had no model for
+this"*, so it collects whatever was left over. Its own one-line meaning is a
+list of five unrelated layouts, which is the tell. It also has the smallest
+real membership of the three: **two of its six labels are the same binary**
+— `/usr/bin/mariadb-repair` and `/usr/bin/mariadbcheck` are both symlinks to
+`mariadb-check`, and the two help texts differ only in the program name each
+prints. Six labels are five tools, and the five are five shapes:
+
+| tool | as written | disposition |
+|---|---|---|
+| `gcc` | `--help={common\|optimizers\|params\|target\|warnings\|…}` | **already modeled and already deferred**: `help_text::confession::match_flag_value_row` detects this exact row and caps status at `incomplete`. Following it needs a new `exec::InertArgv` for the one-token `--help=common` and its own §6 deliberation (WS5b, §6 rule 2b). Not a grammar defect at all |
+| `mariadb-repair`, `mariadbcheck` | `Variables (--variable-name=value)` defaults table | **nothing to extract**: all 39 rows restate an option already in the tree and add only a default *value*, which the IR has nowhere to put. One binary, two names |
+| `qemu-arm64-static` | `Argument │ Env-variable │ Description` | a three-column table: column 2 is swallowed into the description on 21 of 23 rows. Its remaining damage is `single-dash-long`, which has its own detector and fix |
+| `sg_dd` | a synopsis paragraph resumed after a blank line, plus a `where:` `KEY=VALUE` operand table | singleton, and already recorded under `unparsed-flag` above — re-verified here: `--progress` and `--verify` are the only losses |
+| `ssh-keygen` | one synopsis line per invocation variant, each reprinting the tool's own name | the block *is* read — 40 flags come out of it. What is unmodeled is the mode words (`-Y sign`, `-M generate`, `-Y find-principals`), subcommands in all but name |
+
+The mariadb residue is the only one two labels reach, and one binary under
+two names is the same evidence counted twice — a tool, not a family. It is
+also blocked in one direction, and was blocked in both until the corpus
+gained a way to say it. Its single tree artifact is a *phantom* flag, whose
+long name is the table's header ruler `---------------------------------`.
+**That half is now closed**: `[contract]`'s `must_not_contain_flags` (§13.2)
+states the negative claim a fixture could not previously make — the same
+gap `must_contain_positionals` closed for operands, on the invention side
+rather than the omission side — and `corpus/mariadb-check/2.7.4` is its
+first user, `[xfail]` on exactly that ruler and no longer able to be
+repaired silently. Note the existence oracle cannot substitute: its contract
+is "does this spelling occur in the raw text", the ruler does occur
+literally, and it is therefore correctly silent. The *detector* half is
+still blocked. The obvious predicate — a long option name made only of `-` characters — fires
+on `bzless`, whose `------> --help <------` decorator parses as `--` plus
+`----` carrying the value `>`; `bzless` is labelled `wrong-stream`, so that
+is a cross-family fire, and no exclusion may excuse a fire. Narrowing it to
+*"the raw text carries a line of nothing but dashes"* does clear `bzless`,
+and that narrowed predicate was scanned mechanically across all corpus
+fixtures: **zero** of them carry such a line — re-run over 82 fixtures
+after `corpus/mariadb-check/2.7.4` landed, still zero, because the ruler
+that motivated the predicate is *two* dash runs separated by a space and
+so does not match the strict reading. Relaxing it to allow interior spaces
+finds exactly one witness in the whole corpus, mariadb-check itself, which
+is a witness count of one and not a calibration set. **No detector was
+built, and that is the finding** — the third family to dissolve, and the
+first to do so partly because a label count double-counted one binary. What
+did change is that the defect is now pinned rather than merely described:
+the fixture fails on it today and will announce its own repair the moment
+the ruler stops parsing as a flag.
+
+**A fourth family, `block-extent`, was built — and it is the first one
+found by an instrument rather than by a reviewer.** Three defects were
+taken up together on the hypothesis that they were one rule about *how far
+a usage or choice block extends*: `corpus/tar/1.35` (tracker #41, surfaced
+by residue ranking, §13.1f, not by a human), `sg_dd`, and `pptpsetup`. They
+are **two shapes, not one, and not three**:
+
+| tool | where the block ends today | claimed by one rule? |
+|---|---|---|
+| `tar` | a nested `FORMAT is one of the following:` enum at indent 4 never dedents before the options table resumes at indent 6 | **yes** — `bare_block_end` |
+| `sg_dd` | a `where:` operand table at indent 4 whose own last six rows are flag rows at that same indent 4 | **yes** — `bare_block_end` |
+| `pptpsetup` | no block is ever *opened*: `starts_with_usage_prefix` finds no `usage:` anchor | no — a different code path, and the singleton already dissolved above |
+
+The rule is one line in `help_text::sections::bare_block_end`: **a bare
+block ends where a flag row resumes**, `looks_like_flag_start` being the
+witness token. It is not a new heuristic but the removal of an
+inconsistency — the section engine's own first test already reads a
+flag-shaped line as a headingless flags block, and the *usage*-block scan
+already ends on the same signal (`curl`'s 13 flag rows running into its
+synopsis) — `bare_block_end` was the one place where a flag row was not
+structure. The break is also **non-destructive**: the caller resumes the
+main loop at that exact line, so a wrong break re-routes a tail from
+`choices` to `flags` and never drops it.
+
+Scanned mechanically across all 81 corpus fixtures before it was believed
+(the check that killed `unparsed-flag`): **exactly two trees change, and
+both are the two targets** — `tar` gains `--old-archive`, `--pax-option`
+and `--posix`, and `sg_dd` goes from four undescribed synopsis flags to six
+fully described ones, recovering `--progress` and `--verify`. `sg_dd` was
+promoted out of `[xfail]` by the run that landed it, and `tar`'s contract
+now names its three by spelling: that fixture was **green, blessed and
+contract-gated for its entire life while missing three real flags**, which
+is the sharper lesson — a flag count floor could not see it, because the
+flags were not absent from the tree, they were in the wrong field.
+
+Two things this family deliberately does **not** claim. `--portability`,
+the fourth flag on tracker #41, is a second *long* alias on
+`--old-archive`'s row and `Flag` has one `long` slot: that is
+`dropped-alias`, not this. And `sg_dd`'s **synopsis** is still truncated at
+its blank line — the flags come back via the operand table, not via the
+second paragraph — so the blank-line resumption stays exactly the
+unfixed singleton the `unparsed-flag` reading above called it.
+
+**Unclassified is a recorded state, not a gap to fill.** A judged defect
+whose note nobody could confidently sort — a hedged by-reference note with
+no fixture to check it against — carries no label, and both `xtask detector
+list` and every calibration report print that count. A visible hole bounds
+how complete any family's calibration can be; a hole papered over with a
+guess silently corrupts a cell of the matrix.
+
+**The confusion matrix has five cells, not four.** Beyond fires-on-bad,
+misses, silence-on-good and false alarms, there is *fires on a tool judged
+defective of a **different** family*. That is neither a hit nor a false
+alarm: the human already said this parse is wrong, so a fire there may be a
+mislabel or a genuine second family. Counting it as a false alarm understates
+the detector; counting it as a true positive overstates it. Every cell names
+its tools, because a disagreement is only useful if a human can go look at
+it.
+
+**Not-evaluable is counted, never dropped.** Calibration replays each
+audited tool's `corpus/<tool>/audit-seed2/` fixture — the same frozen-bytes,
+zero-subprocess replay §13.2 uses, so calibration spawns nothing. A labelled
+tool with no fixture is listed by name rather than omitted: a "perfect"
+matrix computed over half the labelled set is a worse claim than an
+imperfect one computed over all of it.
+
+**A detector may legitimately be uncalibratable, and says so.**
+`Detector::family` returns an `Option`, and `None` means "generalizes no
+family this labelled set contains". Both existing fleet oracles return it:
+across all 94 verdicts, **not one reviewer reported a fabricated subcommand
+or flag spelling**, so the existence oracle — the instrument built for
+[M-10], this project's worst shipped defect — can be neither confirmed nor
+refuted here. That is a property of the sample, not of the oracle, and
+reporting it is the honest result. Forcing such a detector onto the nearest
+family would manufacture a matrix out of a correspondence nobody verified,
+which is the original defect one level up.
+
+**Every report states its own limits, in full, every time.** Not a footnote
+and not abbreviated on repeat runs: calibration is against *derived labels*
+over the audit's judged tools — a bounded sample of roughly 4% of `PATH`,
+not the fleet, and not ground truth about the fleet. Passing means a
+detector works on those tools; it says nothing about whether its fleet-wide
+count is right. This is the same discipline the coverage scoreboard's
+literal `accuracy: unmeasured` line enforces (§13.1b), for the same reason:
+a number travels without its context unless the context is printed beside
+it.
+
+**`wrong` versus `incomplete` must never become load-bearing.** The boundary
+between the two words is thin, and the maintainer has flagged that it may not
+have been drawn consistently across the 94 seed-2 verdicts — plausible for
+any single reviewer working alone across a full session. Nothing in this
+project currently depends on which of the two a tool got, and nothing
+should: no consumer here read the boundary carefully enough for it to bear
+that weight. Checked directly rather than assumed: `accuracy_over`
+(`xtask::audit`) counts `correct` against everything else, collapsing
+`wrong` and `incomplete` into one "judged defect" bucket; `verdict_requires_note`
+obligates a note under the identical rule for both; `cmd_fixtures` emits the
+identical `[xfail]` shape from one shared `"incomplete" | "wrong"` match arm;
+and a family label (this section) is derived from the reviewer's note text
+plus the fixture evidence, never from which of the two words the reviewer
+chose — `unmodeled-help-shape` labels both a `wrong` entry (`ssh-keygen`) and
+an `incomplete` one (`mariadb-repair`) with no distinction drawn anywhere
+downstream. If a later change ever needs to prioritise which judged defect
+to fix first, the ranking is by **family** (does this shape recur across the
+fleet) and by **detector count** (how many tools a calibrated detector
+actually names) — never by which of the two verdict words a reviewer
+happened to type. Prioritising by the word itself would retroactively make
+an inconsistently applied distinction load-bearing, which is exactly the
+kind of claim this project's verdicts were never built to support.
+
+**A fixed family inverts its own calibration, and the precondition must be
+read accordingly.** The bundled-short-flag detector is the first one whose
+family was actually repaired, and the moment the grammar landed its
+calibration went from 4 hits to **0% recall**, naming `tcpdump`, `tmux`,
+`filefrag`, `xfs_io`, `ssh-keygen` and `eqn` as misses. Nothing about the
+detector changed; those six fixtures simply parse correctly now, so the
+labelled set has nothing left to confirm against. The precondition above is
+a claim about *labels recorded against a particular parser*, and it expires
+for a family on the commit that fixes it. Two things carry the weight
+afterwards, and both are cheaper than re-auditing: the detector's own
+hand-built tests, which construct the defective shape directly and assert
+the rule still fires on it, and `sweep-diff`, which is the instrument that
+actually answers "did fixing this break anything else". A detector reading
+zero because the bug is gone and a detector reading zero because it stopped
+working are indistinguishable from the fleet number alone — so the
+distinguishing evidence has to live in tests, and the fix's own commit
+should say which.
+
+**A repaired family is reported as repaired, and the report carries its own
+evidence.** Calibration has three verdicts, not two. `REPAIRED` is reached
+only when calibration has *inverted* (nothing labelled fires any more, and
+there was something to fire on) **and** the detector's own hand-built cases
+still hold. Those cases are `Detector::self_checks` — promoted out of
+`#[cfg(test)]` and onto the trait precisely because neither consumer runs
+under a test harness — and each names the exact number of findings the
+detector must report on a hand-built input. The list is only evidence if it
+covers **both directions**: at least one case the rule must fire on, because
+a deleted detector satisfies every must-stay-silent case, and at least one it
+must stay silent on, because a detector firing indiscriminately satisfies
+every must-fire case. An empty list is refused rather than passing
+vacuously. A detector with no self-checks can never be called repaired.
+
+**REPAIRED is a stated claim, never a suppression**, and the distinction is
+the whole point: "the family was repaired" is otherwise the perfect excuse
+for a broken detector. So nothing moves between cells to reach it. Recall
+still reads 0%, every missed tool stays counted in the FALSE-NEGATIVE cell
+and stays named, the declared out-of-scope miss still prints in red, and the
+self-check block prints on *every* run — including the ones that do not
+reach REPAIRED — so the first time a reader sees the evidence is never the
+run where it is being used to excuse a zero. A false alarm blocks REPAIRED
+exactly as it blocks PASSES. And an inverted matrix whose self-checks did
+*not* hold gets its own loud verdict naming it as the dangerous case, rather
+than being rendered as an ordinary failure.
+
+**A ratchet gate asserts the detector alongside the count.** Once a family
+is repaired its fleet count is gated at zero (`coverage --check`, via
+`detector::ratchet_at_zero`) — against a literal `0` rather than against the
+checked-in scoreboard, which is editable and would otherwise let a
+reintroducing commit raise its own baseline. The gate's second half is not
+optional: **a gate asserting `count == 0` is satisfied by deleting the
+detector**, which is [M-10]'s "a metric improved by breaking the thing that
+measures it" one level up. So the gate requires the same self-check evidence
+the REPAIRED verdict does, and refuses a zero without it. Verified by
+attacking it: with `bundling::detect` returning an empty report and the fleet
+count at a perfect 0 tools / 0 destroyed flags, `coverage --check` exits 1
+and names the six cases that stopped firing.
+
+**A declared scope exclusion must carry a structural predicate, not prose.**
+`Scope::known_exclusions` was `(tool, &'static str)`, and adding an entry
+silently converted a blocking false negative into a non-blocking named miss
+with nothing checking that the sentence named a property of the *shape*.
+That was the last goalpost-moving lever, so the reason is now a closed
+`Ground` enum carrying a **witness** — the literal token from the tool's own
+help text — plus the constant it falls below, referenced rather than
+retyped. The arithmetic is computed from the witness and has to agree:
+`ssh-keygen`'s `-hU` swallows one member, below `MIN_BUNDLED_MEMBERS = 2`,
+so it holds; an author trying to exclude `tcpdump` would have to supply
+`-AbdDefhHIJKlLnNOpqStuUvxX#`, whose 25 members are below no threshold, and
+the entry is refused as a false negative rather than an exclusion. A
+threshold of zero and a witness that is not a cluster token are refused too.
+Prose survives as a `note` printed *beside* the generated structural
+sentence, never instead of it. A new kind of exclusion means a new `Ground`
+variant with its own predicate — a reviewable change to the vocabulary,
+which typing a new sentence into a `&str` was not. Two more variants exist
+now, both added for `single-dash-long`'s declared misses and both computed
+from their witness the same way: `OptionalBracketedTail` (`ip`'s real
+`-h[uman-readable]` writes its tail in brackets, so the grammar records
+`ValueKind::Optional` and a `Required`-only fingerprint cannot admit it) and
+`TailIsNotAnOptionName` (`sg_emc_trespass`'s real `-hr:` carries the
+layout's own colon, which is not an option-name character). A witness whose
+tail is clean, or which writes no bracket, is refused — the exclusion cannot
+be claimed for a tool that is squarely inside the scope.
+
+**All three families sharing the K1 fingerprint now have a detector, and
+each is written to reject the other two.** The discriminator is what the
+swallowed text *is* — a switch set, a word, or a run of the flag's own
+letter — never the tool, and each detector asserts the disjointness with its
+own must-stay-silent self-check against the other two families' real tokens.
+Their measured cross-family cell reads 0 in every direction, which is
+exactly the confusion this cell exists to surface: a fleet count alone
+cannot tell "my family occurs 800 times" from "I am counting somebody
+else's."
+
+**Calibration can find a mislabel, and finding one is the mechanism
+working.** `repeated-char-flag`'s first calibration run reported one false
+alarm: `ntfsfallocate`, judged `correct`, whose help text writes `-v
+Verbose execution` and `-vv Very verbose execution` as two rows and whose
+tree loses the second — character for character the defect the same review
+judged `incomplete`/`wrong` on five `.bt` tools. The alternative to amending
+it was loosening the detector until it stopped seeing a defect it can see,
+and there was no room to loosen anyway: the two documents are structurally
+identical. It was amended through `xtask audit amend` (previous verdict, new
+verdict and reason recorded in the entry), on the same mechanism and the
+same justification as the `tmux` amendment §13.1c already carries. **A false
+alarm is never waived — it is either a detector bug or a label bug, and
+which one has to be argued in the commit that resolves it.**
+
+### 13.1f Residue ranking: a discovery instrument, deliberately not a metric
+
+`cargo run -p xtask -- residue` (`xtask/src/residue.rs`) is the complement
+of the existence detector. Existence asks *"is everything in the tree
+attested by the text?"* and catches **invention**; residue asks *"what in
+the text did the tree never account for?"* and catches **omission**, which
+is what every non-K1 family in the seed-2 backlog actually is.
+
+It classifies each physical line of a captured `--help` document by shape
+alone — a dash-led **flag row**, or an indented lowercase
+`name<gutter>description` **name row** — and reports the rows no spelling
+or name in the parsed tree accounts for. Everything else in the document
+(prose, headings, usage lines, uppercase environment/exit-status tables,
+the tool's own examples, wrapped description continuations) is never
+counted, which is the entire substance of the design: a tool whose help is
+one prose paragraph leaves a great deal of unconsumed *text* and zero
+unconsumed *rows*, while a forty-row flag table that lost thirty rows
+produces thirty pieces of line-numbered evidence. It replays
+`corpus/`-shaped fixture directories from frozen bytes and spawns nothing;
+there is no `PATH` sweep here and there must not be one.
+
+**It is not, and must never become, a gate or a quotable number.** The
+reason is a specific asymmetry: a wrong residue candidate costs review time
+and cannot produce a wrong parse, *because nothing downstream reads it*.
+The moment a residue count is treated as a measurement, that asymmetry is
+gone and what remains is an unvalidated number — with a large,
+shape-dependent, unmeasured false-positive rate — competing with the only
+instrument in this project that touches ground truth, the 94 human verdicts
+of §13.1c. That is §13.1b's fifth metric-design incident recognised in
+advance instead of in hindsight. So: nothing in `coverage --check` consults
+it, it appears in no ratchet and no `corpus` contract, there is deliberately
+no `--check` flag to add one to, and
+`xtask::residue::tests::residue_is_reachable_from_no_gate` fails the build
+if `coverage.rs`, `corpus.rs` or `status.rs` ever calls into it. Its output
+is a **reading queue for a human**, who turns a confirmed finding into a
+deterministic, calibrated, ratchet-gated rule the ordinary way.
+
+**What it measured, on the evidence available when it was built.** Against
+the 84 seed-2 tools that carry a verdict and a capture (staged with `xtask
+audit fixtures --seed 2 --corpus-dir tmp/residue-fixtures`, then ranked with
+`xtask residue --dir tmp/residue-fixtures`): 12 tools leave any residue at
+all and **every one of the 12 is already labelled `wrong` or `incomplete`;
+none of the 32 tools judged `correct` leaves a single unaccounted row.** In
+each case the evidence lines up with what the reviewer independently wrote —
+`ar`/`gcc-ar`'s undetected `commands:` table, `rubyobjnew-bpfcc`'s missing
+`positional arguments:` block, `ptargrep`'s `--long|-s` pipe-separated
+aliases, `sg_dd`'s operand table. Recall is the honest weakness: only 8 of
+43 defective tools reach the ranking threshold, because the omission classes
+this shape-based classifier can see are a subset of the ones that exist (a
+description-less word grid — `openssl`'s `Standard commands:` — produces no
+rows at all, so a tool that drops one is invisible here). This is a
+low-recall, high-precision signal, which is the right trade for a review
+queue and the wrong one for a metric — a further reason it is not one.
+
+**It also found something nobody had looked at**, which is what it is for:
+`corpus/tar/1.35` — a committed, green, snapshot-blessed fixture — is
+missing four real GNU tar flags (`--old-archive`, `--portability`,
+`--pax-option`, `--posix`, lines 202-206 of its own capture). They sit
+indented *inside* the nested `FORMAT is one of the following:` choice block
+that belongs to `--format`, and the block parser consumes the whole region
+as choices. Recorded here as a finding, not fixed here: a fix belongs behind
+a calibrated rule and a falsifying `[contract]`, not behind a ranking.
+
 ### 13.2 Fixed corpus
 
-Golden-file tests snapshot **both** the raw tool output and the resulting
-`CommandNode` tree. Snapshotting only the IR means a tool-version bump forces you
-to re-derive from scratch; snapshotting the raw output lets you re-run the parser
-against yesterday's bytes.
+A fixture (`corpus/<tool>/<version>/`) freezes **both halves** of one
+extraction pass: the raw bytes a real probe produced, byte-exact
+(`.gitattributes` marks everything under `corpus/` `-text` specifically so
+Git's own CRLF/whitespace normalization can never be the thing that quietly
+"fixes" a capture), and the `CommandNode` tree mandible's actual tiered
+pipeline produces from those bytes today — replayed with **zero
+subprocesses**, through the same `Transcript` seam §13.1c's and §13.1d's
+own replay uses. **Snapshotting only the IR is not enough**: an IR-only
+snapshot can only assert "the tree once looked like this," and a
+tool-version bump or a grammar rewrite leaves nothing to re-derive from.
+Keeping the raw capture beside it turns every fixture into a live
+regression check against whatever the parser does *today*, forever — not a
+frozen fact about a parser that no longer exists. There is no more
+per-tier bucketing here: §7's Tier A (a vendored catalog) is removed, and
+a fixture is no longer filed by which tier resolved it, only by tool and
+version — `corpus/README.md` has the full layout and the `meta.toml`
+contract (a *descriptive* half, `expected.snap`, that `--bless` rewrites
+wholesale, and a *normative* half, `[contract]`, that only an explicit,
+reviewed edit may weaken) and the `lsof` cautionary tale
+(`corpus/lsof/4.95.0`, `[xfail]` again after being blessed once without
+the raw-text-side-by-side review `--bless` does not itself perform).
 
-- **Tier A**: `git` (a good stress test — its own completion is hand-written bash,
-  so the catalog is doing real work), `docker`, `kubectl`.
-- **Tier B only**: `curl`, `tar` (171 flags in named groups), `openssl` (help on
-  stderr), `ip` (exit 255), and a deliberately malformed fixture.
-- **Tier C**: a tool shipping `completion zsh` but absent from the catalog.
-- **Tier D**: one `mdoc` page and one `man(7)` page, to verify the AST-vs-heuristic
-  split inside the tier behaves as designed.
-- **Tier E**: a recorded cobra transcript (both probe forms), replayed through a
-  mock so the test needs no network or installed tool.
+**`[contract]` can state a negative, not only a positive:
+`must_not_contain_flags`.** Every other field names something the real tool
+really has and fails when the parser drops it, which covers the *omission*
+half of what can go wrong and none of the *invention* half — a parser that
+reads a table ruler or a decorator as an option produces a flag no fixture
+could point at. This field is matched by exactly the matcher
+`must_contain_flags` uses, negated (`--foo` a long name, `-x` a short one,
+a bare word a long name verbatim), root flags only, and it asserts nothing
+about the raw capture, nothing about the spelling the entry did not name,
+and nothing below the root — a fixture author forbids only what they
+looked at. A tree with no root satisfies it vacuously and is not reported:
+a missing tree trivially breaks a positive claim and trivially *keeps* a
+negative one, and reporting otherwise would be a false positive in the one
+gate whose authority rests on having none. Dropping an entry is a
+weakening, reported by `--baseline-dir` exactly as a dropped
+`must_contain_flags` entry is. `corpus/mariadb-check/2.7.4` is its first
+user and the reason it exists (§13.1e's mariadb residue).
+
+**`verdict_scope` records which dimensions of the tree a human actually
+looked at before blessing it** — some subset of `"flags"`,
+`"subcommands"`, `"descriptions"`, `"usage"`. **Absent means no scope was
+claimed, never every scope**: a bless freezes every field in the tree
+whether or not a human read it, so treating silence as "everything
+verified" would let exactly the overclaim `lsof` cost this project
+survive by omission — the conservative reading is deliberate, since it is
+always safe to add a truthful claim later and never safe to have quietly
+claimed one that was not made. Fixtures promoted from the seed-2 human
+audit (§13.1c) carry `verdict_scope = ["flags", "subcommands"]`, matching
+that audit's own declared scope: the reviewer judged structure, never
+prose.
+
+**Strict xfail, in the direction that matters here: an `[xfail]` fixture
+whose snapshot and every `[contract]` field now pass fails the run.**
+`cargo xtask corpus` does not read that as success — a fixture marked
+broken that quietly stops being broken means the bug appears fixed and the
+fixture is stale, and the run demands it be promoted (`[xfail]` removed,
+the now-passing `expected.snap` kept) rather than staying silently green
+under a label that no longer applies. This is how a fix announces itself.
+The bundled-short-flag grammar fix (§13.1e) is the worked case: three of
+the six fixtures its own family originally judged `wrong` in the seed-2
+audit — `tcpdump`, `tmux`, `filefrag` — flipped from `[xfail]` to passing
+the run that landed the fix, exactly because leaving them labelled broken
+would itself have failed; `xfs_io`, `ssh-keygen`, and `eqn` stayed
+`[xfail]`, their own `must_contain_flags` gaps unrelated to the collapse
+this particular fix closed. Two of those three have since been promoted by
+the *next* family's fix (`brace-alternation-flag`, §13.1e), which is the
+mechanism working exactly as intended: `xfs_io`'s gap was
+`[[-c|-C] cmd]...` and `eqn`'s was `{-v | --version}`, both of them the
+alternation family rather than the bundle one, and both fixture comments
+said so in words while they were still red. Both directions are checked on every run, not
+this particular fix closed. The repeated-character-flag repair (§13.1e) is
+the second case and a cleaner one: **all five** of that family's `[xfail]`
+fixtures — `killsnoop.bt`, `naptime.bt`, `opensnoop.bt`, `tcpaccept.bt`,
+`threadsnoop.bt` — flipped in the run that landed the fix and were promoted,
+and their contracts were *strengthened* on promotion rather than merely
+un-marked: each now also asserts the bare `-v`/`-d`/`-k` booleans the repair
+reads as its own evidence, because a repair that consumed them would satisfy
+the old `must_contain_flags = ["vv", "dd"]` and destroy the tool. Both
+directions are checked on every run, not
+only the "did it get fixed" one: a fixture claiming to be broken while
+every check quietly passes is exactly as much a bug as an unmarked
+regression.
+
+**Current scale: 82 fixtures — 68 passing, 14 `[xfail]`, 0 unexpectedly
+failing**, as measured by `cargo run -p xtask -- corpus` (the counts stated
+here had drifted from the runner's own summary line; these are that line).
+Eleven are hand-captured against a real installed version (`git`, `tar`,
+`curl` — two versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`, `zoxide`,
+`mariadb-check`); the other 71 are `audit-seed2` fixtures, `xtask audit fixtures`
+turning a seed-2 human verdict directly into a fixture (`correct` → a real
+`expected.snap`, `wrong`/`incomplete` → `[xfail]` with the reviewer's note
+as `reason`, §13.1c). The corpus is now substantially the audit's own
+output, staged and promoted, rather than a hand-curated tier list — see
+`corpus/README.md` for the fixture layout, the full `meta.toml` contract,
+and the contribution workflow (a fixture-only PR needs no Rust).
 
 ### 13.3 Required test classes
 
@@ -1942,6 +2989,101 @@ libtest-json` when a structured result is actually needed. Read that, or the
 exit code, never the prose. Nextest cannot run doctests (an upstream
 limitation), so CI runs a separate `cargo test --doc --workspace` step to
 cover them.
+
+### 13.4 The detect-to-fix loop, end to end
+
+§13.1–§13.2 introduce five instruments at five different points, each for its
+own immediate reason, and nowhere states how they compose. They do, in this
+order:
+
+1. **Corpus fixtures** (§13.2) — per-document. Frozen bytes plus the tree
+   they should produce; `cargo xtask corpus` catches a regression on one
+   tool someone already looked at, replayed through the real pipeline with
+   zero subprocesses.
+2. **Sweep-diff** (`xtask sweep-diff`) — fleet-wide, not per-document: a
+   semantic diff between two full-`PATH` scoreboards, gains and losses
+   always reported as two separate totals, never netted, because summing
+   them hides exactly the losses that motivated building it — two grammar
+   fixes shipped regressions (228 flags across 72 tools; 6 on `lsof` plus 34
+   across four more) that both the aggregate `%flags_text` gate and the
+   whole corpus stayed green through, caught only by a human diffing a
+   before/after sweep by hand. It is the instrument that answers *did fixing
+   this break anything else*, and non-blocking by construction (maintainer
+   decision D4): `cargo xtask sweep-diff` always exits `0`, and there is no
+   `--check`/`--gate` flag to wire to a nonzero exit by accident.
+3. **Oracles** — existence and misattribution (§13.1) — fleet-wide
+   self-consistency checks: does every extracted name occur in the tool's
+   own captured text (existence, built for [M-10]'s fabricated `tar`
+   subcommands), and is a description attached to the flag it actually
+   describes (misattribution, built for `lsof`'s column-bled options table).
+   Neither compares against the tool's real behavior; both re-examine text
+   the pipeline already captured.
+4. **Audit** (§13.1c) — sampled, and the *only* instrument in this list that
+   touches truth. A human reads a tool's own raw `--help` text beside the
+   parsed tree and judges it. Everything above this line is
+   self-consistency — internally coherent output can still be uniformly
+   wrong — which is why the audit exists at all, on 94 tools so far
+   (the seed-2 sample).
+5. **Family detectors + calibration** (§13.1e) — generalizes one human
+   finding across the fleet. A detector encodes the *shape* a human found
+   wrong and checks every `PATH` tool for it in seconds; its fleet-wide
+   count is not quotable until calibrated against the audit's own labelled
+   verdicts — it must fire on the tools the audit called defective for that
+   shape and stay silent on the ones it called correct.
+
+**The loop these five compose into:** a human audit finding gets a **family
+label** (one of `DEFECT_FAMILIES`, derived from the reviewer's note plus
+fixture evidence) → a **detector** generalizes that label's shape across the
+fleet → the detector is **calibrated** against the labelled verdicts (fires
+on known-bad, silent on known-good) → only once calibrated does its
+fleet-wide count become **quotable** → the count motivates a **grammar fix**
+in `mandible-extract` → the fix makes the family's **xfail fixtures flip** to
+passing, which `cargo xtask corpus`'s strict xfail (§13.2) reads as a demand
+to **promote** them rather than a quiet pass → **sweep-diff** runs a
+before/after full-`PATH` sweep to prove the fix broke nothing else → the
+detector's fleet count is **ratchet-gated at zero** going forward, so any
+future regression in that family is visible the moment the count leaves
+zero.
+
+**The worked example is the bundled-short-flag family, run start to finish
+this week.** The seed-2 audit judged five tools `wrong`/`incomplete` for a
+synopsis cluster like `[-AbdDefhHIJKlLnNOpqStuUvxX#]` collapsing into one
+flag (`-A`) with every other letter glued on as its value — `tcpdump` losing
+25 real flags this way, `xfs_io` 10, `tmux` 7, `filefrag` 7, `ssh-keygen` 1
+— plus a sixth, `eqn`, labelled `bundled-short-flag` among several
+overlapping families in its own audit note. The detector
+(`xtask/src/bundling.rs`) generalized that shape and, on the same full
+`PATH` sweep the audit's queue was frozen from (2,302 tools), reported **58
+tools with a collapse, destroying 465 real flags** — a number that became
+quotable only once every one of the 58 was checked by hand against its own
+captured text and no false positive turned up. `help_text::grammar::
+parse_bundled_shorts` then read the same synopsis cluster as the *set* of
+switches it actually is, and the identical sweep that had measured 58/465
+came back at **0 tools, 0 destroyed flags**; `sweep-diff` across the
+before/after scoreboards showed 0 flag-count losses against 489 flags
+*gained* across 67 tools (nine more than the 58 — the text-versus-tree gap
+§13.1e's own doc comment explains: a cluster whose first member also
+appeared in an ordinary options table never survived into the tree for the
+detector to see, but the fix, reading the raw synopsis directly, recovers it
+anyway). Three of the six originally-labelled fixtures — `tcpdump`, `tmux`,
+`filefrag` — flipped from `[xfail]` to passing in the run that landed the
+fix and were promoted (§13.2); `xfs_io`, `ssh-keygen`, and `eqn` remain
+`[xfail]` for gaps this particular fix did not close.
+
+**And the fix inverted its own calibration** — §13.1e states this as the
+general rule; this is where it was first observed. Before the fix,
+calibrating this detector against the labelled set reported 4 hits; the
+moment the grammar landed, the identical calibration run reported **0%
+recall**, naming all six labelled tools — `tcpdump`, `tmux`, `filefrag`,
+`xfs_io`, `ssh-keygen`, `eqn` — as misses, because every one of those
+fixtures now parses correctly and the labelled set has nothing left to
+confirm against. A detector reading zero because the bug is fixed and one
+reading zero because it silently broke are indistinguishable from the fleet
+number alone once that happens; what carries the weight afterward is the
+detector's own hand-built tests (which construct the defective shape
+directly, independent of any tool ever having exhibited it) and `sweep-diff`
+against a fresh full sweep — not the calibration number, which has nothing
+left to say once its family is fixed.
 
 ---
 
@@ -2020,6 +3162,63 @@ the relationship clear.
 ---
 
 ## 16. Open risks & honest caveats
+
+### Maintainer decisions, recorded so they are not re-litigated
+
+**A tool that returns its root help for every subcommand is shown as-is
+(2026-08-12).** After [M-19], every `systemctl` subcommand's verbatim pane
+shows the same root help, because `systemctl <verb> --help` genuinely returns
+it. A special-case message ("this tool returns its root help for every
+subcommand") was proposed and **declined**: if that is how the tool behaves,
+showing it is honest, and a reader seeing identical text across 18 subcommands
+can draw the conclusion without being told. **Do not re-propose.** The one
+residual is that each degraded node keeps its own copy of that text instead of
+sharing one, which is a memory cost rather than a correctness one, and does not
+justify a special case either.
+
+**Enrichment by authority merge is off by default (2026-08-11).** Shown a
+mockup of `git restore` with man prose merged into its 16 already-parsed
+flags, the maintainer judged it "nice to have, but kind of defeats the
+cleanliness, maybe as an opt-in later." This resolved a contradiction inside
+this document rather than demoting an agreed plan: §7 Tier D described prose
+backfill as enrichment via authority merge, while [M-14] specified it fires
+only as a zero-confidence fallback, which never touches a tool that already
+parsed. [M-14]'s reading wins. A tool whose only good documentation is a man
+page stays shallow in the tree, and that is a stated limit rather than a bug
+to chase.
+
+### Deferred, with the reason each is not simply undone
+
+**Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until
+it is measured on disposable infrastructure.** Sending `-h` to a *root* whose
+own `--help` is man-shaped is unknown territory, distinct from the shipped
+sub-case (a), where a well-behaved root's subcommands detour to man pages.
+Six such roots are known. The measurement belongs on an ephemeral CI runner
+inside a PID or user namespace under full §6 containment, instrumented on both
+sides for files written, children spawned, exit code and wall time, and
+recorded as a new `[M-n]` with method. **Never on a development machine.** The
+standing posture is that an unmeasured argv broadening is refused: the burden
+is on the measurement, not on the objection. Two hardenings ship with the
+feature whatever its final scope, namely that `-h` output must itself pass
+help-shape validation before being consumed, and that the exec-policy shim
+suite covers both halves, the fallback being attempted for a permitted shim
+and refused for a `pkill`-shaped one even when that shim's `--help` is
+man-shaped.
+
+**Resolved: `xtask audit sample` no longer reclassifies the whole `PATH` on
+every draw.** `xtask audit freeze` now snapshots the tool list and its
+classification once, into a shuffle-stratified queue, and `xtask audit
+sample` just advances that queue's cursor — see §13.1d for the full design,
+the storage decision, and the honest caveats a frozen population still
+carries (population drift, and reclassification updating a stratum without
+re-shuffling the queue's order).
+
+**The invariant table in `AGENTS.md` is due a prune.** Its own maintenance
+policy prefers making a mistake impossible over documenting it, and every
+parser-lesson row that now exists as a corpus fixture should be deleted in the
+same change that lands the fixture. The exec-policy rows stay, since shim
+tests enforce them and the rows record why, though each is worth checking:
+where the shim test's own comment carries the reasoning, the row can go too.
 
 1. **Cold-start cost is the top UX risk.** 10–25 s for cobra-heavy tools if
    extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2) and

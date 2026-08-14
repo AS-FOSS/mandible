@@ -70,6 +70,41 @@ pub struct FrameworkProfile {
     /// includes today. Empty for every framework except the ones known to
     /// have this exact shape.
     pub non_command_heading_markers: &'static [&'static str],
+    /// Heading markers (lowercase substrings, same matching rule as the two
+    /// lists above) under which this framework prints its **positional
+    /// operands** — the block that names the arguments a user types with no
+    /// `-` in front of them, one per row, with a description.
+    ///
+    /// This exists because a usage synopsis is *inference* and a block like
+    /// this is a *declaration*. [`super::sections::extract_positionals`] can
+    /// only guess from synopsis notation, and it deliberately guesses
+    /// narrowly: `<angled>` tokens and bare `UPPERCASE` words, nothing else.
+    /// That misses every operand a framework writes as a plain lowercase
+    /// word — argparse's own default rendering of one:
+    ///
+    /// ```text
+    /// usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-v] pid [interval]
+    ///
+    /// positional arguments:
+    ///   pid                   process id to attach to
+    ///   interval              print every specified number of seconds
+    /// ```
+    ///
+    /// `pid` and `interval` are unrecoverable from that synopsis without
+    /// promoting every bare lowercase word in it to an operand, which would
+    /// invent one out of `vim [arguments] [file ..]`'s `arguments` — the
+    /// option-list placeholder, not an operand (see
+    /// [`super::sections::OPTION_LIST_PLACEHOLDERS`]). The block says
+    /// outright which tokens are operands, so reading it needs no guess at
+    /// all: the block supplies the names and descriptions, and the synopsis
+    /// is consulted only for the two shape bits it does state
+    /// unambiguously — `[x]` is optional, a trailing `...` is variadic.
+    ///
+    /// Empty for every framework except the ones whose own template emits a
+    /// fixed heading for this. A framework that renames the group (argparse's
+    /// `add_argument_group("inputs")`) is a declared miss, not a silent one:
+    /// nothing is inferred from an unrecognized heading.
+    pub positional_heading_markers: &'static [&'static str],
     /// True when this framework structurally has no subcommand concept at
     /// all — forces the parser to never enter command mode for a node
     /// identified as this framework, regardless of `command_heading_markers`
@@ -129,6 +164,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // `find`, `less`, ...) — exactly [M-10]'s casualty list.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -144,6 +180,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // output rather than the framework's).
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -160,6 +197,16 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // arguments whenever there is no subparser at all).
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            // The other half of that same sentence, and the reason this
+            // heading gets *two* mentions in one profile: when the block
+            // holds no `{...}` pseudo-entry it is not a command list, and
+            // what it *is* is argparse's literal, hardcoded rendering of
+            // the tool's positional operands. `argparse.ArgumentParser`
+            // writes this exact string (`_("positional arguments")`) for
+            // every parser that adds an argument with no leading dash, so
+            // it is framework vocabulary in the strictest sense — not a
+            // heading one tool happened to print.
+            positional_heading_markers: &["positional arguments"],
             no_subcommand_concept: false,
             argparse_subparser_quirk: true,
             comma_separated_command_list: false,
@@ -188,6 +235,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // real `gh <name>` commands — they're documentation topics,
             // never invokable that way.
             non_command_heading_markers: &["help topics"],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -197,6 +245,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // heading, already caught generically.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -208,6 +257,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
         Framework::ClapV2 => FrameworkProfile {
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -216,6 +266,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // urfave/cli's default template renders `"COMMANDS:"`.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -228,6 +279,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // this fingerprint can see anyway.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -243,6 +295,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // not chase.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -254,6 +307,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // shape, not a multi-command one.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: true,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -267,6 +321,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // the generic test.
             command_heading_markers: &["currently defined functions"],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             // Issue #1: this is the one framework whose command list is a
@@ -277,6 +332,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // commander's default help renders `"Commands:"`.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -286,6 +342,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // `"Options:"`.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -295,6 +352,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // `"COMMANDS"` — "topics" doesn't contain the word "command".
             command_heading_markers: &["topics"],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -303,6 +361,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // picocli's usage help renders `"Commands:"`.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -311,6 +370,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // System.CommandLine's default help renders `"Commands:"`.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -320,6 +380,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // commands:"`, already caught generically.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,
@@ -334,6 +395,7 @@ pub fn profile(framework: Framework) -> FrameworkProfile {
             // silently dropping a real Thor tool's commands.
             command_heading_markers: &[],
             non_command_heading_markers: &[],
+            positional_heading_markers: &[],
             no_subcommand_concept: false,
             argparse_subparser_quirk: false,
             comma_separated_command_list: false,

@@ -1,0 +1,8 @@
+name: sg
+usage:
+- 'Usage: sg group [[-c] command]'
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

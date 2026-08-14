@@ -1,0 +1,20 @@
+name: lzgrep
+description: Look for instances of PATTERN in the input FILEs, using their uncompressed contents if they are compressed.
+usage:
+- 'Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...'
+positionals:
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'e'
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

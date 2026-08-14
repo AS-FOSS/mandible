@@ -1,0 +1,30 @@
+name: scsi_ready
+usage:
+- 'Usage: scsi_ready [-b] [-h] [-v] <device>+'
+flags:
+- short: 'b'
+  long: brief
+  group: 'where:'
+  description: print 'ready' or 'device not ready' only
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: 'where:'
+  description: print usage message
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'where:'
+  description: more verbose output
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,5 @@
+port argument, --help, is not a number.
+Usage: rmiregistry <options> <port>
+
+where <options> includes:
+  -J<runtime flag> Pass argument to the java interpreter

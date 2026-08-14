@@ -61,10 +61,20 @@ pub struct Entry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub k1: Option<bool>,
     /// **K2 pre-tag**: the existence detector's own tokenizer gap
-    /// (`xtask::existence`'s `line_start_words` only considers each line's
+    /// (`xtask::existence`'s `line_start_words` only considered each line's
     /// *first* token, so a multi-column or comma-separated
-    /// applet/subcommand list reports every column after the first as
+    /// applet/subcommand list reported every column after the first as
     /// "fabricated" even though it's right there in the raw text).
+    ///
+    /// **The gap itself is closed** — `existence::list_row_words` now reads
+    /// a whole list row, and the 359 fleet-wide fabrications this tag
+    /// existed to explain away are gone (spec §K2). Existing entries keep
+    /// their recorded tag, since a verdict is a record of what the reviewer
+    /// was shown; freshly sampled tools of the same shape simply produce no
+    /// fabrication to tag. Retained so an old manifest still round-trips,
+    /// and so a regression in the list-row rule shows up as this tag coming
+    /// back rather than as silent noise.
+    ///
     /// Computed once, at sample time, by `xtask::audit::k2_signature`.
     /// `Some(true)` when every subcommand-kind existence fabrication for
     /// this tool is explained by the known tokenizer gap, `Some(false)`
@@ -101,14 +111,120 @@ pub struct Entry {
     /// ordinary stratified sample.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_reason: Option<String>,
+    /// `Some(event)` when this entry was drawn by `xtask audit spot-audit`
+    /// (spec §13.1b's sixth rule) to spot-check one specific mass-`ok`
+    /// promotion event named `event` — `None` for every other entry.
+    ///
+    /// **Why this cannot just reuse [`Self::include_reason`]/
+    /// [`FORCED_INCLUSION_STRATUM`]-style bucketing.** That mechanism
+    /// answers *why a tool bypassed the ordinary stratified draw*, and
+    /// tallies every such tool under one hardcoded label regardless of
+    /// reason — correct for its own purpose, but a spot-audit needs the
+    /// opposite property: *which promotion event* a tool's read is
+    /// evidence for, kept separate *per event*, since a promotion next
+    /// month must never blend into this month's numbers. `xtask::audit`'s
+    /// `effective_stratum` reads this field first and reports
+    /// `spot-audit:<event>` as its own row — one stratum per promotion,
+    /// never a single catch-all. An entry may carry both this field and
+    /// `include_reason` (the latter documents the draw itself: which event,
+    /// how many of the promoted set were available, the seed) — this field
+    /// alone decides the reported stratum.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_audit_event: Option<String>,
+    /// **Defect-family labels** for a `wrong`/`incomplete` verdict: which
+    /// *shapes* of defect this tool exhibits, drawn from the closed set in
+    /// [`DEFECT_FAMILIES`]. Empty for a `correct`/`skip` entry (there is no
+    /// defect to name), and — importantly — also empty for a
+    /// `wrong`/`incomplete` entry nobody could confidently classify. That
+    /// second case is [`Entry::is_unclassified`], and it is deliberately
+    /// representable: an honest "we do not know which family this is" is
+    /// worth far more than a fabricated label, because the whole purpose of
+    /// these labels is to calibrate a detector against them.
+    ///
+    /// Stored as plain strings rather than an enum for the same reason
+    /// [`Self::verdict`] is: a hand-edited manifest with an unrecognized
+    /// family fails loudly at the point of use
+    /// ([`Entry::validate_families`]) rather than silently at
+    /// deserialization, where the error would name a line number and not a
+    /// tool.
+    ///
+    /// **A family is a shape, never a tool.** spec §1's no-per-tool-logic
+    /// rule applies here exactly as it does to a parser: `tcpdump` is not a
+    /// family, `bundled-short-flag` is, and the tool name is data.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub families: Vec<String>,
+    /// Provenance of [`Self::families`], and the reason that field is safe
+    /// to have in a tracked manifest at all.
+    ///
+    /// A verdict is a **human judgment**: a reviewer read the tool's real
+    /// output. A family label derived by a machine *reading that reviewer's
+    /// prose* is a strictly weaker claim, and this project's posture (spec
+    /// §13.1b's fifth rule: a name a reader could mistake for a stronger
+    /// claim is itself a defect) is that a weaker claim must be labelled as
+    /// one rather than left to be inferred.
+    ///
+    /// - `Some(true)` — derived by machine from the reviewer's note plus the
+    ///   fixture evidence. **Not** a reviewer's own classification.
+    /// - `Some(false)` — the reviewer classified it themselves.
+    /// - `None` — no provenance recorded, which
+    ///   [`Entry::validate_families`] rejects whenever `families` is
+    ///   non-empty. Absence must never silently read as "a human said so":
+    ///   a writer that forgets this field would otherwise launder a machine
+    ///   reading into a human judgment, which is the single worst outcome
+    ///   this schema can produce.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub families_derived: Option<bool>,
+    /// A history of corrections applied to this entry's original verdict,
+    /// oldest first — **appended to, never used to overwrite [`Self::verdict`]
+    /// or [`Self::note`]**. Empty for the overwhelming majority of entries,
+    /// which is exactly why this is a `Vec` that serializes to nothing when
+    /// empty rather than a field every existing manifest would need
+    /// migrating to carry: an `audit/<seed>.toml` written before this field
+    /// existed deserializes with `amendments: vec![]`, identical in every
+    /// observable way to a freshly reviewed entry that has never been
+    /// amended. See [`Self::effective_verdict`]/[`Self::effective_note`] for
+    /// what a caller should actually read, and [`amend`] for how an entry
+    /// gets one of these appended.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub amendments: Vec<Amendment>,
 }
 
 impl Entry {
+    /// The verdict every aggregate computation (accuracy tallies, the
+    /// wrong/incomplete listing, fixture generation) should read: the
+    /// `new_verdict` of the most recent [`Amendment`] if this entry has any,
+    /// else the original [`Self::verdict`] untouched. A verdict amendment
+    /// changes what the project believes about a tool without destroying
+    /// the record of what a reviewer originally wrote — see [`amend`]'s doc
+    /// comment for the full rationale.
+    pub fn effective_verdict(&self) -> Option<&str> {
+        match self.amendments.last() {
+            Some(a) => Some(a.new_verdict.as_str()),
+            None => self.verdict.as_deref(),
+        }
+    }
+
+    /// The note that belongs to [`Self::effective_verdict`]: the most
+    /// recent amendment's `new_note` if this entry has been amended, else
+    /// the original [`Self::note`]. Never a concatenation of both — an
+    /// amendment's `new_note` is a complete, self-contained note for the
+    /// corrected verdict (enforced by [`amend`]), not a delta on top of the
+    /// original.
+    pub fn effective_note(&self) -> &str {
+        match self.amendments.last() {
+            Some(a) => a.new_note.as_str(),
+            None => self.note.as_str(),
+        }
+    }
+
     /// True when this entry's note is obligatory but missing or blank — a
     /// `wrong`/`incomplete` verdict with nothing recorded about *what* was
-    /// wrong. See [`verdict_requires_note`].
+    /// wrong. Reads the *effective* verdict/note, so an amendment that
+    /// corrects a bare-note defect heals this the same way a plain
+    /// re-review would. See [`verdict_requires_note`].
     pub fn missing_required_note(&self) -> bool {
-        self.verdict.as_deref().is_some_and(verdict_requires_note) && self.note.trim().is_empty()
+        self.effective_verdict().is_some_and(verdict_requires_note)
+            && self.effective_note().trim().is_empty()
     }
 
     /// True when a review session should still stop at this entry: no
@@ -116,6 +232,508 @@ impl Entry {
     pub fn needs_attention(&self) -> bool {
         self.verdict.is_none() || self.missing_required_note()
     }
+
+    /// True when this entry is a judged defect — `wrong` or `incomplete`
+    /// under [`Self::effective_verdict`]. The population a family label is
+    /// *about*, and the population a detector is expected to fire on once
+    /// the label says it belongs to that detector's family.
+    pub fn is_judged_defect(&self) -> bool {
+        self.effective_verdict()
+            .is_some_and(|v| matches!(v, "wrong" | "incomplete"))
+    }
+
+    /// True when this entry is a judged non-defect — `correct` under
+    /// [`Self::effective_verdict`]. The population a detector must stay
+    /// **silent** on: a fire here is a false alarm against a human who read
+    /// the tool's real output and said the parse was right.
+    ///
+    /// `skip` is neither this nor [`Self::is_judged_defect`]. A skipped
+    /// entry carries no judgment about the parse at all (spec §13.1c
+    /// excludes it from the accuracy ratio for the same reason), so it can
+    /// neither confirm nor refute a detector and is excluded from
+    /// calibration entirely rather than silently counted as "good".
+    pub fn is_judged_correct(&self) -> bool {
+        self.effective_verdict() == Some("correct")
+    }
+
+    /// True when this entry is a judged defect that carries no family label
+    /// — the honest "nobody could tell which family this is" state. Counted
+    /// and printed rather than hidden, because an unclassified entry is a
+    /// known hole in a detector's calibration set, and a hole you can see is
+    /// not the same kind of problem as a hole papered over with a guess.
+    pub fn is_unclassified(&self) -> bool {
+        self.is_judged_defect() && self.families.is_empty()
+    }
+
+    /// True when this entry carries `family` among its labels.
+    pub fn has_family(&self, family: &str) -> bool {
+        self.families.iter().any(|f| f == family)
+    }
+
+    /// True when this judged defect (`wrong`/`incomplete`) is **entirely**
+    /// a display/rendering issue — the extraction itself is right, and
+    /// what the reviewer actually judged wrong is how `mandible --review`'s
+    /// TUI draws it (width, wrapping, a truncated bracket). Spec §13.1c
+    /// already draws this boundary for the audit's *scope* ("usage-section
+    /// formatting" is explicitly deferred); this is that same boundary
+    /// applied to the accuracy *denominator*: a finding this method returns
+    /// `true` for must be excluded from [`crate::audit`]'s accuracy
+    /// arithmetic (`xtask::audit::accuracy_over`) while remaining fully
+    /// visible everywhere else — [`Self::effective_note`], `xtask audit
+    /// report`'s stratum table and its own out-of-scope line, and every
+    /// fixture `xtask audit fixtures` writes.
+    ///
+    /// **Structural, not an assertion — this is the part of the task that
+    /// actually matters.** The tempting shortcut is "any entry that
+    /// mentions `display-only` in `families`," but that alone would let a
+    /// *mixed* defect — a genuine parse-shape family (`bundled-short-flag`,
+    /// `unparsed-flag`, …) with `display-only` tacked on beside it — escape
+    /// the denominator on the strength of one true-but-irrelevant label.
+    /// That is exactly the free-text-reason failure mode
+    /// `xtask::detector::Ground::BelowMemberThreshold` replaced this week:
+    /// an exclusion must be computed from a witness the author cannot
+    /// forge by writing a persuasive sentence, not claimed by assertion.
+    /// The witness here is cheaper than `Ground`'s (no arithmetic to
+    /// compute — a label set has no continuous "how much"), but the same
+    /// discipline applies in the one dimension available: `display-only`
+    /// must be this entry's **only** family. A tool with a real parse
+    /// defect can never also claim this exclusion just by naming
+    /// `display-only` as a second label, because a second label is exactly
+    /// what this check refuses. Composed with what [`Self::validate_families`]
+    /// already enforces — `display-only` must come from the closed
+    /// [`DEFECT_FAMILIES`] set, must carry [`Self::families_derived`]
+    /// provenance, and can only appear on a judged defect in the first
+    /// place — an entry cannot reach `true` here by hand-editing a stray
+    /// word into the manifest.
+    pub fn is_display_only(&self) -> bool {
+        self.is_judged_defect() && self.families.len() == 1 && self.families[0] == "display-only"
+    }
+
+    /// Check this entry's [`Self::families`]/[`Self::families_derived`] pair
+    /// for every way it could be a claim nobody can evaluate later:
+    ///
+    /// - a family word outside the closed [`DEFECT_FAMILIES`] set (a typo,
+    ///   or an ad-hoc family invented in a hand edit and therefore invisible
+    ///   to every reader that matches on the set);
+    /// - the same family listed twice (harmless to a matcher, but it makes a
+    ///   per-family count wrong, and counts are what calibration reports);
+    /// - labels with no recorded provenance — see
+    ///   [`Self::families_derived`] for why silence there is unacceptable;
+    /// - labels on a verdict that names no defect (`correct`/`skip`), which
+    ///   would put a tool into a detector's expected-fires set on the
+    ///   strength of a verdict that says nothing is wrong with it.
+    pub fn validate_families(&self) -> anyhow::Result<()> {
+        for (i, family) in self.families.iter().enumerate() {
+            if family_meaning(family).is_none() {
+                anyhow::bail!(
+                    "{:?}: unrecognized defect family {family:?} — expected one of: {}",
+                    self.tool,
+                    family_names().join(", ")
+                );
+            }
+            if self.families[..i].contains(family) {
+                anyhow::bail!("{:?}: defect family {family:?} listed twice", self.tool);
+            }
+        }
+        if !self.families.is_empty() {
+            if self.families_derived.is_none() {
+                anyhow::bail!(
+                    "{:?} carries family labels with no `families_derived` provenance — a machine \
+                     reading of a reviewer's note must never be mistakable for the reviewer's own \
+                     classification",
+                    self.tool
+                );
+            }
+            if !self.is_judged_defect() {
+                anyhow::bail!(
+                    "{:?} is {:?}, which names no defect, yet carries family labels {:?} — a \
+                     family describes what is wrong, so labelling a non-defect would put this \
+                     tool in a detector's expected-fires set on a verdict that says nothing is \
+                     wrong with it",
+                    self.tool,
+                    self.effective_verdict().unwrap_or("pending"),
+                    self.families,
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+/// One shape of defect, as a machine-readable label plus what it means.
+///
+/// **Derived from the seed-2 audit's own notes, not asserted in advance.**
+/// Every family here is backed by at least one reviewer note that describes
+/// that shape; nothing was added on the strength of "a parser could
+/// plausibly do this", because a family with no labelled member calibrates
+/// nothing and would only make the set look more complete than the evidence
+/// supports.
+pub struct DefectFamily {
+    /// The label as it appears in [`Entry::families`]. Kebab-case, names a
+    /// shape.
+    pub name: &'static str,
+    /// One line describing the shape — what a detector for this family
+    /// would have to recognize.
+    pub meaning: &'static str,
+}
+
+/// The closed set of defect families (see [`DefectFamily`]).
+///
+/// Ordered roughly by how directly each one is a *parser* defect: the first
+/// group is the grammar getting a flag's structure wrong, then recall gaps,
+/// then help text whose shape the grammar has no model for at all, and last
+/// the two families that are honest about **not** being extraction defects
+/// (`display-only`, `no-usable-help`). Keeping those last two in the same
+/// closed set is deliberate — a reviewer's `wrong` verdict on a tool with no
+/// help text is a real recorded judgment, and dropping it from the labelled
+/// set would quietly inflate every detector's apparent recall by removing
+/// tools it was never going to fire on for a reason that has nothing to do
+/// with the detector.
+pub const DEFECT_FAMILIES: &[DefectFamily] = &[
+    DefectFamily {
+        name: "bundled-short-flag",
+        meaning: "a bundle of boolean short flags (`[-abcXYZ]`) collapses into one flag `-a` \
+                  carrying the rest as a value, instead of N separate flags",
+    },
+    DefectFamily {
+        name: "single-dash-long",
+        meaning: "a single-dash long option (`-help`, `-fdump-scos`) splits into a one-character \
+                  short flag plus the remainder as a value name (the K1 pre-tag's shape)",
+    },
+    DefectFamily {
+        name: "repeated-char-flag",
+        meaning: "a repeated-character flag (`-vv`, `-dd`, `-kk`) is stored as its single-letter \
+                  form carrying the repeat as a required value (`-v` + value `\"v\"`) rather than \
+                  as the doubled flag itself — extracted, but as the wrong shape, not absent",
+    },
+    DefectFamily {
+        name: "brace-alternation-flag",
+        meaning: "a flag written as a brace alternation of its own spellings (`{-i|--input} \
+                  <file>`, `{-v | --version}`) is dropped entirely or keeps a brace as its value",
+    },
+    DefectFamily {
+        name: "dropped-alias",
+        meaning: "one half of a documented short/long alias pair is missing from the extracted \
+                  flag (`-p` kept, `--pid` dropped, or the reverse)",
+    },
+    DefectFamily {
+        name: "value-name-mangled",
+        meaning: "a flag's value spec is mis-captured: an alternative form, an alias spelling, or \
+                  a second accepted type is swallowed into or dropped from `value_name`",
+    },
+    DefectFamily {
+        name: "missing-flag-description",
+        meaning: "flags are extracted but carry no description text, though the help text \
+                  attaches one",
+    },
+    DefectFamily {
+        name: "section-header-bleed",
+        meaning: "text belonging to a section heading is absorbed into a flag, a description, or \
+                  a node name",
+    },
+    // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. The name describes a
+    // *symptom* — "no flag came out" — not a shape, which is exactly the
+    // `value-name-mangled` failure mode (spec §13.1e) rather than the
+    // `brace-alternation-flag` one. Its five labelled tools are five
+    // unrelated dispositions, and three of them are not this family's work
+    // at all:
+    //
+    //   cache_restore  `{-i|--input} <input xml file>`   brace-alternation-flag,
+    //                                                    ALREADY FIXED — fixture green
+    //   xfs_io         `[[-c|-C] cmd]...`, `[-adfinrRstVx]`
+    //                                                    brace-alternation-flag +
+    //                                                    bundled-short-flag,
+    //                                                    ALREADY FIXED — fixture green
+    //                                                    (its own note says "singe dash
+    //                                                    issue + missing -c and -C";
+    //                                                    the label, not the parse, is
+    //                                                    what is stale here)
+    //   ip             `OPTIONS := { -V[ersion] | ... }` unparsed-subcommand SHAPE D,
+    //                                                    already declared NOT BUILT and
+    //                                                    already excluded by witness in
+    //                                                    `xtask::commandtable`. Its
+    //                                                    OBJECT set and its OPTIONS set
+    //                                                    are one grammar; the survivors
+    //                                                    are additionally single-dash-long
+    //                                                    (`-V` + value `"ersion"`)
+    //   sg_dd          a second synopsis paragraph       singleton: the usage block ends
+    //                  after a blank line                at the blank line, losing
+    //                                                    `--progress` and `--verify` and
+    //                                                    nothing else
+    //   pptpsetup      `pptpsetup --create <TUNNEL> ...` singleton: a synopsis with no
+    //                  with no `usage:` label            `usage:` anchor, so no usage
+    //                                                    block exists and no synopsis flag
+    //                                                    is ever extracted
+    //
+    // The two singletons share no witness token, so no one predicate reaches
+    // both, and each fix would flip exactly one fixture — "a tool, not a
+    // family". Worse, the pptpsetup shape cannot be claimed at all without
+    // breaking two boundaries: *any* predicate reading "the tool's own name
+    // leads a line carrying flag-shaped tokens, with no `usage:` at line
+    // start" also claims `vgck`, `vgextend` and `vgrename` (labelled
+    // verbatim-fallback — a cross-family fire) and `nfsidmap` (`nfsidmap:
+    // Usage: nfsidmap [-vh] ...`, judged **correct** by maintainer decision
+    // and explicitly not re-litigated — a false alarm). Anchoring the usage
+    // block on the tool's own name would hand all four of them a synopsis
+    // they do not have today, re-opening a signed-off `correct` verdict as a
+    // side effect of a different family's fix, with no fleet measurement
+    // available to bound the damage.
+    DefectFamily {
+        name: "unparsed-flag",
+        meaning: "flag spellings plainly present in the help text produce no flag at all — a \
+                  partial recall gap, distinct from `verbatim-fallback`'s total one. A SYMPTOM, \
+                  not a shape: its five labelled tools are five unrelated dispositions and no \
+                  detector generalizes them; see the comment above",
+    },
+    // NOT ONE DEFECT. The seed-2 audit's 8 `unparsed-subcommand` tools —
+    // the largest family in the set — write their subcommand lists in four
+    // unrelated grammars, and only the first has been built and fixed:
+    //
+    //   A  dash-separated command table       ar, gcc-ar, gcc-ar-13,        FIXED
+    //      (` commands:` + `d  - desc`)       aarch64-linux-gnu-{ar,gcc-ar}
+    //   B  inline label + continuation        apt-ftparchive                NOT BUILT
+    //      (`Commands: packages binarypath`, first entry on the label's line)
+    //   C  repeated-prefix usage catalogue    btrfs                         NOT BUILT
+    //      (`    btrfs balance start <path>`, no heading, two levels deep)
+    //   D  metavariable alternation set       ip                            NOT BUILT
+    //      (`where  OBJECT := { address | addrlabel | ... }`)
+    //
+    // `xtask`'s `unparsed-command-table` detector claims shape A only and
+    // names B, C and D as declared exclusions with a witness line each (see
+    // `xtask/src/commandtable.rs`). A zero count for that detector therefore
+    // means shape A is repaired — it does NOT mean this family is done.
+    DefectFamily {
+        name: "unparsed-subcommand",
+        meaning: "subcommand names are plainly present in the help text but no child node is \
+                  produced for them — four unrelated grammars share this label; see the comment \
+                  above, only shape A (the dash-separated command table) is fixed",
+    },
+    DefectFamily {
+        name: "unparsed-positional",
+        meaning: "a positional operand in the usage line (`<destination>`, `pid`) is never \
+                  extracted — the IR has nowhere to put it",
+    },
+    // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. This is the vaguest label
+    // in the manifest — its own `meaning` below is a list of five unrelated
+    // layouts, which is the tell — and reading the six labelled tools'
+    // raw help beside their trees confirms it. Two of the six are the same
+    // binary: `/usr/bin/mariadb-repair` and `/usr/bin/mariadbcheck` are both
+    // symlinks to `mariadb-check`, and their help differs only in the
+    // program name it prints. Six labels are therefore five tools, and the
+    // five are five shapes with no witness token in common:
+    //
+    //   gcc          `--help={common|optimizers|...}`   ALREADY MODELED, and
+    //                                                   already deferred:
+    //                `help_text::confession::match_flag_value_row` detects
+    //                this exact row and caps the status at `incomplete`.
+    //                Following it needs a new `exec::InertArgv` for the
+    //                one-token `--help=common` plus its own §6 deliberation
+    //                (WS5b). Nothing here is a grammar defect.
+    //   mariadb-     `Variables (--variable-name=value)` NOTHING TO EXTRACT.
+    //   {repair,     defaults table                      Every one of its 39
+    //    check}                                          rows restates an
+    //                option already in the tree, and adds only a default
+    //                *value*, which the IR has nowhere to put. Recall is
+    //                complete. The table's one tree artifact is a phantom
+    //                flag whose long name is the header ruler
+    //                `---------------------------------`.
+    //   qemu-arm64-  `Argument | Env-variable |          three-column table:
+    //   static        Description` columns              column 2 is swallowed
+    //                                                   into the description
+    //                on 21 of its 23 rows. Its other damage is
+    //                `single-dash-long`, which has its own detector and fix.
+    //   sg_dd        a synopsis paragraph resumed        singleton, and
+    //                after a blank line, plus a          already recorded
+    //                `where:` KEY=VALUE operand table    under `unparsed-flag`
+    //                                                    above — verified again
+    //                here: `--progress`/`--verify` are the only losses.
+    //   ssh-keygen   one synopsis line per invocation    the block IS read —
+    //                variant, each reprinting the        40 flags come out of
+    //                tool's own name                     it. What is unmodeled
+    //                is the mode words (`-Y sign`, `-M generate`,
+    //                `-Y find-principals`), subcommands in all but name.
+    //
+    // The mariadb residue is the only one two labels reach, and it is not a
+    // family: one binary under two names is the same evidence counted twice.
+    // It is also unbuildable today in both directions. There is no
+    // `must_not_contain_flags` contract field, so a fixture cannot state a
+    // *phantom* flag falsifiably (the same gap `must_contain_positionals`
+    // was added to close for operands). And the obvious predicate — a long
+    // option name made only of `-` characters — fires on `bzless`
+    // (`------> --help <------` parses as `--` + `----` carrying the value
+    // `>`), which is labelled `wrong-stream`: a cross-family fire, which no
+    // exclusion may excuse. Narrowing it to "the raw text carries a line of
+    // nothing but dashes" does clear `bzless`, and was scanned mechanically
+    // across all 81 corpus fixtures: **zero** of them carry such a line.
+    // One binary is a tool, not a family.
+    DefectFamily {
+        name: "unmodeled-help-shape",
+        meaning: "the help text is structured in a way the grammar has no model for at all \
+                  (topic-partitioned `--help=<topic>` pages, a combinatorial synopsis that \
+                  reprints the tool name per variant, `KEY=VALUE` operands, a settings/variables \
+                  table that is not a flag list, multi-column layouts). A LABEL FOR FIVE \
+                  UNRELATED LAYOUTS, not a shape: its six labels are five tools and five \
+                  shapes, and no detector generalizes them; see the comment above",
+    },
+    DefectFamily {
+        name: "wrong-stream",
+        meaning: "the tool wrote its real help to one stream and a banner or decorator to the \
+                  other, and the parser read the decorator — the whole tree is built from the \
+                  wrong bytes",
+    },
+    DefectFamily {
+        name: "verbatim-fallback",
+        meaning: "help text was captured but no structure came out of it at all, so the tool \
+                  falls back to verbatim display",
+    },
+    DefectFamily {
+        name: "display-only",
+        meaning: "the extraction is right and the defect is in how the TUI renders it (width, \
+                  wrapping, a truncated bracket) — recorded as not-an-extraction-defect rather \
+                  than dropped, so it cannot be mistaken for one",
+    },
+    DefectFamily {
+        name: "no-usable-help",
+        meaning: "the tool yields no help text to parse under the allowlisted probe argv (prints \
+                  nothing, errors, opens a REPL, or emits something that is not help) — a \
+                  property of the tool, not of the parser",
+    },
+];
+
+/// Every family name, in [`DEFECT_FAMILIES`] order.
+pub fn family_names() -> Vec<&'static str> {
+    DEFECT_FAMILIES.iter().map(|f| f.name).collect()
+}
+
+/// The one-line meaning of `name`, or `None` if it is not a recognized
+/// family. The membership test every reader of [`Entry::families`] should
+/// use, so an unrecognized word can never be silently treated as a family
+/// nobody has heard of.
+pub fn family_meaning(name: &str) -> Option<&'static str> {
+    DEFECT_FAMILIES
+        .iter()
+        .find(|f| f.name == name)
+        .map(|f| f.meaning)
+}
+
+/// Parse a family word to its canonical `'static` spelling, failing loudly
+/// (and naming the whole valid set) on anything else — the family
+/// counterpart of [`parse_verdict_word`], and shared for the same reason:
+/// every entry point that accepts a family must agree on what one is.
+pub fn parse_family(word: &str) -> anyhow::Result<&'static str> {
+    DEFECT_FAMILIES
+        .iter()
+        .find(|f| f.name == word)
+        .map(|f| f.name)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "unrecognized defect family {word:?} — expected one of: {}",
+                family_names().join(", ")
+            )
+        })
+}
+
+/// One recorded correction to an [`Entry`]'s verdict — the audit's amendment
+/// mechanism (see the module's own doc comment for why this exists: a
+/// reviewer error, once identified, must be fixable without either silently
+/// rewriting history or leaving a known-false record standing).
+///
+/// **Appended, never mutated once written**, and the `Entry` this lives on
+/// never has [`Entry::verdict`]/[`Entry::note`] overwritten by [`amend`]
+/// either — an amendment is additive by construction, so `git blame` and a
+/// plain read of the TOML both show the original verdict sitting right there
+/// next to the record of what it became and why, rather than requiring
+/// reconstruction from a diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Amendment {
+    /// The verdict this amendment supersedes: the entry's original
+    /// [`Entry::verdict`] for a first amendment, or the previous
+    /// amendment's `new_verdict` for a second — recorded explicitly (not
+    /// left to be inferred by walking the list) so each amendment reads as
+    /// a complete, self-contained "was X, became Y, because Z" statement on
+    /// its own.
+    pub previous_verdict: String,
+    /// The corrected verdict, in effect from this amendment forward.
+    pub new_verdict: String,
+    /// The note attached to `new_verdict`, required under the same rule
+    /// [`verdict_requires_note`] applies to an ordinary verdict — an
+    /// amendment to `wrong`/`incomplete` with nothing recorded about what
+    /// is actually wrong is exactly as useless as a bare initial verdict
+    /// would be. Stored separately from [`Entry::note`] so the original
+    /// note (which may itself be empty, e.g. a `correct` being amended
+    /// away) survives untouched as history.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub new_note: String,
+    /// Why the original verdict was wrong and is being corrected. Always
+    /// required, regardless of what the new verdict is — an amendment with
+    /// no stated reason is exactly the kind of unauditable rewrite this
+    /// mechanism exists to prevent, the same precedent
+    /// [`Entry::include_reason`] already sets for force-inclusion.
+    pub reason: String,
+}
+
+/// Append an [`Amendment`] to `entry`, correcting its effective verdict
+/// without overwriting anything already on disk. Fails loudly, before
+/// touching `entry`, on every way an amendment could become an unauditable
+/// or incomplete record:
+///
+/// - `entry` has no verdict yet (nothing to amend — record an initial
+///   verdict first, this is not a shortcut around the ordinary review
+///   flow);
+/// - `reason` is blank (the whole point of this function over hand-editing
+///   the TOML directly);
+/// - `new_verdict` obliges a note ([`verdict_requires_note`]) and
+///   `new_note` is blank, the same obligation an ordinary verdict carries;
+/// - `new_verdict` is identical to the entry's current effective verdict
+///   (nothing is actually changing — that is an edit to the note, a
+///   different operation this function does not perform, not a verdict
+///   amendment).
+///
+/// `new_verdict` must already be a canonical word (run it through
+/// [`parse_verdict_word`] first, the same as every other entry point that
+/// accepts one) — this function does not parse `c`/`i`/`w`/`s` shorthand
+/// itself, so a caller's typo surfaces as a rejected value rather than a
+/// silently accepted wrong one.
+pub fn amend(
+    entry: &mut Entry,
+    new_verdict: &str,
+    new_note: String,
+    reason: String,
+) -> anyhow::Result<()> {
+    let Some(previous_verdict) = entry.effective_verdict().map(str::to_string) else {
+        anyhow::bail!(
+            "{:?} has no verdict yet — nothing to amend (record an initial verdict first, via \
+             `xtask audit review`/`ingest` or `mandible --review`)",
+            entry.tool
+        );
+    };
+    if reason.trim().is_empty() {
+        anyhow::bail!(
+            "amending {:?} needs a reason — an amendment with nothing recorded about why is \
+             exactly the unauditable change this mechanism exists to prevent",
+            entry.tool
+        );
+    }
+    if verdict_requires_note(new_verdict) && new_note.trim().is_empty() {
+        anyhow::bail!(
+            "amending {:?} to {new_verdict:?} needs a note — the same obligation an ordinary \
+             wrong/incomplete verdict carries, now aimed at the corrected value",
+            entry.tool
+        );
+    }
+    if previous_verdict == new_verdict {
+        anyhow::bail!(
+            "{:?} is already {new_verdict:?} (after any prior amendments) — nothing to amend",
+            entry.tool
+        );
+    }
+    entry.amendments.push(Amendment {
+        previous_verdict,
+        new_verdict: new_verdict.to_string(),
+        new_note,
+        reason,
+    });
+    Ok(())
 }
 
 /// The persisted state of one audit run: everything needed to resume, and
@@ -174,6 +792,25 @@ impl AuditFile {
             .enumerate()
             .filter(|(_, e)| e.needs_attention())
             .map(|(i, _)| i)
+    }
+
+    /// Run [`Entry::validate_families`] over every entry, reporting the
+    /// first failure. Called by every command that reads family labels
+    /// before it computes anything from them, so a hand edit that
+    /// mistypes a family or forgets its provenance fails at the top of the
+    /// run rather than quietly changing a confusion matrix.
+    pub fn validate_families(&self) -> anyhow::Result<()> {
+        for entry in &self.entries {
+            entry.validate_families()?;
+        }
+        Ok(())
+    }
+
+    /// Judged defects carrying no family label, in file order — the
+    /// `unclassified` population every calibration report prints. See
+    /// [`Entry::is_unclassified`].
+    pub fn unclassified(&self) -> impl Iterator<Item = &Entry> + '_ {
+        self.entries.iter().filter(|e| e.is_unclassified())
     }
 }
 
@@ -299,6 +936,18 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            spot_audit_event: None,
+            families: Vec::new(),
+            families_derived: None,
+            amendments: Vec::new(),
+        }
+    }
+
+    fn labelled(tool: &str, verdict: &str, families: &[&str]) -> Entry {
+        Entry {
+            families: families.iter().map(|f| f.to_string()).collect(),
+            families_derived: Some(true),
+            ..entry(tool, Some(verdict), "a real finding")
         }
     }
 
@@ -373,6 +1022,16 @@ mod tests {
                     k2: Some(false),
                     k3: Some(true),
                     include_reason: None,
+                    spot_audit_event: None,
+                    families: vec!["unparsed-subcommand".to_string()],
+                    families_derived: Some(true),
+                    amendments: vec![Amendment {
+                        previous_verdict: "incomplete".to_string(),
+                        new_verdict: "wrong".to_string(),
+                        new_note: "actually a genuine parser defect, not just unfetched help"
+                            .to_string(),
+                        reason: "re-read after a related tool surfaced the same shape".to_string(),
+                    }],
                 },
                 Entry {
                     tool: "zoxide".to_string(),
@@ -383,6 +1042,10 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: Some("unaudited promotion".to_string()),
+                    spot_audit_event: Some("bundled-short-flag-942890d".to_string()),
+                    families: Vec::new(),
+                    families_derived: None,
+                    amendments: Vec::new(),
                 },
             ],
         };
@@ -392,12 +1055,32 @@ mod tests {
         assert_eq!(loaded.meta.sample_size, 2);
         assert_eq!(loaded.entries.len(), 2);
         assert_eq!(loaded.entries[0].tool, "openssl");
+        // The original verdict/note are untouched by the amendment: the
+        // file still shows what the reviewer originally wrote.
         assert_eq!(loaded.entries[0].verdict.as_deref(), Some("incomplete"));
+        assert_eq!(loaded.entries[0].note, "subcommand help never fetched");
         assert_eq!(loaded.entries[0].k3, Some(true));
+        assert_eq!(loaded.entries[0].families, vec!["unparsed-subcommand"]);
+        assert_eq!(loaded.entries[0].families_derived, Some(true));
+        assert!(loaded.entries[1].families.is_empty());
+        // ...while the amendment history carries the correction.
+        assert_eq!(loaded.entries[0].amendments.len(), 1);
+        assert_eq!(
+            loaded.entries[0].amendments[0].previous_verdict,
+            "incomplete"
+        );
+        assert_eq!(loaded.entries[0].amendments[0].new_verdict, "wrong");
+        assert_eq!(loaded.entries[0].effective_verdict(), Some("wrong"));
+        assert_eq!(loaded.entries[1].amendments.len(), 0);
         assert_eq!(
             loaded.entries[1].include_reason.as_deref(),
             Some("unaudited promotion")
         );
+        assert_eq!(
+            loaded.entries[1].spot_audit_event.as_deref(),
+            Some("bundled-short-flag-942890d")
+        );
+        assert!(loaded.entries[0].spot_audit_event.is_none());
         assert_eq!(loaded.pending().collect::<Vec<_>>(), vec![1]);
     }
 
@@ -455,5 +1138,379 @@ mod tests {
         assert!(tag_display("K3", Some(true), "k3").contains("suggested TRUE"));
         assert!(tag_display("K3", Some(false), "k3").contains("suggested FALSE"));
         assert!(tag_display("K3", None, "k3").contains("not flagged"));
+    }
+
+    // ------------------------------------------------------------------
+    // Amendment mechanism
+    // ------------------------------------------------------------------
+
+    /// A manifest written before `amendments` existed — no `[[entry.
+    /// amendments]]` block anywhere, exactly what every `audit/<seed>.toml`
+    /// committed before this field was added looks like on disk — must
+    /// still load, with every entry's `amendments` simply empty. This is
+    /// the schema's whole backward-compatibility contract: an old file is
+    /// not a migration, it's already valid.
+    #[test]
+    fn a_manifest_with_no_amendments_field_still_loads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = verdict_path(tmp.path(), 99);
+        let raw = r#"
+[meta]
+seed = 99
+sample_size = 1
+
+[[entry]]
+tool = "tmux"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+"#;
+        std::fs::write(&path, raw).unwrap();
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.entries.len(), 1);
+        assert!(loaded.entries[0].amendments.is_empty());
+        assert_eq!(loaded.entries[0].effective_verdict(), Some("correct"));
+        assert_eq!(loaded.entries[0].effective_note(), "");
+    }
+
+    /// The ordinary case: a `correct` verdict amended to `wrong`, with a
+    /// required reason and a required note on the new value (since `wrong`
+    /// obliges one). `effective_verdict`/`effective_note` must report the
+    /// amendment; `verdict`/`note` must report the original, untouched.
+    #[test]
+    fn amend_appends_history_without_touching_the_original_fields() {
+        let mut e = entry("tmux", Some("correct"), "");
+        amend(
+            &mut e,
+            "wrong",
+            "bundled-short-flag collapse, same shape judged wrong elsewhere".to_string(),
+            "reviewer missed the same defect confirmed on other tools in this review".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(e.verdict.as_deref(), Some("correct"), "original preserved");
+        assert_eq!(e.note, "", "original note preserved");
+        assert_eq!(e.effective_verdict(), Some("wrong"));
+        assert_eq!(
+            e.effective_note(),
+            "bundled-short-flag collapse, same shape judged wrong elsewhere"
+        );
+        assert_eq!(e.amendments.len(), 1);
+        assert_eq!(e.amendments[0].previous_verdict, "correct");
+        assert_eq!(e.amendments[0].new_verdict, "wrong");
+        assert!(!e.amendments[0].reason.is_empty());
+    }
+
+    /// A blank or whitespace-only reason is refused — the required-reason
+    /// rule this function exists to enforce, mirroring
+    /// `verdict_requires_note`'s treatment of a blank note.
+    #[test]
+    fn amend_refuses_a_blank_reason() {
+        let mut e = entry("tmux", Some("correct"), "");
+        let err = amend(
+            &mut e,
+            "wrong",
+            "a real finding".to_string(),
+            "   ".to_string(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("reason"));
+        assert!(
+            e.amendments.is_empty(),
+            "a rejected amendment leaves no trace"
+        );
+    }
+
+    /// Amending *to* `wrong`/`incomplete` still needs a note on the new
+    /// value, exactly as an ordinary verdict would — the reason explains
+    /// why the verdict changed, the note explains what is wrong, and they
+    /// are not substitutes for each other.
+    #[test]
+    fn amend_refuses_a_wrong_verdict_with_no_new_note() {
+        let mut e = entry("tmux", Some("correct"), "");
+        let err = amend(&mut e, "wrong", "".to_string(), "a real reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("note"));
+        assert!(e.amendments.is_empty());
+    }
+
+    /// `correct` and `skip` carry no note obligation, so amending *to*
+    /// either needs no `new_note` — same asymmetry `verdict_requires_note`
+    /// already encodes for an ordinary verdict.
+    #[test]
+    fn amend_to_correct_needs_no_note() {
+        let mut e = entry("openssl", Some("wrong"), "flags missing");
+        amend(
+            &mut e,
+            "correct",
+            String::new(),
+            "re-read against a later capture; the flags were there after all".to_string(),
+        )
+        .unwrap();
+        assert_eq!(e.effective_verdict(), Some("correct"));
+        assert_eq!(e.effective_note(), "");
+    }
+
+    /// Amending an entry with no verdict yet is refused — this is not a
+    /// backdoor around the ordinary review flow.
+    #[test]
+    fn amend_refuses_an_entry_with_no_verdict_yet() {
+        let mut e = entry("tmux", None, "");
+        let err = amend(&mut e, "wrong", "note".to_string(), "reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("no verdict yet"));
+    }
+
+    /// Amending to the same verdict the entry already effectively has is
+    /// refused — nothing is actually changing, so recording an "amendment"
+    /// would just be noise.
+    #[test]
+    fn amend_refuses_a_no_op_amendment() {
+        let mut e = entry("tmux", Some("correct"), "");
+        let err = amend(&mut e, "correct", String::new(), "reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("already"));
+    }
+
+    /// A second amendment chains onto the first: its `previous_verdict` is
+    /// the first amendment's `new_verdict`, not the entry's original
+    /// verdict, so the history reads as a true sequence of corrections.
+    #[test]
+    fn a_second_amendment_chains_onto_the_first() {
+        let mut e = entry("tmux", Some("correct"), "");
+        amend(
+            &mut e,
+            "wrong",
+            "first finding".to_string(),
+            "first reason".to_string(),
+        )
+        .unwrap();
+        amend(
+            &mut e,
+            "incomplete",
+            "actually just incomplete, not fully wrong".to_string(),
+            "reconsidered after further review".to_string(),
+        )
+        .unwrap();
+        assert_eq!(e.amendments.len(), 2);
+        assert_eq!(e.amendments[0].previous_verdict, "correct");
+        assert_eq!(e.amendments[0].new_verdict, "wrong");
+        assert_eq!(e.amendments[1].previous_verdict, "wrong");
+        assert_eq!(e.amendments[1].new_verdict, "incomplete");
+        assert_eq!(e.effective_verdict(), Some("incomplete"));
+    }
+
+    /// An amendment round-trips through `save`/`load` byte-for-byte in
+    /// meaning: every field of the [`Amendment`] survives, and
+    /// `effective_verdict`/`effective_note` on the reloaded entry agree
+    /// with the in-memory value before it was written.
+    #[test]
+    fn an_amendment_round_trips_through_save_and_load() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = verdict_path(tmp.path(), 2);
+        let mut e = entry("tmux", Some("correct"), "");
+        amend(
+            &mut e,
+            "wrong",
+            "bundled-short-flag collapse".to_string(),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+        let file = AuditFile {
+            meta: AuditMeta {
+                seed: 2,
+                sample_size: 1,
+            },
+            entries: vec![e],
+        };
+        save(&path, &file).unwrap();
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.entries[0].verdict.as_deref(), Some("correct"));
+        assert_eq!(loaded.entries[0].effective_verdict(), Some("wrong"));
+        assert_eq!(
+            loaded.entries[0].amendments[0].reason,
+            "reviewer inconsistency caught in reconciliation"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Defect-family labels
+    // ------------------------------------------------------------------
+
+    /// A manifest written before `families` existed loads unchanged, with
+    /// every entry simply unlabelled — the same backward-compatibility
+    /// contract `amendments` carries, and the reason the seed-2 file could
+    /// be backfilled incrementally rather than migrated wholesale.
+    #[test]
+    fn a_manifest_with_no_families_field_still_loads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = verdict_path(tmp.path(), 98);
+        std::fs::write(
+            &path,
+            "[meta]\nseed = 98\nsample_size = 1\n\n[[entry]]\ntool = \"tcpdump\"\nstratum = \
+             \"ok\"\nverdict = \"wrong\"\nnote = \"single dash issue\"\n",
+        )
+        .unwrap();
+        let loaded = load(&path).unwrap();
+        assert!(loaded.entries[0].families.is_empty());
+        assert_eq!(loaded.entries[0].families_derived, None);
+        loaded.validate_families().unwrap();
+        // ...and an unlabelled judged defect reads as unclassified, not as
+        // "no defect family applies".
+        assert!(loaded.entries[0].is_unclassified());
+    }
+
+    #[test]
+    fn every_family_name_is_kebab_case_and_unique() {
+        let mut seen = Vec::new();
+        for f in DEFECT_FAMILIES {
+            assert!(
+                f.name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c == '-' || c.is_ascii_digit()),
+                "{:?} is not kebab-case",
+                f.name
+            );
+            assert!(!f.meaning.trim().is_empty(), "{:?} has no meaning", f.name);
+            assert!(!seen.contains(&f.name), "{:?} listed twice", f.name);
+            seen.push(f.name);
+        }
+    }
+
+    #[test]
+    fn parse_family_accepts_the_set_and_names_it_on_failure() {
+        assert_eq!(
+            parse_family("bundled-short-flag").unwrap(),
+            "bundled-short-flag"
+        );
+        let err = parse_family("bundled_short_flag").unwrap_err().to_string();
+        assert!(err.contains("unrecognized defect family"));
+        assert!(
+            err.contains("bundled-short-flag"),
+            "the error must name the valid set, not just reject: {err}"
+        );
+        assert!(family_meaning("no-such-family").is_none());
+    }
+
+    /// The claim-strength rule this field exists for: labels with no
+    /// recorded provenance are refused outright, so a writer that forgets
+    /// the field cannot launder a machine reading of a reviewer's prose
+    /// into the reviewer's own classification.
+    #[test]
+    fn families_without_recorded_provenance_are_refused() {
+        let mut e = entry("tcpdump", Some("wrong"), "single dash issue");
+        e.families = vec!["bundled-short-flag".to_string()];
+        let err = e.validate_families().unwrap_err().to_string();
+        assert!(err.contains("families_derived"), "{err}");
+
+        e.families_derived = Some(true);
+        e.validate_families().unwrap();
+    }
+
+    #[test]
+    fn an_unrecognized_or_duplicated_family_is_refused() {
+        let mut e = labelled("tcpdump", "wrong", &["not-a-real-family"]);
+        assert!(e.validate_families().is_err());
+
+        e.families = vec![
+            "bundled-short-flag".to_string(),
+            "bundled-short-flag".to_string(),
+        ];
+        let err = e.validate_families().unwrap_err().to_string();
+        assert!(err.contains("twice"), "{err}");
+    }
+
+    /// A family says what is *wrong*, so a verdict that names no defect
+    /// cannot carry one — otherwise a `correct` tool would sit in a
+    /// detector's expected-fires set on the strength of a verdict saying
+    /// nothing is wrong with it.
+    #[test]
+    fn a_correct_verdict_may_not_carry_family_labels() {
+        let e = labelled("tmux", "correct", &["bundled-short-flag"]);
+        let err = e.validate_families().unwrap_err().to_string();
+        assert!(err.contains("names no defect"), "{err}");
+    }
+
+    /// Labels follow the *effective* verdict, so an amendment that turns a
+    /// `correct` into a `wrong` makes that entry labellable — which is
+    /// exactly how `tmux` entered the bundled-short-flag calibration set.
+    #[test]
+    fn an_amended_verdict_decides_whether_labels_are_allowed() {
+        let mut e = labelled("tmux", "correct", &["bundled-short-flag"]);
+        assert!(e.validate_families().is_err());
+        e.verdict = Some("correct".to_string());
+        amend(
+            &mut e,
+            "wrong",
+            "bundled-short-flag collapse".to_string(),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+        e.validate_families().unwrap();
+        assert!(e.is_judged_defect());
+        assert!(!e.is_judged_correct());
+        assert!(e.has_family("bundled-short-flag"));
+        assert!(!e.is_unclassified());
+    }
+
+    /// `skip` is neither good nor bad for calibration purposes: it records
+    /// no judgment about the parse, so counting it as either side would put
+    /// a number in a confusion matrix that no human ever supported.
+    #[test]
+    fn skip_is_neither_a_judged_defect_nor_a_judged_correct() {
+        let e = entry("xzgrep", Some("skip"), "");
+        assert!(!e.is_judged_defect());
+        assert!(!e.is_judged_correct());
+        assert!(!e.is_unclassified());
+    }
+
+    /// task #28: a judged defect whose only family is `display-only` is
+    /// out of `xtask::audit::accuracy_over`'s denominator, but nothing
+    /// about the record itself changes — it is still `wrong`/`incomplete`,
+    /// still carries its note, still `is_judged_defect()`.
+    #[test]
+    fn is_display_only_true_for_a_pure_display_only_verdict() {
+        let e = labelled("pcre2-config", "wrong", &["display-only"]);
+        assert!(e.is_display_only());
+        assert!(e.is_judged_defect());
+        assert!(!e.is_unclassified());
+    }
+
+    /// The precedent this method follows —
+    /// `xtask::detector::Ground::BelowMemberThreshold` — exists because a
+    /// free-text exclusion reason can justify anything. Here the
+    /// equivalent forgeable move is tacking `display-only` onto an entry
+    /// that already carries a real parse-shape family: two true labels
+    /// must not add up to an exclusion neither one earns alone.
+    #[test]
+    fn is_display_only_false_when_a_real_family_rides_along() {
+        let e = labelled("tcpdump", "wrong", &["bundled-short-flag", "display-only"]);
+        assert!(!e.is_display_only());
+    }
+
+    /// `correct`/`skip`/pending entries are never display-only-excludable
+    /// — there is no accuracy exclusion to grant an entry with no judged
+    /// defect on it in the first place.
+    #[test]
+    fn is_display_only_false_off_a_judged_defect() {
+        assert!(!labelled("tmux", "correct", &[]).is_display_only());
+        assert!(!entry("xzgrep", Some("skip"), "").is_display_only());
+        assert!(!entry("fresh", None, "").is_display_only());
+    }
+
+    #[test]
+    fn unclassified_lists_judged_defects_with_no_label() {
+        let file = AuditFile {
+            meta: AuditMeta {
+                seed: 2,
+                sample_size: 4,
+            },
+            entries: vec![
+                labelled("tcpdump", "wrong", &["bundled-short-flag"]),
+                entry("pptpsetup", Some("incomplete"), "bad parse"),
+                entry("wall", Some("correct"), ""),
+                entry("xzgrep", Some("skip"), ""),
+            ],
+        };
+        file.validate_families().unwrap();
+        let names: Vec<&str> = file.unclassified().map(|e| e.tool.as_str()).collect();
+        assert_eq!(names, vec!["pptpsetup"]);
     }
 }

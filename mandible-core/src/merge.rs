@@ -241,6 +241,12 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
     let repeatable = bucket.iter().any(|f| f.repeatable);
     let required = bucket.iter().any(|f| f.required);
     let negatable = bucket.iter().any(|f| f.negatable);
+    // Same rule as `negatable`, and for the same reason: one dash or
+    // two is a fact about how the tool spells this option, so a single
+    // source that saw the single-dash spelling is enough — no other
+    // source can have seen it spelled with two and be describing the
+    // same flag.
+    let single_dash = bucket.iter().any(|f| f.single_dash);
     let hidden = bucket.iter().all(|f| f.hidden) && !bucket.is_empty();
     let deprecated = pick_option(
         bucket
@@ -282,6 +288,7 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
         repeatable,
         required,
         negatable,
+        single_dash,
         hidden,
         deprecated,
         inherited,
@@ -470,7 +477,23 @@ pub fn pair_aliases(flags: Vec<Flag>) -> Vec<Flag> {
     result
 }
 
+/// Whether `a` and `b` fill each other's empty spelling slot — one
+/// short-only, one long-only.
+///
+/// **A single-dash long option is never the long half of such a pair.** The
+/// alias convention this function exists for is one dash and two
+/// (`-R, --repo`); a flag whose own spelling is already a single dash
+/// (`-help`, `-CC`, `-vv`; see [`crate::Flag::single_dash`]) has no short
+/// alias to be paired with, and offering it one is how `gcc`-family tools
+/// lose flags: `lto-dump` gives hundreds of its options the description
+/// `[disabled]`, so [`same_description`] matches almost anything and the
+/// real `-CC` was absorbed into an unrelated `-Wspeculative`, claiming a
+/// spelling that tool does not have. Measured on a full `PATH` sweep: two
+/// tools, four flags, and the only losses in the sweep-diff that found it.
 fn complementary(a: &Flag, b: &Flag) -> bool {
+    if a.single_dash || b.single_dash {
+        return false;
+    }
     (a.short.is_some() && a.long.is_none() && b.short.is_none() && b.long.is_some())
         || (a.long.is_some() && a.short.is_none() && b.long.is_none() && b.short.is_some())
 }
@@ -675,6 +698,35 @@ mod tests {
         assert_eq!(paired.len(), 1);
         assert_eq!(paired[0].short, Some('R'));
         assert_eq!(paired[0].long.as_deref(), Some("repo"));
+    }
+
+    /// A single-dash long option has no short alias to be paired with —
+    /// its own spelling is already the single-dash one. Left pairable, the
+    /// `gcc` family loses flags outright: `lto-dump` gives hundreds of its
+    /// options the description `[disabled]`, so `same_description` matches
+    /// almost anything and the real `-CC` was absorbed into an unrelated
+    /// `-Wspeculative`, which then claimed a spelling that tool does not
+    /// have. Found by `sweep-diff` on a full `PATH` sweep — two tools, four
+    /// flags, and the only losses in it.
+    #[test]
+    fn does_not_pair_a_single_dash_long_option_with_any_short_flag() {
+        let mut cc = paired_flag(None, Some("CC"), "[disabled]");
+        cc.single_dash = true;
+        let flags = vec![paired_flag(Some('W'), None, "[disabled]"), cc];
+        let paired = pair_aliases(flags);
+        assert_eq!(
+            paired.len(),
+            2,
+            "-CC must stay its own flag: {:?}",
+            paired.iter().map(|f| f.spelling()).collect::<Vec<_>>()
+        );
+        // ...and the identical pair *does* unify when the long half is a
+        // real `--` option, confirming `single_dash` is what rejected it.
+        let flags = vec![
+            paired_flag(Some('W'), None, "[disabled]"),
+            paired_flag(None, Some("CC"), "[disabled]"),
+        ];
+        assert_eq!(pair_aliases(flags).len(), 1);
     }
 
     #[test]

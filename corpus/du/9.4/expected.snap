@@ -4,11 +4,6 @@ usage:
 - 'Usage: du [OPTION]... [FILE]...'
 - 'or: du [OPTION]... --files0-from=F'
 positionals:
-- name: OPTION
-  variadic: true
-  provenance:
-    sources:
-    - help-text
 - name: FILE
   variadic: true
   provenance:

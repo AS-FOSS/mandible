@@ -1,0 +1,22 @@
+usage: uflow [-h] [-l {java,perl,php,python,ruby,tcl}] [-M METHOD] [-C CLAZZ] [-v] pid
+
+Trace method execution flow in high-level languages.
+
+positional arguments:
+  pid                   process id to attach to
+
+options:
+  -h, --help            show this help message and exit
+  -l {java,perl,php,python,ruby,tcl}, --language {java,perl,php,python,ruby,tcl}
+                        language to trace
+  -M METHOD, --method METHOD
+                        trace only calls to methods starting with this prefix
+  -C CLAZZ, --class CLAZZ
+                        trace only calls to classes starting with this prefix
+  -v, --verbose         verbose mode: print the BPF program (for debugging purposes)
+
+examples:
+    ./uflow -l java 185                # trace Java method calls in process 185
+    ./uflow -l ruby 134                # trace Ruby method calls in process 134
+    ./uflow -M indexOf -l java 185     # trace only 'indexOf'-prefixed methods
+    ./uflow -C '<stdin>' -l python 180 # trace only REPL-defined methods

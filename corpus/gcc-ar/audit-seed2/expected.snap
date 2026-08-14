@@ -1,0 +1,107 @@
+name: gcc-ar
+description: '/usr/bin/ar: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>'
+usage:
+- 'Usage: /usr/bin/ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file... /usr/bin/ar -M [<mri-script]'
+flags:
+- long: target
+  value_name: BFDNAME
+  value_kind: Required
+  group: 'generic modifiers:'
+  provenance:
+    sources:
+    - help-text
+- long: output
+  value_name: DIRNAME
+  value_kind: Required
+  group: 'generic modifiers:'
+  provenance:
+    sources:
+    - help-text
+- long: record-libdeps
+  value_name: <text>
+  value_kind: Required
+  group: 'generic modifiers:'
+  description: '- specify the dependencies of this library'
+  provenance:
+    sources:
+    - help-text
+- long: thin
+  group: 'generic modifiers:'
+  description: '- make a thin archive'
+  provenance:
+    sources:
+    - help-text
+- long: plugin
+  value_name: <p>
+  value_kind: Required
+  group: 'optional:'
+  description: '- load the specified plugin'
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.46
+children_filled: true
+subcommands:
+- name: d
+  summary: '- delete file(s) from the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: m
+  summary: '- move file(s) in the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: p
+  summary: '- print file(s) found in the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: q
+  summary: '- quick append file(s) to the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: r
+  summary: '- replace existing or insert new file(s) into the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: s
+  summary: '- act as ranlib'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: t
+  summary: '- display contents of the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: x
+  summary: '- extract file(s) from the archive'
+  group: 'commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

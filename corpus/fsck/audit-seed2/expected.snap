@@ -1,0 +1,92 @@
+name: fsck
+usage:
+- 'Usage:'
+- fsck [options] -- [fs-options] [<filesystem> ...]
+positionals:
+- name: filesystem
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'A'
+  description: check all filesystems
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  value_name: <fd>
+  value_kind: Optional
+  description: display progress bar; file descriptor is for GUIs
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  description: lock the device to guarantee exclusive access
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  description: do not check mounted filesystems
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  description: do not execute, just show what would be done
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  description: check filesystems in parallel, including root
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  description: skip root filesystem; useful only with '-A'
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: <fd>
+  value_kind: Optional
+  description: report statistics for each device checked; file descriptor is for GUIs
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  description: serialize the checking operations
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  description: do not show the title on startup
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: <type>
+  value_kind: Required
+  description: specify filesystem types to be checked; <type> is allowed to be a comma-separated list
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  description: explain what is being done
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  long: help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

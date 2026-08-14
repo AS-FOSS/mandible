@@ -1,0 +1,21 @@
+name: dbus-uuidgen
+usage:
+- 'Usage: /usr/bin/dbus-uuidgen [--ensure[=FILENAME]] [--get[=FILENAME]]'
+flags:
+- long: ensure
+  value_name: FILENAME
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: get
+  value_name: FILENAME
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

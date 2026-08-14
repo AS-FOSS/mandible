@@ -36,21 +36,23 @@ erosion that the architecture was built to prevent.
 
 Breaking any of these produces a bug that tests will not catch.
 
+(Six rows formerly here — the `Text::sanitize` boundary, widgets assuming
+`Text` is clean, per-field provenance, node-scoped extraction, one-node-one-row,
+and display-width truncation — plus the two `--help`-only execution-safety rows,
+are now written down as `spec.md` rules: §4.1, §9's intro (which cites §4.1),
+§4.2, §5.2, §9.1, and §6 rules 0 and 2a respectively. Removed per §6's own
+"do not duplicate spec.md" — see the git history of this file for the previous
+wording if you need the AGENTS.md-local phrasing.)
+
 | Invariant | Where | Failure it prevents |
 |---|---|---|
-| `Text::sanitize` (or `sanitize_markdown`) is the **only** way untrusted text enters the IR | `mandible-core/src/text.rs` | Control chars and markup reaching a `ratatui::Span`, which corrupts pane borders. Two widget-level fixes for this failed before the boundary fix worked. |
-| Widgets may **assume** `Text` is clean | `mandible-tui` | Re-implementing defenses in each of the three consumers (tree, detail, clipboard), inconsistently |
-| Provenance is **per field**, never per tree | `mandible-core/src/provenance.rs` | A trust badge that lies after a multi-tier merge — worse than no badge |
-| Extraction is **node-scoped** (`extract_node`), never whole-tree | `mandible-extract/src/tier.rs` | Eager extraction: 232 subprocesses and 10.5s for `docker`. Do not reintroduce a whole-tree `extract()`. |
-| **One node = exactly one tree row.** No wrapping in the tree pane | `mandible-tui/src/render/tree_pane.rs` | Row index ↔ node stops being a bijection, breaking selection, scrolling, mouse hit-testing, and filtering all at once |
-| Truncate by **display width** (`unicode-width`), never `char` or byte count | `mandible-tui` | CJK/emoji overflow the border by one cell per wide character |
 | Never slice a `&str` derived from tool output at a raw byte offset (`&s[..n]`) | any tier that parses `--help`/similar text | Panics if the offset isn't a UTF-8 char boundary. Shipped as a real crash (`help_text::sections`, found by the coverage harness's first real run, not a synthetic test): a box-drawing glyph early in one real tool's output landed byte 6 mid-character. Use `s.as_bytes().get(..n)` (bounds-checked, no boundary concept for raw bytes) for ASCII-prefix checks, or `s.get(..n)` (returns `None` instead of panicking) generally. |
-| `-h` is **not** a help flag on machine-state tools and must never be sent to them | `mandible-extract/src/exec/spawn.rs` (`HELP_ONLY_PROBE`) | On systemd's multi-call binary `-h` is an *action* flag — `shutdown -h` is the halt in `shutdown -h now`. Measured: `halt -h`, `poweroff -h`, `reboot -h` and `shutdown -h` each returned "Call to … failed: Interactive authentication required", i.e. each **attempted the real operation** and was stopped only by polkit because the probe ran unprivileged. As root, or with permissive polkit, the probe reboots the machine. mandible falls back to `-h` whenever `--help` fails, so this is reachable by ordinary means. These tools are restricted to exactly `--help`, which is measured harmless and is where their flag lists live. |
-| An argv element is **never the empty string**, unless a guard word precedes it | `mandible-extract/src/exec/spawn.rs` (`run_inert`) | Rule 1 ("never a bare invocation") only counts arguments. `--` is the option terminator essentially every getopt program discards, so `<tool> -- ""` delivers the empty string as the tool's *first positional*, and a program whose first positional is a pattern reads that as “match everything”. Measured: `pkill -- ""` terminated every process in a private PID namespace, pkill included (rc=143). This was the real mechanism behind the reported machine reset — the never-probe list masked it for thirteen tools while the same argv went to the other 2253. The one exception, cobra's completion word, is safe because `__complete` shields it: it is never the first positional. Note the near-miss fix: respelling it as `--` alone is harmless but *wrong* — `--` is a no-op for most tools, so they print their ordinary output and the completion heuristic reads it as candidates (`whoami --` → a username). The sweep caught that at 16 newly “native” tools, 8 of them `suspicious`. |
 | Never check whether a process is alive with `pgrep -f <string>` when your own command line contains that string | any agent driving a long background job | `pgrep -f` matches the full command line, so an `until ! pgrep -f "xtask coverage"` poller **matches itself** and reports the job alive forever. Cost a long stretch of this project reporting a sweep as running when it had died. Use `pgrep -x <binary>` (matches the process name), or record the PID. |
 | Never call an O(n)-or-worse function from inside a `while` loop's own *condition* | general Rust pitfall, not specific to one file | It reruns every iteration, turning a linear function quadratic. Found via the coverage harness on a genuinely degenerate input (a REPL that ignores `--help` and free-runs printing its own banner): one tool took 153s instead of milliseconds. Compute it once, before the loop. |
 | **A reproduction beats three rounds of reasoning.** When a bug resists explanation, reproduce it under the real harness (§3.2) before trusting the next theory. | general debugging method, not one file | [M-19], the `mandible systemctl` freeze: two successive theories — a pager, then a `/dev/tty`/session hazard ([M-17]) — were each individually *disproved by measurement*, not settled by more reasoning about the code. The real mechanism: `systemctl <anything...> --help` returns the tool's own root help byte-identically no matter what precedes it or how deep, so the background warmer's per-node probing treated every one of those fabricated "deeper" nodes as real, cascading 18 → 18² → 18³ subcommands toward the 4,096-node cap and starving the UI thread's own scheduling. Nobody was going to reason their way to that from the code; a `scripts/pty_screenshot.py` reproduction found it directly. |
 | **Never write into a CHANGELOG section whose version is already tagged.** New notes go under `## [Unreleased]`. | `CHANGELOG.md`, enforced by `scripts/changelog_guard.sh` in CI | A released section is history: it describes what that tag published, and the release body is generated from it (`scripts/changelog_section.sh`). On 2026-08-12 a change appended roughly 56 lines describing unreleased work under `## [0.2.2]`, a version tagged and published weeks earlier. Nothing complained, and the misattribution would have gone out with the next release. The guard compares every `## [X.Y.Z]` that has a matching `vX.Y.Z` tag against the section that tag actually published, so this fails in CI rather than in a reviewer's memory. |
+| **A framework protocol word is never sent to a tool without prior evidence the tool speaks that protocol** — evidence read from the artifact or from the tool's own output, never from its name | `native/` (cobra marker), `completion_script/` (cobra marker or a `completion` command row in the tool's own `--help`), spec §6 rule 1a | `__complete`, `completion <shell>` and `-- <partial>` are subcommand invocations only inside the framework that defines them; to any other program they are ordinary positionals, i.e. rule 1's bare invocation with a non-empty argv. Rule 2's closed list is not wrong, its premise is: **every shape on it was validated against tools that parse argv**, and a program that ignores argv and starts anyway is outside that premise. Both incidents are the same failure — `wall __complete` broadcast a word to every terminal on a machine, and `<tool> completion zsh`/`bash` left **437 daemons running**. Neither was a bad shape; both were a right shape sent to the wrong program. Do not fix this by growing `HELP_ONLY_PROBE`: a name list is §1's forbidden knowledge wearing a safety costume, and it can only ever name the tools someone has already been bitten by. |
+| **A probe is not complete while its descendants are alive.** Reaping the process group is necessary and not sufficient | `mandible-extract/src/exec/reap.rs`, spec §6 rule 4 | A program that daemonises leaves the process group *and* the session on its own (`fork`, parent exits, child `setsid`s), after which nothing about the survivor points back at the probe. **622 processes** were found left behind on a developer box, the oldest five days old, `guacd` holding `127.0.0.1:4822` and `sudo_logsrvd` holding `0.0.0.0:30343`. Crucially **not a hang** — all 2,302 `probe-start` lines in a traced sweep had a matching `probe-done` — so no timeout change could have helped, and reading the symptom as "the probe is slow" sends you at the wrong mechanism. The fix is adoption (child subreaper) plus a per-invocation environment token for attribution; the token is what stops it from becoming an indiscriminate kill of everything adopted. It is the *second* layer — the first is not sending the probe at all (row above). |
 
 ---
 
@@ -138,6 +140,31 @@ prose.
 
 ## 4. Environment facts
 
+### Facts about this repository's own tooling
+
+These cost real time when rediscovered.
+
+- **A fresh agent worktree is created from the repository's default branch, not
+  from the branch you are working on.** Five of six agents in one session began
+  on a months-old release tag, and one of them wrote an entire task against it
+  before anyone noticed. Start every delegated task by comparing `git log -1`
+  against the intended base — and if it is wrong, **branch from the intended
+  base; never reset to it**. An earlier version of this entry said to reset,
+  which cost a commit: two agents turned out to be in the *shared* main
+  worktree rather than isolated ones, and a `git reset --hard` in one destroyed
+  the other's finished work. It was recovered only because the victim happened
+  to have tagged it. A destructive git command is never the right way to
+  correct a base, and an agent cannot assume the working tree is its own —
+  check `git rev-parse --show-toplevel` before any command that writes.
+- **CI never runs on a feature branch push.** `ci.yml`, `frameworks.yml` and
+  `path-sweep.yml` all trigger on a push to `main` or a pull request targeting
+  it. A long-lived branch can accumulate dozens of commits with nothing gating
+  them, and the `CONTRACT WEAKENED` detector in particular is pull-request-only,
+  so it does not run at all until a PR exists.
+- **All three workflows carry `paths-ignore` for `**/*.md`, `docs/**`,
+  `LICENSE-*`, `NOTICE` and `.gitignore`.** A documentation-only push skips CI
+  entirely, which is correct but surprising the first time.
+
 Do not re-derive these. They are measured, with method, in **`spec.md`
 Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
 
@@ -173,6 +200,18 @@ update Appendix A in the same commit, with the method.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
+- **Commit before you attack your own work.** Disabling a check to prove its
+  test fails is required here (§3.1), and the restore afterwards is a
+  destructive command: an agent ran `git checkout --` on the file it had just
+  written but not yet committed, and lost it. Commit first, then attack, then
+  restore — the restore has something to restore *to*.
+- **A result that exists only on one machine is not a result.** `audit/queue.toml`
+  is called *tracked* by `xtask::queue`'s module doc and again by spec §16's
+  storage note — and was never committed by any commit on any branch, because
+  the command that writes it had never been run. Two documents asserting a file
+  exists is not evidence that it does. If something is meant to be tracked,
+  `git add` it and confirm with `git ls-files`; if a doc claims a file is
+  tracked, that claim is checkable and belongs in a test.
 - **`NOTICE` is not optional.** Vendored third-party *data* carries attribution
   obligations, and it is the most likely genuine legal exposure in this project.
 - Gates before reporting done: `cargo fmt --all -- --check`,

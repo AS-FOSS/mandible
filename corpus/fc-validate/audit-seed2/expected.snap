@@ -1,0 +1,49 @@
+name: fc-validate
+description: Validate font files and print result
+usage:
+- 'usage: /usr/bin/fc-validate [-Vhv] [-i index] [-l LANG] [--index index] [--lang LANG] [--verbose] [--version] [--help] font-file...'
+flags:
+- short: 'i'
+  long: index
+  value_name: INDEX
+  value_kind: Required
+  group: Validate font files and print result
+  description: display the INDEX face of each font file only
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: lang
+  value_name: LANG
+  value_kind: Required
+  group: Validate font files and print result
+  description: set LANG instead of current locale
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: Validate font files and print result
+  description: show more detailed information
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  group: Validate font files and print result
+  description: display font config version and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: Validate font files and print result
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

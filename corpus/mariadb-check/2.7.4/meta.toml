@@ -1,0 +1,52 @@
+# The fixture that gave `must_not_contain_flags` its first user, and the
+# reason the field exists at all (spec §14's "mariadb residue": the defect
+# was found, described, and could not be pinned, because every `[contract]`
+# field was positive and this defect is an *invention*, not an omission).
+#
+# `/usr/bin/mariadb-repair` and `/usr/bin/mariadbcheck` are symlinks to this
+# same binary and print the same help with a different program name, so this
+# one capture covers all three labels — one binary, three names.
+
+[tool]
+name = "mariadb-check"
+version = "2.7.4"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["mariadb-check", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+# The point of this fixture. The help text's `Variables (--variable-name=value)`
+# defaults table opens with a header ruler:
+#
+#     Variables (--variable-name=value)
+#     and boolean options {FALSE|TRUE}  Value (after reading options)
+#     --------------------------------- ----------------------------------------
+#     all-databases                     FALSE
+#
+# and the parser reads that ruler as a flag row, emitting a flag whose long
+# name is the ruler minus its leading `--`. mariadb-check has no such option;
+# nothing in its 39-row defaults table is a new option at all (every row
+# restates an option already in the tree and adds only a default value).
+#
+# This is *not* something the existence oracle can catch. That oracle asks
+# "does this spelling occur in the raw text", and the ruler does occur,
+# literally, on line 141 — so it is correctly silent. Only a claim about the
+# parsed tree can state this defect, which is what this field is.
+must_not_contain_flags = ["---------------------------------"]
+
+# Real flags either side of the phantom, so a future fix that removes the
+# ruler by deleting the whole table would fail here instead of passing.
+must_contain_flags = ["--auto-repair", "--process-tables", "-c", "-r"]
+
+# Flags and the (empty) subcommand list were read against the raw capture;
+# the 90-odd flag descriptions were not.
+verdict_scope = ["flags", "subcommands"]
+
+[xfail]
+broken = true
+reason = "the `Variables (--variable-name=value)` defaults table's header ruler is parsed as a flag, so the tree carries a phantom option whose long name is 31 `-` characters; the tool has no such option"

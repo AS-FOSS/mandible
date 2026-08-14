@@ -27,11 +27,19 @@
 //!
 //! # Shape
 //!
-//! - [`cmd_sample`] draws a **deterministic, stratified** sample (by parse
-//!   status — `ok`/`low-confidence`/`verbatim`/`no-tier`, plus whatever
-//!   other status [`crate::status::compute`] actually produces for the
-//!   population, e.g. `suspicious` — never a fixed four-way bucket forced
-//!   onto the real data) and persists it to a resumable verdict file.
+//! - `xtask audit freeze` (`crate::queue::cmd_freeze`) sweeps `PATH` once,
+//!   classifies every tool by parse status (`ok`/`low-confidence`/
+//!   `verbatim`/`no-tier`, plus whatever other status
+//!   [`crate::status::compute`] actually produces for the population, e.g.
+//!   `suspicious` — never a fixed four-way bucket forced onto the real
+//!   data), shuffle-stratifies the result with a recorded seed, and writes
+//!   the ordered list plus the raw captured bytes behind it to
+//!   `<dir>/queue.toml` / `<dir>/queue-captures/`. `xtask audit sample`
+//!   (`crate::queue::cmd_sample`) then just advances a cursor through that
+//!   frozen queue and persists the next slice to a resumable verdict file —
+//!   see `crate::queue`'s own doc comment for the full design, why it
+//!   replaced a live re-sweep on every draw, and the caveats freezing a
+//!   population honestly carries.
 //! - [`cmd_review`] is the interactive loop: raw text and parsed tree side
 //!   by side, a one-word verdict, persisted after every tool so an
 //!   interrupted session resumes rather than restarts.
@@ -60,22 +68,22 @@
 //! occupies its slot in the verdict file and is visible in
 //! [`cmd_report`]'s output, just excluded from the accuracy ratio (there is
 //! nothing to judge). The draw itself never consults the tool's own status
-//! or name when deciding who gets sampled — see [`sample_stratified`],
-//! which only ever sees `(tool, stratum)` pairs and a seeded shuffle.
+//! or name when deciding who gets sampled — see
+//! `crate::queue::shuffle_stratify`, which only ever sees `(tool, stratum)`
+//! pairs and a seeded shuffle.
 
-use crate::coverage::unique_executables_on_path;
 use crate::existence::{self, FabricationKind};
 use crate::misattribution::RecordingProbe;
 use crate::status;
 use mandible_core::audit::{
-    extract_tag_override, load, parse_verdict_word, save, tag_display, verdict_path, AuditFile,
-    AuditMeta, Entry,
+    extract_tag_override, family_meaning, load, parse_verdict_word, save, tag_display,
+    verdict_path, AuditFile, AuditMeta, Entry,
 };
 use mandible_core::{CommandNode, Flag};
 use mandible_extract::exec::ExecOutput;
 use mandible_extract::{default_tiers_with_probe, ExtractionResult, Runner};
 use rayon::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::{BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -97,81 +105,22 @@ use std::sync::Arc;
 /// its nominal [`Entry::stratum`] — see that field's doc comment.
 const FORCED_INCLUSION_STRATUM: &str = "forced-inclusion";
 
-// ---------------------------------------------------------------------
-// A minimal, dependency-free deterministic PRNG.
-//
-// The workspace carries no `rand` dependency, and this task doesn't need
-// cryptographic quality — only that the same seed always produces the same
-// draw and different seeds produce (with overwhelming probability)
-// different draws. SplitMix64 is the standard, well-analyzed choice for
-// exactly that: one multiply-xor-shift step per call, no external state
-// beyond a single u64.
-// ---------------------------------------------------------------------
-
-struct SplitMix64(u64);
-
-impl SplitMix64 {
-    fn new(seed: u64) -> Self {
-        SplitMix64(seed)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    /// A uniform value in `0..n`. Not perfectly unbiased (the classic
-    /// modulo-reduction skew), which is irrelevant here: `n` is a tool
-    /// count in the thousands at most, `u64::MAX / n` is astronomically
-    /// larger, and the property this whole module needs is
-    /// reproducibility, not cryptographic uniformity.
-    fn below(&mut self, n: usize) -> usize {
-        debug_assert!(n > 0);
-        (self.next_u64() % n as u64) as usize
-    }
-}
-
-/// Deterministic Fisher-Yates shuffle, seeded — the only source of
-/// randomness [`sample_stratified`] uses. Same `seed` and `items`, in the
-/// same starting order, always produces the same permutation.
-fn seeded_shuffle<T>(items: &mut [T], seed: u64) {
-    let mut rng = SplitMix64::new(seed);
-    for i in (1..items.len()).rev() {
-        let j = rng.below(i + 1);
-        items.swap(i, j);
-    }
-}
-
-/// Derive a per-stratum seed from the run's `--seed` and the stratum's own
-/// name, via a small FNV-1a mix. Without this, shuffling every stratum with
-/// the *same* raw seed would make the strata's internal orders correlated
-/// (the same relative shuffle pattern applied to each), which is a subtler
-/// but real form of non-independence in the draw.
-fn stratum_seed(seed: u64, stratum: &str) -> u64 {
-    let mut h: u64 = 0xcbf2_9ce4_8422_2325 ^ seed;
-    for b in stratum.as_bytes() {
-        h ^= u64::from(*b);
-        h = h.wrapping_mul(0x0000_0001_0000_01B3);
-    }
-    h
-}
-
 /// One tool's classification: its drawn/measured stratum, the extracted
 /// tree, and (when available) the raw captured text and the exact capture
 /// needed to write a corpus fixture — all obtained from **one** extraction
 /// pass, via [`RecordingProbe`], never a second probe of the tool (same "no
-/// new probes" property [`crate::misattribution`] documents).
-struct Classified {
-    stratum: &'static str,
-    result: ExtractionResult,
-    raw_text: Option<String>,
-    raw_capture: Option<(Vec<String>, ExecOutput)>,
+/// new probes" property [`crate::misattribution`] documents). `pub(crate)`
+/// so `crate::queue` (the freeze/cursor-draw implementation) can read a
+/// tool's stratum the same way [`entry_from_classified`] already does,
+/// without a second copy of this shape.
+pub(crate) struct Classified {
+    pub(crate) stratum: &'static str,
+    pub(crate) result: ExtractionResult,
+    pub(crate) raw_text: Option<String>,
+    pub(crate) raw_capture: Option<(Vec<String>, ExecOutput)>,
 }
 
-fn classify_one(tool: &str) -> Classified {
+pub(crate) fn classify_one(tool: &str) -> Classified {
     let probe = Arc::new(RecordingProbe::new());
     let runner = Runner::new(default_tiers_with_probe(probe.clone()));
     let result = runner.extract_full(tool);
@@ -184,13 +133,48 @@ fn classify_one(tool: &str) -> Classified {
     }
 }
 
-/// Classify every tool in `tools` in parallel (each is an independent
-/// subprocess round-trip, same reasoning as `coverage::run_over`'s own
-/// `par_iter`).
-fn classify_all(tools: &[String]) -> Vec<(String, Classified)> {
+/// [`classify_one`], plus every `(argv, output)` pair the extraction pass
+/// actually recorded — not just the root `--help` capture
+/// [`RecordingProbe::root_help_capture`] singles out, but everything the
+/// pipeline sent, so `crate::queue::cmd_freeze` can persist enough bytes for
+/// `crate::queue::cmd_reclassify` to replay the *exact same* extraction via
+/// [`mandible_extract::exec::Transcript`] later, with zero subprocess
+/// spawns, regardless of how many probes a given tool's framework needed
+/// (cobra's two-probe protocol included).
+pub(crate) fn classify_one_with_recordings(
+    tool: &str,
+) -> (
+    Classified,
+    std::collections::HashMap<Vec<String>, ExecOutput>,
+) {
+    let probe = Arc::new(RecordingProbe::new());
+    let runner = Runner::new(default_tiers_with_probe(probe.clone()));
+    let result = runner.extract_full(tool);
+    let stratum = status::compute(&result).label;
+    let classified = Classified {
+        stratum,
+        raw_text: probe.root_help_text(),
+        raw_capture: probe.root_help_capture(),
+        result,
+    };
+    (classified, probe.all_recordings())
+}
+
+/// [`classify_one_with_recordings`], run in parallel across `tools` — same
+/// reasoning as [`classify_all`].
+pub(crate) fn classify_all_with_recordings(
+    tools: &[String],
+) -> Vec<(
+    String,
+    Classified,
+    std::collections::HashMap<Vec<String>, ExecOutput>,
+)> {
     tools
         .par_iter()
-        .map(|t| (t.clone(), classify_one(t)))
+        .map(|t| {
+            let (classified, recordings) = classify_one_with_recordings(t);
+            (t.clone(), classified, recordings)
+        })
         .collect()
 }
 
@@ -253,9 +237,17 @@ fn token_occurs_anywhere(raw: &str, name: &str) -> bool {
 
 /// `(attributable, total)` counts of `report`'s subcommand-kind
 /// fabrications that are plausibly explained by the existence detector's
-/// own known multi-column/comma-separated tokenization gap (K2, see
-/// `xtask/src/existence.rs`'s `line_start_words` doc comment) rather than
-/// genuine parser fabrication: a fabrication is "attributable" when its
+/// own multi-column/comma-separated tokenization gap (K2) rather than
+/// genuine parser fabrication.
+///
+/// **That gap is closed** — `existence::list_row_words` reads a whole list
+/// row now, so a real grid or comma-joined index produces no fabrication
+/// for this to attribute, and in practice this returns `(0, 0)` for the
+/// tools it was written for. It is kept, unchanged in behaviour, as the
+/// regression signal: a fabrication that *is* attributable here again means
+/// the list-row rule stopped recognising a layout it used to.
+///
+/// A fabrication is "attributable" when its
 /// name occurs as *some* token anywhere in the raw text
 /// ([`token_occurs_anywhere`]), just not at the line-start position the
 /// detector itself requires. Flag-kind fabrications are out of scope here —
@@ -376,10 +368,10 @@ fn k3_signature(root: &CommandNode) -> Option<bool> {
 /// Build one [`Entry`] from a classified tool, computing every pre-tag
 /// suggestion from the same single extraction pass — no second probe, same
 /// property [`Classified`]'s own doc comment describes. Shared by
-/// [`sample_stratified`] (the ordinary draw) and [`cmd_sample`]'s
-/// force-include path, so the two can never compute a K1/K2/K3 suggestion
-/// differently.
-fn entry_from_classified(
+/// `crate::queue::cmd_sample`'s drawn-tool and force-include paths, so the
+/// two can never compute a K1/K2/K3 suggestion differently. `pub(crate)`
+/// for exactly that cross-module reuse.
+pub(crate) fn entry_from_classified(
     tool: String,
     classified: &Classified,
     include_reason: Option<String>,
@@ -399,102 +391,26 @@ fn entry_from_classified(
         k2,
         k3,
         include_reason,
+        // Set by `cmd_spot_audit` after this call returns — this
+        // constructor is also used by the ordinary queue draw and
+        // force-include paths, neither of which is a spot-audit.
+        spot_audit_event: None,
+        // A freshly drawn entry has no verdict yet, so it can carry no
+        // defect family either — a family names what is wrong, and nothing
+        // has been judged wrong at draw time. Labels arrive later, either
+        // from a reviewer or (marked as such) derived from their note.
+        families: Vec::new(),
+        families_derived: None,
+        amendments: Vec::new(),
     }
-}
-
-/// A drawn sample's per-stratum accounting, for [`cmd_sample`]'s printed
-/// proof that the draw is proportionally stratified: `(drawn, population)`.
-type StratumCounts = BTreeMap<String, (usize, usize)>;
-
-/// Draw a **proportionally stratified** sample of size `sample_size` from
-/// `classified`: each stratum's share of the sample matches its share of
-/// the population (largest-remainder rounding to land on the requested
-/// total exactly), and within a stratum the specific tools are chosen by a
-/// seeded, deterministic shuffle (see [`seeded_shuffle`]).
-///
-/// Proportional, not equal-quota per stratum: the audit's whole purpose is
-/// to find out whether `ok` means anything, which requires the sample to
-/// reflect how the real population actually splits across statuses, not a
-/// fixed quota that would either starve a tiny stratum or force-inflate it
-/// relative to its real share.
-fn sample_stratified(
-    classified: &[(String, Classified)],
-    sample_size: usize,
-    seed: u64,
-) -> (Vec<Entry>, StratumCounts) {
-    let total = classified.len();
-    let by_tool: std::collections::HashMap<&str, &Classified> =
-        classified.iter().map(|(t, c)| (t.as_str(), c)).collect();
-    let mut by_stratum: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for (tool, c) in classified {
-        by_stratum
-            .entry(c.stratum.to_string())
-            .or_default()
-            .push(tool.clone());
-    }
-
-    // Largest-remainder allocation: base quota is the floor of the exact
-    // proportional share, then the leftover slots (sample_size minus the
-    // sum of floors) go to the strata with the largest fractional
-    // remainder, ties broken by stratum name for determinism.
-    let mut quotas: BTreeMap<String, usize> = BTreeMap::new();
-    let mut remainders: Vec<(String, f64)> = Vec::new();
-    let mut allocated = 0usize;
-    for (stratum, tools) in &by_stratum {
-        let exact = if total == 0 {
-            0.0
-        } else {
-            sample_size as f64 * tools.len() as f64 / total as f64
-        };
-        let base = (exact.floor() as usize).min(tools.len());
-        quotas.insert(stratum.clone(), base);
-        allocated += base;
-        remainders.push((stratum.clone(), exact - base as f64));
-    }
-    remainders.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.0.cmp(&b.0))
-    });
-    let mut leftover = sample_size
-        .saturating_sub(allocated)
-        .min(total.saturating_sub(allocated));
-    for (stratum, _) in &remainders {
-        if leftover == 0 {
-            break;
-        }
-        let cap = by_stratum[stratum].len();
-        let q = quotas.get_mut(stratum).expect("stratum present");
-        if *q < cap {
-            *q += 1;
-            leftover -= 1;
-        }
-    }
-
-    let mut entries = Vec::new();
-    let mut counts: StratumCounts = BTreeMap::new();
-    for (stratum, mut tools) in by_stratum {
-        let population = tools.len();
-        seeded_shuffle(&mut tools, stratum_seed(seed, &stratum));
-        let quota = quotas.get(&stratum).copied().unwrap_or(0).min(tools.len());
-        counts.insert(stratum.clone(), (quota, population));
-        for tool in tools.into_iter().take(quota) {
-            let c = by_tool
-                .get(tool.as_str())
-                .expect("every drawn tool came from `classified`");
-            entries.push(entry_from_classified(tool, c, None));
-        }
-    }
-    entries.sort_by(|a, b| a.tool.cmp(&b.tool));
-    (entries, counts)
 }
 
 /// Read a force-include file: `<tool> <reason...>` per line (`#` comments
 /// and blank lines ignored — the same convention [`cmd_ingest`]'s verdicts
-/// file uses), for [`cmd_sample`]'s `force_include` parameter. A reason is
-/// required, not optional: an unconditional inclusion with no stated reason
-/// is exactly the kind of unauditable claim spec.md Appendix A exists to
-/// rule out (see `Entry::include_reason`'s doc comment).
+/// file uses), for `crate::queue::cmd_sample`'s `force_include` parameter. A
+/// reason is required, not optional: an unconditional inclusion with no
+/// stated reason is exactly the kind of unauditable claim spec.md Appendix A
+/// exists to rule out (see `Entry::include_reason`'s doc comment).
 pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
@@ -519,116 +435,162 @@ pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> 
     Ok(out)
 }
 
-/// `xtask audit sample`: (re)compute the deterministic, stratified draw and
-/// merge it into `path`, never disturbing an entry already present (so a
-/// resumed or repeated `sample` invocation is a no-op on top of prior
-/// progress — see this module's doc comment). `force_include` entries
-/// (`(tool, reason)`, see [`load_force_include`]) are merged in
-/// *unconditionally*, in addition to the stratified draw and independent of
-/// `sample_size` — the draw's quota accounting in `counts` never counts
-/// them, so a force-included tool never displaces a randomly-drawn one.
-pub fn cmd_sample(
-    seed: u64,
-    sample_size: usize,
-    tools: Option<Vec<String>>,
+/// `xtask audit spot-audit` (spec §13.1b's sixth rule): the spot-audit
+/// stratum mechanism that section named as missing. Draws `--sample` tools
+/// **at random** from `promoted` — the tool list one specific mass-`ok`
+/// promotion event actually changed, never the whole fleet — classifies
+/// each with one fresh extraction pass ([`classify_one`], same "no second
+/// probe" property [`Classified`]'s doc comment already gives every other
+/// entry point here), and merges them into `<dir>/<seed>.toml` as their own
+/// `spot-audit:<event>` stratum ([`effective_stratum`]), reported by
+/// [`cmd_report`] alongside the ordinary parse-status strata and
+/// [`FORCED_INCLUSION_STRATUM`].
+///
+/// **The draw is reproducible, not hand-picked.** `draw_seed` mixed with
+/// `event` via [`crate::rng::stratum_seed`] — the exact per-stratum seed
+/// mix `crate::queue::shuffle_stratify` already uses for the frozen
+/// queue — seeds a Fisher-Yates shuffle ([`crate::rng::seeded_shuffle`])
+/// over `promoted`; the same event name and seed always draw the same
+/// tools, and two different events never share a correlated draw pattern.
+///
+/// **A promoted set smaller than `sample` is handled explicitly, never
+/// silently.** When `promoted.len() < sample`, every promoted tool is
+/// drawn — not a padded count pretending the full sample size was met, and
+/// not a silently smaller draw with nothing said about it — and the
+/// printed summary states the shortfall in plain words. This is the exact
+/// edge case the bundled-short-flag backfill (5 promoted tools, below the
+/// 5–10 target because the family had only 5 audited members) hits.
+///
+/// **A tool already present in the verdict file is tagged, never
+/// duplicated or silently skipped.** A promotion event's own promoted set
+/// frequently overlaps the ordinary stratified draw that a prior audit
+/// already sampled — the motivating case here (spec §13.1b's backfill) is
+/// exactly this: all 5 bundled-short-flag-promoted tools were already
+/// present in `audit/2.toml`, reviewed **against the pre-fix parse**, and
+/// three were judged `wrong`/one `incomplete` *for that same
+/// bundled-short-flag defect* — the tool a promotion event just fixed.
+/// Silently skipping an already-present tool (this function's first
+/// version did) would mean the spot-audit stratum never gains a row for
+/// it at all, defeating the entire point. Re-classifying and overwriting
+/// its verdict outright would silently destroy a real prior human
+/// judgment. So instead: an already-present entry is re-tagged with
+/// [`Entry::spot_audit_event`] (moving it into this event's reported row
+/// without touching its stratum, verdict, note, or history), and its
+/// existing verdict — now potentially stale against a changed parse — is
+/// left exactly as recorded for a human to re-review and correct via
+/// `xtask audit amend` (never for this function to overwrite; amending is
+/// a deliberate, reasoned act, not a side effect of a draw). Only a tool
+/// genuinely new to the file is classified fresh and added as a pending
+/// entry. Re-running this command with the same inputs is safe either way:
+/// an already-tagged entry is left alone on a second pass.
+pub fn cmd_spot_audit(
     dir: &Path,
-    force_include: &[(String, String)],
+    seed: u64,
+    event: &str,
+    promoted: &[String],
+    sample: usize,
+    draw_seed: u64,
 ) -> anyhow::Result<()> {
+    if promoted.is_empty() {
+        anyhow::bail!("--promoted named no tools — nothing to spot-audit for event {event:?}");
+    }
+
+    let mut pool = promoted.to_vec();
+    crate::rng::seeded_shuffle(&mut pool, crate::rng::stratum_seed(draw_seed, event));
+    let take_n = sample.min(pool.len());
+    let drawn: Vec<String> = pool.into_iter().take(take_n).collect();
+
     let path = verdict_path(dir, seed);
-    let population = tools.unwrap_or_else(unique_executables_on_path);
-    if population.is_empty() {
-        anyhow::bail!("no tools found to sample from (empty PATH population and no --tools given)");
-    }
-    println!(
-        "classifying {} tool(s) to stratify by parse status...",
-        population.len()
-    );
-    let classified = classify_all(&population);
-    let (drawn, counts) = sample_stratified(&classified, sample_size, seed);
-
-    // Force-included tools are classified independently of `population`:
-    // the whole point (spec-cited case: the 14 `find_description_gap`
-    // promotions) is that they must appear in the sample regardless of
-    // whether a `--tools` shortcut or a stale `PATH` happens to include
-    // them (see this task's own doc comment: "`--tools` shortcuts will not
-    // find them").
-    let mut forced_entries = Vec::new();
-    for (tool, reason) in force_include {
-        let already_classified = classified.iter().find(|(t, _)| t == tool);
-        let c;
-        let classified_ref = match already_classified {
-            Some((_, existing)) => existing,
-            None => {
-                c = classify_one(tool);
-                &c
-            }
-        };
-        forced_entries.push(entry_from_classified(
-            tool.clone(),
-            classified_ref,
-            Some(reason.clone()),
-        ));
-    }
-
     let mut file = if path.is_file() {
-        let existing = load(&path)?;
-        if existing.meta.seed != seed || existing.meta.sample_size != sample_size {
-            anyhow::bail!(
-                "{} already exists with seed={} sample_size={} (asked for seed={seed} \
-                 sample_size={sample_size}) — use a different --dir/--seed, or delete it \
-                 if this is a deliberate re-draw",
-                path.display(),
-                existing.meta.seed,
-                existing.meta.sample_size,
-            );
-        }
-        existing
+        load(&path)?
     } else {
         AuditFile {
-            meta: AuditMeta { seed, sample_size },
+            meta: AuditMeta {
+                seed,
+                sample_size: 0,
+            },
             entries: Vec::new(),
         }
     };
 
-    let existing_tools: std::collections::HashSet<String> =
-        file.entries.iter().map(|e| e.tool.clone()).collect();
+    let reason = if promoted.len() < sample {
+        format!(
+            "spot-audit of promotion event {event:?}: {} of {} promoted tool(s) drawn (seed \
+             {draw_seed}) — every promoted tool was audited because the promoted set was \
+             smaller than the requested sample size ({sample})",
+            drawn.len(),
+            promoted.len(),
+        )
+    } else {
+        format!(
+            "spot-audit of promotion event {event:?}: {} of {} promoted tool(s) drawn at random \
+             (seed {draw_seed})",
+            drawn.len(),
+            promoted.len(),
+        )
+    };
+
+    let existing_tools: HashSet<String> = file.entries.iter().map(|e| e.tool.clone()).collect();
     let mut added = 0usize;
-    for entry in drawn.into_iter().chain(forced_entries) {
-        if !existing_tools.contains(&entry.tool) {
-            file.entries.push(entry);
-            added += 1;
+    let mut tagged_existing = 0usize;
+    for tool in &drawn {
+        if existing_tools.contains(tool) {
+            if let Some(existing) = file.entries.iter_mut().find(|e| &e.tool == tool) {
+                if existing.spot_audit_event.is_none() {
+                    existing.spot_audit_event = Some(event.to_string());
+                    if existing.include_reason.is_none() {
+                        existing.include_reason = Some(reason.clone());
+                    }
+                    tagged_existing += 1;
+                }
+            }
+            continue;
         }
+        let classified = classify_one(tool);
+        let mut entry = entry_from_classified(tool.clone(), &classified, Some(reason.clone()));
+        entry.spot_audit_event = Some(event.to_string());
+        file.entries.push(entry);
+        added += 1;
     }
     file.entries.sort_by(|a, b| a.tool.cmp(&b.tool));
     save(&path, &file)?;
 
     println!(
-        "seed={seed} sample_size={sample_size} population={}",
-        population.len()
+        "spot-audit:{event}: drew {} of {} promoted tool(s)",
+        drawn.len(),
+        promoted.len(),
     );
-    println!("stratum            drawn   population   %pop   %sample");
-    for (stratum, (n_drawn, n_pop)) in &counts {
+    if promoted.len() < sample {
         println!(
-            "{stratum:<18}  {n_drawn:>4}  {n_pop:>10}  {:>5.1}%  {:>6.1}%",
-            *n_pop as f64 / population.len() as f64 * 100.0,
-            if sample_size == 0 {
-                0.0
-            } else {
-                *n_drawn as f64 / sample_size as f64 * 100.0
-            },
+            "note: the promoted set has only {} tool(s), fewer than the requested sample size \
+             {sample} — every promoted tool was audited rather than silently sampling fewer or \
+             padding the count to look like a full draw.",
+            promoted.len(),
         );
     }
     println!(
-        "{added} new pending entr{s} written to {} ({} pending total, {} force-included)",
+        "{added} new pending entr{s} written, {tagged_existing} already-present entr{s2} tagged \
+         into this stratum, at {} ({} tool(s) now in stratum spot-audit:{event})",
         path.display(),
-        file.pending().count(),
-        force_include.len(),
+        drawn.len(),
         s = if added == 1 { "y" } else { "ies" },
+        s2 = if tagged_existing == 1 { "y" } else { "ies" },
     );
+    if tagged_existing > 0 {
+        println!(
+            "note: {tagged_existing} of those were already in the file with a prior verdict — \
+             that verdict is left exactly as recorded (it may now be stale against a changed \
+             parse) for a human to re-review and correct via `xtask audit amend`, never \
+             overwritten by this draw."
+        );
+    }
     Ok(())
 }
 
-fn render_snapshot(node: Option<&CommandNode>) -> String {
+/// Render `node` as the same YAML snapshot shown side by side with a tool's
+/// raw `--help` text in [`cmd_review`]/[`cmd_emit`] — shared so the two
+/// entry points can never render a tree differently.
+pub(crate) fn render_snapshot(node: Option<&CommandNode>) -> String {
     match node {
         Some(node) => {
             let snapshot = mandible_core::to_snapshot(node);
@@ -831,7 +793,9 @@ pub fn cmd_emit(dir: &Path, seed: u64, emit_dir: &Path) -> anyhow::Result<()> {
 /// never contains `/` (§ `resolve_tool`'s own PATH-search doesn't accept
 /// path separators in a bare tool name either), so this exists only to be
 /// defensive about the one other filesystem-hostile case worth naming.
-fn sanitize_filename(tool: &str) -> String {
+/// `pub(crate)` so `crate::queue`'s capture directory naming
+/// (`queue-captures/<tool>/`) can use the same rule.
+pub(crate) fn sanitize_filename(tool: &str) -> String {
     tool.chars()
         .map(|c| if c == '/' || c == '\\' { '_' } else { c })
         .collect()
@@ -843,8 +807,8 @@ fn sanitize_filename(tool: &str) -> String {
 /// silently dropped. An entry that already carries a verdict is left alone
 /// unless `overwrite` is set — so re-running `ingest` on a file that
 /// includes already-applied lines is safe and idempotent, the same
-/// resumability property [`cmd_sample`]/[`cmd_review`] give the rest of
-/// this workflow.
+/// resumability property `crate::queue::cmd_sample`/[`cmd_review`] give the
+/// rest of this workflow.
 pub fn cmd_ingest(
     dir: &Path,
     seed: u64,
@@ -927,6 +891,61 @@ pub fn cmd_ingest(
     Ok(())
 }
 
+/// `xtask audit amend`: correct one already-recorded verdict without
+/// destroying it — see `mandible_core::audit::amend`'s doc comment for the
+/// full mechanism this wraps. This is the **only** entry point that touches
+/// [`mandible_core::audit::Entry::amendments`]; there is deliberately no
+/// TUI counterpart (unlike `review`, which has both a terminal loop here
+/// and an in-app twin in `mandible --review`).
+///
+/// **Why a subcommand and not a TUI flow:** `mandible --review`'s own loop
+/// (`mandible/src/app_runner.rs::run_review`) walks
+/// [`mandible_core::audit::AuditFile::needing_attention`] — pending entries
+/// and verdicts with a missing obligatory note — and stops there by
+/// construction; it never revisits an entry that already carries a
+/// complete `correct` verdict, which is exactly the shape an amendment
+/// needs to reach (`tmux` was `correct`, with a note that satisfied every
+/// obligation already in place). Adding "browse every already-judged entry
+/// and pick one to correct" to that loop is a real, separate feature — a
+/// new navigation mode orthogonal to the linear pending-entry walk the
+/// rest of that module is built around — not a natural extension of it.
+/// This command needs no tty (AGENTS.md §3.2, same reasoning `emit`/
+/// `ingest` already documented for this module) and is fully covered by
+/// `cargo nextest run`, whereas a TUI flow would join `run_review` on the
+/// "not exercised by the automated test suite" list. Nothing here stops a
+/// future in-app amend key from being added on top of the same
+/// `mandible_core::audit::amend` function this calls — see that function's
+/// own doc comment, which already treats `mandible --review` as sharing the
+/// schema `xtask` owns — but it is not required to satisfy this task's "not
+/// by hand-editing TOML" bar, since this command already clears it.
+pub fn cmd_amend(
+    dir: &Path,
+    seed: u64,
+    tool: &str,
+    new_verdict_word: &str,
+    new_note: Option<String>,
+    reason: String,
+) -> anyhow::Result<()> {
+    let path = verdict_path(dir, seed);
+    let mut file = load(&path)?;
+    let new_verdict = mandible_core::audit::parse_verdict_word(new_verdict_word)?;
+    let entry = file
+        .entries
+        .iter_mut()
+        .find(|e| e.tool == tool)
+        .ok_or_else(|| anyhow::anyhow!("{tool:?} not found in {}", path.display()))?;
+    let previous_effective = entry.effective_verdict().map(str::to_string);
+    mandible_core::audit::amend(entry, new_verdict, new_note.unwrap_or_default(), reason)?;
+    let amendment_count = entry.amendments.len();
+    save(&path, &file)?;
+    println!(
+        "amended {tool}: {} -> {new_verdict} ({amendment_count} amendment(s) now recorded for \
+         this entry)",
+        previous_effective.as_deref().unwrap_or("(none)"),
+    );
+    Ok(())
+}
+
 /// Wilson score interval for a binomial proportion at (approximately) 95%
 /// confidence (`z = 1.96`). Chosen over the naive
 /// `p ± z*sqrt(p(1-p)/n)` normal approximation because that one produces
@@ -958,17 +977,34 @@ struct StratumTally {
     judged: usize,
     skipped: usize,
     pending: usize,
+    /// Judged `wrong`/`incomplete` entries with [`Entry::is_display_only`]
+    /// true — kept out of `judged` (and therefore out of `accuracy_over`'s
+    /// denominator, spec §13.1c/task #28) but still tallied and printed,
+    /// the same "recorded, not omitted" treatment `skipped` already gets.
+    out_of_scope: usize,
 }
 
-/// The stratum label a report groups `entry` under: [`FORCED_INCLUSION_STRATUM`]
-/// for a force-included entry regardless of its nominal [`Entry::stratum`],
-/// so it never silently blends into (and skews) the random draw's own
-/// per-status numbers — see [`Entry::include_reason`]'s doc comment.
-fn effective_stratum(entry: &Entry) -> &str {
-    if entry.include_reason.is_some() {
-        FORCED_INCLUSION_STRATUM
+/// The stratum label a report groups `entry` under.
+///
+/// Checked in priority order:
+/// 1. [`Entry::spot_audit_event`], if present — `spot-audit:<event>`, one
+///    row **per promotion event** (spec §13.1b's sixth rule). Checked
+///    first because a spot-audit entry may also carry an
+///    [`Entry::include_reason`] documenting the draw itself (which event,
+///    how many of the promoted set existed, the seed) — that field is
+///    provenance here, not the bucketing signal.
+/// 2. [`FORCED_INCLUSION_STRATUM`], for any other force-included entry
+///    (`include_reason.is_some()`), so it never silently blends into (and
+///    skews) the random draw's own per-status numbers.
+/// 3. The entry's own nominal [`Entry::stratum`] (its parse status at draw
+///    time) otherwise.
+fn effective_stratum(entry: &Entry) -> String {
+    if let Some(event) = &entry.spot_audit_event {
+        format!("spot-audit:{event}")
+    } else if entry.include_reason.is_some() {
+        FORCED_INCLUSION_STRATUM.to_string()
     } else {
-        entry.stratum.as_str()
+        entry.stratum.clone()
     }
 }
 
@@ -976,11 +1012,32 @@ fn effective_stratum(entry: &Entry) -> &str {
 /// entries `keep` selects — the shared machinery behind every accuracy
 /// number [`cmd_report`] prints, all-inclusive or K1/K2-filtered alike, so
 /// every view is computed the same way.
+///
+/// Reads [`Entry::effective_verdict`], never the raw [`Entry::verdict`]
+/// field directly — an amended entry's corrected verdict is what the
+/// project actually believes about that tool, and every aggregate number
+/// this instrument reports must reflect that correction, not the
+/// superseded original sitting in the file for history's sake.
+///
+/// **Also skips every [`Entry::is_display_only`] entry, unconditionally,
+/// regardless of which caller's filtered iterator it was handed.** The
+/// maintainer's ruling (task #28) is that a display/rendering-only finding
+/// "[is] not accuracy, ... probably [a] UI rendering issue. parsing was
+/// fine" — it is a real, kept finding (still visible in
+/// [`cmd_report`]'s stratum table and its own out-of-scope line, still a
+/// `wrong`/`incomplete` verdict on disk, still a `[xfail]` fixture), just
+/// never part of what this function is answering. Doing the skip in one
+/// shared place, rather than in each of `cmd_report`'s five call sites,
+/// is what makes "out" mean the same thing in the headline figure, every
+/// K-view, and the per-stratum table all at once.
 fn accuracy_over<'a>(entries: impl Iterator<Item = &'a Entry>) -> (usize, usize) {
     let mut correct = 0usize;
     let mut judged = 0usize;
     for entry in entries {
-        match entry.verdict.as_deref() {
+        if entry.is_display_only() {
+            continue;
+        }
+        match entry.effective_verdict() {
             Some("correct") => {
                 correct += 1;
                 judged += 1;
@@ -1008,6 +1065,90 @@ fn print_accuracy_line(label: &str, correct: usize, judged: usize) {
     );
 }
 
+/// How favorable a verdict word is to the parser, for [`print_wilson_caveat`]'s
+/// amendment-direction tally: `correct` is the best outcome, `wrong` the
+/// worst, `incomplete` between the two. `skip` has no comparable
+/// favorability (there is nothing to judge), so it is deliberately absent —
+/// an amendment into or out of `skip` is not counted as a directional move
+/// either way.
+fn verdict_favorability(verdict: &str) -> Option<i32> {
+    match verdict {
+        "correct" => Some(2),
+        "incomplete" => Some(1),
+        "wrong" => Some(0),
+        _ => None,
+    }
+}
+
+/// Print the standing caveat every accuracy figure this report produces
+/// needs: a Wilson interval bounds *sampling* error — how much this
+/// particular sample's accuracy could plausibly differ from a fresh draw of
+/// the same size — and says nothing about *reviewer* error, since every
+/// verdict in the file came from one person's read with no independent
+/// cross-check. The one thing this module can say honestly about reviewer
+/// error is derived from the amendment record itself, never asserted as a
+/// standing fact: it tallies, from every [`Entry::amendments`] entry in
+/// `file`, how many corrections moved a verdict toward a more favorable
+/// outcome (`wrong`/`incomplete` -> `correct`, an original that was too
+/// harsh) versus a less favorable one (`correct`/`incomplete` -> `wrong`,
+/// an original that was too generous, via [`verdict_favorability`]) and
+/// reports the actual balance rather than a hardcoded claim about which
+/// direction reviewer error tends to run — that balance is exactly the
+/// kind of thing that changes as more amendments are recorded, and a
+/// caveat that stopped being true the day after it was written would be
+/// worse than no caveat at all.
+fn print_wilson_caveat(file: &AuditFile) {
+    let mut amended_count = 0usize;
+    let mut toward_more_favorable = 0usize;
+    let mut toward_less_favorable = 0usize;
+    for entry in &file.entries {
+        if !entry.amendments.is_empty() {
+            amended_count += 1;
+        }
+        for amendment in &entry.amendments {
+            if let (Some(before), Some(after)) = (
+                verdict_favorability(&amendment.previous_verdict),
+                verdict_favorability(&amendment.new_verdict),
+            ) {
+                match after.cmp(&before) {
+                    std::cmp::Ordering::Greater => toward_more_favorable += 1,
+                    std::cmp::Ordering::Less => toward_less_favorable += 1,
+                    std::cmp::Ordering::Equal => {}
+                }
+            }
+        }
+    }
+    println!(
+        "\nnote: the 95% CI above bounds sampling error only — how much this sample's accuracy \
+         could plausibly vary on a fresh draw of the same size — never reviewer error. Read the \
+         accuracy figure as \"accuracy of the parser as judged by this reviewer,\" not an \
+         absolute truth."
+    );
+    if amended_count == 0 {
+        println!(
+            "note: no verdict in this file has been amended yet (`xtask audit amend`) — this \
+             says nothing about whether the recorded verdicts are all correct, only that none \
+             has been corrected so far."
+        );
+    } else {
+        println!(
+            "note: {amended_count} verdict(s) carry a recorded amendment; of the corrections \
+             with a comparable direction, {toward_less_favorable} made the verdict less \
+             favorable to the parser (an originally too-generous read) and \
+             {toward_more_favorable} made it more favorable (an originally too-harsh read).{}",
+            if toward_less_favorable > toward_more_favorable {
+                " More corrections have gone the generous-to-harsh direction than the reverse \
+                 so far, so this accuracy figure likely still reads a little high."
+            } else if toward_more_favorable > toward_less_favorable {
+                " More corrections have gone the harsh-to-generous direction than the reverse \
+                 so far, so this accuracy figure likely still reads a little low."
+            } else {
+                " The corrections so far do not lean toward either direction."
+            }
+        );
+    }
+}
+
 /// `xtask audit report`: per-stratum and overall accuracy, each stated as a
 /// count and a confidence interval — never a bare percentage (spec's own
 /// complaint about `%flags_text`/`%described`, spec §13.1b, is exactly what
@@ -1028,20 +1169,28 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let mut by_stratum: BTreeMap<String, StratumTally> = BTreeMap::new();
     for entry in &file.entries {
         let tally = by_stratum
-            .entry(effective_stratum(entry).to_string())
+            .entry(effective_stratum(entry))
             .or_insert(StratumTally {
                 correct: 0,
                 judged: 0,
                 skipped: 0,
                 pending: 0,
+                out_of_scope: 0,
             });
-        match entry.verdict.as_deref() {
+        match entry.effective_verdict() {
             None => tally.pending += 1,
             Some("skip") => tally.skipped += 1,
             Some("correct") => {
                 tally.correct += 1;
                 tally.judged += 1;
             }
+            // A display-only finding is judged (`wrong`/`incomplete`, never
+            // `skip` — see `Entry::is_display_only`'s doc comment on why
+            // `skip` is the wrong tool for this), so it must not fall into
+            // the catch-all `judged` arm below: that is precisely the
+            // count `accuracy_over` also excludes it from. Checked before
+            // the catch-all, not after, so it can never double-count.
+            Some(_) if entry.is_display_only() => tally.out_of_scope += 1,
             Some(_) => tally.judged += 1,
         }
     }
@@ -1052,11 +1201,15 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         file.entries.len()
     );
     println!();
-    println!("stratum             correct/judged   accuracy   95% CI            skipped   pending");
+    println!(
+        "stratum             correct/judged   accuracy   95% CI            skipped   pending   \
+         out-of-scope"
+    );
     let mut overall_correct = 0usize;
     let mut overall_judged = 0usize;
     let mut overall_skipped = 0usize;
     let mut overall_pending = 0usize;
+    let mut overall_out_of_scope = 0usize;
     for (stratum, t) in &by_stratum {
         let (lo, hi) = wilson_interval(t.correct, t.judged);
         let acc = if t.judged == 0 {
@@ -1065,18 +1218,20 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             format!("{:>4.1}%", t.correct as f64 / t.judged as f64 * 100.0)
         };
         println!(
-            "{stratum:<18}  {:>5}/{:<6}  {acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}",
+            "{stratum:<18}  {:>5}/{:<6}  {acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}   {:>12}",
             t.correct,
             t.judged,
             lo * 100.0,
             hi * 100.0,
             t.skipped,
             t.pending,
+            t.out_of_scope,
         );
         overall_correct += t.correct;
         overall_judged += t.judged;
         overall_skipped += t.skipped;
         overall_pending += t.pending;
+        overall_out_of_scope += t.out_of_scope;
     }
     let (lo, hi) = wilson_interval(overall_correct, overall_judged);
     let overall_acc = if overall_judged == 0 {
@@ -1088,7 +1243,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         )
     };
     println!(
-        "{:<18}  {:>5}/{:<6}  {overall_acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}",
+        "{:<18}  {:>5}/{:<6}  {overall_acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}   {:>12}",
         "OVERALL",
         overall_correct,
         overall_judged,
@@ -1096,6 +1251,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         hi * 100.0,
         overall_skipped,
         overall_pending,
+        overall_out_of_scope,
     );
     if overall_judged > 0 && overall_judged < 30 {
         println!(
@@ -1103,6 +1259,24 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
              keep reviewing for a number worth acting on (spec's own target is ~60-100)."
         );
     }
+    if overall_out_of_scope > 0 {
+        let mut names: Vec<&str> = file
+            .entries
+            .iter()
+            .filter(|e| e.is_display_only())
+            .map(|e| e.tool.as_str())
+            .collect();
+        names.sort_unstable();
+        println!(
+            "\nnote: {overall_out_of_scope} finding(s) are display-only and are excluded from \
+             every accuracy figure above, not dropped — the maintainer's ruling (task #28) is \
+             that a display/rendering defect is a real finding but not an accuracy one: {}. See \
+             the 'display-only findings (kept, out of scope)' section below for each one's note \
+             in full.",
+            names.join(", "),
+        );
+    }
+    print_wilson_caveat(&file);
 
     let k1_tagged = file.entries.iter().filter(|e| e.k1 == Some(true)).count();
     let k2_tagged = file.entries.iter().filter(|e| e.k2 == Some(true)).count();
@@ -1134,17 +1308,56 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let mut flagged: Vec<&Entry> = file
         .entries
         .iter()
-        .filter(|e| matches!(e.verdict.as_deref(), Some("wrong") | Some("incomplete")))
+        .filter(|e| matches!(e.effective_verdict(), Some("wrong") | Some("incomplete")))
         .collect();
     flagged.sort_by(|a, b| a.tool.cmp(&b.tool));
     if !flagged.is_empty() {
         println!("\ntools judged wrong or incomplete (the next bugs):");
         for entry in flagged {
+            let amended_tag = if entry.amendments.is_empty() {
+                ""
+            } else {
+                " [amended]"
+            };
+            // Stays in this list — it is still a `wrong`/`incomplete`
+            // verdict on disk and a real finding — but tagged so a reader
+            // scanning "the next bugs" does not mistake a rendering fix
+            // for a parser fix. `accuracy_over` has already excluded it
+            // from every count printed above; this tag is why the two
+            // views (this list and the headline) don't silently disagree
+            // about which tools are counted where.
+            let scope_tag = if entry.is_display_only() {
+                " [display-only, excluded from accuracy — see below]"
+            } else {
+                ""
+            };
+            println!(
+                "  {:<24} {:<11} {}{amended_tag}{scope_tag}",
+                entry.tool,
+                entry.effective_verdict().unwrap_or(""),
+                entry.effective_note(),
+            );
+        }
+    }
+
+    let mut out_of_scope: Vec<&Entry> = file
+        .entries
+        .iter()
+        .filter(|e| e.is_display_only())
+        .collect();
+    out_of_scope.sort_by(|a, b| a.tool.cmp(&b.tool));
+    if !out_of_scope.is_empty() {
+        println!(
+            "\ndisplay-only findings (kept, out of scope — real UI bugs, excluded from accuracy \
+             per the maintainer's task #28 ruling; family meaning: {}):",
+            family_meaning("display-only").unwrap_or("?"),
+        );
+        for entry in out_of_scope {
             println!(
                 "  {:<24} {:<11} {}",
                 entry.tool,
-                entry.verdict.as_deref().unwrap_or(""),
-                entry.note,
+                entry.effective_verdict().unwrap_or(""),
+                entry.effective_note(),
             );
         }
     }
@@ -1197,9 +1410,17 @@ pub fn cmd_fixtures(
     let mut skipped_exists = 0usize;
 
     for entry in &file.entries {
-        let Some(verdict) = entry.verdict.as_deref() else {
+        // Reads the effective (post-amendment) verdict and note: a fixture
+        // generated from an entry that was amended after review must
+        // reflect the corrected truth, not the superseded original — the
+        // whole point of an amendment is that the project's belief about
+        // the tool changed, and a fixture is exactly the kind of durable
+        // artifact that would otherwise silently encode the old, wrong
+        // belief forever.
+        let Some(verdict) = entry.effective_verdict() else {
             continue;
         };
+        let note = entry.effective_note();
         if verdict == "skip" {
             skipped_verdict += 1;
             continue;
@@ -1307,13 +1528,13 @@ pub fn cmd_fixtures(
                 );
                 meta.push_str("[xfail]\n");
                 meta.push_str("broken = true\n");
-                let reason = if entry.note.is_empty() {
+                let reason = if note.is_empty() {
                     format!(
                         "reviewer marked this {verdict} under xtask audit (seed {seed}); \
                          no note was recorded"
                     )
                 } else {
-                    entry.note.clone()
+                    note.to_string()
                 };
                 meta.push_str(&format!("reason = {reason:?}\n"));
             }
@@ -1364,128 +1585,10 @@ fn sample_flag_specs(root: &CommandNode) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mandible_core::audit::AuditMeta;
     use mandible_core::{Provenance, Source};
     use std::io::Cursor;
     use std::path::PathBuf;
-
-    fn synthetic_classified(specs: &[(&str, &str)]) -> Vec<(String, Classified)> {
-        // Builds fake (tool, stratum) pairs without touching a real
-        // extraction pipeline, so `sample_stratified`'s allocation math can
-        // be tested in isolation from anything that spawns a process.
-        specs
-            .iter()
-            .map(|(tool, stratum)| {
-                let stratum_static: &'static str = match *stratum {
-                    "ok" => "ok",
-                    "low-confidence" => "low-confidence",
-                    "verbatim" => "verbatim",
-                    "no-tier" => "no-tier",
-                    "suspicious" => "suspicious",
-                    other => panic!("unexpected test stratum {other}"),
-                };
-                (
-                    tool.to_string(),
-                    Classified {
-                        stratum: stratum_static,
-                        result: ExtractionResult {
-                            tool: tool.to_string(),
-                            root: None,
-                            tier_statuses: Vec::new(),
-                            elapsed: std::time::Duration::ZERO,
-                        },
-                        raw_text: None,
-                        raw_capture: None,
-                    },
-                )
-            })
-            .collect()
-    }
-
-    fn population_80_20() -> Vec<(String, Classified)> {
-        // 80 "ok", 20 "low-confidence" — an easy-to-check 4:1 split.
-        let mut specs: Vec<(String, &str)> = Vec::new();
-        for i in 0..80 {
-            specs.push((format!("ok{i}"), "ok"));
-        }
-        for i in 0..20 {
-            specs.push((format!("lc{i}"), "low-confidence"));
-        }
-        let borrowed: Vec<(&str, &str)> = specs.iter().map(|(t, s)| (t.as_str(), *s)).collect();
-        synthetic_classified(&borrowed)
-    }
-
-    #[test]
-    fn same_seed_draws_the_same_sample_twice() {
-        let population = population_80_20();
-        let (a, _) = sample_stratified(&population, 10, 42);
-        let (b, _) = sample_stratified(&population, 10, 42);
-        let names_a: Vec<&str> = a.iter().map(|e| e.tool.as_str()).collect();
-        let names_b: Vec<&str> = b.iter().map(|e| e.tool.as_str()).collect();
-        assert_eq!(names_a, names_b, "identical seed must draw identical tools");
-    }
-
-    #[test]
-    fn different_seed_draws_a_different_sample() {
-        let population = population_80_20();
-        let (a, _) = sample_stratified(&population, 10, 1);
-        let (b, _) = sample_stratified(&population, 10, 2);
-        let names_a: std::collections::BTreeSet<&str> = a.iter().map(|e| e.tool.as_str()).collect();
-        let names_b: std::collections::BTreeSet<&str> = b.iter().map(|e| e.tool.as_str()).collect();
-        assert_ne!(
-            names_a, names_b,
-            "different seeds should (overwhelmingly) draw different sets"
-        );
-    }
-
-    #[test]
-    fn sample_is_proportionally_stratified() {
-        let population = population_80_20();
-        // 100 population, 4:1 split; a sample of 20 should draw ~16 ok / ~4
-        // low-confidence (exact, since 20 * 0.8 = 16 and 20 * 0.2 = 4 land
-        // on whole numbers with no rounding ambiguity).
-        let (entries, counts) = sample_stratified(&population, 20, 7);
-        assert_eq!(entries.len(), 20);
-        let (ok_drawn, ok_pop) = counts["ok"];
-        let (lc_drawn, lc_pop) = counts["low-confidence"];
-        assert_eq!(ok_pop, 80);
-        assert_eq!(lc_pop, 20);
-        assert_eq!(
-            ok_drawn, 16,
-            "80% of the population should be ~80% of the sample"
-        );
-        assert_eq!(
-            lc_drawn, 4,
-            "20% of the population should be ~20% of the sample"
-        );
-    }
-
-    #[test]
-    fn sample_never_exceeds_a_strata_population() {
-        // A stratum with only 2 tools can never contribute more than 2,
-        // even if proportional rounding would otherwise ask for more.
-        let population =
-            synthetic_classified(&[("a", "ok"), ("b", "ok"), ("c", "no-tier"), ("d", "no-tier")]);
-        let (entries, counts) = sample_stratified(&population, 4, 99);
-        assert_eq!(
-            entries.len(),
-            4,
-            "cannot draw more than the total population"
-        );
-        for (_, (drawn, pop)) in counts {
-            assert!(drawn <= pop);
-        }
-    }
-
-    #[test]
-    fn sample_total_never_exceeds_requested_size_or_population() {
-        let population = population_80_20();
-        let (entries, _) = sample_stratified(&population, 1000, 5);
-        assert_eq!(
-            entries.len(),
-            100,
-            "requesting more than the population caps at the population"
-        );
-    }
 
     #[test]
     fn wilson_interval_is_wide_for_small_perfect_samples() {
@@ -1537,6 +1640,10 @@ mod tests {
                     k2: None,
                     k3: None,
                     include_reason: None,
+                    spot_audit_event: None,
+                    families: Vec::new(),
+                    families_derived: None,
+                    amendments: Vec::new(),
                 })
                 .collect(),
         };
@@ -1605,25 +1712,6 @@ mod tests {
         let after_second = load(&verdict_path(tmp.path(), 12345)).unwrap();
         assert!(after_second.entries.iter().all(|e| e.verdict.is_some()));
         assert_eq!(after_second.pending().count(), 0);
-    }
-
-    #[test]
-    fn sample_merge_is_idempotent_and_never_touches_recorded_verdicts() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = write_sample_file(tmp.path(), 55, &[("sh", "ok")]);
-        {
-            let mut f = load(&path).unwrap();
-            f.entries[0].verdict = Some("correct".to_string());
-            f.entries[0].note = "already reviewed".to_string();
-            save(&path, &f).unwrap();
-        }
-        // Re-running sample with the same population/seed/size must not
-        // disturb the already-recorded verdict.
-        cmd_sample(55, 1, Some(vec!["sh".to_string()]), tmp.path(), &[]).unwrap();
-        let after = load(&path).unwrap();
-        assert_eq!(after.entries.len(), 1);
-        assert_eq!(after.entries[0].verdict.as_deref(), Some("correct"));
-        assert_eq!(after.entries[0].note, "already reviewed");
     }
 
     #[test]
@@ -1740,11 +1828,21 @@ mod tests {
     // K2 pre-tag
     // -------------------------------------------------------------
 
+    /// The multi-column case this pre-tag was built to explain is now
+    /// **fixed at the source**, so there is nothing left for it to explain.
+    ///
+    /// `existence::list_row_words` reads a column-aligned or comma-joined
+    /// index as a list row and attests every item on it, not just the
+    /// line's first token. This test used to assert three fabrications on
+    /// exactly this input, with `k2_signature` waving all three through;
+    /// the detector now emits none, so the suggestion is `None` — the same
+    /// answer it gives for any tool with no subcommand fabrications to
+    /// judge. Kept as a regression test in the new direction: if the
+    /// list-row rule ever regresses, this fails.
     #[test]
-    fn k2_signature_is_true_when_every_fabrication_is_a_multi_column_token() {
+    fn a_multi_column_index_no_longer_produces_a_fabrication_to_pre_tag() {
         // Real busybox/openssl shape: several names on one line, only the
-        // first is a "line start word", but every name is a whitespace
-        // token somewhere on that line.
+        // first of which is a "line start word".
         let raw = "asn1parse         ca                ciphers           cmp\n";
         let mut root = CommandNode::new("openssl", Provenance::single(Source::HelpText));
         for name in ["asn1parse", "ca", "ciphers", "cmp"] {
@@ -1754,10 +1852,15 @@ mod tests {
         let report = existence::detect(raw, &root);
         assert_eq!(
             report.fabrication_count(),
-            3,
-            "only the first column is a line-start word; the other three are flagged"
+            0,
+            "every column of a real command grid is attested: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
         );
-        assert_eq!(k2_signature(&report, raw), Some(true));
+        assert_eq!(k2_signature(&report, raw), None);
     }
 
     #[test]
@@ -1986,41 +2089,9 @@ mod tests {
         assert!(load_force_include(&path).is_err());
     }
 
-    #[test]
-    fn cmd_sample_force_includes_tools_outside_the_stratified_draw() {
-        let tmp = tempfile::tempdir().unwrap();
-        // sample_size=0: nothing from the stratified draw at all, so any
-        // entry present afterward must have come from force_include.
-        let force = vec![("sh".to_string(), "unaudited promotion example".to_string())];
-        cmd_sample(
-            100,
-            0,
-            Some(vec!["sh".to_string(), "cat".to_string()]),
-            tmp.path(),
-            &force,
-        )
-        .unwrap();
-        let file = load(&verdict_path(tmp.path(), 100)).unwrap();
-        assert_eq!(file.entries.len(), 1, "only the forced tool is present");
-        assert_eq!(
-            file.entries[0].include_reason.as_deref(),
-            Some("unaudited promotion example")
-        );
-    }
-
-    #[test]
-    fn cmd_sample_force_include_is_idempotent() {
-        let tmp = tempfile::tempdir().unwrap();
-        let force = vec![("sh".to_string(), "reason one".to_string())];
-        cmd_sample(101, 0, Some(vec!["sh".to_string()]), tmp.path(), &force).unwrap();
-        cmd_sample(101, 0, Some(vec!["sh".to_string()]), tmp.path(), &force).unwrap();
-        let file = load(&verdict_path(tmp.path(), 101)).unwrap();
-        assert_eq!(
-            file.entries.len(),
-            1,
-            "re-running sample must not duplicate an already force-included tool"
-        );
-    }
+    // `cmd_sample`'s force-include behavior (independent of the queue draw
+    // itself, unconditional inclusion, idempotent re-run) is now exercised
+    // in `crate::queue`'s own tests, alongside the queue it now requires.
 
     // -------------------------------------------------------------
     // Report: effective stratum and accuracy views
@@ -2037,10 +2108,43 @@ mod tests {
             k2: None,
             k3: None,
             include_reason: None,
+            spot_audit_event: None,
+            families: Vec::new(),
+            families_derived: None,
+            amendments: Vec::new(),
         };
         assert_eq!(effective_stratum(&e), "ok");
         e.include_reason = Some("unaudited promotion".to_string());
         assert_eq!(effective_stratum(&e), FORCED_INCLUSION_STRATUM);
+    }
+
+    /// A spot-audit entry is bucketed under its own `spot-audit:<event>`
+    /// row, per promotion event — never blended into the single
+    /// `forced-inclusion` catch-all, even though it also carries an
+    /// `include_reason` documenting the draw itself.
+    #[test]
+    fn effective_stratum_gives_spot_audit_its_own_row_per_event() {
+        let mut e = Entry {
+            tool: "tcpdump".to_string(),
+            stratum: "ok".to_string(),
+            verdict: None,
+            note: String::new(),
+            k1: None,
+            k2: None,
+            k3: None,
+            include_reason: Some("spot-audit of promotion event \"x\": 5 of 5 drawn".to_string()),
+            spot_audit_event: Some("bundled-short-flag-942890d".to_string()),
+            families: Vec::new(),
+            families_derived: None,
+            amendments: Vec::new(),
+        };
+        assert_eq!(
+            effective_stratum(&e),
+            "spot-audit:bundled-short-flag-942890d"
+        );
+        // A different event never collides with this one's row.
+        e.spot_audit_event = Some("other-promotion".to_string());
+        assert_eq!(effective_stratum(&e), "spot-audit:other-promotion");
     }
 
     fn entry(tool: &str, verdict: Option<&str>, k1: Option<bool>, k2: Option<bool>) -> Entry {
@@ -2053,6 +2157,10 @@ mod tests {
             k2,
             k3: None,
             include_reason: None,
+            spot_audit_event: None,
+            families: Vec::new(),
+            families_derived: None,
+            amendments: Vec::new(),
         }
     }
 
@@ -2066,6 +2174,47 @@ mod tests {
         ];
         let (correct, judged) = accuracy_over(entries.iter());
         assert_eq!((correct, judged), (1, 2));
+    }
+
+    /// task #28: a judged defect whose *only* family is `display-only` is
+    /// a real finding (still `wrong`/`incomplete` on disk) that must not
+    /// count toward the accuracy denominator at all — not as judged, and
+    /// certainly not as correct.
+    #[test]
+    fn accuracy_over_excludes_pure_display_only_findings() {
+        let mut display_only = entry("bashbug", Some("incomplete"), None, None);
+        display_only.families = vec!["display-only".to_string()];
+        display_only.families_derived = Some(true);
+        let entries = [
+            entry("a", Some("correct"), None, None),
+            entry("b", Some("wrong"), None, None),
+            display_only,
+        ];
+        let (correct, judged) = accuracy_over(entries.iter());
+        assert_eq!(
+            (correct, judged),
+            (1, 2),
+            "the display-only entry must not appear in either count"
+        );
+    }
+
+    /// The mixed-family case `Entry::is_display_only`'s doc comment warns
+    /// about: a real parse-shape family riding alongside `display-only`
+    /// must NOT get the exclusion. Two true labels do not launder a
+    /// genuine defect out of the denominator — this is the whole reason
+    /// the check is "family set == {display-only}", not "contains
+    /// display-only".
+    #[test]
+    fn accuracy_over_keeps_mixed_family_findings_in_the_denominator() {
+        let mut mixed = entry("tcpdump", Some("wrong"), None, None);
+        mixed.families = vec!["bundled-short-flag".to_string(), "display-only".to_string()];
+        mixed.families_derived = Some(true);
+        assert!(
+            !mixed.is_display_only(),
+            "a second, genuine family must block the exclusion"
+        );
+        let (correct, judged) = accuracy_over(std::iter::once(&mixed));
+        assert_eq!((correct, judged), (0, 1));
     }
 
     #[test]
@@ -2128,5 +2277,341 @@ mod tests {
         save(&path, &f).unwrap();
 
         cmd_report(tmp.path(), 42).unwrap();
+    }
+
+    // -------------------------------------------------------------
+    // `xtask audit spot-audit` (spec §13.1b's sixth rule) — real binaries,
+    // real argv (AGENTS.md §3.1), same convention `queue.rs`'s own
+    // `cmd_sample` tests use.
+    // -------------------------------------------------------------
+
+    #[test]
+    fn spot_audit_draws_the_same_tools_for_the_same_event_and_seed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string(), "ls".to_string()];
+        cmd_spot_audit(tmp.path(), 700, "demo-event", &promoted, 2, 99).unwrap();
+        let first: Vec<String> = load(&verdict_path(tmp.path(), 700))
+            .unwrap()
+            .entries
+            .into_iter()
+            .map(|e| e.tool)
+            .collect();
+
+        // A second, independent verdict file drawn with the same event name
+        // and draw seed must draw exactly the same tools — the whole point
+        // of a reproducible draw (never hand-picked, never re-rolled).
+        cmd_spot_audit(tmp.path(), 701, "demo-event", &promoted, 2, 99).unwrap();
+        let second: Vec<String> = load(&verdict_path(tmp.path(), 701))
+            .unwrap()
+            .entries
+            .into_iter()
+            .map(|e| e.tool)
+            .collect();
+
+        assert_eq!(first.len(), 2);
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn spot_audit_different_events_can_draw_different_tools() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string(), "ls".to_string()];
+        cmd_spot_audit(tmp.path(), 710, "event-a", &promoted, 1, 5).unwrap();
+        cmd_spot_audit(tmp.path(), 711, "event-b", &promoted, 1, 5).unwrap();
+        let a = load(&verdict_path(tmp.path(), 710)).unwrap();
+        let b = load(&verdict_path(tmp.path(), 711)).unwrap();
+        // Same draw seed, different event names: `stratum_seed` mixes the
+        // event name in, so the two draws are not forced to correlate.
+        // This does not assert they *always* differ (a same-tool draw is
+        // possible by chance with only 3 candidates) — it asserts the
+        // mechanism actually consulted the event name, via the stratum
+        // labels below, which is the property that matters.
+        assert_eq!(
+            effective_stratum(&a.entries[0]),
+            "spot-audit:event-a".to_string()
+        );
+        assert_eq!(
+            effective_stratum(&b.entries[0]),
+            "spot-audit:event-b".to_string()
+        );
+    }
+
+    #[test]
+    fn spot_audit_takes_the_whole_promoted_set_when_smaller_than_the_sample_size() {
+        let tmp = tempfile::tempdir().unwrap();
+        // The exact edge case named in spec §13.1b: the bundled-short-flag
+        // promotion had only 5 promoted tools, below the 5-10 target.
+        // Modeled here with 2 real tools against a sample of 8.
+        let promoted = vec!["sh".to_string(), "cat".to_string()];
+        cmd_spot_audit(tmp.path(), 720, "small-family", &promoted, 8, 1).unwrap();
+        let file = load(&verdict_path(tmp.path(), 720)).unwrap();
+        assert_eq!(
+            file.entries.len(),
+            2,
+            "every promoted tool must be audited when the promoted set is smaller than --sample \
+             — never a padded count, never a silently smaller draw"
+        );
+        for entry in &file.entries {
+            assert_eq!(
+                entry.spot_audit_event.as_deref(),
+                Some("small-family"),
+                "every drawn tool must be tagged with the promotion event it spot-checks"
+            );
+            assert!(
+                entry
+                    .include_reason
+                    .as_deref()
+                    .unwrap()
+                    .contains("smaller than the requested sample size"),
+                "the shortfall must be recorded in the entry, not just printed and forgotten"
+            );
+        }
+    }
+
+    #[test]
+    fn spot_audit_is_idempotent_and_does_not_duplicate_an_already_present_tool() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string()];
+        cmd_spot_audit(tmp.path(), 730, "repeat-event", &promoted, 8, 3).unwrap();
+        cmd_spot_audit(tmp.path(), 730, "repeat-event", &promoted, 8, 3).unwrap();
+        let file = load(&verdict_path(tmp.path(), 730)).unwrap();
+        assert_eq!(file.entries.len(), 2, "re-running must not duplicate tools");
+    }
+
+    /// The exact shape of the real bundled-short-flag backfill (spec
+    /// §13.1b): a tool the spot-audit's random draw names is *already* in
+    /// the manifest with a real prior verdict, recorded against a parse a
+    /// grammar fix has since changed. `cmd_spot_audit` must tag it into the
+    /// new stratum without duplicating it, without touching its verdict or
+    /// note, and without silently dropping it from the draw either.
+    #[test]
+    fn spot_audit_tags_an_already_reviewed_entry_without_touching_its_verdict() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 740, &[("tmux", "ok"), ("cat", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            let tmux = f.entries.iter_mut().find(|e| e.tool == "tmux").unwrap();
+            tmux.verdict = Some("wrong".to_string());
+            tmux.note = "bundled-short-flag collapse, pre-fix".to_string();
+            save(&path, &f).unwrap();
+        }
+
+        let promoted = vec!["tmux".to_string()];
+        cmd_spot_audit(
+            tmp.path(),
+            740,
+            "bundled-short-flag-942890d",
+            &promoted,
+            8,
+            11,
+        )
+        .unwrap();
+
+        let after = load(&path).unwrap();
+        assert_eq!(
+            after.entries.len(),
+            2,
+            "the existing entry must not be duplicated"
+        );
+        let tmux = after.entries.iter().find(|e| e.tool == "tmux").unwrap();
+        assert_eq!(
+            tmux.spot_audit_event.as_deref(),
+            Some("bundled-short-flag-942890d"),
+            "an already-present tool named in the draw must still be tagged into the stratum"
+        );
+        assert_eq!(
+            tmux.verdict.as_deref(),
+            Some("wrong"),
+            "a pre-existing verdict must survive untouched — only `xtask audit amend` may \
+             correct it, never a draw"
+        );
+        assert_eq!(tmux.note, "bundled-short-flag collapse, pre-fix");
+        // The untouched second tool is unaffected.
+        let cat = after.entries.iter().find(|e| e.tool == "cat").unwrap();
+        assert!(cat.spot_audit_event.is_none());
+    }
+
+    #[test]
+    fn spot_audit_refuses_an_empty_promoted_list() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err = cmd_spot_audit(tmp.path(), 740, "empty-event", &[], 8, 1).unwrap_err();
+        assert!(err.to_string().contains("named no tools"));
+    }
+
+    #[test]
+    fn spot_audit_entries_are_reported_under_their_own_stratum_row_in_cmd_report() {
+        let tmp = tempfile::tempdir().unwrap();
+        let promoted = vec!["sh".to_string(), "cat".to_string()];
+        cmd_spot_audit(tmp.path(), 750, "reported-event", &promoted, 8, 2).unwrap();
+        {
+            let mut f = load(&verdict_path(tmp.path(), 750)).unwrap();
+            for e in &mut f.entries {
+                e.verdict = Some("correct".to_string());
+            }
+            save(&verdict_path(tmp.path(), 750), &f).unwrap();
+        }
+        // Smoke test: must not panic, and every entry's effective stratum
+        // must be the per-event row, distinct from ordinary parse-status
+        // strata and from `forced-inclusion`.
+        cmd_report(tmp.path(), 750).unwrap();
+        let f = load(&verdict_path(tmp.path(), 750)).unwrap();
+        for e in &f.entries {
+            let stratum = effective_stratum(e);
+            assert_eq!(stratum, "spot-audit:reported-event");
+            assert_ne!(stratum, FORCED_INCLUSION_STRATUM);
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Amendment: `cmd_amend` and aggregate computation reading it
+    // -------------------------------------------------------------
+
+    /// `cmd_amend` end to end: the original verdict/note on disk are
+    /// untouched, the amendment is appended, and `accuracy_over` — the
+    /// shared machinery every accuracy number in `cmd_report` goes through
+    /// — counts the *amended* value, not the original. This is the
+    /// concrete regression test for "aggregate computation uses the
+    /// amended verdict, while the file still shows the original".
+    #[test]
+    fn cmd_amend_updates_aggregate_accuracy_while_preserving_the_original_on_disk() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 900, &[("tmux", "ok"), ("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            f.entries[0].k1 = Some(true);
+            f.entries[1].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+
+        // Before amending: both entries count as correct.
+        let before = load(&path).unwrap();
+        assert_eq!(accuracy_over(before.entries.iter()), (2, 2));
+
+        cmd_amend(
+            tmp.path(),
+            900,
+            "tmux",
+            "wrong",
+            Some("bundled-short-flag collapse, same shape judged wrong elsewhere".to_string()),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+
+        let after = load(&path).unwrap();
+        let tmux = after.entries.iter().find(|e| e.tool == "tmux").unwrap();
+        // The file still shows the original verdict and (empty) note.
+        assert_eq!(tmux.verdict.as_deref(), Some("correct"));
+        assert_eq!(tmux.note, "");
+        // ...plus a complete amendment record.
+        assert_eq!(tmux.amendments.len(), 1);
+        assert_eq!(tmux.amendments[0].previous_verdict, "correct");
+        assert_eq!(tmux.amendments[0].new_verdict, "wrong");
+        assert_eq!(
+            tmux.amendments[0].reason,
+            "reviewer inconsistency caught in reconciliation"
+        );
+        // Aggregate accuracy now reflects the amendment: one correct, one
+        // wrong, out of two judged — not two correct.
+        assert_eq!(accuracy_over(after.entries.iter()), (1, 2));
+    }
+
+    #[test]
+    fn cmd_amend_rejects_an_unknown_tool() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_sample_file(tmp.path(), 901, &[("sh", "ok")]);
+        let err = cmd_amend(
+            tmp.path(),
+            901,
+            "does-not-exist",
+            "wrong",
+            Some("note".to_string()),
+            "reason".to_string(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("does-not-exist"));
+    }
+
+    #[test]
+    fn cmd_amend_rejects_a_blank_reason_and_leaves_the_file_untouched() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 902, &[("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+        let err = cmd_amend(
+            tmp.path(),
+            902,
+            "sh",
+            "wrong",
+            Some("note".to_string()),
+            "   ".to_string(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("reason"));
+        let after = load(&path).unwrap();
+        assert!(after.entries[0].amendments.is_empty());
+        assert_eq!(after.entries[0].verdict.as_deref(), Some("correct"));
+    }
+
+    #[test]
+    fn cmd_amend_rejects_a_wrong_verdict_missing_its_note() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 903, &[("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+        let err =
+            cmd_amend(tmp.path(), 903, "sh", "wrong", None, "reason".to_string()).unwrap_err();
+        assert!(err.to_string().contains("note"));
+    }
+
+    /// A manifest with no amended entries at all still reports cleanly —
+    /// `print_wilson_caveat`'s zero-amendment branch, exercised through the
+    /// same `cmd_report` entry point real usage goes through.
+    #[test]
+    fn cmd_report_runs_cleanly_with_zero_amendments() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 904, &[("sh", "ok")]);
+        let mut f = load(&path).unwrap();
+        f.entries[0].verdict = Some("correct".to_string());
+        save(&path, &f).unwrap();
+        cmd_report(tmp.path(), 904).unwrap();
+    }
+
+    /// `cmd_report` (and therefore its printed accuracy figures) run
+    /// cleanly over a manifest containing an amendment, exercising
+    /// `print_wilson_caveat`'s non-zero branch end to end.
+    #[test]
+    fn cmd_report_runs_cleanly_with_an_amended_entry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = write_sample_file(tmp.path(), 905, &[("tmux", "ok"), ("sh", "ok")]);
+        {
+            let mut f = load(&path).unwrap();
+            f.entries[0].verdict = Some("correct".to_string());
+            f.entries[1].verdict = Some("correct".to_string());
+            save(&path, &f).unwrap();
+        }
+        cmd_amend(
+            tmp.path(),
+            905,
+            "tmux",
+            "wrong",
+            Some("bundled-short-flag collapse".to_string()),
+            "reviewer inconsistency caught in reconciliation".to_string(),
+        )
+        .unwrap();
+        cmd_report(tmp.path(), 905).unwrap();
+    }
+
+    #[test]
+    fn verdict_favorability_orders_correct_above_incomplete_above_wrong() {
+        assert!(verdict_favorability("correct") > verdict_favorability("incomplete"));
+        assert!(verdict_favorability("incomplete") > verdict_favorability("wrong"));
+        assert_eq!(verdict_favorability("skip"), None);
     }
 }

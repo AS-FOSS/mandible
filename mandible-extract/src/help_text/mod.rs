@@ -36,7 +36,62 @@ mod sections;
 /// `xtask` can ask "was this root's captured `--help` output a rendered
 /// man page?" without a second copy of the rule and without re-probing the
 /// tool — see [`sections::is_man_page_banner`]'s own doc comment.
+pub use grammar::parse_bundled_shorts;
 pub use sections::is_man_page_banner;
+
+/// Re-exported for `xtask/src/alternation.rs`, the `brace-alternation-flag`
+/// detector: the *same* rule this tier's own grammar applies when it decides
+/// that `{-i|--input}` / `[-c|-C]` names flags rather than values. Shared
+/// rather than restated for the reason the block just below records at
+/// length — a detector meant to be ratcheted at zero and the fix meant to
+/// reach zero have to agree, character for character, on what the defect is,
+/// and this project has already paid once (200 of 656 fleet-wide
+/// fabrications) for letting an oracle keep its own copy of a predicate.
+pub use grammar::{parse_flag_alternation, FlagAlternation};
+
+/// Re-exported for `xtask/src/misattribution.rs`: the multi-column-table
+/// vocabulary this tier's own splitter uses to decide what counts as a
+/// flag-shaped token, where a line's cells fall, and what a bare value
+/// placeholder looks like. Same rationale as [`pick_stream`] just above —
+/// `misattribution` once carried its own copy of *that* function and it
+/// drifted silently past a real fix (200 of 656 fleet-wide fabrications,
+/// spec §13.1c's K2 table); these five names are the same hazard; a second
+/// copy of "what is a flag" or "what is a bare cell" would let the oracle
+/// silently stop measuring what this splitter actually does. Only
+/// `fields_in_line` itself is deliberately *not* shared — see the block
+/// comment above [`sections::is_flag_shaped`] in `sections.rs` for why that
+/// one difference is load-bearing rather than an oversight.
+pub use sections::{
+    cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_GAP_SPACES,
+    MIN_COLUMN_RECURRENCE,
+};
+
+/// Re-exported for `xtask/src/existence.rs`, and for exactly the reason the
+/// block above gives. This tier reads binutils `ar`'s ` commands:` table by
+/// taking the command name from the front of a token that carries its
+/// optional modifier groups glued on (`m[ab]` names `m`), so the existence
+/// oracle has to attest names the same way — its tokenizer sees the raw
+/// token `m[ab]`, and without this it reports five perfectly real `ar`
+/// commands as invented. A second copy of "where does the name end" is the
+/// same drift hazard as a second copy of "what is a flag".
+pub use sections::strip_optional_modifier_suffix;
+
+/// Re-exported for `xtask/src/existence.rs`'s positional-operand check, and
+/// for the same drift reason as everything above: the oracle has to agree
+/// with this tier on *which physical lines are a synopsis at all* before it
+/// can say anything about where an operand sits on one. These are the two
+/// markers this tier's own usage-block scan opens on
+/// (`sections::parse_with_profile`); a second copy of "does this line say
+/// usage" would be one more predicate free to drift past a fix.
+///
+/// What the oracle does **not** borrow is the block-continuation rule — how
+/// far past the marker line the synopsis runs. That is deliberately the
+/// oracle's own, wider, decision: it reads every indented line under a bare
+/// `Usage:` header, where this tier applies `looks_like_usage_fragment` and
+/// an indent ladder. A wider read can only *attest* more, i.e. report less,
+/// so the difference is safe in the one direction an oracle's difference has
+/// to be safe in.
+pub use sections::{starts_with_or_marker, starts_with_usage_prefix};
 
 use crate::errors::ExtractError;
 use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
@@ -590,7 +645,20 @@ pub fn raw_help_with_probe(
 /// is help-shaped it always wins, deliberately, per the same row — stdout
 /// is the conventional stream for a well-behaved tool's `--help`, so ties
 /// break toward it.
-fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
+///
+/// **Public because a second copy of this decision is a measured defect,
+/// not a theoretical one.** `xtask`'s anti-fabrication oracles
+/// (`xtask::misattribution::RecordingProbe`, `xtask::existence`) have to
+/// re-derive, after extraction, which bytes the parser actually read. They
+/// carried their own "stdout if non-empty, else stderr" copy of this
+/// function — the exact rule the truth table above replaced — so on every
+/// tool that prints a version banner to stdout and its real help to stderr
+/// (`mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub`, `encguess`,
+/// `ntfssecaudit`, …) the oracle compared a correctly-parsed tree against a
+/// one-line banner and reported **every flag in it as fabricated**: 200 of
+/// 656 fleet-wide fabrications, all false. Export the decision instead of
+/// letting a second definition drift from it.
+pub fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     let stdout_text = String::from_utf8_lossy(stdout).into_owned();
     let stderr_text = String::from_utf8_lossy(stderr).into_owned();
 

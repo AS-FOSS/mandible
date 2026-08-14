@@ -35,8 +35,9 @@
 //!   `serde_yaml` serializer `--bless` writes with, never an `insta` run
 //!   (see [`render_snapshot`]'s doc comment on why).
 //! - **(b) `[contract]`**: `expected_framework`, `min_status`,
-//!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`
-//!   (see [`check_contract`]).
+//!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
+//!   `must_contain_positionals`, `must_not_contain_flags` (see
+//!   [`check_contract`]).
 //! - **(c) Strict xfail**: a fixture marked `[xfail]` whose snapshot and
 //!   contract *both* pass fails the run — the bug got fixed and the
 //!   fixture must be promoted (`corpus/README.md`'s lifecycle rules).
@@ -59,7 +60,7 @@ use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -160,6 +161,147 @@ struct ContractMeta {
     /// changes shows up on a subcommand instead.
     #[serde(default)]
     must_contain_flags_by_path: std::collections::BTreeMap<String, Vec<String>>,
+    /// Root positional operands the tree must carry, by name — the
+    /// `unparsed-positional` family's falsifiable promise, and the one
+    /// dimension of a `CommandNode` that had no `[contract]` field at all.
+    ///
+    /// It is here because its absence was actively distorting fixtures.
+    /// `corpus/javaflow-bpfcc/audit-seed2/meta.toml` records a reviewer's
+    /// finding about a dropped `pid` operand and then asserts something
+    /// else entirely, with a comment explaining that the real defect had no
+    /// field to be written down in — so the fixture named the defect in
+    /// prose and tested a different one. A snapshot does freeze positionals,
+    /// but a snapshot freezes *everything*, which makes it a regression net
+    /// and not a statement of what a fixture is for; only a contract says
+    /// "this operand is the point" in a form that can be pointed at when it
+    /// stops holding.
+    ///
+    /// Matched on `Positional::name` exactly, root only — the same scope
+    /// `must_contain_flags` has, and for the same reason: a name is what a
+    /// user types, and nothing else about the entry is asserted here.
+    #[serde(default)]
+    must_contain_positionals: Vec<String>,
+    /// Root flag spellings the tree must **not** carry — the first
+    /// *negative* claim in a `[contract]`, and the only way a fixture can
+    /// say "the parser invented this".
+    ///
+    /// Every other field here is positive: it names something a real tool
+    /// really has and fails when the parser drops it. That closes the
+    /// omission half of the problem and nothing of the invention half. The
+    /// motivating instance is `corpus/mariadb-check/2.7.4`, whose
+    /// `Variables (--variable-name=value)` defaults table opens with a
+    /// header ruler; the parser reads that ruler as a flag and emits one
+    /// whose long name is thirty-one `-` characters. The tool has no such
+    /// flag, and before this field there was no falsifiable way to say so
+    /// — so the defect could not announce its own repair through strict
+    /// xfail, which is the mechanism the whole corpus repair loop runs on
+    /// (spec §14's mariadb residue names exactly this missing field).
+    ///
+    /// **Matched by [`flag_present`], the same matcher `must_contain_flags`
+    /// uses, negated.** `--foo` asserts no root flag has the long name
+    /// `foo`; `-x` asserts none has the short name `x`; a bare word is
+    /// matched against `long` verbatim. A fixture author therefore writes
+    /// the spelling exactly as it would be typed, and the ruler above is
+    /// written as its full thirty-three-dash form.
+    ///
+    /// **What it deliberately does not claim**, all three of which would be
+    /// broader assertions a fixture author did not make:
+    ///
+    /// - *Nothing about the raw text.* This is a claim about the parsed
+    ///   tree only. The mariadb ruler occurs literally in the capture, and
+    ///   must go on occurring there — the capture is byte-exact. The
+    ///   existence oracle, whose contract is "does this spelling occur in
+    ///   the raw text", is correctly silent on this defect for exactly that
+    ///   reason, which is why the invention side needs its own field.
+    /// - *Nothing about the other spelling.* `--foo` says nothing about a
+    ///   flag with short `f`, and `-x` says nothing about a long name, in
+    ///   the same one-spelling-at-a-time way `flag_present` reads a
+    ///   positive spec. Asserting both from one entry would let a fixture
+    ///   forbid a spelling its author never looked at.
+    /// - *Nothing below the root.* Root flags only, the same scope
+    ///   `must_contain_flags` has. A subcommand inventing a flag is a real
+    ///   defect and would need the by-path analogue; this field does not
+    ///   quietly cover it.
+    ///
+    /// A tree with no root satisfies this vacuously and is *not* reported,
+    /// unlike every positive field above — see [`check_contract`]'s no-root
+    /// branch, where the asymmetry is argued.
+    #[serde(default)]
+    must_not_contain_flags: Vec<String>,
+    /// Which dimensions of this fixture's tree a human actually verified
+    /// before blessing it — the machine-readable replacement for the
+    /// "SCOPE OF REVIEW" prose comment 36 `audit-seed2` fixtures each
+    /// carried a copy of (`git show c9bfe76`). `check_contract` never
+    /// reads this: it is not itself a check, it is a record of which
+    /// checks a human *stood in for* by eye when they blessed the
+    /// snapshot — `expected.snap` freezes every field regardless
+    /// (`corpus/README.md`: "a full expected.snap freezes everything"),
+    /// so without this, a passing fixture cannot be told apart from one
+    /// whose flags were reviewed but whose descriptions never were. It
+    /// is carried into every report (`show_fixture`, the text and
+    /// markdown corpus reports) so that question is answered by reading
+    /// data, not by grepping `meta.toml` prose.
+    ///
+    /// **Absent means "no scope claimed", not "full scope".** A blessed
+    /// snapshot always freezes every field whether or not a human looked
+    /// at it, so treating silence as "everything verified" would let the
+    /// exact overclaim this field exists to prevent survive by omission
+    /// — the lsof cautionary tale (`corpus/README.md`) was precisely a
+    /// blessed tree nobody had actually read. An empty scope makes the
+    /// weakest possible claim (none at all), which is the only safe
+    /// default when the entire point is to never overclaim. See
+    /// `verdict_scope_defaults_to_empty_when_absent`.
+    #[serde(default)]
+    verdict_scope: Vec<VerdictScope>,
+}
+
+/// One dimension of a fixture's tree that a `verdict_scope` entry can
+/// claim was actually reviewed by a human before the fixture was
+/// blessed. `Flags` and `Subcommands` are the two the seed-2 audit
+/// workflow actually checks (`corpus/README.md`, `git show c9bfe76`);
+/// `Descriptions` and `Usage` exist so a fixture whose bless *did*
+/// include a prose read — `corpus/README.md`'s own full bless workflow
+/// asks a reviewer to check "every flag's description against the line
+/// it came from" — has somewhere to say so, rather than the schema
+/// hard-coding today's one audit's scope as the only kind of review that
+/// can ever be recorded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum VerdictScope {
+    Flags,
+    Subcommands,
+    Descriptions,
+    Usage,
+}
+
+impl VerdictScope {
+    fn as_str(self) -> &'static str {
+        match self {
+            VerdictScope::Flags => "flags",
+            VerdictScope::Subcommands => "subcommands",
+            VerdictScope::Descriptions => "descriptions",
+            VerdictScope::Usage => "usage",
+        }
+    }
+}
+
+/// Render a `verdict_scope` list for a report: the comma-joined
+/// dimension names, or `"unscoped"` when the list is empty. Centralized
+/// so every surface (`show_fixture`, the text report's per-fixture
+/// detail, the markdown table's `scope` column) renders an absent scope
+/// the same visible, unmissable way — never blank space that reads the
+/// same as "not shown at all", which would quietly defeat the reason
+/// this field exists.
+fn verdict_scope_label(scope: &[VerdictScope]) -> String {
+    if scope.is_empty() {
+        "unscoped".to_string()
+    } else {
+        scope
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 /// `[xfail]`: present only while the fixture's bug is unfixed.
@@ -186,7 +328,7 @@ struct Meta {
 }
 
 /// One discovered `corpus/<tool>/<version>/` fixture.
-struct Fixture {
+pub(crate) struct Fixture {
     /// `corpus/<tool>/<version>` — used for error messages and to resolve
     /// `expected.snap` and every capture's file path.
     dir: PathBuf,
@@ -196,6 +338,59 @@ struct Fixture {
 }
 
 impl Fixture {
+    /// `<tool>/<version>`, for report labels.
+    pub(crate) fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// The tool this fixture captures, as `meta.toml` names it.
+    pub(crate) fn tool_name(&self) -> &str {
+        &self.meta.tool.name
+    }
+
+    /// The **root help document** this fixture froze: the captured output
+    /// of whichever `[[capture]]` is the plain root `--help`/`-h` probe,
+    /// decoded lossily, preferring stdout and falling back to stderr for
+    /// the tools that print help there and exit nonzero (`openssl`, `ip` —
+    /// spec Appendix A). `None` when the fixture has no such capture, or
+    /// when it captured nothing at all.
+    ///
+    /// Exists for [`crate::residue`], which needs the same bytes a tier
+    /// parsed rather than a re-probe. Chosen by argv *shape* — never by
+    /// capture order, which a multi-probe fixture (a cobra transcript
+    /// carries several) does not guarantee.
+    pub(crate) fn root_help_text(&self) -> anyhow::Result<Option<String>> {
+        let pick = self
+            .meta
+            .captures
+            .iter()
+            .find(|c| c.argv.get(1..) == Some(&["--help".to_string()]))
+            .or_else(|| {
+                self.meta
+                    .captures
+                    .iter()
+                    .find(|c| c.argv.get(1..) == Some(&["-h".to_string()]))
+            });
+        let Some(capture) = pick else {
+            return Ok(None);
+        };
+        let stdout = read_capture_file(&self.dir, &capture.stdout)?;
+        if !stdout.is_empty() {
+            return Ok(Some(String::from_utf8_lossy(&stdout).into_owned()));
+        }
+        match &capture.stderr {
+            Some(name) => {
+                let stderr = read_capture_file(&self.dir, name)?;
+                if stderr.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(String::from_utf8_lossy(&stderr).into_owned()))
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
     fn expected_snap_path(&self) -> PathBuf {
         self.dir.join("expected.snap")
     }
@@ -207,7 +402,7 @@ impl Fixture {
     /// ([`mandible_extract::exec::InertArgv::args`]), which never includes
     /// the tool name itself. `corpus/README.md` documents this same
     /// stripping rule for anyone reading `meta.toml` by hand.
-    fn build_transcript(&self) -> anyhow::Result<Transcript> {
+    pub(crate) fn build_transcript(&self) -> anyhow::Result<Transcript> {
         let mut pairs = Vec::with_capacity(self.meta.captures.len());
         for capture in &self.meta.captures {
             if capture.argv.is_empty() {
@@ -243,7 +438,7 @@ impl Fixture {
     /// `help_text::mod::extract_node_replays_from_a_transcript_keyed_on_the_real_argv`)
     /// — every detecting tier only ever checks `path.is_some()`, never
     /// that the path resolves to a real file.
-    fn resolved_tool(&self) -> ResolvedTool {
+    pub(crate) fn resolved_tool(&self) -> ResolvedTool {
         ResolvedTool {
             name: self.meta.tool.name.clone(),
             path: Some(PathBuf::from(format!(
@@ -262,7 +457,7 @@ fn read_capture_file(fixture_dir: &Path, relative: &str) -> anyhow::Result<Vec<u
 
 /// Discover every `corpus/<tool>/<version>/meta.toml` under `corpus_root`,
 /// in a deterministic (sorted) order so a report is diffable run to run.
-fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixture>> {
+pub(crate) fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixture>> {
     let mut out = Vec::new();
     let mut tool_dirs: Vec<PathBuf> = std::fs::read_dir(corpus_root)
         .map_err(|e| anyhow::anyhow!("reading corpus root {}: {e}", corpus_root.display()))?
@@ -399,6 +594,41 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
             ));
         }
 
+        // A negative claim weakens by *losing an entry*, exactly as a
+        // positive one does — the direction of the claim flips, the
+        // direction of its weakening does not. Dropping
+        // `must_not_contain_flags = ["---...---"]` retires the only
+        // statement that the mariadb ruler is a phantom, and would let the
+        // defect return unremarked. Adding an entry tightens, and is never
+        // flagged, same as `must_contain_flags`.
+        let dropped_forbidden: Vec<&str> = b
+            .must_not_contain_flags
+            .iter()
+            .filter(|spec| !n.must_not_contain_flags.iter().any(|s| s == *spec))
+            .map(String::as_str)
+            .collect();
+        if !dropped_forbidden.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_not_contain_flags (dropped: {})",
+                base.label,
+                dropped_forbidden.join(", ")
+            ));
+        }
+
+        let missing_positionals: Vec<&str> = b
+            .must_contain_positionals
+            .iter()
+            .filter(|name| !n.must_contain_positionals.iter().any(|s| s == *name))
+            .map(String::as_str)
+            .collect();
+        if !missing_positionals.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_contain_positionals (dropped: {})",
+                base.label,
+                missing_positionals.join(", ")
+            ));
+        }
+
         for (path, base_specs) in &b.must_contain_flags_by_path {
             let now_specs = n.must_contain_flags_by_path.get(path);
             let missing: Vec<&str> = base_specs
@@ -430,7 +660,7 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
 /// Extract a fixture's full tree: root extraction, then a bounded
 /// recursive fill into every discovered subcommand (see this module's doc
 /// comment). Returns `None` when no tier produced a root at all.
-fn extract_tree(runner: &Runner, resolved: &ResolvedTool) -> Option<CommandNode> {
+pub(crate) fn extract_tree(runner: &Runner, resolved: &ResolvedTool) -> Option<CommandNode> {
     let result = runner.extract_full_for(resolved);
     let root = result.root?;
     let mut budget = MAX_FIXTURE_NODES.saturating_sub(1);
@@ -574,6 +804,20 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
                 "must_contain_flags_by_path: no root produced".into(),
             ));
         }
+        if !contract.must_contain_positionals.is_empty() {
+            failures.push(ContractFailure(
+                "must_contain_positionals: no root produced".into(),
+            ));
+        }
+        // `must_not_contain_flags` is deliberately absent from this list.
+        // Every field above is a positive claim, which a missing tree
+        // trivially breaks — "the tool has --paginate" cannot hold of no
+        // tree. A negative claim is the opposite: "no root flag is spelled
+        // X" is *satisfied* by a tree with no flags at all, so reporting it
+        // here would announce a violation of a promise that in fact holds,
+        // which is a false positive in the one place this runner's
+        // authority comes from. A fixture that produced no root still fails
+        // loudly — on its snapshot, and on every positive field it set.
         return failures;
     };
 
@@ -619,6 +863,34 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
         failures.push(ContractFailure(format!(
             "must_contain_flags: missing {}",
             missing_flags.join(", ")
+        )));
+    }
+
+    // The negative claim: spellings the parser must not have invented.
+    // Same matcher as `must_contain_flags`, same root-only scope, negated.
+    let present_forbidden: Vec<&str> = contract
+        .must_not_contain_flags
+        .iter()
+        .filter(|spec| flag_present(root, spec))
+        .map(|s| s.as_str())
+        .collect();
+    if !present_forbidden.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_flags: present {}",
+            present_forbidden.join(", ")
+        )));
+    }
+
+    let missing_positionals: Vec<&str> = contract
+        .must_contain_positionals
+        .iter()
+        .filter(|name| !root.positionals.iter().any(|p| &&p.name == name))
+        .map(|s| s.as_str())
+        .collect();
+    if !missing_positionals.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_contain_positionals: missing {}",
+            missing_positionals.join(", ")
         )));
     }
 
@@ -674,7 +946,9 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 }
 
 /// Whether `node`'s own flags satisfy a `must_contain_flags`/
-/// `must_contain_flags_by_path` spec: `--long-name` matches
+/// `must_contain_flags_by_path`/`must_not_contain_flags` spec (the last
+/// one negated by its caller, so that a positive and a negative claim can
+/// never disagree about what a spelling *means*): `--long-name` matches
 /// [`mandible_core::Flag::long`], `-x` matches [`mandible_core::Flag::short`],
 /// anything else is matched against `long` verbatim. Only ever checks the
 /// one node it's given, never recursing into its subcommands itself —
@@ -867,6 +1141,19 @@ fn run_with_ceiling(
             )),
         }
 
+        // Only when a scope is actually recorded — an unscoped fixture
+        // (the overwhelming majority, today) stays silent here exactly
+        // as it always has; `show_fixture` is where "unscoped" is spelled
+        // out explicitly for a fixture being inspected one at a time.
+        // Purely informational: never affects `all_pass`, since a scope
+        // claim is a record of what a human checked, not itself a check.
+        if !fixture.meta.contract.verdict_scope.is_empty() {
+            detail.push(format!(
+                "verdict_scope: {}",
+                verdict_scope_label(&fixture.meta.contract.verdict_scope)
+            ));
+        }
+
         let outcome = if is_xfail {
             if all_pass {
                 // The promote message belongs in `detail` too, not just
@@ -909,6 +1196,7 @@ fn run_with_ceiling(
             detail: detail.clone(),
             current: summarize(&fixture.meta.tool.name, root.as_ref()),
             previous: previous_summary(fixture),
+            verdict_scope: fixture.meta.contract.verdict_scope.clone(),
         });
 
         outcomes.push(outcome);
@@ -1168,6 +1456,12 @@ struct FixtureRow {
     detail: Vec<String>,
     current: TreeSummary,
     previous: Option<TreeSummary>,
+    /// What a human actually verified before this fixture was blessed
+    /// (`ContractMeta::verdict_scope`'s doc comment) — surfaced as the
+    /// table's own `scope` column so a reviewer sees, without opening
+    /// `meta.toml`, that a green row's descriptions may still be
+    /// unreviewed prose.
+    verdict_scope: Vec<VerdictScope>,
 }
 
 /// Cap on how many names a single markdown table cell shows inline before
@@ -1262,8 +1556,8 @@ fn render_markdown_report(
     out.push_str(&format!(
         "**{total} fixture(s):** {green} ok, {xfail} xfail (as expected), {failed} failed.\n\n",
     ));
-    out.push_str("| fixture | outcome | status | nodes | flags | change |\n");
-    out.push_str("|---|---|---|---|---|---|\n");
+    out.push_str("| fixture | outcome | status | nodes | flags | scope | change |\n");
+    out.push_str("|---|---|---|---|---|---|---|\n");
 
     let mut details_sections: Vec<String> = Vec::new();
 
@@ -1382,12 +1676,13 @@ fn render_markdown_report(
         }
 
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.label),
             row.status_word,
             md_escape(&status_cell),
             nodes_cell,
             flags_cell,
+            md_escape(&verdict_scope_label(&row.verdict_scope)),
             md_escape(&change_parts.join("; ")),
         ));
     }
@@ -1421,9 +1716,164 @@ impl CorpusReport {
     }
 }
 
+/// Print one fixture's captured help text beside the tree the parser makes
+/// of it, then return.
+///
+/// A fixture is otherwise only inspectable by opening a `meta.toml`, an
+/// `expected.snap` and one or more capture files separately and holding all
+/// three in your head, which makes "what does this fixture actually claim"
+/// a question answered by trusting a summary rather than by looking. This
+/// renders the same side-by-side comparison `xtask audit emit` produces for
+/// a live tool, sourced from the frozen capture instead, so an `[xfail]`
+/// fixture's asserted defect can be seen directly in the parse.
+///
+/// Deliberately read-only and separate from the checking run: it neither
+/// blesses nor fails, so it can be used freely while investigating.
+/// One fixture replayed through the real pipeline: the raw help text the
+/// tiers built from, and the tree they produced.
+pub struct ReplayedFixture {
+    /// The fixture's tool name (`meta.tool.name`), which is what an audit
+    /// entry is keyed on.
+    pub tool: String,
+    /// The raw help text, chosen by the same expansion/`--help`/`-h` rule
+    /// the live oracles use ([`crate::misattribution::root_help_text_from`])
+    /// so a fixture-sourced detector run and a sweep-sourced one are reading
+    /// the same bytes for the same tool.
+    pub raw: String,
+    /// The extracted root, or `None` when no tier produced one.
+    pub root: Option<CommandNode>,
+}
+
+/// Replay every fixture whose directory name is `version` (e.g.
+/// `audit-seed2`) and hand back what each one parsed to.
+///
+/// Zero subprocesses, exactly like [`run`]: this is the same frozen-bytes
+/// replay the corpus suite performs, exposed so `crate::detector` can run a
+/// detector over the audited tools without a `PATH` sweep. Fixtures that
+/// carry no usable help capture are skipped rather than yielded with an
+/// empty `raw`, so a caller cannot mistake "nothing was captured" for "the
+/// tool's help text is empty".
+pub fn replay_version(corpus_root: &Path, version: &str) -> anyhow::Result<Vec<ReplayedFixture>> {
+    let mut out = Vec::new();
+    for fixture in discover_fixtures(corpus_root)? {
+        if !fixture.label.ends_with(&format!("/{version}")) {
+            continue;
+        }
+        let transcript = fixture.build_transcript()?;
+        let mut recordings = HashMap::new();
+        for capture in &fixture.meta.captures {
+            let key = capture.argv[1..].to_vec();
+            recordings.insert(
+                key,
+                ExecOutput {
+                    stdout: read_capture_file(&fixture.dir, &capture.stdout)?,
+                    stderr: match &capture.stderr {
+                        Some(name) => read_capture_file(&fixture.dir, name)?,
+                        None => Vec::new(),
+                    },
+                    exit_code: Some(capture.exit_code.unwrap_or(0)),
+                    timed_out: false,
+                },
+            );
+        }
+        let Some(raw) = crate::misattribution::root_help_text_from(&recordings) else {
+            continue;
+        };
+        let runner = Runner::new(default_tiers_with_probe(Arc::new(transcript)));
+        let root = extract_tree(&runner, &fixture.resolved_tool());
+        out.push(ReplayedFixture {
+            tool: fixture.meta.tool.name.clone(),
+            raw,
+            root,
+        });
+    }
+    Ok(out)
+}
+
+pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
+    let fixtures = discover_fixtures(corpus_root)?;
+    let matches: Vec<&Fixture> = fixtures
+        .iter()
+        .filter(|f| f.label.contains(pattern))
+        .collect();
+
+    let fixture = match matches.as_slice() {
+        [] => anyhow::bail!(
+            "no fixture matching {pattern:?} under {}. Available: {}",
+            corpus_root.display(),
+            fixtures
+                .iter()
+                .map(|f| f.label.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        [one] => *one,
+        many => anyhow::bail!(
+            "{pattern:?} matches {} fixtures: {}. Narrow it.",
+            many.len(),
+            many.iter()
+                .map(|f| f.label.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+
+    println!("fixture: {}", fixture.label);
+    println!("path:    {}", fixture.dir.display());
+    if let Some(xfail) = &fixture.meta.xfail {
+        println!(
+            "status:  [xfail] {}",
+            xfail.reason.as_deref().unwrap_or("(no reason recorded)")
+        );
+    } else {
+        println!("status:  expected to pass");
+    }
+    if fixture.meta.contract.verdict_scope.is_empty() {
+        println!(
+            "scope:   unscoped — no dimension of this tree is asserted human-verified \
+             (a passing snapshot check still freezes every field, descriptions included)"
+        );
+    } else {
+        println!(
+            "scope:   {} — only these dimensions were human-verified before this fixture was \
+             blessed; the rest of the tree is frozen but unreviewed",
+            verdict_scope_label(&fixture.meta.contract.verdict_scope)
+        );
+    }
+    println!();
+
+    for capture in &fixture.meta.captures {
+        let argv = capture.argv.join(" ");
+        let files: [(&str, Option<&str>); 2] = [
+            ("stdout", Some(capture.stdout.as_str())),
+            ("stderr", capture.stderr.as_deref()),
+        ];
+        for (label, file) in files {
+            let Some(name) = file else { continue };
+            let bytes = std::fs::read(fixture.dir.join(name))?;
+            if bytes.is_empty() {
+                continue;
+            }
+            println!("=== captured: {argv}  ({label}) ===");
+            println!("{}", String::from_utf8_lossy(&bytes));
+        }
+    }
+
+    let transcript = fixture.build_transcript()?;
+    let runner = Runner::new(default_tiers_with_probe(Arc::new(transcript)));
+    let resolved = fixture.resolved_tool();
+    println!("=== parsed tree ===");
+    match extract_tree(&runner, &resolved) {
+        Some(node) => println!("{}", render_snapshot(&node)?),
+        None => println!("(no tier produced a root node)"),
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mandible_core::{Positional, Provenance, Source};
     use std::fs;
 
     /// A minimal but complete two-fixture corpus in a temp dir: one clean
@@ -1556,6 +2006,185 @@ run = ["--source", "--staged"]
             "freshly-blessed fixture must check clean: {}",
             checked.text
         );
+    }
+
+    /// `must_contain_positionals` in both directions. A contract field
+    /// that cannot be seen to fail asserts nothing, and this one exists
+    /// precisely because two fixtures spent a release naming a dropped
+    /// operand in a comment while testing something else.
+    #[test]
+    fn must_contain_positionals_names_the_operands_that_are_missing() {
+        let contract = ContractMeta {
+            must_contain_positionals: vec!["pid".into(), "interval".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("uobjnew", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: missing pid, interval"]
+        );
+
+        root.positionals.push(Positional {
+            name: "pid".into(),
+            required: true,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        });
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: missing interval"]
+        );
+
+        root.positionals.push(Positional {
+            name: "interval".into(),
+            required: false,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        });
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+        // No root at all is a failure of the same field, never a silent pass.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: no root produced"]
+        );
+    }
+
+    /// `must_not_contain_flags` in both directions, plus the two things it
+    /// deliberately does not claim. The motivating instance is a phantom
+    /// long name (`corpus/mariadb-check/2.7.4`'s header ruler), so a
+    /// dash-only spelling is the one exercised here rather than a tidy
+    /// synthetic name.
+    #[test]
+    fn must_not_contain_flags_names_the_flags_the_parser_invented() {
+        // Written as a contributor would type it: the full 33-dash ruler,
+        // whose long name after `--` is 31 dashes.
+        let ruler = "---------------------------------";
+        let contract = ContractMeta {
+            must_not_contain_flags: vec![ruler.into(), "--bogus".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("mariadb-check", Provenance::single(Source::HelpText));
+
+        // A tree that invents neither is clean.
+        root.flags
+            .push(Flag::long("check", Provenance::single(Source::HelpText)));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // The phantom appears: reported, and named by the spelling the
+        // fixture author wrote, not by the stripped long name.
+        root.flags.push(Flag::long(
+            "-------------------------------",
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_not_contain_flags: present ---------------------------------"]
+        );
+
+        // Both present, both named, in the fixture's own order.
+        root.flags
+            .push(Flag::long("bogus", Provenance::single(Source::HelpText)));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_not_contain_flags: present ---------------------------------, --bogus"]
+        );
+
+        // What it does not claim (1): nothing about the other spelling. A
+        // `--bogus` entry says nothing about a *short* `-b`.
+        let short_only = ContractMeta {
+            must_not_contain_flags: vec!["--b".into()],
+            ..ContractMeta::default()
+        };
+        let mut shorty = CommandNode::new("t", Provenance::single(Source::HelpText));
+        let mut short_flag = Flag::long("verbose", Provenance::single(Source::HelpText));
+        short_flag.short = Some('b');
+        short_flag.long = None;
+        shorty.flags.push(short_flag);
+        assert!(check_contract(&short_only, Some(&shorty)).is_empty());
+
+        // What it does not claim (2): nothing below the root. A subcommand
+        // carrying the forbidden spelling is out of scope.
+        let mut with_child = CommandNode::new("t", Provenance::single(Source::HelpText));
+        let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
+        child
+            .flags
+            .push(Flag::long("bogus", Provenance::single(Source::HelpText)));
+        with_child.subcommands.push(child);
+        let bogus_only = ContractMeta {
+            must_not_contain_flags: vec!["--bogus".into()],
+            ..ContractMeta::default()
+        };
+        assert!(check_contract(&bogus_only, Some(&with_child)).is_empty());
+
+        // No root at all satisfies a negative claim vacuously — the one
+        // place this field is *not* symmetric with the positive ones, and
+        // reporting it would be a violation of a promise that holds.
+        assert!(check_contract(&contract, None).is_empty());
+    }
+
+    /// End-to-end: a real `[contract]` with `must_not_contain_flags` set,
+    /// read from `meta.toml` rather than constructed in Rust, so the serde
+    /// field name is exercised too. `MYTOOL_HELP` has `--verbose` and no
+    /// `--invented`, so the first spelling fails the run and the second
+    /// does not.
+    #[test]
+    fn must_not_contain_flags_is_read_from_meta_toml_and_fails_the_run() {
+        for (forbidden, should_fail) in [("--verbose", true), ("--invented", false)] {
+            let corpus = setup();
+            let dir = corpus.root.join("negtool/1.0");
+            write(
+                &dir.join("meta.toml"),
+                &format!(
+                    r#"
+[tool]
+name = "negtool"
+version = "1.0"
+
+[[capture]]
+argv = ["negtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_not_contain_flags = ["{forbidden}"]
+"#
+                ),
+            );
+            write(&dir.join("help.txt"), MYTOOL_HELP);
+            run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+            let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+            assert_eq!(
+                report.failed(),
+                should_fail,
+                "must_not_contain_flags = [{forbidden:?}]: {}",
+                report.text
+            );
+            if should_fail {
+                assert!(
+                    report
+                        .text
+                        .contains("must_not_contain_flags: present --verbose"),
+                    "{}",
+                    report.text
+                );
+            }
+        }
     }
 
     #[test]
@@ -2033,6 +2662,80 @@ min_subcommands = {min_subcommands}
         );
     }
 
+    /// A `[contract]` carrying only `must_not_contain_flags`, written
+    /// straight into `meta.toml`. `entries` is spliced as a TOML array so
+    /// the baseline and current sides differ in exactly that one field.
+    fn negative_contract_fixture(root: &Path, entries: &[&str]) {
+        let list = entries
+            .iter()
+            .map(|f| format!("{f:?}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write(
+            &root.join("negtool/1.0/meta.toml"),
+            &format!(
+                r#"
+[tool]
+name = "negtool"
+version = "1.0"
+
+[[capture]]
+argv = ["negtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_not_contain_flags = [{list}]
+"#
+            ),
+        );
+        write(&root.join("negtool/1.0/help.txt"), MYTOOL_HELP);
+    }
+
+    /// A negative claim weakens by *losing* an entry, exactly as a positive
+    /// one does. Without this the field could be deleted from a fixture in
+    /// a PR and nothing would say so — which is the whole failure mode
+    /// `contract_weakened_lines` exists to prevent, and a contract field
+    /// that cannot weaken-detect is one that can be quietly deleted.
+    #[test]
+    fn a_dropped_must_not_contain_flag_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        let ruler = "---------------------------------";
+        negative_contract_fixture(&baseline.root, &[ruler, "--invented"]);
+        negative_contract_fixture(&current.root, &["--invented"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_not_contain_flags") && l.contains(ruler)),
+            "{lines:?}"
+        );
+
+        // Dropping the field entirely is the same weakening, not a
+        // special case that slips through.
+        let emptied = setup();
+        negative_contract_fixture(&emptied.root, &[]);
+        let emptied_fixtures = discover_fixtures(&emptied.root).unwrap();
+        let lines = contract_weakened_lines(&emptied_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_not_contain_flags") && l.contains("--invented")),
+            "{lines:?}"
+        );
+
+        // Adding an entry tightens, and is never flagged.
+        let tightened = setup();
+        negative_contract_fixture(&tightened.root, &[ruler, "--invented", "--also"]);
+        let tightened_fixtures = discover_fixtures(&tightened.root).unwrap();
+        assert!(
+            contract_weakened_lines(&tightened_fixtures, &base_fixtures).is_empty(),
+            "a tightened negative contract must never be flagged"
+        );
+    }
+
     #[test]
     fn lowered_min_status_is_flagged() {
         let baseline = setup();
@@ -2276,5 +2979,171 @@ reason = "newly broken"
         run(&current.root, true, ScoreFormat::Text).expect("bless run succeeds");
         let report = run(&current.root, false, ScoreFormat::Text).expect("check run succeeds");
         assert!(!report.text.contains("CONTRACT WEAKENED"));
+    }
+
+    // --- verdict_scope (machine-readable "SCOPE OF REVIEW") ---
+
+    /// The argued default: a fixture with no `verdict_scope` key at all
+    /// must parse to an empty list, never to every dimension. Silence
+    /// must mean "no claim made", not "everything reviewed" — `bless`
+    /// freezes descriptions whether or not a human read them, so the only
+    /// safe reading of an absent field is that nothing is being claimed
+    /// about it.
+    #[test]
+    fn verdict_scope_defaults_to_empty_when_absent() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // no [contract] verdict_scope key
+        let fixtures = discover_fixtures(&corpus.root).unwrap();
+        let fixture = fixtures.iter().find(|f| f.label == "mytool/1.0").unwrap();
+        assert!(
+            fixture.meta.contract.verdict_scope.is_empty(),
+            "an absent verdict_scope must default to empty (no scope claimed), never to \
+             every dimension"
+        );
+        assert_eq!(
+            verdict_scope_label(&fixture.meta.contract.verdict_scope),
+            "unscoped"
+        );
+    }
+
+    /// The documented value set parses into the matching enum variants,
+    /// in the order written.
+    #[test]
+    fn verdict_scope_parses_the_documented_values() {
+        let corpus = setup();
+        let dir = corpus.root.join("scopedtool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "scopedtool"
+version = "1.0"
+
+[[capture]]
+argv = ["scopedtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "subcommands", "descriptions", "usage"]
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        let fixtures = discover_fixtures(&corpus.root).unwrap();
+        let fixture = fixtures
+            .iter()
+            .find(|f| f.label == "scopedtool/1.0")
+            .unwrap();
+        assert_eq!(
+            fixture.meta.contract.verdict_scope,
+            vec![
+                VerdictScope::Flags,
+                VerdictScope::Subcommands,
+                VerdictScope::Descriptions,
+                VerdictScope::Usage,
+            ]
+        );
+        assert_eq!(
+            verdict_scope_label(&fixture.meta.contract.verdict_scope),
+            "flags, subcommands, descriptions, usage"
+        );
+    }
+
+    /// An unrecognized scope word must fail to parse, loudly, naming the
+    /// offending fixture — never be silently dropped or treated as an
+    /// unknown-but-tolerated variant, since a typo here would otherwise
+    /// quietly under-claim (or, worse, a future rename of a value could
+    /// silently keep matching the old string forever with a permissive
+    /// deserializer).
+    #[test]
+    fn verdict_scope_rejects_an_unknown_value() {
+        let corpus = setup();
+        let dir = corpus.root.join("badscope/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "badscope"
+version = "1.0"
+
+[[capture]]
+argv = ["badscope", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "vibes"]
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        let result = discover_fixtures(&corpus.root);
+        let err = match result {
+            Ok(_) => panic!("an unrecognized verdict_scope value must fail to parse"),
+            Err(e) => e,
+        };
+        assert!(err.to_string().contains("badscope"), "{err}");
+    }
+
+    /// Once a fixture is blessed and passes, a set `verdict_scope` shows
+    /// up in the plain-text per-fixture report line — the runner surfaces
+    /// what a green result actually means, not just that it's green.
+    #[test]
+    fn verdict_scope_appears_in_the_text_report_when_set() {
+        let corpus = setup();
+        let dir = corpus.root.join("scopedtool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "scopedtool"
+version = "1.0"
+
+[[capture]]
+argv = ["scopedtool", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "subcommands"]
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(
+            report.text.contains("verdict_scope: flags, subcommands"),
+            "{}",
+            report.text
+        );
+    }
+
+    /// An unscoped fixture must not gain a `verdict_scope:` line — the
+    /// text report's shape for every fixture shipped before this field
+    /// existed must stay byte-for-byte unchanged.
+    #[test]
+    fn unscoped_fixture_has_no_verdict_scope_line_in_the_text_report() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(!report.text.contains("verdict_scope"), "{}", report.text);
+    }
+
+    /// The markdown table always carries a `scope` column, including
+    /// `"unscoped"` for a fixture with no recorded scope — a reviewer
+    /// scanning the transition report should never have to open
+    /// `meta.toml` to learn that a passing row's descriptions were never
+    /// looked at.
+    #[test]
+    fn markdown_report_includes_the_scope_column() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+
+        let report = run(&corpus.root, false, ScoreFormat::Markdown).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(report.text.contains("| scope |"), "{}", report.text);
+        assert!(report.text.contains("unscoped"), "{}", report.text);
     }
 }

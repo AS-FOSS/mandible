@@ -139,10 +139,6 @@ subcommands:
   usage:
   - 'usage: git restore [<options>] [--source=<branch>] <file>...'
   positionals:
-  - name: options
-    provenance:
-      sources:
-      - help-text
   - name: file
     required: true
     variadic: true

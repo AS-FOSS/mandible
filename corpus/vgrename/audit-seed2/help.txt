@@ -1,0 +1,36 @@
+  vgrename - Rename a volume group
+
+  Rename a VG.
+  vgrename VG VG_new
+	[ COMMON_OPTIONS ]
+
+  Rename a VG by specifying the VG UUID.
+  vgrename String VG_new
+	[ COMMON_OPTIONS ]
+
+  Common options for command:
+	[ -A|--autobackup y|n ]
+	[ -f|--force ]
+	[    --reportformat basic|json ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.

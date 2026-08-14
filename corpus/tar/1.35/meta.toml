@@ -23,4 +23,21 @@ min_status = "ok"
 # subcommands still satisfies `>= 0`) — that direction is caught by the
 # byte-exact `expected.snap` match instead, which is the real ratchet here.
 min_subcommands = 0
-must_contain_flags = ["--create", "--extract", "--list"]
+must_contain_flags = [
+    "--create",
+    "--extract",
+    "--list",
+    # Tracker #41. This fixture was green, blessed and contract-gated while
+    # missing these three, because the nested `FORMAT is one of the
+    # following:` enum under `--format` (indent 4) never dedented before the
+    # options table resumed at indent 6 — so three real flags were read as
+    # three more values of `FORMAT`. A floor on flag *count* would not have
+    # caught it either: the flags were not absent from the tree, they were
+    # in the wrong place. Named explicitly so they cannot silently return
+    # there. (`--portability`, the fourth flag on tracker #41, is a second
+    # *long* alias on `--old-archive`'s row; `Flag` has one `long` slot, so
+    # it is the `dropped-alias` family and is deliberately not asserted.)
+    "--old-archive",
+    "--pax-option",
+    "--posix",
+]

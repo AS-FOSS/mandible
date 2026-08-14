@@ -1,0 +1,23 @@
+
+Usage:
+ renice [-n|--priority|--relative] <priority> [-p|--pid] <pid>...
+ renice [-n|--priority|--relative] <priority>  -g|--pgrp <pgid>...
+ renice [-n|--priority|--relative] <priority>  -u|--user <user>...
+
+Alter the priority of running processes.
+
+Options:
+ -n <num>               specify the nice value
+                          If POSIXLY_CORRECT flag is set in environment
+                          then the priority is 'relative' to current
+                          process priority. Otherwise it is 'absolute'.
+ --priority <num>       specify the 'absolute' nice value
+ --relative <num>       specify the 'relative' nice value
+ -p, --pid              interpret arguments as process ID (default)
+ -g, --pgrp             interpret arguments as process group ID
+ -u, --user             interpret arguments as username or user ID
+
+ -h, --help             display this help
+ -V, --version          display version
+
+For more details see renice(1).

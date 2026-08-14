@@ -1,0 +1,1 @@
+Usage: /usr/bin/dbus-uuidgen [--ensure[=FILENAME]] [--get[=FILENAME]]

@@ -1,0 +1,9 @@
+name: apt-extracttemplates
+description: apt 2.8.3 (arm64)
+usage:
+- 'Usage: apt-extracttemplates file1 [file2 ...]'
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

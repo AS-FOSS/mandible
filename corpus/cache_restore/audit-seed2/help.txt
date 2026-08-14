@@ -1,0 +1,11 @@
+Usage: cache_restore [options]
+Options:
+  {-h|--help}
+  {-i|--input} <input xml file>
+  {-o|--output} <output device or file>
+  {-q|--quiet}
+  {--metadata-version} <1 or 2>
+  {-V|--version}
+
+  {--debug-override-metadata-version} <integer>
+  {--omit-clean-shutdown}

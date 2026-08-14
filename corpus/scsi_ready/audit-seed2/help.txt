@@ -1,0 +1,7 @@
+Usage: scsi_ready [-b] [-h] [-v] <device>+
+  where:
+    -b, --brief          print 'ready' or 'device not ready' only
+    -h, --help           print usage message
+    -v, --verbose        more verbose output
+
+Send SCSI TEST UNIT READY to each <device>

@@ -106,6 +106,15 @@ min_status = "ok"                    # floor: ok > incomplete > low-confidence
                                      # meets no floor)
 min_subcommands = 20                 # coarse floor, not an exact count
 must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
+must_contain_positionals = ["pid"]   # same, for root positional operands —
+                                     # matched on the operand's name, which
+                                     # is what a user actually types
+
+# The one *negative* claim: root flag spellings the tree must NOT carry.
+# Everything above says "the parser dropped something real"; this says
+# "the parser invented something". See "Stating that a flag does not
+# exist" below for exactly what it does and does not assert.
+must_not_contain_flags = ["--------------------------------"]
 
 # Same idea, for a subcommand's own flags — keyed by its path (space-
 # separated, tool's own name excluded), since `must_contain_flags` alone
@@ -114,11 +123,101 @@ must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 [contract.must_contain_flags_by_path]
 restore = ["--source", "--staged"]
 
+# Which dimensions of the tree a human actually verified before blessing
+# this fixture. Optional; see "What `--bless` does and does not assert"
+# below for the values and why an absent field means *no* scope, never
+# every scope.
+verdict_scope = ["flags", "subcommands"]
+
 [xfail]                              # present only while the bug is unfixed
 broken = true
 reason = "command groups under flush-left headings are dropped; renders verbatim"
 issue = "https://github.com/<org>/<repo>/issues/NNN"  # optional
 ```
+
+### Stating that a flag does *not* exist: `must_not_contain_flags`
+
+Every other `[contract]` field is a **positive** claim — it names something
+the real tool really has, and fails when the parser drops it. That covers
+the omission half of what can go wrong and none of the invention half: a
+parser that reads a table ruler, a decorator, or a stray line of punctuation
+as an option produces a flag nobody can point at, because there is no field
+whose job is to say "this must not be here."
+
+`must_not_contain_flags` is that field, and `corpus/mariadb-check/2.7.4` is
+the instance it was built for. That tool's `Variables (--variable-name=value)`
+defaults table opens with a header ruler, and the parser emits a flag whose
+long name is that ruler. The tool has no such option.
+
+It is matched **exactly the way `must_contain_flags` is**, negated:
+`--foo` asserts no root flag has the long name `foo`, `-x` asserts none has
+the short name `x`, a bare word is matched against the long name verbatim.
+Write the spelling as it would be typed. What it deliberately does *not*
+claim, so a fixture author never asserts more than they looked at:
+
+- **Nothing about the raw capture.** This is a statement about the parsed
+  tree only. The mariadb ruler occurs literally in `help.txt` and must go
+  on occurring there — the capture is byte-exact. (This is also why the
+  existence oracle cannot catch this defect: its question is "does this
+  spelling occur in the raw text", and here it correctly answers yes.)
+- **Nothing about the other spelling.** `--foo` says nothing about a short
+  `-f`, and `-x` says nothing about any long name.
+- **Nothing below the root.** Root flags only, the same scope
+  `must_contain_flags` has. A subcommand inventing a flag would need a
+  by-path analogue; this field does not quietly cover it.
+
+A fixture that produces no root at all satisfies this vacuously and is not
+reported — the one asymmetry with the positive fields, which a missing tree
+trivially breaks. Dropping an entry is a weakening exactly as dropping a
+`must_contain_flags` entry is, and `--baseline-dir` reports it as one.
+
+### What `--bless` does and does not assert: `verdict_scope`
+
+`--bless` freezes the *entire* tree into `expected.snap` — node summaries,
+flag descriptions, usage lines, all of it — regardless of which parts of
+that tree a human actually read before running it. That gap is exactly
+what the lsof cautionary tale above cost: a snapshot that matched itself
+perfectly while three quarters of its flag descriptions were wrong,
+because the person who blessed it never looked.
+
+`[contract]`'s `verdict_scope` makes the *claim* a bless makes machine-
+readable instead of leaving it to a prose comment (or worse, to nothing).
+It is a list of which dimensions of the tree were actually looked at by a
+human before this fixture was blessed:
+
+- `"flags"` — the flag list (names, short/long spellings) was checked
+  against the raw capture.
+- `"subcommands"` — the subcommand tree was checked against the raw
+  capture.
+- `"descriptions"` — flag and node *prose* was checked against the raw
+  capture (`corpus/README.md`'s full bless workflow, "every flag's
+  description against the line it came from").
+- `"usage"` — usage/synopsis lines were checked.
+
+**An absent `verdict_scope` means no scope is claimed — never "every
+dimension."** A blessed `expected.snap` freezes every field whether or
+not a human read it, so treating silence as "everything verified" would
+let the exact overclaim this field exists to prevent survive by omission.
+This is deliberately the conservative reading: it is always safe to add a
+truthful claim later, never safe to have quietly claimed one that wasn't
+made. Most fixtures in this corpus (everything captured before this field
+existed, and the hand-authored `git`/`tar` seed fixtures, which went
+through the full bless workflow but never had the claim recorded) are
+unscoped for exactly this reason — that does not mean they weren't
+reviewed, only that the review's scope isn't machine-readable for them.
+
+`xtask corpus --show <fixture>` prints a fixture's scope alongside its
+raw capture and parsed tree; a checking run's per-fixture line adds a
+`verdict_scope: ...` note when one is set; the `--format markdown`
+transition report carries a `scope` column so a reviewer scanning a green
+run can see, without opening `meta.toml`, which rows have unreviewed
+prose. `check_contract` never reads this field — it is a record of what a
+human checked by eye, not itself a check.
+
+The 36 `audit-seed2` fixtures promoted from the seed-2 human audit
+(`git show c9bfe76`) all carry `verdict_scope = ["flags", "subcommands"]`,
+matching that audit's own declared scope: the reviewer judged flag and
+subcommand accuracy only, and never looked at prose.
 
 Lifecycle rules, enforced by `cargo xtask corpus`:
 
@@ -196,6 +295,11 @@ regressions are gated on `expected_framework` exactly like parse regressions.
 - Captures are text, typically a few KiB. Anything over 256 KiB needs a
   justification in the PR (some tools are genuinely huge; `curl --help all`
   is legitimate).
+- **Deduplicate hash-identical captures across versions.** Many tools change
+  their version string without changing a byte of their help text, and a
+  second copy of the same bytes buys nothing while adding a file every future
+  reader has to check against the first. Two fixtures may reference one
+  capture; two copies of one capture is waste.
 - **Never commit a binary.** If a fixture concerns artifact fingerprinting
   (detection from the compiled binary rather than its output), record the
   extracted marker strings in `meta.toml`, not the executable.
@@ -217,7 +321,8 @@ $ cargo run -p xtask -- corpus --baseline-dir /tmp/corpus-at-main   # also flag 
 `--baseline-dir` diffs every fixture's `[contract]` against a second, plain
 corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
-a dropped `must_contain_flags`/`must_contain_flags_by_path` entry, a fixture
+a dropped `must_contain_flags`/`must_contain_flags_by_path`/
+`must_contain_positionals`/`must_not_contain_flags` entry, a fixture
 newly marked `[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle
 rules above). This binary **has no git access and never will** — the

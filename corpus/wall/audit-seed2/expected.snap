@@ -1,0 +1,54 @@
+name: wall
+usage:
+- 'Usage:'
+- wall [options] [<file> | <message>]
+positionals:
+- name: file
+  provenance:
+    sources:
+    - help-text
+- name: message
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'g'
+  long: group
+  value_name: <group>
+  value_kind: Required
+  description: only send message to group
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: nobanner
+  description: do not print banner, works only for root
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: timeout
+  value_name: <timeout>
+  value_kind: Required
+  description: write timeout in seconds
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

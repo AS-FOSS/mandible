@@ -39,4 +39,16 @@ min_subcommands = 0
 # regression that stops recovering even this "basic options" document is
 # still caught, distinct from the confession detection this fixture exists
 # to exercise.
-must_contain_flags = ["-f", "-c", "-y", "-loglevel", "-report"]
+#
+# `loglevel` and `report` are written **bare**, not as `-loglevel`/`-report`.
+# ffmpeg spells its whole CLI as single-dash long options, which the tree
+# now records as `long` + `single_dash` (see
+# `sections::repair_single_dash_long_options`), and the bare form is what
+# `corpus::flag_present` matches against `long` verbatim — the same
+# convention the `.bt` fixtures already use for `vv`/`dd`/`kk`. The
+# dashed form asserted strictly less than it looks like it does:
+# `flag_present` reads a `-x` spec as a *short* flag and truncates to the
+# first character, so `-loglevel` only ever asserted "some flag has short
+# `l`" — satisfied by the very split (`-l` carrying `"oglevel"`) this
+# fixture should have been catching. Bare is the stronger assertion.
+must_contain_flags = ["-f", "-c", "-y", "loglevel", "report"]

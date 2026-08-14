@@ -1,0 +1,53 @@
+name: javaflow-bpfcc
+usage:
+- 'usage: uflow [-h] [-l {java,perl,php,python,ruby,tcl}] [-M METHOD] [-C CLAZZ] [-v] pid'
+positionals:
+- name: pid
+  required: true
+  description: process id to attach to
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'h'
+  long: help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: language
+  value_name: '{java,perl,php,python,ruby,tcl}'
+  value_kind: Required
+  description: language to trace
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  long: method
+  value_name: METHOD
+  value_kind: Required
+  description: trace only calls to methods starting with this prefix
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: class
+  value_name: CLAZZ
+  value_kind: Required
+  description: trace only calls to classes starting with this prefix
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: 'verbose mode: print the BPF program (for debugging purposes)'
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

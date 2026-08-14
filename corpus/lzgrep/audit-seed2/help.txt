@@ -1,0 +1,7 @@
+Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...
+Look for instances of PATTERN in the input FILEs, using their
+uncompressed contents if they are compressed.
+
+OPTIONs are the same as for 'grep'.
+
+Report bugs to <xz@tukaani.org>.

@@ -207,6 +207,22 @@ pub struct Flag {
     /// this is recognized, structurally, from the bracketed-prefix shape —
     /// never from a tool name.
     pub negatable: bool,
+    /// True when [`Self::long`] is spelled with **one** dash rather than two
+    /// — the single-dash long-option convention (`qemu -help`, `find -name`,
+    /// `gcc -fdump-scos`, `bpftrace -vv`), which is a real and common shape
+    /// that this model previously had no way to say.
+    ///
+    /// `long` holds the bare name either way (`"help"`, `"vv"`), so every
+    /// identity, merge and search path keeps working unchanged; this field
+    /// only decides how many dashes [`Self::spelling`] puts in front of it.
+    /// Storing `"-help"` in `long` instead would have put a dash inside the
+    /// spelling users search and copy, exactly the mistake
+    /// [`Self::negatable`]'s own doc comment records for `--[no-]foo`.
+    ///
+    /// Recognized structurally and never from a tool name: see
+    /// `help_text::sections::repair_repeated_character_flags` for the one
+    /// shape that currently sets it.
+    pub single_dash: bool,
     /// True if this flag should be hidden by default.
     pub hidden: bool,
     /// `Some(reason)` when this flag is deprecated.
@@ -239,6 +255,7 @@ impl Flag {
             repeatable: false,
             required: false,
             negatable: false,
+            single_dash: false,
             hidden: false,
             deprecated: None,
             inherited: false,
@@ -276,16 +293,22 @@ impl Flag {
     /// for a negatable boolean — the `[no-]` is reconstructed for display
     /// from `negatable`, never stored in `long` itself (see the field's
     /// doc comment).
+    ///
+    /// A [`Self::single_dash`] flag renders with one dash (`-help`, `-vv`),
+    /// reconstructed the same way and for the same reason: what a user has
+    /// to type is a display concern, and putting it in `long` would corrupt
+    /// the name every other code path matches on.
     pub fn spelling(&self) -> String {
         let mut parts = Vec::new();
         if let Some(s) = self.short {
             parts.push(format!("-{s}"));
         }
         if let Some(l) = &self.long {
+            let dashes = if self.single_dash { "-" } else { "--" };
             if self.negatable {
-                parts.push(format!("--[no-]{l}"));
+                parts.push(format!("{dashes}[no-]{l}"));
             } else {
-                parts.push(format!("--{l}"));
+                parts.push(format!("{dashes}{l}"));
             }
         }
         let mut spelling = parts.join(", ");

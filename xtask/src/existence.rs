@@ -36,9 +36,23 @@
 //!
 //! # The rule
 //!
-//! > Every subcommand name and flag spelling the help-text tier emits must
-//! > occur literally in the raw input — and for a subcommand, at a
-//! > line-start-ish position.
+//! > Every subcommand name, flag spelling and positional operand the
+//! > help-text tier emits must occur literally in the raw input — and for a
+//! > subcommand, at a position where a real command-list entry actually
+//! > sits; for an operand, at a position where a real operand actually sits.
+//!
+//! **Positional operands** are the third check and the newest
+//! ([`attested_operand_positions`]). It is a position rule for the same
+//! reason the subcommand one is: the word an operand is named is exactly
+//! the word a *placeholder* is named, and the raw text contains both.
+//! `tar [OPTION...] [FILE]...` writes `OPTION` and `FILE` in identical
+//! notation, one slot apart, and only one of them is something the user
+//! passes. 15 tools shipped an operand called `OPTION`/`OPTIONS`/`options`
+//! lifted straight out of that slot, and this module saw every one of them
+//! and said nothing, because until now it did not look at
+//! `CommandNode::positionals` at all. [`option_list_slot`] carries the
+//! shape rule that separates the two, and the reason it is a shape rule
+//! rather than a copy of the tier's own word list.
 //!
 //! **Flags** are checked by literal substring occurrence anywhere in the
 //! raw text, at a word boundary (never embedded inside a longer, unrelated
@@ -49,25 +63,27 @@
 //! (alphanumeric, `-`, `_`) immediately follows the candidate spelling —
 //! `[`, `=`, `,`, `.`, whitespace, and end-of-text are all valid neighbours.
 //!
-//! **Subcommand names** additionally require the occurrence to be the
-//! first whitespace-delimited word on some physical line of the raw text
-//! (after trimming only leading whitespace) — the real, measured shape of
-//! every genuine command-list entry this project's own corpus carries
-//! (`corpus/git/2.43.0/help.txt`: `"   clone     Clone a repository..."`,
-//! one name per line, indented, nothing before it). A bare substring check
-//! alone would be too weak here in the other direction from flags:
-//! ordinary English words (`"list"`, `"add"`, `"get"`) are exactly the
-//! words real subcommands are named, and exactly the words that turn up
-//! constantly in unrelated running prose — a substring-only check would
-//! wave through a name manufactured from a random sentence as long as that
-//! sentence happened to contain the same word once, anywhere. Requiring
-//! line-start position doesn't fully close that gap (a word-grid layout —
-//! several names on one line, no single one of them at true column zero —
-//! would false-positive under a *stricter* reading of "line start"; this
-//! project's own corpus has no such fixture to measure against, so the
-//! honest thing is to say so rather than silently harden against a case
-//! never actually observed) but it is the rule spec asked for, checked
-//! against the one real layout this project has actually captured.
+//! **Subcommand names** additionally require the occurrence to sit at a
+//! position a genuine command-list entry actually occupies — either the
+//! first whitespace-delimited word of some physical line
+//! ([`line_start_words`]: `corpus/git/2.43.0/help.txt`'s `"   clone
+//! Clone a repository..."`, one name per line, indented, nothing before
+//! it), or an item of a **list row** ([`list_row_words`]: `openssl`'s
+//! column-aligned command grid, `busybox`'s comma-joined applet index).
+//! A bare substring check alone would be too weak here in the other
+//! direction from flags: ordinary English words (`"list"`, `"add"`,
+//! `"get"`) are exactly the words real subcommands are named, and exactly
+//! the words that turn up constantly in unrelated running prose — a
+//! substring-only check would wave through a name manufactured from a
+//! random sentence as long as that sentence happened to contain the same
+//! word once, anywhere.
+//!
+//! The first-token half alone did not close the *other* direction, and the
+//! cost was measured rather than guessed: the word-grid layout this
+//! module's own doc comment once called "a case never actually observed"
+//! is 359 of 656 fleet-wide fabrications, all false, all from two tools.
+//! [`list_row_words`] carries the rule that admits them without admitting
+//! prose, and its doc comment carries the evidence.
 //!
 //! # Pre-normalization spellings — the part a naive comparison gets wrong
 //!
@@ -115,6 +131,16 @@
 //!   `-x<value_name>` (and `-x=<value_name>`, covering the other branch of
 //!   `grammar::try_value`) as a fallback and checks that instead — see its
 //!   own doc comment, and the general lesson below.
+//! - **A long flag's value spec glued on with a word-shaped first
+//!   character** (`--perf-no_read_workqueue` stored as `long: "perf-no"`,
+//!   `value_name: "_read_workqueue"`): the same split, on the other half
+//!   of the flag identity. `_` is word-shaped for [`spelling_occurs`]'s
+//!   boundary — deliberately, so `--foo` cannot attest inside an unrelated
+//!   `--foo_bar` — which meant the bare stored spelling was rejected
+//!   against its own raw token. 54 of 656 fleet-wide fabrications, all
+//!   false; [`long_candidates`] reconstructs `--<long><value>` the way
+//!   [`short_candidates`] already reconstructed `-x<value>`, and carries
+//!   the measured table.
 //!
 //! **The general lesson, worth stating because the next reader will be
 //! tempted the same way:** [`spelling_occurs`]'s strict-prefix boundary
@@ -178,7 +204,7 @@ use std::collections::HashSet;
 /// the case of one spelling being a strict prefix of a different, longer
 /// one (`--foo` inside `--foobar`), not to recognize every legal short-flag
 /// character shape.
-fn is_word_char(c: char) -> bool {
+pub(crate) fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '-' || c == '_'
 }
 
@@ -195,7 +221,13 @@ fn is_word_char(c: char) -> bool {
 /// word-shaped, which is what lets `--gpg-sign` (the stored, value-
 /// stripped spelling) match against `--gpg-sign[=KID]` (the raw text's
 /// actual spelling) — see this module's doc comment on value stripping.
-fn spelling_occurs(raw: &str, candidate: &str) -> bool {
+///
+/// `pub(crate)` for [`crate::bundling`], which asks the identical question
+/// about a reconstructed spelling (does this exact token occur, delimited,
+/// in the tool's own text?) and would otherwise carry a second, drifting
+/// copy of this boundary rule — the duplication hazard `status.rs`'s own
+/// doc comment names.
+pub(crate) fn spelling_occurs(raw: &str, candidate: &str) -> bool {
     let hay: Vec<char> = raw.chars().collect();
     let needle: Vec<char> = candidate.chars().collect();
     if needle.is_empty() || hay.len() < needle.len() {
@@ -231,20 +263,463 @@ fn spelling_occurs(raw: &str, candidate: &str) -> bool {
 /// these three characters are stripped, deliberately — they are not legal
 /// command-name characters (`mandible_core::is_command_name_shaped` doesn't
 /// allow them at all), so stripping them can never turn a genuinely
-/// different word into a false match. This does **not** address the other,
-/// larger false-positive class in the same fleet measurement — a name
-/// sitting in column 2+ of a multi-column table (`busybox`, `openssl`) is
-/// still missed, because only the first token of each line is considered at
-/// all; broadening that would mean accepting a match anywhere on a line,
-/// which is a real weakening of the "line-start-ish" guard this module's own
-/// doc comment explains (it exists specifically to keep ordinary prose words
-/// from false-matching), not a tokenizer bug — deferred, see `xtask audit`'s
-/// K2 pre-tag instead of a detector rewrite here.
+/// different word into a false match. This does **not** by itself address a
+/// name sitting in column 2+ of a multi-column table (`busybox`,
+/// `openssl`); [`list_row_words`] does, and [`attested_name_positions`]
+/// unions the two.
 fn line_start_words(raw: &str) -> HashSet<&str> {
-    raw.lines()
-        .filter_map(|line| line.split_whitespace().next())
-        .map(|word| word.trim_end_matches([':', ',', ';']))
+    let mut out = HashSet::new();
+    for line in raw.lines() {
+        let Some(word) = line.split_whitespace().next() else {
+            continue;
+        };
+        let word = word.trim_end_matches([':', ',', ';']);
+        out.insert(word);
+        // Same class of tokenizer fix as the `:` strip above, and it must
+        // use the *parser's* rule rather than a second copy of it: binutils
+        // `ar` writes each command with its optional modifier groups glued
+        // on (`m[ab]`, `r[ab][f][u]`), so the row's first token is not the
+        // name the tree stores, and the two were never going to match
+        // byte-for-byte however real the command is. Without this the five
+        // bracketed `ar` operations are reported as invented — five real
+        // commands, in the tool's own help text, called fabrications.
+        //
+        // Additive and prefix-only: `strip_optional_modifier_suffix`
+        // returns its input untouched unless the whole suffix is
+        // well-formed `[...]` groups, so this can only ever attest a
+        // *prefix of a token that is already on the line*.
+        let bare = mandible_extract::help_text::strip_optional_modifier_suffix(word);
+        if bare.len() < word.len() && !bare.is_empty() {
+            out.insert(bare);
+        }
+    }
+    out
+}
+
+/// Minimum number of items a line must break into before it can be read as
+/// a **list row** at all. A single item is just a word on a line; it takes
+/// several side by side, separated by a real item separator rather than by
+/// the single space that separates ordinary prose words, before the line is
+/// evidence of a *list* instead of evidence of a sentence.
+///
+/// Three, not two, and the difference is a false-negative this oracle would
+/// otherwise carry silently. At two, *any* two-column table whose right-hand
+/// cell happens to be a single word reads as a list row and attests that
+/// word — an `ENVIRONMENT` section pairing `TMPDIR` with `directory`, or an
+/// index pairing `add` with the description `adds`, would attest
+/// `directory`, `editor`, `adds`. A fabricated subcommand that collided with
+/// one of those description words would then go unreported, which is the one
+/// failure this module must not have: a permissive oracle hides the defects
+/// it exists to find, and is worse than one that over-reports.
+///
+/// Three costs nothing against the real layouts the list-row rule exists to
+/// read, which was measured rather than assumed: every qualifying line in
+/// `openssl`'s command grid carries 4 items, and in `busybox`'s applet list
+/// 9 to 11. Genuine indexes are wide; description tables are two columns.
+const MIN_LIST_ROW_ITEMS: usize = 3;
+
+/// Split one physical line into the items a list row would carry: first at
+/// tabs and at column gaps (runs of two or more spaces), then at commas,
+/// trimming each result and dropping the empties a trailing separator
+/// leaves behind.
+///
+/// Both separators are needed because the two real layouts in the fleet
+/// measurement use one each — `openssl`'s command index is space-aligned
+/// into columns, `busybox`'s applet index is comma-joined and wrapped —
+/// and a tool is free to combine them.
+///
+/// Every piece is a `&str` borrowed from `line` via `str::split` and
+/// `str::trim` only. There is no offset arithmetic anywhere in here, which
+/// is what keeps AGENTS.md's rule against slicing captured tool output at a
+/// raw byte offset satisfied by construction rather than by care.
+fn list_row_items(line: &str) -> Vec<&str> {
+    line.split(['\t'])
+        .flat_map(|cell| cell.split("  "))
+        .flat_map(|cell| cell.split(','))
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
         .collect()
+}
+
+/// The set of every word that sits at an item position of a **list row** —
+/// the second half of "is this subcommand name where a real command-list
+/// entry actually sits", covering the entries [`line_start_words`]
+/// structurally cannot see.
+///
+/// # Why the first-token rule alone was not enough
+///
+/// It is the single largest false-positive source this detector had: **359
+/// of 656 fleet-wide fabrications, every one of them false**, and both
+/// offenders publish their command list as a grid rather than one entry per
+/// line. `openssl --help` (112 of them) prints
+///
+/// ```text
+/// asn1parse         ca                ciphers           cmp
+/// cms               crl               crl2pkcs7         dgst
+/// ```
+///
+/// and `busybox --help` (247) prints
+///
+/// ```text
+///     [, [[, acpid, adjtimex, ar, arch, arp, arping, ascii, ash, awk,
+/// ```
+///
+/// Only `asn1parse` and `[` are a line's first token, so every other
+/// genuine command on both lists was reported as invented.
+///
+/// # The rule, and why it is not just "anywhere on the line"
+///
+/// Accepting a match anywhere on a line would be a real weakening: this
+/// detector's whole reason for a position rule is that ordinary English
+/// words (`list`, `add`, `get`) are exactly what real subcommands are
+/// named *and* exactly what turns up in running prose, so a name
+/// manufactured from a sentence would sail through. [M-10] is that failure,
+/// and it is what this module exists to catch.
+///
+/// So the line has to earn the reading first. A line is a list row when all
+/// three hold:
+///
+/// 1. It breaks into at least [`MIN_LIST_ROW_ITEMS`] items at a *list*
+///    separator — a tab, a column gap of two or more spaces, or a comma.
+///    Single spaces are not separators here, which is the load-bearing
+///    part: prose is words joined by single spaces, so a sentence stays one
+///    item no matter how many words it has.
+/// 2. **Every** item is a single whitespace-delimited word. One multi-word
+///    item is enough to disqualify the line, because that item is prose and
+///    a row that carries prose is a description row, not an index row.
+/// 3. **No** item is flag-shaped (leading `-` or `+`). A row that names a
+///    flag is an option table, and an option table's second column is its
+///    *description* — admitting it would let a one-word description like
+///    the `verbose` in `-v, --verbose      verbose` attest a fabricated
+///    subcommand named "verbose".
+///
+/// Against [M-10]'s own text every rule fires, and rule 2 fires hardest:
+/// `tar`'s continuation line `treat them as errors` has no separator on it
+/// at all, so it is one four-word item and cannot be a list row — which is
+/// why `errors` is still reported, and why the [M-10] replay test against
+/// `tar`'s real corpus capture still passes.
+///
+/// # What this still cannot see
+///
+/// A two-item row whose items are both bare single words and neither is a
+/// flag is indistinguishable, on shape alone, from a genuine two-column
+/// index — `  fast    quick` reads as a list row. A fabricated subcommand
+/// whose name happened to be the one-word right-hand column of some
+/// non-option table would be missed. No such case occurs in the fleet
+/// measurement this rule was derived from, and the honest thing is to say
+/// so rather than pretend the rule is exact.
+fn list_row_words(raw: &str) -> HashSet<&str> {
+    let mut out = HashSet::new();
+    for line in raw.lines() {
+        let items = list_row_items(line);
+        if items.len() < MIN_LIST_ROW_ITEMS {
+            continue;
+        }
+        let is_list_row = items
+            .iter()
+            .all(|item| item.split_whitespace().count() == 1 && !item.starts_with(['-', '+']));
+        if is_list_row {
+            out.extend(items);
+        }
+    }
+    out
+}
+
+/// Every position in `raw` at which a genuine command-list entry is
+/// attested: a line's first token ([`line_start_words`]) or an item of a
+/// list row ([`list_row_words`]). A subcommand name occurring at neither is
+/// what this module calls fabricated.
+fn attested_name_positions(raw: &str) -> HashSet<&str> {
+    let mut set = line_start_words(raw);
+    set.extend(list_row_words(raw));
+    set
+}
+
+// ----------------------------------------------------------------------
+// Positional operands: where a real one sits, and the one shape that
+// stands in the same slot while meaning the opposite
+// ----------------------------------------------------------------------
+
+/// Strip a usage token's notation down to the bare word inside it.
+///
+/// Only the docopt-style delimiters spec §7 Tier B names are trimmed, and
+/// only from the ends: `[FILE]...` → `FILE`, `<url>` → `url`,
+/// `[<option>` → `option`, `...` → the empty string (dropped by the
+/// caller). A leading `-` is deliberately **not** trimmed, because whether
+/// the token is flag-shaped is the very question [`usage_operands`] asks
+/// next.
+///
+/// `str::trim_matches` returns a sub-slice of its input, so there is no
+/// offset arithmetic here and AGENTS.md's rule against slicing captured
+/// tool output at a raw byte offset is satisfied by construction, exactly
+/// as in [`list_row_items`].
+fn clean_usage_token(token: &str) -> &str {
+    token.trim_matches(|c| matches!(c, '[' | ']' | '<' | '>' | '{' | '}' | '(' | ')' | '|' | '.'))
+}
+
+/// True when a usage token is written in *notation* — opened with one of
+/// the synopsis grammar's group delimiters — rather than as a bare word.
+/// `[OPTION...]`, `<options>` and `[<option>` are notation; `MENU_ENTRY`,
+/// `pid` and `STRACE_LOG` are bare.
+fn is_bracketed(token: &str) -> bool {
+    matches!(
+        token.as_bytes().first(),
+        Some(b'[') | Some(b'<') | Some(b'{')
+    )
+}
+
+/// One physical line of a synopsis, and whether it opens with the program's
+/// own name.
+struct SynopsisLine<'a> {
+    text: &'a str,
+    /// True for a marker line (`Usage: tar ...`) and for a continuation
+    /// under a bare `Usage:` header (`  setsid [options] ...`, which
+    /// repeats the name); false for a wrapped remainder, which resumes
+    /// mid-synopsis and whose first token is therefore already an operand
+    /// or a flag. Getting this wrong in the `false` direction would
+    /// silently eat the first token of every wrapped line — `git`'s own
+    /// `<command>` sits one token into its last one.
+    opens_with_program_name: bool,
+}
+
+/// The physical lines of `raw` that are a synopsis.
+///
+/// Three shapes, all real and all in this project's own corpus:
+///
+/// * the marker and the synopsis on one line — `Usage: tar [OPTION...]
+///   [FILE]...`, `  or:  du [OPTION]... --files0-from=F`;
+/// * that same line **wrapped**, its remainder hanging on the indented
+///   lines below it. `git --help` writes five of them, and its two real
+///   operands `<command>` and `[<args>]` are on the *last* one — reading
+///   only the marker line reported both as invented, which is how this
+///   clause came to exist. A wrapped remainder is recognized by opening
+///   with one of the synopsis grammar's own group delimiters
+///   ([`is_bracketed`], the same three bytes the tier's own
+///   `looks_like_usage_fragment` tests), which is what keeps the ordinary
+///   indented *prose* under a usage line — `du`'s "Summarize device usage
+///   of the set of FILEs..." — from being read as more synopsis; and
+/// * a bare `Usage:` header with the synopsis indented beneath it, which is
+///   util-linux's house style (`setsid`, `wall`, `fsck`) and `zoxide`'s.
+///   Every consecutive indented non-empty line under such a header is
+///   taken, delimiter or not, because the continuation there begins with
+///   the tool's own name rather than with notation.
+///
+/// The marker test itself is `mandible_extract::help_text`'s own
+/// (`starts_with_usage_prefix`/`starts_with_or_marker`, re-exported for this
+/// module) rather than a second copy — see that re-export's doc comment. The
+/// continuation rule *is* this module's own, and is deliberately wider than
+/// the tier's: every line this admits can only add to the attested set
+/// ([`attested_operand_positions`]), and a wider attested set can only make
+/// this oracle report less. An oracle may differ from the parser in that
+/// direction and not the other.
+fn synopsis_lines(raw: &str) -> Vec<SynopsisLine<'_>> {
+    use mandible_extract::help_text::{starts_with_or_marker, starts_with_usage_prefix};
+
+    /// What an indented line under an open usage block has to look like
+    /// before it counts as more synopsis.
+    enum Continuation {
+        /// Nothing is open: the last line was neither a marker nor a
+        /// continuation.
+        None,
+        /// A bare `Usage:` header is open — any indented, non-empty line.
+        Anything,
+        /// A marker line carrying its own synopsis is open — only a wrapped
+        /// remainder, i.e. a line opening with a group delimiter.
+        NotationOnly,
+    }
+
+    let mut out = Vec::new();
+    let mut open = Continuation::None;
+    for line in raw.lines() {
+        let trimmed = line.trim_start();
+        if starts_with_usage_prefix(trimmed) || starts_with_or_marker(trimmed) {
+            out.push(SynopsisLine {
+                text: line,
+                opens_with_program_name: true,
+            });
+            open = match trimmed
+                .split_once(':')
+                .is_some_and(|(_, rest)| rest.trim().is_empty())
+            {
+                true => Continuation::Anything,
+                false => Continuation::NotationOnly,
+            };
+            continue;
+        }
+        let indented = line.starts_with([' ', '\t']) && !trimmed.is_empty();
+        let continues = indented
+            && match open {
+                Continuation::None => false,
+                Continuation::Anything => true,
+                Continuation::NotationOnly => is_bracketed(trimmed),
+            };
+        if continues {
+            out.push(SynopsisLine {
+                text: line,
+                opens_with_program_name: matches!(open, Continuation::Anything),
+            });
+        } else {
+            open = Continuation::None;
+        }
+    }
+    out
+}
+
+/// One synopsis line read as a sequence of operand slots, plus whether the
+/// line writes any literal flag of its own.
+///
+/// The program's own name is dropped when the line opens with it
+/// ([`SynopsisLine::opens_with_program_name`]); it is never an operand.
+/// Every remaining token that is not flag-shaped is a slot, kept in source
+/// order and paired with whether it was written in notation.
+///
+/// A flag's *value* token (`-C <path>`) is deliberately kept as a slot,
+/// unlike in the tier's own `extract_positionals`, which skips it. The
+/// asymmetry is on purpose and it is the safe direction: this set is only
+/// ever used to *attest*, so keeping a token can only make the oracle
+/// report less. Dropping it would have cost a real false alarm —
+/// `lzgrep`'s `Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...` writes its
+/// genuine `PATTERN` operand immediately after a bracketed `[-e]`, and a
+/// value-consuming reader attests `PATTERN` nowhere and reports a real
+/// operand as invented.
+fn usage_operands<'a>(line: &SynopsisLine<'a>) -> (Vec<(&'a str, bool)>, bool) {
+    use mandible_extract::help_text::{starts_with_or_marker, starts_with_usage_prefix};
+    let trimmed = line.text.trim_start();
+    let mut tokens = trimmed.split_whitespace().peekable();
+    if starts_with_usage_prefix(trimmed) || starts_with_or_marker(trimmed) {
+        // The marker may be glued to the program name (`usage:git`) or
+        // stand alone (`Usage: git`); only consume it when it stands alone.
+        if tokens.peek().is_some_and(|t| t.ends_with(':')) {
+            tokens.next();
+        }
+    }
+    if line.opens_with_program_name {
+        tokens.next();
+    }
+    let mut slots = Vec::new();
+    let mut has_literal_flag = false;
+    for token in tokens {
+        let cleaned = clean_usage_token(token);
+        if cleaned.is_empty() {
+            continue;
+        }
+        if cleaned.starts_with('-') {
+            has_literal_flag = true;
+            continue;
+        }
+        slots.push((cleaned, is_bracketed(token)));
+    }
+    (slots, has_literal_flag)
+}
+
+/// The shape rule: which slot of a synopsis line is the tool's **option
+/// list** rather than an operand the user supplies.
+///
+/// # The defect this exists for
+///
+/// A synopsis names its own option list with a word, in the same notation
+/// an operand uses, and only the second half of each of these pairs is
+/// something the user actually passes:
+///
+/// ```text
+/// tar [OPTION...] [FILE]...
+/// pkgconf [OPTIONS] [LIBRARIES]
+/// dpkg-statoverride [<option> ...] <command>
+/// rmiregistry <options> <port>
+/// vim [arguments] [file ..]
+/// ```
+///
+/// Reading the first as an operand invents an argument no tool has. That
+/// was live in **15 of the 26 corpus fixtures carrying a positional** —
+/// `tar`, `du`, `sha1sum`, `lzgrep`, `lzless` each recorded `OPTION`;
+/// `pkg-config`, `ip`, `mysqld_multi` recorded `OPTIONS`;
+/// `dpkg-statoverride` `option`; `rmiregistry`, `update-xmlcatalog`
+/// `options`; and `git restore`'s subtree `options` beside its real `file`
+/// — and this oracle saw every one of them and said nothing, because it did
+/// not look at positionals at all.
+///
+/// # Why a shape rule and not a word list
+///
+/// The tier's own fix names the shape by its vocabulary
+/// (`sections::OPTION_LIST_PLACEHOLDERS`), which is the right call *there*:
+/// a parser deciding whether to emit must decide, and those five words are
+/// the ones the frameworks in the fleet actually use. An oracle must not
+/// share that list. A word list cannot tell you whether the parser is
+/// wrong, only whether it disagreed with the same list — and a fabrication
+/// spelled with a sixth word would be attested by both. So the rule here is
+/// positional, and it reads only shape:
+///
+/// > On a synopsis line that writes **no literal flag of its own**, the
+/// > **first** slot is the option list — provided it is written in
+/// > **notation** and at least one further slot **follows** it.
+///
+/// Each clause carries its own weight, and each is a false alarm this rule
+/// does not have:
+///
+/// 1. **No literal flag on the line.** A synopsis that spells its options
+///    out (`uflow [-h] [-l {java,...}] [-M METHOD] ... pid`) needs no
+///    stand-in for them, so every slot on it is an operand. This alone
+///    keeps `git`, `javaflow-bpfcc`, `rubyobjnew-bpfcc`, `sbverify` and
+///    `fsck` out of the rule's reach entirely.
+/// 2. **Written in notation.** `basename NAME [SUFFIX]` opens with a bare
+///    word, and a bare word is a named operand, never a stand-in for a flag
+///    list — no tool in the corpus writes its option placeholder
+///    unbracketed.
+/// 3. **Something follows it.** A synopsis whose only slot is its first
+///    (`zoxide <COMMAND>`, `strace-log-merge STRACE_LOG`) is naming the one
+///    operand the tool takes. Reading *that* as the option list would delete
+///    a real operand, which is the failure this project ranks worst.
+///
+/// # What it does not catch
+///
+/// A tool whose synopsis is only its option placeholder (`whoami
+/// [OPTION]...`) is missed by clause 3, and one whose synopsis writes a
+/// literal flag *beside* the placeholder (`lzgrep [OPTION]... [-e] PATTERN
+/// [FILE]...`) by clause 1. Both are under-reports, deliberately: this
+/// oracle's own standing rule is that a permissive miss costs a defect
+/// unfound while a false alarm blocks a working tool.
+fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Option<&'a str> {
+    if has_literal_flag || slots.len() < 2 {
+        return None;
+    }
+    let (first, bracketed) = slots[0];
+    bracketed.then_some(first)
+}
+
+/// Every position in `raw` at which a genuine positional operand is
+/// attested — the operand half of what [`attested_name_positions`] is for
+/// subcommand names.
+///
+/// Two sources, mirroring the two ways a tool documents an operand:
+///
+/// * an **operand slot of a synopsis line**, minus the option-list slot
+///   ([`option_list_slot`]); and
+/// * a **line's first token** ([`line_start_words`]) — an entry in a
+///   declared operand block, which is what `argparse` writes under its
+///   `positional arguments:` heading and what
+///   `sections::emit_declared_positionals` reads.
+///
+/// The option-list subtraction is confined to the synopsis set on purpose.
+/// Removing the placeholder word from `line_start_words` as well would be a
+/// second, unmeasured claim — that no document ever documents an operand
+/// under a name some other line uses as its option placeholder — and it
+/// would buy a handful of extra reports at the cost of a false-alarm class
+/// nobody has bounded. The subtraction as written costs `du`'s `OPTION` a
+/// report whenever a second `or:` line re-attests it, and that is the trade
+/// this module takes every time.
+fn attested_operand_positions(raw: &str) -> HashSet<&str> {
+    let mut out = HashSet::new();
+    for line in synopsis_lines(raw) {
+        let (slots, has_literal_flag) = usage_operands(&line);
+        let placeholder = option_list_slot(&slots, has_literal_flag);
+        for (word, _) in &slots {
+            if Some(*word) != placeholder {
+                out.insert(*word);
+            }
+        }
+    }
+    out.extend(line_start_words(raw));
+    out
 }
 
 /// Candidate raw-text spellings for `flag`'s short spelling — the bare
@@ -284,30 +759,131 @@ fn short_candidates(flag: &Flag, short: char) -> Vec<String> {
     candidates
 }
 
-/// Candidate raw-text spellings for `flag`'s long name, covering the
-/// negatable-boolean bracket convention (this module's doc comment) — any
-/// one matching is sufficient. Non-negatable flags get exactly one
-/// candidate, the plain `--name` form.
+/// Whether `raw` spells `short` as a member of a **bundled short-flag
+/// cluster** — `-C` inside `tmux`'s `[-2CDlNuVv]`, `-#` inside `tcpdump`'s
+/// `[-AbdDefhHIJKlLnNOpqStuUvxX#]`.
+///
+/// # Why this exists, and why it is not a loosening
+///
+/// This is the same "compare against the pre-normalization spelling"
+/// principle [`short_candidates`] already applies to `-fdump-scos`, and it
+/// arrived for the same reason: the grammar started splitting one raw token
+/// into several flags, and a per-flag literal check cannot see a spelling
+/// that only exists as one character of a token.
+///
+/// `help_text::grammar::parse_bundled_shorts` now reads a synopsis cluster
+/// as the set of switches it is, so `tmux`'s tree carries eight bare
+/// booleans where it used to carry one collapsed `-2`. Seven of those eight
+/// spellings occur **nowhere** in `tmux --help` on their own — `-C` appears
+/// only inside the cluster token — so without this, fixing the collapse
+/// would have converted a real 465-flag recall defect into a fleet-wide
+/// false alarm on the one oracle built for [M-10]. That is the *K2* shape
+/// exactly: 613 of the first sweep's 656 reported fabrications were
+/// detector artifacts of three kinds, every one a case of this module
+/// checking a spelling the parser had legitimately derived from text it
+/// really read.
+///
+/// **It cannot manufacture a false negative.** It is reached only as a
+/// fallback, after the literal forms already failed, and it attests `short`
+/// only when some raw token *is* a cluster by the identical rule the
+/// grammar splits on — the same function, not a restatement of it. So the
+/// oracle attests exactly the spellings the parser derived and nothing
+/// else: a genuinely invented `-Q` is still reported unless the tool's own
+/// text writes a cluster containing `Q`, in which case `-Q` was read, not
+/// invented, and reporting it would be the false alarm.
+///
+/// The raw text is split on brackets, braces, parens, pipes and commas as
+/// well as whitespace, because a synopsis writes its clusters bracketed and
+/// does not reliably put a space between the groups: `rpcgen`'s real usage
+/// line is `rpcgen [-abkCLNTM][-Dname[=value]] [-i size] ...`, where the
+/// cluster and the next option group are **one** whitespace token. Trimming
+/// the outer brackets off that token leaves `-abkCLNTM][-Dname[=value`,
+/// which is not a cluster, and `-k` — a spelling that occurs nowhere else
+/// in `rpcgen --help` — would be reported as invented. Splitting on the
+/// delimiters instead of trimming them costs nothing, since none of them
+/// can be a cluster member in the first place.
+fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
+    raw.split(|c: char| {
+        c.is_whitespace() || matches!(c, '[' | ']' | '{' | '}' | '(' | ')' | '|' | ',')
+    })
+    .any(|token| {
+        mandible_extract::help_text::parse_bundled_shorts(token)
+            .is_some_and(|members| members.contains(&short))
+    })
+}
+
+/// Candidate raw-text spellings for `flag`'s long name: the negatable-
+/// boolean bracket convention (this module's doc comment), each also in the
+/// *value-reconstructed* form [`short_candidates`] already builds for the
+/// short half. Any one matching is sufficient.
+///
+/// # Why the long half needs the same reconstruction the short half got
+///
+/// [`spelling_occurs`]'s boundary treats `_` as word-shaped, deliberately —
+/// it is a legal identifier character, so `--foo` matching inside an
+/// unrelated `--foo_bar` would be the same false attestation `--foo` inside
+/// `--foobar` is. But a flag whose *own* value spec is glued straight onto
+/// it with no separator hits that guard for the opposite reason: nothing
+/// unrelated follows, it is the rest of the same token, split off into
+/// `value_name` by `grammar::try_value` exactly as `-fdump-scos`'s tail is.
+///
+/// Measured, not hypothesized — 54 of 656 fleet-wide fabrications, all
+/// false, every one of this shape:
+///
+/// | raw text | stored `long` | stored `value_name` |
+/// |---|---|---|
+/// | `--perf-no_read_workqueue` (`cryptsetup`) | `perf-no` | `_read_workqueue` |
+/// | `--is-x86_64-xen-domu` (`grub-file`) | `is-x86` | `_64-xen-domu` |
+/// | `--fwparam_connect` (`iscsistart`) | `fwparam` | `_connect` |
+/// | `--auto_toc_prefix` (`icupkg`) | `auto` | `_toc_prefix` |
+/// | `--extended_fields` (`compactsnoop-bpfcc`) | `extended` | `_fields` |
+/// | `--load_hidden=<string>` (`llvm-jitlink-18`) | `load` | `_hidden=<string>` |
+///
+/// The same reasoning `short_candidates` closes with applies unchanged
+/// here: these are fallbacks, reached only after the plain form already
+/// failed, and each demands an exact boundary-respecting match of the
+/// *actual extracted value text*, so a genuinely invented long flag with a
+/// value spec is still reported (`detect_still_flags_a_genuinely_
+/// fabricated_long_flag_with_a_value_name`).
 fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
-    if flag.negatable {
+    // One dash or two, from the flag itself. A single-dash long option
+    // (`mandible_core::Flag::single_dash` — `qemu -help`, `bpftrace -vv`,
+    // `lto-dump -CC`) holds its bare name in `long` exactly as a `--`
+    // option does, so searching the raw text for `--vv` would report a
+    // perfectly real, correctly-parsed flag as an invention. Measured: the
+    // repeated-character repair moved `lto-dump` from 10 fabrications to 12
+    // until this was fixed, and both were `-CC`/`-MM`.
+    let dashes = if flag.single_dash { "-" } else { "--" };
+    let bases = if flag.negatable {
         vec![
-            format!("--[no-]{long}"),
-            format!("--[no]{long}"),
-            format!("--{long}"),
+            format!("{dashes}[no-]{long}"),
+            format!("{dashes}[no]{long}"),
+            format!("{dashes}{long}"),
         ]
     } else {
-        vec![format!("--{long}")]
+        vec![format!("{dashes}{long}")]
+    };
+    let Some(value) = &flag.value_name else {
+        return bases;
+    };
+    let mut candidates = Vec::with_capacity(bases.len() * 3);
+    for base in bases {
+        candidates.push(format!("{base}{value}"));
+        candidates.push(format!("{base}={value}"));
+        candidates.push(base);
     }
+    candidates
 }
 
 /// The display spelling for a fabrication report — `--[no-]foo` for a
 /// negatable long flag, `--foo` otherwise, matching
 /// `mandible_core::Flag::spelling`'s own convention for the long half.
 fn display_long(flag: &Flag, long: &str) -> String {
+    let dashes = if flag.single_dash { "-" } else { "--" };
     if flag.negatable {
-        format!("--[no-]{long}")
+        format!("{dashes}[no-]{long}")
     } else {
-        format!("--{long}")
+        format!("{dashes}{long}")
     }
 }
 
@@ -344,6 +920,11 @@ pub enum FabricationKind {
     /// A `Flag` short or long spelling with no boundary-respecting
     /// occurrence anywhere in the raw text.
     Flag,
+    /// A `Positional` name that occurs at no position a real operand
+    /// occupies — nowhere in a declared operand block, and nowhere in a
+    /// synopsis except in the slot that names the tool's own option list
+    /// ([`option_list_slot`]).
+    Positional,
 }
 
 /// The result of analyzing one tool.
@@ -365,7 +946,9 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
         if let Some(short) = flag.short {
             let spelling = format!("-{short}");
             let candidates = short_candidates(flag, short);
-            if !candidates.iter().any(|c| spelling_occurs(raw, c)) {
+            let attested = candidates.iter().any(|c| spelling_occurs(raw, c))
+                || occurs_as_a_bundle_member(raw, short);
+            if !attested {
                 out.push(Fabrication {
                     path: path.to_string(),
                     kind: FabricationKind::Flag,
@@ -386,16 +969,45 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
     }
 }
 
+/// The positional half of the rule: every help-text-sourced operand this
+/// node records must sit at a position a real operand occupies
+/// ([`attested_operand_positions`]).
+///
+/// Scoped by provenance exactly as [`check_flags`] is, and for the same
+/// reason — a completion script or a `__complete` protocol reply names
+/// operands the tool's prose never prints.
+fn check_positionals(
+    node: &CommandNode,
+    path: &str,
+    operands: &HashSet<&str>,
+    out: &mut Vec<Fabrication>,
+) {
+    for positional in &node.positionals {
+        if !is_help_text_sourced(&positional.provenance) {
+            continue;
+        }
+        if !operands.contains(positional.name.as_str()) {
+            out.push(Fabrication {
+                path: path.to_string(),
+                kind: FabricationKind::Positional,
+                name: positional.name.clone(),
+            });
+        }
+    }
+}
+
 fn walk(
     node: &CommandNode,
     path: &str,
     raw: &str,
-    line_starts: &HashSet<&str>,
+    attested: &HashSet<&str>,
+    operands: &HashSet<&str>,
     out: &mut Vec<Fabrication>,
 ) {
     check_flags(node, path, raw, out);
+    check_positionals(node, path, operands, out);
     for child in &node.subcommands {
-        if is_help_text_sourced(&child.provenance) && !line_starts.contains(child.name.as_str()) {
+        if is_help_text_sourced(&child.provenance) && !attested.contains(child.name.as_str()) {
             out.push(Fabrication {
                 path: path.to_string(),
                 kind: FabricationKind::Subcommand,
@@ -403,7 +1015,7 @@ fn walk(
             });
         }
         let child_path = format!("{path} {}", child.name);
-        walk(child, &child_path, raw, line_starts, out);
+        walk(child, &child_path, raw, attested, operands, out);
     }
 }
 
@@ -419,9 +1031,17 @@ fn walk(
 /// never a candidate a parser could have fabricated. Its *flags* are
 /// checked like any other node's.
 pub fn detect(raw: &str, root: &CommandNode) -> ExistenceReport {
-    let line_starts = line_start_words(raw);
+    let attested = attested_name_positions(raw);
+    let operands = attested_operand_positions(raw);
     let mut fabrications = Vec::new();
-    walk(root, &root.name, raw, &line_starts, &mut fabrications);
+    walk(
+        root,
+        &root.name,
+        raw,
+        &attested,
+        &operands,
+        &mut fabrications,
+    );
     ExistenceReport { fabrications }
 }
 
@@ -530,6 +1150,117 @@ mod tests {
             .any(|c| spelling_occurs(GCC_SINGLE_DASH_LINE, c)));
     }
 
+    // --- bundled short-flag cluster members ------------------------------
+
+    /// `tmux`'s real usage line, byte-exact from
+    /// `corpus/tmux/audit-seed2/help.stderr.txt`.
+    const TMUX_USAGE: &str = "usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name]\n            [-S socket-path] [-T features] [command [flags]]\n";
+
+    /// The half that motivates [`occurs_as_a_bundle_member`]: seven of
+    /// `tmux`'s eight cluster members occur *nowhere* on their own, so the
+    /// literal check alone would report all seven as invented the moment
+    /// the grammar started emitting them as flags.
+    #[test]
+    fn a_cluster_members_bare_spelling_does_not_occur_on_its_own() {
+        for member in ['C', 'D', 'l', 'N', 'u', 'V'] {
+            assert!(
+                !spelling_occurs(TMUX_USAGE, &format!("-{member}")),
+                "-{member} must not occur standalone in tmux's real usage line"
+            );
+        }
+    }
+
+    /// ...and the cluster check attests every one of them, because the raw
+    /// text really does write them — as one token.
+    #[test]
+    fn every_cluster_member_is_attested_by_its_own_cluster() {
+        for member in "2CDlNuVv".chars() {
+            assert!(
+                occurs_as_a_bundle_member(TMUX_USAGE, member),
+                "-{member} must be attested by tmux's own [-2CDlNuVv]"
+            );
+        }
+        // tcpdump's real cluster, including its non-alphanumeric member.
+        let raw = "Usage: tcpdump [-AbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ]\n";
+        for member in "AbdDefhHIJKlLnNOpqStuUvxX#".chars() {
+            assert!(occurs_as_a_bundle_member(raw, member), "-{member}");
+        }
+    }
+
+    /// End to end: the whole split tree over the real capture reports zero
+    /// fabrications. Without the cluster check this is seven.
+    #[test]
+    fn detect_does_not_flag_the_members_of_a_real_cluster() {
+        let mut root = help_text_node("tmux");
+        for member in "2CDlNuVv".chars() {
+            root.flags.push(help_text_flag(Some(member), None, false));
+        }
+        for (short, value) in [('c', "shell-command"), ('f', "file"), ('T', "features")] {
+            let mut flag = help_text_flag(Some(short), None, false);
+            flag.value_name = Some(value.to_string());
+            root.flags.push(flag);
+        }
+        let report = detect(TMUX_USAGE, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "tmux's real flags must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// `rpcgen`'s real usage line, byte-exact: the cluster and the next
+    /// option group are one whitespace token, which is why the tokenizer
+    /// splits on brackets. Found on the fleet sweep, not by reasoning —
+    /// this was the one tool the first version of this check still reported,
+    /// for `-k`, a spelling that appears nowhere else in `rpcgen --help`.
+    const RPCGEN_USAGE: &str =
+        "\trpcgen [-abkCLNTM][-Dname[=value]] [-i size] [-I [-K seconds]] [-Y path] infile\n";
+
+    #[test]
+    fn a_cluster_glued_to_the_next_bracket_group_still_attests_its_members() {
+        for member in "abkCLNTM".chars() {
+            assert!(
+                occurs_as_a_bundle_member(RPCGEN_USAGE, member),
+                "-{member} must be attested by rpcgen's own [-abkCLNTM]"
+            );
+        }
+        // The half that made this a real finding: `-k` occurs nowhere in
+        // rpcgen's output except inside that cluster.
+        assert!(!spelling_occurs(RPCGEN_USAGE, "-k"));
+        // ...and the neighbouring group is still not a cluster, so it
+        // vouches for nothing.
+        for member in ['D', 'n', 'a', 'm', 'e', 'v'] {
+            assert!(!mandible_extract::help_text::parse_bundled_shorts("-Dname")
+                .is_some_and(|m| m.contains(&member)));
+        }
+    }
+
+    /// The check must not become a blanket amnesty for short flags. A
+    /// genuinely invented spelling is still reported when the tool's text
+    /// carries a cluster that does not contain it, and a token that is not
+    /// a cluster by the grammar's own rule attests nothing at all.
+    #[test]
+    fn a_genuinely_invented_short_flag_is_still_reported_beside_a_cluster() {
+        let mut root = help_text_node("tmux");
+        root.flags.push(help_text_flag(Some('Q'), None, false));
+        let report = detect(TMUX_USAGE, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "-Q");
+        // A word-shaped token is not a cluster, so it vouches for nothing:
+        // `-pass-exit-codes` must not attest `-a`, `-s`, `-e`...
+        for member in ['a', 's', 'e', 'x', 'i', 't'] {
+            assert!(!occurs_as_a_bundle_member(
+                "  -pass-exit-codes   Exit with highest error code\n",
+                member
+            ));
+        }
+    }
+
     #[test]
     fn bare_short_alone_does_not_occur_in_gccs_real_single_dash_line() {
         // The other half of the regression: confirms *why* the bare form
@@ -608,6 +1339,96 @@ mod tests {
         assert_eq!(report.fabrications[0].name, "-z");
     }
 
+    // --- long-flag value reconstruction ----------------------------------
+
+    /// `cryptsetup --help`'s real line, byte-exact. The parser stores this
+    /// as `long: "perf-no"`, `value_name: "_read_workqueue"`, so the bare
+    /// `--perf-no` is followed in the raw text by `_` — word-shaped, and
+    /// therefore rejected by [`spelling_occurs`]'s boundary until
+    /// [`long_candidates`] learned to put the value back.
+    const CRYPTSETUP_UNDERSCORE_LINE: &str =
+        "      --perf-no_read_workqueue          Bypass dm-crypt workqueue and process\n";
+
+    #[test]
+    fn long_candidates_reconstructs_a_glued_underscore_value() {
+        let mut flag = help_text_flag(None, Some("perf-no"), false);
+        flag.value_name = Some("_read_workqueue".to_string());
+        let candidates = long_candidates(&flag, "perf-no");
+        assert!(candidates.contains(&"--perf-no_read_workqueue".to_string()));
+        assert!(candidates
+            .iter()
+            .any(|c| spelling_occurs(CRYPTSETUP_UNDERSCORE_LINE, c)));
+    }
+
+    #[test]
+    fn bare_long_alone_does_not_occur_in_cryptsetups_real_line() {
+        // The other half of the regression, stated the same way the GCC
+        // short-flag pair is: confirms *why* the bare form was failing.
+        assert!(!spelling_occurs(CRYPTSETUP_UNDERSCORE_LINE, "--perf-no"));
+    }
+
+    #[test]
+    fn detect_does_not_flag_cryptsetups_real_underscore_flag() {
+        let mut root = help_text_node("cryptsetup");
+        let mut flag = help_text_flag(None, Some("perf-no"), false);
+        flag.value_name = Some("_read_workqueue".to_string());
+        root.flags.push(flag);
+        let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
+        assert_eq!(report.fabrication_count(), 0);
+    }
+
+    #[test]
+    fn detect_still_flags_a_genuinely_fabricated_long_flag_with_a_value_name() {
+        // The mirror of `detect_still_flags_a_genuinely_fabricated_short_
+        // flag_with_a_value_name`: the reconstruction fallback must not
+        // blanket-suppress every long flag that carries a `value_name`,
+        // only one whose reconstructed spelling genuinely occurs.
+        let mut root = help_text_node("t");
+        let mut flag = help_text_flag(None, Some("perf-no"), false);
+        flag.value_name = Some("_totally_invented".to_string());
+        root.flags.push(flag);
+        let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "--perf-no");
+    }
+
+    /// A single-dash long option is searched for with one dash, because
+    /// that is how the tool spells it. Left at two, the repeated-character
+    /// repair (`help_text::sections::repair_repeated_character_flags`)
+    /// would have this oracle report `lto-dump`'s perfectly real `-CC` and
+    /// `-MM` as inventions — a correctly-parsed flag counted as a
+    /// fabrication, which is the exact false positive this oracle's zero is
+    /// meant to be trustworthy about. Measured before the fix: `lto-dump`
+    /// went from 10 fabrications to 12, and both were this.
+    #[test]
+    fn a_single_dash_long_option_is_searched_for_with_one_dash() {
+        let raw = "    -v      verbose messages\n    -vv     more verbose messages\n";
+        let mut root = help_text_node("t");
+        let mut flag = help_text_flag(None, Some("vv"), false);
+        flag.single_dash = true;
+        root.flags.push(flag);
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+        // ...and a genuinely invented one is still reported, with the
+        // single-dash spelling it claims to have.
+        let mut root = help_text_node("t");
+        let mut flag = help_text_flag(None, Some("qq"), false);
+        flag.single_dash = true;
+        root.flags.push(flag);
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "-qq");
+    }
+
+    #[test]
+    fn a_negatable_long_still_gets_its_bracketed_forms_when_it_has_a_value() {
+        let mut flag = help_text_flag(None, Some("source"), true);
+        flag.value_name = Some("<tree-ish>".to_string());
+        let candidates = long_candidates(&flag, "source");
+        assert!(candidates.contains(&"--[no-]source".to_string()));
+        assert!(candidates.contains(&"--[no-]source<tree-ish>".to_string()));
+        assert!(candidates.contains(&"--source".to_string()));
+    }
+
     // --- line-start-ish subcommand rule ----------------------------------
 
     #[test]
@@ -617,6 +1438,26 @@ mod tests {
         assert!(words.contains("clone"));
         assert!(words.contains("init"));
         assert!(!words.contains("area"));
+    }
+
+    /// binutils `ar`'s real command table, byte-exact. Each row glues the
+    /// command's optional modifier groups onto its name, so the row's first
+    /// token is `m[ab]` while the tree stores `m`. Both must be attested,
+    /// or five real `ar` commands get reported as invented — measured: the
+    /// fleet sweep went from 0 to 5 fabrications on exactly this.
+    #[test]
+    fn line_start_words_attests_a_command_carrying_its_modifier_groups() {
+        let raw = " commands:\n  d            - delete file(s) from the archive\n  m[ab]        - move file(s) in the archive\n  r[ab][f][u]  - replace existing or insert new file(s) into the archive\n";
+        let words = line_start_words(raw);
+        assert!(words.contains("d"));
+        assert!(words.contains("m"), "m[ab] must attest the command m");
+        assert!(words.contains("r"), "r[ab][f][u] must attest the command r");
+        // The whole token stays attested too — this is additive.
+        assert!(words.contains("m[ab]"));
+        // A bracket-led token names no command and must attest nothing new.
+        let modifiers = line_start_words("  [a]          - put file(s) after [member-name]\n");
+        assert!(!modifiers.contains(""));
+        assert!(modifiers.contains("[a]"));
     }
 
     #[test]
@@ -631,6 +1472,188 @@ mod tests {
         // line," not "belongs to a real command-list section"; see the
         // module doc comment on what's left unverified.
         assert!(words.contains("treat"));
+    }
+
+    // --- list rows (the multi-column / comma-joined index) ---------------
+
+    /// `openssl --help`'s real command index, byte-exact from the fleet
+    /// capture: four commands per line, column-aligned, only the first of
+    /// them at a line start. 112 of the 656 fleet-wide fabrications were
+    /// this one layout.
+    const OPENSSL_GRID: &str = "Standard commands\nasn1parse         ca                ciphers           cmp\ncms               crl               crl2pkcs7         dgst\n";
+
+    /// `busybox --help`'s real applet index, byte-exact: comma-joined and
+    /// wrapped, trailing comma included. 247 of the 656.
+    const BUSYBOX_LIST: &str = "Currently defined functions:\n    [, [[, acpid, adjtimex, ar, arch, arp, arping, ascii, ash, awk,\n    base64, basename, bc, bunzip2, busybox, bzcat, bzip2, cal, cat,\n";
+
+    #[test]
+    fn list_row_words_finds_a_column_aligned_command_grid() {
+        let words = list_row_words(OPENSSL_GRID);
+        for name in ["asn1parse", "ca", "ciphers", "cmp", "crl2pkcs7", "dgst"] {
+            assert!(words.contains(name), "missing {name}: {words:?}");
+        }
+        // The section heading is prose on its own line — two words joined
+        // by a single space, which is not an item separator.
+        assert!(!words.contains("Standard"));
+        assert!(!words.contains("commands"));
+    }
+
+    #[test]
+    fn list_row_words_finds_a_comma_joined_applet_list() {
+        let words = list_row_words(BUSYBOX_LIST);
+        for name in ["acpid", "adjtimex", "arping", "base64", "bunzip2", "cat"] {
+            assert!(words.contains(name), "missing {name}: {words:?}");
+        }
+        assert!(!words.contains("Currently"));
+        assert!(!words.contains("defined"));
+    }
+
+    #[test]
+    fn detect_does_not_flag_opensslfs_real_grid_entries() {
+        let mut root = help_text_node("openssl");
+        for name in ["ca", "ciphers", "cmp", "crl2pkcs7", "dgst"] {
+            root.subcommands.push(help_text_node(name));
+        }
+        let report = detect(OPENSSL_GRID, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "openssl's own real command grid must attest: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn detect_does_not_flag_busyboxs_real_applet_list() {
+        let mut root = help_text_node("busybox");
+        for name in ["acpid", "adjtimex", "arping", "bunzip2", "cat"] {
+            root.subcommands.push(help_text_node(name));
+        }
+        let report = detect(BUSYBOX_LIST, &root);
+        assert_eq!(report.fabrication_count(), 0);
+    }
+
+    // --- list rows: the true positives that must survive the loosening ---
+
+    #[test]
+    fn a_prose_line_is_never_a_list_row_however_many_words_it_has() {
+        // [M-10]'s own shape. Single spaces are not item separators, so
+        // this whole continuation line is one item and the line breaks
+        // into fewer than `MIN_LIST_ROW_ITEMS`.
+        let raw = "                             treat them as errors\n";
+        let words = list_row_words(raw);
+        assert!(words.is_empty(), "{words:?}");
+    }
+
+    #[test]
+    fn detect_still_flags_prose_words_from_a_wrapped_continuation_line() {
+        let raw = "  -k, --keep-old-files       don't replace existing files when extracting,\n                             treat them as errors\n";
+        let mut root = help_text_node("tar");
+        for name in ["them", "as", "errors"] {
+            root.subcommands.push(help_text_node(name));
+        }
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            3,
+            "every mid-prose word must still be caught: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// The description column of an *option* table must not attest a
+    /// subcommand, even when that description happens to be one word.
+    /// Rule 3 (no flag-shaped item) is the one doing the work here: the
+    /// row names `-v`, so it is an option row, not an index row.
+    #[test]
+    fn an_option_row_never_attests_its_own_one_word_description() {
+        let raw = "  -v, --verbose      verbose\n  -q, --quiet        silent\n";
+        let words = list_row_words(raw);
+        assert!(!words.contains("verbose"), "{words:?}");
+        assert!(!words.contains("silent"), "{words:?}");
+
+        let mut root = help_text_node("t");
+        root.subcommands.push(help_text_node("silent"));
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "silent");
+    }
+
+    #[test]
+    fn a_row_carrying_any_multi_word_item_is_not_a_list_row() {
+        // A genuine two-column *description* table. `clone` is still
+        // attested — by the first-token rule, which has not changed — but
+        // nothing from the right-hand column is.
+        let raw = "   clone     Clone a repository into a new directory\n";
+        let words = list_row_words(raw);
+        assert!(words.is_empty(), "{words:?}");
+        assert!(line_start_words(raw).contains("clone"));
+    }
+
+    /// A two-column table whose right-hand cell is a single word must not
+    /// attest that word. This is the shape `MIN_LIST_ROW_ITEMS = 2` let
+    /// through: an `ENVIRONMENT` section and a one-word-description index
+    /// are both indistinguishable from a real command grid by every other
+    /// rule here, and only their *width* separates them.
+    #[test]
+    fn a_two_column_table_never_attests_its_right_hand_column() {
+        let env = "  TMPDIR    directory\n  EDITOR    editor\n";
+        let words = list_row_words(env);
+        assert!(!words.contains("directory"), "{words:?}");
+        assert!(!words.contains("editor"), "{words:?}");
+
+        let index = "  add       adds\n  remove    removes\n";
+        let words = list_row_words(index);
+        assert!(!words.contains("adds"), "{words:?}");
+        assert!(!words.contains("removes"), "{words:?}");
+
+        // ...and the fabrication that hid behind it is reported again.
+        let mut root = help_text_node("t");
+        root.subcommands.push(help_text_node("editor"));
+        let report = detect(env, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].name, "editor");
+    }
+
+    /// The left-hand column of such a table is still attested, by the
+    /// unchanged first-token rule — tightening the width threshold must
+    /// not cost a real index entry that happens to sit in a narrow table.
+    #[test]
+    fn a_two_column_tables_left_column_is_still_attested() {
+        let index = "  add       adds\n  remove    removes\n";
+        let starts = line_start_words(index);
+        assert!(starts.contains("add"));
+        assert!(starts.contains("remove"));
+    }
+
+    #[test]
+    fn a_single_item_line_is_not_a_list_row() {
+        let raw = "        solo\n";
+        assert!(list_row_words(raw).is_empty());
+    }
+
+    /// The [M-10] replay, re-run against `tar`'s real corpus capture with
+    /// the loosened rule in place: the whole point of the loosening is that
+    /// it must not reach real prose, and `tar --help` is nothing but
+    /// option rows and wrapped prose.
+    #[test]
+    fn list_rows_admit_nothing_from_tars_real_corpus_text() {
+        let raw = include_str!("../../corpus/tar/1.35/help.txt");
+        let admitted = list_row_words(raw);
+        let already = line_start_words(raw);
+        let newly: Vec<&&str> = admitted.iter().filter(|w| !already.contains(*w)).collect();
+        assert!(
+            newly.is_empty(),
+            "the list-row rule must admit no new name position in tar's own text: {newly:?}"
+        );
     }
 
     // --- detect: flags ----------------------------------------------------
@@ -847,6 +1870,266 @@ mod tests {
                 .map(|f| &f.name)
                 .collect::<Vec<_>>()
         );
+    }
+
+    // --- positional operands ---------------------------------------------
+
+    fn help_text_positional(name: &str) -> mandible_core::Positional {
+        mandible_core::Positional {
+            name: name.to_string(),
+            required: false,
+            variadic: false,
+            description: None,
+            provenance: Provenance::single(Source::HelpText),
+        }
+    }
+
+    /// Every option-list placeholder shape the 15-tool fix removed, each
+    /// byte-exact from the tool's own capture, paired with the operand
+    /// standing beside it. The rule has to name the first and spare the
+    /// second in every row.
+    const PLACEHOLDER_PAIRS: &[(&str, &str, &str)] = &[
+        ("Usage: tar [OPTION...] [FILE]...\n", "OPTION", "FILE"),
+        ("Usage: du [OPTION]... [FILE]...\n", "OPTION", "FILE"),
+        (
+            "usage: pkgconf [OPTIONS] [LIBRARIES]\n",
+            "OPTIONS",
+            "LIBRARIES",
+        ),
+        (
+            "Usage: dpkg-statoverride [<option> ...] <command>\n",
+            "option",
+            "command",
+        ),
+        ("Usage: rmiregistry <options> <port>\n", "options", "port"),
+        ("Usage: vim [arguments] [file ..]\n", "arguments", "file"),
+        ("Usage: curl [options...] <url>\n", "options", "url"),
+        (
+            "Usage: grub-set-default [OPTION] MENU_ENTRY\n",
+            "OPTION",
+            "MENU_ENTRY",
+        ),
+    ];
+
+    #[test]
+    fn the_option_list_slot_is_never_an_attested_operand() {
+        for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
+            let attested = attested_operand_positions(raw);
+            assert!(
+                !attested.contains(placeholder),
+                "{placeholder:?} must not be attested by {raw:?}: {attested:?}"
+            );
+            assert!(
+                attested.contains(operand),
+                "{operand:?} must be attested by {raw:?}: {attested:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn detect_flags_the_option_list_placeholder_and_spares_the_operand_beside_it() {
+        for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
+            let mut root = help_text_node("t");
+            root.positionals.push(help_text_positional(placeholder));
+            root.positionals.push(help_text_positional(operand));
+            let report = detect(raw, &root);
+            let names: Vec<&String> = report.fabrications.iter().map(|f| &f.name).collect();
+            assert_eq!(names, vec![placeholder], "for {raw:?}");
+            assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
+        }
+    }
+
+    /// The [M-10]-shaped replay for operands, against `tar`'s own real
+    /// corpus capture rather than a hand-typed line: `tar` shipped an
+    /// operand called `OPTION`, lifted out of `[OPTION...]`, and this
+    /// oracle saw it and said nothing.
+    #[test]
+    fn detects_tars_own_fabricated_option_operand_against_its_real_corpus_text() {
+        let raw = include_str!("../../corpus/tar/1.35/help.txt");
+        let mut root = help_text_node("tar");
+        root.positionals.push(help_text_positional("OPTION"));
+        root.positionals.push(help_text_positional("FILE"));
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            1,
+            "expected exactly the fabricated operand: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
+        assert_eq!(report.fabrications[0].name, "OPTION");
+    }
+
+    /// Clause 1 of [`option_list_slot`]: a synopsis that spells its own
+    /// options out needs no stand-in for them, so the rule stays out of the
+    /// line entirely. `uobjnew`'s real argparse synopsis, byte-exact — its
+    /// `pid` and `interval` are the two operands the same commit
+    /// *recovered*, and reporting either would undo that.
+    #[test]
+    fn a_synopsis_that_writes_its_own_flags_has_no_placeholder_slot() {
+        let raw = "usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-S TOP_SIZE] [-v] pid [interval]\n";
+        let mut root = help_text_node("uobjnew");
+        root.positionals.push(help_text_positional("pid"));
+        root.positionals.push(help_text_positional("interval"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// Clause 2: a bare word is a named operand, never a stand-in for a
+    /// flag list. Without it, `basename`'s own first operand reads as the
+    /// option list.
+    #[test]
+    fn an_unbracketed_first_slot_is_never_the_option_list() {
+        let raw = "Usage: basename NAME [SUFFIX]\n";
+        let mut root = help_text_node("basename");
+        root.positionals.push(help_text_positional("NAME"));
+        root.positionals.push(help_text_positional("SUFFIX"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// Clause 3: a synopsis naming exactly one slot is naming the one
+    /// operand the tool takes. `zoxide` and `strace-log-merge` are both
+    /// real corpus fixtures, and both would lose a genuine operand without
+    /// this.
+    #[test]
+    fn a_sole_slot_is_the_tools_operand_not_its_option_list() {
+        for (raw, name) in [
+            ("Usage:\n  zoxide <COMMAND>\n", "COMMAND"),
+            ("Usage: strace-log-merge STRACE_LOG\n", "STRACE_LOG"),
+        ] {
+            let mut root = help_text_node("t");
+            root.positionals.push(help_text_positional(name));
+            let report = detect(raw, &root);
+            assert_eq!(report.fabrication_count(), 0, "for {raw:?}");
+        }
+    }
+
+    /// A bare `Usage:` header with the synopsis indented beneath it —
+    /// util-linux's house style, and the shape that carries `wall`'s two
+    /// real operands one slot past its `[options]` placeholder.
+    #[test]
+    fn a_bare_usage_header_opens_a_synopsis_block() {
+        let raw = "Usage:\n wall [options] [<file> | <message>]\n\nWrite a message to all users.\n";
+        let attested = attested_operand_positions(raw);
+        assert!(attested.contains("file"), "{attested:?}");
+        assert!(attested.contains("message"), "{attested:?}");
+        assert!(!attested.contains("options"), "{attested:?}");
+    }
+
+    /// `git --help`'s real wrapped synopsis: the two operands sit on the
+    /// *fifth* physical line. Reading only the marker line reported both
+    /// `command` and `args` as invented — measured against the committed
+    /// fixture, not imagined.
+    #[test]
+    fn a_wrapped_synopsis_still_attests_the_operands_on_its_last_line() {
+        let raw = include_str!("../../corpus/git/2.43.0/help.txt");
+        let mut root = help_text_node("git");
+        root.positionals.push(help_text_positional("command"));
+        root.positionals.push(help_text_positional("args"));
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "git's own real operands must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Ordinary indented prose under a usage line is not more synopsis.
+    /// `du --help` writes exactly that, and admitting it would attest every
+    /// word of a sentence as an operand position.
+    #[test]
+    fn indented_prose_under_a_usage_line_is_not_a_synopsis_continuation() {
+        let raw = concat!(
+            "Usage: du [OPTION]... [FILE]...\n",
+            "  or:  du [OPTION]... --files0-from=F\n",
+            "  Summarize device usage of the set of FILEs, recursively for directories.\n",
+        );
+        let attested = attested_operand_positions(raw);
+        assert!(!attested.contains("device"), "{attested:?}");
+        assert!(!attested.contains("recursively"), "{attested:?}");
+        assert!(attested.contains("FILE"), "{attested:?}");
+    }
+
+    /// A real operand that appears only in a declared operand block —
+    /// argparse's `positional arguments:` heading, which
+    /// `sections::emit_declared_positionals` reads — is attested by its
+    /// block entry, not by the synopsis.
+    #[test]
+    fn a_declared_operand_block_entry_attests_its_operand() {
+        let raw = concat!(
+            "usage: uobjnew [-h] pid\n",
+            "\n",
+            "positional arguments:\n",
+            "  pid                   process id to attach to\n",
+            "  interval              print every specified number of seconds\n",
+        );
+        let mut root = help_text_node("uobjnew");
+        root.positionals.push(help_text_positional("interval"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// The other direction, and the one that makes the rest worth
+    /// anything: an operand named by nothing in the document at all is
+    /// still reported.
+    #[test]
+    fn detect_flags_an_operand_that_occurs_nowhere() {
+        let raw = "Usage: tar [OPTION...] [FILE]...\n";
+        let mut root = help_text_node("tar");
+        root.positionals.push(help_text_positional("TELEPORT"));
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
+        assert_eq!(report.fabrications[0].name, "TELEPORT");
+    }
+
+    #[test]
+    fn detect_ignores_positionals_not_sourced_from_help_text() {
+        let raw = "Usage: tar [OPTION...] [FILE]...\n";
+        let mut root = help_text_node("tar");
+        let mut structural = help_text_positional("never-printed");
+        structural.provenance = Provenance::single(Source::NativeDynamic {
+            protocol: "cobra-dunder-complete".to_string(),
+        });
+        root.positionals.push(structural);
+        assert_eq!(
+            detect(raw, &root).fabrication_count(),
+            0,
+            "a structurally-sourced operand must never be checked against help text"
+        );
+    }
+
+    #[test]
+    fn detect_recurses_into_a_subcommands_own_positionals() {
+        let raw = "Usage: t [OPTION...] <file>\n   sub    do a thing\n";
+        let mut root = help_text_node("t");
+        let mut sub = help_text_node("sub");
+        sub.positionals.push(help_text_positional("invented"));
+        root.subcommands.push(sub);
+        let report = detect(raw, &root);
+        assert_eq!(report.fabrication_count(), 1);
+        assert_eq!(report.fabrications[0].path, "t sub");
+        assert_eq!(report.fabrications[0].name, "invented");
+    }
+
+    /// A flag's own value token stays an attested operand position on
+    /// purpose — see [`usage_operands`]. `lzgrep` writes its genuine
+    /// `PATTERN` immediately after a bracketed `[-e]`, and a
+    /// value-consuming reader would report a real operand as invented.
+    #[test]
+    fn an_operand_written_after_a_bracketed_flag_is_still_attested() {
+        let raw = "Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...\n";
+        let mut root = help_text_node("lzgrep");
+        root.positionals.push(help_text_positional("PATTERN"));
+        root.positionals.push(help_text_positional("FILE"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
     }
 
     // --- RecordingProbe wiring sanity (mirrors misattribution's own) -----

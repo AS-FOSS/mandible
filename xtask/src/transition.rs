@@ -49,9 +49,9 @@
 //! [`render_markdown`]/[`render_text`].
 
 use crate::coverage::{
-    EXISTENCE_COL_WIDTH, FLAGS_COL_WIDTH, FRAMEWORK_COL_WIDTH, MAN_COL_WIDTH, MISATTR_COL_WIDTH,
-    MS_COL_WIDTH, NODES_COL_WIDTH, PCT_COL_WIDTH, SUSPECT_COL_WIDTH, TIER_COL_WIDTH,
-    TOOL_COL_WIDTH,
+    BUNDLE_COL_WIDTH, EXISTENCE_COL_WIDTH, FLAGS_COL_WIDTH, FRAMEWORK_COL_WIDTH, MAN_COL_WIDTH,
+    MISATTR_COL_WIDTH, MS_COL_WIDTH, NODES_COL_WIDTH, PCT_COL_WIDTH, SUSPECT_COL_WIDTH,
+    TIER_COL_WIDTH, TOOL_COL_WIDTH,
 };
 use std::collections::BTreeMap;
 
@@ -110,6 +110,11 @@ pub struct ParsedRow {
     /// Same `None`-vs-`Some(0)` distinction as
     /// `misattribution_suspect_count` above.
     pub existence_fabrication_count: Option<usize>,
+    /// `None` on a scoreboard rendered before the bundled-short-flag
+    /// detector existed (no `bundle` column at all) — see
+    /// [`has_bundle_column`]. Same `None`-vs-`Some(0)` distinction as the
+    /// two counts above.
+    pub bundle_collapse_count: Option<usize>,
     pub status: String,
 }
 
@@ -158,19 +163,27 @@ fn has_existence_column(header: &str) -> bool {
     header.contains("exist")
 }
 
+/// Same idea again, for the `bundle` column ([`crate::bundling`]) appended
+/// after `exist` — every scoreboard from before it has twelve columns or
+/// fewer and needs the shorter offset for `status`.
+fn has_bundle_column(header: &str) -> bool {
+    header.contains("bundle")
+}
+
 /// The exact character offsets [`crate::coverage::render_text`] writes each
 /// column at, derived from the same width constants that function uses —
 /// never a second, hand-copied set of numbers (this module's doc comment).
-/// `with_misattr`/`with_existence` select among the three layouts a real,
-/// checked-in scoreboard can have — ten columns (neither detector existed
-/// yet), eleven (`misattr` only), or twelve (both) — since each detector
-/// only ever *appended* a column rather than resizing an existing one,
-/// every column up through `man` shares identical offsets regardless.
-/// `with_existence` without `with_misattr` cannot happen from any
-/// scoreboard this binary ever wrote (the columns shipped in that order),
-/// but is still handled the same way `with_misattr` alone is, rather than
-/// asserted against, since this function's only job is to read whatever
-/// header string it's given.
+/// The three `with_*` flags select among the four layouts a real,
+/// checked-in scoreboard can have — ten columns (no detector existed yet),
+/// eleven (`misattr`), twelve (`+ exist`), thirteen (`+ bundle`) — since
+/// each detector only ever *appended* a column rather than resizing an
+/// existing one, every column up through `man` shares identical offsets
+/// regardless. The optional three are laid out as a chain, each starting
+/// where the last present one ended, so a header missing an earlier one
+/// (which no scoreboard this binary ever wrote can be — the columns
+/// shipped in that order) still yields self-consistent offsets rather than
+/// an assertion, since this function's only job is to read whatever header
+/// string it's given.
 struct RowOffsets {
     tool: (usize, usize),
     tier: (usize, usize),
@@ -183,10 +196,11 @@ struct RowOffsets {
     man: (usize, usize),
     misattr: Option<(usize, usize)>,
     existence: Option<(usize, usize)>,
+    bundle: Option<(usize, usize)>,
     status_start: usize,
 }
 
-fn row_offsets(with_misattr: bool, with_existence: bool) -> RowOffsets {
+fn row_offsets(with_misattr: bool, with_existence: bool, with_bundle: bool) -> RowOffsets {
     let tool = (0, TOOL_COL_WIDTH);
     let tier = (tool.1 + 1, tool.1 + 1 + TIER_COL_WIDTH);
     let framework = (tier.1 + 1, tier.1 + 1 + FRAMEWORK_COL_WIDTH);
@@ -196,17 +210,19 @@ fn row_offsets(with_misattr: bool, with_existence: bool) -> RowOffsets {
     let ms = (pct.1, pct.1 + MS_COL_WIDTH);
     let suspect = (ms.1, ms.1 + SUSPECT_COL_WIDTH);
     let man = (suspect.1, suspect.1 + MAN_COL_WIDTH);
-    let (misattr, existence, status_start) = if with_misattr {
-        let m = (man.1, man.1 + MISATTR_COL_WIDTH);
-        if with_existence {
-            let e = (m.1, m.1 + EXISTENCE_COL_WIDTH);
-            (Some(m), Some(e), e.1 + 2)
-        } else {
-            (Some(m), None, m.1 + 2)
+    let mut end = man.1;
+    let mut append = |present: bool, width: usize| -> Option<(usize, usize)> {
+        if !present {
+            return None;
         }
-    } else {
-        (None, None, man.1 + 2)
+        let range = (end, end + width);
+        end = range.1;
+        Some(range)
     };
+    let misattr = append(with_misattr, MISATTR_COL_WIDTH);
+    let existence = append(with_existence, EXISTENCE_COL_WIDTH);
+    let bundle = append(with_bundle, BUNDLE_COL_WIDTH);
+    let status_start = end + 2;
     RowOffsets {
         tool,
         tier,
@@ -219,6 +235,7 @@ fn row_offsets(with_misattr: bool, with_existence: bool) -> RowOffsets {
         man,
         misattr,
         existence,
+        bundle,
         status_start,
     }
 }
@@ -240,8 +257,14 @@ fn slice(chars: &[char], range: (usize, usize)) -> Option<String> {
 }
 
 /// Parse one data line into a [`ParsedRow`], or a reason it was dropped.
+///
+/// The success variant is boxed because the other two carry nothing at all,
+/// and every added scoreboard column grows `ParsedRow` a little further past
+/// the point where the whole enum costs a rejected line as much memory as an
+/// accepted one (`clippy::large_enum_variant`, which the `bundle` column
+/// tipped over).
 enum LineResult {
-    Row(ParsedRow),
+    Row(Box<ParsedRow>),
     Truncated,
     Unparseable,
 }
@@ -310,6 +333,16 @@ fn parse_line(line: &str, offsets: &RowOffsets) -> LineResult {
         },
         None => None,
     };
+    let bundle_collapse_count = match offsets.bundle {
+        Some(range) => match slice(&chars, range) {
+            Some(s) => match s.parse::<usize>() {
+                Ok(n) => Some(n),
+                Err(_) => return LineResult::Unparseable,
+            },
+            None => return LineResult::Unparseable,
+        },
+        None => None,
+    };
     if chars.len() < offsets.status_start {
         return LineResult::Unparseable;
     }
@@ -334,7 +367,7 @@ fn parse_line(line: &str, offsets: &RowOffsets) -> LineResult {
         .filter(|_| pct_s != "—" && pct_s != "-");
     let man_shaped = man_s == "yes";
 
-    LineResult::Row(ParsedRow {
+    LineResult::Row(Box::new(ParsedRow {
         tool,
         tiers,
         framework,
@@ -346,8 +379,9 @@ fn parse_line(line: &str, offsets: &RowOffsets) -> LineResult {
         man_shaped,
         misattribution_suspect_count,
         existence_fabrication_count,
+        bundle_collapse_count,
         status,
-    })
+    }))
 }
 
 /// Parse a rendered [`crate::coverage::ScoreFormat::Text`] scoreboard back
@@ -361,7 +395,11 @@ pub fn parse_scoreboard(text: &str) -> ParsedScoreboard {
     let Some(header) = lines.find(|l| !l.trim().is_empty()) else {
         return out;
     };
-    let offsets = row_offsets(has_misattr_column(header), has_existence_column(header));
+    let offsets = row_offsets(
+        has_misattr_column(header),
+        has_existence_column(header),
+        has_bundle_column(header),
+    );
 
     for line in lines {
         if line.trim().is_empty() {
@@ -381,7 +419,7 @@ pub fn parse_scoreboard(text: &str) -> ParsedScoreboard {
         }
         match parse_line(line, &offsets) {
             LineResult::Row(row) => {
-                out.rows.insert(row.tool.clone(), row);
+                out.rows.insert(row.tool.clone(), *row);
             }
             LineResult::Truncated => out.truncated_dropped += 1,
             LineResult::Unparseable => out.unparseable_dropped += 1,

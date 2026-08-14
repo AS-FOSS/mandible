@@ -1,0 +1,78 @@
+name: xfs_io
+description: '/usr/sbin/xfs_io: invalid option -- ''-'''
+usage:
+- 'Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file'
+flags:
+- short: 'a'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'd'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'f'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'i'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'n'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'r'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'R'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 't'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'V'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'x'
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'm'
+  value_name: mode
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'p'
+  value_name: prog
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'c'
+  value_name: cmd
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'C'
+  value_name: cmd
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

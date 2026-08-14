@@ -1,0 +1,22 @@
+name: dcsnoop-bpfcc
+usage:
+- 'usage: dcsnoop-bpfcc [-h] [-a]'
+flags:
+- short: 'h'
+  long: help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: all
+  description: trace all lookups (default is fails only)
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

@@ -6,7 +6,150 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
-## [0.3.0]
+## [Unreleased]
+
+## [0.3.1] - 2026-08-15
+
+Measured by a blind re-review of the same 94 tools audited at 0.3.0, judged
+in the TUI with no prior verdicts or notes shown: **53/85 correct (62.4%,
+95% CI [51.7%, 71.9%])**, against 30/83 (36.1%) before. The severe category
+is what moved — `wrong` fell 27 → 7 while `incomplete` stayed flat at
+23 → 25, which is the shape a grammar fix should have: tools stop being
+mangled before they stop being partial.
+
+That figure measures this release's work on the set it was developed
+against, and is not a fleet accuracy estimate. An unbiased number needs a
+fresh draw from the frozen queue (`audit/queue.toml`), which is why that
+queue ships here.
+
+### Fixed
+
+- **A bare-word block no longer swallows the flag table that follows it.**
+  A block of enum values or operands ended only when a line dedented below
+  it, so a tool that nests such a list *inside* its options table and then
+  resumes the table at an equal-or-deeper indent had every flag from that
+  point on recorded as a *choice* instead. `tar --help` lost `--old-archive`,
+  `--pax-option` and `--posix` to the `FORMAT is one of the following:` enum
+  under `--format` — in a corpus fixture that was green, blessed and
+  contract-gated for its entire life while missing them, because the flags
+  were not absent from the tree, they were in the wrong field. `sg_dd` lost
+  `--progress` and `--verify` outright and reached the tree with its four
+  surviving flags stripped of every description.
+
+  A bare block now ends where a flag row resumes. This is the removal of an
+  inconsistency rather than a new heuristic: the section engine already
+  reads a flag-shaped line as a headingless flags block, and the usage-block
+  scan already ends on that same signal. The break is non-destructive — the
+  parser resumes at that exact line, so a wrong break re-routes a tail and
+  never drops it. Scanned across all 81 corpus fixtures before landing:
+  exactly two trees change, and both are the two defects above.
+
+- **Single-dash long options keep their real names.** A tool that spells a
+  long option with one dash — `qemu-arm64-static`'s `-help`, `gcc`'s
+  `-pass-exit-codes`, and essentially all of `ffmpeg`'s CLI — had every one
+  of those options read as its own first character carrying the rest of the
+  name as a required value: `-help` became `-h` taking a value literally
+  named `elp`, `-cpu` became `-c` + `pu`, `-print-search-dirs` became `-p` +
+  `rint-search-dirs`. The real option was in the tree under no spelling a
+  user could type. A `PATH` sweep measured **132 tools and 8,784 flags —
+  17.6% of every flag mandible extracts**, the largest remaining defect
+  signal by a wide margin.
+
+  The repair (`help_text::sections::repair_single_dash_long_options`) is a
+  post-pass over each node's assembled flag list, admitting a flag on the
+  same seven conditions the `single-dash-long` detector counts the defect
+  with, character for character. Two of those conditions carry the whole
+  safety argument. The flag must be **option-table-sourced**, which keeps the
+  bundled-short population (`rpcbind`'s `[-adhilswfr]`) out; and the
+  reconstructed token must be **uniformly lowercase**, which is the only
+  thing separating this family from the GCC/Clang glued-value convention —
+  `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`, `perl
+  -Idirectory`, `cc -oOUTFILE` — thousands of **correct** parses fleet-wide
+  that a looser rule would have converted into fabricated long options. The
+  case test reads the whole token rather than the tail, because `-oOUTFILE`
+  has a lowercase flag letter and only its argument shouts.
+
+  Replaying all 81 corpus fixtures before and after changed exactly three —
+  `qemu-arm64-static` (11 options recovered), `gcc` (18) and `ffmpeg` (45) —
+  and left the other 78 byte-identical, including all 30 tools a human
+  reviewer judged correct and both of the family's declared out-of-scope
+  misses (`ip`'s bracketed `-h[uman-readable]`, `sg_emc_trespass`'s
+  `-hr:`). `corpus/qemu-arm64-static/audit-seed2` is promoted out of
+  `[xfail]`, and the family is now ratchet-gated at zero alongside the other
+  two that share its structural fingerprint.
+
+- **mandible no longer starts daemons on the machine it is documenting.**
+  Running `mandible blkmapd` — or any of a large class of system binaries —
+  started an NFS daemon that outlived the process. **622 leaked processes**
+  were found on one developer box, the oldest five days old: `blkmapd` ×148,
+  `rpc.idmapd` ×144, `rpc.gssd` ×144, plus `sudo_logsrvd` holding
+  `0.0.0.0:30343` and `[::]:30343`, `guacd` holding `127.0.0.1:4822` for five
+  days, and `pam-auth-update` burning a full core for three days. This was a
+  defect in the shipped tool, not in the test harness: the TUI builds its
+  runner from the same tier stack.
+
+  The cause was a speculative probe. `completion` and `zsh` are a *framework
+  protocol's* words — a subcommand invocation to a tool that speaks the
+  protocol, two ordinary positionals to one that does not. Sending them
+  unasked to every binary on `PATH` is the bare invocation the execution
+  policy has always prohibited, arriving through the list of "inert shapes"
+  because every shape on that list had been validated against tools that
+  *parse* their arguments. A daemon that ignores its arguments and starts
+  anyway falsifies that premise. 437 of the 622 survivors came in through
+  this one argv (219 `completion zsh`, 218 `completion bash`).
+
+  The completion-script tier now asks for that argv only when the tool itself
+  provides evidence the subcommand exists — either the `spf13/cobra` marker
+  in the compiled binary (cobra registers a `completion` command itself, and
+  may hide it, so the bytes are the only evidence available) or the tool's own
+  `--help` naming `completion`/`completions` as a command. Evidence is read
+  from the artifact or from the tool's own output, never from a list of tool
+  names.
+
+  Two other symptoms of the same probe are fixed with it. `docker-proxy
+  completion zsh` left Go's `flag` package stopped at the first non-flag
+  argument, so it attempted to bind `0.0.0.0:-1` and wrote its startup error
+  to a terminal it did not own, aborting full sweeps. And the probe was two
+  thirds of extraction time: over 94 audited tools, three of them accounted
+  for 85.3s of 129.5s. Measured before → after, with every other column of
+  the scoreboard byte-identical: `vim.basic` 20 304 ms → 287 ms, `bashbug`
+  20 657 ms → 49 ms, `jconsole` 40 081 ms → 22 065 ms (its remainder belongs
+  to a different, unrelated probe).
+
+- **A probe that daemonises no longer outlives the probe.** Behind the fix
+  above, as the second layer: killing the probe's process group cannot reach
+  a child that has called `setsid`, and the leak was never a hang to begin
+  with — every one of 2,302 traced probes returned normally, with its escapee
+  already gone. mandible now adopts orphaned descendants instead of leaving
+  them to init, identifies the ones a given probe started by a token in the
+  environment it inherited, and kills and reaps them before that probe is
+  reported complete. Bounded by rounds and a wall-clock budget, so a process
+  that cannot be killed costs milliseconds rather than becoming a new way to
+  hang. Linux only; elsewhere the previously documented residual risk stands.
+
+- **Bundled short flags in a usage synopsis are read as the set of switches
+  they are.** A line opening `[-2CDlNuVv]` names eight boolean flags in the
+  ordinary getopt convention; the grammar read it as one flag, `-2`, carrying
+  a required value named `CDlNuVv`, so one switch survived and the rest were
+  destroyed. Measured across this machine's 2,302 `PATH` tools by the
+  bundled-short-flag oracle added last release: **58 tools, 465 destroyed
+  flags**, an average of 8 lost per affected tool and 22 at the worst
+  (`groff`'s `[-abcCeEgGijklNpRsStUVXzZ]`). `tcpdump` alone recovers 25.
+
+  The split is keyed on the shape of the swallowed text — a run of distinct
+  single-character flag names, either alphabetized or spanning both cases —
+  never on a tool name, and it is asked only of a synopsis token. Two other
+  defect families produce the identical stored shape and are deliberately
+  untouched, because in both of them the parse is already correct: the
+  GCC/Clang single-dash convention (`-Zscript`, `-Idirectory`,
+  `-fdump-scos`), where the glued text really is a value, and flags repeated
+  to mean "more of it" (`-vv`, `-DDD`). A two-character cluster is left alone
+  as well — the fleet's two-character population is about half real collapses
+  (`ssh-keygen`'s `[-hU]`) and half genuine multi-character flags (`xxd -ps`,
+  `rpcgen -Ss`), with nothing separating them on shape, so that recall is
+  given up rather than risk splitting a working tool.
+
+
 
 Recovery work, mostly. Several tools were reporting confident results over
 documents mandible had never actually read, and the fixes for that are the
@@ -20,6 +163,27 @@ of them yet checks whether what was extracted is correct. The audit tool added
 below exists to answer that, and it has not finished running.
 
 ### Added
+
+- **A corpus fixture can now state that a flag does *not* exist:
+  `must_not_contain_flags`.** Every `[contract]` field until now was a
+  positive claim — it named something a real tool really has and failed
+  when the parser dropped it. That covered the omission half of what can go
+  wrong and none of the invention half, so a phantom flag was a defect no
+  fixture could pin, and a defect that cannot be pinned cannot announce its
+  own repair through strict xfail. The live instance:
+  `mariadb-check --help` prints a `Variables (--variable-name=value)`
+  defaults table whose header ruler is read as a flag row, and the tree
+  gains an option whose long name is thirty-one `-` characters. The
+  existence oracle is correctly silent on it — its question is "does this
+  spelling occur in the raw text", and the ruler does, literally.
+
+  The field is matched by exactly the matcher `must_contain_flags` uses,
+  negated, root flags only; it asserts nothing about the raw capture,
+  nothing about the spelling an entry did not name, and nothing below the
+  root. Dropping an entry is a weakening and is reported by
+  `xtask corpus --baseline-dir` as `CONTRACT WEAKENED`, the same as
+  dropping a positive one. New fixture `corpus/mariadb-check/2.7.4` is its
+  first user, `[xfail]` on that ruler.
 
 - **`mandible --report <tool>`.** Assembles a paste-ready bug report: the
   mandible version, the tool's version when it can be recovered, the

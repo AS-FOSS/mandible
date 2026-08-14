@@ -1,0 +1,15 @@
+
+Usage:
+ wall [options] [<file> | <message>]
+
+Write a message to all users.
+
+Options:
+ -g, --group <group>     only send message to group
+ -n, --nobanner          do not print banner, works only for root
+ -t, --timeout <timeout> write timeout in seconds
+
+ -h, --help              display this help
+ -V, --version           display version
+
+For more details see wall(1).
