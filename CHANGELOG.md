@@ -10,17 +10,33 @@ once it reaches a published 0.1.0 release.
 
 ## [0.3.1] - 2026-08-15
 
-Measured by a blind re-review of the same 94 tools audited at 0.3.0, judged
-in the TUI with no prior verdicts or notes shown: **53/85 correct (62.4%,
-95% CI [51.7%, 71.9%])**, against 30/83 (36.1%) before. The severe category
-is what moved — `wrong` fell 27 → 7 while `incomplete` stayed flat at
-23 → 25, which is the shape a grammar fix should have: tools stop being
-mangled before they stop being partial.
+On the 94-tool development set, re-reviewed blind in the TUI with no prior
+verdicts or notes shown: **tools judged outright `wrong` fell from 27 to 7.**
+`incomplete` did not move (23 → 25).
 
-That figure measures this release's work on the set it was developed
-against, and is not a fleet accuracy estimate. An unbiased number needs a
-fresh draw from the frozen queue (`audit/queue.toml`), which is why that
-queue ships here.
+That categorical collapse is the claim this release makes. It is deliberately
+stated as counts on a named set rather than as an accuracy percentage: these
+94 tools are the ones every fix here was developed against — several against
+their exact captured bytes — so any ratio computed from them is a dev-set
+figure carrying an unquantified upward bias, and dressing it in a confidence
+interval would only lend sampling precision to a number whose error is not
+sampling error. For the record and not as a headline, the correct/judged
+counts are 53/85 here against 30/83 at 0.3.0, on different denominators.
+
+**No fleet accuracy figure is claimed, and `spec.md`'s `[M-20]` remains
+deliberately unfilled.** That measurement requires reviewing a fresh draw of
+*unseen* tools from the frozen queue this release ships (`audit/queue.toml`,
+2,299 tools, cursor 0); until then the project states no accuracy number, and
+this section is not one.
+
+Read the flat `incomplete` count both ways. Tools stopping being mangled
+before they stop being partial is the shape a grammar fix should have — and
+the residual is now dominated by defects grammar cannot reach: positional
+arguments, `ar`-style modifiers, and environment variables are all cases
+where the extracted tree has no slot for the kind of thing being documented.
+
+Every fleet number below was measured on a single aarch64 Ubuntu 24.04
+machine's `PATH`, and is a property of that installed tool set.
 
 ### Fixed
 
@@ -51,9 +67,12 @@ queue ships here.
   name as a required value: `-help` became `-h` taking a value literally
   named `elp`, `-cpu` became `-c` + `pu`, `-print-search-dirs` became `-p` +
   `rint-search-dirs`. The real option was in the tree under no spelling a
-  user could type. A `PATH` sweep measured **132 tools and 8,784 flags —
-  17.6% of every flag mandible extracts**, the largest remaining defect
-  signal by a wide margin.
+  user could type. A `PATH` sweep measured **132 tools and 8,784
+  flags**, the largest remaining defect signal by a wide margin. Both
+  weightings, since they differ a lot and only quoting the larger one would
+  overstate it: 17.6% of every flag extracted, but 5.7% of tools (132 of
+  2,299) — the flag share is inflated by a few enormous option tables,
+  `ffmpeg` alone contributing 45 of the recovered options.
 
   The repair (`help_text::sections::repair_single_dash_long_options`) is a
   post-pass over each node's assembled flag list, admitting a flag on the
