@@ -2144,8 +2144,9 @@ verdict line or note:
   (`xtask/src/repeated_char.rs`) was fixed by
   `help_text::sections::repair_repeated_character_flags`; and
   `single-dash-long` (`xtask/src/single_dash_long.rs`) — the last and by far
-  the largest, **132 tools and 8,784 flags, 17.6% of every flag mandible
-  extracted** — was fixed by
+  the largest, **132 tools and 8,784 flags — 17.6% of every flag mandible
+  extracted, though 5.7% of tools (132 of 2,299); the flag-weighted share is
+  inflated by a few very large option tables** — was fixed by
   `help_text::sections::repair_single_dash_long_options`, which promoted
   `corpus/qemu-arm64-static/audit-seed2` out of `[xfail]` and moved that
   detector to the `REPAIRED` verdict.

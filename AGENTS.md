@@ -75,6 +75,31 @@ Two real bugs in this project passed a full green suite:
 - Report honestly when something is unverified. "I could not verify X" is a
   useful result; a false "works" costs someone a debugging session.
 
+**Two instruments say less than their names suggest. Do not overstate either.**
+
+- **A green corpus fixture proves the tree stopped changing, not that it is
+  right.** `ok` means `expected.snap` matches and the `[contract]` holds — and
+  a tree that is wrong in a way no detector models reports `ok` forever.
+  Measured at v0.3.1: of 23 tools that went broken → passing on one branch,
+  only **3** carried a human `verdict_scope`; the other 20 were trees an agent
+  blessed and the suite then guarded against *changing*. `xtask corpus --show
+  <tool>/<version>` prints `scope: unscoped` when nobody has judged it. "N
+  fixtures green" and "N tools parse correctly" are different claims, and only
+  the second needs a human.
+- **Re-measuring accuracy on the tools you just fixed is train-on-test.** It
+  measures the fix, not the parser, and must never be quoted as a fleet
+  estimate. The frozen queue (`audit/queue.toml`) exists to make an unbiased
+  draw of *unseen* tools possible; until such a draw is reviewed, attach the
+  caveat everywhere the number appears rather than in a footnote. State the
+  denominator too — audited tools that never became fixtures are measured by
+  nothing, so any "N of the M" must say what M excludes.
+
+A related failure of framing, worth naming because it caused real confusion:
+fleet-wide **flag** counts and tool-level **audit** outcomes are different
+units. "8,784 flags repaired" sounds like it swept the audit set; it fixed 23
+of 50 audited tools, because the rest fail for unrelated reasons. Never let
+the larger number stand in for the smaller one.
+
 ### 3.2 There is no tty in the agent sandbox
 
 `enable raw mode` fails with *"No such device or address"*. Do not try to run
@@ -144,6 +169,30 @@ prose.
 
 These cost real time when rediscovered.
 
+- **`rm` on the maintainer's dev box is aliased to a trash tool that does not
+  free disk space.** It moves files to `~/.local/share/Trash`, so a cleanup can
+  report success while the disk stays full. Thirty agent worktrees once held
+  ~90G of `target/` between them, the disk hit 100%, and three running agents
+  broke mid-task — each of them independently fighting the same wall. Use
+  `/bin/rm`, and check `~/.local/share/Trash` before believing a cleanup
+  worked.
+- **Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`,** which
+  blocks the unprivileged user namespaces `exec::containment` builds a
+  full-`PATH` sweep's containment out of. It is the default on GitHub's
+  `ubuntu-latest` *and* on the dev box, and it can flip mid-session; it
+  surfaces as two failing `exec::containment` tests. CI grants the capability
+  in the test job (`sudo sysctl -w
+  kernel.apparmor_restrict_unprivileged_userns=0`). **That grants what the test
+  demands; it does not relax the assertion** — the test exists so a host which
+  cannot contain a sweep says so loudly, and weakening it would delete exactly
+  that signal. `--tools`-pinned runs are never gated by containment, which is
+  why the corpus and coverage jobs stay green regardless.
+- **macOS breaks in ways Linux CI cannot see** — mostly dead code under `cfg`,
+  which `-D warnings` rejects. Two rounds of red CI were once spent guessing at
+  it. Check locally instead: `rustup target add aarch64-apple-darwin`, then
+  `cargo clippy --workspace --target aarch64-apple-darwin --all-targets -- -D
+  warnings`. Tests cannot be *linked* for macOS on the aarch64 Linux box, but
+  clippy type-checks everything and catches the whole class.
 - **A fresh agent worktree is created from the repository's default branch, not
   from the branch you are working on.** Five of six agents in one session began
   on a months-old release tag, and one of them wrote an entire task against it
