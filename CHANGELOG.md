@@ -18,6 +18,36 @@ resurrecting install paths that already existed but were invisible.
 
 ### Fixed
 
+- **Your container names are no longer shown as docker commands.** Reported
+  from real use: `mandible docker` rendered the reporter's own running
+  containers as subcommands of `docker stop`, `docker rm` and friends.
+
+  The cobra tier probes `<tool> __complete <path> ""` and trusted every
+  candidate it got back as a subcommand name, on the documented premise that
+  an empty word returns subcommands only. That premise is wrong at a leaf:
+  cobra emits the node's real subcommands and then *appends whatever the
+  command's own completion function returns*, which is application code
+  reading live state. So `docker __complete stop ""` answers with running
+  container names, `docker __complete run ""` with image names, and
+  `docker __complete network rm ""` with network names — private data, drawn
+  as commands. Each fabricated node was then warmed like any other, so the
+  probe count grew with the size of *your* data rather than with the tool.
+
+  A candidate list now becomes subcommands only when **every** candidate in
+  it carries a description. cobra writes real subcommands as
+  `name<TAB>description` from its own formatter, while a completion function
+  returning a plain list of strings produces bare rows; one bare row
+  condemns the whole list, because cobra marks no boundary between the two
+  halves. Measured across 631 real command paths on docker 29.7.2 and gh
+  2.45.0: 85 fully-described lists, all genuine subcommand lists, and 50
+  bare-or-mixed lists, all argument data — every real subcommand kept, every
+  argument value dropped (spec Appendix A [M-2a]).
+
+  The trade is deliberate and one-directional: a rare real subcommand whose
+  author left its short description empty, sitting in a list that also
+  carries argument values, is dropped here. The `--help` tier still finds
+  it, and a missing rare subcommand is a far smaller harm than rendering
+  your containers as commands.
 - **The fuzzy search index is rebuilt once per batch of warmed nodes instead
   of once per node**, removing a quadratic term from background warming.
   Every arrival from the warmer used to restart the index and re-inject the
