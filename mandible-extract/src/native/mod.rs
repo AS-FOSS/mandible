@@ -15,6 +15,22 @@
 //!   ignored. Candidates are `value\tdescription` (or bare `value`) per
 //!   line.
 //!
+//! **An empty trailing word does *not* mean "subcommands only"** — the
+//! premise [M-2] was originally written with, and measured wrong at leaf
+//! commands. cobra answers `__complete <path> ""` by emitting the node's
+//! real subcommands *and then appending whatever that command's
+//! `ValidArgsFunction` returns*, which is application code that reads live
+//! state. Measured on this box (docker 29.7.2): `docker __complete stop ""`
+//! returns **running container names**, `docker __complete run ""` returns
+//! **image names**, `docker __complete network rm ""` returns network
+//! names. Treating those as subcommands rendered a user's private container
+//! names in the tree as if they were docker commands, and — because each
+//! fabricated node is then warmed like any other (spec §5.2 step 4) —
+//! multiplied the probe count by the size of a set that scales with the
+//! user's data, not with the tool. See [`populate_subcommands`] for the
+//! general rule that stops it, and spec Appendix A [M-2] for the full
+//! measurement.
+//!
 //! clap's `CompleteEnv` was also probed here once and has been removed: it
 //! never identified a single real clap tool, matched ten unrelated ones by
 //! accident, and its argv spelling handed tools an empty first positional
@@ -330,8 +346,14 @@ impl NativeTier {
         if let Some(candidates) =
             probe_cobra_list(self.probe.as_ref(), tool_path, words, "-", EXTRACT_TIMEOUT)
         {
-            for (value, description) in candidates {
-                if let Some(flag) = flag_from_candidate(&value, &description, &provenance) {
+            for candidate in candidates {
+                // No description gate here: a flag candidate is already
+                // filtered by its own dash shape, which an argument value
+                // essentially never has, and cobra emits plenty of real
+                // flags with no help text.
+                if let Some(flag) =
+                    flag_from_candidate(&candidate.value, candidate.description_text(), &provenance)
+                {
                     node.flags.push(flag);
                 }
             }
@@ -352,7 +374,7 @@ fn probe_cobra_list(
     words: &[String],
     trailing: &str,
     timeout: Duration,
-) -> Option<Vec<(String, String)>> {
+) -> Option<Vec<Candidate>> {
     let mut argv_words = words.to_vec();
     // The empty word is required by cobra's protocol, not incidental:
     // `docker __complete` without it fails with "requires at least 1
@@ -371,13 +393,40 @@ fn probe_cobra_list(
     parse_cobra_response(&out.stdout)
 }
 
+/// One line of a cobra `__complete` response.
+///
+/// The distinction that matters is *whether the line carried a
+/// description at all*, which the earlier `(String, String)` shape
+/// flattened away by spelling "no description" and "empty description"
+/// both as `""`. It is the only thing in cobra's wire format that
+/// separates a real subcommand from a value the command's own
+/// `ValidArgsFunction` computed from live state — see
+/// [`populate_subcommands`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Candidate {
+    /// The completion value: a subcommand name, a flag spelling, or an
+    /// argument value.
+    value: String,
+    /// The text after the `\t`, when there was one and it was not blank.
+    description: Option<String>,
+}
+
+impl Candidate {
+    /// The description as a `&str`, with "absent" and "blank" collapsed —
+    /// correct for flag descriptions, where the distinction carries no
+    /// meaning.
+    fn description_text(&self) -> &str {
+        self.description.as_deref().unwrap_or("")
+    }
+}
+
 /// Parse a cobra `__complete` response: candidate lines (`value` or
 /// `value\tdescription`) followed by a `:N` directive line. Returns `None`
 /// unless that directive line is actually found — the response shape
 /// cobra's protocol guarantees, and the general (not tool-specific) signal
 /// that a binary really speaks this protocol rather than just happening to
 /// accept the argv without erroring.
-fn parse_cobra_response(stdout: &[u8]) -> Option<Vec<(String, String)>> {
+fn parse_cobra_response(stdout: &[u8]) -> Option<Vec<Candidate>> {
     let text = String::from_utf8_lossy(stdout);
     let mut candidates = Vec::new();
     let mut saw_directive = false;
@@ -389,12 +438,19 @@ fn parse_cobra_response(stdout: &[u8]) -> Option<Vec<(String, String)>> {
         if line.is_empty() {
             continue;
         }
-        match line.split_once('\t') {
-            Some((value, description)) => {
-                candidates.push((value.to_string(), description.to_string()))
+        let (value, description) = match line.split_once('\t') {
+            // A tab with nothing (or only blanks) after it carries no more
+            // information than no tab at all, so both collapse to `None`.
+            Some((value, description)) if !description.trim().is_empty() => {
+                (value, Some(description.to_string()))
             }
-            None => candidates.push((line.to_string(), String::new())),
-        }
+            Some((value, _)) => (value, None),
+            None => (line, None),
+        };
+        candidates.push(Candidate {
+            value: value.to_string(),
+            description,
+        });
     }
     saw_directive.then_some(candidates)
 }
@@ -410,10 +466,10 @@ fn is_directive_line(line: &str) -> bool {
 /// descriptions, which some tools vary slightly by context) — used only to
 /// recognize "this is the same list as the root's," not for anything
 /// security-sensitive, so a simple hash is sufficient.
-fn fingerprint_candidates(candidates: &[(String, String)]) -> u64 {
+fn fingerprint_candidates(candidates: &[Candidate]) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    for (value, _) in candidates {
-        value.hash(&mut hasher);
+    for candidate in candidates {
+        candidate.value.hash(&mut hasher);
     }
     hasher.finish()
 }
@@ -429,17 +485,65 @@ fn alias_target_last_segment(description: &str) -> Option<&str> {
     inner.split_whitespace().next_back()
 }
 
+/// True when a candidate list may be read as a subcommand list at all.
+///
+/// **The general rule that keeps live user data out of the tree.** cobra
+/// answers one `__complete <path> ""` by emitting the node's real
+/// subcommands — always as `name\tShort`, from cobra's own
+/// `fmt.Sprintf("%s\t%s", ...)` — and then *appending* whatever the
+/// command's `ValidArgsFunction` returns. That second half is application
+/// code reading live state: container names, image tags, network names,
+/// context names. cobra's wire format marks no boundary between the two
+/// halves, so the only thing left to read is the description column:
+///
+/// - every real subcommand carries one, because cobra writes it;
+/// - a `ValidArgsFunction` value normally carries none, because returning
+///   a plain `[]string` is the ordinary way to write one.
+///
+/// So a list is trusted only when **every** candidate in it is described.
+/// A single undescribed candidate proves the list contains argument
+/// completions, and since the boundary is unmarked, nothing in that list
+/// can be trusted — not even the described entries ahead of it.
+///
+/// Measured across 631 real command paths on `docker` 29.7.2 and `gh`
+/// 2.45.0 (spec Appendix A [M-2a]): 85 all-described lists, every one a
+/// genuine subcommand list; 45 all-undescribed lists and 5 mixed lists,
+/// every one of the 50 pure argument data. The rule therefore admitted
+/// every real subcommand and no argument value on the whole measured set.
+///
+/// **The trade is deliberate and one-directional** (AGENTS.md §1's
+/// maintainer principle): a real cobra subcommand registered with an empty
+/// `Short`, sitting in a list that also carries undescribed argument
+/// values, is dropped here. Tier B's `--help` parse still finds it, and a
+/// missing rare subcommand is a smaller harm than rendering a user's
+/// container names as commands. Never relax this to recover such a
+/// subcommand.
+fn candidates_are_a_subcommand_list(candidates: &[Candidate]) -> bool {
+    !candidates.is_empty() && candidates.iter().all(|c| c.description.is_some())
+}
+
 /// Turn a subcommands-probe candidate list into `node`'s subcommands,
 /// routing alias-shaped candidates onto a matching sibling's `aliases`
 /// instead of fabricating them as their own subcommand (spec §7 Tier E,
 /// the module doc's "Alias detection").
+///
+/// Refuses the whole list unless [`candidates_are_a_subcommand_list`]
+/// accepts it.
 fn populate_subcommands(
     node: &mut CommandNode,
-    candidates: Vec<(String, String)>,
+    candidates: Vec<Candidate>,
     provenance: &Provenance,
 ) {
+    if !candidates_are_a_subcommand_list(&candidates) {
+        return;
+    }
     let mut aliases: Vec<(String, String)> = Vec::new();
-    for (value, description) in candidates {
+    for candidate in candidates {
+        // Every candidate is described here — the guard above rejected the
+        // list otherwise — so alias routing (whose marker *is* a
+        // description) is unaffected by that guard.
+        let Candidate { value, description } = candidate;
+        let description = description.unwrap_or_default();
         if let Some(target) = alias_target_last_segment(&description) {
             aliases.push((value, target.to_string()));
             continue;
@@ -447,8 +551,9 @@ fn populate_subcommands(
         if !is_command_name_shaped(&value) {
             continue;
         }
+        let summary = non_empty_text(&description);
         let mut child = CommandNode::new(value, provenance.clone());
-        child.summary = non_empty_text(&description);
+        child.summary = summary;
         child.children_filled = false;
         node.subcommands.push(child);
     }
@@ -551,6 +656,23 @@ fn non_empty_text(s: &str) -> Option<Text> {
 mod tests {
     use super::*;
 
+    /// A described candidate, as cobra emits a real subcommand.
+    fn described(value: &str, description: &str) -> Candidate {
+        Candidate {
+            value: value.to_string(),
+            description: Some(description.to_string()),
+        }
+    }
+
+    /// An undescribed candidate, as a `ValidArgsFunction` emits a live
+    /// argument value.
+    fn bare(value: &str) -> Candidate {
+        Candidate {
+            value: value.to_string(),
+            description: None,
+        }
+    }
+
     #[test]
     fn parses_a_real_cobra_response_shape() {
         let raw = b"add\tAdd file contents to the index\nrebase\tReapply commits\n:4\nCompletion ended with directive: ShellCompDirectiveNoFileComp\n";
@@ -558,11 +680,8 @@ mod tests {
         assert_eq!(
             parsed,
             vec![
-                (
-                    "add".to_string(),
-                    "Add file contents to the index".to_string()
-                ),
-                ("rebase".to_string(), "Reapply commits".to_string()),
+                described("add", "Add file contents to the index"),
+                described("rebase", "Reapply commits"),
             ]
         );
     }
@@ -576,10 +695,19 @@ mod tests {
     }
 
     #[test]
-    fn bare_value_with_no_tab_has_empty_description() {
+    fn bare_value_with_no_tab_has_no_description() {
         let raw = b"solo\n:0\n";
         let parsed = parse_cobra_response(raw).unwrap();
-        assert_eq!(parsed, vec![("solo".to_string(), String::new())]);
+        assert_eq!(parsed, vec![bare("solo")]);
+    }
+
+    /// A tab with nothing after it says no more than no tab at all, and
+    /// must not be allowed to pass as "described" — otherwise the
+    /// subcommand-list rule below could be satisfied by whitespace.
+    #[test]
+    fn a_trailing_tab_with_no_text_is_not_a_description() {
+        let parsed = parse_cobra_response(b"solo\t\nspaced\t   \n:0\n").unwrap();
+        assert_eq!(parsed, vec![bare("solo"), bare("spaced")]);
     }
 
     #[test]
@@ -642,8 +770,8 @@ mod tests {
         populate_subcommands(
             &mut node,
             vec![
-                ("pr".to_string(), "Work with pull requests".to_string()),
-                ("co".to_string(), "Alias for \"pr checkout\"".to_string()),
+                described("pr", "Work with pull requests"),
+                described("co", "Alias for \"pr checkout\""),
             ],
             &prov,
         );
@@ -664,14 +792,132 @@ mod tests {
         populate_subcommands(
             &mut node,
             vec![
-                ("remove".to_string(), "Remove a thing".to_string()),
-                ("rm".to_string(), "Alias for \"remove\"".to_string()),
+                described("remove", "Remove a thing"),
+                described("rm", "Alias for \"remove\""),
             ],
             &prov,
         );
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["remove"]);
         assert_eq!(node.subcommands[0].aliases, vec!["rm".to_string()]);
+    }
+
+    // --- the dynamic-argument guard (spec Appendix A [M-2a]) ---
+
+    /// The user-reported bug, at the unit level: `docker __complete stop
+    /// ""` answers with the names of the containers currently on the
+    /// machine, bare, because cobra runs the leaf's `ValidArgsFunction`.
+    /// Those are private user data, not commands, and must produce **no**
+    /// subcommands at all — not "some, filtered by name shape", which is
+    /// what `is_command_name_shaped` alone did (it rejects `redis:7` for
+    /// the colon but passes `mandible-canary-1`).
+    #[test]
+    fn a_leaf_answering_with_bare_dynamic_values_yields_no_subcommands() {
+        let prov = Provenance::single(Source::NativeDynamic {
+            protocol: "test".to_string(),
+        });
+        let mut node = CommandNode::new("stop", prov.clone());
+        populate_subcommands(
+            &mut node,
+            vec![
+                bare("mandible-canary-1"),
+                bare("mandible-canary-2"),
+                bare("adoring_hopper"),
+            ],
+            &prov,
+        );
+        assert!(
+            node.subcommands.is_empty(),
+            "container names must never become commands: {:?}",
+            node.subcommands.iter().map(|c| &c.name).collect::<Vec<_>>()
+        );
+    }
+
+    /// The mixed case, measured verbatim from `docker __complete context
+    /// use ""` on a machine with two contexts: the *current* one carries a
+    /// description (`CompletionWithDesc`) and the rest do not. cobra marks
+    /// no boundary between its own subcommand block and the appended
+    /// `ValidArgsFunction` output, so one undescribed entry condemns the
+    /// whole list — including the described `rootless`, which is a context
+    /// name and not a command.
+    #[test]
+    fn a_mixed_list_contributes_nothing_not_even_its_described_entries() {
+        let prov = Provenance::single(Source::NativeDynamic {
+            protocol: "test".to_string(),
+        });
+        let mut node = CommandNode::new("use", prov.clone());
+        populate_subcommands(
+            &mut node,
+            vec![described("rootless", "current"), bare("default")],
+            &prov,
+        );
+        assert!(node.subcommands.is_empty(), "{:?}", node.subcommands);
+    }
+
+    /// The other half of the trade: a fully-described list is still taken
+    /// in full. Verbatim from `docker __complete container ""`.
+    #[test]
+    fn a_fully_described_list_still_becomes_subcommands() {
+        let prov = Provenance::single(Source::NativeDynamic {
+            protocol: "test".to_string(),
+        });
+        let mut node = CommandNode::new("container", prov.clone());
+        populate_subcommands(
+            &mut node,
+            vec![
+                described(
+                    "attach",
+                    "Attach local standard input, output, and error streams",
+                ),
+                described("commit", "Create a new image from a container's changes"),
+                described("ls", "List containers"),
+            ],
+            &prov,
+        );
+        let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["attach", "commit", "ls"]);
+        assert!(node.subcommands.iter().all(|c| c.summary.is_some()));
+    }
+
+    /// A fabricated node must never be marked heading-attested, because
+    /// `heading_attested` is what lets Tier B construct `<tool> <path>
+    /// --help` — and `docker run <image> --help` **creates a container**.
+    /// Nothing in this fix may start setting it; this pins the default.
+    #[test]
+    fn completion_derived_children_are_never_heading_attested() {
+        let prov = Provenance::single(Source::NativeDynamic {
+            protocol: "test".to_string(),
+        });
+        let mut node = CommandNode::new("docker", prov.clone());
+        populate_subcommands(
+            &mut node,
+            vec![described("run", "Create and run a new container")],
+            &prov,
+        );
+        assert_eq!(node.subcommands.len(), 1);
+        assert!(!node.subcommands[0].heading_attested);
+    }
+
+    #[test]
+    fn subcommand_list_predicate_matches_the_measured_shapes() {
+        // All described: docker's real subcommand lists, gh's whole tree.
+        assert!(candidates_are_a_subcommand_list(&[
+            described("pr", "Work with pull requests"),
+            described("repo", "Manage repositories"),
+        ]));
+        // All bare: `docker __complete rm ""`, `docker __complete run ""`.
+        assert!(!candidates_are_a_subcommand_list(&[
+            bare("mandible-canary-1"),
+            bare("hello-world:latest"),
+        ]));
+        // Mixed: `docker __complete context use ""`.
+        assert!(!candidates_are_a_subcommand_list(&[
+            described("rootless", "current"),
+            bare("default"),
+        ]));
+        // Empty is not a subcommand list either — a real leaf, and there
+        // is nothing to take from it.
+        assert!(!candidates_are_a_subcommand_list(&[]));
     }
 
     #[test]
@@ -696,10 +942,7 @@ mod tests {
         // directly, since we can't spawn a real echoing binary here) must
         // not have that list treated as genuine subcommands.
         let tier = NativeTier::default();
-        let root_candidates = vec![
-            ("a".to_string(), String::new()),
-            ("b".to_string(), String::new()),
-        ];
+        let root_candidates = vec![described("a", "first"), described("b", "second")];
         let fp = fingerprint_candidates(&root_candidates);
         tier.remember_root_fingerprint("mytool", fp);
         assert_eq!(tier.remembered_root_fingerprint("mytool"), Some(fp));
@@ -844,6 +1087,61 @@ mod tests {
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["build"], "{names:?}");
         assert!(node.flags.iter().any(|f| f.long.as_deref() == Some("all")));
+    }
+
+    /// The dynamic-argument guard through **real argv construction**
+    /// (AGENTS.md §3.1 — the dead-tier incident), not just the parser
+    /// behind it: a transcript keyed on the exact argv this tier builds
+    /// for a leaf (`["__complete", "stop", ""]`), answering with the byte
+    /// shape `docker` really returns for a container-name completion —
+    /// bare names, `ShellCompDirectiveNoFileComp`. The node must come back
+    /// with the leaf's flags and **zero** subcommands.
+    #[test]
+    fn extract_node_takes_no_subcommands_from_a_real_argv_leaf_returning_bare_names() {
+        let transcript = crate::exec::Transcript::new([
+            (
+                vec!["__complete".to_string(), String::new()],
+                exec_output("stop\tStop one or more running containers\n:4\n"),
+            ),
+            (
+                vec!["__complete".to_string(), "stop".to_string(), String::new()],
+                exec_output("mandible-canary-1\nmandible-canary-2\nadoring_hopper\n:4\n"),
+            ),
+            (
+                vec![
+                    "__complete".to_string(),
+                    "stop".to_string(),
+                    "-".to_string(),
+                ],
+                exec_output("--time\tSeconds to wait before killing\n:4\n"),
+            ),
+        ]);
+        let tier =
+            NativeTier::new_with_evidence(Arc::new(transcript), Arc::new(FixedEvidence(true)));
+        let tool = ResolvedTool {
+            name: "cobratool".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/cobratool")),
+            version: None,
+        };
+        assert!(tier.detect(&tool));
+        let node = tier
+            .extract_node(
+                &tool,
+                &["cobratool".to_string(), "stop".to_string()],
+                NodeHints {
+                    heading_attested: true,
+                },
+            )
+            .expect("detect having succeeded, extract_node must too");
+        assert!(
+            node.subcommands.is_empty(),
+            "container names reached the tree through the real argv path: {:?}",
+            node.subcommands.iter().map(|c| &c.name).collect::<Vec<_>>()
+        );
+        assert!(
+            node.flags.iter().any(|f| f.long.as_deref() == Some("time")),
+            "the flags probe must keep working at a leaf"
+        );
     }
 
     /// The negative case: a transcript that does not cover the exact
