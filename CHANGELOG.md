@@ -8,6 +8,97 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-08-17
+
+Two user reports drove this release, and each was measured to its mechanism
+before anything was changed: a background warm that pegged CPU through a
+quadratic search-index rebuild, and a `cargo install` that could push a
+small machine into memory exhaustion — the latter fixed mostly by
+resurrecting install paths that already existed but were invisible.
+
+### Fixed
+
+- **Your container names are no longer shown as docker commands.** Reported
+  from real use: `mandible docker` rendered the reporter's own running
+  containers as subcommands of `docker stop`, `docker rm` and friends.
+
+  The cobra tier probes `<tool> __complete <path> ""` and trusted every
+  candidate it got back as a subcommand name, on the documented premise that
+  an empty word returns subcommands only. That premise is wrong at a leaf:
+  cobra emits the node's real subcommands and then *appends whatever the
+  command's own completion function returns*, which is application code
+  reading live state. So `docker __complete stop ""` answers with running
+  container names, `docker __complete run ""` with image names, and
+  `docker __complete network rm ""` with network names — private data, drawn
+  as commands. Each fabricated node was then warmed like any other, so the
+  probe count grew with the size of *your* data rather than with the tool.
+
+  A candidate list now becomes subcommands only when **every** candidate in
+  it carries a description. cobra writes real subcommands as
+  `name<TAB>description` from its own formatter, while a completion function
+  returning a plain list of strings produces bare rows; one bare row
+  condemns the whole list, because cobra marks no boundary between the two
+  halves. Measured across 631 real command paths on docker 29.7.2 and gh
+  2.45.0: 85 fully-described lists, all genuine subcommand lists, and 50
+  bare-or-mixed lists, all argument data — every real subcommand kept, every
+  argument value dropped (spec Appendix A [M-2a]).
+
+  The trade is deliberate and one-directional: a rare real subcommand whose
+  author left its short description empty, sitting in a list that also
+  carries argument values, is dropped here. The `--help` tier still finds
+  it, and a missing rare subcommand is a far smaller harm than rendering
+  your containers as commands.
+- **The fuzzy search index is rebuilt once per batch of warmed nodes instead
+  of once per node**, removing a quadratic term from background warming.
+  Every arrival from the warmer used to restart the index and re-inject the
+  whole, growing tree; arrivals are now coalesced into at most one rebuild
+  per event-loop iteration, throttled to one per 250ms while nobody is
+  searching. A deferred rebuild is never dropped, and the throttle is
+  bypassed whenever a query is active or the search box is focused, so search
+  never lags the tree it is searching (spec §5.2). Rendering is unchanged.
+
+  Measured cost of the removed term, replaying arrivals against a synthetic
+  tree: **99ms at docker's ~255 nodes, 395ms at 510, 1.62s at 1,020, and
+  17.7s at spec §5.2's 4,096-node cap — against 6.6ms for a single batched
+  rebuild at that cap.** Clean n², so the bigger the tool the worse it got.
+
+  Read the end-to-end number carefully, because it is much smaller than that
+  suggests. Holding `mandible docker` open in a real pty on a 4-core box,
+  process CPU over the 22-second warm went **6.07s → 5.72s**, all of it on
+  the UI thread (**1.13s → 0.51s**). The remaining ~5.1s is the warmer
+  threads doing the extraction the warm exists to do — ~10 threads flat out
+  on 4 cores — which is where any further work on warming CPU belongs. The
+  index storm was a real bug and is gone; on docker it was 10% of the CPU,
+  not the bulk.
+- `nucleo`'s matcher thread pool is capped at 4 threads instead of defaulting
+  to one per core. Secondary and precautionary: the item set is bounded by
+  the node cap, so past a handful of threads a rebuild's coordination costs
+  more than its parallel scoring saves. Not measurable on a 4-core box, and
+  not the fix above.
+- **The README's pre-built binary links were four literal `(...)`
+  placeholders** while the install section led with `cargo install` — so the
+  one user path that avoids compiling entirely was invisible. The table now
+  points at the stable `releases/latest/download/` asset URLs (verified
+  live), documents `cargo binstall mandible` (verified resolving against a
+  real release), and the from-source path carries a note for RAM-backed
+  `$TMPDIR` systems (`CARGO_TARGET_DIR=… cargo install mandible -j 2`),
+  where a `cargo install` was measured pushing a small machine toward
+  memory exhaustion (peak ~1.2 GB of concurrent rustc RSS at `-j 4` plus a
+  ~470 MB transient build tree, which lands in `$TMPDIR`).
+
+### Changed
+
+- **The background warmer runs one probe per core (clamped `[2, 8]`) instead
+  of four per core (clamped `[4, 32]`).** The oversubscription assumed a
+  warming job blocks on its child costing no CPU — true for a typical small
+  C tool, measured false for `docker`, whose CLI burns 70–100ms of real CPU
+  per spawn. Sixteen concurrent probes on a four-core machine was the warm
+  pegging every core for minutes. The warm now takes longer on cheap-probe
+  trees, in background time nobody waits on; user-expanded nodes still jump
+  the queue, so the visible tree fills as fast as before.
+- **Release binaries are stripped** (`[profile.release] strip = "symbols"`):
+  5.6 MB → 4.0 MB measured on aarch64.
+
 ## [0.3.1] - 2026-08-15
 
 On the 94-tool development set, re-reviewed blind in the TUI with no prior

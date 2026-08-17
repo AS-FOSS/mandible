@@ -42,11 +42,7 @@ $ mandible docker
 
 ## Install
 
-```console
-cargo install mandible
-```
-
-### Pre-built binaries
+### Pre-built binaries (recommended)
 
 Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
 containment described above relies on POSIX process groups, and native Windows tools
@@ -57,14 +53,37 @@ speak.
 
 | Platform              | Download |
 |:----------------------|:---------|
-| Linux x86_64          | [`tar.gz`](...) |
-| Linux arm64           | [`tar.gz`](...) |
-| macOS Apple Silicon   | [`tar.gz`](...) |
-| macOS Intel           | [`tar.gz`](...) |
+| Linux x86_64          | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-x86_64-unknown-linux-gnu.tar.gz) |
+| Linux arm64           | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-aarch64-unknown-linux-gnu.tar.gz) |
+| macOS Apple Silicon   | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-aarch64-apple-darwin.tar.gz) |
+| macOS Intel           | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-x86_64-apple-darwin.tar.gz) |
 
 `.deb` and `.rpm` packages are attached to every [release](https://github.com/AS-FOSS/mandible/releases).  
 Each archive ships a matching `.sha256` checksum.
 </div>
+
+Or let [`cargo binstall`](https://github.com/cargo-bins/cargo-binstall) pick the
+right archive for your machine:
+
+```console
+cargo binstall mandible
+```
+
+### From source
+
+```console
+cargo install mandible
+```
+
+> [!NOTE]
+> `cargo install` compiles in a temporary directory under `$TMPDIR`, which many
+> distributions mount as RAM-backed tmpfs — on a machine with limited memory the
+> build itself can push the system into memory exhaustion. If that's you, keep
+> the build tree on disk and cap the parallelism:
+>
+> ```console
+> CARGO_TARGET_DIR=~/.cache/mandible-build cargo install mandible -j 2
+> ```
 
 
 

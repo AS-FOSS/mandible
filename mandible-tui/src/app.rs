@@ -187,6 +187,16 @@ pub struct App {
     /// [`Self::ensure_rows_fresh`] to compute which tree paths are
     /// currently showing as matches.
     search_index: SearchIndex,
+    /// Set when the tree's structure changed but the index has not been
+    /// rebuilt from it yet. Consumed by `Self::sync_search_index`, which
+    /// [`Self::tick_search`] drives once per event-loop iteration — so a
+    /// whole batch of warmed nodes costs one rebuild instead of one each.
+    search_index_stale: bool,
+    /// When the index was last rebuilt, for `Self::sync_search_index`'s
+    /// throttle. `None` means "never throttle the next one" (nothing has
+    /// been rebuilt since construction/reload, where the index is already
+    /// current).
+    search_index_rebuilt_at: Option<Instant>,
     /// Whether rendering may use color at all (spec §9.2: respect
     /// `NO_COLOR`). Read from the environment once at construction — a
     /// terminal-color preference isn't something that changes mid-run —
@@ -224,6 +234,20 @@ pub struct App {
 /// enough that the hints are never gone when someone looks up needing
 /// them.
 const STATUS_MESSAGE_TTL: Duration = Duration::from_secs(4);
+
+/// Shortest gap between two search-index rebuilds while nobody is
+/// searching (see `App::sync_search_index` for the "nobody is searching"
+/// caveat, which is the whole reason this is safe).
+///
+/// The batching alone already turns one rebuild per warmed node into one
+/// per event-loop iteration, but the loop wakes every 100ms and a rebuild
+/// is O(whole tree), so a long cascade would still rebuild a growing tree
+/// ten times a second for its whole duration. 250ms bounds that to four,
+/// which is far below the threshold at which a user notices a tree they
+/// are not currently searching having settled — and every rebuild skipped
+/// here is skipped only because a later one will supersede it: the stale
+/// flag stays set, so no change is ever dropped.
+const REBUILD_MIN_INTERVAL: Duration = Duration::from_millis(250);
 
 /// Case-insensitive **substring** match of `query` against `name`.
 ///
@@ -278,6 +302,8 @@ impl App {
             status_message: None,
             status_expires_at: None,
             search_index,
+            search_index_stale: false,
+            search_index_rebuilt_at: None,
             color_enabled: crate::style::color_enabled_from_env(),
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
@@ -307,6 +333,13 @@ impl App {
         if !self.dirty {
             return;
         }
+        // `compute_matching_paths` below reads the index, and key handlers
+        // call this method directly rather than going through the event
+        // loop, so give the same throttle a chance to run here instead of
+        // relying on `tick_search` having been the most recent caller. With
+        // a query active the throttle is a no-op and the rows below are
+        // computed against a fully current index.
+        self.sync_search_index(Instant::now());
         let matching_paths = self.compute_matching_paths();
         self.rows = flatten(
             &self.root,
@@ -400,9 +433,61 @@ impl App {
     /// list dirty if the result set changed, so the next
     /// [`Self::ensure_rows_fresh`] picks up fresh matches.
     pub fn tick_search(&mut self, timeout_ms: u64) {
+        self.sync_search_index(Instant::now());
         if self.search_index.tick(timeout_ms) {
             self.mark_dirty();
         }
+    }
+
+    /// Rebuild the search index if the tree changed since the last rebuild,
+    /// subject to the throttle described on [`REBUILD_MIN_INTERVAL`].
+    ///
+    /// `now` is a parameter rather than read here so a test can drive the
+    /// throttle deterministically instead of sleeping.
+    fn sync_search_index(&mut self, now: Instant) {
+        if !self.search_index_stale {
+            return;
+        }
+        // Staleness is user-visible the moment there is a query: spec §5.2
+        // has the background warm existing precisely so whole-tree search
+        // is honest, and a result set that lags the tree by a quarter of a
+        // second while someone types is exactly the dishonesty it was
+        // added to remove. So the throttle applies only while nobody is
+        // searching — which is the case for the whole warm cascade in the
+        // common path, and is where all the wasted work was.
+        let searching = self.active_filter().is_some() || self.focus == Focus::Search;
+        if !searching
+            && self
+                .search_index_rebuilt_at
+                .is_some_and(|last| now.duration_since(last) < REBUILD_MIN_INTERVAL)
+        {
+            return;
+        }
+        self.rebuild_search_index(now);
+    }
+
+    /// Rebuild the search index now if the tree changed since the last
+    /// rebuild, ignoring the throttle. For callers that are not the event
+    /// loop and so cannot rely on a later [`Self::tick_search`] to pick the
+    /// change up.
+    pub fn flush_search_index(&mut self) {
+        if self.search_index_stale {
+            self.rebuild_search_index(Instant::now());
+        }
+    }
+
+    fn rebuild_search_index(&mut self, now: Instant) {
+        self.search_index.populate(&self.root);
+        self.search_index_stale = false;
+        self.search_index_rebuilt_at = Some(now);
+        self.mark_dirty();
+    }
+
+    /// How many times the search index has been rebuilt from the tree.
+    /// A test seam for the "one rebuild per batch of warmed nodes, not one
+    /// per node" property — see [`mandible_search::SearchIndex::populate_count`].
+    pub fn search_populate_count(&self) -> u64 {
+        self.search_index.populate_count()
     }
 
     /// The current visible rows. Panics-free even if stale would be
@@ -537,12 +622,15 @@ impl App {
         // asked to see. Expansion is user intent, recorded by
         // `expand_selected`; a node the user already expanded is still in
         // `expanded`, so its children appear the moment they arrive.
-        // The tree's structure (and searchable content) just changed —
-        // keep the search index in sync. `populate` doesn't touch the
-        // current query/pattern, only the item set, so an active search
-        // simply re-matches against the freshly-filled data on the next
-        // tick.
-        self.search_index.populate(&self.root);
+        // The tree's structure (and searchable content) just changed, so
+        // the search index needs rebuilding from it — but *not* here.
+        // `SearchIndex::populate` is O(whole tree) and this method is
+        // called once per node the background warmer fills (~255 for
+        // docker, up to spec §5.2's 4,096-node cap), so rebuilding inline
+        // is O(n²) and pegged every core for the entire warm. Record the
+        // need instead; `flush_search_index`, driven from the event loop,
+        // collapses a whole arrival batch into one rebuild.
+        self.search_index_stale = true;
         self.mark_dirty();
     }
 
@@ -686,6 +774,11 @@ impl App {
 
         self.search_index = SearchIndex::new();
         self.search_index.populate(&self.root);
+        // Freshly built from this very tree: nothing pending, and the next
+        // splice's rebuild must not be throttled against a rebuild that
+        // belongs to the previous tree.
+        self.search_index_stale = false;
+        self.search_index_rebuilt_at = None;
         let filter = self.active_filter().unwrap_or("").to_string();
         self.search_index.set_query(&filter);
 
@@ -844,6 +937,10 @@ mod tests {
     /// calls `tick_search` from its own poll timeout (spec §10
     /// "Threading") rather than assuming a single call finishes matching.
     fn settle_search(app: &mut App) {
+        // The event loop's own `tick_search` does this first; a test that
+        // spliced nodes in would otherwise settle a match against the index
+        // as it was before the splice.
+        app.flush_search_index();
         let deadline = Instant::now() + Duration::from_secs(2);
         let mut quiet_polls = 0;
         while Instant::now() < deadline && quiet_polls < 3 {
@@ -1334,5 +1431,138 @@ mod tests {
         // The newly-discovered child should be visible without a second
         // expand press.
         assert!(app.rows().iter().any(|r| r.name == "--onto"));
+    }
+
+    /// Splice `count` distinct children under the root, the way the
+    /// background warmer's drain loop does: one call per filled node.
+    fn splice_warmed_children(app: &mut App, count: usize) {
+        for i in 0..count {
+            let name = format!("warmed{i}");
+            let mut child = CommandNode::new(&name, Provenance::single(Source::HelpText));
+            child.children_filled = true;
+            child.summary = Some(mandible_core::Text::sanitize("a warmed subcommand"));
+            app.root.subcommands.push(child.clone());
+            app.splice_filled_node(&["git".to_string(), name], child);
+        }
+    }
+
+    /// The rebuild storm that pegged every core during `mandible docker`'s
+    /// warm: `splice_filled_node` rebuilt the whole index per arrival, so
+    /// docker's ~255 warmed nodes cost ~255 full restarts and
+    /// re-injections of a growing item set. The property that fixes it is
+    /// countable and nothing else observable distinguishes the two, hence
+    /// the `populate_count` seam.
+    #[test]
+    fn splicing_many_nodes_rebuilds_the_index_once() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        let after_construction = app.search_populate_count();
+
+        splice_warmed_children(&mut app, 32);
+        assert_eq!(
+            app.search_populate_count(),
+            after_construction,
+            "splicing must not rebuild the index at all; the event loop does that"
+        );
+
+        app.tick_search(0);
+        assert_eq!(
+            app.search_populate_count(),
+            after_construction + 1,
+            "32 arrivals drained in one event-loop iteration must cost exactly one rebuild"
+        );
+    }
+
+    /// The batch rebuild is not allowed to make search lag the tree: spec
+    /// §5.2 has warming exist so whole-tree search is honest, so a node
+    /// that just arrived must be findable without waiting on the throttle.
+    #[test]
+    fn an_active_query_rebuilds_immediately_and_finds_the_new_node() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.focus_search();
+        for c in "warmed7".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        let before = app.search_populate_count();
+
+        splice_warmed_children(&mut app, 8);
+        // No `now` advance at all: the throttle must not apply here.
+        app.sync_search_index(Instant::now());
+        assert_eq!(
+            app.search_populate_count(),
+            before + 1,
+            "a search is active, so the arrival batch must be indexed at once"
+        );
+
+        settle_search(&mut app);
+        app.mark_dirty();
+        app.ensure_rows_fresh();
+        assert!(
+            app.rows().iter().any(|r| r.name == "warmed7"),
+            "a freshly warmed node must be findable by an already-active query: {:?}",
+            app.rows().iter().map(|r| &r.name).collect::<Vec<_>>()
+        );
+    }
+
+    /// With nobody searching, rebuilds are capped at one per
+    /// [`REBUILD_MIN_INTERVAL`] — but a skipped rebuild is deferred, never
+    /// dropped: the stale flag survives so the next eligible tick picks the
+    /// change up.
+    #[test]
+    fn the_rebuild_throttle_defers_a_change_without_dropping_it() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        let t0 = Instant::now();
+
+        splice_warmed_children(&mut app, 4);
+        app.sync_search_index(t0);
+        let after_first = app.search_populate_count();
+
+        // A second cascade arriving inside the interval is held.
+        splice_warmed_children(&mut app, 4);
+        app.sync_search_index(t0 + REBUILD_MIN_INTERVAL / 2);
+        assert_eq!(
+            app.search_populate_count(),
+            after_first,
+            "a rebuild inside the throttle interval must be skipped"
+        );
+        assert!(app.search_index_stale, "the pending change must be kept");
+
+        // …and picked up as soon as the interval has passed, with no
+        // further splice to prompt it.
+        app.sync_search_index(t0 + REBUILD_MIN_INTERVAL);
+        assert_eq!(
+            app.search_populate_count(),
+            after_first + 1,
+            "the deferred change must be indexed once the interval elapses"
+        );
+        assert!(!app.search_index_stale);
+    }
+
+    /// `r` throws the tree away and rebuilds the index from the new one, so
+    /// it must also drop any staleness owed to the *old* tree — and must
+    /// not leave the next arrival throttled against a rebuild that belongs
+    /// to a tree that no longer exists.
+    #[test]
+    fn reload_leaves_the_index_current_and_unthrottled() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        splice_warmed_children(&mut app, 4);
+        assert!(app.search_index_stale);
+
+        app.reload(sample_tree());
+        assert!(
+            !app.search_index_stale,
+            "reload repopulates from the new tree, so nothing is owed"
+        );
+        let after_reload = app.search_populate_count();
+
+        let mut child = CommandNode::new("add", Provenance::single(Source::HelpText));
+        child.children_filled = true;
+        app.splice_filled_node(&["git".to_string(), "add".to_string()], child);
+        app.sync_search_index(Instant::now());
+        assert_eq!(
+            app.search_populate_count(),
+            after_reload + 1,
+            "the first arrival after a reload must not be throttled"
+        );
     }
 }

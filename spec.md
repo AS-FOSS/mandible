@@ -181,7 +181,7 @@ What exists is a fragmented set of partial mechanisms. Their **measured** covera
 | Mechanism | Reality on a real machine |
 |---|---|
 | **carapace-spec catalog** (declarative YAML, hundreds of tools) | 740 tools, 48,224 flag descriptions in the vendored snapshot. `git` 279 nodes / 2,999 flags / 2,979 with prose; `docker` 162/836/836; `gh` 249/1,061/1,061 [M-1]. Zero subprocesses, works on Windows. |
-| **cobra `__complete`** (Go: kubectl, docker, gh, helm) | Works, and is version-accurate. But returns **only subcommands** for an empty word; flags require a *second* probe with `"-"` [M-2]. Descriptions are terse. Cost: one subprocess per node per probe [M-3]. |
+| **cobra `__complete`** (Go: kubectl, docker, gh, helm) | Works, and is version-accurate. Flags require a *second* probe with `"-"` [M-2]. The empty-word probe returns subcommands **plus the command's own `ValidArgsFunction` output** — live user data at a leaf — so only fully-described candidate lists may be read as subcommands [M-2a]. Descriptions are terse. Cost: one subprocess per node per probe [M-3]. |
 | **clap `CompleteEnv`** (`COMPLETE=zsh <tool>`) | **Near-absent in the wild**, and since removed as a source. `ripgrep` errors; `cargo` prints ordinary help [M-4]. Detection had no protocol-guaranteed signal, so on a PATH sweep it matched ten tools of which none were clap — see §7 Tier E. |
 | **`<tool> completion bash\|zsh`** | Common. But bash scripts typically *compute* candidates at runtime (`$(git ls-files)`), so static parsing recovers less than it appears. zsh `_arguments` blocks are the description-bearing form and the higher-value target. |
 | **man pages** (`mdoc(7)` semantic, `man(7)` prose) | Prose-rich, structure-poor, and **absent on many systems**: this test container has 31 `man1` pages and none for `git` or `curl` [M-5]. `libmandoc` is not a shipped library on Linux [M-6]. |
@@ -469,10 +469,18 @@ much* gets extracted but *what the user waits for* — and the answer is nothing
 When every node is warmed, auto-expanding on arrival unfolds the entire tree and
 buries the user in rows they never asked for.
 
-**Pool sizing is deliberately oversubscribed** — `available_parallelism * 4`,
-clamped to `[4, 32]`. A warming job spawns a child process and then spends
-nearly all its wall time blocked on it, so one thread per core leaves the machine
-idle waiting on I/O.
+**Pool sizing is one worker per core, clamped to `[2, 8]`.** An earlier
+revision deliberately oversubscribed (`available_parallelism * 4`, clamped
+`[4, 32]`) on the theory that a warming job spawns a child and then blocks on
+it, costing no CPU of its own. The theory holds for the typical small C tool
+and was measured false exactly where warming is heaviest: a `docker`
+invocation burns 70–100ms of real CPU per spawn (Go runtime startup plus a
+daemon round trip), so 16 concurrent probes on a 4-core machine pegged every
+core for the duration of the warm — reported by a real user as the tool
+maximizing their CPU for minutes. One probe per core keeps the machine
+responsive; the cost is a slower warm on cheap-probe trees, paid in
+background time nobody is waiting on, and the expand path still jumps the
+queue so the visible tree fills as fast as before.
 
 Non-incremental sources (carapace) return their full subtree at step 1; they cost
 nothing, so there is no reason to defer them.
@@ -1423,11 +1431,29 @@ probed anyway. Nothing on this machine's PATH was in that position. The
 a heuristic, and defence in depth costs nothing here.
 
 - **cobra `__complete`** (kubectl, docker, gh, helm, and much of modern infra):
-  **the protocol requires two probes per node.** `__complete <path> ""` returns
-  subcommands only; flags require `__complete <path> "-"` [M-2]. Revision 1
-  documented only the first, and an implementation following it produced zero
-  flags. Parse the trailing `:N` directive line; candidate lines are
-  `value\tdescription`, with a `=` suffix marking value-taking flags.
+  **the protocol requires two probes per node.** Flags require `__complete
+  <path> "-"` [M-2]; revision 1 documented only the empty-word probe, and an
+  implementation following it produced zero flags. Parse the trailing `:N`
+  directive line; candidate lines are `value\tdescription`, with a `=` suffix
+  marking value-taking flags.
+  - **`__complete <path> ""` does *not* return subcommands only.** Earlier
+    revisions of this section said it did; that is wrong, and was only ever
+    measured at nodes that have subcommands. cobra emits the node's real
+    subcommands and then **appends the command's own `ValidArgsFunction`
+    output**, which is application code reading live state — so at a leaf the
+    whole response is argument data. `docker __complete stop ""` returns the
+    machine's running container names; `docker __complete run ""` returns image
+    names [M-2].
+  - **A candidate list becomes subcommands only if every candidate in it carries
+    a non-empty description.** cobra writes real subcommand rows as
+    `name\tShort` from its own formatter, while a `ValidArgsFunction` returning a
+    plain `[]string` produces bare rows — the only distinction the wire format
+    offers. One undescribed candidate condemns the entire list, described entries
+    included, because cobra marks no boundary between the two blocks. Measured
+    across 631 real command paths on `docker` and `gh`: every real subcommand
+    admitted, every argument value refused [M-2a]. The deliberate cost is a real
+    subcommand with an empty `Short` sharing a list with argument values; Tier B
+    still finds it, and per AGENTS.md §1 this is never relaxed for recall.
   - **Depth cap** (default 6) and a **visited set** keyed by the candidate list's
     hash: some tools echo root completions for unrecognized paths, which
     recurses forever.
@@ -3310,6 +3336,82 @@ any of these as current.
   `--repo`, **and `-R` as a separate row with an identical description**.
   Output ends with a `:N` directive line on stdout; a human-readable directive
   note goes to stderr.
+
+  **Correction (2026-08-17): the "empty word returns subcommands only" half of
+  this entry is wrong, and was only ever measured at nodes that *have*
+  subcommands.** cobra answers `__complete <path> ""` by emitting the node's real
+  subcommands **and then appending whatever that command's `ValidArgsFunction`
+  returns** — application code that reads live state. At a leaf there are no
+  subcommands, so the response is *entirely* argument data. Measured on docker
+  29.7.2, this box, with three `hello-world` containers present:
+
+  ```console
+  $ docker __complete container ""   # a node with subcommands
+  attach<TAB>Attach local standard input, output, and error streams to a container
+  commit<TAB>Create a new image from a container's changes
+  ...
+  :4
+  $ docker __complete stop ""        # a leaf: RUNNING CONTAINER NAMES, bare
+  mandible-canary-1
+  mandible-canary-2
+  :4
+  $ docker __complete run ""         # a leaf: image names, bare
+  vsnote:latest
+  hello-world:latest
+  :4
+  ```
+
+  This was a live defect, reported from real use: the reporter's own container
+  names were rendered in the tree as docker subcommands, and each fabricated node
+  was then warmed like any other (§5.2 step 4), multiplying the probe count by
+  the size of a set that scales with the user's data rather than with the tool.
+
+- **[M-2a] Which cobra candidates are really subcommands.** Method: walk both
+  installed cobra binaries breadth-first to depth 3 via `__complete <path> ""`,
+  classifying every response list as all-described, all-undescribed, or mixed,
+  and reading each list against the tool's real command tree. Result, over **631
+  distinct command paths** (`docker` 29.7.2: 253; `gh` 2.45.0: 378):
+
+  | list shape | count | what they actually were |
+  |---|---|---|
+  | every candidate described (`name<TAB>text`) | 85 | genuine subcommand lists, all 85 |
+  | every candidate undescribed (bare `name`) | 45 | argument data, all 45 |
+  | mixed | 5 | argument data, all 5 |
+
+  The 50 non-subcommand lists were container names, image names and tags, network
+  names, buildx builder names, docker context names, and `gh project
+  field-create --data-type`'s enum values. **No real subcommand appeared
+  undescribed, and no argument value appeared in an all-described list**, which
+  is why Tier E accepts a candidate list only when every candidate in it carries
+  a non-empty description (§7 Tier E). The mechanism behind the rule is cobra's
+  own formatting: it writes subcommand rows with `fmt.Sprintf("%s\t%s",
+  subCmd.Name(), subCmd.Short)`, while a `ValidArgsFunction` returning a plain
+  `[]string` produces bare rows.
+
+  The 5 mixed lists were all `docker context <verb> ""`, whose completer
+  decorates only the *currently selected* context (`rootless<TAB>current`) and
+  leaves the rest bare. They are why a single undescribed candidate has to
+  condemn the whole list rather than only itself: cobra marks no boundary between
+  its own subcommand block and the appended argument block, so a described entry
+  sitting in a list that also carries bare entries cannot be attributed to
+  either.
+
+  **Known residual, measured, not closed.** A completer that describes *every*
+  value it returns is indistinguishable from a subcommand list in cobra's wire
+  format. `docker context use ""` hits this on a machine with exactly one
+  context, where the sole candidate is `default<TAB>current`; with two or more
+  contexts the list is mixed and the rule closes it. Closing the one-context case
+  would need a signal cobra does not provide.
+
+  Two alternative designs were measured and rejected. (a) Probing cobra's own
+  `help` command — `__complete help <path> ""`, which enumerates the command tree
+  and never runs a `ValidArgsFunction` — is exactly right on `gh` (`gh __complete
+  help pr ""` returns `pr`'s 20 real subcommands) and returns **nothing at all**
+  on `docker`, which replaces cobra's help command. (b) Differencing against a
+  sentinel positional — `__complete <path> <sentinel> ""` suppresses cobra's
+  subcommand block, so `A \ B` is the subcommand set — works for 6 of 8 sampled
+  paths, costs a third spawn per node (+50%), and still leaks `docker context
+  use`, whose completer returns the same list either way.
 - **[M-3] Recursive walk cost.** `docker`: 255 nodes, 232 spawns, 10.5 s.
   `gh`: 196 nodes, 182 spawns, 11.6 s. Both depth-capped at 3, one probe per node.
   ~40–65 ms per spawn.

@@ -1,7 +1,7 @@
 //! Bounded background warming of the whole tree (spec §5.2 step 4).
 //!
 //! Every node discovered in the tree is queued for a background fill on a
-//! bounded pool — `min(8, available_parallelism)` — starting from the root
+//! bounded pool — one thread per core, clamped to `[2, 8]` — starting from the root
 //! as soon as the TUI opens, and cascading: each completed fill queues the
 //! children it just discovered. The user never waits for the tree, and
 //! never has to expand a node by hand to make it real.
@@ -69,23 +69,27 @@ pub struct Warmer {
 }
 
 impl Warmer {
-    /// Build a warmer with `available_parallelism * 4` worker threads,
-    /// clamped to `[4, 32]`.
+    /// Build a warmer with one worker thread per core, clamped to
+    /// `[2, 8]`.
     ///
-    /// Deliberately oversubscribed relative to core count, because a
-    /// warming job is not CPU work: it spawns `<tool> <path> --help` and
-    /// then spends nearly all of its wall time blocked on that child. One
-    /// thread per core leaves the machine idle waiting on I/O, and the
-    /// trees where warming matters most (cobra CLIs with hundreds of
-    /// nodes) are exactly where that idle time compounds. The upper clamp
-    /// keeps a many-core machine from turning the prefetch into a spawn
-    /// storm against the OS process table.
+    /// This used to be `available_parallelism * 4`, clamped to `[4, 32]`,
+    /// on the theory that a warming job is not CPU work — it spawns
+    /// `<tool> <path> --help` and blocks on the child. That theory is
+    /// true for the typical small C tool and measured false for the
+    /// tools where warming is heaviest: a `docker` invocation burns
+    /// 70–100ms of real CPU per spawn (Go runtime startup plus a daemon
+    /// round trip), so 16 concurrent probes on a 4-core machine was the
+    /// warm pegging every core for minutes — the exact user report the
+    /// resizing answers. One probe per core keeps the machine responsive
+    /// for whatever else the user is doing; the price is a slower warm on
+    /// cheap-probe trees, paid in background time nobody is waiting on.
+    /// The user-expanded path still jumps the queue, so what is on
+    /// screen fills at the same speed as before.
     pub fn new() -> Warmer {
         let threads = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1)
-            .saturating_mul(4)
-            .clamp(4, 32);
+            .clamp(2, 8);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
             .thread_name(|i| format!("mandible-warm-{i}"))
@@ -249,6 +253,24 @@ mod tests {
                 elapsed: std::time::Duration::ZERO,
             },
         }
+    }
+
+    /// The pool must never exceed one thread per core (capped at 8): the
+    /// old `cores * 4` oversubscription was measured pegging every core
+    /// of a 4-core machine for minutes against a tool whose probes burn
+    /// real CPU (docker). Asserting the bound, not an exact count, so the
+    /// test holds on any machine.
+    #[test]
+    fn the_warming_pool_never_oversubscribes_the_cores() {
+        let warmer = Warmer::new();
+        let cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        let threads = warmer.pool.current_num_threads();
+        assert!(
+            threads <= cores.max(2) && threads <= 8,
+            "warming pool has {threads} threads on a {cores}-core machine"
+        );
     }
 
     /// `submitted` is the [`MAX_WARMED_NODES`] budget, and it was
