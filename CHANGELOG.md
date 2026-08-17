@@ -8,6 +8,14 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-08-17
+
+Two user reports drove this release, and each was measured to its mechanism
+before anything was changed: a background warm that pegged CPU through a
+quadratic search-index rebuild, and a `cargo install` that could push a
+small machine into memory exhaustion — the latter fixed mostly by
+resurrecting install paths that already existed but were invisible.
+
 ### Fixed
 
 - **The fuzzy search index is rebuilt once per batch of warmed nodes instead
