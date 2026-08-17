@@ -9,6 +9,13 @@ members = [
     "xtask",
 ]
 
+# Strip symbols from release binaries. Measured on 0.3.1 (aarch64): the
+# installed binary drops 5.6 MB -> 4.0 MB, and `cargo install`'s transient
+# build tree shrinks ~35 MB — a size win, not the fix for building on a
+# RAM-backed $TMPDIR (the README's install note covers that).
+[profile.release]
+strip = "symbols"
+
 [workspace.package]
 version = "0.3.1"
 edition = "2021"
