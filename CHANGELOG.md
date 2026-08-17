@@ -58,6 +58,14 @@ resurrecting install paths that already existed but were invisible.
 
 ### Changed
 
+- **The background warmer runs one probe per core (clamped `[2, 8]`) instead
+  of four per core (clamped `[4, 32]`).** The oversubscription assumed a
+  warming job blocks on its child costing no CPU — true for a typical small
+  C tool, measured false for `docker`, whose CLI burns 70–100ms of real CPU
+  per spawn. Sixteen concurrent probes on a four-core machine was the warm
+  pegging every core for minutes. The warm now takes longer on cheap-probe
+  trees, in background time nobody waits on; user-expanded nodes still jump
+  the queue, so the visible tree fills as fast as before.
 - **Release binaries are stripped** (`[profile.release] strip = "symbols"`):
   5.6 MB → 4.0 MB measured on aarch64.
 

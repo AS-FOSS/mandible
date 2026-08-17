@@ -469,10 +469,18 @@ much* gets extracted but *what the user waits for* — and the answer is nothing
 When every node is warmed, auto-expanding on arrival unfolds the entire tree and
 buries the user in rows they never asked for.
 
-**Pool sizing is deliberately oversubscribed** — `available_parallelism * 4`,
-clamped to `[4, 32]`. A warming job spawns a child process and then spends
-nearly all its wall time blocked on it, so one thread per core leaves the machine
-idle waiting on I/O.
+**Pool sizing is one worker per core, clamped to `[2, 8]`.** An earlier
+revision deliberately oversubscribed (`available_parallelism * 4`, clamped
+`[4, 32]`) on the theory that a warming job spawns a child and then blocks on
+it, costing no CPU of its own. The theory holds for the typical small C tool
+and was measured false exactly where warming is heaviest: a `docker`
+invocation burns 70–100ms of real CPU per spawn (Go runtime startup plus a
+daemon round trip), so 16 concurrent probes on a 4-core machine pegged every
+core for the duration of the warm — reported by a real user as the tool
+maximizing their CPU for minutes. One probe per core keeps the machine
+responsive; the cost is a slower warm on cheap-probe trees, paid in
+background time nobody is waiting on, and the expand path still jumps the
+queue so the visible tree fills as fast as before.
 
 Non-incremental sources (carapace) return their full subtree at step 1; they cost
 nothing, so there is no reason to defer them.
