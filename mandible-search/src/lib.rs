@@ -31,7 +31,23 @@ struct Entry {
 pub struct SearchIndex {
     nucleo: Nucleo<Entry>,
     current_query: String,
+    populate_count: u64,
 }
+
+/// Upper bound on `nucleo`'s background matcher threads.
+///
+/// `nucleo` defaults to `available_parallelism()`, i.e. one matcher thread
+/// per core. Every [`SearchIndex::populate`] restarts the match, so each
+/// rebuild hands the whole item set back to all of those threads at once;
+/// on a 64-core machine that is 64 threads re-scoring the same few
+/// thousand short haystacks. The item set here is bounded by spec §5.2's
+/// 4,096-node cap (a few thousand entries of a dozen-odd characters), so
+/// past a handful of threads the coordination costs more than the parallel
+/// scoring saves — and pegging every core on a machine whose owner is
+/// reading a man page is the failure this cap exists to prevent. Not the
+/// primary fix for that (see [`SearchIndex::populate`]'s note on rebuild
+/// frequency); a second, cheap bound on the blast radius of each rebuild.
+const MAX_MATCHER_THREADS: usize = 4;
 
 impl Default for SearchIndex {
     fn default() -> Self {
@@ -47,22 +63,53 @@ impl SearchIndex {
         // instead "the caller drives `tick` from its own poll timeout"
         // (spec §10), so no wakeup callback is needed here.
         let notify: Arc<dyn Fn() + Sync + Send> = Arc::new(|| {});
-        let nucleo = Nucleo::new(Config::DEFAULT, notify, None, 1);
+        let threads = std::thread::available_parallelism()
+            .map_or(MAX_MATCHER_THREADS, |n| n.get().min(MAX_MATCHER_THREADS));
+        let nucleo = Nucleo::new(Config::DEFAULT, notify, Some(threads), 1);
         SearchIndex {
             nucleo,
             current_query: String::new(),
+            populate_count: 0,
         }
     }
 
-    /// Rebuild the index from `root`. Call whenever the tree's structure
-    /// changes (initial load, or after a lazy fill splices in new nodes) —
-    /// cheap enough to call on every such change; `nucleo` streams items in
-    /// lock-free, and re-populating from scratch is simpler and less
-    /// error-prone than trying to diff two trees.
+    /// Rebuild the index from `root`, from scratch: `restart` drops the old
+    /// item set and every entry is re-injected.
+    ///
+    /// **This is O(tree), not O(change), and it is not free — do not call it
+    /// once per spliced node.** Re-populating from scratch is still the
+    /// right shape (diffing two trees is much harder to get right, and
+    /// `nucleo` streams items in lock-free), but the cost has to be paid
+    /// per *batch* of structural changes rather than per change. Calling it
+    /// per node made `mandible docker` peg every core for its whole
+    /// 22-second warm: the background warmer delivers one splice per filled
+    /// node (~255 for docker, up to spec §5.2's 4,096-node cap), each
+    /// splice restarted the match and re-injected an ever-growing item set,
+    /// and `nucleo`'s matcher threads re-scored all of it each time — O(n²)
+    /// with a large constant. `mandible-tui`'s `App` therefore coalesces:
+    /// it marks the index stale and rebuilds at most once per event-loop
+    /// iteration (see `App::flush_search_index`).
+    ///
+    /// Leaves the current query untouched — only the item set changes — so
+    /// an active search simply re-matches against the fresh data on the
+    /// next [`SearchIndex::tick`].
     pub fn populate(&mut self, root: &CommandNode) {
+        self.populate_count += 1;
         self.nucleo.restart(true);
         let injector = self.nucleo.injector();
         push_node(&injector, root, vec![root.name.clone()]);
+    }
+
+    /// How many times [`SearchIndex::populate`] has run on this index.
+    ///
+    /// A seam, not a statistic: "the index is rebuilt per batch of warmed
+    /// nodes, not per node" is a performance property with no visible
+    /// effect on any result, so nothing else a test can read distinguishes
+    /// the fixed code from the O(n²) version it replaced. Counting the
+    /// rebuilds is what makes that property assertable — see
+    /// `mandible-tui`'s `splicing_many_nodes_rebuilds_the_index_once`.
+    pub fn populate_count(&self) -> u64 {
+        self.populate_count
     }
 
     /// Set the live query text. Matching happens asynchronously on
