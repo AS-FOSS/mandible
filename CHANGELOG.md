@@ -8,6 +8,24 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README's pre-built binary links were four literal `(...)`
+  placeholders** while the install section led with `cargo install` — so the
+  one user path that avoids compiling entirely was invisible. The table now
+  points at the stable `releases/latest/download/` asset URLs (verified
+  live), documents `cargo binstall mandible` (verified resolving against a
+  real release), and the from-source path carries a note for RAM-backed
+  `$TMPDIR` systems (`CARGO_TARGET_DIR=… cargo install mandible -j 2`),
+  where a `cargo install` was measured pushing a small machine toward
+  memory exhaustion (peak ~1.2 GB of concurrent rustc RSS at `-j 4` plus a
+  ~470 MB transient build tree, which lands in `$TMPDIR`).
+
+### Changed
+
+- **Release binaries are stripped** (`[profile.release] strip = "symbols"`):
+  5.6 MB → 4.0 MB measured on aarch64.
+
 ## [0.3.1] - 2026-08-15
 
 On the 94-tool development set, re-reviewed blind in the TUI with no prior
