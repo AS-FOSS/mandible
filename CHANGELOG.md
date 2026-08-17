@@ -10,6 +10,33 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **The fuzzy search index is rebuilt once per batch of warmed nodes instead
+  of once per node**, removing a quadratic term from background warming.
+  Every arrival from the warmer used to restart the index and re-inject the
+  whole, growing tree; arrivals are now coalesced into at most one rebuild
+  per event-loop iteration, throttled to one per 250ms while nobody is
+  searching. A deferred rebuild is never dropped, and the throttle is
+  bypassed whenever a query is active or the search box is focused, so search
+  never lags the tree it is searching (spec §5.2). Rendering is unchanged.
+
+  Measured cost of the removed term, replaying arrivals against a synthetic
+  tree: **99ms at docker's ~255 nodes, 395ms at 510, 1.62s at 1,020, and
+  17.7s at spec §5.2's 4,096-node cap — against 6.6ms for a single batched
+  rebuild at that cap.** Clean n², so the bigger the tool the worse it got.
+
+  Read the end-to-end number carefully, because it is much smaller than that
+  suggests. Holding `mandible docker` open in a real pty on a 4-core box,
+  process CPU over the 22-second warm went **6.07s → 5.72s**, all of it on
+  the UI thread (**1.13s → 0.51s**). The remaining ~5.1s is the warmer
+  threads doing the extraction the warm exists to do — ~10 threads flat out
+  on 4 cores — which is where any further work on warming CPU belongs. The
+  index storm was a real bug and is gone; on docker it was 10% of the CPU,
+  not the bulk.
+- `nucleo`'s matcher thread pool is capped at 4 threads instead of defaulting
+  to one per core. Secondary and precautionary: the item set is bounded by
+  the node cap, so past a handful of threads a rebuild's coordination costs
+  more than its parallel scoring saves. Not measurable on a 4-core box, and
+  not the fix above.
 - **The README's pre-built binary links were four literal `(...)`
   placeholders** while the install section led with `cargo install` — so the
   one user path that avoids compiling entirely was invisible. The table now
