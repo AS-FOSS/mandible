@@ -77,6 +77,40 @@ once it reaches a published 0.1.0 release.
   (`jpackage`, `less`, `pager`, `pngfix`, `pod2man`, `zstdless`) now parses
   byte-identically to before that detector existed.
 
+- **`btrfs --help`'s headingless command table is now recovered as
+  subcommands, two levels deep.** `scan_flags_block`'s nested-entry-table
+  detector (previous entry) correctly ends the flags block where the table
+  starts, but the table itself was then silently dropped — no heading
+  introduces it, and every other command-recovery path in the generic
+  layout parser requires one (spec §7 Tier B rule 1). A new recognizer
+  (`help_text::sections::scan_headingless_invocation_table`) admits a run
+  of rows instead when every row starts with the tool's own name at a word
+  boundary — the evidence a heading would otherwise supply — and at least
+  two rows repeat the name-row/deeper-description-row shape. `btrfs device
+  add ...` reads as child `device`, grandchild `add`; consecutive sibling
+  rows sharing one following description (`device delete`/`device remove`)
+  share it; every emitted name is checked to occur literally in the raw
+  text (spec [M-10]).
+
+  Recovered nodes carry a new, second attestation bit,
+  `CommandNode::invocation_attested` — existence-attested (unlike a
+  fabricated phantom subcommand) but deliberately **not** probe-eligible:
+  spec §6's `--help` probe gate keeps reading `heading_attested` only, so
+  none of this subtree is ever sent as argv, only `heading_attested` is
+  (spec §6 rule 0's closing paragraphs, and a new §7 Tier B subsection,
+  record the decision). The coverage harness's structure-sanity and
+  attestation-gated-stub detectors (`xtask::status`, `xtask::audit`) accept
+  either bit as evidence of a real command, so these nodes are never
+  mis-flagged as fabrication; the [M-10] existence detector
+  (`xtask::existence`) gained a matching `tool_name_prefixed_row_words`
+  rule so it agrees rather than reporting every recovered node as invented.
+
+  `corpus/btrfs/audit-seed2` flips `[xfail]` → `ok` (17 top-level groups,
+  most with their own grandchildren). The pngfix/pod2man near-miss set from
+  the previous entry stays byte-identical — neither of those flags' choice
+  lists starts with the tool's own name, so this recognizer never reaches
+  them.
+
 - **A full-`PATH` sweep's scoreboard write no longer fails `EACCES` inside
   namespace containment.** `xtask coverage`/`audit freeze` re-exec under
   `unshare --user --map-root-user` before probing (spec §6/§8); GitHub
