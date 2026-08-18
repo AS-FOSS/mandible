@@ -178,7 +178,13 @@ jobs:
     name: deb + rpm (${{ matrix.arch }})
     needs: [verify, verify-frameworks]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # 45, not the 30 this job carried while it was x86_64-only. The aarch64
+    # row compiles both packagers from source (see the `install-action`
+    # comment below) on top of building `mandible` itself, and a release job
+    # that times out is a release that has to be re-tagged. Raising a bound
+    # whose old value was measured against a strictly cheaper job is not the
+    # same as loosening a gate.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
