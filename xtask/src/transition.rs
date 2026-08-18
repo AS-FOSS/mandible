@@ -1887,28 +1887,20 @@ mod tests {
         assert!(!t.is_identical());
     }
 
-    /// End-to-end: [`crate::coverage::run_over`]'s own `ScoreFormat::Text`
-    /// rendering carries a `#fp` footer that [`parse_scoreboard`] reads back
-    /// — the round trip [`field_diff_catches_a_description_only_change`]
-    /// and its sibling above don't exercise, since those build
-    /// `ParsedFingerprint` by hand. `grep` is assumed present (every Linux
-    /// dev/CI box has it) and its `--help` reliably documents at least one
-    /// flag.
-    #[test]
-    fn fingerprint_footer_round_trips_through_render_and_parse() {
-        let (table, _agg) = run_over(vec!["grep".to_string()], None, false, ScoreFormat::Text);
-        let parsed = parse_scoreboard(&table);
-        let fp = parsed
-            .fingerprints
-            .get("grep")
-            .expect("grep fingerprint present in the #fp footer");
-        assert!(
-            !fp.flags.is_empty(),
-            "grep --help should yield at least one flag"
-        );
-        assert!(
-            fp.flags.values().any(|f| f.has_description),
-            "at least one of grep's flags should carry a description"
-        );
-    }
+    // The end-to-end render→parse round trip used to live here, driven by a
+    // real `grep --help` probe, and asserted "at least one flag carries a
+    // description" — a fact about the *host's* grep (GNU grep documents its
+    // options; BSD grep, on macOS, prints a bare usage synopsis with none),
+    // which is exactly the class of failure AGENTS.md §4 warns about
+    // ("macOS breaks in ways Linux CI cannot see") and turned
+    // `test (macos-latest)` red on this branch. It's now two tests in
+    // `coverage::tests`, where `Row`/`build_fingerprint`/`render_text` are
+    // already reachable without a second cross-module exposure:
+    // `fingerprint_footer_round_trips_a_synthetic_tree` (a hand-built
+    // `CommandNode`, so the description/choices/value_name-carrying case is
+    // true by construction on every platform) and
+    // `fingerprint_footer_round_trips_whatever_a_real_grep_produced` (keeps
+    // the real-binary smoke check spec §3.1 asks for, but only asserts that
+    // whatever this host's grep produced survives the round trip losslessly
+    // — never a claim about grep's own content).
 }

@@ -2648,6 +2648,99 @@ mod tests {
         assert!(table.starts_with("| tool |"));
     }
 
+    /// **The round trip this whole `#fp` footer exists for, on a synthetic
+    /// tree — never a host binary.** An earlier version of this test drove
+    /// it from a real `grep --help` probe and asserted "at least one flag
+    /// has a description," which is a fact about the host's `grep`
+    /// (GNU grep's `--help` documents its options; BSD grep's, on macOS,
+    /// is a bare usage synopsis with none) — exactly the class of failure
+    /// AGENTS.md §4 warns about ("macOS breaks in ways Linux CI cannot
+    /// see") and a real red `test (macos-latest)` job on this branch. A
+    /// hand-built [`mandible_core::CommandNode`] carrying a described flag,
+    /// a flag with choices and a `value_name`, and one subcommand makes the
+    /// description-carrying case true by construction, on every platform,
+    /// with no process spawned at all.
+    #[test]
+    fn fingerprint_footer_round_trips_a_synthetic_tree() {
+        use mandible_core::{CommandNode, Flag, Provenance, Source, Text, ValueKind};
+
+        let mut root = CommandNode::new("demo", Provenance::single(Source::HelpText));
+        let mut flag = Flag::long("verbose", Provenance::single(Source::HelpText));
+        flag.short = Some('v');
+        flag.description = Some(Text::sanitize("increase verbosity"));
+        flag.choices = vec![Text::sanitize("low"), Text::sanitize("high")];
+        flag.value_name = Some("LEVEL".to_string());
+        flag.value_kind = ValueKind::Required;
+        root.flags.push(flag);
+        root.subcommands.push(CommandNode::new(
+            "child",
+            Provenance::single(Source::HelpText),
+        ));
+
+        let mut r = row("demo", 1, Some(100.0), "ok");
+        r.fingerprint = build_fingerprint(Some(&root));
+        let rows = vec![r];
+        let agg = compute_aggregate(&rows);
+        let text = render_text(&rows, &agg);
+
+        let parsed = crate::transition::parse_scoreboard(&text);
+        let fp = parsed
+            .fingerprints
+            .get("demo")
+            .expect("demo fingerprint present in the #fp footer");
+        assert_eq!(fp.flags.len(), 1);
+        let flag = fp.flags.values().next().unwrap();
+        assert!(flag.has_description, "description presence round-trips");
+        assert!(
+            flag.description_hash.is_some(),
+            "description hash round-trips"
+        );
+        assert!(flag.choices_hash.is_some(), "choices hash round-trips");
+        assert_eq!(flag.value_name.as_deref(), Some("LEVEL"));
+        assert_eq!(fp.subcommands.len(), 1);
+        assert!(fp.subcommands.contains("child"));
+    }
+
+    /// A real-binary smoke check (spec §3.1: "at least one test exercising
+    /// real argv construction," not just the parser behind it), but —
+    /// unlike the synthetic test above — asserting only what is true of
+    /// *any* host's `grep`: that the round trip through
+    /// [`fingerprint_lines`]/[`crate::transition::parse_scoreboard`] loses
+    /// nothing, whatever `grep --help` on this machine actually said. Never
+    /// a claim about grep's own content (that's the synthetic test's job;
+    /// this one would stay green against BSD grep's flagless usage synopsis
+    /// just as it does against GNU grep's described option table).
+    #[test]
+    fn fingerprint_footer_round_trips_whatever_a_real_grep_produced() {
+        let live = score_one("grep");
+        let rows = vec![live];
+        let agg = compute_aggregate(&rows);
+        let text = render_text(&rows, &agg);
+
+        let parsed = crate::transition::parse_scoreboard(&text);
+        let fp = parsed
+            .fingerprints
+            .get("grep")
+            .expect("a #fp line is emitted unconditionally, even for an empty fingerprint");
+
+        let live_fingerprint = &rows[0].fingerprint;
+        assert_eq!(
+            fp.flags.len(),
+            live_fingerprint.flags.len(),
+            "flag count must round-trip losslessly regardless of what this host's grep documents"
+        );
+        assert_eq!(fp.subcommands.len(), live_fingerprint.subcommands.len());
+        for (id, live_flag) in &live_fingerprint.flags {
+            let parsed_flag = fp.flags.get(id).unwrap_or_else(|| {
+                panic!("flag {id:?} present before rendering must survive the round trip")
+            });
+            assert_eq!(parsed_flag.has_description, live_flag.has_description);
+            assert_eq!(parsed_flag.description_hash, live_flag.description_hash);
+            assert_eq!(parsed_flag.choices_hash, live_flag.choices_hash);
+            assert_eq!(parsed_flag.value_name, live_flag.value_name);
+        }
+    }
+
     // `structure_sanity`'s own unit tests (fabricated names, empty nodes,
     // the root-name exclusion, `heading_attested` provenance, a clean
     // tree) now live in `status.rs`'s test module, alongside the function
