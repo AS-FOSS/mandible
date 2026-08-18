@@ -174,6 +174,31 @@ pub struct ParsedFingerprint {
     pub subcommands: std::collections::BTreeSet<String>,
 }
 
+/// The fingerprint [`diff`] substitutes for a matched tool's *missing* side
+/// when the *other* side does carry a `#fp` entry for it — a `'static`
+/// empty value (both collection types have a `const fn new()`) so it can be
+/// borrowed at the same lifetime as the real, scoreboard-owned fingerprints
+/// [`field_diff`] otherwise compares.
+///
+/// **Why "missing on one side only" is read as "empty" rather than
+/// "unmeasured."** `coverage::fingerprint_lines` now emits a `#fp` line for
+/// *every* row, including an empty one — the fix for the defect where a
+/// tool that lost every flag produced a line on the "before" side and none
+/// on the "after" side, which then reported as field-diff-unmeasured
+/// instead of reporting the full flag loss it actually was. With that fix,
+/// a per-tool line is absent on exactly one side only in the mixed-vintage
+/// case (one scoreboard predates the `#fp` footer entirely, the other
+/// doesn't) — and even there, the honest reading of "we hold no record of
+/// this side's flags" is "empty," which correctly reports every flag the
+/// present side has as added (if the earlier side is the one missing) or
+/// removed (if the later side is). The genuinely unmeasurable case — both
+/// sides missing — is handled separately in [`diff`] and keeps the
+/// `field_diff_unmeasured` wording.
+static EMPTY_FINGERPRINT: ParsedFingerprint = ParsedFingerprint {
+    flags: BTreeMap::new(),
+    subcommands: std::collections::BTreeSet::new(),
+};
+
 /// Parse one `#fp <tool>\t<subs>\t<flags>` line's content (the part after
 /// `"#fp "`) into `(tool, fingerprint)`, or `None` if it's malformed —
 /// treated exactly like [`LineResult::Unparseable`] by the caller: skipped,
@@ -705,15 +730,23 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         let framework_changed = (before_row.framework != after_row.framework)
             .then_some((before_row.framework.as_str(), after_row.framework.as_str()));
 
+        // Three states, not two (the defect this match used to have:
+        // `coverage::fingerprint_lines` used to skip a row with no flags and
+        // no subcommands, so a tool that lost every flag produced a line on
+        // the "before" side and none on the "after" side, and fell into the
+        // catch-all below — "unmeasured" — instead of reporting the total
+        // loss it actually was). Now that every row gets a `#fp` line
+        // unconditionally, a line is absent on *both* sides only for a
+        // genuinely legacy scoreboard pair; absent on *one* side only means
+        // "no record for this side," read as empty (`EMPTY_FINGERPRINT`'s
+        // own doc comment) so the diff still reports the present side's
+        // flags/subcommands as added or removed rather than staying silent.
         match (before.fingerprints.get(tool), after.fingerprints.get(tool)) {
-            (Some(bfp), Some(afp)) => {
-                let fd = field_diff(tool, bfp, afp, tier_changed, framework_changed);
-                if !fd.is_empty() {
-                    field_diffs.push(fd);
-                }
-            }
-            _ => {
-                // At least one side predates the `#fp` footer — field-level
+            (None, None) => {
+                // Neither side has a `#fp` entry for this tool — the
+                // genuine legacy case (this scoreboard pair predates the
+                // footer entirely, or — vanishingly rarely — this one row's
+                // line failed to parse on both sides). Field-level
                 // comparison is impossible, not "nothing changed"
                 // (`ParsedScoreboard::fingerprints`'s doc comment). Still
                 // surface a tier/framework change if one was found from the
@@ -733,6 +766,18 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
                     });
                 } else {
                     field_diff_unmeasured += 1;
+                }
+            }
+            (bfp, afp) => {
+                // At least one side has a real entry — diff it against the
+                // other side's entry, or against `EMPTY_FINGERPRINT` when
+                // the other side has none. Covers both the ordinary
+                // both-measured case and the deletion/mixed-vintage case.
+                let bfp = bfp.unwrap_or(&EMPTY_FINGERPRINT);
+                let afp = afp.unwrap_or(&EMPTY_FINGERPRINT);
+                let fd = field_diff(tool, bfp, afp, tier_changed, framework_changed);
+                if !fd.is_empty() {
+                    field_diffs.push(fd);
                 }
             }
         }
@@ -1058,9 +1103,11 @@ pub fn render_markdown(t: &Transition) -> String {
     }
     if t.field_diff_unmeasured > 0 {
         out.push_str(&format!(
-            "> [!NOTE]\n> {} matched tool(s) could not be compared at field granularity — at \
-             least one side's scoreboard predates the `#fp` fingerprint footer. Not counted as \
-             \"no field-level changes.\"\n\n",
+            "> [!NOTE]\n> {} matched tool(s) could not be compared at field granularity — \
+             neither scoreboard carries a `#fp` fingerprint entry for them, meaning this pair \
+             predates the fingerprint footer entirely (a scoreboard that does carry it emits an \
+             entry for every tool, including ones with no flags and no subcommands). Not counted \
+             as \"no field-level changes.\"\n\n",
             t.field_diff_unmeasured,
         ));
     }
@@ -1272,7 +1319,7 @@ pub fn render_text(t: &Transition) -> String {
     }
     if t.field_diff_unmeasured > 0 {
         out.push_str(&format!(
-            "# field-level comparison unavailable for {} matched tool(s) — scoreboard predates the #fp footer\n",
+            "# field-level comparison unavailable for {} matched tool(s) — neither scoreboard carries a #fp entry for them (this pair predates the fingerprint footer entirely)\n",
             t.field_diff_unmeasured
         ));
     }
@@ -1699,6 +1746,81 @@ mod tests {
         // determination still reads identical — this test is only about
         // the unmeasured counter, not about forcing non-identical when
         // nothing else moved either.
+        assert!(t.is_identical());
+    }
+
+    /// **The follow-up defect, direction 1**: a tool that had flags on the
+    /// "before" side and loses every one of them must be reported as every
+    /// flag removed, not as field-diff-unmeasured. `coverage::fingerprint_lines`
+    /// used to skip emitting a `#fp` line for a row with no flags and no
+    /// subcommands, so the "after" side (now empty) had no line at all and
+    /// this fell into the unmeasured bucket instead — the field-level
+    /// section going silent on exactly the case it exists to catch. See
+    /// this test's sibling below (`without the fix...`) for the
+    /// commit-then-attack proof this test was written to fail against.
+    #[test]
+    fn a_tool_that_loses_every_flag_is_reported_removed_not_unmeasured() {
+        let mut before_fp = ParsedFingerprint::default();
+        before_fp.flags.insert(
+            "(root)::--strip".to_string(),
+            flag_fp(true, Some(1), None, None),
+        );
+        before_fp.flags.insert(
+            "(root)::--guesswork".to_string(),
+            flag_fp(true, Some(2), None, None),
+        );
+        // The "after" fingerprint is empty — every flag gone — but it is
+        // still *present* in the map (an entry with empty `flags`), which
+        // is exactly what `coverage::fingerprint_lines` now guarantees by
+        // emitting a `#fp` line for every row unconditionally.
+        let after_fp = ParsedFingerprint::default();
+
+        let before = scoreboard_with_fp(vec![("pngfix", "ok", 2, 20)], vec![("pngfix", before_fp)]);
+        let after = scoreboard_with_fp(vec![("pngfix", "ok", 2, 20)], vec![("pngfix", after_fp)]);
+
+        let t = diff(&before, &after);
+
+        assert_eq!(
+            t.field_diff_unmeasured, 0,
+            "a real, present-on-both-sides fingerprint must never be counted unmeasured"
+        );
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(t.field_diffs[0].tool, "pngfix");
+        assert_eq!(
+            t.field_diffs[0].flags_removed,
+            vec!["(root)::--guesswork", "(root)::--strip"]
+        );
+        assert!(t.field_diffs[0].flags_added.is_empty());
+        assert!(!t.is_identical());
+    }
+
+    /// **The follow-up defect, direction 2**: a flagless, subcommandless
+    /// tool present (with an empty fingerprint) on both sides must be
+    /// measured-with-no-changes — absent from `field_diffs` entirely — not
+    /// counted as unmeasured. This is the common case on a real sweep
+    /// (verbatim tools, zero-flag `ok` tools), and conflating "measured
+    /// clean" with "not measured" was the other half of the same defect.
+    #[test]
+    fn a_flagless_tool_present_on_both_sides_is_measured_clean_not_unmeasured() {
+        let before = scoreboard_with_fp(
+            vec![("true", "ok", 0, 5)],
+            vec![("true", ParsedFingerprint::default())],
+        );
+        let after = scoreboard_with_fp(
+            vec![("true", "ok", 0, 5)],
+            vec![("true", ParsedFingerprint::default())],
+        );
+
+        let t = diff(&before, &after);
+
+        assert_eq!(
+            t.field_diff_unmeasured, 0,
+            "a present, empty fingerprint on both sides is measured, not unmeasured"
+        );
+        assert!(
+            t.field_diffs.is_empty(),
+            "no change to report for a flagless tool whose fingerprint didn't move"
+        );
         assert!(t.is_identical());
     }
 

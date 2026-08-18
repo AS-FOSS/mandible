@@ -38,6 +38,27 @@ once it reaches a published 0.1.0 release.
   no longer reads as identical — still non-blocking (maintainer decision D4:
   `sweep-diff` exits `0` regardless, same as before).
 
+- **`sweep-diff`'s field-level section no longer goes silent on a tool that
+  loses every flag.** The `#fp` footer above shipped skipping the line
+  entirely for a row with no flags and no subcommands, on the assumption
+  that "nothing to fingerprint" and "not fingerprinted" were the same case.
+  They aren't, and a real two-sweep diff (2,254 tools) found both costs at
+  once: roughly a quarter of the fleet (verbatim tools, zero-flag `ok`
+  tools) reported as field-diff-unmeasured instead of measured-with-nothing,
+  and a tool that had flags before and loses every one of them produced a
+  `#fp` line on the "before" side and none on the "after" side — read as
+  unmeasured instead of every flag removed, going quiet on exactly the
+  regression direction this fingerprint exists to catch (the flag-count-loss
+  section still caught it independently, so this was never a detection
+  hole, only a misleading message on the section built specifically because
+  counts can lie). `coverage::fingerprint_lines` now emits a `#fp` line for
+  every row unconditionally; `transition::diff` now tells apart "both sides
+  measured" (diff normally, including an empty side reporting every flag on
+  the other side as added/removed), "neither side has an entry" (the
+  genuine legacy case — scoreboard predates the footer entirely, reported
+  field-diff-unmeasured as before), and "one side only" (read as an empty
+  fingerprint on the missing side rather than as unmeasured).
+
 - **A nested command table no longer folds into the flag description above
   it.** `scan_flags_block`'s continuation rule was pure indentation: any line
   deeper than the block's own entries continued the previous flag's
