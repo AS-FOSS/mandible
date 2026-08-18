@@ -383,18 +383,31 @@ const FP_FIELD_SEP: char = '\t';
 /// tool, in the same tool-name order `rows` is already sorted in ([`run_over`])
 /// — deterministic output, no separate sort needed here.
 ///
+/// **One line per row, unconditionally — including a tool with empty
+/// `flags` and empty `subcommands`.** An earlier version of this function
+/// skipped those, on the (wrong) assumption that "nothing to fingerprint"
+/// and "not fingerprinted" were the same case. They aren't:
+/// [`crate::transition`] tells "this scoreboard predates the `#fp` footer"
+/// from "this tool measured clean" by whether a line exists at all, so
+/// skipping the empty case made every flagless/subcommandless tool — a
+/// verbatim tool, a zero-flag `ok` tool, roughly a quarter of a real
+/// full-`PATH` sweep — read as unmeasured instead of measured-with-nothing.
+/// Worse, it hid exactly the regression this whole fingerprint exists to
+/// catch: a tool that had flags on one side and loses every one of them
+/// produces a line on that side and *none* on the empty side, so the diff
+/// reported "unmeasured" for a total wipeout instead of every flag removed.
+///
 /// Line shape: `#fp <tool>\t<sub1>,<sub2>,...\t<flag1>|<flag2>|...` where
 /// each flag entry is `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
-/// (hashes as lowercase hex). Never mixed into `render_markdown`'s output:
-/// [`crate::transition::parse_scoreboard`] only ever reads a
-/// [`ScoreFormat::Text`] scoreboard (that module's own doc comment), so
-/// there is nothing that would read a markdown copy of this section.
+/// (hashes as lowercase hex), and either list may be empty (`#fp true\t\t`
+/// for a tool with no subcommands and no flags). Never mixed into
+/// `render_markdown`'s output: [`crate::transition::parse_scoreboard`] only
+/// ever reads a [`ScoreFormat::Text`] scoreboard (that module's own doc
+/// comment), so there is nothing that would read a markdown copy of this
+/// section.
 fn fingerprint_lines(rows: &[Row]) -> String {
     let mut out = String::new();
     for row in rows {
-        if row.fingerprint.flags.is_empty() && row.fingerprint.subcommands.is_empty() {
-            continue;
-        }
         let subs = row
             .fingerprint
             .subcommands

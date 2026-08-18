@@ -54,8 +54,9 @@ once it reaches a published 0.1.0 release.
   continuation line still reads as an ordinary wrapped description, only
   genuine repetition ends the block early. All seven of `btrfs --help`'s
   real flags now parse with only their own description
-  (`corpus/btrfs/audit-seed2`); the command table itself still isn't
-  recovered as subcommands, so the fixture stays `[xfail]`.
+  (`corpus/btrfs/audit-seed2`); the command table itself is recovered as
+  subcommands by the headingless-invocation-table entry below, which is
+  what clears that fixture's `[xfail]`.
 
   That detector's first version broke a different, equally real shape: a
   flag with **no inline description of its own** (`pngfix --strip=[none|
