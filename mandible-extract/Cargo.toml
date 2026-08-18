@@ -45,7 +45,7 @@ bindgen = { version = "0.70", optional = true }
 # session fix (spec §6 rule 6, [M-17]) actually closes the hazard, since
 # the sandbox this crate is developed in has no controlling terminal at
 # all — see that test's doc comment.
-nix = { version = "0.29", default-features = false, features = ["signal", "process", "term"] }
+nix = { version = "0.29", default-features = false, features = ["signal", "process", "term", "fs"] }
 libc.workspace = true
 
 [dev-dependencies]

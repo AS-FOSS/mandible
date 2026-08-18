@@ -10,6 +10,19 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A full-`PATH` sweep's scoreboard write no longer fails `EACCES` inside
+  namespace containment.** `xtask coverage`/`audit freeze` re-exec under
+  `unshare --user --map-root-user` before probing (spec §6/§8); GitHub
+  Actions run 32063212492 showed all 16 `path-sweep.yml` shards finish their
+  full sweep and then die writing `shard-N.md`, because the checkout
+  directory is owned by a UID the namespace doesn't map, so the contained
+  "root" has no `CAP_DAC_OVERRIDE` over it. The pre-exec process — which
+  still has ordinary filesystem access — now opens `--out` and clears
+  `FD_CLOEXEC` on it before entering containment, and the contained process
+  writes the scoreboard through that inherited fd instead of reopening the
+  path. Uncontained runs, `--tools`-pinned runs, and non-Linux platforms are
+  unaffected (`mandible_extract::exec::containment::secure_out_file`,
+  `enter_or_refuse_with_scoreboard`, `write_scoreboard`).
 - **`path-sweep-summary` now fails when zero shards reported.** Previously the
   step always exited 0, so a completely dead sweep (all 16 shards killed)
   still painted a green tick — the exact "tick asserting something false"
