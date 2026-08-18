@@ -626,7 +626,10 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             // return): only a real, tools-unbounded sweep needs
             // containment.
             let is_full_path_sweep = tools.is_none() && !check;
-            let canaries = sweep_guard(is_full_path_sweep, allow_uncontained)?;
+            // `None`: `audit freeze` writes its results under `--dir`
+            // (`queue::cmd_freeze`), never through the `--out`-file path
+            // this guard's fd-securing exists for.
+            let canaries = sweep_guard(is_full_path_sweep, allow_uncontained, None)?;
             let freeze_result = queue::cmd_freeze(seed, tools, &dir, check);
             finish_sweep_guard(canaries)?;
             freeze_result
@@ -783,18 +786,36 @@ fn parse_shard(spec: &str) -> anyhow::Result<(usize, usize)> {
 /// returned immediately for both, matching every earlier caller's
 /// unguarded behavior exactly.
 ///
+/// `secure_out`, when `Some`, is a `--out` path the caller is about to
+/// write its result to *after* the sweep — i.e. from inside the namespace,
+/// if this run ends up contained. Before entering containment, this
+/// function opens that path itself (still on the pre-exec side, with
+/// ordinary filesystem access) via
+/// `mandible_extract::exec::containment::secure_out_file` and carries the
+/// already-open fd across `unshare` + re-exec, so the caller can write
+/// through it later with `containment::write_scoreboard` instead of
+/// reopening the path from inside the namespace, where it fails `EACCES`
+/// (GitHub Actions run 32063212492: every one of 16 shards finished its
+/// full sweep and then died with `failed to write scoreboard to
+/// shard-0.md: Permission denied (os error 13)` on exactly that reopen).
+/// `None` for a caller with no `--out` write pending here — `audit freeze`
+/// writes its results under `--dir` through a different path entirely, not
+/// through this guard, so it always passes `None`.
+///
 /// **This function does not itself decide whether the current process
 /// already is the contained one.** It asks
 /// `mandible_extract::exec::containment::is_contained()`. The *first*
 /// invocation of `xtask coverage`/`xtask audit freeze` (no sentinel env
-/// var set) falls through to `containment::enter_or_refuse()`, which —
-/// when namespaces are available — replaces this process's image via
-/// `exec` and never returns; control lands back here a second time, in a
-/// freshly re-exec'd process, with the sentinel now set, and this
+/// var set) falls through to `containment::enter_or_refuse()` (or, when
+/// `secure_out` is `Some`, `containment::enter_or_refuse_with_scoreboard()`),
+/// which — when namespaces are available — replaces this process's image
+/// via `exec` and never returns; control lands back here a second time, in
+/// a freshly re-exec'd process, with the sentinel now set, and this
 /// function's first branch fires instead.
 fn sweep_guard(
     is_full_path_sweep: bool,
     allow_uncontained: bool,
+    secure_out: Option<&std::path::Path>,
 ) -> anyhow::Result<Option<mandible_extract::exec::canary::CanarySet>> {
     use mandible_extract::exec::{canary::CanarySet, containment};
 
@@ -826,7 +847,16 @@ fn sweep_guard(
         return Ok(None);
     }
 
-    let err = containment::enter_or_refuse();
+    let err = match secure_out {
+        Some(path) => match containment::secure_out_file(path) {
+            Ok(file) => containment::enter_or_refuse_with_scoreboard(Some(file)),
+            Err(e) => anyhow::bail!(
+                "failed to pre-open --out {} before entering namespace containment: {e}",
+                path.display()
+            ),
+        },
+        None => containment::enter_or_refuse(),
+    };
     anyhow::bail!(
         "refusing to run a full-PATH sweep uncontained: {err}\n\
          Namespace containment (user+PID+mount, spec §6/§8) is the default for a full-PATH \
@@ -877,7 +907,12 @@ fn run_coverage(
     allow_uncontained: bool,
 ) -> anyhow::Result<()> {
     let is_full_path_sweep = tools.is_none();
-    let canaries = sweep_guard(is_full_path_sweep, allow_uncontained)?;
+    // `--check` never writes `out` (it only reads the checked-in scoreboard
+    // to diff against — see below), so there is nothing to secure for that
+    // path; every other run ends with `write_out(out, ...)` below, which is
+    // exactly the write that needs `out`'s fd carried across containment.
+    let secure_out = if check { None } else { Some(out.as_path()) };
+    let canaries = sweep_guard(is_full_path_sweep, allow_uncontained, secure_out)?;
 
     let (table, fresh) = match tools {
         Some(tools) => {
@@ -1273,6 +1308,19 @@ fn run_coverage(
 /// that the default `--out` *is* under `tmp/` (see `Coverage::out`): a fresh
 /// clone has no such directory, and the sweep would die at the very end,
 /// after twenty minutes of work, with nothing written.
+///
+/// The actual write goes through
+/// `mandible_extract::exec::containment::write_scoreboard` rather than a
+/// bare `std::fs::write`: when this process is the contained half of a
+/// full-`PATH` sweep whose `out` was pre-secured by `sweep_guard`
+/// (`containment::secure_out_file` before entering the namespace), that
+/// function writes through the inherited, already-open fd instead of
+/// reopening `out` by path — reopening by path from inside the namespace is
+/// exactly what failed `EACCES` (GitHub Actions run 32063212492). Every
+/// other caller of `write_out` (the uncontained case, `--tools`-pinned
+/// runs, `run_sweep_diff`'s unrelated report write) never has that env var
+/// set, so `write_scoreboard` falls straight through to `std::fs::write`
+/// and this function's behavior is unchanged for them.
 fn write_out(out: &std::path::Path, contents: &str, what: &str) -> anyhow::Result<()> {
     if let Some(parent) = out.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1281,6 +1329,6 @@ fn write_out(out: &std::path::Path, contents: &str, what: &str) -> anyhow::Resul
             })?;
         }
     }
-    std::fs::write(out, contents)
+    mandible_extract::exec::containment::write_scoreboard(out, contents)
         .map_err(|e| anyhow::anyhow!("failed to write {what} to {}: {e}", out.display()))
 }
