@@ -2403,6 +2403,9 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
 
         let is_continuation = !rows.is_empty() && min_entry_indent.is_some_and(|m| indent > m);
         if is_continuation {
+            if nested_entry_table_starts_at(lines, i, indent) {
+                break;
+            }
             rows.push(FlagsBlockRow::Continuation(trimmed.trim_end()));
             i += 1;
             continue;
@@ -2462,6 +2465,92 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
         }
     }
     (i, entries)
+}
+
+/// The fewest name/description pairs a deeper-indented run must show before
+/// [`nested_entry_table_starts_at`] will read it as a table rather than an
+/// ordinary wrapped description.
+///
+/// Two, for the same reason [`scan_same_indent_entry_table`]'s `MIN_ROWS`
+/// is two: one ragged continuation line that happens to be followed by a
+/// still-deeper line is unremarkable prose, and must not trip this on its
+/// own. Only repetition — the same name/description shape recurring — is
+/// evidence of a table.
+const MIN_NESTED_TABLE_ROWS: usize = 2;
+
+/// Look ahead from a candidate continuation line at `lines[start]` (indent
+/// `indent`, already known to be deeper than the flags block's own entries)
+/// for a **nested entry table** — command rows with their own
+/// one-level-deeper descriptions — rather than an ordinary wrapped
+/// description of the flag above it.
+///
+/// # Why this exists
+///
+/// [`scan_flags_block`]'s continuation rule used to be indentation alone:
+/// *any* line deeper than the block's entries continues the previous
+/// entry's description. That is right for a wrapped sentence and wrong for
+/// a nested table, and nothing about indentation tells them apart — both
+/// are "deeper than the flag rows above."
+///
+/// `btrfs --help` (`corpus/btrfs/audit-seed2/help.txt`) has both, back to
+/// back. `Options for the main command only:` holds two ordinary flag rows
+/// at indent 2 (`--help`, `--version`). A blank line later, at indent 4, a
+/// large command table begins — `btrfs balance start [options] <path>`,
+/// each row followed by its own description one indent deeper (indent 8):
+///
+/// ```text
+///   --version         print version string
+///
+///     btrfs balance start [options] <path>
+///         Balance chunks across the devices
+///     btrfs balance pause <path>
+///         Pause running balance
+/// ```
+///
+/// Indentation alone reads every line of that table, and every one of its
+/// descriptions, as more of `--version`'s own description — the whole
+/// command table folds into one flag.
+///
+/// # The rule
+///
+/// A row is counted when a non-blank line sits at exactly `indent` and (a)
+/// is not [`looks_like_flag_start`] — a real flag row at this indent is
+/// business as usual for the block, not a nested table — and (b) is
+/// immediately followed by a non-blank line indented deeper still. The
+/// lookahead continues across blank lines and any line at or below
+/// `indent`'s depth, stopping the moment a non-blank line dedents past it
+/// (structure below `indent` belongs to whatever comes after the table, not
+/// to this scan). At least [`MIN_NESTED_TABLE_ROWS`] such rows makes it a
+/// table.
+///
+/// Returning `true` tells [`scan_flags_block`] to `break` at `start` — it
+/// **re-routes rather than drops**, the same contract [`bare_block_end`]'s
+/// flag-row break uses: the caller resumes its own scan at exactly this
+/// line, so a wrong call here loses nothing, it just leaves the text where
+/// it was for a later pass to read.
+fn nested_entry_table_starts_at(lines: &[&str], start: usize, indent: usize) -> bool {
+    let mut rows = 0usize;
+    let mut j = start;
+    while j < lines.len() {
+        let line = lines[j];
+        if line.trim().is_empty() {
+            j += 1;
+            continue;
+        }
+        let line_indent = leading_whitespace(line);
+        if line_indent < indent {
+            break;
+        }
+        if line_indent == indent && !looks_like_flag_start(line.trim_start()) {
+            if let Some(next) = lines.get(j + 1) {
+                if !next.trim().is_empty() && leading_whitespace(next) > indent {
+                    rows += 1;
+                }
+            }
+        }
+        j += 1;
+    }
+    rows >= MIN_NESTED_TABLE_ROWS
 }
 
 /// The original (pre-multi-column) way to split one flags-block entry line:
@@ -4452,6 +4541,59 @@ Usage: prog [bs=BS] [--help]
     fn a_bare_block_with_no_flag_rows_is_unchanged() {
         let lines = ["  alpha   first", "  beta    second", "  gamma   third"];
         assert_eq!(bare_block_end(&lines, 0), 3);
+    }
+
+    /// `btrfs --help`'s shape (`corpus/btrfs/audit-seed2/help.txt`): a
+    /// flags block at indent 2 (`--help`, `--version`), followed by a blank
+    /// line and then a nested command table at indent 4 whose own rows are
+    /// each followed by a description one indent deeper (indent 8). Before
+    /// this test's fix, [`scan_flags_block`]'s continuation rule only
+    /// checked "is this line indented past the block's entries?" — true for
+    /// every row and every description in the table below — so the entire
+    /// table folded into `--version`'s description instead of ending the
+    /// flags block.
+    ///
+    /// Three table groups, deliberately more than the
+    /// [`MIN_NESTED_TABLE_ROWS`] floor of two: a single ragged continuation
+    /// followed by one deeper line must never trip this detector, only
+    /// genuine repetition may.
+    #[test]
+    fn nested_command_table_does_not_swallow_into_a_flag_description() {
+        let help = "\
+Usage: widget [global] <group> <command> [<args>]
+
+Options for the main command only:
+  --help            print condensed help for all subcommands
+  --version         print version string
+
+    widget group one start
+        Start the first task
+    widget group one stop
+        Stop the first task
+    widget group two run
+        Run the second task
+";
+        let parsed = parse(help);
+        let version = flag_named(&parsed, "version");
+        assert_eq!(
+            version.description.as_ref().map(|t| t.as_str()),
+            Some("print version string"),
+            "--version's description must not absorb the command table below it"
+        );
+        for swallowed in [
+            "Start the first task",
+            "Stop the first task",
+            "Run the second task",
+        ] {
+            assert!(
+                !version
+                    .description
+                    .as_ref()
+                    .is_some_and(|d| d.as_str().contains(swallowed)),
+                "table row {swallowed:?} leaked into --version's description: {:?}",
+                version.description
+            );
+        }
     }
 
     /// `--quoting-style`'s valid arguments are introduced by a heading
