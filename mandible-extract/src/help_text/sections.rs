@@ -2545,6 +2545,18 @@ fn nested_entry_table_starts_at(lines: &[&str], start: usize, indent: usize) -> 
             if let Some(next) = lines.get(j + 1) {
                 if !next.trim().is_empty() && leading_whitespace(next) > indent {
                     rows += 1;
+                    // Nothing past the floor can change the answer, and
+                    // this scan runs once per candidate continuation line:
+                    // returning as soon as it is decided keeps a positive
+                    // match from walking the rest of a long table (the
+                    // "never call an O(n) function from inside a loop"
+                    // hazard in AGENTS.md §2). The negative case is
+                    // already short — it stops at the first line that
+                    // dedents past `indent`, which in an ordinary flags
+                    // block is the very next entry row.
+                    if rows >= MIN_NESTED_TABLE_ROWS {
+                        return true;
+                    }
                 }
             }
         }

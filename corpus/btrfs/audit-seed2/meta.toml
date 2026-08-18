@@ -18,7 +18,12 @@ expected_framework = "generic"
 # of them becomes a subcommand; the tree has zero, not `verbatim` (no
 # `unparsed` either — the lines are just silently dropped).
 min_subcommands = 1
-verdict_scope = ["flags"]
+# No `verdict_scope` on purpose. The flag half of this tree was read
+# line-by-line against help.txt before blessing — but by an agent, not a
+# human, and `verdict_scope` is documented (corpus/README.md, "What
+# --bless does and does not assert") as the record of what *a human*
+# looked at. Claiming it here would be exactly the overclaim the field
+# exists to prevent. Add it when a human has reviewed the bless.
 
 [xfail]
 broken = true
