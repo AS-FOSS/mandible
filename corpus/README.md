@@ -75,6 +75,11 @@ matched itself perfectly and was still wrong. It is `[xfail]` again now,
 specifically because that review did not happen the first time.
 
 ```toml
+# Who blessed this fixture's expected.snap — required on every fixture.
+# See "Human vs. agent: `[bless] provenance`" below.
+[bless]
+provenance = "agent"
+
 [tool]
 name = "git"
 version = "2.43.0"
@@ -219,6 +224,50 @@ The 36 `audit-seed2` fixtures promoted from the seed-2 human audit
 matching that audit's own declared scope: the reviewer judged flag and
 subcommand accuracy only, and never looked at prose.
 
+### Human vs. agent: `[bless] provenance`
+
+`verdict_scope` records what a human reviewed. It has no complement: nothing
+records which fixtures were blessed by an agent with **no** human eyes on
+them at all, which is most of this corpus — the AGENTS.md measurement at
+v0.3.1 found only 3 of 23 newly-passing fixtures carried a human
+`verdict_scope`; the other 20 were agent-blessed trees the suite then
+guarded against *changing*, not against being *wrong*. `[bless] provenance`
+makes that complement machine-readable instead of leaving it to be inferred
+from whether `verdict_scope` happens to be set.
+
+It is a **required** top-level table, present on every fixture:
+
+```toml
+[bless]
+provenance = "agent"
+```
+
+Three values:
+
+- `"human"` — a human blessed (or re-blessed) the current `expected.snap`.
+- `"agent-then-human"` — an agent blessed the tree; a human reviewed it
+  later and recorded a `verdict_scope`, without re-blessing. The honest
+  mixed case: the snapshot bytes are agent-authored, but a human has since
+  looked and left a record of what they checked.
+- `"agent"` — an agent blessed it and no human has reviewed the tree. The
+  conservative default, and the only value `xtask audit fixtures` ever
+  writes.
+
+**An agent always writes `"agent"` here, and only a human may flip it to
+`"human"` or `"agent-then-human"`.** This is the mirror of the rule
+`verdict_scope` already carries ("an agent must never claim `verdict_scope`")
+extended to the blessing act itself: an agent judging its own bless as
+human-verified would defeat the field before it recorded anything. The
+conservative default exists for the same reason `verdict_scope`'s absence
+means "no scope claimed" rather than "every scope" — it is always safe to
+upgrade a truthful claim later, never safe to have quietly overclaimed one.
+
+`cargo xtask corpus`'s summary line splits its `ok` count by this field —
+`60 ok (12 human, 3 agent-then-human, 45 agent)` — specifically so "N ok"
+can never be read as "N human-verified"; `xtask corpus --show <fixture>`
+prints the value alongside `scope`, and the `--format markdown` report
+carries it as its own `provenance` column next to `scope`.
+
 Lifecycle rules, enforced by `cargo xtask corpus`:
 
 - `xfail` → passing: allowed in any PR. This is the good direction.
@@ -258,9 +307,12 @@ You found a tool that parses badly. The steps:
    back to `$HOME`-style variables; a manual capture has no such protection —
    read the file before you commit it.
 4. **Write `meta.toml`** with `[[capture]]` (mapping the argv you ran to the
-   files you captured) and `[xfail]` describing what's wrong. You do not
-   need to produce `expected.snap` — a fixture marked broken has no expected
-   tree yet.
+   files you captured), `[xfail]` describing what's wrong, and a required
+   `[bless]` table. You do not need to produce `expected.snap` — a fixture
+   marked broken has no expected tree yet — but `[bless] provenance` is
+   still required: an agent writes `provenance = "agent"` here always (see
+   "Human vs. agent" above); a human contributor may write `"human"` only
+   once they've actually blessed the tree themselves.
 5. **Open a PR containing only the fixture.** CI confirms the parser really
    does fail on it (an xfail that passes is flagged — the bug may already be
    fixed). A maintainer merges it: the bug is now an executable, reproducible
@@ -268,7 +320,9 @@ You found a tool that parses badly. The steps:
 6. **Optionally, fix it** — in the same PR or a later one, by you or anyone:
    improve the grammar (never add per-tool logic), run
    `cargo xtask corpus --bless` to accept the new snapshot, fill in
-   `[contract]`, remove `[xfail]`. `cargo xtask corpus` (without `--bless`)
+   `[contract]`, set `[bless] provenance` (`"agent"` unless a human is doing
+   this bless and reviewing the tree themselves, in which case `"human"`),
+   remove `[xfail]`. `cargo xtask corpus` (without `--bless`)
    enforces that **every other fixture stays green** — that is the entire
    point. A fix that breaks another fixture will be named, and the tension
    goes to review instead of shipping. Note the order: blessing happens

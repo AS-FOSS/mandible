@@ -1490,6 +1490,15 @@ pub fn cmd_fixtures(
         meta.push_str(
             "# review-any-fixture-for-machine-specific-content note before committing.\n\n",
         );
+        // An agent generated this fixture, so `[bless] provenance` starts at
+        // the conservative default. Only a human may change this value to
+        // "human" or "agent-then-human" (corpus/README.md's `[bless]`
+        // section, the mirror of the rule that an agent must never claim
+        // `verdict_scope`) — never widen it mechanically here.
+        meta.push_str("# An agent generated this fixture; only a human may change the value\n");
+        meta.push_str("# below (corpus/README.md's `[bless]` section).\n");
+        meta.push_str("[bless]\n");
+        meta.push_str("provenance = \"agent\"\n\n");
         meta.push_str("[tool]\n");
         meta.push_str(&format!("name = {:?}\n", entry.tool));
         meta.push_str(&format!("version = \"audit-seed{seed}\"\n"));

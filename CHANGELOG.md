@@ -8,6 +8,35 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- **Every corpus fixture now carries a required `[bless] provenance` field —
+  `human`, `agent-then-human`, or `agent` — recording who blessed its
+  `expected.snap`, the complement `verdict_scope` never had.** `verdict_scope`
+  says what a human reviewed; it says nothing about the fixtures nobody
+  reviewed at all, and that was most of them — AGENTS.md's own v0.3.1
+  measurement found only 3 of 23 newly-passing fixtures carried a human
+  `verdict_scope`, the other 20 were agent-blessed trees the suite guarded
+  against *changing*, never against being *wrong*. Without this field, "N
+  fixtures ok" and "N fixtures human-verified" were indistinguishable in any
+  summary, which is exactly the overclaim `verdict_scope` was built to
+  prevent for review *scope* but never for the bless act itself.
+
+  The field is required, not optional with a silent default: `xtask corpus`
+  fails to load a fixture missing it, naming the file and pointing at
+  `corpus/README.md`, rather than let an absent value read as "unknown" (or
+  worse, get inferred as reviewed). `xtask corpus`'s summary line now splits
+  its `ok` count by provenance (`71 ok (6 human, 35 agent-then-human, 30
+  agent)`), `--show <fixture>` and the `--format markdown` report both
+  surface it alongside `scope`, and `xtask audit fixtures` always emits
+  `provenance = "agent"` for a fixture it generates — an agent may only ever
+  write that value; flipping it to `human`/`agent-then-human` is a human-only
+  act, mirroring the rule `verdict_scope` already enforces. All 84 existing
+  fixtures were backfilled by git-history review (bless commit vs. the
+  commit that recorded `verdict_scope`, and `Co-Authored-By` trailers where
+  no `verdict_scope` existed at all): 6 `human`, 35 `agent-then-human`, 43
+  `agent`.
+
 ### Fixed
 
 - **`xtask sweep-diff` now diffs each tool's flags, choices, and subcommands
