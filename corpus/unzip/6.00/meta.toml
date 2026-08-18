@@ -1,3 +1,6 @@
+[bless]
+provenance = "agent"
+
 [tool]
 name = "unzip"
 version = "6.00"

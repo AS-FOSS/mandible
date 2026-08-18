@@ -19,6 +19,9 @@
 # table, not by the synopsis. See spec §13.1e: the blank-line synopsis
 # resumption remains a singleton with no detector and no fix.
 
+[bless]
+provenance = "human"
+
 [tool]
 name = "sg_dd"
 version = "audit-seed2"

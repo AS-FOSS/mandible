@@ -7,6 +7,9 @@
 # same binary and print the same help with a different program name, so this
 # one capture covers all three labels — one binary, three names.
 
+[bless]
+provenance = "agent"
+
 [tool]
 name = "mariadb-check"
 version = "2.7.4"

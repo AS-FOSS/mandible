@@ -1,3 +1,6 @@
+[bless]
+provenance = "agent"
+
 [tool]
 name = "du"
 version = "9.4"

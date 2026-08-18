@@ -1,3 +1,6 @@
+[bless]
+provenance = "agent"
+
 [tool]
 name = "pod2man"
 version = "5.01"

@@ -1,3 +1,6 @@
+[bless]
+provenance = "agent"
+
 [tool]
 name = "gcc"
 version = "13.3.0"
