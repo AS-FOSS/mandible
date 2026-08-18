@@ -893,9 +893,10 @@ fn not_attested_fallback(
     let attempted = words.join(" ");
     let mut lines = vec![Text::sanitize_preserving_layout(&format!(
         "mandible could not verify \"{attempted}\" as a real subcommand name: it came from a \
-         source the probe-safety gate does not accept (a native/cobra artifact scan, not a \
-         --help heading), so it was never sent as an argument. This is a known limitation of \
-         the gate, not something already worked around."
+         source the probe-safety gate does not accept as evidence a word is safe to run (a \
+         native/cobra artifact scan, or a headingless invocation table's layout evidence — \
+         neither is a recognized --help heading), so it was never sent as an argument. This is \
+         a known limitation of the gate, not something already worked around."
     ))];
 
     // `words` is `&[]` here, so `heading_attested`'s value is irrelevant —
@@ -1008,6 +1009,10 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         // set this `true`, for the stub entries `parsed.subcommands`
         // already carries into this node's `subcommands` list above.
         heading_attested: false,
+        // Same reasoning as `heading_attested` immediately above: this is
+        // the probed node itself, never a stub entry recovered from some
+        // other node's headingless invocation table.
+        invocation_attested: false,
         // Set by the caller (`HelpTextTier::extract_node`), which is the
         // only place with the confession-aware probe result this function
         // doesn't see — see `build_node`'s own callers.

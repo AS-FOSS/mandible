@@ -139,6 +139,11 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     // true just because another, lower-authority source also contributed
     // a field.
     let heading_attested = candidates.iter().any(|c| c.heading_attested);
+    // Same "any contributor is enough" reasoning, for the second attestation
+    // bit (spec §6): a headingless-invocation-table source's existence
+    // evidence doesn't stop being true because another, lower-authority
+    // source also contributed a field.
+    let invocation_attested = candidates.iter().any(|c| c.invocation_attested);
 
     let mut provenance = Provenance::default();
     for c in &candidates {
@@ -170,6 +175,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         detected_framework,
         provenance,
         heading_attested,
+        invocation_attested,
         confession,
     })
 }

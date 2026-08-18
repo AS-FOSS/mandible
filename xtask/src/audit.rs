@@ -296,16 +296,27 @@ fn is_bare_stub(node: &CommandNode) -> bool {
 }
 
 /// True for a bare stub ([`is_bare_stub`]) that is *also* not
-/// [`CommandNode::heading_attested`] — its name came from a native/cobra
+/// [`CommandNode::heading_attested`] and not
+/// [`CommandNode::invocation_attested`] — its name came from a native/cobra
 /// artifact (e.g. a `__complete` candidate) rather than a recognized
-/// `--help` heading. This is provable from the single extraction pass this
-/// pre-tag is computed from: `help_text::raw_help` refuses to probe any
-/// node whose `heading_attested` bit is false (`mandible-extract/src/
-/// help_text/mod.rs`), so unlike an ordinary un-recursed subcommand — merely
-/// not fetched *yet* — this one structurally cannot ever be, live
-/// navigation included. `git-lfs`'s tree is the motivating case: 36 nodes,
-/// 34 of them exactly this shape, which is also why its
-/// `status::compute` label is `suspicious`.
+/// `--help` heading or a headingless invocation table (spec §7 Tier B).
+/// This is provable from the single extraction pass this pre-tag is
+/// computed from: `help_text::raw_help` refuses to probe any node whose
+/// `heading_attested` bit is false (`mandible-extract/src/
+/// help_text/mod.rs`) — `invocation_attested` is deliberately never checked
+/// by that gate either, by spec §6's own decision — so unlike an ordinary
+/// un-recursed subcommand — merely not fetched *yet* — this one
+/// structurally cannot ever be, live navigation included. `git-lfs`'s tree
+/// is the motivating case: 36 nodes, 34 of them exactly this shape, which
+/// is also why its `status::compute` label is `suspicious`.
+///
+/// A headingless-table node still counts here even though it *is*
+/// existence-attested: it is genuinely never probed, so K3's "review this
+/// gap" suggestion is still the honest signal for it. `invocation_attested`
+/// only exempts a node from being counted as *fabricated* (see
+/// [`crate::status::structure_sanity`], which is the detector that actually
+/// gates `min_status`) — it does not make the node any less permanently
+/// un-probed.
 fn is_attestation_gated_stub(node: &CommandNode) -> bool {
     is_bare_stub(node) && !node.heading_attested
 }

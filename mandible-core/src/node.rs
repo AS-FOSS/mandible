@@ -87,6 +87,29 @@ pub struct CommandNode {
     /// evidence — [M-10]'s exact shape — regardless of whether its name
     /// happens to look plausible.
     pub heading_attested: bool,
+    /// True when this node was recovered from a **headingless invocation
+    /// table** — a repetition-shaped run of rows the tool printed of its
+    /// own invocation forms (`btrfs balance start [options] <path>`, one
+    /// level deeper description beneath each), every row anchored on the
+    /// tool's own name, with no governing heading at all (spec §7 Tier B's
+    /// headingless-command-table subsection).
+    ///
+    /// This is a *second*, distinct attestation bit from
+    /// [`Self::heading_attested`] — existence-attested (every emitted name
+    /// is checked to occur literally in the raw text) but **deliberately
+    /// not probe-eligible**: spec §6's `--help` probe gate reads
+    /// `heading_attested` only, and this field must never be added to that
+    /// gate. A table row is layout evidence about a *document*, not a
+    /// heading declaring "here is the command list" — see spec §6's
+    /// closing paragraphs for the reasoning kept there, not duplicated
+    /// here.
+    ///
+    /// The sanity/audit detectors (`xtask::status::count_suspicious`,
+    /// `xtask::audit::is_attestation_gated_stub`) accept *either* bit as
+    /// evidence a node names a real command, so a headingless-table node is
+    /// never flagged as a fabricated phantom subcommand merely for not
+    /// being probe-eligible.
+    pub invocation_attested: bool,
     /// What this node's own `--help` text said about being an incomplete
     /// document, if anything (spec §6 rule 2b: the "truncation confession"
     /// convention — curl's `--help` ending "For all options use the manual
@@ -174,6 +197,7 @@ impl CommandNode {
             detected_framework: None,
             provenance,
             heading_attested: false,
+            invocation_attested: false,
             confession: None,
         }
     }
