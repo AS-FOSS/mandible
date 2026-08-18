@@ -2381,6 +2381,7 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
     let mut min_entry_indent: Option<usize> = None;
+    let mut current_entry_line: Option<&'a str> = None;
 
     while i < lines.len() {
         let line = lines[i];
@@ -2397,13 +2398,16 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
         if is_entry_start {
             rows.push(FlagsBlockRow::Entry(line));
             min_entry_indent = Some(min_entry_indent.map_or(indent, |m| m.min(indent)));
+            current_entry_line = Some(line);
             i += 1;
             continue;
         }
 
         let is_continuation = !rows.is_empty() && min_entry_indent.is_some_and(|m| indent > m);
         if is_continuation {
-            if nested_entry_table_starts_at(lines, i, indent) {
+            let entry_has_own_description =
+                current_entry_line.is_some_and(entry_row_carries_own_description);
+            if entry_has_own_description && nested_entry_table_starts_at(lines, i, indent) {
                 break;
             }
             rows.push(FlagsBlockRow::Continuation(trimmed.trim_end()));
@@ -2563,6 +2567,52 @@ fn nested_entry_table_starts_at(lines: &[&str], start: usize, indent: usize) -> 
         j += 1;
     }
     rows >= MIN_NESTED_TABLE_ROWS
+}
+
+/// Does the flags-block entry row currently being continued already carry
+/// its own, non-empty description **on its own line**?
+///
+/// # Why this exists
+///
+/// [`nested_entry_table_starts_at`] cannot tell apart two shapes that look
+/// identical from indentation alone: a nested table that does not belong to
+/// the flag above it (break away — `btrfs --help`, whose
+/// `--version         print version string` already has its description
+/// inline, and the command table below it is not that description), and a
+/// value-choice list or keyword list that **is** the flag's description
+/// (never break — pngfix's `--strip=[none|crc|unsafe|unused|...]:`
+/// and pod2man's `--guesswork=rule[,rule...]` both carry nothing on their
+/// own line; everything below, including any run that happens to look
+/// table-shaped, is the only description that flag will ever have).
+/// Breaking there does not mis-split, it deletes: `--strip` and
+/// `--guesswork` both lost their entire description this way before this
+/// gate existed, `--guesswork` also fabricating a bogus `choices` list from
+/// whatever the parser found past the wrongly-ended block.
+///
+/// # The rule
+///
+/// The entry row already has real description text of its own only when a
+/// conservative single-column split of that one line ([`split_single_column_entry`],
+/// the same split an ungated single-column block would use) yields a
+/// non-empty description. A row that instead looks multi-column-shaped
+/// ([`fields_in_line`] finds more than one field) is read conservatively as
+/// *not* having settled its description yet — this file's block-wide
+/// multi-column decision ([`block_is_multi_column`]) isn't available yet
+/// mid-scan, so a single-line probe here can't be trusted to say which
+/// field, if any, is real; refusing the break is always safe, since the
+/// worst case is the same as the pre-fix behaviour these two regressions
+/// need to keep.
+///
+/// Evaluated once per candidate continuation line from the *entry row's own
+/// text*, never from the continuation rows accumulated so far — so it gives
+/// the same answer at the first continuation line and at the fiftieth, and
+/// a description already underway can never be truncated part-way through.
+fn entry_row_carries_own_description(entry_line: &str) -> bool {
+    if fields_in_line(entry_line).len() > 1 {
+        return false;
+    }
+    let (_, desc) = split_single_column_entry(entry_line);
+    !desc.trim().is_empty()
 }
 
 /// The original (pre-multi-column) way to split one flags-block entry line:
@@ -4606,6 +4656,100 @@ Options for the main command only:
                 version.description
             );
         }
+    }
+
+    /// `pngfix --strip`'s shape (`corpus/pngfix/*/help.txt`): the flag row
+    /// carries **no inline description at all** — it just ends in `:` — and
+    /// everything below it, at one indent deeper, *is* that flag's
+    /// description: a value-choice list whose own rows wrap onto a second,
+    /// still-deeper physical line for the longer choices (`unsafe`,
+    /// `unused`). That wrap is what [`nested_entry_table_starts_at`] misreads
+    /// as table rows: two choices whose explanation happens to overflow onto
+    /// a deeper-indented continuation line is exactly the "row at `indent`
+    /// followed by something deeper" shape it looks for, even though this is
+    /// ordinary wrapped prose, not a nested command table. Before the entry-
+    /// row gate, the detector fired here too, breaking the flags block right
+    /// at the first continuation line and leaving `--strip` with **no
+    /// description at all** — the whole choice list, gone, not merely
+    /// mis-split. Since the entry row itself has nothing on its own line,
+    /// there is nowhere else for this text to go: the break must never
+    /// trigger when the row being continued is bare like this.
+    #[test]
+    fn value_choice_list_with_wrapped_entries_is_not_read_as_a_nested_table() {
+        let help = "\
+Usage: widget [options] file
+
+OPTIONS
+    --strip=[none|crc|unsafe|unused]:
+        none (default): Retain all chunks.
+        crc: Remove chunks with a bad CRC.
+        unsafe: Remove chunks that may be unsafe to retain if the image data
+                is modified. This is set automatically if --max is given.
+        unused: Remove chunks not used when decoding an image. This retains
+                any chunks that might be used by transformations.
+    --optimize (-o):
+        Find the smallest deflate window size for the compressed data.
+";
+        let parsed = parse(help);
+        let strip = flag_named(&parsed, "strip");
+        let desc = strip.description.as_ref().map_or("", |t| t.as_str());
+        assert!(
+            desc.contains("Retain all chunks"),
+            "--strip's own description must not be dropped: {desc:?}"
+        );
+        assert!(
+            desc.contains("Remove chunks not used"),
+            "--strip's own description must not be dropped: {desc:?}"
+        );
+    }
+
+    /// `pod2man --guesswork`'s shape (`corpus/pod2man/*/help.txt`): the flag
+    /// row also carries no inline description — an ordinary wrapped
+    /// paragraph follows, then (this is the part that trips the detector) a
+    /// genuine bare-word keyword list (`functions`, `manref`, `quoting`,
+    /// `variables`), each keyword followed by its own explanation one indent
+    /// deeper. That keyword list is real repetition, so
+    /// [`nested_entry_table_starts_at`] is right that *something* table-
+    /// shaped is down there — it is simply wrong that it's a *different*
+    /// entry's table rather than more of `--guesswork`'s own description.
+    /// Before the entry-row gate this broke the flags block at the very
+    /// first continuation line, so `--guesswork` lost its paragraph *and*
+    /// its keyword list both — its entire description, gone.
+    #[test]
+    fn guesswork_style_keyword_list_is_not_read_as_a_nested_table() {
+        let help = "\
+Usage: widget [options]
+
+Options:
+    --guesswork=rule[,rule...]
+        By default, widget applies some default formatting rules based on
+        guesswork. This option allows turning all or some of it off.
+
+        Otherwise, the value of this option should be a comma-separated
+        list of one or more of the following keywords:
+
+        functions
+            Convert function references like foo() to bold even if they
+            have no markup.
+
+        manref
+            Make the first part of man page references like foo(1) bold
+            even if they have no markup.
+
+    --help
+        Show this help.
+";
+        let parsed = parse(help);
+        let guesswork = flag_named(&parsed, "guesswork");
+        let desc = guesswork.description.as_ref().map_or("", |t| t.as_str());
+        assert!(
+            desc.contains("default formatting rules"),
+            "--guesswork's own description must not be dropped: {desc:?}"
+        );
+        assert!(
+            desc.contains("functions"),
+            "--guesswork's keyword list must not be dropped: {desc:?}"
+        );
     }
 
     /// `--quoting-style`'s valid arguments are introduced by a heading

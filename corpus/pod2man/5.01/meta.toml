@@ -1,0 +1,26 @@
+[tool]
+name = "pod2man"
+version = "5.01"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.3.2"
+
+[[capture]]
+argv = ["pod2man", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# Not this fixture's reason for existing, recorded honestly rather than
+# silently blessed: two pre-existing, unrelated parser artifacts are visible
+# in expected.snap. (1) "--official" (a real flag) also appears a second
+# time with value_name "below." — an in-prose mention ("but also see
+# --official below.", inside --center's own description) misread as a new
+# entry. (2) "--lquote" (a real flag) similarly appears a second time with
+# value_name "or" — from "--lquote or --rquote overrides --quotes" inside
+# --rquote's description. Neither is the entry-row gate this fixture was
+# captured for; no verdict_scope is set, so no claim is made about
+# description accuracy here.
+must_contain_flags = ["--center", "--date", "--encoding", "--errors", "--guesswork", "--name", "--official", "--release", "--section", "--help"]

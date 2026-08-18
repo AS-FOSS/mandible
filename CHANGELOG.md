@@ -29,6 +29,26 @@ once it reaches a published 0.1.0 release.
   (`corpus/btrfs/audit-seed2`); the command table itself still isn't
   recovered as subcommands, so the fixture stays `[xfail]`.
 
+  That detector's first version broke a different, equally real shape: a
+  flag with **no inline description of its own** (`pngfix --strip=[none|
+  crc|unsafe|...]:`, `pod2man --guesswork=rule[,rule...]`) whose entire
+  description is the deeper-indented block below it — a value-choice list
+  or keyword list that can itself look table-shaped once a long choice's
+  own wrapped continuation line, or a genuine bare-word keyword list,
+  supplies the "row followed by something deeper" pattern the detector
+  looks for. Breaking there doesn't mis-split, it deletes: the flag has
+  nowhere else for that text to go, so `--strip` and `--guesswork` were
+  each left with an empty description (`--guesswork` also fabricating a
+  bogus choice list from whatever came after the wrongly-ended block). The
+  break is now gated on the entry row actually being continued: it only
+  fires when that row already carries its own non-empty description on its
+  own line, which is exactly the shape `--version`'s `print version
+  string` has and `--strip`/`--guesswork` do not. New fixtures
+  `corpus/pngfix/1.6.43` and `corpus/pod2man/5.01` cover it; a full-`PATH`
+  sweep confirms every one of the six tools the first version moved
+  (`jpackage`, `less`, `pager`, `pngfix`, `pod2man`, `zstdless`) now parses
+  byte-identically to before that detector existed.
+
 ## [0.3.2] - 2026-08-17
 
 Two user reports drove this release, and each was measured to its mechanism
