@@ -18,7 +18,27 @@ expected_framework = "generic"
 # of them becomes a subcommand; the tree has zero, not `verbatim` (no
 # `unparsed` either — the lines are just silently dropped).
 min_subcommands = 1
+# No `verdict_scope` on purpose. The flag half of this tree was read
+# line-by-line against help.txt before blessing — but by an agent, not a
+# human, and `verdict_scope` is documented (corpus/README.md, "What
+# --bless does and does not assert") as the record of what *a human*
+# looked at. Claiming it here would be exactly the overclaim the field
+# exists to prevent. Add it when a human has reviewed the bless.
 
 [xfail]
 broken = true
-reason = "it lists out the subcommands as combinations of the options therefore current framework detection failed to detect subcommmands."
+reason = """
+Partially fixed: the nested command table (indent 4, each row's own \
+description one indent deeper at indent 8) used to fold whole, along with \
+every row's own description, into --version's description — one flag \
+carrying the entire command list as prose. scan_flags_block's nested-entry- \
+table detector now ends the flags block before that table instead, so all \
+seven real flags (--format, --verbose, --quiet, --log, --dry-run, --help, \
+--version) parse clean, each with only its own description.
+
+Still broken: the command table itself is not recovered as subcommands. \
+Nothing currently promotes an indent-4/indent-8 nested table sitting under \
+a flush headingless heading ("Options for the main command only:") to \
+subcommands — the lines are dropped silently once the flags block ends, \
+same as before the fix. min_subcommands stays unmet.
+"""

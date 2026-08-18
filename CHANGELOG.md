@@ -10,6 +10,45 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A nested command table no longer folds into the flag description above
+  it.** `scan_flags_block`'s continuation rule was pure indentation: any line
+  deeper than the block's own entries continued the previous flag's
+  description, no matter what it actually was. `btrfs --help` puts
+  `--help`/`--version` at indent 2 and then, after a blank line, a large
+  command table at indent 4 whose rows each carry their own description one
+  indent deeper (indent 8) — the whole table, dozens of lines, folded into
+  `--version`'s description as one long run-on sentence.
+
+  A new shape-based, repetition-gated detector
+  (`nested_entry_table_starts_at`) now looks ahead from a candidate
+  continuation line for at least two name/description row pairs at the same
+  indent before treating it as a table rather than prose — a single ragged
+  continuation line still reads as an ordinary wrapped description, only
+  genuine repetition ends the block early. All seven of `btrfs --help`'s
+  real flags now parse with only their own description
+  (`corpus/btrfs/audit-seed2`); the command table itself still isn't
+  recovered as subcommands, so the fixture stays `[xfail]`.
+
+  That detector's first version broke a different, equally real shape: a
+  flag with **no inline description of its own** (`pngfix --strip=[none|
+  crc|unsafe|...]:`, `pod2man --guesswork=rule[,rule...]`) whose entire
+  description is the deeper-indented block below it — a value-choice list
+  or keyword list that can itself look table-shaped once a long choice's
+  own wrapped continuation line, or a genuine bare-word keyword list,
+  supplies the "row followed by something deeper" pattern the detector
+  looks for. Breaking there doesn't mis-split, it deletes: the flag has
+  nowhere else for that text to go, so `--strip` and `--guesswork` were
+  each left with an empty description (`--guesswork` also fabricating a
+  bogus choice list from whatever came after the wrongly-ended block). The
+  break is now gated on the entry row actually being continued: it only
+  fires when that row already carries its own non-empty description on its
+  own line, which is exactly the shape `--version`'s `print version
+  string` has and `--strip`/`--guesswork` do not. New fixtures
+  `corpus/pngfix/1.6.43` and `corpus/pod2man/5.01` cover it; a full-`PATH`
+  sweep confirms every one of the six tools the first version moved
+  (`jpackage`, `less`, `pager`, `pngfix`, `pod2man`, `zstdless`) now parses
+  byte-identically to before that detector existed.
+
 - **A full-`PATH` sweep's scoreboard write no longer fails `EACCES` inside
   namespace containment.** `xtask coverage`/`audit freeze` re-exec under
   `unshare --user --map-root-user` before probing (spec §6/§8); GitHub

@@ -1,0 +1,37 @@
+[tool]
+name = "pngfix"
+version = "1.6.43"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.3.2"
+
+# pngfix writes its usage message to stderr and exits non-zero (255) on
+# `--help` — see AGENTS.md §4's "`--help` output may go to stderr and exit
+# non-zero" note. stdout is genuinely empty for this capture, not omitted.
+[[capture]]
+argv = ["pngfix", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# --max is deliberately absent from this list: the raw capture itself glues
+# "bKGD [transform]: This is used by libpng transforms." and "--max=<number>:"
+# onto one physical line (help.txt, that exact line) — a pre-existing quirk
+# of pngfix's own --help formatting, unrelated to this fixture's reason for
+# existing. --max's row is folded into --strip's description as a result,
+# and this contract records that honestly rather than asserting a flag the
+# parser cannot currently recover from this text.
+#
+# Also not this fixture's reason for existing, recorded honestly rather than
+# silently blessed: --prefix's expected.snap carries a fabricated `choices`
+# list (`and`, `stdfast`, `default`, `libpng`, `zlib`, `invalid`, `read`,
+# `write`) with no relation to --prefix at all. It is drawn from two
+# brace-lists many lines later, in the unrelated EXIT CODES section
+# ("{supfast,stdfast,default,maximum}", "{warning,libpng,zlib,invalid,read,
+# write,unexpected}") and misattributed to the nearest preceding flag. Not
+# the entry-row gate this fixture was captured for; no verdict_scope is set,
+# so no claim is made about description/choices accuracy here.
+must_contain_flags = ["--optimize", "--strip", "--quiet", "--errors", "--warnings", "--out", "--suffix", "--prefix"]

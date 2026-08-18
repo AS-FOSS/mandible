@@ -1,0 +1,80 @@
+name: pngfix
+usage:
+- 'Usage: pngfix {[options] png-file} Tests, optimizes and optionally fixes the zlib header in PNG files. Optionally, when fixing, strips ancillary chunks from the file.'
+positionals:
+- name: PNG
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: optimize
+  value_name: '(-o):'
+  value_kind: Required
+  description: Find the smallest deflate window size for the compressed data.
+  provenance:
+    sources:
+    - help-text
+- long: strip
+  value_name: '[none|crc|unsafe|unused|transform|color|all]:'
+  value_kind: Required
+  description: 'none (default): Retain all chunks. crc: Remove chunks with a bad CRC. unsafe: Remove chunks that may be unsafe to retain if the image data is modified. This is set automatically if --max is given but may be cancelled by a later --strip=none. unused: Remove chunks not used by libpng when decoding an image. This retains any chunks that might be used by libpng image transformations. transform: unused+bKGD. color: transform+iCCP and cHRM. all: color+gAMA and sRGB. Only ancillary chunks are ever removed. In addition the tRNS and sBIT chunks are never removed as they affect exact interpretation of the image pixel values. The following known chunks are treated specially by the above options: gAMA, sRGB [all]: These specify the gamma encoding used for the pixel values. cHRM, iCCP [color]: These specify how colors are encoded. iCCP also specifies the exact encoding of a pixel value; however, in practice most programs will ignore it. bKGD [transform]: This is used by libpng transforms. --max=<number>: Use IDAT chunks sized <number>. If no number is given the IDAT chunks will be the maximum size permitted; 2^31-1 bytes. If the option is omitted the original chunk sizes will not be changed. When the option is given --strip=unsafe is set automatically. This may be cancelled if you know that all unknown unsafe-to-copy chunks really are safe to copy across an IDAT size change. This is true of all chunks that have ever been formally proposed as PNG extensions.'
+  provenance:
+    sources:
+    - help-text
+- long: quiet
+  value_name: '(-q):'
+  value_kind: Required
+  description: Do not output the summaries except for files that cannot be read. With two --quiets these are not output either.
+  provenance:
+    sources:
+    - help-text
+- long: errors
+  value_name: '(-e):'
+  value_kind: Required
+  description: Output errors from libpng and the program (except too-far-back).
+  provenance:
+    sources:
+    - help-text
+- long: warnings
+  value_name: '(-w):'
+  value_kind: Required
+  description: Output warnings from libpng.
+  provenance:
+    sources:
+    - help-text
+- long: out
+  value_name: <file>
+  value_kind: Required
+  description: Write the optimized/corrected version of the next PNG to <file>. This overrides the following two options
+  provenance:
+    sources:
+    - help-text
+- long: suffix
+  value_name: <suffix>
+  value_kind: Required
+  description: Set --out=<name><suffix> for all following files unless overridden on a per-file basis by explicit --out.
+  provenance:
+    sources:
+    - help-text
+- long: prefix
+  value_name: <prefix>
+  value_kind: Required
+  choices:
+  - and
+  - stdfast
+  - default
+  - libpng
+  - zlib
+  - invalid
+  - read
+  - write
+  description: Set --out=<prefix><name> for all the following files unless overridden on a per-file basis by explicit --out. These two options can be used together to produce a suffix and prefix.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.17
+children_filled: true
