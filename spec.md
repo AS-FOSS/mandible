@@ -917,6 +917,30 @@ damage a user's machine, and it gets its own section and its own tests.
    executed for that one — both halves matter, since silently refusing the
    permitted shape would quietly undo the coverage this rule now allows.
 
+   **A second attestation bit exists now, and this gate deliberately does not
+   read it.** `heading_attested` was doing double duty — "is this word safe
+   to probe" (this gate) *and* "is this name real evidence, not a fabricated
+   phantom subcommand" (the coverage harness's structure-sanity check, spec
+   §13.1). §7 Tier B's headingless-invocation-table recognizer (below, and
+   its own subsection under §7 Tier B) needed a name to answer "yes" to the
+   second question and "no" to the first — a table row is layout evidence
+   about a *document* the tool printed, existence-checked against the raw
+   text, but it is not a heading declaring "here is the command list", which
+   is the specific evidence this gate exists to demand before a word becomes
+   argv. Splitting the bit rather than reusing it is the decision recorded
+   here: `mandible_core::CommandNode::invocation_attested` is a second,
+   independent field, set only by that recognizer. This gate (and
+   `probe_help_text_reporting_flag`/`raw_probe_streams`, its two call sites)
+   reads `heading_attested` only and must never be widened to also accept
+   `invocation_attested` — existence in the text is not the same claim as a
+   heading declaring a command list, and the whole point of keeping the bit
+   separate is that a table-row name never becomes probe argv. The coverage
+   harness's detectors (`xtask::status::count_suspicious`,
+   `xtask::audit::is_attestation_gated_stub`) accept *either* bit as evidence
+   a node names a real command, so a headingless-table node is never
+   mis-flagged as [M-10]'s fabricated-phantom-subcommand shape merely for
+   being correctly withheld from probing.
+
 7. **Never write.** No tier may pass an argument that could name a file the tool
    would create or modify.
 8. **Redirect every writable location a probe might reach.** Rule 7 is not
@@ -1216,6 +1240,53 @@ The generic fallback parser (step 2) is built with `winnow`:
 - **Attach `confidence: f32`** derived from how much of the output the grammar
   actually consumed, and surface it. Being honest about a best guess is better UX
   than presenting heuristic output with man-page confidence.
+
+**Headingless invocation tables.** Rule 1 above requires a recognized
+heading before a bare-word block becomes subcommands. `btrfs --help` has a
+real command table with no heading at all — a blank line, then dozens of
+`btrfs balance start [options] <path>` / one-indent-deeper-description rows
+running to the end of the document (`corpus/btrfs/audit-seed2`). Layout
+alone is still never sufficient evidence (rule 1's own reasoning), but a row
+that repeats the *tool's own name* is a different kind of evidence than bare
+layout: it is the tool describing its own invocation forms, in its own
+voice, which is exactly what a heading would otherwise be vouching for.
+
+The recognizer (`help_text::sections::scan_headingless_invocation_table`,
+tried in `parse_with_profile`'s main section loop immediately after a
+headingless flags block is ruled out, before the line is read as a
+candidate heading) admits a run of rows only when **all** of:
+
+1. **Repetition** — at least two name-row/deeper-description-row pairs (the
+   same shape test `nested_entry_table_starts_at` already uses to end a
+   flags block early). One row is as likely to be a stray example as a
+   table.
+2. **Every row starts with the tool's own name** at a word boundary. This
+   is the substitute for rule 1's heading requirement, and it is also what
+   supplies the nesting: `btrfs device add ...` reads as child `device`,
+   grandchild `add`, from the tokens after the tool's name.
+3. **Existence attestation** — every emitted name is checked to occur
+   literally, as a whole token, in the raw text (spec [M-10]'s lesson,
+   checked explicitly rather than assumed true by construction).
+4. **Name shape** — only the leading run of `is_command_name_shaped` tokens
+   after the tool's name contributes anything; the first flag-shaped,
+   bracketed, or placeholder-shaped token ends the run. This is what
+   refuses pngfix's `--strip=[none|crc|...]:` and pod2man's
+   `--guesswork=rule[,rule...]` value lists (already kept out of this path
+   entirely — neither line starts with the tool's own name) and an
+   `Examples:`-style block of `tar -cf archive.tar files` rows (`-cf` is
+   flag-shaped, so the run is empty).
+
+Emission is two levels deep, matching the row's own leading run capped at
+two tokens: the first token is a direct child, the second (if present) a
+child of that child — grandchildren go no deeper. A row's description
+belongs to the deepest name in its run, and a run of consecutive sibling
+rows sharing one following description block (btrfs's `device delete` /
+`device remove` pair) all take that shared description. Every recovered
+node's name is deduplicated by identity, same as `emit_subcommands`.
+
+Every node this recognizer produces is `invocation_attested: true`,
+`heading_attested: false` — see rule 0's closing paragraph above (§6) for
+why the two are kept separate and what each one governs.
 
 ### Tier C — completion script structural parsing
 
