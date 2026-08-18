@@ -8,7 +8,7 @@
 # correctness claim is back — so `verdict_scope` is recorded again.
 
 [bless]
-provenance = "human"
+provenance = "agent-then-human"
 
 [tool]
 name = "tmux"

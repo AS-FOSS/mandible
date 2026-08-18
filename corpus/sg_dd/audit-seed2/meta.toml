@@ -20,7 +20,7 @@
 # resumption remains a singleton with no detector and no fix.
 
 [bless]
-provenance = "human"
+provenance = "agent-then-human"
 
 [tool]
 name = "sg_dd"

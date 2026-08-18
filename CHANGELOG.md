@@ -26,16 +26,23 @@ once it reaches a published 0.1.0 release.
   fails to load a fixture missing it, naming the file and pointing at
   `corpus/README.md`, rather than let an absent value read as "unknown" (or
   worse, get inferred as reviewed). `xtask corpus`'s summary line now splits
-  its `ok` count by provenance (`71 ok (6 human, 35 agent-then-human, 30
+  its `ok` count by provenance (`71 ok (0 human, 39 agent-then-human, 32
   agent)`), `--show <fixture>` and the `--format markdown` report both
   surface it alongside `scope`, and `xtask audit fixtures` always emits
   `provenance = "agent"` for a fixture it generates — an agent may only ever
   write that value; flipping it to `human`/`agent-then-human` is a human-only
-  act, mirroring the rule `verdict_scope` already enforces. All 84 existing
-  fixtures were backfilled by git-history review (bless commit vs. the
-  commit that recorded `verdict_scope`, and `Co-Authored-By` trailers where
-  no `verdict_scope` existed at all): 6 `human`, 35 `agent-then-human`, 43
-  `agent`.
+  act, mirroring the rule `verdict_scope` already enforces.
+
+  All 84 existing fixtures were backfilled by git-history review, and the
+  first thing the field recorded is a result worth stating plainly: **not
+  one fixture in this corpus has a human-blessed `expected.snap`.** 39 are
+  `agent-then-human` (a human's seed-2 audit `verdict_scope` covers them,
+  but an agent wrote the bytes), 45 are `agent`, and 0 are `human` — the
+  hand-authored `git`/`tar` seed fixtures included, because their current
+  snapshots were re-blessed by later grammar-fix commits. Every bless commit
+  in this repository's history carries a `Co-Authored-By: Claude` trailer;
+  attributing any of them to a human would have been exactly the overclaim
+  the field exists to make impossible.
 
 ### Fixed
 

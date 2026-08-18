@@ -3,7 +3,7 @@
 # review-any-fixture-for-machine-specific-content note before committing.
 
 [bless]
-provenance = "human"
+provenance = "agent-then-human"
 
 [tool]
 name = "tcpdump"

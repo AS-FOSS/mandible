@@ -244,14 +244,26 @@ provenance = "agent"
 
 Three values:
 
-- `"human"` — a human blessed (or re-blessed) the current `expected.snap`.
-- `"agent-then-human"` — an agent blessed the tree; a human reviewed it
-  later and recorded a `verdict_scope`, without re-blessing. The honest
-  mixed case: the snapshot bytes are agent-authored, but a human has since
-  looked and left a record of what they checked.
-- `"agent"` — an agent blessed it and no human has reviewed the tree. The
-  conservative default, and the only value `xtask audit fixtures` ever
-  writes.
+- `"human"` — a human ran the bless that produced the *current*
+  `expected.snap` bytes. **No fixture in this corpus carries this value
+  today**, and that is the field's first finding rather than an oversight:
+  every `expected.snap` here was written by a `--bless` run inside a commit
+  carrying a `Co-Authored-By: Claude` trailer, including the `git`/`tar`
+  seed fixtures, whose current snapshots were re-blessed by later
+  grammar-fix commits. The value exists so a human bless has somewhere to
+  be recorded when one happens.
+- `"agent-then-human"` — the snapshot bytes are agent-authored, and a human
+  has reviewed this fixture's tree and left a `verdict_scope` recording
+  what they checked. It deliberately does **not** assert an ordering: a
+  grammar fix landing after the human's review may have re-blessed bytes
+  that human never saw, so this is strictly weaker than `"human"` and must
+  never be read as "the current tree was human-verified". What it does
+  assert is that a human looked at this fixture at some point and said so.
+- `"agent"` — an agent blessed it and no human has left a review record.
+  The conservative default, and the only value `xtask audit fixtures` ever
+  writes. It is also the value for a fixture with a `verdict_scope` but no
+  `expected.snap` at all (`mariadb-check/2.7.4`, still `[xfail]`): nothing
+  has been blessed there, so there is no bless to attribute.
 
 **An agent always writes `"agent"` here, and only a human may flip it to
 `"human"` or `"agent-then-human"`.** This is the mirror of the rule
@@ -263,7 +275,7 @@ means "no scope claimed" rather than "every scope" — it is always safe to
 upgrade a truthful claim later, never safe to have quietly overclaimed one.
 
 `cargo xtask corpus`'s summary line splits its `ok` count by this field —
-`60 ok (12 human, 3 agent-then-human, 45 agent)` — specifically so "N ok"
+`71 ok (0 human, 39 agent-then-human, 32 agent)` — specifically so "N ok"
 can never be read as "N human-verified"; `xtask corpus --show <fixture>`
 prints the value alongside `scope`, and the `--format markdown` report
 carries it as its own `provenance` column next to `scope`.

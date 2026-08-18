@@ -1,5 +1,5 @@
 [bless]
-provenance = "human"
+provenance = "agent"
 
 [tool]
 name = "tar"
