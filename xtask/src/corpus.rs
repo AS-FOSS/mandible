@@ -56,7 +56,7 @@
 //! shared runner having a bad afternoon.
 
 use crate::coverage::ScoreFormat;
-use mandible_core::{CommandNode, Flag, Provenance as CoreProvenance, Source, Text};
+use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
@@ -327,7 +327,7 @@ struct XfailMeta {
 /// default the schema demands an author actually assert.
 #[derive(Debug, Clone, Deserialize)]
 struct BlessMeta {
-    provenance: Provenance,
+    provenance: BlessProvenance,
 }
 
 /// Who blessed a fixture's current `expected.snap`, with no human review
@@ -349,18 +349,18 @@ struct BlessMeta {
 /// carries for its own claim, extended to the blessing act itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-enum Provenance {
+enum BlessProvenance {
     Human,
     AgentThenHuman,
     Agent,
 }
 
-impl Provenance {
+impl BlessProvenance {
     fn as_str(self) -> &'static str {
         match self {
-            Provenance::Human => "human",
-            Provenance::AgentThenHuman => "agent-then-human",
-            Provenance::Agent => "agent",
+            BlessProvenance::Human => "human",
+            BlessProvenance::AgentThenHuman => "agent-then-human",
+            BlessProvenance::Agent => "agent",
         }
     }
 }
@@ -371,7 +371,7 @@ impl Provenance {
 /// [`verdict_scope_label`]. Unlike `verdict_scope_label`, there is no
 /// "absent" case to spell out: `provenance` is required on every fixture,
 /// so this always has a value to print.
-fn provenance_label(provenance: Provenance) -> &'static str {
+fn provenance_label(provenance: BlessProvenance) -> &'static str {
     provenance.as_str()
 }
 
@@ -379,15 +379,15 @@ fn provenance_label(provenance: Provenance) -> &'static str {
 /// provenance values — used to split the `ok` count in both the text and
 /// markdown summaries, so "N ok" can never be misread as "N human-verified"
 /// (`corpus/README.md`'s `[bless]` section).
-fn provenance_counts(values: impl Iterator<Item = Provenance>) -> (usize, usize, usize) {
+fn provenance_counts(values: impl Iterator<Item = BlessProvenance>) -> (usize, usize, usize) {
     let mut human = 0;
     let mut agent_then_human = 0;
     let mut agent = 0;
     for v in values {
         match v {
-            Provenance::Human => human += 1,
-            Provenance::AgentThenHuman => agent_then_human += 1,
-            Provenance::Agent => agent += 1,
+            BlessProvenance::Human => human += 1,
+            BlessProvenance::AgentThenHuman => agent_then_human += 1,
+            BlessProvenance::Agent => agent += 1,
         }
     }
     (human, agent_then_human, agent)
@@ -1532,7 +1532,7 @@ struct SnapNode {
 /// descriptions, positionals, ...) is irrelevant to what [`summarize`]
 /// reads and is left at `CommandNode::new`'s defaults.
 fn snap_to_command_node(n: &SnapNode) -> CommandNode {
-    let mut node = CommandNode::new(n.name.clone(), CoreProvenance::single(Source::HelpText));
+    let mut node = CommandNode::new(n.name.clone(), Provenance::single(Source::HelpText));
     node.summary = n.summary.as_deref().map(Text::sanitize);
     node.heading_attested = n.heading_attested;
     node.invocation_attested = n.invocation_attested;
@@ -1541,7 +1541,7 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
         .flags
         .iter()
         .map(|f| {
-            let mut flag = Flag::long("", CoreProvenance::single(Source::HelpText));
+            let mut flag = Flag::long("", Provenance::single(Source::HelpText));
             flag.long = f.long.clone();
             flag.short = f.short;
             flag.description = f.description.as_deref().map(Text::sanitize);
@@ -1590,7 +1590,7 @@ struct FixtureRow {
     /// comment) — the complement to `verdict_scope`: surfaced as its own
     /// table column so an `ok` row can never be misread as human-verified
     /// when no human has looked.
-    provenance: Provenance,
+    provenance: BlessProvenance,
 }
 
 /// Cap on how many names a single markdown table cell shows inline before
