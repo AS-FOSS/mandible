@@ -217,6 +217,220 @@ struct Row {
     /// ([`SPLIT_SAMPLES_PER_ROW`]).
     repeated_char_samples: Vec<String>,
     status: &'static str,
+    /// This tool's field-level fingerprint (WS2 part 2,
+    /// [`crate::transition`]'s per-tool diff): enough for `sweep-diff` to
+    /// tell a per-flag description/choices/value_name *change* apart from a
+    /// count that merely stayed the same. See [`build_fingerprint`]'s doc
+    /// comment for why the scoreboard's existing columns (flag counts,
+    /// `%flags_text`) cannot see this — that gap is exactly what let PR #14
+    /// delete `pngfix`'s and `pod2man`'s descriptions and fabricate a
+    /// choices list while `sweep-diff` reported the run unchanged.
+    fingerprint: ToolFingerprint,
+}
+
+/// One flag's field-level fingerprint: whether it has a description at all,
+/// a hash of that description's text (`None` when there is no description),
+/// a hash of its choices list (`None` when it has none), and its
+/// `value_name` verbatim (short enough — usually one word — to carry
+/// directly rather than hash).
+///
+/// **Hashes, not full text**, for the description and choices: carrying
+/// every flag's full description into every scoreboard on every full-`PATH`
+/// sweep would make the checked-in `coverage-scoreboard.txt` and every CI
+/// artifact multiple times larger for a comparison that only ever needs to
+/// know "did this change," never "what did it used to say" — the scoreboard
+/// files it's diffing already exist on disk for a human to read the actual
+/// before/after text if a hash flags a change worth looking at.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FlagFingerprint {
+    has_description: bool,
+    description_hash: Option<u64>,
+    choices_hash: Option<u64>,
+    value_name: Option<String>,
+}
+
+/// One tool's full field-level fingerprint: every flag, keyed by a stable
+/// per-node identity (never [`mandible_core::Flag::spelling`], which folds
+/// the value placeholder into the same string a value_name change would
+/// then also perturb — see [`flag_identity`]), plus the full set of
+/// subcommand paths its tree reaches.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct ToolFingerprint {
+    flags: BTreeMap<String, FlagFingerprint>,
+    subcommands: std::collections::BTreeSet<String>,
+}
+
+/// A flag's identity for fingerprinting purposes: short/long spelling and
+/// dash count, deliberately excluding `value_name`/`choices`/description —
+/// those are the fields this fingerprint exists to detect *changes* in, so
+/// folding them into the same key a change would also alter defeats the
+/// point (a `value_name` edit would silently become a remove-then-add
+/// instead of a same-flag change). Prefixed with the owning node's dotted
+/// path (`(root)` for the tool's own top-level flags) so two different
+/// subcommands' same-spelled flag (`git commit -m` vs `git tag -m`) never
+/// collide.
+fn flag_identity(path: &str, flag: &mandible_core::Flag) -> String {
+    let mut spelling = String::new();
+    if let Some(c) = flag.short {
+        spelling.push('-');
+        spelling.push(c);
+    }
+    if let Some(l) = &flag.long {
+        if !spelling.is_empty() {
+            spelling.push(',');
+        }
+        spelling.push_str(if flag.single_dash { "-" } else { "--" });
+        spelling.push_str(l);
+    }
+    format!("{path}::{spelling}")
+}
+
+/// FNV-1a over raw bytes — deterministic across processes and Rust std
+/// versions (unlike `std::collections::hash_map::DefaultHasher`, whose
+/// algorithm is not a documented guarantee), which matters here because the
+/// whole point is comparing a hash computed by one `xtask` invocation
+/// against one computed by a separate, possibly differently-built,
+/// invocation on the other side of a sweep.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for &b in bytes {
+        hash ^= u64::from(b);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
+}
+
+/// Walk `root`'s tree and build its field-level [`ToolFingerprint`] — the
+/// data [`Row::fingerprint`] carries and [`fingerprint_lines`] serializes
+/// into the scoreboard's `#fp` footer, which [`crate::transition`] reads
+/// back to diff at field granularity instead of the coarse counts the rest
+/// of this module's `Row` exposes.
+///
+/// **Why this is necessary at all, not just nice to have.** Every existing
+/// scoreboard column is a *count* — `flags`, `%flags_text`,
+/// `misattribution_suspect_count` and so on — and a count cannot
+/// distinguish "this flag's description text changed" from "it didn't,"
+/// only "the number of flags with a description changed." PR #14 deleted
+/// `--strip`'s and `--guesswork`'s descriptions and fabricated a choices
+/// list on the same two flags in the same change; whether that nets to a
+/// visible count delta is an accident of which other flags moved in the
+/// same run, not something `sweep-diff` should have to rely on.
+fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerprint {
+    let mut fp = ToolFingerprint::default();
+    let Some(root) = root else {
+        return fp;
+    };
+    fn walk(node: &mandible_core::CommandNode, path: &str, fp: &mut ToolFingerprint) {
+        for flag in &node.flags {
+            let id = flag_identity(path, flag);
+            let description_hash = flag
+                .description
+                .as_ref()
+                .map(|t| fnv1a(t.as_str().as_bytes()));
+            let choices_hash = if flag.choices.is_empty() {
+                None
+            } else {
+                let joined = flag
+                    .choices
+                    .iter()
+                    .map(mandible_core::Text::as_str)
+                    .collect::<Vec<_>>()
+                    .join("\u{1f}");
+                Some(fnv1a(joined.as_bytes()))
+            };
+            fp.flags.insert(
+                id,
+                FlagFingerprint {
+                    has_description: flag.description.is_some(),
+                    description_hash,
+                    choices_hash,
+                    value_name: flag.value_name.clone(),
+                },
+            );
+        }
+        for sub in &node.subcommands {
+            let sub_path = if path == "(root)" {
+                sub.name.clone()
+            } else {
+                format!("{path}.{}", sub.name)
+            };
+            fp.subcommands.insert(sub_path.clone());
+            walk(sub, &sub_path, fp);
+        }
+    }
+    walk(root, "(root)", &mut fp);
+    fp
+}
+
+/// Escape the one character ([`FP_FIELD_SEP`]) that would otherwise be
+/// ambiguous with the `#fp` line's own field separator — flag identities and
+/// subcommand paths never contain it by construction ([`flag_identity`]
+/// only ever emits `-`, `,`, `.`, `:`, `(`, `)` and the tool's own ASCII-
+/// overwhelming spellings), but `value_name` is free-form text lifted
+/// verbatim from a tool's own `--help` output and cannot be assumed clean.
+fn fp_escape(s: &str) -> String {
+    s.replace([FP_FIELD_SEP, '\n'], " ")
+}
+
+/// Field separator inside one `#fp` line's flag-entry list. A literal tab:
+/// never legitimately present in a flag identity or a `value_name` lifted
+/// from help text (which is sanitized to a single line, spec §4.1), so it
+/// needs no escaping on the read side beyond [`fp_escape`] scrubbing it out
+/// of `value_name` before it's ever written.
+const FP_FIELD_SEP: char = '\t';
+
+/// Render every row's [`ToolFingerprint`] as `#fp` footer lines, one per
+/// tool, in the same tool-name order `rows` is already sorted in ([`run_over`])
+/// — deterministic output, no separate sort needed here.
+///
+/// Line shape: `#fp <tool>\t<sub1>,<sub2>,...\t<flag1>|<flag2>|...` where
+/// each flag entry is `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
+/// (hashes as lowercase hex). Never mixed into `render_markdown`'s output:
+/// [`crate::transition::parse_scoreboard`] only ever reads a
+/// [`ScoreFormat::Text`] scoreboard (that module's own doc comment), so
+/// there is nothing that would read a markdown copy of this section.
+fn fingerprint_lines(rows: &[Row]) -> String {
+    let mut out = String::new();
+    for row in rows {
+        if row.fingerprint.flags.is_empty() && row.fingerprint.subcommands.is_empty() {
+            continue;
+        }
+        let subs = row
+            .fingerprint
+            .subcommands
+            .iter()
+            .map(|s| fp_escape(s))
+            .collect::<Vec<_>>()
+            .join(",");
+        let flags = row
+            .fingerprint
+            .flags
+            .iter()
+            .map(|(id, f)| {
+                format!(
+                    "{}={}:{}:{}:{}",
+                    fp_escape(id),
+                    if f.has_description { 1 } else { 0 },
+                    f.description_hash
+                        .map(|h| format!("{h:x}"))
+                        .unwrap_or_else(|| "-".to_string()),
+                    f.choices_hash
+                        .map(|h| format!("{h:x}"))
+                        .unwrap_or_else(|| "-".to_string()),
+                    f.value_name
+                        .as_deref()
+                        .map(fp_escape)
+                        .unwrap_or_else(|| "-".to_string()),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("|");
+        out.push_str(&format!(
+            "#fp {}{FP_FIELD_SEP}{subs}{FP_FIELD_SEP}{flags}\n",
+            fp_escape(&row.tool),
+        ));
+    }
+    out
 }
 
 /// Cap on how many of one tool's own suspect descriptions feed the
@@ -734,6 +948,7 @@ fn score_one(tool: &str) -> Row {
         repeated_char_misread_count,
         repeated_char_samples,
         status: status.label,
+        fingerprint: build_fingerprint(result.root.as_ref()),
     }
 }
 
@@ -1102,6 +1317,7 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&alternation_sample_lines_text(rows));
     out.push_str(&single_dash_sample_lines_text(rows));
     out.push_str(&repeated_char_sample_lines_text(rows));
+    out.push_str(&fingerprint_lines(rows));
     out
 }
 
@@ -2115,6 +2331,7 @@ mod tests {
             repeated_char_misread_count: 0,
             repeated_char_samples: Vec::new(),
             status,
+            fingerprint: ToolFingerprint::default(),
         }
     }
 

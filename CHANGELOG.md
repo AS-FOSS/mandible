@@ -10,6 +10,34 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **`xtask sweep-diff` now diffs each tool's flags, choices, and subcommands
+  by content, not just by count.** During PR #14 the same run that deleted
+  `pngfix`'s and `pod2man`'s flag descriptions and fabricated a choices list
+  on them (see the `nested_entry_table_starts_at` entry above) reported as
+  "identical" — every existing scoreboard column (`flags`, `%flags_text`,
+  `status`) is a count, and neither flag was added or removed, so nothing
+  about that run moved any of them.
+
+  `xtask coverage`'s `ScoreFormat::Text` scoreboard now carries a `#fp`
+  footer, one line per tool, fingerprinting every flag (a stable identity
+  independent of `value_name`, description presence, a hash of the
+  description text, a hash of the choices list, and `value_name` itself) and
+  every subcommand path — full text is never duplicated into the scoreboard,
+  only enough to detect a change (`coverage::build_fingerprint`,
+  `coverage::fingerprint_lines`). `sweep-diff` reads it back
+  (`transition::parse_scoreboard`) and reports, per tool, exactly which flags
+  were added/removed, which flags' description/choices/value_name changed,
+  which subcommands were added/removed, and any tier/framework change — a
+  new "Field-level changes" section in both `--format text` and `--format
+  markdown`, alongside the existing status/flag-count/appeared/disappeared
+  sections, which are unchanged. A scoreboard from before this footer existed
+  still loads (`ParsedScoreboard::fingerprints` stays empty for it) and is
+  reported as field-diff-unmeasured rather than silently read as "no
+  changes." The report's own `Overall: IDENTICAL`/`CHANGED` line now accounts
+  for field-level content too, so a run that only edits a description's text
+  no longer reads as identical — still non-blocking (maintainer decision D4:
+  `sweep-diff` exits `0` regardless, same as before).
+
 - **A nested command table no longer folds into the flag description above
   it.** `scan_flags_block`'s continuation rule was pure indentation: any line
   deeper than the block's own entries continued the previous flag's
