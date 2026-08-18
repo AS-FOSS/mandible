@@ -1,0 +1,71 @@
+name: btrfs
+usage:
+- 'usage: btrfs [global] <group> [<group>...] <command> [<args>]'
+positionals:
+- name: group
+  provenance:
+    sources:
+    - help-text
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: args
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: format
+  value_name: <format>
+  value_kind: Required
+  group: 'Global options:'
+  description: if supported, print subcommand output in that format (text, json)
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Global options:'
+  description: increase verbosity of the subcommand
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  group: 'Global options:'
+  description: print only errors
+  provenance:
+    sources:
+    - help-text
+- long: log
+  value_name: <level>
+  value_kind: Required
+  group: 'Global options:'
+  description: set log level (default, info, verbose, debug, quiet)
+  provenance:
+    sources:
+    - help-text
+- long: dry-run
+  group: 'Global options:'
+  description: if supported, do not do any active/changing actions
+  provenance:
+    sources:
+    - help-text
+- long: help
+  group: 'Options for the main command only:'
+  description: print condensed help for all subcommands
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'Options for the main command only:'
+  description: print version string
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.09
+children_filled: true

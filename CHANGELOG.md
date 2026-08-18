@@ -8,6 +8,27 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A nested command table no longer folds into the flag description above
+  it.** `scan_flags_block`'s continuation rule was pure indentation: any line
+  deeper than the block's own entries continued the previous flag's
+  description, no matter what it actually was. `btrfs --help` puts
+  `--help`/`--version` at indent 2 and then, after a blank line, a large
+  command table at indent 4 whose rows each carry their own description one
+  indent deeper (indent 8) — the whole table, dozens of lines, folded into
+  `--version`'s description as one long run-on sentence.
+
+  A new shape-based, repetition-gated detector
+  (`nested_entry_table_starts_at`) now looks ahead from a candidate
+  continuation line for at least two name/description row pairs at the same
+  indent before treating it as a table rather than prose — a single ragged
+  continuation line still reads as an ordinary wrapped description, only
+  genuine repetition ends the block early. All seven of `btrfs --help`'s
+  real flags now parse with only their own description
+  (`corpus/btrfs/audit-seed2`); the command table itself still isn't
+  recovered as subcommands, so the fixture stays `[xfail]`.
+
 ## [0.3.2] - 2026-08-17
 
 Two user reports drove this release, and each was measured to its mechanism
