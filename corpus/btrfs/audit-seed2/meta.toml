@@ -13,32 +13,33 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# Dozens of "btrfs <group> <verb> [options] <args>\n    <description>"
-# entries (e.g. "btrfs balance start [options] <path>") — verified none
-# of them becomes a subcommand; the tree has zero, not `verbatim` (no
-# `unparsed` either — the lines are just silently dropped).
-min_subcommands = 1
-# No `verdict_scope` on purpose. The flag half of this tree was read
-# line-by-line against help.txt before blessing — but by an agent, not a
-# human, and `verdict_scope` is documented (corpus/README.md, "What
-# --bless does and does not assert") as the record of what *a human*
-# looked at. Claiming it here would be exactly the overclaim the field
-# exists to prevent. Add it when a human has reviewed the bless.
-
-[xfail]
-broken = true
-reason = """
-Partially fixed: the nested command table (indent 4, each row's own \
-description one indent deeper at indent 8) used to fold whole, along with \
-every row's own description, into --version's description — one flag \
-carrying the entire command list as prose. scan_flags_block's nested-entry- \
-table detector now ends the flags block before that table instead, so all \
-seven real flags (--format, --verbose, --quiet, --log, --dry-run, --help, \
---version) parse clean, each with only its own description.
-
-Still broken: the command table itself is not recovered as subcommands. \
-Nothing currently promotes an indent-4/indent-8 nested table sitting under \
-a flush headingless heading ("Options for the main command only:") to \
-subcommands — the lines are dropped silently once the flags block ends, \
-same as before the fix. min_subcommands stays unmet.
-"""
+# btrfs's headingless command table (indent 4, each row's own description
+# one indent deeper at indent 8, e.g. "btrfs balance start [options]
+# <path>") is now recovered by spec §7 Tier B's headingless-invocation-
+# table recognizer (`help_text::sections::scan_headingless_invocation_table`)
+# as two-level subcommand structure: 17 direct children (balance, check,
+# device, filesystem, help, inspect-internal, property, qgroup, quota,
+# receive, replace, rescue, restore, scrub, send, subvolume, version), most
+# with their own grandchildren (`device add`/`delete`/`remove`/`replace`/
+# `scan`/`ready`/`stats`/`usage`, `balance start`/`pause`/`cancel`/`resume`/
+# `status`, and so on). All seven real root flags (--format, --verbose,
+# --quiet, --log, --dry-run, --help, --version) still parse clean, each
+# with only its own description — the fix to scan_flags_block's own
+# nested-entry-table detector that landed first is unchanged here.
+#
+# Honest residual: every recovered node is `invocation_attested`, never
+# `heading_attested` — spec §6's probe gate deliberately never sends these
+# names as `--help` argv (they are layout evidence about this document, not
+# a heading declaring a command list), so none of this subtree is
+# reachable by the lazy-expansion probe path, only by this frozen capture.
+# `subvolume snapshot`'s own row has a blank line where every other row has
+# a description (verified against help.txt directly) and so comes out with
+# no summary at all — an honestly empty node, not a fabricated one.
+min_subcommands = 15
+must_contain_flags = ["--format", "--verbose", "--quiet", "--log", "--dry-run", "--help", "--version"]
+# No `verdict_scope` on purpose. This tree was read line-by-line against
+# help.txt before blessing — but by an agent, not a human, and
+# `verdict_scope` is documented (corpus/README.md, "What --bless does and
+# does not assert") as the record of what *a human* looked at. Claiming it
+# here would be exactly the overclaim the field exists to prevent. Add it
+# when a human has reviewed the bless.
