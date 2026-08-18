@@ -42,7 +42,7 @@ $ mandible docker
 
 ## Install
 
-### Pre-built binaries (recommended)
+### Pre-built binaries
 
 Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
 containment described above relies on POSIX process groups, and native Windows tools
@@ -62,28 +62,11 @@ speak.
 Each archive ships a matching `.sha256` checksum.
 </div>
 
-Or let [`cargo binstall`](https://github.com/cargo-bins/cargo-binstall) pick the
-right archive for your machine:
-
-```console
-cargo binstall mandible
-```
-
-### From source
+### Using Cargo
 
 ```console
 cargo install mandible
 ```
-
-> [!NOTE]
-> `cargo install` compiles in a temporary directory under `$TMPDIR`, which many
-> distributions mount as RAM-backed tmpfs — on a machine with limited memory the
-> build itself can push the system into memory exhaustion. If that's you, keep
-> the build tree on disk and cap the parallelism:
->
-> ```console
-> CARGO_TARGET_DIR=~/.cache/mandible-build cargo install mandible -j 2
-> ```
 
 
 

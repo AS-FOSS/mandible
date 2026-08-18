@@ -281,3 +281,33 @@ jobs:
             echo
             echo "</details>"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          # Zero is not "partial coverage" continued to its limit — it is a
+          # different failure. 1..15 shards missing still means real tools
+          # were measured and the numbers above are an honest floor (the
+          # `-lt 16` branch above says so). 0 shards means every count in
+          # that summary — tools, flags, percentages — is zero because
+          # nothing ran to completion, not because the sweep found an empty
+          # PATH. That is exactly the failure this file's header comment
+          # already describes fixing once ("a tick asserting something
+          # false", when the unsharded step died at ~96s and
+          # `continue-on-error` still painted the job green): a completely
+          # broken sweep must not read as success just because this
+          # downstream job itself didn't crash.
+          #
+          # This check has to live outside the `{ ... } | tee` block above,
+          # not inside it: that block is `tee`'s stdin, which runs as a
+          # subshell of the pipeline, so an `exit 1` in there would only end
+          # the subshell — `tee` still exits 0 (it wrote the file
+          # successfully) and that becomes the step's exit status. Verified
+          # locally: with the summary logic reproduced against an empty
+          # directory, `exit 1` placed inside the piped block left the
+          # step's own `$?` at 0, while the same check placed here, after
+          # the pipeline, produced `$?` of 1. Against a directory with 3 fake
+          # shard files, this branch is skipped and the step exits 0, same
+          # as an unmodified partial run.
+          reported=$(ls shards/*.md 2>/dev/null | wc -l)
+          if [ "$reported" -eq 0 ]; then
+            echo "::error::PATH sweep produced nothing: 0 of 16 shards reported. Every count in the summary above is zero because no shard finished, not because the sweep measured an empty PATH. A green tick here would be a lie." >&2
+            exit 1
+          fi

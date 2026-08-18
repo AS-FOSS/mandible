@@ -8,15 +8,19 @@
 //! whole workspace — permitted to use `std::process`. See `exec`'s
 //! documentation and `tests/no_process_outside_exec.rs`.
 
-// `deny`, not `forbid`: `exec/spawn.rs` carries exactly one scoped
-// `#[allow(unsafe_code)]`, on the probe-spawning function, for the
-// `pre_exec` + `setsid` call that gives every probe a new *session* (not
-// just a new process group) so a descendant cannot reopen the controlling
-// terminal via `/dev/tty` (see that function's doc comment, and spec §6
-// rule 6). Every other item in this crate — and every other crate in the
-// workspace — still carries `#![forbid(unsafe_code)]`; `deny` here is what
-// lets that one exception exist without silently disabling the lint
-// everywhere else in this crate too.
+// `deny`, not `forbid`: this crate carries exactly two scoped
+// `#[allow(unsafe_code)]` sites. `exec/spawn.rs`'s probe-spawning function
+// has one, for the `pre_exec` + `setsid` call that gives every probe a new
+// *session* (not just a new process group) so a descendant cannot reopen
+// the controlling terminal via `/dev/tty` (see that function's doc comment,
+// and spec §6 rule 6). `exec/containment.rs` has the other, for
+// reconstructing a `File` from a raw fd number a contained sweep inherits
+// across `unshare` + re-exec (see that module's `write_scoreboard` and
+// `secured_scoreboard_file` doc comments). Every other item in this crate —
+// and every other crate in the workspace — still carries
+// `#![forbid(unsafe_code)]`; `deny` here is what lets those two exceptions
+// exist without silently disabling the lint everywhere else in this crate
+// too.
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 

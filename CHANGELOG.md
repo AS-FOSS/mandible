@@ -49,6 +49,37 @@ once it reaches a published 0.1.0 release.
   (`jpackage`, `less`, `pager`, `pngfix`, `pod2man`, `zstdless`) now parses
   byte-identically to before that detector existed.
 
+- **A full-`PATH` sweep's scoreboard write no longer fails `EACCES` inside
+  namespace containment.** `xtask coverage`/`audit freeze` re-exec under
+  `unshare --user --map-root-user` before probing (spec §6/§8); GitHub
+  Actions run 32063212492 showed all 16 `path-sweep.yml` shards finish their
+  full sweep and then die writing `shard-N.md`, because the checkout
+  directory is owned by a UID the namespace doesn't map, so the contained
+  "root" has no `CAP_DAC_OVERRIDE` over it. The pre-exec process — which
+  still has ordinary filesystem access — now opens `--out` and clears
+  `FD_CLOEXEC` on it before entering containment, and the contained process
+  writes the scoreboard through that inherited fd instead of reopening the
+  path. Uncontained runs, `--tools`-pinned runs, and non-Linux platforms are
+  unaffected (`mandible_extract::exec::containment::secure_out_file`,
+  `enter_or_refuse_with_scoreboard`, `write_scoreboard`).
+- **`path-sweep-summary` now fails when zero shards reported.** Previously the
+  step always exited 0, so a completely dead sweep (all 16 shards killed)
+  still painted a green tick — the exact "tick asserting something false"
+  failure this project already burned itself on once. 1..15 shards missing
+  is unchanged (still reported as partial coverage, still green); 0 shards
+  is now a distinct case that fails the job.
+
+### Changed
+
+- **`.deb`/`.rpm` packages are now built for aarch64 as well as x86_64**,
+  natively on `ubuntu-24.04-arm`, alongside the existing x86_64 build. Each
+  architecture's package is verified after building: its declared
+  `Architecture:`/`%{ARCH}` field is asserted against the runner it was
+  built on, and the `.deb` is installed with `dpkg -i` and smoke-tested with
+  `mandible --version` / `mandible --doctor tar`. Package artifacts are now
+  uploaded per-architecture (`mandible-packages-x86_64`,
+  `mandible-packages-aarch64`) rather than under one shared name.
+
 ## [0.3.2] - 2026-08-17
 
 Two user reports drove this release, and each was measured to its mechanism

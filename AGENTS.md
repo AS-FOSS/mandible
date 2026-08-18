@@ -268,10 +268,16 @@ update Appendix A in the same commit, with the method.
   `cargo nextest run --workspace` (§3.3 — never `cargo test --workspace`
   piped into a text-parsing tool), `cargo build --release`.
 - `#![forbid(unsafe_code)]` in every crate except `mandible-extract`, which
-  carries `#![deny(unsafe_code)]` plus exactly one scoped
-  `#[allow(unsafe_code)]` on the probe-spawning function in `exec/`, for the
-  `pre_exec` + `setsid` call that gives every probe its own session so a
-  descendant can't reopen the controlling terminal via `/dev/tty` ([M-17]).
+  carries `#![deny(unsafe_code)]` plus exactly two scoped
+  `#[allow(unsafe_code)]` sites, both in `exec/`: the `pre_exec` + `setsid`
+  call on the probe-spawning function, which gives every probe its own
+  session so a descendant can't reopen the controlling terminal via
+  `/dev/tty` ([M-17]); and `containment::secured_scoreboard_file`'s
+  `File::from_raw_fd`, which reconstructs the `--out` file a contained sweep
+  inherited across `unshare` + re-exec. **This count is the whole point of
+  `deny` over `forbid` — if you add a third, it belongs here and in
+  `mandible-extract/src/lib.rs`'s crate doc comment in the same commit, or
+  the exception list stops being an exception list.**
   No `unwrap()` on any path reachable from tool input.
 - Never invoke a tool binary outside the argv allowlist in spec §6. Running a
   bare binary is how you launch a REPL, block on stdin, or start a daemon.
