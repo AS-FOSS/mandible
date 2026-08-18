@@ -2951,7 +2951,8 @@ fn scan_headingless_invocation_table<'a>(
     let base_indent = leading_whitespace(lines[start]);
 
     let mut children: Vec<CommandNode> = Vec::new();
-    let mut child_index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut child_index: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     // Rows collected since the last time a description was assigned —
     // possibly more than one when several sibling name rows in a row share
     // one following description block.
@@ -2972,13 +2973,16 @@ fn scan_headingless_invocation_table<'a>(
                 if children.len() >= MAX_RECOVERED_ENTRIES {
                     break;
                 }
-                let child_idx = *child_index.entry(child_name.to_string()).or_insert_with(|| {
-                    let mut node = CommandNode::new(child_name, Provenance::single(Source::HelpText));
-                    node.invocation_attested = true;
-                    node.heading_attested = false;
-                    children.push(node);
-                    children.len() - 1
-                });
+                let child_idx = *child_index
+                    .entry(child_name.to_string())
+                    .or_insert_with(|| {
+                        let mut node =
+                            CommandNode::new(child_name, Provenance::single(Source::HelpText));
+                        node.invocation_attested = true;
+                        node.heading_attested = false;
+                        children.push(node);
+                        children.len() - 1
+                    });
                 match grandchild_name {
                     Some(grandchild_name) => {
                         children[child_idx].children_filled = true;
@@ -3060,7 +3064,9 @@ fn scan_headingless_invocation_table<'a>(
         pending.push((child_name, grandchild_name));
         i += 1;
 
-        if i < lines.len() && !lines[i].trim().is_empty() && leading_whitespace(lines[i]) > base_indent
+        if i < lines.len()
+            && !lines[i].trim().is_empty()
+            && leading_whitespace(lines[i]) > base_indent
         {
             let desc_start = i;
             while i < lines.len()
@@ -6347,15 +6353,12 @@ Options:
     // --- headingless invocation table (spec §7 Tier B) -------------------
 
     fn find_subcommand<'a>(nodes: &'a [CommandNode], name: &str) -> &'a CommandNode {
-        nodes
-            .iter()
-            .find(|n| n.name == name)
-            .unwrap_or_else(|| {
-                panic!(
-                    "no subcommand named {name:?} among {:?}",
-                    nodes.iter().map(|n| &n.name).collect::<Vec<_>>()
-                )
-            })
+        nodes.iter().find(|n| n.name == name).unwrap_or_else(|| {
+            panic!(
+                "no subcommand named {name:?} among {:?}",
+                nodes.iter().map(|n| &n.name).collect::<Vec<_>>()
+            )
+        })
     }
 
     fn btrfs_help_txt() -> String {
@@ -6448,6 +6451,65 @@ Options:
         assert_eq!(
             version.summary.as_ref().map(|t| t.as_str()),
             Some("Display btrfs-progs version")
+        );
+    }
+
+    /// Pins the whole table against truncation, not just a sample of it.
+    /// `btrfs device replace <command> [...]`'s description is **tab**-
+    /// indented (`"    \tReplace a device..."`) — `leading_whitespace`
+    /// counts it as part of the leading-whitespace *character* count (4
+    /// spaces + 1 tab = 5), which is still deeper than the table's own row
+    /// indent (4), so this must not end the scan early. Every group name in
+    /// the source (verified independently by `grep`) must come out, in
+    /// particular the ones physically **after** that tab-indented row —
+    /// `filesystem` through `version` — proving the scan reads to the real
+    /// end of the table (the column-0 "Use --help as an argument..." line)
+    /// rather than stopping partway through.
+    #[test]
+    fn headingless_invocation_table_is_not_truncated_by_the_tab_indented_row() {
+        let raw = btrfs_help_txt();
+        let parsed = parse_named(&raw, "btrfs");
+        let mut names: Vec<&str> = parsed.subcommands.iter().map(|n| n.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            vec![
+                "balance",
+                "check",
+                "device",
+                "filesystem",
+                "help",
+                "inspect-internal",
+                "property",
+                "qgroup",
+                "quota",
+                "receive",
+                "replace",
+                "rescue",
+                "restore",
+                "scrub",
+                "send",
+                "subvolume",
+                "version",
+            ],
+            "the recovered top-level group set must be complete, not a prefix"
+        );
+    }
+
+    /// [`MIN_INVOCATION_TABLE_ROWS`]'s floor counts rows that actually
+    /// *received* a description, not merely rows that were seen: two rows
+    /// where only one is ever followed by a deeper-indented line must not
+    /// admit, because only one name-row/description-row pair exists.
+    #[test]
+    fn headingless_invocation_table_refuses_when_only_one_row_is_described() {
+        let raw = "    mytool frob start <path>\n        Start frobbing\n    \
+                    mytool frob stop <path>\n";
+        let parsed = parse_named(raw, "mytool");
+        assert!(
+            parsed.subcommands.is_empty(),
+            "only one row (start) ever got a description; the floor of two must not be met: \
+             {:?}",
+            parsed.subcommands
         );
     }
 
