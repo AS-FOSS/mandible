@@ -145,14 +145,52 @@ jobs:
           if-no-files-found: error
 
   # Distro packages, built from the metadata already in mandible/Cargo.toml.
-  # x86_64 only for now: cargo-deb/cargo-generate-rpm would need a separate
-  # matrix entry per architecture, and shipping an arm64 .deb nobody has
-  # tested is worse than not shipping one.
+  #
+  # Both architectures now, each built natively — this used to be x86_64
+  # only, on the stated reason that "an arm64 .deb nobody has tested" is
+  # worse than shipping none. That objection is stale: the `build` job above
+  # has run natively on `ubuntu-24.04-arm` since it added the
+  # aarch64-unknown-linux-gnu target, and its smoke test already proves a
+  # native arm64 `mandible` binary runs there. What was actually untested
+  # was never the architecture generally, it was `cargo deb`/`cargo
+  # generate-rpm`'s *own* arm64 output specifically — so this job's smoke
+  # test (below) installs the built `.deb` with `dpkg -i` and runs the same
+  # `--version`/`--doctor tar` check `build` already trusts, on both
+  # architectures, and separately asserts the package's own declared
+  # `Architecture:`/`%{ARCH}` field matches the runner it was built on. That
+  # is the thing that was actually missing, not "arm64 support" in the
+  # abstract.
+  #
+  # Neither packager needs an explicit `--target`/arch flag here. Read from
+  # each tool's own source rather than assumed: cargo-deb's
+  # `PackageConfig::new` computes `architecture` from
+  # `debian_architecture_from_rust_triple(rust_target_triple.unwrap_or(DEFAULT_TARGET))`
+  # (`src/config.rs`), where `DEFAULT_TARGET` is the triple cargo-deb itself
+  # was compiled for — i.e. the runner's native arch, since neither this
+  # step nor the `Build` step passes `--target`. cargo-generate-rpm's
+  # `BuildTarget::binary_arch` (`src/build_target.rs`) falls back the same
+  # way, to `std::env::consts::ARCH` of the process running it, when no
+  # `--target`/`--arch` is given. Both are only correct as long as the
+  # packager binary itself is native to the runner, which is exactly what
+  # this matrix now guarantees — so the arch assertion step below verifies
+  # that premise on every run instead of trusting it silently.
   packages:
-    name: deb + rpm (x86_64)
+    name: deb + rpm (${{ matrix.arch }})
     needs: [verify, verify-frameworks]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            deb_arch: amd64
+            rpm_arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+            deb_arch: arm64
+            rpm_arch: aarch64
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -161,6 +199,26 @@ jobs:
       # packagers from source on every release and was most of this job's
       # 168 seconds. Versions are pinned, so this is a download of a known
       # artifact, not a moving target.
+      #
+      # That's the x86_64 story, though, not the arm64 one. Checked against
+      # `taiki-e/install-action`'s own manifests (which is what this action
+      # actually reads before falling back to anything else): cargo-deb's
+      # manifest carries a prebuilt binary for `x86_64_linux_gnu` only, no
+      # `aarch64_linux_gnu` entry at all, and cargo-generate-rpm has no
+      # manifest in that repo whatsoever (`manifests/cargo-generate-rpm.json`
+      # 404s) — consistent with upstream `cat-in-136/cargo-generate-rpm`
+      # publishing no binary release assets at all, for any architecture.
+      # `install-action`'s documented fallback for exactly this case is
+      # `cargo install`/`cargo-binstall`, automatic and silent, not an
+      # error — so the aarch64 row of this matrix compiles both packagers
+      # from source on every run rather than downloading them. Slower (adds
+      # real minutes to this job on that row), not broken; `rust-cache`
+      # above at least caches the compiled dependency graph between runs.
+      # Left as-is rather than switched to `cargo install` explicitly,
+      # because that's already the effective behavior and this comment is
+      # the honest record of it — not something to silently paper over by
+      # having the workflow *say* it uses prebuilt binaries when the arm64
+      # row does not.
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deb@3.7.0,cargo-generate-rpm@0.16.0
@@ -169,9 +227,67 @@ jobs:
           cargo build --release --locked --bin mandible
           cargo deb --no-build -p mandible
           cargo generate-rpm -p mandible
+
+      # Verify rather than assume. The comment above this job explains why
+      # native-build-implies-correct-arch is the right expectation for both
+      # packagers, but that's a read of their source, not a guarantee this
+      # exact toolchain/runner combination honors it — and a wrong
+      # `Architecture:`/`%{ARCH}` stamp is not something apt/dnf ever
+      # complains about at build time, only at install time on the arch it
+      # lied about. So assert both fields against the value this matrix row
+      # declares, and fail the job rather than ship a mislabeled package.
+      - name: Verify package architecture metadata
+        run: |
+          deb_file=$(ls target/debian/*.deb)
+          rpm_file=$(ls target/generate-rpm/*.rpm)
+
+          deb_arch=$(dpkg-deb -f "$deb_file" Architecture)
+          if [ "$deb_arch" != "${{ matrix.deb_arch }}" ]; then
+            echo "::error::${deb_file}: Architecture is '${deb_arch}', expected '${{ matrix.deb_arch }}' for ${{ matrix.arch }}" >&2
+            exit 1
+          fi
+
+          # `rpm` (the query tool) isn't preinstalled on either GitHub
+          # Ubuntu runner image; it ships no build dependency on it, only
+          # `cargo generate-rpm`'s own pure-Rust writer.
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends rpm
+          rpm_arch=$(rpm -qp --qf '%{ARCH}' "$rpm_file")
+          if [ "$rpm_arch" != "${{ matrix.rpm_arch }}" ]; then
+            echo "::error::${rpm_file}: %{ARCH} is '${rpm_arch}', expected '${{ matrix.rpm_arch }}' for ${{ matrix.arch }}" >&2
+            exit 1
+          fi
+
+          echo "deb: ${deb_file} (${deb_arch}); rpm: ${rpm_file} (${rpm_arch})"
+
+      # Same proof the `build` job's own smoke test relies on (see its
+      # comment: "a release binary that cannot start is the one failure mode
+      # worth catching here"), but for the packaged artifact specifically —
+      # installing through `dpkg` exercises the control file, the asset
+      # list and the completion-script paths in `mandible/Cargo.toml`'s
+      # `[package.metadata.deb]`, none of which the raw binary smoke test
+      # above touches at all.
+      - name: Install and smoke-test the .deb
+        run: |
+          sudo dpkg -i target/debian/*.deb
+          mandible --version
+          mandible --doctor tar
+
+      # Distinct artifact name per architecture: actions/upload-artifact@v4
+      # refuses to let two jobs upload under the same name, which a matrix
+      # over two runners would otherwise do here. The downstream `release`
+      # job merges every artifact into one directory
+      # (`download-artifact@v4` with `merge-multiple: true`), which is safe
+      # here specifically because the *files* inside don't collide either:
+      # both packagers stamp the architecture into the filename itself
+      # (cargo-deb: `{name}_{version}-1_{architecture}.deb`;
+      # cargo-generate-rpm: `{name}-{version}-{release}.{arch}.rpm`), so
+      # `mandible_0.3.2-1_amd64.deb` and `mandible_0.3.2-1_arm64.deb` land as
+      # two distinct files in the merged directory rather than one
+      # overwriting the other.
       - uses: actions/upload-artifact@v4
         with:
-          name: mandible-packages
+          name: mandible-packages-${{ matrix.arch }}
           path: |
             target/debian/*.deb
             target/generate-rpm/*.rpm
