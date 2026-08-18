@@ -1398,6 +1398,8 @@ struct SnapNode {
     unparsed: Vec<String>,
     #[serde(default)]
     heading_attested: bool,
+    #[serde(default)]
+    invocation_attested: bool,
 }
 
 /// Rebuild a real (if synthetic-provenance) [`CommandNode`] from a
@@ -1412,6 +1414,7 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
     let mut node = CommandNode::new(n.name.clone(), Provenance::single(Source::HelpText));
     node.summary = n.summary.as_deref().map(Text::sanitize);
     node.heading_attested = n.heading_attested;
+    node.invocation_attested = n.invocation_attested;
     node.unparsed = n.unparsed.iter().map(|s| Text::sanitize(s)).collect();
     node.flags = n
         .flags

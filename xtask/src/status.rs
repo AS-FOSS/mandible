@@ -112,8 +112,8 @@ pub fn compute(result: &ExtractionResult) -> Status {
 /// Count descendant nodes (root excluded — see below) that fail spec
 /// §13.1's structure-sanity check: a name that doesn't look like a real
 /// command ([`is_command_name_shaped`]), or a node with no flags, no
-/// children, no summary, and no [`CommandNode::heading_attested`]
-/// evidence.
+/// children, no summary, and neither [`CommandNode::heading_attested`] nor
+/// [`CommandNode::invocation_attested`] evidence.
 ///
 /// **Why emptiness alone isn't enough.** A node that exists but carries
 /// nothing is exactly what a mis-parsed continuation line or enum-value-
@@ -121,8 +121,10 @@ pub fn compute(result: &ExtractionResult) -> Status {
 /// legitimately description-less command looks like (`openssl --help`
 /// lists 152 real commands as a bare word grid with no per-entry
 /// description). The distinguishing signal is provenance, not emptiness:
-/// `heading_attested` is set only where the parser already had positive
-/// evidence of a real command list, so an empty node without it is still
+/// `heading_attested` (a recognized command heading) and
+/// `invocation_attested` (a headingless invocation table — spec §7 Tier B)
+/// are each set only where the parser already had positive evidence of a
+/// real command list, so an empty node carrying *neither* is still
 /// [M-10]'s phantom-subcommand shape and stays suspicious.
 ///
 /// The root is excluded from the name-shape half: it's the literal
@@ -150,7 +152,8 @@ fn count_suspicious(node: &CommandNode) -> usize {
     let empty = node.flags.is_empty()
         && node.subcommands.is_empty()
         && node.summary.is_none()
-        && !node.heading_attested;
+        && !node.heading_attested
+        && !node.invocation_attested;
     let this_node = usize::from(bad_name || empty);
     this_node + node.subcommands.iter().map(count_suspicious).sum::<usize>()
 }

@@ -67,5 +67,532 @@ flags:
 provenance:
   sources:
   - help-text
-  confidence: 0.09
+  confidence: 0.5
 children_filled: true
+subcommands:
+- name: balance
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: start
+    summary: Balance chunks across the devices
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: pause
+    summary: Pause running balance
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: cancel
+    summary: Cancel running or paused balance
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: resume
+    summary: Resume interrupted balance
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: status
+    summary: Show status of running or paused balance
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: check
+  summary: Check structural integrity of a filesystem (unmounted).
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: device
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: add
+    summary: Add one or more devices to a mounted filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: delete
+    summary: Remove a device from a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: remove
+    summary: Remove a device from a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: replace
+    summary: Replace a device (alias of "btrfs replace")
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: scan
+    summary: Scan or forget (unregister) devices of btrfs filesystems
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: ready
+    summary: Check and wait until a group of devices of a filesystem is ready for mount
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: stats
+    summary: Show device IO error statistics
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: usage
+    summary: Show detailed information about internal allocations in devices.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: filesystem
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: df
+    summary: Show space usage information for a mount point
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: du
+    summary: Summarize disk usage of each file.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: show
+    summary: Show the structure of a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: sync
+    summary: Force a sync on a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: defragment
+    summary: Defragment a file or a directory
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: resize
+    summary: Resize a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: label
+    summary: Get or change the label of a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: usage
+    summary: Show detailed information about internal filesystem usage .
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: mkswapfile
+    summary: Create a new file that's suitable and formatted as a swapfile.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: inspect-internal
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: inode-resolve
+    summary: Get file system paths for the given inode
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: logical-resolve
+    summary: Get file system paths for the given logical address
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: subvolid-resolve
+    summary: Get file system paths for the given subvolume ID.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: rootid
+    summary: Get tree ID of the containing subvolume of path.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: map-swapfile
+    summary: Print physical offset of first block and resume offset if file is suitable as swapfile
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: min-dev-size
+    summary: Get the minimum size the device can be shrunk to
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: dump-tree
+    summary: Dump tree structures from a given device
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: dump-super
+    summary: Dump superblock from a device in a textual form
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: tree-stats
+    summary: Print various stats for trees
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: property
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: get
+    summary: Get a property value of a btrfs object
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: set
+    summary: Set a property on a btrfs object
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: list
+    summary: Lists available properties with their descriptions for the given object
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: qgroup
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: assign
+    summary: Assign SRC as the child qgroup of DST.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: remove
+    summary: Remove the relation between child qgroup SRC from DST.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: create
+    summary: Create a subvolume quota group.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: clear-stale
+    summary: Clear all stale qgroups (level 0/subvolid), without a subvolume.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: destroy
+    summary: Destroy a quota group.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: show
+    summary: List subvolume quota groups.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: limit
+    summary: Set the limits a subvolume quota group.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: quota
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: enable
+    summary: Enable subvolume quota support for a filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: disable
+    summary: Disable subvolume quota support for a filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: rescan
+    summary: Trash all qgroup numbers and scan the metadata again with the current config.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: receive
+  summary: Receive subvolumes from a stream
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: replace
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: start
+    summary: Replace device of a btrfs filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: status
+    summary: Print status and progress information of a running device replace operation
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: cancel
+    summary: Cancel a running device replace operation.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: rescue
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: chunk-recover
+    summary: Recover the chunk tree by scanning the devices one by one.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: super-recover
+    summary: Recover bad superblocks from good copies
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: zero-log
+    summary: Clear the tree log. Usable if it's corrupted and prevents mount.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: fix-device-size
+    summary: Re-align device and super block sizes. Usable if newer kernel refuse to mount it due to mismatch super size
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: create-control-device
+    summary: Create /dev/btrfs-control (see 'CONTROL DEVICE' in btrfs(5))
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: clear-ino-cache
+    summary: remove leftover items pertaining to the deprecated inode cache feature
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: clear-space-cache
+    summary: completely remove the v1 or v2 free space cache
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: clear-uuid-tree
+    summary: Delete uuid tree so that kernel can rebuild it at mount time
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: restore
+  summary: Try to restore files from a damaged filesystem (unmounted)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: scrub
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: start
+    summary: Start a new scrub. If a scrub is already running, the new one fails.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: cancel
+    summary: Cancel a running scrub
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: resume
+    summary: Resume previously canceled or interrupted scrub
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: status
+    summary: Show status of running or finished scrub
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: limit
+    summary: Show or set scrub limits on devices of the given filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: send
+  summary: Send the subvolume(s) to stdout.
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: subvolume
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: create
+    summary: Create subvolume(s)
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: delete
+    summary: Delete subvolume(s)
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: list
+    summary: List subvolumes and snapshots in the filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: snapshot
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: get-default
+    summary: Get the default subvolume of a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: set-default
+    summary: Set the default subvolume of the filesystem mounted as default.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: find-new
+    summary: List the recently modified files in a filesystem
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: show
+    summary: Show more information about the subvolume (UUIDs, generations, times, snapshots)
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+  - name: sync
+    summary: Wait until given subvolume(s) are completely removed from the filesystem.
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: help
+  summary: Display help information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: version
+  summary: Display btrfs-progs version
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

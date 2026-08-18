@@ -194,7 +194,7 @@
 //! no second, unrecorded raw text a deeper node's fields could have
 //! legitimately come from instead.
 
-use mandible_core::{CommandNode, Flag, Provenance, Source};
+use mandible_core::{is_command_name_shaped, CommandNode, Flag, Provenance, Source};
 use std::collections::HashSet;
 
 /// Whether `flag_char` may not immediately follow (or precede) a candidate
@@ -426,13 +426,72 @@ fn list_row_words(raw: &str) -> HashSet<&str> {
 }
 
 /// Every position in `raw` at which a genuine command-list entry is
-/// attested: a line's first token ([`line_start_words`]) or an item of a
-/// list row ([`list_row_words`]). A subcommand name occurring at neither is
-/// what this module calls fabricated.
-fn attested_name_positions(raw: &str) -> HashSet<&str> {
+/// attested: a line's first token ([`line_start_words`]), an item of a
+/// list row ([`list_row_words`]), or a name-shaped token immediately
+/// following the tool's own name at the start of a line
+/// ([`tool_name_prefixed_row_words`]). A subcommand name occurring at none
+/// of these is what this module calls fabricated.
+fn attested_name_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
     let mut set = line_start_words(raw);
     set.extend(list_row_words(raw));
+    set.extend(tool_name_prefixed_row_words(raw, root_name));
     set
+}
+
+/// The set of every name-shaped token attested by spec §7 Tier B's
+/// **headingless invocation table** recognizer
+/// (`mandible_extract::help_text::sections::scan_headingless_invocation_table`):
+/// on a line whose first token is `root_name` itself, every token in the
+/// leading run of [`mandible_core::is_command_name_shaped`] tokens that
+/// follows it, up to and including the first two (the recognizer's own
+/// two-level cap — `btrfs device add` attests both `device` and `add`).
+///
+/// # Why this exists
+///
+/// `line_start_words` only ever attests a line's *first* token. In a
+/// headingless invocation table (`btrfs balance start [options] <path>`)
+/// that first token is the tool's own name (`btrfs`), never the
+/// subcommand words after it — so without this, every node the new
+/// recognizer produces would be reported as invented by this detector, a
+/// false fabrication report on real, existence-attested structure. This is
+/// the *same shape rule the parser itself uses* (a tool-name-prefixed row's
+/// leading run of name-shaped tokens), so the fix and the measurement
+/// agree on what the defect is — deliberately not a second, looser
+/// heuristic.
+///
+/// # Why this only ever adds to the attested set
+///
+/// Same "widening is safe" argument [`synopsis_lines`]'s own doc comment
+/// makes: this function only ever *adds* candidate words to `attested`,
+/// never removes any, so it can only make [`detect`] report *fewer*
+/// fabrications, never hide a real one that isn't also genuinely name-
+/// shaped and tool-name-prefixed. A line not starting with `root_name` is
+/// completely unaffected; a token after the first non-name-shaped one
+/// (flag, bracket, placeholder) is never attested by this rule.
+fn tool_name_prefixed_row_words<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
+    let mut out = HashSet::new();
+    if root_name.is_empty() {
+        return out;
+    }
+    for line in raw.lines() {
+        let trimmed = line.trim_start();
+        let Some(rest) = trimmed.strip_prefix(root_name) else {
+            continue;
+        };
+        if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+            continue;
+        }
+        for token in rest.split_whitespace().take(2) {
+            let bare = token.trim_end_matches([':', ',', ';']);
+            let bare = mandible_extract::help_text::strip_optional_modifier_suffix(bare);
+            if is_command_name_shaped(bare) {
+                out.insert(bare);
+            } else {
+                break;
+            }
+        }
+    }
+    out
 }
 
 // ----------------------------------------------------------------------
@@ -1031,7 +1090,7 @@ fn walk(
 /// never a candidate a parser could have fabricated. Its *flags* are
 /// checked like any other node's.
 pub fn detect(raw: &str, root: &CommandNode) -> ExistenceReport {
-    let attested = attested_name_positions(raw);
+    let attested = attested_name_positions(raw, &root.name);
     let operands = attested_operand_positions(raw);
     let mut fabrications = Vec::new();
     walk(
@@ -1458,6 +1517,75 @@ mod tests {
         let modifiers = line_start_words("  [a]          - put file(s) after [member-name]\n");
         assert!(!modifiers.contains(""));
         assert!(modifiers.contains("[a]"));
+    }
+
+    // --- tool_name_prefixed_row_words (headingless invocation tables) ---
+
+    /// btrfs's real shape: on a line starting with the tool's own name,
+    /// both the direct-child word and its grandchild word must be
+    /// attested — this is what keeps every node the new headingless-
+    /// invocation-table recognizer produces from being reported as
+    /// invented by this detector.
+    #[test]
+    fn tool_name_prefixed_row_words_attests_both_levels_of_a_btrfs_row() {
+        let raw = "    btrfs balance start [options] <path>\n        Balance chunks\n";
+        let words = tool_name_prefixed_row_words(raw, "btrfs");
+        assert!(words.contains("balance"));
+        assert!(words.contains("start"));
+        // Placeholder/bracket tokens past the run are never attested.
+        assert!(!words.contains("options"));
+        assert!(!words.contains("path"));
+    }
+
+    /// A line that does not start with the tool's own name contributes
+    /// nothing — this rule is scoped exactly to the recognizer's own
+    /// evidence, never "any line naming this word anywhere".
+    #[test]
+    fn tool_name_prefixed_row_words_ignores_unrelated_lines() {
+        let raw = "  some other prog balance start\n";
+        let words = tool_name_prefixed_row_words(raw, "btrfs");
+        assert!(words.is_empty());
+    }
+
+    /// End-to-end against btrfs's real, committed `corpus/btrfs/
+    /// audit-seed2/help.txt`: a tree shaped exactly as
+    /// `scan_headingless_invocation_table` produces it (two levels,
+    /// `device` -> `add`) must report zero fabrications — the whole point
+    /// of this fix, and the regression this addendum exists to prevent
+    /// (before it, every node from this recognizer was a false positive
+    /// here).
+    #[test]
+    fn detect_does_not_flag_a_real_headingless_invocation_table_child() {
+        let raw = include_str!("../../corpus/btrfs/audit-seed2/help.txt");
+        let mut root = help_text_node("btrfs");
+        let mut device = help_text_node("device");
+        device.subcommands.push(help_text_node("add"));
+        root.subcommands.push(device);
+        let report = detect(raw, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "a real headingless-invocation-table child must not be reported as invented: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// The addendum must not blunt the detector: a genuinely fabricated
+    /// name that merely happens to sit on a line starting with the tool's
+    /// own name-shaped root word must still be caught if it isn't actually
+    /// one of the attested run's tokens.
+    #[test]
+    fn tool_name_prefixed_row_words_does_not_over_attest_past_the_run() {
+        let raw = "    btrfs balance start [options] <path>\n        Balance chunks\n";
+        let words = tool_name_prefixed_row_words(raw, "btrfs");
+        assert!(
+            !words.contains("chunks"),
+            "a description word must never be attested by this rule"
+        );
     }
 
     #[test]

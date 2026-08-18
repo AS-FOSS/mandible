@@ -472,6 +472,40 @@ pub fn parse_with_profile(
             continue;
         }
 
+        // Headingless invocation table (spec §7 Tier B): a run of rows the
+        // tool prints of its own invocation forms, with **no governing
+        // heading at all** — `btrfs --help`'s command table sits directly
+        // under a blank line once its flags block ends, never introduced
+        // by a "Commands:"-shaped line. Every other command-recovery path
+        // in this loop requires a recognized heading (rule 1); this one
+        // instead requires every row to start with the tool's own name at
+        // a word boundary, which is what supplies the positive evidence a
+        // heading would otherwise supply. Tried only when the current line
+        // isn't already consumed as a flag row (above) or reached as a
+        // heading's own indented content (below, where this line would
+        // instead be read as a heading and its rows — wrongly — as that
+        // heading's bare-word block); see `scan_headingless_invocation_table`'s
+        // own doc comment for the admission rules and why this call site
+        // structurally can never land inside an `Examples:`/`Report bugs:`
+        // region (`is_ignorable_heading`) or a block a real heading already
+        // governs.
+        if let Some(tool_name) = tool_name {
+            if starts_with_tool_name(line.trim_start(), tool_name) {
+                if let Some((end, nodes, seen, clean)) =
+                    scan_headingless_invocation_table(&lines, i, tool_name, raw)
+                {
+                    i = end;
+                    total_entries += seen;
+                    clean_entries += clean;
+                    for node in nodes {
+                        result.try_push_subcommand(node);
+                    }
+                    command_mode = false;
+                    continue;
+                }
+            }
+        }
+
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;
@@ -2832,6 +2866,274 @@ fn scan_same_indent_entry_table<'a>(
         end += 1;
     }
     (entries.len() >= MIN_ROWS).then_some((end, entries))
+}
+
+/// The fewest name-row / deeper-description-row pairs
+/// [`scan_headingless_invocation_table`] requires before treating a run of
+/// tool-name-prefixed rows as a real invocation table rather than one
+/// stray line — the same floor [`nested_entry_table_starts_at`] and
+/// [`scan_same_indent_entry_table`] each use, for the same reason: only
+/// repetition is evidence of a table.
+const MIN_INVOCATION_TABLE_ROWS: usize = 2;
+
+/// Try to recognize and consume a **headingless invocation table**
+/// starting at `lines[start]` (spec §7 Tier B's headingless-command-table
+/// recognizer): a run of rows the tool prints of its own invocation forms
+/// — `btrfs balance start [options] <path>`, each row's own description
+/// one indent deeper — with **no governing heading at all**. Every other
+/// command-recovery path in this file requires a *recognized heading*
+/// (module doc rule 1); this one instead requires every row to start with
+/// the tool's own name at a word boundary, which is what supplies the
+/// positive evidence a heading would otherwise supply, and is also what
+/// supplies the nesting: `btrfs device add ...` reads as child `device`,
+/// grandchild `add`.
+///
+/// Returns `None` when the shape doesn't admit — too few qualifying rows,
+/// or the very first row isn't tool-name-prefixed and name-shaped at all —
+/// in which case the caller falls through to its ordinary heading-based
+/// handling of `lines[start]` unchanged (this function never partially
+/// consumes on a refusal). `Some((end, nodes, seen, clean))` otherwise:
+/// `end` is the index just past the table, `nodes` the (already deduped,
+/// up to two levels deep) direct-child nodes to emit, and `(seen, clean)`
+/// feed the same total/clean-entry confidence accounting every other
+/// command-recovery branch in [`parse_with_profile`] uses.
+///
+/// # Admission rules (conservative — zero new false positives beats recall)
+///
+/// 1. **Repetition shape**: at least [`MIN_INVOCATION_TABLE_ROWS`] rows
+///    where a tool-name-prefixed, name-shaped row is immediately followed
+///    (no blank line between) by a non-blank, deeper-indented line — the
+///    same shape [`nested_entry_table_starts_at`] tests for, applied here
+///    to decide *admission* rather than merely *where the flags block
+///    ends*.
+/// 2. **Every row starts with the tool's own name** at a word boundary
+///    ([`starts_with_tool_name`]). A row that doesn't is never part of
+///    this table — reaching one ends the scan.
+/// 3. **Existence attestation** (spec [M-10]'s lesson): every emitted name
+///    is checked ([`token_occurs_literally`]) to occur literally, as a
+///    whole token, in the raw help text this table was scanned out of —
+///    true by construction (a name here is always a token split directly
+///    out of a real line), but the check is explicit rather than assumed,
+///    per spec §6's closing paragraphs on attestation.
+/// 4. **Name shape**: only the leading run of [`is_command_name_shaped`]
+///    tokens after the tool's name contributes anything; the first
+///    flag-shaped, bracketed, or placeholder-shaped token ends the run.
+///    This is what keeps `tar -cf archive.tar files` (an `Examples:`-style
+///    row — though that heading's own block is consumed before this
+///    function is ever reached, see the call site) from contributing a
+///    fabricated `cf`/`archive.tar` pair even if it somehow were reached:
+///    `-cf` is flag-shaped, so the run stops at zero length and the row is
+///    refused outright (rule 2's own row still needs a length->=1 run).
+///
+/// # Emission shape
+///
+/// For each admitted row, `run[0]` (the first name-shaped token after the
+/// tool's name) is a direct child of the node being parsed; `run[1]`, if
+/// the run is at least two tokens long, is a child of that child —
+/// grandchildren go no deeper, matching spec's two-level shape. The row's
+/// description (the deeper-indented line(s) immediately following)
+/// belongs to the *deepest* name in the run — `run[1]` when present, else
+/// `run[0]`. A run of consecutive name rows sharing one following
+/// description block (btrfs's `device delete` / `device remove` pair) all
+/// take that shared description. Every recovered node is
+/// `invocation_attested: true`, `heading_attested: false` (spec §6: layout
+/// evidence about a document is not a heading declaring a command list,
+/// so this table's names are never sent as `--help` probe argv even
+/// though they are existence-attested) — a parent gains
+/// `children_filled: true` only when the table itself supplied at least
+/// one of its children.
+fn scan_headingless_invocation_table<'a>(
+    lines: &[&'a str],
+    start: usize,
+    tool_name: &str,
+    raw: &str,
+) -> Option<(usize, Vec<CommandNode>, usize, usize)> {
+    let base_indent = leading_whitespace(lines[start]);
+
+    let mut children: Vec<CommandNode> = Vec::new();
+    let mut child_index: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    // Rows collected since the last time a description was assigned —
+    // possibly more than one when several sibling name rows in a row share
+    // one following description block.
+    let mut pending: Vec<(&'a str, Option<&'a str>)> = Vec::new();
+    let mut qualifying_rows = 0usize;
+    let mut seen = 0usize;
+    let mut clean = 0usize;
+    let mut i = start;
+
+    // Finalize every row in `pending` with `desc` (possibly empty — a row
+    // that never got a real description still becomes a node, just an
+    // undescribed one, e.g. `btrfs subvolume snapshot` whose own next line
+    // in the source is whitespace-only) and clear it.
+    macro_rules! finalize_pending {
+        ($desc:expr) => {{
+            let desc: &str = $desc;
+            for (child_name, grandchild_name) in pending.drain(..) {
+                if children.len() >= MAX_RECOVERED_ENTRIES {
+                    break;
+                }
+                let child_idx = *child_index
+                    .entry(child_name.to_string())
+                    .or_insert_with(|| {
+                        let mut node =
+                            CommandNode::new(child_name, Provenance::single(Source::HelpText));
+                        node.invocation_attested = true;
+                        node.heading_attested = false;
+                        children.push(node);
+                        children.len() - 1
+                    });
+                match grandchild_name {
+                    Some(grandchild_name) => {
+                        children[child_idx].children_filled = true;
+                        let parent = &mut children[child_idx];
+                        let existing = parent
+                            .subcommands
+                            .iter()
+                            .position(|c| c.name == grandchild_name);
+                        let gc_idx = match existing {
+                            Some(idx) => idx,
+                            None => {
+                                if parent.subcommands.len() >= MAX_RECOVERED_ENTRIES {
+                                    continue;
+                                }
+                                let mut node = CommandNode::new(
+                                    grandchild_name,
+                                    Provenance::single(Source::HelpText),
+                                );
+                                node.invocation_attested = true;
+                                node.heading_attested = false;
+                                parent.subcommands.push(node);
+                                parent.subcommands.len() - 1
+                            }
+                        };
+                        if parent.subcommands[gc_idx].summary.is_none() {
+                            parent.subcommands[gc_idx].summary = non_empty_text(desc);
+                        }
+                    }
+                    None => {
+                        if children[child_idx].summary.is_none() {
+                            children[child_idx].summary = non_empty_text(desc);
+                        }
+                    }
+                }
+            }
+        }};
+    }
+
+    while i < lines.len() {
+        let line = lines[i];
+        if line.trim().is_empty() {
+            finalize_pending!("");
+            i += 1;
+            continue;
+        }
+        let indent = leading_whitespace(line);
+        if indent < base_indent {
+            break;
+        }
+        if indent > base_indent {
+            // An orphaned deeper line with nothing pending to attach to
+            // (shouldn't normally occur — the row branch below already
+            // consumes an immediately-following description block). Skip
+            // rather than risk misreading it as a new row.
+            i += 1;
+            continue;
+        }
+
+        let trimmed = line.trim_start();
+        if !starts_with_tool_name(trimmed, tool_name) {
+            break;
+        }
+        let Some(run) = invocation_table_row_run(trimmed, tool_name) else {
+            break;
+        };
+        seen += 1;
+        let child_name = run[0];
+        let grandchild_name = run.get(1).copied();
+        if !token_occurs_literally(raw, child_name)
+            || grandchild_name.is_some_and(|g| !token_occurs_literally(raw, g))
+        {
+            // Should never happen by construction (the name was split
+            // directly out of this very line), but the guard is explicit
+            // (spec [M-10]) — refuse this row rather than trust it.
+            i += 1;
+            continue;
+        }
+        clean += 1;
+        pending.push((child_name, grandchild_name));
+        i += 1;
+
+        if i < lines.len()
+            && !lines[i].trim().is_empty()
+            && leading_whitespace(lines[i]) > base_indent
+        {
+            let desc_start = i;
+            while i < lines.len()
+                && !lines[i].trim().is_empty()
+                && leading_whitespace(lines[i]) > base_indent
+            {
+                i += 1;
+            }
+            let desc = lines[desc_start..i]
+                .iter()
+                .map(|l| l.trim())
+                .collect::<Vec<_>>()
+                .join(" ");
+            qualifying_rows += pending.len();
+            finalize_pending!(&desc);
+        }
+    }
+    finalize_pending!("");
+
+    if qualifying_rows < MIN_INVOCATION_TABLE_ROWS || children.is_empty() {
+        return None;
+    }
+    Some((i, children, seen, clean))
+}
+
+/// The leading run (up to two tokens) of [`is_command_name_shaped`] tokens
+/// in `trimmed` after stripping `tool_name` from the front — the token
+/// shape [`scan_headingless_invocation_table`] reads as `(child,
+/// Option<grandchild>)`. `None` when `trimmed` doesn't start with
+/// `tool_name` at all, or the very first token after it isn't name-shaped
+/// (a flag, a bracketed/placeholder token, or punctuation) — in either
+/// case there is nothing here to promote.
+fn invocation_table_row_run<'a>(trimmed: &'a str, tool_name: &str) -> Option<Vec<&'a str>> {
+    let rest = trimmed.strip_prefix(tool_name)?;
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        return None;
+    }
+    let mut run = Vec::new();
+    for token in rest.split_whitespace() {
+        let name = token.trim_end_matches(':');
+        let name = strip_optional_modifier_suffix(name);
+        if is_command_name_shaped(name) {
+            run.push(name);
+            if run.len() == 2 {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    if run.is_empty() {
+        None
+    } else {
+        Some(run)
+    }
+}
+
+/// Whole-token occurrence check for spec [M-10]'s existence-attestation
+/// lesson (spec §6): is `token` present in `raw` as a maximal run of
+/// [`is_command_name_shaped`]'s own character class, rather than merely as
+/// a substring of some longer word (`"sub"` must not "occur" inside
+/// `"subvolume"`)? Splitting on everything outside that class and
+/// comparing for an exact match is what gives "whole token" its meaning
+/// here, matching the character class the names themselves are drawn from.
+fn token_occurs_literally(raw: &str, token: &str) -> bool {
+    raw.split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-')))
+        .any(|w| w == token)
 }
 
 fn scan_comma_separated_commands<'a>(
@@ -6046,5 +6348,280 @@ Options:
             parsed.description.as_deref(),
             Some("Build v2 is faster than v1. See the changelog for details.")
         );
+    }
+
+    // --- headingless invocation table (spec §7 Tier B) -------------------
+
+    fn find_subcommand<'a>(nodes: &'a [CommandNode], name: &str) -> &'a CommandNode {
+        nodes.iter().find(|n| n.name == name).unwrap_or_else(|| {
+            panic!(
+                "no subcommand named {name:?} among {:?}",
+                nodes.iter().map(|n| &n.name).collect::<Vec<_>>()
+            )
+        })
+    }
+
+    fn btrfs_help_txt() -> String {
+        let path = format!(
+            "{}/../corpus/btrfs/audit-seed2/help.txt",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {path}: {e}"))
+    }
+
+    /// The real btrfs shape: two-level nesting (`device` -> `add`/`delete`/
+    /// `replace`/...), a shared description across consecutive sibling
+    /// rows (`device delete` / `device remove`), a single-level dedup
+    /// across two rows that both name the same command (`receive` /
+    /// `receive --dump`), a tab-indented description (`device replace`),
+    /// and a row with no description at all in the source (`subvolume
+    /// snapshot`) ending up genuinely empty rather than fabricating one.
+    #[test]
+    fn headingless_invocation_table_admits_the_btrfs_shape() {
+        let raw = btrfs_help_txt();
+        let parsed = parse_named(&raw, "btrfs");
+
+        let balance = find_subcommand(&parsed.subcommands, "balance");
+        assert!(balance.heading_attested.eq(&false));
+        assert!(balance.invocation_attested);
+        assert!(balance.children_filled, "balance's rows supplied children");
+        for verb in ["start", "pause", "cancel", "resume", "status"] {
+            let child = find_subcommand(&balance.subcommands, verb);
+            assert!(child.invocation_attested);
+            assert!(!child.heading_attested);
+            assert!(
+                child.summary.is_some(),
+                "balance {verb} has a real description in the source"
+            );
+        }
+
+        let device = find_subcommand(&parsed.subcommands, "device");
+        assert!(device.summary.is_none(), "no row names `device` directly");
+        let delete = find_subcommand(&device.subcommands, "delete");
+        let remove = find_subcommand(&device.subcommands, "remove");
+        assert_eq!(
+            delete.summary.as_ref().map(|t| t.as_str()),
+            Some("Remove a device from a filesystem"),
+            "device delete/remove share one following description block"
+        );
+        assert_eq!(
+            delete.summary.as_ref().map(|t| t.as_str()),
+            remove.summary.as_ref().map(|t| t.as_str())
+        );
+        let replace = find_subcommand(&device.subcommands, "replace");
+        assert_eq!(
+            replace.summary.as_ref().map(|t| t.as_str()),
+            Some("Replace a device (alias of \"btrfs replace\")"),
+            "the tab-indented description must still be recovered"
+        );
+
+        // `receive` / `receive --dump` both name the single-level command
+        // `receive`: `--dump` is flag-shaped, so the run stops at `receive`
+        // for both rows, and they must dedup to one node, not two.
+        let receive = find_subcommand(&parsed.subcommands, "receive");
+        assert_eq!(
+            receive.summary.as_ref().map(|t| t.as_str()),
+            Some("Receive subvolumes from a stream")
+        );
+        assert!(receive.subcommands.is_empty());
+
+        // `subvolume set-default` (two rows) shares its description; the
+        // parent `subvolume` also carries `snapshot`, whose next line in
+        // the source is blank — it must come out empty, not with a
+        // fabricated description.
+        let subvolume = find_subcommand(&parsed.subcommands, "subvolume");
+        let set_default = find_subcommand(&subvolume.subcommands, "set-default");
+        assert_eq!(
+            set_default.summary.as_ref().map(|t| t.as_str()),
+            Some("Set the default subvolume of the filesystem mounted as default.")
+        );
+        let snapshot = find_subcommand(&subvolume.subcommands, "snapshot");
+        assert!(
+            snapshot.summary.is_none(),
+            "btrfs's own text never describes `subvolume snapshot` — honest emptiness, not fabrication"
+        );
+
+        // `help`/`version` are single-level leaves.
+        let help = find_subcommand(&parsed.subcommands, "help");
+        assert_eq!(
+            help.summary.as_ref().map(|t| t.as_str()),
+            Some("Display help information")
+        );
+        let version = find_subcommand(&parsed.subcommands, "version");
+        assert_eq!(
+            version.summary.as_ref().map(|t| t.as_str()),
+            Some("Display btrfs-progs version")
+        );
+    }
+
+    /// Pins the whole table against truncation, not just a sample of it.
+    /// `btrfs device replace <command> [...]`'s description is **tab**-
+    /// indented (`"    \tReplace a device..."`) — `leading_whitespace`
+    /// counts it as part of the leading-whitespace *character* count (4
+    /// spaces + 1 tab = 5), which is still deeper than the table's own row
+    /// indent (4), so this must not end the scan early. Every group name in
+    /// the source (verified independently by `grep`) must come out, in
+    /// particular the ones physically **after** that tab-indented row —
+    /// `filesystem` through `version` — proving the scan reads to the real
+    /// end of the table (the column-0 "Use --help as an argument..." line)
+    /// rather than stopping partway through.
+    #[test]
+    fn headingless_invocation_table_is_not_truncated_by_the_tab_indented_row() {
+        let raw = btrfs_help_txt();
+        let parsed = parse_named(&raw, "btrfs");
+        let mut names: Vec<&str> = parsed.subcommands.iter().map(|n| n.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            vec![
+                "balance",
+                "check",
+                "device",
+                "filesystem",
+                "help",
+                "inspect-internal",
+                "property",
+                "qgroup",
+                "quota",
+                "receive",
+                "replace",
+                "rescue",
+                "restore",
+                "scrub",
+                "send",
+                "subvolume",
+                "version",
+            ],
+            "the recovered top-level group set must be complete, not a prefix"
+        );
+    }
+
+    /// [`MIN_INVOCATION_TABLE_ROWS`]'s floor counts rows that actually
+    /// *received* a description, not merely rows that were seen: two rows
+    /// where only one is ever followed by a deeper-indented line must not
+    /// admit, because only one name-row/description-row pair exists.
+    #[test]
+    fn headingless_invocation_table_refuses_when_only_one_row_is_described() {
+        let raw = "    mytool frob start <path>\n        Start frobbing\n    \
+                    mytool frob stop <path>\n";
+        let parsed = parse_named(raw, "mytool");
+        assert!(
+            parsed.subcommands.is_empty(),
+            "only one row (start) ever got a description; the floor of two must not be met: \
+             {:?}",
+            parsed.subcommands
+        );
+    }
+
+    /// A table whose rows do **not** start with the tool's own name is
+    /// refused outright — this is the whole basis for the recognizer's
+    /// evidence, not an optional extra.
+    #[test]
+    fn headingless_invocation_table_refuses_rows_not_naming_the_tool() {
+        let raw = "  otherprog frobnicate [options] <path>\n      Frobnicate a path\n  \
+                    otherprog defrobnicate [options] <path>\n      Defrobnicate a path\n";
+        let parsed = parse_named(raw, "mytool");
+        assert!(parsed.subcommands.is_empty());
+    }
+
+    /// A single name-row/description-row pair sits below the repetition
+    /// floor and must not be promoted — one row is as likely to be a
+    /// stray example as a table.
+    #[test]
+    fn headingless_invocation_table_refuses_a_single_pair() {
+        let raw = "    mytool frob start <path>\n        Start frobbing\n";
+        let parsed = parse_named(raw, "mytool");
+        assert!(parsed.subcommands.is_empty());
+    }
+
+    /// pngfix's real near-miss (`corpus/pngfix/1.6.43/help.stderr.txt`):
+    /// `--strip=[none|crc|...]:` carries no description on its own line,
+    /// so [`entry_row_carries_own_description`] refuses to end the flags
+    /// block there, and the whole value-list stays that flag's own
+    /// description exactly as before this recognizer existed. None of
+    /// these lines start with `pngfix`, so the new recognizer is never
+    /// even reached.
+    #[test]
+    fn pngfix_strip_choice_list_stays_a_flag_description() {
+        let raw = "Usage: pngfix {[options] png-file}\n\
+                    OPTIONS\n\
+                    \x20\x20\x20\x20--strip=[none|crc|unsafe|unused|transform|color|all]:\n\
+                    \x20\x20\x20\x20\x20\x20\x20\x20none (default):   Retain all chunks.\n\
+                    \x20\x20\x20\x20\x20\x20\x20\x20crc:    Remove chunks with a bad CRC.\n";
+        let parsed = parse_named(raw, "pngfix");
+        assert!(parsed.subcommands.is_empty());
+        let strip = flag_named(&parsed, "strip");
+        assert!(
+            strip
+                .description
+                .as_ref()
+                .is_some_and(|d| d.as_str().contains("Retain all chunks")),
+            "the choice list must remain --strip's own description: {:?}",
+            strip.description
+        );
+    }
+
+    /// pod2man's real near-miss (`corpus/pod2man/5.01/help.txt`):
+    /// `--guesswork=rule[,rule...]` likewise carries nothing on its own
+    /// line, so its whole description (including the enum-shaped `all`/
+    /// `none` rule names deep inside it) must stay attached to that one
+    /// flag, never promoted to subcommands.
+    #[test]
+    fn pod2man_guesswork_value_list_stays_a_flag_description() {
+        let raw = "Usage: pod2man [options]\n\
+                    OPTIONS AND ARGUMENTS\n\
+                    \x20\x20\x20\x20--guesswork=rule[,rule...]\n\
+                    \x20\x20\x20\x20\x20\x20\x20\x20Adjust the guesswork applied.\n\
+                    \x20\x20\x20\x20\x20\x20\x20\x20The special rule \"all\" enables all guesswork.\n";
+        let parsed = parse_named(raw, "pod2man");
+        assert!(parsed.subcommands.is_empty());
+        let guesswork = flag_named(&parsed, "guesswork");
+        assert!(
+            guesswork
+                .description
+                .as_ref()
+                .is_some_and(|d| d.as_str().contains("all guesswork")),
+            "the value-list description must survive intact: {:?}",
+            guesswork.description
+        );
+    }
+
+    /// An ordinary prose paragraph, even one that happens to repeat the
+    /// tool's own name at the start of successive sentences, must not be
+    /// promoted: the sentences aren't name-shaped after the tool's name
+    /// (they're prose), so the leading-run test refuses every row.
+    #[test]
+    fn a_prose_paragraph_is_not_promoted() {
+        let raw = "    mytool is a tool that helps you manage things well.\n\
+                    \x20\x20\x20\x20mytool also has a web site with more information.\n";
+        let parsed = parse_named(raw, "mytool");
+        assert!(parsed.subcommands.is_empty());
+    }
+
+    // --- existence attestation (spec [M-10]) ------------------------------
+
+    #[test]
+    fn token_occurs_literally_accepts_a_real_whole_token() {
+        assert!(token_occurs_literally(
+            "btrfs balance start [options] <path>",
+            "balance"
+        ));
+    }
+
+    /// A name must not "occur" merely as a substring of a longer token —
+    /// this is the whole-token half of the guard, and the one a naive
+    /// `raw.contains(name)` would get wrong.
+    #[test]
+    fn token_occurs_literally_rejects_a_mere_substring() {
+        assert!(!token_occurs_literally("btrfs subvolume list", "sub"));
+        assert!(!token_occurs_literally("btrfs subvolume list", "volume"));
+    }
+
+    #[test]
+    fn token_occurs_literally_rejects_a_name_absent_from_the_text() {
+        assert!(!token_occurs_literally(
+            "btrfs balance start [options] <path>",
+            "nonexistent"
+        ));
     }
 }

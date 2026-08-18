@@ -10,6 +10,55 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **`xtask sweep-diff` now diffs each tool's flags, choices, and subcommands
+  by content, not just by count.** During PR #14 the same run that deleted
+  `pngfix`'s and `pod2man`'s flag descriptions and fabricated a choices list
+  on them (see the `nested_entry_table_starts_at` entry above) reported as
+  "identical" — every existing scoreboard column (`flags`, `%flags_text`,
+  `status`) is a count, and neither flag was added or removed, so nothing
+  about that run moved any of them.
+
+  `xtask coverage`'s `ScoreFormat::Text` scoreboard now carries a `#fp`
+  footer, one line per tool, fingerprinting every flag (a stable identity
+  independent of `value_name`, description presence, a hash of the
+  description text, a hash of the choices list, and `value_name` itself) and
+  every subcommand path — full text is never duplicated into the scoreboard,
+  only enough to detect a change (`coverage::build_fingerprint`,
+  `coverage::fingerprint_lines`). `sweep-diff` reads it back
+  (`transition::parse_scoreboard`) and reports, per tool, exactly which flags
+  were added/removed, which flags' description/choices/value_name changed,
+  which subcommands were added/removed, and any tier/framework change — a
+  new "Field-level changes" section in both `--format text` and `--format
+  markdown`, alongside the existing status/flag-count/appeared/disappeared
+  sections, which are unchanged. A scoreboard from before this footer existed
+  still loads (`ParsedScoreboard::fingerprints` stays empty for it) and is
+  reported as field-diff-unmeasured rather than silently read as "no
+  changes." The report's own `Overall: IDENTICAL`/`CHANGED` line now accounts
+  for field-level content too, so a run that only edits a description's text
+  no longer reads as identical — still non-blocking (maintainer decision D4:
+  `sweep-diff` exits `0` regardless, same as before).
+
+- **`sweep-diff`'s field-level section no longer goes silent on a tool that
+  loses every flag.** The `#fp` footer above shipped skipping the line
+  entirely for a row with no flags and no subcommands, on the assumption
+  that "nothing to fingerprint" and "not fingerprinted" were the same case.
+  They aren't, and a real two-sweep diff (2,254 tools) found both costs at
+  once: roughly a quarter of the fleet (verbatim tools, zero-flag `ok`
+  tools) reported as field-diff-unmeasured instead of measured-with-nothing,
+  and a tool that had flags before and loses every one of them produced a
+  `#fp` line on the "before" side and none on the "after" side — read as
+  unmeasured instead of every flag removed, going quiet on exactly the
+  regression direction this fingerprint exists to catch (the flag-count-loss
+  section still caught it independently, so this was never a detection
+  hole, only a misleading message on the section built specifically because
+  counts can lie). `coverage::fingerprint_lines` now emits a `#fp` line for
+  every row unconditionally; `transition::diff` now tells apart "both sides
+  measured" (diff normally, including an empty side reporting every flag on
+  the other side as added/removed), "neither side has an entry" (the
+  genuine legacy case — scoreboard predates the footer entirely, reported
+  field-diff-unmeasured as before), and "one side only" (read as an empty
+  fingerprint on the missing side rather than as unmeasured).
+
 - **A nested command table no longer folds into the flag description above
   it.** `scan_flags_block`'s continuation rule was pure indentation: any line
   deeper than the block's own entries continued the previous flag's
@@ -26,8 +75,9 @@ once it reaches a published 0.1.0 release.
   continuation line still reads as an ordinary wrapped description, only
   genuine repetition ends the block early. All seven of `btrfs --help`'s
   real flags now parse with only their own description
-  (`corpus/btrfs/audit-seed2`); the command table itself still isn't
-  recovered as subcommands, so the fixture stays `[xfail]`.
+  (`corpus/btrfs/audit-seed2`); the command table itself is recovered as
+  subcommands by the headingless-invocation-table entry below, which is
+  what clears that fixture's `[xfail]`.
 
   That detector's first version broke a different, equally real shape: a
   flag with **no inline description of its own** (`pngfix --strip=[none|
@@ -48,6 +98,40 @@ once it reaches a published 0.1.0 release.
   sweep confirms every one of the six tools the first version moved
   (`jpackage`, `less`, `pager`, `pngfix`, `pod2man`, `zstdless`) now parses
   byte-identically to before that detector existed.
+
+- **`btrfs --help`'s headingless command table is now recovered as
+  subcommands, two levels deep.** `scan_flags_block`'s nested-entry-table
+  detector (previous entry) correctly ends the flags block where the table
+  starts, but the table itself was then silently dropped — no heading
+  introduces it, and every other command-recovery path in the generic
+  layout parser requires one (spec §7 Tier B rule 1). A new recognizer
+  (`help_text::sections::scan_headingless_invocation_table`) admits a run
+  of rows instead when every row starts with the tool's own name at a word
+  boundary — the evidence a heading would otherwise supply — and at least
+  two rows repeat the name-row/deeper-description-row shape. `btrfs device
+  add ...` reads as child `device`, grandchild `add`; consecutive sibling
+  rows sharing one following description (`device delete`/`device remove`)
+  share it; every emitted name is checked to occur literally in the raw
+  text (spec [M-10]).
+
+  Recovered nodes carry a new, second attestation bit,
+  `CommandNode::invocation_attested` — existence-attested (unlike a
+  fabricated phantom subcommand) but deliberately **not** probe-eligible:
+  spec §6's `--help` probe gate keeps reading `heading_attested` only, so
+  none of this subtree is ever sent as argv, only `heading_attested` is
+  (spec §6 rule 0's closing paragraphs, and a new §7 Tier B subsection,
+  record the decision). The coverage harness's structure-sanity and
+  attestation-gated-stub detectors (`xtask::status`, `xtask::audit`) accept
+  either bit as evidence of a real command, so these nodes are never
+  mis-flagged as fabrication; the [M-10] existence detector
+  (`xtask::existence`) gained a matching `tool_name_prefixed_row_words`
+  rule so it agrees rather than reporting every recovered node as invented.
+
+  `corpus/btrfs/audit-seed2` flips `[xfail]` → `ok` (17 top-level groups,
+  most with their own grandchildren). The pngfix/pod2man near-miss set from
+  the previous entry stays byte-identical — neither of those flags' choice
+  lists starts with the tool's own name, so this recognizer never reaches
+  them.
 
 - **A full-`PATH` sweep's scoreboard write no longer fails `EACCES` inside
   namespace containment.** `xtask coverage`/`audit freeze` re-exec under

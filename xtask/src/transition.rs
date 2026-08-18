@@ -142,7 +142,124 @@ pub struct ParsedScoreboard {
     /// binary itself produced; tracked so a malformed input fails visibly
     /// small rather than silently large.
     pub unparseable_dropped: usize,
+    /// Every tool's field-level fingerprint, parsed from the scoreboard's
+    /// `#fp` footer lines (`coverage::fingerprint_lines`'s own doc comment
+    /// has the line shape). **Absent for a scoreboard rendered before this
+    /// footer existed** — a tool missing from this map (as opposed to
+    /// present with an empty [`ParsedFingerprint`]) means "not measured,"
+    /// mirrored in [`diff`] by skipping field-level comparison for that
+    /// tool entirely rather than reporting a false wholesale removal of
+    /// every flag it has.
+    pub fingerprints: BTreeMap<String, ParsedFingerprint>,
 }
+
+/// One flag's field-level fingerprint, read back from a `#fp` line —
+/// [`crate::coverage`]'s `FlagFingerprint`, parsed rather than shared
+/// directly: this module never depends on `mandible_core`/`mandible_extract`
+/// tree types, only on the already-rendered text (this module's own doc
+/// comment on why `sweep-diff` reads two rendered scoreboards, never talks
+/// to the extraction pipeline itself).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedFlagFingerprint {
+    pub has_description: bool,
+    pub description_hash: Option<u64>,
+    pub choices_hash: Option<u64>,
+    pub value_name: Option<String>,
+}
+
+/// One tool's field-level fingerprint, read back from its `#fp` line.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ParsedFingerprint {
+    pub flags: BTreeMap<String, ParsedFlagFingerprint>,
+    pub subcommands: std::collections::BTreeSet<String>,
+}
+
+/// The fingerprint [`diff`] substitutes for a matched tool's *missing* side
+/// when the *other* side does carry a `#fp` entry for it — a `'static`
+/// empty value (both collection types have a `const fn new()`) so it can be
+/// borrowed at the same lifetime as the real, scoreboard-owned fingerprints
+/// [`field_diff`] otherwise compares.
+///
+/// **Why "missing on one side only" is read as "empty" rather than
+/// "unmeasured."** `coverage::fingerprint_lines` now emits a `#fp` line for
+/// *every* row, including an empty one — the fix for the defect where a
+/// tool that lost every flag produced a line on the "before" side and none
+/// on the "after" side, which then reported as field-diff-unmeasured
+/// instead of reporting the full flag loss it actually was. With that fix,
+/// a per-tool line is absent on exactly one side only in the mixed-vintage
+/// case (one scoreboard predates the `#fp` footer entirely, the other
+/// doesn't) — and even there, the honest reading of "we hold no record of
+/// this side's flags" is "empty," which correctly reports every flag the
+/// present side has as added (if the earlier side is the one missing) or
+/// removed (if the later side is). The genuinely unmeasurable case — both
+/// sides missing — is handled separately in [`diff`] and keeps the
+/// `field_diff_unmeasured` wording.
+static EMPTY_FINGERPRINT: ParsedFingerprint = ParsedFingerprint {
+    flags: BTreeMap::new(),
+    subcommands: std::collections::BTreeSet::new(),
+};
+
+/// Parse one `#fp <tool>\t<subs>\t<flags>` line's content (the part after
+/// `"#fp "`) into `(tool, fingerprint)`, or `None` if it's malformed —
+/// treated exactly like [`LineResult::Unparseable`] by the caller: skipped,
+/// never panicked on, since a `#fp` line only ever exists on a scoreboard
+/// this binary itself wrote.
+fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
+    let mut top = rest.splitn(3, FP_FIELD_SEP);
+    let tool = top.next()?.to_string();
+    let subs_s = top.next().unwrap_or("");
+    let flags_s = top.next().unwrap_or("");
+
+    let mut fp = ParsedFingerprint::default();
+    if !subs_s.is_empty() {
+        for s in subs_s.split(',') {
+            if !s.is_empty() {
+                fp.subcommands.insert(s.to_string());
+            }
+        }
+    }
+    if !flags_s.is_empty() {
+        for entry in flags_s.split('|') {
+            let (id, rest) = entry.split_once('=')?;
+            // `splitn(4, ':')` so a `value_name` that itself contains a
+            // colon (free-form text lifted from real `--help` output, only
+            // `\t`/`\n` are escaped — see `coverage::fp_escape`) lands whole
+            // in the final piece instead of being truncated at its first
+            // colon.
+            let mut fields = rest.splitn(4, ':');
+            let has_description = fields.next()? == "1";
+            let description_hash = match fields.next()? {
+                "-" => None,
+                h => u64::from_str_radix(h, 16).ok(),
+            };
+            let choices_hash = match fields.next()? {
+                "-" => None,
+                h => u64::from_str_radix(h, 16).ok(),
+            };
+            let value_name = match fields.next()? {
+                "-" => None,
+                v => Some(v.to_string()),
+            };
+            fp.flags.insert(
+                id.to_string(),
+                ParsedFlagFingerprint {
+                    has_description,
+                    description_hash,
+                    choices_hash,
+                    value_name,
+                },
+            );
+        }
+    }
+    Some((tool, fp))
+}
+
+/// The literal tab [`coverage::fingerprint_lines`] separates a `#fp` line's
+/// three top-level fields with — duplicated from `coverage::FP_FIELD_SEP`
+/// (private to that module) for the same reason [`EXTRACT_TIMEOUT_MS`] is
+/// duplicated rather than imported: a single well-known, stable character,
+/// re-measured in the same commit as the other side if it ever changes.
+const FP_FIELD_SEP: char = '\t';
 
 /// True when `header` is (or resembles) a scoreboard's own header line,
 /// used only to decide whether it carries the `misattr` column added after
@@ -401,6 +518,15 @@ pub fn parse_scoreboard(text: &str) -> ParsedScoreboard {
         has_bundle_column(header),
     );
 
+    // Two passes over the same remaining lines: the first (data rows) stops
+    // at the first `#`-prefixed line exactly as before; the second (the
+    // `#fp` fingerprint footer, added by this task) scans every remaining
+    // line regardless, since fingerprint lines live *after* every other
+    // footer section (`coverage::render_text`'s emission order) and would
+    // never be reached by a loop that breaks on the first `#`. `Lines` is
+    // `Clone` (a cheap cursor over the same borrowed `&str`), so this costs
+    // no extra allocation or re-reading of the file.
+    let footer = lines.clone();
     for line in lines {
         if line.trim().is_empty() {
             continue;
@@ -423,6 +549,13 @@ pub fn parse_scoreboard(text: &str) -> ParsedScoreboard {
             }
             LineResult::Truncated => out.truncated_dropped += 1,
             LineResult::Unparseable => out.unparseable_dropped += 1,
+        }
+    }
+    for line in footer {
+        if let Some(rest) = line.strip_prefix("#fp ") {
+            if let Some((tool, fp)) = parse_fingerprint_line(rest) {
+                out.fingerprints.insert(tool, fp);
+            }
         }
     }
     out
@@ -451,6 +584,51 @@ struct StatusTransition<'a> {
     after: &'a str,
 }
 
+/// One matched tool's field-level diff (WS2 part 2) — the granularity a
+/// bare flag-count delta cannot see. Every list is a set of stable flag
+/// identities or subcommand paths ([`crate::coverage::flag_identity`]),
+/// never a count, per this module's requirement to report *what* changed,
+/// not just *how many* — a count here would rebuild exactly the blind spot
+/// this task exists to close.
+struct FieldDiff<'a> {
+    tool: &'a str,
+    flags_added: Vec<&'a str>,
+    flags_removed: Vec<&'a str>,
+    /// Flags present on both sides whose description's presence or hash
+    /// differs — catches both "text deleted" (`has_description` flips) and
+    /// "text changed to something else" (hash differs, presence unchanged).
+    description_changed: Vec<&'a str>,
+    /// Flags present on both sides whose choices-list hash differs —
+    /// catches both an added/fabricated choices list and a removed one
+    /// (`None` on one side, `Some` on the other hashes as unequal).
+    choices_changed: Vec<&'a str>,
+    /// Flags present on both sides whose `value_name` text differs.
+    value_name_changed: Vec<&'a str>,
+    subcommands_added: Vec<&'a str>,
+    subcommands_removed: Vec<&'a str>,
+    tier_changed: Option<(&'a str, &'a str)>,
+    framework_changed: Option<(&'a str, &'a str)>,
+}
+
+impl FieldDiff<'_> {
+    /// True if this tool has at least one field-level change — the
+    /// predicate that decides whether it earns a row in the report at all
+    /// ([`diff`] only ever constructs a `FieldDiff` when this would be
+    /// true, but kept as a named method rather than inlined so the "what
+    /// counts as changed" list has exactly one definition).
+    fn is_empty(&self) -> bool {
+        self.flags_added.is_empty()
+            && self.flags_removed.is_empty()
+            && self.description_changed.is_empty()
+            && self.choices_changed.is_empty()
+            && self.value_name_changed.is_empty()
+            && self.subcommands_added.is_empty()
+            && self.subcommands_removed.is_empty()
+            && self.tier_changed.is_none()
+            && self.framework_changed.is_none()
+    }
+}
+
 /// The full computed diff between two scoreboards, ready to render in
 /// either format — computed once, rendered by [`render_text`] or
 /// [`render_markdown`] so the two formats can never disagree about what
@@ -464,6 +642,39 @@ pub struct Transition<'a> {
     status_transitions: Vec<StatusTransition<'a>>,
     flag_gains: Vec<FlagDelta<'a>>,
     flag_losses: Vec<FlagDelta<'a>>,
+    /// Per-tool field-level diffs — only tools with at least one change
+    /// ([`FieldDiff::is_empty`] false), sorted by tool name. Empty (not
+    /// absent) when neither side's scoreboard carries a `#fp` footer at
+    /// all, or when every matched tool's fingerprint is identical.
+    field_diffs: Vec<FieldDiff<'a>>,
+    /// Tools present, matched, and outside the near-cap exclusion, but
+    /// whose fingerprint could not be compared because at least one side's
+    /// scoreboard predates the `#fp` footer (`ParsedScoreboard::fingerprints`'s
+    /// doc comment) — reported so "no field-level changes" is never
+    /// confused with "field-level comparison wasn't possible."
+    field_diff_unmeasured: usize,
+}
+
+impl Transition<'_> {
+    /// **The identical/changed determination `sweep-diff` reports.** A run
+    /// is only "identical" when *nothing* changed across every dimension
+    /// this module measures — appearances, disappearances, status,
+    /// flag-count, and now field-level content — not merely when the
+    /// coarser dimensions stayed flat. This is exactly the gap PR #14 fell
+    /// through: `pngfix`'s and `pod2man`'s flag *counts* were unchanged (a
+    /// description going empty doesn't remove the flag, and a fabricated
+    /// choices list doesn't add one), so a determination based on counts
+    /// alone would still call that run identical. Non-blocking either way
+    /// (maintainer decision D4, this module's own doc comment) — this
+    /// governs what the report *says*, never the exit code.
+    pub fn is_identical(&self) -> bool {
+        self.appeared.is_empty()
+            && self.disappeared.is_empty()
+            && self.status_transitions.is_empty()
+            && self.flag_gains.is_empty()
+            && self.flag_losses.is_empty()
+            && self.field_diffs.is_empty()
+    }
 }
 
 /// Compute the transition between two parsed scoreboards.
@@ -482,6 +693,8 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     let mut status_transitions = Vec::new();
     let mut flag_gains = Vec::new();
     let mut flag_losses = Vec::new();
+    let mut field_diffs = Vec::new();
+    let mut field_diff_unmeasured = 0usize;
 
     for (tool, after_row) in &after.rows {
         let Some(before_row) = before.rows.get(tool) else {
@@ -511,6 +724,63 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
                 flag_losses.push(d);
             }
         }
+
+        let tier_changed = (before_row.tiers != after_row.tiers)
+            .then_some((before_row.tiers.as_str(), after_row.tiers.as_str()));
+        let framework_changed = (before_row.framework != after_row.framework)
+            .then_some((before_row.framework.as_str(), after_row.framework.as_str()));
+
+        // Three states, not two (the defect this match used to have:
+        // `coverage::fingerprint_lines` used to skip a row with no flags and
+        // no subcommands, so a tool that lost every flag produced a line on
+        // the "before" side and none on the "after" side, and fell into the
+        // catch-all below — "unmeasured" — instead of reporting the total
+        // loss it actually was). Now that every row gets a `#fp` line
+        // unconditionally, a line is absent on *both* sides only for a
+        // genuinely legacy scoreboard pair; absent on *one* side only means
+        // "no record for this side," read as empty (`EMPTY_FINGERPRINT`'s
+        // own doc comment) so the diff still reports the present side's
+        // flags/subcommands as added or removed rather than staying silent.
+        match (before.fingerprints.get(tool), after.fingerprints.get(tool)) {
+            (None, None) => {
+                // Neither side has a `#fp` entry for this tool — the
+                // genuine legacy case (this scoreboard pair predates the
+                // footer entirely, or — vanishingly rarely — this one row's
+                // line failed to parse on both sides). Field-level
+                // comparison is impossible, not "nothing changed"
+                // (`ParsedScoreboard::fingerprints`'s doc comment). Still
+                // surface a tier/framework change if one was found from the
+                // ordinary columns, which every scoreboard shape carries.
+                if tier_changed.is_some() || framework_changed.is_some() {
+                    field_diffs.push(FieldDiff {
+                        tool,
+                        flags_added: Vec::new(),
+                        flags_removed: Vec::new(),
+                        description_changed: Vec::new(),
+                        choices_changed: Vec::new(),
+                        value_name_changed: Vec::new(),
+                        subcommands_added: Vec::new(),
+                        subcommands_removed: Vec::new(),
+                        tier_changed,
+                        framework_changed,
+                    });
+                } else {
+                    field_diff_unmeasured += 1;
+                }
+            }
+            (bfp, afp) => {
+                // At least one side has a real entry — diff it against the
+                // other side's entry, or against `EMPTY_FINGERPRINT` when
+                // the other side has none. Covers both the ordinary
+                // both-measured case and the deletion/mixed-vintage case.
+                let bfp = bfp.unwrap_or(&EMPTY_FINGERPRINT);
+                let afp = afp.unwrap_or(&EMPTY_FINGERPRINT);
+                let fd = field_diff(tool, bfp, afp, tier_changed, framework_changed);
+                if !fd.is_empty() {
+                    field_diffs.push(fd);
+                }
+            }
+        }
     }
     for tool in before.rows.keys() {
         if !after.rows.contains_key(tool) {
@@ -527,6 +797,7 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     flag_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
     flag_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
     status_transitions.sort_by_key(|t| t.tool.to_string());
+    field_diffs.sort_by_key(|d| d.tool.to_string());
 
     Transition {
         before,
@@ -537,6 +808,83 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         status_transitions,
         flag_gains,
         flag_losses,
+        field_diffs,
+        field_diff_unmeasured,
+    }
+}
+
+/// Compute one matched tool's [`FieldDiff`] from its before/after
+/// fingerprints — pure set/map comparison, no I/O, no knowledge of what a
+/// flag or subcommand *means*, only whether the same identity's recorded
+/// fields match (this module's `no per-tool logic` invariant: nothing here
+/// keys off a tool name).
+fn field_diff<'a>(
+    tool: &'a str,
+    before: &'a ParsedFingerprint,
+    after: &'a ParsedFingerprint,
+    tier_changed: Option<(&'a str, &'a str)>,
+    framework_changed: Option<(&'a str, &'a str)>,
+) -> FieldDiff<'a> {
+    let mut flags_added = Vec::new();
+    let mut flags_removed = Vec::new();
+    let mut description_changed = Vec::new();
+    let mut choices_changed = Vec::new();
+    let mut value_name_changed = Vec::new();
+
+    for (id, after_f) in &after.flags {
+        match before.flags.get(id) {
+            None => flags_added.push(id.as_str()),
+            Some(before_f) => {
+                if before_f.has_description != after_f.has_description
+                    || before_f.description_hash != after_f.description_hash
+                {
+                    description_changed.push(id.as_str());
+                }
+                if before_f.choices_hash != after_f.choices_hash {
+                    choices_changed.push(id.as_str());
+                }
+                if before_f.value_name != after_f.value_name {
+                    value_name_changed.push(id.as_str());
+                }
+            }
+        }
+    }
+    for id in before.flags.keys() {
+        if !after.flags.contains_key(id) {
+            flags_removed.push(id.as_str());
+        }
+    }
+
+    let subcommands_added = after
+        .subcommands
+        .iter()
+        .filter(|s| !before.subcommands.contains(*s))
+        .map(String::as_str)
+        .collect();
+    let subcommands_removed = before
+        .subcommands
+        .iter()
+        .filter(|s| !after.subcommands.contains(*s))
+        .map(String::as_str)
+        .collect();
+
+    flags_added.sort_unstable();
+    flags_removed.sort_unstable();
+    description_changed.sort_unstable();
+    choices_changed.sort_unstable();
+    value_name_changed.sort_unstable();
+
+    FieldDiff {
+        tool,
+        flags_added,
+        flags_removed,
+        description_changed,
+        choices_changed,
+        value_name_changed,
+        subcommands_added,
+        subcommands_removed,
+        tier_changed,
+        framework_changed,
     }
 }
 
@@ -562,6 +910,16 @@ pub fn render_markdown(t: &Transition) -> String {
          this never fails a run (maintainer decision D4); it is a loud report during burn-in, \
          promoted to a gate later.\n\n",
     );
+    out.push_str(&format!(
+        "**Overall: {}.** This now accounts for field-level content (per-flag \
+         description/choices/value_name), not just tool appearances, status and flag counts — a \
+         run that only edits a description's text no longer reports as identical.\n\n",
+        if t.is_identical() {
+            "IDENTICAL"
+        } else {
+            "CHANGED"
+        },
+    ));
     out.push_str(&format!(
         "**{before_total} → {after_total} tools.** {matched} matched, {appeared} appeared, \
          {disappeared} disappeared, {near_cap} excluded (near the {cap}s timeout cap).\n\n",
@@ -676,6 +1034,84 @@ pub fn render_markdown(t: &Transition) -> String {
         out.push('\n');
     }
 
+    out.push_str("### Field-level changes\n\n");
+    if t.field_diffs.is_empty() {
+        out.push_str(
+            "No matched tool's flag set, per-flag description/choices/value_name, \
+             subcommand set, tier, or framework changed.\n\n",
+        );
+    } else {
+        out.push_str(&format!(
+            "**{} tool(s) changed at field granularity** (adds/removes/changes, never just a \
+             count — see this module's doc comment):\n\n",
+            t.field_diffs.len(),
+        ));
+        for fd in t.field_diffs.iter().take(TABLE_ROW_LIMIT) {
+            out.push_str(&format!("- **{}**", escape_md(fd.tool)));
+            let mut parts = Vec::new();
+            if !fd.flags_added.is_empty() {
+                parts.push(format!("flags added: {}", capped_join(&fd.flags_added)));
+            }
+            if !fd.flags_removed.is_empty() {
+                parts.push(format!("flags removed: {}", capped_join(&fd.flags_removed)));
+            }
+            if !fd.description_changed.is_empty() {
+                parts.push(format!(
+                    "description changed: {}",
+                    capped_join(&fd.description_changed)
+                ));
+            }
+            if !fd.choices_changed.is_empty() {
+                parts.push(format!(
+                    "choices changed: {}",
+                    capped_join(&fd.choices_changed)
+                ));
+            }
+            if !fd.value_name_changed.is_empty() {
+                parts.push(format!(
+                    "value_name changed: {}",
+                    capped_join(&fd.value_name_changed)
+                ));
+            }
+            if !fd.subcommands_added.is_empty() {
+                parts.push(format!(
+                    "subcommands added: {}",
+                    capped_join(&fd.subcommands_added)
+                ));
+            }
+            if !fd.subcommands_removed.is_empty() {
+                parts.push(format!(
+                    "subcommands removed: {}",
+                    capped_join(&fd.subcommands_removed)
+                ));
+            }
+            if let Some((b, a)) = fd.tier_changed {
+                parts.push(format!("tier: {} -> {}", escape_md(b), escape_md(a)));
+            }
+            if let Some((b, a)) = fd.framework_changed {
+                parts.push(format!("framework: {} -> {}", escape_md(b), escape_md(a)));
+            }
+            out.push_str(&format!(" — {}\n", parts.join("; ")));
+        }
+        if t.field_diffs.len() > TABLE_ROW_LIMIT {
+            out.push_str(&format!(
+                "\n_{} more not shown._\n",
+                t.field_diffs.len() - TABLE_ROW_LIMIT
+            ));
+        }
+        out.push('\n');
+    }
+    if t.field_diff_unmeasured > 0 {
+        out.push_str(&format!(
+            "> [!NOTE]\n> {} matched tool(s) could not be compared at field granularity — \
+             neither scoreboard carries a `#fp` fingerprint entry for them, meaning this pair \
+             predates the fingerprint footer entirely (a scoreboard that does carry it emits an \
+             entry for every tool, including ones with no flags and no subcommands). Not counted \
+             as \"no field-level changes.\"\n\n",
+            t.field_diff_unmeasured,
+        ));
+    }
+
     if !t.appeared.is_empty() || !t.disappeared.is_empty() {
         out.push_str("### Appeared / disappeared\n\n");
         if !t.appeared.is_empty() {
@@ -755,6 +1191,14 @@ fn capped_join(names: &[&str]) -> String {
 pub fn render_text(t: &Transition) -> String {
     let mut out = String::new();
     out.push_str(&format!(
+        "overall: {}\n",
+        if t.is_identical() {
+            "IDENTICAL"
+        } else {
+            "CHANGED"
+        },
+    ));
+    out.push_str(&format!(
         "sweep transition: {before_total} -> {after_total} tools, {matched} matched, {appeared} appeared, {disappeared} disappeared, {near_cap} excluded (near {cap}s cap)\n",
         before_total = t.before.rows.len(),
         after_total = t.after.rows.len(),
@@ -819,6 +1263,64 @@ pub fn render_text(t: &Transition) -> String {
             d.before,
             d.after,
             d.delta()
+        ));
+    }
+    out.push('\n');
+
+    out.push_str(&format!(
+        "# field-level changes: {} tool(s) (adds/removes/changes, never just a count)\n",
+        t.field_diffs.len()
+    ));
+    for fd in &t.field_diffs {
+        let mut parts = Vec::new();
+        if !fd.flags_added.is_empty() {
+            parts.push(format!("flags added: {}", fd.flags_added.join(", ")));
+        }
+        if !fd.flags_removed.is_empty() {
+            parts.push(format!("flags removed: {}", fd.flags_removed.join(", ")));
+        }
+        if !fd.description_changed.is_empty() {
+            parts.push(format!(
+                "description changed: {}",
+                fd.description_changed.join(", ")
+            ));
+        }
+        if !fd.choices_changed.is_empty() {
+            parts.push(format!(
+                "choices changed: {}",
+                fd.choices_changed.join(", ")
+            ));
+        }
+        if !fd.value_name_changed.is_empty() {
+            parts.push(format!(
+                "value_name changed: {}",
+                fd.value_name_changed.join(", ")
+            ));
+        }
+        if !fd.subcommands_added.is_empty() {
+            parts.push(format!(
+                "subcommands added: {}",
+                fd.subcommands_added.join(", ")
+            ));
+        }
+        if !fd.subcommands_removed.is_empty() {
+            parts.push(format!(
+                "subcommands removed: {}",
+                fd.subcommands_removed.join(", ")
+            ));
+        }
+        if let Some((b, a)) = fd.tier_changed {
+            parts.push(format!("tier: {b} -> {a}"));
+        }
+        if let Some((b, a)) = fd.framework_changed {
+            parts.push(format!("framework: {b} -> {a}"));
+        }
+        out.push_str(&format!("  {}: {}\n", fd.tool, parts.join("; ")));
+    }
+    if t.field_diff_unmeasured > 0 {
+        out.push_str(&format!(
+            "# field-level comparison unavailable for {} matched tool(s) — neither scoreboard carries a #fp entry for them (this pair predates the fingerprint footer entirely)\n",
+            t.field_diff_unmeasured
         ));
     }
     out.push('\n');
@@ -1103,4 +1605,302 @@ mod tests {
         let text = render_text(&t);
         assert!(text.contains("foo: ok -> suspicious"));
     }
+
+    /// Attach `#fp` fingerprints to a scoreboard already built by
+    /// [`scoreboard`] — the counts/status/tiers/framework columns and the
+    /// field-level fingerprint are independent inputs to [`diff`], and a
+    /// test that wants to hold the former fixed while varying only the
+    /// latter (exactly PR #14's shape: flag counts and status untouched,
+    /// only field content changed) needs to set both.
+    fn scoreboard_with_fp(
+        rows: Vec<(&str, &str, usize, u128)>,
+        fps: Vec<(&str, ParsedFingerprint)>,
+    ) -> ParsedScoreboard {
+        let mut sb = scoreboard(rows);
+        for (tool, fp) in fps {
+            sb.fingerprints.insert(tool.to_string(), fp);
+        }
+        sb
+    }
+
+    fn flag_fp(
+        has_description: bool,
+        description_hash: Option<u64>,
+        choices_hash: Option<u64>,
+        value_name: Option<&str>,
+    ) -> ParsedFlagFingerprint {
+        ParsedFlagFingerprint {
+            has_description,
+            description_hash,
+            choices_hash,
+            value_name: value_name.map(str::to_string),
+        }
+    }
+
+    /// **The exact PR #14 shape, description half**: `--strip`'s
+    /// description was deleted while every count-based column (flags,
+    /// status, tiers, framework) stayed put. Proves the new field-level
+    /// dimension catches it *and*, by asserting every pre-existing
+    /// dimension is empty, documents precisely what the old
+    /// count/status-only comparison had to work with — nothing. See this
+    /// module's own doc comment and the CHANGELOG entry on the detector
+    /// that first shipped this exact regression.
+    #[test]
+    fn field_diff_catches_a_description_only_change() {
+        let mut before_fp = ParsedFingerprint::default();
+        before_fp.flags.insert(
+            "(root)::--strip".to_string(),
+            flag_fp(true, Some(111), None, None),
+        );
+        let after_fp = ParsedFingerprint {
+            flags: {
+                let mut m = BTreeMap::new();
+                m.insert(
+                    "(root)::--strip".to_string(),
+                    flag_fp(false, None, None, None),
+                );
+                m
+            },
+            subcommands: Default::default(),
+        };
+
+        let before = scoreboard_with_fp(vec![("pngfix", "ok", 3, 20)], vec![("pngfix", before_fp)]);
+        let after = scoreboard_with_fp(vec![("pngfix", "ok", 3, 20)], vec![("pngfix", after_fp)]);
+
+        let t = diff(&before, &after);
+
+        // Every dimension the pre-existing comparison had: all quiet.
+        assert!(t.status_transitions.is_empty());
+        assert!(t.flag_gains.is_empty());
+        assert!(t.flag_losses.is_empty());
+        assert!(t.appeared.is_empty() && t.disappeared.is_empty());
+
+        // The new field-level dimension: caught.
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(t.field_diffs[0].tool, "pngfix");
+        assert_eq!(
+            t.field_diffs[0].description_changed,
+            vec!["(root)::--strip"]
+        );
+        assert!(t.field_diffs[0].choices_changed.is_empty());
+        assert!(
+            !t.is_identical(),
+            "a deleted description must not report as an identical run"
+        );
+    }
+
+    /// **The exact PR #14 shape, choices half**: `--guesswork` had a
+    /// fabricated choices list attached while flag counts and status stayed
+    /// put — the other half of the same regression.
+    #[test]
+    fn field_diff_catches_a_choices_only_change() {
+        let mut before_fp = ParsedFingerprint::default();
+        before_fp.flags.insert(
+            "(root)::--guesswork".to_string(),
+            flag_fp(true, Some(1), None, None),
+        );
+        let mut after_fp = ParsedFingerprint::default();
+        after_fp.flags.insert(
+            "(root)::--guesswork".to_string(),
+            flag_fp(true, Some(1), Some(999), None),
+        );
+
+        let before =
+            scoreboard_with_fp(vec![("pod2man", "ok", 3, 20)], vec![("pod2man", before_fp)]);
+        let after = scoreboard_with_fp(vec![("pod2man", "ok", 3, 20)], vec![("pod2man", after_fp)]);
+
+        let t = diff(&before, &after);
+
+        assert!(t.status_transitions.is_empty());
+        assert!(t.flag_gains.is_empty());
+        assert!(t.flag_losses.is_empty());
+        assert!(t.appeared.is_empty() && t.disappeared.is_empty());
+
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(t.field_diffs[0].tool, "pod2man");
+        assert_eq!(
+            t.field_diffs[0].choices_changed,
+            vec!["(root)::--guesswork"]
+        );
+        assert!(t.field_diffs[0].description_changed.is_empty());
+        assert!(
+            !t.is_identical(),
+            "a fabricated choices list must not report as an identical run"
+        );
+    }
+
+    /// A scoreboard from before this task (no `#fp` footer at all) must
+    /// still load — `ParsedScoreboard::fingerprints` stays empty, and
+    /// [`diff`] reports the affected tools as field-diff-unmeasured rather
+    /// than silently claiming "no field-level changes" for data it never
+    /// saw.
+    #[test]
+    fn legacy_scoreboards_with_no_fp_footer_report_unmeasured_not_identical_fields() {
+        let before = scoreboard(vec![("git", "ok", 34, 120)]);
+        let after = scoreboard(vec![("git", "ok", 34, 120)]);
+        assert!(before.fingerprints.is_empty());
+        let t = diff(&before, &after);
+        assert!(t.field_diffs.is_empty());
+        assert_eq!(t.field_diff_unmeasured, 1);
+        // Every other dimension is genuinely unchanged here, so the overall
+        // determination still reads identical — this test is only about
+        // the unmeasured counter, not about forcing non-identical when
+        // nothing else moved either.
+        assert!(t.is_identical());
+    }
+
+    /// **The follow-up defect, direction 1**: a tool that had flags on the
+    /// "before" side and loses every one of them must be reported as every
+    /// flag removed, not as field-diff-unmeasured. `coverage::fingerprint_lines`
+    /// used to skip emitting a `#fp` line for a row with no flags and no
+    /// subcommands, so the "after" side (now empty) had no line at all and
+    /// this fell into the unmeasured bucket instead — the field-level
+    /// section going silent on exactly the case it exists to catch. See
+    /// this test's sibling below (`without the fix...`) for the
+    /// commit-then-attack proof this test was written to fail against.
+    #[test]
+    fn a_tool_that_loses_every_flag_is_reported_removed_not_unmeasured() {
+        let mut before_fp = ParsedFingerprint::default();
+        before_fp.flags.insert(
+            "(root)::--strip".to_string(),
+            flag_fp(true, Some(1), None, None),
+        );
+        before_fp.flags.insert(
+            "(root)::--guesswork".to_string(),
+            flag_fp(true, Some(2), None, None),
+        );
+
+        let before = scoreboard_with_fp(vec![("pngfix", "ok", 2, 20)], vec![("pngfix", before_fp)]);
+        // The "after" side carries *no* `#fp` entry for this tool at all —
+        // exactly the shape `coverage::fingerprint_lines`'s pre-fix
+        // skip-if-empty bug produced for a tool that lost every flag: the
+        // row has no flags and no subcommands left, so the line was
+        // dropped entirely rather than written as an empty one. Built with
+        // plain `scoreboard` (no `#fp` population), not `scoreboard_with_fp`
+        // with an explicit empty entry — the whole point of this test is
+        // the *absent* entry, not a present-but-empty one.
+        let after = scoreboard(vec![("pngfix", "ok", 0, 20)]);
+
+        let t = diff(&before, &after);
+
+        assert_eq!(
+            t.field_diff_unmeasured, 0,
+            "a missing entry on only one side must be read as empty, never as unmeasured"
+        );
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(t.field_diffs[0].tool, "pngfix");
+        assert_eq!(
+            t.field_diffs[0].flags_removed,
+            vec!["(root)::--guesswork", "(root)::--strip"]
+        );
+        assert!(t.field_diffs[0].flags_added.is_empty());
+        assert!(!t.is_identical());
+    }
+
+    /// **The follow-up defect, direction 2**: a flagless, subcommandless
+    /// tool present (with an empty fingerprint) on both sides must be
+    /// measured-with-no-changes — absent from `field_diffs` entirely — not
+    /// counted as unmeasured. This is the common case on a real sweep
+    /// (verbatim tools, zero-flag `ok` tools), and conflating "measured
+    /// clean" with "not measured" was the other half of the same defect.
+    #[test]
+    fn a_flagless_tool_present_on_both_sides_is_measured_clean_not_unmeasured() {
+        let before = scoreboard_with_fp(
+            vec![("true", "ok", 0, 5)],
+            vec![("true", ParsedFingerprint::default())],
+        );
+        let after = scoreboard_with_fp(
+            vec![("true", "ok", 0, 5)],
+            vec![("true", ParsedFingerprint::default())],
+        );
+
+        let t = diff(&before, &after);
+
+        assert_eq!(
+            t.field_diff_unmeasured, 0,
+            "a present, empty fingerprint on both sides is measured, not unmeasured"
+        );
+        assert!(
+            t.field_diffs.is_empty(),
+            "no change to report for a flagless tool whose fingerprint didn't move"
+        );
+        assert!(t.is_identical());
+    }
+
+    /// Adds/removes/changes are reported as the actual flag identities and
+    /// subcommand paths, never folded into a bare count — the requirement
+    /// this whole diff exists to satisfy.
+    #[test]
+    fn field_diff_reports_flag_and_subcommand_adds_and_removes_by_name() {
+        let mut before_fp = ParsedFingerprint::default();
+        before_fp.flags.insert(
+            "(root)::--old".to_string(),
+            flag_fp(true, Some(1), None, None),
+        );
+        before_fp.subcommands.insert("old-sub".to_string());
+
+        let mut after_fp = ParsedFingerprint::default();
+        after_fp.flags.insert(
+            "(root)::--new".to_string(),
+            flag_fp(true, Some(2), None, None),
+        );
+        after_fp.subcommands.insert("new-sub".to_string());
+
+        let before = scoreboard_with_fp(vec![("t", "ok", 1, 10)], vec![("t", before_fp)]);
+        let after = scoreboard_with_fp(vec![("t", "ok", 1, 10)], vec![("t", after_fp)]);
+
+        let t = diff(&before, &after);
+        assert_eq!(t.field_diffs.len(), 1);
+        let fd = &t.field_diffs[0];
+        assert_eq!(fd.flags_added, vec!["(root)::--new"]);
+        assert_eq!(fd.flags_removed, vec!["(root)::--old"]);
+        assert_eq!(fd.subcommands_added, vec!["new-sub"]);
+        assert_eq!(fd.subcommands_removed, vec!["old-sub"]);
+    }
+
+    /// A tier or framework change on an otherwise field-identical tool is
+    /// still surfaced — the field-level diff isn't only about flags.
+    #[test]
+    fn tier_and_framework_changes_are_reported_per_tool() {
+        let text = "tool                     tier(s)            framework                    nodes   flags   %flags_text     ms suspect   man  misattr  status\n";
+        let before_row = format!(
+            "{:<24} {:<18} {:<26} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}{:>9}  {}\n",
+            "t", "help", "clap (v3/v4) (artifact)", 1, 1, "100%", 10, 0, "-", 0, "ok",
+        );
+        let after_row = format!(
+            "{:<24} {:<18} {:<26} {:>7}{:>8}{:>13}{:>7}{:>8}{:>6}{:>9}  {}\n",
+            "t", "help+native", "cobra (artifact)", 1, 1, "100%", 10, 0, "-", 0, "ok",
+        );
+        let before = parse_scoreboard(&format!(
+            "{text}{before_row}# aggregate: pct_flags_with_text=100.00 no_tier_count=0 total=1\n"
+        ));
+        let after = parse_scoreboard(&format!(
+            "{text}{after_row}# aggregate: pct_flags_with_text=100.00 no_tier_count=0 total=1\n"
+        ));
+        let t = diff(&before, &after);
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(t.field_diffs[0].tier_changed, Some(("help", "help+native")));
+        assert_eq!(
+            t.field_diffs[0].framework_changed,
+            Some(("clap (v3/v4) (artifact)", "cobra (artifact)"))
+        );
+        assert!(!t.is_identical());
+    }
+
+    // The end-to-end render→parse round trip used to live here, driven by a
+    // real `grep --help` probe, and asserted "at least one flag carries a
+    // description" — a fact about the *host's* grep (GNU grep documents its
+    // options; BSD grep, on macOS, prints a bare usage synopsis with none),
+    // which is exactly the class of failure AGENTS.md §4 warns about
+    // ("macOS breaks in ways Linux CI cannot see") and turned
+    // `test (macos-latest)` red on this branch. It's now two tests in
+    // `coverage::tests`, where `Row`/`build_fingerprint`/`render_text` are
+    // already reachable without a second cross-module exposure:
+    // `fingerprint_footer_round_trips_a_synthetic_tree` (a hand-built
+    // `CommandNode`, so the description/choices/value_name-carrying case is
+    // true by construction on every platform) and
+    // `fingerprint_footer_round_trips_whatever_a_real_grep_produced` (keeps
+    // the real-binary smoke check spec §3.1 asks for, but only asserts that
+    // whatever this host's grep produced survives the round trip losslessly
+    // — never a claim about grep's own content).
 }

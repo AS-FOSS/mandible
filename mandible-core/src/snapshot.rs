@@ -323,6 +323,11 @@ pub struct NodeSnapshot {
     /// conjured from layout alone.
     #[serde(skip_serializing_if = "is_false")]
     pub heading_attested: bool,
+    /// True when this node was recovered from a headingless invocation
+    /// table (spec §7 Tier B) — existence-attested but not probe-eligible.
+    /// See [`crate::CommandNode::invocation_attested`].
+    #[serde(skip_serializing_if = "is_false")]
+    pub invocation_attested: bool,
     /// The tool's raw `--help` output, one line per entry, set only when no
     /// parse produced anything structurally plausible.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -391,6 +396,7 @@ impl From<&CommandNode> for NodeSnapshot {
             hidden: n.hidden,
             children_filled: n.children_filled,
             heading_attested: n.heading_attested,
+            invocation_attested: n.invocation_attested,
             unparsed: n.unparsed.iter().map(|t| t.as_str().to_string()).collect(),
             // The order-preservation this whole module exists to protect:
             // straight `iter().map().collect()` over `n.subcommands`, no

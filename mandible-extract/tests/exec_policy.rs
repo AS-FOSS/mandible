@@ -730,6 +730,86 @@ exit 1
     assert!(long_flags.contains(&"amend"), "{long_flags:?}");
 }
 
+/// Mirrors `non_attested_subcommand_word_is_never_probed_at_all`, but for
+/// spec §7 Tier B's headingless-invocation-table recognizer specifically —
+/// `mandible-extract/src/help_text/sections.rs::scan_headingless_invocation_table`.
+/// A node it recovers is existence-attested (its name is checked, not
+/// guessed) but deliberately **not** probe-eligible: `heading_attested`
+/// must stay `false` and its name must never reach the shim as argv, even
+/// though `invocation_attested` is `true`. Driven through the real root
+/// extraction first (not a hand-built `CommandNode`), so this proves the
+/// bit the recognizer actually sets, not merely the bit a hand-written test
+/// hoped it would set.
+#[test]
+fn headingless_invocation_table_child_is_never_heading_attested_and_never_probed() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = r#"#!/bin/sh
+if [ "$1" = "--help" ]; then
+    cat <<'HELPEOF'
+Usage: btrfslike [options]
+
+Options:
+  --version   print version string
+
+    btrfslike device add <path>
+        Add a device
+    btrfslike device remove <path>
+        Remove a device
+HELPEOF
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#;
+    let shim = write_named_shim(dir.path(), "btrfslike", script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "btrfslike".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let root = tier
+        .extract_node(
+            &tool,
+            &["btrfslike".to_string()],
+            NodeHints {
+                heading_attested: true,
+            },
+        )
+        .expect("root probe must succeed");
+
+    let device = root
+        .subcommands
+        .iter()
+        .find(|n| n.name == "device")
+        .unwrap_or_else(|| panic!("no `device` child recovered: {:?}", root.subcommands));
+    assert!(
+        !device.heading_attested,
+        "a headingless-invocation-table node must never be heading_attested"
+    );
+    assert!(
+        device.invocation_attested,
+        "a headingless-invocation-table node must carry the second attestation bit"
+    );
+
+    // Feed the runner's own hint-derivation rule (NodeHints::heading_attested
+    // mirrors the node's own bit — see `runner.rs`) into a deeper probe for
+    // this exact node, and confirm it is refused before any argv reaches
+    // the shim.
+    let result = tier.extract_node(
+        &tool,
+        &["btrfslike".to_string(), "device".to_string()],
+        NodeHints {
+            heading_attested: device.heading_attested,
+        },
+    );
+    assert!(
+        result.is_err(),
+        "a headingless-invocation-table name must be declined, not probed: {result:?}"
+    );
+}
+
 /// Shared with the "prove the negative fails without the fix" check below:
 /// a shim that marks which of the two probes it received, man-shaped on
 /// `--help` exactly like `man_shaped_subcommand_help_triggers_the_dash_h_fallback_when_permitted`'s
