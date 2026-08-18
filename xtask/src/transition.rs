@@ -1769,20 +1769,23 @@ mod tests {
             "(root)::--guesswork".to_string(),
             flag_fp(true, Some(2), None, None),
         );
-        // The "after" fingerprint is empty — every flag gone — but it is
-        // still *present* in the map (an entry with empty `flags`), which
-        // is exactly what `coverage::fingerprint_lines` now guarantees by
-        // emitting a `#fp` line for every row unconditionally.
-        let after_fp = ParsedFingerprint::default();
 
         let before = scoreboard_with_fp(vec![("pngfix", "ok", 2, 20)], vec![("pngfix", before_fp)]);
-        let after = scoreboard_with_fp(vec![("pngfix", "ok", 2, 20)], vec![("pngfix", after_fp)]);
+        // The "after" side carries *no* `#fp` entry for this tool at all —
+        // exactly the shape `coverage::fingerprint_lines`'s pre-fix
+        // skip-if-empty bug produced for a tool that lost every flag: the
+        // row has no flags and no subcommands left, so the line was
+        // dropped entirely rather than written as an empty one. Built with
+        // plain `scoreboard` (no `#fp` population), not `scoreboard_with_fp`
+        // with an explicit empty entry — the whole point of this test is
+        // the *absent* entry, not a present-but-empty one.
+        let after = scoreboard(vec![("pngfix", "ok", 0, 20)]);
 
         let t = diff(&before, &after);
 
         assert_eq!(
             t.field_diff_unmeasured, 0,
-            "a real, present-on-both-sides fingerprint must never be counted unmeasured"
+            "a missing entry on only one side must be read as empty, never as unmeasured"
         );
         assert_eq!(t.field_diffs.len(), 1);
         assert_eq!(t.field_diffs[0].tool, "pngfix");
