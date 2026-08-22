@@ -1,0 +1,1 @@
+Usage: pcre2-config [--prefix] [--exec-prefix] [--version] [--libs8] [--libs-posix] [--libs32] [--libs16]  [--cflags] [--cflags-posix]

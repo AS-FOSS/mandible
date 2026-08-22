@@ -1,0 +1,65 @@
+name: man-recode
+usage:
+- 'Usage: man-recode [OPTION...]'
+flags:
+- short: 't'
+  value_name: CODE
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: debug
+  description: emit debugging messages
+  provenance:
+    sources:
+    - help-text
+- long: in-place
+  description: overwrite input files in place
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  description: produce fewer warnings
+  provenance:
+    sources:
+    - help-text
+- long: suffix
+  value_name: SUFFIX
+  value_kind: Required
+  description: suffix to append to output file name
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: to-code
+  value_name: CODE
+  value_kind: Required
+  description: encoding for output
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  long: help
+  description: give this help list
+  provenance:
+    sources:
+    - help-text
+- long: usage
+  description: give a short usage message
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: print program version
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 0.89
+children_filled: true

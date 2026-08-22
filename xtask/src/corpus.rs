@@ -316,6 +316,92 @@ struct XfailMeta {
     issue: Option<String>,
 }
 
+/// `[bless]`: who blessed this fixture's `expected.snap` — the complement
+/// to `verdict_scope` (`ContractMeta::verdict_scope`'s doc comment).
+/// `verdict_scope` records what a HUMAN reviewed; nothing recorded the
+/// complement, which fixtures were blessed by an agent with no human eyes
+/// on them at all. **Required**, unlike every other `[contract]`/`[xfail]`
+/// field in this file: a fixture without it fails to load
+/// (`discover_fixtures`'s explicit guard), because an absent value here
+/// would silently read as "unknown" rather than the conservative "agent"
+/// default the schema demands an author actually assert.
+#[derive(Debug, Clone, Deserialize)]
+struct BlessMeta {
+    provenance: BlessProvenance,
+}
+
+/// Who blessed a fixture's current `expected.snap`, with no human review
+/// implied by default — the mirror of `verdict_scope`'s "absent means no
+/// scope claimed" rule, but for the bless act itself rather than which
+/// dimensions of the tree it covered.
+///
+/// - `Human` — a human blessed (or re-blessed) the current `expected.snap`.
+/// - `AgentThenHuman` — an agent blessed the tree; a human reviewed it
+///   later and recorded a `verdict_scope`, without re-blessing. The honest
+///   mixed case: the snapshot bytes are agent-authored, but a human has
+///   since looked and left a record of what they checked.
+/// - `Agent` — an agent blessed it and no human has reviewed the tree.
+///   The conservative default: never inferred as `Human` or
+///   `AgentThenHuman` without git evidence a human actually looked.
+///
+/// **An agent may only ever write `Agent` here.** Only a human may record
+/// `Human` or `AgentThenHuman` — the same rule `verdict_scope` already
+/// carries for its own claim, extended to the blessing act itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum BlessProvenance {
+    Human,
+    AgentThenHuman,
+    Agent,
+}
+
+impl BlessProvenance {
+    fn as_str(self) -> &'static str {
+        match self {
+            BlessProvenance::Human => "human",
+            BlessProvenance::AgentThenHuman => "agent-then-human",
+            BlessProvenance::Agent => "agent",
+        }
+    }
+}
+
+/// Render a `[bless] provenance` value for a report — centralized so every
+/// surface (`show_fixture`, the text report's per-fixture detail, the
+/// markdown table's `provenance` column) renders it the same way, mirroring
+/// [`verdict_scope_label`]. Unlike `verdict_scope_label`, there is no
+/// "absent" case to spell out: `provenance` is required on every fixture,
+/// so this always has a value to print.
+fn provenance_label(provenance: BlessProvenance) -> &'static str {
+    provenance.as_str()
+}
+
+/// Count `human` / `agent-then-human` / `agent` occurrences among a set of
+/// provenance values — used to split the `ok` count in both the text and
+/// markdown summaries, so "N ok" can never be misread as "N human-verified"
+/// (`corpus/README.md`'s `[bless]` section).
+fn provenance_counts(values: impl Iterator<Item = BlessProvenance>) -> (usize, usize, usize) {
+    let mut human = 0;
+    let mut agent_then_human = 0;
+    let mut agent = 0;
+    for v in values {
+        match v {
+            BlessProvenance::Human => human += 1,
+            BlessProvenance::AgentThenHuman => agent_then_human += 1,
+            BlessProvenance::Agent => agent += 1,
+        }
+    }
+    (human, agent_then_human, agent)
+}
+
+/// Render the `(human, agent_then_human, agent)` split as the parenthetical
+/// clause that follows an `ok` count, e.g. `"(12 human, 3 agent-then-human,
+/// 45 agent)"`. Shared by the text and markdown summaries so the wording
+/// never drifts between the two.
+fn provenance_split_label(counts: (usize, usize, usize)) -> String {
+    let (human, agent_then_human, agent) = counts;
+    format!("{human} human, {agent_then_human} agent-then-human, {agent} agent")
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct Meta {
     tool: ToolMeta,
@@ -325,6 +411,7 @@ struct Meta {
     contract: ContractMeta,
     #[serde(default)]
     xfail: Option<XfailMeta>,
+    bless: BlessMeta,
 }
 
 /// One discovered `corpus/<tool>/<version>/` fixture.
@@ -483,6 +570,24 @@ pub(crate) fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixtur
             }
             let raw = std::fs::read_to_string(&meta_path)
                 .map_err(|e| anyhow::anyhow!("reading {}: {e}", meta_path.display()))?;
+            // Friendly, fixture-naming guard ahead of the generic serde
+            // error `Meta`'s required `bless: BlessMeta` field would
+            // otherwise produce (a bare "missing field `bless`" with no
+            // pointer to what that means or where to read about it).
+            let value: toml::Value = toml::from_str(&raw)
+                .map_err(|e| anyhow::anyhow!("parsing {}: {e}", meta_path.display()))?;
+            if value
+                .get("bless")
+                .and_then(|b| b.get("provenance"))
+                .is_none()
+            {
+                anyhow::bail!(
+                    "{}: missing [bless] provenance — every fixture must record who blessed \
+                     its expected tree (`human`/`agent-then-human`/`agent`); see \
+                     corpus/README.md",
+                    meta_path.display()
+                );
+            }
             let meta: Meta = toml::from_str(&raw)
                 .map_err(|e| anyhow::anyhow!("parsing {}: {e}", meta_path.display()))?;
             let label = format!(
@@ -1154,6 +1259,14 @@ fn run_with_ceiling(
             ));
         }
 
+        // Unlike `verdict_scope` above, `provenance` is always set (it is
+        // a required field — `discover_fixtures`'s guard), so this note
+        // always prints; there is no "unscoped"-style silent case here.
+        detail.push(format!(
+            "provenance: {}",
+            provenance_label(fixture.meta.bless.provenance)
+        ));
+
         let outcome = if is_xfail {
             if all_pass {
                 // The promote message belongs in `detail` too, not just
@@ -1197,6 +1310,7 @@ fn run_with_ceiling(
             current: summarize(&fixture.meta.tool.name, root.as_ref()),
             previous: previous_summary(fixture),
             verdict_scope: fixture.meta.contract.verdict_scope.clone(),
+            provenance: fixture.meta.bless.provenance,
         });
 
         outcomes.push(outcome);
@@ -1230,8 +1344,15 @@ fn run_with_ceiling(
     if bless {
         lines.push(format!("blessed {} fixture(s)", fixtures.len()));
     } else {
+        let ok_provenance = provenance_split_label(provenance_counts(
+            fixture_rows
+                .iter()
+                .filter(|r| r.status_word == "ok")
+                .map(|r| r.provenance),
+        ));
         lines.push(format!(
-            "{} fixture(s): {green} ok, {xfail} xfail (as expected), {failed_count} failed",
+            "{} fixture(s): {green} ok ({ok_provenance}), {xfail} xfail (as expected), \
+             {failed_count} failed",
             fixtures.len(),
         ));
         for violation in &timing_violations {
@@ -1465,6 +1586,11 @@ struct FixtureRow {
     /// `meta.toml`, that a green row's descriptions may still be
     /// unreviewed prose.
     verdict_scope: Vec<VerdictScope>,
+    /// Who blessed this fixture's `expected.snap` (`BlessMeta`'s doc
+    /// comment) — the complement to `verdict_scope`: surfaced as its own
+    /// table column so an `ok` row can never be misread as human-verified
+    /// when no human has looked.
+    provenance: BlessProvenance,
 }
 
 /// Cap on how many names a single markdown table cell shows inline before
@@ -1556,11 +1682,17 @@ fn render_markdown_report(
          (`corpus/README.md`); that is exactly why this check is a hard gate rather than a \
          reported-only sweep like the PATH sweep.\n\n",
     );
-    out.push_str(&format!(
-        "**{total} fixture(s):** {green} ok, {xfail} xfail (as expected), {failed} failed.\n\n",
+    let ok_provenance = provenance_split_label(provenance_counts(
+        rows.iter()
+            .filter(|r| r.status_word == "ok")
+            .map(|r| r.provenance),
     ));
-    out.push_str("| fixture | outcome | status | nodes | flags | scope | change |\n");
-    out.push_str("|---|---|---|---|---|---|---|\n");
+    out.push_str(&format!(
+        "**{total} fixture(s):** {green} ok ({ok_provenance}), {xfail} xfail (as expected), \
+         {failed} failed.\n\n",
+    ));
+    out.push_str("| fixture | outcome | status | nodes | flags | scope | provenance | change |\n");
+    out.push_str("|---|---|---|---|---|---|---|---|\n");
 
     let mut details_sections: Vec<String> = Vec::new();
 
@@ -1679,13 +1811,14 @@ fn render_markdown_report(
         }
 
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
             md_escape(&row.label),
             row.status_word,
             md_escape(&status_cell),
             nodes_cell,
             flags_cell,
             md_escape(&verdict_scope_label(&row.verdict_scope)),
+            provenance_label(row.provenance),
             md_escape(&change_parts.join("; ")),
         ));
     }
@@ -1843,6 +1976,10 @@ pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
             verdict_scope_label(&fixture.meta.contract.verdict_scope)
         );
     }
+    println!(
+        "provenance: {} — who blessed this fixture's expected.snap (see corpus/README.md)",
+        provenance_label(fixture.meta.bless.provenance)
+    );
     println!();
 
     for capture in &fixture.meta.captures {
@@ -1904,6 +2041,9 @@ mod tests {
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "mytool"
 version = "1.0"
@@ -1927,6 +2067,9 @@ must_contain_flags = ["--verbose"]
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "brokentool"
 version = "1.0"
@@ -1972,6 +2115,9 @@ reason = "deliberately impossible contract, for the runner's own tests"
             &dir.join("meta.toml"),
             &format!(
                 r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fulltool"
 version = "1.0"
@@ -2156,6 +2302,9 @@ run = ["--source", "--staged"]
                 &dir.join("meta.toml"),
                 &format!(
                     r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "negtool"
 version = "1.0"
@@ -2211,6 +2360,9 @@ must_not_contain_flags = ["{forbidden}"]
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fixedtool"
 version = "1.0"
@@ -2251,6 +2403,9 @@ reason = "was broken; this test fixture is deliberately no longer broken"
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "misconfigured"
 version = "1.0"
@@ -2300,6 +2455,9 @@ stdout = "help.txt"
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "deeptool"
 version = "1.0"
@@ -2351,6 +2509,9 @@ stdout = "help-sub.txt"
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "deeptool"
 version = "1.0"
@@ -2393,6 +2554,9 @@ sub = ["--deep"]
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "deeptool"
 version = "1.0"
@@ -2465,11 +2629,16 @@ sub = ["--deep", "--nonexistent"]
             "an unchanged fixture must be reported as such, not silently omitted: {}",
             report.text
         );
-        // Never a raw YAML diff: the compact snapshot's own field names
-        // (`heading_attested`, `provenance`) must not leak into the
-        // markdown report as if it were the file's literal text.
+        // Never a raw YAML diff: the compact snapshot's own field name
+        // `heading_attested`, and `ProvenanceSnapshot`'s own `sources` key
+        // (`mandible_core::snapshot`), must not leak into the markdown
+        // report as if it were the file's literal text. (The bare word
+        // "provenance" legitimately appears now — the `[bless] provenance`
+        // column this report adds — so it is no longer the right marker for
+        // a YAML leak; `sources:` is, since nothing else in this report
+        // produces that key.)
         assert!(!report.text.contains("heading_attested"));
-        assert!(!report.text.contains("provenance"));
+        assert!(!report.text.contains("sources:"));
     }
 
     /// The parse-time ceiling **warns; it never fails the run.**
@@ -2634,6 +2803,9 @@ sub = ["--deep", "--nonexistent"]
             &root.join("fulltool/1.0/meta.toml"),
             &format!(
                 r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fulltool"
 version = "1.0"
@@ -2678,6 +2850,9 @@ min_subcommands = {min_subcommands}
             &root.join("negtool/1.0/meta.toml"),
             &format!(
                 r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "negtool"
 version = "1.0"
@@ -2751,6 +2926,9 @@ must_not_contain_flags = [{list}]
         write(
             &current.root.join("fulltool/1.0/meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fulltool"
 version = "1.0"
@@ -2784,6 +2962,9 @@ run = ["--source", "--staged"]
         write(
             &current.root.join("fulltool/1.0/meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fulltool"
 version = "1.0"
@@ -2822,6 +3003,9 @@ run = ["--source", "--staged"]
         write(
             &current.root.join("fulltool/1.0/meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fulltool"
 version = "1.0"
@@ -2863,6 +3047,9 @@ run = ["--source"]
         write(
             &current.root.join("fulltool/1.0/meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "fulltool"
 version = "1.0"
@@ -3018,6 +3205,9 @@ reason = "newly broken"
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "scopedtool"
 version = "1.0"
@@ -3064,6 +3254,9 @@ verdict_scope = ["flags", "subcommands", "descriptions", "usage"]
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "badscope"
 version = "1.0"
@@ -3095,6 +3288,9 @@ verdict_scope = ["flags", "vibes"]
         write(
             &dir.join("meta.toml"),
             r#"
+[bless]
+provenance = "agent"
+
 [tool]
 name = "scopedtool"
 version = "1.0"
@@ -3148,5 +3344,118 @@ verdict_scope = ["flags", "subcommands"]
         assert!(!report.failed(), "{}", report.text);
         assert!(report.text.contains("| scope |"), "{}", report.text);
         assert!(report.text.contains("unscoped"), "{}", report.text);
+    }
+
+    // --- [bless] provenance (human-vs-agent, the complement to verdict_scope) ---
+
+    /// A fixture whose `meta.toml` has no `[bless]` table at all must fail
+    /// to load, loudly, naming the offending file and pointing at
+    /// `corpus/README.md` — never silently default to any provenance,
+    /// since a silent default here is exactly the overclaim-by-omission
+    /// this field exists to prevent (mirroring `verdict_scope`'s own
+    /// "absent means no claim" rule, but for the bless act itself, where
+    /// the only safe absent-default would be "agent" and the schema
+    /// requires it be written down instead of assumed).
+    #[test]
+    fn missing_bless_table_fails_to_load_naming_the_fixture() {
+        let corpus = setup();
+        let dir = corpus.root.join("noblesstool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[tool]
+name = "noblesstool"
+version = "1.0"
+
+[[capture]]
+argv = ["noblesstool", "--help"]
+stdout = "help.txt"
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        let result = discover_fixtures(&corpus.root);
+        let err = match result {
+            Ok(_) => panic!("a fixture with no [bless] provenance must fail to load"),
+            Err(e) => e,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("noblesstool"), "{msg}");
+        assert!(msg.contains("meta.toml"), "{msg}");
+        assert!(msg.contains("[bless] provenance"), "{msg}");
+        assert!(msg.contains("corpus/README.md"), "{msg}");
+    }
+
+    /// Same failure when `[bless]` is present but empty (its required
+    /// `provenance` key missing) — the friendly guard checks the key, not
+    /// just the table.
+    #[test]
+    fn bless_table_without_provenance_key_fails_to_load() {
+        let corpus = setup();
+        let dir = corpus.root.join("emptybless/1.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[bless]
+
+[tool]
+name = "emptybless"
+version = "1.0"
+
+[[capture]]
+argv = ["emptybless", "--help"]
+stdout = "help.txt"
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+        let result = discover_fixtures(&corpus.root);
+        let err = match result {
+            Ok(_) => panic!("a [bless] table with no provenance key must fail to load"),
+            Err(e) => e,
+        };
+        assert!(err.to_string().contains("emptybless"), "{err}");
+    }
+
+    /// The summary line splits the `ok` count by provenance, so "N ok" can
+    /// never be misread as "N human-verified" (`corpus/README.md`'s
+    /// `[bless]` section). One fixture of each provenance value, all
+    /// green, must produce all three counts in the one summary line.
+    #[test]
+    fn summary_line_splits_ok_count_by_provenance() {
+        let corpus = setup();
+        for (name, provenance) in [
+            ("humantool", "human"),
+            ("mixedtool", "agent-then-human"),
+            ("agenttool", "agent"),
+        ] {
+            let dir = corpus.root.join(format!("{name}/1.0"));
+            write(
+                &dir.join("meta.toml"),
+                &format!(
+                    r#"
+[bless]
+provenance = "{provenance}"
+
+[tool]
+name = "{name}"
+version = "1.0"
+
+[[capture]]
+argv = ["{name}", "--help"]
+stdout = "help.txt"
+"#
+                ),
+            );
+            write(&dir.join("help.txt"), MYTOOL_HELP);
+        }
+        run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        assert!(
+            report
+                .text
+                .contains("3 ok (1 human, 1 agent-then-human, 1 agent)"),
+            "{}",
+            report.text
+        );
     }
 }

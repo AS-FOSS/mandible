@@ -3,6 +3,9 @@
 # post-review reconciliation (see audit/2.toml). See that file's own
 # review-any-fixture-for-machine-specific-content note before committing.
 
+[bless]
+provenance = "agent-then-human"
+
 [tool]
 name = "ntfsfallocate"
 version = "audit-seed2"

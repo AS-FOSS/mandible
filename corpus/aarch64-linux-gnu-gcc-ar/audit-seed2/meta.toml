@@ -2,6 +2,9 @@
 # reviewed under seed 2, verdict "wrong". See that file's own
 # review-any-fixture-for-machine-specific-content note before committing.
 
+[bless]
+provenance = "agent"
+
 [tool]
 name = "aarch64-linux-gnu-gcc-ar"
 version = "audit-seed2"

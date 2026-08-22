@@ -1173,6 +1173,51 @@ fn print_wilson_caveat(file: &AuditFile) {
 /// pairwise combinations here would be unwieldy for the same "never a bare
 /// percentage, but also never noise" discipline this module already
 /// applies everywhere else.
+/// The `skip` verdicts, named — the denominator's other half.
+///
+/// The stratum table prints a `skipped` *count* per stratum and nothing
+/// else, and `accuracy_over` excludes those entries from every accuracy
+/// figure in the report. A count alone makes the exclusion unauditable:
+/// a reader can see that nine tools left the denominator but not which
+/// ones, so "62.4% correct" cannot be checked against what was actually
+/// judged. `skip` is recorded, not omitted (spec §16), and this is what
+/// recording it looks like in the rendered report — every skipped tool by
+/// name, with the reviewer's reason where one was given and an explicit
+/// `(no reason recorded)` where none was, since `skip` is the one verdict
+/// that does not require a note and inventing one here would be
+/// fabricating the very justification a reader came to check.
+///
+/// Returns whole lines (the section header included) rather than printing,
+/// so the content is testable without capturing stdout.
+fn skipped_lines(file: &AuditFile) -> Vec<String> {
+    let mut skipped: Vec<&Entry> = file
+        .entries
+        .iter()
+        .filter(|e| e.effective_verdict() == Some("skip"))
+        .collect();
+    if skipped.is_empty() {
+        return Vec::new();
+    }
+    skipped.sort_by(|a, b| a.tool.cmp(&b.tool));
+    let mut lines = vec![
+        String::new(),
+        format!(
+            "tools skipped ({} — recorded, never omitted; excluded from every accuracy figure \
+         above, so this is the list that makes that exclusion checkable):",
+            skipped.len()
+        ),
+    ];
+    for entry in skipped {
+        let reason = if entry.effective_note().trim().is_empty() {
+            "(no reason recorded)"
+        } else {
+            entry.effective_note()
+        };
+        lines.push(format!("  {:<24} {}", entry.tool, reason));
+    }
+    lines
+}
+
 pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let path = verdict_path(dir, seed);
     let file = load(&path)?;
@@ -1351,6 +1396,10 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         }
     }
 
+    for line in skipped_lines(&file) {
+        println!("{line}");
+    }
+
     let mut out_of_scope: Vec<&Entry> = file
         .entries
         .iter()
@@ -1490,6 +1539,15 @@ pub fn cmd_fixtures(
         meta.push_str(
             "# review-any-fixture-for-machine-specific-content note before committing.\n\n",
         );
+        // An agent generated this fixture, so `[bless] provenance` starts at
+        // the conservative default. Only a human may change this value to
+        // "human" or "agent-then-human" (corpus/README.md's `[bless]`
+        // section, the mirror of the rule that an agent must never claim
+        // `verdict_scope`) — never widen it mechanically here.
+        meta.push_str("# An agent generated this fixture; only a human may change the value\n");
+        meta.push_str("# below (corpus/README.md's `[bless]` section).\n");
+        meta.push_str("[bless]\n");
+        meta.push_str("provenance = \"agent\"\n\n");
         meta.push_str("[tool]\n");
         meta.push_str(&format!("name = {:?}\n", entry.tool));
         meta.push_str(&format!("version = \"audit-seed{seed}\"\n"));
@@ -2173,6 +2231,38 @@ mod tests {
             families_derived: None,
             amendments: Vec::new(),
         }
+    }
+
+    /// The accuracy figures exclude every `skip`, so the report has to
+    /// name them: a bare per-stratum count says how many tools left the
+    /// denominator and never which, which is not a checkable claim. A
+    /// skipped entry with no note prints an explicit placeholder rather
+    /// than a fabricated reason — `skip` is the one verdict that does not
+    /// require a note.
+    #[test]
+    fn skipped_lines_names_every_skipped_tool_and_says_when_no_reason_was_given() {
+        let mut with_reason = entry("jconsole", Some("skip"), None, None);
+        with_reason.note = "it hangs the application".to_string();
+        let file = AuditFile {
+            meta: AuditMeta {
+                seed: 4,
+                sample_size: 3,
+            },
+            entries: vec![
+                entry("zzz-editres", Some("skip"), None, None),
+                entry("kept", Some("correct"), None, None),
+                with_reason,
+            ],
+        };
+        let lines = skipped_lines(&file);
+        assert_eq!(lines[0], "");
+        assert!(lines[1].starts_with("tools skipped (2 —"), "{:?}", lines[1]);
+        assert_eq!(lines.len(), 4);
+        assert!(lines[2].contains("jconsole"), "{:?}", lines[2]);
+        assert!(lines[2].contains("it hangs the application"));
+        assert!(lines[3].contains("zzz-editres"), "{:?}", lines[3]);
+        assert!(lines[3].contains("(no reason recorded)"));
+        assert!(lines.iter().all(|l| !l.contains("kept")));
     }
 
     #[test]

@@ -1,0 +1,64 @@
+audit seed=4 sample_size=94 (94 entries total)
+
+stratum             correct/judged   accuracy   95% CI            skipped   pending   out-of-scope
+incomplete              0/1        0.0%   [  0.0%,  79.3%]         0         0              0
+low-confidence          0/1        0.0%   [  0.0%,  79.3%]         0         0              0
+ok                     51/76      67.1%   [ 55.9%,  76.6%]         5         0              0
+verbatim                2/7       28.6%   [  8.2%,  64.1%]         4         0              0
+OVERALL                53/85      62.4%   [ 51.7%,  71.9%]         9         0              0
+
+note: the 95% CI above bounds sampling error only — how much this sample's accuracy could plausibly vary on a fresh draw of the same size — never reviewer error. Read the accuracy figure as "accuracy of the parser as judged by this reviewer," not an absolute truth.
+note: no verdict in this file has been amended yet (`xtask audit amend`) — this says nothing about whether the recorded verdicts are all correct, only that none has been corrected so far.
+
+K1/K2/K3 sensitivity (0 entries tagged K1, 0 entries tagged K2, 0 entries tagged K3 — see mandible_core::audit's Entry::k1/k2/k3 doc comments and this module's *_signature functions):
+view                      correct/judged   accuracy   95% CI
+all-inclusive                53/85      62.4%   [ 51.7%,  71.9%]
+K1-excluded                  53/85      62.4%   [ 51.7%,  71.9%]
+K2-excluded                  53/85      62.4%   [ 51.7%,  71.9%]
+K3-excluded                  53/85      62.4%   [ 51.7%,  71.9%]
+K1+K2+K3-excluded            53/85      62.4%   [ 51.7%,  71.9%]
+
+tools judged wrong or incomplete (the next bugs):
+  VGAuthService            wrong       still prints out random logs
+  aarch64-linux-gnu-ar     incomplete  ok I think the commands are fixed now, but I notice now that it has 'command specific modifiers' + 'generic modifiers'. Not sure what those are and mandible definintely does not take those into account
+  aarch64-linux-gnu-gcc-ar incomplete  same as other gnu
+  aarch64-linux-gnu-gcc-nm-13 incomplete  there is a line "@FILE Read options from FILE" I suspect this is a positinal argument, and i dont think it got parsed
+  apt-ftparchive           incomplete  flags are correct, but missing commands. See for yourself. It also has put desription of 3-4 commands below the list of them a
+  ar                       incomplete  same missing modifiers issue
+  bashbug                  incomplete  missing 'bug-report-email-address' flag. in my screen the usage line is missing one character that wraps that flag, the closing square character, might that be the cause?
+  btrfs                    wrong       the commands mistakenly got wrapped under --version flag's description, redo
+  bzless                   wrong       did not parse anything, the weird "------> --help <-----" help text
+  chgrp                    incomplete  The separation between flag sections has this description in between: "The following options modify how a hierarchy is traversed when the -R option is also specified. If more than one is specified, only the final one takes effect." But, it parses and keeps only this: "ONE TAKES EFFECT.". See what can be done, or we should ignore that
+  filefrag                 incomplete  shouldnt 'file' be printed infront of those newly fixed single-char flags, just like "blocksize..." is for -b? verifyy and double check if so, otherwise l;ooks correct
+  gcc                      incomplete  still pendingm because gcc has options like "gcc --help=common" or "gcc -v --help", so im marking as incomplete
+  gcc-ar                   incomplete  same modifier issue
+  gcc-ar-13                incomplete  same modifier issue
+  ip                       wrong       ok possibly new family, this shows something like this "-V[ersion]" which probably means "-V" and "--Version"
+  jdeprscan                incomplete  one of previous tools had same structure, where it lists flags then puts their descriptions below as a paragraph
+  killsnoop.bt             incomplete  so far everything parses fine, but i noticed the environment variables listed here, decide if and how we want to parse and disply those, otherwise skip
+  lessecho                 incomplete  is it missing positional 'file' argument?
+  lzgrep                   incomplete  weird situation, i'd probably make this verbatim, because it abstracts its flags under 'the same as greps' and then some postiinal ones i think
+  lzless                   incomplete  same as lzgrep
+  naptime.bt               incomplete  same question regarding the env variables parsing
+  nfsidmap                 incomplete  im not sure what verdict to put here, it has some more complex than usual structure, but some pattern is there
+  opensnoop.bt             incomplete  same question regarding env vars
+  pptpsetup                wrong       bad parse, not sure why, looks straightforward
+  qemu-arm64-static        incomplete  same env variables question, but extension, this tool instead maps the variables to some of the flags. meaning that you can either use flag or set env, tat least thats what i think
+  sg_dd                    wrong       might be new family, but also I think a bug when parsing usage line due to empty line in between options
+  sg_emc_trespass          wrong       wrong parse. might be due to addition of colon
+  tcpaccept.bt             incomplete  same question regarding env vars
+  vgck                     incomplete  is unparsed, no detector or decided to keep verbatim?
+  vgextend                 incomplete  same vg family
+  vgrename                 incomplete  same vg family
+  vim.basic                incomplete  i believe it shows '--' as positional arg
+
+tools skipped (9 — recorded, never omitted; excluded from every accuracy figure above, so this is the list that makes that exclusion checkable):
+  automat-visualize3       (no reason recorded)
+  byobu-janitor            (no reason recorded)
+  bzmore                   same weird arrow --help arrow issue
+  editres                  (no reason recorded)
+  helpztags                (no reason recorded)
+  jconsole                 it hangs the application, the manual --help also behaves the same, not worth
+  llvm-jitlink-executor-18 (no reason recorded)
+  rubycalls-bpfcc          (no reason recorded)
+  run-one-until-failure    (no reason recorded)

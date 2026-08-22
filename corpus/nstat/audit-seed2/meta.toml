@@ -2,6 +2,9 @@
 # reviewed under seed 2, verdict "correct". See that file's own
 # review-any-fixture-for-machine-specific-content note before committing.
 
+[bless]
+provenance = "agent-then-human"
+
 [tool]
 name = "nstat"
 version = "audit-seed2"

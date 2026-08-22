@@ -7,6 +7,9 @@
 # `[-2CDlNuVv]` as the eight bundled boolean switches it is, and the
 # correctness claim is back — so `verdict_scope` is recorded again.
 
+[bless]
+provenance = "agent-then-human"
+
 [tool]
 name = "tmux"
 version = "audit-seed2"

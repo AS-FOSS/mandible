@@ -8,6 +8,70 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- **12 new corpus fixtures from the seed-4 human audit, and a named list of
+  the tools that audit skipped.** `xtask audit fixtures` stages a fixture
+  directory per reviewed tool with the reviewer's own verdict note as the
+  `[xfail] reason`; three of the fixtures promoted here (`bashbug`,
+  `lessecho`, `vim.basic`) were `incomplete` verdicts, so each also needed a
+  `[contract]` field that *currently fails* — an `[xfail]` asserting nothing
+  is reported by `xtask corpus` as "the bug appears fixed", which is how the
+  runner refuses to let a documented-broken fixture be documented-broken
+  about nothing in particular. All three defects turned out to be the same
+  shape and are pinned with `must_contain_positionals`: bashbug's
+  `[bug-report-email-address]` operand, lessecho's `file ...`, and vim's
+  `[file ..]` are each documented in the tool's own usage synopsis and each
+  absent from the tree. The other nine are `correct` verdicts with a blessed
+  snapshot (`provenance = "agent"`, no `verdict_scope` — an agent may claim
+  neither). The corpus is 96 fixtures: 80 ok (0 human, 39 agent-then-human,
+  41 agent), 16 xfail, 0 failed.
+
+- **`xtask audit report` now names the tools a reviewer verdicted `skip`,
+  with the reason where one was recorded.** The stratum table printed a
+  per-stratum `skipped` count and nothing more, while `accuracy_over`
+  excludes every one of those entries from every accuracy figure in the
+  report — so a reader could see that nine tools left seed 4's denominator
+  but not which nine, and the exclusion was unauditable. `skip` is the one
+  verdict that does not require a note, so the section prints an explicit
+  `(no reason recorded)` rather than inventing a justification; 6 of seed
+  4's 9 skips carry no reason. `audit/4-report.txt` is committed alongside
+  `audit/2-report.txt` as the rendered record.
+
+- **Every corpus fixture now carries a required `[bless] provenance` field —
+  `human`, `agent-then-human`, or `agent` — recording who blessed its
+  `expected.snap`, the complement `verdict_scope` never had.** `verdict_scope`
+  says what a human reviewed; it says nothing about the fixtures nobody
+  reviewed at all, and that was most of them — AGENTS.md's own v0.3.1
+  measurement found only 3 of 23 newly-passing fixtures carried a human
+  `verdict_scope`, the other 20 were agent-blessed trees the suite guarded
+  against *changing*, never against being *wrong*. Without this field, "N
+  fixtures ok" and "N fixtures human-verified" were indistinguishable in any
+  summary, which is exactly the overclaim `verdict_scope` was built to
+  prevent for review *scope* but never for the bless act itself.
+
+  The field is required, not optional with a silent default: `xtask corpus`
+  fails to load a fixture missing it, naming the file and pointing at
+  `corpus/README.md`, rather than let an absent value read as "unknown" (or
+  worse, get inferred as reviewed). `xtask corpus`'s summary line now splits
+  its `ok` count by provenance (`71 ok (0 human, 39 agent-then-human, 32
+  agent)`), `--show <fixture>` and the `--format markdown` report both
+  surface it alongside `scope`, and `xtask audit fixtures` always emits
+  `provenance = "agent"` for a fixture it generates — an agent may only ever
+  write that value; flipping it to `human`/`agent-then-human` is a human-only
+  act, mirroring the rule `verdict_scope` already enforces.
+
+  All 84 existing fixtures were backfilled by git-history review, and the
+  first thing the field recorded is a result worth stating plainly: **not
+  one fixture in this corpus has a human-blessed `expected.snap`.** 39 are
+  `agent-then-human` (a human's seed-2 audit `verdict_scope` covers them,
+  but an agent wrote the bytes), 45 are `agent`, and 0 are `human` — the
+  hand-authored `git`/`tar` seed fixtures included, because their current
+  snapshots were re-blessed by later grammar-fix commits. Every bless commit
+  in this repository's history carries a `Co-Authored-By: Claude` trailer;
+  attributing any of them to a human would have been exactly the overclaim
+  the field exists to make impossible.
+
 ### Fixed
 
 - **`xtask sweep-diff` now diffs each tool's flags, choices, and subcommands
