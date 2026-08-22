@@ -3392,9 +3392,7 @@ fn find_sentence_start_gap(line: &str) -> Option<usize> {
         // `start` and `i` only ever land on ASCII space/tab boundaries or
         // the ends of the string, so neither can fall inside a multi-byte
         // character — `get` rather than `[..]` regardless (AGENTS.md §2).
-        let Some(token) = line.get(start..i) else {
-            return None;
-        };
+        let token = line.get(start..i)?;
         if token_count > 0 {
             let more_words_follow = line
                 .get(i..)

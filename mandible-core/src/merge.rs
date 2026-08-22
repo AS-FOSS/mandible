@@ -565,8 +565,8 @@ fn absorb_pair(existing: &mut Flag, other: Flag) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provenance::Source;
     use crate::node::ValueKind;
+    use crate::provenance::Source;
 
     fn node_from(source: Source, name: &str) -> CommandNode {
         CommandNode::new(name, Provenance::single(source))

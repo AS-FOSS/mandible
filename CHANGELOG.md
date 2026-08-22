@@ -74,6 +74,65 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A flag is now associated with the description prose it owns in two
+  shapes the grammar used to drop it in.** Both are cases where the text was
+  sitting right there in the tool's own `--help` output and never reached the
+  flag it belongs to.
+
+  The first is **a description written one space after the spec**, which is
+  what a long flag name does to a fixed-width option table: the name overruns
+  the description column and the formatter emits a single space instead of
+  the padding it can no longer supply. `find_description_gap` found no column,
+  the whole line went to the flag grammar as the spec, and its ` VALUE` arm
+  took the first word of the prose as a `value_name` and discarded the rest —
+  `--md5 Control MD5 generation` became `--md5` valued `Control`, with "MD5
+  generation" gone from the tree entirely. `find_sentence_start_gap` is a
+  sibling of the existing `find_placeholder_boundary_gap` under the same
+  precondition (consulted only when no 2+-space column exists anywhere in the
+  line, so no already-working split can move), and it is deliberately narrow
+  because the inverse case is the whole risk: the candidate word must be an
+  initial capital followed by nothing but lowercase, must have at least one
+  more word after it, and the scan stops at the first token that is neither
+  that nor value-shaped. `PATH`, `7|8|9|10|11`, `<manifest-path>` and a
+  lowercase metavar followed by a capitalized word deeper in the line all
+  keep parsing as values, each with its own test.
+
+  The second is **a description written as a flush-left prose paragraph
+  naming the option**, the way `jdeprscan` documents all eight of its
+  options ("The --for-removal option limits scanning or listing to APIs
+  that are deprecated for removal."): its `options:` block has no
+  description column at all, so it measured 8 flags, 0.0% with text.
+  `backfill_prose_paragraph_descriptions` is a third pass over the assembled
+  flag list, alongside the two flag repairs already there. It never creates
+  a flag (a paragraph naming an option the table does not list — like
+  `apt-ftparchive`'s `--source-override` — cannot fabricate one) and never
+  overwrites a description the table already supplied (`apropos` describes
+  `--regex` in both places; the table wins). A sentence *indented under*
+  another flag's row is that row's continuation text and is never lifted out.
+
+  Measured on a full `PATH` sweep of this box: 94.64% → 95.54% of flags carry
+  text across 2,308 tools, 97 tools changed, and every other counter in the
+  scoreboard is byte-identical (no-tier, suspicious, verbatim, man-shaped,
+  ok-with-zero-flags, misattribution, existence-fabrication, bundle-collapse,
+  framework detection). Five tools moved `low-confidence` → `ok`; none moved
+  down. In the corpus, `curl/8.5.0-all` alone gains 59 descriptions, each
+  replacing a fabricated `value_name`.
+
+- **`pair_aliases` no longer unifies two rows that disagree about taking a
+  value.** Recovering `ld`/`gold`'s real descriptions made two genuinely
+  separate options collide on one shared sentence —
+  `--allow-multiple-definition Allow multiple definitions of symbols` and
+  `-z muldefs  Allow multiple definitions of symbols` — and pairing them
+  destroyed one of the two while giving the survivor
+  `--allow-multiple-definition muldefs`, a value neither row documents.
+  Measured on the same sweep: 7 tools, 1 flag each, and the only losses in
+  it. Pairing now also requires the two rows to agree about taking a value at
+  all; coarse on purpose (`ValueKind` only, never the placeholder's
+  spelling), since a source may legitimately name the metavar on one row and
+  not the other. Same failure shape as the `lto-dump` incident the
+  single-dash exclusion already documents: a description common enough to
+  collide.
+
 - **`xtask sweep-diff` now diffs each tool's flags, choices, and subcommands
   by content, not just by count.** During PR #14 the same run that deleted
   `pngfix`'s and `pod2man`'s flag descriptions and fabricated a choices list
