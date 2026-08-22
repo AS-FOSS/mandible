@@ -861,6 +861,10 @@ pub fn parse_with_profile(
     // the fixes as well. The explicit condition-6 check below is kept
     // anyway, so the disjointness does not rest on the call order.
     repair_single_dash_long_options(&mut result.flags, raw);
+    // Third pass of the same kind, and last because it can only fill what
+    // the two above have finished naming: descriptions that the document
+    // wrote as free prose paragraphs instead of as option-table columns.
+    backfill_prose_paragraph_descriptions(&mut result.flags, &lines);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result
@@ -3512,7 +3516,175 @@ fn find_description_gap(line: &str) -> Option<usize> {
     }
     // Only ever consulted when the rule above found nothing anywhere in
     // the line — see `find_placeholder_boundary_gap`'s own doc comment.
-    find_placeholder_boundary_gap(line)
+    if let Some(col) = find_placeholder_boundary_gap(line) {
+        return Some(col);
+    }
+    // Same "no aligned column anywhere" precondition, one shape further
+    // out: no placeholder either, just a sentence. See
+    // `find_sentence_start_gap`.
+    find_sentence_start_gap(line)
+}
+
+/// Second fallback for a flag row with no aligned column at all: the
+/// description simply starts one space after the spec, and it is
+/// recognizable because it starts an **English sentence** rather than
+/// naming a value.
+///
+/// The shape is what a long flag name does to a fixed-width option table —
+/// the name overruns the description column, and the formatter emits one
+/// space instead of the padding it can no longer supply:
+///
+/// ```text
+///   --md5 Control MD5 generation                    (apt-ftparchive)
+///   --no-delink Enable delinking debug mode         (apt-ftparchive)
+///   --allow-multiple-definition Allow multiple definitions of symbols   (ld)
+///   -print-multi-os-directory Display the relative path to OS libraries (gcc)
+/// ```
+///
+/// Without this, `find_description_gap` returns `None`, the *whole line*
+/// is handed to `grammar::parse_flag_spec` as the spec, and its
+/// ` VALUE` arm takes the first word of the prose as a `value_name` and
+/// **discards the rest of the sentence** — `--md5` acquires the value
+/// `Control` and the words "MD5 generation" are lost from the tree
+/// entirely. Measured on `apt-ftparchive --help`: 9 flags, 2 of them
+/// carrying another flag's job in their `value_name` and no description.
+///
+/// **Only ever consulted when both gap-finders above found nothing
+/// anywhere in the line**, exactly as [`find_placeholder_boundary_gap`]
+/// is, so no already-working split can move — this only recovers text
+/// that would otherwise be dropped.
+///
+/// The predicate is deliberately narrow, because the inverse case is the
+/// whole risk: ` VALUE` is a real and common shape (`--class-path PATH`,
+/// `--release 7|8|9|…|17`, `--manifest-path <manifest-path>`), and reading
+/// a value name as prose would delete a real field. Three conditions, all
+/// required:
+///
+/// 1. The line starts with a flag (`-`). Bare-word blocks — subcommand
+///    tables, enum-value lists — never reach this at all.
+/// 2. The candidate token [`starts_a_sentence`]: an initial ASCII
+///    uppercase letter followed by nothing but ASCII lowercase ones
+///    (`Control`, `Enable`, `Display`). Every value placeholder shape this
+///    project has measured fails that test — `PATH` and `MD5` are all-caps,
+///    `<path>` and `[=WHEN]` are bracketed, `7|8|9` is punctuated.
+/// 3. At least one more word follows it, so a lone trailing token
+///    (`-v Verbose`, `--md5 Control`) is still read as a value. A single
+///    word is genuinely ambiguous and stays with the pre-existing reading.
+///
+/// Scanning stops at the first token that is neither sentence-shaped nor
+/// [`is_value_spec_token`] — so a *lowercase* metavar ends the search
+/// rather than letting a capitalized word deeper in the line become a
+/// false boundary (`--opt value do a Thing here` splits nowhere, instead
+/// of splitting before `Thing`).
+fn find_sentence_start_gap(line: &str) -> Option<usize> {
+    if !line.trim_start().starts_with('-') {
+        return None;
+    }
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    let mut token_count = 0usize;
+    let mut previous_token_end: Option<usize> = None;
+    // A spec that already carries its own value (`--init-command=name`,
+    // `--color[=WHEN]`) cannot take another one, so the boundary is fixed
+    // at that first token and every word after it is description — even a
+    // value-shaped one. Without this, `mariadb`'s
+    // `--init-command=name SQL Command to execute ...` splits after `SQL`
+    // instead, and the word "SQL" is dropped from the tree: the spec keeps
+    // its `=name` value (first value wins) and nothing ever reads `SQL`
+    // back out. Never discard a word the tool wrote.
+    let mut spec_is_closed = false;
+    while i < bytes.len() {
+        if bytes[i] == b' ' || bytes[i] == b'\t' {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && bytes[i] != b' ' && bytes[i] != b'\t' {
+            i += 1;
+        }
+        // `start` and `i` only ever land on ASCII space/tab boundaries or
+        // the ends of the string, so neither can fall inside a multi-byte
+        // character — `get` rather than `[..]` regardless (AGENTS.md §2).
+        let token = line.get(start..i)?;
+        if token_count > 0 {
+            let more_words_follow = line
+                .get(i..)
+                .is_some_and(|rest| rest.split_whitespace().next().is_some());
+            if more_words_follow && starts_a_sentence(token) {
+                return previous_token_end;
+            }
+            if !is_value_spec_token(token) {
+                return None;
+            }
+        } else {
+            spec_is_closed = token.contains('=') || token.contains('[');
+        }
+        // The spelling run's own token always sets the boundary; a closed
+        // spec then freezes it there.
+        if token_count == 0 || !spec_is_closed {
+            previous_token_end = Some(i);
+        }
+        token_count += 1;
+    }
+    None
+}
+
+/// True if `token` reads as the first word of an English sentence rather
+/// than as a value placeholder: an ASCII uppercase letter followed by at
+/// least one, and nothing but, ASCII lowercase letters.
+///
+/// Checked against every distinct occurrence of the shape in this box's
+/// 2,301 captured `--help` documents: all 108 of them are verbs
+/// (`Use`, `Do`, `Disable`, `Allow`, `Print`, `Enable`, `Display`, …) and
+/// none is a metavar. All-caps (`PATH`), mixed (`MD5`, `IPv6`) and
+/// punctuated (`7|8|9`) tokens are excluded by construction.
+fn starts_a_sentence(token: &str) -> bool {
+    let mut chars = token.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !first.is_ascii_uppercase() {
+        return false;
+    }
+    let mut saw_rest = false;
+    for c in chars {
+        if !c.is_ascii_lowercase() {
+            return false;
+        }
+        saw_rest = true;
+    }
+    saw_rest
+}
+
+/// True if `token` can plausibly still be part of a flag *spec* rather
+/// than of its description — used by [`find_sentence_start_gap`] to decide
+/// how far it may keep looking for a sentence boundary.
+///
+/// Anything that names a spelling, a placeholder, or a metavar qualifies:
+/// a leading `-`, any notation punctuation, a digit or a `-`/`_`/`.`
+/// inside the word, or an all-caps run. A bare all-lowercase alphabetic
+/// word does *not* — that is where the scan stops, which is what keeps a
+/// capitalized word in the middle of a description from being mistaken for
+/// its start.
+fn is_value_spec_token(token: &str) -> bool {
+    if token.starts_with('-') {
+        return true;
+    }
+    if token.chars().any(|c| {
+        matches!(
+            c,
+            '<' | '>' | '[' | ']' | '{' | '}' | '(' | ')' | '=' | '|' | ',' | '/' | ':'
+        )
+    }) {
+        return true;
+    }
+    if token
+        .chars()
+        .any(|c| c.is_ascii_digit() || c == '-' || c == '_' || c == '.')
+    {
+        return true;
+    }
+    token.chars().all(|c| c.is_ascii_uppercase())
 }
 
 /// The fewest consecutive spaces that separate a row's columns rather than
@@ -4167,6 +4339,188 @@ fn split_top_level_pipe(content: &str) -> Vec<&str> {
     out.push(content[start..].trim());
     out.retain(|s| !s.is_empty());
     out
+}
+
+/// The largest indent at which a line may still be read as flush-left
+/// document prose rather than as part of some block's own body.
+///
+/// Prose paragraphs that document an option are written at the document's
+/// own margin; the same sentence *indented under an option row* is that
+/// option's continuation text, and already belongs to whichever flag the
+/// row named. Keeping the two apart is the whole reason this is a bound
+/// and not simply "any line": `java`, `jdeps` and `rg` all write
+/// "The --x option …" sentences deep inside another flag's description
+/// column, and reading those as standalone paragraphs would attach one
+/// flag's prose to a different flag.
+const MAX_PROSE_PARAGRAPH_INDENT: usize = 3;
+
+/// Fill in descriptions a document wrote as **prose paragraphs keyed by
+/// option name**, rather than as text in the option table's own
+/// description column.
+///
+/// `jdeprscan --help` is the specimen. Its `options:` block is a bare list
+/// of spellings with no description column at all, and every option's
+/// prose lives further down the document in its own flush-left paragraph:
+///
+/// ```text
+/// options:
+///         --for-removal
+///   -l    --list
+/// …
+/// The --for-removal option limits scanning or listing to APIs that are
+/// deprecated for removal. Cannot be used with a release value of 6, 7, or 8.
+///
+/// The --list (-l) option prints out the set of deprecated APIs. No scanning is done,
+/// so no directory, jar, or class arguments should be provided.
+/// ```
+///
+/// The table parses correctly — the spellings are all recovered — and then
+/// every description is dropped on the floor, because nothing in the
+/// grammar ever revisits a flag with text found later in the document
+/// (measured: 8 flags, 0.0% with text). This is that revisit, and it is a
+/// pass over the assembled flag list for the same reason
+/// [`repair_repeated_character_flags`] and
+/// [`repair_single_dash_long_options`] are: the question it answers needs
+/// the whole node's flags, so it cannot be answered at the row that
+/// produced any one of them.
+///
+/// Shape-keyed, never tool-keyed (spec §1). A paragraph qualifies when:
+///
+/// 1. Every one of its lines sits at indent ≤ [`MAX_PROSE_PARAGRAPH_INDENT`]
+///    and none of them starts with `-`, so an option table's own rows and
+///    an option's indented continuation text can never be read as one.
+/// 2. Its first line opens `The <spelling> option …` — an article, one
+///    option spelling, an optional parenthesised alias list, then the word
+///    `option`, `flag` or `switch`. That is a *reference* to an option, the
+///    one form in which running prose names one unambiguously.
+///
+/// Two invariants bound what this can cost, and both matter more than the
+/// recall it gives up:
+///
+/// - **It never creates a flag.** A spelling that names nothing already in
+///   `flags` is ignored, so a paragraph mentioning an option the tool did
+///   not table (`apt-ftparchive`'s `--source-override`) cannot fabricate
+///   one — the invention class spec §7 Tier B forbids.
+/// - **It never overwrites a description.** Only a flag whose description
+///   is `None` can be filled, so a table that already said something keeps
+///   saying it (`apropos`'s `--regex` is described in its own table *and*
+///   mentioned in a trailing paragraph; the table wins, untouched).
+///
+/// Matching is by *any* spelling the reference names, primary or
+/// parenthesised, which is what makes it independent of how well the table
+/// row parsed: jdeprscan's `-l    --list` row yields a flag with
+/// `short: 'l'` and no long name at all, and `The --list (-l) option …`
+/// still finds it through the `-l` in the parenthetical.
+fn backfill_prose_paragraph_descriptions(flags: &mut [Flag], lines: &[&str]) {
+    if flags.is_empty() {
+        return;
+    }
+    let mut i = 0usize;
+    while i < lines.len() {
+        if lines[i].trim().is_empty() {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < lines.len() && !lines[i].trim().is_empty() {
+            i += 1;
+        }
+        let paragraph = &lines[start..i];
+        if !paragraph.iter().all(|l| {
+            leading_whitespace(l) <= MAX_PROSE_PARAGRAPH_INDENT && !l.trim_start().starts_with('-')
+        }) {
+            continue;
+        }
+        let Some(spellings) = prose_option_reference(paragraph[0]) else {
+            continue;
+        };
+        let text = paragraph
+            .iter()
+            .map(|l| l.trim())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let Some(description) = non_empty_text(&text) else {
+            continue;
+        };
+        for flag in flags.iter_mut() {
+            if flag.description.is_some() {
+                continue;
+            }
+            if spellings.iter().any(|s| flag_answers_to_spelling(flag, s)) {
+                flag.description = Some(description.clone());
+                break;
+            }
+        }
+    }
+}
+
+/// Every option spelling named by a paragraph-opening option *reference* —
+/// `The --list (-l) option …` → `["--list", "-l"]` — or `None` when the
+/// line does not open with one.
+///
+/// Grammar, all of it required and in this order: an optional article
+/// (`The`/`A`/`An`), one dash-led spelling, an optional parenthesised list
+/// of further dash-led spellings, then the literal word `option`, `flag` or
+/// `switch`. The trailing noun is what distinguishes a reference from a
+/// sentence that merely happens to start with a flag-shaped token, and the
+/// leading article keeps it clear of an option *table* row, which starts
+/// with the spelling itself.
+fn prose_option_reference(line: &str) -> Option<Vec<String>> {
+    let mut words = line.split_whitespace().peekable();
+    let first = words.peek()?;
+    if matches!(*first, "The" | "A" | "An" | "the" | "a" | "an") {
+        words.next();
+    }
+    let primary = words.next()?;
+    if !primary.starts_with('-') || primary.len() < 2 {
+        return None;
+    }
+    let mut spellings = vec![primary.to_string()];
+    // An optional parenthesised alias list: `(-? -h)`, `(-l)`.
+    if words.peek().is_some_and(|w| w.starts_with('(')) {
+        let mut closed = false;
+        for word in words.by_ref() {
+            let inner = word.trim_start_matches('(').trim_end_matches(')');
+            if inner.starts_with('-') && inner.len() >= 2 {
+                spellings.push(inner.to_string());
+            }
+            if word.ends_with(')') {
+                closed = true;
+                break;
+            }
+        }
+        if !closed {
+            return None;
+        }
+    }
+    let noun = words.next()?;
+    if !matches!(noun, "option" | "flag" | "switch") {
+        return None;
+    }
+    Some(spellings)
+}
+
+/// True if `flag` is the flag `spelling` names — `--list` against its
+/// `long`, `-l` against its `short`, and a single-dash long option
+/// (`-print-sysroot`) against its `long` when [`Flag::single_dash`] says
+/// that is how the tool spells it.
+fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
+    if let Some(long) = spelling.strip_prefix("--") {
+        return !long.is_empty() && flag.long.as_deref() == Some(long) && !flag.single_dash;
+    }
+    let Some(rest) = spelling.strip_prefix('-') else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    let mut chars = rest.chars();
+    if let (Some(c), None) = (chars.next(), chars.next()) {
+        if flag.short == Some(c) {
+            return true;
+        }
+    }
+    flag.single_dash && flag.long.as_deref() == Some(rest)
 }
 
 #[cfg(test)]
@@ -6110,6 +6464,233 @@ Options:
         assert!(
             described.contains(&("anyauth", "Pick any authentication method")),
             "{described:?}"
+        );
+    }
+
+    /// A description one space after the spec, with no placeholder to key
+    /// off of — the shape a long flag name forces on a fixed-width table
+    /// when the name overruns the description column. Real
+    /// `apt-ftparchive --help`: `--md5` used to arrive carrying
+    /// `value_name: Control`, with the words "MD5 generation" discarded
+    /// from the tree entirely.
+    #[test]
+    fn a_sentence_one_space_after_the_spec_is_a_description_not_a_value() {
+        let help = "Usage: apt-ftparchive [options] command\n\nOptions:\n  \
+                    -h    This help text\n  \
+                    --md5 Control MD5 generation\n  \
+                    --no-delink Enable delinking debug mode\n  \
+                    --contents  Control contents file generation\n";
+        let parsed = parse(help);
+        let by_long = |name: &str| {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("--{name} must be recovered"))
+        };
+        for (name, text) in [
+            ("md5", "Control MD5 generation"),
+            ("no-delink", "Enable delinking debug mode"),
+        ] {
+            let flag = by_long(name);
+            assert_eq!(
+                flag.description.as_ref().map(|d| d.as_str()),
+                Some(text),
+                "--{name}"
+            );
+            assert_eq!(flag.value_name, None, "--{name} takes no value");
+            assert_eq!(flag.value_kind, ValueKind::None, "--{name} takes no value");
+        }
+        // The already-working padded rows must be untouched.
+        assert_eq!(
+            by_long("contents").description.as_ref().map(|d| d.as_str()),
+            Some("Control contents file generation")
+        );
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some('h'))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some("This help text")
+        );
+    }
+
+    /// The inverse case, and the reason the predicate is what it is: a
+    /// genuine ` VALUE` spec must keep parsing as a value. Every shape
+    /// here is a real one this project already gets right —
+    /// `jdeprscan`'s uppercase `PATH` and pipe-alternation
+    /// `7|8|9|…`, `cargo-fmt`'s `<manifest-path>` — plus a lowercase
+    /// metavar followed by a capitalized word deeper in the line, which
+    /// must not be split at that word.
+    #[test]
+    fn a_real_value_placeholder_is_never_read_as_a_description() {
+        let help = "Usage: tool [options]\n\nOptions:\n  \
+                    --class-path PATH\n  \
+                    --release 7|8|9|10|11\n  \
+                    --manifest-path <manifest-path>\n  \
+                    --opt value do a Thing here\n  \
+                    --quiet Quiet\n";
+        let parsed = parse(help);
+        let by_long = |name: &str| {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("--{name} must be recovered"))
+        };
+        for (name, value) in [
+            ("class-path", "PATH"),
+            ("release", "7|8|9|10|11"),
+            ("manifest-path", "<manifest-path>"),
+        ] {
+            let flag = by_long(name);
+            assert_eq!(flag.value_name.as_deref(), Some(value), "--{name}");
+            assert_eq!(flag.description, None, "--{name} has no description");
+        }
+        // A lowercase metavar ends the scan: no split may happen at the
+        // capitalized `Thing` three words later.
+        assert_eq!(by_long("opt").value_name.as_deref(), Some("value"));
+        assert_eq!(by_long("opt").description, None);
+        // A lone capitalized trailing token is ambiguous and keeps the
+        // pre-existing value reading — one word is not a sentence.
+        assert_eq!(by_long("quiet").value_name.as_deref(), Some("Quiet"));
+    }
+
+    /// A spec that already carries its own value cannot take another one,
+    /// so nothing between it and the sentence may be swallowed as a second
+    /// value name and then discarded. Real `mariadb --help`:
+    /// `--init-command=name SQL Command to execute ...` must keep the word
+    /// "SQL", which the spec has no room for and which nothing downstream
+    /// would ever read back out.
+    #[test]
+    fn a_self_valued_spec_keeps_every_word_of_its_description() {
+        let help = "Usage: mariadb [OPTIONS]\n\nOptions:\n  \
+                    --init-command=name SQL Command to execute when connecting to server.\n";
+        let parsed = parse(help);
+        let flag = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("init-command"))
+            .expect("--init-command must be recovered");
+        assert_eq!(flag.value_name.as_deref(), Some("name"));
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("SQL Command to execute when connecting to server.")
+        );
+    }
+
+    /// `jdeprscan --help` documents every option in its own flush-left
+    /// prose paragraph, and its `options:` table has no description column
+    /// at all: 8 flags, 0.0% with text before this. The paragraph names the
+    /// option it documents, so the two can be associated.
+    ///
+    /// `--list` is the load-bearing case: the table row `-l    --list`
+    /// loses its long spelling to a separate, still-unfixed bug, so the
+    /// only way to reach that flag is the `(-l)` in the paragraph's own
+    /// parenthetical.
+    #[test]
+    fn a_prose_paragraph_naming_an_option_supplies_its_description() {
+        let help = "Usage: jdeprscan [options] {dir|jar|class} ...\n\
+                    \n\
+                    options:\n        \
+                    --for-removal\n  \
+                    -l    --list\n\
+                    \n\
+                    Scans each argument for usages of deprecated APIs.\n\
+                    \n\
+                    The --for-removal option limits scanning or listing to APIs that are\n\
+                    deprecated for removal.\n\
+                    \n\
+                    The --list (-l) option prints out the set of deprecated APIs.\n";
+        let parsed = parse(help);
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some("for-removal"))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some(
+                "The --for-removal option limits scanning or listing to APIs that are \
+                 deprecated for removal."
+            )
+        );
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some('l'))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some("The --list (-l) option prints out the set of deprecated APIs.")
+        );
+    }
+
+    /// The backfill's two hard limits, which are what bound its cost:
+    /// it may never invent a flag, and it may never overwrite a
+    /// description the table itself supplied.
+    ///
+    /// Both cases are real. `apt-ftparchive`'s prose mentions
+    /// `--source-override`, an option its table never lists; `apropos`
+    /// describes `--regex` in its own table *and* mentions it in a
+    /// trailing paragraph.
+    #[test]
+    fn the_prose_backfill_never_invents_a_flag_or_overwrites_a_description() {
+        let help = "Usage: tool [options]\n\
+                    \n\
+                    Options:\n  \
+                    -r, --regex                interpret each keyword as a regex\n\
+                    \n\
+                    The --regex option is enabled by default.\n\
+                    \n\
+                    The --source-override option can be used to specify a src override file\n";
+        let parsed = parse(help);
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("source-override")),
+            "a paragraph must never create a flag: {:?}",
+            parsed.flags
+        );
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some("regex"))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some("interpret each keyword as a regex"),
+            "the table's own description must win"
+        );
+    }
+
+    /// A "The --x option ..." sentence *indented under another flag's row*
+    /// is that flag's continuation text, not a standalone paragraph — so
+    /// it must never be lifted out and attached to `--x`. Real shape:
+    /// `java`, `jdeps` and `rg` all write such sentences inside a
+    /// description column.
+    #[test]
+    fn an_indented_sentence_is_continuation_text_not_a_prose_paragraph() {
+        let help = "Usage: tool [options]\n\
+                    \n\
+                    Options:\n      \
+                    --dry-run\n      \
+                    --validate-modules   Validate all modules.\n                  \
+                    The --dry-run option may be useful for validating the\n                  \
+                    command line.\n";
+        let parsed = parse(help);
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some("dry-run"))
+                .map(|f| f.description.is_none()),
+            Some(true),
+            "an indented sentence belongs to the row above it: {:?}",
+            parsed.flags
         );
     }
 

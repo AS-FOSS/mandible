@@ -31,4 +31,12 @@ must_contain_flags = ["-h", "--list", "--verbose"]
 
 [xfail]
 broken = true
+# Still broken, and for the reason above only: the alias columns.
+# The *descriptions* this fixture also lacked are fixed — jdeprscan writes
+# every option's prose as its own flush-left paragraph ("The --for-removal
+# option limits ...") rather than in a description column, and
+# `backfill_prose_paragraph_descriptions` now associates the two. All 8
+# flags carry their own text in `expected.snap`, which is committed while
+# `[xfail]` precisely so that gain cannot silently regress before the alias
+# bug is fixed and this fixture is promoted.
 reason = "flags are not properly matched together, or missing"

@@ -25,4 +25,12 @@ min_subcommands = 1
 
 [xfail]
 broken = true
+# Still broken, and for the reason above only: the "Commands:" block.
+# The *descriptions* are fixed — `--md5 Control MD5 generation` and
+# `--no-delink Enable delinking debug mode` write their description one
+# space after the spec, and used to be read as `value_name: Control` /
+# `value_name: Enable` with the rest of the sentence discarded
+# (`find_sentence_start_gap`). `expected.snap` is committed while `[xfail]`
+# so that gain cannot silently regress before the commands bug is fixed and
+# this fixture is promoted.
 reason = "missing commands, I can see in help text, but not parsed"
