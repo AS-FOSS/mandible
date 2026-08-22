@@ -206,7 +206,7 @@ static EMPTY_FINGERPRINT: ParsedFingerprint = ParsedFingerprint {
 /// this binary itself wrote.
 fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
     let mut top = rest.splitn(3, FP_FIELD_SEP);
-    let tool = top.next()?.to_string();
+    let tool = fp_unescape(top.next()?);
     let subs_s = top.next().unwrap_or("");
     let flags_s = top.next().unwrap_or("");
 
@@ -214,18 +214,22 @@ fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
     if !subs_s.is_empty() {
         for s in subs_s.split(',') {
             if !s.is_empty() {
-                fp.subcommands.insert(s.to_string());
+                fp.subcommands.insert(fp_unescape(s));
             }
         }
     }
     if !flags_s.is_empty() {
         for entry in flags_s.split('|') {
             let (id, rest) = entry.split_once('=')?;
+            let id = fp_unescape(id);
             // `splitn(4, ':')` so a `value_name` that itself contains a
-            // colon (free-form text lifted from real `--help` output, only
-            // `\t`/`\n` are escaped — see `coverage::fp_escape`) lands whole
-            // in the final piece instead of being truncated at its first
-            // colon.
+            // colon (free-form text lifted from real `--help` output) lands
+            // whole in the final piece instead of being truncated at its
+            // first colon. This still matters post-escaping: an *old*
+            // scoreboard's `value_name` can hold a raw, unescaped `:` (see
+            // `fp_unescape`'s doc comment on backward compatibility), and
+            // this `splitn` is exactly what already handles that case
+            // correctly, unchanged.
             let mut fields = rest.splitn(4, ':');
             let has_description = fields.next()? == "1";
             let description_hash = match fields.next()? {
@@ -238,10 +242,10 @@ fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
             };
             let value_name = match fields.next()? {
                 "-" => None,
-                v => Some(v.to_string()),
+                v => Some(fp_unescape(v)),
             };
             fp.flags.insert(
-                id.to_string(),
+                id,
                 ParsedFlagFingerprint {
                     has_description,
                     description_hash,
@@ -254,12 +258,85 @@ fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
     Some((tool, fp))
 }
 
+/// Reverse [`crate::coverage::fp_escape`] on one parsed piece (tool name,
+/// subcommand path, flag id, or `value_name`) of a `#fp` line.
+///
+/// `\\` -> `\`, `\t` -> a literal tab, `\n` -> a literal newline, `\p` -> `|`
+/// ([`FP_FLAG_SEP`]), `\c` -> `,` ([`FP_SUBCOMMAND_SEP`]), `\e` -> `=`
+/// ([`FP_ID_SEP`]), `\s` -> `:` ([`FP_ENTRY_SEP`]). Every other `\X` passes
+/// through **verbatim as `\X`** (an unrecognized escape is not an error —
+/// there is nothing else in this format that could have produced it), and a
+/// trailing lone `\` at the end of the field passes through as `\`.
+///
+/// **Backward compatible with every scoreboard this binary has ever
+/// written, measured, not assumed.** Before this task, `fp_escape` never
+/// emitted a backslash at all (it only replaced tab/newline with a space) —
+/// a direct count found **0 backslashes across all 2,308 `#fp` lines** in a
+/// full-`PATH` sweep capture (`tmp/sweep-before.txt`) and **0** in
+/// `coverage-scoreboard.ci.txt`. `fp_unescape` is therefore the identity
+/// function on every existing scoreboard: with no backslash present, every
+/// branch above is unreachable and the string comes back unchanged,
+/// including a raw `|`, `,`, `=` or `:` sitting in a `value_name` exactly
+/// where it always did (the pre-existing `splitn(4, ':')` in
+/// [`parse_fingerprint_line`] is what actually keeps a raw-colon
+/// `value_name` intact, unaffected by this function).
+///
+/// **The one theoretical incompatibility, and why it's a caveat rather than
+/// a blocker.** An old scoreboard whose `value_name` happened to hold a
+/// literal backslash immediately followed by one of the seven escape
+/// letters (`\`, `t`, `n`, `p`, `c`, `e`, `s`) would have that pair
+/// misread as an escape sequence instead of two literal characters. Neither
+/// measured corpus contains a single backslash of any kind, so this has
+/// never actually happened — it is recorded here as a known, measured-zero
+/// edge case, not a defect being silently accepted.
+fn fp_unescape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('\\') => out.push('\\'),
+            Some('t') => out.push('\t'),
+            Some('n') => out.push('\n'),
+            Some('p') => out.push(FP_FLAG_SEP),
+            Some('c') => out.push(FP_SUBCOMMAND_SEP),
+            Some('e') => out.push(FP_ID_SEP),
+            Some('s') => out.push(FP_ENTRY_SEP),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
 /// The literal tab [`coverage::fingerprint_lines`] separates a `#fp` line's
 /// three top-level fields with — duplicated from `coverage::FP_FIELD_SEP`
 /// (private to that module) for the same reason [`EXTRACT_TIMEOUT_MS`] is
 /// duplicated rather than imported: a single well-known, stable character,
 /// re-measured in the same commit as the other side if it ever changes.
 const FP_FIELD_SEP: char = '\t';
+
+/// Mirrors `coverage::FP_FLAG_SEP` — same duplication convention as
+/// [`FP_FIELD_SEP`] above.
+const FP_FLAG_SEP: char = '|';
+
+/// Mirrors `coverage::FP_SUBCOMMAND_SEP` — same duplication convention as
+/// [`FP_FIELD_SEP`] above.
+const FP_SUBCOMMAND_SEP: char = ',';
+
+/// Mirrors `coverage::FP_ID_SEP` — same duplication convention as
+/// [`FP_FIELD_SEP`] above.
+const FP_ID_SEP: char = '=';
+
+/// Mirrors `coverage::FP_ENTRY_SEP` — same duplication convention as
+/// [`FP_FIELD_SEP`] above.
+const FP_ENTRY_SEP: char = ':';
 
 /// True when `header` is (or resembles) a scoreboard's own header line,
 /// used only to decide whether it carries the `misattr` column added after
@@ -1856,6 +1933,113 @@ mod tests {
         assert_eq!(fd.flags_removed, vec!["(root)::--old"]);
         assert_eq!(fd.subcommands_added, vec!["new-sub"]);
         assert_eq!(fd.subcommands_removed, vec!["old-sub"]);
+    }
+
+    /// **The awk regression, at `sweep-diff` level.** `coverage.rs`'s own
+    /// test module proves the wire format round-trips a `|`-containing
+    /// value_name through the real rendering pipeline; this test proves the
+    /// *consumer* of that format — `sweep-diff`'s `diff` — actually uses the
+    /// recovered data instead of quietly losing the tool to the
+    /// "unmeasured" bucket. The `#fp` line below is hand-written in the
+    /// fixed wire format (`\p` standing in for the escaped `|` inside
+    /// `awk`'s real `fatal|invalid|no-ext` value_name — `coverage::fp_escape`
+    /// is private to that module, so the format's own fixed, documented
+    /// shape is pinned here directly rather than called into). Pre-fix,
+    /// `parse_fingerprint_line` has no unescaping step at all: it takes the
+    /// literal two characters `\` and `p` at face value, so nothing here
+    /// trips the *old* bug (splitting on a raw `|`) — instead it proves the
+    /// value_name comes back as literal `fatal\pinvalid\pno-ext` instead of
+    /// `fatal|invalid|no-ext`, and separately, `field_diff_unmeasured` and
+    /// `field_diffs` should have been produced correctly since no raw `|`
+    /// entered the line at all. Only the value_name assertion at the bottom
+    /// is expected to fail before `fp_unescape` exists; kept as one test
+    /// (rather than splitting the unescape check out) because the whole
+    /// point is that `sweep-diff` must report the change *and* recover the
+    /// right value_name, not one or the other.
+    #[test]
+    fn sweep_diff_reports_field_change_for_a_tool_whose_value_name_contains_a_flag_separator() {
+        let row = row_line("awk", "ok", 1, 20);
+        let before_text = format!(
+            "{}#fp awk\t\t(root)::-L=0:-:-:fatal\\pinvalid\\pno-ext\n",
+            sample_text(&[&row])
+        );
+        let after_text = format!(
+            "{}#fp awk\t\t(root)::-L=1:abc:-:fatal\\pinvalid\\pno-ext\n",
+            sample_text(&[&row])
+        );
+        let before = parse_scoreboard(&before_text);
+        let after = parse_scoreboard(&after_text);
+
+        let t = diff(&before, &after);
+        assert_eq!(
+            t.field_diff_unmeasured, 0,
+            "the #fp line must parse on both sides, not fall into the unmeasured bucket"
+        );
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(t.field_diffs[0].tool, "awk");
+        assert_eq!(
+            t.field_diffs[0].description_changed,
+            vec!["(root)::-L"],
+            "the description change on awk's -L flag must be reported, not swallowed"
+        );
+
+        let fp = before
+            .fingerprints
+            .get("awk")
+            .expect("awk fingerprint present");
+        assert_eq!(
+            fp.flags
+                .get("(root)::-L")
+                .and_then(|f| f.value_name.clone()),
+            Some("fatal|invalid|no-ext".to_string()),
+            "value_name must unescape back to awk's real text, not stay literal escape codes"
+        );
+    }
+
+    /// **Backward compatibility, explicitly.** An OLD-format `#fp` line —
+    /// written before this task, with no backslash escaping at all, and a
+    /// `value_name` carrying a raw `:` the way `coverage::fp_escape` never
+    /// touched before now — must parse to exactly the same
+    /// [`ParsedFingerprint`] it always has. This is the measured claim: 0
+    /// backslashes appear across all 2,308 `#fp` lines in a full-PATH sweep
+    /// capture and 0 in `coverage-scoreboard.ci.txt`, so `fp_unescape` is
+    /// the identity function on every existing scoreboard, and a raw `:`
+    /// inside `value_name` (the pre-existing case `splitn(4, ':')` exists
+    /// for) still lands whole in the final field exactly as before. The
+    /// only theoretical incompatibility — an old scoreboard whose
+    /// `value_name` held a literal backslash immediately followed by one of
+    /// the seven escape letters (`\`, `t`, `n`, `p`, `c`, `e`, `s`) — is a
+    /// known, measured-zero caveat: `fp_unescape` would consume that
+    /// backslash-letter pair as an escape sequence instead of passing it
+    /// through as two literal characters. No such value_name exists in
+    /// either measured corpus.
+    #[test]
+    fn old_format_fp_line_without_backslashes_parses_unchanged() {
+        let line = "t\tsub-a,sub-b\t(root)::--time=1:1a2b:-:10:30|(root)::--verbose=0:-:-:-";
+        let (tool, fp) = parse_fingerprint_line(line).expect("old-format line parses");
+        assert_eq!(tool, "t");
+        assert_eq!(fp.subcommands.len(), 2);
+        assert!(fp.subcommands.contains("sub-a"));
+        assert!(fp.subcommands.contains("sub-b"));
+
+        let time = fp.flags.get("(root)::--time").expect("--time flag present");
+        assert!(time.has_description);
+        assert_eq!(time.description_hash, Some(0x1a2b));
+        assert_eq!(time.choices_hash, None);
+        assert_eq!(
+            time.value_name.as_deref(),
+            Some("10:30"),
+            "a raw colon inside value_name must still land whole via splitn(4, ':')"
+        );
+
+        let verbose = fp
+            .flags
+            .get("(root)::--verbose")
+            .expect("--verbose flag present");
+        assert!(!verbose.has_description);
+        assert_eq!(verbose.description_hash, None);
+        assert_eq!(verbose.choices_hash, None);
+        assert_eq!(verbose.value_name, None);
     }
 
     /// A tier or framework change on an otherwise field-identical tool is
