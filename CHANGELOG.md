@@ -43,13 +43,21 @@ once it reaches a published 0.1.0 release.
   hold; and rows whose spelling cell carries a *lower-case* value word
   (`awk`'s `-f progfile\t--file=progfile`), which stays out because
   `is_value_placeholder_only` deliberately does not recognize lower-case
-  placeholders — widening it is what protects `arptables`' `-A chain`.
+  placeholders — widening it is what protects `arptables`' `-A chain`. Two
+  of nano's own 54 rows are also still missed for a third reason:
+  `-%  --stateflags` and `-_  --minibar` are not `is_flag_shaped`, because
+  `is_flag_char` allows alphanumerics plus `? # @` and neither `%` nor `_`
+  is in that set. Widening it reaches every other user of `is_flag_shaped`,
+  `xtask`'s misattribution oracle included, so it is left for its own
+  change.
 
 - **Two new corpus fixtures for the shape, `nano/7.2` and `awk/5.2.1`,** each
   with a `must_contain_flags` contract naming long spellings that did not
   reach the tree before this change (`--smarthome`, `--backupdir`,
-  `--minibar`, `--zero`; `--characters-as-bytes`, `--dump-variables`,
-  `--copyright`). Both are `provenance = "agent"` with no `verdict_scope`.
+  `--zero`; `--characters-as-bytes`, `--dump-variables`, `--copyright`).
+  Both are `provenance = "agent"` with no `verdict_scope`. The corpus is 98
+  fixtures: 82 ok (0 human, 39 agent-then-human, 43 agent), 16 xfail, 0
+  failed.
   `corpus/jdeprscan/audit-seed2` stays `[xfail]` — `--list` and `--verbose`
   now pass, `-h` still does not — with its `meta.toml` note rewritten to say
   which half moved. `nano/7.2`'s `meta.toml` also records a *separate*,

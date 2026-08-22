@@ -13,7 +13,10 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-min_status = "ok"
+# Not "ok": `awk --help` prints no descriptions at all, in any column, so
+# the tree is legitimately low-confidence however well it is parsed. The
+# claim this fixture makes is about the *spellings*, below.
+min_status = "low-confidence"
 # The regression assertion for the aligned multi-column option table: on
 # `main` before this fixture existed, every one of these long spellings was
 # read as the first word of its own row's description (or, where the row had
