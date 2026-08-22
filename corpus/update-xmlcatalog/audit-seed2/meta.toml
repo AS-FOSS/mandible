@@ -17,20 +17,26 @@ exit_code = 255
 
 [contract]
 expected_framework = "generic"
-# Verified after the `=`-as-description-separator fix: the "= description"
-# style (`--root  = the root XML catalog`) no longer leaks its leading "="
-# into any "With:" flag's description (`--file`, `--id`, `--root`, `--type`,
-# `--verbose`, `--sort` all recover clean prose now, "the root XML catalog
-# (= /etc/xml/catalog)" included, second `=` intact). What remains broken is
-# unrelated: the repeated `--add`/`--del` usage-synopsis lines still get
-# misread as flag-table SECTION HEADERS (the uconv/nano section-header
-# family), producing 6 duplicate/garbage `--id` entries grouped under
-# fabricated headings like `update-xmlcatalog <options> --del --root ...`.
-# `--del` never becomes a real flag at all — only `--add` survives, and only
-# via the synopsis fallback. Most directly testable without asserting on
-# description *text* (no [contract] field checks that): `--del` is missing.
+# Promoted out of [xfail]. Two ordered fixes got it there:
+#
+# 1. the `=`-as-description-separator fix, which stopped the "With:" block's
+#    `--root  = the root XML catalog` style leaking its leading "=" into any
+#    description; and
+# 2. this file's own defect, the one the [xfail] reason named — the usage
+#    block ended at the first backslash-wrapped tail (it begins `--id`, and a
+#    continuation that reads as a flag row used to end the block), so
+#    `--del`, `--root` and `--type` were never mined from the synopsis, and
+#    the wrapped synopsis lines spilled into the section scanner where they
+#    were read as SECTION HEADERS.
+#
+# `--del` is the assertion because it is the falsifiable half: it is
+# documented nowhere in this tool's output except on a backslash-continued
+# usage line, so it can only be in the tree if that line was read whole.
 must_contain_flags = ["--del"]
-
-[xfail]
-broken = true
-reason = "the `=`-as-description-separator bug is fixed (With: block descriptions are now clean); what remains is the unrelated uconv/nano section-header family: update-xmlcatalog's usage lines (`UPDATE-XMLCATALOG <OPTIONS> --DEL --ROOT ...`) are misread as flag-table section headers, so --del is absorbed into a group heading and never becomes its own flag"
+# Four duplicate `--id` entries survive (six before this fix), from the two
+# *blank-line-separated* later synopsis groups this tool prints — a usage block still ends at a
+# blank line, and extending it across one would swallow `btrfs`'s
+# headingless command table (which sits under exactly that shape) and cost
+# every one of its subcommands. Recorded here rather than rounded off; the
+# entries carry no fabricated group any more, which is what the seed-5
+# review actually reported.

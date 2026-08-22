@@ -11,14 +11,12 @@ positionals:
 flags:
 - short: 'h'
   long: help
-  group: This requires setting GRUB_DEFAULT=saved in /etc/default/grub.
   description: print this message and exit
   provenance:
     sources:
     - help-text
 - short: 'V'
   long: version
-  group: This requires setting GRUB_DEFAULT=saved in /etc/default/grub.
   description: print the version information and exit
   provenance:
     sources:
@@ -26,7 +24,6 @@ flags:
 - long: boot-directory
   value_name: DIR
   value_kind: Required
-  group: This requires setting GRUB_DEFAULT=saved in /etc/default/grub.
   description: expect GRUB images under the directory DIR/grub instead of the /boot/grub directory
   provenance:
     sources:

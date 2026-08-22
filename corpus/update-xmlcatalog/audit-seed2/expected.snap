@@ -1,0 +1,101 @@
+name: update-xmlcatalog
+usage:
+- 'Usage:'
+- update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>
+- update-xmlcatalog <options> --del --root --type <type> --id <id>
+flags:
+- long: id
+  value_name: <id>
+  value_kind: Required
+  description: --local <local>
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  description: --file <file>
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: file
+  value_name: <file>
+  value_kind: Required
+  group: 'With:'
+  description: a local filename
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: 'With:'
+  description: catalog entry idenitifier
+  provenance:
+    sources:
+    - help-text
+- long: local
+  value_name: <local>
+  value_kind: Required
+  group: 'With:'
+  description: a local XML catalog
+  provenance:
+    sources:
+    - help-text
+- long: package
+  value_name: <package>
+  value_kind: Required
+  group: 'With:'
+  description: a package XML catalog
+  provenance:
+    sources:
+    - help-text
+- long: root
+  group: 'With:'
+  description: the root XML catalog (= /etc/xml/catalog)
+  provenance:
+    sources:
+    - help-text
+- long: type
+  value_name: <type>
+  value_kind: Required
+  group: 'With:'
+  description: catalog entry type (= public, system, uri)
+  provenance:
+    sources:
+    - help-text
+- long: verbose
+  description: be verbose
+  provenance:
+    sources:
+    - help-text
+- long: sort
+  description: sorts the manipulated catalog content
+  provenance:
+    sources:
+    - help-text
+- long: add
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: del
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

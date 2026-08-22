@@ -10,6 +10,73 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **Three shapes that are not headings were being read as section headings,
+  polluting `group` on 197 tools and losing two real option rows.** The
+  section scanner promotes a line to a heading on *indentation alone* — any
+  line whose next non-blank neighbour is indented further introduces that
+  neighbour's block — with no test that the line is heading-shaped. Measured
+  over the 2,301 frozen captures in `audit/queue-captures/`, three distinct
+  shapes exploit that, and only the first two share a root:
+
+  - **A prose sentence above an indented option table** (**205 tools**, 211
+    distinct lines). Overwhelmingly the GNU convention: 56 tools inherit
+    `group: "Mandatory arguments to long options are mandatory for short
+    options too."`, 13 inherit `"With no FILE, or when FILE is -, read
+    standard input."`, and `nano` inherits `"When a filename is '-', nano
+    reads data from standard input."` on all 54 of its flags. The flags pane
+    renders `group` uppercased as a section header, so every one of these
+    printed a sentence where a heading belongs.
+  - **A backslash-continued synopsis line** (**7 tools**, 16 distinct
+    lines): `update-xmlcatalog`, `wpa_cli`, `zic` and the four `bpfcc`
+    tracers. `UPDATE-XMLCATALOG <OPTIONS> --DEL --ROOT --TYPE <TYPE> \`
+    rendered as a section header.
+
+  Both are now refused by one predicate, `heading_can_name_a_group`
+  (`is_prose_sentence` — a single field with no column gap, five or more
+  words, terminated by a full stop — plus `is_line_continuation_fragment`).
+  Anchoring prose on the *full stop* rather than on wording or length is
+  what keeps the inverse case working: `gcc`/`lto-dump` writes real headings
+  that are complete English sentences (`"The following options are specific
+  to just the language C:"`) and `objdump` `"At least one of the following
+  switches must be given:"`, all colon-terminated, all untouched. The column
+  gap is what keeps period-terminated table *rows* out (`arptables`'
+  `[!] --version	-V		print package version.`).
+
+  - **A heading sharing its physical line with the first row of its own
+    table** (**2 tools**) is a different mechanism and gets a different fix.
+    `uconv --help` writes `Options:  -h, --help                    print
+    this message`, and the whole line was consumed as the heading, so
+    `-h, --help` was in the tree under no spelling a user could type.
+    `split_shared_heading_rows` rewrites such a line into the two lines it
+    means before the engine sees it, so the recovered row is subject to the
+    same block-level alignment decisions as the rows beneath it. `uconv` and
+    `zipinfo` each recover exactly the one row they were losing; two more
+    tools (`scsi_mandat`, `scsi_satl`) gain a described `-h, --help` in place
+    of a synopsis-derived one.
+
+  Separately, in the usage block, **a line the previous one ended with a
+  backslash is now a continuation by the tool's own explicit statement**, no
+  content test allowed to overrule it. `update-xmlcatalog` wraps its
+  synopsis mid-invocation onto a tail beginning `--id`, which tripped the
+  `curl` guard ("a continuation that reads as a flag row ends the block") and
+  took `--del`, `--root` and `--type` with it — none documented anywhere else
+  in that tool's output. `--del` is now a real flag and
+  `corpus/update-xmlcatalog/audit-seed2` is promoted out of `[xfail]`;
+  `wpa_supplicant` loses a bogus `-i <ifname>` whose description was a
+  fragment of its own synopsis, and both tools' usage entries are now whole.
+
+  **Safety (spec §6).** None of this touches
+  `is_recognized_command_heading`, `command_mode`, or anything that sets
+  `CommandNode::heading_attested`, which is the bit §6's attestation gate
+  reads before a word may become `<word> --help` probe argv. Verified rather
+  than argued: re-parsing all 2,299 frozen captures before and after, the
+  multiset of recovered node names is **identical for every one of them** —
+  no node gained, lost, or renamed — so the probe-eligible set is
+  bit-for-bit unchanged. 200 fixtures change at all; 194 of them change only
+  `group`, and every one of the 115 distinct removed group strings was
+  reviewed by eye and is prose or a wrapped synopsis fragment. No tool loses
+  a flag, a description, or a subcommand.
+
 - **`xtask sweep-diff`'s `#fp` fingerprint footer silently dropped tools whose
   `value_name` contained one of the format's own separator characters** —
   found on `awk`/`gawk`/`nawk`, whose `-L` flag documents `value_name`
