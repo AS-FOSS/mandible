@@ -2,7 +2,7 @@
 freeze_date = "2026-08-14"
 population_hash = "9818ac066f23868a"
 seed = 3
-cursor = 0
+cursor = 30
 
 [[entry]]
 tool = "bzcmp"
@@ -4598,7 +4598,7 @@ stratum = "ok"
 
 [[entry]]
 tool = "git-lfs"
-stratum = "suspicious"
+stratum = "low-confidence"
 
 [[entry]]
 tool = "killall5"
@@ -6082,7 +6082,7 @@ stratum = "ok"
 
 [[entry]]
 tool = "oomkill-bpfcc"
-stratum = "verbatim"
+stratum = "no-tier"
 
 [[entry]]
 tool = "sgm_dd"
@@ -8918,7 +8918,7 @@ stratum = "ok"
 
 [[entry]]
 tool = "mdflush-bpfcc"
-stratum = "verbatim"
+stratum = "no-tier"
 
 [[entry]]
 tool = "systemd-cgls"
@@ -9070,7 +9070,7 @@ stratum = "ok"
 
 [[entry]]
 tool = "bitesize-bpfcc"
-stratum = "verbatim"
+stratum = "no-tier"
 
 [[entry]]
 tool = "statsnoop.bt"

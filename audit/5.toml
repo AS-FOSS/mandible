@@ -1,0 +1,208 @@
+[meta]
+seed = 5
+sample_size = 30
+
+[[entry]]
+tool = "aarch64-linux-gnu-ar"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "aarch64-linux-gnu-gcc-ar"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "applydeltarpm"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "ar"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "autoupdate"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfs-find-root"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "byobu-config"
+stratum = "verbatim"
+
+[[entry]]
+tool = "bzcmp"
+stratum = "ok"
+
+[[entry]]
+tool = "bzless"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "bzmore"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "c_rehash"
+stratum = "verbatim"
+
+[[entry]]
+tool = "dbiprof"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "debconf-escape"
+stratum = "ok"
+
+[[entry]]
+tool = "diffstat"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "ebtables-nft-restore"
+stratum = "ok"
+
+[[entry]]
+tool = "egrep"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "faillock"
+stratum = "ok"
+
+[[entry]]
+tool = "gcc-ar"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "gcc-ar-13"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "ip"
+stratum = "ok"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "ischroot"
+stratum = "ok"
+
+[[entry]]
+tool = "jsondiff"
+stratum = "ok"
+
+[[entry]]
+tool = "linux32"
+stratum = "ok"
+
+[[entry]]
+tool = "lldb-argdumper-18"
+stratum = "verbatim"
+
+[[entry]]
+tool = "mariadb-fix-extensions"
+stratum = "ok"
+
+[[entry]]
+tool = "mount.ntfs-3g"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "msgexec"
+stratum = "ok"
+
+[[entry]]
+tool = "nice"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "pastebinit"
+stratum = "ok"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "pdb3.12"
+stratum = "low-confidence"
+k1 = true
+
+[[entry]]
+tool = "pptpsetup"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "printenv"
+stratum = "ok"
+
+[[entry]]
+tool = "ptargrep"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "rmiregistry"
+stratum = "ok"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "rmt-tar"
+stratum = "ok"
+
+[[entry]]
+tool = "rnano"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "rubycalls-bpfcc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "rust-lldb"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "setkeycodes"
+stratum = "ok"
+
+[[entry]]
+tool = "setleds"
+stratum = "ok"
+
+[[entry]]
+tool = "sos-collector"
+stratum = "ok"
+
+[[entry]]
+tool = "ssh-keygen"
+stratum = "ok"
+k1 = true
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
+
+[[entry]]
+tool = "uconv"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "update-xmlcatalog"
+stratum = "ok"
+include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
