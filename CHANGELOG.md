@@ -110,13 +110,24 @@ once it reaches a published 0.1.0 release.
   `--regex` in both places; the table wins). A sentence *indented under*
   another flag's row is that row's continuation text and is never lifted out.
 
+  A third case came out of reviewing the sweep field by field, and is the
+  reason the boundary is not simply "the first sentence-shaped word":
+  `mariadb`'s `--init-command=name SQL Command to execute ...` split after
+  `SQL`, and since the spec already had its `=name` value (first value wins)
+  nothing ever read `SQL` back out and the word was dropped. A spec carrying
+  its own inline value cannot take another one, so the boundary is now fixed
+  at that token and every word after it is description, value-shaped or not.
+
   Measured on a full `PATH` sweep of this box: 94.64% → 95.54% of flags carry
-  text across 2,308 tools, 97 tools changed, and every other counter in the
+  text across 2,308 tools, 101 tools changed, and every other counter in the
   scoreboard is byte-identical (no-tier, suspicious, verbatim, man-shaped,
   ok-with-zero-flags, misattribution, existence-fabrication, bundle-collapse,
   framework detection). Five tools moved `low-confidence` → `ok`; none moved
-  down. In the corpus, `curl/8.5.0-all` alone gains 59 descriptions, each
-  replacing a fabricated `value_name`.
+  down. **Zero flags lost fleet-wide**; 7 tools gained one each, every one of
+  them a false alias merge coming apart (below). Every changed field on all
+  101 tools was checked against the tool's own frozen `--help` capture. In
+  the corpus, `curl/8.5.0-all` alone gains 59 descriptions, each replacing a
+  fabricated `value_name`.
 
 - **`pair_aliases` no longer unifies two rows that disagree about taking a
   value.** Recovering `ld`/`gold`'s real descriptions made two genuinely
@@ -126,7 +137,11 @@ once it reaches a published 0.1.0 release.
   destroyed one of the two while giving the survivor
   `--allow-multiple-definition muldefs`, a value neither row documents.
   Measured on the same sweep: 7 tools, 1 flag each, and the only losses in
-  it. Pairing now also requires the two rows to agree about taking a value at
+  it. Narrowing it also un-did three false merges that predate this branch,
+  each two unrelated options sharing one sentence: `as`'s `-w` absorbed into
+  `--hash-size=<N>` (both "ignored"), `lto-dump`'s `--help` absorbed into
+  `-Waggressive-loop-optimizations` (both "[enabled]"), and `gold`'s `-z defs`
+  absorbed into `--no-undefined`. Pairing now also requires the two rows to agree about taking a value at
   all; coarse on purpose (`ValueKind` only, never the placeholder's
   spelling), since a source may legitimately name the metavar on one row and
   not the other. Same failure shape as the `lto-dump` incident the
