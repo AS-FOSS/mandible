@@ -18,10 +18,15 @@ stdout = "help.txt"
 expected_framework = "generic"
 # Lines with 3 alternate spellings ("-? -h --help") only keep 2 of 3 —
 # verified: the current tree has short='?' long='help' but no separate
-# '-h' anywhere. Lines with 2 alternates ("-l    --list",
-# "-v    --verbose") drop the long form entirely, keeping only the short
-# — verified: current flags have short='l'/short='v' with no `long` set
-# at all, so neither "--list" nor "--verbose" is recognized.
+# '-h' anywhere. `mandible_core::Flag` has one `short: Option<char>` and
+# no field to hold the second, so this half is a data-model limit, not a
+# splitter one, and it is what keeps this fixture [xfail].
+#
+# The other half is FIXED as of the aligned-spelling-column split: lines
+# with 2 alternates ("-l    --list", "-v    --verbose") used to drop the
+# long form entirely, keeping only the short. They now carry
+# short='l'/long='list' and short='v'/long='verbose', so "--list" and
+# "--verbose" below pass and only "-h" still fails.
 must_contain_flags = ["-h", "--list", "--verbose"]
 
 [xfail]

@@ -1300,10 +1300,13 @@ const DROPPED_ALIAS_EXCLUSIONS: &[Exclusion] = &[
             column_gap: mandible_extract::help_text::MIN_COLUMN_GAP_SPACES,
         },
         note: "two shapes in one tool, neither an interrupted alias list: `-l    --list` puts its \
-               long form past the description column, and `-? -h --help` names a second short \
-               that `mandible_core::Flag` has no field to hold (one `short: Option<char>`), \
-               exactly as `-A, --catenate, --concatenate` names a second long it cannot hold \
-               either",
+               long form past the description column — since recovered, by the aligned-spelling- \
+               column split (`help_text::sections::spelling_run`), so this half of the ground is \
+               now historical and the row is kept here because the ground is still *measured* \
+               from it — and `-? -h --help` names a second short that `mandible_core::Flag` has \
+               no field to hold (one `short: Option<char>`), exactly as `-A, --catenate, \
+               --concatenate` names a second long it cannot hold either; that second half is \
+               what still excludes the tool",
     },
 ];
 

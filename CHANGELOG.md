@@ -10,6 +10,61 @@ once it reaches a published 0.1.0 release.
 
 ### Added
 
+- **The aligned multi-column option table: a row's long spelling is no longer
+  eaten as the start of its own description.** A tool that lays its options
+  out in columns — short spelling, long spelling, and (sometimes) a
+  description — put the long spelling right where the description-boundary
+  splitter cuts, at the row's first 2+-space gap. Measured on `main`:
+  `nano --help`'s 52 flags each kept their short spelling only, with the long
+  one glued to the front of their description (`-A` described as
+  `"--smarthome Enable smart home key"`, `-C <dir>` as
+  `"--backupdir=<dir> Directory for saving unique backup files"`), and
+  `jdeprscan`'s `--list` and `--verbose` were lost outright, because their
+  rows have no description column for the spelling to hide in. `awk`/`gawk`/
+  `nawk` are the same shape aligned with tabs.
+
+  The fix is one new shape test and one recurrence test, both in
+  `help_text::sections`: a cell that is *nothing but* an option spelling —
+  flag-shaped, and then either stopping or carrying a bare value placeholder
+  (`--backupdir=<dir>`, `-C <dir>`) — is read as another spelling of the
+  option the row already named, but only in a block where that second column
+  actually recurs at the same character offset. Both halves matter, and the
+  narrow one carries the safety: a description that merely *begins* with
+  something flag-shaped (`-x   --foo is a synonym for --bar`) has real words
+  in the cell, so it is never claimed. Recurrence then excludes the one false
+  positive found over all 2,301 frozen captures in `audit/queue-captures/` —
+  `lto-dump --help`'s default-value column, whose `-1` would otherwise be
+  read as a short spelling, and whose three rows land at three different
+  offsets.
+
+  35–42 tools on this box's `PATH` show the shape. Deliberately **not**
+  claimed: rows naming several shorts at once (`jdeprscan`'s `-? -h --help`),
+  which `mandible_core::Flag` has one `short: Option<char>` and no field to
+  hold; and rows whose spelling cell carries a *lower-case* value word
+  (`awk`'s `-f progfile\t--file=progfile`), which stays out because
+  `is_value_placeholder_only` deliberately does not recognize lower-case
+  placeholders — widening it is what protects `arptables`' `-A chain`. Two
+  of nano's own 54 rows are also still missed for a third reason:
+  `-%  --stateflags` and `-_  --minibar` are not `is_flag_shaped`, because
+  `is_flag_char` allows alphanumerics plus `? # @` and neither `%` nor `_`
+  is in that set. Widening it reaches every other user of `is_flag_shaped`,
+  `xtask`'s misattribution oracle included, so it is left for its own
+  change.
+
+- **Two new corpus fixtures for the shape, `nano/7.2` and `awk/5.2.1`,** each
+  with a `must_contain_flags` contract naming long spellings that did not
+  reach the tree before this change (`--smarthome`, `--backupdir`,
+  `--zero`; `--characters-as-bytes`, `--dump-variables`, `--copyright`).
+  Both are `provenance = "agent"` with no `verdict_scope`. The corpus is 98
+  fixtures: 82 ok (0 human, 39 agent-then-human, 43 agent), 16 xfail, 0
+  failed.
+  `corpus/jdeprscan/audit-seed2` stays `[xfail]` — `--list` and `--verbose`
+  now pass, `-h` still does not — with its `meta.toml` note rewritten to say
+  which half moved. `nano/7.2`'s `meta.toml` also records a *separate*,
+  unfixed defect its snapshot freezes: nano's prose line `When a filename is
+  '-', nano reads data from standard input.` is read as a section heading and
+  becomes every flag's `group`.
+
 - **12 new corpus fixtures from the seed-4 human audit, and a named list of
   the tools that audit skipped.** `xtask audit fixtures` stages a fixture
   directory per reviewed tool with the reviewer's own verdict note as the
