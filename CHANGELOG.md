@@ -8,6 +8,15 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-23
+
+**Breaking:** `CommandNode` gained a public `invocation_attested` field.
+The struct is not `#[non_exhaustive]`, so any downstream struct-literal
+construction must be updated. Everything else in this release is additive
+parser accuracy: no flag, description, subcommand or usage line that
+0.3.2 parsed correctly is parsed differently now, verified field-by-field
+over a 2,254-tool sweep.
+
 ### Added
 
 - **The aligned multi-column option table: a row's long spelling is no longer
