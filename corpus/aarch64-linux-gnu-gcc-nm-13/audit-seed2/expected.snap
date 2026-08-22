@@ -45,9 +45,8 @@ flags:
     sources:
     - help-text
 - long: no-recurse-limit
-  value_name: Disable
-  value_kind: Required
   group: 'The options are:'
+  description: Disable a demangling recursion limit.
   provenance:
     sources:
     - help-text

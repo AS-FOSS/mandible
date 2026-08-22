@@ -6244,6 +6244,210 @@ Options:
         );
     }
 
+    /// A description one space after the spec, with no placeholder to key
+    /// off of — the shape a long flag name forces on a fixed-width table
+    /// when the name overruns the description column. Real
+    /// `apt-ftparchive --help`: `--md5` used to arrive carrying
+    /// `value_name: Control`, with the words "MD5 generation" discarded
+    /// from the tree entirely.
+    #[test]
+    fn a_sentence_one_space_after_the_spec_is_a_description_not_a_value() {
+        let help = "Usage: apt-ftparchive [options] command\n\nOptions:\n  \
+                    -h    This help text\n  \
+                    --md5 Control MD5 generation\n  \
+                    --no-delink Enable delinking debug mode\n  \
+                    --contents  Control contents file generation\n";
+        let parsed = parse(help);
+        let by_long = |name: &str| {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("--{name} must be recovered"))
+        };
+        for (name, text) in [
+            ("md5", "Control MD5 generation"),
+            ("no-delink", "Enable delinking debug mode"),
+        ] {
+            let flag = by_long(name);
+            assert_eq!(
+                flag.description.as_ref().map(|d| d.as_str()),
+                Some(text),
+                "--{name}"
+            );
+            assert_eq!(flag.value_name, None, "--{name} takes no value");
+            assert_eq!(flag.value_kind, ValueKind::None, "--{name} takes no value");
+        }
+        // The already-working padded rows must be untouched.
+        assert_eq!(
+            by_long("contents").description.as_ref().map(|d| d.as_str()),
+            Some("Control contents file generation")
+        );
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some('h'))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some("This help text")
+        );
+    }
+
+    /// The inverse case, and the reason the predicate is what it is: a
+    /// genuine ` VALUE` spec must keep parsing as a value. Every shape
+    /// here is a real one this project already gets right —
+    /// `jdeprscan`'s uppercase `PATH` and pipe-alternation
+    /// `7|8|9|…`, `cargo-fmt`'s `<manifest-path>` — plus a lowercase
+    /// metavar followed by a capitalized word deeper in the line, which
+    /// must not be split at that word.
+    #[test]
+    fn a_real_value_placeholder_is_never_read_as_a_description() {
+        let help = "Usage: tool [options]\n\nOptions:\n  \
+                    --class-path PATH\n  \
+                    --release 7|8|9|10|11\n  \
+                    --manifest-path <manifest-path>\n  \
+                    --opt value do a Thing here\n  \
+                    --quiet Quiet\n";
+        let parsed = parse(help);
+        let by_long = |name: &str| {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("--{name} must be recovered"))
+        };
+        for (name, value) in [
+            ("class-path", "PATH"),
+            ("release", "7|8|9|10|11"),
+            ("manifest-path", "<manifest-path>"),
+        ] {
+            let flag = by_long(name);
+            assert_eq!(flag.value_name.as_deref(), Some(value), "--{name}");
+            assert_eq!(flag.description, None, "--{name} has no description");
+        }
+        // A lowercase metavar ends the scan: no split may happen at the
+        // capitalized `Thing` three words later.
+        assert_eq!(by_long("opt").value_name.as_deref(), Some("value"));
+        assert_eq!(by_long("opt").description, None);
+        // A lone capitalized trailing token is ambiguous and keeps the
+        // pre-existing value reading — one word is not a sentence.
+        assert_eq!(by_long("quiet").value_name.as_deref(), Some("Quiet"));
+    }
+
+    /// `jdeprscan --help` documents every option in its own flush-left
+    /// prose paragraph, and its `options:` table has no description column
+    /// at all: 8 flags, 0.0% with text before this. The paragraph names the
+    /// option it documents, so the two can be associated.
+    ///
+    /// `--list` is the load-bearing case: the table row `-l    --list`
+    /// loses its long spelling to a separate, still-unfixed bug, so the
+    /// only way to reach that flag is the `(-l)` in the paragraph's own
+    /// parenthetical.
+    #[test]
+    fn a_prose_paragraph_naming_an_option_supplies_its_description() {
+        let help = "Usage: jdeprscan [options] {dir|jar|class} ...\n\
+                    \n\
+                    options:\n        \
+                    --for-removal\n  \
+                    -l    --list\n\
+                    \n\
+                    Scans each argument for usages of deprecated APIs.\n\
+                    \n\
+                    The --for-removal option limits scanning or listing to APIs that are\n\
+                    deprecated for removal.\n\
+                    \n\
+                    The --list (-l) option prints out the set of deprecated APIs.\n";
+        let parsed = parse(help);
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some("for-removal"))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some(
+                "The --for-removal option limits scanning or listing to APIs that are \
+                 deprecated for removal."
+            )
+        );
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some('l'))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some("The --list (-l) option prints out the set of deprecated APIs.")
+        );
+    }
+
+    /// The backfill's two hard limits, which are what bound its cost:
+    /// it may never invent a flag, and it may never overwrite a
+    /// description the table itself supplied.
+    ///
+    /// Both cases are real. `apt-ftparchive`'s prose mentions
+    /// `--source-override`, an option its table never lists; `apropos`
+    /// describes `--regex` in its own table *and* mentions it in a
+    /// trailing paragraph.
+    #[test]
+    fn the_prose_backfill_never_invents_a_flag_or_overwrites_a_description() {
+        let help = "Usage: tool [options]\n\
+                    \n\
+                    Options:\n  \
+                    -r, --regex                interpret each keyword as a regex\n\
+                    \n\
+                    The --regex option is enabled by default.\n\
+                    \n\
+                    The --source-override option can be used to specify a src override file\n";
+        let parsed = parse(help);
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("source-override")),
+            "a paragraph must never create a flag: {:?}",
+            parsed.flags
+        );
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some("regex"))
+                .and_then(|f| f.description.as_ref())
+                .map(|d| d.as_str()),
+            Some("interpret each keyword as a regex"),
+            "the table's own description must win"
+        );
+    }
+
+    /// A "The --x option ..." sentence *indented under another flag's row*
+    /// is that flag's continuation text, not a standalone paragraph — so
+    /// it must never be lifted out and attached to `--x`. Real shape:
+    /// `java`, `jdeps` and `rg` all write such sentences inside a
+    /// description column.
+    #[test]
+    fn an_indented_sentence_is_continuation_text_not_a_prose_paragraph() {
+        let help = "Usage: tool [options]\n\
+                    \n\
+                    Options:\n      \
+                    --dry-run\n      \
+                    --validate-modules   Validate all modules.\n                  \
+                    The --dry-run option may be useful for validating the\n                  \
+                    command line.\n";
+        let parsed = parse(help);
+        assert_eq!(
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some("dry-run"))
+                .map(|f| f.description.is_none()),
+            Some(true),
+            "an indented sentence belongs to the row above it: {:?}",
+            parsed.flags
+        );
+    }
+
     /// The fallback must never fire when an ordinary aligned gap already
     /// exists — it is consulted only when [`find_multi_space_gap`] finds
     /// nothing anywhere in the line, so a `>`/`]` that happens to sit

@@ -73,8 +73,7 @@ flags:
     sources:
     - help-text
 - long: cert-status
-  value_name: Verify
-  value_kind: Required
+  description: Verify the status of the server cert via OCSP-staple
   provenance:
     sources:
     - help-text
@@ -98,8 +97,7 @@ flags:
     sources:
     - help-text
 - long: compressed-ssh
-  value_name: Enable
-  value_kind: Required
+  description: Enable SSH compression
   provenance:
     sources:
     - help-text
@@ -150,8 +148,7 @@ flags:
     sources:
     - help-text
 - long: create-dirs
-  value_name: Create
-  value_kind: Required
+  description: Create necessary local directory hierarchy
   provenance:
     sources:
     - help-text
@@ -236,20 +233,17 @@ flags:
     sources:
     - help-text
 - long: disable-eprt
-  value_name: Inhibit
-  value_kind: Required
+  description: Inhibit using EPRT or LPRT
   provenance:
     sources:
     - help-text
 - long: disable-epsv
-  value_name: Inhibit
-  value_kind: Required
+  description: Inhibit using EPSV
   provenance:
     sources:
     - help-text
 - long: disallow-username-in-url
-  value_name: Disallow
-  value_kind: Required
+  description: Disallow username in URL
   provenance:
     sources:
     - help-text
@@ -282,14 +276,12 @@ flags:
     sources:
     - help-text
 - long: doh-cert-status
-  value_name: Verify
-  value_kind: Required
+  description: Verify the status of the DoH server cert via OCSP-staple
   provenance:
     sources:
     - help-text
 - long: doh-insecure
-  value_name: Allow
-  value_kind: Required
+  description: Allow insecure DoH server connections
   provenance:
     sources:
     - help-text
@@ -355,14 +347,12 @@ flags:
     sources:
     - help-text
 - long: fail-with-body
-  value_name: Fail
-  value_kind: Required
+  description: Fail on HTTP errors but save the body
   provenance:
     sources:
     - help-text
 - long: false-start
-  value_name: Enable
-  value_kind: Required
+  description: Enable TLS False Start
   provenance:
     sources:
     - help-text
@@ -375,8 +365,7 @@ flags:
     sources:
     - help-text
 - long: form-escape
-  value_name: Escape
-  value_kind: Required
+  description: Escape multipart form field/file names using backslash
   provenance:
     sources:
     - help-text
@@ -402,8 +391,7 @@ flags:
     sources:
     - help-text
 - long: ftp-create-dirs
-  value_name: Create
-  value_kind: Required
+  description: Create the remote dirs if not present
   provenance:
     sources:
     - help-text
@@ -433,14 +421,12 @@ flags:
     sources:
     - help-text
 - long: ftp-skip-pasv-ip
-  value_name: Skip
-  value_kind: Required
+  description: Skip the IP address for PASV
   provenance:
     sources:
     - help-text
 - long: ftp-ssl-ccc
-  value_name: Send
-  value_kind: Required
+  description: Send CCC after authenticating
   provenance:
     sources:
     - help-text
@@ -452,8 +438,7 @@ flags:
     sources:
     - help-text
 - long: ftp-ssl-control
-  value_name: Require
-  value_kind: Required
+  description: Require SSL/TLS for FTP login, clear for transfer
   provenance:
     sources:
     - help-text
@@ -477,14 +462,12 @@ flags:
     sources:
     - help-text
 - long: haproxy-clientip
-  value_name: Sets
-  value_kind: Required
+  description: Sets client IP in HAProxy PROXY protocol v1 header
   provenance:
     sources:
     - help-text
 - long: haproxy-protocol
-  value_name: Send
-  value_kind: Required
+  description: Send HAProxy PROXY protocol v1 header
   provenance:
     sources:
     - help-text
@@ -559,8 +542,7 @@ flags:
     sources:
     - help-text
 - long: http2-prior-knowledge
-  value_name: Use
-  value_kind: Required
+  description: Use HTTP 2 without HTTP/1.1 Upgrade
   provenance:
     sources:
     - help-text
@@ -575,8 +557,7 @@ flags:
     sources:
     - help-text
 - long: ignore-content-length
-  value_name: Ignore
-  value_kind: Required
+  description: Ignore the size of the remote resource
   provenance:
     sources:
     - help-text
@@ -627,8 +608,7 @@ flags:
     - help-text
 - short: 'j'
   long: junk-session-cookies
-  value_name: Ignore
-  value_kind: Required
+  description: Ignore session cookies read from file
   provenance:
     sources:
     - help-text
@@ -694,8 +674,7 @@ flags:
     sources:
     - help-text
 - long: location-trusted
-  value_name: Like
-  value_kind: Required
+  description: Like --location, and send auth to other hosts
   provenance:
     sources:
     - help-text
@@ -728,8 +707,7 @@ flags:
     sources:
     - help-text
 - long: mail-rcpt-allowfails
-  value_name: Allow
-  value_kind: Required
+  description: Allow RCPT TO command to fail for some recipients
   provenance:
     sources:
     - help-text
@@ -785,8 +763,7 @@ flags:
     sources:
     - help-text
 - long: netrc-optional
-  value_name: Use
-  value_kind: Required
+  description: Use either .netrc or URL
   provenance:
     sources:
     - help-text
@@ -813,8 +790,7 @@ flags:
     sources:
     - help-text
 - long: no-keepalive
-  value_name: Disable
-  value_kind: Required
+  description: Disable TCP keepalive on the connection
   provenance:
     sources:
     - help-text
@@ -824,14 +800,12 @@ flags:
     sources:
     - help-text
 - long: no-progress-meter
-  value_name: Do
-  value_kind: Required
+  description: Do not show the progress meter
   provenance:
     sources:
     - help-text
 - long: no-sessionid
-  value_name: Disable
-  value_kind: Required
+  description: Disable SSL session-ID reusing
   provenance:
     sources:
     - help-text
@@ -881,8 +855,7 @@ flags:
     sources:
     - help-text
 - long: parallel-immediate
-  value_name: Do
-  value_kind: Required
+  description: Do not wait for multiplexing (with --parallel)
   provenance:
     sources:
     - help-text
@@ -936,8 +909,7 @@ flags:
     - help-text
 - short: '#'
   long: progress-bar
-  value_name: Display
-  value_kind: Required
+  description: Display transfer progress as a bar
   provenance:
     sources:
     - help-text
@@ -971,20 +943,17 @@ flags:
     sources:
     - help-text
 - long: proxy-anyauth
-  value_name: Pick
-  value_kind: Required
+  description: Pick any proxy authentication method
   provenance:
     sources:
     - help-text
 - long: proxy-basic
-  value_name: Use
-  value_kind: Required
+  description: Use Basic authentication on the proxy
   provenance:
     sources:
     - help-text
 - long: proxy-ca-native
-  value_name: Use
-  value_kind: Required
+  description: Use CA certificates from the native OS for proxy
   provenance:
     sources:
     - help-text
@@ -1031,8 +1000,7 @@ flags:
     sources:
     - help-text
 - long: proxy-digest
-  value_name: Use
-  value_kind: Required
+  description: Use Digest authentication on the proxy
   provenance:
     sources:
     - help-text
@@ -1044,14 +1012,12 @@ flags:
     sources:
     - help-text
 - long: proxy-http2
-  value_name: Use
-  value_kind: Required
+  description: Use HTTP/2 with HTTPS proxy
   provenance:
     sources:
     - help-text
 - long: proxy-insecure
-  value_name: Do
-  value_kind: Required
+  description: Do HTTPS proxy connections without verifying the proxy
   provenance:
     sources:
     - help-text
@@ -1070,8 +1036,7 @@ flags:
     sources:
     - help-text
 - long: proxy-negotiate
-  value_name: Use
-  value_kind: Required
+  description: Use HTTP Negotiate (SPNEGO) authentication on the proxy
   provenance:
     sources:
     - help-text
@@ -1102,14 +1067,12 @@ flags:
     sources:
     - help-text
 - long: proxy-ssl-allow-beast
-  value_name: Allow
-  value_kind: Required
+  description: Allow security flaw for interop for HTTPS proxy
   provenance:
     sources:
     - help-text
 - long: proxy-ssl-auto-client-cert
-  value_name: Use
-  value_kind: Required
+  description: Use auto client certificate for proxy (Schannel)
   provenance:
     sources:
     - help-text
@@ -1142,8 +1105,7 @@ flags:
     sources:
     - help-text
 - long: proxy-tlsv1
-  value_name: Use
-  value_kind: Required
+  description: Use TLSv1 for HTTPS proxy
   provenance:
     sources:
     - help-text
@@ -1164,8 +1126,7 @@ flags:
     - help-text
 - short: 'p'
   long: proxytunnel
-  value_name: Operate
-  value_kind: Required
+  description: Operate through an HTTP proxy tunnel (using CONNECT)
   provenance:
     sources:
     - help-text
@@ -1221,34 +1182,29 @@ flags:
     - help-text
 - short: 'J'
   long: remote-header-name
-  value_name: Use
-  value_kind: Required
+  description: Use the header-provided filename
   provenance:
     sources:
     - help-text
 - short: 'O'
   long: remote-name
-  value_name: Write
-  value_kind: Required
+  description: Write output to a file named as the remote file
   provenance:
     sources:
     - help-text
 - long: remote-name-all
-  value_name: Use
-  value_kind: Required
+  description: Use the remote file name for all URLs
   provenance:
     sources:
     - help-text
 - short: 'R'
   long: remote-time
-  value_name: Set
-  value_kind: Required
+  description: Set the remote file's time on the local output
   provenance:
     sources:
     - help-text
 - long: remove-on-error
-  value_name: Remove
-  value_kind: Required
+  description: Remove output file on errors
   provenance:
     sources:
     - help-text
@@ -1282,14 +1238,12 @@ flags:
     sources:
     - help-text
 - long: retry-all-errors
-  value_name: Retry
-  value_kind: Required
+  description: Retry all errors (use with --retry)
   provenance:
     sources:
     - help-text
 - long: retry-connrefused
-  value_name: Retry
-  value_kind: Required
+  description: Retry on connection refused (use with --retry)
   provenance:
     sources:
     - help-text
@@ -1360,20 +1314,17 @@ flags:
     sources:
     - help-text
 - long: socks5-basic
-  value_name: Enable
-  value_kind: Required
+  description: Enable username/password auth for SOCKS5 proxies
   provenance:
     sources:
     - help-text
 - long: socks5-gssapi
-  value_name: Enable
-  value_kind: Required
+  description: Enable GSS-API auth for SOCKS5 proxies
   provenance:
     sources:
     - help-text
 - long: socks5-gssapi-nec
-  value_name: Compatibility
-  value_kind: Required
+  description: Compatibility with NEC SOCKS5 server
   provenance:
     sources:
     - help-text
@@ -1413,20 +1364,17 @@ flags:
     sources:
     - help-text
 - long: ssl-allow-beast
-  value_name: Allow
-  value_kind: Required
+  description: Allow security flaw to improve interop
   provenance:
     sources:
     - help-text
 - long: ssl-auto-client-cert
-  value_name: Use
-  value_kind: Required
+  description: Use auto client certificate (Schannel)
   provenance:
     sources:
     - help-text
 - long: ssl-no-revoke
-  value_name: Disable
-  value_kind: Required
+  description: Disable cert revocation checks (Schannel)
   provenance:
     sources:
     - help-text
@@ -1436,8 +1384,7 @@ flags:
     sources:
     - help-text
 - long: ssl-revoke-best-effort
-  value_name: Ignore
-  value_kind: Required
+  description: Ignore missing/offline cert CRL dist points (Schannel)
   provenance:
     sources:
     - help-text
@@ -1461,26 +1408,22 @@ flags:
     sources:
     - help-text
 - long: styled-output
-  value_name: Enable
-  value_kind: Required
+  description: Enable styled output for HTTP headers
   provenance:
     sources:
     - help-text
 - long: suppress-connect-headers
-  value_name: Suppress
-  value_kind: Required
+  description: Suppress proxy CONNECT response headers
   provenance:
     sources:
     - help-text
 - long: tcp-fastopen
-  value_name: Use
-  value_kind: Required
+  description: Use TCP Fast Open
   provenance:
     sources:
     - help-text
 - long: tcp-nodelay
-  value_name: Use
-  value_kind: Required
+  description: Use the TCP_NODELAY option
   provenance:
     sources:
     - help-text
@@ -1500,8 +1443,7 @@ flags:
     sources:
     - help-text
 - long: tftp-no-options
-  value_name: Do
-  value_kind: Required
+  description: Do not send any TFTP options
   provenance:
     sources:
     - help-text
@@ -1583,8 +1525,7 @@ flags:
     sources:
     - help-text
 - long: tr-encoding
-  value_name: Request
-  value_kind: Required
+  description: Request compressed transfer encoding
   provenance:
     sources:
     - help-text

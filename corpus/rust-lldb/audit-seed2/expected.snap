@@ -336,9 +336,8 @@ flags:
     sources:
     - help-text
 - long: python-path
-  value_name: Prints
-  value_kind: Required
   group: 'SCRIPTING:'
+  description: Prints out the path to the lldb.py file for this version of lldb.
   provenance:
     sources:
     - help-text

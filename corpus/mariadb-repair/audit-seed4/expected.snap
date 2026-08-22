@@ -30,14 +30,13 @@ flags:
 - long: defaults-group-suffix
   value_name: '#'
   value_kind: Required
+  description: 'Additionally read default groups with # appended as a suffix.'
   provenance:
     sources:
     - help-text
 - short: 'A'
   long: all-databases
-  value_name: Check
-  value_kind: Required
-  description: with all databases selected.
+  description: Check all the databases. This is the same as --databases with all databases selected.
   provenance:
     sources:
     - help-text
@@ -79,9 +78,7 @@ flags:
     - help-text
 - short: 'g'
   long: check-upgrade
-  value_name: Check
-  value_kind: Required
-  description: with --auto-repair to correct tables requiring version-dependent updates.
+  description: Check tables for version-dependent changes. May be used with --auto-repair to correct tables requiring version-dependent updates.
   provenance:
     sources:
     - help-text
@@ -124,6 +121,7 @@ flags:
 - long: default-auth
   value_name: name
   value_kind: Required
+  description: Default authentication client-side plugin to use.
   provenance:
     sources:
     - help-text

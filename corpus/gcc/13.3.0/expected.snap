@@ -102,6 +102,7 @@ flags:
     - help-text
 - long: print-multi-os-directory
   single_dash: true
+  description: Display the relative path to OS libraries.
   provenance:
     sources:
     - help-text
@@ -113,6 +114,7 @@ flags:
     - help-text
 - long: print-sysroot-headers-suffix
   single_dash: true
+  description: Display the sysroot suffix used to find headers.
   provenance:
     sources:
     - help-text
