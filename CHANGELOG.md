@@ -10,6 +10,34 @@ once it reaches a published 0.1.0 release.
 
 ### Added
 
+- **12 new corpus fixtures from the seed-4 human audit, and a named list of
+  the tools that audit skipped.** `xtask audit fixtures` stages a fixture
+  directory per reviewed tool with the reviewer's own verdict note as the
+  `[xfail] reason`; three of the fixtures promoted here (`bashbug`,
+  `lessecho`, `vim.basic`) were `incomplete` verdicts, so each also needed a
+  `[contract]` field that *currently fails* — an `[xfail]` asserting nothing
+  is reported by `xtask corpus` as "the bug appears fixed", which is how the
+  runner refuses to let a documented-broken fixture be documented-broken
+  about nothing in particular. All three defects turned out to be the same
+  shape and are pinned with `must_contain_positionals`: bashbug's
+  `[bug-report-email-address]` operand, lessecho's `file ...`, and vim's
+  `[file ..]` are each documented in the tool's own usage synopsis and each
+  absent from the tree. The other nine are `correct` verdicts with a blessed
+  snapshot (`provenance = "agent"`, no `verdict_scope` — an agent may claim
+  neither). The corpus is 96 fixtures: 80 ok (0 human, 39 agent-then-human,
+  41 agent), 16 xfail, 0 failed.
+
+- **`xtask audit report` now names the tools a reviewer verdicted `skip`,
+  with the reason where one was recorded.** The stratum table printed a
+  per-stratum `skipped` count and nothing more, while `accuracy_over`
+  excludes every one of those entries from every accuracy figure in the
+  report — so a reader could see that nine tools left seed 4's denominator
+  but not which nine, and the exclusion was unauditable. `skip` is the one
+  verdict that does not require a note, so the section prints an explicit
+  `(no reason recorded)` rather than inventing a justification; 6 of seed
+  4's 9 skips carry no reason. `audit/4-report.txt` is committed alongside
+  `audit/2-report.txt` as the rendered record.
+
 - **Every corpus fixture now carries a required `[bless] provenance` field —
   `human`, `agent-then-human`, or `agent` — recording who blessed its
   `expected.snap`, the complement `verdict_scope` never had.** `verdict_scope`

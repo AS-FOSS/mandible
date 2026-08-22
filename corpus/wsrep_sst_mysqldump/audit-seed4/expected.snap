@@ -1,0 +1,8 @@
+name: wsrep_sst_mysqldump
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true
+unparsed:
+- '/usr/bin/wsrep_sst_common: line 875: WSREP_SST_OPT_PATH: unbound variable'

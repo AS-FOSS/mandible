@@ -1,0 +1,234 @@
+name: ping4
+description: '/usr/bin/ping4: invalid option -- ''-'''
+flags:
+- short: 'a'
+  description: use audible ping
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  description: use adaptive ping
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  description: sticky source address
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: <count>
+  value_kind: Required
+  description: stop after <count> replies
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  description: call connect() syscall on socket creation
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  description: print timestamps
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  description: use SO_DEBUG socket option
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  value_name: <identifier>
+  value_kind: Required
+  description: define identifier for ping session, default is random for SOCK_RAW and kernel defined for SOCK_DGRAM Imply using SOCK_RAW (for IPv4 only for identifier 0)
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  description: flood ping
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  description: print help and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'H'
+  description: force reverse DNS name resolution (useful for numeric destinations or for -f), override -n
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  value_name: <interface>
+  value_kind: Required
+  description: either interface name or address
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  value_name: <interval>
+  value_kind: Required
+  description: seconds between sending each packet
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  description: suppress loopback of multicast packets
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  value_name: <preload>
+  value_kind: Required
+  description: send <preload> number of packages while waiting replies
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: <mark>
+  value_kind: Required
+  description: tag the packets going out
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  value_name: <pmtud opt>
+  value_kind: Required
+  description: define path MTU discovery, can be one of <do|dont|want|probe>
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  description: no reverse DNS name resolution, override -H
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  description: report outstanding replies
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: <pattern>
+  value_kind: Required
+  description: contents of padding byte
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  description: quiet output
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  value_name: <tclass>
+  value_kind: Required
+  description: use quality of service <tclass> bits
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: <size>
+  value_kind: Required
+  description: use <size> as number of data bytes to be sent
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  value_name: <size>
+  value_kind: Required
+  description: use <size> as SO_SNDBUF socket option value
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: <ttl>
+  value_kind: Required
+  description: define time to live
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  description: print user-to-user latency
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  description: verbose output
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  description: print version and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  value_name: <deadline>
+  value_kind: Required
+  description: reply wait <deadline> in seconds
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  value_name: <timeout>
+  value_kind: Required
+  description: time to wait for response
+  provenance:
+    sources:
+    - help-text
+- short: '4'
+  group: 'IPv4 options:'
+  description: use IPv4
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  group: 'IPv4 options:'
+  description: allow pinging broadcast
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  group: 'IPv4 options:'
+  description: record route
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  value_name: <timestamp>
+  value_kind: Required
+  group: 'IPv4 options:'
+  description: define timestamp, can be one of <tsonly|tsandaddr|tsprespec>
+  provenance:
+    sources:
+    - help-text
+- short: '6'
+  group: 'IPv6 options:'
+  description: use IPv6
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  value_name: <flowlabel>
+  value_kind: Required
+  group: 'IPv6 options:'
+  description: define flow label, default is random
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  value_name: <nodeinfo opt>
+  value_kind: Required
+  group: 'IPv6 options:'
+  description: use IPv6 node info query, try <help> as argument
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,16 @@
+Usage: man-recode [OPTION...]
+            -t CODE {--suffix SUFFIX | --in-place} FILENAME...
+
+  -d, --debug                emit debugging messages
+      --in-place             overwrite input files in place
+  -q, --quiet                produce fewer warnings
+      --suffix=SUFFIX        suffix to append to output file name
+  -t, --to-code=CODE         encoding for output
+  -?, --help                 give this help list
+      --usage                give a short usage message
+  -V, --version              print program version
+
+Mandatory or optional arguments to long options are also mandatory or optional
+for any corresponding short options.
+
+Report bugs to cjwatson@debian.org.
