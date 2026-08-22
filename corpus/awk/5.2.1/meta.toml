@@ -22,4 +22,22 @@ min_status = "low-confidence"
 # read as the first word of its own row's description (or, where the row had
 # no description column at all, discarded outright), so none of them reached
 # the tree.
-must_contain_flags = ["--characters-as-bytes", "--dump-variables", "--copyright"]
+#
+# `--file`, `--field-separator`, `--assign`, `--source`, `--exec`,
+# `--include` and `--load` are the *valued* half of the same table, added
+# once the spelling column was paired on the value both cells name rather
+# than on the short cell being bare. Every one of them was absent from this
+# tree until then: `-f progfile` parsed as a short flag with a value and no
+# long spelling at all.
+must_contain_flags = [
+    "--characters-as-bytes",
+    "--dump-variables",
+    "--copyright",
+    "--file",
+    "--field-separator",
+    "--assign",
+    "--source",
+    "--exec",
+    "--include",
+    "--load",
+]
