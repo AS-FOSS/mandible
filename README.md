@@ -108,6 +108,18 @@ prose. A metric that improves when the tool gets worse is worse than no metric.
 CI gates every change against a fixed tool list, and sweeps the whole `PATH`
 separately for the broad picture.
 
+Coverage is not accuracy, though, and the honest number is lower than a green badge
+suggests. A frozen, randomly drawn queue of real tools gets reviewed by a human against
+each tool's own `--help` text — the sample is committed before any verdict is recorded,
+so it cannot be redrawn once the results look bad. The most recent draw (seed 5,
+43 tools judged) puts the parser at **58.1% fully correct, 95% CI [43.3%, 71.6%]**;
+tools the pipeline itself rates `ok` score 80.0% [60.9%, 91.1%]. Repeat-review of the
+same tools agreed 11 times in 16, so treat any single figure as approximate, and any
+trend between draws as partly reviewer drift.
+
+mandible is useful today and wrong often enough that you should check anything
+surprising against the tool's own `--help`.
+
 
 > [!TIP]
 > Something parses wrong? Run `mandible --report <tool>` and paste the output

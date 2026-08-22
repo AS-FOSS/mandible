@@ -8,7 +8,23 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-23
+
+**Breaking:** `CommandNode` gained a public `invocation_attested` field.
+The struct is not `#[non_exhaustive]`, so any downstream struct-literal
+construction must be updated. Everything else in this release is additive
+parser accuracy: no flag, description, subcommand or usage line that
+0.3.2 parsed correctly is parsed differently now, verified field-by-field
+over a 2,254-tool sweep.
+
 ### Added
+
+- **The README states the measured accuracy, not just the coverage badge.** A green
+  `framework support` tick says CI passed; it says nothing about how often a parsed
+  tree is right. The "Is it actually universal?" section now carries seed 5's
+  human-reviewed figure — 58.1% [43.3%, 71.6%] overall, 80.0% [60.9%, 91.1%] on the
+  `ok` stratum — with the test-retest agreement (11/16) beside it, so a reader can see
+  both the number and how much to trust it.
 
 - **The aligned multi-column option table: a row's long spelling is no longer
   eaten as the start of its own description.** A tool that lays its options
