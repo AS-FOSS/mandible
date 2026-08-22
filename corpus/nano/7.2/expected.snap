@@ -1,0 +1,412 @@
+name: nano
+usage:
+- 'Usage: nano [OPTIONS] [[+LINE[,COLUMN]] FILE]...'
+positionals:
+- name: FILE
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'A'
+  long: smarthome
+  group: When a filename is '-', nano reads data from standard input.
+  description: Enable smart home key
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: backup
+  group: When a filename is '-', nano reads data from standard input.
+  description: Save backups of existing files
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: backupdir
+  value_name: <dir>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Directory for saving unique backup files
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: boldtext
+  group: When a filename is '-', nano reads data from standard input.
+  description: Use bold instead of reverse video text
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  long: tabstospaces
+  group: When a filename is '-', nano reads data from standard input.
+  description: Convert typed tabs to spaces
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  long: multibuffer
+  group: When a filename is '-', nano reads data from standard input.
+  description: Read a file into a new buffer by default
+  provenance:
+    sources:
+    - help-text
+- short: 'G'
+  long: locking
+  group: When a filename is '-', nano reads data from standard input.
+  description: Use (vim-style) lock files
+  provenance:
+    sources:
+    - help-text
+- short: 'H'
+  long: historylog
+  group: When a filename is '-', nano reads data from standard input.
+  description: Save & reload old search/replace strings
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: ignorercfiles
+  group: When a filename is '-', nano reads data from standard input.
+  description: Don't look at nanorc files
+  provenance:
+    sources:
+    - help-text
+- short: 'J'
+  long: guidestripe
+  value_name: <number>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Show a guiding bar at this column
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  long: rawsequences
+  group: When a filename is '-', nano reads data from standard input.
+  description: Fix numeric keypad key confusion problem
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: nonewlines
+  group: When a filename is '-', nano reads data from standard input.
+  description: Don't add an automatic newline
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  long: trimblanks
+  group: When a filename is '-', nano reads data from standard input.
+  description: Trim tail spaces when hard-wrapping
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  long: noconvert
+  group: When a filename is '-', nano reads data from standard input.
+  description: Don't convert files from DOS/Mac format
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  long: bookstyle
+  group: When a filename is '-', nano reads data from standard input.
+  description: Leading whitespace means new paragraph
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: positionlog
+  group: When a filename is '-', nano reads data from standard input.
+  description: Save & restore position of the cursor
+  provenance:
+    sources:
+    - help-text
+- short: 'Q'
+  long: quotestr
+  value_name: <regex>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Regular expression to match quoting
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  long: restricted
+  group: When a filename is '-', nano reads data from standard input.
+  description: Restrict access to the filesystem
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: softwrap
+  group: When a filename is '-', nano reads data from standard input.
+  description: Display overlong lines on multiple rows
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  long: tabsize
+  value_name: <number>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Make a tab this number of columns wide
+  provenance:
+    sources:
+    - help-text
+- short: 'U'
+  long: quickblank
+  group: When a filename is '-', nano reads data from standard input.
+  description: Wipe status bar upon next keystroke
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  group: When a filename is '-', nano reads data from standard input.
+  description: Print version information and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'W'
+  long: wordbounds
+  group: When a filename is '-', nano reads data from standard input.
+  description: Detect word boundaries more accurately
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  long: wordchars
+  value_name: <string>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Which other characters are word parts
+  provenance:
+    sources:
+    - help-text
+- short: 'Y'
+  long: syntax
+  value_name: <name>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Syntax definition to use for coloring
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  long: zap
+  group: When a filename is '-', nano reads data from standard input.
+  description: Let Bsp and Del erase a marked region
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: atblanks
+  group: When a filename is '-', nano reads data from standard input.
+  description: When soft-wrapping, do it at whitespace
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  long: breaklonglines
+  group: When a filename is '-', nano reads data from standard input.
+  description: Automatically hard-wrap overlong lines
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: constantshow
+  group: When a filename is '-', nano reads data from standard input.
+  description: Constantly show cursor position
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: rebinddelete
+  group: When a filename is '-', nano reads data from standard input.
+  description: Fix Backspace/Delete confusion problem
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  long: emptyline
+  group: When a filename is '-', nano reads data from standard input.
+  description: Keep the line below the title bar empty
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: rcfile
+  value_name: <file>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Use only this file for configuring nano
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  long: showcursor
+  group: When a filename is '-', nano reads data from standard input.
+  description: Show cursor in file browser & help text
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: When a filename is '-', nano reads data from standard input.
+  description: Show this help text and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: autoindent
+  group: When a filename is '-', nano reads data from standard input.
+  description: Automatically indent new lines
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: jumpyscrolling
+  group: When a filename is '-', nano reads data from standard input.
+  description: Scroll per half-screen, not per line
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  long: cutfromcursor
+  group: When a filename is '-', nano reads data from standard input.
+  description: Cut from cursor to end of line
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: linenumbers
+  group: When a filename is '-', nano reads data from standard input.
+  description: Show line numbers in front of the text
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  long: mouse
+  group: When a filename is '-', nano reads data from standard input.
+  description: Enable the use of the mouse
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: noread
+  group: When a filename is '-', nano reads data from standard input.
+  description: Do not read the file (only write it)
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  long: operatingdir
+  value_name: <dir>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Set operating directory
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: preserve
+  group: When a filename is '-', nano reads data from standard input.
+  description: Preserve XON (^Q) and XOFF (^S) keys
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: indicator
+  group: When a filename is '-', nano reads data from standard input.
+  description: Show a position+portion indicator
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: fill
+  value_name: <number>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Set width for hard-wrap and justify
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: speller
+  value_name: <program>
+  value_kind: Required
+  group: When a filename is '-', nano reads data from standard input.
+  description: Use this alternative spell checker
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: saveonexit
+  group: When a filename is '-', nano reads data from standard input.
+  description: Save changes on exit, don't prompt
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  long: unix
+  group: When a filename is '-', nano reads data from standard input.
+  description: Save a file by default in Unix format
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: view
+  group: When a filename is '-', nano reads data from standard input.
+  description: View mode (read-only)
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  long: nowrap
+  group: When a filename is '-', nano reads data from standard input.
+  description: Don't hard-wrap long lines [default]
+  provenance:
+    sources:
+    - help-text
+- short: 'x'
+  long: nohelp
+  group: When a filename is '-', nano reads data from standard input.
+  description: Don't show the two help lines
+  provenance:
+    sources:
+    - help-text
+- short: 'y'
+  long: afterends
+  group: When a filename is '-', nano reads data from standard input.
+  description: Make Ctrl+Right stop at word ends
+  provenance:
+    sources:
+    - help-text
+- short: '%'
+  group: When a filename is '-', nano reads data from standard input.
+  description: --stateflags Show some states on the title bar
+  provenance:
+    sources:
+    - help-text
+- short: '_'
+  group: When a filename is '-', nano reads data from standard input.
+  description: --minibar Show a feedback bar at the bottom
+  provenance:
+    sources:
+    - help-text
+- short: '0'
+  long: zero
+  group: When a filename is '-', nano reads data from standard input.
+  description: Hide all bars, use whole terminal
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

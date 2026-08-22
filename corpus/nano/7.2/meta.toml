@@ -1,0 +1,32 @@
+# KNOWN WRONG, and deliberately frozen rather than quietly blessed: every
+# flag in `expected.snap` carries
+# `group: "When a filename is '-', nano reads data from standard input."`.
+# That line is prose from nano's preamble, not a heading, and reading it as
+# one is a *separate* defect from the aligned-spelling-column split this
+# fixture was added for (the same shape the seed-5 review reported on
+# `uconv`). It is recorded here so the next reader knows the field is
+# unfixed rather than agreed with, and so a PR that fixes it shows up as a
+# visible snapshot diff.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nano"
+version = "7.2"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["nano", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+# The regression assertion for the aligned multi-column option table: on
+# `main` before this fixture existed, every one of these long spellings was
+# read as the first word of its own row's description (or, where the row had
+# no description column at all, discarded outright), so none of them reached
+# the tree.
+must_contain_flags = ["--smarthome", "--backupdir", "--minibar", "--zero"]
