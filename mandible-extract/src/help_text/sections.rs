@@ -3380,6 +3380,15 @@ fn find_sentence_start_gap(line: &str) -> Option<usize> {
     let mut i = 0usize;
     let mut token_count = 0usize;
     let mut previous_token_end: Option<usize> = None;
+    // A spec that already carries its own value (`--init-command=name`,
+    // `--color[=WHEN]`) cannot take another one, so the boundary is fixed
+    // at that first token and every word after it is description — even a
+    // value-shaped one. Without this, `mariadb`'s
+    // `--init-command=name SQL Command to execute ...` splits after `SQL`
+    // instead, and the word "SQL" is dropped from the tree: the spec keeps
+    // its `=name` value (first value wins) and nothing ever reads `SQL`
+    // back out. Never discard a word the tool wrote.
+    let mut spec_is_closed = false;
     while i < bytes.len() {
         if bytes[i] == b' ' || bytes[i] == b'\t' {
             i += 1;
@@ -3403,8 +3412,14 @@ fn find_sentence_start_gap(line: &str) -> Option<usize> {
             if !is_value_spec_token(token) {
                 return None;
             }
+        } else {
+            spec_is_closed = token.contains('=') || token.contains('[');
         }
-        previous_token_end = Some(i);
+        // The spelling run's own token always sets the boundary; a closed
+        // spec then freezes it there.
+        if token_count == 0 || !spec_is_closed {
+            previous_token_end = Some(i);
+        }
         token_count += 1;
     }
     None
@@ -6331,6 +6346,29 @@ Options:
         // A lone capitalized trailing token is ambiguous and keeps the
         // pre-existing value reading — one word is not a sentence.
         assert_eq!(by_long("quiet").value_name.as_deref(), Some("Quiet"));
+    }
+
+    /// A spec that already carries its own value cannot take another one,
+    /// so nothing between it and the sentence may be swallowed as a second
+    /// value name and then discarded. Real `mariadb --help`:
+    /// `--init-command=name SQL Command to execute ...` must keep the word
+    /// "SQL", which the spec has no room for and which nothing downstream
+    /// would ever read back out.
+    #[test]
+    fn a_self_valued_spec_keeps_every_word_of_its_description() {
+        let help = "Usage: mariadb [OPTIONS]\n\nOptions:\n  \
+                    --init-command=name SQL Command to execute when connecting to server.\n";
+        let parsed = parse(help);
+        let flag = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("init-command"))
+            .expect("--init-command must be recovered");
+        assert_eq!(flag.value_name.as_deref(), Some("name"));
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("SQL Command to execute when connecting to server.")
+        );
     }
 
     /// `jdeprscan --help` documents every option in its own flush-left
