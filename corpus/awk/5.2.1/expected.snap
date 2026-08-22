@@ -15,6 +15,7 @@ positionals:
     - help-text
 flags:
 - short: 'f'
+  long: file
   value_name: progfile
   value_kind: Required
   group: "POSIX options:\t\tGNU long options: (standard)"
@@ -22,6 +23,7 @@ flags:
     sources:
     - help-text
 - short: 'F'
+  long: field-separator
   value_name: fs
   value_kind: Required
   group: "POSIX options:\t\tGNU long options: (standard)"
@@ -29,6 +31,7 @@ flags:
     sources:
     - help-text
 - short: 'v'
+  long: assign
   value_name: var=val
   value_kind: Required
   group: "POSIX options:\t\tGNU long options: (standard)"
@@ -70,6 +73,7 @@ flags:
     sources:
     - help-text
 - short: 'e'
+  long: source
   value_name: '''program-text'''
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
@@ -77,6 +81,7 @@ flags:
     sources:
     - help-text
 - short: 'E'
+  long: exec
   value_name: file
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
@@ -96,6 +101,7 @@ flags:
     sources:
     - help-text
 - short: 'i'
+  long: include
   value_name: includefile
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
@@ -109,6 +115,7 @@ flags:
     sources:
     - help-text
 - short: 'l'
+  long: load
   value_name: library
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"

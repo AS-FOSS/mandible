@@ -40,16 +40,75 @@ once it reaches a published 0.1.0 release.
   35–42 tools on this box's `PATH` show the shape. Deliberately **not**
   claimed: rows naming several shorts at once (`jdeprscan`'s `-? -h --help`),
   which `mandible_core::Flag` has one `short: Option<char>` and no field to
-  hold; and rows whose spelling cell carries a *lower-case* value word
-  (`awk`'s `-f progfile\t--file=progfile`), which stays out because
-  `is_value_placeholder_only` deliberately does not recognize lower-case
-  placeholders — widening it is what protects `arptables`' `-A chain`. Two
+  hold; and (**since fixed** — see the next entry) rows whose spelling cell
+  carries a *lower-case* value word (`awk`'s
+  `-f progfile\t--file=progfile`). Two
   of nano's own 54 rows are also still missed for a third reason:
   `-%  --stateflags` and `-_  --minibar` are not `is_flag_shaped`, because
   `is_flag_char` allows alphanumerics plus `? # @` and neither `%` nor `_`
   is in that set. Widening it reaches every other user of `is_flag_shaped`,
   `xtask`'s misattribution oracle included, so it is left for its own
   change.
+
+- **Valued cells in an aligned spelling column now pair too: `-f progfile`
+  keeps its `--file`.** The residual the entry above named. A cell that is a
+  spelling *plus a lower-case value word* is not an
+  `is_value_placeholder_only` cell, and that check must stay narrow — a
+  lower-case word alone is not distinguishable from prose, which is what
+  keeps `arptables --help`'s `--append  -A chain` from being merged into one
+  valued flag. So the pairing evidence here is a different one: **two
+  adjacent cells that name the same value token.** `-f progfile` beside
+  `--file=progfile`, `-d[file]` beside `--dump-variables[=file]`,
+  `-v var=val` beside `--assign=var=val` — one option, spelled twice, with
+  its value restated. `--append` names no value at all, so `-A chain` has
+  nothing to match and that row is untouched.
+
+  Measured over all 2,301 frozen captures in `audit/queue-captures/`
+  (2026-08-22): 24 adjacent cell pairs across 5 tools satisfy the test and
+  **every one is a genuine short/long alias pair** — `awk`/`gawk`/`nawk`
+  (7 rows each: `--file`, `--field-separator`, `--assign`, `--source`,
+  `--exec`, `--include`, `--load`) and `ntfsmove`/`ntfswipe`, which write
+  the value detached on both sides with a real description after it
+  (`-c num  --count num  Number of times to write`). No capture pairs two
+  independent flags this way; the near misses correctly refused are
+  `arptables`'s `-A chain`, `lsof`'s genuine three-column table, `objcopy`'s
+  `--strip-symbols <file>   -N for all symbols listed in <file>`
+  cross-reference, and `prove`'s `-a,  --archive out.tgz Store ...`.
+
+  The recovered flag carries the shared value **once**: such a row is
+  rejoined as *spellings, then the value* — every cell reduced to its bare
+  spelling, and the value appended in the form the first cell that named it
+  wrote it. Both halves are load-bearing. Rejoining both cells verbatim
+  handed the flag grammar a detached value it terminated the alias list on,
+  which lost `--source` from `-e 'program-text'\t--source='program-text'`
+  entirely; and taking the value's *form* from the first cell is what keeps
+  the rewrite from changing a flag that already parsed. `less --help` writes
+  `-P [prompt]   --prompt=[prompt]`, where the short cell's brackets say
+  optional and the long cell's `=` says required — keeping the long cell
+  verbatim promoted `-P` from `Optional` to `Required` and left the brackets
+  stranded inside the value's name. As shipped, `less`'s `-p`, `-P` and `-x`
+  gain `--pattern`, `--prompt` and `--tabs` with `value_name` and
+  `value_kind` byte-identical to before, and `awk`'s
+  `-d[file]`/`--dump-variables[=file]` stays `Optional`/`file` while
+  `-f progfile`/`--file=progfile` is `Required`/`progfile`.
+
+  `corpus/awk/5.2.1` gains all seven long spellings in its `expected.snap`
+  and names them in its `must_contain_flags` contract. Still **not** claimed,
+  unchanged by this: `awk`'s multi-short rows, and its
+  `POSIX options:\tGNU long options: (standard)` header line, which is read
+  as a section heading and becomes every flag's `group` (the `uconv`/`nano`
+  family, already queued).
+
+  A full-`PATH` sweep before and after (2,254 tools matched) reports **zero
+  flags lost and zero descriptions changed**; five tools change at all, all
+  by gaining a long spelling on a flag that had none: `less`, `pager` and
+  `zstdless` (the same `less` help text) plus `ntfsmove` and `ntfswipe`,
+  whose `-c num  --count num  Number of times to write` rows *also* stop
+  reading the long spelling as the first words of their own description.
+  `awk`/`gawk`/`nawk` change too but are invisible to `xtask sweep-diff`,
+  which splits a `#fp` line's flag list on `|` and so cannot represent
+  `--lint`'s `fatal|invalid|no-ext` value; their fingerprints were compared
+  by hand instead.
 
 - **Two new corpus fixtures for the shape, `nano/7.2` and `awk/5.2.1`,** each
   with a `must_contain_flags` contract naming long spellings that did not
