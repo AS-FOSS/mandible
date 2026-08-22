@@ -11,34 +11,29 @@ positionals:
 flags:
 - short: 'b'
   long: binary
-  group: With no FILE, or when FILE is -, read standard input.
   description: read in binary mode
   provenance:
     sources:
     - help-text
 - short: 'c'
   long: check
-  group: With no FILE, or when FILE is -, read standard input.
   description: read checksums from the FILEs and check them
   provenance:
     sources:
     - help-text
 - long: tag
-  group: With no FILE, or when FILE is -, read standard input.
   description: create a BSD-style checksum
   provenance:
     sources:
     - help-text
 - short: 't'
   long: text
-  group: With no FILE, or when FILE is -, read standard input.
   description: read in text mode (default)
   provenance:
     sources:
     - help-text
 - short: 'z'
   long: zero
-  group: With no FILE, or when FILE is -, read standard input.
   description: end each output line with NUL, not newline, and disable file name escaping
   provenance:
     sources:

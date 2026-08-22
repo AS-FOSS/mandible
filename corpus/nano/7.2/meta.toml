@@ -1,12 +1,16 @@
-# KNOWN WRONG, and deliberately frozen rather than quietly blessed: every
-# flag in `expected.snap` carries
-# `group: "When a filename is '-', nano reads data from standard input."`.
-# That line is prose from nano's preamble, not a heading, and reading it as
-# one is a *separate* defect from the aligned-spelling-column split this
-# fixture was added for (the same shape the seed-5 review reported on
-# `uconv`). It is recorded here so the next reader knows the field is
-# unfixed rather than agreed with, and so a PR that fixes it shows up as a
-# visible snapshot diff.
+# The KNOWN WRONG note this file carried is now history: every flag in
+# `expected.snap` used to carry
+# `group: "When a filename is '-', nano reads data from standard input."`,
+# a sentence from nano's preamble that the section scanner promoted to a
+# heading because the option table below it happens to be indented one
+# column further. `help_text::sections::is_prose_sentence` refuses to let a
+# period-terminated single-field sentence name a group, so no flag in this
+# snapshot has a `group:` at all now. The note did its job exactly as
+# intended — it said the field was unfixed rather than agreed with, and the
+# fix showed up as the visible snapshot diff it predicted.
+#
+# The aligned-spelling-column split this fixture was originally added for is
+# unchanged and still asserted below.
 
 [bless]
 provenance = "agent"

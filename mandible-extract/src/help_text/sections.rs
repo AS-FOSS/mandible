@@ -196,6 +196,30 @@ pub fn parse_with_profile(
     profile: Option<&FrameworkProfile>,
     tool_name: Option<&str>,
 ) -> ParsedHelp {
+    // A heading that shares its physical line with the first row of its
+    // own table is rewritten into the two lines it means before the
+    // engine below ever sees it — see `split_shared_heading_rows`. Doing
+    // it here, once, rather than inside the section loop is what keeps
+    // the recovered row subject to every *block-level* decision
+    // (`block_is_multi_column`, `block_has_aligned_spelling_column`)
+    // alongside the rows beneath it; a row bolted on afterwards would
+    // have been parsed under decisions taken without it.
+    //
+    // Structurally non-recursive: the rewrite is applied at most once,
+    // and `parse_body` never calls back into this function.
+    match split_shared_heading_rows(raw) {
+        Some(rewritten) => parse_body(&rewritten, profile, tool_name),
+        None => parse_body(raw, profile, tool_name),
+    }
+}
+
+/// [`parse_with_profile`]'s engine, over text whose shared heading rows
+/// have already been split out.
+fn parse_body(
+    raw: &str,
+    profile: Option<&FrameworkProfile>,
+    tool_name: Option<&str>,
+) -> ParsedHelp {
     let lines: Vec<&str> = raw.lines().collect();
     let mut result = ParsedHelp::default();
 
@@ -307,7 +331,27 @@ pub fn parse_with_profile(
                 tool_name.is_some_and(|name| starts_with_tool_name(trimmed_start, name));
             let starts_new_entry = is_marker || is_own_name;
 
-            if !starts_new_entry {
+            // A line the one above it ended with a backslash is a
+            // continuation by the tool's own explicit statement, and no
+            // content test may overrule that. `update-xmlcatalog` wraps
+            // its synopsis mid-invocation:
+            //
+            // ```text
+            //     update-xmlcatalog <options> --del --root --type <type> \
+            //                                                 --id <id>
+            // ```
+            //
+            // The wrapped tail begins with `--id`, so the `curl` guard
+            // below ("a continuation that reads as a flag entry ends the
+            // block") fired on it and the usage block stopped one line in
+            // — taking `--del`, `--root` and `--type` with it, none of
+            // which this tool documents anywhere else, and spilling the
+            // remaining synopsis lines into the section scanner where
+            // they were read as headings. A backslash is unambiguous
+            // where a leading dash is not, which is why it is checked
+            // first rather than folded into the guard below.
+            let continues_previous_line = i > 0 && lines[i - 1].trim_end().ends_with('\\');
+            if !starts_new_entry && !continues_previous_line {
                 // A continuation line that itself reads as a flag entry
                 // ends the usage block, even though it is indented and
                 // unseparated by a blank line. A usage continuation is an
@@ -356,6 +400,19 @@ pub fn parse_with_profile(
             if starts_new_entry {
                 usage_entries.push(trimmed);
             } else if let Some(last) = usage_entries.last_mut() {
+                // The backslash *is* the join: it is the marker the wrap
+                // introduced, exactly as the removed newline was, so it
+                // goes where the newline went. Dropping it is the same
+                // decision as choosing a single space to join with (see
+                // this block's own comment on why that is not re-flowing)
+                // — without it the displayed synopsis reads
+                // `--type <type> \ --id <id>`, a continuation marker
+                // stranded in the middle of a line it no longer continues.
+                if last.ends_with('\\') {
+                    last.pop();
+                    let trimmed_tail = last.trim_end().len();
+                    last.truncate(trimmed_tail);
+                }
                 last.push(' ');
                 last.push_str(&trimmed);
             }
@@ -1406,6 +1463,236 @@ fn looks_like_usage_fragment(t: &str) -> bool {
     matches!(t.as_bytes().first(), Some(b'[') | Some(b'<') | Some(b'{'))
 }
 
+/// Rewrite every line that carries a section heading **and** the first row
+/// of that section's own table into the two lines it means.
+///
+/// # The defect
+///
+/// `uconv --help` runs its heading straight into its first option row:
+///
+/// ```text
+/// Options:  -h, --help                    print this message
+///           -V, --version                 print the program version
+/// ```
+///
+/// The section scanner promotes a line to a heading whole, so the entire
+/// first line became the heading — `-h, --help` was never a flag under any
+/// spelling a user could type, and every other flag in the block inherited
+/// `group: "Options:  -h, --help                    print this message"`.
+/// The audit reviewer's own words: "since the flag `-h` was in front of
+/// `Options:` it got swallowed into the section header".
+///
+/// Measured over the 2,301 frozen captures in `audit/queue-captures/`:
+/// **2 tools** (`uconv`, and `zipinfo`'s `main listing-format options:
+/// -s  short Unix "ls -l" format (def.)`), each losing exactly the one row
+/// that shares its heading's line. Small, and reported as measured rather
+/// than rounded up — the *broad* shape (a heading label, a column gap, and
+/// then anything at all) is 12 tools, but the other ten are second heading
+/// columns (`awk`'s `POSIX options:\t\tGNU long options: (standard)`) or
+/// wrapped prose, and rewriting those would invent rows rather than
+/// recover them.
+///
+/// # The rule
+///
+/// A line is split when **all** of these hold:
+///
+/// 1. its indentation is spaces only — a tab's width is a terminal
+///    setting, so the recovered row's column could not be reproduced;
+/// 2. the text up to and including its first `:` is a
+///    [`is_section_heading_line`] label (short, plain words, colon-
+///    terminated) and is not a `usage:` marker;
+/// 3. at least [`MIN_COLUMN_GAP_SPACES`] spaces follow the colon;
+/// 4. what follows that gap [`looks_like_flag_start`].
+///
+/// Clause 4 is the safety argument. Clauses 1-3 alone are satisfied by
+/// every "label, then a value" line in the fleet (`ntfs-3g`'s `Options:
+/// ro (read-only mount), windows_names, uid=, gid=,`, `delv`'s `Where:
+/// domain\t  is in the Domain Name System`), and splitting one of those
+/// would hand the flags block a row that is not a flag. Requiring the
+/// remainder to open like a flag spelling is what confines this to the
+/// case where a real row is demonstrably being lost.
+///
+/// Returns `None` when no line matched, so the overwhelmingly common
+/// document is parsed from its own borrowed `&str` with no allocation.
+fn split_shared_heading_rows(raw: &str) -> Option<String> {
+    let mut out = String::new();
+    let mut split_any = false;
+    for line in raw.lines() {
+        match split_shared_heading_row(line) {
+            Some((heading, row)) => {
+                split_any = true;
+                out.push_str(&heading);
+                out.push('\n');
+                out.push_str(&row);
+                out.push('\n');
+            }
+            None => {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    split_any.then_some(out)
+}
+
+/// One line's worth of [`split_shared_heading_rows`]: the heading line and
+/// the row line it was carrying, the row re-indented to the column it
+/// occupied in the original so the block below reads the same alignment it
+/// always did.
+///
+/// Char-indexed throughout, never a byte-offset `&str` slice — AGENTS.md's
+/// rule against slicing captured tool output at a raw byte offset.
+fn split_shared_heading_row(line: &str) -> Option<(String, String)> {
+    let chars: Vec<char> = line.chars().collect();
+    let indent = chars.iter().take_while(|c| c.is_whitespace()).count();
+    if chars[..indent].iter().any(|c| *c != ' ') {
+        return None;
+    }
+    let colon = chars.iter().position(|c| *c == ':')?;
+    if colon <= indent {
+        return None;
+    }
+    let label: String = chars[indent..=colon].iter().collect();
+    if !is_section_heading_line(&label) || starts_with_usage_prefix(&label) {
+        return None;
+    }
+    let mut row_start = colon + 1;
+    while row_start < chars.len() && chars[row_start] == ' ' {
+        row_start += 1;
+    }
+    if row_start - (colon + 1) < MIN_COLUMN_GAP_SPACES || row_start >= chars.len() {
+        return None;
+    }
+    let row: String = chars[row_start..].iter().collect();
+    if !looks_like_flag_start(&row) {
+        return None;
+    }
+    let heading: String = chars[..=colon].iter().collect();
+    let mut row_line = " ".repeat(row_start);
+    row_line.push_str(&row);
+    Some((heading, row_line))
+}
+
+/// Fewest whitespace-separated words a period-terminated single-field line
+/// must carry before [`is_prose_sentence`] reads it as a sentence.
+///
+/// Five, chosen against the measured population rather than by taste: the
+/// shortest real specimen in the fleet is `[`'s "Exit with the status
+/// determined by EXPRESSION." (seven words) and `getent`'s "Get entries
+/// from administrative database." (five), while the shortest *heading*
+/// this must never claim is a two- or three-word label. Nothing between
+/// four and five words was found on either side, so the boundary is not
+/// load-bearing in the way a tighter one would be.
+const MIN_PROSE_SENTENCE_WORDS: usize = 5;
+
+/// True when `heading` is an English sentence rather than a section
+/// heading — a single field (no column gap anywhere), several words long,
+/// terminated by a full stop.
+///
+/// # The defect
+///
+/// The section scanner promotes a line to a heading on **indentation
+/// alone**: any line whose next non-blank neighbour is indented further is
+/// read as introducing that neighbour's block. A tool that closes its
+/// preamble with a sentence and then indents its option table one column
+/// therefore hands the scanner a sentence where a heading belongs, and
+/// every flag in the block inherits it as [`mandible_core::Flag::group`] —
+/// which the flags pane renders, uppercased, as a section header:
+///
+/// ```text
+/// When a filename is '-', nano reads data from standard input.
+///
+///  Option         Long option             Meaning
+///  -A             --smarthome             Enable smart home key
+/// ```
+///
+/// Measured over the 2,301 frozen captures in `audit/queue-captures/`:
+/// **205 tools**, 211 distinct (tool, line) pairs. It is overwhelmingly
+/// the GNU convention — 56 tools inherit "Mandatory arguments to long
+/// options are mandatory for short options too.", 13 inherit "With no
+/// FILE, or when FILE is -, read standard input." — so it is a layout
+/// fact about a whole family of `--help` writers, not a quirk of any one
+/// tool.
+///
+/// # The rule, and what each clause keeps out
+///
+/// - **No column gap** ([`find_multi_space_gap`], deliberately *not*
+///   [`find_description_gap`], whose sentence-start and `=`-separator
+///   fallbacks would fire on the very prose this is trying to recognize).
+///   A two-column line is a table row, not a sentence: it is what keeps
+///   `arptables`' `[!] --version\t-V\t\tprint package version.` and
+///   `fail2ban-client`'s `set logtarget <TARGET>   sets logging target to
+///   <TARGET>.` — both period-terminated, neither prose — out.
+/// - **Terminated by a full stop.** Headings are labels; they do not end
+///   in a sentence terminator. This is what leaves every colon-terminated
+///   heading alone, including the genuinely prose-shaped ones a stricter
+///   wording test would have destroyed: `gcc`/`lto-dump` writes "The
+///   following options are specific to just the language C:" and
+///   `objdump` "At least one of the following switches must be given:",
+///   and both are real headings over real blocks.
+/// - **At least [`MIN_PROSE_SENTENCE_WORDS`] words**, so a short
+///   period-carrying label can never qualify.
+///
+/// # What this does *not* touch
+///
+/// Only the `group` field. This predicate is consulted at the three sites
+/// that copy a heading into a `group` and nowhere else — never by
+/// [`is_recognized_command_heading`], never by `command_mode`, never by
+/// anything that sets `CommandNode::heading_attested`. Spec §6's
+/// attestation gate reads `heading_attested`, so the set of nodes eligible
+/// to become `<word> --help` probe argv is bit-for-bit identical before
+/// and after this change; `mandible-extract/tests/exec_policy.rs`'s
+/// `prose_heading_suppression_does_not_widen_probe_eligibility` pins that.
+fn is_prose_sentence(heading: &str) -> bool {
+    let trimmed = heading.trim_end();
+    if !trimmed.ends_with('.') {
+        return false;
+    }
+    if trimmed.split_whitespace().count() < MIN_PROSE_SENTENCE_WORDS {
+        return false;
+    }
+    find_multi_space_gap(heading).is_none()
+}
+
+/// True when `heading` is the first half of a backslash-continued logical
+/// line, and so cannot be a heading of anything: the tool has said, with
+/// the shell's own continuation marker, that the line is not finished.
+///
+/// # The defect
+///
+/// The same indentation-alone promotion [`is_prose_sentence`] documents,
+/// reached from the other direction. `update-xmlcatalog --help` writes its
+/// synopsis as backslash-continued pairs:
+///
+/// ```text
+///     update-xmlcatalog <options> --del --root --type <type> \
+///                                                 --id <id>
+/// ```
+///
+/// The second line is indented far past the first, so the first is read as
+/// a heading and the second as its block — and the TUI renders
+/// `UPDATE-XMLCATALOG <OPTIONS> --DEL --ROOT --TYPE <TYPE> \` as a section
+/// header. Measured over the frozen captures: **7 tools**, 16 distinct
+/// lines (`update-xmlcatalog`, `wpa_cli`, `zic`, and the four `bpfcc`
+/// tracers, whose `EXAMPLES` sections wrap the same way).
+///
+/// Like [`is_prose_sentence`], this only suppresses the `group`; see that
+/// function's "What this does not touch".
+fn is_line_continuation_fragment(heading: &str) -> bool {
+    heading.trim_end().ends_with('\\')
+}
+
+/// True when `heading` may be copied into a recovered entry's `group`.
+///
+/// The one predicate the three group-assigning sites share, so "what
+/// counts as a heading for display purposes" is written down once instead
+/// of three times. Both clauses are *subtractive*: a line either reads as
+/// something that is positively not a heading, or it is left exactly as it
+/// was before.
+fn heading_can_name_a_group(heading: &str) -> bool {
+    !is_prose_sentence(heading) && !is_line_continuation_fragment(heading)
+}
+
 /// Longest label this will accept before a `:` still counts as a section
 /// heading. Real headings are a few words (`command specific modifiers:`,
 /// `Available Commands:`); a long colon-terminated line is prose.
@@ -1645,7 +1932,7 @@ fn process_word_grid(
             clean += 1;
             if treat_as_commands {
                 out.try_push_subcommand(CommandNode {
-                    group: Some(heading.to_string()),
+                    group: heading_can_name_a_group(heading).then(|| heading.to_string()),
                     // `treat_as_commands` is only ever `true` when the
                     // grid's heading was `recognized` or the parser was
                     // already in `command_mode` (see the caller) — i.e.
@@ -1688,7 +1975,7 @@ fn meaningful_flag_group(heading: String) -> Option<String> {
         "global flags",
     ];
     let normalized = heading.trim().trim_end_matches(':').to_lowercase();
-    if GENERIC.contains(&normalized.as_str()) {
+    if GENERIC.contains(&normalized.as_str()) || !heading_can_name_a_group(&heading) {
         None
     } else {
         Some(heading)
@@ -1771,7 +2058,7 @@ fn emit_subcommands(
         clean += 1;
         let mut node = CommandNode::new(name, Provenance::single(Source::HelpText));
         node.summary = non_empty_text(&desc_text);
-        node.group = Some(heading.to_string());
+        node.group = heading_can_name_a_group(heading).then(|| heading.to_string());
         node.children_filled = false;
         // Every call site of `emit_subcommands` is already gated on
         // positive evidence of a real command list — a recognized heading,
@@ -8445,5 +8732,250 @@ Options:
         // `=` not followed by whitespace is not the separator shape.
         assert_eq!(strip_equals_separator("=bar"), "=bar");
         assert_eq!(strip_equals_separator("="), "=");
+    }
+
+    // --- over-eager headings: prose, wrapped synopsis, shared rows -------
+
+    /// `nano 7.2`'s real preamble and the head of its option table,
+    /// byte-exact from `corpus/nano/7.2/help.txt`.
+    const NANO_PREAMBLE: &str = concat!(
+        "Usage: nano [OPTIONS] [[+LINE[,COLUMN]] FILE]...\n",
+        "\n",
+        "To place the cursor on a specific line of a file, put the line number with\n",
+        "a '+' before the filename.  The column number can be added after a comma.\n",
+        "When a filename is '-', nano reads data from standard input.\n",
+        "\n",
+        " Option         Long option             Meaning\n",
+        " -A             --smarthome             Enable smart home key\n",
+        " -B             --backup                Save backups of existing files\n",
+    );
+
+    #[test]
+    fn a_prose_sentence_above_an_option_table_names_no_group() {
+        let parsed = parse_named(NANO_PREAMBLE, "nano");
+        for long in ["smarthome", "backup"] {
+            let flag = flag_named(&parsed, long);
+            assert_eq!(
+                flag.group, None,
+                "-- {long} inherited nano's preamble sentence as its group"
+            );
+        }
+        // The rows themselves are untouched: this suppresses a field, it
+        // does not decline the block.
+        assert_eq!(
+            flag_named(&parsed, "smarthome")
+                .description
+                .as_ref()
+                .map(|t| t.as_str()),
+            Some("Enable smart home key")
+        );
+    }
+
+    /// The GNU convention, and the largest single share of the family:
+    /// 56 of the 205 affected tools in `audit/queue-captures/` inherit
+    /// exactly this sentence.
+    #[test]
+    fn the_gnu_mandatory_arguments_sentence_names_no_group() {
+        let raw = concat!(
+            "Usage: head [OPTION]... [FILE]...\n",
+            "Print the first 10 lines of each FILE to standard output.\n",
+            "\n",
+            "Mandatory arguments to long options are mandatory for short options too.\n",
+            "  -c, --bytes=[-]NUM       print the first NUM bytes of each file\n",
+            "  -n, --lines=[-]NUM       print the first NUM lines instead of the first 10\n",
+        );
+        let parsed = parse_named(raw, "head");
+        assert_eq!(flag_named(&parsed, "bytes").group, None);
+        assert_eq!(flag_named(&parsed, "lines").group, None);
+    }
+
+    /// The inverse direction, and the reason the prose test is anchored on
+    /// the *full stop* rather than on wording: `gcc`/`lto-dump` writes
+    /// section headings that are complete English sentences, and they are
+    /// real headings over real blocks. A wording- or length-based test
+    /// would have destroyed every one of them.
+    #[test]
+    fn a_prose_shaped_but_colon_terminated_heading_still_names_a_group() {
+        let raw = concat!(
+            "Usage: lto-dump [OPTION]... FILE\n",
+            "\n",
+            "The following options are specific to just the language C:\n",
+            "  --std=c99                 conform to the C99 standard\n",
+            "\n",
+            "At least one of the following switches must be given:\n",
+            "  --list                    list the objects\n",
+        );
+        let parsed = parse_named(raw, "lto-dump");
+        assert_eq!(
+            flag_named(&parsed, "std").group.as_deref(),
+            Some("The following options are specific to just the language C:")
+        );
+        assert_eq!(
+            flag_named(&parsed, "list").group.as_deref(),
+            Some("At least one of the following switches must be given:")
+        );
+    }
+
+    /// A period-terminated *row* is a table row, not a sentence — the
+    /// column gap is what tells them apart. `arptables` writes both
+    /// shapes in the same document.
+    #[test]
+    fn a_period_terminated_two_column_row_is_not_read_as_prose() {
+        assert!(!is_prose_sentence(
+            "[!] --version   -V      print package version."
+        ));
+        assert!(is_prose_sentence(
+            "Either long or short options are allowed."
+        ));
+        // Too short to be a sentence.
+        assert!(!is_prose_sentence("Main modes."));
+        // Headings are labels; they do not end in a full stop.
+        assert!(!is_prose_sentence("Available Commands:"));
+    }
+
+    /// `update-xmlcatalog --help`, byte-exact through its second
+    /// invocation form. Two defects in one document: the wrapped tail
+    /// begins with `--id`, which ended the usage block and lost `--del`
+    /// with it, and the backslash-terminated line above it was then read
+    /// as a section heading.
+    const UPDATE_XMLCATALOG_USAGE: &str = concat!(
+        "Usage:\n",
+        "    update-xmlcatalog <options> --add --root --type <type> \\\n",
+        "                                                --id <id> --package <package>\n",
+        "    update-xmlcatalog <options> --del --root --type <type> \\\n",
+        "                                                --id <id>\n",
+    );
+
+    #[test]
+    fn a_backslash_wrapped_synopsis_keeps_the_flags_on_its_wrapped_tail() {
+        let parsed = parse_named(UPDATE_XMLCATALOG_USAGE, "update-xmlcatalog");
+        let spellings: Vec<String> = parsed.flags.iter().map(|f| f.spelling()).collect();
+        assert!(
+            spellings.iter().any(|s| s == "--del"),
+            "--del is documented only on a backslash-continued usage line; \
+             got {spellings:?}"
+        );
+        assert_eq!(
+            parsed.usage,
+            vec![
+                "Usage:".to_string(),
+                "update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>"
+                    .to_string(),
+                "update-xmlcatalog <options> --del --root --type <type> --id <id>".to_string(),
+            ],
+            "each wrapped form is one usage entry, with the continuation \
+             marker consumed by the join it performed"
+        );
+    }
+
+    #[test]
+    fn a_backslash_continued_line_names_no_group() {
+        // The same shape reached from the section scanner rather than the
+        // usage block: a `bpfcc` tracer's EXAMPLES section.
+        let raw = concat!(
+            "USAGE message:\n",
+            "\n",
+            "argdist -p 2780 -z 120 \\\n",
+            "        -C 'p:c:write(int fd):int:fd'\n",
+        );
+        let parsed = parse_named(raw, "argdist");
+        for flag in &parsed.flags {
+            assert_eq!(
+                flag.group,
+                None,
+                "{} inherited a half-line as its group",
+                flag.spelling()
+            );
+        }
+        assert!(!is_line_continuation_fragment("Available Commands:"));
+        assert!(is_line_continuation_fragment("argdist -p 2780 -z 120 \\"));
+    }
+
+    /// `uconv --help`, byte-exact: the heading and the first option row
+    /// share one physical line, and before the split `-h, --help` was in
+    /// the tree under no spelling at all.
+    const UCONV_OPTIONS: &str = concat!(
+        "Options:  -h, --help                    print this message\n",
+        "          -V, --version                 print the program version\n",
+        "          -s, --silent                  suppress messages\n",
+    );
+
+    #[test]
+    fn a_heading_sharing_its_line_with_the_first_row_keeps_that_row() {
+        let parsed = parse_named(UCONV_OPTIONS, "uconv");
+        let help = flag_named(&parsed, "help");
+        assert_eq!(help.short, Some('h'));
+        assert_eq!(
+            help.description.as_ref().map(|t| t.as_str()),
+            Some("print this message")
+        );
+        // `Options:` is one of `meaningful_flag_group`'s generic labels,
+        // so the recovered heading names no group — and neither does the
+        // whole line any more.
+        for flag in &parsed.flags {
+            assert_eq!(flag.group, None, "{} kept a group", flag.spelling());
+        }
+    }
+
+    #[test]
+    fn a_heading_line_whose_remainder_is_not_a_flag_is_never_split() {
+        // `ntfs-3g`'s real line: label, column gap, and then a *value*
+        // list. Splitting it would hand the block a row that is not a row.
+        assert_eq!(
+            split_shared_heading_row("Options:  ro (read-only mount), windows_names, uid=, gid=,"),
+            None
+        );
+        // `awk`'s second heading column, likewise not a row.
+        assert_eq!(
+            split_shared_heading_row("POSIX options:\t\tGNU long options: (standard)"),
+            None
+        );
+        // The shape this does claim.
+        assert_eq!(
+            split_shared_heading_row("Options:  -h, --help    print this message"),
+            Some((
+                "Options:".to_string(),
+                "          -h, --help    print this message".to_string()
+            ))
+        );
+    }
+
+    /// Spec §6's attestation gate reads `CommandNode::heading_attested`,
+    /// which is what decides whether a recovered word may become
+    /// `<word> --help` probe argv. Group suppression must not touch it in
+    /// either direction, and above all must never make a word probe-
+    /// eligible that was not.
+    ///
+    /// The pair below is the proof: the same block under a real command
+    /// heading and under a prose sentence. The real heading attests its
+    /// entries; the prose sentence recovers no commands at all, before
+    /// this change or after it. Nothing this change does can move a node
+    /// from the second document into the first.
+    #[test]
+    fn group_suppression_does_not_widen_probe_eligibility() {
+        const BLOCK: &str = concat!(
+            "  clone     Clone a repository\n",
+            "  init      Create one\n",
+        );
+        let attested = parse_named(&format!("Commands:\n{BLOCK}"), "prog");
+        assert_eq!(attested.subcommands.len(), 2);
+        assert!(
+            attested.subcommands.iter().all(|c| c.heading_attested),
+            "a recognized command heading still attests its entries"
+        );
+
+        let prose = parse_named(
+            &format!("Copy standard input to each FILE, and also to standard output.\n{BLOCK}"),
+            "prog",
+        );
+        assert!(
+            prose.subcommands.is_empty(),
+            "a prose sentence attests nothing: {:?}",
+            prose
+                .subcommands
+                .iter()
+                .map(|c| c.name.clone())
+                .collect::<Vec<_>>()
+        );
     }
 }
