@@ -17,15 +17,20 @@ exit_code = 255
 
 [contract]
 expected_framework = "generic"
-# Verified: the "= description" style (`--root  = the root XML catalog`)
-# leaks the leading "=" into every "With:" flag's description, and the
-# repeated `--add`/`--del` usage-synopsis lines get misread as flag
-# definitions, producing 6 duplicate/garbage `--id` entries. Most directly
-# testable without asserting on description *text* (no [contract] field
-# checks that): `--del` never becomes a real flag at all — only `--add`
-# survives, and only via the synopsis fallback.
+# Verified after the `=`-as-description-separator fix: the "= description"
+# style (`--root  = the root XML catalog`) no longer leaks its leading "="
+# into any "With:" flag's description (`--file`, `--id`, `--root`, `--type`,
+# `--verbose`, `--sort` all recover clean prose now, "the root XML catalog
+# (= /etc/xml/catalog)" included, second `=` intact). What remains broken is
+# unrelated: the repeated `--add`/`--del` usage-synopsis lines still get
+# misread as flag-table SECTION HEADERS (the uconv/nano section-header
+# family), producing 6 duplicate/garbage `--id` entries grouped under
+# fabricated headings like `update-xmlcatalog <options> --del --root ...`.
+# `--del` never becomes a real flag at all — only `--add` survives, and only
+# via the synopsis fallback. Most directly testable without asserting on
+# description *text* (no [contract] field checks that): `--del` is missing.
 must_contain_flags = ["--del"]
 
 [xfail]
 broken = true
-reason = "mostly looks fine, but not sure how to make sanitization on this one. Because this tool uses '=' to start the description of flag, which propogates to the tool"
+reason = "the `=`-as-description-separator bug is fixed (With: block descriptions are now clean); what remains is the unrelated uconv/nano section-header family: update-xmlcatalog's usage lines (`UPDATE-XMLCATALOG <OPTIONS> --DEL --ROOT ...`) are misread as flag-table section headers, so --del is absorbed into a group heading and never becomes its own flag"

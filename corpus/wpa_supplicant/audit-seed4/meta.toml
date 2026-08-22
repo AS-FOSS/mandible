@@ -1,0 +1,34 @@
+# Fixture for the `=`-as-description-separator fix
+# (mandible-extract/src/help_text/sections.rs, `find_equals_separator_gap`
+# / `strip_equals_separator`): wpa_supplicant's `options:` block writes
+# `-b = optional bridge interface name`, one space on each side of a bare
+# `=` and no aligned column gap anywhere on the line. Before the fix that
+# whole row fell into `grammar::parse_flag_spec` and lost its description
+# outright — measured on real `wpa_supplicant --help`: "low confidence: 9%
+# parsed" across its ~28 flags.
+
+# An agent generated this fixture; only a human may change the value
+# below (corpus/README.md's `[bless]` section). No `verdict_scope` is set
+# for the same reason: nobody human has judged this tree.
+[bless]
+provenance = "agent"
+
+[tool]
+name = "wpa_supplicant"
+version = "audit-seed4"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["wpa_supplicant", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# Every one of these used to render with no description at all (the bare
+# `=` separator lost the whole line to the flag-spec grammar). Spot-check
+# both that the flags survive and that their descriptions come back clean,
+# with no leaked `=`.
+must_contain_flags = ["-b", "-B", "-c", "-d", "-h", "-v"]

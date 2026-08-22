@@ -26,6 +26,25 @@ once it reaches a published 0.1.0 release.
   `coverage-scoreboard.ci.txt`, so unescaping is the identity function on
   every scoreboard on disk today.
 
+- **A flag row that separates its spec from its description with a bare `=`
+  token, instead of a column gap, either lost the description entirely or
+  kept a leaked `= ` prefix.** `update-xmlcatalog`'s `With:` block
+  (`--file <file>       = a local filename`) is column-aligned, so the split
+  itself worked, but the description kept its leading `= `; `wpa_supplicant`'s
+  `options:` block (`-b = optional bridge interface name`) has only single
+  spacing, so no 2+-space gap existed anywhere on the line and the whole row
+  fell into `grammar::parse_flag_spec` — the description was lost outright,
+  measured at "low confidence: 9% parsed" across its ~28 flags. Two new
+  functions in `mandible-extract/src/help_text/sections.rs`,
+  `find_equals_separator_gap` (a new fallback in `find_description_gap`,
+  ordered after the existing 2+-space/tab rule so every already-working
+  aligned split is untouched) and `strip_equals_separator` (applied at both
+  places a flag row's description is produced), fix both shapes with one
+  mechanism. Real `=` usage inside specs and descriptions
+  (`--opt=VALUE`, `ffprobe`'s "0 = disable, 1 = enable", `--enable-gvn-hoist`'s
+  "(default = off)", `systemd`'s `--dump-core[=BOOL]`) is left untouched —
+  covered by new regression tests for each measured instance.
+
 ## [0.4.0] - 2026-08-23
 
 **Breaking:** `CommandNode` gained a public `invocation_attested` field.

@@ -3073,7 +3073,8 @@ fn split_aligned_spelling_entry(line: &str) -> (String, String) {
         Some(start) => line.chars().skip(start).collect::<String>(),
         None => String::new(),
     };
-    (spec, description.trim_end().to_string())
+    let description = strip_equals_separator(description.trim_end()).to_string();
+    (spec, description)
 }
 
 /// The original (pre-multi-column) way to split one flags-block entry line:
@@ -3084,6 +3085,11 @@ fn split_aligned_spelling_entry(line: &str) -> (String, String) {
 fn split_single_column_entry(line: &str) -> (String, String) {
     let gap = find_description_gap(line);
     let (spec, desc) = split_at_column(line, gap);
+    // `find_equals_separator_gap`/`find_multi_space_gap` may have cut at or
+    // before a lone `=` separator token, leaving it attached to the front
+    // of `desc` (`= be verbose`, `= a local filename`) — see
+    // `strip_equals_separator`.
+    let desc = strip_equals_separator(&desc).to_string();
     // A second column of *option spellings* is not a description (`awk
     // --help` prints POSIX short options beside their GNU long
     // equivalents) — see `is_synonym_not_description`. Blanked rather than
@@ -3734,6 +3740,14 @@ fn find_description_gap(line: &str) -> Option<usize> {
         return Some(col);
     }
     // Only ever consulted when the rule above found nothing anywhere in
+    // the line: a lone `=` token standing in for a column gap
+    // (`update-xmlcatalog`'s `--verbose = be verbose`, `wpa_supplicant`'s
+    // `-b = optional bridge interface name`) — see
+    // `find_equals_separator_gap`'s own doc comment.
+    if let Some(col) = find_equals_separator_gap(line) {
+        return Some(col);
+    }
+    // Only ever consulted when the rules above found nothing anywhere in
     // the line — see `find_placeholder_boundary_gap`'s own doc comment.
     if let Some(col) = find_placeholder_boundary_gap(line) {
         return Some(col);
@@ -3985,6 +3999,112 @@ fn find_multi_space_gap(line: &str) -> Option<usize> {
 /// placeholder, never a single space, so it fails the "immediately
 /// followed by exactly one space" test and scanning continues to the
 /// placeholder's real closing `>`.
+/// Fallback for a flag row with no aligned column at all, that separates
+/// spec from description with a lone `=` token instead of whitespace or a
+/// dash: `update-xmlcatalog`'s `--verbose = be verbose` and
+/// `wpa_supplicant`'s `-b = optional bridge interface name` (spec §6, the
+/// `=`-as-separator family). Before this fallback neither line has a 2+
+/// space gap anywhere, so the whole row fell into
+/// `grammar::parse_flag_spec` and the description was lost outright —
+/// measured on `wpa_supplicant`, whose ~28 flags dropped to 9% parsed.
+///
+/// **Only ever consulted when [`find_multi_space_gap`] found no gap
+/// anywhere in the line**, so an aligned row like `--file <file>       =
+/// a local filename` keeps taking that path unchanged; this function never
+/// even runs for it. That row's leftover `= ` prefix on the description is
+/// [`strip_equals_separator`]'s job, not this one's.
+///
+/// Restricted to flag rows (`line.trim_start()` starts with `-`) — a
+/// bare-word block using the same `name = description` shape
+/// (`wpa_supplicant`'s `drivers:` block, `nl80211 = Linux
+/// nl80211/cfg80211`) has no `-` anchor to key off of and is deliberately
+/// left alone: that block never reaches [`find_description_gap`] through
+/// this path anyway ([`scan_bare_block`] uses a different splitter), but
+/// the guard also protects the (untested) day this function gets reused
+/// from a different call site.
+///
+/// Scans tokens left to right. Every token before the `=` must satisfy
+/// [`is_value_spec_token`] — the same predicate [`find_sentence_start_gap`]
+/// uses to tell a still-open spec from prose — so `--file <file> = ...`
+/// qualifies (`<file>` is a placeholder) but `--foo Set X = Y` does not:
+/// `Set` is a bare lowercase-free word that stops the scan, and the
+/// function returns `None` rather than treating `Set`'s `=` as the
+/// separator. The candidate token itself must be **exactly** `=` — never
+/// `=x`, `x=`, or `x=y` — which the whitespace tokenizer guarantees is
+/// already surrounded by whitespace on both sides. Real in-spec and
+/// in-description `=` usage (`--opt=VALUE`, `ffplay`'s "0 = disable, 1 =
+/// enable", `bugpoint-18`'s "(default = off)") never reaches this function
+/// bare: either `find_multi_space_gap` already cut the line, or the `=`
+/// sits inside a token rather than standing alone as one.
+///
+/// Requires at least one non-whitespace character after the `=` — an
+/// empty tail (`--flag =`) returns `None`, leaving today's behaviour (no
+/// description) unchanged.
+///
+/// Returns the byte offset of the `=` character itself, so
+/// [`split_at_column`] yields `spec = "--verbose"` and
+/// `desc = "= be verbose"` — the leading `= ` is stripped afterward by
+/// [`strip_equals_separator`], the same function symptom 2 uses.
+fn find_equals_separator_gap(line: &str) -> Option<usize> {
+    if !line.trim_start().starts_with('-') {
+        return None;
+    }
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b' ' || bytes[i] == b'\t' {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && bytes[i] != b' ' && bytes[i] != b'\t' {
+            i += 1;
+        }
+        // `start` and `i` only ever land on ASCII space/tab boundaries or
+        // the ends of the string, so neither can fall inside a multi-byte
+        // character — `get` rather than `[..]` regardless (AGENTS.md §2).
+        let token = line.get(start..i)?;
+        if token == "=" {
+            let tail_has_content = line.get(i..).is_some_and(|rest| !rest.trim().is_empty());
+            return if tail_has_content { Some(start) } else { None };
+        }
+        if !is_value_spec_token(token) {
+            return None;
+        }
+    }
+    None
+}
+
+/// Strip a flag row description's leading `= ` separator token: if `desc`
+/// starts with `=` immediately followed by ASCII whitespace, drop the `=`
+/// and that whitespace; otherwise return it unchanged.
+///
+/// Two call sites need this, both symptoms of the same `=`-as-separator
+/// layout: [`find_equals_separator_gap`] deliberately returns the `=`
+/// character's own offset (so [`split_at_column`] keeps the separator
+/// attached to whichever side already worked), and a row whose column
+/// *is* aligned (`--file <file>       = a local filename`) already splits
+/// correctly at the space run **before** the `=` — [`find_multi_space_gap`]
+/// gets there first — leaving the same leading `= ` on the description.
+/// One strip serves both paths.
+///
+/// Only the separator token is removed. A second `=` inside the
+/// description proper is text, not punctuation, and is left alone:
+/// `--root              = the root XML catalog (= /etc/xml/catalog)`
+/// strips to `the root XML catalog (= /etc/xml/catalog)`, keeping the
+/// parenthetical's own `=`.
+///
+/// Apply this only where a flag row's description is produced — never to
+/// a bare-word block's entries, where `name = description` names the
+/// value itself (`wpa_supplicant`'s `drivers:` block) and stripping would
+/// fabricate a different name.
+fn strip_equals_separator(desc: &str) -> &str {
+    match desc.strip_prefix('=') {
+        Some(rest) if rest.starts_with(|c: char| c.is_ascii_whitespace()) => rest.trim_start(),
+        _ => desc,
+    }
+}
+
 fn find_placeholder_boundary_gap(line: &str) -> Option<usize> {
     let bytes = line.as_bytes();
     for (i, &b) in bytes.iter().enumerate() {
@@ -8046,5 +8166,284 @@ Options:
                 .any(|f| f.long.as_deref() == Some("beta")),
             "one row is not evidence of a column"
         );
+    }
+
+    /// Symptom 1 (`update-xmlcatalog`, `wpa_supplicant`): a bare `= `
+    /// separator with only one space on each side has no 2+-space gap
+    /// anywhere on the line, so before `find_equals_separator_gap` the
+    /// whole row fell into `grammar::parse_flag_spec` and the description
+    /// was lost outright. Measured on `wpa_supplicant --help`: "low
+    /// confidence: 9% parsed" across its ~28 flags.
+    #[test]
+    fn a_lone_equals_token_with_single_spacing_recovers_the_description() {
+        let help = "Options:\n    \
+                    --verbose = be verbose\n    \
+                    --sort = sorts the manipulated catalog content\n";
+        let parsed = parse(help);
+        assert_eq!(
+            flag_named(&parsed, "verbose")
+                .description
+                .as_ref()
+                .map(|d| d.as_str()),
+            Some("be verbose")
+        );
+        assert_eq!(
+            flag_named(&parsed, "sort")
+                .description
+                .as_ref()
+                .map(|d| d.as_str()),
+            Some("sorts the manipulated catalog content")
+        );
+        for flag in &parsed.flags {
+            let desc = flag.description.as_ref().map(|d| d.as_str()).unwrap_or("");
+            assert!(!desc.starts_with('='), "separator leaked into: {desc:?}");
+        }
+    }
+
+    /// Same shape, short-flag form (`wpa_supplicant`'s `options:` block):
+    /// `-b = optional bridge interface name`.
+    #[test]
+    fn a_lone_equals_token_recovers_a_short_flags_description() {
+        let help = "options:\n  \
+                    -b = optional bridge interface name\n  \
+                    -B = run daemon in the background\n";
+        let parsed = parse(help);
+        let b = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('b'))
+            .expect("-b must be recovered");
+        assert_eq!(
+            b.description.as_ref().map(|d| d.as_str()),
+            Some("optional bridge interface name")
+        );
+    }
+
+    /// Symptom 2 (`update-xmlcatalog`'s `With:` block): the column *is*
+    /// aligned, so `find_multi_space_gap` already cuts correctly, but the
+    /// description keeps its leading `= ` (`= a local filename`). This is
+    /// `strip_equals_separator`'s job, applied after the split rather than
+    /// changing where the split happens.
+    #[test]
+    fn an_aligned_column_still_strips_its_leading_equals_separator() {
+        let help = "With:\n    \
+                    --file <file>       = a local filename\n    \
+                    --id <id>           = catalog entry idenitifier\n";
+        let parsed = parse(help);
+        let file = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("file"))
+            .expect("--file must be recovered");
+        assert_eq!(
+            file.description.as_ref().map(|d| d.as_str()),
+            Some("a local filename")
+        );
+    }
+
+    /// Only the *separator* `=` is stripped; a second `=` inside the
+    /// description proper is text and must survive verbatim.
+    /// `update-xmlcatalog`: `--root ... = the root XML catalog (=
+    /// /etc/xml/catalog)`.
+    #[test]
+    fn a_second_equals_inside_the_description_is_left_alone() {
+        let help = "With:\n    \
+                    --root              = the root XML catalog (= /etc/xml/catalog)\n";
+        let parsed = parse(help);
+        let root = flag_named(&parsed, "root");
+        assert_eq!(
+            root.description.as_ref().map(|d| d.as_str()),
+            Some("the root XML catalog (= /etc/xml/catalog)")
+        );
+    }
+
+    /// `--flag =` with nothing after the separator keeps today's behaviour
+    /// (no description invented from an empty tail).
+    #[test]
+    fn an_equals_separator_with_an_empty_tail_invents_no_description() {
+        let help = "Options:\n  --flag =\n";
+        let parsed = parse(help);
+        let flag = flag_named(&parsed, "flag");
+        assert_eq!(flag.description, None);
+    }
+
+    /// Inverse case: `=` deep inside a description, not a separator at
+    /// all. `ffprobe --help`/`ffplay --help`:
+    /// `-http_seekable <boolean> .D... Use HTTP partial requests, 0 =
+    /// disable, 1 = enable, -1 = auto (default auto)`. A real aligned
+    /// column gap exists before any `=`, so `find_multi_space_gap` must
+    /// keep winning and `find_equals_separator_gap` must never run.
+    #[test]
+    fn equals_signs_inside_a_sentence_are_not_mistaken_for_a_separator() {
+        // `http_seekable`'s underscore keeps `repair_single_dash_long_options`
+        // from ever claiming it (condition 3 rejects `_` in the swallowed
+        // tail — see that function's own doc comment), so this stays a
+        // short `-h` carrying everything after it as one description. That
+        // is unrelated to and unchanged by this fix; what matters here is
+        // that the `=` signs inside the sentence survive untouched.
+        let help = "Options:\n  \
+                    -http_seekable     <boolean>    .D......... Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)\n";
+        let parsed = parse(help);
+        let flag = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('h'))
+            .expect("-http_seekable must be recovered as a short flag");
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("<boolean> .D......... Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)")
+        );
+    }
+
+    /// Inverse case: `llc-18`/`opt-18`/`bugpoint-18`'s
+    /// `--enable-gvn-hoist ... - Enable the GVN hoisting pass (default =
+    /// off)`. A huge aligned gap, then a ` - ` dash separator; the `=`
+    /// inside `(default = off)` is deep in the description and must not
+    /// move the cut.
+    #[test]
+    fn equals_signs_after_a_dash_separator_are_left_in_the_description() {
+        let help = "Options:\n  \
+                    --enable-gvn-hoist                                                    - Enable the GVN hoisting pass (default = off)\n";
+        let parsed = parse(help);
+        let flag = flag_named(&parsed, "enable-gvn-hoist");
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("- Enable the GVN hoisting pass (default = off)")
+        );
+    }
+
+    /// Inverse case: `ntfswipe --help`'s
+    /// `-c num   --count num   Number of times to write(default = 1)` —
+    /// an aligned multi-column row (two spellings, then description) whose
+    /// description itself contains `=`.
+    #[test]
+    fn equals_signs_in_a_two_column_rows_description_are_untouched() {
+        let help = "Options:\n    \
+                    -c num   --count num   Number of times to write(default = 1)\n    \
+                    -b list  --bytes list  List of values to write(default = 0)\n";
+        let parsed = parse(help);
+        let flag = flag_named(&parsed, "count");
+        let desc = flag.description.as_ref().map(|d| d.as_str()).unwrap_or("");
+        assert!(
+            desc.contains("(default = 1)"),
+            "description lost its own `=`: {desc:?}"
+        );
+    }
+
+    /// Inverse case: `lvmpolld --help`'s
+    /// `-t|--timeout     Time to wait in seconds before shutdown on idle
+    /// (missing or 0 = inifinite)`.
+    #[test]
+    fn equals_signs_in_a_piped_alias_rows_description_are_untouched() {
+        let help = "Options:\n   \
+                    -t|--timeout     Time to wait in seconds before shutdown on idle (missing or 0 = inifinite)\n";
+        let parsed = parse(help);
+        let desc = parsed
+            .flags
+            .iter()
+            .find_map(|f| f.description.as_ref().map(|d| d.as_str()))
+            .unwrap_or("");
+        assert!(
+            desc.contains("(missing or 0 = inifinite)"),
+            "description lost its own `=`: {desc:?}"
+        );
+    }
+
+    /// Inverse case: `systemd --help`'s `--dump-core[=BOOL]          Dump
+    /// core on crash` — the `=` is inside the spec's own bracket notation,
+    /// never a standalone token, and a real aligned gap follows it anyway.
+    #[test]
+    fn a_bracketed_equals_inside_the_spec_is_not_a_separator() {
+        let help = "Options:\n     \
+                    --dump-core[=BOOL]          Dump core on crash\n";
+        let parsed = parse(help);
+        let flag = flag_named(&parsed, "dump-core");
+        assert_eq!(flag.value_kind, ValueKind::Optional);
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("Dump core on crash")
+        );
+    }
+
+    /// `man --help`'s deeply-indented continuation line
+    /// (`corpus`/queue-capture `man/0.stdout`):
+    ///
+    /// ```text
+    ///   -X, --gxditview[=RESOLUTION]   use groff and display through gxditview
+    ///                              (X11):
+    ///                              -X = -TX75, -X100 = -TX100, -X100-12 = -TX100-12
+    ///   -Z, --ditroff              use groff and force it to produce ditroff
+    /// ```
+    ///
+    /// The `-X = -TX75, ...` line starts with `-` and would qualify for
+    /// `find_equals_separator_gap` in isolation, but `scan_flags_block`
+    /// never offers it that function: its indent (29) is far past
+    /// `-X, --gxditview`'s own entry indent (2) plus
+    /// `ENTRY_INDENT_TOLERANCE`, so it is read as a **continuation** line
+    /// and appended verbatim to `--gxditview`'s description
+    /// (`entries.last_mut()` in `scan_flags_block`) — it never reaches
+    /// `split_single_column_entry` or `find_description_gap` at all.
+    /// Confirmed unchanged by this fix: the continuation text, `=` signs
+    /// included, survives byte-for-byte in the recovered description both
+    /// before and after.
+    #[test]
+    fn mans_deeply_indented_continuation_line_is_unaffected() {
+        let help = "Options:\n  \
+                    -X, --gxditview[=RESOLUTION]   use groff and display through gxditview\n                             \
+                    (X11):\n                             \
+                    -X = -TX75, -X100 = -TX100, -X100-12 = -TX100-12\n  \
+                    -Z, --ditroff              use groff and force it to produce ditroff\n";
+        let parsed = parse(help);
+        let gxditview = flag_named(&parsed, "gxditview");
+        assert_eq!(
+            gxditview.description.as_ref().map(|d| d.as_str()),
+            Some(
+                "use groff and display through gxditview (X11): -X = -TX75, -X100 = -TX100, -X100-12 = -TX100-12"
+            ),
+            "the continuation text (and its own `=` signs) must survive verbatim"
+        );
+    }
+
+    #[test]
+    fn find_equals_separator_gap_unit_cases() {
+        assert_eq!(
+            find_equals_separator_gap("  --verbose = be verbose"),
+            Some("  --verbose ".len())
+        );
+        assert_eq!(
+            find_equals_separator_gap("  -b = optional bridge interface name"),
+            Some("  -b ".len())
+        );
+        // No content after the separator: unchanged behaviour.
+        assert_eq!(find_equals_separator_gap("  --flag ="), None);
+        // A token other than a bare spec/value-spec before the `=` stops
+        // the scan (`mariadb`-style prose before an `=`).
+        assert_eq!(find_equals_separator_gap("  --foo Set X = Y"), None);
+        // Not a flag row at all (no leading `-`): never matched here.
+        assert_eq!(
+            find_equals_separator_gap("nl80211 = Linux nl80211/cfg80211"),
+            None
+        );
+        // `=` glued to another character is not a lone separator token.
+        assert_eq!(find_equals_separator_gap("  --foo =bar"), None);
+        assert_eq!(find_equals_separator_gap("  --foo bar= baz"), None);
+    }
+
+    #[test]
+    fn strip_equals_separator_unit_cases() {
+        assert_eq!(strip_equals_separator("= be verbose"), "be verbose");
+        assert_eq!(strip_equals_separator("=\tbe verbose"), "be verbose");
+        assert_eq!(
+            strip_equals_separator("the root XML catalog (= /etc/xml/catalog)"),
+            "the root XML catalog (= /etc/xml/catalog)"
+        );
+        // No leading `=`: unchanged.
+        assert_eq!(
+            strip_equals_separator("no separator here"),
+            "no separator here"
+        );
+        // `=` not followed by whitespace is not the separator shape.
+        assert_eq!(strip_equals_separator("=bar"), "=bar");
+        assert_eq!(strip_equals_separator("="), "=");
     }
 }
