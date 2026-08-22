@@ -26,6 +26,7 @@ flags:
     sources:
     - help-text
 - short: 'l'
+  long: list
   description: The --list (-l) option prints out the set of deprecated APIs. No scanning is done, so no directory, jar, or class arguments should be provided.
   provenance:
     sources:
@@ -38,6 +39,7 @@ flags:
     sources:
     - help-text
 - short: 'v'
+  long: verbose
   description: The --verbose (-v) option enables additional message output during processing.
   provenance:
     sources:
