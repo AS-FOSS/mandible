@@ -473,7 +473,10 @@ pub fn pair_aliases(flags: Vec<Flag>) -> Vec<Flag> {
             continue;
         }
         for existing in result.iter_mut() {
-            if complementary(existing, &flag) && same_description(existing, &flag) {
+            if complementary(existing, &flag)
+                && same_description(existing, &flag)
+                && same_value_shape(existing, &flag)
+            {
                 absorb_pair(existing, flag);
                 continue 'outer;
             }
@@ -502,6 +505,34 @@ fn complementary(a: &Flag, b: &Flag) -> bool {
     }
     (a.short.is_some() && a.long.is_none() && b.short.is_none() && b.long.is_some())
         || (a.long.is_some() && a.short.is_none() && b.long.is_none() && b.short.is_some())
+}
+
+/// Whether `a` and `b` agree about *taking a value at all* — the second
+/// half of "these two rows are one flag", alongside [`same_description`].
+///
+/// A source that emits one flag as two rows emits the same value spec on
+/// both; two rows that disagree about it are two different options that
+/// happen to share a summary line. `ld` and `gold` are the specimen, and
+/// they are the same failure shape as the `lto-dump` incident
+/// [`complementary`] documents — a description common enough to collide:
+///
+/// ```text
+///   --allow-multiple-definition Allow multiple definitions of symbols
+///   -z muldefs                  Allow multiple definitions of symbols
+/// ```
+///
+/// Two real, separately spelled options with one shared sentence. Pairing
+/// them destroys one of the two and gives the survivor a value
+/// (`--allow-multiple-definition muldefs`) that neither row documents.
+/// Measured on a full `PATH` sweep: 7 tools, 1 flag each, and the only
+/// losses in the sweep that found it.
+///
+/// Deliberately coarse — [`ValueKind`] only, never the placeholder's
+/// spelling. A source may legitimately name the metavar on one row and not
+/// the other (`-R` beside `--repo <string>`), and requiring those to match
+/// would un-pair the aliases this function exists to let through.
+fn same_value_shape(a: &Flag, b: &Flag) -> bool {
+    a.value_kind == b.value_kind
 }
 
 fn same_description(a: &Flag, b: &Flag) -> bool {
@@ -535,6 +566,7 @@ fn absorb_pair(existing: &mut Flag, other: Flag) {
 mod tests {
     use super::*;
     use crate::provenance::Source;
+    use crate::node::ValueKind;
 
     fn node_from(source: Source, name: &str) -> CommandNode {
         CommandNode::new(name, Provenance::single(source))
@@ -704,6 +736,46 @@ mod tests {
         assert_eq!(paired.len(), 1);
         assert_eq!(paired[0].short, Some('R'));
         assert_eq!(paired[0].long.as_deref(), Some("repo"));
+    }
+
+    /// Two rows that disagree about taking a value are two different
+    /// options that happen to share a summary line, not one flag emitted
+    /// twice. `ld`/`gold` write exactly that:
+    ///
+    /// ```text
+    ///   --allow-multiple-definition Allow multiple definitions of symbols
+    ///   -z muldefs                  Allow multiple definitions of symbols
+    /// ```
+    ///
+    /// Paired, one of the two is destroyed and the survivor claims
+    /// `--allow-multiple-definition muldefs`, a value neither row
+    /// documents. Found by `sweep-diff` on a full `PATH` sweep — 7 tools,
+    /// 1 flag each, and the only losses in it.
+    #[test]
+    fn does_not_pair_two_rows_that_disagree_about_taking_a_value() {
+        let long = paired_flag(
+            None,
+            Some("allow-multiple-definition"),
+            "Allow multiple definitions of symbols",
+        );
+        let mut short = paired_flag(Some('z'), None, "Allow multiple definitions of symbols");
+        short.value_name = Some("muldefs".to_string());
+        short.value_kind = ValueKind::Required;
+        let paired = pair_aliases(vec![long, short]);
+        assert_eq!(
+            paired.len(),
+            2,
+            "both options must survive: {:?}",
+            paired.iter().map(|f| f.spelling()).collect::<Vec<_>>()
+        );
+        assert!(
+            paired
+                .iter()
+                .any(|f| f.long.as_deref() == Some("allow-multiple-definition")
+                    && f.short.is_none()
+                    && f.value_kind == ValueKind::None),
+            "the long form takes no value: {paired:?}"
+        );
     }
 
     /// A single-dash long option has no short alias to be paired with —
