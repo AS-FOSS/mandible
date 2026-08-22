@@ -5,204 +5,266 @@ sample_size = 30
 [[entry]]
 tool = "aarch64-linux-gnu-ar"
 stratum = "ok"
+verdict = "incomplete"
+note = "subcommands and flags are fine. but still marking as incomplete because lacks modifiers"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "aarch64-linux-gnu-gcc-ar"
 stratum = "ok"
+verdict = "incomplete"
+note = "similar command as previous"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "applydeltarpm"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "ar"
 stratum = "ok"
+verdict = "incomplete"
+note = "same modifier/arch audit"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "autoupdate"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "btrfs-find-root"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "byobu-config"
 stratum = "verbatim"
+verdict = "correct"
 
 [[entry]]
 tool = "bzcmp"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "bzless"
 stratum = "ok"
+verdict = "wrong"
+note = "failed to parse anything"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "bzmore"
 stratum = "ok"
+verdict = "wrong"
+note = "failed to parse anything"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "c_rehash"
 stratum = "verbatim"
+verdict = "wrong"
+note = "this tool uses -h instead of --help"
 
 [[entry]]
 tool = "dbiprof"
 stratum = "ok"
+verdict = "wrong"
+note = "i thought we have fixed this issue, where a single dash + long flag name is given. parse failed miserably, see why the previous fix not applied to this"
 k1 = true
 
 [[entry]]
 tool = "debconf-escape"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "diffstat"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "ebtables-nft-restore"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "egrep"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "faillock"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "gcc-ar"
 stratum = "ok"
+verdict = "incomplete"
+note = "same modifier incompleteness"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "gcc-ar-13"
 stratum = "ok"
+verdict = "incomplete"
+note = "same modifier incompleteness"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "ip"
 stratum = "ok"
+verdict = "wrong"
+note = "similar issue appeared in the previous audit where single and long flag was presented together, example: -V[ersion]"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "ischroot"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "jsondiff"
 stratum = "ok"
+verdict = "incomplete"
+note = "missing possitionals, simplest example"
 
 [[entry]]
 tool = "linux32"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "lldb-argdumper-18"
 stratum = "verbatim"
+verdict = "correct"
 
 [[entry]]
 tool = "mariadb-fix-extensions"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "mount.ntfs-3g"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "msgexec"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "nice"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "pastebinit"
 stratum = "ok"
+verdict = "wrong"
+note = "bad flag descriptions and false positive flag types"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "pdb3.12"
 stratum = "low-confidence"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "pptpsetup"
 stratum = "ok"
+verdict = "incomplete"
+note = "some of the flags got parsed as description, and not all of the flags are present"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "printenv"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "ptargrep"
 stratum = "ok"
+verdict = "correct"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "rmiregistry"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "rmt-tar"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "rnano"
 stratum = "ok"
+verdict = "wrong"
+note = "three column layout where 1st is short flag, 2nd is long flag, and 3rd is description"
 k1 = true
 
 [[entry]]
 tool = "rubycalls-bpfcc"
 stratum = "verbatim"
+verdict = "skip"
 
 [[entry]]
 tool = "rust-lldb"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "setkeycodes"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "setleds"
 stratum = "ok"
+verdict = "incomplete"
+note = "i think incomplete, the line from usage is not displayed and im not sure how: [[{+|-}num | caps | scroll]] which roughly translates to [{+|-}num] [{+|-}caps] [{+|-}scroll] which in turn means that you can add + or - before those flags. I think bracket resolution might help"
 
 [[entry]]
 tool = "sos-collector"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "ssh-keygen"
 stratum = "ok"
+verdict = "incomplete"
+note = "some of the types after flags got swallowed"
 k1 = true
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
 
 [[entry]]
 tool = "uconv"
 stratum = "ok"
+verdict = "wrong"
+note = "since the flag '-h' was in front of 'Options:' it got swallowed into the section header"
 k1 = true
 
 [[entry]]
 tool = "update-xmlcatalog"
 stratum = "ok"
+verdict = "wrong"
+note = "ok so since the flags '--verbose' and '--sort' got parsed from earlier part of the help, like usage. it got deduplicated and never got parsed from lower 'options' section, thus losing the descriptions ofthem and appearing empty"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
