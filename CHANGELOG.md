@@ -8,6 +8,24 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`xtask sweep-diff`'s `#fp` fingerprint footer silently dropped tools whose
+  `value_name` contained one of the format's own separator characters** —
+  found on `awk`/`gawk`/`nawk`, whose `-L` flag documents `value_name`
+  `"fatal|invalid|no-ext"`. The old `fp_escape` scrubbed only tab and
+  newline, so that flag's rendered `#fp` line carried three unescaped `|`s
+  where the flag-list separator expected exactly one;
+  `parse_fingerprint_line` split on all three, the resulting bogus entries
+  had no `=`, and the entire `#fp awk` line — every flag on it — was
+  discarded. `fp_escape`/`fp_unescape` now backslash-escape and reverse
+  every separator the wire format uses (`\`, tab, newline, `|`, `,`, `=`,
+  `:`), so the escaped text is guaranteed free of raw separators and the
+  round trip is lossless. Backward compatible, measured: 0 backslashes
+  across 2,308 `#fp` lines in a full-`PATH` sweep capture and 0 in
+  `coverage-scoreboard.ci.txt`, so unescaping is the identity function on
+  every scoreboard on disk today.
+
 ## [0.4.0] - 2026-08-23
 
 **Breaking:** `CommandNode` gained a public `invocation_attested` field.

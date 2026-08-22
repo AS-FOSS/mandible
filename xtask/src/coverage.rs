@@ -362,22 +362,76 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
     fp
 }
 
-/// Escape the one character ([`FP_FIELD_SEP`]) that would otherwise be
-/// ambiguous with the `#fp` line's own field separator — flag identities and
-/// subcommand paths never contain it by construction ([`flag_identity`]
-/// only ever emits `-`, `,`, `.`, `:`, `(`, `)` and the tool's own ASCII-
-/// overwhelming spellings), but `value_name` is free-form text lifted
-/// verbatim from a tool's own `--help` output and cannot be assumed clean.
+/// Backslash-escape every character the `#fp` wire format uses as
+/// structure, so the escaped output is guaranteed to contain **no raw
+/// separator character at all** — the read side ([`crate::transition`]'s
+/// `fp_unescape`) can then keep its existing plain `split`/`splitn` calls
+/// unchanged and only needs an unescape pass per field.
+///
+/// **Why every separator, not just [`FP_FIELD_SEP`].** An earlier version of
+/// this function only replaced the top-level field separator (tab) and
+/// newline with a space, on the theory that `flag_identity` only ever emits
+/// `-`, `,`, `.`, `:`, `(`, `)` and the tool's own spelling, and `value_name`
+/// — while free-form text lifted verbatim from a tool's own `--help` output
+/// — was assumed not to collide with the *other* separators this format
+/// uses ([`FP_FLAG_SEP`], [`FP_SUBCOMMAND_SEP`], [`FP_ID_SEP`],
+/// [`FP_ENTRY_SEP`]). That assumption is false, measurably: `awk`'s `-L`
+/// flag has `value_name` `"fatal|invalid|no-ext"` — real text from `awk
+/// --help`, not something this codebase invents. `fingerprint_lines`'s
+/// flag-list separator is also `|`, so the old `fp_escape` rendered a `#fp`
+/// line with three unescaped pipes where one flag-list separator was
+/// intended; `transition::parse_fingerprint_line` splits on every `|` it
+/// finds, so `"invalid"` and `"no-ext"` became bogus flag entries with no
+/// `=`, `split_once('=')` returned `None`, and the `?` on that line
+/// discarded the *entire* `#fp awk` line — every flag on it, not just `-L`.
+/// `awk`, `gawk` and `nawk` silently dropped out of every field-level
+/// `sweep-diff` comparison until this was found (PR #22, diffed by hand).
+///
+/// Escapes, per character: `\` -> `\\`, tab -> `\t`, newline -> `\n`,
+/// [`FP_FLAG_SEP`] (`|`) -> `\p`, [`FP_SUBCOMMAND_SEP`] (`,`) -> `\c`,
+/// [`FP_ID_SEP`] (`=`) -> `\e`, [`FP_ENTRY_SEP`] (`:`) -> `\s`. Everything
+/// else passes through unchanged.
 fn fp_escape(s: &str) -> String {
-    s.replace([FP_FIELD_SEP, '\n'], " ")
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            FP_FIELD_SEP => out.push_str("\\t"),
+            '\n' => out.push_str("\\n"),
+            FP_FLAG_SEP => out.push_str("\\p"),
+            FP_SUBCOMMAND_SEP => out.push_str("\\c"),
+            FP_ID_SEP => out.push_str("\\e"),
+            FP_ENTRY_SEP => out.push_str("\\s"),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
-/// Field separator inside one `#fp` line's flag-entry list. A literal tab:
-/// never legitimately present in a flag identity or a `value_name` lifted
-/// from help text (which is sanitized to a single line, spec §4.1), so it
-/// needs no escaping on the read side beyond [`fp_escape`] scrubbing it out
-/// of `value_name` before it's ever written.
+/// Top-level field separator inside one `#fp` line (`#fp <tool>\t<subs>\t<flags>`)
+/// — duplicated into `crate::transition` as its own `FP_FIELD_SEP` for the
+/// same reason [`EXTRACT_TIMEOUT_MS`] is duplicated rather than imported: a
+/// single well-known, stable character, re-measured in the same commit as
+/// the other side if it ever changes. Escaped out of every emitted piece by
+/// [`fp_escape`], same as the other three separators below.
 const FP_FIELD_SEP: char = '\t';
+
+/// Separator between flag entries inside one `#fp` line's flag-entry list
+/// (`<flag1>|<flag2>|...`) — mirrored in `crate::transition`.
+const FP_FLAG_SEP: char = '|';
+
+/// Separator between subcommand paths inside one `#fp` line's subcommand
+/// list (`<sub1>,<sub2>,...`) — mirrored in `crate::transition`.
+const FP_SUBCOMMAND_SEP: char = ',';
+
+/// Separator between one flag entry's id and its fields (`<id>=<fields>`) —
+/// mirrored in `crate::transition`.
+const FP_ID_SEP: char = '=';
+
+/// Separator between one flag entry's fields
+/// (`<has_desc>:<desc_hash>:<choices_hash>:<value_name>`) — mirrored in
+/// `crate::transition`.
+const FP_ENTRY_SEP: char = ':';
 
 /// Render every row's [`ToolFingerprint`] as `#fp` footer lines, one per
 /// tool, in the same tool-name order `rows` is already sorted in ([`run_over`])
@@ -400,9 +454,13 @@ const FP_FIELD_SEP: char = '\t';
 /// Line shape: `#fp <tool>\t<sub1>,<sub2>,...\t<flag1>|<flag2>|...` where
 /// each flag entry is `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
 /// (hashes as lowercase hex), and either list may be empty (`#fp true\t\t`
-/// for a tool with no subcommands and no flags). Never mixed into
-/// `render_markdown`'s output: [`crate::transition::parse_scoreboard`] only
-/// ever reads a [`ScoreFormat::Text`] scoreboard (that module's own doc
+/// for a tool with no subcommands and no flags). `tool`, each subcommand
+/// path, each flag `id` and `value_name` are individually run through
+/// [`fp_escape`] before being written, so none of them can ever contain a
+/// raw `\t`, `\n`, `|`, `,`, `=` or `:` — see that function's doc comment for
+/// why every one of those needs escaping, not just the top-level `\t`. Never
+/// mixed into `render_markdown`'s output: [`crate::transition::parse_scoreboard`]
+/// only ever reads a [`ScoreFormat::Text`] scoreboard (that module's own doc
 /// comment), so there is nothing that would read a markdown copy of this
 /// section.
 fn fingerprint_lines(rows: &[Row]) -> String {
@@ -2739,6 +2797,158 @@ mod tests {
             assert_eq!(parsed_flag.choices_hash, live_flag.choices_hash);
             assert_eq!(parsed_flag.value_name, live_flag.value_name);
         }
+    }
+
+    /// **The awk regression, reproduced.** PR #22's real finding: `awk`'s
+    /// `-L` flag has `value_name` `"fatal|invalid|no-ext"` — free-form text
+    /// lifted verbatim from `awk --help`, not something this codebase
+    /// invents. `fingerprint_lines`'s flag-list separator is also `|`, so
+    /// pre-fix (`fp_escape` only scrubbing tab/newline) the rendered `#fp`
+    /// line contains three unescaped pipes where only one flag-list
+    /// separator was intended; `transition::parse_fingerprint_line` splits
+    /// on every `|` it sees, so `"invalid"` and `"no-ext"` become their own
+    /// bogus flag entries with no `=`, `split_once('=')` returns `None`, and
+    /// the `?` on that line discards the *entire* `#fp awk` line — every
+    /// flag on it, not just `-L`. `awk`/`gawk`/`nawk` silently vanish from
+    /// every field-level `sweep-diff` comparison. This test drives the exact
+    /// shape through the real pipeline (`build_fingerprint` ->
+    /// `fingerprint_lines` -> `transition::parse_scoreboard`) and asserts
+    /// the line survives and the value_name comes back byte-for-byte.
+    #[test]
+    fn fingerprint_footer_round_trips_a_value_name_containing_the_flag_list_separator() {
+        use mandible_core::{CommandNode, Flag, Provenance, Source};
+
+        let mut root = CommandNode::new("awk", Provenance::single(Source::HelpText));
+        let mut flag = Flag::long("L", Provenance::single(Source::HelpText));
+        flag.long = None;
+        flag.short = Some('L');
+        flag.value_name = Some("fatal|invalid|no-ext".to_string());
+        root.flags.push(flag);
+
+        let mut r = row("awk", 1, Some(0.0), "ok");
+        r.fingerprint = build_fingerprint(Some(&root));
+        let rows = vec![r];
+        let agg = compute_aggregate(&rows);
+        let text = render_text(&rows, &agg);
+
+        let parsed = crate::transition::parse_scoreboard(&text);
+        let fp = parsed.fingerprints.get("awk").expect(
+            "pre-fix this whole line is dropped by parse_fingerprint_line \
+             because value_name's unescaped `|`s are mistaken for extra \
+             flag-list entries",
+        );
+        assert_eq!(fp.flags.len(), 1, "the only flag on the line must survive");
+        let flag = fp.flags.values().next().unwrap();
+        assert_eq!(
+            flag.value_name.as_deref(),
+            Some("fatal|invalid|no-ext"),
+            "value_name must round-trip byte-for-byte, not be mangled or dropped"
+        );
+    }
+
+    /// **Every separator the `#fp` wire format uses, in one sweep**, plus
+    /// two defensive cases beyond `value_name`: a subcommand name carrying
+    /// the subcommand-list separator (`,`), and a flag long spelling
+    /// carrying the flag-list separator (`|`) — a badly-parsed flag can, in
+    /// principle, carry anything, and the escaping scheme is supposed to be
+    /// blind to *which* piece of text needs it, not special-cased to
+    /// `value_name` alone. Each value_name below embeds exactly one
+    /// character the wire format would otherwise misread as structure:
+    /// `,` (subcommand-list sep), `=` (id/fields sep), `:` (intra-entry
+    /// sep), a literal tab (top-level field sep), and a literal backslash
+    /// (the escape character itself, which must round-trip too).
+    #[test]
+    fn fingerprint_footer_round_trips_every_separator_character() {
+        use mandible_core::{CommandNode, Flag, Provenance, Source};
+
+        let mut root = CommandNode::new("demo", Provenance::single(Source::HelpText));
+
+        let mut comma_flag = Flag::long("comma-value", Provenance::single(Source::HelpText));
+        comma_flag.value_name = Some("a,b".to_string());
+        root.flags.push(comma_flag);
+
+        let mut equals_flag = Flag::long("equals-value", Provenance::single(Source::HelpText));
+        equals_flag.value_name = Some("a=b".to_string());
+        root.flags.push(equals_flag);
+
+        let mut colon_flag = Flag::long("colon-value", Provenance::single(Source::HelpText));
+        colon_flag.value_name = Some("a:b".to_string());
+        root.flags.push(colon_flag);
+
+        let mut tab_flag = Flag::long("tab-value", Provenance::single(Source::HelpText));
+        tab_flag.value_name = Some("a\tb".to_string());
+        root.flags.push(tab_flag);
+
+        let mut backslash_flag =
+            Flag::long("backslash-value", Provenance::single(Source::HelpText));
+        backslash_flag.value_name = Some("a\\b".to_string());
+        root.flags.push(backslash_flag);
+
+        // Defensive: a flag whose own long spelling (not just its
+        // value_name) carries the flag-list separator.
+        let pipe_id_flag = Flag::long("weird|name", Provenance::single(Source::HelpText));
+        root.flags.push(pipe_id_flag);
+
+        // Defensive: a subcommand name carrying the subcommand-list
+        // separator.
+        root.subcommands.push(CommandNode::new(
+            "sub,with,comma",
+            Provenance::single(Source::HelpText),
+        ));
+
+        let mut r = row("demo", 1, Some(0.0), "ok");
+        r.fingerprint = build_fingerprint(Some(&root));
+        let rows = vec![r];
+        let agg = compute_aggregate(&rows);
+        let text = render_text(&rows, &agg);
+
+        let parsed = crate::transition::parse_scoreboard(&text);
+        let fp = parsed
+            .fingerprints
+            .get("demo")
+            .expect("the #fp line must survive with every flag intact");
+        assert_eq!(fp.flags.len(), 6, "no flag entry may be lost or merged");
+
+        assert_eq!(
+            fp.flags
+                .get("(root)::--comma-value")
+                .and_then(|f| f.value_name.clone()),
+            Some("a,b".to_string())
+        );
+        assert_eq!(
+            fp.flags
+                .get("(root)::--equals-value")
+                .and_then(|f| f.value_name.clone()),
+            Some("a=b".to_string())
+        );
+        assert_eq!(
+            fp.flags
+                .get("(root)::--colon-value")
+                .and_then(|f| f.value_name.clone()),
+            Some("a:b".to_string())
+        );
+        assert_eq!(
+            fp.flags
+                .get("(root)::--tab-value")
+                .and_then(|f| f.value_name.clone()),
+            Some("a\tb".to_string())
+        );
+        assert_eq!(
+            fp.flags
+                .get("(root)::--backslash-value")
+                .and_then(|f| f.value_name.clone()),
+            Some("a\\b".to_string())
+        );
+        assert!(
+            fp.flags.contains_key("(root)::--weird|name"),
+            "a flag id carrying the flag-list separator must survive under its own key"
+        );
+
+        assert_eq!(fp.subcommands.len(), 1);
+        assert!(
+            fp.subcommands.contains("sub,with,comma"),
+            "a subcommand name carrying the subcommand-list separator must round-trip whole"
+        );
     }
 
     // `structure_sanity`'s own unit tests (fabricated names, empty nodes,
