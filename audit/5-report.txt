@@ -1,0 +1,42 @@
+audit seed=5 sample_size=30 (44 entries total)
+
+stratum             correct/judged   accuracy   95% CI            skipped   pending   out-of-scope
+forced-inclusion        2/14      14.3%   [  4.0%,  39.9%]         0         0              0
+low-confidence          1/1       100.0%   [ 20.7%, 100.0%]         0         0              0
+ok                     20/25      80.0%   [ 60.9%,  91.1%]         0         0              0
+verbatim                2/3       66.7%   [ 20.8%,  93.9%]         1         0              0
+OVERALL                25/43      58.1%   [ 43.3%,  71.6%]         1         0              0
+
+note: the 95% CI above bounds sampling error only — how much this sample's accuracy could plausibly vary on a fresh draw of the same size — never reviewer error. Read the accuracy figure as "accuracy of the parser as judged by this reviewer," not an absolute truth.
+note: no verdict in this file has been amended yet (`xtask audit amend`) — this says nothing about whether the recorded verdicts are all correct, only that none has been corrected so far.
+
+K1/K2/K3 sensitivity (15 entries tagged K1, 0 entries tagged K2, 0 entries tagged K3 — see mandible_core::audit's Entry::k1/k2/k3 doc comments and this module's *_signature functions):
+view                      correct/judged   accuracy   95% CI
+all-inclusive                25/43      58.1%   [ 43.3%,  71.6%]
+K1-excluded                  16/28      57.1%   [ 39.1%,  73.5%]
+K2-excluded                  25/43      58.1%   [ 43.3%,  71.6%]
+K3-excluded                  25/43      58.1%   [ 43.3%,  71.6%]
+K1+K2+K3-excluded            16/28      57.1%   [ 39.1%,  73.5%]
+
+tools judged wrong or incomplete (the next bugs):
+  aarch64-linux-gnu-ar     incomplete  subcommands and flags are fine. but still marking as incomplete because lacks modifiers
+  aarch64-linux-gnu-gcc-ar incomplete  similar command as previous
+  ar                       incomplete  same modifier/arch audit
+  bzless                   wrong       failed to parse anything
+  bzmore                   wrong       failed to parse anything
+  c_rehash                 wrong       this tool uses -h instead of --help
+  dbiprof                  wrong       i thought we have fixed this issue, where a single dash + long flag name is given. parse failed miserably, see why the previous fix not applied to this
+  gcc-ar                   incomplete  same modifier incompleteness
+  gcc-ar-13                incomplete  same modifier incompleteness
+  ip                       wrong       similar issue appeared in the previous audit where single and long flag was presented together, example: -V[ersion]
+  jsondiff                 incomplete  missing possitionals, simplest example
+  pastebinit               wrong       bad flag descriptions and false positive flag types
+  pptpsetup                incomplete  some of the flags got parsed as description, and not all of the flags are present
+  rnano                    wrong       three column layout where 1st is short flag, 2nd is long flag, and 3rd is description
+  setleds                  incomplete  i think incomplete, the line from usage is not displayed and im not sure how: [[{+|-}num | caps | scroll]] which roughly translates to [{+|-}num] [{+|-}caps] [{+|-}scroll] which in turn means that you can add + or - before those flags. I think bracket resolution might help
+  ssh-keygen               incomplete  some of the types after flags got swallowed
+  uconv                    wrong       since the flag '-h' was in front of 'Options:' it got swallowed into the section header
+  update-xmlcatalog        wrong       ok so since the flags '--verbose' and '--sort' got parsed from earlier part of the help, like usage. it got deduplicated and never got parsed from lower 'options' section, thus losing the descriptions ofthem and appearing empty
+
+tools skipped (1 — recorded, never omitted; excluded from every accuracy figure above, so this is the list that makes that exclusion checkable):
+  rubycalls-bpfcc          (no reason recorded)

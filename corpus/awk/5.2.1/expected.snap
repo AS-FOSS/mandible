@@ -1,0 +1,206 @@
+name: awk
+description: 'POSIX options: GNU long options: (standard) Short options: GNU long options: (extensions)'
+usage:
+- 'Usage: awk [POSIX or GNU style options] -f progfile [--] file ...'
+- 'Usage: awk [POSIX or GNU style options] [--] ''program'' file ...'
+positionals:
+- name: POSIX
+  provenance:
+    sources:
+    - help-text
+- name: GNU
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'f'
+  value_name: progfile
+  value_kind: Required
+  group: "POSIX options:\t\tGNU long options: (standard)"
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  value_name: fs
+  value_kind: Required
+  group: "POSIX options:\t\tGNU long options: (standard)"
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  value_name: var=val
+  value_kind: Required
+  group: "POSIX options:\t\tGNU long options: (standard)"
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  long: characters-as-bytes
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: traditional
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: copyright
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: dump-variables
+  value_name: file
+  value_kind: Optional
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: debug
+  value_name: file
+  value_kind: Optional
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  value_name: '''program-text'''
+  value_kind: Required
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  value_name: file
+  value_kind: Required
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  long: gen-pot
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  value_name: includefile
+  value_kind: Required
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: trace
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  value_name: library
+  value_kind: Required
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: lint
+  value_name: fatal|invalid|no-ext
+  value_kind: Optional
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  long: bignum
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  long: use-lc-numeric
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: non-decimal-data
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  long: pretty-print
+  value_name: file
+  value_kind: Optional
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  long: optimize
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: profile
+  value_name: file
+  value_kind: Optional
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: posix
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: re-interval
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: no-optimize
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: sandbox
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: lint-old
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  group: "Short options:\t\tGNU long options: (extensions)"
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
