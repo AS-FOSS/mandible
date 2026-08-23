@@ -906,7 +906,12 @@ fn parse_body(
     // flag repair needs the whole node's flag list to answer its own
     // question (see [`repair_repeated_character_flags`]), so it cannot run
     // at the row that produced any one flag.
-    repair_repeated_character_flags(&mut result.flags, raw);
+    // One pass over the document, shared by both repairs below: each of
+    // them asks the same glued-and-delimited question once per surviving
+    // flag, and asking it of the document directly is `O(candidates x
+    // document)`. See [`GluedTokenIndex`].
+    let glued_tokens = GluedTokenIndex::new(raw);
+    repair_repeated_character_flags(&mut result.flags, &glued_tokens);
     // Then, over the same assembled list and for the same reason (it must
     // be able to read a flag's `Source`, which only exists once the flag is
     // built): the single-dash long-option repair. Ordered after the
@@ -917,7 +922,7 @@ fn parse_body(
     // the disjointness the two detectors assert about each other holds in
     // the fixes as well. The explicit condition-6 check below is kept
     // anyway, so the disjointness does not rest on the call order.
-    repair_single_dash_long_options(&mut result.flags, raw);
+    repair_single_dash_long_options(&mut result.flags, &glued_tokens);
     // Third pass of the same kind, and last because it can only fill what
     // the two above have finished naming: descriptions that the document
     // wrote as free prose paragraphs instead of as option-table columns.
@@ -989,7 +994,7 @@ fn parse_body(
 /// `wpa_supplicant`'s `[-BddhKLqqstuvW]`) stays split, because the only
 /// evidence that would admit it is the token's shape and `lessecho`'s `-nn`
 /// has exactly that shape.
-fn repair_repeated_character_flags(flags: &mut [Flag], raw: &str) {
+fn repair_repeated_character_flags(flags: &mut [Flag], glued_tokens: &GluedTokenIndex<'_>) {
     let booleans: Vec<char> = flags
         .iter()
         .filter(|f| f.value_kind == ValueKind::None)
@@ -1010,7 +1015,7 @@ fn repair_repeated_character_flags(flags: &mut [Flag], raw: &str) {
             continue;
         }
         let token = format!("-{short}{value}");
-        if !token_occurs_glued(raw, &token) {
+        if !glued_tokens.contains(&token) {
             continue;
         }
         // The name is the whole run, `long` holds it bare, and
@@ -1035,6 +1040,13 @@ fn value_repeats_short(short: char, value: &str) -> bool {
     !value.is_empty() && value.chars().all(|c| c == short)
 }
 
+/// What "word-shaped" means on either side of a glued token, for both
+/// [`token_occurs_glued`] and [`GluedTokenIndex`] — one definition, so the
+/// index and the scan cannot drift apart.
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '-' || c == '_'
+}
+
 /// True when `candidate` occurs in `raw` as an isolated token: nothing
 /// word-shaped immediately before or after it.
 ///
@@ -1044,8 +1056,16 @@ fn value_repeats_short(short: char, value: &str) -> bool {
 /// raw text says which one the tool wrote. Char-indexed throughout, never a
 /// byte-offset `&str` slice — AGENTS.md's rule against slicing captured tool
 /// output at a raw byte offset.
+///
+/// **This is the definition, not the hot path.** It scans the whole
+/// document once per candidate, which is fine for one question and
+/// quadratic for a document's worth of them; [`GluedTokenIndex`] answers
+/// the same question from one pass over the document and is what the two
+/// repairs call. This form stays because it is the readable statement of
+/// the predicate, because the index falls back to it for the one candidate
+/// shape the index cannot key (see [`GluedTokenIndex::contains`]), and
+/// because `indexed_form_agrees_with_scanning_form` pins the two together.
 fn token_occurs_glued(raw: &str, candidate: &str) -> bool {
-    let is_word_char = |c: char| c.is_alphanumeric() || c == '-' || c == '_';
     let hay: Vec<char> = raw.chars().collect();
     let needle: Vec<char> = candidate.chars().collect();
     if needle.is_empty() || hay.len() < needle.len() {
@@ -1057,6 +1077,117 @@ fn token_occurs_glued(raw: &str, candidate: &str) -> bool {
             && (start == 0 || !is_word_char(hay[start - 1]))
             && (end == hay.len() || !is_word_char(hay[end]))
     })
+}
+
+/// One document's answer to every [`token_occurs_glued`] question the two
+/// flag repairs will ask of it, built in one pass over the document.
+///
+/// # Why it exists
+///
+/// [`token_occurs_glued`] scans the whole document per candidate, and both
+/// repairs ask it once per surviving flag. That was affordable while the
+/// conditions in front of it admitted a handful of candidates per node;
+/// widening them (v0.4.0's single-dash long-option work) put ~679
+/// candidates in front of it for one tool, against `ffplay`'s 752 KB of
+/// help text, and `mandible --doctor ffplay` went from ~1.4 s to 3.2 s.
+/// The cost is `O(candidates x document)` and the document is the part
+/// nobody controls, so the fix is to stop re-reading it.
+///
+/// # The structure, and why this one
+///
+/// Every maximal run of word characters ([`is_word_char`]) in the document,
+/// keyed by the run's own text. That is the whole index; a lookup is a hash
+/// of the candidate's leading run.
+///
+/// It works because of what the predicate's two boundary conditions say
+/// about a match. A candidate always opens on a word character (`-`), so at
+/// any position where it matches, the document's run of word characters
+/// starting there is *exactly* the candidate's own leading run: the
+/// left boundary makes that position a run start, and the candidate's first
+/// non-word character — or, if it has none, the right boundary — is where
+/// that run ends. So "does this candidate occur glued and delimited" is
+/// "is the candidate's leading run a run of this document, and does the
+/// document continue with the candidate's remainder". For the common
+/// candidate, all word characters (`-help`, `-vv`), the remainder is empty
+/// and a run being maximal *is* both boundary conditions holding, so the
+/// hash lookup alone is the answer.
+///
+/// A candidate carrying a non-word character (`-foffload=<targets>`, the
+/// glued-value shape [`split_glued_value`] admits) needs the remainder
+/// checked against the text after each occurrence of its leading run —
+/// hence the offsets, and hence a map rather than a set. That list is as
+/// long as that one run's occurrence count, not as long as the document.
+struct GluedTokenIndex<'a> {
+    /// The document this was built from, for the fallback in
+    /// [`GluedTokenIndex::contains`].
+    raw: &'a str,
+    /// Every maximal run of word characters in `raw`, keyed by the run's
+    /// text and valued by the byte offset just past each occurrence of it.
+    runs: std::collections::HashMap<&'a str, Vec<usize>>,
+}
+
+impl<'a> GluedTokenIndex<'a> {
+    /// One pass over `raw`, cutting it at every boundary between a word
+    /// character and a non-word one.
+    ///
+    /// The offsets come from `char_indices`, so every slice taken here is
+    /// taken at a character boundary by construction — and is taken through
+    /// `get`, which returns `None` rather than panicking, so AGENTS.md's
+    /// rule about byte-offset slicing of captured tool output holds by
+    /// construction *and* by API even if that reasoning is ever wrong.
+    fn new(raw: &'a str) -> Self {
+        let mut runs: std::collections::HashMap<&'a str, Vec<usize>> =
+            std::collections::HashMap::new();
+        let mut open: Option<usize> = None;
+        for (offset, ch) in raw.char_indices() {
+            if is_word_char(ch) {
+                open.get_or_insert(offset);
+            } else if let Some(begin) = open.take() {
+                if let Some(run) = raw.get(begin..offset) {
+                    runs.entry(run).or_default().push(offset);
+                }
+            }
+        }
+        // A run that reaches the end of the document closes there.
+        if let Some(begin) = open {
+            if let Some(run) = raw.get(begin..) {
+                runs.entry(run).or_default().push(raw.len());
+            }
+        }
+        Self { raw, runs }
+    }
+
+    /// Exactly [`token_occurs_glued`]`(self.raw, candidate)`, without
+    /// re-reading the document.
+    fn contains(&self, candidate: &str) -> bool {
+        let head = candidate
+            .find(|c| !is_word_char(c))
+            .unwrap_or(candidate.len());
+        // A candidate that opens on a non-word character has no leading run
+        // to key on. Both callers ask about a `-`-led token so nothing
+        // reaches this in practice, but the predicate is defined for every
+        // string and the scanning form answers those correctly; keeping the
+        // fallback is cheaper than narrowing the type.
+        if head == 0 {
+            return token_occurs_glued(self.raw, candidate);
+        }
+        let (run, rest) = candidate.split_at(head);
+        let Some(ends) = self.runs.get(run) else {
+            return false;
+        };
+        if rest.is_empty() {
+            // The key matched a *maximal* run, so there is a non-word
+            // character (or the end of the document) on both sides of it
+            // already — which is the whole predicate.
+            return true;
+        }
+        ends.iter().any(|&end| {
+            self.raw
+                .get(end..)
+                .and_then(|after| after.strip_prefix(rest))
+                .is_some_and(|tail| !tail.chars().next().is_some_and(is_word_char))
+        })
+    }
 }
 
 /// The fewest characters a swallowed tail must carry before it is read as
@@ -1279,7 +1410,7 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// `"pu"` — the correct **name** under a missing value spec, which is
 /// strictly better than a fabricated name under a fabricated value spec,
 /// and is exactly what `repair_repeated_character_flags` does with `-vv`.
-fn repair_single_dash_long_options(flags: &mut [Flag], raw: &str) {
+fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedTokenIndex<'_>) {
     for flag in flags.iter_mut() {
         // 1. Option-table-sourced, never synopsis.
         if !flag.provenance.sources.contains(&Source::HelpText)
@@ -1322,8 +1453,10 @@ fn repair_single_dash_long_options(flags: &mut [Flag], raw: &str) {
         }
         // 7. The whole token — name *and* glued value — occurs, glued and
         //    delimited, in the raw text. Last because it is the only
-        //    condition that scans the document.
-        if !token_occurs_glued(raw, &format!("-{short}{tail}")) {
+        //    condition that reads the document at all — one hash lookup
+        //    now, against an index built once for the whole document
+        //    ([`GluedTokenIndex`]), rather than a scan per candidate.
+        if !glued_tokens.contains(&format!("-{short}{tail}")) {
             continue;
         }
         // The name is the run up to the `=`, `long` holds it bare, and
@@ -5449,6 +5582,77 @@ mod tests {
         assert!(!token_occurs_glued("    -vvv   even more\n", "-vv"));
         assert!(!token_occurs_glued("    -v v   spaced\n", "-vv"));
         assert!(!token_occurs_glued("", "-vv"));
+    }
+
+    /// The index is an optimization and nothing else, so the thing worth
+    /// pinning is not any one answer but the *agreement*: for every case
+    /// below, [`GluedTokenIndex::contains`] and [`token_occurs_glued`] must
+    /// return the same thing, and that thing must be the documented one.
+    ///
+    /// The cases are the ones where an index built out of maximal word
+    /// runs could plausibly disagree with a scan — a glued neighbour on
+    /// either side, a token flush against the start or the end of the
+    /// document with no delimiter there at all, a match that is a real
+    /// substring but not a delimited one, the same token written more than
+    /// once, a candidate carrying a non-word character (the
+    /// [`split_glued_value`] shape, which is what makes the index a map of
+    /// offsets rather than a set), one whose leading run occurs repeatedly
+    /// but with the right remainder behind only one of them, a candidate
+    /// that opens on a non-word character (the fallback path), and
+    /// multi-byte delimiters, which is where a byte-offset index would
+    /// panic or silently miss.
+    #[test]
+    fn indexed_form_agrees_with_scanning_form() {
+        let cases: &[(&str, &str, bool)] = &[
+            // glued vs delimited
+            ("    -vv    more verbose\n", "-vv", true),
+            ("    -vvv   even more\n", "-vv", false),
+            ("    -v v   spaced\n", "-vv", false),
+            ("  -help_me  ", "-help", false),
+            // flush against the start and the end of the document
+            ("-help", "-help", true),
+            ("-help  print this\n", "-help", true),
+            ("see -help", "-help", true),
+            ("see -helper", "-help", false),
+            // a substring, but not a delimited one
+            ("  --help  ", "-help", false),
+            ("  x-help  ", "-help", false),
+            // the same token more than once
+            ("-cpu model\n-cpu model\n", "-cpu", true),
+            // a candidate carrying a non-word character
+            (
+                "  -foffload=<targets>   offload\n",
+                "-foffload=<targets>",
+                true,
+            ),
+            ("  -foffload=<targets>x  ", "-foffload=<targets>", false),
+            ("  -foffload  ", "-foffload=<targets>", false),
+            // leading run repeated, remainder behind only one of them
+            ("-a=c and -a=b\n", "-a=b", true),
+            ("-a=c and -a=cc\n", "-a=b", false),
+            ("-a=bc\n", "-a=b", false),
+            // the fallback: a candidate that opens on a non-word character
+            ("a=b", "=b", false),
+            (" =b ", "=b", true),
+            // degenerate
+            ("", "-vv", false),
+            ("-vv", "", false),
+            // multi-byte delimiters on both sides
+            ("★-help★", "-help", true),
+            ("… -cpu …", "-cpu", true),
+        ];
+        for &(raw, candidate, expected) in cases {
+            let scanned = token_occurs_glued(raw, candidate);
+            let indexed = GluedTokenIndex::new(raw).contains(candidate);
+            assert_eq!(
+                scanned, expected,
+                "scanning form disagreed with the documented answer for {candidate:?} in {raw:?}"
+            );
+            assert_eq!(
+                indexed, scanned,
+                "indexed form disagreed with the scanning form for {candidate:?} in {raw:?}"
+            );
+        }
     }
 
     // --- the single-dash long-option repair -----------------------------

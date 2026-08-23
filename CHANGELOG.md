@@ -201,6 +201,36 @@ once it reaches a published 0.1.0 release.
   "(default = off)", `systemd`'s `--dump-core[=BOOL]`) is left untouched —
   covered by new regression tests for each measured instance.
 
+### Performance
+
+- **The two flag repairs stopped re-reading the whole help text once per
+  candidate flag.** Both `repair_repeated_character_flags` and
+  `repair_single_dash_long_options` end on the same question — does this
+  token occur glued and delimited in the tool's own raw text — and
+  `token_occurs_glued` answered it by scanning the entire document, every
+  time. The cost was `O(candidates x document)`, and widening the
+  single-dash long-option conditions in 0.4.0 put roughly 679 candidates in
+  front of it for one tool: `mandible --doctor ffplay` (752 KB of help
+  text) went from ~1.4 s to **3.22 s**, `ffprobe` from 628 ms to 1.30 s.
+
+  A new `GluedTokenIndex` answers the same question from **one** pass over
+  the document — every maximal run of word characters, keyed by its own
+  text — and both repairs share one index per parse. The common candidate
+  (`-help`, `-vv`: all word characters) is a single hash lookup, because a
+  run being maximal is exactly what the predicate's two boundary conditions
+  ask; a candidate carrying a glued value spec (`-foffload=<targets>`)
+  additionally checks its remainder against the text after that run's own
+  occurrences. Measured on this machine, five runs each: `--doctor ffplay`
+  **3.225 s → 0.426 s**, `--doctor ffprobe` **1.302 s → 0.245 s**, with
+  `--doctor ffmpeg` unchanged at 0.21 s as a control.
+
+  Pure optimization, and checked as one: a full-`PATH` sweep before and
+  after (2,308 tools) produces **byte-identical** scoreboards, and the
+  corpus is unchanged with no snapshot rewritten.
+  `indexed_form_agrees_with_scanning_form` pins the index against the
+  scanning form — which stays, as the readable statement of the predicate —
+  over the cases where the two could differ.
+
 ## [0.4.0] - 2026-08-23
 
 **Breaking:** `CommandNode` gained a public `invocation_attested` field.
