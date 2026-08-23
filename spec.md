@@ -1163,6 +1163,22 @@ The generic fallback parser (step 2) is built with `winnow`:
 - **A `Usage:` line grammar.** Usage lines have a learnable grammar — this is
   what `docopt` formalized: `[OPTIONS]`, `<required>`, `[optional]`, `...` for
   repetition, `|` for alternatives, `{a|b|c}` for choices.
+  The block is entered at any of three shapes (`help_text::sections`,
+  fix/usage-synopsis): an ordinary `usage:`/`Usage:` line anywhere in the
+  document; the C `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom — the
+  tool's own name, `": "`, then `usage:` (`starts_with_name_prefixed_usage`;
+  `nfsidmap`'s `nfsidmap: Usage: nfsidmap [-vh] ...`); and, only when
+  neither of those appears anywhere in the document and only in the lines
+  before the document's real body starts, an **unlabelled** synopsis — the
+  tool's own name at a word boundary, plus positive usage-grammar notation
+  (one of the three group delimiters above) in the remainder, and not read
+  as an English sentence (`looks_like_unlabeled_synopsis_line`; `wpa_cli
+  --help` opens `wpa_cli [-p<path to ctrl sockets>] ...` with no label at
+  all). The third shape is the risky one — a name match alone is not
+  evidence of a synopsis (`"tar is an archiving program..."` also starts
+  with `tar`) — so it requires both signals together, and is bounded to
+  where a synopsis actually belongs rather than searched for anywhere in
+  the document.
 - **A layout-driven section parser** for `Options:`/`Flags:`/`Commands:` blocks.
   Group lines by leading-whitespace runs and indentation depth, so
   `-v, --verbose    Enable verbose output` tokenizes structurally as

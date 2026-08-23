@@ -310,10 +310,52 @@ fn parse_body(
     // fragment's own text is untouched, byte for byte; only the join
     // character between fragments is chosen, and a single space is what
     // the wrap itself removed by breaking the line there.
-    if let Some(start) = lines
-        .iter()
-        .position(|l| starts_with_usage_prefix(l.trim_start()))
-    {
+    // The usage block's entry point recognizes two labelled shapes and
+    // one unlabelled one, tried in this order:
+    //
+    // 1. An ordinary `usage:`/`Usage:` line, anywhere in the document —
+    //    unchanged from before this comment existed.
+    // 2. The C `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom: the
+    //    tool's own name, a literal `": "`, then `usage:` — `nfsidmap`'s
+    //    `nfsidmap: Usage: nfsidmap [-vh] ...`. `starts_with_usage_prefix`
+    //    tests the line's *start*, so this shape is otherwise invisible to
+    //    it; see `starts_with_name_prefixed_usage`'s own doc comment for
+    //    why the match stays this tight (no scanning for `usage:` anywhere
+    //    inside a line).
+    // 3. Only when *neither* of the above appears anywhere in the
+    //    document — a tool with a real `Usage:` line is completely
+    //    unaffected by this arm — an **unlabelled synopsis**: a line that
+    //    opens with the tool's own name and reads as usage grammar rather
+    //    than prose (`looks_like_unlabeled_synopsis_line`'s own doc
+    //    comment has the two-part evidence test and why a name match
+    //    alone is not enough). Bounded to the lines before the document's
+    //    real body starts (its first flag row or section heading) so this
+    //    can only ever find a synopsis sitting where one actually belongs,
+    //    never something that merely happens to open with the tool's name
+    //    deep in the document.
+    let labelled_usage_start = lines.iter().position(|l| {
+        let t = l.trim_start();
+        starts_with_usage_prefix(t)
+            || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+    });
+    let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
+        tool_name.and_then(|name| {
+            let body_start = lines
+                .iter()
+                .position(|l| {
+                    let t = l.trim_start();
+                    !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
+                })
+                .unwrap_or(lines.len());
+            lines[..body_start]
+                .iter()
+                .position(|l| looks_like_unlabeled_synopsis_line(l.trim_start(), name))
+        })
+    } else {
+        None
+    };
+    let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
+    if let Some(start) = usage_start {
         i = start;
         let base_indent = leading_whitespace(lines[i]);
         usage_lines.push(lines[i].trim().to_string());
@@ -432,6 +474,19 @@ fn parse_body(
     // §13.1) parsing a degenerate multi-megabyte input in over two
     // minutes instead of milliseconds).
     let description_bound = i.max(leading_prose_bound(&lines));
+    // A column-0 line inside the recovered usage block's own line range
+    // (`usage_start..i`) is never description prose, whichever of the
+    // three entry shapes above found it — not just an ordinary `usage:`
+    // line. Checking the *range* rather than re-testing `starts_with_usage_prefix`
+    // here is what keeps this correct for the name-prefixed
+    // (`nfsidmap: Usage: ...`) and unlabelled (`wpa_cli [-p<path>] ...`)
+    // shapes too: neither line's text starts with `usage:`, so the old
+    // per-line text test alone would have let it leak into the
+    // description exactly the way it did before this fix — `wpa_cli`'s
+    // root description was the tool's own invalid-option banner run
+    // straight into its synopsis and its entire `commands:` block, because
+    // nothing about that text said "usage" at its own start.
+    let in_usage_block = |idx: usize| usage_start.is_some_and(|s| (s..i).contains(&idx));
     // Collected as *paragraphs* (blank-line-separated runs), not one flat
     // list, so a leading version/author/URL banner can be told apart from
     // the tool's real description — see `is_banner_paragraph` below. A
@@ -451,7 +506,7 @@ fn parse_body(
             }
         } else if leading_whitespace(l) == 0 {
             let t = l.trim_start();
-            if !starts_with_usage_prefix(t) {
+            if !starts_with_usage_prefix(t) && !in_usage_block(j) {
                 current.push(l);
             }
         }
@@ -493,6 +548,24 @@ fn parse_body(
     // keeps this from also lighting up on tar's `--occurrence` flag
     // description, which happens to say "one of the subcommands" deep in
     // prose describing something else entirely.
+    //
+    // Deliberately *not* also seeded from `result.usage`: a docopt-style
+    // `prog [OPTIONS] COMMAND ...` synopsis is an extremely common
+    // convention (cobra, urfave/cli, click, and plain GNU-argp tools all
+    // write it), and turning `command_mode` on for the rest of the
+    // document on that word alone reaches headings the synopsis says
+    // nothing about — measured on a full-`PATH` sweep: `containerd --help`
+    // and `ctr --help` (urfave/cli) both write `USAGE:\n   <tool> [global
+    // options] command [command options]`, and seeding from that alone
+    // turned their unrelated `VERSION:\n   v2.3.3` block into a fabricated
+    // subcommand literally named `v2.3.3` — the exact class of defect
+    // [M-10] exists to prevent. See this fix's PR description for the
+    // `systemd-creds`/`systemd-sysext`/`systemd-confext` regression this
+    // predicate would otherwise have repaired (their own `Commands:`
+    // heading is ANSI-corrupted — `\x1b[0mCommands:` reads as one alnum
+    // run, `0mCommands`, to `mentions_commands_word` — a separate,
+    // pre-existing gap left for a follow-up rather than fixed here by
+    // widening a sticky chain that a fleet sweep just showed fabricates).
     let mut command_mode = result
         .description
         .as_deref()
@@ -1832,6 +1905,70 @@ fn starts_with_tool_name(t: &str, name: &str) -> bool {
         Some(rest) => rest.is_empty() || rest.starts_with(char::is_whitespace),
         None => false,
     }
+}
+
+/// True if `t` (already trimmed of leading whitespace) is the C
+/// `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom's line: the tool's
+/// own name, then a literal `": "`, then `usage:` case-insensitively —
+/// `nfsidmap`'s `nfsidmap: Usage: nfsidmap [-vh] [-c || ...]`.
+///
+/// [`starts_with_usage_prefix`] tests the line's *start*, so a `usage:`
+/// preceded by the program's own name (this ordinary `fprintf`
+/// convention, framework-general rather than per-tool) is invisible to
+/// it, and the whole document was previously rendered `verbatim` with
+/// zero flags recovered.
+///
+/// Kept deliberately tight, per this fix's own hazard warning: the
+/// `usage:` must be preceded by *only* the tool's own name and `": "` —
+/// not scanned for anywhere inside the line, and not satisfied by the
+/// name alone (an ordinary sentence starting `nfsidmap: ` followed by
+/// prose must never match).
+fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    t.strip_prefix(name)
+        .and_then(|rest| rest.strip_prefix(": "))
+        .is_some_and(starts_with_usage_prefix)
+}
+
+/// True if `t` (already trimmed of leading whitespace) opens with `name`
+/// at a word boundary and its remainder reads as usage-synopsis grammar
+/// rather than English prose — the **unlabelled** synopsis convention some
+/// tools use in place of any `Usage:` line at all: `wpa_cli --help` simply
+/// opens `wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] ...`,
+/// with no marker anywhere.
+///
+/// This predicate is the entire risk this fix carries (its own doc
+/// comment at the call site explains the guardrails around *where* it is
+/// tried). A name match alone is not evidence of a synopsis — `"tar is an
+/// archiving program that creates..."` starts with `tar` too — so two
+/// independent, purely notational signals are both required:
+///
+/// - The remainder must contain at least one of the docopt-style group
+///   delimiters spec §7 names (`[`, `<`, `{`) — the same notation
+///   [`looks_like_usage_fragment`] keys on for usage-block continuation.
+///   Prose describing a tool essentially never carries these characters;
+///   a synopsis is built almost entirely out of them.
+/// - The remainder must not read as an English sentence, reusing
+///   [`is_prose_sentence`]'s own test (period-terminated, several words,
+///   no multi-space column gap) — so a tool whose leading sentence
+///   happens to mention a bracketed aside is still refused.
+///
+/// Measured on a full-`PATH` sweep before landing (see this fix's PR
+/// description for the exact tool list this predicate moves).
+fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
+    let Some(rest) = t.strip_prefix(name) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    rest.contains(['[', '<', '{']) && !is_prose_sentence(rest)
 }
 
 /// True if `t` (already trimmed of leading whitespace) opens with one of

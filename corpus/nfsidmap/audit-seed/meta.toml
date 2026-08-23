@@ -1,0 +1,44 @@
+# Frozen capture supplied with the fix/usage-synopsis task brief (not
+# `xtask audit`): nfsidmap's whole `--help` output is two lines, an
+# invalid-option error followed by the C `fprintf(stderr, "%s: Usage: ...",
+# argv[0])` idiom's line. `starts_with_usage_prefix` tests a line's own
+# start, so a `usage:` preceded by the program's own name and `": "` was
+# previously invisible to it: status was `verbatim`, 0 flags, the whole
+# document landed in `unparsed`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nfsidmap"
+version = "audit-seed"
+captured_with = "frozen capture, fix/usage-synopsis task"
+
+[[capture]]
+argv = ["nfsidmap", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+# `starts_with_name_prefixed_usage` recognizes the `nfsidmap: Usage: ...`
+# line as a usage entry point despite the leading tool-name-and-colon
+# prefix. `extract_usage_flags` then mines the synopsis's bracket groups:
+# `-c`/`-d`/`-l` are bare short flags standing alone in the
+# `||`-separated alternation, and `-v` is recovered too, though not as a
+# clean boolean: `[-vh]` is only two characters, below
+# `help_text::grammar::parse_bundled_shorts`'s documented
+# `MIN_CLUSTER_MEMBERS = 3` floor for reading a cluster as a bundle of
+# switches (that floor is a pre-existing, general decision this fix does
+# not revisit — a two-character cluster is genuinely ambiguous
+# fleet-wide), so it falls through to the ordinary single-dash reading:
+# short `v` carrying `h` as a glued required value. `-h` itself is not a
+# separate flag here for that reason. (`-u`, `-g`, `-r` and `-t` sit
+# inside nested alternations that also carry a glued value word —
+# `[-u|-g|-r key]`, `[-t timeout]` — a shape `parse_flag_alternation`
+# refuses because not every member of the alternation is a *bare* flag
+# spelling; they are not recovered by this fix, and inventing a guess at
+# which alternative owns the value would be exactly the fabrication spec
+# §7 Tier B forbids.)
+must_contain_flags = ["-v", "-c", "-d", "-l"]
+must_not_contain_flags = ["-u", "-g", "-r", "-t"]

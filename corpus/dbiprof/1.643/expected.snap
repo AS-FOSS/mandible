@@ -1,5 +1,6 @@
 name: dbiprof
-description: dbiprof [options] [files]
+usage:
+- dbiprof [options] [files]
 flags:
 - long: number
   value_name: N
