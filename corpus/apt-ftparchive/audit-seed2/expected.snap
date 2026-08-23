@@ -61,3 +61,34 @@ provenance:
   - help-text
   confidence: 0.5
 children_filled: true
+subcommands:
+- name: packages
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: sources
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: contents
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: release
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: generate
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: clean
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

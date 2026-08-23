@@ -1,0 +1,39 @@
+# Frozen capture supplied with the fix/command-table task brief (not
+# `xtask audit`), reviewed line-by-line against help.txt before blessing:
+# every recovered subcommand's name and (where present) description was
+# checked against the row it came from.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "wpa_cli"
+version = "audit-seed"
+captured_with = "frozen capture, fix/command-table task"
+
+[[capture]]
+argv = ["wpa_cli", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+# `wpa_cli`'s `commands:` block is ~180 rows of `name [operands] =
+# description` (a handful carry no ` = ` at all — a real inconsistency in
+# the tool's own `--help` text, e.g. `wps_cancel Cancels the pending WPS
+# operation` — and those rows come through with no `summary` rather than a
+# guessed one). Before fix/command-table: 0 subcommands, every row dropped
+# as unattributable (the whole line failed `is_command_name_shaped`, and
+# some rows containing `]` accidentally split there, leaving a
+# description that still began with a literal `= `). Now:
+# `scan_bare_command_table` recovers 211 distinct names (some rows collapse
+# — `bssid_ignore` and `log_level` each appear three/two times with
+# different trailing operands, and only the first is kept, same dedup
+# `emit_subcommands` already applies everywhere else). 150 is a
+# conservative floor, not the exact count, so a future rewording of a
+# handful of rows can't turn a real regression into CI noise.
+min_subcommands = 150
+# The five real root flags, described from the `-h = help ...` block
+# above `commands:` (unrelated to this fixture's own bug, included so a
+# future change to `find_equals_separator_gap`'s flag-row path is caught
+# here too, not just in the recognized-heading commands block below it).
+must_contain_flags = ["-h", "-v", "-a", "-r", "-B"]
