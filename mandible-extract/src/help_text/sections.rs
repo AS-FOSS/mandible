@@ -2062,7 +2062,7 @@ pub fn starts_with_or_marker(t: &str) -> bool {
 /// Word-boundary checked (via `str::strip_prefix`, not a raw byte slice)
 /// so a tool named `git` doesn't also claim a line that happens to start
 /// with `gitk` or `git-foo`.
-fn starts_with_tool_name(t: &str, name: &str) -> bool {
+pub fn starts_with_tool_name(t: &str, name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
@@ -2088,7 +2088,7 @@ fn starts_with_tool_name(t: &str, name: &str) -> bool {
 /// not scanned for anywhere inside the line, and not satisfied by the
 /// name alone (an ordinary sentence starting `nfsidmap: ` followed by
 /// prose must never match).
-fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
+pub fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
@@ -2122,7 +2122,7 @@ fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
 ///
 /// Measured on a full-`PATH` sweep before landing (see this fix's PR
 /// description for the exact tool list this predicate moves).
-fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
+pub fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
     let Some(rest) = t.strip_prefix(name) else {
         return false;
     };
@@ -5678,7 +5678,7 @@ pub(super) const OPTION_LIST_PLACEHOLDERS: &[&str] =
 
 /// True when `name` (already unwrapped from its notation) is one of
 /// [`OPTION_LIST_PLACEHOLDERS`].
-fn is_option_list_placeholder(name: &str) -> bool {
+pub fn is_option_list_placeholder(name: &str) -> bool {
     OPTION_LIST_PLACEHOLDERS
         .iter()
         .any(|p| name.eq_ignore_ascii_case(p))

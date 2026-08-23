@@ -1401,6 +1401,39 @@ const TAR_SYNOPSIS: &str = "Usage: tar [OPTION...] [FILE]...\n";
 const UOBJNEW_SYNOPSIS: &str =
     "usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-v] pid [interval]\n";
 
+/// `gh --help`'s real shape, byte-exact: a bare `USAGE` heading (no colon,
+/// so it is never a labelled `usage:` marker) followed by a line that opens
+/// with the tool's own name and reads as usage grammar with no marker
+/// anywhere — the **unlabelled** synopsis this task's own fix taught the
+/// oracle to enter. Its trailing `[flags]` is also the anchor case for the
+/// vocabulary fallback in `existence::option_list_slot`: the real flag
+/// stand-in sits *last* here, not first, which is exactly the shape that
+/// would have tripped the position rule into also excluding the genuine
+/// leading operand `command` if the two rules ran unconditionally instead
+/// of one gating the other.
+const GH_UNLABELLED_SYNOPSIS: &str = "USAGE\n  gh <command> <subcommand> [flags]\n";
+
+/// `nfsidmap --help`'s real shape, byte-exact: the C `fprintf(stderr, "%s:
+/// Usage: ...", argv[0])` idiom, which repeats the tool's own name twice on
+/// one line (once as the `fprintf` prefix, once again as the invocation's
+/// own program name) with no ordinary `usage:`-prefixed line anywhere else
+/// in the document.
+const NFSIDMAP_NAME_PREFIXED_SYNOPSIS: &str = "nfsidmap: Usage: nfsidmap [-vh] [-c || -d] path\n";
+
+/// `vgextend --help`'s real shape, byte-exact: LVM's own bare-own-name
+/// convention (the whole `vg*`/`lv*`/`pv*` family shares it) — no docopt
+/// notation anywhere on the invocation line itself, only on the line right
+/// after it. The entire family (29 tools) was newly flagged on this task's
+/// own before/after sweep until this shape was added, every one of them
+/// false.
+const VGEXTEND_BARE_OWN_NAME_SYNOPSIS: &str = concat!(
+    "  vgextend - Add physical volumes to a volume group\n",
+    "\n",
+    "  vgextend VG PV ...\n",
+    "\t[ -A|--autobackup y|n ]\n",
+    "\t[ COMMON_OPTIONS ]\n",
+);
+
 /// A root carrying `positionals` with the given names, all help-text-sourced.
 fn positional_node(name: &str, positionals: &[&str]) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
@@ -1467,6 +1500,56 @@ fn existence_self_checks() -> Vec<SelfCheck> {
             expect: Expect::Fires(1),
             raw: TAR_SYNOPSIS.to_string(),
             root: positional_node("tar", &["TELEPORT"]),
+        },
+        SelfCheck {
+            name: "gh's two real operands from its unlabelled synopsis",
+            why: "this task's own worked example: `command` and `subcommand` are real, occur \
+                  literally in gh's own output, and sit one slot from `flags` — gh's own flag-list \
+                  stand-in, written *last* rather than first. Before this fix the line was entirely \
+                  invisible to the oracle (no `usage:` marker anywhere on it), so both were reported \
+                  as invented; after it, both must go silent and `flags` must not itself become an \
+                  attested operand hiding a genuine fabrication spelled the same way",
+            expect: Expect::Silent,
+            raw: GH_UNLABELLED_SYNOPSIS.to_string(),
+            root: positional_node("gh", &["command", "subcommand"]),
+        },
+        SelfCheck {
+            name: "an operand named nowhere beside gh's real unlabelled synopsis",
+            why: "the same base claim as tar's TELEPORT case, replayed against the new unlabelled \
+                  entry point: recognizing gh's synopsis line must not turn into a blanket amnesty \
+                  for anything claimed beside it",
+            expect: Expect::Fires(1),
+            raw: GH_UNLABELLED_SYNOPSIS.to_string(),
+            root: positional_node("gh", &["command", "teleport"]),
+        },
+        SelfCheck {
+            name: "nfsidmap's real operand from the name-prefixed usage idiom",
+            why: "the C `\"%s: Usage: ...\"` convention (`nfsidmap: Usage: nfsidmap ...`), the \
+                  other synopsis-entry shape this task's fix adds: the tool's own name occurs \
+                  twice on one line, and `path` — the real operand — must still attest correctly \
+                  once both copies are accounted for",
+            expect: Expect::Silent,
+            raw: NFSIDMAP_NAME_PREFIXED_SYNOPSIS.to_string(),
+            root: positional_node("nfsidmap", &["path"]),
+        },
+        SelfCheck {
+            name: "vgextend's two real operands from its bare own-name line",
+            why: "LVM's own convention: the invocation line carries no docopt notation at all, so \
+                  the unlabelled shape above can never find it — only the next physical line's \
+                  bracketed flag row proves it is usage grammar. Newly flagged the whole `vg*`/ \
+                  `lv*`/`pv*` family (29 tools) on this task's own before/after sweep until this \
+                  shape was added, every one of them false",
+            expect: Expect::Silent,
+            raw: VGEXTEND_BARE_OWN_NAME_SYNOPSIS.to_string(),
+            root: positional_node("vgextend", &["VG", "PV"]),
+        },
+        SelfCheck {
+            name: "an operand named nowhere beside vgextend's real bare own-name line",
+            why: "the same base claim replayed a third time: recognizing this entry shape must not \
+                  turn into a blanket amnesty for anything claimed beside it",
+            expect: Expect::Fires(1),
+            raw: VGEXTEND_BARE_OWN_NAME_SYNOPSIS.to_string(),
+            root: positional_node("vgextend", &["VG", "TELEPORT"]),
         },
     ]
 }

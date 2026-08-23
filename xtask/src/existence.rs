@@ -553,9 +553,30 @@ struct SynopsisLine<'a> {
     opens_with_program_name: bool,
 }
 
+/// True when some physical line of `raw` opens a **labelled** usage block —
+/// an ordinary `usage:` marker, or the C `"%s: Usage: ..."` idiom
+/// (`starts_with_name_prefixed_usage`) — anywhere in the document.
+///
+/// Mirrors `sections::parse_with_profile`'s own `labelled_usage_start`
+/// exactly, including what it deliberately leaves out: `starts_with_or_marker`
+/// (`or:`) is not tested here, because an `or:` line is only ever a
+/// *continuation* of an already-open block, never itself evidence that a
+/// labelled block exists somewhere in the document. This is the gate that
+/// decides whether [`synopsis_lines`] may fall back to an **unlabelled**
+/// synopsis line at all — a tool with a real `usage:`/name-prefixed line
+/// anywhere is completely unaffected by that fallback, exactly as the tier
+/// itself is unaffected.
+fn has_labelled_usage_start(raw: &str, root_name: &str) -> bool {
+    use mandible_extract::help_text::{starts_with_name_prefixed_usage, starts_with_usage_prefix};
+    raw.lines().any(|l| {
+        let t = l.trim_start();
+        starts_with_usage_prefix(t) || starts_with_name_prefixed_usage(t, root_name)
+    })
+}
+
 /// The physical lines of `raw` that are a synopsis.
 ///
-/// Three shapes, all real and all in this project's own corpus:
+/// Five shapes, all real and all in this project's own corpus:
 ///
 /// * the marker and the synopsis on one line — `Usage: tar [OPTION...]
 ///   [FILE]...`, `  or:  du [OPTION]... --files0-from=F`;
@@ -568,23 +589,56 @@ struct SynopsisLine<'a> {
 ///   ([`is_bracketed`], the same three bytes the tier's own
 ///   `looks_like_usage_fragment` tests), which is what keeps the ordinary
 ///   indented *prose* under a usage line — `du`'s "Summarize device usage
-///   of the set of FILEs..." — from being read as more synopsis; and
+///   of the set of FILEs..." — from being read as more synopsis;
 /// * a bare `Usage:` header with the synopsis indented beneath it, which is
 ///   util-linux's house style (`setsid`, `wall`, `fsck`) and `zoxide`'s.
 ///   Every consecutive indented non-empty line under such a header is
 ///   taken, delimiter or not, because the continuation there begins with
-///   the tool's own name rather than with notation.
+///   the tool's own name rather than with notation; and
+/// * two shapes with **no `usage:` marker anywhere on their own line**,
+///   taught to `mandible-extract` by PR #32/#33 and, until now, invisible
+///   to this module entirely: the C `"%s: Usage: ..."` idiom
+///   (`starts_with_name_prefixed_usage` — `nfsidmap: Usage: nfsidmap [-vh]
+///   ...`) and an **unlabelled** synopsis, a line that simply opens with the
+///   tool's own name and reads as usage grammar
+///   (`looks_like_unlabeled_synopsis_line` — `gh`'s bare `USAGE` heading
+///   followed by `  gh <command> <subcommand> [flags]`). The unlabelled
+///   shape is only ever tried when [`has_labelled_usage_start`] finds no
+///   ordinary labelled block anywhere in the document, matching the tier's
+///   own precedence exactly. Unlike the tier, this module does not further
+///   bound the unlabelled search to the lines before the document's body
+///   starts — a match found later can only *add* an attested operand
+///   position, never remove one, so the narrower bound is safe to skip (see
+///   the re-export's own doc comment in `mandible-extract/src/help_text/
+///   mod.rs`); and
+/// * a **bare own-name line whose notation sits on the next line instead**:
+///   LVM's own emitter (`vgck`, `vgextend`, `vgrename`, and the rest of the
+///   `vg*`/`lv*`/`pv*` family) writes `vgextend VG PV ...` with no `[`, `<`
+///   or `{` anywhere on that line at all, so `looks_like_unlabeled_synopsis_
+///   line`'s own notation test can never find it — every bit of bracket
+///   notation (`\t[ -A|--autobackup y|n ]`) is on the line right after.
+///   Recognized on the same evidence the tier itself requires
+///   (`starts_with_tool_name` plus [`looks_like_bracket_flag_row`] on the
+///   very next physical line), tried only under the same `try_unlabelled`
+///   gate as the shape above — never merely because some line, anywhere,
+///   happens to open with the tool's own name.
 ///
-/// The marker test itself is `mandible_extract::help_text`'s own
-/// (`starts_with_usage_prefix`/`starts_with_or_marker`, re-exported for this
-/// module) rather than a second copy — see that re-export's doc comment. The
-/// continuation rule *is* this module's own, and is deliberately wider than
-/// the tier's: every line this admits can only add to the attested set
-/// ([`attested_operand_positions`]), and a wider attested set can only make
-/// this oracle report less. An oracle may differ from the parser in that
-/// direction and not the other.
-fn synopsis_lines(raw: &str) -> Vec<SynopsisLine<'_>> {
-    use mandible_extract::help_text::{starts_with_or_marker, starts_with_usage_prefix};
+/// The marker tests themselves are `mandible_extract::help_text`'s own
+/// (`starts_with_usage_prefix`/`starts_with_or_marker`/
+/// `starts_with_name_prefixed_usage`/`looks_like_unlabeled_synopsis_line`/
+/// `starts_with_tool_name`/`looks_like_bracket_flag_row`, re-exported for
+/// this module) rather than a second copy — see that re-export's doc
+/// comment. The continuation rule *is* this module's own,
+/// and is deliberately wider than the tier's: every line this admits can
+/// only add to the attested set ([`attested_operand_positions`]), and a
+/// wider attested set can only make this oracle report less. An oracle may
+/// differ from the parser in that direction and not the other.
+fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
+    use mandible_extract::help_text::{
+        looks_like_bracket_flag_row, looks_like_unlabeled_synopsis_line,
+        starts_with_name_prefixed_usage, starts_with_or_marker, starts_with_tool_name,
+        starts_with_usage_prefix,
+    };
 
     /// What an indented line under an open usage block has to look like
     /// before it counts as more synopsis.
@@ -599,11 +653,33 @@ fn synopsis_lines(raw: &str) -> Vec<SynopsisLine<'_>> {
         NotationOnly,
     }
 
+    let try_unlabelled = !has_labelled_usage_start(raw, root_name);
+    let lines: Vec<&str> = raw.lines().collect();
     let mut out = Vec::new();
     let mut open = Continuation::None;
-    for line in raw.lines() {
+    for (idx, &line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
-        if starts_with_usage_prefix(trimmed) || starts_with_or_marker(trimmed) {
+        // LVM's own emitter (`vgck`, `vgextend`, `vgrename`, and the rest
+        // of the `vg*`/`lv*`/`pv*` family) writes a *bare* invocation line
+        // with no docopt notation on it at all (`vgextend VG PV ...`), so
+        // `looks_like_unlabeled_synopsis_line`'s own notation test can never
+        // find it — every bit of bracket notation is on the line that
+        // follows instead. Mirrors the tier's own fallback exactly: a bare
+        // own-name line is accepted only when the very next physical line
+        // is unambiguous flag-row evidence, never merely because a line
+        // happens to start with the tool's own name somewhere later in the
+        // document.
+        let is_bare_own_name_with_flag_row_next = try_unlabelled
+            && starts_with_tool_name(trimmed, root_name)
+            && lines
+                .get(idx + 1)
+                .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start()));
+        let opens_block = starts_with_usage_prefix(trimmed)
+            || starts_with_or_marker(trimmed)
+            || starts_with_name_prefixed_usage(trimmed, root_name)
+            || (try_unlabelled && looks_like_unlabeled_synopsis_line(trimmed, root_name))
+            || is_bare_own_name_with_flag_row_next;
+        if opens_block {
             out.push(SynopsisLine {
                 text: line,
                 opens_with_program_name: true,
@@ -653,9 +729,29 @@ fn synopsis_lines(raw: &str) -> Vec<SynopsisLine<'_>> {
 /// genuine `PATTERN` operand immediately after a bracketed `[-e]`, and a
 /// value-consuming reader attests `PATTERN` nowhere and reports a real
 /// operand as invented.
-fn usage_operands<'a>(line: &SynopsisLine<'a>) -> (Vec<(&'a str, bool)>, bool) {
-    use mandible_extract::help_text::{starts_with_or_marker, starts_with_usage_prefix};
-    let trimmed = line.text.trim_start();
+///
+/// `root_name` is needed for exactly one shape: the C `"%s: Usage: ..."`
+/// idiom (`nfsidmap: Usage: nfsidmap [-vh] ...`), whose line carries the
+/// tool's own name *twice* — once as the `fprintf` prefix, once again after
+/// the embedded `usage:` marker, as a real invocation would repeat it. The
+/// prefix is stripped off first (`"<name>: "`, byte for byte, the exact
+/// substring [`mandible_extract::help_text::starts_with_name_prefixed_usage`]
+/// matched), which leaves an ordinary `Usage: nfsidmap [-vh] ...` line for
+/// every rule below to read unchanged — one strip rather than a parallel
+/// three-token consumption rule that would have to be kept in sync with it.
+fn usage_operands<'a>(line: &SynopsisLine<'a>, root_name: &str) -> (Vec<(&'a str, bool)>, bool) {
+    use mandible_extract::help_text::{
+        starts_with_name_prefixed_usage, starts_with_or_marker, starts_with_usage_prefix,
+    };
+    let trimmed_full = line.text.trim_start();
+    let trimmed = if starts_with_name_prefixed_usage(trimmed_full, root_name) {
+        trimmed_full
+            .strip_prefix(root_name)
+            .and_then(|rest| rest.strip_prefix(": "))
+            .unwrap_or(trimmed_full)
+    } else {
+        trimmed_full
+    };
     let mut tokens = trimmed.split_whitespace().peekable();
     if starts_with_usage_prefix(trimmed) || starts_with_or_marker(trimmed) {
         // The marker may be glued to the program name (`usage:git`) or
@@ -709,16 +805,17 @@ fn usage_operands<'a>(line: &SynopsisLine<'a>) -> (Vec<(&'a str, bool)>, bool) {
 /// — and this oracle saw every one of them and said nothing, because it did
 /// not look at positionals at all.
 ///
-/// # Why a shape rule and not a word list
+/// # Why a shape rule first, and a word list only on top
 ///
 /// The tier's own fix names the shape by its vocabulary
 /// (`sections::OPTION_LIST_PLACEHOLDERS`), which is the right call *there*:
 /// a parser deciding whether to emit must decide, and those five words are
 /// the ones the frameworks in the fleet actually use. An oracle must not
-/// share that list. A word list cannot tell you whether the parser is
-/// wrong, only whether it disagreed with the same list — and a fabrication
-/// spelled with a sixth word would be attested by both. So the rule here is
-/// positional, and it reads only shape:
+/// rely on that list *alone*: it cannot tell you whether the parser is
+/// wrong, only whether it disagreed with the same list — a fabrication
+/// spelled with a sixth word would be attested by both, and the primary
+/// rule below still has to cover that case on its own. So the primary rule
+/// here is positional, and it reads only shape:
 ///
 /// > On a synopsis line that writes **no literal flag of its own**, the
 /// > **first** slot is the option list — provided it is written in
@@ -749,12 +846,84 @@ fn usage_operands<'a>(line: &SynopsisLine<'a>) -> (Vec<(&'a str, bool)>, bool) {
 /// [FILE]...`) by clause 1. Both are under-reports, deliberately: this
 /// oracle's own standing rule is that a permissive miss costs a defect
 /// unfound while a false alarm blocks a working tool.
-fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Option<&'a str> {
-    if has_literal_flag || slots.len() < 2 {
-        return None;
+///
+/// # The vocabulary addendum, and why it is additive rather than a rewrite
+///
+/// The positional rule above assumes the placeholder sits *first*, true of
+/// every case measured before this task and false of `gh`'s unlabelled
+/// `<command> <subcommand> [flags]` — a shape [`crate::existence`]'s own
+/// synopsis-entry fix (`mandible_extract::help_text::
+/// looks_like_unlabeled_synopsis_line`) only just made visible to this
+/// oracle at all. `gh`'s real flag stand-in is the *last* slot, and reading
+/// the positional rule alone would have excluded `command` (a real operand)
+/// as if it were the placeholder, while leaving `flags` (the actual
+/// placeholder) attested as if it were real — backwards on both counts.
+///
+/// So this function tries two tests, in a fixed order, not a blind union:
+///
+/// 1. A **vocabulary** test, applied regardless of position:
+///    [`mandible_extract::help_text::is_option_list_placeholder`], the exact
+///    five-word list `sections::extract_positionals` itself excludes on
+///    (`option`, `options`, `flag`, `flags`, `arguments`), re-used rather
+///    than restated for the drift reason that re-export's own doc comment
+///    gives. Scoped to a notation-written slot (`bracketed`) on purpose:
+///    this vocabulary family's whole reason to exist is a word that *looks*
+///    like a bare operand name while notation marks it as a placeholder
+///    instead, so a bare, unbracketed occurrence of one of these words is
+///    left alone as the ordinary operand it would otherwise be (nothing in
+///    the fleet measurement contradicts this; the anchor case, `vim`'s
+///    `[arguments]`, is always written bracketed).
+/// 2. Only when the vocabulary test found **nothing at all** on the line:
+///    the **positional** shape rule above (this function's own doc comment
+///    up to this point) — the first slot, when the line writes no literal
+///    flag of its own, it is written in notation, and something follows it.
+///
+/// The ordering is load-bearing, not cosmetic. Running both unconditionally
+/// double-counts the moment a real operand happens to sit first on a line
+/// whose *actual* placeholder is further along: `gh`'s unlabelled
+/// `<command> <subcommand> [flags]` has its real flag stand-in *last*
+/// (`flags`, caught by rule 1), but rule 2 alone would also read the
+/// genuine first operand `command` as *a second, wrong* placeholder if it
+/// ran unconditionally — reporting a real operand as invented is exactly
+/// the failure this whole module exists to prevent. Gating rule 2 on "rule
+/// 1 found nothing" is what keeps the two from ever answering the same
+/// question twice: every case measured in the fleet before this task
+/// (`tar`'s `OPTION`, `pkgconf`'s `OPTIONS`, `rmiregistry`'s `options`, ...)
+/// already matches the vocabulary case-insensitively, so rule 2 is pure
+/// insurance for a placeholder spelled with a word outside the five-word
+/// list — it has never yet had to fire *and* disagree with rule 1 on the
+/// same line, and this ordering guarantees it never will.
+///
+/// Returns every excluded slot's word, not just one, since a line can
+/// legitimately carry more than one vocabulary hit (rare, unmeasured, but
+/// nothing forbids a synopsis from repeating the word).
+fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> HashSet<&'a str> {
+    let mut placeholders = HashSet::new();
+    for (word, bracketed) in slots {
+        if *bracketed && mandible_extract::help_text::is_option_list_placeholder(word) {
+            placeholders.insert(*word);
+        }
     }
-    let (first, bracketed) = slots[0];
-    bracketed.then_some(first)
+    // The positional rule is a *fallback*, tried only when nothing on the
+    // line already matched the vocabulary above — never run unconditionally
+    // alongside it. Every real fleet case this rule was written for
+    // (`tar`'s `OPTION`, `pkgconf`'s `OPTIONS`, `vim`'s `arguments`, ...)
+    // already matches the vocabulary case-insensitively, so this branch is
+    // pure insurance against a placeholder spelled with a sixth word the
+    // vocabulary doesn't have — never a second vote alongside a vocabulary
+    // match that already named a *different* slot. Without this ordering,
+    // `gh`'s `<command> <subcommand> [flags]` triggers both rules at once:
+    // the vocabulary rule correctly excludes `flags` (the real placeholder,
+    // last), while the position rule — blind to which slot the vocabulary
+    // already answered for — would *also* exclude `command` (the first
+    // slot, and a genuine operand), reporting it as invented.
+    if placeholders.is_empty() && !has_literal_flag && slots.len() >= 2 {
+        let (first, bracketed) = slots[0];
+        if bracketed {
+            placeholders.insert(first);
+        }
+    }
+    placeholders
 }
 
 /// Every position in `raw` at which a genuine positional operand is
@@ -778,13 +947,13 @@ fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Op
 /// nobody has bounded. The subtraction as written costs `du`'s `OPTION` a
 /// report whenever a second `or:` line re-attests it, and that is the trade
 /// this module takes every time.
-fn attested_operand_positions(raw: &str) -> HashSet<&str> {
+fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
     let mut out = HashSet::new();
-    for line in synopsis_lines(raw) {
-        let (slots, has_literal_flag) = usage_operands(&line);
-        let placeholder = option_list_slot(&slots, has_literal_flag);
+    for line in synopsis_lines(raw, root_name) {
+        let (slots, has_literal_flag) = usage_operands(&line, root_name);
+        let placeholders = option_list_slot(&slots, has_literal_flag);
         for (word, _) in &slots {
-            if Some(*word) != placeholder {
+            if !placeholders.contains(word) {
                 out.insert(*word);
             }
         }
@@ -1103,7 +1272,7 @@ fn walk(
 /// checked like any other node's.
 pub fn detect(raw: &str, root: &CommandNode) -> ExistenceReport {
     let attested = attested_name_positions(raw, &root.name);
-    let operands = attested_operand_positions(raw);
+    let operands = attested_operand_positions(raw, &root.name);
     let mut fabrications = Vec::new();
     walk(
         root,
@@ -2054,7 +2223,7 @@ mod tests {
     #[test]
     fn the_option_list_slot_is_never_an_attested_operand() {
         for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
-            let attested = attested_operand_positions(raw);
+            let attested = attested_operand_positions(raw, "");
             assert!(
                 !attested.contains(placeholder),
                 "{placeholder:?} must not be attested by {raw:?}: {attested:?}"
@@ -2153,7 +2322,7 @@ mod tests {
     #[test]
     fn a_bare_usage_header_opens_a_synopsis_block() {
         let raw = "Usage:\n wall [options] [<file> | <message>]\n\nWrite a message to all users.\n";
-        let attested = attested_operand_positions(raw);
+        let attested = attested_operand_positions(raw, "wall");
         assert!(attested.contains("file"), "{attested:?}");
         assert!(attested.contains("message"), "{attested:?}");
         assert!(!attested.contains("options"), "{attested:?}");
@@ -2192,7 +2361,7 @@ mod tests {
             "  or:  du [OPTION]... --files0-from=F\n",
             "  Summarize device usage of the set of FILEs, recursively for directories.\n",
         );
-        let attested = attested_operand_positions(raw);
+        let attested = attested_operand_positions(raw, "du");
         assert!(!attested.contains("device"), "{attested:?}");
         assert!(!attested.contains("recursively"), "{attested:?}");
         assert!(attested.contains("FILE"), "{attested:?}");
@@ -2292,5 +2461,158 @@ mod tests {
         let root = help_text_node("nothing");
         let report = detect(probe.root_help_text().unwrap_or_default().as_str(), &root);
         assert_eq!(report.fabrication_count(), 0);
+    }
+
+    // --- unlabelled and name-prefixed synopses (this task's own fix) -----
+
+    /// `gh --help`'s real shape, byte-exact: a bare `USAGE` heading (no
+    /// colon, so `starts_with_usage_prefix` never matches it) followed by an
+    /// indented line that simply opens with the tool's own name and reads as
+    /// usage grammar. Before this fix, this line was entirely invisible to
+    /// `synopsis_lines`, so both of `gh`'s real operands were reported as
+    /// invented despite occurring literally in the tool's own output — this
+    /// task's own worked example.
+    const GH_USAGE: &str = "USAGE\n  gh <command> <subcommand> [flags]\n";
+
+    #[test]
+    fn an_unlabelled_synopsis_opening_with_the_tools_own_name_is_recognized() {
+        let attested = attested_operand_positions(GH_USAGE, "gh");
+        assert!(attested.contains("command"), "{attested:?}");
+        assert!(attested.contains("subcommand"), "{attested:?}");
+        // `flags` is gh's own flag-list stand-in (vocabulary-matched, see
+        // `option_list_slot`) and must not itself be an attested operand.
+        assert!(!attested.contains("flags"), "{attested:?}");
+    }
+
+    #[test]
+    fn detect_does_not_flag_ghs_real_operands_from_its_unlabelled_synopsis() {
+        let mut root = help_text_node("gh");
+        root.positionals.push(help_text_positional("command"));
+        root.positionals.push(help_text_positional("subcommand"));
+        let report = detect(GH_USAGE, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "gh's own real operands must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// A labelled `usage:` line anywhere in the document must still take
+    /// precedence: the unlabelled fallback is only ever tried when
+    /// [`has_labelled_usage_start`] finds nothing, exactly mirroring the
+    /// tier's own `labelled_usage_start`/`unlabelled_synopsis_start`
+    /// precedence.
+    #[test]
+    fn a_real_labelled_usage_line_suppresses_the_unlabelled_fallback() {
+        let raw = "Usage: gh [flags]\nEXTRA\n  gh <command> <subcommand> [flags]\n";
+        assert!(has_labelled_usage_start(raw, "gh"));
+        let attested = attested_operand_positions(raw, "gh");
+        // The unlabelled fallback line never opens a block here, so its
+        // `command`/`subcommand` are not attested via that path — only
+        // whatever the real labelled block itself carries (nothing, in this
+        // synthetic example, since its only slot is the option list).
+        assert!(!attested.contains("command"), "{attested:?}");
+    }
+
+    /// The C `"%s: Usage: ..."` idiom: the tool's own name, a literal
+    /// `": "`, then `usage:` — `nfsidmap`'s real shape. The tool's name
+    /// occurs *twice* on this one line (the `fprintf` prefix, then again as
+    /// the invocation's own program name), and both copies must be
+    /// consumed before the remaining tokens are read as operands.
+    const NFSIDMAP_USAGE: &str = "nfsidmap: Usage: nfsidmap [-vh] [-c || -d] [-l] path\n";
+
+    #[test]
+    fn a_name_prefixed_usage_idiom_line_is_recognized() {
+        let attested = attested_operand_positions(NFSIDMAP_USAGE, "nfsidmap");
+        assert!(attested.contains("path"), "{attested:?}");
+    }
+
+    #[test]
+    fn detect_does_not_flag_nfsidmaps_real_operand_from_the_name_prefixed_idiom() {
+        let mut root = help_text_node("nfsidmap");
+        root.positionals.push(help_text_positional("path"));
+        let report = detect(NFSIDMAP_USAGE, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "nfsidmap's own real operand must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// [`option_list_slot`]'s own regression: the vocabulary rule and the
+    /// positional shape rule must never both fire on the same line. `gh`'s
+    /// synopsis puts its real flag stand-in *last* (`flags`, vocabulary-
+    /// matched) while a genuine operand (`command`) sits first — exactly
+    /// the shape that would trip the position rule into treating `command`
+    /// as *a second* excluded placeholder if the two rules ran
+    /// unconditionally instead of the vocabulary rule gating the fallback.
+    #[test]
+    fn a_trailing_vocabulary_placeholder_does_not_also_trigger_the_leading_position_rule() {
+        let slots = vec![("command", true), ("subcommand", true), ("flags", true)];
+        let placeholders = option_list_slot(&slots, false);
+        assert_eq!(placeholders, HashSet::from(["flags"]));
+    }
+
+    /// `vgextend --help`'s real shape, byte-exact: LVM's own bare-own-name
+    /// convention. The invocation line carries no docopt notation at all
+    /// (`vgextend VG PV ...`, no `[`, `<` or `{` anywhere on it), so
+    /// `looks_like_unlabeled_synopsis_line` alone can never find it — the
+    /// evidence that it is usage grammar is entirely on the *next* physical
+    /// line, an unambiguous bracketed flag row.
+    const VGEXTEND_USAGE: &str = concat!(
+        "  vgextend - Add physical volumes to a volume group\n",
+        "\n",
+        "  vgextend VG PV ...\n",
+        "\t[ -A|--autobackup y|n ]\n",
+        "\t[ -f|--force ]\n",
+        "\t[ COMMON_OPTIONS ]\n",
+    );
+
+    #[test]
+    fn a_bare_own_name_line_followed_by_a_bracket_flag_row_is_recognized() {
+        let attested = attested_operand_positions(VGEXTEND_USAGE, "vgextend");
+        assert!(attested.contains("VG"), "{attested:?}");
+        assert!(attested.contains("PV"), "{attested:?}");
+    }
+
+    #[test]
+    fn detect_does_not_flag_vgextends_real_operands_from_its_bare_own_name_line() {
+        let mut root = help_text_node("vgextend");
+        root.positionals.push(help_text_positional("VG"));
+        root.positionals.push(help_text_positional("PV"));
+        let report = detect(VGEXTEND_USAGE, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "vgextend's own real operands must not be flagged: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// A bare own-name line whose *next* line is ordinary prose, not a
+    /// bracketed flag row, must not open a synopsis block — the same
+    /// discipline `starts_with_tool_name` alone would otherwise blur: a
+    /// sentence that happens to open with the tool's own name is not usage
+    /// grammar.
+    #[test]
+    fn a_bare_own_name_line_without_a_flag_row_next_does_not_open_a_block() {
+        let raw = "vgextend is a tool for extending volume groups.\nIt takes no further arguments here.\n";
+        let attested = attested_operand_positions(raw, "vgextend");
+        assert!(!attested.contains("is"), "{attested:?}");
+        assert!(!attested.contains("tool"), "{attested:?}");
     }
 }

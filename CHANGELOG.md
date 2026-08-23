@@ -10,6 +10,34 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **The existence-fabrication oracle could not see three synopsis-entry
+  shapes the parser itself already recognized, and reported the operands
+  it correctly recovered from them as invented.** Measurement fix, not a
+  parser fix: `xtask/src/existence.rs`'s `synopsis_lines` learned the same
+  three entry points `mandible-extract`'s help-text tier already opens a
+  usage block on — the C `fprintf(stderr, "%s: Usage: ...", argv[0])`
+  idiom (`nfsidmap: Usage: nfsidmap [-vh] ...`), an **unlabelled** synopsis
+  with no `usage:` marker anywhere (`gh`'s bare `USAGE` heading followed by
+  `gh <command> <subcommand> [flags]`), and LVM's bare own-name line whose
+  notation sits on the *next* physical line instead (`vgextend VG PV ...`
+  followed by `[ -A|--autobackup y|n ]`) — by re-exporting and reusing the
+  parser's own predicates rather than restating them (`mandible-extract/
+  src/help_text/mod.rs`'s re-export block). Also fixed `existence::
+  option_list_slot`, whose position-only placeholder rule read a genuine
+  leading operand as invented the moment a synopsis's real flag-list
+  stand-in sat *last* rather than first (`gh`'s trailing `[flags]`): the
+  rule is now vocabulary-first (the parser's own `OPTION_LIST_PLACEHOLDERS`
+  five-word list, reused rather than restated), falling back to the
+  position rule only when nothing on the line already matched it. On a
+  full-`PATH` sweep this closed 103 of a 154-tool existence-fabrication
+  count down to 52 — below the round's own 66-tool starting point, since
+  14 tools flagged even before this round's parser work turned out to be
+  the same instrument gap — with zero remaining tools newly fabricating
+  relative to that starting point. `xtask detector self-check --detector
+  existence` (9 hand-built cases; this family has no labelled member in
+  the audit, so self-check is its only calibration evidence) and
+  `xtask corpus` both stay green.
+
 - **A short flag's abbreviation-continuation bracket (`ip --help`'s
   `-V[ersion]`, `-s[tatistics]`, `-f[amily]`, `-h[uman-readable]`, ...)
   was read as a fabricated optional value.** `-V[ersion]` came out as `-V`
