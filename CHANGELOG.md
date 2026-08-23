@@ -28,6 +28,19 @@ once it reaches a published 0.1.0 release.
   the block's own opening physical line is consumed as heading text and
   never scanned for entries.)
 
+  `strip_short_abbrev_suffix` also drops stray trailing `}`/`)`/`]`
+  glued directly onto the bracket it closes — `ip`'s own last alternative,
+  `-c[olor]}`, carries the enclosing `OPTIONS := { ... }` group's own
+  closing brace with nothing between it and the abbreviation bracket.
+  Without this, stripping `[olor]` left the bare `}` to fall into the
+  ordinary value grammar, and `-c` moved from a merely-doubtful
+  `value_name: "olor"` (the pre-fix reading) to an outright
+  `value_name: "}"`, `Required` — a fabrication in the exact flag this fix
+  targets, caught during review rather than by the fleet sweep (which
+  only diffs *changed* value names, and this one was already changing).
+  `-c` is now boolean, exactly as `-a[ll]` one line above it in the same
+  block.
+
 - **A mandatory flag some tool's usage synopsis writes unbracketed
   (`ssh-keygen -D pkcs11`, `-M generate`, `-I certificate_identity -s
   ca_key`, `-F`/`-R`/`-r hostname`) had its own value silently dropped.**

@@ -315,7 +315,23 @@ fn strip_short_abbrev_suffix(input: &str) -> Option<&str> {
     if !content.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
         return None;
     }
-    Some(&rest[close + 1..])
+    let mut after = &rest[close + 1..];
+    // Drop stray closing punctuation immediately following the bracket —
+    // `ip --help`'s own `OPTIONS := { -V[ersion] | ... | -c[olor]}` cuts
+    // its last alternative's row with the alternation group's own closing
+    // `}` still glued on, with nothing between it and the bracket this
+    // function just closed. Nothing about the abbreviation convention
+    // produces trailing punctuation of its own, so a `}`/`)`/`]` sitting
+    // right here can only be leftover from an enclosing group this
+    // fragment was cut out of — never a value. Without this, `-c[olor]}`
+    // moved from a merely-doubtful `value_name: "olor"` (this convention's
+    // old, wrong-but-not-punctuation reading) to an outright
+    // `value_name: "}"`, `Required` — a fabrication in the exact flag this
+    // function exists to stop fabricating.
+    while matches!(after.chars().next(), Some('}' | ')' | ']')) {
+        after = &after[1..];
+    }
+    Some(after)
 }
 
 /// `--long-name` (letters, digits, `-`), optionally prefixed with GNU
@@ -1479,6 +1495,22 @@ mod tests {
             assert_eq!(spec.value_name, None, "input: {input} must carry no value");
             assert!(spec.fully_consumed, "input: {input}");
         }
+    }
+
+    /// `ip --help`'s own `OPTIONS := { -V[ersion] | ... | -c[olor]}` cuts
+    /// its last row with the alternation group's own closing `}` still
+    /// glued on. The stray brace is leftover punctuation from the
+    /// enclosing group, never a value — `-c` must come out exactly as
+    /// boolean as `-a[ll]` does one line earlier in the same document.
+    #[test]
+    fn a_stray_closing_brace_after_an_abbreviation_bracket_is_not_a_value() {
+        let spec = parse_flag_spec("-c[olor]}");
+        assert_eq!(spec.short, Some('c'));
+        assert_eq!(
+            spec.value_name, None,
+            "the stray `}}` must not become a value"
+        );
+        assert!(spec.fully_consumed);
     }
 
     /// The discriminator is narrow on purpose: a real optional-value

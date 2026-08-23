@@ -53,8 +53,6 @@ flags:
     sources:
     - help-text
 - short: 'c'
-  value_name: '}'
-  value_kind: Required
   group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
   provenance:
     sources:

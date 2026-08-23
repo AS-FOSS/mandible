@@ -8,7 +8,16 @@
 # value `ip` does not document at all, on a flag that takes none. `-h`,
 # `-f`, `-4`, `-l` and `-o` are the flags from this document that reach
 # the parser as their own row and are now boolean, exactly as `ip`
-# documents them.
+# documents them. `-c[olor]}` (the block's very last alternative, with the
+# `OPTIONS := { ... }` group's own closing `}` glued on with nothing
+# between it and the bracket) is the same shape one step further:
+# stripping `[olor]` used to leave the stray `}` to fall into the ordinary
+# value grammar, so `-c` briefly went from a merely-doubtful
+# `value_name: "olor"` (pre-fix) to an outright `value_name: "}"`,
+# `Required` — caught by this fixture's own bless-and-review step, not by
+# the fleet sweep. `strip_short_abbrev_suffix` now also drops stray
+# trailing `}`/`)`/`]` immediately after the bracket it closes, and `-c`
+# is boolean, exactly as `-a[ll]` one line above it in the same block.
 #
 # Honest residual, deliberately not claimed here: `-V`, `-s` and `-d`
 # still never reach the flag list at all — a separate, already-tracked
@@ -16,10 +25,10 @@
 # `OPTIONS := { ... }` block's own *opening* physical line is consumed as
 # heading text and never scanned for entries, dropping every flag written
 # on it). This fixture does not assert their presence, and does not
-# reopen or narrow that xfail. `-r` and `-c` also still carry a mangled
+# reopen or narrow that xfail. `-r` also still carries a mangled
 # `value_name` from an unrelated defect (a two-letter abbreviation prefix,
-# `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`, and text bleeding across the `}` that
-# closes the block) — out of this fixture's scope for the same reason.
+# `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`) — out of this fixture's scope for the
+# same reason.
 
 [bless]
 provenance = "agent"
@@ -39,4 +48,4 @@ exit_code = 255
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["-h", "-f", "-4", "-l", "-o"]
+must_contain_flags = ["-h", "-f", "-4", "-l", "-o", "-c"]
