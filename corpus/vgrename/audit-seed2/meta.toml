@@ -17,13 +17,16 @@ stderr = "help.stderr.txt"
 
 [contract]
 expected_framework = "generic"
-# The reviewer's note ("verbatim") names the actual status this fixture
-# gets: `CommandNode::unparsed` is non-empty (verified by inspection),
-# which `xtask/src/status.rs`'s STATUS_LADDER ranks below "low-confidence".
-# Once this LVM-style bracketed-option text is genuinely structured into
-# real flags, status should clear at least that floor.
+# Was `[xfail] reason = "verbatim"`. Same LVM emitter as `vgck`/`vgextend`
+# (see `vgck`'s own comment for the mechanism). `vgrename`'s two synopsis
+# forms (`vgrename VG VG_new`, `vgrename String VG_new`) each continue
+# with only `[ COMMON_OPTIONS ]` — a cross-reference, correctly refused as
+# a flag (no dash) — so its real flags come entirely from two *headed*
+# blocks: `Common options for command:` (3 rows: `-A|--autobackup`,
+# `-f|--force`, `--reportformat`) and `Common options for lvm:` (the same
+# 18-row block `vgck`/`vgextend` carry). All 21 recovered now.
 min_status = "low-confidence"
-
-[xfail]
-broken = true
-reason = "verbatim"
+must_contain_flags = ["-A", "--autobackup", "-f", "--force", "-d", "--debug"]
+# No `verdict_scope`: this bless is agent-reviewed (spot-checked against
+# `help.txt` above), not human-reviewed — see corpus/README.md's "What
+# `--bless` does and does not assert".

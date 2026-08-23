@@ -403,6 +403,127 @@ pub fn looks_like_flag_start(input: &str) -> bool {
     trimmed.starts_with('-') || parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
 }
 
+// --- the docopt bracket-group flag row ----------------------------------
+//
+// LVM's own help emitter (`vgck`, `vgextend`, `vgrename`, and every other
+// `lv*`/`vg*`/`pv*` binary) writes one flag per physical line as a whole
+// `[...]` group, never a `-`-prefixed row and never a `{...}` alternation:
+//
+// ```text
+//   [ -d|--debug ]
+//   [    --commandprofile String ]
+//   [ -A|--autobackup y|n ]
+//   [ --metadatasize Size[m|UNIT] ]
+// ```
+//
+// This is a *third* row shape [`looks_like_flag_start`] cannot be widened
+// to cover — see that function's own doc comment and the trap recorded in
+// this fix's PR: `lsof`'s usage-block continuation lines also open with
+// `[` (`[-F [f]]`), and that predicate doubles as the usage block's own
+// terminator (`sections::parse_body`'s "a continuation that reads as a
+// flag row ends the block" guard). Widening it to accept `[` would make
+// `lsof`'s own continuation line satisfy it, ending the block one line in
+// and losing the six flags documented only in later continuation lines.
+//
+// So this is a **separate, row-level** predicate, consulted only at the
+// two places that ask "is this physical line a flag-table entry" —
+// `flags_block_start`/`scan_flags_block` for the headed `Common options
+// for lvm:` block, and `extract_usage_flags` for the bracket rows that
+// continue a bare, unlabelled `vgck`/`vgextend VG PV ...` synopsis line —
+// never the usage-block-continuation question above.
+
+/// The inner content of a [`looks_like_bracket_flag_row`] line — the
+/// cluster of `-`/`--` spellings plus, when present, the value spec that
+/// follows them — or `None` if `input` is not that shape.
+///
+/// Two conditions, both required:
+///
+/// 1. `input`, once trimmed, is *exactly one* bracket group: nothing
+///    before the `[`, nothing but whitespace after its matching `]`. A
+///    row with a description trailing the group, or with a second group,
+///    is not a shape this reads.
+/// 2. The group's content, trimmed, starts with `-`. This is what turns
+///    away every *operand* LVM writes in the identical notation —
+///    `[ COMMON_OPTIONS ]` (a cross-reference to this very block, no
+///    dash at all) and `[ VG|Tag ... ]` / `[ VG PV ... ]` (positionals) —
+///    while admitting every real flag row, because every one of LVM's
+///    flag rows opens with a dash and no operand row ever does.
+///
+/// The returned content is handed to [`parse_flag_spec`] unchanged by
+/// every caller: once the outer brackets are gone, `-d|--debug`,
+/// `--commandprofile String`, `-A|--autobackup y|n` and `--metadatasize
+/// Size[m|UNIT]` are all shapes that grammar already reads correctly —
+/// `|` is already an alias separator ([`is_alias_separator`]), and
+/// [`take_rest_value_token`]'s `alias_follows` check already keeps a
+/// value's own `|` (`y|n`, `Size[m|UNIT]`) from being misread as a second
+/// alias, which is the same hazard `sg_sanitize`'s `--count=OC|-c OC` is
+/// there for. No second value-vs-alias parser is written for this row
+/// shape; the existing one already closes the ambiguity spec [7] Tier B
+/// worries about here (`--color={always|never|auto}`), because
+/// `is_bare_flag_spelling` is never even consulted by this path — a
+/// leftover value spec becomes `value_name` exactly as it always has.
+pub fn bracket_flag_row_content(input: &str) -> Option<&str> {
+    let trimmed = input.trim();
+    if !trimmed.starts_with('[') {
+        return None;
+    }
+    let (content, rest) = split_at_matching_close(trimmed, '[', ']')?;
+    if !rest.trim().is_empty() {
+        return None;
+    }
+    let content = content.trim();
+    if !content.starts_with('-') {
+        return None;
+    }
+    // Refuse a row whose alias run does not actually finish at the first
+    // whitespace gap — `ethtool --help`'s
+    // `[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]`
+    // is not LVM's shape at all: it is an alternation between *two
+    // different* flags, only one of which carries operands, glued into
+    // one bracket group. Every LVM row's aliases are unseparated by
+    // whitespace (`-A|--autobackup`, `-d|--debug`) with the value (if any)
+    // starting only *after* the alias run ends — so a `|` reappearing
+    // right after that first whitespace gap means the alias run never
+    // actually ended there, and what follows is a second alternative this
+    // function's single-flag reading cannot honestly attribute. Naively
+    // parsing this via `parse_flag_spec` reads `--all-groups` as carrying
+    // the value `eth-phy` and drops `--groups` entirely — a real flag
+    // lost to a fabricated one. Refusing the whole row is the same choice
+    // [`is_bare_flag_spelling`]'s own doc comment already makes for
+    // `[--count=OC|-c OC]`: missing beats invented.
+    if let Some(gap) = top_level_whitespace(content) {
+        if content[gap..].trim_start().starts_with('|') {
+            return None;
+        }
+    }
+    Some(content)
+}
+
+/// The byte index of the first whitespace character in `content` that
+/// sits outside any `[...]`/`{...}` nesting — the boundary between a
+/// bracket-group flag row's alias run and its value spec, when there is
+/// one. `None` when no such whitespace exists (a boolean row like
+/// `--nolocking`, or `-d|--debug`).
+fn top_level_whitespace(content: &str) -> Option<usize> {
+    let mut depth = 0i32;
+    for (i, c) in content.char_indices() {
+        match c {
+            '[' | '{' => depth += 1,
+            ']' | '}' => depth -= 1,
+            c if c.is_whitespace() && depth == 0 => return Some(i),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// True if `input` is a [`bracket_flag_row_content`] row — a whole
+/// physical line consisting of exactly one `[...]` group whose content
+/// opens with a dash.
+pub fn looks_like_bracket_flag_row(input: &str) -> bool {
+    bracket_flag_row_content(input).is_some()
+}
+
 // --- the flag-alternation group ----------------------------------------
 //
 // A *delimited alternation of flag spellings* is one notation with three
@@ -1053,6 +1174,87 @@ mod tests {
     #[test]
     fn looks_like_flag_start_false_for_bare_word() {
         assert!(!looks_like_flag_start("clone     Clone a repository"));
+    }
+
+    // --- the docopt bracket-group flag row ------------------------------
+
+    #[test]
+    fn bracket_flag_row_reads_lvms_common_options() {
+        assert_eq!(
+            bracket_flag_row_content("[ -d|--debug ]"),
+            Some("-d|--debug")
+        );
+        assert_eq!(
+            bracket_flag_row_content("[    --commandprofile String ]"),
+            Some("--commandprofile String")
+        );
+        assert_eq!(
+            bracket_flag_row_content("[ -A|--autobackup y|n ]"),
+            Some("-A|--autobackup y|n")
+        );
+        assert_eq!(
+            bracket_flag_row_content("[ --metadatasize Size[m|UNIT] ]"),
+            Some("--metadatasize Size[m|UNIT]")
+        );
+        assert_eq!(
+            bracket_flag_row_content("[ -f|--force ]"),
+            Some("-f|--force")
+        );
+        assert_eq!(
+            bracket_flag_row_content("[ --nolocking ]"),
+            Some("--nolocking")
+        );
+    }
+
+    #[test]
+    fn bracket_flag_row_refuses_operand_rows() {
+        // No dash: a cross-reference to the common-options block, never a
+        // flag.
+        assert_eq!(bracket_flag_row_content("[ COMMON_OPTIONS ]"), None);
+        // Positionals, in the identical bracket notation.
+        assert_eq!(bracket_flag_row_content("[ VG|Tag ... ]"), None);
+        assert_eq!(bracket_flag_row_content("[ VG PV ... ]"), None);
+    }
+
+    #[test]
+    fn bracket_flag_row_refuses_trailing_text() {
+        // Not this row's shape: a description trails the group.
+        assert_eq!(
+            bracket_flag_row_content("[ -d|--debug ]  enable debugging"),
+            None
+        );
+    }
+
+    /// The content this predicate returns is handed straight to
+    /// `parse_flag_spec` by every caller — confirm that pipeline actually
+    /// reads the alias-vs-value ambiguity correctly, not just that the
+    /// brackets are stripped.
+    #[test]
+    fn bracket_flag_row_content_feeds_parse_flag_spec_correctly() {
+        let spec = parse_flag_spec(bracket_flag_row_content("[ -A|--autobackup y|n ]").unwrap());
+        assert_eq!(spec.short, Some('A'));
+        assert_eq!(spec.long.as_deref(), Some("autobackup"));
+        assert_eq!(spec.value_name.as_deref(), Some("y|n"));
+
+        let spec =
+            parse_flag_spec(bracket_flag_row_content("[ --metadatasize Size[m|UNIT] ]").unwrap());
+        assert_eq!(spec.long.as_deref(), Some("metadatasize"));
+        assert_eq!(spec.value_name.as_deref(), Some("Size[m|UNIT]"));
+
+        let spec = parse_flag_spec(bracket_flag_row_content("[ -d|--debug ]").unwrap());
+        assert_eq!(spec.short, Some('d'));
+        assert_eq!(spec.long.as_deref(), Some("debug"));
+        assert_eq!(spec.value_name, None);
+    }
+
+    #[test]
+    fn looks_like_flag_start_still_refuses_brackets() {
+        // The trap this whole row-level predicate exists to avoid:
+        // `looks_like_flag_start` must stay blind to `[`, or `lsof`'s
+        // usage-block continuation (`[-F [f]]`) would end that block one
+        // line in.
+        assert!(!looks_like_flag_start("[ -d|--debug ]"));
+        assert!(!looks_like_flag_start("[-F [f]]"));
     }
 
     // --- the bundled-short-flag cluster ---------------------------------

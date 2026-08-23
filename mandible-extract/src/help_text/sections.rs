@@ -42,7 +42,8 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{
-    looks_like_flag_start, parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, FlagSpec,
+    bracket_flag_row_content, looks_like_bracket_flag_row, looks_like_flag_start,
+    parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, FlagSpec,
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
@@ -366,9 +367,35 @@ fn parse_body(
                     !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
                 })
                 .unwrap_or(lines.len());
-            lines[..body_start]
-                .iter()
-                .position(|l| looks_like_unlabeled_synopsis_line(l.trim_start(), name))
+            lines[..body_start].iter().enumerate().position(|(idx, l)| {
+                let t = l.trim_start();
+                looks_like_unlabeled_synopsis_line(t, name)
+                    // LVM's own emitter (`vgck`, `vgextend`, `vgrename`)
+                    // writes a *bare* invocation line — `vgck` alone, or
+                    // `vgextend VG PV ...` with no bracket notation at
+                    // all on the head line itself — and puts every bit of
+                    // docopt notation on the rows that continue it:
+                    //
+                    // ```text
+                    //   vgck
+                    //   \t[    --reportformat basic|json ]
+                    //   \t[ COMMON_OPTIONS ]
+                    // ```
+                    //
+                    // `looks_like_unlabeled_synopsis_line` alone can never
+                    // find this: its whole test is notation evidence *on
+                    // this line*, and this line has none. So a bare
+                    // own-name line is accepted too, but only when the
+                    // very next physical line is unambiguous flag-row
+                    // evidence ([`looks_like_bracket_flag_row`]) — a
+                    // narrow, structural signal (never "is this LVM") that
+                    // a name-only line's continuation really is usage
+                    // grammar and not, say, a one-word section title.
+                    || (starts_with_tool_name(t, name)
+                        && lines
+                            .get(idx + 1)
+                            .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start())))
+            })
         })
     } else {
         None
@@ -1939,8 +1966,47 @@ fn looks_like_email(word: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
 }
 
+/// The column a tab in leading whitespace advances to, from whatever
+/// column it started at — the ordinary terminal tab-stop convention.
+const TAB_STOP: usize = 8;
+
+/// A line's leading indentation, as a **visual column**, not a raw
+/// character count.
+///
+/// The two agree everywhere the fleet's overwhelming convention holds
+/// (indentation built entirely from spaces): a run of `n` leading spaces
+/// still measures `n` either way, so this is a byte-for-byte-identical
+/// answer for that case, and every caller of this function that was
+/// already correct for space-indented `--help` output stays exactly as
+/// correct.
+///
+/// They disagree when leading whitespace mixes tabs and spaces, which is
+/// where the plain character count actively lies: LVM's own emitter
+/// (`vgck`, `vgextend`, `vgrename`, ...) indents its `Common options for
+/// lvm:` heading two spaces and every flag row beneath it with **one
+/// tab**. A raw count reads the tab as *one* column — narrower than the
+/// heading's two spaces — so every "is this content indented more than
+/// its heading" check in this module answered "no" and the entire block
+/// (13+ flags per tool) was never even looked at as a candidate flags
+/// table, regardless of anything `looks_like_flag_start` does or does not
+/// accept. Expanding the tab to the next multiple of [`TAB_STOP`] (the
+/// universal terminal convention, not an LVM-specific number) reads it as
+/// column 8 — correctly deeper than the heading's column 2 — and every
+/// downstream decision in this file that already trusted
+/// `leading_whitespace`'s answer starts working for this shape too,
+/// without being touched.
 fn leading_whitespace(line: &str) -> usize {
-    line.len() - line.trim_start().len()
+    let mut col = 0usize;
+    for c in line.chars() {
+        if c == '\t' {
+            col = (col / TAB_STOP + 1) * TAB_STOP;
+        } else if c.is_whitespace() {
+            col += 1;
+        } else {
+            break;
+        }
+    }
+    col
 }
 
 /// True if `t` starts with `"usage:"`, case-insensitively.
@@ -3133,7 +3199,7 @@ fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
     /// How many non-flag rows may precede the first flag row.
     const MAX_SKIPPED_LEADING_ROWS: usize = 3;
 
-    if looks_like_flag_start(lines[start]) {
+    if looks_like_flag_start(lines[start]) || looks_like_bracket_flag_row(lines[start]) {
         return Some(start);
     }
     let base = leading_whitespace(lines[start]);
@@ -3149,7 +3215,7 @@ fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
         if indent < base {
             return None; // dedented out of the block
         }
-        if looks_like_flag_start(line) {
+        if looks_like_flag_start(line) || looks_like_bracket_flag_row(line) {
             return Some(offset);
         }
         // A row whose left token could not be *either* kind of entry does
@@ -3540,7 +3606,8 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
         let indent = leading_whitespace(line);
         let trimmed = line.trim_start();
 
-        let is_entry_start = looks_like_flag_start(trimmed)
+        let is_entry_start = (looks_like_flag_start(trimmed)
+            || looks_like_bracket_flag_row(trimmed))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         if is_entry_start {
@@ -3593,6 +3660,19 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
     for row in rows {
         match row {
             FlagsBlockRow::Entry(line) => {
+                // A docopt bracket-group row (LVM's `[ -d|--debug ]`) is
+                // one flag and nothing else — no description column
+                // exists on the row at all. Neither the multi-column
+                // splitter nor the aligned-spelling-column splitter below
+                // is the right tool for a shape with no second column to
+                // find, so this row is read directly: the content inside
+                // the brackets is exactly what `split_single_column_entry`
+                // would otherwise try to recover by looking for a
+                // whitespace gap that isn't there.
+                if let Some(content) = bracket_flag_row_content(line.trim()) {
+                    entries.push((content.to_string(), String::new()));
+                    continue;
+                }
                 // `fields_in_line` can come back empty on a line
                 // `looks_like_flag_start` accepted (bare `-` test) but
                 // whose leading token isn't `is_flag_shaped` (a stricter,
@@ -5797,6 +5877,23 @@ fn extract_positionals(
 fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
     let mut out: Vec<Flag> = Vec::new();
     for line in usage_lines {
+        // A whole line that is one docopt bracket-group flag row (LVM's
+        // `[ -A|--autobackup y|n ]`) is read directly by
+        // `bracket_flag_row_content` + `parse_flag_spec`, never by the
+        // generic segment walk below. `usage_segments` splits a group's
+        // content on every top-level `|` unconditionally
+        // (`split_top_level_pipe`), which is right for an alternation of
+        // whole flags (`{-v|--version}`) but wrong here: it would read
+        // `-A|--autobackup y|n` as three alternatives — `-A`,
+        // `--autobackup y`, `n` — losing `--autobackup`'s real value
+        // `y|n` down to just `y`. `parse_flag_spec` already resolves this
+        // exact alias-vs-value ambiguity correctly (see
+        // `bracket_flag_row_content`'s own doc comment), so this row
+        // shape is diverted to it before the segment walk ever sees it.
+        if let Some(content) = bracket_flag_row_content(line.trim()) {
+            push_usage_flag(&mut out, parse_flag_spec(content));
+            continue;
+        }
         for segment in usage_segments(line) {
             if out.len() >= MAX_RECOVERED_ENTRIES {
                 return out;
@@ -6400,6 +6497,233 @@ mod tests {
         "    -d                      (dry run) debug info\n",
         "    -dd                     (dry run) verbose debug info\n",
     );
+
+    // --- LVM's docopt bracket-group flag rows ---------------------------
+
+    /// `vgck --help`, byte-exact (minus the `WARNING: Running as a
+    /// non-root user` stderr banner, irrelevant here). A bare, unlabelled
+    /// synopsis (`vgck` alone, no bracket notation on its own line) whose
+    /// only flag — `--reportformat` — is documented on a continuation row,
+    /// plus a real `Common options for lvm:` heading whose 18 rows are
+    /// each one whole `[...]` group, tab-indented under a heading written
+    /// with two spaces.
+    const VGCK_HELP: &str = concat!(
+        "  vgck - Check the consistency of volume group(s)\n",
+        "\n",
+        "  Read and display information about a VG.\n",
+        "  vgck\n",
+        "\t[    --reportformat basic|json ]\n",
+        "\t[ COMMON_OPTIONS ]\n",
+        "\t[ VG|Tag ... ]\n",
+        "\n",
+        "  Rewrite VG metadata to correct problems.\n",
+        "  vgck --updatemetadata VG\n",
+        "\t[ COMMON_OPTIONS ]\n",
+        "\n",
+        "  Common options for lvm:\n",
+        "\t[ -d|--debug ]\n",
+        "\t[ -h|--help ]\n",
+        "\t[ -q|--quiet ]\n",
+        "\t[ -v|--verbose ]\n",
+        "\t[ -y|--yes ]\n",
+        "\t[ -t|--test ]\n",
+        "\t[    --commandprofile String ]\n",
+        "\t[    --config String ]\n",
+        "\t[    --driverloaded y|n ]\n",
+        "\t[    --nolocking ]\n",
+        "\t[    --lockopt String ]\n",
+        "\t[    --longhelp ]\n",
+        "\t[    --profile String ]\n",
+        "\t[    --version ]\n",
+        "\t[    --devicesfile String ]\n",
+        "\t[    --devices PV ]\n",
+        "\t[    --nohints ]\n",
+        "\t[    --journal String ]\n",
+        "\n",
+        "  Use --longhelp to show all options and advanced commands.\n",
+    );
+
+    #[test]
+    fn vgck_recovers_the_synopsis_continuation_flag() {
+        let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
+        let reportformat = flag_named(&parsed, "reportformat");
+        assert_eq!(reportformat.short, None);
+        assert_eq!(reportformat.value_name.as_deref(), Some("basic|json"));
+    }
+
+    #[test]
+    fn vgck_recovers_every_common_option_from_the_headed_bracket_table() {
+        let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
+        let debug = flag_named(&parsed, "debug");
+        assert_eq!(debug.short, Some('d'));
+        assert_eq!(debug.value_name, None);
+
+        let commandprofile = flag_named(&parsed, "commandprofile");
+        assert_eq!(commandprofile.short, None);
+        assert_eq!(commandprofile.value_name.as_deref(), Some("String"));
+
+        let driverloaded = flag_named(&parsed, "driverloaded");
+        assert_eq!(driverloaded.value_name.as_deref(), Some("y|n"));
+
+        // Every one of the 18 rows under `Common options for lvm:`, plus
+        // `--reportformat` from the synopsis continuation.
+        for long in [
+            "debug",
+            "help",
+            "quiet",
+            "verbose",
+            "yes",
+            "test",
+            "commandprofile",
+            "config",
+            "driverloaded",
+            "nolocking",
+            "lockopt",
+            "longhelp",
+            "profile",
+            "version",
+            "devicesfile",
+            "devices",
+            "nohints",
+            "journal",
+            "reportformat",
+        ] {
+            flag_named(&parsed, long);
+        }
+        assert_eq!(parsed.flags.len(), 19, "{:#?}", parsed.flags);
+    }
+
+    /// The operand cross-references LVM writes in the identical bracket
+    /// notation must never be read as flags: `[ COMMON_OPTIONS ]` names no
+    /// dash at all, and `[ VG|Tag ... ]` / `[ VG PV ... ]` are positionals.
+    #[test]
+    fn vgck_never_fabricates_a_flag_from_an_operand_bracket() {
+        let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
+        assert!(parsed
+            .flags
+            .iter()
+            .all(|f| f.long.as_deref() != Some("COMMON_OPTIONS")));
+        assert!(parsed.flags.iter().all(|f| f.long.as_deref() != Some("VG")));
+    }
+
+    /// `vgextend`'s richer synopsis head (`vgextend VG PV ...`, still no
+    /// bracket notation of its own) with the same value-vs-alias-vs-nested-
+    /// bracket shapes this fix's own doc comments name: `-A|--autobackup
+    /// y|n` (alias cluster plus a choice-list value) and `--metadatasize
+    /// Size[m|UNIT]` (a value carrying its own nested brackets).
+    #[test]
+    fn vgextend_reads_the_alias_choice_and_nested_bracket_value_rows() {
+        let raw = concat!(
+            "  vgextend - Add physical volumes to a volume group\n",
+            "\n",
+            "  vgextend VG PV ...\n",
+            "\t[ -A|--autobackup y|n ]\n",
+            "\t[ -f|--force ]\n",
+            "\t[    --metadatasize Size[m|UNIT] ]\n",
+            "\t[ COMMON_OPTIONS ]\n",
+        );
+        let parsed = parse_with_profile(raw, None, Some("vgextend"));
+
+        let autobackup = flag_named(&parsed, "autobackup");
+        assert_eq!(autobackup.short, Some('A'));
+        assert_eq!(autobackup.value_name.as_deref(), Some("y|n"));
+
+        let force = flag_named(&parsed, "force");
+        assert_eq!(force.short, Some('f'));
+        assert_eq!(force.value_name, None);
+
+        let metadatasize = flag_named(&parsed, "metadatasize");
+        assert_eq!(metadatasize.value_name.as_deref(), Some("Size[m|UNIT]"));
+    }
+
+    // --- the tab-stop leading-indentation fix ---------------------------
+
+    /// `sotruss --help`'s real specimen: a description that wraps onto a
+    /// physical continuation line indented with three tabs, and that
+    /// continuation's own trimmed text happens to start with a dash
+    /// (`-f is also used`, referring to a different flag in prose). Byte-
+    /// exact from a real capture.
+    ///
+    /// Before `leading_whitespace`'s tab-stop expansion, three raw tab
+    /// characters measured as indent `3` — inside
+    /// `scan_flags_block`'s `ENTRY_INDENT_TOLERANCE` (10) of the block's
+    /// own two-space entries — so this continuation line was read as a
+    /// **new** flag entry (`-f` carrying the fabricated value `is`)
+    /// instead of a continuation, and `-o, --output`'s own description
+    /// lost everything after "in case". Expanding the tabs to real
+    /// terminal columns (24) is well outside the tolerance, so the line
+    /// now correctly continues `-o`'s description and no phantom `-f`
+    /// entry is created.
+    const SOTRUSS_HELP: &str = concat!(
+        "Usage: sotruss [OPTION...] [--] EXECUTABLE [EXECUTABLE-OPTION...]\n",
+        "  -F, --from FROMLIST     Trace calls from objects on FROMLIST\n",
+        "  -T, --to TOLIST         Trace calls to objects on TOLIST\n",
+        "\n",
+        "  -e, --exit              Also show exits from the function calls\n",
+        "  -f, --follow            Trace child processes\n",
+        "  -o, --output FILENAME   Write output to FILENAME (or FILENAME. in case\n",
+        "\t\t\t  -f is also used) instead of standard error\n",
+        "\n",
+        "  -?, --help              Give this help list\n",
+        "      --usage             Give a short usage message\n",
+        "      --version           Print program version\n",
+    );
+
+    #[test]
+    fn tab_indented_continuation_does_not_fabricate_a_flag() {
+        let parsed = parse_with_profile(SOTRUSS_HELP, None, Some("sotruss"));
+        // No phantom `-f` carrying the value `is` — only the one real
+        // `-f, --follow` flag.
+        let f_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('f'))
+            .collect();
+        assert_eq!(f_flags.len(), 1, "{:#?}", parsed.flags);
+        assert_eq!(f_flags[0].long.as_deref(), Some("follow"));
+        assert_eq!(f_flags[0].value_name, None);
+
+        // `-o, --output`'s description is now whole, not truncated at the
+        // point the continuation line used to be misread as a new entry.
+        let output = flag_named(&parsed, "output");
+        assert_eq!(
+            output.description.as_ref().map(|d| d.to_string()).as_deref(),
+            Some("Write output to FILENAME (or FILENAME. in case -f is also used) instead of standard error")
+        );
+    }
+
+    // --- the alternation-with-mismatched-operands hazard ----------------
+
+    /// `ethtool --help`'s real row: an alternation between two *different*
+    /// flags, only one of which carries its own bracketed operands. Not
+    /// LVM's shape at all — LVM's alias run never has a bare flag
+    /// spelling reappear after the first whitespace gap — so
+    /// `bracket_flag_row_content` must refuse the whole row rather than
+    /// read `--all-groups` as carrying `--groups`'s operand and losing
+    /// `--groups` outright (the exact fabrication this fix's own doc
+    /// comment on `bracket_flag_row_content` names).
+    #[test]
+    fn bracket_row_with_a_second_alternatives_operands_is_refused() {
+        assert_eq!(
+            bracket_flag_row_content(
+                "[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]"
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn ethtool_keeps_both_alternatives_unread_rather_than_fabricating() {
+        let raw = concat!(
+            "  ethtool DEVNAME\n",
+            "\t[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]\n",
+        );
+        let parsed = parse_with_profile(raw, None, Some("ethtool"));
+        assert!(parsed
+            .flags
+            .iter()
+            .all(|f| f.long.as_deref() != Some("all-groups")));
+    }
 
     fn flag_named(parsed: &ParsedHelp, long: &str) -> Flag {
         parsed
