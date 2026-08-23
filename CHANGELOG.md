@@ -8,6 +8,56 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two headed command tables — one separated by ` = `, one carrying no
+  separator at all — parsed to zero subcommands.** `wpa_cli`'s `commands:`
+  block writes each of its ~180 rows as `name [operands] = description`
+  (`status [verbose] = get current WPA/EAPOL/EAP status`); the generic
+  engine's column-gap-or-dash entry splitter found neither shape, so a
+  row's whole line became its candidate "name," failed the name-shape
+  test, and was dropped as unattributable. `apt-ftparchive`'s `Commands:`
+  heading is worse off still: its first row (`packages binarypath
+  [overridefile [pathprefix]]`) shares the heading's own physical line, so
+  it was never scanned as content at all — the whole line, plus every
+  aligned continuation row beneath it, was absorbed into the root
+  description/group text instead.
+
+  Two new recognizers in `help_text::sections` — `scan_bare_command_table`
+  (the ` = `/no-separator row shape) and `split_heading_inline_row` (a
+  heading sharing its physical line with the table's first row) — recover
+  a row's name as only its **leading name-shaped token**, never a run:
+  `apt-ftparchive`'s `sources srcpath` must name one command, `sources`,
+  with `srcpath` as its own positional operand, not a second command or a
+  grandchild. Every recovered node is `invocation_attested: true,
+  heading_attested: false` (never `--help`-probe argv) — these tables
+  belong to daemon-control clients (`wpa_cli terminate`, `wpa_cli quit`)
+  whose "commands" are runtime verbs a probe could act on, so the rows are
+  strong existence evidence and deliberately weak safety evidence, the
+  same split spec §6 already draws for the headingless-invocation-table
+  recognizer.
+
+  Both recognizers are gated on the *current* heading being directly
+  recognized (never a `command_mode` chain) and refuse any block already
+  carrying a real column gap or ` - ` separator, plus a floor of at least
+  two *distinct* recovered names — three guards added after two real
+  fabrications turned up mid-development on the live fleet: a heading's
+  `command_mode` staying stuck on let `fail2ban-client`'s wrapped
+  continuation prose ("...restarting of the server, the / option
+  '--restart' activates...") read as commands named `of`, `the`, `option`;
+  and `trash-put`'s closing sentence "use one of these commands:" (a real,
+  if misleading, hit of the existing generic `mentions_commands_word`
+  test) followed by a two-line usage example turned one repeated example
+  invocation, `trash`, into a fabricated subcommand of `trash-put`.
+
+  Measured, full PATH (2,254 tools, aarch64 Ubuntu 24.04): exactly three
+  tools move, all by gaining subcommands only — `wpa_cli` (+211,
+  deduplicated from ~180 rows, some of which alias one name across several
+  operand shapes), `apt-ftparchive` (+6, its full real command list), and
+  `dpkg-maintscript-helper` (+5, the same generic recognizer catching a
+  second, previously-unmeasured real fixture). Zero flags lost or gained
+  anywhere, zero status transitions, zero unexplained movement.
+
 ## [0.4.1] - 2026-08-23
 
 ### Fixed

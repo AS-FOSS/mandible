@@ -18,19 +18,25 @@ stdout = "help.txt"
 expected_framework = "generic"
 # "Commands: packages binarypath ... / sources srcpath ... / contents
 # path / release path / generate config [groups] / clean config" lists 6
-# real subcommands. Verified the whole "Commands:" block gets absorbed
-# into the root `description` instead; zero subcommands currently.
-# Conservative floor, not the real count (6).
-min_subcommands = 1
-
-[xfail]
-broken = true
-# Still broken, and for the reason above only: the "Commands:" block.
-# The *descriptions* are fixed — `--md5 Control MD5 generation` and
-# `--no-delink Enable delinking debug mode` write their description one
-# space after the spec, and used to be read as `value_name: Control` /
-# `value_name: Enable` with the rest of the sentence discarded
-# (`find_sentence_start_gap`). `expected.snap` is committed while `[xfail]`
-# so that gain cannot silently regress before the commands bug is fixed and
-# this fixture is promoted.
-reason = "missing commands, I can see in help text, but not parsed"
+# real subcommands. Promoted (fix/command-table): the first row shares its
+# physical line with the `Commands:` heading itself
+# (`split_heading_inline_row`), and the remaining five are recovered by
+# `scan_bare_command_table` — each row is a name followed only by its own
+# positional operands (`sources srcpath [overridefile [pathprefix]]`), no
+# description at all, so every recovered node's `summary` is honestly
+# `None` rather than an invented description built from operand text.
+# `srcpath`, itself name-shaped, is deliberately never promoted to a
+# second command or a grandchild — see `leading_command_name`'s doc
+# comment. All six are `invocation_attested`, never `heading_attested`
+# (spec §6's "A second attestation bit exists now"): this heading's own
+# wording is generic ("Commands:") and carries no evidence beyond layout
+# that these six words are safe to send as `--help` probe argv.
+# The exact six, by name (no `must_contain_subcommands` field exists in
+# `[contract]`'s schema — `min_subcommands` is the only normative
+# subcommand check today — so this is prose, verified against `help.txt`
+# and `expected.snap` directly): packages, sources, contents, release,
+# generate, clean. None of `srcpath`, `binarypath`, `overridefile`,
+# `pathprefix`, `config`, `groups` or the bare `path` (each command's own
+# positional operand) appear anywhere in `expected.snap`'s subcommand
+# list.
+min_subcommands = 6

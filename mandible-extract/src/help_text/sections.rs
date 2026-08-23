@@ -694,6 +694,50 @@ fn parse_body(
             continue;
         }
 
+        // A headed command table whose first row sits on the heading's own
+        // physical line (`apt-ftparchive`'s
+        // `Commands: packages binarypath [overridefile [pathprefix]]`),
+        // with the remaining rows column-aligned beneath it. This row's
+        // text never becomes "content indented below the heading" in the
+        // engine's own sense — it trails the heading on the very same
+        // line — so without this it vanishes whole into the `heading`
+        // string above and never reaches any scanner as data: today
+        // `mandible apt-ftparchive` reports zero subcommands and a group
+        // literally named `"Commands: packages binarypath [overridefile
+        // [pathprefix]]"`. See `split_heading_inline_row` and
+        // `scan_bare_command_table`'s doc comments for the admission
+        // rules, and `emit_headed_command_table`'s for why these nodes
+        // are `invocation_attested` rather than `heading_attested`.
+        //
+        // Gated on `is_recognized_command_heading(label, ...)` for *this*
+        // heading directly, never a `command_mode` chain — see the other
+        // `scan_bare_command_table` call site below (the ` = `-separator
+        // one) for the fabrication a sticky chain enables: it can reach an
+        // unrelated wrapped-prose block where ordinary English words pass
+        // every other guard this recognizer has.
+        if let Some((label, inline_row)) = split_heading_inline_row(line.trim()) {
+            if !is_ignorable_heading(&heading)
+                && is_recognized_command_heading(label, profile)
+                && !profile.is_some_and(|p| {
+                    heading_matches_markers(&label.to_lowercase(), p.non_command_heading_markers)
+                })
+            {
+                if let Some(first_name) = leading_command_name(inline_row) {
+                    if let Some((end, mut entries)) = scan_bare_command_table(&lines, i) {
+                        entries.insert(0, (first_name, None));
+                        i = end;
+                        command_mode = true;
+                        let raw_tokens = command_table_token_index(raw);
+                        let (seen, clean) =
+                            emit_headed_command_table(entries, &raw_tokens, &mut result);
+                        total_entries += seen;
+                        clean_entries += clean;
+                        continue;
+                    }
+                }
+            }
+        }
+
         // Peek the first content lines to decide flags vs. bare-word. Not
         // just the *first*: some tools document a positional at the top of
         // their options table, and keying the whole decision off row one
@@ -797,6 +841,60 @@ fn parse_body(
         // already (spec [M-10]), just via the column-gap rule instead of
         // this one.
         let allow_dash_separator = (recognized || command_mode) && !is_declared_non_command;
+
+        // A headed command table whose rows use ` = ` as a separator
+        // instead of a column gap, or (some rows) no separator at all
+        // (`wpa_cli`'s `commands:` block: `status [verbose] = get current
+        // WPA/EAPOL/EAP status`, `wps_cancel Cancels the pending WPS
+        // operation`).
+        //
+        // Gated on `recognized` **alone** — deliberately narrower than
+        // `allow_dash_separator` just above, which also accepts a
+        // `command_mode` chain. That extra breadth is exactly what turned
+        // this into a fabrication path during development: `fail2ban-
+        // client`'s `Command:` block nests dozens of column-aligned rows
+        // whose own descriptions wrap across several more-indented lines
+        // (`"reload [--restart]...     reloads the configuration
+        // without\n     restarting of the server, the\n     option
+        // '--restart' activates\n..."`). The engine's own "not actually a
+        // heading, rewind" path (this file's `i = heading_idx + 1;
+        // continue;`) re-examines each such row as a fresh pseudo-heading
+        // once `command_mode` is already stuck on from the real `Command:`
+        // heading many rows earlier, and when a wrapped continuation block
+        // ends up reachable on its own (disconnected from the row it
+        // actually describes), every one of `scan_bare_command_table`'s
+        // safeguards — no column gap, no dash, a name-shaped leading token,
+        // more than one token on the line — is satisfied by ordinary
+        // English (`"restarting of the server"`, `"option '--restart'
+        // activates"`), because a lowercase word is indistinguishable from
+        // a command name by shape alone. Measured: `of`, `the`, `for`,
+        // `back`, `adds`, `sets`, `calls`, `otherwise` and a dozen more
+        // English words became `invocation_attested` "subcommands" this
+        // way. `recognized` — true only when *this exact heading's own
+        // text* mentions "command(s)" — is false for every one of those
+        // pseudo-headings (`"reload [--restart]...     reloads the
+        // configuration without"` names no command), so requiring it
+        // directly (never inherited through the sticky chain) closes this
+        // off while still admitting both real fixtures: `wpa_cli`'s
+        // `commands:` and `apt-ftparchive`'s `Commands:` are each
+        // literally recognized at the exact point this is tried, with no
+        // `command_mode` inheritance needed. `!is_declared_non_command`
+        // guards the same framework override `allow_dash_separator` does,
+        // for the same reason. See `scan_bare_command_table`'s own doc
+        // comment for the column-gap/dash bail-out that separately keeps
+        // this from ever overriding an already-working column- or
+        // dash-separated table.
+        if recognized && !is_declared_non_command {
+            if let Some((end, entries)) = scan_bare_command_table(&lines, i) {
+                i = end;
+                command_mode = true;
+                let raw_tokens = command_table_token_index(raw);
+                let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, &mut result);
+                total_entries += seen;
+                clean_entries += clean;
+                continue;
+            }
+        }
 
         // Busybox's applet list (spec issue #1) is a single flat,
         // comma-separated run under one heading — structurally distinct
@@ -2368,6 +2466,91 @@ fn emit_subcommands(
     (seen, clean)
 }
 
+/// Emit a headed command table's rows — `wpa_cli`'s ` = `-separated
+/// `commands:` block and `apt-ftparchive`'s operand-only `Commands:` table
+/// (see [`scan_bare_command_table`] and `split_heading_inline_row`'s call
+/// site) — as subcommand stubs with `invocation_attested: true,
+/// heading_attested: false`, rather than routing through
+/// [`emit_subcommands`], which always sets `heading_attested: true`.
+///
+/// # Why the weaker attestation bit (spec §6, "A second attestation bit
+/// exists now")
+///
+/// `heading_attested` is spec §6 rule 0's gate for exactly one question:
+/// is this word safe to send as `<tool> <word> --help` probe argv? These
+/// two tables belong to C daemons and daemon-control clients whose
+/// "commands" are runtime control verbs, not argv subcommands in the
+/// clap/cobra sense — `wpa_cli terminate`, `wpa_cli quit`,
+/// `wpa_cli reconfigure` act on a *running* `wpa_supplicant` the instant
+/// they are invoked, and programs in this family commonly ignore a
+/// trailing `--help` and just execute the verb. Probing
+/// `wpa_cli terminate --help` therefore risks tearing down a real
+/// supplicant rather than printing usage — exactly the risk
+/// `invocation_attested` exists to flag as unproven, per
+/// [`scan_headingless_invocation_table`]'s own precedent. The rows are
+/// still strong *existence* evidence (each name is checked against
+/// [`command_table_token_index`] below — the same whole-token existence
+/// test [`token_occurs_literally`] makes, answered from one pass over the
+/// raw text rather than one rescan per candidate, since a headed command
+/// table can carry on the order of a hundred rows where
+/// `scan_headingless_invocation_table`'s callers see a few dozen at most
+/// — see that function's own doc comment, which the earlier commit
+/// history of this file already applied to `help_text`'s glued-token
+/// check for exactly this reason), just weak *safety* evidence, which is
+/// the whole reason the bit is split rather than reused. And today these
+/// tables yield nothing at all — every row is currently dropped as
+/// unattributable — so withholding probe-eligibility costs no existing
+/// behaviour: nothing that used to be probed stops being probed.
+/// A headed command table's rows, already split into `(name,
+/// description)` pairs by [`split_bare_command_table_row`] — named
+/// because the plain tuple-of-tuple spelling trips clippy's
+/// `type_complexity` lint at every one of this shape's several call
+/// sites ([`scan_bare_command_table`], [`emit_headed_command_table`]).
+type CommandTableEntries<'a> = Vec<(&'a str, Option<String>)>;
+
+fn emit_headed_command_table(
+    entries: CommandTableEntries<'_>,
+    raw_tokens: &std::collections::HashSet<&str>,
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let mut seen = 0usize;
+    let mut clean = 0usize;
+    for (name, desc) in entries {
+        seen += 1;
+        // `is_command_name_shaped` is true by construction here (every
+        // name was produced by `leading_command_name`, which already
+        // checked it), but spec [M-10]'s lesson is to check explicitly
+        // rather than trust construction — same posture
+        // `scan_headingless_invocation_table` takes for the identical
+        // reason.
+        if !is_command_name_shaped(name) || !raw_tokens.contains(name) {
+            out.saw_unattributable_content = true;
+            continue;
+        }
+        clean += 1;
+        let mut node = CommandNode::new(name, Provenance::single(Source::HelpText));
+        node.summary = desc.and_then(|d| non_empty_text(&d));
+        node.invocation_attested = true;
+        node.heading_attested = false;
+        out.try_push_subcommand(node);
+    }
+    (seen, clean)
+}
+
+/// One-pass tokenization of `raw` into the maximal runs of
+/// [`is_command_name_shaped`]'s own character class — the whole-token
+/// existence index [`emit_headed_command_table`] checks each recovered
+/// name against, built once per headed-command-table block rather than
+/// re-scanning `raw` (as [`token_occurs_literally`] does) once per
+/// candidate name. Same split predicate as that function; the two must
+/// keep agreeing on what "occurs literally" means; a set entry here is
+/// exactly a `true` answer there.
+fn command_table_token_index(raw: &str) -> std::collections::HashSet<&str> {
+    raw.split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-')))
+        .filter(|w| !w.is_empty())
+        .collect()
+}
+
 /// Strip trailing bracketed optional-modifier groups from a command entry's
 /// name token: `m[ab]` names the command `m`, `r[ab][f][u]` names `r`.
 ///
@@ -2402,6 +2585,64 @@ pub fn strip_optional_modifier_suffix(name: &str) -> &str {
     } else {
         name
     }
+}
+
+/// Leading name from a headed command table row's name field — only the
+/// row's very first whitespace token can ever be the command's name,
+/// never a "run" of further name-shaped tokens.
+///
+/// This is deliberately capped at one token, unlike
+/// [`invocation_table_row_run`]'s up-to-two-token run: `apt-ftparchive`'s
+/// `sources srcpath [overridefile [pathprefix]]` row names one command,
+/// `sources`, with `srcpath` as its first *operand* — and `srcpath` is
+/// itself [`is_command_name_shaped`], so a "run of name-shaped tokens"
+/// rule would wrongly promote it to a second command or a grandchild.
+/// Taking only the first token sidesteps that ambiguity entirely: it is
+/// always correct for a table whose rows carry no description at all
+/// (there is nothing else the token stream could mean), and it is what
+/// spec's headed-command-table subsection (§7 Tier B) requires.
+///
+/// Strips a trailing `:` and any `[...]` optional-modifier suffix first,
+/// same as [`emit_subcommands`].
+fn leading_command_name(field: &str) -> Option<&str> {
+    let first = field.split_whitespace().next()?;
+    let name = first.trim_end_matches(':');
+    let name = strip_optional_modifier_suffix(name);
+    is_command_name_shaped(name).then_some(name)
+}
+
+/// Split a heading line that carries its section table's **first row on
+/// the heading's own physical line** (`apt-ftparchive`'s
+/// `Commands: packages binarypath [overridefile [pathprefix]]`) into the
+/// heading label (without its trailing colon) and the trailing row text.
+///
+/// Unlike [`split_shared_heading_row`] (which recovers the same shared-
+/// line shape for a *flag* row and requires a real
+/// [`MIN_COLUMN_GAP_SPACES`]-wide column gap after the colon, because a
+/// flag table is column-aligned), this table's rows are single-spaced —
+/// `apt-ftparchive` puts exactly one space after `Commands:` — so this
+/// asks only for *some* non-empty text following the colon, and leaves it
+/// to the call site's own [`is_recognized_command_heading`] /
+/// [`leading_command_name`] checks to decide whether that text is really
+/// a command row rather than an ordinary sentence that happens to contain
+/// a colon.
+///
+/// [`is_section_heading_line`] is still the gate that keeps this from
+/// firing on a colon buried in prose (`"Note: see the manual for
+/// details"`) — a real section label is short and plain-worded, a
+/// sentence generally is not. Returns `None` when no colon exists, the
+/// text up to it doesn't read as a heading label, or nothing follows.
+fn split_heading_inline_row(line: &str) -> Option<(&str, &str)> {
+    let colon = line.find(':')?;
+    let label = &line[..=colon];
+    if !is_section_heading_line(label) || starts_with_usage_prefix(label) {
+        return None;
+    }
+    let suffix = line[colon + 1..].trim_start();
+    if suffix.is_empty() {
+        return None;
+    }
+    Some((&line[..colon], suffix))
 }
 
 /// Route an unrecognized bare-word block into the `choices` of whichever
@@ -4302,6 +4543,221 @@ fn split_at_dash(line: &str, dash_idx: usize) -> (&str, String) {
     let spec = line[..dash_idx].trim_end();
     let desc = line[dash_idx + 1..].trim_start().to_string();
     (spec, desc)
+}
+
+/// Find the byte offset of a ` = ` (space-equals-space) entry separator in
+/// `line`, if any — [`find_dash_separator`]'s twin for a headed command
+/// table that uses `=` instead of `-` (`wpa_cli`'s `commands:` block:
+/// `status [verbose] = get current WPA/EAPOL/EAP status`). Same shape,
+/// same reasoning: a token's own internal `=` (`payload=<hex dump of
+/// payload>`, `dialog=<token>`) never matches, because it has no space on
+/// at least one side, so only a genuine surrounding-space separator is
+/// found. Distinct from [`find_equals_separator_gap`], which is
+/// deliberately restricted to flag rows and a stricter "every token
+/// before `=` is value-spec-shaped" test — see that function's doc
+/// comment for why a bare-word block must never reach it. This one is
+/// reached only from [`scan_bare_command_table`], itself gated on already
+/// being headed for command emission (see that function's own doc
+/// comment for the gate).
+fn find_bare_equals_separator_gap(line: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let mut i = 1;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'=' && bytes[i - 1] == b' ' && bytes[i + 1] == b' ' {
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Split `line` at a ` = ` separator found by [`find_bare_equals_separator_gap`]:
+/// `eq_idx` is the `=`'s own byte offset, so the name field is everything
+/// before the space preceding it and the description is everything after
+/// the space following it — mirrors [`split_at_dash`] exactly, substituting
+/// the separator character.
+fn split_at_bare_equals(line: &str, eq_idx: usize) -> (&str, String) {
+    let name_field = line[..eq_idx].trim_end();
+    let desc = line[eq_idx + 1..].trim_start().to_string();
+    (name_field, desc)
+}
+
+/// Split one row of a headed command table into `(name, description)`:
+/// [`find_bare_equals_separator_gap`]'s ` = ` separator when present
+/// (`wpa_cli`'s ordinary row shape), otherwise the row's leading token as
+/// the name with no description at all (`apt-ftparchive`'s
+/// `sources srcpath [overridefile [pathprefix]]`, and the handful of
+/// `wpa_cli` rows that carry no `=` at all — `wps_cancel Cancels the
+/// pending WPS operation` — a real inconsistency in that tool's own
+/// `--help` text, not something this parser should paper over by guessing
+/// where the name ends and prose begins).
+///
+/// The no-separator branch deliberately never treats trailing words as a
+/// description: for `apt-ftparchive` those words are the command's own
+/// positional operands (`binarypath [overridefile [pathprefix]]`), and
+/// reading them as prose would fabricate a description the tool never
+/// wrote — the exact §1 violation this project exists to refuse. Losing
+/// three real `wpa_cli` descriptions to the same rule is the honest price
+/// of not being able to tell the two shapes apart from a single line.
+///
+/// `None` when the leading token isn't [`is_command_name_shaped`] — the
+/// per-row refusal [`scan_bare_command_table`] relies on to skip a stray
+/// line without rejecting the whole table.
+fn split_bare_command_table_row(line: &str) -> Option<(&str, Option<String>)> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    match find_bare_equals_separator_gap(trimmed) {
+        Some(eq_idx) => {
+            let (name_field, desc) = split_at_bare_equals(trimmed, eq_idx);
+            let name = leading_command_name(name_field)?;
+            let desc = if desc.trim().is_empty() {
+                None
+            } else {
+                Some(desc)
+            };
+            Some((name, desc))
+        }
+        None => {
+            let name = leading_command_name(trimmed)?;
+            Some((name, None))
+        }
+    }
+}
+
+/// Scan a headed command table whose rows carry no column-aligned
+/// description at all — `wpa_cli`'s `commands:` block and
+/// `apt-ftparchive`'s `Commands:` table (spec §7 Tier B, the
+/// headed-command-table subsection). Reuses [`bare_block_end`] to find
+/// the block, same as [`scan_bare_block`], but splits each row with
+/// [`split_bare_command_table_row`] instead of [`split_entry_line`], and
+/// its emission ([`emit_headed_command_table`]) is `invocation_attested`
+/// rather than `heading_attested` — see that function's doc comment for
+/// why.
+///
+/// # The column-gap/dash bail-out
+///
+/// Bails (`None`) outright — before reading a single row — if *any*
+/// non-blank line in the block has a real column gap
+/// ([`find_multi_space_gap`]) or a ` - ` separator ([`find_dash_separator`]).
+/// Both are already-working shapes: a column-aligned table is read
+/// correctly today via [`split_entry_line`]'s ordinary column-gap path,
+/// and a dash-separated one via `allow_dash_separator`. Without this
+/// guard, this function would compete with both — worse, it would *win*
+/// by running first, silently discarding a working column-gap or dash
+/// description in favor of this function's own "leading token, no
+/// description" fallback. This is also what keeps this recognizer away
+/// from `wpa_supplicant`'s own `drivers:` block (`nl80211 = Linux
+/// nl80211/cfg80211`) even on the rare tool where that heading *would*
+/// otherwise be recognized as a command list: a description-bearing
+/// `name = description` bare block reads as a column gap the instant its
+/// values line up, and the moment it doesn't, [`find_equals_separator_gap`]'s
+/// own doc comment already explains why that block must be read as
+/// `(name, value)`, never split apart here.
+///
+/// # Why bare single-word rows are excluded from the admission floor
+///
+/// A row that is just one bare word (no `=`, no further tokens) already
+/// parses correctly through the ordinary heading-recognized path with
+/// `heading_attested: true` — the strictly *more* trustworthy bit. Only
+/// rows that are demonstrably not working today (an `=` separator, or
+/// more than one token on the name side) count toward
+/// [`MIN_INVOCATION_TABLE_ROWS`]'s floor, so this recognizer never fires
+/// for a block that the existing engine already reads correctly, even
+/// though a fired scan still emits every row it can (a single-word row
+/// caught up in an otherwise-qualifying block is still worth recovering,
+/// just with the weaker attestation bit, rather than being dropped
+/// outright).
+///
+/// # The floor counts distinct names, not qualifying rows
+///
+/// Two rows that qualify but share one name do not meet the floor —
+/// `trash-put --help`'s own "use one of these commands:" sentence (a real
+/// false hit of `mentions_commands_word`/`is_recognized_command_heading`,
+/// which read no further than "does the word 'commands' appear") followed
+/// by the worked example `trash -- -foo` / `trash ./-foo`, two invocations
+/// of one *different* program, not two commands of `trash-put`. Both rows
+/// qualify by every other rule here (no column gap, no dash, a
+/// name-shaped leading token, more than one token on the line), and
+/// without this a distinct guard would have fabricated `trash` as a
+/// subcommand of `trash-put`. A real command table lists several
+/// *different* commands — that is the entire evidentiary point of
+/// requiring repetition at all — so this is not a new restriction, only a
+/// more precise statement of the one already documented above.
+fn scan_bare_command_table<'a>(
+    lines: &[&'a str],
+    start: usize,
+) -> Option<(usize, CommandTableEntries<'a>)> {
+    let end = bare_block_end(lines, start);
+    let block = &lines[start..end];
+
+    if block.iter().any(|l| {
+        !l.trim().is_empty()
+            && (find_multi_space_gap(l).is_some() || find_dash_separator(l).is_some())
+    }) {
+        return None;
+    }
+
+    let non_blank: Vec<&&str> = block.iter().filter(|l| !l.trim().is_empty()).collect();
+    if non_blank.is_empty() {
+        return None;
+    }
+    let baseline = non_blank
+        .iter()
+        .map(|l| leading_whitespace(l))
+        .min()
+        .unwrap_or(0);
+
+    let mut entries: CommandTableEntries<'a> = Vec::new();
+    let mut qualifying_names: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for &line in block {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let indent = leading_whitespace(line);
+        if indent <= baseline + 1 {
+            let Some((name, desc)) = split_bare_command_table_row(line) else {
+                continue;
+            };
+            if desc.is_some() || line.split_whitespace().count() > 1 {
+                qualifying_names.insert(name);
+            }
+            entries.push((name, desc));
+        } else if let Some(last) = entries.last_mut() {
+            // A deeper-indented continuation of the previous row's
+            // description — same rule `split_entries` uses to fold
+            // wrapped description lines. Never invents a description
+            // where the entry row had none (an `apt-ftparchive` row is
+            // never followed by a continuation line in the first place,
+            // since none of its rows wrap), it simply starts one from
+            // whatever real text the tool printed on the continuation
+            // line.
+            let cont = line.trim();
+            match &mut last.1 {
+                Some(d) => {
+                    d.push(' ');
+                    d.push_str(cont);
+                }
+                None => last.1 = Some(cont.to_string()),
+            }
+        }
+    }
+
+    // Distinct names, not raw qualifying rows: a real command table lists
+    // several *different* commands, which is the whole point of it being a
+    // table. Two rows sharing one name is exactly the shape a worked usage
+    // example produces instead (`trash-put`'s own "use one of these
+    // commands:" sentence — itself a false hit of `mentions_commands_word`,
+    // not a real heading — followed by `trash -- -foo` / `trash ./-foo`,
+    // two alternative invocations of one *different* program's example),
+    // and admitting it fabricated `trash` as a "subcommand" of
+    // `trash-put`. Requiring distinct names costs nothing on either real
+    // fixture (`wpa_cli`'s ~180 rows and `apt-ftparchive`'s six are all
+    // distinct) and closes this off structurally rather than by trying to
+    // out-guess every future sentence that happens to contain "commands:".
+    (qualifying_names.len() >= MIN_INVOCATION_TABLE_ROWS && !entries.is_empty())
+        .then_some((end, entries))
 }
 
 /// Find the byte offset of the first column gap in `line`, if any, after
@@ -8593,6 +9049,206 @@ Options:
         let raw = "    mytool frob start <path>\n        Start frobbing\n";
         let parsed = parse_named(raw, "mytool");
         assert!(parsed.subcommands.is_empty());
+    }
+
+    /// `wpa_cli`'s real defect: a recognized `commands:` heading whose rows
+    /// separate name and description with ` = ` instead of a column gap,
+    /// with a couple of rows (a real inconsistency in the tool's own text)
+    /// carrying no separator at all. Before this recognizer: 0 subcommands
+    /// — every multi-word row failed [`is_command_name_shaped`] whole, and
+    /// `note <text>`'s row happened to split at the placeholder boundary,
+    /// leaving a description that still began with a literal `= `.
+    #[test]
+    fn bare_command_table_admits_the_wpa_cli_equals_shape() {
+        let raw = "commands:\n  \
+                    status [verbose] = get current WPA/EAPOL/EAP status\n  \
+                    ifname = get current interface name\n  \
+                    note <text> = add a note to wpa_supplicant debug log\n  \
+                    log_level <level> [<timestamp>] = update the log level/timestamp\n  \
+                    pmksa_add <network_id> <BSSID> <PMKID> <PMK> = store PMKSA cache entry\n  \
+                    wps_cancel Cancels the pending WPS operation\n";
+        let parsed = parse(raw);
+
+        let status = find_subcommand(&parsed.subcommands, "status");
+        assert!(status.invocation_attested);
+        assert!(!status.heading_attested);
+        assert_eq!(
+            status.summary.as_ref().map(|t| t.as_str()),
+            Some("get current WPA/EAPOL/EAP status"),
+            "the `[verbose]` operand must never survive into the name or the description"
+        );
+
+        let log_level = find_subcommand(&parsed.subcommands, "log_level");
+        assert_eq!(
+            log_level.summary.as_ref().map(|t| t.as_str()),
+            Some("update the log level/timestamp")
+        );
+
+        let pmksa_add = find_subcommand(&parsed.subcommands, "pmksa_add");
+        assert_eq!(
+            pmksa_add.summary.as_ref().map(|t| t.as_str()),
+            Some("store PMKSA cache entry")
+        );
+
+        // No ` = ` at all on this row — the name is still recovered, but
+        // never with a guessed description built from the trailing prose.
+        let wps_cancel = find_subcommand(&parsed.subcommands, "wps_cancel");
+        assert!(
+            wps_cancel.summary.is_none(),
+            "a row with no separator must come out honestly undescribed, not guessed at"
+        );
+
+        // The `= ` separator itself must never survive as description text.
+        for name in ["status", "ifname", "note", "log_level", "pmksa_add"] {
+            let node = find_subcommand(&parsed.subcommands, name);
+            if let Some(summary) = &node.summary {
+                assert!(
+                    !summary.as_str().starts_with("= "),
+                    "{name}'s summary still carries the separator: {summary:?}"
+                );
+            }
+        }
+    }
+
+    /// The exact hazard `find_equals_separator_gap`'s own doc comment
+    /// warns about, now guarding a second call site: a bare-word block
+    /// that legitimately uses `name = description` for something that is
+    /// *not* a command list (`wpa_supplicant`'s own `drivers:` block) must
+    /// never be read by [`scan_bare_command_table`] — its heading isn't
+    /// recognized and nothing put the parser in `command_mode`, so the
+    /// gate at the call site refuses to even try.
+    #[test]
+    fn bare_command_table_never_touches_an_unrecognized_equals_block() {
+        let raw = "drivers:\n  \
+                    nl80211 = Linux nl80211/cfg80211\n  \
+                    wext = Linux wireless extensions (generic)\n";
+        let parsed = parse(raw);
+        assert!(
+            parsed.subcommands.is_empty(),
+            "an unrecognized heading's `name = description` block must never become commands: \
+             {:?}",
+            parsed.subcommands
+        );
+    }
+
+    /// Found on the real fleet while validating this recognizer (not a
+    /// synthetic worry): `fail2ban-client --help`'s real `Command:` table
+    /// is column-aligned throughout, but several rows' descriptions wrap
+    /// entirely onto their own more-indented lines with nothing on the
+    /// name row itself, and one row's own name-side text is itself
+    /// column-gapped. The generic engine's "not actually a heading,
+    /// rewind" path re-treats every such row as a fresh pseudo-heading
+    /// once `command_mode` is stuck on — and a wrapped continuation block
+    /// that ends up reachable on its own passes every guard
+    /// [`scan_bare_command_table`] has (no column gap, no dash, a
+    /// name-shaped leading token, more than one word) purely because
+    /// ordinary English is indistinguishable from a command name by shape
+    /// alone. Gating on `recognized` alone (never inherited through
+    /// `command_mode`) closes this: none of these pseudo-headings
+    /// themselves mention "command".
+    #[test]
+    fn bare_command_table_does_not_leak_through_a_sticky_command_mode_chain() {
+        // The `BASIC` sub-heading is load-bearing: at indent 45 immediately
+        // above rows at indent 4, it makes `bare_block_end` end the block
+        // after `BASIC` alone (the real shape `fail2ban-client --help`
+        // prints), which is what fragments the rest of the table into the
+        // engine's row-by-row "not actually a heading, rewind" recursion —
+        // without it, the whole block is read in one `scan_bare_block`
+        // pass and this test does not exercise the hazard at all.
+        let raw = "Command:\n                                             \
+                    BASIC\n    \
+                    start                                    starts the server and the jails\n    \
+                    reload [--restart] [--unban] [--all]     reloads the configuration without\n                                             \
+                    restarting of the server, the\n                                             \
+                    option activates completely\n    \
+                    stop                                     stops all jails and terminate the\n";
+        let parsed = parse_named(raw, "fail2ban-client");
+        for bogus in ["restarting", "option", "completely", "of", "the"] {
+            assert!(
+                parsed.subcommands.iter().all(|n| n.name != bogus),
+                "{bogus:?} is a fragment of wrapped prose, never a command: {:?}",
+                parsed.subcommands
+            );
+        }
+    }
+
+    /// Found on the real fleet: `trash-put --help` closes with "To remove
+    /// a file whose name starts with a '-' ... use one of these
+    /// commands:" — an ordinary sentence, not a section heading, that
+    /// happens to satisfy `mentions_commands_word` because "commands"
+    /// appears in it as a whole word. The two lines beneath it are a
+    /// worked example of invoking a *different* program (`trash`, not
+    /// `trash-put`) twice, not a table of `trash-put`'s own subcommands.
+    /// Both example lines qualify by every other rule
+    /// [`scan_bare_command_table`] has, but they share one name, and the
+    /// distinct-names floor refuses to treat one repeated example as
+    /// repetition evidence.
+    #[test]
+    fn bare_command_table_refuses_one_name_repeated_by_a_worked_example() {
+        let raw = "use one of these commands:\n\n    \
+                    trash -- -foo\n\n    \
+                    trash ./-foo\n";
+        let parsed = parse_named(raw, "trash-put");
+        assert!(
+            parsed.subcommands.is_empty(),
+            "two invocations of one program are not two commands: {:?}",
+            parsed.subcommands
+        );
+    }
+
+    /// `apt-ftparchive`'s real defect: `Commands:` carries its first row on
+    /// its own physical line, and the remaining rows are pure `name
+    /// operand...` with no description at all. Before this recognizer: 0
+    /// subcommands, and the whole line (including every continuation row)
+    /// was absorbed into the root description/group text.
+    #[test]
+    fn heading_inline_row_admits_the_apt_ftparchive_shape() {
+        let raw = "Usage: apt-ftparchive [options] command\n\
+                    Commands: packages binarypath [overridefile [pathprefix]]\n          \
+                    sources srcpath [overridefile [pathprefix]]\n          \
+                    contents path\n          \
+                    release path\n          \
+                    generate config [groups]\n          \
+                    clean config\n";
+        let parsed = parse(raw);
+
+        let mut names: Vec<&str> = parsed.subcommands.iter().map(|n| n.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            vec!["clean", "contents", "generate", "packages", "release", "sources"],
+            "all six real commands, and nothing else, must be recovered: {names:?}"
+        );
+
+        // `sources srcpath` must never promote `srcpath` — itself
+        // name-shaped — to a second command or a grandchild.
+        assert!(
+            parsed.subcommands.iter().all(|n| n.subcommands.is_empty()),
+            "no row's operand may become a child command"
+        );
+        for name in [
+            "srcpath",
+            "binarypath",
+            "overridefile",
+            "pathprefix",
+            "groups",
+        ] {
+            assert!(
+                parsed.subcommands.iter().all(|n| n.name != name),
+                "{name} is an operand, never a command"
+            );
+        }
+
+        for node in &parsed.subcommands {
+            assert!(node.invocation_attested, "{}", node.name);
+            assert!(!node.heading_attested, "{}", node.name);
+            assert!(
+                node.summary.is_none(),
+                "{}'s row carries only operands, never a description: {:?}",
+                node.name,
+                node.summary
+            );
+        }
     }
 
     /// pngfix's real near-miss (`corpus/pngfix/1.6.43/help.stderr.txt`):

@@ -1,0 +1,1297 @@
+name: wpa_cli
+description: 'wpa_cli: invalid option -- ''-'' wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] [-a<action file>] \ commands:'
+flags:
+- short: 'h'
+  description: help (show this usage text)
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  description: shown version information
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  description: run in daemon mode executing the action file based on events from wpa_supplicant
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  description: try to reconnect when client socket is disconnected. This is useful only when used with -a.
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  description: run a daemon in the background
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: status
+  summary: get current WPA/EAPOL/EAP status
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: ifname
+  summary: get current interface name
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: ping
+  summary: pings wpa_supplicant
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: relog
+  summary: re-open log-file (allow rolling logs)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: note
+  summary: add a note to wpa_supplicant debug log
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mib
+  summary: get MIB variables (dot1x, dot11)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: help
+  summary: show usage help
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interface
+  summary: show interfaces/select interface
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: level
+  summary: change debug level
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: license
+  summary: show full wpa_cli license
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: quit
+  summary: exit wpa_cli
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: set
+  summary: set variables (shows list of variables when run without arguments)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dump
+  summary: dump config variables
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: get
+  summary: get information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: driver_flags
+  summary: list driver flags
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: logon
+  summary: IEEE 802.1X EAPOL state machine logon
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: logoff
+  summary: IEEE 802.1X EAPOL state machine logoff
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pmksa
+  summary: show PMKSA cache
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pmksa_flush
+  summary: flush PMKSA cache entries
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pmksa_get
+  summary: fetch all stored PMKSA cache entries
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pmksa_add
+  summary: store PMKSA cache entry from external storage
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_pmksa_get
+  summary: fetch all stored mesh PMKSA cache entries
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_pmksa_add
+  summary: store mesh PMKSA cache entry from external storage
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: reassociate
+  summary: force reassociation
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: reattach
+  summary: force reassociation back to the same BSS
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: preauthenticate
+  summary: force preauthentication
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: identity
+  summary: configure identity for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: password
+  summary: configure password for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: new_password
+  summary: change password for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pin
+  summary: configure pin for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: otp
+  summary: configure one-time-password for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: psk_passphrase
+  summary: configure PSK/passphrase for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: passphrase
+  summary: configure private key passphrase for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: sim
+  summary: report SIM operation result
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: bssid
+  summary: set preferred BSSID for an SSID
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: bssid_ignore
+  summary: add a BSSID to the list of temporarily ignored BSSs
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: blacklist
+  summary: deprecated alias for bssid_ignore
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: log_level
+  summary: update the log level/timestamp
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: list_networks
+  summary: list configured networks
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: select_network
+  summary: select a network (disable others)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: enable_network
+  summary: enable a network
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: disable_network
+  summary: disable a network
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: add_network
+  summary: add a network
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: remove_network
+  summary: remove a network
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: set_network
+  summary: set network variables (shows list of variables when run without arguments)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: get_network
+  summary: get network variables
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dup_network
+  summary: duplicate network variables
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: list_creds
+  summary: list configured credentials
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: add_cred
+  summary: add a credential
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: remove_cred
+  summary: remove a credential
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: set_cred
+  summary: set credential variables
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: get_cred
+  summary: get credential variables
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: save_config
+  summary: save the current configuration
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: disconnect
+  summary: disconnect and wait for reassociate/reconnect command before connecting
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: reconnect
+  summary: like reassociate, but only takes effect if already disconnected
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: scan
+  summary: request new BSS scan
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: scan_results
+  summary: get latest scan results
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: abort_scan
+  summary: request ongoing scan to be aborted
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: bss
+  summary: get detailed scan result info
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: get_capability
+  summary: get capabilities
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: reconfigure
+  summary: force wpa_supplicant to re-read its configuration file
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: terminate
+  summary: terminate wpa_supplicant
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interface_add
+  summary: <bridge_name> <create> <type> = adds new interface, all parameters but <ifname> are optional. Supported types are station ('sta') and AP ('ap')
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interface_remove
+  summary: removes the interface
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interface_list
+  summary: list available interfaces
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: ap_scan
+  summary: set ap_scan parameter
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: scan_interval
+  summary: set scan_interval parameter (in seconds)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: bss_expire_age
+  summary: set BSS expiration age parameter
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: bss_expire_count
+  summary: set BSS expiration scan count parameter
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: bss_flush
+  summary: set BSS flush age (0 by default)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: ft_ds
+  summary: request over-the-DS FT with <addr>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_pbc
+  summary: 'start Wi-Fi Protected Setup: Push Button Configuration'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_pin
+  summary: start WPS PIN method (returns PIN, if not hardcoded)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_check_pin
+  summary: verify PIN checksum
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_cancel
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_nfc
+  summary: 'start Wi-Fi Protected Setup: NFC'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_nfc_config_token
+  summary: build configuration token
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_nfc_token
+  summary: create password token
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_nfc_tag_read
+  summary: report read NFC tag with WPS data
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: nfc_get_handover_req
+  summary: create NFC handover request
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: nfc_get_handover_sel
+  summary: create NFC handover select
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: nfc_report_handover
+  summary: report completed NFC handover
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_reg
+  summary: start WPS Registrar to configure an AP
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_ap_pin
+  summary: enable/disable AP PIN
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_start
+  summary: start Wi-Fi Protected Setup External Registrar
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_stop
+  summary: stop Wi-Fi Protected Setup External Registrar
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_pin
+  summary: add an Enrollee PIN to External Registrar
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_pbc
+  summary: accept an Enrollee PBC using External Registrar
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_learn
+  summary: learn AP configuration
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_set_config
+  summary: set AP configuration for enrolling
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_config
+  summary: configure AP
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wps_er_nfc_config_token
+  summary: build NFC configuration token
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: ibss_rsn
+  summary: request RSN authentication with <addr> in IBSS
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: sta
+  summary: get information about an associated station (AP)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: all_sta
+  summary: get information about all associated stations (AP)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: list_sta
+  summary: list all stations (AP)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: deauthenticate
+  summary: deauthenticate a station
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: disassociate
+  summary: disassociate a station
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: chan_switch
+  summary: CSA parameters
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: update_beacon
+  summary: update Beacon frame contents
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: suspend
+  summary: notification of suspend/hibernate
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: resume
+  summary: notification of resume/thaw
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: roam
+  summary: roam to the specified BSS
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_interface_add
+  summary: Create a new mesh interface
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_group_add
+  summary: join a mesh network (disable others)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_group_remove
+  summary: Remove mesh group interface
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_peer_remove
+  summary: Remove a mesh peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_peer_add
+  summary: Add a mesh peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mesh_link_probe
+  summary: Probe a mesh link for a given peer by injecting a frame.
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_find
+  summary: find P2P Devices for up-to timeout seconds
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_stop_find
+  summary: stop P2P Devices search
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_asp_provision
+  summary: provision with a P2P ASP Device
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_asp_provision_resp
+  summary: provision with a P2P ASP Device
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_connect
+  summary: connect to a P2P Device
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_listen
+  summary: listen for P2P Devices for up-to timeout seconds
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_group_remove
+  summary: remove P2P group interface (terminate group if GO)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_group_add
+  summary: add a new P2P group (local end as GO)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_group_member
+  summary: Get peer interface address on local GO using peer Device Address
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_prov_disc
+  summary: request provisioning discovery
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_get_passphrase
+  summary: get the passphrase for a group (GO only)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_serv_disc_req
+  summary: schedule service discovery request
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_serv_disc_cancel_req
+  summary: cancel pending service discovery request
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_serv_disc_resp
+  summary: service discovery response
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_service_update
+  summary: indicate change in local services
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_serv_disc_external
+  summary: set external processing of service discovery
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_service_flush
+  summary: remove all stored service entries
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_service_add
+  summary: add a local service
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_service_rep
+  summary: replace local ASP service
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_service_del
+  summary: remove a local service
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_reject
+  summary: reject connection attempts from a specific peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_invite
+  summary: invite peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_peers
+  summary: list known (optionally, only fully discovered) P2P peers
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_peer
+  summary: show information about known P2P peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_set
+  summary: set a P2P parameter
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_flush
+  summary: flush P2P state
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_cancel
+  summary: cancel P2P group formation
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_unauthorize
+  summary: unauthorize a peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_presence_req
+  summary: request GO presence
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_ext_listen
+  summary: set extended listen timing
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_remove_client
+  summary: remove a peer from all groups
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: vendor_elem_add
+  summary: 'add vendor specific IEs to frame(s) 0: Probe Req (P2P), 1: Probe Resp (P2P) , 2: Probe Resp (GO), 3: Beacon (GO), 4: PD Req, 5: PD Resp, 6: GO Neg Req, 7: GO Neg Resp, 8: GO Neg Conf, 9: Inv Req, 10: Inv Resp, 11: Assoc Req (P2P), 12: Assoc Resp (P2P)'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: vendor_elem_get
+  summary: 'get vendor specific IE(s) to frame(s) 0: Probe Req (P2P), 1: Probe Resp (P2P) , 2: Probe Resp (GO), 3: Beacon (GO), 4: PD Req, 5: PD Resp, 6: GO Neg Req, 7: GO Neg Resp, 8: GO Neg Conf, 9: Inv Req, 10: Inv Resp, 11: Assoc Req (P2P), 12: Assoc Resp (P2P)'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: vendor_elem_remove
+  summary: 'remove vendor specific IE(s) in frame(s) 0: Probe Req (P2P), 1: Probe Resp (P2P) , 2: Probe Resp (GO), 3: Beacon (GO), 4: PD Req, 5: PD Resp, 6: GO Neg Req, 7: GO Neg Resp, 8: GO Neg Conf, 9: Inv Req, 10: Inv Resp, 11: Assoc Req (P2P), 12: Assoc Resp (P2P)'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wfd_subelem_set
+  summary: set Wi-Fi Display subelement
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wfd_subelem_get
+  summary: get Wi-Fi Display subelement
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: fetch_anqp
+  summary: fetch ANQP information for all APs
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: stop_fetch_anqp
+  summary: stop fetch_anqp operation
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interworking_select
+  summary: perform Interworking network selection
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interworking_connect
+  summary: connect using Interworking credentials
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: interworking_add_network
+  summary: connect using Interworking credentials
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: anqp_get
+  summary: request ANQP information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: gas_request
+  summary: GAS request
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: gas_response_get
+  summary: Fetch last GAS response
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: hs20_anqp_get
+  summary: request HS 2.0 ANQP information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: nai_home_realm_list
+  summary: get HS20 nai home realm list
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: hs20_icon_request
+  summary: get Hotspot 2.0 OSU icon
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: fetch_osu
+  summary: fetch OSU provider information from all APs
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: cancel_fetch_osu
+  summary: cancel fetch_osu command
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: sta_autoconnect
+  summary: disable/enable automatic reconnection
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: tdls_discover
+  summary: request TDLS discovery with <addr>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: tdls_setup
+  summary: request TDLS setup with <addr>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: tdls_teardown
+  summary: tear down TDLS with <addr>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: tdls_link_status
+  summary: TDLS link status with <addr>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wmm_ac_addts
+  summary: add WMM-AC traffic stream
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wmm_ac_delts
+  summary: delete WMM-AC traffic stream
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wmm_ac_status
+  summary: show status for Wireless Multi-Media Admission-Control
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: tdls_chan_switch
+  summary: enable channel switching with TDLS peer
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: tdls_cancel_chan_switch
+  summary: disable channel switching with TDLS peer <addr>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: signal_poll
+  summary: get signal parameters
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: signal_monitor
+  summary: set signal monitor parameters
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pktcnt_poll
+  summary: get TX/RX packet counters
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: reauthenticate
+  summary: trigger IEEE 802.1X/EAPOL reauthentication
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: autoscan
+  summary: Set or unset (if none) autoscan parameters
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wnm_sleep
+  summary: enter/exit WNM-Sleep mode
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: wnm_bss_query
+  summary: Send BSS Transition Management Query
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: raw
+  summary: Sent unprocessed command
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: flush
+  summary: flush wpa_supplicant state
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: radio_work
+  summary: radio_work <show/add/done>
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: vendor
+  summary: Send vendor command
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: neighbor_rep_request
+  summary: 'Trigger request to AP for neighboring AP report (with optional given SSID in hex or enclosed in double quotes, default: current SSID; with optional LCI and location civic request)'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: twt_setup
+  summary: Send TWT Setup frame
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: twt_teardown
+  summary: Send TWT Teardown frame
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: erp_flush
+  summary: flush ERP keys
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mac_rand_scan
+  summary: scan MAC randomization
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: get_pref_freq_list
+  summary: retrieve preferred freq list for the specified interface type
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_lo_start
+  summary: start P2P listen offload
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: p2p_lo_stop
+  summary: stop P2P listen offload
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_qr_code
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_bootstrap_gen
+  summary: generate DPP bootstrap information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_bootstrap_remove
+  summary: remove DPP bootstrap information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_bootstrap_get_uri
+  summary: get DPP bootstrap URI
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_bootstrap_info
+  summary: show DPP bootstrap information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_bootstrap_set
+  summary: set DPP configurator parameters
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_auth_init
+  summary: initiate DPP bootstrapping
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_listen
+  summary: start DPP listen
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_stop_listen
+  summary: stop DPP listen
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_configurator_add
+  summary: add DPP configurator
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_configurator_remove
+  summary: remove DPP configurator
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_configurator_get_key
+  summary: Get DPP configurator's private key
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_configurator_sign
+  summary: generate self DPP configuration
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_pkex_add
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_pkex_remove
+  summary: remove DPP pkex information
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_controller_start
+  summary: start DPP controller
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_controller_stop
+  summary: stop DPP controller
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_chirp
+  summary: start DPP chirp
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dpp_stop_chirp
+  summary: stop DPP chirp
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: all_bss
+  summary: list all BSS entries (scan results)
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: mscs
+  summary: Configure MSCS request
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: scs
+  summary: Send SCS request
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dscp_resp
+  summary: Send DSCP response
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: dscp_query
+  summary: Send DSCP Query
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

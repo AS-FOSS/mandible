@@ -1288,6 +1288,77 @@ Every node this recognizer produces is `invocation_attested: true`,
 `heading_attested: false` — see rule 0's closing paragraph above (§6) for
 why the two are kept separate and what each one governs.
 
+**Headed command tables with no column-gap or dash separator.** Rule 1
+requires a recognized heading; the two shapes above additionally require a
+column gap or a ` - ` separator to split a row into name and description.
+Two real tools' command tables have a recognized heading but neither: `wpa_cli
+--help`'s `commands:` block separates name and description with ` = `
+instead (`status [verbose] = get current WPA/EAPOL/EAP status`, and a
+handful of rows — a real inconsistency in the tool's own text — with no
+separator at all), and `apt-ftparchive --help`'s `Commands:` table has no
+description per row at all, just the command name followed by its own
+positional operands (`sources srcpath [overridefile [pathprefix]]`), with
+its first row sharing the heading's own physical line
+(`corpus/apt-ftparchive/audit-seed2`, promoted from `[xfail]`).
+
+`help_text::sections::scan_bare_command_table` reads a row's name as only
+its **leading name-shaped token**, never a run of them (unlike the
+headingless recognizer's two-token run above): `apt-ftparchive`'s `sources
+srcpath` names one command, `sources`, with `srcpath` — itself
+name-shaped — as its own operand, never a second command or a
+grandchild. A ` = ` separator (found the same way `find_dash_separator`
+finds ` - `) gives the description; its absence leaves the node honestly
+undescribed rather than guessing where the name ends and prose begins.
+`split_heading_inline_row` recovers the special case of a heading sharing
+its own line with the table's first row, using
+`is_section_heading_line` to tell a real (if unconventional) heading
+label from an ordinary sentence that merely ends in a colon.
+
+Three admission guards, each added after a real fabrication surfaced
+during development against the live fleet, not written down in advance:
+
+1. **The bail-out.** Refuses (`None`) the whole block outright if any row
+   has a real column gap or a ` - ` separator — both already-working
+   shapes this recognizer must never compete with, let alone win against
+   by running first. This is also what keeps a bare-word block that
+   legitimately uses `name = value` for something that is not a command
+   list (`wpa_supplicant`'s own `drivers:` block, `nl80211 = Linux
+   nl80211/cfg80211` — see `find_equals_separator_gap`'s own doc comment)
+   safe on the rare tool where that heading would otherwise qualify.
+2. **`recognized`, never `command_mode`.** Gated on the *current* heading
+   itself mentioning "command(s)", not on inheriting a `command_mode`
+   chain the way `allow_dash_separator` (issue #3) deliberately does.
+   `fail2ban-client --help`'s real `Command:` table nests column-aligned
+   rows whose descriptions wrap onto their own more-indented lines; the
+   engine's "not actually a heading, rewind" path re-examines each such
+   row as a fresh pseudo-heading once `command_mode` is stuck on from the
+   real heading many rows earlier, and a wrapped continuation block that
+   ends up reachable on its own passes every other guard here purely
+   because ordinary English is indistinguishable from a command name by
+   shape alone — `of`, `the`, `restarting`, `option` all became
+   "subcommands" of `fail2ban-client` this way before this guard was
+   added. None of those pseudo-headings themselves mention "command", so
+   requiring `recognized` directly closes it while still admitting both
+   real fixtures (each literally recognized at the point this is tried).
+3. **The floor counts distinct names, not qualifying rows.** `trash-put
+   --help` closes with an ordinary sentence, "...use one of these
+   commands:", that satisfies the generic `mentions_commands_word` test
+   exactly as written (the word "commands" does appear), followed by a
+   two-line worked example of invoking a *different* program twice
+   (`trash -- -foo`, `trash ./-foo`). Both lines pass every guard above,
+   but they name the same thing, and a real command table's whole
+   evidentiary claim is that it lists several *different* commands — so
+   the floor is distinct qualifying names, not raw qualifying rows.
+
+Every node this recognizer produces is `invocation_attested: true,
+heading_attested: false`, for the same reason as the headingless table
+above — with an extra note specific to this shape: these tables belong to
+C daemons and daemon-control clients whose "commands" are runtime control
+verbs (`wpa_cli terminate`, `wpa_cli quit`) rather than argv subcommands in
+the clap/cobra sense, and such programs commonly ignore a trailing
+`--help` and just execute the verb, so even a correctly-attested name here
+is a `heading_attested`-shaped risk rule 0's gate exists to withhold.
+
 ### Tier C — completion script structural parsing
 
 For tools not in a catalog that support `<tool> completion bash|zsh|fish`
