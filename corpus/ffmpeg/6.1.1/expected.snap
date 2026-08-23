@@ -128,9 +128,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: ix_fmts
-  value_kind: Required
+- long: pix_fmts
+  single_dash: true
   description: show available pixel formats
   provenance:
     sources:
@@ -141,9 +140,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: ample_fmts
-  value_kind: Required
+- long: sample_fmts
+  single_dash: true
   description: show available audio sample formats
   provenance:
     sources:
@@ -197,9 +195,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'm'
-  value_name: ax_alloc
-  value_kind: Required
+- long: max_alloc
+  single_dash: true
   description: set maximum size of a single allocated block
   provenance:
     sources:
@@ -214,23 +211,20 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'i'
-  value_name: gnore_unknown
-  value_kind: Required
+- long: ignore_unknown
+  single_dash: true
   description: Ignore unknown stream types
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ilter_threads
-  value_kind: Required
+- long: filter_threads
+  single_dash: true
   description: number of non-complex filter threads
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ilter_complex_threads
-  value_kind: Required
+- long: filter_complex_threads
+  single_dash: true
   description: number of threads for -filter_complex
   provenance:
     sources:
@@ -241,9 +235,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'm'
-  value_name: ax_error_rate
-  value_kind: Required
+- long: max_error_rate
+  single_dash: true
   description: 'ratio of decoding errors (0.0: no errors, 1.0: 100% errors) above which ffmpeg returns an error instead of success.'
   provenance:
     sources:
@@ -274,9 +267,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'm'
-  value_name: ap_metadata
-  value_kind: Required
+- long: map_metadata
+  single_dash: true
   description: set metadata information of outfile from infile
   provenance:
     sources:
@@ -315,9 +307,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: eek_timestamp
-  value_kind: Required
+- long: seek_timestamp
+  single_dash: true
   description: enable/disable seeking by timestamp with -ss
   provenance:
     sources:
@@ -364,16 +355,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ilter_script
-  value_kind: Required
+- long: filter_script
+  single_dash: true
   description: read stream filtergraph description from a file
   provenance:
     sources:
     - help-text
-- short: 'r'
-  value_name: einit_filter
-  value_kind: Required
+- long: reinit_filter
+  single_dash: true
   description: reinit filtergraph on input parameter changes
   provenance:
     sources:
@@ -422,23 +411,20 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: isplay_rotation
-  value_kind: Required
+- long: display_rotation
+  single_dash: true
   description: set pure counter-clockwise rotation in degrees for stream(s)
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: isplay_hflip
-  value_kind: Required
+- long: display_hflip
+  single_dash: true
   description: set display horizontal flip for stream(s) (overrides any display rotation if it is not set)
   provenance:
     sources:
     - help-text
-- short: 'd'
-  value_name: isplay_vflip
-  value_kind: Required
+- long: display_vflip
+  single_dash: true
   description: set display vertical flip for stream(s) (overrides any display rotation if it is not set)
   provenance:
     sources:
@@ -569,16 +555,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: ix_sub_duration
-  value_kind: Required
+- long: fix_sub_duration
+  single_dash: true
   description: fix subtitles duration
   provenance:
     sources:
     - help-text
-- short: 'c'
-  value_name: anvas_size
-  value_kind: Required
+- long: canvas_size
+  single_dash: true
   description: set canvas size (WxH or abbreviation)
   provenance:
     sources:

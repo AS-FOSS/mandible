@@ -39,9 +39,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'c'
-  value_name: ase_sensitive
-  value_kind: Required
+- long: case_sensitive
+  single_dash: true
   description: for -match and -exclude
   provenance:
     sources:

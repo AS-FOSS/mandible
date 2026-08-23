@@ -10,6 +10,47 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A single-dash long option whose name carries an underscore was split
+  into a one-character short flag plus the rest of its own name.**
+  `dbiprof` writes `-case_sensitive` and the tree held `-c` with
+  `value_name: "ase_sensitive"` — a short flag `dbiprof` does not document
+  anywhere. It sat in the same table as `-number=N`, `-reverse` and
+  `-version`, all of which the previous release already recovered; the one
+  thing that separated it from them was the `_`, which
+  `is_option_name_tail` rejected.
+
+  `_` separates words inside a name exactly as `-` does, and none of the
+  seven conditions that make this repair safe is measured on which
+  separator a name uses. Admitting it therefore moves nothing else:
+  `-DFOO_BAR` and `-oOUT_FILE` are still rejected by the uniform-lowercase
+  test, `-o out_file` is still rejected by the raw-text scan (it never
+  occurs glued), and `-d item_a[,...]` is still rejected by the name-shape
+  test's own punctuation rule. Each is asserted by name in `sections.rs`'s
+  tests and in `xtask::single_dash_long`'s self-checks.
+
+  Measured on a full-`PATH` sweep (2,254 tools, aarch64 Ubuntu 24.04) the
+  change moves **17 tools and 604 flag spellings** — `clang -fchar8_t` and
+  `-fno-char8_t`, `llvm-install-name-tool -add_rpath` and
+  `-delete_all_rpaths`, `llvm-lipo -verify_arch`, `llvm-otool
+  -chained_fixups`, `ffmpeg -pix_fmts` and `-filter_script`, `lto-dump
+  -fchar8_t`, and the whole of `ffplay`'s and `ffprobe`'s `AVOption`
+  tables. No tool appeared, disappeared, or changed status or tier, and
+  the field-level sweep diff reports **no flag lost anywhere**. Every one
+  of the 604 recovered names was checked against its own tool's raw
+  capture and every one occurs as the leading token of a row that tool
+  writes; there were no counter-examples.
+
+  `ffplay` and `ffprobe` are 97% of it, and their rows put the value spec
+  in a *space-separated* column (`-is_avc  <boolean>  .D.V..X....  is
+  avc`). Both that column and the capability column beside it are
+  untouched: they were never in `value_name` — the swallowed name half
+  was — and they live in the description, which this repair does not
+  write. `ffplay`'s tree keeps the same 1,136 flags and the same 1,135
+  descriptions byte for byte; 679 of them stop being fabricated shorts,
+  and the fabricated `-b`, `-c`, `-d`, `-g`, `-h`, `-k`, `-l`, `-m`, `-n`,
+  `-o`, `-p`, `-r`, `-u` and `-w` disappear while its real `-h`/`--help`,
+  `-i input_file`, `-x width`, `-v loglevel` and `-f fmt` stay.
+
 - **A single-dash long option carrying a glued `=value` was split into a
   one-character short flag plus a mangled value.** `dbiprof` writes
   `-number=N` and the tree held `-n` with `value_name: "umber=N"`;
