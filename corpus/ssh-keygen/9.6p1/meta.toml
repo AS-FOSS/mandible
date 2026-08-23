@@ -1,0 +1,37 @@
+# Regression fixture for the "swallowed types" defect this PR fixes:
+# `extract_usage_flags`'s bare-token walk used to read a mandatory,
+# unbracketed flag's own value word (`ssh-keygen -D pkcs11`, `-M generate`,
+# `-I certificate_identity`, `-s ca_key`, `-F`/`-R`/`-r hostname`) as an
+# unrelated, silently-dropped bare token, so the flag came out looking
+# like a boolean it isn't. `-D`, `-F`, `-I`, `-M`, `-R`, `-r`, `-s` now all
+# carry their real, documented value.
+#
+# Honest residual, deliberately not claimed here: `-hU` (from `[-hU]` in
+# the `-I` line) is a two-character mixed-order bundle that
+# `grammar::parse_bundled_shorts` does not recognize (its own doc comment
+# lists this exact shape — an unsorted, non-case-mixing swallowed half —
+# as a knowing, accepted false negative), so `-h` still carries a
+# fabricated value `"U"` and `-U` is still entirely absent. That is a
+# separate, narrower, already-documented gap in the bundle detector, not
+# the bare-token-value defect this fixture locks in; see
+# `corpus/ssh-keygen/audit-seed2` (`[xfail]`, "missing -U") for it.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ssh-keygen"
+version = "9.6p1"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["ssh-keygen", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["-D", "-F", "-I", "-M", "-R", "-r", "-s"]

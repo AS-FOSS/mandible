@@ -10,6 +10,66 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A short flag's abbreviation-continuation bracket (`ip --help`'s
+  `-V[ersion]`, `-s[tatistics]`, `-f[amily]`, `-h[uman-readable]`, ...)
+  was read as a fabricated optional value.** `-V[ersion]` came out as `-V`
+  taking an optional value literally named `"ersion"` — a value `ip` does
+  not document, on a flag that takes none. `grammar::
+  strip_short_abbrev_suffix` recognizes the shape structurally (a bracket
+  glued directly onto a short character, opening with an ASCII lowercase
+  letter and containing nothing but lowercase letters and hyphens — every
+  real optional-value convention this project has measured is upper/mixed
+  case, angle-delimited, or carries its own `=`) and discards it, mirroring
+  `sections::strip_optional_modifier_suffix`'s existing command-name
+  convention (`m[ab]` names the command `m`) on the flag side. `-h`, `-f`,
+  `-4`, `-l` and `-o` in `ip`'s own `OPTIONS := { ... }` line are now
+  boolean, as documented. (`-V`/`-s`/`-d` themselves remain absent — a
+  separate, already-tracked defect, `corpus/ip/audit-seed2`'s `[xfail]`:
+  the block's own opening physical line is consumed as heading text and
+  never scanned for entries.)
+
+  `strip_short_abbrev_suffix` also drops stray trailing `}`/`)`/`]`
+  glued directly onto the bracket it closes — `ip`'s own last alternative,
+  `-c[olor]}`, carries the enclosing `OPTIONS := { ... }` group's own
+  closing brace with nothing between it and the abbreviation bracket.
+  Without this, stripping `[olor]` left the bare `}` to fall into the
+  ordinary value grammar, and `-c` moved from a merely-doubtful
+  `value_name: "olor"` (the pre-fix reading) to an outright
+  `value_name: "}"`, `Required` — a fabrication in the exact flag this fix
+  targets, caught during review rather than by the fleet sweep (which
+  only diffs *changed* value names, and this one was already changing).
+  `-c` is now boolean, exactly as `-a[ll]` one line above it in the same
+  block.
+
+- **A mandatory flag some tool's usage synopsis writes unbracketed
+  (`ssh-keygen -D pkcs11`, `-M generate`, `-I certificate_identity -s
+  ca_key`, `-F`/`-R`/`-r hostname`) had its own value silently dropped.**
+  `extract_usage_flags`'s bare-token walk read each bare token in a
+  synopsis line independently; a flag's own required value sitting right
+  after it with no bracket group around either was an unrelated, second
+  bare token that started with neither `-` nor anything else the scan
+  read, so it was dropped and the flag came out looking like a boolean it
+  isn't. The walk now looks one token ahead: a bare flag immediately
+  followed by a bare, non-flag, non-parenthetical token treats that token
+  as its value (never when the flag is itself a recognized bundle of
+  single-character switches, never when what follows is another flag, and
+  never when it opens a parenthetical aside — `iptables`' own `iptables -h
+  (print this help information)` was measured attaching the fabricated
+  value `"(print"` to `-h` before that last guard existed). `ssh-keygen`'s
+  `-D`, `-F`, `-I`, `-M`, `-R`, `-r` and `-s` now all carry their real,
+  documented value; a fleet sweep found the same recovery on 60+ other
+  tools (`iptables`/`arptables`/`ip6tables`'s own `-D chain`/`-I
+  chain`/`-P chain`, `winpr-hash`'s `-u <username>`, `vim`'s `-t tag`,
+  `rpcinfo`'s `-T netid`, among others) with zero flags lost or gained
+  anywhere in the same sweep.
+
+- **`pastebinit` reporting flag types the tool does not document (`-l`
+  carrying a fabricated value `"List"`, taken from the first word of its
+  own description) is confirmed already fixed** by the general
+  `find_sentence_start_gap` fix (`apt-ftparchive`'s `--md5 Control MD5
+  generation` shape) — no code change was needed. `corpus/pastebinit/
+  1.6.2` pins the fix as a regression fixture.
+
 - **LVM's docopt bracket-group flag rows (`vgck`, `vgextend`, `vgrename`,
   and the whole `lv*`/`vg*`/`pv*` family) rendered `verbatim` with zero
   flags.** LVM's own help emitter writes a *bare* invocation line with no

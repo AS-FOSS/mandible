@@ -5894,10 +5894,14 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
             push_usage_flag(&mut out, parse_flag_spec(content));
             continue;
         }
-        for segment in usage_segments(line) {
+        let segments = usage_segments(line);
+        let mut seg_idx = 0usize;
+        while seg_idx < segments.len() {
             if out.len() >= MAX_RECOVERED_ENTRIES {
                 return out;
             }
+            let segment = segments[seg_idx].clone();
+            seg_idx += 1;
             match segment {
                 UsageSegment::Group(members) => {
                     let mut flaggy: Vec<&str> = Vec::new();
@@ -5949,6 +5953,55 @@ fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
                 }
                 UsageSegment::Bare(tok) => {
                     if tok.starts_with('-') {
+                        // A mandatory flag some tool's synopsis writes
+                        // unbracketed (`ssh-keygen -D pkcs11`, `-M generate`,
+                        // `-I certificate_identity`) is two bare tokens in a
+                        // row: the flag, then its own required value with no
+                        // separating group at all. `usage_segments` already
+                        // pairs a flag with its value when a `[...]` group
+                        // holds both (`bracket_flag_row_content`, the `Group`
+                        // arm above); outside a group each bare token used to
+                        // stand alone, so the flag's own value token was read
+                        // as an unrelated, silently-dropped bare word and the
+                        // flag came out looking like a boolean it isn't.
+                        //
+                        // Attaching is refused when `tok` is itself a
+                        // recognized bundle of single-character switches
+                        // (`parse_bundled_shorts`) — a bundle's members are
+                        // booleans by construction, and the word that
+                        // follows one in a synopsis is the next independent
+                        // token, never a shared value. It is also refused
+                        // when the next segment is missing, empty, or is
+                        // itself flag-shaped (`-k -f krl_file`: `-k` stays a
+                        // bare boolean because what follows it is another
+                        // flag, not a value). It is also refused when the
+                        // next word opens a parenthetical aside —
+                        // `iptables`'s own `iptables -h (print this help
+                        // information)` measured this exactly: `-h` takes no
+                        // argument at all, and `(print` is the first word of
+                        // a parenthetical explanation, not a value. No real
+                        // value-placeholder convention this grammar
+                        // recognizes anywhere else opens with `(` (`<value>`,
+                        // `[value]`, `{a|b}`, or a bare word are the whole
+                        // set), so refusing it costs no real recall.
+                        let attach_value = parse_bundled_shorts(tok).is_none()
+                            && matches!(
+                                segments.get(seg_idx),
+                                Some(UsageSegment::Bare(value))
+                                    if !value.is_empty()
+                                        && !value.starts_with('-')
+                                        && !value.starts_with('(')
+                            );
+                        if attach_value {
+                            if let Some(UsageSegment::Bare(value)) = segments.get(seg_idx) {
+                                push_usage_flag(
+                                    &mut out,
+                                    parse_flag_spec(&format!("{tok} {value}")),
+                                );
+                            }
+                            seg_idx += 1;
+                            continue;
+                        }
                         push_usage_token(&mut out, tok);
                     }
                 }
@@ -6168,6 +6221,7 @@ fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> {
 /// walks it: either a bracketed alternation group (spec [M-15]'s pairing
 /// rule operates within one such group) or a bare token outside any
 /// bracket.
+#[derive(Clone)]
 enum UsageSegment<'a> {
     /// The members of one top-level `[...]` group, already split on `|` at
     /// that group's own nesting depth — so `--exec-path[=<path>]`'s inner
@@ -8540,6 +8594,82 @@ Options:
             .find(|f| f.long.as_deref() == Some("git-dir"))
             .expect("--git-dir recovered");
         assert_eq!(git_dir.value_kind, mandible_core::ValueKind::Required);
+    }
+
+    /// A mandatory flag some tool's synopsis writes unbracketed —
+    /// `ssh-keygen`'s own `-D pkcs11`, `-M generate`, `-I
+    /// certificate_identity -s ca_key` — is two bare tokens with no
+    /// group around either. Before the bare-token lookahead in
+    /// `extract_usage_flags` existed, each flag's own value word was a
+    /// second, unrelated `Bare` segment that started with neither `-` nor
+    /// anything else this scan reads, so it was silently dropped and the
+    /// flag came out looking like a boolean it isn't.
+    #[test]
+    fn bare_synopsis_flags_recover_their_unbracketed_value() {
+        let raw = "usage: ssh-keygen -D pkcs11\n       ssh-keygen -M generate [-O option] output_file\n       ssh-keygen -I certificate_identity -s ca_key [-hU]\n";
+        let parsed = parse(raw);
+
+        let d = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('D'))
+            .expect("-D recovered");
+        assert_eq!(d.value_name.as_deref(), Some("pkcs11"));
+        assert_eq!(d.value_kind, mandible_core::ValueKind::Required);
+
+        let m = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('M'))
+            .expect("-M recovered");
+        assert_eq!(m.value_name.as_deref(), Some("generate"));
+
+        let i = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('I'))
+            .expect("-I recovered");
+        assert_eq!(i.value_name.as_deref(), Some("certificate_identity"));
+
+        let s = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('s'))
+            .expect("-s recovered");
+        assert_eq!(s.value_name.as_deref(), Some("ca_key"));
+    }
+
+    /// `iptables --help`'s own synopsis line, byte-exact: `-h` takes no
+    /// argument, and `(print` is the first word of a parenthetical aside,
+    /// not a value. Measured during this fix's own fleet sweep — without
+    /// the `(`-guard, `-h` picked up a fabricated value across the whole
+    /// `iptables`/`arptables`/`ip6tables` family.
+    #[test]
+    fn a_parenthetical_aside_after_a_bare_flag_is_never_read_as_its_value() {
+        let raw = "Usage: iptables -h (print this help information)\n";
+        let parsed = parse(raw);
+        let h = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('h'))
+            .expect("-h recovered");
+        assert_eq!(h.value_name, None, "-h must stay boolean");
+    }
+
+    /// The lookahead must never attach a value onto a bare flag that is
+    /// immediately followed by *another* flag rather than a value —
+    /// `ssh-keygen -k -f krl_file`'s own `-k` takes no argument at all, and
+    /// what follows it is `-f`, not `-k`'s value.
+    #[test]
+    fn a_bare_flag_followed_by_another_bare_flag_stays_boolean() {
+        let raw = "usage: ssh-keygen -k -f krl_file\n";
+        let parsed = parse(raw);
+        let k = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('k'))
+            .expect("-k recovered");
+        assert_eq!(k.value_name, None, "-k must stay boolean");
     }
 
     /// The bundled-short-flag collapse, end to end through `parse`:

@@ -1,0 +1,70 @@
+name: ip
+description: where OBJECT := { address | addrlabel | amt | fou | help | ila | ioam | l2tp |
+usage:
+- 'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }'
+- ip [ -force ] -batch filename
+positionals:
+- name: OBJECT
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'h'
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  description: '| -iec | -j[son] | -p[retty] |'
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  description: '{ inet | inet6 | mpls | bridge | link } |'
+  provenance:
+    sources:
+    - help-text
+- short: '4'
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  description: '{ maximum-addr-flush-attempts } | -br[ief] |'
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  description: '| -t[imestamp] | -ts[hort] | -b[atch] [filename] |'
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: c[vbuf]
+  value_kind: Required
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  description: '[size] | -n[etns] name | -N[umeric] | -a[ll] |'
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  value_name: atch
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

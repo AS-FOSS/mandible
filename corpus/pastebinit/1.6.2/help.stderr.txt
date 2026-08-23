@@ -1,0 +1,27 @@
+Invalid arguments: option --help not recognized!
+
+pastebinit v1.6.2
+
+Reads on stdin for input or takes a list of files as parameters
+
+Usage:	pastebinit [OPTION...] [FILE...]
+
+General arguments:
+
+	-b <pastebin> (default is 'dpaste.com')
+	-i <input file>
+	-l List all supported pastebins
+	-E Print the content to stdout too
+	-h Print this help screen
+	-v Print the version number
+	-V Print verbose output to stderr
+
+Optional arguments (not supported by all pastebins):
+
+	-a <author> (default is 'ubuntu')
+	-t <title of paste> (default is none)
+	-f <format of paste> (default is 'text')
+	-j <jabberid> (default is '')
+	-m <permatag> (default is none)
+	-P <private level> (default is '1')
+	-u <username> -p <password>
