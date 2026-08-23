@@ -42,17 +42,44 @@ once it reaches a published 0.1.0 release.
   Measured on a full-`PATH` sweep: 16 tools move `verbatim` → `ok`, 20
   gain 124 flags fleet-wide, 0 flags are lost anywhere. Four systemd
   tools (`systemd-creds`, `systemd-sysext`, `systemd-confext`,
-  `varlinkctl`) lose their `Commands:`-derived subcommand stubs as a
-  side effect: their own `Commands:` heading is ANSI-corrupted
+  `varlinkctl`) initially lost their `Commands:`-derived subcommand
+  stubs as a side effect: their own `Commands:` heading is ANSI-corrupted
   (`\x1b[0mCommands:` reads as one alphanumeric run, `0mCommands`, to
   `mentions_commands_word`), and that heading's recognition was
   previously rescued only by accident, via the very description-leak
-  this fix removes. Left as an honest loss rather than patched by
-  widening the `command_mode` sticky chain to also seed from a usage
-  synopsis's own `COMMAND` word — measured and reverted: that seed
-  fabricated a subcommand literally named `v2.3.3` out of `containerd`'s
-  and `ctr`'s unrelated `VERSION:` block, the exact class of defect
-  [M-10] exists to prevent.
+  this fix removes. Not patched by widening the `command_mode` sticky
+  chain to also seed from a usage synopsis's own `COMMAND` word —
+  measured and reverted: that seed fabricated a subcommand literally
+  named `v2.3.3` out of `containerd`'s and `ctr`'s unrelated `VERSION:`
+  block, the exact class of defect [M-10] exists to prevent.
+
+  **Root-caused and fixed instead**: `mandible_core::strip_escapes`
+  (previously private to `Text::sanitize`, now exported) now runs once
+  over the whole raw `--help` document, in `help_text::sections`, before
+  any heading, indentation or column gap is computed from it — not only
+  per-field at final display time, which was too late for the layout
+  analysis that decides what's a heading at all. `systemd-creds` and
+  `varlinkctl` now recover their `Commands:` block through the ordinary
+  recognized-heading path (`heading_attested: true`, strictly better
+  evidence than the accidental stubs they had before). Measured on a
+  second full-`PATH` sweep isolating just this change: it moves exactly
+  these two tools and nothing else in the entire fleet — 0 other status
+  transitions, 0 other flag or subcommand changes, confirming escape
+  bytes were not silently distorting `leading_whitespace`/
+  `find_multi_space_gap` byte offsets for any other tool on this
+  machine's `PATH`.
+
+  `systemd-sysext` and `systemd-confext` remain a **known, named
+  residual regression**: their command rows sit directly under the
+  description prose with no `Commands:` heading at all (`systemd-sysext
+  [OPTIONS...] COMMAND` synopsis, then five unheaded rows), which is
+  categorically the shape spec §7 Tier B rule 1 forbids recognizing
+  ("a command block must be introduced by a recognized heading — layout
+  alone is never sufficient evidence"). Recovering it safely would need
+  a new, separately-measured recognizer restricted to a headingless,
+  column-aligned block immediately following the description with no
+  intervening heading and no `command_mode` stickiness; not attempted
+  here.
 
 - **Two headed command tables — one separated by ` = `, one carrying no
   separator at all — parsed to zero subcommands.** `wpa_cli`'s `commands:`

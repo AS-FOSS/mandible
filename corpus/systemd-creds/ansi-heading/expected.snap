@@ -1,0 +1,169 @@
+name: systemd-creds
+usage:
+- systemd-creds [OPTIONS...] COMMAND ...
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'h'
+  long: help
+  description: Show this help
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: Show package version
+  provenance:
+    sources:
+    - help-text
+- long: no-pager
+  description: Do not pipe output into a pager
+  provenance:
+    sources:
+    - help-text
+- long: no-legend
+  description: Do not show the headers and footers
+  provenance:
+    sources:
+    - help-text
+- long: json
+  value_name: pretty|short|off
+  value_kind: Required
+  description: Generate JSON output
+  provenance:
+    sources:
+    - help-text
+- long: system
+  description: Show credentials passed to system
+  provenance:
+    sources:
+    - help-text
+- long: transcode
+  value_name: base64|unbase64|hex|unhex
+  value_kind: Required
+  description: Transcode credential data
+  provenance:
+    sources:
+    - help-text
+- long: newline
+  value_name: auto|yes|no
+  value_kind: Required
+  description: Suffix output with newline
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: pretty
+  description: Output as SetCredentialEncrypted= line
+  provenance:
+    sources:
+    - help-text
+- long: name
+  value_name: NAME
+  value_kind: Required
+  description: Override filename included in encrypted credential
+  provenance:
+    sources:
+    - help-text
+- long: timestamp
+  value_name: TIME
+  value_kind: Required
+  description: Include specified timestamp in encrypted credential
+  provenance:
+    sources:
+    - help-text
+- long: not-after
+  value_name: TIME
+  value_kind: Required
+  description: Include specified invalidation time in encrypted credential
+  provenance:
+    sources:
+    - help-text
+- long: with-key
+  value_name: host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd
+  value_kind: Required
+  description: Which keys to encrypt with
+  provenance:
+    sources:
+    - help-text
+- short: 'H'
+  description: Shortcut for --with-key=host
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  description: Shortcut for --with-key=tpm2
+  provenance:
+    sources:
+    - help-text
+- long: tpm2-device
+  value_name: PATH
+  value_kind: Required
+  description: Pick TPM2 device
+  provenance:
+    sources:
+    - help-text
+- long: tpm2-pcrs
+  value_name: PCR1+PCR2+PCR3+…
+  value_kind: Required
+  description: Specify TPM2 PCRs to seal against (fixed hash)
+  provenance:
+    sources:
+    - help-text
+- long: tpm2-public-key
+  value_name: PATH
+  value_kind: Required
+  description: Specify PEM certificate to seal against
+  provenance:
+    sources:
+    - help-text
+- long: tpm2-public-key-pcrs
+  value_name: PCR1+PCR2+PCR3+…
+  value_kind: Required
+  description: Specify TPM2 PCRs to seal against (public key)
+  provenance:
+    sources:
+    - help-text
+- long: tpm2-signature
+  value_name: PATH
+  value_kind: Required
+  description: Specify signature for public key PCR policy
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  description: Suppress output for 'has-tpm2' verb
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: list
+  summary: Show installed and available versions
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: setup
+  summary: Generate credentials host key, if not existing yet
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: has-tpm2
+  summary: Report whether TPM2 support is available
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

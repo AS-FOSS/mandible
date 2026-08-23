@@ -46,7 +46,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, CommandNode, Flag, Positional, Provenance, Source, Text, ValueKind,
+    is_command_name_shaped, strip_escapes, CommandNode, Flag, Positional, Provenance, Source, Text,
+    ValueKind,
 };
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
@@ -196,6 +197,24 @@ pub fn parse_with_profile(
     profile: Option<&FrameworkProfile>,
     tool_name: Option<&str>,
 ) -> ParsedHelp {
+    // Strip terminal escape sequences over the *whole* document, once,
+    // before any layout analysis runs — never only per-field at
+    // `Text::sanitize` emission time, which is too late: headings,
+    // indentation and column gaps are all measured on this raw string,
+    // and an escape sequence still embedded in it corrupts every one of
+    // those measurements, not just what a user eventually reads.
+    // `systemd-creds --help` is the specimen this was measured against:
+    // it writes `[0mCommands:` (a colorizing library's reset code
+    // glued directly onto its own heading), and left in place that
+    // defeats `mentions_commands_word` — the escape and the heading's
+    // first two characters fuse into one alphanumeric run, `0mCommands`,
+    // which matches no recognized heading word, so the tool's real
+    // `Commands:` block (six real subcommands: `list`, `cat`, `setup`,
+    // `encrypt`, `decrypt`, `has-tpm2`) was never recognized as
+    // introducing a command list. Reuses `mandible_core::strip_escapes`
+    // rather than a second copy of the same state machine — see that
+    // function's own doc comment.
+    let raw = strip_escapes(raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it — see `split_shared_heading_rows`. Doing
@@ -207,9 +226,9 @@ pub fn parse_with_profile(
     //
     // Structurally non-recursive: the rewrite is applied at most once,
     // and `parse_body` never calls back into this function.
-    match split_shared_heading_rows(raw) {
+    match split_shared_heading_rows(&raw) {
         Some(rewritten) => parse_body(&rewritten, profile, tool_name),
-        None => parse_body(raw, profile, tool_name),
+        None => parse_body(&raw, profile, tool_name),
     }
 }
 

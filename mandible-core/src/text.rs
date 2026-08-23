@@ -203,7 +203,21 @@ impl<'de> Deserialize<'de> for Text {
 /// Strip ANSI CSI/OSC/DCS escape sequences and other `ESC`-prefixed
 /// sequences. Hand-written state machine rather than a regex crate
 /// dependency; the grammar is small and well-known.
-fn strip_escapes(input: &str) -> String {
+///
+/// `pub` (fix/usage-synopsis) so `help_text::sections` can run the same
+/// stripping over a whole raw `--help` document *before* sectioning, not
+/// only per-field at [`Text::sanitize`] emission time. Escapes reaching
+/// the sectioning pass corrupt layout analysis that has nothing to do
+/// with display: `systemd-creds --help` writes `[0mCommands:`, and
+/// with the escape still in the string `mentions_commands_word` sees one
+/// alphanumeric run, `0mCommands`, never `Commands` — the heading is
+/// never recognized as introducing a command list, and the whole block
+/// silently fails to become subcommands. AGENTS.md and
+/// `help_text::mod`'s re-export block both record what a second,
+/// drifting copy of a shared predicate has already cost this project, so
+/// this reuses the exact function [`Text::sanitize`] already calls rather
+/// than duplicating the state machine.
+pub fn strip_escapes(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     let mut chars = input.chars().peekable();
     while let Some(c) = chars.next() {

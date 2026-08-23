@@ -1,0 +1,48 @@
+systemd-creds [OPTIONS...] COMMAND ...
+
+Display and Process Credentials.
+
+[0mCommands:
+  list                    Show installed and available versions
+  cat CREDENTIAL...       Show specified credentials
+  setup                   Generate credentials host key, if not existing yet
+  encrypt INPUT OUTPUT    Encrypt plaintext credential file and write to
+                          ciphertext credential file
+  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to
+                          plaintext credential file
+  has-tpm2                Report whether TPM2 support is available
+  -h --help               Show this help
+     --version            Show package version
+
+[0mOptions:
+     --no-pager           Do not pipe output into a pager
+     --no-legend          Do not show the headers and footers
+     --json=pretty|short|off
+                          Generate JSON output
+     --system             Show credentials passed to system
+     --transcode=base64|unbase64|hex|unhex
+                          Transcode credential data
+     --newline=auto|yes|no
+                          Suffix output with newline
+  -p --pretty             Output as SetCredentialEncrypted= line
+     --name=NAME          Override filename included in encrypted credential
+     --timestamp=TIME     Include specified timestamp in encrypted credential
+     --not-after=TIME     Include specified invalidation time in encrypted
+                          credential
+     --with-key=host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd
+                          Which keys to encrypt with
+  -H                      Shortcut for --with-key=host
+  -T                      Shortcut for --with-key=tpm2
+     --tpm2-device=PATH
+                          Pick TPM2 device
+     --tpm2-pcrs=PCR1+PCR2+PCR3+…
+                          Specify TPM2 PCRs to seal against (fixed hash)
+     --tpm2-public-key=PATH
+                          Specify PEM certificate to seal against
+     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…
+                          Specify TPM2 PCRs to seal against (public key)
+     --tpm2-signature=PATH
+                          Specify signature for public key PCR policy
+  -q --quiet              Suppress output for 'has-tpm2' verb
+
+See the systemd-creds(1) man page for details.
