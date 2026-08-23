@@ -1183,6 +1183,69 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// every other condition) — `parse_bundled_shorts` owns that shape from the
 /// synopsis, and the identical shape from an option table is this family.
 ///
+/// # Why `_` is a name character
+///
+/// Condition 3 used to reject `_`, on the theory that it "also appears in
+/// glued value placeholders". It does — and so does every letter of the
+/// alphabet. `_` is a **word separator inside a name**, the same job `-`
+/// does, and none of the conditions above is measured on which separator
+/// a name spells its word breaks with: `-DFOO_BAR` is still rejected by
+/// condition 5, `-oOUT_FILE` still by condition 5 read over the whole
+/// token, `-o out_file` still by condition 7 (it never occurs glued), and
+/// `-d item_a[,...]` still by condition 3's own punctuation test.
+///
+/// Measured on a full-`PATH` sweep of this machine (2,254 tools, aarch64
+/// Ubuntu 24.04), admitting `_` moves **17 tools and 604 flag spellings**,
+/// and moves nothing else: no tool appeared or disappeared, no tool
+/// changed status or tier, and no flag was lost — the field-level
+/// `sweep-diff` reports `0 lost across 0 tool(s)`. Every one of the 604
+/// recovered names was then checked against its own tool's raw capture,
+/// and **all 604 occur as the leading token of a row the tool itself
+/// writes** — `clang -fchar8_t`/`-fno-char8_t`, `llvm-install-name-tool
+/// -add_rpath`/`-delete_all_rpaths`, `llvm-lipo -verify_arch`,
+/// `llvm-otool -chained_fixups`, `ffmpeg -pix_fmts`/`-filter_script`,
+/// `dbiprof -case_sensitive`. There were no counter-examples.
+///
+/// **ffplay and ffprobe are 97% of it**, and they are the case worth
+/// stating explicitly because their rows carry a value spec in a
+/// *space-separated* column plus a capability column:
+///
+/// ```text
+///   -is_avc            <boolean>    .D.V..X.... is avc (default false)
+///   -grab_x            <int>        .D......... Initial x coordinate. (from 0 to INT_MAX)
+/// ```
+///
+/// Neither column is at risk, because neither was ever in `value_name` —
+/// the grammar stored the swallowed name half there (`-i` + `"s_avc"`)
+/// and both columns went into the *description*, which this repair does
+/// not touch. `ffplay`'s tree keeps the same 1,136 flags and the same
+/// 1,135 descriptions, byte for byte, before and after; 679 of them stop
+/// being fabricated shorts. The rows that were already recovered on the
+/// unmodified parser — `-idct`, `-threads`, `-debug`, whose names carry
+/// no underscore — have always read exactly this way, so this is the
+/// underscore rows joining them rather than a new behaviour.
+///
+/// # A rejected alternative: "is the candidate short documented?"
+///
+/// Recorded because it is the obvious next idea and it is **wrong**:
+/// allow the long reading only when the tool's help documents no bare row
+/// for the candidate short — `dbiprof` documents no `-c`, so `-c` is
+/// fabricated there and `-case_sensitive` wins.
+///
+/// It does not discriminate. Measured over the 604 spellings above it
+/// refuses 111 of them, and every single one of the 111 is a documented
+/// row token — a 100% false-refusal rate, buying nothing. `ffplay`
+/// documents `-f fmt` **and** `-filter_threads`; `-i input_file` **and**
+/// `-is_avc`. A tool documenting both a short and a long option that
+/// starts with the same letter is the ordinary case, not a suspicious
+/// one. Worse, as a general rule it would revert work already shipped:
+/// across those same 17 tools it refuses **632 of the 8,260** single-dash
+/// long options the parser already recovers, `ffplay -help` among them —
+/// the exact `-h` beside `-help` coexistence
+/// `xtask::single_dash_long`'s own doc comment opens with. What the idea
+/// is reaching for is already supplied, and supplied better, by
+/// conditions 5 and 7 together.
+///
 /// # What this deliberately does not claim
 ///
 /// Named here rather than discovered later, and each one is a place the

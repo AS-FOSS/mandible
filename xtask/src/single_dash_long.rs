@@ -115,6 +115,14 @@
 //!   `sg_emc_trespass` writes `-hr: Set Honor Reservation bit` with no space
 //!   before the colon, so the tree stores `-h` + `"r:"` and condition 3
 //!   rejects it. Also a labelled member, also declared.
+//! - Once, but no longer: **names carrying an underscore**. Condition 3
+//!   rejected `_` on the theory that it also appears in glued value
+//!   placeholders; so does every letter of the alphabet, and `_` is a word
+//!   separator inside a name exactly as `-` is. A full-`PATH` sweep put the
+//!   population at 17 tools and 604 flag spellings, every one of them a
+//!   token its own tool writes at the head of a row, with no counter-example
+//!   — see `help_text::sections::repair_single_dash_long_options`'s "Why
+//!   `_` is a name character".
 //! - **One-character tails** ([`MIN_SWALLOWED_CHARS`]) — `rpcgen -Ss`,
 //!   `xxd -ps`, `sg_map -st`, `mandoc -ac`, `which -as`. The same
 //!   two-character population `bundling::MIN_BUNDLED_MEMBERS` already
