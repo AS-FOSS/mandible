@@ -1112,16 +1112,58 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// 1. it is **option-table-sourced** ([`Source::HelpText`], never
 ///    [`Source::HelpTextSynopsis`]);
 /// 2. it has a short spelling, no long name, and a `Required` value;
-/// 3. the swallowed text is **option-name-shaped**
-///    ([`is_option_name_tail`]);
-/// 4. at least [`MIN_SWALLOWED_NAME_CHARS`] characters were swallowed;
-/// 5. the whole reconstructed token is **uniformly lowercase**
+/// 3. the swallowed text's **name half** — everything before the first `=`,
+///    or the whole tail when there is no `=` ([`split_glued_value`]) — is
+///    **option-name-shaped** ([`is_option_name_tail`]);
+/// 4. that name half is at least [`MIN_SWALLOWED_NAME_CHARS`] characters;
+/// 5. the reconstructed **name token** is **uniformly lowercase**
 ///    ([`token_is_uniformly_lowercase`]);
 /// 6. the tail is not the flag's own character repeated — the
 ///    [`repair_repeated_character_flags`] family, handed off rather than
 ///    claimed twice;
-/// 7. the reconstructed token occurs glued and delimited in the tool's own
-///    raw text ([`token_occurs_glued`]).
+/// 7. the reconstructed token — name **and** glued value — occurs glued and
+///    delimited in the tool's own raw text ([`token_occurs_glued`]).
+///
+/// # The glued `=value` half, and why the first version missed it
+///
+/// `dbiprof` writes one option table and this parser used to repair half of
+/// it:
+///
+/// ```text
+///     -number=N        show top N, defaults to 10
+///     -sort=S          sort by S, defaults to total
+///     -reverse         reverse the sort
+///     -match=K=V       for filtering, see docs
+/// ```
+///
+/// `-reverse` came out right and `-number=N` came out as `-n` carrying
+/// `"umber=N"`, in the same table, on adjacent rows. The reason is entirely
+/// in condition 3: it asked whether the *whole* swallowed run was an option
+/// name, and `umber=N` is not one — it is an option name **plus the value
+/// spec the tool glued onto it**. `=` is the one character that says where
+/// the name stops, so the fix is to read the two halves separately rather
+/// than to admit `=` into [`is_option_name_tail`], which would also admit
+/// `-E var=value` and every other value spec that carries one.
+///
+/// **Condition 5 is unchanged in substance and is still the whole safety
+/// argument.** It is measured over the name token (`-number`) instead of
+/// the full token (`-number=N`) because the value half is now known to be a
+/// value half — and a value spec shouts (`-foffload=<targets>`,
+/// `-print-file-name=<lib>`) without saying anything about the flag. The
+/// population it must stay silent on is unmoved by that: Ghostscript's real
+/// `-sDEVICE=png16m` is a genuine glued short whose *name* token is
+/// `-sDEVICE`, `cpp`'s `-DMACRO=value` is `-DMACRO`, `-Wl,-rpath=…` is
+/// `-Wl,…` (rejected by condition 3 before case is even consulted) — every
+/// one of them shouts on the left of the `=`, which is exactly where the
+/// convention puts the argument, and every one is still rejected. What the
+/// change buys is the mirror-image population, whose name half is a
+/// lowercase *word*: `dbiprof`'s `-number`/`-sort`/`-match`/`-exclude`,
+/// `gcc`'s `-foffload`, `-print-file-name`, `-print-prog-name`, `-specs`,
+/// `-std` and `-save-temps=<arg>`.
+///
+/// Unlike the spaced-value case below, the value spec here is **kept**: the
+/// document wrote it on the same token, so `-foffload` stays a
+/// value-taking flag named `<targets>` rather than becoming a boolean.
 ///
 /// **Conditions 1 and 5 are the whole safety argument, and 5 is why this
 /// cannot be a change to [`parse_flag_spec`].** Conditions 2, 3, 4, 6 and 7
@@ -1157,12 +1199,18 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 ///   `-hr: Set Honor Reservation bit`, so the tail is `"r:"` and condition
 ///   3 rejects it. No tail-shape rule can claim that without also admitting
 ///   every value spec that leaks punctuation.
-/// - **Glued value specs with `=` or brackets in them**, `-mtune=native`
-///   among them: condition 3 rejects `=`, `[`, `<`, `,`, `.`, `/` and `_`
-///   for the same reason the oracle does. `-mtune` really is a long option
-///   and recovering it would be a real gain, but not one this change is
-///   entitled to take as a side effect, and not by loosening the one
-///   predicate that keeps `-E var=value` and `-d item[,...]` out.
+/// - **Tails whose *name* half carries brackets or other value-spec
+///   punctuation.** Condition 3 still rejects `[`, `<`, `,`, `.`, `/` and
+///   `_` in the name half, for the same reason the oracle does — `-d
+///   item[,...]` and `-b{blocksize}` are value specs, not names. Only `=`
+///   is read structurally, and only as the boundary between the two halves.
+/// - **Names carrying an underscore**, `dbiprof`'s own `-case_sensitive`
+///   among them: condition 3 rejects `_`. It sits in the same table as the
+///   rows this change does repair and stays split, which is a knowingly
+///   incomplete result on that one document rather than a silent one.
+/// - **A tail that ends at the `=` with nothing after it** — refused
+///   outright by [`split_glued_value`], which has no evidence for either
+///   reading of it.
 /// - **One-character tails** ([`MIN_SWALLOWED_NAME_CHARS`]).
 ///
 /// The value a rewritten row's *real* spaced argument named (`-cpu model`
@@ -1188,37 +1236,80 @@ fn repair_single_dash_long_options(flags: &mut [Flag], raw: &str) {
         let Some(tail) = flag.value_name.as_deref() else {
             continue;
         };
-        // 4. Enough tail to be a name rather than a character argument.
-        if tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+        // 3a. Split the swallowed text at the first `=` — see
+        //     [`split_glued_value`]. Without a `=` the name half is the
+        //     whole tail and every condition below reads exactly as it did
+        //     before this split existed.
+        let Some((name_tail, glued_value)) = split_glued_value(tail) else {
+            continue;
+        };
+        // 4. Enough *name* to be a name rather than a character argument.
+        if name_tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
             continue;
         }
-        // 3. The tail is option-name-shaped.
-        if !is_option_name_tail(tail) {
+        // 3. The name half is option-name-shaped.
+        if !is_option_name_tail(name_tail) {
             continue;
         }
         // 6. Not the repeated-character family, which is the other repair's.
         if value_repeats_short(short, tail) {
             continue;
         }
-        let token = format!("-{short}{tail}");
+        let name_token = format!("-{short}{name_tail}");
         // 5. Uniformly lowercase — the only thing separating this from the
         //    glued-value convention. See this function's doc comment.
-        if !token_is_uniformly_lowercase(&token) {
+        if !token_is_uniformly_lowercase(&name_token) {
             continue;
         }
-        // 7. The token occurs, glued and delimited, in the raw text. Last
-        //    because it is the only condition that scans the document.
-        if !token_occurs_glued(raw, &token) {
+        // 7. The whole token — name *and* glued value — occurs, glued and
+        //    delimited, in the raw text. Last because it is the only
+        //    condition that scans the document.
+        if !token_occurs_glued(raw, &format!("-{short}{tail}")) {
             continue;
         }
-        // The name is the whole run, `long` holds it bare, and
+        // The name is the run up to the `=`, `long` holds it bare, and
         // `single_dash` is what puts one dash in front of it at display
         // time — see `mandible_core::Flag::single_dash`.
-        flag.long = Some(token[1..].to_string());
+        flag.long = Some(name_token[1..].to_string());
         flag.single_dash = true;
         flag.short = None;
-        flag.value_name = None;
-        flag.value_kind = ValueKind::None;
+        match glued_value {
+            // `-foffload=<targets>`: the document wrote the value spec
+            // itself, so it survives the repair on the flag it belongs to.
+            Some(value) => flag.value_name = Some(value.to_string()),
+            // `-cpu model`: the value was dropped on the floor by the
+            // grammar long before this ran, so the flag becomes the
+            // boolean it is correctly *named* rather than keeping a
+            // fabricated one. See this function's doc comment.
+            None => {
+                flag.value_name = None;
+                flag.value_kind = ValueKind::None;
+            }
+        }
+    }
+}
+
+/// Split a swallowed tail into the option-name half and the glued value
+/// half: `"umber=N"` → `("umber", Some("N"))`, `"elp"` → `("elp", None)`.
+///
+/// `None` — refuse the row entirely — when the tail ends at the `=` with
+/// nothing after it (`"oo="`). A `Required` value whose spec is the empty
+/// string is a shape nothing in the fleet was measured on, and inventing
+/// either reading of it (boolean, or a value named `""`) would be a claim
+/// this repair has no evidence for.
+///
+/// **Splitting at the *first* `=` is what makes `dbiprof`'s `-match=K=V`
+/// come out right**: the name ends at the first one and everything after it
+/// is the value spec the tool wrote, `=` included.
+///
+/// The twin of `xtask::single_dash_long::split_glued_value`, character for
+/// character, for the reason [`repair_single_dash_long_options`]'s doc
+/// comment gives.
+fn split_glued_value(tail: &str) -> Option<(&str, Option<&str>)> {
+    match tail.split_once('=') {
+        Some((_, "")) => None,
+        Some((name, value)) => Some((name, Some(value))),
+        None => Some((tail, None)),
     }
 }
 
@@ -1229,9 +1320,13 @@ fn repair_single_dash_long_options(flags: &mut [Flag], raw: &str) {
 /// for character. The letter requirement is what stops a glued *numeric*
 /// argument (`-b4096`, `-j8`) from riding in on a run that is technically
 /// alphanumeric. Everything else is rejected because a long option's name
-/// does not contain it: `=` (`-mtune=native`, `-E var=value`), `:`
-/// (`sg_emc_trespass`'s layout-mangled `-hr:`), `[`/`{`/`<`/`,`
-/// (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths), and `_`.
+/// does not contain it: `:` (`sg_emc_trespass`'s layout-mangled `-hr:`),
+/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths),
+/// and `_` (`dbiprof`'s real `-case_sensitive`, left split).
+///
+/// `=` never reaches here: [`split_glued_value`] has already consumed it as
+/// the boundary between the name and its glued value spec, so what this
+/// sees is only ever the name half.
 fn is_option_name_tail(tail: &str) -> bool {
     tail.chars().any(|c| c.is_ascii_alphabetic())
         && tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
@@ -5375,11 +5470,158 @@ mod tests {
         }
     }
 
+    /// `dbiprof`'s real option table, byte-exact from
+    /// `corpus/dbiprof/1.643/help.txt` — the glued-`=value` rows and the
+    /// value-less rows in one table, which is the whole `=`-split problem
+    /// in five lines.
+    const DBIPROF_TABLE: &str = concat!(
+        "    -number=N        show top N, defaults to 10\n",
+        "    -sort=S          sort by S, defaults to total\n",
+        "    -reverse         reverse the sort\n",
+        "    -match=K=V       for filtering, see docs\n",
+        "    -exclude=K=V     for filtering, see docs\n",
+        "    -case_sensitive  for -match and -exclude\n",
+        "    -version         print version number and exit\n",
+    );
+
+    /// The defect the `=` split exists for: a single-dash long option
+    /// carrying a glued value came out as its own first character plus a
+    /// mangled value (`-number=N` → `-n` + `"umber=N"`), while the
+    /// value-less rows of the *same table* came out right.
+    #[test]
+    fn dbiprofs_glued_value_long_options_keep_their_real_names() {
+        let parsed = parse(DBIPROF_TABLE);
+        for (name, value) in [
+            ("number", "N"),
+            ("sort", "S"),
+            ("match", "K=V"),
+            ("exclude", "K=V"),
+        ] {
+            let flag = flag_named(&parsed, name);
+            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            // `Flag::spelling` writes a required value with a space, the
+            // same repo-wide display convention that renders `--output=FILE`
+            // as `--output FILE`; what matters here is that the *name* is
+            // whole and the value is the tool's own.
+            assert_eq!(flag.spelling(), format!("-{name} {value}"));
+            assert_eq!(flag.short, None);
+            // The document wrote the value spec on the token, so unlike the
+            // spaced case it survives the repair. `-match=K=V` splits at the
+            // *first* `=` and keeps the rest verbatim.
+            assert_eq!(flag.value_name.as_deref(), Some(value));
+            assert_eq!(flag.value_kind, ValueKind::Required);
+        }
+        // The value-less rows in the same table are unchanged by the split.
+        for name in ["reverse", "version"] {
+            let flag = flag_named(&parsed, name);
+            assert!(flag.single_dash);
+            assert_eq!(flag.value_kind, ValueKind::None);
+        }
+    }
+
+    /// `gcc`'s `-foffload=<targets>`, stored as short `f` with `value_name`
+    /// `offload=<targets>` — a real parser bug the human audit confirmed on
+    /// `corpus/gcc/13.3.0`, and the same family as `dbiprof`'s. Carried as
+    /// gcc's own rows so the uppercase value spec is exercised: the case
+    /// test now reads the name half, and `<targets>` shouts on the other
+    /// side of the `=`.
+    #[test]
+    fn gccs_glued_value_long_options_keep_their_real_names() {
+        let parsed = parse(concat!(
+            "  -foffload=<targets>      Specify offloading targets.\n",
+            "  -print-file-name=<lib>   Display the full path to library <lib>.\n",
+            "  -std=<standard>          Assume that the input sources are for <standard>.\n",
+        ));
+        for (name, value) in [
+            ("foffload", "<targets>"),
+            ("print-file-name", "<lib>"),
+            ("std", "<standard>"),
+        ] {
+            let flag = flag_named(&parsed, name);
+            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            assert_eq!(flag.short, None);
+            assert_eq!(flag.value_name.as_deref(), Some(value));
+        }
+    }
+
+    /// The inverse direction, and the reason condition 5 may look at the
+    /// name half alone: the glued-value convention puts its shout to the
+    /// **left** of the `=`, so every genuine glued short with a `key=value`
+    /// argument is still rejected on exactly the signal it always was.
+    /// Ghostscript's `-sDEVICE=` is the type specimen — a lowercase flag
+    /// letter, which is what makes it the hard case.
+    #[test]
+    fn the_glued_value_convention_is_never_repaired_when_it_carries_an_equals() {
+        for row in [
+            "  -sDEVICE=png16m   select the output device\n",
+            "  -sOutputFile=out.png   write output here\n",
+            "  -DMACRO=value     define a macro\n",
+            "  -Wl,-rpath=/usr/lib   pass to the linker\n",
+            "  -Ttext=0x100      set the text segment address\n",
+        ] {
+            let parsed = parse(row);
+            assert!(
+                parsed.flags.iter().all(|f| f.long.is_none()),
+                "a correct glued-value parse was destroyed by {row:?}: {:?}",
+                parsed
+                    .flags
+                    .iter()
+                    .map(|f| f.spelling())
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// The separator is still the whole difference: a **spaced** `key=value`
+    /// argument stores byte-for-byte what `dbiprof`'s glued `-number=N`
+    /// stores, and only condition 7's scan of the raw text tells them
+    /// apart.
+    #[test]
+    fn a_spaced_key_value_argument_is_never_a_long_option() {
+        for row in [
+            "  -e var=value    set an environment variable\n",
+            "  -o key=val      set a mount option\n",
+            "  -v var=val      assign an awk variable\n",
+        ] {
+            let parsed = parse(row);
+            assert!(
+                parsed.flags.iter().all(|f| f.long.is_none()),
+                "a spaced value was glued into a name by {row:?}: {:?}",
+                parsed
+                    .flags
+                    .iter()
+                    .map(|f| f.spelling())
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
     /// The two declared out-of-scope misses, asserted rather than
     /// described — a miss that is only written down in prose stops being
     /// checked the day the prose goes stale.
     #[test]
     fn the_declared_out_of_scope_misses_stay_missed() {
+        // A tail that ends at the `=` with nothing after it: refused
+        // outright rather than read as either a boolean or an empty value.
+        let parsed = parse("  -foo=   an empty value spec\n");
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| f.long.as_deref() != Some("foo")),
+            "an empty value spec has no measured reading"
+        );
+        // `dbiprof`'s own `-case_sensitive`: `_` is not an option-name
+        // character here, so it stays split even though it sits in the
+        // table this repair otherwise fixes.
+        let parsed = parse(DBIPROF_TABLE);
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| f.long.as_deref() != Some("case_sensitive")),
+            "the underscore miss is declared, not accidental"
+        );
         // `ip` writes a bracketed tail, so the grammar records
         // `ValueKind::Optional` — a value spec a human deliberately typed.
         let parsed = parse("OPTIONS := { -V[ersion] | -h[uman-readable] | -j[son] }\n");

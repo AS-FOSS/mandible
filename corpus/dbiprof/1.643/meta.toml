@@ -1,0 +1,35 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dbiprof"
+version = "1.643"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.4.0"
+
+# A single-dash long-option specimen whose options carry a *glued* `=value`
+# (`-number=N`, `-sort=S`, `-match=K=V`), sitting in the same option table
+# as value-less single-dash longs (`-reverse`, `-delete`, `-version`,
+# `-help`). Before the `=`-aware split in
+# `help_text::sections::repair_single_dash_long_options`, the value-less
+# rows were repaired and the `=`-carrying rows were not: `-number=N` was
+# stored as short `-n` with `value_name: "umber=N"`.
+[[capture]]
+argv = ["dbiprof", "--help"]
+stdout = "help.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# Bare words match `Flag::long` verbatim (see `xtask::corpus::flag_present`),
+# which is where a single-dash long option's name lives — `single_dash` only
+# decides how many dashes it renders with.
+must_contain_flags = ["number", "sort", "match", "exclude", "reverse", "help"]
+# The defect this fixture exists for, stated negatively: `-number=N` used to
+# come out as the short flag `-n` carrying `"umber=N"`, and each of these
+# characters is the first letter of a row this table writes as a long option.
+# `-c` is deliberately absent: `-case_sensitive` is the declared underscore
+# miss and *is* still stored as short `c`.
+must_not_contain_flags = ["-n", "-s", "-m", "-e", "-r", "-d", "-v", "-h"]

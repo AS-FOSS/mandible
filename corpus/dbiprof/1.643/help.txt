@@ -1,0 +1,18 @@
+dbiprof [options] [files]
+
+Reads and merges DBI profile data from files and prints a summary.
+
+files: defaults to dbi.prof
+
+options:
+
+    -number=N        show top N, defaults to 10
+    -sort=S          sort by S, defaults to total
+    -reverse         reverse the sort
+    -match=K=V       for filtering, see docs
+    -exclude=K=V     for filtering, see docs
+    -case_sensitive  for -match and -exclude
+    -delete          rename files before reading then delete afterwards
+    -version         print version number and exit
+    -help            print this help
+
