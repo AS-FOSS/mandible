@@ -10,6 +10,24 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A short flag's abbreviation-continuation bracket (`ip --help`'s
+  `-V[ersion]`, `-s[tatistics]`, `-f[amily]`, `-h[uman-readable]`, ...)
+  was read as a fabricated optional value.** `-V[ersion]` came out as `-V`
+  taking an optional value literally named `"ersion"` — a value `ip` does
+  not document, on a flag that takes none. `grammar::
+  strip_short_abbrev_suffix` recognizes the shape structurally (a bracket
+  glued directly onto a short character, opening with an ASCII lowercase
+  letter and containing nothing but lowercase letters and hyphens — every
+  real optional-value convention this project has measured is upper/mixed
+  case, angle-delimited, or carries its own `=`) and discards it, mirroring
+  `sections::strip_optional_modifier_suffix`'s existing command-name
+  convention (`m[ab]` names the command `m`) on the flag side. `-h`, `-f`,
+  `-4`, `-l` and `-o` in `ip`'s own `OPTIONS := { ... }` line are now
+  boolean, as documented. (`-V`/`-s`/`-d` themselves remain absent — a
+  separate, already-tracked defect, `corpus/ip/audit-seed2`'s `[xfail]`:
+  the block's own opening physical line is consumed as heading text and
+  never scanned for entries.)
+
 - **LVM's docopt bracket-group flag rows (`vgck`, `vgextend`, `vgrename`,
   and the whole `lv*`/`vg*`/`pv*` family) rendered `verbatim` with zero
   flags.** LVM's own help emitter writes a *bare* invocation line with no

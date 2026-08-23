@@ -266,12 +266,56 @@ fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
     take_while(1.., |c: char| c.is_alphanumeric() || c == '-').parse_next(input)
 }
 
-/// `-x` where `x` is any non-separator, non-bracket character.
+/// `-x` where `x` is any non-separator, non-bracket character, with an
+/// optional trailing abbreviation-continuation bracket stripped and
+/// discarded (see [`strip_short_abbrev_suffix`]).
 fn try_short(input: &str) -> Option<(char, &str)> {
     let mut s = input;
     short_dash(&mut s).ok()?;
     let c = short_char(&mut s).ok()?;
+    if let Some(rest) = strip_short_abbrev_suffix(s) {
+        s = rest;
+    }
     Some((c, s))
+}
+
+/// Strips a trailing abbreviation-continuation bracket glued directly onto
+/// a short flag character, e.g. `ip --help`'s own `-V[ersion]`,
+/// `-s[tatistics]`, `-f[amily]`, `-h[uman-readable]`: the short letter
+/// already *is* the flag, and the bracket merely spells out the rest of
+/// the word it abbreviates. Mirrors [`crate::help_text::sections::
+/// strip_optional_modifier_suffix`]'s command-name convention (`m[ab]`
+/// names the command `m`) on the flag side, per spec's own note that the
+/// two are the same shape in different documents.
+///
+/// Without this, [`try_value`]'s `[VALUE]` arm reads the bracket as a
+/// fabricated optional value: `-V[ersion]` came out as `-V` taking an
+/// optional value literally named `"ersion"` — a value the tool does not
+/// document at all, on a flag (`ip -V`) that takes none.
+///
+/// Structural, not semantic, and narrow by construction so it cannot claim
+/// a real optional-value placeholder for itself: content must open with an
+/// ASCII lowercase letter and contain nothing but ASCII lowercase letters
+/// and hyphens (`human-readable`). Every optional-value convention this
+/// project's fleet has actually measured is one of upper/mixed-case
+/// (`[FILE]`, `--occurrence[=NUMBER]`), angle-delimited (`<value>`), or
+/// carries a leading `=` (`[=WHEN]`) — never a bare, all-lowercase word
+/// glued straight onto a short letter with no `=` at all. A bracket
+/// containing `=`, digits, uppercase letters, or anything else therefore
+/// falls through untouched to the ordinary value-spec grammar below.
+fn strip_short_abbrev_suffix(input: &str) -> Option<&str> {
+    let rest = input.strip_prefix('[')?;
+    let close = rest.find(']')?;
+    let content = &rest[..close];
+    let mut chars = content.chars();
+    let first = chars.next()?;
+    if !first.is_ascii_lowercase() {
+        return None;
+    }
+    if !content.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+        return None;
+    }
+    Some(&rest[close + 1..])
 }
 
 /// `--long-name` (letters, digits, `-`), optionally prefixed with GNU
@@ -1411,5 +1455,46 @@ mod tests {
         assert_eq!(spec.short, Some('2'));
         assert_eq!(spec.value_name.as_deref(), Some("CDlNuVv"));
         assert_eq!(spec.value_kind, ValueKind::Required);
+    }
+
+    /// `ip --help`'s own abbreviation convention: `-V[ersion]` names the
+    /// flag `-V`, with the bracket spelling out the rest of the word it
+    /// abbreviates. Before `strip_short_abbrev_suffix` existed, this parsed
+    /// as `-V` taking an optional value literally named `"ersion"` — a
+    /// value `ip` does not document at all, on a flag that takes none.
+    #[test]
+    fn short_flag_abbreviation_bracket_is_not_an_invented_value() {
+        for (input, letter) in [
+            ("-V[ersion]", 'V'),
+            ("-s[tatistics]", 's'),
+            ("-d[etails]", 'd'),
+            ("-f[amily]", 'f'),
+            ("-h[uman-readable]", 'h'),
+            ("-l[oops]", 'l'),
+            ("-a[ll]", 'a'),
+            ("-c[olor]", 'c'),
+        ] {
+            let spec = parse_flag_spec(input);
+            assert_eq!(spec.short, Some(letter), "input: {input}");
+            assert_eq!(spec.value_name, None, "input: {input} must carry no value");
+            assert!(spec.fully_consumed, "input: {input}");
+        }
+    }
+
+    /// The discriminator is narrow on purpose: a real optional-value
+    /// placeholder (upper/mixed case, or carrying its own `=`) must still
+    /// parse as a value exactly as before — this change must never widen
+    /// into swallowing a genuine optional argument.
+    #[test]
+    fn short_flag_real_optional_value_is_unaffected_by_abbrev_stripping() {
+        let spec = parse_flag_spec("-o[FILE]");
+        assert_eq!(spec.short, Some('o'));
+        assert_eq!(spec.value_name.as_deref(), Some("FILE"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+
+        let spec = parse_flag_spec("-x[=WHEN]");
+        assert_eq!(spec.short, Some('x'));
+        assert_eq!(spec.value_name.as_deref(), Some("WHEN"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
     }
 }
