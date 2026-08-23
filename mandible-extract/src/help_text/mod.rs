@@ -84,14 +84,78 @@ pub use sections::strip_optional_modifier_suffix;
 /// (`sections::parse_with_profile`); a second copy of "does this line say
 /// usage" would be one more predicate free to drift past a fix.
 ///
+/// Also carries the two entry shapes PR #32/#33 taught this tier to open a
+/// usage block on *without* an ordinary `usage:` marker anywhere on the
+/// line: [`sections::starts_with_name_prefixed_usage`] (the C
+/// `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom — `nfsidmap: Usage:
+/// nfsidmap [-vh] ...`) and [`sections::looks_like_unlabeled_synopsis_line`]
+/// (a bare `USAGE` heading or no heading at all, with the synopsis itself
+/// opening with the tool's own name — `gh`'s `USAGE` / `  gh <command>
+/// <subcommand> [flags]`). Before this pair was added here, the oracle could
+/// not see the line either shape's operands came from, so a synopsis the
+/// parser now correctly recovers from one of them reported its own
+/// perfectly real operands as invented — measured fleet-wide as 94 tools on
+/// this task's own before/after sweep (`gh`, `busctl`, `journalctl`,
+/// `pidof`, ...), all false, all this exact instrument gap rather than a
+/// parser defect. Not reimplementing a second copy of either predicate is
+/// the whole point, per the same reasoning as the pair above.
+///
 /// What the oracle does **not** borrow is the block-continuation rule — how
 /// far past the marker line the synopsis runs. That is deliberately the
 /// oracle's own, wider, decision: it reads every indented line under a bare
 /// `Usage:` header, where this tier applies `looks_like_usage_fragment` and
 /// an indent ladder. A wider read can only *attest* more, i.e. report less,
 /// so the difference is safe in the one direction an oracle's difference has
-/// to be safe in.
-pub use sections::{starts_with_or_marker, starts_with_usage_prefix};
+/// to be safe in. The same argument extends to the unlabelled shape: the
+/// oracle does not bound its search to the lines before the document's body
+/// starts the way this tier's own `unlabelled_synopsis_start` does — a
+/// match found later in the document can only add an attested operand
+/// position, never remove one, so skipping that bound is safe in the same
+/// direction.
+pub use sections::{
+    looks_like_unlabeled_synopsis_line, starts_with_name_prefixed_usage, starts_with_or_marker,
+    starts_with_tool_name, starts_with_usage_prefix,
+};
+
+/// Re-exported for `xtask/src/existence.rs`, alongside
+/// [`looks_like_unlabeled_synopsis_line`] above: LVM's own emitter
+/// (`vgck`, `vgextend`, `vgrename`, and every other `vg*`/`lv*`/`pv*`
+/// command) writes a *bare* invocation line with no docopt notation on it
+/// at all — `vgextend VG PV ...`, no `[`, `<` or `{` anywhere — so
+/// `looks_like_unlabeled_synopsis_line`'s own notation test can never find
+/// it; every bit of bracket notation is on the *next* line instead
+/// (`\t[ -A|--autobackup y|n ]`). This tier's own usage-block entry point
+/// accepts a bare own-name line on exactly that evidence — the following
+/// physical line reading as unambiguous flag-row notation
+/// (`grammar::looks_like_bracket_flag_row`) — and the oracle has to open on
+/// the identical evidence, or every one of this family's real operands
+/// (`VG`, `PV`, ...) is invisible to it the same way `gh`'s were before
+/// `starts_with_name_prefixed_usage`/`looks_like_unlabeled_synopsis_line`
+/// were re-exported: measured fleet-wide as 29 tools on this task's own
+/// before/after sweep, the entire `vg*`/`lv*`/`pv*` family, all false.
+pub use grammar::looks_like_bracket_flag_row;
+
+/// Re-exported for `xtask/src/existence.rs`'s `option_list_slot`, and for
+/// the same drift reason as the block above: `sections::extract_positionals`
+/// excludes a token from the tree wherever in a synopsis line it sits, by
+/// this exact vocabulary (`sections::OPTION_LIST_PLACEHOLDERS`) — not only
+/// when it happens to be the line's first slot. The oracle's own
+/// `option_list_slot` additionally applies a *positional* shape rule (its
+/// own doc comment has the reasoning for why an oracle prefers shape over
+/// vocabulary as its primary signal), but a shape rule alone disagreed with
+/// this tier the moment an unlabelled synopsis put a real leading operand
+/// where the shape rule expected a placeholder: `gh`'s `<command>
+/// <subcommand> [flags]` names its actual flag stand-in *last*
+/// (`[flags]`, this exact vocabulary), not first, and the shape rule alone
+/// read `command` as the placeholder and `flags` as a real operand —
+/// backwards on both counts. Layering this vocabulary check on top (never in
+/// place of the shape rule, which still fires unconditionally for a
+/// non-vocabulary word like `pkgconf`'s `OPTIONS`) closes exactly that gap
+/// without asking the oracle to agree with the parser everywhere: a
+/// fabrication spelled with a word outside this five-word list is still
+/// caught by the shape rule or by the oracle's ordinary "does it occur at
+/// all" check, whichever applies.
+pub use sections::is_option_list_placeholder;
 
 use crate::errors::ExtractError;
 use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};

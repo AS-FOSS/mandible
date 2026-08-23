@@ -1313,6 +1313,49 @@ The generic fallback parser (step 2) is built with `winnow`:
   `low-confidence` rather than `ok` once their real, correctly-spelled
   flags are counted against that fact — a change in what the status ladder
   can see, not a parsing regression.
+- **The existence oracle learned the three synopsis-entry shapes the three
+  fixes above taught the parser** (fix/oracle-unlabeled-synopsis). A
+  measurement fix, not a parser fix: `xtask/src/existence.rs`'s
+  `synopsis_lines` scanned for only an ordinary `usage:`/`or:` marker, so
+  every operand the parser now correctly recovers from a line without one
+  — the C `"%s: Usage: ..."` idiom, an unlabelled synopsis opening with the
+  tool's own name, and LVM's bare own-name line whose notation sits on the
+  next physical line — was reported as invented, exactly the gap the
+  `fix/colon-separator` bullet above named by hand
+  (`dbus-cleanup-sockets`/`dbus-run-session`/`lvreduce`, "the oracle cannot
+  yet attest"). The oracle now re-exports and reuses the parser's own three
+  predicates (`starts_with_name_prefixed_usage`,
+  `looks_like_unlabeled_synopsis_line`, `starts_with_tool_name` +
+  `looks_like_bracket_flag_row`) rather than a second, drifting copy of
+  each — `mandible-extract/src/help_text/mod.rs`'s re-export block carries
+  the rationale each time, the same discipline this project has already
+  paid once for skipping (spec §13.1c's K2 table).
+
+  A second, independent bug surfaced only once these lines became visible:
+  `option_list_slot`'s placeholder rule looked only at a synopsis's *first*
+  slot, which is where every previously-measured tool's flag-list stand-in
+  happened to sit. `gh`'s unlabelled `<command> <subcommand> [flags]` puts
+  its stand-in *last* — the rule would have excluded the genuine leading
+  operand `command` as a *second*, wrong placeholder had it fired
+  unconditionally alongside the correct exclusion of `flags`. Fixed by
+  trying the parser's own five-word vocabulary
+  (`sections::OPTION_LIST_PLACEHOLDERS`, reused via a new
+  `is_option_list_placeholder` re-export) first, regardless of position,
+  and falling back to the positional rule only when nothing on the line
+  already matched it — never both at once.
+
+  Measured on a full-`PATH` sweep: 154 → 52 existence-fabrication tools,
+  below the round's own 66-tool starting point (14 tools flagged even
+  before `fix/usage-synopsis`/`fix/colon-separator`/`fix/lvm-bracket-rows`
+  landed turned out to be the identical instrument gap), with the tool set
+  newly fabricating relative to that starting point empty — every
+  fabrication this round's parser work appeared to add was this gap, not a
+  real invention. Zero flag, subcommand, or status movement on the same
+  sweep, as expected of a change confined to `xtask`. This detector has no
+  labelled member in the audit (spec §13.1e: "not one reviewer reported a
+  fabricated subcommand or flag spelling"), so its 9 hand-built self-check
+  cases (`xtask detector self-check --detector existence`) are its only
+  calibration evidence, not a fleet-wide confusion matrix.
 - **A layout-driven section parser** for `Options:`/`Flags:`/`Commands:` blocks.
   Group lines by leading-whitespace runs and indentation depth, so
   `-v, --verbose    Enable verbose output` tokenizes structurally as
