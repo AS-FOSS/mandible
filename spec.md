@@ -1246,6 +1246,73 @@ The generic fallback parser (step 2) is built with `winnow`:
   `device` instead of reporting it invented. Fleet existence-fabrication
   count on a full-`PATH` sweep of this machine: 130 → 124 tools, zero
   flags or subcommands lost anywhere.
+- **A docopt bracket-group flag row** (fix/lvm-bracket-rows). LVM's own help
+  emitter (`vgck`, `vgextend`, `vgrename`, and the whole `lv*`/`vg*`/`pv*`
+  family) writes one flag per physical line as a whole `[...]` group —
+  `[ -d|--debug ]`, `[    --commandprofile String ]`, `[ -A|--autobackup
+  y|n ]`, `[ --metadatasize Size[m|UNIT] ]` — never a `-`-prefixed row and
+  never a `{...}` alternation, with a bare, unlabelled synopsis head (`vgck`
+  alone, or `vgextend VG PV ...`) carrying no bracket notation of its own;
+  every bit of notation evidence lives on the rows that continue it. Three
+  gaps combined to leave the whole family `verbatim`:
+  - The unlabelled-synopsis entry point (previous bullet) requires notation
+    evidence on the invocation line itself, which a bare `vgck` line never
+    has. `looks_like_unlabeled_synopsis_line`'s check is now supplemented,
+    only at this one call site, by a lookahead: a bare own-name line
+    followed immediately by a `[ -x|--long ... ]`-shaped row also starts
+    the block.
+  - `grammar::looks_like_flag_start` deliberately never accepts a leading
+    `[` — widening it would end `lsof`'s usage-block continuation
+    (`[-F [f]]`) one line early and lose the six flags documented only
+    there, since that same predicate doubles as the usage block's own
+    terminator. A new, narrower, row-level predicate,
+    `grammar::looks_like_bracket_flag_row` /
+    `bracket_flag_row_content` — a whole physical line that is exactly one
+    `[...]` group whose content starts with `-` — is consulted only where
+    a flag-table row or a synopsis-continuation row is recognized
+    (`flags_block_start`, `scan_flags_block`, `extract_usage_flags`),
+    never at the usage-block-continuation call site. The recovered content
+    is handed to the existing `parse_flag_spec` unchanged: `|` is already
+    an alias separator, and its own alias-vs-value hazard guard
+    (`take_rest_value_token`'s `alias_follows` check, built for
+    `sg_sanitize`'s `--count=OC|-c OC`) already reads `-A|--autobackup
+    y|n`'s value as the whole choice list `y|n`, not three fabricated
+    alternatives.
+  - `sections::leading_whitespace` counted raw characters, so a single
+    leading tab (LVM's own indentation convention for these rows) measured
+    narrower than a heading written with two leading spaces — the
+    "content indented more than its heading" gate failed independently of
+    the point above. Now expands a leading tab to the next multiple of 8
+    columns (the ordinary terminal tab-stop convention), unchanged for the
+    fleet's dominant space-only-indentation case.
+
+  A fourth guard closes a hazard measured during review: not every
+  `[...]` row naming two flags is LVM's shape. `ethtool --help` writes
+  `[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]` — an
+  alternation between two *different* flags, only one of which carries its
+  own operands, not one flag with an alias list and a shared value.
+  `bracket_flag_row_content` refuses any row whose apparent alias run does
+  not actually end at its first whitespace gap (a bare `|` reappearing
+  there means the row is this shape), rather than fabricate
+  `--all-groups`'s value from `--groups`'s bracketed operands while
+  dropping `--groups` outright.
+
+  Recovers 19 flags for `vgck`, 30 for `vgextend`, 21 for `vgrename`, and
+  ~1,400 fleet-wide across the `lv*`/`vg*`/`pv*` family on a full-`PATH`
+  sweep, purely from the shape above — no tool name is ever consulted. The
+  tab-stop correction is general rather than LVM-specific and, measured on
+  the same sweep, also repaired a pre-existing, unrelated defect in three
+  `squashfs-tools` binaries and `sotruss`: a deeply-tab-indented
+  description-continuation line that happened to start with a dash after
+  trimming (`sotruss`'s `-o, --output` continuation literally reads `-f is
+  also used`) fell inside `scan_flags_block::ENTRY_INDENT_TOLERANCE` under
+  raw character counting and was misread as a new, fabricated flag entry;
+  the real terminal-column count does not. LVM's own help text never
+  describes an individual flag inline (only `--longhelp`/the man page
+  does), so every one of these tools' status honestly reads
+  `low-confidence` rather than `ok` once their real, correctly-spelled
+  flags are counted against that fact — a change in what the status ladder
+  can see, not a parsing regression.
 - **A layout-driven section parser** for `Options:`/`Flags:`/`Commands:` blocks.
   Group lines by leading-whitespace runs and indentation depth, so
   `-v, --verbose    Enable verbose output` tokenizes structurally as

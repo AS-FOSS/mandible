@@ -17,14 +17,23 @@ stderr = "help.stderr.txt"
 
 [contract]
 expected_framework = "generic"
-# The reviewer's note ("verbatim") names the actual status this fixture
-# gets: `CommandNode::unparsed` is non-empty (the whole raw text degraded
-# to spec §7 Tier B step 3's verbatim dump, verified by inspection), which
-# `xtask/src/status.rs`'s STATUS_LADDER ranks below "low-confidence". Once
-# this LVM-style bracketed-option text is genuinely structured into real
-# flags, status should clear at least that floor.
+# Was `[xfail] reason = "verbatim"`: `vgck`'s own emitter writes a *bare*
+# unlabelled synopsis (`vgck` alone, no bracket notation on its own line,
+# `--reportformat` documented only on the continuation row beneath it) and
+# a real `Common options for lvm:` heading whose 18 rows are each one
+# whole `[ -x|--long value ]` group, tab-indented under a heading written
+# with two spaces. Neither shape was recognized before this fix:
+# `grammar::looks_like_bracket_flag_row` (a row-level predicate, never
+# folded into `looks_like_flag_start` — see that function's own doc
+# comment for the `lsof` trap that widening it would spring) reads the
+# bracket rows as flag entries, `sections::leading_whitespace` now expands
+# a leading tab to the terminal's own tab-stop convention so the tab-
+# indented rows measure as more indented than their two-space heading, and
+# the unlabelled-synopsis entry point accepts a bare tool-name line whose
+# very next physical line is one of these bracket rows. All 19 real flags
+# (`--reportformat` plus the 18 common options) are now recovered.
 min_status = "low-confidence"
-
-[xfail]
-broken = true
-reason = "verbatim"
+must_contain_flags = ["-d", "--debug", "--reportformat", "--commandprofile"]
+# No `verdict_scope`: this bless is agent-reviewed (spot-checked against
+# `help.txt` above), not human-reviewed — see corpus/README.md's "What
+# `--bless` does and does not assert".

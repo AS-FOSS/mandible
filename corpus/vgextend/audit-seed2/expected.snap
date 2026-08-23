@@ -1,0 +1,209 @@
+name: vgextend
+usage:
+- vgextend VG PV ... [ -A|--autobackup y|n ] [ -f|--force ] [ -Z|--zero y|n ] [ -M|--metadatatype lvm2 ] [ --labelsector Number ] [ --metadatasize Size[m|UNIT] ] [ --pvmetadatacopies 0|1|2 ] [ --metadataignore y|n ] [ --dataalignment Size[k|UNIT] ] [ --dataalignmentoffset Size[k|UNIT] ] [ --reportformat basic|json ] [ --restoremissing ] [ COMMON_OPTIONS ]
+positionals:
+- name: VG
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: PV
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: COMMON_OPTIONS
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'd'
+  long: debug
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'y'
+  long: yes
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: test
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: commandprofile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: config
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: driverloaded
+  value_name: y|n
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: nolocking
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: lockopt
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: longhelp
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: profile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: devicesfile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: devices
+  value_name: PV
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: nohints
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: journal
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  long: autobackup
+  value_name: y|n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'f'
+  long: force
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'Z'
+  long: zero
+  value_name: y|n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'M'
+  long: metadatatype
+  value_name: lvm2
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: labelsector
+  value_name: Number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: metadatasize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: pvmetadatacopies
+  value_name: 0|1|2
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: metadataignore
+  value_name: y|n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: dataalignment
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: dataalignmentoffset
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: reportformat
+  value_name: basic|json
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: restoremissing
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

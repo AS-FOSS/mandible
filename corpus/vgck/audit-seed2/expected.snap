@@ -1,0 +1,133 @@
+name: vgck
+usage:
+- vgck [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag ... ]
+positionals:
+- name: COMMON_OPTIONS
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'd'
+  long: debug
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'y'
+  long: yes
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: test
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: commandprofile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: config
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: driverloaded
+  value_name: y|n
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: nolocking
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: lockopt
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: longhelp
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: profile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: devicesfile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: devices
+  value_name: PV
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: nohints
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: journal
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: reportformat
+  value_name: basic|json
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

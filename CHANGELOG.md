@@ -10,6 +10,56 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **LVM's docopt bracket-group flag rows (`vgck`, `vgextend`, `vgrename`,
+  and the whole `lv*`/`vg*`/`pv*` family) rendered `verbatim` with zero
+  flags.** LVM's own help emitter writes a *bare* invocation line with no
+  bracket notation of its own (`vgck` alone, or `vgextend VG PV ...`) and
+  puts every flag on a continuation row shaped `[ -x|--long value ]`, plus
+  a real `Common options for lvm:` heading whose rows are the identical
+  shape, tab-indented under a heading written with two spaces. Three
+  independent gaps combined to hide this entirely:
+
+  1. The unlabelled-synopsis entry point required notation evidence
+     (`[`, `<`, `{`) on the invocation line itself; LVM's evidence lives
+     only on the continuation row beneath it.
+  2. `grammar::looks_like_flag_start` (deliberately, per its own doc
+     comment — widening it would end `lsof`'s usage-block continuation one
+     line early and drop six flags documented only there) never recognized
+     a `[...]` group as a flag-table row, so the headed `Common options
+     for lvm:` block was invisible to the flags-table scanner.
+  3. `sections::leading_whitespace` counted raw characters, so a single
+     leading tab (LVM's own convention for its option rows) measured as
+     narrower than the heading's two leading spaces — the "is this content
+     indented more than its heading" gate failed structurally, independent
+     of (2).
+
+  Fixed with a new row-level predicate,
+  `grammar::{looks_like_bracket_flag_row, bracket_flag_row_content}` —
+  never folded into `looks_like_flag_start`, consulted only where a
+  flag-table row or a synopsis-continuation row is recognized — plus a
+  tab-stop-aware `leading_whitespace` (a leading tab now expands to the
+  next multiple of 8 columns, matching every terminal's own convention;
+  behaviour is byte-for-byte unchanged for the fleet's dominant
+  space-only-indentation case). A guard in `bracket_flag_row_content`
+  refuses a row whose apparent alias run doesn't actually end at its first
+  whitespace gap (`ethtool --help`'s `[ --all-groups | --groups [eth-phy]
+  ... ]` is an alternation between two *different* flags, not one flag
+  with aliases and a value, and reading it the LVM way would fabricate
+  `--all-groups`'s value from `--groups`'s operands while dropping
+  `--groups` outright).
+
+  Recovers all 19 flags for `vgck`, 30 for `vgextend`, 21 for `vgrename`,
+  and — via the same general, shape-keyed fix, no tool name ever consulted
+  — the entire `lv*`/`vg*`/`pv*` family (~1,400 flags fleet-wide). The tab-
+  stop correction also fixed a pre-existing, unrelated defect: a
+  deeply-tab-indented description continuation that happened to start with
+  a dash after trimming (`sotruss`'s `-o, --output`, `unsquashfs`'s
+  `-match`, `mksquashfs`'s compressor-option rows) was previously read as
+  a new, fabricated flag entry rather than a continuation of the row
+  above it, because its raw tab count fell inside
+  `scan_flags_block::ENTRY_INDENT_TOLERANCE`; the real terminal-column
+  count does not.
+
 - **A flag row that separates its spec from its description with a colon
   instead of whitespace or `=` had the colon (and, when glued, part of the
   spec itself) read as a fabricated required value.** `sg_emc_trespass
