@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-24
+
 ### Fixed
 
 - **The existence-fabrication oracle could not see three synopsis-entry
