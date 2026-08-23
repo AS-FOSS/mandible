@@ -49,9 +49,10 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'f'
-  value_name: offload=<targets>
+- long: foffload
+  value_name: <targets>
   value_kind: Required
+  single_dash: true
   description: Specify offloading targets.
   provenance:
     sources:
@@ -68,16 +69,18 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-file-name=<lib>
+- long: print-file-name
+  value_name: <lib>
   value_kind: Required
+  single_dash: true
   description: Display the full path to library <lib>.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  value_name: rint-prog-name=<prog>
+- long: print-prog-name
+  value_name: <prog>
   value_kind: Required
+  single_dash: true
   description: Display the full path to compiler component <prog>.
   provenance:
     sources:
@@ -166,9 +169,10 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: ave-temps=<arg>
+- long: save-temps
+  value_name: <arg>
   value_kind: Required
+  single_dash: true
   description: Do not delete intermediate files.
   provenance:
     sources:
@@ -191,16 +195,18 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: pecs=<file>
+- long: specs
+  value_name: <file>
   value_kind: Required
+  single_dash: true
   description: Override built-in specs with the contents of <file>.
   provenance:
     sources:
     - help-text
-- short: 's'
-  value_name: td=<standard>
+- long: std
+  value_name: <standard>
   value_kind: Required
+  single_dash: true
   description: Assume that the input sources are for <standard>.
   provenance:
     sources:

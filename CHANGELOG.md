@@ -10,6 +10,54 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A single-dash long option carrying a glued `=value` was split into a
+  one-character short flag plus a mangled value.** `dbiprof` writes
+  `-number=N` and the tree held `-n` with `value_name: "umber=N"`;
+  `gcc` writes `-foffload=<targets>` and the tree held `-f` with
+  `value_name: "offload=<targets>"` — a real parser bug the human audit had
+  already confirmed on `corpus/gcc/13.3.0`. The value-less rows of the *same
+  tables* (`-reverse`, `-pipe`, `-help`) came out right, because
+  `help_text::sections::repair_single_dash_long_options` already existed for
+  them.
+
+  What that repair could not see is that `=` is a *boundary*: it asked
+  whether the whole swallowed run was an option name, and `umber=N` is a
+  name plus the value spec the tool glued onto it. The tail is now split at
+  the first `=` (`split_glued_value`) and the existing name-shape and case
+  predicates are applied to the name half; the glued value spec survives on
+  the flag it belongs to, so `-foffload` stays a value-taking flag named
+  `<targets>` rather than becoming a boolean. Splitting at the *first* `=`
+  is what makes `dbiprof`'s `-match=K=V` come out right.
+
+  **No predicate was loosened, and the discriminator is unchanged in
+  substance.** The rule that keeps the GCC/Clang glued-value convention safe
+  — no ASCII uppercase anywhere in the reconstructed token — now reads the
+  name half, which is exactly where that convention puts its shout:
+  Ghostscript's real `-sDEVICE=png16m` has the name token `-sDEVICE`,
+  `java`'s real `-D<name>=<value>` has `-D<name>`, `gcc`'s own
+  `-Wl,<options>` fails the name-shape test on the comma before case is
+  consulted. All three are still rejected, asserted by name in
+  `sections.rs`'s tests and in `xtask::single_dash_long`'s self-checks.
+  A **spaced** `key=value` argument (`-e var=value`) stores byte-for-byte
+  what `-number=N` stores, and is still separated from it by the raw-text
+  glued-occurrence scan alone.
+
+  Measured over the 2,301 frozen captures in `audit/queue-captures/`: the
+  shape reaches **40 tools and 2,196 flags**, overwhelmingly the GCC
+  toolchain and its cross-compiled aliases (`gcc`, `cpp`, `g++`, `as`,
+  `c89`/`c99`/`cc`, the `aarch64-linux-gnu-*` and `-13` variants) plus
+  `dbiprof` and two LLVM tools. A document-level "this tool uses single-dash
+  long options elsewhere" signal was evaluated as an alternative
+  discriminator and **rejected on the data**: it fires on 37 of the 40
+  true positives but also on 11 of the 13 tools in the false-positive-risk
+  population, so it corroborates and does not discriminate.
+
+  Knowingly still split, each declared and asserted rather than described:
+  uppercase-led names (`-Xassembler`, `-Wuninit-variable-checking`), names
+  carrying an underscore (`dbiprof`'s own `-case_sensitive`, in the very
+  table this repairs), bracketed optional values (`-fcompare-debug[=<opts>]`),
+  and a tail that ends at the `=` with nothing after it.
+
 - **Three shapes that are not headings were being read as section headings,
   polluting `group` on 197 tools and losing two real option rows.** The
   section scanner promotes a line to a heading on *indentation alone* — any

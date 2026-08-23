@@ -44,15 +44,20 @@
 //! 2. **It has a short spelling, no long name, and a `Required` value.** The
 //!    shared fingerprint. `Optional` means the raw text wrote brackets
 //!    (`ip`'s `-h[uman-readable]`), which is a value spec a human typed.
-//! 3. **The swallowed text is option-name-shaped**
+//! 3. **The swallowed text's *name half* is option-name-shaped**
 //!    ([`is_option_name_tail`]): ASCII alphanumerics and `-`, with at least
-//!    one letter. This rejects every value spec that leaks punctuation —
-//!    `qemu`'s own `-E var=value` and `-d item[,...]`, `sg_emc_trespass`'s
-//!    layout-mangled `-hr:` — and it is the condition that makes the claim
-//!    exact rather than approximate.
-//! 4. **At least [`MIN_SWALLOWED_CHARS`] characters are swallowed.** Two,
-//!    not one, and the lost recall is deliberate — see that constant.
-//! 5. **The whole token is uniformly lowercase**
+//!    one letter. The name half is everything before the first `=`, or the
+//!    whole tail when there is no `=` ([`split_glued_value`]) — a tail like
+//!    `qemu`'s `-number=N` → `"umber=N"` is a name **plus** the value spec
+//!    the tool glued onto it, and `=` is the character that says where the
+//!    name stops. Everything else is still rejected, so every value spec
+//!    that leaks other punctuation goes with it — `-d item[,...]`,
+//!    `sg_emc_trespass`'s layout-mangled `-hr:` — and it is the condition
+//!    that makes the claim exact rather than approximate.
+//! 4. **The name half carries at least [`MIN_SWALLOWED_CHARS`]
+//!    characters.** Two, not one, and the lost recall is deliberate — see
+//!    that constant.
+//! 5. **The reconstructed *name* token is uniformly lowercase**
 //!    ([`token_is_uniformly_lowercase`]). The discriminator against the
 //!    largest genuinely-correct population there is; see below.
 //! 6. **The swallowed text is not the flag's own character repeated**
@@ -74,7 +79,12 @@
 //! `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`, `perl
 //! -Idirectory`, `find -Olevel`, `cc -oOUTFILE`, `gcc -DMACRO`. Every single
 //! one carries an **uppercase** letter, because the convention is what it is:
-//! the flag is a capital and the glued text is its argument.
+//! the flag is a capital and the glued text is its argument. The same holds
+//! when that argument is introduced by an `=` and condition 5 therefore only
+//! sees the left half: Ghostscript's real `-sDEVICE=png16m` has the name
+//! token `-sDEVICE`, `cpp`'s `-DMACRO=value` has `-DMACRO`. The convention
+//! puts the shout to the *left* of the `=`, which is exactly where this
+//! still looks.
 //!
 //! The real long options are the other way round and just as consistent —
 //! `-help`, `-cpu`, `-version`, `-strace`, `-seed`, `-trace`, `-perfmap`,
@@ -140,11 +150,15 @@ pub(crate) const MIN_SWALLOWED_CHARS: usize = 2;
 /// `-j8`) from riding in on a run that is technically alphanumeric, exactly
 /// as `bundling::MIN_ORDERED_LETTERS` stops the vacuous-ordering version of
 /// the same hazard. Everything else is rejected because a long option's name
-/// does not contain it: `=` (`-mtune=native`, `-E var=value`), `:`
-/// (`sg_emc_trespass`'s layout-mangled `-hr:`), `[`/`{`/`<`/`,`
-/// (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths), `_` (which no
-/// single-dash long option in the fleet uses, and which appears in glued
-/// value placeholders that do).
+/// does not contain it: `:` (`sg_emc_trespass`'s layout-mangled `-hr:`),
+/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths),
+/// `_` (`dbiprof`'s real `-case_sensitive`, left split — the character also
+/// appears in glued value placeholders and nothing measured separates the
+/// two).
+///
+/// `=` never reaches here: [`split_glued_value`] has already consumed it as
+/// the boundary between the name and its glued value spec, so what this sees
+/// is only ever the name half.
 fn is_option_name_tail(tail: &str) -> bool {
     tail.chars().any(|c| c.is_ascii_alphabetic())
         && tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
@@ -222,30 +236,51 @@ fn split_token(flag: &Flag, raw: &str) -> Option<String> {
         return None;
     }
     let tail = flag.value_name.as_deref()?;
-    // 4. Enough tail to be a name rather than a character argument.
-    if tail.chars().count() < MIN_SWALLOWED_CHARS {
+    // 3a. Split the swallowed text at the first `=` — see
+    //     [`split_glued_value`].
+    let (name_tail, _value) = split_glued_value(tail)?;
+    // 4. Enough *name* to be a name rather than a character argument.
+    if name_tail.chars().count() < MIN_SWALLOWED_CHARS {
         return None;
     }
-    // 3. The tail is option-name-shaped.
-    if !is_option_name_tail(tail) {
+    // 3. The name half is option-name-shaped.
+    if !is_option_name_tail(name_tail) {
         return None;
     }
     // 6. Not the repeated-character family.
     if tail_repeats_short(short, tail) {
         return None;
     }
-    let token = format!("-{short}{tail}");
+    let name_token = format!("-{short}{name_tail}");
     // 5. Uniformly lowercase — the discriminator against the glued-value
     //    convention. See this module's doc comment.
-    if !token_is_uniformly_lowercase(&token) {
+    if !token_is_uniformly_lowercase(&name_token) {
         return None;
     }
-    // 7. The token occurs, glued and delimited, in the raw text. Last
-    //    because it is the only condition that scans the document.
-    if !spelling_occurs(raw, &token) {
+    // 7. The whole token — name and glued value — occurs, glued and
+    //    delimited, in the raw text. Last because it is the only condition
+    //    that scans the document.
+    if !spelling_occurs(raw, &format!("-{short}{tail}")) {
         return None;
     }
-    Some(token)
+    Some(name_token)
+}
+
+/// Split a swallowed tail into the option-name half and the glued value
+/// half: `"umber=N"` → `("umber", Some("N"))`, `"elp"` → `("elp", None)`.
+///
+/// `None` when the tail ends at the `=` with nothing after it. The twin of
+/// `mandible_extract::help_text::sections::split_glued_value`, character for
+/// character, and carried here rather than imported for the reason every
+/// other predicate in this module is: the oracle's rule must read completely
+/// in one place, and the assertion that the two agree is what the corpus and
+/// this module's tests are for.
+fn split_glued_value(tail: &str) -> Option<(&str, Option<&str>)> {
+    match tail.split_once('=') {
+        Some((_, "")) => None,
+        Some((name, value)) => Some((name, Some(value))),
+        None => Some((tail, None)),
+    }
 }
 
 fn walk(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Split>) {
@@ -317,6 +352,18 @@ const QEMU_TABLE: &str = concat!(
     "-cpu model           QEMU_CPU             select CPU (-cpu help for list)\n",
     "-one-insn-per-tb     QEMU_ONE_INSN_PER_TB run with one guest instruction per emulated TB\n",
     "-version             QEMU_VERSION         display version information and exit\n",
+);
+
+/// `dbiprof`'s real option table, byte-exact from
+/// `corpus/dbiprof/1.643/help.txt` — the glued-`=value` rows and the
+/// value-less rows in one table, which is the whole `=`-split problem in
+/// five lines.
+const DBIPROF_TABLE: &str = concat!(
+    "    -number=N        show top N, defaults to 10\n",
+    "    -sort=S          sort by S, defaults to total\n",
+    "    -reverse         reverse the sort\n",
+    "    -match=K=V       for filtering, see docs\n",
+    "    -case_sensitive  for -match and -exclude\n",
 );
 
 /// `ip`'s real bracketed-abbreviation token, carried here as the witness its
@@ -442,6 +489,72 @@ pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
             expect: Expect::Silent,
             raw: "  -b4096   block size\n".to_string(),
             root: tree("t", vec![table_flag('b', Some("4096"))]),
+        },
+        SelfCheck {
+            name: "dbiprof's real option table, glued =value beside value-less rows",
+            why: "the shape the =-split exists for: -number=N and -reverse sit in one table and \
+                  only the = separates the row that used to be repaired from the one that did \
+                  not. -case_sensitive is the declared underscore miss and must stay split",
+            expect: Expect::Fires(4),
+            raw: DBIPROF_TABLE.to_string(),
+            root: tree(
+                "dbiprof",
+                vec![
+                    table_flag('n', Some("umber=N")),
+                    table_flag('s', Some("ort=S")),
+                    table_flag('r', Some("everse")),
+                    table_flag('m', Some("atch=K=V")),
+                    table_flag('c', Some("ase_sensitive")),
+                ],
+            ),
+        },
+        SelfCheck {
+            name: "gcc's real -foffload=<targets>",
+            why: "the human audit's confirmed parser bug on this family: a lowercase name half \
+                  with a shouting value spec on the right of the =",
+            expect: Expect::Fires(1),
+            raw: "  -foffload=<targets>      Specify offloading targets.\n".to_string(),
+            root: tree("gcc", vec![table_flag('f', Some("offload=<targets>"))]),
+        },
+        SelfCheck {
+            name: "ghostscript's real -sDEVICE=png16m",
+            why: "the inverse case that matters most: a genuine glued short whose argument is \
+                  introduced by =, and whose name half shouts exactly where the convention puts \
+                  the shout",
+            expect: Expect::Silent,
+            raw: "  -sDEVICE=png16m   select the output device\n".to_string(),
+            root: tree("gs", vec![table_flag('s', Some("DEVICE=png16m"))]),
+        },
+        SelfCheck {
+            name: "cpp's real -DMACRO=value",
+            why: "the same inverse, in the shape the whole no-uppercase rule was written for",
+            expect: Expect::Silent,
+            raw: "  -DMACRO=value   define a macro\n".to_string(),
+            root: tree("cpp", vec![table_flag('D', Some("MACRO=value"))]),
+        },
+        SelfCheck {
+            name: "a spaced key=value argument",
+            why: "-E var=value stores exactly what -number=N stores; only the raw text's space \
+                  tells them apart, and condition 7 is what reads it",
+            expect: Expect::Silent,
+            raw: "  -e var=value    set an environment variable\n".to_string(),
+            root: tree("t", vec![table_flag('e', Some("var=value"))]),
+        },
+        SelfCheck {
+            name: "a tail that ends at the = with nothing after it",
+            why: "split_glued_value refuses it outright rather than inventing either reading",
+            expect: Expect::Silent,
+            raw: "  -foo=   an empty value spec\n".to_string(),
+            root: tree("t", vec![table_flag('f', Some("oo="))]),
+        },
+        SelfCheck {
+            name: "gcc's real -Wl,<options>",
+            why: "cross-check that the = split changed nothing for tails with no =: the comma \
+                  still fails is_option_name_tail before case is consulted",
+            expect: Expect::Silent,
+            raw: "  -Wl,<options>            Pass comma-separated <options> on to the linker.\n"
+                .to_string(),
+            root: tree("gcc", vec![table_flag('W', Some("l,<options>"))]),
         },
     ];
 
