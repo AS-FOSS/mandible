@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-23
+
 ### Fixed
 
 - **A single-dash long option whose name carries an underscore was split
