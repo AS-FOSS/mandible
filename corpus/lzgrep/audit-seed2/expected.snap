@@ -3,6 +3,11 @@ description: Look for instances of PATTERN in the input FILEs, using their uncom
 usage:
 - 'Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...'
 positionals:
+- name: PATTERN
+  required: true
+  provenance:
+    sources:
+    - help-text
 - name: FILE
   variadic: true
   provenance:

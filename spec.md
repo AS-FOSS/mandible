@@ -1204,6 +1204,48 @@ The generic fallback parser (step 2) is built with `winnow`:
   directly under the description prose with no heading at all, which
   rule 1 above forbids recognizing without a new, separately-measured
   recognizer this change does not attempt.
+- **A colon as the spec/description separator, and a usage-block
+  continuation that is prose, not more grammar** (fix/colon-separator).
+  `sg_emc_trespass --help` writes its usage line as `[-d] [-hr] [-s] [-V]
+  DEVICE` followed immediately by two indented English sentences, then
+  option rows separated by a colon instead of a column gap or `=`:
+  `-d : output debug` (spaced), `-hr: Set Honor Reservation bit` / `-V:
+  print version string then exit` (glued). Two independent defects, both
+  fixed here:
+  - `help_text::sections::find_colon_separator_gap`, a new fallback in
+    `find_description_gap`'s chain (only ever consulted after both the
+    2+-space and `=`-token fallbacks find nothing), modelled on
+    `find_equals_separator_gap` but tighter — a colon is far more common
+    in ordinary prose than a bare `=` — recognizing a lone `:` token
+    (spaced) or a token whose own trailing character is `:` with the rest
+    of that token still spec-shaped (glued: `-hr:`, `-V:`, never a
+    heading-shaped word like `Options:`, which ends the scan instead).
+  - The usage-block loop's "more indented than base indent" branch used to
+    treat *any* such continuation as more synopsis with no content check
+    at all; it now ends that one line (not the whole block — `mdadm
+    --help` interleaves a one-line description under each of seven
+    `mdadm --mode ...` forms) when it reads as `is_prose_sentence`, which
+    itself gained a `...`-is-not-a-period clause after a fleet sweep
+    showed the new call site misreading `numactl`'s and `mkfontscale`'s
+    real ellipsis-terminated usage fragments as prose and losing 19 and 3
+    flags respectively.
+
+  A companion fix to `extract_positionals` stopped a token right after a
+  **self-closed** bracket group (`[-V]`) from being read as that flag's
+  argument — recovering `sg_emc_trespass`'s `DEVICE`, `scsi_ready`'s
+  `sg3-utils` family's `<device>+`, `lzgrep`/`xzgrep`'s `PATTERN`, and
+  `renice`'s `priority`/`pid` — deliberately scoped to a tool's one
+  primary, labelled invocation line rather than fleet-wide, because the
+  unscoped version recovered real operands `xtask`'s existence oracle
+  cannot yet attest (a same-name-repeated alternate form under
+  `jps`/`jstat`; the unlabelled-synopsis convention
+  `dbus-cleanup-sockets`/`dbus-run-session`/`lvreduce` use). The oracle's
+  own `clean_usage_token` (`xtask/src/existence.rs`) separately gained a
+  `+` to its trim set, on the same footing as the `.` in `...` it already
+  trimmed, so `<device>+` matches the tier's own correctly-recovered
+  `device` instead of reporting it invented. Fleet existence-fabrication
+  count on a full-`PATH` sweep of this machine: 130 → 124 tools, zero
+  flags or subcommands lost anywhere.
 - **A layout-driven section parser** for `Options:`/`Flags:`/`Commands:` blocks.
   Group lines by leading-whitespace runs and indentation depth, so
   `-v, --verbose    Enable verbose output` tokenizes structurally as

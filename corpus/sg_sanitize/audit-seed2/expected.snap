@@ -1,6 +1,12 @@
 name: sg_sanitize
 usage:
 - 'Usage: sg_sanitize [--ause] [--block] [--count=OC] [--crypto] [--dry-run] [--early] [--fail] [--help] [--invert] [--ipl=LEN] [--overwrite] [--pattern=PF] [--quick] [--test=TE] [--timeout=SECS] [--verbose] [--version] [--wait] [--zero] [--znr] DEVICE'
+positionals:
+- name: DEVICE
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - short: 'A'
   long: ause

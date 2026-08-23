@@ -4,6 +4,18 @@ usage:
 - renice [-n|--priority|--relative] <priority> [-p|--pid] <pid>...
 - renice [-n|--priority|--relative] <priority> -g|--pgrp <pgid>...
 - renice [-n|--priority|--relative] <priority> -u|--user <user>...
+positionals:
+- name: priority
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: pid
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - short: 'n'
   value_name: <num>

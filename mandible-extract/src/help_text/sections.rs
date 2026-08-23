@@ -379,6 +379,13 @@ fn parse_body(
         let base_indent = leading_whitespace(lines[i]);
         usage_lines.push(lines[i].trim().to_string());
         let mut usage_entries = vec![lines[i].trim().to_string()];
+        // Parallel to `usage_lines`: which `usage_entries` index each
+        // physical line ended up folded into — a wrapped entry (`sg_
+        // sanitize`'s five-line synopsis) spans several physical lines but
+        // is one entry, and [`primary_synopsis_lines`]'s refinement in
+        // `extract_positionals` needs every one of them, not just the
+        // first, to recognize the whole thing as the primary line.
+        let mut line_entry_index = vec![0usize];
         i += 1;
         while i < lines.len() {
             let l = lines[i];
@@ -447,6 +454,60 @@ fn parse_body(
                 if is_section_heading_line(trimmed_start) {
                     break;
                 }
+                // A line more indented than the base is not *always* a
+                // continuation — only when it still reads as usage grammar.
+                // `sg_emc_trespass` opens `Usage:  sg_emc_trespass [-d]
+                // [-hr] [-s] [-V] DEVICE` at column 0, then follows with two
+                // ordinary English sentences indented two spaces under it:
+                // "Change ownership of a LUN from another SP to this one."
+                // and "EMC CLARiiON CX-/AX-family + FC5300/FC4500/FC4700."
+                // Both are more indented than the base, so the old rule —
+                // "more indented, no further test" — read them as
+                // continuations of the synopsis and joined them onto it
+                // verbatim; `extract_positionals` then mined their bare
+                // uppercase words `LUN`, `SP` and `EMC` as three fabricated
+                // required operands the tool does not have. Reuses
+                // [`is_prose_sentence`] rather than a second copy of it —
+                // the same predicate the base-indent fallback just below
+                // already relies on for `du`'s own trailing-sentence
+                // precedent, applied here one indentation tier higher up.
+                // `git`'s genuine hanging-indent continuations are usage
+                // fragments (bracketed notation, no sentence terminator),
+                // never prose, so they are untouched by this check.
+                //
+                // This drops the one prose line rather than ending the
+                // whole block, deliberately unlike every other check in
+                // this loop — `mdadm --help` interleaves a one-line
+                // description under *each* of its several `mdadm --mode
+                // ...` alternative forms (`mdadm --assemble device
+                // options...` / `Assemble a previously created array.` /
+                // `mdadm --build device options...` / ...), so breaking on
+                // the first description would end the block after the
+                // *first* form and silently drop every later one — 7 real
+                // mode flags (`--assemble`, `--build`, `--grow`,
+                // `--incremental`, `--manage`, `--misc`, `--monitor`) on
+                // this tool alone. Each later `mdadm ...` line still starts
+                // its own new entry ([`starts_with_tool_name`], checked
+                // above, independent of this line entirely), so skipping
+                // just the description in between costs nothing and the
+                // next real form is still found.
+                // Guarded to lines *strictly more indented* than the base —
+                // `du`'s own trailing sentence sits *at* the base indent
+                // (column 0, same as `Usage:` and `or:`) and must keep
+                // taking the base-indent fallback just below, unchanged:
+                // that fallback's `break` (not a skip) is what lets the
+                // sentence fall out of the usage block *and* stay before
+                // `i`, so the leading-description scan below still picks
+                // it up. Applying this check there too advanced `i` past
+                // it instead, which pulled the sentence *into*
+                // `in_usage_block`'s range and silently deleted `du`'s (and
+                // six other tools': `expand`, `grub-set-default`, `lzless`,
+                // `sbverify`, `sha1sum`) description outright — caught by
+                // the corpus suite, not by inspection.
+                if leading_whitespace(l) > base_indent && is_prose_sentence(trimmed_start) {
+                    i += 1;
+                    continue;
+                }
                 // Below the base indent (never above it: `leading_whitespace`
                 // is unsigned, so this also covers "equal to"), indentation
                 // alone can't distinguish a genuine continuation (lsof) from
@@ -477,9 +538,28 @@ fn parse_body(
                 last.push(' ');
                 last.push_str(&trimmed);
             }
+            line_entry_index.push(usage_entries.len() - 1);
             i += 1;
         }
-        result.positionals = extract_positionals(&usage_lines);
+        // The self-closed-bracket-group refinement is further scoped to a
+        // *labelled* block (`Usage:`/`or:` found somewhere in the
+        // document) — never an **unlabelled** synopsis
+        // (`unlabelled_synopsis_start`, `looks_like_unlabeled_synopsis_line`'s
+        // own convention: `dbus-cleanup-sockets [--version] [--help]
+        // <socketdir>`, `lvreduce -L|--size [-]Size[m|UNIT] LV`, neither
+        // preceded by any `Usage:` text at all). `xtask`'s existence
+        // oracle's own synopsis scanner (`existence::synopsis_lines`)
+        // recognizes only labelled lines; it has no unlabelled-synopsis
+        // support yet, so *any* operand recovered from one — by this fix
+        // or any other, in any shape — reports as invented today. Measured
+        // on the same full-`PATH` sweep as the primary-line scoping above:
+        // 3 tools (`dbus-cleanup-sockets`, `dbus-run-session`, `lvreduce`).
+        let primary_lines = if labelled_usage_start.is_some() {
+            primary_synopsis_lines(&usage_entries, &line_entry_index, usage_lines.len())
+        } else {
+            std::collections::HashSet::new()
+        };
+        result.positionals = extract_positionals(&usage_lines, primary_lines);
         result.usage = usage_entries;
     }
 
@@ -2180,20 +2260,36 @@ const MIN_PROSE_SENTENCE_WORDS: usize = 5;
 ///   and both are real headings over real blocks.
 /// - **At least [`MIN_PROSE_SENTENCE_WORDS`] words**, so a short
 ///   period-carrying label can never qualify.
+/// - **Not an ellipsis.** A trailing `...` is docopt-style usage notation
+///   for repetition (`numactl`'s own `[--localalloc | -l] command args
+///   ...`, `mkfontscale`'s `[-u] [-U] [-v] [ directory ]...`), never a
+///   sentence terminator, but a naive `ends_with('.')` test reads its last
+///   character the same way it reads a real full stop. Measured on the
+///   usage-block continuation call site added alongside this clause:
+///   without it, both lines above were misread as prose and (incorrectly)
+///   ended the usage block early, silently dropping every flag the
+///   synopsis still had left to name — 19 on `numactl`, 3 on
+///   `mkfontscale`. Three dots, not one, so a single mid-notation period
+///   (`<v1.0>`) is unaffected.
 ///
 /// # What this does *not* touch
 ///
-/// Only the `group` field. This predicate is consulted at the three sites
-/// that copy a heading into a `group` and nowhere else — never by
-/// [`is_recognized_command_heading`], never by `command_mode`, never by
-/// anything that sets `CommandNode::heading_attested`. Spec §6's
-/// attestation gate reads `heading_attested`, so the set of nodes eligible
-/// to become `<word> --help` probe argv is bit-for-bit identical before
-/// and after this change; `mandible-extract/tests/exec_policy.rs`'s
+/// Two call sites use this to decide whether a line reads as English prose
+/// rather than usage/heading notation ([`looks_like_unlabeled_synopsis_line`]
+/// and the usage-block's own more-indented-continuation check in
+/// [`parse_with_profile`], which stops a synopsis from swallowing
+/// `sg_emc_trespass`'s trailing sentences and mining `LUN`/`SP`/`EMC` out of
+/// them as fabricated positionals); the other two copy a heading into a
+/// `group` and nowhere else — never by [`is_recognized_command_heading`],
+/// never by `command_mode`, never by anything that sets
+/// `CommandNode::heading_attested`. Spec §6's attestation gate reads
+/// `heading_attested`, so the set of nodes eligible to become `<word>
+/// --help` probe argv is bit-for-bit identical before and after this
+/// change; `mandible-extract/tests/exec_policy.rs`'s
 /// `prose_heading_suppression_does_not_widen_probe_eligibility` pins that.
 fn is_prose_sentence(heading: &str) -> bool {
     let trimmed = heading.trim_end();
-    if !trimmed.ends_with('.') {
+    if !trimmed.ends_with('.') || trimmed.ends_with("...") {
         return false;
     }
     if trimmed.split_whitespace().count() < MIN_PROSE_SENTENCE_WORDS {
@@ -4068,6 +4164,9 @@ fn split_single_column_entry(line: &str) -> (String, String) {
     // of `desc` (`= be verbose`, `= a local filename`) — see
     // `strip_equals_separator`.
     let desc = strip_equals_separator(&desc).to_string();
+    // `find_colon_separator_gap` leaves its own separator attached the
+    // same way — see `strip_colon_separator`.
+    let desc = strip_colon_separator(&desc).to_string();
     // A second column of *option spellings* is not a description (`awk
     // --help` prints POSIX short options beside their GNU long
     // equivalents) — see `is_synonym_not_description`. Blanked rather than
@@ -4941,6 +5040,14 @@ fn find_description_gap(line: &str) -> Option<usize> {
         return Some(col);
     }
     // Only ever consulted when the rules above found nothing anywhere in
+    // the line: a colon standing in for a column gap, either as its own
+    // token (`sg_emc_trespass`'s `-d : output debug`) or glued straight
+    // onto the spec (`-hr: Set Honor Reservation bit`) — see
+    // `find_colon_separator_gap`'s own doc comment.
+    if let Some(col) = find_colon_separator_gap(line) {
+        return Some(col);
+    }
+    // Only ever consulted when the rules above found nothing anywhere in
     // the line — see `find_placeholder_boundary_gap`'s own doc comment.
     if let Some(col) = find_placeholder_boundary_gap(line) {
         return Some(col);
@@ -5298,6 +5405,133 @@ fn strip_equals_separator(desc: &str) -> &str {
     }
 }
 
+/// Fallback for a flag row with no aligned column at all, that separates
+/// spec from description with a **colon** instead of whitespace, `=`, or a
+/// dash: `sg_emc_trespass`'s real `-d : output debug` (spaced) and
+/// `-hr: Set Honor Reservation bit` / `-V: print version string then exit`
+/// (glued, no space at all between the spec and the colon). Before this
+/// fallback none of those rows have a 2+ space gap or a lone `=` token
+/// anywhere, so the whole row fell into `grammar::parse_flag_spec`, whose
+/// ` VALUE` arm took the colon (or the colon-terminated remainder of the
+/// spec) as a required value — `-d` acquired the fabricated value `":"`,
+/// and `-hr` was split into a fabricated `-h` carrying the value `"r:"`,
+/// destroying the genuine two-character switch entirely.
+///
+/// **Only ever consulted when [`find_multi_space_gap`] and
+/// [`find_equals_separator_gap`] both found no gap anywhere in the
+/// line**, so any already-aligned table (or one using `=` as its
+/// separator) keeps taking that path completely unchanged; this function
+/// never even runs for it.
+///
+/// This is [`find_equals_separator_gap`]'s direct sibling, and it has to be
+/// **tighter**, not looser: a colon is far more common in ordinary English
+/// prose than a bare `=` ever is (`"(default: long)"`, `"Notes: see
+/// below"`, `12:30`, `http://…`), so admitting every colon in the line
+/// would read straight through a real sentence and invent a split inside
+/// it. Two shapes are recognized, both requiring every token scanned
+/// before them to satisfy [`is_value_spec_token`] — exactly the guard
+/// [`find_equals_separator_gap`] uses, so prose can never be reached:
+///
+/// 1. **Spaced**: a lone `:` token, standing alone between whitespace —
+///    `-d : output debug`. Identical in shape to the equals rule's lone
+///    `=` token.
+/// 2. **Glued**: a token whose *last* character is `:` and whose remainder
+///    (the token with that trailing colon stripped) is itself
+///    [`is_value_spec_token`]-shaped — `-hr:`, `-V:`, `-o,` followed by
+///    `--output:`. This is the shape the equals rule has no analogue for,
+///    because `=VALUE` never gets glued onto the *end* of a spelling the
+///    way a colon separator does, and it is the riskier of the two: a
+///    prose word that happens to end a sentence right before an inline
+///    colon (`Options:`, `Notes:`) also "ends with a colon", so the
+///    stripped remainder is checked against the very same predicate that
+///    keeps the scan out of prose in the first place — `"Options"` is not
+///    [`is_value_spec_token`]-shaped (no dash, no digit, no bracket, not
+///    all-uppercase) and is refused, while `"-hr"` and `"-V"` are (they
+///    start with `-`) and are accepted. A token that merely *contains* a
+///    colon without ending in one (`<hh:mm>`, `0:30`, `http://host:port`)
+///    never reaches either arm: it isn't `":"` and doesn't end with `:`,
+///    so it is scanned past via the trailing [`is_value_spec_token`] check
+///    like any other spec-shaped token, exactly as `find_equals_separator_
+///    gap` scans past `<file>` on its way to a real `=`.
+///
+/// Both shapes require at least one non-whitespace character after the
+/// colon — an empty tail (`--flag:`) returns `None`, leaving today's
+/// behaviour (no description) unchanged, the same requirement
+/// [`find_equals_separator_gap`] makes of `=`.
+///
+/// Returns the byte offset of the colon character itself (never the
+/// character after it), so [`split_at_column`] keeps the separator
+/// attached to the description side and [`strip_colon_separator`] removes
+/// it afterward — the same two-step [`strip_equals_separator`] already
+/// uses for `=`.
+fn find_colon_separator_gap(line: &str) -> Option<usize> {
+    if !line.trim_start().starts_with('-') {
+        return None;
+    }
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b' ' || bytes[i] == b'\t' {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && bytes[i] != b' ' && bytes[i] != b'\t' {
+            i += 1;
+        }
+        // `start` and `i` only ever land on ASCII space/tab boundaries or
+        // the ends of the string, so neither can fall inside a multi-byte
+        // character — `get` rather than `[..]` regardless (AGENTS.md §2).
+        let token = line.get(start..i)?;
+        if token == ":" {
+            let tail_has_content = line.get(i..).is_some_and(|rest| !rest.trim().is_empty());
+            return if tail_has_content { Some(start) } else { None };
+        }
+        if let Some(head) = token.strip_suffix(':') {
+            // A bare `:` with nothing before it in the same token is
+            // already handled above; an empty head here would only occur
+            // if `token` were exactly `":"`, which can't reach this branch.
+            if head.is_empty() || !is_value_spec_token(head) {
+                return None;
+            }
+            let colon_offset = start + head.len();
+            let tail_has_content = line.get(i..).is_some_and(|rest| !rest.trim().is_empty());
+            return if tail_has_content {
+                Some(colon_offset)
+            } else {
+                None
+            };
+        }
+        if !is_value_spec_token(token) {
+            return None;
+        }
+    }
+    None
+}
+
+/// Strip a flag row description's leading `: ` separator token, the colon
+/// analog of [`strip_equals_separator`]: if `desc` starts with `:`
+/// immediately followed by ASCII whitespace, drop the `:` and that
+/// whitespace; otherwise return it unchanged.
+///
+/// [`find_colon_separator_gap`] deliberately returns the `:` character's
+/// own offset (so [`split_at_column`] keeps the separator attached to
+/// whichever side already worked), leaving it on the front of the
+/// description; this removes it.
+///
+/// Only the separator token is removed. A second `:` inside the
+/// description proper is text, not punctuation, and is left alone:
+/// `sg_emc_trespass`'s own `Send Short Trespass Command page (default:
+/// long) (for FC series)` is untouched — it never had a leading `: ` to
+/// begin with, since its separator was the spaced lone-`:` token, already
+/// consumed by [`split_at_column`] on the spec side.
+fn strip_colon_separator(desc: &str) -> &str {
+    match desc.strip_prefix(':') {
+        Some(rest) if rest.starts_with(|c: char| c.is_ascii_whitespace()) => rest.trim_start(),
+        _ => desc,
+    }
+}
+
 fn find_placeholder_boundary_gap(line: &str) -> Option<usize> {
     let bytes = line.as_bytes();
     for (i, &b) in bytes.iter().enumerate() {
@@ -5383,10 +5617,54 @@ fn is_option_list_placeholder(name: &str) -> bool {
 /// block, which needs no inference at all — is
 /// [`FrameworkProfile::positional_heading_markers`] and
 /// [`emit_declared_positionals`].
-fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
+/// The byte-offsets into `usage_lines` of every physical line that was
+/// folded into the first recovered usage *entry* carrying real invocation
+/// content — skipping a bare `Usage:`/`or:` label with nothing after the
+/// colon on its own line (util-linux's `renice`: entry 0 is the literal
+/// string `Usage:`, entry 1 — one physical line — is `renice
+/// [-n|--priority|--relative] <priority> ...`), and following a wrapped
+/// entry across every physical line it spans (`sg_sanitize`'s five-line
+/// synopsis is one entry, entry 0, so all five lines qualify here).
+///
+/// `line_entry_index[i]` is the `entries` index physical line `i` was
+/// folded into ([`parse_with_profile`]'s own bookkeeping, threaded through
+/// because `extract_positionals` only ever sees the flattened
+/// `usage_lines`, not which entry each line belongs to).
+///
+/// This is [`extract_positionals`]'s anchor for *where* the self-closed-
+/// bracket-group refinement below is allowed to run — see that function's
+/// own doc comment for why the refinement is scoped to exactly these lines
+/// rather than every line.
+fn primary_synopsis_lines(
+    entries: &[String],
+    line_entry_index: &[usize],
+    line_count: usize,
+) -> std::collections::HashSet<usize> {
+    let primary_entry = entries.iter().position(|e| {
+        let bare_label = e.trim().trim_end_matches(':').eq_ignore_ascii_case("usage")
+            || e.trim().trim_end_matches(':').eq_ignore_ascii_case("or");
+        !bare_label
+    });
+    let Some(primary_entry) = primary_entry else {
+        return std::collections::HashSet::new();
+    };
+    (0..line_count)
+        .filter(|&i| line_entry_index.get(i) == Some(&primary_entry))
+        .collect()
+}
+
+/// `usage_lines`: every physical line of the recovered usage block, in
+/// source order. `primary_lines`: [`primary_synopsis_lines`]'s pick of
+/// which of them (by index) make up the tool's primary invocation form —
+/// the self-closed-bracket-group refinement below only ever runs on one of
+/// those; see its own comment for why.
+fn extract_positionals(
+    usage_lines: &[String],
+    primary_lines: std::collections::HashSet<usize>,
+) -> Vec<Positional> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
-    for line in usage_lines {
+    for (line_idx, line) in usage_lines.iter().enumerate() {
         // A value-shaped token immediately following a bare flag token
         // (`-C <path>`, `-c <name>=<value>`, argparse's `--config FILE`)
         // is that flag's *argument*, not a positional — a property of
@@ -5397,14 +5675,65 @@ fn extract_positionals(usage_lines: &[String]) -> Vec<Positional> {
         // apart; it resets every physical line, since a usage line's
         // tokens never continue onto the next one.
         let mut prev_cleaned: Option<&str> = None;
+        // Whether the *immediately preceding raw token* was itself a
+        // complete, self-closed bracket group (`[-v]`, `[-h]`) — opened
+        // and closed with nothing else inside. A flag written that way has
+        // already said everything about itself the notation can say; it is
+        // never still waiting on a following token the way a *still-open*
+        // group (`[-C`, expecting `<path>]` next) or a bare flag with no
+        // brackets at all (`-C`, expecting `<path>` next) is.
+        //
+        // `sg_emc_trespass`'s own synopsis is the case that forced this:
+        // `[-d] [-hr] [-s] [-V] DEVICE` closes `[-V]` completely before
+        // `DEVICE` ever appears, so `DEVICE` is a real positional, not
+        // `-V`'s argument — but the untracked version of this rule stripped
+        // brackets off both ends of every token alike, so `[-v]` and a
+        // genuinely value-expecting `-C` looked identical, and `DEVICE`
+        // was silently swallowed as a fabricated flag argument (dropped
+        // outright, no `positionals` entry at all, on a tool with no
+        // declared positional block to fall back on).
+        //
+        // **Scoped to [`primary_synopsis_lines`], deliberately.**
+        // A fleet sweep applying this fleet-wide moved two other shapes
+        // this fix is not entitled to claim, both real:
+        //
+        // 1. A *later* alternate invocation form that repeats the tool's
+        //    own name (`jps`'s second line, `jps [-q] [-mlvV] [<hostid>]`,
+        //    under a first line that already carried its own content —
+        //    `Usage: jps [--help]`). `xtask`'s existence oracle attests
+        //    operands only from a line it recognizes as synopsis grammar,
+        //    and it does not (yet) read a same-name repeat under that
+        //    shape as one — a real, narrower gap than this fix owns.
+        // 2. An **unlabelled** synopsis (no `Usage:`/`or:` anywhere in the
+        //    document at all — `lvreduce`'s bare `lvreduce -L|--size
+        //    [-]Size[m|UNIT] LV`, `dbus-cleanup-sockets`'s bare
+        //    `dbus-cleanup-sockets [--version] [--help] <socketdir>`). The
+        //    oracle's synopsis scanner does not read this convention at
+        //    all yet, labelled or not, so *any* operand recovered from it
+        //    — by this fix or any other — currently reports as invented.
+        //
+        // Both were measured on a full-`PATH` sweep (9 tools) and are
+        // deliberately left as they were before this fix rather than
+        // shipped as new false alarms in `xtask`'s own oracle; the primary
+        // line is the one shape the oracle already attests correctly, and
+        // it is also every real case this fix was written for
+        // (`sg_emc_trespass`, `scsi_ready`'s whole `sg3-utils` family,
+        // `lzgrep`/`xzgrep`, and `renice`'s own primary line, which is
+        // entry 1 there, not entry 0 — see [`primary_synopsis_lines`]).
+        let self_closed_recovery_applies = primary_lines.contains(&line_idx);
+        let mut prev_was_self_closed_group = false;
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
             // A flag already carrying its value inline (`--git-dir=<path>`)
             // has an `=` in `cleaned` and does not expect a following
-            // token; a bare flag (`-C`, `-Zscript`) does.
-            let consumed_by_prior_flag =
-                prev_cleaned.is_some_and(|p| p.starts_with('-') && !p.contains('='));
+            // token; a bare flag (`-C`, `-Zscript`) does — unless it was
+            // already closed as its own complete bracket group, on the
+            // one line this refinement is scoped to.
+            let consumed_by_prior_flag = prev_cleaned
+                .is_some_and(|p| p.starts_with('-') && !p.contains('='))
+                && !(self_closed_recovery_applies && prev_was_self_closed_group);
             prev_cleaned = Some(cleaned);
+            prev_was_self_closed_group = token.starts_with('[') && token.ends_with(']');
 
             if cleaned.starts_with('-') || consumed_by_prior_flag {
                 continue;
@@ -7598,6 +7927,26 @@ Options:
         let parsed = parse("usage: widget [-C <dir>] [--tag=<name>] <target> [--config FILE]\n");
         let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, vec!["target"], "{names:?}");
+    }
+
+    /// The mirror-image case: a token right after a flag *is* a real
+    /// positional when that flag was already written as its own complete,
+    /// self-closed bracket group (`[-V]`, `[-v]`) rather than one still
+    /// waiting on a following value (`[-C`, `-C`). `sg_emc_trespass`'s own
+    /// synopsis, `[-d] [-hr] [-s] [-V] DEVICE`, is exactly this shape:
+    /// `DEVICE` sits right after the fully-closed `[-V]` and is a real
+    /// operand, not `-V`'s fabricated argument.
+    #[test]
+    fn a_token_after_a_self_closed_bracket_flag_is_a_real_positional() {
+        let parsed = parse("Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE\n");
+        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["DEVICE"], "{names:?}");
+
+        // The general shape, with more than one self-closed flag ahead of
+        // an uppercase operand.
+        let parsed = parse("usage: widget [-h] [-v] FILE\n");
+        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["FILE"], "{names:?}");
     }
 
     /// `vim.basic`, the anchor case for [`OPTION_LIST_PLACEHOLDERS`],
@@ -10189,6 +10538,189 @@ Options:
         // `=` not followed by whitespace is not the separator shape.
         assert_eq!(strip_equals_separator("=bar"), "=bar");
         assert_eq!(strip_equals_separator("="), "=");
+    }
+
+    /// `sg_emc_trespass`'s real rows, byte-exact from its own capture: a
+    /// spaced lone `:` token and two glued colon-terminated specs.
+    #[test]
+    fn find_colon_separator_gap_unit_cases() {
+        assert_eq!(
+            find_colon_separator_gap("-d : output debug"),
+            Some("-d ".len())
+        );
+        assert_eq!(
+            find_colon_separator_gap("-hr: Set Honor Reservation bit"),
+            Some("-hr".len())
+        );
+        assert_eq!(
+            find_colon_separator_gap("-V: print version string then exit"),
+            Some("-V".len())
+        );
+        // A multi-alias row: the colon may sit on a later token, as long as
+        // every token before it is spec-shaped.
+        assert_eq!(
+            find_colon_separator_gap("-o, --output: the output file"),
+            Some("-o, --output".len())
+        );
+        // No content after the separator: unchanged behaviour, the same
+        // requirement `find_equals_separator_gap` makes of `=`.
+        assert_eq!(find_colon_separator_gap("--flag:"), None);
+        assert_eq!(find_colon_separator_gap("--flag :"), None);
+        // Not a flag row at all (no leading `-`): never matched here.
+        assert_eq!(
+            find_colon_separator_gap("Options: pick one of the below"),
+            None
+        );
+        // A word-shaped token ending in `:` is prose (a heading-like
+        // word), not a spec — refused, and the scan stops rather than
+        // reading through it for a later colon.
+        assert_eq!(
+            find_colon_separator_gap("-a, --long Options: description"),
+            None
+        );
+        // A colon *inside* a token, not terminating it, is never read as
+        // the separator: `find_equals_separator_gap`'s own placeholder and
+        // ratio/URL counter-examples, mirrored for `:`.
+        assert_eq!(
+            find_colon_separator_gap("--host <hh:mm> descriptive text"),
+            None
+        );
+        assert_eq!(find_colon_separator_gap("--ratio 0:30 more text"), None);
+        assert_eq!(
+            find_colon_separator_gap("--proxy http://host:port do the thing"),
+            None
+        );
+        // The real description's own inline colon (`(default: long)`) is
+        // never reached: the scan already returns at the earlier, genuine
+        // separator.
+        assert_eq!(
+            find_colon_separator_gap(
+                "-s : Send Short Trespass Command page (default: long) (for FC series)"
+            ),
+            Some("-s ".len())
+        );
+    }
+
+    #[test]
+    fn strip_colon_separator_unit_cases() {
+        assert_eq!(strip_colon_separator(": output debug"), "output debug");
+        assert_eq!(
+            strip_colon_separator(": Set Honor Reservation bit"),
+            "Set Honor Reservation bit"
+        );
+        // No leading `:`: unchanged.
+        assert_eq!(
+            strip_colon_separator("no separator here"),
+            "no separator here"
+        );
+        // A second `:` deeper in the description is text, not punctuation.
+        assert_eq!(
+            strip_colon_separator("Send Short Trespass Command page (default: long)"),
+            "Send Short Trespass Command page (default: long)"
+        );
+        // `:` not followed by whitespace is not the separator shape.
+        assert_eq!(strip_colon_separator(":bar"), ":bar");
+        assert_eq!(strip_colon_separator(":"), ":");
+    }
+
+    /// `sg_emc_trespass --help`'s real capture, byte-exact, replayed
+    /// end to end. Before this fix: `-d`/`-h`/`-s`/`-V` all fabricated a
+    /// colon-shaped value (`-h` doubly so, since the colon glue also split
+    /// the genuine two-character `-hr` switch into a fabricated `-h`), and
+    /// the two prose sentences after the synopsis were folded into it and
+    /// mined for three fabricated required positionals (`LUN`, `SP`,
+    /// `EMC`). After: every flag is a clean boolean with its real
+    /// description, and `DEVICE` is the only positional.
+    #[test]
+    fn sg_emc_trespasss_colon_rows_and_prose_synopsis_tail_are_recovered() {
+        let help = concat!(
+            "Unrecognized switch: --help\n",
+            "Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE\n",
+            "  Change ownership of a LUN from another SP to this one.\n",
+            "  EMC CLARiiON CX-/AX-family + FC5300/FC4500/FC4700.\n",
+            "    -d : output debug\n",
+            "    -hr: Set Honor Reservation bit\n",
+            "    -s : Send Short Trespass Command page (default: long)\n",
+            "         (for FC series)\n",
+            "    -V: print version string then exit\n",
+            "     DEVICE   sg or block device (latter in lk 2.6 or lk 3 series)\n",
+            "        Example: sg_emc_trespass /dev/sda\n",
+        );
+        let parsed = parse_named(help, "sg_emc_trespass");
+
+        // No fabricated `LUN`/`SP`/`EMC` operands; `DEVICE` survives as the
+        // one real positional the usage line actually names.
+        let positional_names: Vec<&str> =
+            parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(positional_names, vec!["DEVICE"], "{positional_names:?}");
+
+        let flag = |short: char| -> Flag {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short == Some(short))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "no flag short=={short:?} in {:?}",
+                        parsed
+                            .flags
+                            .iter()
+                            .map(|f| f.spelling())
+                            .collect::<Vec<_>>()
+                    )
+                })
+                .clone()
+        };
+
+        let d = flag('d');
+        assert_eq!(d.value_name, None, "-d must not fabricate a value");
+        assert_eq!(
+            d.description.as_ref().map(|t| t.as_str()),
+            Some("output debug")
+        );
+
+        let s = flag('s');
+        assert_eq!(s.value_name, None, "-s must not fabricate a value");
+        assert_eq!(
+            s.description.as_ref().map(|t| t.as_str()),
+            Some("Send Short Trespass Command page (default: long) (for FC series)")
+        );
+
+        let v = flag('V');
+        assert_eq!(v.value_name, None, "-V must not fabricate a value");
+        // The `DEVICE` operand row and its trailing example sit one column
+        // deeper than `-V`'s own entry indent, so `scan_flags_block`'s
+        // (unrelated, pre-existing) indentation-based continuation rule
+        // still folds them into `-V`'s description — exactly as the task's
+        // own "before" tree already showed for this row. Neither of this
+        // fix's two causes touches that rule; asserted here only so a
+        // future change to it is forced to notice this fixture.
+        assert_eq!(
+            v.description.as_ref().map(|t| t.as_str()),
+            Some(
+                "print version string then exit DEVICE sg or block device (latter in lk 2.6 or lk 3 series) Example: sg_emc_trespass /dev/sda"
+            )
+        );
+
+        // `-hr` is the two-character switch this help text documents.
+        // `Flag::short` can only ever hold one character, and the
+        // remaining swallowed text (`"r"`, one character) sits below
+        // `repair_single_dash_long_options`'s own `MIN_SWALLOWED_NAME_CHARS`
+        // floor (2) — the same deliberate ambiguity that leaves `-Ss`,
+        // `-ac` and `-it` unmerged elsewhere in this file, so this must
+        // not be special-cased into a merge here either. What the colon
+        // fix buys is that `-hr` no longer carries the punctuation-mangled
+        // value `"r:"`: `-h`'s value is now the clean `"r"`, and its
+        // spelling `-h` plus `-hr` (the fallback
+        // `xtask::existence::short_candidates` reconstruction) both occur
+        // literally in the raw text, so the fleet existence oracle no
+        // longer reports it as invented.
+        let h = flag('h');
+        assert_eq!(h.value_name.as_deref(), Some("r"));
+        assert_eq!(
+            h.description.as_ref().map(|t| t.as_str()),
+            Some("Set Honor Reservation bit")
+        );
     }
 
     // --- over-eager headings: prose, wrapped synopsis, shared rows -------
