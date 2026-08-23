@@ -10,6 +10,77 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A usage synopsis with no `Usage:` label, or one whose `usage:` is
+  preceded by the tool's own name, was never entered — the whole synopsis
+  (and any flags documented only in it) fell through to the root
+  description or `unparsed`.** `wpa_cli --help` opens `wpa_cli
+  [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] ...` with no `Usage:`
+  line at all; `nfsidmap --help` writes the ordinary C `fprintf(stderr,
+  "%s: Usage: ...", argv[0])` idiom, `nfsidmap: Usage: nfsidmap [-vh]
+  ...`. `starts_with_usage_prefix` tests only a line's own start, so
+  neither shape was ever recognized as a usage block:
+  `extract_usage_flags` never ran on either line, `wpa_cli`'s root
+  description read as the tool's own invalid-option banner run straight
+  into its synopsis and entire `commands:` block, and `nfsidmap` reported
+  `verbatim` with zero flags.
+
+  Two new, narrowly-scoped recognizers in `help_text::sections`:
+  `starts_with_name_prefixed_usage` (the tool's own name, `": "`, then
+  `usage:`) and `looks_like_unlabeled_synopsis_line` (the tool's own name
+  at a word boundary, plus positive usage-grammar notation — `[`/`<`/`{`
+  — in the remainder, and not read as an English sentence), the latter
+  tried only when no labelled `usage:` line exists anywhere in the
+  document and only in the lines before the document's real body starts.
+  Neither loosens `starts_with_usage_prefix` itself or any existing entry
+  condition — a tool with a real `Usage:` line is unaffected. `wpa_cli`
+  gains six new, undescribed value-spec flags (`-p`, `-i`, `-P`, `-g`,
+  `-G`, `-s`); `-a`, `-h`, `-v`, `-B`, `-r` — already described by its
+  flag table — merge rather than duplicate, per
+  `flag_spelling_already_present`'s existing policy. `nfsidmap` goes from
+  `verbatim`/0 flags to `ok`/4 flags.
+
+  Measured on a full-`PATH` sweep: 16 tools move `verbatim` → `ok`, 20
+  gain 124 flags fleet-wide, 0 flags are lost anywhere. Four systemd
+  tools (`systemd-creds`, `systemd-sysext`, `systemd-confext`,
+  `varlinkctl`) initially lost their `Commands:`-derived subcommand
+  stubs as a side effect: their own `Commands:` heading is ANSI-corrupted
+  (`\x1b[0mCommands:` reads as one alphanumeric run, `0mCommands`, to
+  `mentions_commands_word`), and that heading's recognition was
+  previously rescued only by accident, via the very description-leak
+  this fix removes. Not patched by widening the `command_mode` sticky
+  chain to also seed from a usage synopsis's own `COMMAND` word —
+  measured and reverted: that seed fabricated a subcommand literally
+  named `v2.3.3` out of `containerd`'s and `ctr`'s unrelated `VERSION:`
+  block, the exact class of defect [M-10] exists to prevent.
+
+  **Root-caused and fixed instead**: `mandible_core::strip_escapes`
+  (previously private to `Text::sanitize`, now exported) now runs once
+  over the whole raw `--help` document, in `help_text::sections`, before
+  any heading, indentation or column gap is computed from it — not only
+  per-field at final display time, which was too late for the layout
+  analysis that decides what's a heading at all. `systemd-creds` and
+  `varlinkctl` now recover their `Commands:` block through the ordinary
+  recognized-heading path (`heading_attested: true`, strictly better
+  evidence than the accidental stubs they had before). Measured on a
+  second full-`PATH` sweep isolating just this change: it moves exactly
+  these two tools and nothing else in the entire fleet — 0 other status
+  transitions, 0 other flag or subcommand changes, confirming escape
+  bytes were not silently distorting `leading_whitespace`/
+  `find_multi_space_gap` byte offsets for any other tool on this
+  machine's `PATH`.
+
+  `systemd-sysext` and `systemd-confext` remain a **known, named
+  residual regression**: their command rows sit directly under the
+  description prose with no `Commands:` heading at all (`systemd-sysext
+  [OPTIONS...] COMMAND` synopsis, then five unheaded rows), which is
+  categorically the shape spec §7 Tier B rule 1 forbids recognizing
+  ("a command block must be introduced by a recognized heading — layout
+  alone is never sufficient evidence"). Recovering it safely would need
+  a new, separately-measured recognizer restricted to a headingless,
+  column-aligned block immediately following the description with no
+  intervening heading and no `command_mode` stickiness; not attempted
+  here.
+
 - **Two headed command tables — one separated by ` = `, one carrying no
   separator at all — parsed to zero subcommands.** `wpa_cli`'s `commands:`
   block writes each of its ~180 rows as `name [operands] = description`

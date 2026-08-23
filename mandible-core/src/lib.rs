@@ -30,4 +30,4 @@ pub use snapshot::{
     to_snapshot, ConfessionSnapshot, ExampleSnapshot, FlagSnapshot, NodeSnapshot,
     PositionalSnapshot, ProvenanceSnapshot,
 };
-pub use text::{Text, MAX_TEXT_CHARS};
+pub use text::{strip_escapes, Text, MAX_TEXT_CHARS};

@@ -1,0 +1,2 @@
+nfsidmap: invalid option -- '-'
+nfsidmap: Usage: nfsidmap [-vh] [-c || [-u|-g|-r key] || -d || -l || [-t timeout] key desc]

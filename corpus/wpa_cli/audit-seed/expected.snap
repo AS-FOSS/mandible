@@ -1,5 +1,7 @@
 name: wpa_cli
-description: 'wpa_cli: invalid option -- ''-'' wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] [-a<action file>] \ commands:'
+description: 'wpa_cli: invalid option -- ''-'' commands:'
+usage:
+- wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] [-a<action file>] [-P<pid file>] [-g<global ctrl>] [-G<ping interval>] [-s<wpa_client_socket_file_path>] [command..]
 flags:
 - short: 'h'
   description: help (show this usage text)
@@ -26,6 +28,42 @@ flags:
   provenance:
     sources:
     - help-text
+- short: 'p'
+  value_name: <path to ctrl sockets>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'i'
+  value_name: <ifname>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'P'
+  value_name: <pid file>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'g'
+  value_name: <global ctrl>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'G'
+  value_name: <ping interval>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  value_name: <wpa_client_socket_file_path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

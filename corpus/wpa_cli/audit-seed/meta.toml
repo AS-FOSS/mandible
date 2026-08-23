@@ -36,4 +36,23 @@ min_subcommands = 150
 # above `commands:` (unrelated to this fixture's own bug, included so a
 # future change to `find_equals_separator_gap`'s flag-row path is caught
 # here too, not just in the recognized-heading commands block below it).
-must_contain_flags = ["-h", "-v", "-a", "-r", "-B"]
+#
+# fix/usage-synopsis (2026-08-23): `wpa_cli --help` opens with an
+# **unlabelled** synopsis — no `Usage:` line at all, just
+# `wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] ...` — which
+# `starts_with_usage_prefix` (testing only a line's own start) could never
+# enter. The whole synopsis, plus the tool's own `invalid option` banner
+# above it, was landing in the root `description` instead of `usage`, and
+# none of the seven value-spec flags synopsis-only flags were recovered.
+# `looks_like_unlabeled_synopsis_line` now recognizes this shape (tool's
+# own name at a word boundary, plus positive usage-grammar notation —
+# `[`/`<`/`{` — in the remainder, and not read as an English sentence),
+# restricted to the lines before the document's real body starts. `-a` is
+# already described by the table above and MERGES rather than duplicating
+# (`flag_spelling_already_present`); `-h`/`-v`/`-B`/`-r` are the same
+# story via the `[-hvBr]` bundle. The six new, undescribed flags below are
+# the ones no other block of this document names anywhere else.
+must_contain_flags = [
+  "-h", "-v", "-a", "-r", "-B",
+  "-p", "-i", "-P", "-g", "-G", "-s",
+]

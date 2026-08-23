@@ -1,0 +1,51 @@
+# Frozen capture supplied with the fix/usage-synopsis task brief's
+# escape-stripping follow-up (byte-exact — the escape sequences ARE the
+# defect this fixture exists to pin, so no cleanup pass may touch them).
+#
+# `systemd-creds --help` writes its own `Commands:` heading with a
+# colorizing library's reset code glued directly onto it:
+# `\x1b[0mCommands:`. Left in the raw document at sectioning time (before
+# this fix, escape stripping ran only per-field at `Text::sanitize`
+# emission time, too late for layout analysis), the escape and the
+# heading's own first two characters read as one alphanumeric run,
+# `0mCommands`, to `mentions_commands_word` — no recognized heading word
+# anywhere in it — so the real six-command `Commands:` block was never
+# recognized as introducing a command list at all.
+#
+# `mandible_core::strip_escapes` (newly exported; previously private to
+# `Text::sanitize`) now runs over the whole raw document once, before
+# `help_text::sections` ever computes a heading, an indentation depth or
+# a column gap from it.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "systemd-creds"
+version = "ansi-heading"
+platform = "ubuntu-24.04"
+captured_with = "systemd 255 (255.4-1ubuntu8.17), frozen capture, fix/usage-synopsis task"
+
+[[capture]]
+argv = ["systemd-creds", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+# Three of the six real commands (list, setup, has-tpm2) recover cleanly
+# through the ordinary recognized-heading path once escape-stripping lets
+# `mentions_commands_word` see the heading's actual text. The other three
+# (cat, encrypt, decrypt) document an operand glued onto the command name
+# on the same physical line before the description column (`cat
+# CREDENTIAL...`, `encrypt INPUT OUTPUT`) — a pre-existing, separate gap
+# in `emit_subcommands`'s name extraction (it takes the whole field
+# before the column gap as the candidate name, which then fails
+# `is_command_name_shaped`'s `^[a-z][a-z0-9_.-]*$` test whole, rather than
+# isolating the row's leading token the way `scan_bare_command_table`'s
+# `leading_command_name` already does for a different call site) that
+# this fix does not touch. Recovering fewer than six is an honest partial
+# fix, not a fabrication: nothing here invents `cat`/`encrypt`/`decrypt`,
+# and nothing here loses a name that was previously recovered.
+min_subcommands = 3
+must_contain_flags = ["-h", "--version", "-p", "-H", "-T"]

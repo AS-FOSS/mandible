@@ -22,7 +22,28 @@ exit_code = 1
 # verdict covers exactly the dimensions verdict_scope lists below, never
 # prose. expected.snap freezes descriptions too, but they were not part
 # of that review.
+#
+# fix/usage-synopsis (2026-08-23): that "correct" verdict judged the
+# *old* parser's `verbatim`/0-flags reading against this document — the
+# honest answer available at the time, not a claim that `verbatim` was
+# the ideal outcome forever. `nfsidmap`'s `Usage:` line is preceded by
+# the tool's own name and `": "` (the C `fprintf(stderr, "%s: Usage:
+# ...", argv[0])` idiom), which `starts_with_usage_prefix` — testing only
+# a line's own start — could never see. `starts_with_name_prefixed_usage`
+# now recognizes it, so this document reads as `ok` with real flags.
+# `verdict_scope` is left as-is rather than removed: per corpus/README.md
+# ("Human vs. agent") an `agent-then-human` fixture never asserts the
+# *current* tree was human-verified, only that a human looked at some
+# version of it and confirmed flags/subcommands — exactly this situation.
 verdict_scope = ["flags", "subcommands"]
 expected_framework = "generic"
-min_status = "verbatim"
+min_status = "ok"
 min_subcommands = 0
+# `-v` swallows `h` as a glued required value rather than splitting into
+# two switches: `[-vh]` is only two characters, and
+# `help_text::grammar::parse_bundled_shorts`'s own documented floor
+# (`MIN_CLUSTER_MEMBERS = 3`) deliberately declines a two-character
+# cluster as genuinely ambiguous fleet-wide (roughly half are real
+# collapses, the rest genuine multi-character single-dash flags) — a
+# pre-existing, general decision this fix does not revisit.
+must_contain_flags = ["-v", "-c", "-d", "-l"]

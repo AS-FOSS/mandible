@@ -1163,6 +1163,47 @@ The generic fallback parser (step 2) is built with `winnow`:
 - **A `Usage:` line grammar.** Usage lines have a learnable grammar — this is
   what `docopt` formalized: `[OPTIONS]`, `<required>`, `[optional]`, `...` for
   repetition, `|` for alternatives, `{a|b|c}` for choices.
+  The block is entered at any of three shapes (`help_text::sections`,
+  fix/usage-synopsis): an ordinary `usage:`/`Usage:` line anywhere in the
+  document; the C `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom — the
+  tool's own name, `": "`, then `usage:` (`starts_with_name_prefixed_usage`;
+  `nfsidmap`'s `nfsidmap: Usage: nfsidmap [-vh] ...`); and, only when
+  neither of those appears anywhere in the document and only in the lines
+  before the document's real body starts, an **unlabelled** synopsis — the
+  tool's own name at a word boundary, plus positive usage-grammar notation
+  (one of the three group delimiters above) in the remainder, and not read
+  as an English sentence (`looks_like_unlabeled_synopsis_line`; `wpa_cli
+  --help` opens `wpa_cli [-p<path to ctrl sockets>] ...` with no label at
+  all). The third shape is the risky one — a name match alone is not
+  evidence of a synopsis (`"tar is an archiving program..."` also starts
+  with `tar`) — so it requires both signals together, and is bounded to
+  where a synopsis actually belongs rather than searched for anywhere in
+  the document.
+
+  A related, general fix landed alongside this (fix/usage-synopsis):
+  `mandible_core::strip_escapes` — previously private, invoked only per
+  field inside `Text::sanitize` at final display time — is now also run
+  once over the *whole* raw document in `help_text::sections`, before any
+  heading, indentation or column gap is computed. An escape sequence
+  surviving into that layout analysis corrupts it in ways that have
+  nothing to do with display: `systemd-creds --help` writes its own
+  `Commands:` heading as `[0mCommands:` (a colorizing library's reset
+  code glued directly onto the heading text), and left in place the
+  escape and the heading's first two characters fuse into one
+  alphanumeric run, `0mCommands`, which `mentions_commands_word` (rule
+  1's literal heading test, above) never recognizes — the tool's real
+  six-command `Commands:` block silently failed to become subcommands at
+  all. Measured on a full-`PATH` sweep isolating this change alone: it
+  moves exactly two tools (`systemd-creds`, `varlinkctl`, both recovering
+  a `Commands:`/command list previously lost to this exact corruption)
+  and nothing else — 0 other status transitions, 0 other flag or
+  subcommand changes fleet-wide, so escape bytes were not otherwise
+  distorting `leading_whitespace`/`find_multi_space_gap` byte offsets for
+  any other tool on the measured machine's `PATH`. `systemd-sysext` and
+  `systemd-confext` remain unfixed by this: their command rows sit
+  directly under the description prose with no heading at all, which
+  rule 1 above forbids recognizing without a new, separately-measured
+  recognizer this change does not attempt.
 - **A layout-driven section parser** for `Options:`/`Flags:`/`Commands:` blocks.
   Group lines by leading-whitespace runs and indentation depth, so
   `-v, --verbose    Enable verbose output` tokenizes structurally as
