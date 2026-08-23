@@ -45,8 +45,8 @@
 //!    shared fingerprint. `Optional` means the raw text wrote brackets
 //!    (`ip`'s `-h[uman-readable]`), which is a value spec a human typed.
 //! 3. **The swallowed text's *name half* is option-name-shaped**
-//!    ([`is_option_name_tail`]): ASCII alphanumerics and `-`, with at least
-//!    one letter. The name half is everything before the first `=`, or the
+//!    ([`is_option_name_tail`]): ASCII alphanumerics, `-` and `_`, with at
+//!    least one letter. The name half is everything before the first `=`, or the
 //!    whole tail when there is no `=` ([`split_glued_value`]) — a tail like
 //!    `qemu`'s `-number=N` → `"umber=N"` is a name **plus** the value spec
 //!    the tool glued onto it, and `=` is the character that says where the
@@ -144,24 +144,27 @@ use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
 pub(crate) const MIN_SWALLOWED_CHARS: usize = 2;
 
 /// True when `tail` could be the rest of a single-dash long option's name:
-/// ASCII alphanumerics and `-`, with at least one ASCII letter in it.
+/// ASCII alphanumerics, `-` and `_`, with at least one ASCII letter in it.
 ///
 /// The letter requirement is what stops a glued numeric argument (`-b4096`,
 /// `-j8`) from riding in on a run that is technically alphanumeric, exactly
 /// as `bundling::MIN_ORDERED_LETTERS` stops the vacuous-ordering version of
 /// the same hazard. Everything else is rejected because a long option's name
 /// does not contain it: `:` (`sg_emc_trespass`'s layout-mangled `-hr:`),
-/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths),
-/// `_` (`dbiprof`'s real `-case_sensitive`, left split — the character also
-/// appears in glued value placeholders and nothing measured separates the
-/// two).
+/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths).
+///
+/// `_` is admitted, on the same footing as `-`: it is a **word separator**
+/// in an option name, not value-spec punctuation. See this module's
+/// "Why `_` is a name character" section for the measurement.
 ///
 /// `=` never reaches here: [`split_glued_value`] has already consumed it as
 /// the boundary between the name and its glued value spec, so what this sees
 /// is only ever the name half.
 fn is_option_name_tail(tail: &str) -> bool {
     tail.chars().any(|c| c.is_ascii_alphabetic())
-        && tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        && tail
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// True when `token` carries no ASCII uppercase letter at all — the
@@ -494,8 +497,9 @@ pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
             name: "dbiprof's real option table, glued =value beside value-less rows",
             why: "the shape the =-split exists for: -number=N and -reverse sit in one table and \
                   only the = separates the row that used to be repaired from the one that did \
-                  not. -case_sensitive is the declared underscore miss and must stay split",
-            expect: Expect::Fires(4),
+                  not. -case_sensitive rides in on the same rule now that _ is a name \
+                  character, which is why this counts five and not four",
+            expect: Expect::Fires(5),
             raw: DBIPROF_TABLE.to_string(),
             root: tree(
                 "dbiprof",
@@ -546,6 +550,40 @@ pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
             expect: Expect::Silent,
             raw: "  -foo=   an empty value spec\n".to_string(),
             root: tree("t", vec![table_flag('f', Some("oo="))]),
+        },
+        SelfCheck {
+            name: "ffplay's real AVOption row, the underscore family's bulk",
+            why: "97% of the underscore population is this one table shape; the name is what the \
+                  document writes at the head of the row and the value spec sits in a \
+                  space-separated column the grammar never stored in value_name",
+            expect: Expect::Fires(1),
+            raw: "  -is_avc            <boolean>    .D.V..X.... is avc (default false)\n"
+                .to_string(),
+            root: tree("ffplay", vec![table_flag('i', Some("s_avc"))]),
+        },
+        SelfCheck {
+            name: "cpp's real -DFOO_BAR",
+            why: "the inverse the underscore widening had to survive: an underscore inside a \
+                  glued macro name buys nothing, because condition 5 still reads the shout",
+            expect: Expect::Silent,
+            raw: "  -DFOO_BAR   define a macro\n".to_string(),
+            root: tree("cpp", vec![table_flag('D', Some("FOO_BAR"))]),
+        },
+        SelfCheck {
+            name: "a lowercase flag letter with a shouting underscored argument",
+            why: "the -oOUTFILE shape wearing an underscore: only the whole-token case test \
+                  rejects it, and it is why condition 5 is not measured on the tail alone",
+            expect: Expect::Silent,
+            raw: "  -oOUT_FILE   write output here\n".to_string(),
+            root: tree("t", vec![table_flag('o', Some("OUT_FILE"))]),
+        },
+        SelfCheck {
+            name: "a spaced underscored value",
+            why: "-o out_file stores byte-for-byte what a glued -oout_file would; condition 7's \
+                  scan of the raw text is the only thing that tells them apart",
+            expect: Expect::Silent,
+            raw: "  -o out_file   write output here\n".to_string(),
+            root: tree("t", vec![table_flag('o', Some("out_file"))]),
         },
         SelfCheck {
             name: "gcc's real -Wl,<options>",
@@ -712,8 +750,14 @@ mod tests {
         assert!(!is_option_name_tail("var=value"));
         assert!(!is_option_name_tail("item[,...]"));
         assert!(!is_option_name_tail("c[vbuf]"));
-        assert!(!is_option_name_tail("a_b"));
         assert!(!is_option_name_tail(""));
+        // `_` is a word separator inside a name, on the same footing as
+        // `-` — `dbiprof`'s `-case_sensitive`, ffmpeg's `-pix_fmts`.
+        assert!(is_option_name_tail("a_b"));
+        assert!(is_option_name_tail("ase_sensitive"));
+        assert!(is_option_name_tail("_err_detect"));
+        // Still no letter, still a glued numeric argument.
+        assert!(!is_option_name_tail("_42"));
     }
 
     #[test]

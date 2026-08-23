@@ -1200,14 +1200,10 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 ///   3 rejects it. No tail-shape rule can claim that without also admitting
 ///   every value spec that leaks punctuation.
 /// - **Tails whose *name* half carries brackets or other value-spec
-///   punctuation.** Condition 3 still rejects `[`, `<`, `,`, `.`, `/` and
-///   `_` in the name half, for the same reason the oracle does — `-d
+///   punctuation.** Condition 3 still rejects `[`, `<`, `,`, `.` and `/`
+///   in the name half, for the same reason the oracle does — `-d
 ///   item[,...]` and `-b{blocksize}` are value specs, not names. Only `=`
 ///   is read structurally, and only as the boundary between the two halves.
-/// - **Names carrying an underscore**, `dbiprof`'s own `-case_sensitive`
-///   among them: condition 3 rejects `_`. It sits in the same table as the
-///   rows this change does repair and stays split, which is a knowingly
-///   incomplete result on that one document rather than a silent one.
 /// - **A tail that ends at the `=` with nothing after it** — refused
 ///   outright by [`split_glued_value`], which has no evidence for either
 ///   reading of it.
@@ -1314,22 +1310,29 @@ fn split_glued_value(tail: &str) -> Option<(&str, Option<&str>)> {
 }
 
 /// True when `tail` could be the rest of a single-dash long option's name:
-/// ASCII alphanumerics and `-`, with at least one ASCII letter in it.
+/// ASCII alphanumerics, `-` and `_`, with at least one ASCII letter in it.
 ///
 /// The twin of `xtask::single_dash_long::is_option_name_tail`, character
 /// for character. The letter requirement is what stops a glued *numeric*
 /// argument (`-b4096`, `-j8`) from riding in on a run that is technically
 /// alphanumeric. Everything else is rejected because a long option's name
 /// does not contain it: `:` (`sg_emc_trespass`'s layout-mangled `-hr:`),
-/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths),
-/// and `_` (`dbiprof`'s real `-case_sensitive`, left split).
+/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths).
+///
+/// `_` is admitted on the same footing as `-`, for the reason given in
+/// [`repair_single_dash_long_options`]'s "Why `_` is a name character"
+/// section: it separates words inside a name, and every condition that
+/// makes this repair safe is measured over the token, not over which
+/// separator the name happens to spell its word breaks with.
 ///
 /// `=` never reaches here: [`split_glued_value`] has already consumed it as
 /// the boundary between the name and its glued value spec, so what this
 /// sees is only ever the name half.
 fn is_option_name_tail(tail: &str) -> bool {
     tail.chars().any(|c| c.is_ascii_alphabetic())
-        && tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        && tail
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// True when `token` carries no ASCII uppercase letter at all — the
@@ -5596,6 +5599,141 @@ mod tests {
         }
     }
 
+    /// `_` separates words inside an option name exactly as `-` does, and
+    /// `dbiprof` proves it in one table: `-case_sensitive` sits between
+    /// `-exclude=K=V` and `-version`, both of which this repair already
+    /// recovered, and came out as `-c` carrying `"ase_sensitive"` — a
+    /// short flag `dbiprof` does not document at all.
+    #[test]
+    fn an_underscored_name_is_recovered_from_the_table_it_shares() {
+        let parsed = parse(DBIPROF_TABLE);
+        let flag = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("case_sensitive"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "-case_sensitive was not recovered: {:?}",
+                    parsed
+                        .flags
+                        .iter()
+                        .map(|f| f.spelling())
+                        .collect::<Vec<_>>()
+                )
+            });
+        assert!(flag.single_dash, "it is spelled with one dash");
+        assert_eq!(flag.short, None, "the fabricated -c is gone");
+        assert_eq!(flag.value_kind, ValueKind::None);
+        assert_eq!(
+            flag.description.as_ref().map(|d| d.as_str()),
+            Some("for -match and -exclude")
+        );
+        // The fabricated short must not survive under any other flag.
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.short == Some('c') && f.long.is_none()),
+            "the invented -c is not left behind"
+        );
+    }
+
+    /// The ffmpeg `AVOption` table is 97% of this widening's population,
+    /// and the thing that has to survive it is the **value spec**: these
+    /// rows write `<int>`/`<flags>`/`<string>` in a space-separated column
+    /// of their own, followed by a `.D.V..X....` capability column. Both
+    /// already live in the *description* — the grammar never stored them
+    /// in `value_name`, which held the swallowed name half instead — so
+    /// the repair must move the name and leave the description untouched.
+    ///
+    /// Rows quoted byte-for-byte from `ffplay --help` (6.1.1-3ubuntu5).
+    #[test]
+    fn an_avoption_row_keeps_its_value_spec_and_capability_column() {
+        const AVOPTIONS: &str = concat!(
+            "AVCodecContext AVOptions:\n",
+            "  -is_avc            <boolean>    .D.V..X.... is avc (default false)\n",
+            "  -skip_top          <int>        .D.V....... number of macroblock rows at the top which are skipped (from INT_MIN to INT_MAX) (default 0)\n",
+            "  -threads           <int>        ED.VA...... set the number of threads (from 0 to INT_MAX) (default 1)\n",
+        );
+        let parsed = parse(AVOPTIONS);
+        for (name, spec) in [
+            ("is_avc", "<boolean> .D.V..X.... is avc (default false)"),
+            (
+                "skip_top",
+                "<int> .D.V....... number of macroblock rows at the top which are skipped (from INT_MIN to INT_MAX) (default 0)",
+            ),
+            // The control: no underscore, so this row is recovered on the
+            // parser as it stands. Its description is what the two above
+            // must now look like.
+            (
+                "threads",
+                "<int> ED.VA...... set the number of threads (from 0 to INT_MAX) (default 1)",
+            ),
+        ] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.long.as_deref() == Some(name))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "-{name} was not recovered: {:?}",
+                        parsed
+                            .flags
+                            .iter()
+                            .map(|f| f.spelling())
+                            .collect::<Vec<_>>()
+                    )
+                });
+            assert!(flag.single_dash);
+            assert_eq!(
+                flag.description.as_ref().map(|d| d.as_str()),
+                Some(spec),
+                "-{name} lost its value spec or capability column"
+            );
+        }
+    }
+
+    /// The inverse, in the direction that matters: an underscore in the
+    /// *swallowed* text is not on its own a licence to read a long option.
+    /// Every one of these is a correct parse the widening must leave
+    /// standing, and each is refused by a different condition.
+    #[test]
+    fn an_underscore_alone_never_buys_the_long_reading() {
+        for (row, refused) in [
+            // Condition 5: the GCC/Clang glued-value convention shouts,
+            // and an underscored macro name shouts with it.
+            ("  -DFOO_BAR         define a macro\n", "DFOO_BAR"),
+            ("  -DMAX_PATH=4096   define a macro\n", "DMAX_PATH"),
+            // Condition 5 again, via the whole token: only the argument
+            // shouts, and that is exactly the `-oOUTFILE` shape.
+            ("  -oOUT_FILE        write output here\n", "oOUT_FILE"),
+            // Condition 7: a *spaced* underscored value stores the same
+            // bytes a glued one would, and the raw text is what tells
+            // them apart — `-o out_file` never occurs glued.
+            ("  -o out_file       write output here\n", "out_file"),
+            // Condition 3: the name half still may not carry value-spec
+            // punctuation just because it also carries an underscore.
+            ("  -d item_a[,...]   a list\n", "item_a"),
+            ("  -b some_path/name a path\n", "some_path/name"),
+            // Condition 4: one character of name is still not a name.
+            ("  -s_               a stray\n", "s_"),
+        ] {
+            let parsed = parse(row);
+            assert!(
+                parsed
+                    .flags
+                    .iter()
+                    .all(|f| f.long.as_deref() != Some(refused)),
+                "{row:?} was read as the long option -{refused}: {:?}",
+                parsed
+                    .flags
+                    .iter()
+                    .map(|f| f.spelling())
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
     /// The two declared out-of-scope misses, asserted rather than
     /// described — a miss that is only written down in prose stops being
     /// checked the day the prose goes stale.
@@ -5610,17 +5748,6 @@ mod tests {
                 .iter()
                 .all(|f| f.long.as_deref() != Some("foo")),
             "an empty value spec has no measured reading"
-        );
-        // `dbiprof`'s own `-case_sensitive`: `_` is not an option-name
-        // character here, so it stays split even though it sits in the
-        // table this repair otherwise fixes.
-        let parsed = parse(DBIPROF_TABLE);
-        assert!(
-            parsed
-                .flags
-                .iter()
-                .all(|f| f.long.as_deref() != Some("case_sensitive")),
-            "the underscore miss is declared, not accidental"
         );
         // `ip` writes a bracketed tail, so the grammar records
         // `ValueKind::Optional` — a value spec a human deliberately typed.
@@ -5701,8 +5828,17 @@ mod tests {
         assert!(is_option_name_tail("elp"));
         assert!(is_option_name_tail("one-insn-per-tb"));
         assert!(is_option_name_tail("utf8"));
+        // `_` is a word separator inside a name, on the same footing as
+        // `-`: `dbiprof`'s `-case_sensitive`, ffmpeg's `-pix_fmts`.
+        assert!(is_option_name_tail("ase_sensitive"));
+        assert!(is_option_name_tail("ix_fmts"));
+        // Leading, trailing and doubled separators are still names — the
+        // shape test is about the character set, and every other
+        // condition is what makes the repair safe.
+        assert!(is_option_name_tail("_err_detect"));
         // No letter at all is a glued numeric argument, not a name.
         assert!(!is_option_name_tail("4096"));
+        assert!(!is_option_name_tail("_42"));
         assert!(!is_option_name_tail(""));
         // Every punctuation character a value spec leaks.
         for tail in [
@@ -5713,7 +5849,6 @@ mod tests {
             "a<b>",
             "path/name",
             "file.txt",
-            "some_name",
             "a,b",
         ] {
             assert!(!is_option_name_tail(tail), "{tail:?} is not an option name");
@@ -8804,20 +8939,21 @@ Options:
     /// keep winning and `find_equals_separator_gap` must never run.
     #[test]
     fn equals_signs_inside_a_sentence_are_not_mistaken_for_a_separator() {
-        // `http_seekable`'s underscore keeps `repair_single_dash_long_options`
-        // from ever claiming it (condition 3 rejects `_` in the swallowed
-        // tail — see that function's own doc comment), so this stays a
-        // short `-h` carrying everything after it as one description. That
-        // is unrelated to and unchanged by this fix; what matters here is
-        // that the `=` signs inside the sentence survive untouched.
+        // `-http_seekable` is one of the underscored single-dash long
+        // options `repair_single_dash_long_options` recovers, so the name
+        // is whole and the whole value-spec column stays in the
+        // description. What matters *here* is orthogonal to both: the `=`
+        // signs inside the sentence must not be mistaken for the glued
+        // `=value` separator and cut the row short.
         let help = "Options:\n  \
                     -http_seekable     <boolean>    .D......... Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)\n";
         let parsed = parse(help);
         let flag = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('h'))
-            .expect("-http_seekable must be recovered as a short flag");
+            .find(|f| f.long.as_deref() == Some("http_seekable"))
+            .expect("-http_seekable must be recovered as one single-dash long option");
+        assert!(flag.single_dash);
         assert_eq!(
             flag.description.as_ref().map(|d| d.as_str()),
             Some("<boolean> .D......... Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)")
