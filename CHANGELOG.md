@@ -28,6 +28,28 @@ once it reaches a published 0.1.0 release.
   the block's own opening physical line is consumed as heading text and
   never scanned for entries.)
 
+- **A mandatory flag some tool's usage synopsis writes unbracketed
+  (`ssh-keygen -D pkcs11`, `-M generate`, `-I certificate_identity -s
+  ca_key`, `-F`/`-R`/`-r hostname`) had its own value silently dropped.**
+  `extract_usage_flags`'s bare-token walk read each bare token in a
+  synopsis line independently; a flag's own required value sitting right
+  after it with no bracket group around either was an unrelated, second
+  bare token that started with neither `-` nor anything else the scan
+  read, so it was dropped and the flag came out looking like a boolean it
+  isn't. The walk now looks one token ahead: a bare flag immediately
+  followed by a bare, non-flag, non-parenthetical token treats that token
+  as its value (never when the flag is itself a recognized bundle of
+  single-character switches, never when what follows is another flag, and
+  never when it opens a parenthetical aside — `iptables`' own `iptables -h
+  (print this help information)` was measured attaching the fabricated
+  value `"(print"` to `-h` before that last guard existed). `ssh-keygen`'s
+  `-D`, `-F`, `-I`, `-M`, `-R`, `-r` and `-s` now all carry their real,
+  documented value; a fleet sweep found the same recovery on 60+ other
+  tools (`iptables`/`arptables`/`ip6tables`'s own `-D chain`/`-I
+  chain`/`-P chain`, `winpr-hash`'s `-u <username>`, `vim`'s `-t tag`,
+  `rpcinfo`'s `-T netid`, among others) with zero flags lost or gained
+  anywhere in the same sweep.
+
 - **LVM's docopt bracket-group flag rows (`vgck`, `vgextend`, `vgrename`,
   and the whole `lv*`/`vg*`/`pv*` family) rendered `verbatim` with zero
   flags.** LVM's own help emitter writes a *bare* invocation line with no
