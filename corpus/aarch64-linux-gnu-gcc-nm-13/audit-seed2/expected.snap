@@ -1,7 +1,7 @@
 name: aarch64-linux-gnu-gcc-nm-13
 description: '/usr/bin/nm: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>.'
 usage:
-- 'Usage: /usr/bin/nm [option(s)] [file(s)] List symbols in [file(s)] (a.out by default).'
+- 'Usage: /usr/bin/nm [option(s)] [file(s)]'
 flags:
 - short: 'a'
   long: debug-syms

@@ -508,12 +508,24 @@ fn tool_name_prefixed_row_words<'a>(raw: &'a str, root_name: &str) -> HashSet<&'
 /// the token is flag-shaped is the very question [`usage_operands`] asks
 /// next.
 ///
-/// `str::trim_matches` returns a sub-slice of its input, so there is no
-/// offset arithmetic here and AGENTS.md's rule against slicing captured
-/// tool output at a raw byte offset is satisfied by construction, exactly
-/// as in [`list_row_items`].
+/// `+` is trimmed on the same footing as `...`: the `sg3-utils` family
+/// (`scsi_ready`, `scsi_readcap`, `scsi_start`, `scsi_stop`,
+/// `scsi_temperature`) writes its one-or-more marker glued directly onto
+/// the closing `>` with no `...`, `Usage: scsi_ready [-b] [-h] [-v]
+/// <device>+`. Before this, the token survived cleaning as `device>+`
+/// (the trailing `+` isn't in the delimiter set, so nothing after the
+/// unclosed `>` gets trimmed) and never matched `mandible-extract`'s own
+/// correctly-recovered `device`, reporting a real, correctly-named operand
+/// as invented on all five tools. Extending the delimiter set costs
+/// nothing real `+` usage could collide with: this module trims only from
+/// the token's own ends, so a `+` appearing mid-word is untouched.
 fn clean_usage_token(token: &str) -> &str {
-    token.trim_matches(|c| matches!(c, '[' | ']' | '<' | '>' | '{' | '}' | '(' | ')' | '|' | '.'))
+    token.trim_matches(|c| {
+        matches!(
+            c,
+            '[' | ']' | '<' | '>' | '{' | '}' | '(' | ')' | '|' | '.' | '+'
+        )
+    })
 }
 
 /// True when a usage token is written in *notation* — opened with one of

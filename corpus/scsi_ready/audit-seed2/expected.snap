@@ -1,6 +1,12 @@
 name: scsi_ready
 usage:
 - 'Usage: scsi_ready [-b] [-h] [-v] <device>+'
+positionals:
+- name: device
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - short: 'b'
   long: brief

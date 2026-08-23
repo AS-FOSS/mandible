@@ -10,6 +10,89 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- **A flag row that separates its spec from its description with a colon
+  instead of whitespace or `=` had the colon (and, when glued, part of the
+  spec itself) read as a fabricated required value.** `sg_emc_trespass
+  --help` writes `-d : output debug` (spaced) and `-hr: Set Honor
+  Reservation bit` / `-V: print version string then exit` (glued, no space
+  at all). With no colon rule, the whole row fell into
+  `grammar::parse_flag_spec`, whose ` VALUE` arm took the colon as a
+  required value — `-d` acquired the fabricated value `":"`, and `-hr` was
+  split into a fabricated `-h` carrying the mangled value `"r:"`,
+  destroying the genuine two-character switch under any spelling a user
+  could type.
+
+  A new fallback in `help_text::sections::find_description_gap`,
+  `find_colon_separator_gap` — modelled directly on its `=`-separator
+  sibling, only ever consulted when neither a 2+-space column gap nor a
+  lone `=` token was found anywhere in the line, and tighter than the `=`
+  rule has to be (a colon is far more common in ordinary prose): a lone
+  `:` token splits the spaced form, and a token whose *own* trailing
+  character is `:` splits the glued form only when the token minus that
+  colon is itself spec-shaped (`-hr`, `-V` — never `Options:`, a
+  heading-shaped word, which ends the scan instead). `strip_colon_separator`
+  removes the leftover leading `: ` from the recovered description, the
+  same two-step `strip_equals_separator` already uses for `=`. Measured
+  fleet-wide via a full-`PATH` sweep: every affected tool corrected a
+  description or a fabricated value with no flag or subcommand lost
+  anywhere.
+
+- **A usage-block continuation line more indented than its synopsis's own
+  base indent was always read as more of the synopsis, with no check that
+  it was actually usage grammar rather than an ordinary English
+  sentence.** `sg_emc_trespass --help` follows its one-line synopsis with
+  two indented prose sentences ("Change ownership of a LUN from another SP
+  to this one." / "EMC CLARiiON CX-/AX-family + FC5300/FC4500/FC4700.")
+  before its flag rows; both were joined into the synopsis verbatim, and
+  `extract_positionals` then mined their bare uppercase words `LUN`, `SP`
+  and `EMC` out of it as three fabricated required positional operands
+  beside the tool's one real one, `DEVICE`. The same shape was silently
+  fabricating (or, for `pngfix`, an outright invented `PNG` positional) on
+  `aarch64-linux-gnu-gcc-nm-13`, `ntfsfallocate`, `pngfix`, `ntfsclone`,
+  `ntfscmp`, `ntfsfix`, `ntfsresize` and `pkgdata`.
+
+  `help_text::sections::parse_with_profile`'s usage-block loop now checks
+  `is_prose_sentence` on a more-indented continuation line and skips just
+  that one line (rather than ending the whole block) when it fires —
+  skipping, not breaking, because `mdadm --help` interleaves a one-line
+  description under *each* of its seven `mdadm --mode ...` alternative
+  forms, and ending the block at the first one would have dropped the
+  other six. `is_prose_sentence` itself gained one more clause: a trailing
+  `...` (docopt repetition notation, `numactl`'s `command args ...`,
+  `mkfontscale`'s `[ directory ]...`) is no longer misread as a sentence-
+  ending period, which a fleet sweep showed the new call site would
+  otherwise have mistaken for prose and used to end usage blocks early —
+  19 lost flags on `numactl`, 3 on `mkfontscale`.
+
+  `help_text::sections::extract_positionals` also gained a narrow
+  companion fix: a token right after a **self-closed** bracket group
+  (`[-V]`, a flag written as its own complete, already-closed optional
+  group) is no longer read as that flag's argument the same way a token
+  after a still-open group (`[-C`, expecting `<path>]`) or a bare flag
+  with no brackets (`-C`, expecting `<path>`) is — recovering
+  `sg_emc_trespass`'s own `DEVICE`, `scsi_ready`'s whole `sg3-utils`
+  family's `<device>+` operand, `lzgrep`/`xzgrep`'s `PATTERN`, and
+  `renice`'s `priority`/`pid`. Deliberately scoped (via the new
+  `primary_synopsis_lines`) to a tool's one primary, labelled invocation
+  line rather than applied to every usage line fleet-wide: a broader
+  sweep found the unscoped version recovered a few more real operands that
+  `xtask`'s existence oracle cannot yet attest (a same-name-repeated
+  alternate form under `jps`/`jstat`, and the unlabelled-synopsis
+  convention `dbus-cleanup-sockets`/`dbus-run-session`/`lvreduce` use),
+  and this fix does not claim more than that oracle can currently check.
+
+  `xtask/src/existence.rs`'s own `clean_usage_token` gained the matching
+  narrow fix on the detector side: `+` is now trimmed from a usage token's
+  ends on the same footing as the `.` in `...` already was, since the
+  `sg3-utils` family glues its one-or-more marker directly onto the
+  closing `>` (`<device>+`) with nothing that already-trimmed set
+  recognized — without it, `mandible-extract`'s own correctly-recovered
+  `device` operand didn't match the oracle's uncleaned `device>+` and
+  reported as invented on all five affected tools.
+
+  Fleet existence-fabrication count (full-`PATH` sweep, this machine):
+  130 → 124 tool(s); zero flags or subcommands lost anywhere.
+
 - **A usage synopsis with no `Usage:` label, or one whose `usage:` is
   preceded by the tool's own name, was never entered — the whole synopsis
   (and any flags documented only in it) fell through to the root

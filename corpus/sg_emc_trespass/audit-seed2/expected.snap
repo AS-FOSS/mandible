@@ -1,0 +1,38 @@
+name: sg_emc_trespass
+description: 'Unrecognized switch: --help'
+usage:
+- 'Usage: sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE'
+positionals:
+- name: DEVICE
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'd'
+  description: output debug
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  value_name: r
+  value_kind: Required
+  description: Set Honor Reservation bit
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  description: 'Send Short Trespass Command page (default: long) (for FC series)'
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  description: 'print version string then exit DEVICE sg or block device (latter in lk 2.6 or lk 3 series) Example: sg_emc_trespass /dev/sda'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,12 +1,6 @@
 name: pngfix
 usage:
-- 'Usage: pngfix {[options] png-file} Tests, optimizes and optionally fixes the zlib header in PNG files. Optionally, when fixing, strips ancillary chunks from the file.'
-positionals:
-- name: PNG
-  required: true
-  provenance:
-    sources:
-    - help-text
+- 'Usage: pngfix {[options] png-file}'
 flags:
 - long: optimize
   value_name: '(-o):'
