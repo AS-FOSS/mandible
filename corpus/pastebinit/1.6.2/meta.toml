@@ -1,0 +1,45 @@
+# Regression fixture pinning the *absence* of pastebinit's invented flag
+# types/values — item 4 of this PR's five defects. Investigation found the
+# defect already fixed on `main` before this PR touched anything: an
+# earlier, general fix (`find_sentence_start_gap`, added for
+# `apt-ftparchive`'s `--md5 Control MD5 generation` shape, see
+# `sections.rs`'s doc comment on that function and CHANGELOG.md) also
+# recognizes pastebinit's own `-l List all supported pastebins` /
+# `-E Print the content to stdout too` / `-h Print this help screen` /
+# `-v Print the version number` / `-V Print verbose output to stderr`
+# rows: each splits correctly into a bare boolean flag plus its
+# description, rather than reading the description's first capitalized
+# word (`List`, `Print`) as a fabricated required value the way it did at
+# the time of the seed-5 audit (`corpus/pastebinit/audit-seed2`'s own
+# `[xfail]` predates this and is about a *different*, still-open defect:
+# `-p`'s own row is folded into `-u`'s description and never becomes its
+# own flag — a missing flag, not an invented one, out of this fixture's
+# scope). No code change was needed for this fixture to hold; it exists so
+# the invention cannot silently come back.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pastebinit"
+version = "1.6.2"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["pastebinit", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["-b", "-i", "-l", "-E", "-h", "-v", "-V"]
+# No `must_not_contain_flags` here: that field asserts a root flag
+# *spelling* was invented (`--foo`), and the defect this fixture guards
+# against is an invented *value* on a real flag (`-l` carrying a
+# fabricated `value_name` of `"List"`), which nothing in `[contract]` can
+# state directly. `expected.snap` matching byte-for-byte is what actually
+# locks this: `-l`/`-E`/`-h`/`-v`/`-V` show no `value_name` field there at
+# all, and any regression that gives one back changes the snapshot.

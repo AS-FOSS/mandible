@@ -1,0 +1,116 @@
+name: pastebinit
+description: 'Invalid arguments: option --help not recognized! pastebinit v1.6.2 Reads on stdin for input or takes a list of files as parameters'
+usage:
+- 'Usage: pastebinit [OPTION...] [FILE...]'
+positionals:
+- name: FILE
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'b'
+  value_name: <pastebin>
+  value_kind: Required
+  group: 'General arguments:'
+  description: (default is 'dpaste.com')
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  value_name: <input file>
+  value_kind: Required
+  group: 'General arguments:'
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  group: 'General arguments:'
+  description: List all supported pastebins
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  group: 'General arguments:'
+  description: Print the content to stdout too
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  group: 'General arguments:'
+  description: Print this help screen
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  group: 'General arguments:'
+  description: Print the version number
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  group: 'General arguments:'
+  description: Print verbose output to stderr
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  value_name: <author>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: (default is 'ubuntu')
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  value_name: <title of paste>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: (default is none)
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: <format of paste>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: (default is 'text')
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  value_name: <jabberid>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: (default is '')
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: <permatag>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: (default is none)
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  value_name: <private level>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: (default is '1')
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  value_name: <username>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
+  description: -p <password>
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

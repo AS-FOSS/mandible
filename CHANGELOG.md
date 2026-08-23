@@ -50,6 +50,13 @@ once it reaches a published 0.1.0 release.
   `rpcinfo`'s `-T netid`, among others) with zero flags lost or gained
   anywhere in the same sweep.
 
+- **`pastebinit` reporting flag types the tool does not document (`-l`
+  carrying a fabricated value `"List"`, taken from the first word of its
+  own description) is confirmed already fixed** by the general
+  `find_sentence_start_gap` fix (`apt-ftparchive`'s `--md5 Control MD5
+  generation` shape) — no code change was needed. `corpus/pastebinit/
+  1.6.2` pins the fix as a regression fixture.
+
 - **LVM's docopt bracket-group flag rows (`vgck`, `vgextend`, `vgrename`,
   and the whole `lv*`/`vg*`/`pv*` family) rendered `verbatim` with zero
   flags.** LVM's own help emitter writes a *bare* invocation line with no
