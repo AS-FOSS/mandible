@@ -13,6 +13,7 @@ pub mod audit;
 mod merge;
 mod node;
 mod noderef;
+pub mod notice;
 mod provenance;
 mod snapshot;
 mod text;
