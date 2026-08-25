@@ -1,5 +1,4 @@
 name: nfsidmap
-description: '/usr/sbin/nfsidmap: invalid option -- ''-'''
 usage:
 - 'nfsidmap: Usage: nfsidmap [-vh] [-c || [-u|-g|-r key] || -d || -l || [-t timeout] key desc]'
 flags:

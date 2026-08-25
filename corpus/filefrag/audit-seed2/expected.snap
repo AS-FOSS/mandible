@@ -1,5 +1,4 @@
 name: filefrag
-description: '/usr/sbin/filefrag: invalid option -- ''-'''
 usage:
 - 'Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...'
 flags:

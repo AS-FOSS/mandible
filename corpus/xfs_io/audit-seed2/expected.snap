@@ -1,5 +1,4 @@
 name: xfs_io
-description: '/usr/sbin/xfs_io: invalid option -- ''-'''
 usage:
 - 'Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file'
 flags:

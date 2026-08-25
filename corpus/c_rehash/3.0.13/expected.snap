@@ -1,0 +1,8 @@
+name: c_rehash
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true
+unparsed:
+- Usage error; try -h.
