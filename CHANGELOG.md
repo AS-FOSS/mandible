@@ -8,6 +8,35 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A tool's own getopt-family "unrecognized option" complaint about the
+  `--help` probe could become the DESCRIPTION mandible shows in the TUI.**
+  A program with no `--help` of its own (`ssh-keygen`, whose parser has
+  none) answers the probe by printing its own one-line complaint —
+  `unknown option -- -` — sometimes followed by a real usage block,
+  sometimes (`c_rehash --help`: `Usage error; try -h.`) not followed by
+  anything at all. `mandible-extract/src/help_text/sections.rs`'s
+  leading-prose-becomes-the-description rule had no way to tell that
+  complaint apart from real descriptive prose. Two new predicates,
+  `is_option_error_line`/`is_option_error_paragraph`, recognize the
+  narrow, well-known shape (an optional `<progname>: ` prefix, then
+  `unknown`/`invalid`/`illegal`/`unrecognized option(s)` or busybox's
+  `Usage error; try -h.`, with at most a short flag-shaped trailer) and
+  drop it — including when it is the tool's *only* leading paragraph, in
+  which case the node now has no description at all rather than the
+  probe's own error text. Measured over the 2,301 frozen captures in
+  `audit/queue-captures/`: 116 tools have their DESCRIPTION changed by
+  this fix (`ssh`, `ssh-keygen`, `ssh-agent`, `sftp`, `c_rehash`, `nginx`,
+  `ping`, all fifteen probed `xfs_*` tools, and more — full list in the
+  fix's PR description); a broader, same-keyword-anywhere shape
+  additionally matches 52 tools this fix deliberately leaves untouched,
+  each for a specific, checked reason (a log-framed or otherwise
+  multi-token prefix, a real banner ahead of the complaint, or a later
+  line in the same paragraph carrying real content this fix will not risk
+  discarding). Full-`PATH` sweep confirms zero flag/subcommand/status
+  regressions — this fix touches only the `description` field.
+
 ## [0.4.2] - 2026-08-24
 
 ### Fixed

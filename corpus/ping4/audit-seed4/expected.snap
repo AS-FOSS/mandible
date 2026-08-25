@@ -1,5 +1,4 @@
 name: ping4
-description: '/usr/bin/ping4: invalid option -- ''-'''
 flags:
 - short: 'a'
   description: use audible ping
