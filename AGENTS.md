@@ -51,6 +51,7 @@ wording if you need the AGENTS.md-local phrasing.)
 | Never call an O(n)-or-worse function from inside a `while` loop's own *condition* | general Rust pitfall, not specific to one file | It reruns every iteration, turning a linear function quadratic. Found via the coverage harness on a genuinely degenerate input (a REPL that ignores `--help` and free-runs printing its own banner): one tool took 153s instead of milliseconds. Compute it once, before the loop. |
 | **A reproduction beats three rounds of reasoning.** When a bug resists explanation, reproduce it under the real harness (§3.2) before trusting the next theory. | general debugging method, not one file | [M-19], the `mandible systemctl` freeze: two successive theories — a pager, then a `/dev/tty`/session hazard ([M-17]) — were each individually *disproved by measurement*, not settled by more reasoning about the code. The real mechanism: `systemctl <anything...> --help` returns the tool's own root help byte-identically no matter what precedes it or how deep, so the background warmer's per-node probing treated every one of those fabricated "deeper" nodes as real, cascading 18 → 18² → 18³ subcommands toward the 4,096-node cap and starving the UI thread's own scheduling. Nobody was going to reason their way to that from the code; a `scripts/pty_screenshot.py` reproduction found it directly. |
 | **Never write into a CHANGELOG section whose version is already tagged.** New notes go under `## [Unreleased]`. | `CHANGELOG.md`, enforced by `scripts/changelog_guard.sh` in CI | A released section is history: it describes what that tag published, and the release body is generated from it (`scripts/changelog_section.sh`). On 2026-08-12 a change appended roughly 56 lines describing unreleased work under `## [0.2.2]`, a version tagged and published weeks earlier. Nothing complained, and the misattribution would have gone out with the next release. The guard compares every `## [X.Y.Z]` that has a matching `vX.Y.Z` tag against the section that tag actually published, so this fails in CI rather than in a reviewer's memory. |
+| **A CHANGELOG entry is one line: never insert manual line breaks to make it "compact" or "readable" in the source.** | `CHANGELOG.md` | The release body and any renderer reflow markdown themselves; hand-wrapped lines only make entries inconsistent with each other and turn every later edit into a re-wrapping exercise. Write the whole entry as a single logical line and trust whatever displays it. (Maintainer rule, 2026-08-26.) |
 | **A framework protocol word is never sent to a tool without prior evidence the tool speaks that protocol** — evidence read from the artifact or from the tool's own output, never from its name | `native/` (cobra marker), `completion_script/` (cobra marker or a `completion` command row in the tool's own `--help`), spec §6 rule 1a | `__complete`, `completion <shell>` and `-- <partial>` are subcommand invocations only inside the framework that defines them; to any other program they are ordinary positionals, i.e. rule 1's bare invocation with a non-empty argv. Rule 2's closed list is not wrong, its premise is: **every shape on it was validated against tools that parse argv**, and a program that ignores argv and starts anyway is outside that premise. Both incidents are the same failure — `wall __complete` broadcast a word to every terminal on a machine, and `<tool> completion zsh`/`bash` left **437 daemons running**. Neither was a bad shape; both were a right shape sent to the wrong program. Do not fix this by growing `HELP_ONLY_PROBE`: a name list is §1's forbidden knowledge wearing a safety costume, and it can only ever name the tools someone has already been bitten by. |
 | **A probe is not complete while its descendants are alive.** Reaping the process group is necessary and not sufficient | `mandible-extract/src/exec/reap.rs`, spec §6 rule 4 | A program that daemonises leaves the process group *and* the session on its own (`fork`, parent exits, child `setsid`s), after which nothing about the survivor points back at the probe. **622 processes** were found left behind on a developer box, the oldest five days old, `guacd` holding `127.0.0.1:4822` and `sudo_logsrvd` holding `0.0.0.0:30343`. Crucially **not a hang** — all 2,302 `probe-start` lines in a traced sweep had a matching `probe-done` — so no timeout change could have helped, and reading the symptom as "the probe is slow" sends you at the wrong mechanism. The fix is adoption (child subreaper) plus a per-invocation environment token for attribution; the token is what stops it from becoming an indiscriminate kill of everything adopted. It is the *second* layer — the first is not sending the probe at all (row above). |
 
@@ -169,18 +170,18 @@ prose.
 
 These cost real time when rediscovered.
 
-- **`rm` on the maintainer's dev box is aliased to a trash tool that does not
-  free disk space.** It moves files to `~/.local/share/Trash`, so a cleanup can
-  report success while the disk stays full. Thirty agent worktrees once held
-  ~90G of `target/` between them, the disk hit 100%, and three running agents
-  broke mid-task — each of them independently fighting the same wall. Use
-  `/bin/rm`, and check `~/.local/share/Trash` before believing a cleanup
-  worked.
+- **Never assume `rm` frees disk space — on some machines it is aliased to a
+  trash tool.** Such an alias moves files to `~/.local/share/Trash`, so a
+  cleanup can report success while the disk stays full. Thirty agent worktrees
+  once held ~90G of `target/` between them, the disk hit 100%, and three
+  running agents broke mid-task — each of them independently fighting the same
+  wall. Check `type rm` once per host; if it is aliased, use `/bin/rm`, and
+  check the trash directory before believing a cleanup worked.
 - **Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`,** which
   blocks the unprivileged user namespaces `exec::containment` builds a
   full-`PATH` sweep's containment out of. It is the default on GitHub's
-  `ubuntu-latest` *and* on the dev box, and it can flip mid-session; it
-  surfaces as two failing `exec::containment` tests. CI grants the capability
+  `ubuntu-latest` and on stock Ubuntu 24.04 developer machines, and it can flip
+  mid-session; it surfaces as two failing `exec::containment` tests. CI grants the capability
   in the test job (`sudo sysctl -w
   kernel.apparmor_restrict_unprivileged_userns=0`). **That grants what the test
   demands; it does not relax the assertion** — the test exists so a host which
@@ -191,8 +192,8 @@ These cost real time when rediscovered.
   which `-D warnings` rejects. Two rounds of red CI were once spent guessing at
   it. Check locally instead: `rustup target add aarch64-apple-darwin`, then
   `cargo clippy --workspace --target aarch64-apple-darwin --all-targets -- -D
-  warnings`. Tests cannot be *linked* for macOS on the aarch64 Linux box, but
-  clippy type-checks everything and catches the whole class.
+  warnings`. Tests cannot be *linked* for macOS from a Linux host, but clippy
+  type-checks everything and catches the whole class.
 - **A fresh agent worktree is created from the repository's default branch, not
   from the branch you are working on.** Five of six agents in one session began
   on a months-old release tag, and one of them wrote an entire task against it
