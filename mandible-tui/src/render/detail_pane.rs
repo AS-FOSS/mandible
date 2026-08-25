@@ -249,16 +249,19 @@ fn render_verbatim(
 /// tool-authored bytes. Keeping this recognition here avoids changing the raw
 /// help API or tree model solely to carry presentation metadata.
 fn unverified_notice_prefix_len(body: &[String]) -> usize {
-    const PREFIX: &str = "mandible could not verify \"";
+    use mandible_core::notice::{ROOT_HELP_FALLBACK_LABEL, UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX};
 
-    if !body.first().is_some_and(|line| line.starts_with(PREFIX)) {
+    if !body
+        .first()
+        .is_some_and(|line| line.starts_with(UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX))
+    {
         return 0;
     }
 
     if body.get(1).is_some_and(String::is_empty)
-        && body.get(2).is_some_and(|line| {
-            line == "Showing the tool's own root --help instead, labelled below:"
-        })
+        && body
+            .get(2)
+            .is_some_and(|line| line == ROOT_HELP_FALLBACK_LABEL)
         && body.get(3).is_some_and(String::is_empty)
     {
         4

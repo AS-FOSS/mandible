@@ -10,8 +10,11 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
-- Long unverified-subcommand notices now wrap inside the detail pane instead
-  of being clipped in the raw-help view.
+- Long unverified-subcommand notices now wrap inside the detail pane instead of being clipped in the raw-help view. ([#38](https://github.com/AS-FOSS/mandible/pull/38))
+
+### Thanks
+
+- [@Daniele-Cangi](https://github.com/Daniele-Cangi) for the detail-pane notice wrapping fix ([#38](https://github.com/AS-FOSS/mandible/pull/38)) — mandible's first outside contribution.
 
 ## [0.4.2] - 2026-08-24
 

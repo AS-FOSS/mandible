@@ -956,11 +956,12 @@ fn not_attested_fallback(
 ) -> (Vec<Text>, String) {
     let attempted = words.join(" ");
     let mut lines = vec![Text::sanitize_preserving_layout(&format!(
-        "mandible could not verify \"{attempted}\" as a real subcommand name: it came from a \
+        "{prefix}{attempted}\" as a real subcommand name: it came from a \
          source the probe-safety gate does not accept as evidence a word is safe to run (a \
          native/cobra artifact scan, or a headingless invocation table's layout evidence — \
          neither is a recognized --help heading), so it was never sent as an argument. This is \
-         a known limitation of the gate, not something already worked around."
+         a known limitation of the gate, not something already worked around.",
+        prefix = mandible_core::notice::UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX
     ))];
 
     // `words` is `&[]` here, so `heading_attested`'s value is irrelevant —
@@ -978,7 +979,7 @@ fn not_attested_fallback(
         if !root_streams.is_empty() {
             lines.push(Text::sanitize_preserving_layout(""));
             lines.push(Text::sanitize_preserving_layout(
-                "Showing the tool's own root --help instead, labelled below:",
+                mandible_core::notice::ROOT_HELP_FALLBACK_LABEL,
             ));
             lines.push(Text::sanitize_preserving_layout(""));
             lines.extend(format_streams(&root_streams));
