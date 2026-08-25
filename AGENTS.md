@@ -170,18 +170,18 @@ prose.
 
 These cost real time when rediscovered.
 
-- **`rm` on the maintainer's dev box is aliased to a trash tool that does not
-  free disk space.** It moves files to `~/.local/share/Trash`, so a cleanup can
-  report success while the disk stays full. Thirty agent worktrees once held
-  ~90G of `target/` between them, the disk hit 100%, and three running agents
-  broke mid-task — each of them independently fighting the same wall. Use
-  `/bin/rm`, and check `~/.local/share/Trash` before believing a cleanup
-  worked.
+- **Never assume `rm` frees disk space — on some machines it is aliased to a
+  trash tool.** Such an alias moves files to `~/.local/share/Trash`, so a
+  cleanup can report success while the disk stays full. Thirty agent worktrees
+  once held ~90G of `target/` between them, the disk hit 100%, and three
+  running agents broke mid-task — each of them independently fighting the same
+  wall. Check `type rm` once per host; if it is aliased, use `/bin/rm`, and
+  check the trash directory before believing a cleanup worked.
 - **Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`,** which
   blocks the unprivileged user namespaces `exec::containment` builds a
   full-`PATH` sweep's containment out of. It is the default on GitHub's
-  `ubuntu-latest` *and* on the dev box, and it can flip mid-session; it
-  surfaces as two failing `exec::containment` tests. CI grants the capability
+  `ubuntu-latest` and on stock Ubuntu 24.04 developer machines, and it can flip
+  mid-session; it surfaces as two failing `exec::containment` tests. CI grants the capability
   in the test job (`sudo sysctl -w
   kernel.apparmor_restrict_unprivileged_userns=0`). **That grants what the test
   demands; it does not relax the assertion** — the test exists so a host which
@@ -192,8 +192,8 @@ These cost real time when rediscovered.
   which `-D warnings` rejects. Two rounds of red CI were once spent guessing at
   it. Check locally instead: `rustup target add aarch64-apple-darwin`, then
   `cargo clippy --workspace --target aarch64-apple-darwin --all-targets -- -D
-  warnings`. Tests cannot be *linked* for macOS on the aarch64 Linux box, but
-  clippy type-checks everything and catches the whole class.
+  warnings`. Tests cannot be *linked* for macOS from a Linux host, but clippy
+  type-checks everything and catches the whole class.
 - **A fresh agent worktree is created from the repository's default branch, not
   from the branch you are working on.** Five of six agents in one session began
   on a months-old release tag, and one of them wrote an entire task against it
