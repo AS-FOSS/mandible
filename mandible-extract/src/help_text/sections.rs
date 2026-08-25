@@ -1842,8 +1842,31 @@ fn token_is_uniformly_lowercase(token: &str) -> bool {
     !token.chars().any(|c| c.is_ascii_uppercase())
 }
 
+/// A ratio computed from an option-table sample of zero *or one* row is not
+/// a measurement, and treating it as one produced a real bug: `ssh-keygen
+/// --help` writes nothing but a 30-line usage synopsis, and the final
+/// wrapped continuation line of its last invocation form
+/// (`-n namespace -s signature_file [-r krl_file] [-O option]`) opens with a
+/// dash, which the usage-block scanner's own curl-shaped-flags guard
+/// (above, "a continuation line that itself reads as a flag entry ends the
+/// usage block") correctly hands to the generic flags-block scanner — that
+/// guard exists precisely so a tool like `curl`, which runs 13 real flags
+/// straight into its usage line with no heading, does not lose them. For
+/// `curl` the handoff finds a real table. For `ssh-keygen` there is nothing
+/// real to find — the line is a wrap artifact, not a table row — so the
+/// scanner reads exactly one entry, fails to parse it cleanly (it is not
+/// one), and `0 / 1` reads as "the grammar understood *nothing*", a
+/// confident zero indistinguishable in the footer from `find` (19 rows, 2
+/// clean) or `ip` (11 rows, 7 clean) — tools where the ratio is a real
+/// measurement over a real sample. A sample this small can land at 0.0 or
+/// 1.0 on either side of that same ambiguity and says nothing reliable
+/// about the document either way, so it is folded into the same
+/// no-real-sample fallback already used for zero entries, rather than
+/// divided.
+const MIN_MEANINGFUL_SAMPLE: usize = 2;
+
 fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: bool) -> f32 {
-    if total_entries == 0 {
+    if total_entries < MIN_MEANINGFUL_SAMPLE {
         return if had_usage { 0.5 } else { 0.15 };
     }
     (clean_entries as f32 / total_entries as f32).clamp(0.0, 1.0)

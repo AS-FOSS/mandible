@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The TUI footer's confidence badge read `low confidence: 0% parsed` for `ssh-keygen` while `--doctor` reported `100.0% flags with text` for the same document.** Root cause, confirmed by instrumenting `mandible-extract`'s real pipeline against the frozen `ssh-keygen` capture: `ssh-keygen --help` is a pure usage synopsis with no real option table, but its last invocation form wraps onto a continuation line that opens with a dash (`-n namespace -s signature_file [-r krl_file] [-O option]`), which the usage-block scanner's own curl-shaped-flags guard correctly hands to the generic flags scanner — the guard exists so `curl`, which runs 13 real flags straight into its usage line, doesn't lose them, but here there is nothing real to find, so the scanner reads exactly one option-table row, fails to parse it cleanly, and `0 / 1` reported a confident total failure from a sample of one, indistinguishable from `find`'s or `ip`'s genuine low scores over a real 19-/11-row sample. Fixed at the source: `sections::compute_confidence` now folds a sample of zero *or one* option-table row into the same "no real sample" fallback already used for zero rows, rather than dividing by it — `ssh-keygen` now lands at the same `0.5` "unidentified but parsed as cleanly as we can tell" cap as `git`/`curl`/`apt-get`, the footer shows no caveat, and `find`/`ip`'s real low-confidence badges are untouched (verified via a full `PATH` sweep-diff: 0 status transitions, 0 field-level changes across 2254 tools).
+
 ## [0.4.2] - 2026-08-24
 
 ### Fixed

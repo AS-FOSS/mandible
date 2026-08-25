@@ -244,5 +244,5 @@ flags:
 provenance:
   sources:
   - help-text
-  confidence: 0.0
+  confidence: 0.5
 children_filled: true

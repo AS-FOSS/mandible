@@ -897,8 +897,29 @@ pub fn provenance_summary(node: &CommandNode) -> String {
 /// 0.5 is exactly the cap Tier B applies when no framework was identified
 /// but the generic engine parsed cleanly — `git`, `curl`, `apt-get` and
 /// `openssl` all sit there and are fine. What is worth warning about is
-/// well below it: `find` scores 0.11 and `ip` 0.09, meaning the grammar
-/// recognised almost nothing and what is on screen is a guess.
+/// well below it: `find` and `ip` both measure well under it (real
+/// samples, mostly unclean), meaning the grammar recognised almost nothing
+/// and what is on screen is a guess.
+///
+/// `node.provenance.confidence` is `mandible-extract`'s
+/// `sections::compute_confidence`: clean/total over the option-table rows
+/// the block scanner found, not a statement about the whole document (that
+/// is `--doctor`'s separate `flag_description_ratio`, described/describable
+/// over every flag — see `mandible/src/doctor.rs`'s header comment). The
+/// two disagreeing is not automatically a bug — they measure different
+/// things — but `ssh-keygen --help` (pure usage synopsis, zero real
+/// option-table rows) used to read `0.0` here while `--doctor` reported
+/// 100%: the block scanner's own curl-shaped-flags guard correctly handed
+/// the wrapped final continuation line of `ssh-keygen`'s last usage form
+/// (`-n namespace -s signature_file [-r krl_file] [-O option]`, which
+/// opens with a dash) to the generic flags scanner, which read it as
+/// exactly one option-table row, failed to parse it cleanly (it is not
+/// one), and `0 / 1` reported a confident total failure from a sample of
+/// one. Fixed at the source (`sections::compute_confidence`'s
+/// `MIN_MEANINGFUL_SAMPLE`): a sample of zero *or one* row is folded into
+/// the same "no real sample" fallback, not divided. `find`'s 19-row and
+/// `ip`'s 11-row samples are untouched by that fix and still read as real,
+/// low scores here.
 const LOW_CONFIDENCE: f32 = 0.5;
 
 /// A caveat about *this* node, or nothing at all.
@@ -1251,8 +1272,9 @@ mod tests {
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
 
         // Exactly at the threshold is Tier B's "no framework identified but
-        // parsed cleanly" cap, where git, curl and apt-get sit. Not a
-        // warning.
+        // parsed cleanly" cap, where git, curl, apt-get — and, since
+        // `sections::compute_confidence`'s `MIN_MEANINGFUL_SAMPLE` fix,
+        // ssh-keygen — all sit. Not a warning.
         node.provenance = Provenance::with_confidence(Source::HelpText, LOW_CONFIDENCE);
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
     }
