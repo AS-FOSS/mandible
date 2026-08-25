@@ -1842,10 +1842,10 @@ fn token_is_uniformly_lowercase(token: &str) -> bool {
     !token.chars().any(|c| c.is_ascii_uppercase())
 }
 
-/// A ratio computed from an option-table sample of zero *or one* row is not
-/// a measurement, and treating it as one produced a real bug: `ssh-keygen
-/// --help` writes nothing but a 30-line usage synopsis, and the final
-/// wrapped continuation line of its last invocation form
+/// A ratio computed from an option-table sample of exactly **one** row is
+/// not a measurement, and treating it as one produced a real bug:
+/// `ssh-keygen --help` writes nothing but a 30-line usage synopsis, and the
+/// final wrapped continuation line of its last invocation form
 /// (`-n namespace -s signature_file [-r krl_file] [-O option]`) opens with a
 /// dash, which the usage-block scanner's own curl-shaped-flags guard
 /// (above, "a continuation line that itself reads as a flag entry ends the
@@ -1858,15 +1858,66 @@ fn token_is_uniformly_lowercase(token: &str) -> bool {
 /// one), and `0 / 1` reads as "the grammar understood *nothing*", a
 /// confident zero indistinguishable in the footer from `find` (19 rows, 2
 /// clean) or `ip` (11 rows, 7 clean) — tools where the ratio is a real
-/// measurement over a real sample. A sample this small can land at 0.0 or
-/// 1.0 on either side of that same ambiguity and says nothing reliable
-/// about the document either way, so it is folded into the same
-/// no-real-sample fallback already used for zero entries, rather than
-/// divided.
-const MIN_MEANINGFUL_SAMPLE: usize = 2;
+/// measurement over a real sample.
+///
+/// **A one-row sample is folded into a dedicated fallback, `0.5`, and
+/// deliberately *not* the same zero-row fallback that already exists
+/// below.** An earlier version of this fix folded `total_entries <= 1` into
+/// the zero-row arm (`had_usage ? 0.5 : 0.15`), which inherits that arm's
+/// usage-line penalty for a reason that does not apply here: the penalty
+/// exists because finding *no* structure at all *and* no usage line is a
+/// stronger signal of a bad parse than finding no structure but at least a
+/// usage line. A one-row sample is a different situation — real structure
+/// *was* found, there just isn't enough of it to divide by.
+///
+/// **Measured, not asserted.** A one-off scan of every frozen capture in
+/// `audit/queue-captures/` (2,301 tools; untracked, local-only, not part of
+/// CI) against `total_entries == 1` splits four ways: 16 tools clean/with a
+/// usage line (already `1.0`, unaffected either way), 12 unclean/with a
+/// usage line and 11 unclean/without one (both were a confident `0.0`
+/// before this fix — `ssh-keygen` is one of these 23 — and land at `0.5`
+/// under both the buggy and the corrected rule, so both versions of this
+/// fix fix them), and — the case that proves the *first* version of this
+/// fix wrong — 7 tools clean/without a usage line (`byobu-disable`,
+/// `byobu-enable`, `bzless`, `bzmore`, `debconf-apt-progress`,
+/// `validlocale`, `xdg-user-dir`), each a real, cleanly-parsed single flag
+/// that a version folding `total_entries <= 1` into the zero-row arm took
+/// from a correct `1.0` down to a fabricated `0.15`, stamping `low
+/// confidence: 15% parsed` on a document that parsed fine — the same class
+/// of dishonesty this fix exists to remove, in the other direction. `0/1`
+/// and `1/1` are equally uninformative regardless of whether a usage line
+/// happened to be present, so both land at the same `0.5` "found
+/// structure, cannot rate it" value the zero-row arm already uses for its
+/// *better* case, independent of `had_usage`. Net effect of the corrected
+/// rule against the true pre-this-PR baseline, same scan: 0 tools gain a
+/// badge, 23 lose one (the tools above whose one row was unclean).
+///
+/// **A spot-check of five of those 23** (`e4defrag`, `unix_chkpwd`,
+/// `iscsi_discovery`, `finalrd`, `rust-gdbgui`), reading each tool's raw
+/// captured text directly: none of them is a case where silence hides a
+/// real problem. Each one's single recovered "entry" is noise from
+/// something that is not option-table structure at all — a setuid
+/// helper's refusal message (`unix_chkpwd`: "This binary is not designed
+/// for running in this way"), a mount permission error (`finalrd`), an
+/// IP-address parser rejecting `--help` as a bad address
+/// (`iscsi_discovery`), a `Usage\t:` line whose tab-before-colon spelling
+/// this grammar's marker recognizer doesn't match (`e4defrag`), and a
+/// wrapper script's prose usage note with no `Usage:` marker at all
+/// (`rust-gdbgui`). None of these documents ever had real option-table
+/// content for `compute_confidence` to rate; the previous confident `0.0`
+/// was exactly as uninformative as the new silent `0.5`, just dressed as a
+/// finding instead of admitting it wasn't one. The actual gap here — a
+/// handful of grammar/tier-routing cases that misread an error message or
+/// an unrecognized usage-marker spelling as one flag — is real but
+/// pre-existing and out of this fix's scope (it is not something
+/// `compute_confidence` can fix by choosing a different number).
+const SINGLE_ROW_SAMPLE_CONFIDENCE: f32 = 0.5;
 
 fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: bool) -> f32 {
-    if total_entries < MIN_MEANINGFUL_SAMPLE {
+    if total_entries == 1 {
+        return SINGLE_ROW_SAMPLE_CONFIDENCE;
+    }
+    if total_entries == 0 {
         return if had_usage { 0.5 } else { 0.15 };
     }
     (clean_entries as f32 / total_entries as f32).clamp(0.0, 1.0)
@@ -6561,6 +6612,52 @@ fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- compute_confidence's one-row-sample fallback -------------------
+
+    /// Pins all four `total_entries == 1` combinations. The regression
+    /// this guards against: an earlier version of this fix folded
+    /// `total_entries <= 1` into the *zero-row* fallback (`had_usage ? 0.5
+    /// : 0.15`), which silently applied that arm's usage-line penalty to a
+    /// case it was never designed for — a one-row sample that parsed
+    /// *cleanly* and had no usage line dropped from a correct `1.0` to a
+    /// fabricated-low `0.15`, measured on 10 real tools (`byobu-disable`,
+    /// `bzip2recover`, `debconf`, `uvicorn`, ... — see this function's own
+    /// doc comment). A single row is uninformative regardless of clean/dirty
+    /// or usage-line presence, so all four combinations below must land at
+    /// the same `SINGLE_ROW_SAMPLE_CONFIDENCE`.
+    #[test]
+    fn a_single_row_sample_is_uninformative_regardless_of_usage_or_cleanliness() {
+        assert_eq!(compute_confidence(1, 0, true), SINGLE_ROW_SAMPLE_CONFIDENCE);
+        assert_eq!(compute_confidence(1, 1, true), SINGLE_ROW_SAMPLE_CONFIDENCE);
+        assert_eq!(
+            compute_confidence(1, 0, false),
+            SINGLE_ROW_SAMPLE_CONFIDENCE
+        );
+        assert_eq!(
+            compute_confidence(1, 1, false),
+            SINGLE_ROW_SAMPLE_CONFIDENCE
+        );
+    }
+
+    /// The zero-row fallback is untouched by the one-row fix: it still
+    /// carries its own usage-line penalty (long-standing, calibrated
+    /// behavior, not this fix's to move).
+    #[test]
+    fn a_zero_row_sample_keeps_its_usage_line_penalty() {
+        assert_eq!(compute_confidence(0, 0, true), 0.5);
+        assert_eq!(compute_confidence(0, 0, false), 0.15);
+    }
+
+    /// A real sample (two or more rows) is untouched: still a plain
+    /// ratio, not folded into either fallback. `find`'s real shape (19
+    /// rows, 2 clean) must keep dividing.
+    #[test]
+    fn a_two_or_more_row_sample_still_divides() {
+        assert!((compute_confidence(19, 2, true) - (2.0 / 19.0)).abs() < 1e-6);
+        assert_eq!(compute_confidence(4, 4, false), 1.0);
+        assert_eq!(compute_confidence(4, 0, false), 0.0);
+    }
 
     // --- the repeated-character flag repair -----------------------------
 
