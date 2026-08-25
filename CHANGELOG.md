@@ -10,6 +10,7 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- A tool's own getopt-family "unrecognized option" complaint about the `--help` probe (e.g. `ssh-keygen`'s `unknown option -- -`, or `c_rehash`'s entire output, `Usage error; try -h.`) could become the DESCRIPTION mandible shows in the TUI; two new predicates in `mandible-extract/src/help_text/sections.rs`, `is_option_error_line`/`is_option_error_paragraph`, recognize the narrow, well-known shape and drop it, even when it is the tool's only leading paragraph — measured over the 2,301 frozen captures in `audit/queue-captures/`, 116 tools have their DESCRIPTION changed by this fix, with zero flag/subcommand/status regressions on a full-`PATH` sweep (full measurement and the deliberately-excluded broader shape's 52 tools are in the fix's PR description).
 - Long unverified-subcommand notices now wrap inside the detail pane instead of being clipped in the raw-help view. ([#38](https://github.com/AS-FOSS/mandible/pull/38))
 
 ### Thanks

@@ -1,0 +1,47 @@
+# Regression fixture for `is_option_error_paragraph`/`is_option_error_line`
+# (`mandible-extract/src/help_text/sections.rs`), the fix for a leading
+# stderr option-error line becoming the DESCRIPTION.
+#
+# `c_rehash` is a perl script bundled with OpenSSL; it has no `--version`
+# of its own, hence the OpenSSL release that ships it as this fixture's
+# version. It has no `--help` either — only `-h`/`-help` — so probing it
+# with `--help` hits its own option parser's complaint before anything
+# else, and its *entire* captured output is one line: `Usage error; try
+# -h.`. Before this fix, `sections::parse_with_profile` set
+# `ParsedHelp::description` to exactly that line — the tool's complaint
+# about the probe's argument, not a description of what `c_rehash` does.
+#
+# Honest residual, deliberately not claimed by this fixture: because
+# `c_rehash --help` recovers no flags, no subcommands and no usage block,
+# `mandible-extract::help_text::build_node`'s `structurally_plausible`
+# check was already false either way, so the root node already degraded
+# to the verbatim/raw-text tier (`node.unparsed`, confidence 0.0)
+# regardless of this fix — the TUI's DESCRIPTION pane was never reachable
+# here to begin with (verified: `pty_screenshot.py` output is
+# byte-identical before and after this fix for this exact tool). This
+# fixture pins the fix at the level it actually operates on —
+# `ParsedHelp::description` — via the frozen `expected.snap`, which
+# freezes the whole `CommandNode` and therefore proves `description` is
+# absent (`null`) rather than merely unobserved. `ssh-keygen`
+# (`corpus/ssh-keygen/9.6p1`) is the fixture that demonstrates this fix's
+# *visible* effect, because its usage block keeps it out of the verbatim
+# tier.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "c_rehash"
+version = "3.0.13"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.2"
+
+[[capture]]
+argv = ["c_rehash", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"

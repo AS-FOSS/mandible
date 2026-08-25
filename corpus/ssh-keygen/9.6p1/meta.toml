@@ -15,6 +15,17 @@
 # separate, narrower, already-documented gap in the bundle detector, not
 # the bare-token-value defect this fixture locks in; see
 # `corpus/ssh-keygen/audit-seed2` (`[xfail]`, "missing -U") for it.
+#
+# Re-blessed for a second, independent fix: `sections::is_option_error_line`
+# / `is_option_error_paragraph` now recognize this capture's leading
+# stderr line, `unknown option -- -` (ssh-keygen's own getopt complaint
+# about the `--help` probe, not a description of the tool), and drop it
+# rather than surface it as `description`. It was the tool's *only*
+# leading paragraph, so the tree's `description` field is now absent
+# entirely rather than replaced with something else — the honest outcome
+# per that predicate's own doc comment. Confirmed by
+# `pty_screenshot.py`: the DESCRIPTION pane this line used to populate is
+# gone from the detail pane, which now opens directly on USAGE.
 
 [bless]
 provenance = "agent"
