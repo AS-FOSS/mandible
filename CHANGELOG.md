@@ -8,6 +8,11 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Long unverified-subcommand notices now wrap inside the detail pane instead
+  of being clipped in the raw-help view.
+
 ## [0.4.2] - 2026-08-24
 
 ### Fixed

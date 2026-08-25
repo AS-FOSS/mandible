@@ -188,8 +188,9 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// per entry, labelled so it reads as "the author's own text", not a
 /// mandible parse.
 ///
-/// Deliberately **not** run through [`wrap_words`] and **not** given
-/// `Paragraph::wrap` the way every other block in this pane is (see this
+/// Tool-authored body lines are deliberately **not** run through
+/// [`wrap_words`] and are not given `Paragraph::wrap` the way every other
+/// block in this pane is (see this
 /// module's top doc comment on why the rest of the pane pre-wraps
 /// everything itself) — this is preformatted output, and re-wrapping it
 /// would silently edit the tool author's own text. Without `Wrap`,
@@ -207,7 +208,9 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// (`mandible-extract`'s `help_text::raw_help*`) — both of which guarantee
 /// no embedded control characters or newlines reach here; they differ only
 /// in whether whitespace/indentation is collapsed, never in that safety
-/// property.
+/// property. The heading and the recognizable unverified-subcommand notice
+/// prefix are different: they are prose owned by mandible, so they wrap at the
+/// current inner width while the tool lines after them stay untouched.
 fn render_verbatim(
     frame: &mut Frame,
     inner: Rect,
@@ -216,18 +219,76 @@ fn render_verbatim(
     body: impl Iterator<Item = String>,
 ) {
     let mut lines: Vec<Line<'static>> = Vec::new();
-    lines.push(Line::from(Span::styled(
-        heading.to_string(),
-        style::muted_bold(app.color_enabled),
-    )));
+    let width = inner.width as usize;
+    for chunk in wrap_words(heading, width) {
+        lines.push(Line::from(Span::styled(
+            chunk,
+            style::muted_bold(app.color_enabled),
+        )));
+    }
     lines.push(Line::default());
-    for text in body {
-        lines.push(Line::from(text));
+    let body: Vec<String> = body.collect();
+    let wrapped_prefix_lines = unverified_notice_prefix_len(&body);
+    for (index, text) in body.into_iter().enumerate() {
+        if index < wrapped_prefix_lines {
+            push_wrapped_notice(&mut lines, &text, width);
+        } else {
+            lines.push(Line::from(text));
+        }
     }
     app.set_detail_extent(lines.len(), inner.height as usize);
     let scroll = app.clamped_detail_scroll() as u16;
     let paragraph = Paragraph::new(lines).scroll((scroll, 0));
     frame.render_widget(paragraph, inner);
+}
+
+/// Recognize only the display-only prose prepended by `not_attested_fallback`.
+///
+/// The first sentence is always present. A successful safe root-help fallback
+/// adds a blank, mandible's explanatory label, and another blank before the
+/// tool-authored bytes. Keeping this recognition here avoids changing the raw
+/// help API or tree model solely to carry presentation metadata.
+fn unverified_notice_prefix_len(body: &[String]) -> usize {
+    const PREFIX: &str = "mandible could not verify \"";
+
+    if !body.first().is_some_and(|line| line.starts_with(PREFIX)) {
+        return 0;
+    }
+
+    if body.get(1).is_some_and(String::is_empty)
+        && body.get(2).is_some_and(|line| {
+            line == "Showing the tool's own root --help instead, labelled below:"
+        })
+        && body.get(3).is_some_and(String::is_empty)
+    {
+        4
+    } else {
+        1
+    }
+}
+
+/// Add one mandible-authored notice paragraph with a stable block indent.
+///
+/// The raw-help body after this prefix is intentionally preformatted; only
+/// prose created by mandible takes this path. [`wrap_words`] supplies the
+/// display-width-aware long-token splitting used by the structured detail
+/// pane, so CJK and emoji cannot turn a character count into a border overrun.
+fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize) {
+    if text.is_empty() {
+        lines.push(Line::default());
+        return;
+    }
+
+    const INDENT: &str = "  ";
+    let indent = if width > display_width(INDENT) {
+        INDENT
+    } else {
+        ""
+    };
+    let available = width.saturating_sub(display_width(indent)).max(1);
+    for chunk in wrap_words(text, available) {
+        lines.push(Line::from(format!("{indent}{chunk}")));
+    }
 }
 
 /// The rendered detail-pane content plus where a search-targeted flag
