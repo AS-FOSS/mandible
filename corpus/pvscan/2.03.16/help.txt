@@ -1,0 +1,78 @@
+  pvscan - List all physical volumes
+
+  Display PV information.
+  pvscan
+	[ -e|--exported ]
+	[ -n|--novolumegroup ]
+	[ -s|--short ]
+	[ -u|--uuid ]
+	[    --ignorelockingfailure ]
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+
+  Record that a PV is online or offline.
+  pvscan --cache
+	[ -j|--major Number ]
+	[    --ignorelockingfailure ]
+	[    --reportformat basic|json ]
+	[    --minor Number ]
+	[    --noudevsync ]
+	[ COMMON_OPTIONS ]
+	[ String|PV ... ]
+
+  Record that a PV is online and autoactivate the VG if complete.
+  pvscan --cache -a|--activate ay
+	[ -j|--major Number ]
+	[    --ignorelockingfailure ]
+	[    --reportformat basic|json ]
+	[    --minor Number ]
+	[    --noudevsync ]
+	[    --autoactivation String ]
+	[ COMMON_OPTIONS ]
+	[ String|PV ... ]
+
+  Record that a PV is online and list the VG using the PV.
+  pvscan --cache --listvg PV
+	[    --ignorelockingfailure ]
+	[    --checkcomplete ]
+	[    --vgonline ]
+	[    --udevoutput ]
+	[    --autoactivation String ]
+	[ COMMON_OPTIONS ]
+
+  Record that a PV is online and list LVs using the PV.
+  pvscan --cache --listlvs PV
+	[    --ignorelockingfailure ]
+	[    --checkcomplete ]
+	[    --vgonline ]
+	[ COMMON_OPTIONS ]
+
+  List LVs using the PV.
+  pvscan --listlvs PV
+	[ COMMON_OPTIONS ]
+
+  List the VG using the PV.
+  pvscan --listvg PV
+	[ COMMON_OPTIONS ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.

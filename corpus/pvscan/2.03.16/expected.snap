@@ -1,7 +1,12 @@
-name: vgck
+name: pvscan
 usage:
-- vgck [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag ... ]
-- vgck --updatemetadata VG [ COMMON_OPTIONS ]
+- pvscan [ -e|--exported ] [ -n|--novolumegroup ] [ -s|--short ] [ -u|--uuid ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [ COMMON_OPTIONS ]
+- pvscan --cache [ -j|--major Number ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [ --minor Number ] [ --noudevsync ] [ COMMON_OPTIONS ] [ String|PV ... ]
+- pvscan --cache -a|--activate ay [ -j|--major Number ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [ --minor Number ] [ --noudevsync ] [ --autoactivation String ] [ COMMON_OPTIONS ] [ String|PV ... ]
+- pvscan --cache --listvg PV [ --ignorelockingfailure ] [ --checkcomplete ] [ --vgonline ] [ --udevoutput ] [ --autoactivation String ] [ COMMON_OPTIONS ]
+- pvscan --cache --listlvs PV [ --ignorelockingfailure ] [ --checkcomplete ] [ --vgonline ] [ COMMON_OPTIONS ]
+- pvscan --listlvs PV [ COMMON_OPTIONS ]
+- pvscan --listvg PV [ COMMON_OPTIONS ]
 positionals:
 - name: COMMON_OPTIONS
   required: true
@@ -121,14 +126,90 @@ flags:
   provenance:
     sources:
     - help-text
+- short: 'e'
+  long: exported
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'n'
+  long: novolumegroup
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  long: short
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'u'
+  long: uuid
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: ignorelockingfailure
+  provenance:
+    sources:
+    - help-text-synopsis
 - long: reportformat
   value_name: basic|json
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- long: updatemetadata
-  value_name: VG
+- long: cache
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'j'
+  long: major
+  value_name: Number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: minor
+  value_name: Number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: noudevsync
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'a'
+  long: activate
+  value_name: ay
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: autoactivation
+  value_name: String
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: listvg
+  value_name: PV
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: checkcomplete
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: vgonline
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: udevoutput
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: listlvs
+  value_name: PV
   value_kind: Required
   provenance:
     sources:
