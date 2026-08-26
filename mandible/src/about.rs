@@ -120,6 +120,21 @@ const LETTER_DELAY: usize = 2;
 const LETTER_HEIGHT: usize = 8;
 const LETTER_SPACING: &str = "  ";
 const FPS: u64 = 20;
+/// SGR code for the wordmark's colour, xterm-256 index 30 (`#008787`, a
+/// dark cyan/teal). This isn't a named ANSI colour (spec §9.2 prefers those,
+/// since they resolve through the user's own terminal theme) because the
+/// banner is written with raw escape codes straight to stdout, outside
+/// `mandible-tui`'s `ratatui`/`crossterm` styling — there is no `Color`
+/// enum here to hand a theme-relative value to. Absent that, the fixed
+/// index has to work against both a plain black and a plain white
+/// background, which rules out a bright/pale cyan: WCAG relative-luminance
+/// contrast for xterm 30 (RGB 0,135,135) is ~4.4:1 on white and ~4.8:1 on
+/// black, close to the mathematically best a single colour can do against
+/// both extremes at once (the balance point is ~4.6:1 each way; brighter
+/// cyans such as index 80 push past 12:1 on black but drop under 2:1 on
+/// white, i.e. they wash out on a light terminal — the failure mode §9.2
+/// warns about).
+const BANNER_COLOR: &str = "38;5;30";
 
 fn max_shift() -> usize {
     TRAJECTORY.iter().copied().max().unwrap_or(0)
@@ -175,7 +190,7 @@ fn animate(color: bool) {
             let _ = write!(out, "\x1b[{canvas_height}A");
         }
         for line in frame(&offsets) {
-            let _ = writeln!(out, "\x1b[2K{}", paint(&line, "38;5;173", color));
+            let _ = writeln!(out, "\x1b[2K{}", paint(&line, BANNER_COLOR, color));
         }
         let _ = out.flush();
         std::thread::sleep(std::time::Duration::from_millis(1000 / FPS));
