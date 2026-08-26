@@ -15,31 +15,37 @@ positionals:
     sources:
     - help-text
 flags:
+- short: 'V'
+  group: 'OPTIONS :'
+  description: '| -s[tatistics] | -d[etails] | -r[esolve] |'
+  provenance:
+    sources:
+    - help-text
 - short: 'h'
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   description: '| -iec | -j[son] | -p[retty] |'
   provenance:
     sources:
     - help-text
 - short: 'f'
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   description: '{ inet | inet6 | mpls | bridge | link } |'
   provenance:
     sources:
     - help-text
 - short: '4'
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - short: 'l'
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   description: '{ maximum-addr-flush-attempts } | -br[ief] |'
   provenance:
     sources:
     - help-text
 - short: 'o'
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   description: '| -t[imestamp] | -ts[hort] | -b[atch] [filename] |'
   provenance:
     sources:
@@ -47,13 +53,13 @@ flags:
 - short: 'r'
   value_name: c[vbuf]
   value_kind: Required
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   description: '[size] | -n[etns] name | -N[umeric] | -a[ll] |'
   provenance:
     sources:
     - help-text
 - short: 'c'
-  group: OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+  group: 'OPTIONS :'
   provenance:
     sources:
     - help-text

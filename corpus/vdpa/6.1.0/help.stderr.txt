@@ -1,0 +1,3 @@
+Usage: vdpa [ OPTIONS ] OBJECT { COMMAND | help }
+where  OBJECT := { mgmtdev | dev }
+       OPTIONS := { -V[ersion] | -n[o-nice-names] | -j[son] | -p[retty] }
