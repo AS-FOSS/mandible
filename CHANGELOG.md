@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- The `mandible mandible` easter-egg banner was painted with xterm-256 index 173 (an orange), an odd, unexplained choice given the rest of the UI's single-cyan-accent contract; it now uses index 30, a dark cyan/teal chosen for balanced WCAG contrast against both a plain black and a plain white terminal background (~4.4:1 and ~4.8:1 respectively), and the SGR code is now a named `BANNER_COLOR` constant next to the banner's other constants (`LETTERS`, `TRAJECTORY`, `LETTER_DELAY`, `FPS`) instead of a string literal at the call site.
+
 ## [0.4.3] - 2026-08-26
 
 ### Fixed
