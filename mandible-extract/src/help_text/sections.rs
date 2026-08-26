@@ -2411,6 +2411,58 @@ fn looks_like_usage_fragment(t: &str) -> bool {
 /// wrapped prose, and rewriting those would invent rows rather than
 /// recover them.
 ///
+/// # A second shape: the BNF-grammar heading (`ip` and its iproute2 siblings)
+///
+/// `ip --help` writes its whole synopsis as a BNF grammar, and its `OPTIONS`
+/// production opens the same way `uconv`'s did — heading and first row on
+/// one physical line — except the label is glued to the row by `:=`, not by
+/// a column of spaces:
+///
+/// ```text
+/// where  OBJECT := { address | addrlabel | amt | fou | help | ila | ioam | l2tp |
+///                    ...
+///        OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+///                     -h[uman-readable] | -iec | -j[son] | -p[retty] |
+///                     ...
+/// ```
+///
+/// The original clause 3 (`MIN_COLUMN_GAP_SPACES` spaces right after the
+/// colon) never fires here: the character right after `:` is `=`, not a
+/// space, so the gap is zero and the whole line — `-V`, `-s`, `-d`, `-r`
+/// included — was promoted to the heading string. `mandible --doctor ip`
+/// read 8 flags before this fix; the group label was literally `OPTIONS :=
+/// { -V[ERSION] | -S[TATISTICS] | -D[ETAILS] | -R[ESOLVE] |`.
+///
+/// Measured the same way as the shape above, over the same 2,301 captures:
+/// **6 tools** gain their first `OPTIONS` row back — `bridge`, `dcb`,
+/// `devlink`, `ip`, `rdma`, `vdpa` (all iproute2-family binaries; `dcb`'s
+/// row opens `[ -V | --Version | ...`, the rest open `{ -V[ersion] | ...`).
+/// A 7th tool, `ss`, matches the raw `:=\s*[{[]` grep this was measured
+/// with but recovers nothing: every one of its BNF productions
+/// (`FAMILY := {inet|inet6|...}`, `QUERY := {...}`, `STATE-FILTER := {...}`,
+/// `connected := {...}`, `synchronized := {...}`, `bucket := {...}`,
+/// `big := {...}`) opens on a bare word, not a flag, so clause 4 rejects
+/// all of them — correctly: `ss` writes its actual flags one per line
+/// already (`-h, --help          this message`), never sharing a heading.
+/// `ip`'s own sibling `OBJECT := { address | addrlabel | ... }` production
+/// is excluded the same way, by the same clause, for the same reason.
+///
+/// The *broader* version of this shape — drop the operator requirement and
+/// accept any `label:` immediately followed by an opening bracket — matches
+/// 36 tools, and the extra ones are exactly the false positives the operator
+/// requirement exists to keep out. `pkgdata`'s `modes: (-m option)` is the
+/// sharpest case: strip the label, the gap, and the `(` the same way the
+/// bracket-only rule would, and the remainder is `-m option)` — which
+/// *does* satisfy [`looks_like_flag_start`], so clause 4 does not save it.
+/// The rest of the 36 are the same family of near-miss: usage-line
+/// continuations (`lsof`'s own `usage:` line, already excluded elsewhere),
+/// stack-trace fragments that happen to contain `[Errno 13]` (`dnf`, `ua`,
+/// `pro`, `swift-recon-cron`), and parenthetical asides after a real heading
+/// (`whiptail`'s `Options: (depend on box-option)`, `pkgdata`'s `modes: (-m
+/// option)`, `mariadb-admin`'s `Where command is a one or more of: (Commands
+/// may be shortened)`). Requiring the `=` is what tells a BNF assignment
+/// apart from a colon that merely happens to be followed by a parenthesis.
+///
 /// # The rule
 ///
 /// A line is split when **all** of these hold:
@@ -2420,7 +2472,12 @@ fn looks_like_usage_fragment(t: &str) -> bool {
 /// 2. the text up to and including its first `:` is a
 ///    [`is_section_heading_line`] label (short, plain words, colon-
 ///    terminated) and is not a `usage:` marker;
-/// 3. at least [`MIN_COLUMN_GAP_SPACES`] spaces follow the colon;
+/// 3. **either** at least [`MIN_COLUMN_GAP_SPACES`] spaces follow the colon
+///    (the `uconv`/`zipinfo` shape), **or** the colon is immediately
+///    followed by a BNF `=` (making it read as `:=`), at least one space,
+///    and optionally a single opening bracket (`{`/`[`/`(`) followed by at
+///    least one more space (the `ip`-family shape) — see the section above
+///    for why the operator, not the bracket, is the discriminator;
 /// 4. what follows that gap [`looks_like_flag_start`].
 ///
 /// Clause 4 is the safety argument. Clauses 1-3 alone are satisfied by
@@ -2476,10 +2533,35 @@ fn split_shared_heading_row(line: &str) -> Option<(String, String)> {
         return None;
     }
     let mut row_start = colon + 1;
+    // A BNF definition operator: the colon reads as `:=`, not a plain
+    // section-heading colon. See this function's doc comment for why the
+    // operator itself — not merely a bracket — is what widens clause 3.
+    let has_bnf_operator = chars.get(row_start) == Some(&'=');
+    if has_bnf_operator {
+        row_start += 1;
+    }
+    let gap_start = row_start;
     while row_start < chars.len() && chars[row_start] == ' ' {
         row_start += 1;
     }
-    if row_start - (colon + 1) < MIN_COLUMN_GAP_SPACES || row_start >= chars.len() {
+    let gap_spaces = row_start - gap_start;
+    if has_bnf_operator {
+        if gap_spaces == 0 || row_start >= chars.len() {
+            return None;
+        }
+        // An optional opening bracket the grammar wraps its row in
+        // (`ip`'s `{`, `dcb`'s `[`), skipped along with the space after it.
+        if matches!(chars.get(row_start), Some('{') | Some('[') | Some('(')) {
+            row_start += 1;
+            let bracket_gap_start = row_start;
+            while row_start < chars.len() && chars[row_start] == ' ' {
+                row_start += 1;
+            }
+            if row_start - bracket_gap_start == 0 || row_start >= chars.len() {
+                return None;
+            }
+        }
+    } else if gap_spaces < MIN_COLUMN_GAP_SPACES || row_start >= chars.len() {
         return None;
     }
     let row: String = chars[row_start..].iter().collect();
@@ -11705,6 +11787,63 @@ Options:
                 "          -h, --help    print this message".to_string()
             ))
         );
+    }
+
+    #[test]
+    fn a_bnf_heading_carrying_its_first_flag_row_is_split() {
+        // `ip`'s real line: the colon reads as `:=`, not a plain heading
+        // colon, so the original column-gap clause (zero spaces right
+        // after `:`) never fired and `-V`/`-s`/`-d`/`-r` were eaten by the
+        // heading string. The recovered row is re-indented to column 20,
+        // matching the continuation lines `ip` itself wraps to.
+        // The opening bracket is stripped along with the operator, not kept
+        // in the row: the continuation lines this heading introduces
+        // (`-h[uman-readable] | -iec | ...`) never carry it either, and
+        // downstream flag-row parsing expects a bare flag at the row's
+        // start.
+        assert_eq!(
+            split_shared_heading_row(
+                "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |"
+            ),
+            Some((
+                "       OPTIONS :".to_string(),
+                "                    -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |"
+                    .to_string()
+            ))
+        );
+        // `dcb`'s sibling shape: a `[`-bracket instead of `{`.
+        assert_eq!(
+            split_shared_heading_row("       OPTIONS := [ -V | --Version | -i | --iec ]"),
+            Some((
+                "       OPTIONS :".to_string(),
+                "                    -V | --Version | -i | --iec ]".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn a_bnf_heading_whose_row_is_not_a_flag_is_never_split() {
+        // `ip`'s own `OBJECT` production and `ss`'s grammar productions all
+        // use the same `:=` operator but open on a bare word, never a flag
+        // spelling — clause 4 must reject every one of them.
+        assert_eq!(
+            split_shared_heading_row(
+                "where  OBJECT := { address | addrlabel | amt | fou | help | ila | ioam | l2tp |"
+            ),
+            None
+        );
+        assert_eq!(
+            split_shared_heading_row(
+                "       FAMILY := {inet|inet6|link|unix|netlink|vsock|tipc|xdp|help}"
+            ),
+            None
+        );
+        // `pkgdata`'s `modes: (-m option)`: a bracket immediately follows
+        // the colon, but with no `=` — this is the false positive that a
+        // bracket-without-operator version of clause 3 would invent, since
+        // the remainder `-m option)` does satisfy `looks_like_flag_start`
+        // on its own. Requiring the BNF operator keeps this line intact.
+        assert_eq!(split_shared_heading_row("modes: (-m option)"), None);
     }
 
     /// Spec §6's attestation gate reads `CommandNode::heading_attested`,

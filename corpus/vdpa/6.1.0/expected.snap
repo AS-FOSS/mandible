@@ -1,0 +1,26 @@
+name: vdpa
+description: where OBJECT := { mgmtdev | dev }
+usage:
+- 'Usage: vdpa [ OPTIONS ] OBJECT { COMMAND | help }'
+positionals:
+- name: OBJECT
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'V'
+  description: '| -n[o-nice-names] | -j[son] | -p[retty] }'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

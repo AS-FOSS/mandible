@@ -26,8 +26,17 @@ expected_framework = "generic"
 # entirely. -V/-s/-d are picked here because no other currently-detected
 # flag shares their first letter, so this genuinely tests their absence
 # rather than coincidentally matching a mangled neighbor.
+#
+# Update (flags-on-heading-line fix): `-V` is now recovered — the
+# heading/first-row line above is split by `split_shared_heading_row`'s
+# new BNF-operator clause, same as `corpus/ip/6.1.0` — so this contract
+# now fails on `-s`/`-d` only, still correctly `[xfail]`. `-s` and `-d`
+# stay unrecovered by design: they are not the *first* token of their own
+# physical line, only later members of `-V`'s `|`-alternation, and
+# splitting an alternation into multiple flags is a different, explicitly
+# out-of-scope family (the maintainer's `-l[oops]`-style note).
 must_contain_flags = ["-V", "-s", "-d"]
 
 [xfail]
 broken = true
-reason = "new formatting/framework where author kind of programmatically puts flag combinations into OPTIONS or OBJECT"
+reason = "new formatting/framework where author kind of programmatically puts flag combinations into OPTIONS or OBJECT; -V is now recovered by the flags-on-heading-line fix, -s/-d remain because they are alternation members, not their own physical-line flag row"

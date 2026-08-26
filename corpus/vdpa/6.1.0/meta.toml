@@ -1,0 +1,46 @@
+# Regression fixture for the BNF-heading half of the flags-on-heading-line
+# family (`split_shared_heading_row`'s new clause in
+# `mandible-extract/src/help_text/sections.rs`), using the smallest real
+# specimen in the fleet: `vdpa`'s whole `OPTIONS` production is one
+# physical line, with no wrapped continuation to obscure what changed.
+#
+# `vdpa --help` writes its synopsis as a BNF grammar, same as `ip`/`bridge`/
+# `dcb`/`devlink`/`rdma`:
+#
+#     OPTIONS := { -V[ersion] | -n[o-nice-names] | -j[son] | -p[retty] }
+#
+# The colon is immediately followed by `=` (`:=`), not a column of spaces,
+# so `split_shared_heading_row`'s original clause 3 (>= `MIN_COLUMN_GAP_SPACES`
+# spaces right after the colon) never matched, and the whole line — the
+# `OPTIONS` label *and* its only row — was promoted to a heading string.
+# Before this fix `vdpa` recovered **zero** flags; after it, `-V` is
+# recovered as a real flag with a clean `group: "OPTIONS :"`, matching the
+# fix's effect on `ip`/`bridge`/`dcb`/`devlink`/`rdma` (see `corpus/ip/6.1.0`
+# for the multi-line, wrapped-continuation sibling of this same shape).
+#
+# Honest residual, deliberately not claimed here: `-n`, `-j` and `-p` are
+# `|`-alternation members after `-V`, not the first token of their own
+# physical line, so they stay inside `-V`'s recovered `description` text
+# rather than becoming separate flags — the same, explicitly out-of-scope
+# `-l[oops]`-style alternation-expansion family the maintainer held back
+# from this fix.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "vdpa"
+version = "6.1.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.2"
+
+[[capture]]
+argv = ["vdpa", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["-V"]

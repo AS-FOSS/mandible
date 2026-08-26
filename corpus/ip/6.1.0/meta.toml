@@ -19,16 +19,36 @@
 # trailing `}`/`)`/`]` immediately after the bracket it closes, and `-c`
 # is boolean, exactly as `-a[ll]` one line above it in the same block.
 #
-# Honest residual, deliberately not claimed here: `-V`, `-s` and `-d`
-# still never reach the flag list at all — a separate, already-tracked
-# defect (see `corpus/ip/audit-seed2`, `[xfail]`: the multi-line
-# `OPTIONS := { ... }` block's own *opening* physical line is consumed as
-# heading text and never scanned for entries, dropping every flag written
-# on it). This fixture does not assert their presence, and does not
-# reopen or narrow that xfail. `-r` also still carries a mangled
-# `value_name` from an unrelated defect (a two-letter abbreviation prefix,
-# `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`) — out of this fixture's scope for the
-# same reason.
+# Update (flags-on-heading-line fix, `split_shared_heading_row` in
+# `mandible-extract/src/help_text/sections.rs`): the residual noted below
+# — `-V`, `-s` and `-d` never reaching the flag list — is now half fixed.
+# `OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |` is
+# the block's *opening* physical line: its heading ("OPTIONS", stated as
+# BNF via `:=`) and its first table row (`-V[ersion] | ...`) shared one
+# physical line, and the section scanner promoted the whole line to a
+# heading string, exactly the `uconv`/`zipinfo` defect
+# `split_shared_heading_row` already existed to fix — except that
+# function's clause 3 required a plain multi-space column gap right after
+# the colon, and here the colon is immediately followed by `=` (`:=`),
+# leaving a zero-space "gap" that clause never matched. Recognizing the
+# BNF operator (and the `{` it may wrap its row in) as an alternative
+# clause 3 now splits this line the same way, and `-V` is recovered as
+# its own flag — every other flag in the block also gains a clean
+# `group: "OPTIONS :"` instead of inheriting the entire swallowed line as
+# their group text. `-s` and `-d` remain in `-V`'s own `description` text
+# (`| -s[tatistics] | -d[etails] | -r[esolve] |`), not as separate flags:
+# this document never puts more than one flag as the *start* of a
+# physical line, and expanding a `|`-alternation into multiple flags is
+# the `-l[oops]`-style family the maintainer explicitly held out of this
+# fix (see the PR description). `corpus/ip/audit-seed2`'s `[xfail]` is
+# updated by this same PR to reflect that `-V` is no longer among its
+# missing flags, but stays `[xfail]` — `-s` and `-d` are still missing,
+# by design.
+#
+# The rest of this fixture's original note still applies unchanged: `-r`
+# still carries a mangled `value_name` from an unrelated defect (a
+# two-letter abbreviation prefix, `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`) —
+# out of this fixture's scope.
 
 [bless]
 provenance = "agent"
@@ -37,7 +57,7 @@ provenance = "agent"
 name = "ip"
 version = "6.1.0"
 platform = "ubuntu-24.04"
-captured_with = "mandible 0.4.1"
+captured_with = "mandible 0.4.2"
 
 [[capture]]
 argv = ["ip", "--help"]
@@ -48,4 +68,4 @@ exit_code = 255
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["-h", "-f", "-4", "-l", "-o", "-c"]
+must_contain_flags = ["-V", "-h", "-f", "-4", "-l", "-o", "-c"]
