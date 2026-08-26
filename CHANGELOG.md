@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-08-26
+
 ### Fixed
 
 - **The TUI footer's confidence badge read `low confidence: 0% parsed` for `ssh-keygen` while `--doctor` reported `100.0% flags with text` for the same document**, because `sections::compute_confidence` divided a one-row option-table sample (a wrapped usage-synopsis fragment misread as a lone flag row) instead of treating it as too small to rate; fixed by giving a one-row sample its own `0.5` fallback, independent of whether a usage line was found — a fleet scan of `audit/queue-captures/` shows this removes 23 fabricated badges (including `ssh-keygen`'s) and fabricates none, and confirms an earlier version of this fix (folding the one-row case into the zero-row fallback) would have fabricated 7 new badges on cleanly-parsed single-flag tools (`byobu-disable`, `byobu-enable`, `bzless`, `bzmore`, `debconf-apt-progress`, `validlocale`, `xdg-user-dir`); `find`/`ip`'s genuine low-confidence badges (real, larger samples) are untouched.
