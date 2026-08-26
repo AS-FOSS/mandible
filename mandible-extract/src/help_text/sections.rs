@@ -391,10 +391,7 @@ fn parse_body(
                     // narrow, structural signal (never "is this LVM") that
                     // a name-only line's continuation really is usage
                     // grammar and not, say, a one-word section title.
-                    || (starts_with_tool_name(t, name)
-                        && lines
-                            .get(idx + 1)
-                            .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start())))
+                    || looks_like_bare_synopsis_head(&lines, idx, name)
             })
         })
     } else {
@@ -417,6 +414,103 @@ fn parse_body(
         while i < lines.len() {
             let l = lines[i];
             if l.trim().is_empty() {
+                // Some tools write their unlabelled synopsis as **one
+                // stanza per operation mode / invocation form** — a prose
+                // description line, then its own `<tool> <args>` head, then
+                // the form's own continuation rows — with a blank line
+                // *between* stanzas. LVM's own emitter (`vgck`, `vgchange`,
+                // `lvconvert`, the whole `lv*`/`vg*`/`pv*` family) is the
+                // specimen this fix was measured against; `adduser` and
+                // `pydoc3` hit the identical shape with their own
+                // completely unrelated help formatters, which is why the
+                // predicates below key on structure, never a tool's name.
+                // `vgck`'s own two stanzas:
+                //
+                // ```text
+                //   Read and display information about a VG.
+                //   vgck
+                //   \t[ --reportformat basic|json ]
+                //   \t[ COMMON_OPTIONS ]
+                //
+                //   Rewrite VG metadata to correct problems.
+                //   vgck --updatemetadata VG
+                //   \t[ COMMON_OPTIONS ]
+                // ```
+                //
+                // A blank line ended the usage block unconditionally here
+                // before this fix, so only the first stanza was ever read —
+                // `vgck --updatemetadata` (a *flag*, not a subcommand) was
+                // completely absent from the tree, and `lvconvert` alone
+                // hides 26 more stanzas the same way.
+                //
+                // This is deliberately **not** "any blank line continues
+                // the block" (that would let it swallow an unrelated
+                // trailing paragraph or reopen on a coincidental later
+                // own-name mention — the exact fabrication spec §7 [M-10]
+                // forbids). It fires only for the unlabelled-synopsis entry
+                // point (`labelled_usage_start.is_none()` — a tool with a
+                // real `Usage:` line is completely unaffected), and only
+                // when the very next non-consumed line is itself unambiguous
+                // synopsis-head evidence: `looks_like_unlabeled_synopsis_line`
+                // (notation on the line itself) or
+                // [`looks_like_stanza_continuation_head`] (a bare
+                // own-name line carrying its own flag token, or whose next
+                // line is unambiguous flag-row evidence) — see that
+                // function's own doc comment for why it is a separate,
+                // slightly wider test than the one that opens the block in
+                // the first place ([`looks_like_bare_synopsis_head`]).
+                // At most one line in between may be skipped, and only when
+                // it reads as a full English sentence ([`is_prose_sentence`])
+                // rather than more notation — the stanza's own description
+                // line, which is consumed here and must land in neither the
+                // synopsis nor the tool's description (the first stanza's
+                // prose remains the sole description candidate). Anything
+                // else — a section heading (`Common options for lvm:`), a
+                // flag row, an unrelated paragraph — fails this narrow
+                // lookahead and falls through to the ordinary `break`
+                // below, ending the block exactly as before this fix.
+                if labelled_usage_start.is_none() {
+                    if let Some(name) = tool_name {
+                        let mut j = i + 1;
+                        // Deliberately *not* `looks_like_unlabeled_synopsis_line`
+                        // here (unlike the entry point above it): that test
+                        // alone would also admit `corepack`'s own headingless
+                        // invocation-table rows — `corepack enable
+                        // [--install-directory #0] ...` reads as bracket
+                        // notation plus a non-prose remainder (the trailing
+                        // `...` defeats `is_prose_sentence`) exactly the way
+                        // a real synopsis continuation does, and re-fabricating
+                        // that row into more usage text would have demoted a
+                        // subcommand `scan_headingless_invocation_table`
+                        // already recovers correctly into lost structure —
+                        // measured fleet-wide: only `corepack` hits this,
+                        // losing 1 subcommand, before this predicate was
+                        // narrowed to it. `looks_like_stanza_continuation_head`
+                        // alone is sufficient for every real stanza this fix
+                        // targets, LVM's family included (its own doc
+                        // comment above has both clauses), so nothing is
+                        // lost by dropping the wider test here.
+                        let is_head = |lines: &[&str], j: usize| {
+                            j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
+                        };
+                        if !is_head(&lines, j) {
+                            if let Some(next) = lines.get(j) {
+                                let t = next.trim_start();
+                                if !t.is_empty() && is_prose_sentence(t) {
+                                    j += 1;
+                                }
+                            }
+                        }
+                        if is_head(&lines, j) {
+                            let trimmed = lines[j].trim().to_string();
+                            usage_lines.push(trimmed.clone());
+                            usage_entries.push(trimmed);
+                            line_entry_index.push(usage_entries.len() - 1);
+                            i = j + 1;
+                            continue;
+                        }
+                    }
+                }
                 break;
             }
             let trimmed_start = l.trim_start();
@@ -2433,6 +2527,114 @@ pub fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
         return false;
     }
     rest.contains(['[', '<', '{']) && !is_prose_sentence(rest)
+}
+
+/// True if `lines[idx]` is a bare own-name invocation line — no bracket
+/// notation on the line itself — whose *very next* physical line is
+/// unambiguous flag-row evidence ([`looks_like_bracket_flag_row`]). Shared
+/// by the unlabelled-synopsis entry point (this file's `unlabelled_synopsis_start`)
+/// and the multi-stanza continuation check in the usage-block loop below it
+/// — both need exactly this one test, and a second copy would drift.
+///
+/// Narrow and structural, never keyed on any tool's name: a name-only line
+/// only counts when the next line is itself unambiguous flag-row notation,
+/// never merely because it comes right after a name match. LVM's own
+/// emitter (`vgck`, `vgck --updatemetadata VG`, `vgextend VG PV ...`) is
+/// the specimen this was measured against, not a special case for it.
+fn looks_like_bare_synopsis_head(lines: &[&str], idx: usize, name: &str) -> bool {
+    let t = lines[idx].trim_start();
+    starts_with_tool_name(t, name)
+        && lines
+            .get(idx + 1)
+            .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start()))
+}
+
+/// True if `word` is a bare flag token — starts with `-`, is not just
+/// `-`/`--` alone, and the dash(es) are immediately followed by an
+/// alphanumeric character (so `--`, `-`, or a lone `-` used as a
+/// stdin/stdout placeholder never counts).
+fn is_bare_flag_token(word: &str) -> bool {
+    word.len() > 1
+        && word.starts_with('-')
+        && word
+            .trim_start_matches('-')
+            .starts_with(|c: char| c.is_alphanumeric())
+}
+
+/// True if `lines[idx]` continues an already-open unlabelled synopsis into
+/// a **later stanza**: a line opening with the tool's own name whose
+/// remainder either carries a bare flag token directly (`vgck
+/// --updatemetadata VG` — the flag notation itself, no bracket group at
+/// all) or is followed by [`looks_like_bracket_flag_row`] evidence the same
+/// way [`looks_like_bare_synopsis_head`] requires for the *first*
+/// stanza. LVM's own emitter is the specimen throughout this doc comment;
+/// nothing here keys on it — `adduser` and `pydoc3` hit this same
+/// predicate on their own multi-stanza shapes (see this function's tests).
+///
+/// The first-stanza test alone cannot see this shape: `vgck`'s own second
+/// stanza reads `vgck --updatemetadata VG` immediately followed by `[
+/// COMMON_OPTIONS ]` — a placeholder token, not a flag row
+/// ([`looks_like_bracket_flag_row`] requires the bracketed content to
+/// *start* with `-`), so the next-line lookahead alone finds nothing here.
+/// But the stanza head carries its own flag inline, which is strictly
+/// stronger evidence than a lookahead row ever was — [`extract_usage_flags`]
+/// already knows how to read a bare `--flag` sitting directly in a usage
+/// line (the [M-15] grammar), so once this predicate admits the line as a
+/// synopsis head, the existing machinery below recovers `--updatemetadata`
+/// with no further change.
+///
+/// Deliberately a separate predicate from [`looks_like_bare_synopsis_head`]
+/// rather than a widened copy of it: the entry point that opens the usage
+/// block in the first place must stay exactly as measured (a name-only
+/// line is accepted only on unambiguous *next-row* evidence), and loosening
+/// it to "or carries its own flag token" would let it fire on a bare
+/// tool-name-prefixed sentence that happens to mention a flag in prose —
+/// a hazard the entry point's own doc comment already warns about for the
+/// weaker, notation-only test. The continuation site carries no such risk:
+/// it only ever runs immediately after a blank line inside an *already
+/// open* unlabelled synopsis, never as a fresh scan of the whole document.
+fn looks_like_stanza_continuation_head(lines: &[&str], idx: usize, name: &str) -> bool {
+    let t = lines[idx].trim_start();
+    let Some(rest) = t.strip_prefix(name) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        return false;
+    }
+    let next = lines.get(idx + 1).map(|l| l.trim_start());
+    let has_flag_token = rest.split_whitespace().any(is_bare_flag_token);
+    let next_is_bracket_row = next.is_some_and(looks_like_bracket_flag_row);
+    if !(has_flag_token || next_is_bracket_row) {
+        return false;
+    }
+    // Guard against admitting a stanza whose own description **wraps
+    // across more than one physical line**: the shared continuation loop
+    // just below only ever recognizes a single physical line as "prose to
+    // drop" ([`is_prose_sentence`] requires the line itself to end in a
+    // period), so a description spanning two or more lines has its
+    // interior line silently read as more usage notation instead — never
+    // caught, because nothing about an unterminated mid-sentence line
+    // says "not notation". `pydoc3`'s `-p`/`-b`/`-w` forms each carry a
+    // two-line description ("Start an HTTP server on the given port on
+    // the local machine.  Port" / "number 0 can be used ..."), and the
+    // first line, not ending in a period, was silently glued onto the
+    // synopsis text and mined for two fabricated positionals (`HTTP`,
+    // `HTML`) before this guard existed. Refuse the stanza outright
+    // rather than admit it and let it corrupt: whatever immediately
+    // follows the head must be either absent/blank (no description at
+    // all), itself more notation ([`looks_like_bracket_flag_row`] /
+    // [`looks_like_usage_fragment`]), or a complete one-line sentence the
+    // loop already knows how to drop — never an unterminated prose
+    // fragment. `pydoc3`'s own `-k`/`-n` forms (each a single-line
+    // description) pass this exactly the way `vgck`'s `[ COMMON_OPTIONS
+    // ]` continuation and `lvextend`'s bracket rows do.
+    match next {
+        None => true,
+        Some(n) if n.trim().is_empty() => true,
+        Some(n) if looks_like_bracket_flag_row(n) || looks_like_usage_fragment(n) => true,
+        Some(n) if is_prose_sentence(n) => true,
+        _ => false,
+    }
 }
 
 /// True if `t` (already trimmed of leading whitespace) opens with one of
@@ -6920,6 +7122,100 @@ fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
 mod tests {
     use super::*;
 
+    // --- multi-stanza unlabelled synopsis (fix/multi-stanza-synopsis) ---
+
+    /// `vgck --updatemetadata` — a *second* stanza, past the blank line
+    /// this fix teaches the usage-block loop to look beyond — is now
+    /// present as its own usage entry and its own flag, and the stanza's
+    /// own prose head ("Rewrite VG metadata...") lands in neither.
+    /// Reuses the existing [`VGCK_HELP`] fixture above (the real capture
+    /// at `audit/queue-captures/vgck/0.stdout`) rather than a second copy.
+    #[test]
+    fn vgck_recovers_the_second_stanza_and_its_updatemetadata_flag() {
+        let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
+        assert_eq!(parsed.usage.len(), 2, "usage: {:?}", parsed.usage);
+        assert!(parsed.usage[1].contains("--updatemetadata"));
+        let updatemetadata = flag_named(&parsed, "updatemetadata");
+        assert_eq!(updatemetadata.value_name.as_deref(), Some("VG"));
+        for u in &parsed.usage {
+            assert!(!u.contains("Rewrite VG metadata"));
+        }
+    }
+
+    /// A tool with a genuine `Usage:` label must be completely unaffected
+    /// by the multi-stanza continuation: `git`'s own wrapped hanging-indent
+    /// synopsis, followed by an unrelated blank-line-separated paragraph
+    /// that happens to open with `git` again, must never be read as a
+    /// second usage entry.
+    #[test]
+    fn labelled_usage_block_does_not_reopen_on_a_later_blank_line() {
+        let help = "Usage: git [--version] [--help] <command> [<args>]\n\n\
+                     git clone is used to clone repositories.\n\
+                     git clone [--bare] <repo>\n\
+                     \t[--depth <n>]\n";
+        let parsed = parse_with_profile(help, None, Some("git"));
+        assert_eq!(parsed.usage.len(), 1, "usage: {:?}", parsed.usage);
+    }
+
+    /// A headingless invocation table (`corepack`'s own commander/oclif
+    /// style — one `<tool> <subcommand> [flags] ...` row per blank-line-
+    /// separated stanza, each followed by its own subcommand description)
+    /// must not be reopened into more "usage": that would demote a real
+    /// subcommand `scan_headingless_invocation_table` already recovers
+    /// into fabricated synopsis text. The `...` ending each row defeats
+    /// `is_prose_sentence`'s period check the same way a real LVM
+    /// continuation's own remainder would, so this pins the guard that
+    /// keeps the two shapes apart at the continuation site specifically
+    /// (`looks_like_stanza_continuation_head`, not the wider
+    /// `looks_like_unlabeled_synopsis_line`).
+    #[test]
+    fn headingless_invocation_table_stanzas_are_not_reopened_as_usage() {
+        let help = "Corepack - 0.34.6\n\n  $ corepack <command>\n\nGeneral commands\n\n  \
+                     corepack disable [--install-directory #0] ...\n    Remove the shims\n\n  \
+                     corepack enable [--install-directory #0] ...\n    Add the shims\n";
+        let parsed = parse_with_profile(help, None, Some("corepack"));
+        // Whatever the pre-existing entry-point behavior does with the
+        // first row, the second must never be folded into it as more
+        // usage text — this fix must not widen that.
+        assert!(
+            parsed.usage.iter().all(|u| !u.contains("enable")),
+            "usage: {:?}",
+            parsed.usage
+        );
+    }
+
+    /// A stanza whose own description wraps across more than one physical
+    /// line (`pydoc3`'s `-p`/`-b`/`-w` forms) must not be admitted at all —
+    /// the shared continuation loop only recognizes a *single* physical
+    /// line as prose to drop, so an interior wrapped line would otherwise
+    /// be silently read as more usage notation and mined for fabricated
+    /// positionals (`HTTP`, `HTML` were invented from exactly this before
+    /// the guard existed). A single-line description (`-k`, `-n`) is
+    /// unaffected.
+    #[test]
+    fn stanza_with_wrapped_multi_line_description_is_refused() {
+        let help = "pydoc - the Python documentation tool\n\npydoc3 <name> ...\n    Show text documentation on something.\n\npydoc3 -k <keyword>\n    Search for a keyword in the synopsis lines of all available modules.\n\npydoc3 -p <port>\n    Start an HTTP server on the given port on the local machine.  Port\n    number 0 can be used to get an arbitrary unused port.\n";
+        let parsed = parse_with_profile(help, None, Some("pydoc3"));
+        assert!(
+            parsed.flags.iter().any(|f| f.short == Some('k')),
+            "flags: {:?}",
+            parsed.flags
+        );
+        assert!(
+            !parsed.flags.iter().any(|f| f.short == Some('p')),
+            "flags: {:?}",
+            parsed.flags
+        );
+        assert!(
+            !parsed
+                .positionals
+                .iter()
+                .any(|p| p.name == "HTTP" || p.name == "HTML"),
+            "positionals: {:?}",
+            parsed.positionals
+        );
+    }
+
     // --- compute_confidence's one-row-sample fallback -------------------
 
     /// Pins all four `total_entries == 1` combinations. The regression
@@ -7047,7 +7343,10 @@ mod tests {
         assert_eq!(driverloaded.value_name.as_deref(), Some("y|n"));
 
         // Every one of the 18 rows under `Common options for lvm:`, plus
-        // `--reportformat` from the synopsis continuation.
+        // `--reportformat` from the first stanza's synopsis continuation
+        // and `--updatemetadata` from the *second* stanza's own head
+        // (fix/multi-stanza-synopsis: the blank line between the two no
+        // longer ends the usage block before the second stanza is read).
         for long in [
             "debug",
             "help",
@@ -7068,10 +7367,11 @@ mod tests {
             "nohints",
             "journal",
             "reportformat",
+            "updatemetadata",
         ] {
             flag_named(&parsed, long);
         }
-        assert_eq!(parsed.flags.len(), 19, "{:#?}", parsed.flags);
+        assert_eq!(parsed.flags.len(), 20, "{:#?}", parsed.flags);
     }
 
     /// The operand cross-references LVM writes in the identical bracket

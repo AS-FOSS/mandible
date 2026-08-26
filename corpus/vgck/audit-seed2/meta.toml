@@ -32,8 +32,19 @@ expected_framework = "generic"
 # the unlabelled-synopsis entry point accepts a bare tool-name line whose
 # very next physical line is one of these bracket rows. All 19 real flags
 # (`--reportformat` plus the 18 common options) are now recovered.
+#
+# fix/multi-stanza-synopsis adds a *second* usage entry and its own flag:
+# `vgck`'s help writes a **second stanza** past a blank line — its own
+# prose description, then `vgck --updatemetadata VG`, then a `[
+# COMMON_OPTIONS ]` continuation row — that a blank line ended the usage
+# block on unconditionally before that fix, so `--updatemetadata` (a real
+# flag, not a subcommand) was entirely absent from the tree. Now recovered
+# as its own usage entry (`vgck --updatemetadata VG [ COMMON_OPTIONS ]`)
+# and its own flag (`value_name: VG`), with the stanza's own prose head
+# ("Rewrite VG metadata to correct problems.") landing in neither the
+# synopsis nor the description.
 min_status = "low-confidence"
-must_contain_flags = ["-d", "--debug", "--reportformat", "--commandprofile"]
+must_contain_flags = ["-d", "--debug", "--reportformat", "--commandprofile", "--updatemetadata"]
 # No `verdict_scope`: this bless is agent-reviewed (spot-checked against
 # `help.txt` above), not human-reviewed — see corpus/README.md's "What
 # `--bless` does and does not assert".

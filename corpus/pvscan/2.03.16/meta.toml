@@ -1,0 +1,45 @@
+# Regression fixture for fix/multi-stanza-synopsis's high-stanza specimen:
+# `pvscan --help` writes **seven** stanzas the same LVM emitter shape
+# `corpus/vgck/audit-seed2` pins the minimal (two-stanza) case for — each
+# a prose description line, then its own `pvscan <args>` head, then
+# TAB-indented `[ ... ]` continuation rows, separated from the next stanza
+# by a blank line. Before this fix, the usage-block loop in
+# `sections::parse_body` ended unconditionally on the first blank line, so
+# only stanza 1 (`pvscan`, the bare "list all PVs" form) was ever read;
+# `--cache`, `--listvg`, `--listlvs`, `-a|--activate`, `--checkcomplete`,
+# `--vgonline`, `--udevoutput`, `--autoactivation` and `--noudevsync` (all
+# introduced only in later stanzas) were entirely absent from the tree.
+#
+# Verified against this machine's real `pvscan --help` (lvm2 2.03.16,
+# `dpkg -l lvm2`): byte-identical to the frozen capture below except for a
+# leading "Running as a non-root user" warning line, which the parser
+# already discards independently of this fix.
+#
+# Honest residual, deliberately not claimed here: `pvscan`'s own repeated
+# `[ COMMON_OPTIONS ]`/`[ String|PV ... ]` operand cross-references are not
+# flags (`vgck_never_fabricates_a_flag_from_an_operand_bracket`'s own
+# guard applies here too), and this fixture's `min_status` stays
+# `low-confidence` for the same reason `vgck`'s does: LVM's own emitter
+# never describes an individual flag inline (only `--longhelp`/the man
+# page does), so no flag here carries a `description` regardless of this
+# fix.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pvscan"
+version = "2.03.16"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.2"
+
+[[capture]]
+argv = ["pvscan", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "low-confidence"
+must_contain_flags = ["--cache", "--listvg", "--listlvs", "--activate", "--checkcomplete", "--vgonline"]
