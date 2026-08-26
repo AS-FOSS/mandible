@@ -391,7 +391,7 @@ fn parse_body(
                     // narrow, structural signal (never "is this LVM") that
                     // a name-only line's continuation really is usage
                     // grammar and not, say, a one-word section title.
-                    || looks_like_lvm_bare_synopsis_head(&lines, idx, name)
+                    || looks_like_bare_synopsis_head(&lines, idx, name)
             })
         })
     } else {
@@ -414,13 +414,17 @@ fn parse_body(
         while i < lines.len() {
             let l = lines[i];
             if l.trim().is_empty() {
-                // LVM's own emitter (`vgck`, `vgchange`, `lvconvert`, the
-                // whole `lv*`/`vg*`/`pv*` family, plus `addgroup`,
-                // `adduser`, `deluser`, `jfr`, `pvck`, `pvmove`, `pvscan`)
-                // writes one **stanza per operation mode**, each a prose
+                // Some tools write their unlabelled synopsis as **one
+                // stanza per operation mode / invocation form** — a prose
                 // description line, then its own `<tool> <args>` head, then
-                // the mode's own TAB-indented `[ ... ]` rows — with a blank
-                // line *between* stanzas:
+                // the form's own continuation rows — with a blank line
+                // *between* stanzas. LVM's own emitter (`vgck`, `vgchange`,
+                // `lvconvert`, the whole `lv*`/`vg*`/`pv*` family) is the
+                // specimen this fix was measured against; `adduser` and
+                // `pydoc3` hit the identical shape with their own
+                // completely unrelated help formatters, which is why the
+                // predicates below key on structure, never a tool's name.
+                // `vgck`'s own two stanzas:
                 //
                 // ```text
                 //   Read and display information about a VG.
@@ -449,12 +453,12 @@ fn parse_body(
                 // when the very next non-consumed line is itself unambiguous
                 // synopsis-head evidence: `looks_like_unlabeled_synopsis_line`
                 // (notation on the line itself) or
-                // [`looks_like_lvm_stanza_continuation_head`] (a bare
+                // [`looks_like_stanza_continuation_head`] (a bare
                 // own-name line carrying its own flag token, or whose next
                 // line is unambiguous flag-row evidence) — see that
                 // function's own doc comment for why it is a separate,
                 // slightly wider test than the one that opens the block in
-                // the first place ([`looks_like_lvm_bare_synopsis_head`]).
+                // the first place ([`looks_like_bare_synopsis_head`]).
                 // At most one line in between may be skipped, and only when
                 // it reads as a full English sentence ([`is_prose_sentence`])
                 // rather than more notation — the stanza's own description
@@ -481,14 +485,13 @@ fn parse_body(
                         // already recovers correctly into lost structure —
                         // measured fleet-wide: only `corepack` hits this,
                         // losing 1 subcommand, before this predicate was
-                        // narrowed to it. `looks_like_lvm_stanza_continuation_head`
-                        // alone is sufficient for every real LVM stanza this
-                        // fix targets (its own doc comment above has both
-                        // clauses), so nothing about the family is lost by
-                        // dropping the wider test here.
+                        // narrowed to it. `looks_like_stanza_continuation_head`
+                        // alone is sufficient for every real stanza this fix
+                        // targets, LVM's family included (its own doc
+                        // comment above has both clauses), so nothing is
+                        // lost by dropping the wider test here.
                         let is_head = |lines: &[&str], j: usize| {
-                            j < lines.len()
-                                && looks_like_lvm_stanza_continuation_head(lines, j, name)
+                            j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
                         };
                         if !is_head(&lines, j) {
                             if let Some(next) = lines.get(j) {
@@ -2526,18 +2529,19 @@ pub fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
     rest.contains(['[', '<', '{']) && !is_prose_sentence(rest)
 }
 
-/// True if `lines[idx]` is a bare own-name invocation line (LVM's shape:
-/// `vgck`, `vgck --updatemetadata VG`, `vgextend VG PV ...` — no bracket
-/// notation on the line itself) whose *very next* physical line is
+/// True if `lines[idx]` is a bare own-name invocation line — no bracket
+/// notation on the line itself — whose *very next* physical line is
 /// unambiguous flag-row evidence ([`looks_like_bracket_flag_row`]). Shared
 /// by the unlabelled-synopsis entry point (this file's `unlabelled_synopsis_start`)
 /// and the multi-stanza continuation check in the usage-block loop below it
 /// — both need exactly this one test, and a second copy would drift.
 ///
-/// Narrow and structural, never "is this LVM": a name-only line only counts
-/// when the next line is itself unambiguous flag-row notation, never merely
-/// because it comes right after a name match.
-fn looks_like_lvm_bare_synopsis_head(lines: &[&str], idx: usize, name: &str) -> bool {
+/// Narrow and structural, never keyed on any tool's name: a name-only line
+/// only counts when the next line is itself unambiguous flag-row notation,
+/// never merely because it comes right after a name match. LVM's own
+/// emitter (`vgck`, `vgck --updatemetadata VG`, `vgextend VG PV ...`) is
+/// the specimen this was measured against, not a special case for it.
+fn looks_like_bare_synopsis_head(lines: &[&str], idx: usize, name: &str) -> bool {
     let t = lines[idx].trim_start();
     starts_with_tool_name(t, name)
         && lines
@@ -2557,13 +2561,15 @@ fn is_bare_flag_token(word: &str) -> bool {
             .starts_with(|c: char| c.is_alphanumeric())
 }
 
-/// True if `lines[idx]` continues an already-open unlabelled LVM synopsis
-/// into a **later stanza**: a line opening with the tool's own name whose
+/// True if `lines[idx]` continues an already-open unlabelled synopsis into
+/// a **later stanza**: a line opening with the tool's own name whose
 /// remainder either carries a bare flag token directly (`vgck
 /// --updatemetadata VG` — the flag notation itself, no bracket group at
 /// all) or is followed by [`looks_like_bracket_flag_row`] evidence the same
-/// way [`looks_like_lvm_bare_synopsis_head`] requires for the *first*
-/// stanza.
+/// way [`looks_like_bare_synopsis_head`] requires for the *first*
+/// stanza. LVM's own emitter is the specimen throughout this doc comment;
+/// nothing here keys on it — `adduser` and `pydoc3` hit this same
+/// predicate on their own multi-stanza shapes (see this function's tests).
 ///
 /// The first-stanza test alone cannot see this shape: `vgck`'s own second
 /// stanza reads `vgck --updatemetadata VG` immediately followed by `[
@@ -2577,7 +2583,7 @@ fn is_bare_flag_token(word: &str) -> bool {
 /// synopsis head, the existing machinery below recovers `--updatemetadata`
 /// with no further change.
 ///
-/// Deliberately a separate predicate from [`looks_like_lvm_bare_synopsis_head`]
+/// Deliberately a separate predicate from [`looks_like_bare_synopsis_head`]
 /// rather than a widened copy of it: the entry point that opens the usage
 /// block in the first place must stay exactly as measured (a name-only
 /// line is accepted only on unambiguous *next-row* evidence), and loosening
@@ -2587,7 +2593,7 @@ fn is_bare_flag_token(word: &str) -> bool {
 /// weaker, notation-only test. The continuation site carries no such risk:
 /// it only ever runs immediately after a blank line inside an *already
 /// open* unlabelled synopsis, never as a fresh scan of the whole document.
-fn looks_like_lvm_stanza_continuation_head(lines: &[&str], idx: usize, name: &str) -> bool {
+fn looks_like_stanza_continuation_head(lines: &[&str], idx: usize, name: &str) -> bool {
     let t = lines[idx].trim_start();
     let Some(rest) = t.strip_prefix(name) else {
         return false;
@@ -7160,7 +7166,7 @@ mod tests {
     /// `is_prose_sentence`'s period check the same way a real LVM
     /// continuation's own remainder would, so this pins the guard that
     /// keeps the two shapes apart at the continuation site specifically
-    /// (`looks_like_lvm_stanza_continuation_head`, not the wider
+    /// (`looks_like_stanza_continuation_head`, not the wider
     /// `looks_like_unlabeled_synopsis_line`).
     #[test]
     fn headingless_invocation_table_stanzas_are_not_reopened_as_usage() {
