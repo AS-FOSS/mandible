@@ -270,6 +270,20 @@ update Appendix A in the same commit, with the method.
   exists is not evidence that it does. If something is meant to be tracked,
   `git add` it and confirm with `git ls-files`; if a doc claims a file is
   tracked, that claim is checkable and belongs in a test.
+- **A location that only resolves on the machine you are sitting at never goes
+  into a committed file.** Working against local, untracked data is normal here
+  — the frozen `--help` captures under `audit/queue-captures/` are exactly that
+  — and a task brief will often hand you where they live. That is permission to
+  *read* them. It is not licence to write where they live into a source file, a
+  test, a fixture, or a doc comment: such a line passes every gate on the
+  machine that wrote it and is a lie on every other one. Anything a committed
+  file must be able to open is reached repo-relative
+  (`include_str!("../../corpus/…")`) or committed beside it as a corpus fixture.
+  `mandible-extract/tests/no_machine_local_paths.rs` enforces this over the
+  workspace's Rust sources and records the incident that produced it; it cannot
+  see `.toml`, markdown, commit messages or PR bodies, so those are on you.
+  Three agents in a single round had to be stopped mid-task for this one line,
+  which is why it is written down as well as linted.
 - **`NOTICE` is not optional.** Vendored third-party *data* carries attribution
   obligations, and it is the most likely genuine legal exposure in this project.
 - Gates before reporting done: `cargo fmt --all -- --check`,
