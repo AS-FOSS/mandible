@@ -391,10 +391,7 @@ fn parse_body(
                     // narrow, structural signal (never "is this LVM") that
                     // a name-only line's continuation really is usage
                     // grammar and not, say, a one-word section title.
-                    || (starts_with_tool_name(t, name)
-                        && lines
-                            .get(idx + 1)
-                            .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start())))
+                    || looks_like_lvm_bare_synopsis_head(&lines, idx, name)
             })
         })
     } else {
@@ -417,6 +414,83 @@ fn parse_body(
         while i < lines.len() {
             let l = lines[i];
             if l.trim().is_empty() {
+                // LVM's own emitter (`vgck`, `vgchange`, `lvconvert`, the
+                // whole `lv*`/`vg*`/`pv*` family, plus `addgroup`,
+                // `adduser`, `deluser`, `jfr`, `pvck`, `pvmove`, `pvscan`)
+                // writes one **stanza per operation mode**, each a prose
+                // description line, then its own `<tool> <args>` head, then
+                // the mode's own TAB-indented `[ ... ]` rows — with a blank
+                // line *between* stanzas:
+                //
+                // ```text
+                //   Read and display information about a VG.
+                //   vgck
+                //   \t[ --reportformat basic|json ]
+                //   \t[ COMMON_OPTIONS ]
+                //
+                //   Rewrite VG metadata to correct problems.
+                //   vgck --updatemetadata VG
+                //   \t[ COMMON_OPTIONS ]
+                // ```
+                //
+                // A blank line ended the usage block unconditionally here
+                // before this fix, so only the first stanza was ever read —
+                // `vgck --updatemetadata` (a *flag*, not a subcommand) was
+                // completely absent from the tree, and `lvconvert` alone
+                // hides 26 more stanzas the same way.
+                //
+                // This is deliberately **not** "any blank line continues
+                // the block" (that would let it swallow an unrelated
+                // trailing paragraph or reopen on a coincidental later
+                // own-name mention — the exact fabrication spec §7 [M-10]
+                // forbids). It fires only for the unlabelled-synopsis entry
+                // point (`labelled_usage_start.is_none()` — a tool with a
+                // real `Usage:` line is completely unaffected), and only
+                // when the very next non-consumed line is itself unambiguous
+                // synopsis-head evidence: either `looks_like_unlabeled_synopsis_line`
+                // (notation on the line itself) or
+                // [`looks_like_lvm_bare_synopsis_head`] (a bare own-name line
+                // whose *next* line is unambiguous flag-row evidence) — the
+                // same two tests, and nothing looser, that opened the usage
+                // block in the first place. At most one line in between may
+                // be skipped, and only when it reads as a full English
+                // sentence ([`is_prose_sentence`]) rather than more
+                // notation — the stanza's own description line, which is
+                // consumed here and must land in neither the synopsis nor
+                // the tool's description (the first stanza's prose remains
+                // the sole description candidate). Anything else — a
+                // section heading (`Common options for lvm:`), a flag row,
+                // an unrelated paragraph — fails this narrow lookahead and
+                // falls through to the ordinary `break` below, ending the
+                // block exactly as before this fix.
+                if labelled_usage_start.is_none() {
+                    if let Some(name) = tool_name {
+                        let mut j = i + 1;
+                        let is_head = |lines: &[&str], j: usize| {
+                            j < lines.len()
+                                && (looks_like_unlabeled_synopsis_line(
+                                    lines[j].trim_start(),
+                                    name,
+                                ) || looks_like_lvm_bare_synopsis_head(lines, j, name))
+                        };
+                        if !is_head(&lines, j) {
+                            if let Some(next) = lines.get(j) {
+                                let t = next.trim_start();
+                                if !t.is_empty() && is_prose_sentence(t) {
+                                    j += 1;
+                                }
+                            }
+                        }
+                        if is_head(&lines, j) {
+                            let trimmed = lines[j].trim().to_string();
+                            usage_lines.push(trimmed.clone());
+                            usage_entries.push(trimmed);
+                            line_entry_index.push(usage_entries.len() - 1);
+                            i = j + 1;
+                            continue;
+                        }
+                    }
+                }
                 break;
             }
             let trimmed_start = l.trim_start();
@@ -2433,6 +2507,25 @@ pub fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
         return false;
     }
     rest.contains(['[', '<', '{']) && !is_prose_sentence(rest)
+}
+
+/// True if `lines[idx]` is a bare own-name invocation line (LVM's shape:
+/// `vgck`, `vgck --updatemetadata VG`, `vgextend VG PV ...` — no bracket
+/// notation on the line itself) whose *very next* physical line is
+/// unambiguous flag-row evidence ([`looks_like_bracket_flag_row`]). Shared
+/// by the unlabelled-synopsis entry point (this file's `unlabelled_synopsis_start`)
+/// and the multi-stanza continuation check in the usage-block loop below it
+/// — both need exactly this one test, and a second copy would drift.
+///
+/// Narrow and structural, never "is this LVM": a name-only line only counts
+/// when the next line is itself unambiguous flag-row notation, never merely
+/// because it comes right after a name match.
+fn looks_like_lvm_bare_synopsis_head(lines: &[&str], idx: usize, name: &str) -> bool {
+    let t = lines[idx].trim_start();
+    starts_with_tool_name(t, name)
+        && lines
+            .get(idx + 1)
+            .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start()))
 }
 
 /// True if `t` (already trimmed of leading whitespace) opens with one of
