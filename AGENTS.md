@@ -247,6 +247,14 @@ update Appendix A in the same commit, with the method.
 
 ## 5. Working agreements
 
+- **Commit signature precedence: the model at the top of the delegation chain
+  signs.** The `Co-Authored-By: Claude <model> <noreply@anthropic.com>` trailer
+  names the *orchestrating* model, not whichever subordinate typed the diff: if
+  Fable directs an Opus orchestrator, the trailer says Fable; if that Opus
+  directs Sonnet workers, still Fable. One session otherwise produces commits
+  signed by three different models for one coordinated change, which reads as
+  inconsistency in the history. Never include a session URL in a commit
+  message or PR body.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
