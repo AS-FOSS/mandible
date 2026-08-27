@@ -128,38 +128,34 @@ surprising against the tool's own `--help`.
 > minutes and is a complete contribution on its own.
 
 <details>
-<summary><h2>Configurations</h2></summary>
-     
-### Keys
+<summary><h2>Configuration</h2></summary>
 
-`?` lists every binding and the footer keeps the important ones on screen, so this
-section is deliberately short: arrows or `hjkl` to move, `/` to search, `Tab`
-between panes, `y` to copy the selected flag, `q` to quit.
+Everything you can customize lives in one directory:
 
-Search is the part that is not self-evident, because its two modes answer
-different questions. `names` matches command names literally, so every row you see
-contains what you typed. `everything` searches flags, summaries and descriptions
-fuzzily, so `gco` finds `checkout`. `/` opens the first, and pressing it again
-switches to the second.
+| File | What it controls |
+|---|---|
+| `~/.config/mandible/config.toml` | mandible's own behavior (the settings below) |
+| `~/.config/mandible/overrides/<tool>.toml` | your corrections to one tool's documentation |
+
+Neither file needs to exist — everything has a default.
 
 ### Settings
 
-`~/.config/mandible/config.toml` holds general settings, separate from the
-per-tool overrides below:
-
 ```toml
+# ~/.config/mandible/config.toml
+
 [ui]
-horizontal_scroll = true  # default; false restores the old wrap-everything behavior
+# Long preformatted lines (the raw --help view, USAGE synopses) scroll
+# horizontally with h/l instead of wrapping, with a dim </> marker beside
+# each line that continues past the pane edge. Set to false to wrap
+# everything instead, exactly as before this setting existed.
+horizontal_scroll = true
 ```
 
-`horizontal_scroll` controls whether preformatted detail-pane content — the
-raw `--help` view (`t`) and USAGE synopsis lines — scrolls with `h`/`l`
-instead of wrapping. A missing file, table, or key all mean the default.
+### Per-tool overrides
 
-### Overrides
-
-Anything mandible gets wrong about a tool, you can correct locally. Drop a TOML file
-at `~/.config/mandible/overrides/<tool>.toml`:
+Anything mandible gets wrong about a tool, you can correct locally in
+`~/.config/mandible/overrides/<tool>.toml`:
 
 ```toml
 summary = "my better one-line description"
@@ -181,14 +177,25 @@ These are yours and are never committed to this repository.
 > fix belongs in a framework grammar, where it improves every tool built with that
 > framework at once.
 
-### Environment
+### Environment variables
 
 | Variable | Effect |
 |---|---|
 | `NO_COLOR` | Disable colour. `TERM=dumb` and piped output do the same |
 | `MANDIBLE_ASCII=1` | Force the ASCII glyph set, for terminals that mangle Unicode |
-| `MANDIBLE_CONFIG_DIR` | Override the config directory outright |
+| `MANDIBLE_CONFIG_DIR` | Read config and overrides from a different directory |
 | `MANDIBLE_LOG` | Tracing filter, written to stderr |
+
+### Keys
+
+`?` inside mandible lists every binding, and the footer keeps the important ones
+on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `h`/`l`
+to scroll wide lines, `t` for the tool's own `--help`, `y` to copy the selected
+flag, `q` to quit.
+
+Search has two modes: `names` matches command names literally; `everything`
+searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
+the first, pressing it again switches to the second.
 
 ### Diagnostics
 
