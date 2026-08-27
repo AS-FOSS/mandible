@@ -15,6 +15,7 @@ once it reaches a published 0.1.0 release.
 ### Fixed
 
 - Pressing `t` to flip between the parsed view and the tool's own `--help` reset the detail pane to the top on every toggle, which broke the exact comparison the verbatim view exists for; the pane now carries the reader's place as a proportion of the view's extent and resolves it against the other view's height, surviving any number of consecutive toggles, while a selection change still starts at the top.
+- LVM's per-mode synopsis stanzas (`vgchange`, and the whole `lv*`/`vg*`/`pv*` family) repeat the tool's own name plus that mode's mode-selecting flag on the stanza's head line (`vgchange -a|--activate y|n|ay`, `vgchange --systemid String VG`), which the engine kept only as the stanza's `group` label and never itself parsed for a flag — `sections::recover_stanza_head_flag` now also reads that flag out (via the existing alias/value grammar, so `-a|--activate y|n|ay` still reads as one flag) while leaving the head line as `group` exactly as before; recovers `vgchange`'s `--activate`, `--refresh`, `--systemid`, `--lockstart`, `--lockstop` and `--locktype`, all previously absent from the tree.
 
 ## [0.4.4] - 2026-08-27
 

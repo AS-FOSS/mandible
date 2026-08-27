@@ -700,6 +700,53 @@ pub fn paren_alternation_member_content(input: &str) -> Option<&str> {
     }
 }
 
+// --- the stanza head's own mode-selecting flag --------------------------
+//
+// LVM's emitter documents each mode as a stanza: a prose description line,
+// then a synopsis head line that repeats the tool's own name followed by
+// that mode's mode-selecting flag, then the mode's `[...]`/`(...)` rows:
+//
+// ```text
+//   Activate or deactivate LVs.
+//   vgchange -a|--activate y|n|ay
+//     [ -K|--ignoreactivationskip ]
+//     ...
+// ```
+//
+// `sections::parse_body`'s generic heading scanner already recognizes a
+// line like `vgchange -a|--activate y|n|ay` as a *heading* whenever
+// more-indented content follows it (`heading_can_name_a_group`), and keeps
+// its full text as the block's `group` — but the heading is only ever
+// copied into `group`, never itself parsed for the flag it names, so
+// `--activate` never became a flag row. This module adds only the
+// predicate for recognizing the shape; `sections::recover_stanza_head_flag`
+// hands the recognized remainder to [`parse_flag_spec`] unchanged, exactly
+// as every other row shape in this file already does — `-a|--activate
+// y|n|ay` reads as one flag (short `a`, long `activate`, value `y|n|ay`)
+// for the same reason `bracket_flag_row_content`'s identical shape does:
+// [`take_rest_value_token`]'s `alias_follows` guard already keeps a
+// value's own `|` from being misread as a second alias.
+
+/// True if `rest` — the text immediately following a stanza head line's own
+/// tool-name prefix, already trimmed of leading whitespace — opens with a
+/// bare flag spelling.
+///
+/// This is the whole test: a bare invocation naming no flag at all
+/// (`vgchange` alone, `rest` empty) fails it, and so does an ordinary
+/// heading whose text merely happens to start with the tool's own name
+/// (`rest` starts with a word, not a dash). It does not attempt to decide
+/// where the flag's own value ends and a trailing positional begins —
+/// `--systemid String VG`'s `VG` and `--locktype sanlock|dlm|none VG`'s
+/// `VG` are left in `rest` for [`parse_flag_spec`] to leave unconsumed on
+/// its own (its value grammar already stops at the first whitespace gap
+/// that isn't a qualifying alias separator), rather than trimmed here by a
+/// second, narrower value-vs-positional guess.
+pub fn looks_like_stanza_head_flag(rest: &str) -> bool {
+    rest.split_whitespace()
+        .next()
+        .is_some_and(is_bare_flag_token)
+}
+
 // --- the flag-alternation group ----------------------------------------
 //
 // A *delimited alternation of flag spellings* is one notation with three
@@ -1733,5 +1780,18 @@ mod tests {
     fn paren_alternation_member_content_refuses_a_non_flag_row() {
         assert_eq!(paren_alternation_member_content("( COMMON_OPTIONS,"), None);
         assert_eq!(paren_alternation_member_content("VG|Tag )"), None);
+    }
+
+    /// `looks_like_stanza_head_flag`'s whole test: a bare flag token as the
+    /// remainder's first word, real for every LVM shape it exists for, and
+    /// refused for a bare invocation with nothing after the name.
+    #[test]
+    fn looks_like_stanza_head_flag_requires_a_leading_flag_token() {
+        assert!(looks_like_stanza_head_flag("-a|--activate y|n|ay"));
+        assert!(looks_like_stanza_head_flag("--refresh"));
+        assert!(looks_like_stanza_head_flag("--systemid String VG"));
+        assert!(!looks_like_stanza_head_flag(""));
+        assert!(!looks_like_stanza_head_flag("VG"));
+        assert!(!looks_like_stanza_head_flag("is a general-purpose tool"));
     }
 }
