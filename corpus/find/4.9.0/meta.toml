@@ -1,0 +1,56 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "find"
+version = "4.9.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.3"
+
+# GNU find's `--help` is the specimen for the "packed flag row" shape (spec
+# §7 Tier B, `expression-help-rows`): its "Tests"/"Actions"/"Normal
+# options"/"Positional options" tables write several `-flag [ARG]` entries
+# packed onto one physical line with single spaces, never one flag per
+# line and never a per-flag description anywhere in the document.
+#
+# Before the shape reader landed, the generic single-column fallback read
+# the *whole* line as one flag's spec whenever no description gap was
+# found, and `find_placeholder_boundary_gap` — built to recover a
+# description a fixed-width table's long spelling overran — misread
+# `-size N[bcwkMG]`'s own bracketed unit suffix as exactly that shape: it
+# handed `-wholename` the front of the *next* entries on the same line
+# (`-true -type [bcdpflsD] -uid N`) as a fabricated description that the
+# tool never wrote as belonging to it. `find` also lost most of the rest
+# of the table outright (22 of the real ~75 flags), one wrong or missing
+# flag per physical line rather than per real entry.
+#
+# `must_contain_flags` below pins the fix: every one of these single-dash
+# long spellings (`flag_present`'s bare-word arm matches a `long` verbatim
+# regardless of dash count, which is the only notation this contract
+# format has for a single-dash long option — see `xtask::corpus::
+# flag_present`) must keep coming out named correctly, not lost or folded
+# into a neighbor's fabricated description.
+[[capture]]
+argv = ["find", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+# Not "ok": this document genuinely carries no per-flag description for
+# all but two of its ~75 flags (`--help`/`--version`), so
+# `pct_flags_with_text` is honestly low and the status ladder should say
+# so — see spec §7 Tier B, "a correct spelling with no description is
+# honest and the confidence badge should reflect that". `low-confidence`
+# here is the correct floor, not a defect this fixture is hiding.
+min_status = "low-confidence"
+must_contain_flags = [
+    "wholename",
+    "anewer",
+    "perm",
+    "size",
+    "exec",
+    "execdir",
+    "--help",
+    "--version",
+]

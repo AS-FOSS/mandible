@@ -824,11 +824,18 @@ fn parse_body(
         // flag entry, so there is no heading to consume — scan it in
         // place.
         if looks_like_flag_start(line.trim_start()) {
-            let (end, entries) = scan_flags_block(&lines, i);
+            let (end, entries, packed) = scan_flags_block(&lines, i);
             i = end;
-            let (seen, clean) = emit_flags(None, entries, &mut result);
-            total_entries += seen;
-            clean_entries += clean;
+            if packed {
+                let seen = entries.len();
+                emit_packed_flags(None, entries, &mut result);
+                total_entries += seen;
+                clean_entries += seen;
+            } else {
+                let (seen, clean) = emit_flags(None, entries, &mut result);
+                total_entries += seen;
+                clean_entries += clean;
+            }
             command_mode = false;
             continue;
         }
@@ -1047,15 +1054,23 @@ fn parse_body(
         // their options table, and keying the whole decision off row one
         // threw the rest of the block away. See `flags_block_start`.
         if let Some(flags_start) = flags_block_start(&lines, i) {
-            let (end, entries) = scan_flags_block(&lines, flags_start);
+            let (end, entries, packed) = scan_flags_block(&lines, flags_start);
             i = end;
             if is_ignorable_heading(&heading) {
                 command_mode = false;
                 continue;
             }
-            let (seen, clean) = emit_flags(meaningful_flag_group(heading), entries, &mut result);
-            total_entries += seen;
-            clean_entries += clean;
+            if packed {
+                let seen = entries.len();
+                emit_packed_flags(meaningful_flag_group(heading), entries, &mut result);
+                total_entries += seen;
+                clean_entries += seen;
+            } else {
+                let (seen, clean) =
+                    emit_flags(meaningful_flag_group(heading), entries, &mut result);
+                total_entries += seen;
+                clean_entries += clean;
+            }
             command_mode = false;
             continue;
         }
@@ -3319,6 +3334,88 @@ fn emit_flags(
     (seen, clean)
 }
 
+/// Emit a [`block_is_packed_flag_rows`]-shaped block's entries directly,
+/// never through [`parse_flag_spec`]/[`emit_flags`]: that grammar's alias
+/// loop reads `-wholename` as the *short* flag `-w` plus a required value
+/// `"holename"` (`try_short` takes one character unconditionally before
+/// `try_long`'s two-dash form ever gets a look), which is exactly the
+/// reading `repair_single_dash_long_options` exists to correct elsewhere —
+/// but here the second element of each entry is the flag's own *operand*,
+/// never a description, and feeding it to `emit_flags` would show it as
+/// one. Bypassing the grammar entirely for this narrow shape means the
+/// spelling is decided the same way the repair pass already treats it
+/// (one bare character is a short flag; anything longer is a single-dash
+/// long option, spec's own `single_dash` field), and the operand text —
+/// when this shape's notation resists any further, safer decomposition
+/// (`-perm`'s `[-/]MODE`, a prefix bracket with a bare suffix glued
+/// straight after it with no separator at all) — is kept exactly as the
+/// tool wrote it rather than guessed at.
+fn emit_packed_flags(group: Option<String>, entries: Vec<(String, String)>, out: &mut ParsedHelp) {
+    // Scoped to this one block's own entries: GNU find's `-exec`/`-execdir`
+    // document two invocation forms (`COMMAND ;` and `COMMAND {} +`) as two
+    // separate packed entries sharing one spelling. One `Flag` per
+    // spelling, not two identical-looking rows — the second form's operand
+    // text is appended to the first's, verbatim, rather than dropped.
+    let mut names: Vec<String> = Vec::new();
+    let mut operands: Vec<String> = Vec::new();
+    let mut index_of: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (spelling, operand) in entries {
+        let name = spelling.trim_start_matches('-').to_string();
+        if name.is_empty() {
+            continue;
+        }
+        match index_of.get(&name) {
+            Some(&idx) => {
+                if !operand.is_empty() && operands[idx] != operand {
+                    if !operands[idx].is_empty() {
+                        operands[idx].push_str(" | ");
+                    }
+                    operands[idx].push_str(&operand);
+                }
+            }
+            None => {
+                index_of.insert(name.clone(), names.len());
+                names.push(name);
+                operands.push(operand);
+            }
+        }
+    }
+    for (name, operand) in names.into_iter().zip(operands) {
+        if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        let mut chars = name.chars();
+        let (short, long, single_dash) = match (chars.next(), chars.next()) {
+            (Some(c), None) => (Some(c), None, false),
+            _ => (None, Some(name), true),
+        };
+        let value_kind = if operand.is_empty() {
+            ValueKind::None
+        } else {
+            ValueKind::Required
+        };
+        out.flags.push(Flag {
+            short,
+            long,
+            value_name: (!operand.is_empty()).then_some(operand),
+            value_kind,
+            choices: Vec::new(),
+            repeatable: false,
+            required: false,
+            negatable: false,
+            single_dash,
+            hidden: false,
+            deprecated: None,
+            inherited: false,
+            group: group.clone(),
+            description: None,
+            default: None,
+            env_var: None,
+            provenance: Provenance::single(Source::HelpText),
+        });
+    }
+}
+
 /// Emit a recognized bare-word block's entries as subcommand stubs (spec
 /// §7 Tier B rules 1 and 3). Entries failing the name-shape test are
 /// dropped, not emitted — never fabricated.
@@ -4160,6 +4257,123 @@ fn block_is_multi_column(entry_lines: &[&str]) -> bool {
         .any(|&count| count >= MIN_COLUMN_RECURRENCE)
 }
 
+// --- packed flag rows: several bare entries share one physical line, ----
+// --- with no per-entry description anywhere in the block ----------------
+//
+// GNU `find --help` writes its "Tests"/"Actions"/"Normal options" tables as
+// several `-flag [ARG]` entries packed onto one physical line with single
+// spaces, never one flag per line and never a description column at all:
+//
+// ```text
+// Tests (N can be +N or -N or N):
+//       -amin N -anewer FILE -atime N -cmin N -cnewer FILE -context CONTEXT
+//       ...
+//       -wholename PATTERN -size N[bcwkMG] -true -type [bcdpflsD] -uid N
+// ```
+//
+// Neither [`block_is_multi_column`] (built for a block where every packed
+// cell carries its *own* real description, e.g. `lsof`'s options table) nor
+// the ordinary single-column path (`find_description_gap` + one flag per
+// physical line) is the right tool: there is no description anywhere here
+// to find a gap before, and reading the *whole* line as one flag's spec —
+// what the single-column path falls back to when no gap is found — is what
+// produced the corruption this shape exists to fix. `find_placeholder_
+// boundary_gap` (a `]`/`>` followed by exactly one space, meant to recover
+// a description a fixed-width table's long spelling overran) misreads
+// `-size N[bcwkMG]`'s own bracketed unit suffix as exactly that shape and
+// hands `parse_flag_spec` the front half of the *next* entries
+// (`-true -type [bcdpflsD] -uid N`) as `-wholename`'s fabricated
+// "description" — a flag invented text the tool never wrote as belonging
+// to it. This block never reaches `find_description_gap` at all: see
+// [`block_is_packed_flag_rows`]'s call site in [`scan_flags_block`].
+
+/// True if `token` opens a new packed entry: a dash immediately followed
+/// by an ASCII letter. Narrower than [`looks_like_flag_start`] (which also
+/// accepts a bare `-` and a `{...}` alternation) because this is asked of
+/// one whitespace-delimited token, many times per line, rather than of a
+/// whole physical line once — a bare trailing `-` or a brace group never
+/// opens a second entry mid-line in this shape, and admitting either here
+/// would risk splitting a real operand token in two.
+fn token_opens_packed_entry(token: &str) -> bool {
+    let mut chars = token.chars();
+    matches!(chars.next(), Some('-')) && matches!(chars.next(), Some(c) if c.is_ascii_alphabetic())
+}
+
+/// True if `token`, found between two packed entries, reads as the
+/// previous entry's own operand rather than as prose — which would mean
+/// the line is not this shape at all (see [`try_split_packed_row`]).
+/// [`is_value_placeholder_only`] already recognizes a value placeholder
+/// cell (`FILE`, `[bcdpflsD]`, an upper-case name with bracket decoration
+/// like `N[bcwkMG]`); the three bare tokens `-exec`/`-execdir`/`-ok`/
+/// `-okdir`'s own command-terminator convention writes with no other
+/// decoration (`;`, `+`, `{}`) are added on top because none of them is
+/// upper-case or bracket-wrapped as a whole token, and no other function in
+/// this module already names them.
+fn token_is_packed_operand(token: &str) -> bool {
+    is_value_placeholder_only(token) || matches!(token, ";" | "+" | "{}")
+}
+
+/// Split one physical line into the packed `(spelling, operand)` entries
+/// it carries — never a description, because this shape has none. Returns
+/// `None` the moment a token is neither a new entry's own opening dash nor
+/// the previous entry's operand: that means real prose is present and the
+/// line is not this shape, so the caller must fall back to the ordinary
+/// single-column reading rather than guess. A line with only one entry and
+/// nothing following it (an ordinary lone boolean flag) still returns
+/// `Some` with one entry — [`block_is_packed_flag_rows`] is what requires
+/// at least one line in the block to carry two or more before any of them
+/// is read this way, so a block that happens to wrap one flag onto its own
+/// line is not refused outright just for that line.
+fn try_split_packed_row(line: &str) -> Option<Vec<(String, String)>> {
+    let tokens: Vec<&str> = line.split_whitespace().collect();
+    if !tokens.first().is_some_and(|t| token_opens_packed_entry(t)) {
+        return None;
+    }
+    let mut entries: Vec<(String, String)> = Vec::new();
+    let mut i = 0;
+    while i < tokens.len() {
+        if !token_opens_packed_entry(tokens[i]) {
+            return None;
+        }
+        let spelling = tokens[i].to_string();
+        i += 1;
+        let mut operand = String::new();
+        while i < tokens.len() && !token_opens_packed_entry(tokens[i]) {
+            if !token_is_packed_operand(tokens[i]) {
+                return None;
+            }
+            if !operand.is_empty() {
+                operand.push(' ');
+            }
+            operand.push_str(tokens[i]);
+            i += 1;
+        }
+        entries.push((spelling, operand));
+    }
+    Some(entries)
+}
+
+/// True when every entry row in a flags block splits cleanly via
+/// [`try_split_packed_row`] (no row anywhere carries real prose this shape
+/// would otherwise fabricate a boundary inside) **and** at least one row
+/// actually packs two or more entries — proof this is genuinely the dense
+/// shape and not just an ordinary one-flag-per-line block that happens to
+/// have no description. Consulted only after [`block_is_multi_column`] and
+/// the aligned-spelling check have both already declined the block, the
+/// same subordination [`block_is_multi_column`]'s own doc comment
+/// describes for that pair — never in front of either, since both are
+/// already-working shapes this one must never compete with.
+fn block_is_packed_flag_rows(entry_lines: &[&str]) -> bool {
+    let mut any_multi = false;
+    for line in entry_lines {
+        match try_split_packed_row(line) {
+            Some(entries) => any_multi |= entries.len() >= 2,
+            None => return false,
+        }
+    }
+    any_multi
+}
+
 /// One raw row within a flags block, before it's split into `(spec,
 /// description)` — kept as a whole `&str` because the *splitting* decision
 /// (one column vs. several — see [`block_is_multi_column`]) can't be made
@@ -4173,7 +4387,7 @@ enum FlagsBlockRow<'a> {
     Continuation(&'a str),
 }
 
-fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String, String)>) {
+fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String, String)>, bool) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
@@ -4238,6 +4452,12 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
     // one option across aligned spelling columns (this one). Only a block
     // the first decision did not claim consults the second.
     let aligned_spellings = !multi_column && block_has_aligned_spelling_column(&entry_lines);
+    // Subordinate to both of the above, for the reason each of their own
+    // doc comments gives for the other: a block already claimed by either
+    // shape never reaches the packed-row reader, and the packed reader
+    // itself refuses (see `block_is_packed_flag_rows`) rather than compete
+    // for a row a working splitter already owns.
+    let packed = !multi_column && !aligned_spellings && block_is_packed_flag_rows(&entry_lines);
 
     let mut entries: Vec<(String, String)> = Vec::new();
     for row in rows {
@@ -4255,6 +4475,21 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
                 if let Some(content) = bracket_flag_row_content(line.trim()) {
                     entries.push((content.to_string(), String::new()));
                     continue;
+                }
+                // The packed shape (`find --help`'s "Tests"/"Actions"
+                // tables — see the block comment above
+                // `block_is_packed_flag_rows`): several bare entries per
+                // line, never a description. `block_is_packed_flag_rows`
+                // already proved every entry line in this block splits
+                // cleanly, so this can only be `None` for a line that
+                // reached here despite that (never for `find` itself) —
+                // and even then it degrades to the single-column path
+                // below rather than panicking or dropping the row.
+                if packed {
+                    if let Some(subs) = try_split_packed_row(line) {
+                        entries.extend(subs);
+                        continue;
+                    }
                 }
                 // `fields_in_line` can come back empty on a line
                 // `looks_like_flag_start` accepted (bare `-` test) but
@@ -4285,7 +4520,7 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
             }
         }
     }
-    (i, entries)
+    (i, entries, packed)
 }
 
 /// The fewest name/description pairs a deeper-indented run must show before
@@ -12302,6 +12537,145 @@ Options:
                 .iter()
                 .map(|c| c.name.clone())
                 .collect::<Vec<_>>()
+        );
+    }
+
+    /// [`try_split_packed_row`] unit cases: the sharp operand-vs-next-entry
+    /// boundaries spec calls out for GNU `find --help`'s own shape.
+    #[test]
+    fn try_split_packed_row_unit_cases() {
+        assert_eq!(
+            try_split_packed_row("-anewer FILE -atime N"),
+            Some(vec![
+                ("-anewer".to_string(), "FILE".to_string()),
+                ("-atime".to_string(), "N".to_string()),
+            ])
+        );
+        // A prefix-bracket-then-bare-suffix value spec with no separator
+        // (`-perm`'s own convention) is kept as one operand, verbatim,
+        // rather than decomposed further.
+        assert_eq!(
+            try_split_packed_row("-perm [-/]MODE -regex PATTERN"),
+            Some(vec![
+                ("-perm".to_string(), "[-/]MODE".to_string()),
+                ("-regex".to_string(), "PATTERN".to_string()),
+            ])
+        );
+        // Two operands on one entry (`-fprintf FILE FORMAT`) are kept
+        // together, not split into a second flag.
+        assert_eq!(
+            try_split_packed_row("-fprintf FILE FORMAT -print"),
+            Some(vec![
+                ("-fprintf".to_string(), "FILE FORMAT".to_string()),
+                ("-print".to_string(), String::new()),
+            ])
+        );
+        // The `-exec`/`-ok` command-terminator convention: bare `;` and
+        // `{} +` are operand tokens, never new entries (neither starts
+        // with a dash-plus-letter).
+        assert_eq!(
+            try_split_packed_row("-exec COMMAND ; -exec COMMAND {} +"),
+            Some(vec![
+                ("-exec".to_string(), "COMMAND ;".to_string()),
+                ("-exec".to_string(), "COMMAND {} +".to_string()),
+            ])
+        );
+        // Real prose between two dash-looking tokens is not this shape at
+        // all — refuse rather than guess where the entry boundary is.
+        assert_eq!(
+            try_split_packed_row("-foo Enable the foo behavior -bar"),
+            None
+        );
+        // A lone boolean flag alone on its line still succeeds (one
+        // entry, empty operand) — `block_is_packed_flag_rows` is what
+        // requires at least one *other* line in the block to pack two or
+        // more before this one is read as part of the shape.
+        assert_eq!(
+            try_split_packed_row("-readable"),
+            Some(vec![("-readable".to_string(), String::new())])
+        );
+    }
+
+    /// Reproduces the corruption this shape reader fixes: before it
+    /// existed, `find_placeholder_boundary_gap` misread `-size N[bcwkMG]`'s
+    /// own bracketed unit suffix as a description boundary and handed
+    /// `-wholename` the front of the *next* entries on the line
+    /// (`-true -type [bcdpflsD] -uid N`) as a fabricated description.
+    /// `-wholename` must come out with its real value (`PATTERN`) and no
+    /// description at all — never text belonging to a different flag.
+    #[test]
+    fn find_style_packed_tests_block_recovers_every_entry_with_no_fabricated_description() {
+        let raw = concat!(
+            "Usage: find [-H] [-L] [-P] [path...] [expression]\n",
+            "\n",
+            "Tests (N can be +N or -N or N):\n",
+            "      -wholename PATTERN -size N[bcwkMG] -true -type [bcdpflsD] -uid N\n",
+        );
+        let parsed = parse_named(raw, "find");
+        let wholename = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("wholename"))
+            .expect("-wholename recovered");
+        assert_eq!(wholename.value_name.as_deref(), Some("PATTERN"));
+        assert!(
+            wholename.description.is_none(),
+            "no description exists in this document; must not be fabricated: {:?}",
+            wholename.description
+        );
+        assert!(wholename.single_dash);
+        for name in ["size", "true", "type", "uid"] {
+            assert!(
+                parsed.flags.iter().any(|f| f.long.as_deref() == Some(name)),
+                "expected {name} to be recovered as its own flag, not folded into -wholename"
+            );
+        }
+    }
+
+    /// GNU find's real `-exec`/`-execdir` write two packed entries under
+    /// one spelling (a `;`-terminated form and a `{} +`-terminated form).
+    /// They must merge into one `Flag`, not appear twice.
+    #[test]
+    fn find_style_packed_actions_block_merges_repeated_spellings() {
+        let raw = concat!(
+            "Actions:\n",
+            "      -exec COMMAND ; -exec COMMAND {} + -ok COMMAND ;\n",
+        );
+        let parsed = parse_named(raw, "find");
+        let exec_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.long.as_deref() == Some("exec"))
+            .collect();
+        assert_eq!(
+            exec_flags.len(),
+            1,
+            "one -exec flag, not two: {exec_flags:?}"
+        );
+        assert_eq!(
+            exec_flags[0].value_name.as_deref(),
+            Some("COMMAND ; | COMMAND {} +")
+        );
+    }
+
+    /// A block with real prose descriptions must never be read as packed,
+    /// even if one of its rows happens to carry two dash-looking tokens.
+    #[test]
+    fn packed_row_reader_never_claims_a_block_with_real_descriptions() {
+        let raw = concat!(
+            "Other common options:\n",
+            "      --help                   display this help and exit\n",
+            "      --version                output version information and exit\n",
+        );
+        let parsed = parse_named(raw, "find");
+        let help = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("help"))
+            .expect("--help recovered");
+        assert_eq!(
+            help.description.as_ref().map(|t| t.as_str()),
+            Some("display this help and exit")
         );
     }
 }
