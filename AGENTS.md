@@ -255,6 +255,14 @@ update Appendix A in the same commit, with the method.
   signed by three different models for one coordinated change, which reads as
   inconsistency in the history. Never include a session URL in a commit
   message or PR body.
+- **Public prose describes the change, not the conversation.** Commit
+  messages, PR bodies, and issue/PR comments state what changed and why, in
+  the fewest words that stay clear. Never paste the maintainer's private
+  instructions verbatim, transcribe the discussion that led to a decision, or
+  dump spec/documentation text into them — link the section instead. No
+  personal details of any kind (names beyond the git author, machines,
+  schedules, private context). If a comment is longer than the diff is
+  interesting, it's too long.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
