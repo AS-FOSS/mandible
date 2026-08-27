@@ -956,7 +956,6 @@ fn parse_body(
             i += 1;
             continue;
         }
-
         // Headingless flags block: the current line already looks like a
         // flag entry, so there is no heading to consume — scan it in
         // place.
@@ -8024,6 +8023,87 @@ mod tests {
     use super::*;
 
     // --- multi-stanza unlabelled synopsis (fix/multi-stanza-synopsis) ---
+
+    /// `jar --help`'s own `Examples:` block writes a worked, filled-in
+    /// invocation with several real flags chained on one line and no
+    /// brackets anywhere — `jar --update --file foo.jar --main-class
+    /// com.foo.Main --module-version 1.0` — structurally indistinguishable
+    /// from a bare stanza head by the flag-count-one shape alone. A plain
+    /// English sentence at column 0 earlier in the document (`"restore
+    /// individual classes or resources from an archive."`) is read as a
+    /// heading whose "content" is the entire indented `Examples:` block
+    /// beneath it (an unrelated, pre-existing engine quirk: any
+    /// more-indented content promotes the line above it to a heading), so
+    /// `is_ignorable_heading`/`in_ignorable_section` never independently
+    /// sees the `Examples:` marker text at all here — the second-flag
+    /// guard in [`grammar::looks_like_stanza_head_flag`] is what actually
+    /// stops this one. The real, described `--update`/`-u` and
+    /// `--file`/`-f` rows survive untouched.
+    #[test]
+    fn jars_chained_example_invocation_is_never_read_as_a_stanza_head() {
+        let help = "jar creates an archive for classes and resources, and can manipulate or\n\
+                     restore individual classes or resources from an archive.\n\
+                     \n\
+                     \x20Examples:\n\
+                     \x20jar --update --file foo.jar --main-class com.foo.Main --module-version 1.0\n\
+                     \x20\x20\x20\x20-C foo/ module-info.class\n\
+                     \n\
+                     Main operation mode:\n\
+                     \n\
+                     \x20-u, --update               Update an existing jar archive\n\
+                     \x20-f, --file=FILE             The archive file name\n";
+        let parsed = parse_with_profile(help, None, Some("jar"));
+        let update_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.long.as_deref() == Some("update"))
+            .collect();
+        assert_eq!(update_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(update_flags[0].short, Some('u'));
+        assert!(
+            update_flags[0].value_name.is_none(),
+            "flags: {:?}",
+            parsed.flags
+        );
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("file")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    #[test]
+    fn blkids_alternate_usage_form_is_never_read_as_a_stanza_head() {
+        let help = "Usage:\n\
+                     blkid --label <label> | --uuid <uuid>\n\
+                     \n\
+                     blkid -p [--match-tag <tag>] [--offset <offset>] [--size <size>]\n\
+                     \x20\x20\x20\x20\x20\x20[--output <format>] <dev> ...\n\
+                     \n\
+                     Low-level probing options:\n\
+                     \x20-p, --probe            low-level superblocks probing (bypass cache)\n\
+                     \x20-i, --info             gather information about I/O limits\n";
+        let parsed = parse_with_profile(help, None, Some("blkid"));
+        let p_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('p'))
+            .collect();
+        assert_eq!(p_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(p_flags[0].long.as_deref(), Some("probe"));
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("match-tag")
+                    || f.value_name.as_deref() == Some("--match-tag <tag>")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
 
     /// `vgck --updatemetadata` — a *second* stanza, past the blank line
     /// this fix teaches the usage-block loop to look beyond — is now
