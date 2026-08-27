@@ -1,0 +1,78 @@
+tool: setleds
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: setleds [option...] [[+|-][ num | caps | scroll ]]
+
+Thus,
+	setleds +caps -num
+will set CapsLock, clear NumLock and leave ScrollLock unchanged.
+The settings before and after the change (if any) are reported
+when the -v option is given or when no change is requested.
+Normally, setleds influences the vt flag settings
+(and these are usually reflected in the leds).
+With -L, setleds only sets the leds, and leaves the flags alone.
+With -D, setleds sets both the flags and the default flags, so
+that a subsequent reset will not change the flags.
+
+Options:
+  -D, --default   change both the VT flags and their default settings.
+  -F, --flags     change the VT flags.
+  -L, --leds      change only the leds.
+  -V, --version   print version number.
+  -v, --verbose   be more verbose.
+  -h, --help      print this usage message.
+
+Report bugs to authors.
+
+
+
+=== parsed tree ===
+name: setleds
+usage:
+- 'Usage: setleds [option...] [[+|-][ num | caps | scroll ]]'
+flags:
+- short: 'D'
+  long: default
+  description: change both the VT flags and their default settings.
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  long: flags
+  description: change the VT flags.
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: leds
+  description: change only the leds.
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: print version number.
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: be more verbose.
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: print this usage message.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

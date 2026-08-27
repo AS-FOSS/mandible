@@ -1,0 +1,19 @@
+tool: mariadb-fix-extensions
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: /usr/bin/mariadb-fix-extensions datadir
+
+
+=== parsed tree ===
+name: mariadb-fix-extensions
+usage:
+- 'Usage: /usr/bin/mariadb-fix-extensions datadir'
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

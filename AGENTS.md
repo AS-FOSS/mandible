@@ -116,8 +116,8 @@ pty is 0×0 and ratatui renders nothing), drives it with keystrokes, and replays
 the output through a terminal emulator to produce the actual screen as text:
 
 ```console
-$ python3 -m venv /tmp/ptyvenv && /tmp/ptyvenv/bin/pip install pyte
-$ /tmp/ptyvenv/bin/python scripts/pty_screenshot.py --keys '/run,<enter>,<tab>' \
+$ python3 -m venv .venv && .venv/bin/pip install pyte
+$ .venv/bin/python scripts/pty_screenshot.py --keys '/run,<enter>,<tab>' \
       90 30 ./target/release/mandible docker
 ```
 

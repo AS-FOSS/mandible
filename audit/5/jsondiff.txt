@@ -1,0 +1,62 @@
+tool: jsondiff
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+usage: jsondiff [-h] [--indent INDENT] [-v] FILE1 FILE2
+
+Diff two JSON files
+
+positional arguments:
+  FILE1
+  FILE2
+
+options:
+  -h, --help       show this help message and exit
+  --indent INDENT  Indent output by n spaces
+  -v, --version    show program's version number and exit
+
+
+=== parsed tree ===
+name: jsondiff
+usage:
+- 'usage: jsondiff [-h] [--indent INDENT] [-v] FILE1 FILE2'
+positionals:
+- name: FILE1
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE2
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'h'
+  long: help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- long: indent
+  value_name: INDENT
+  value_kind: Required
+  description: Indent output by n spaces
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: version
+  description: show program's version number and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

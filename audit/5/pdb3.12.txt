@@ -1,0 +1,45 @@
+tool: pdb3.12
+stratum: low-confidence
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+usage: pdb.py [-c command] ... [-m module | pyfile] [arg] ...
+
+Debug the Python program given by pyfile. Alternatively,
+an executable module or package to debug can be specified using
+the -m switch.
+
+Initial commands are read from .pdbrc files in your home directory
+and in the current directory, if they exist.  Commands supplied with
+-c are executed after commands from .pdbrc files.
+
+To let the script run until an exception occurs, use "-c continue".
+To let the script run up to a given line X in the debugged file, use
+"-c 'until X'".
+
+
+=== parsed tree ===
+name: pdb3.12
+usage:
+- 'usage: pdb.py [-c command] ... [-m module | pyfile] [arg] ...'
+flags:
+- short: 'c'
+  value_name: are
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: module
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true

@@ -1,0 +1,28 @@
+tool: applydeltarpm
+stratum: ok
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+/usr/bin/applydeltarpm: invalid option -- '-'
+usage: applydeltarpm [-r <rpm>] deltarpm rpm
+
+
+=== parsed tree ===
+name: applydeltarpm
+description: '/usr/bin/applydeltarpm: invalid option -- ''-'''
+usage:
+- 'usage: applydeltarpm [-r <rpm>] deltarpm rpm'
+flags:
+- short: 'r'
+  value_name: <rpm>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

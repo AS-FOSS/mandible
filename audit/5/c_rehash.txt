@@ -1,0 +1,19 @@
+tool: c_rehash
+stratum: verbatim
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage error; try -h.
+
+
+=== parsed tree ===
+name: c_rehash
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true
+unparsed:
+- Usage error; try -h.

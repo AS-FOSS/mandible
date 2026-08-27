@@ -1,0 +1,774 @@
+tool: sos-collector
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+WARNING: the 'sos-collector' command has been deprecated in  favor of the new 'sos' command, E.G. 'sos collect'.
+Redirecting to 'sos collect --help'
+usage: sos collect [options]
+
+options:
+  -h, --help            show this help message and exit
+
+Global Options:
+  --batch               Do not prompt interactively
+  --config-file CONFIG_FILE
+                        specify alternate configuration file
+  --debug               enable interactive debugging using the python debugger
+  -q, --quiet           only print fatal errors
+  -s SYSROOT, --sysroot SYSROOT
+                        system rootdir path (default='/')
+  --tmp-dir TMP_DIR     specify alternate temporary directory
+  -t THREADS, --threads THREADS
+                        Number of threads to use
+  -v, --verbose         increase verbosity
+  -z {auto,gzip,xz}, --compression-type {auto,gzip,xz}
+                        compression technology to use
+  --encrypt             Encrypt the archive, either prompting for a password/key or referencing an
+                        environment variable
+  --encrypt-key ENCRYPT_KEY
+                        Encrypt the archive using a GPG key-pair
+  --encrypt-pass ENCRYPT_PASS
+                        Encrypt the archive using a password
+
+Report Passthru Options:
+  These options control how report is run on nodes
+
+  -a, --alloptions      Enable all sos report options
+  --all-logs            Collect logs regardless of size
+  --allow-system-changes
+                        Allow sos report to run commands that may alter system state
+  --chroot {auto,always,never}
+                        chroot executed commands to SYSROOT
+  --container-runtime CONTAINER_RUNTIME
+                        Default container runtime to use for collections. 'auto' for policy
+                        control.
+  -e ENABLE_PLUGINS, --enable-plugins ENABLE_PLUGINS
+                        Enable specific plugins for sos report
+  --journal-size JOURNAL_SIZE
+                        Limit the size of journals in MiB
+  -k PLUGOPTS, --plugin-option PLUGOPTS, --plugopts PLUGOPTS
+                        Plugin option as plugname.option=value
+  --log-size LOG_SIZE   Limit the size of individual logs (not journals) in MiB
+  --low-priority        Run reports as low priority
+  -n SKIP_PLUGINS, --skip-plugins SKIP_PLUGINS
+                        Skip these plugins
+  -o ONLY_PLUGINS, --only-plugins ONLY_PLUGINS
+                        Run these plugins only
+  --namespaces NAMESPACES
+                        limit number of namespaces to collect output for - 0 means unlimited
+  --no-env-vars         Do not collect env vars in sos reports
+  --plugin-timeout PLUGIN_TIMEOUT
+                        Set the global plugin timeout value
+  --cmd-timeout CMD_TIMEOUT
+                        Set the global command timeout value
+  --since SINCE         Escapes archived files older than date. This will also affect --all-logs.
+                        Format: YYYYMMDD[HHMMSS]
+  --skip-commands SKIP_COMMANDS
+                        do not execute these commands
+  --skip-files SKIP_FILES
+                        do not collect these files
+  --verify              perform pkg verification during collection
+
+Collector Options:
+  These options control how collect runs locally
+
+  -b, --become          Become root on the remote nodes
+  --case-id CASE_ID     Specify case number
+  --inherit-config-file
+                        Use the config file from the collector for all nodes to use with sos
+                        report
+  --node-config-file NODE_CONFIG_FILE
+                        Path to an existing config file on the nodes to use with sos report
+  --cluster-type CLUSTER_TYPE
+                        Specify a type of cluster profile
+  -c CLUSTER_OPTIONS, --cluster-option CLUSTER_OPTIONS
+                        Specify a cluster options used by a profile and takes the form of
+                        cluster.option=value
+  --group GROUP         Use a predefined group JSON file
+  --save-group SAVE_GROUP
+                        Save a resulting node list to a group
+  --image IMAGE         Specify the container image to use for containerized hosts.
+  --force-pull-image {True,False}, --pull {True,False}
+                        Force pull the container image even if it already exists on the host
+  --registry-user REGISTRY_USER
+                        Username to authenticate to the registry with for pulling an image
+  --registry-password REGISTRY_PASSWORD
+                        Password to authenticate to the registry with for pulling an image
+  --registry-authfile REGISTRY_AUTHFILE
+                        Use this authfile to provide registry authentication when pulling an image
+  -i SSH_KEY, --ssh-key SSH_KEY
+                        Specify an ssh key
+  -j JOBS, --jobs JOBS  Number of concurrent nodes to collect
+  -l, --list-options    List options available for profiles
+  --label LABEL         Assign a label to the archives
+  --primary PRIMARY, --manager PRIMARY, --controller PRIMARY
+                        Specify a primary node for cluster enumeration
+  --nopasswd-sudo       Use passwordless sudo on nodes
+  --nodes NODES         Provide a comma delimited list of nodes, or a regex to match against
+  --no-pkg-check        Do not run package checks. Use this with --cluster-type if there are rpm
+                        or apt issues on node
+  --no-local            Do not collect a report from localhost
+  -p SSH_PORT, --ssh-port SSH_PORT
+                        Specify SSH port for all nodes
+  --password            Prompt for user password for nodes
+  --password-per-node   Prompt for password for each node
+  --preset PRESET       Specify a sos preset to use
+  --ssh-user SSH_USER   Specify an SSH user. Default root
+  --timeout TIMEOUT     Timeout for sos report on each node.
+  --transport TRANSPORT
+                        Remote connection transport to use
+  --upload              Upload archive to a policy-default location
+  --upload-url UPLOAD_URL
+                        Upload the archive to specified server
+  --upload-directory UPLOAD_DIRECTORY
+                        Specify upload directory for archive
+  --upload-user UPLOAD_USER
+                        Username to authenticate with
+  --upload-pass UPLOAD_PASS
+                        Password to authenticate with
+  --upload-method {auto,put,post}
+                        HTTP method to use for uploading
+  --upload-no-ssl-verify
+                        Disable SSL verification for upload url
+  --upload-s3-endpoint UPLOAD_S3_ENDPOINT
+                        Endpoint to upload to for S3 bucket
+  --upload-s3-region UPLOAD_S3_REGION
+                        Region for the S3 bucket
+  --upload-s3-bucket UPLOAD_S3_BUCKET
+                        Name of the S3 bucket to upload to
+  --upload-s3-access-key UPLOAD_S3_ACCESS_KEY
+                        Access key for the S3 bucket
+  --upload-s3-secret-key UPLOAD_S3_SECRET_KEY
+                        Secret key for the S3 bucket
+  --upload-s3-object-prefix UPLOAD_S3_OBJECT_PREFIX
+                        Prefix for the S3 object/key
+  --upload-protocol {auto,https,ftp,sftp,s3}
+                        Manually specify the upload protocol
+
+Cleaner/Masking Options:
+  These options control how data obfuscation is performed
+
+  --clean, --cleaner, --mask
+                        Obfuscate sensitive information
+  --keep-binary-files   Keep unprocessable binary files in the archive instead of removing them
+  --domains DOMAINS     Additional domain names to obfuscate
+  --disable-parsers DISABLE_PARSERS
+                        Disable specific parsers, so that those elements are not obfuscated
+  --skip-cleaning-files SKIP_CLEANING_FILES, --skip-masking-files SKIP_CLEANING_FILES
+                        List of files to skip/ignore during cleaning. Globs are supported.
+  --keywords KEYWORDS   List of keywords to obfuscate
+  --keyword-file KEYWORD_FILE
+                        Provide a file a keywords to obfuscate
+  --no-update           Do not update the default cleaner map
+  --map-file MAP_FILE   Provide a previously generated mapping file for obfuscation
+  --usernames USERNAMES
+                        List of usernames to obfuscate
+  --treat-certificates {obfuscate,keep,remove}
+                        How to treat the certificate files [.csr .crt .pem]. Defaults to
+                        "obfuscate" after convert the file to text. "Key" certificate files are
+                        always removed.
+
+
+=== parsed tree ===
+name: sos-collector
+description: 'WARNING: the ''sos-collector'' command has been deprecated in favor of the new ''sos'' command, E.G. ''sos collect''. Redirecting to ''sos collect --help'''
+usage:
+- 'usage: sos collect [options]'
+flags:
+- short: 'h'
+  long: help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- long: batch
+  group: 'Global Options:'
+  description: Do not prompt interactively
+  provenance:
+    sources:
+    - help-text
+- long: config-file
+  value_name: CONFIG_FILE
+  value_kind: Required
+  group: 'Global Options:'
+  description: specify alternate configuration file
+  provenance:
+    sources:
+    - help-text
+- long: debug
+  group: 'Global Options:'
+  description: enable interactive debugging using the python debugger
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  group: 'Global Options:'
+  description: only print fatal errors
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: sysroot
+  value_name: SYSROOT
+  value_kind: Required
+  group: 'Global Options:'
+  description: system rootdir path (default='/')
+  provenance:
+    sources:
+    - help-text
+- long: tmp-dir
+  value_name: TMP_DIR
+  value_kind: Required
+  group: 'Global Options:'
+  description: specify alternate temporary directory
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: threads
+  value_name: THREADS
+  value_kind: Required
+  group: 'Global Options:'
+  description: Number of threads to use
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Global Options:'
+  description: increase verbosity
+  provenance:
+    sources:
+    - help-text
+- short: 'z'
+  long: compression-type
+  value_name: '{auto,gzip,xz}'
+  value_kind: Required
+  group: 'Global Options:'
+  description: compression technology to use
+  provenance:
+    sources:
+    - help-text
+- long: encrypt
+  group: 'Global Options:'
+  description: Encrypt the archive, either prompting for a password/key or referencing an environment variable
+  provenance:
+    sources:
+    - help-text
+- long: encrypt-key
+  value_name: ENCRYPT_KEY
+  value_kind: Required
+  group: 'Global Options:'
+  description: Encrypt the archive using a GPG key-pair
+  provenance:
+    sources:
+    - help-text
+- long: encrypt-pass
+  value_name: ENCRYPT_PASS
+  value_kind: Required
+  group: 'Global Options:'
+  description: Encrypt the archive using a password
+  provenance:
+    sources:
+    - help-text
+- short: 'a'
+  long: alloptions
+  description: Enable all sos report options
+  provenance:
+    sources:
+    - help-text
+- long: all-logs
+  description: Collect logs regardless of size
+  provenance:
+    sources:
+    - help-text
+- long: allow-system-changes
+  description: Allow sos report to run commands that may alter system state
+  provenance:
+    sources:
+    - help-text
+- long: chroot
+  value_name: '{auto,always,never}'
+  value_kind: Required
+  description: chroot executed commands to SYSROOT
+  provenance:
+    sources:
+    - help-text
+- long: container-runtime
+  value_name: CONTAINER_RUNTIME
+  value_kind: Required
+  description: Default container runtime to use for collections. 'auto' for policy control.
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  long: enable-plugins
+  value_name: ENABLE_PLUGINS
+  value_kind: Required
+  description: Enable specific plugins for sos report
+  provenance:
+    sources:
+    - help-text
+- long: journal-size
+  value_name: JOURNAL_SIZE
+  value_kind: Required
+  description: Limit the size of journals in MiB
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  long: plugin-option
+  value_name: PLUGOPTS
+  value_kind: Required
+  description: Plugin option as plugname.option=value
+  provenance:
+    sources:
+    - help-text
+- long: log-size
+  value_name: LOG_SIZE
+  value_kind: Required
+  description: Limit the size of individual logs (not journals) in MiB
+  provenance:
+    sources:
+    - help-text
+- long: low-priority
+  description: Run reports as low priority
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: skip-plugins
+  value_name: SKIP_PLUGINS
+  value_kind: Required
+  description: Skip these plugins
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  long: only-plugins
+  value_name: ONLY_PLUGINS
+  value_kind: Required
+  description: Run these plugins only
+  provenance:
+    sources:
+    - help-text
+- long: namespaces
+  value_name: NAMESPACES
+  value_kind: Required
+  description: limit number of namespaces to collect output for - 0 means unlimited
+  provenance:
+    sources:
+    - help-text
+- long: no-env-vars
+  description: Do not collect env vars in sos reports
+  provenance:
+    sources:
+    - help-text
+- long: plugin-timeout
+  value_name: PLUGIN_TIMEOUT
+  value_kind: Required
+  description: Set the global plugin timeout value
+  provenance:
+    sources:
+    - help-text
+- long: cmd-timeout
+  value_name: CMD_TIMEOUT
+  value_kind: Required
+  description: Set the global command timeout value
+  provenance:
+    sources:
+    - help-text
+- long: since
+  value_name: SINCE
+  value_kind: Required
+  description: 'Escapes archived files older than date. This will also affect --all-logs. Format: YYYYMMDD[HHMMSS]'
+  provenance:
+    sources:
+    - help-text
+- long: skip-commands
+  value_name: SKIP_COMMANDS
+  value_kind: Required
+  description: do not execute these commands
+  provenance:
+    sources:
+    - help-text
+- long: skip-files
+  value_name: SKIP_FILES
+  value_kind: Required
+  description: do not collect these files
+  provenance:
+    sources:
+    - help-text
+- long: verify
+  description: perform pkg verification during collection
+  provenance:
+    sources:
+    - help-text
+- short: 'b'
+  long: become
+  description: Become root on the remote nodes
+  provenance:
+    sources:
+    - help-text
+- long: case-id
+  value_name: CASE_ID
+  value_kind: Required
+  description: Specify case number
+  provenance:
+    sources:
+    - help-text
+- long: inherit-config-file
+  description: Use the config file from the collector for all nodes to use with sos report
+  provenance:
+    sources:
+    - help-text
+- long: node-config-file
+  value_name: NODE_CONFIG_FILE
+  value_kind: Required
+  description: Path to an existing config file on the nodes to use with sos report
+  provenance:
+    sources:
+    - help-text
+- long: cluster-type
+  value_name: CLUSTER_TYPE
+  value_kind: Required
+  description: Specify a type of cluster profile
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  long: cluster-option
+  value_name: CLUSTER_OPTIONS
+  value_kind: Required
+  description: Specify a cluster options used by a profile and takes the form of cluster.option=value
+  provenance:
+    sources:
+    - help-text
+- long: group
+  value_name: GROUP
+  value_kind: Required
+  description: Use a predefined group JSON file
+  provenance:
+    sources:
+    - help-text
+- long: save-group
+  value_name: SAVE_GROUP
+  value_kind: Required
+  description: Save a resulting node list to a group
+  provenance:
+    sources:
+    - help-text
+- long: image
+  value_name: IMAGE
+  value_kind: Required
+  description: Specify the container image to use for containerized hosts.
+  provenance:
+    sources:
+    - help-text
+- long: force-pull-image
+  value_name: '{True,False}'
+  value_kind: Required
+  description: Force pull the container image even if it already exists on the host
+  provenance:
+    sources:
+    - help-text
+- long: registry-user
+  value_name: REGISTRY_USER
+  value_kind: Required
+  description: Username to authenticate to the registry with for pulling an image
+  provenance:
+    sources:
+    - help-text
+- long: registry-password
+  value_name: REGISTRY_PASSWORD
+  value_kind: Required
+  description: Password to authenticate to the registry with for pulling an image
+  provenance:
+    sources:
+    - help-text
+- long: registry-authfile
+  value_name: REGISTRY_AUTHFILE
+  value_kind: Required
+  description: Use this authfile to provide registry authentication when pulling an image
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: ssh-key
+  value_name: SSH_KEY
+  value_kind: Required
+  description: Specify an ssh key
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: jobs
+  value_name: JOBS
+  value_kind: Required
+  description: Number of concurrent nodes to collect
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: list-options
+  description: List options available for profiles
+  provenance:
+    sources:
+    - help-text
+- long: label
+  value_name: LABEL
+  value_kind: Required
+  description: Assign a label to the archives
+  provenance:
+    sources:
+    - help-text
+- long: primary
+  value_name: PRIMARY
+  value_kind: Required
+  description: Specify a primary node for cluster enumeration
+  provenance:
+    sources:
+    - help-text
+- long: nopasswd-sudo
+  description: Use passwordless sudo on nodes
+  provenance:
+    sources:
+    - help-text
+- long: nodes
+  value_name: NODES
+  value_kind: Required
+  description: Provide a comma delimited list of nodes, or a regex to match against
+  provenance:
+    sources:
+    - help-text
+- long: no-pkg-check
+  description: Do not run package checks. Use this with --cluster-type if there are rpm or apt issues on node
+  provenance:
+    sources:
+    - help-text
+- long: no-local
+  description: Do not collect a report from localhost
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: ssh-port
+  value_name: SSH_PORT
+  value_kind: Required
+  description: Specify SSH port for all nodes
+  provenance:
+    sources:
+    - help-text
+- long: password
+  description: Prompt for user password for nodes
+  provenance:
+    sources:
+    - help-text
+- long: password-per-node
+  description: Prompt for password for each node
+  provenance:
+    sources:
+    - help-text
+- long: preset
+  value_name: PRESET
+  value_kind: Required
+  description: Specify a sos preset to use
+  provenance:
+    sources:
+    - help-text
+- long: ssh-user
+  value_name: SSH_USER
+  value_kind: Required
+  description: Specify an SSH user. Default root
+  provenance:
+    sources:
+    - help-text
+- long: timeout
+  value_name: TIMEOUT
+  value_kind: Required
+  description: Timeout for sos report on each node.
+  provenance:
+    sources:
+    - help-text
+- long: transport
+  value_name: TRANSPORT
+  value_kind: Required
+  description: Remote connection transport to use
+  provenance:
+    sources:
+    - help-text
+- long: upload
+  description: Upload archive to a policy-default location
+  provenance:
+    sources:
+    - help-text
+- long: upload-url
+  value_name: UPLOAD_URL
+  value_kind: Required
+  description: Upload the archive to specified server
+  provenance:
+    sources:
+    - help-text
+- long: upload-directory
+  value_name: UPLOAD_DIRECTORY
+  value_kind: Required
+  description: Specify upload directory for archive
+  provenance:
+    sources:
+    - help-text
+- long: upload-user
+  value_name: UPLOAD_USER
+  value_kind: Required
+  description: Username to authenticate with
+  provenance:
+    sources:
+    - help-text
+- long: upload-pass
+  value_name: UPLOAD_PASS
+  value_kind: Required
+  description: Password to authenticate with
+  provenance:
+    sources:
+    - help-text
+- long: upload-method
+  value_name: '{auto,put,post}'
+  value_kind: Required
+  description: HTTP method to use for uploading
+  provenance:
+    sources:
+    - help-text
+- long: upload-no-ssl-verify
+  description: Disable SSL verification for upload url
+  provenance:
+    sources:
+    - help-text
+- long: upload-s3-endpoint
+  value_name: UPLOAD_S3_ENDPOINT
+  value_kind: Required
+  description: Endpoint to upload to for S3 bucket
+  provenance:
+    sources:
+    - help-text
+- long: upload-s3-region
+  value_name: UPLOAD_S3_REGION
+  value_kind: Required
+  description: Region for the S3 bucket
+  provenance:
+    sources:
+    - help-text
+- long: upload-s3-bucket
+  value_name: UPLOAD_S3_BUCKET
+  value_kind: Required
+  description: Name of the S3 bucket to upload to
+  provenance:
+    sources:
+    - help-text
+- long: upload-s3-access-key
+  value_name: UPLOAD_S3_ACCESS_KEY
+  value_kind: Required
+  description: Access key for the S3 bucket
+  provenance:
+    sources:
+    - help-text
+- long: upload-s3-secret-key
+  value_name: UPLOAD_S3_SECRET_KEY
+  value_kind: Required
+  description: Secret key for the S3 bucket
+  provenance:
+    sources:
+    - help-text
+- long: upload-s3-object-prefix
+  value_name: UPLOAD_S3_OBJECT_PREFIX
+  value_kind: Required
+  description: Prefix for the S3 object/key
+  provenance:
+    sources:
+    - help-text
+- long: upload-protocol
+  value_name: '{auto,https,ftp,sftp,s3}'
+  value_kind: Required
+  description: Manually specify the upload protocol
+  provenance:
+    sources:
+    - help-text
+- long: clean
+  description: Obfuscate sensitive information
+  provenance:
+    sources:
+    - help-text
+- long: keep-binary-files
+  description: Keep unprocessable binary files in the archive instead of removing them
+  provenance:
+    sources:
+    - help-text
+- long: domains
+  value_name: DOMAINS
+  value_kind: Required
+  description: Additional domain names to obfuscate
+  provenance:
+    sources:
+    - help-text
+- long: disable-parsers
+  value_name: DISABLE_PARSERS
+  value_kind: Required
+  description: Disable specific parsers, so that those elements are not obfuscated
+  provenance:
+    sources:
+    - help-text
+- long: skip-cleaning-files
+  value_name: SKIP_CLEANING_FILES
+  value_kind: Required
+  description: List of files to skip/ignore during cleaning. Globs are supported.
+  provenance:
+    sources:
+    - help-text
+- long: keywords
+  value_name: KEYWORDS
+  value_kind: Required
+  description: List of keywords to obfuscate
+  provenance:
+    sources:
+    - help-text
+- long: keyword-file
+  value_name: KEYWORD_FILE
+  value_kind: Required
+  description: Provide a file a keywords to obfuscate
+  provenance:
+    sources:
+    - help-text
+- long: no-update
+  description: Do not update the default cleaner map
+  provenance:
+    sources:
+    - help-text
+- long: map-file
+  value_name: MAP_FILE
+  value_kind: Required
+  description: Provide a previously generated mapping file for obfuscation
+  provenance:
+    sources:
+    - help-text
+- long: usernames
+  value_name: USERNAMES
+  value_kind: Required
+  description: List of usernames to obfuscate
+  provenance:
+    sources:
+    - help-text
+- long: treat-certificates
+  value_name: '{obfuscate,keep,remove}'
+  value_kind: Required
+  description: How to treat the certificate files [.csr .crt .pem]. Defaults to "obfuscate" after convert the file to text. "Key" certificate files are always removed.
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.97
+children_filled: true

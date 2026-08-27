@@ -1,0 +1,40 @@
+tool: rmiregistry
+stratum: ok
+forced inclusion: unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+port argument, --help, is not a number.
+Usage: rmiregistry <options> <port>
+
+where <options> includes:
+  -J<runtime flag> Pass argument to the java interpreter
+
+
+=== parsed tree ===
+name: rmiregistry
+description: port argument, --help, is not a number.
+usage:
+- 'Usage: rmiregistry <options> <port>'
+positionals:
+- name: port
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'J'
+  value_name: <runtime flag>
+  value_kind: Required
+  group: 'where <options> includes:'
+  description: Pass argument to the java interpreter
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,30 @@
+tool: ebtables-nft-restore
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+/usr/sbin/ebtables-nft-restore: unrecognized option '--help'
+Usage: ebtables-restore [ --verbose ] [ --noflush ]
+
+
+=== parsed tree ===
+name: ebtables-nft-restore
+description: '/usr/sbin/ebtables-nft-restore: unrecognized option ''--help'''
+usage:
+- 'Usage: ebtables-restore [ --verbose ] [ --noflush ]'
+flags:
+- long: verbose
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: noflush
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

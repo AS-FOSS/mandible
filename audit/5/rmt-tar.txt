@@ -1,0 +1,71 @@
+tool: rmt-tar
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: rmt-tar [OPTION...]
+Manipulate a tape drive, accepting commands from a remote process
+
+      --debug-file=FILE      set debug output file name
+  -d, --debug=NUMBER         set debug level
+  -?, --help                 give this help list
+      --usage                give a short usage message
+  -V, --version              print program version
+
+Mandatory or optional arguments to long options are also mandatory or optional
+for any corresponding short options.
+
+Report bugs to <bug-tar@gnu.org>.
+
+
+=== parsed tree ===
+name: rmt-tar
+description: Manipulate a tape drive, accepting commands from a remote process
+usage:
+- 'Usage: rmt-tar [OPTION...]'
+flags:
+- long: debug-file
+  value_name: FILE
+  value_kind: Required
+  group: Manipulate a tape drive, accepting commands from a remote process
+  description: set debug output file name
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: debug
+  value_name: NUMBER
+  value_kind: Required
+  group: Manipulate a tape drive, accepting commands from a remote process
+  description: set debug level
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  long: help
+  group: Manipulate a tape drive, accepting commands from a remote process
+  description: give this help list
+  provenance:
+    sources:
+    - help-text
+- long: usage
+  group: Manipulate a tape drive, accepting commands from a remote process
+  description: give a short usage message
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  group: Manipulate a tape drive, accepting commands from a remote process
+  description: print program version
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

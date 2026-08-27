@@ -1,0 +1,57 @@
+tool: mount.ntfs-3g
+stratum: ok
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+
+ntfs-3g 2022.10.3 integrated FUSE 28 - Third Generation NTFS Driver
+		Configuration type 7, XATTRS are on, POSIX ACLS are on
+
+Copyright (C) 2005-2007 Yura Pakhuchiy
+Copyright (C) 2006-2009 Szabolcs Szakacsits
+Copyright (C) 2007-2022 Jean-Pierre Andre
+Copyright (C) 2009-2020 Erik Larsson
+
+Usage:    ntfs-3g [-o option[,...]] <device|image_file> <mount_point>
+
+Options:  ro (read-only mount), windows_names, uid=, gid=,
+          umask=, fmask=, dmask=, streams_interface=.
+          Please see the details in the manual (type: man ntfs-3g).
+
+Example: ntfs-3g /dev/sda1 /mnt/windows
+
+Plugin path: /usr/lib/aarch64-linux-gnu/ntfs-3g
+
+News, support and information:  https://github.com/tuxera/ntfs-3g/
+
+
+=== parsed tree ===
+name: mount.ntfs-3g
+description: ntfs-3g 2022.10.3 integrated FUSE 28 - Third Generation NTFS Driver Copyright (C) 2005-2007 Yura Pakhuchiy Copyright (C) 2006-2009 Szabolcs Szakacsits Copyright (C) 2007-2022 Jean-Pierre Andre Copyright (C) 2009-2020 Erik Larsson
+usage:
+- 'Usage: ntfs-3g [-o option[,...]] <device|image_file> <mount_point>'
+positionals:
+- name: device|image_file
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: mount_point
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'o'
+  value_name: option[,...]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true

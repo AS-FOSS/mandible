@@ -1,0 +1,61 @@
+tool: printenv
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: /usr/bin/printenv [OPTION]... [VARIABLE]...
+Print the values of the specified environment VARIABLE(s).
+If no VARIABLE is specified, print name and value pairs for them all.
+
+  -0, --null     end each output line with NUL, not newline
+      --help        display this help and exit
+      --version     output version information and exit
+
+NOTE: your shell may have its own version of printenv, which usually supersedes
+the version described here.  Please refer to your shell's documentation
+for details about the options it supports.
+
+GNU coreutils online help: <https://www.gnu.org/software/coreutils/>
+Report any translation bugs to <https://translationproject.org/team/>
+Full documentation <https://www.gnu.org/software/coreutils/printenv>
+or available locally via: info '(coreutils) printenv invocation'
+
+
+=== parsed tree ===
+name: printenv
+description: Print the values of the specified environment VARIABLE(s). If no VARIABLE is specified, print name and value pairs for them all.
+usage:
+- 'Usage: /usr/bin/printenv [OPTION]... [VARIABLE]...'
+positionals:
+- name: VARIABLE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: '0'
+  long: 'null'
+  group: If no VARIABLE is specified, print name and value pairs for them all.
+  description: end each output line with NUL, not newline
+  provenance:
+    sources:
+    - help-text
+- long: help
+  group: If no VARIABLE is specified, print name and value pairs for them all.
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: If no VARIABLE is specified, print name and value pairs for them all.
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

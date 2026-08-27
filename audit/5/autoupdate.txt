@@ -1,0 +1,92 @@
+tool: autoupdate
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: /usr/bin/autoupdate [OPTION]... [TEMPLATE-FILE]...
+
+Update each TEMPLATE-FILE if given, or 'configure.ac' if present,
+or else 'configure.in', to the syntax of the current version of
+Autoconf.  The original files are backed up.
+
+Operation modes:
+  -h, --help                 print this help, then exit
+  -V, --version              print version number, then exit
+  -v, --verbose              verbosely report processing
+  -d, --debug                don't remove temporary files
+  -f, --force                consider all files obsolete
+
+Library directories:
+  -B, --prepend-include=DIR  prepend directory DIR to search path
+  -I, --include=DIR          append directory DIR to search path
+
+Report bugs to <bug-autoconf@gnu.org>.
+GNU Autoconf home page: <https://www.gnu.org/software/autoconf/>.
+General help using GNU software: <https://www.gnu.org/gethelp/>.
+
+
+=== parsed tree ===
+name: autoupdate
+usage:
+- 'Usage: /usr/bin/autoupdate [OPTION]... [TEMPLATE-FILE]...'
+flags:
+- short: 'h'
+  long: help
+  group: 'Operation modes:'
+  description: print this help, then exit
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  group: 'Operation modes:'
+  description: print version number, then exit
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Operation modes:'
+  description: verbosely report processing
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: debug
+  group: 'Operation modes:'
+  description: don't remove temporary files
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: force
+  group: 'Operation modes:'
+  description: consider all files obsolete
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: prepend-include
+  value_name: DIR
+  value_kind: Required
+  group: 'Library directories:'
+  description: prepend directory DIR to search path
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: include
+  value_name: DIR
+  value_kind: Required
+  group: 'Library directories:'
+  description: append directory DIR to search path
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

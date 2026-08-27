@@ -1,0 +1,145 @@
+tool: linux32
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+
+Usage:
+ linux32 [options] [<program> [<argument>...]]
+
+Change the reported architecture and set personality flags.
+
+Options:
+ -B, --32bit              turns on ADDR_LIMIT_32BIT
+ -F, --fdpic-funcptrs     makes function pointers point to descriptors
+ -I, --short-inode        turns on SHORT_INODE
+ -L, --addr-compat-layout changes the way virtual memory is allocated
+ -R, --addr-no-randomize  disables randomization of the virtual address space
+ -S, --whole-seconds      turns on WHOLE_SECONDS
+ -T, --sticky-timeouts    turns on STICKY_TIMEOUTS
+ -X, --read-implies-exec  turns on READ_IMPLIES_EXEC
+ -Z, --mmap-page-zero     turns on MMAP_PAGE_ZERO
+ -3, --3gb                limits the used address space to a maximum of 3 GB
+     --4gb                ignored (for backward compatibility only)
+     --uname-2.6          turns on UNAME26
+ -v, --verbose            say what options are being switched on
+
+ -h, --help               display this help
+ -V, --version            display version
+
+For more details see setarch(8).
+
+
+=== parsed tree ===
+name: linux32
+usage:
+- 'Usage:'
+- linux32 [options] [<program> [<argument>...]]
+positionals:
+- name: program
+  provenance:
+    sources:
+    - help-text
+- name: argument
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'B'
+  long: 32bit
+  description: turns on ADDR_LIMIT_32BIT
+  provenance:
+    sources:
+    - help-text
+- short: 'F'
+  long: fdpic-funcptrs
+  description: makes function pointers point to descriptors
+  provenance:
+    sources:
+    - help-text
+- short: 'I'
+  long: short-inode
+  description: turns on SHORT_INODE
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: addr-compat-layout
+  value_name: changes
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  long: addr-no-randomize
+  description: disables randomization of the virtual address space
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: whole-seconds
+  description: turns on WHOLE_SECONDS
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  long: sticky-timeouts
+  description: turns on STICKY_TIMEOUTS
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  long: read-implies-exec
+  description: turns on READ_IMPLIES_EXEC
+  provenance:
+    sources:
+    - help-text
+- short: 'Z'
+  long: mmap-page-zero
+  description: turns on MMAP_PAGE_ZERO
+  provenance:
+    sources:
+    - help-text
+- short: '3'
+  long: 3gb
+  description: limits the used address space to a maximum of 3 GB
+  provenance:
+    sources:
+    - help-text
+- long: 4gb
+  description: ignored (for backward compatibility only)
+  provenance:
+    sources:
+    - help-text
+- long: uname-2
+  value_name: '.6'
+  value_kind: Required
+  description: turns on UNAME26
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  description: say what options are being switched on
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

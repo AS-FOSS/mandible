@@ -1,0 +1,65 @@
+tool: rubycalls-bpfcc
+stratum: verbatim
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/bcc/syscall.py", line 379, in <module>
+    out = subprocess.check_output(['ausyscall', '--dump'], stderr=subprocess.STDOUT)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ausyscall'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/sbin/ucalls", line 19, in <module>
+    from bcc.syscall import syscall_name
+  File "/usr/lib/python3/dist-packages/bcc/syscall.py", line 387, in <module>
+    raise Exception("ausyscall: command not found")
+Exception: ausyscall: command not found
+
+
+=== parsed tree ===
+name: rubycalls-bpfcc
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true
+unparsed:
+- 'Traceback (most recent call last):'
+- File "/usr/lib/python3/dist-packages/bcc/syscall.py", line 379, in <module>
+- out = subprocess.check_output(['ausyscall', '--dump'], stderr=subprocess.STDOUT)
+- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- File "/usr/lib/python3.12/subprocess.py", line 466, in check_output
+- return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- File "/usr/lib/python3.12/subprocess.py", line 548, in run
+- 'with Popen(*popenargs, **kwargs) as process:'
+- ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- File "/usr/lib/python3.12/subprocess.py", line 1026, in __init__
+- self._execute_child(args, executable, preexec_fn, close_fds,
+- File "/usr/lib/python3.12/subprocess.py", line 1955, in _execute_child
+- raise child_exception_type(errno_num, err_msg, err_filename)
+- 'FileNotFoundError: [Errno 2] No such file or directory: ''ausyscall'''
+- ''
+- 'During handling of the above exception, another exception occurred:'
+- ''
+- 'Traceback (most recent call last):'
+- File "/usr/sbin/ucalls", line 19, in <module>
+- from bcc.syscall import syscall_name
+- File "/usr/lib/python3/dist-packages/bcc/syscall.py", line 387, in <module>
+- 'raise Exception("ausyscall: command not found")'
+- 'Exception: ausyscall: command not found'

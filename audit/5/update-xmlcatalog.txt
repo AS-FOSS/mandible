@@ -1,0 +1,157 @@
+tool: update-xmlcatalog
+stratum: ok
+forced inclusion: unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage:
+    update-xmlcatalog <options> --add --root --type <type> \
+                                                --id <id> --package <package>
+    update-xmlcatalog <options> --del --root --type <type> \
+                                                --id <id>
+
+    update-xmlcatalog <options> --add --package <package> --type <type> \
+                                                --id <id> --local <local>
+    update-xmlcatalog <options> --del --package <package> --type <type> \
+                                                --id <id>
+
+    update-xmlcatalog <options> --add --local <local> --type <type> \
+                                                --id <id> --file <file>
+    update-xmlcatalog <options> --del --local <local> --type <type> \
+                                                --id <id>
+
+    update-xmlcatalog --help
+
+With:
+    --file <file>       = a local filename
+    --id <id>           = catalog entry idenitifier
+    --local <local>     = a local XML catalog
+    --package <package> = a package XML catalog
+    --root              = the root XML catalog (= /etc/xml/catalog)
+    --type <type>       = catalog entry type (= public, system, uri)
+
+Options:
+    --verbose = be verbose
+    --sort = sorts the manipulated catalog content
+
+
+
+=== parsed tree ===
+name: update-xmlcatalog
+usage:
+- 'Usage:'
+- update-xmlcatalog <options> --add --root --type <type> \
+flags:
+- long: id
+  value_name: <id>
+  value_kind: Required
+  description: --package <package>
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: update-xmlcatalog <options> --del --root --type <type> \
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: update-xmlcatalog <options> --add --package <package> --type <type> \
+  description: --local <local>
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: update-xmlcatalog <options> --del --package <package> --type <type> \
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: update-xmlcatalog <options> --add --local <local> --type <type> \
+  description: --file <file>
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: update-xmlcatalog <options> --del --local <local> --type <type> \
+  provenance:
+    sources:
+    - help-text
+- long: file
+  value_name: <file>
+  value_kind: Required
+  group: 'With:'
+  description: = a local filename
+  provenance:
+    sources:
+    - help-text
+- long: id
+  value_name: <id>
+  value_kind: Required
+  group: 'With:'
+  description: = catalog entry idenitifier
+  provenance:
+    sources:
+    - help-text
+- long: local
+  value_name: <local>
+  value_kind: Required
+  group: 'With:'
+  description: = a local XML catalog
+  provenance:
+    sources:
+    - help-text
+- long: package
+  value_name: <package>
+  value_kind: Required
+  group: 'With:'
+  description: = a package XML catalog
+  provenance:
+    sources:
+    - help-text
+- long: root
+  group: 'With:'
+  description: = the root XML catalog (= /etc/xml/catalog)
+  provenance:
+    sources:
+    - help-text
+- long: type
+  value_name: <type>
+  value_kind: Required
+  group: 'With:'
+  description: = catalog entry type (= public, system, uri)
+  provenance:
+    sources:
+    - help-text
+- long: verbose
+  value_name: ''
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: sort
+  value_name: ''
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- long: add
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
