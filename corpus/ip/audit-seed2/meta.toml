@@ -30,13 +30,14 @@ expected_framework = "generic"
 # Update (flags-on-heading-line fix): `-V` is now recovered — the
 # heading/first-row line above is split by `split_shared_heading_row`'s
 # new BNF-operator clause, same as `corpus/ip/6.1.0` — so this contract
-# now fails on `-s`/`-d` only, still correctly `[xfail]`. `-s` and `-d`
-# stay unrecovered by design: they are not the *first* token of their own
-# physical line, only later members of `-V`'s `|`-alternation, and
-# splitting an alternation into multiple flags is a different, explicitly
-# out-of-scope family (the maintainer's `-l[oops]`-style note).
+# then failed on `-s`/`-d` only, and stayed `[xfail]`.
+#
+# Second update (bnf-alternation-options fix): `-s` and `-d` are now
+# recovered too. The `-l[oops]`-style note above no longer applies — the
+# maintainer's held-back family (a `|`-alternation naming several distinct
+# flags on one physical line) is exactly what this fix adds, gated on the
+# row's own heading having been produced by the `:=` operator clause
+# (`split_bnf_alternation_row`, `mandible-extract/src/help_text/sections.rs`).
+# Every flag this contract names is now present, so the fixture is
+# promoted out of `[xfail]` per corpus/README.md's lifecycle rule.
 must_contain_flags = ["-V", "-s", "-d"]
-
-[xfail]
-broken = true
-reason = "new formatting/framework where author kind of programmatically puts flag combinations into OPTIONS or OBJECT; -V is now recovered by the flags-on-heading-line fix, -s/-d remain because they are alternation members, not their own physical-line flag row"

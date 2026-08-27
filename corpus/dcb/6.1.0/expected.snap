@@ -1,0 +1,71 @@
+name: dcb
+usage:
+- 'Usage: dcb [ OPTIONS ] OBJECT { COMMAND | help }'
+- dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname
+positionals:
+- name: OBJECT
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'V'
+  long: Version
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: iec
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  long: json
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  long: Numeric
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: pretty
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: statistics
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: force
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'b'
+  long: batch
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'n'
+  long: netns
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

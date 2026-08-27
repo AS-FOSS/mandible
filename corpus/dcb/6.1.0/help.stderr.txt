@@ -1,0 +1,6 @@
+Usage: dcb [ OPTIONS ] OBJECT { COMMAND | help }
+       dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname
+where  OBJECT := { app | buffer | dcbx | ets | maxrate | pfc }
+       OPTIONS := [ -V | --Version | -i | --iec | -j | --json
+                  | -N | --Numeric | -p | --pretty
+                  | -s | --statistics | -v | --verbose]

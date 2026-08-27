@@ -1,5 +1,4 @@
 name: vdpa
-description: where OBJECT := { mgmtdev | dev }
 usage:
 - 'Usage: vdpa [ OPTIONS ] OBJECT { COMMAND | help }'
 positionals:
@@ -15,7 +14,18 @@ positionals:
     - help-text
 flags:
 - short: 'V'
-  description: '| -n[o-nice-names] | -j[son] | -p[retty] }'
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  provenance:
+    sources:
+    - help-text
+- short: 'j'
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
   provenance:
     sources:
     - help-text
