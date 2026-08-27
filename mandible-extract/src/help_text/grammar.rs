@@ -700,6 +700,97 @@ pub fn paren_alternation_member_content(input: &str) -> Option<&str> {
     }
 }
 
+// --- the stanza head's own mode-selecting flag --------------------------
+//
+// LVM's emitter documents each mode as a stanza: a prose description line,
+// then a synopsis head line that repeats the tool's own name followed by
+// that mode's mode-selecting flag, then the mode's `[...]`/`(...)` rows:
+//
+// ```text
+//   Activate or deactivate LVs.
+//   vgchange -a|--activate y|n|ay
+//     [ -K|--ignoreactivationskip ]
+//     ...
+// ```
+//
+// `sections::parse_body`'s generic heading scanner already recognizes a
+// line like `vgchange -a|--activate y|n|ay` as a *heading* whenever
+// more-indented content follows it (`heading_can_name_a_group`), and keeps
+// its full text as the block's `group` — but the heading is only ever
+// copied into `group`, never itself parsed for the flag it names, so
+// `--activate` never became a flag row. This module adds only the
+// predicate for recognizing the shape; `sections::recover_stanza_head_flag`
+// hands the recognized remainder to [`parse_flag_spec`] unchanged, exactly
+// as every other row shape in this file already does — `-a|--activate
+// y|n|ay` reads as one flag (short `a`, long `activate`, value `y|n|ay`)
+// for the same reason `bracket_flag_row_content`'s identical shape does:
+// [`take_rest_value_token`]'s `alias_follows` guard already keeps a
+// value's own `|` from being misread as a second alias.
+
+/// True if `rest` — the text immediately following a stanza head line's own
+/// tool-name prefix, already trimmed of leading whitespace — opens with a
+/// bare flag spelling and names no *second* flag anywhere in what follows.
+///
+/// Two conditions:
+///
+/// 1. The first word is a bare flag spelling ([`is_bare_flag_token`]). A
+///    bare invocation naming no flag at all (`vgchange` alone, `rest`
+///    empty) fails it, and so does an ordinary heading whose text merely
+///    happens to start with the tool's own name (`rest` starts with a
+///    word, not a dash).
+/// 2. **No later word in `rest` is itself a bare flag spelling**, whether
+///    bracketed or bare. Every real LVM specimen this predicate was
+///    measured against — `-a|--activate y|n|ay`, `--systemid String VG`,
+///    `--locktype sanlock|dlm|none VG` — carries its value as a bare token
+///    or a `|`-separated list and nothing else; LVM's own convention never
+///    puts a second flag on the head line at all, docopt-bracketed or not.
+///    Two real, otherwise indistinguishable specimens showed why this has
+///    to be checked structurally rather than assumed:
+///    - `blkid --help`'s labelled `Usage:` block writes `blkid -p
+///      [--match-tag <tag>] [--offset <offset>] [--size <size>] [--output
+///      <format>] <dev> ...` — `blkid`'s own name, a bare `-p`, then a
+///      *second* flag, `--match-tag`, sitting inside a bracket group.
+///      Without this clause, [`parse_flag_spec`]'s value grammar read that
+///      bracket group as `-p`'s own optional value, fabricating `-p
+///      [--match-tag <tag>]` while `--match-tag` itself was silently
+///      dropped.
+///    - `jar --help`'s own `Examples:` block (an illustrative, filled-in
+///      invocation, not a synopsis at all) writes `jar --update --file
+///      foo.jar --main-class com.foo.Main --module-version 1.0` — four
+///      real flags chained with no brackets anywhere. Without this clause,
+///      [`parse_flag_spec`]'s alias loop tried `--file` as a *second
+///      spelling* of the same flag (discarding the name, since `--update`
+///      already won, but still advancing past it), then read `--file`'s
+///      own value `foo.jar` as `--update`'s.
+///
+///    Refusing the whole line in both cases is the same choice
+///    [`bracket_flag_row_content`]'s own `|`-reappearance guard already
+///    makes for the identical hazard shape: missing beats invented. This
+///    does not cost real recall — a line shaped either way is an ordinary
+///    alternate invocation form or a worked example, both already handled
+///    (or correctly left alone) by the existing labelled-usage-block engine
+///    (`extract_usage_flags`) and the `is_ignorable_heading`/
+///    `in_ignorable_section` machinery respectively, never a stanza head
+///    this reader is the only path to.
+///
+/// Beyond that, it does not attempt to decide where the flag's own value
+/// ends and a trailing positional begins — `--systemid String VG`'s `VG`
+/// and `--locktype sanlock|dlm|none VG`'s `VG` are left in `rest` for
+/// [`parse_flag_spec`] to leave unconsumed on its own (its value grammar
+/// already stops at the first whitespace gap that isn't a qualifying alias
+/// separator), rather than trimmed here by a second, narrower
+/// value-vs-positional guess.
+pub fn looks_like_stanza_head_flag(rest: &str) -> bool {
+    let mut words = rest.split_whitespace();
+    let Some(first) = words.next() else {
+        return false;
+    };
+    if !is_bare_flag_token(first) {
+        return false;
+    }
+    !words.any(|w| is_bare_flag_token(w.trim_start_matches(['[', '(', '{'])))
+}
+
 // --- the flag-alternation group ----------------------------------------
 //
 // A *delimited alternation of flag spellings* is one notation with three
@@ -1733,5 +1824,37 @@ mod tests {
     fn paren_alternation_member_content_refuses_a_non_flag_row() {
         assert_eq!(paren_alternation_member_content("( COMMON_OPTIONS,"), None);
         assert_eq!(paren_alternation_member_content("VG|Tag )"), None);
+    }
+
+    /// `looks_like_stanza_head_flag`'s whole test: a bare flag token as the
+    /// remainder's first word, real for every LVM shape it exists for, and
+    /// refused for a bare invocation with nothing after the name.
+    #[test]
+    fn looks_like_stanza_head_flag_requires_a_leading_flag_token() {
+        assert!(looks_like_stanza_head_flag("-a|--activate y|n|ay"));
+        assert!(looks_like_stanza_head_flag("--refresh"));
+        assert!(looks_like_stanza_head_flag("--systemid String VG"));
+        assert!(!looks_like_stanza_head_flag(""));
+        assert!(!looks_like_stanza_head_flag("VG"));
+        assert!(!looks_like_stanza_head_flag("is a general-purpose tool"));
+    }
+
+    /// A *second* flag anywhere in the remainder refuses the whole line,
+    /// bracketed or bare — `blkid`'s `-p [--match-tag <tag>] ...` and
+    /// `jar`'s `--update --file foo.jar --main-class ...` are both real
+    /// tools this predicate must not fire on (see its own doc comment for
+    /// why each one fabricated a wrong flag before this guard existed).
+    #[test]
+    fn looks_like_stanza_head_flag_refuses_a_second_flag_anywhere_in_rest() {
+        assert!(!looks_like_stanza_head_flag(
+            "-p [--match-tag <tag>] [--offset <offset>] <dev> ..."
+        ));
+        assert!(!looks_like_stanza_head_flag(
+            "--update --file foo.jar --main-class com.foo.Main --module-version 1.0"
+        ));
+        // The bare, no-second-flag shape is unaffected.
+        assert!(looks_like_stanza_head_flag(
+            "--locktype sanlock|dlm|none VG"
+        ));
     }
 }

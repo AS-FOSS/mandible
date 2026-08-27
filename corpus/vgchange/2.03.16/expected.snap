@@ -10,6 +10,14 @@ positionals:
     sources:
     - help-text
 flags:
+- short: 'a'
+  long: activate
+  value_name: y|n|ay
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
 - short: 'K'
   long: ignoreactivationskip
   group: vgchange -a|--activate y|n|ay
@@ -104,6 +112,11 @@ flags:
   provenance:
     sources:
     - help-text
+- long: refresh
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
 - short: 'A'
   long: autobackup
   value_name: y|n
@@ -160,10 +173,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: select
+- long: systemid
   value_name: String
   value_kind: Required
+  group: vgchange --systemid String VG
+  provenance:
+    sources:
+    - help-text
+- long: lockstart
   group: vgchange --lockstart
   provenance:
     sources:
@@ -172,7 +189,27 @@ flags:
   long: select
   value_name: String
   value_kind: Required
+  group: vgchange --lockstart
+  provenance:
+    sources:
+    - help-text
+- long: lockstop
   group: vgchange --lockstop
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: select
+  value_name: String
+  value_kind: Required
+  group: vgchange --lockstop
+  provenance:
+    sources:
+    - help-text
+- long: locktype
+  value_name: sanlock|dlm|none
+  value_kind: Required
+  group: vgchange --locktype sanlock|dlm|none VG
   provenance:
     sources:
     - help-text

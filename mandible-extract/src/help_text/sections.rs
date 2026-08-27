@@ -44,8 +44,8 @@
 use super::grammar::{
     bracket_flag_row_content, is_bare_flag_spelling, is_bare_flag_token,
     looks_like_bracket_flag_row, looks_like_flag_start, looks_like_paren_alternation_open,
-    paren_alternation_member_content, paren_depth_delta, parse_bundled_shorts,
-    parse_flag_alternation, parse_flag_spec, split_alternatives, FlagSpec,
+    looks_like_stanza_head_flag, paren_alternation_member_content, paren_depth_delta,
+    parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, split_alternatives, FlagSpec,
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
@@ -905,6 +905,39 @@ fn parse_body(
         .description
         .as_deref()
         .is_some_and(|d| command_mode_seed(d, profile));
+    // True from the moment an `is_ignorable_heading` heading (`EXAMPLES:`,
+    // a `Report bugs`-shaped line) is captured until a *structurally
+    // strong* block — a real flags block, word grid, or command table, not
+    // merely "content that fell through to the generic bare-block
+    // fallback" — is recognized under some later, non-ignorable heading.
+    // Exists solely to gate [`recover_stanza_head_flag`] below: an
+    // `EXAMPLES:` section's own invocation lines (`bpftrace -e
+    // 'tracepoint:raw_syscalls:sys_enter { ... }'`, `bpftrace -l
+    // '*sleep*'`) are, line for line, indistinguishable from a genuine
+    // LVM stanza head — the tool's own name, then a bare flag token, with
+    // more-indented content (the example's own one-line description)
+    // beneath it. `is_ignorable_heading` alone cannot see this: it is
+    // tested per candidate heading, and neither example line's own text
+    // starts with "example" or contains "report bugs" — only the
+    // `EXAMPLES:` heading that introduces them does, and every following
+    // heading candidate is re-examined independently of it (the "rewind"
+    // path below carries no memory of what came before). Measured: a full
+    // sweep before this guard existed fabricated `bpftrace -e`/`-l` flag
+    // rows whose value was a fragment of the example invocation, and it
+    // displaced the real, described `-e`/`-l` rows the tool's own
+    // `Options:`-shaped block already provides.
+    //
+    // Deliberately *not* reset by the generic `scan_bare_block` +
+    // `emit_choices`/`emit_subcommands` fallback (the path every one of
+    // `EXAMPLES:`'s own invocation lines actually takes, since their
+    // one-line description is not flag- or command-shaped): resetting
+    // there would clear the flag on the *first* example line and reopen
+    // the fabrication on the second. Only a positively-recognized
+    // structural block — the same set of branches that already gate their
+    // own emission on `!is_ignorable_heading(&heading)`, plus a few more
+    // whose shape cannot occur inside an examples section at all — clears
+    // it.
+    let mut in_ignorable_section = false;
 
     // 3. Section blocks: scan the rest of the output for a heading line
     // followed by more-indented content — or, if the very first content
@@ -923,7 +956,6 @@ fn parse_body(
             i += 1;
             continue;
         }
-
         // Headingless flags block: the current line already looks like a
         // flag entry, so there is no heading to consume — scan it in
         // place.
@@ -991,6 +1023,9 @@ fn parse_body(
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;
+        if is_ignorable_heading(&heading) {
+            in_ignorable_section = true;
+        }
         i += 1;
         while i < lines.len() && lines[i].trim().is_empty() {
             i += 1;
@@ -1028,6 +1063,7 @@ fn parse_body(
                     i += 1;
                 }
                 if !is_ignorable_heading(&heading) {
+                    in_ignorable_section = false;
                     let recognized = is_recognized_command_heading(&heading, profile);
                     if recognized {
                         command_mode = true;
@@ -1096,6 +1132,7 @@ fn parse_body(
                 {
                     i = end;
                     command_mode = true;
+                    in_ignorable_section = false;
                     let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
                     total_entries += seen;
                     clean_entries += clean;
@@ -1117,6 +1154,36 @@ fn parse_body(
             // it as its own candidate.
             i = heading_idx + 1;
             continue;
+        }
+
+        // Reaching here means genuinely more-indented content follows this
+        // heading (the branch above always `continue`s otherwise) — LVM's
+        // own stanza shape, a head line naming a mode-selecting flag
+        // followed by that mode's `[...]`/`(...)` rows. Recovering the
+        // flag is independent of whatever the content turns out to be
+        // (a recognized flags block below, a word grid, or — `vgchange
+        // --systemid String VG`'s `[ COMMON_OPTIONS ]` — a single
+        // placeholder row `flags_block_start` never recognizes as a flags
+        // block at all): the head line names its flag either way, so this
+        // runs once per heading rather than being folded into any one of
+        // the branches that follow.
+        //
+        // Gated on `!in_ignorable_section`: `bpftrace --help`'s own
+        // `EXAMPLES:` block writes each example as "the tool's own name,
+        // then a bare flag token, then a one-line description" —
+        // `bpftrace -e 'tracepoint:raw_syscalls:sys_enter { ... }'` — the
+        // identical shape to a real stanza head, and without this guard it
+        // fabricated `-e`/`-l` rows whose value was a fragment of the
+        // example invocation, displacing the real, described rows from
+        // `bpftrace`'s own `Options:` block. See `in_ignorable_section`'s
+        // own doc comment for why this has to be section context rather
+        // than a per-line check.
+        if !in_ignorable_section {
+            if let Some(flag) = recover_stanza_head_flag(&heading, tool_name) {
+                if result.flags.len() < MAX_RECOVERED_ENTRIES {
+                    result.flags.push(flag);
+                }
+            }
         }
 
         // A headed command table whose first row sits on the heading's own
@@ -1152,6 +1219,7 @@ fn parse_body(
                         entries.insert(0, (first_name, None));
                         i = end;
                         command_mode = true;
+                        in_ignorable_section = false;
                         let raw_tokens = command_table_token_index(raw);
                         let (seen, clean) =
                             emit_headed_command_table(entries, &raw_tokens, &mut result);
@@ -1178,6 +1246,10 @@ fn parse_body(
                 command_mode = false;
                 continue;
             }
+            // A real, non-ignorable flags block — structurally strong
+            // evidence we are not (or no longer) inside an examples-shaped
+            // section. See `in_ignorable_section`'s own doc comment.
+            in_ignorable_section = false;
             if packed {
                 let seen = entries.len();
                 emit_packed_flags(meaningful_flag_group(heading), entries, &mut result);
@@ -1222,6 +1294,7 @@ fn parse_body(
             if let Some((end, entries)) = scan_argparse_subparsers(&lines, i, heading_indent) {
                 i = end;
                 command_mode = false;
+                in_ignorable_section = false;
                 let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
                 total_entries += seen;
                 clean_entries += clean;
@@ -1248,6 +1321,7 @@ fn parse_body(
             let (end, entries) = scan_bare_block(&lines, i, heading_indent, false);
             i = end;
             command_mode = false;
+            in_ignorable_section = false;
             let (block_seen, block_clean) =
                 emit_declared_positionals(entries, &usage_lines, &mut result);
             total_entries += block_seen;
@@ -1325,6 +1399,7 @@ fn parse_body(
             if let Some((end, entries)) = scan_bare_command_table(&lines, i) {
                 i = end;
                 command_mode = true;
+                in_ignorable_section = false;
                 let raw_tokens = command_table_token_index(raw);
                 let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, &mut result);
                 total_entries += seen;
@@ -1349,6 +1424,7 @@ fn parse_body(
             let (end, entries) = scan_comma_separated_commands(&lines, i);
             i = end;
             command_mode = true;
+            in_ignorable_section = false;
             let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
             total_entries += seen;
             clean_entries += clean;
@@ -1371,6 +1447,17 @@ fn parse_body(
 
         if recognized || command_mode {
             command_mode = true;
+            // Only `recognized` (this exact heading's own text says
+            // "commands") is strong enough to clear the flag here — the
+            // `command_mode` sticky-chain half of this condition is not:
+            // it can still be true from an *inherited* chain rather than
+            // this heading's own evidence, which is exactly the kind of
+            // indirect signal `in_ignorable_section` must not trust (see
+            // its own doc comment on why the generic bare-block fallback
+            // is deliberately excluded from clearing it).
+            if recognized {
+                in_ignorable_section = false;
+            }
             let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
             total_entries += seen;
             clean_entries += clean;
@@ -3472,6 +3559,67 @@ fn meaningful_flag_group(heading: String) -> Option<String> {
     } else {
         Some(heading)
     }
+}
+
+/// Recover the mode-selecting flag a stanza head line itself names —
+/// `grammar::looks_like_stanza_head_flag`'s shape — in addition to the
+/// heading text still becoming the stanza's `group` label exactly as
+/// before this change (`meaningful_flag_group`, called here with the same
+/// heading text the flags-block scan beside this call site already passes
+/// it, so a stanza's own head flag and its bracket-row flags always agree
+/// on `group`).
+///
+/// `None` for a bare invocation naming no flag at all (`vgchange` alone),
+/// for a heading that is not the tool's own name at a word boundary
+/// (`starts_with_tool_name`), and for an ignorable heading
+/// (`is_ignorable_heading` — an `Examples:`-shaped block's own rows must
+/// never be mined for a flag merely because one of them happens to repeat
+/// the tool's name). `tool_name` absent (framework or generic parse with no
+/// resolved name) also yields `None`; this recovery has no other way to
+/// know the head line's own name is the *tool's* name rather than
+/// coincidence.
+///
+/// Never fabricates required-ness: the flag is emitted exactly like any
+/// other recovered flag (`required: false`), even though LVM's own prose
+/// ("any one is required") makes it semantically mandatory — the IR has no
+/// per-group "choose exactly one of N" relation to spend on that.
+fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Flag> {
+    let name = tool_name?;
+    if is_ignorable_heading(heading) || !starts_with_tool_name(heading, name) {
+        return None;
+    }
+    // `starts_with_tool_name` already confirmed `heading` opens with `name`
+    // at a word boundary, so `strip_prefix` here cannot fail — used instead
+    // of a raw byte-offset slice (AGENTS.md's UTF-8 boundary rule) even
+    // though `name` is always ASCII in practice.
+    let rest = heading.strip_prefix(name)?;
+    let rest = rest.trim_start();
+    if !looks_like_stanza_head_flag(rest) {
+        return None;
+    }
+    let spec = parse_flag_spec(rest);
+    if spec.short.is_none() && spec.long.is_none() {
+        return None;
+    }
+    Some(Flag {
+        short: spec.short,
+        long: spec.long,
+        value_name: spec.value_name,
+        value_kind: spec.value_kind,
+        choices: Vec::new(),
+        repeatable: false,
+        required: false,
+        negatable: spec.negatable,
+        single_dash: false,
+        hidden: false,
+        deprecated: None,
+        inherited: false,
+        group: meaningful_flag_group(heading.to_string()),
+        description: None,
+        default: None,
+        env_var: None,
+        provenance: Provenance::single(Source::HelpText),
+    })
 }
 
 fn emit_flags(
@@ -7876,6 +8024,87 @@ mod tests {
 
     // --- multi-stanza unlabelled synopsis (fix/multi-stanza-synopsis) ---
 
+    /// `jar --help`'s own `Examples:` block writes a worked, filled-in
+    /// invocation with several real flags chained on one line and no
+    /// brackets anywhere — `jar --update --file foo.jar --main-class
+    /// com.foo.Main --module-version 1.0` — structurally indistinguishable
+    /// from a bare stanza head by the flag-count-one shape alone. A plain
+    /// English sentence at column 0 earlier in the document (`"restore
+    /// individual classes or resources from an archive."`) is read as a
+    /// heading whose "content" is the entire indented `Examples:` block
+    /// beneath it (an unrelated, pre-existing engine quirk: any
+    /// more-indented content promotes the line above it to a heading), so
+    /// `is_ignorable_heading`/`in_ignorable_section` never independently
+    /// sees the `Examples:` marker text at all here — the second-flag
+    /// guard in [`grammar::looks_like_stanza_head_flag`] is what actually
+    /// stops this one. The real, described `--update`/`-u` and
+    /// `--file`/`-f` rows survive untouched.
+    #[test]
+    fn jars_chained_example_invocation_is_never_read_as_a_stanza_head() {
+        let help = "jar creates an archive for classes and resources, and can manipulate or\n\
+                     restore individual classes or resources from an archive.\n\
+                     \n\
+                     \x20Examples:\n\
+                     \x20jar --update --file foo.jar --main-class com.foo.Main --module-version 1.0\n\
+                     \x20\x20\x20\x20-C foo/ module-info.class\n\
+                     \n\
+                     Main operation mode:\n\
+                     \n\
+                     \x20-u, --update               Update an existing jar archive\n\
+                     \x20-f, --file=FILE             The archive file name\n";
+        let parsed = parse_with_profile(help, None, Some("jar"));
+        let update_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.long.as_deref() == Some("update"))
+            .collect();
+        assert_eq!(update_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(update_flags[0].short, Some('u'));
+        assert!(
+            update_flags[0].value_name.is_none(),
+            "flags: {:?}",
+            parsed.flags
+        );
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("file")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    #[test]
+    fn blkids_alternate_usage_form_is_never_read_as_a_stanza_head() {
+        let help = "Usage:\n\
+                     blkid --label <label> | --uuid <uuid>\n\
+                     \n\
+                     blkid -p [--match-tag <tag>] [--offset <offset>] [--size <size>]\n\
+                     \x20\x20\x20\x20\x20\x20[--output <format>] <dev> ...\n\
+                     \n\
+                     Low-level probing options:\n\
+                     \x20-p, --probe            low-level superblocks probing (bypass cache)\n\
+                     \x20-i, --info             gather information about I/O limits\n";
+        let parsed = parse_with_profile(help, None, Some("blkid"));
+        let p_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('p'))
+            .collect();
+        assert_eq!(p_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(p_flags[0].long.as_deref(), Some("probe"));
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("match-tag")
+                    || f.value_name.as_deref() == Some("--match-tag <tag>")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
     /// `vgck --updatemetadata` — a *second* stanza, past the blank line
     /// this fix teaches the usage-block loop to look beyond — is now
     /// present as its own usage entry and its own flag, and the stanza's
@@ -7937,13 +8166,23 @@ mod tests {
     }
 
     /// A stanza whose own description wraps across more than one physical
-    /// line (`pydoc3`'s `-p`/`-b`/`-w` forms) must not be admitted at all —
-    /// the shared continuation loop only recognizes a *single* physical
-    /// line as prose to drop, so an interior wrapped line would otherwise
-    /// be silently read as more usage notation and mined for fabricated
-    /// positionals (`HTTP`, `HTML` were invented from exactly this before
-    /// the guard existed). A single-line description (`-k`, `-n`) is
-    /// unaffected.
+    /// line (`pydoc3`'s `-p`/`-b`/`-w` forms) must not be *admitted into the
+    /// usage block* at all — the shared continuation loop only recognizes a
+    /// *single* physical line as prose to drop, so an interior wrapped line
+    /// would otherwise be silently read as more usage notation and mined
+    /// for fabricated positionals (`HTTP`, `HTML` were invented from
+    /// exactly this before the guard existed). A single-line description
+    /// (`-k`, `-n`) is unaffected.
+    ///
+    /// `-p`'s own flag is recovered anyway, by a *different, independent*
+    /// path this fix adds (`recover_stanza_head_flag`, via the generic
+    /// heading scanner `pydoc3 -p <port>` falls to once the usage block
+    /// refuses it) — one that only ever reads the head line's own text,
+    /// never the wrapped description beneath it, so it carries none of the
+    /// fabrication risk this guard exists for. This is a real, correct
+    /// flag (`pydoc3 -p <port>` genuinely starts an HTTP server), not a
+    /// regression of the guard: the assertion this test pins is "no
+    /// fabricated positional", not "no `-p` flag ever, by any means".
     #[test]
     fn stanza_with_wrapped_multi_line_description_is_refused() {
         let help = "pydoc - the Python documentation tool\n\npydoc3 <name> ...\n    Show text documentation on something.\n\npydoc3 -k <keyword>\n    Search for a keyword in the synopsis lines of all available modules.\n\npydoc3 -p <port>\n    Start an HTTP server on the given port on the local machine.  Port\n    number 0 can be used to get an arbitrary unused port.\n";
@@ -7953,11 +8192,12 @@ mod tests {
             "flags: {:?}",
             parsed.flags
         );
-        assert!(
-            !parsed.flags.iter().any(|f| f.short == Some('p')),
-            "flags: {:?}",
-            parsed.flags
-        );
+        let p = parsed
+            .flags
+            .iter()
+            .find(|f| f.short == Some('p'))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(p.value_name.as_deref(), Some("<port>"));
         assert!(
             !parsed
                 .positionals
@@ -8098,6 +8338,182 @@ mod tests {
             .find(|f| f.long.as_deref() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
+    }
+
+    // --- the stanza head's own mode-selecting flag ----------------------
+    //
+    // LVM's real `vgchange --help` (`corpus/vgchange/2.03.16`) documents six
+    // stanzas whose head line names a flag never recovered before this fix:
+    // `-a|--activate y|n|ay`, `--refresh`, `--systemid String VG`,
+    // `--lockstart`, `--lockstop`, `--locktype sanlock|dlm|none VG`. These
+    // synthetic fixtures pin the same shapes with a made-up tool name, one
+    // hazard per test, independent of that real fixture's own upkeep.
+
+    /// The multi-alias head: `-a|--activate y|n|ay` must read as *one* flag
+    /// (short `a`, long `activate`, value `y|n|ay`), not three — the same
+    /// `alias_follows`/`take_rest_value_token` guard `bracket_flag_row_content`
+    /// already relies on for the identical ambiguity.
+    #[test]
+    fn stanza_head_multi_alias_flag_reads_as_one_flag_with_its_value() {
+        // Mirrors `vgchange`'s own shape exactly: a first stanza whose bare
+        // head *does* anchor the usage block (its own bracket row follows
+        // immediately), then a second stanza behind a too-short
+        // (`MIN_PROSE_SENTENCE_WORDS`-failing, spec §7's own recorded gap)
+        // description, which breaks the usage-block's multi-stanza
+        // continuation and leaves the second stanza's own head line for
+        // the generic heading scanner to find — the exact path that read
+        // `vgchange -a|--activate y|n|ay` as a heading and nothing else,
+        // before this fix.
+        let help = "tool\n\
+                     \t[ -x|--xflag ]\n\
+                     \n\
+                     Do a thing.\n\
+                     tool -a|--activate y|n|ay\n\
+                     \t[ -f|--force ]\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        let activate = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("activate"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(activate.short, Some('a'));
+        assert_eq!(activate.value_name.as_deref(), Some("y|n|ay"));
+        assert_eq!(activate.value_kind, ValueKind::Required);
+        assert_eq!(activate.group.as_deref(), Some("tool -a|--activate y|n|ay"));
+        assert!(
+            !activate.required,
+            "not attempted: no fabricated required-ness"
+        );
+        assert_eq!(
+            parsed.flags.iter().filter(|f| f.short == Some('a')).count(),
+            1,
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// The value-plus-positional head: `--systemid String VG` names one
+    /// flag whose value is `String`; the trailing `VG` is a positional, not
+    /// a second flag and not swallowed into the value.
+    #[test]
+    fn stanza_head_value_plus_positional_leaves_the_positional_alone() {
+        // `vgchange`'s own `--systemid` stanza, faithfully: `[ COMMON_OPTIONS ]`
+        // is a placeholder row, not a flag row (its content does not start
+        // with `-`), so `flags_block_start` never recognizes a flags block
+        // here at all — this stanza gets no `group`-bearing block from
+        // anything else in the engine, and the head line is the *only*
+        // place its flag is ever named.
+        let help = "tool\n\
+                     \n\
+                     Change the system ID.\n\
+                     tool --systemid String VG\n\
+                     \t[ COMMON_OPTIONS ]\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        let systemid = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("systemid"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(systemid.value_name.as_deref(), Some("String"));
+        assert!(
+            !parsed.flags.iter().any(|f| f.long.as_deref() == Some("VG")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// The bare head (`tool` alone, no flag) must yield no flag and change
+    /// nothing — the first stanza of every LVM tool's own synopsis.
+    #[test]
+    fn bare_stanza_head_with_no_flag_yields_no_flag() {
+        let help = "tool\n\t[ -f|--force ]\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        assert_eq!(parsed.flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(parsed.flags[0].long.as_deref(), Some("force"));
+    }
+
+    /// A negative case that must **not** be read as a stanza head: a
+    /// two-word section heading that is not the tool's own name at all
+    /// (`starts_with_tool_name` fails outright), even though it is followed
+    /// by indented `[...]` flag rows exactly like a real LVM stanza.
+    #[test]
+    fn a_heading_not_named_after_the_tool_is_never_read_as_a_stanza_head_flag() {
+        let help = "tool\n\t[ -f|--force ]\n\nCommon options:\n\t[ -d|--debug ]\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("options")),
+            "flags: {:?}",
+            parsed.flags
+        );
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("debug")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// `bpftrace --help`'s real `EXAMPLES:` block writes each example as
+    /// "the tool's own name, then a bare flag token, then a one-line
+    /// description" — `tool -e 'tracepoint:raw_syscalls:sys_enter { ... }'`
+    /// — line for line the same shape as a genuine LVM stanza head. Without
+    /// `in_ignorable_section` gating `recover_stanza_head_flag`, this
+    /// fabricated `-e`/`-l` rows whose value was a fragment of the example
+    /// invocation, displacing the real, described `-e`/`-l` rows from the
+    /// `OPTIONS:` block above. This pins the fix: the real, described flags
+    /// survive untouched and nothing from `EXAMPLES:` is mined at all.
+    #[test]
+    fn examples_section_invocation_lines_are_never_read_as_stanza_heads() {
+        let help = "tool - a tool\n\
+                     \n\
+                     OPTIONS:\n\
+                     \x20\x20\x20\x20-e 'program'   execute this program\n\
+                     \x20\x20\x20\x20-l [search]    list probes\n\
+                     \n\
+                     EXAMPLES:\n\
+                     tool -l '*sleep*'\n\
+                     \x20\x20\x20\x20list probes containing \"sleep\"\n\
+                     tool -e 'tracepoint:raw_syscalls:sys_enter { @[comm] = count(); }'\n\
+                     \x20\x20\x20\x20count syscalls by process name\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        let e_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('e'))
+            .collect();
+        assert_eq!(e_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(e_flags[0].value_name.as_deref(), Some("'program'"));
+        assert!(
+            e_flags[0].description.is_some(),
+            "flags: {:?}",
+            parsed.flags
+        );
+
+        let l_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('l'))
+            .collect();
+        assert_eq!(l_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert!(
+            l_flags[0].description.is_some(),
+            "flags: {:?}",
+            parsed.flags
+        );
+
+        assert!(
+            !parsed.flags.iter().any(|f| f
+                .value_name
+                .as_deref()
+                .is_some_and(|v| v.contains("sleep") || v.contains("tracepoint"))),
+            "flags: {:?}",
+            parsed.flags
+        );
     }
 
     // --- compute_confidence's one-row-sample fallback -------------------
