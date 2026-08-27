@@ -71,11 +71,15 @@ use std::path::{Path, PathBuf};
 /// and this list is what changes.
 const MACHINE_LOCAL_PREFIXES: [&str; 4] = ["/tmp/", "/home/", "/Users/", "/var/folders/"];
 
-/// Directories with no first-party Rust source to lint. `target` and `tmp`
+/// Directories with no first-party source to lint. `target` and `tmp`
 /// are build and scratch output, `.git` and `.claude` are tooling state
 /// (the latter holds agent worktrees, whose own checkouts are linted on
-/// their own branches, not through this one).
-const SKIPPED_DIRS: [&str; 4] = ["target", ".git", ".claude", "tmp"];
+/// their own branches, not through this one), and `.venv` is the
+/// gitignored local environment AGENTS.md §3.2 recommends for the pty
+/// screenshot tool — third-party packages installed there carry their
+/// build machines' paths in docstrings, which is their business, not a
+/// leak in this repository.
+const SKIPPED_DIRS: [&str; 5] = ["target", ".git", ".claude", "tmp", ".venv"];
 
 #[test]
 fn no_source_file_references_a_machine_local_absolute_path() {
