@@ -190,6 +190,12 @@ pub struct App {
     /// horizontal extent worth scrolling to), which both clamps `h`/`l` to
     /// no-ops and tells the renderer not to draw the overflow affordance.
     detail_max_hscroll: std::cell::Cell<usize>,
+    /// The horizontal twin of [`Self::pending_detail_fraction`]: a scroll
+    /// proportion carried across a raw/rendered toggle, resolved against
+    /// the next view's horizontal extent. Same lifecycle: set by the
+    /// toggle, shown by [`Self::clamped_detail_hscroll`], materialized by
+    /// the first `h`/`l` press, dropped on selection change.
+    pending_detail_hfraction: std::cell::Cell<Option<f64>>,
     /// Whether `h`/`l`/`←`/`→` scroll the detail pane horizontally instead
     /// of doing nothing there, and whether preformatted content (raw view,
     /// USAGE lines) is left unwrapped in the first place.
@@ -352,6 +358,7 @@ impl App {
             pending_detail_fraction: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
+            pending_detail_hfraction: std::cell::Cell::new(None),
             horizontal_scroll_enabled: true,
             show_help: false,
             show_hidden: false,
@@ -582,6 +589,7 @@ impl App {
         }
         self.selected_flag = None;
         self.detail_hscroll = 0;
+        self.pending_detail_hfraction.set(None);
         self.follow_selection();
     }
 
@@ -590,6 +598,7 @@ impl App {
         self.selected = self.selected.saturating_sub(1);
         self.selected_flag = None;
         self.detail_hscroll = 0;
+        self.pending_detail_hfraction.set(None);
         self.follow_selection();
     }
 
@@ -714,6 +723,7 @@ impl App {
         }
         self.selected_flag = None;
         self.detail_hscroll = 0;
+        self.pending_detail_hfraction.set(None);
         self.follow_selection();
     }
 
@@ -747,6 +757,7 @@ impl App {
         }
         self.selected_flag = None;
         self.detail_hscroll = 0;
+        self.pending_detail_hfraction.set(None);
         self.follow_selection();
     }
 
@@ -883,12 +894,29 @@ impl App {
         });
         self.pending_detail_fraction.set(fraction);
         self.detail_scroll = 0;
-        // A horizontal offset doesn't carry across the toggle either, for
-        // the same reason the vertical one doesn't get a fraction beyond
-        // it: raw text and a parsed USAGE block are unrelated documents,
-        // so "26 columns in" means nothing between them.
+        // The horizontal offset carries as a proportion too. An absolute
+        // column is meaningless across the two renderings, but when the
+        // reader has scrolled into the wide part of a synopsis, the raw
+        // text's wide part is the region they are comparing against —
+        // resetting to column zero on every `t` made that comparison
+        // impossible (maintainer-reported, same failure as the vertical
+        // reset this method already fixes).
+        let hfraction = self.pending_detail_hfraction.take().or_else(|| {
+            let max = self.detail_max_hscroll.get();
+            (max > 0).then(|| self.detail_hscroll.min(max) as f64 / max as f64)
+        });
+        self.pending_detail_hfraction.set(hfraction);
         self.detail_hscroll = 0;
         self.raw_fetch_needed()
+    }
+
+    /// The horizontal twin of
+    /// [`Self::materialize_pending_detail_scroll`].
+    fn materialize_pending_detail_hscroll(&mut self) {
+        if let Some(fraction) = self.pending_detail_hfraction.take() {
+            let max = self.detail_max_hscroll.get();
+            self.detail_hscroll = (fraction * max as f64).round() as usize;
+        }
     }
 
     /// Resolve a fraction carried across a raw/rendered toggle into a line
@@ -1003,6 +1031,7 @@ impl App {
         // a fraction carried across a view toggle must not survive into it.
         self.pending_detail_fraction.set(None);
         self.detail_hscroll = 0;
+        self.pending_detail_hfraction.set(None);
     }
 
     /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9:
@@ -1017,6 +1046,7 @@ impl App {
         if !self.horizontal_scroll_enabled {
             return;
         }
+        self.materialize_pending_detail_hscroll();
         self.detail_hscroll = self.detail_hscroll.saturating_sub(DETAIL_HSCROLL_STEP);
     }
 
@@ -1028,6 +1058,7 @@ impl App {
         if !self.horizontal_scroll_enabled {
             return;
         }
+        self.materialize_pending_detail_hscroll();
         let max = self.detail_max_hscroll.get();
         self.detail_hscroll = self
             .detail_hscroll
@@ -1049,7 +1080,13 @@ impl App {
     /// The current horizontal offset, clamped to what the last frame could
     /// actually show — same shape as [`Self::clamped_detail_scroll`].
     pub fn clamped_detail_hscroll(&self) -> usize {
-        self.detail_hscroll.min(self.detail_max_hscroll.get())
+        let max = self.detail_max_hscroll.get();
+        // Peek, don't take: rendering takes `&self`; a key handler
+        // materializes it. Mirrors [`Self::clamped_detail_scroll`].
+        match self.pending_detail_hfraction.get() {
+            Some(fraction) => (fraction * max as f64).round() as usize,
+            None => self.detail_hscroll.min(max),
+        }
     }
 
     /// Whether there is preformatted content hidden off the left edge —
@@ -1119,6 +1156,37 @@ mod tests {
         app.reset_detail_scroll();
         app.set_detail_extent(70, 20);
         assert_eq!(app.clamped_detail_scroll(), 0);
+    }
+
+    /// The horizontal offset survives the raw/rendered toggle the same
+    /// way the vertical one does: proportionally, through repeated
+    /// flips, materialized by the first h/l press, and dropped on a
+    /// selection change. (Maintainer-reported gap after the vertical fix
+    /// shipped alone.)
+    #[test]
+    fn raw_toggle_keeps_proportional_horizontal_scroll() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        assert!(app.horizontal_scroll_enabled, "default is on");
+        app.set_detail_hextent(140, 40); // max 100
+        app.detail_hscroll = 50;
+        app.toggle_raw_mode();
+        app.set_detail_hextent(90, 40); // raw view: max 50
+        assert_eq!(app.clamped_detail_hscroll(), 25);
+
+        // Second toggle with no key press in between: still half-way.
+        app.toggle_raw_mode();
+        app.set_detail_hextent(140, 40);
+        assert_eq!(app.clamped_detail_hscroll(), 50);
+
+        // A key press materializes and moves from there.
+        app.detail_hscroll_right();
+        assert_eq!(app.clamped_detail_hscroll(), 50 + DETAIL_HSCROLL_STEP);
+
+        // Selection change drops the carried place entirely.
+        app.toggle_raw_mode();
+        app.reset_detail_scroll();
+        app.set_detail_hextent(90, 40);
+        assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
     /// The rapid `t`-`t`-`t` comparison, with no scroll key pressed in
@@ -1844,15 +1912,21 @@ mod tests {
         assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
+    /// Originally pinned a reset-to-zero on toggle; the maintainer
+    /// overruled that (the wide region being compared corresponds across
+    /// the two views), so the toggle now carries the offset
+    /// proportionally, like the vertical scroll.
     #[test]
-    fn detail_hscroll_resets_on_raw_mode_toggle() {
+    fn detail_hscroll_carries_proportionally_across_raw_mode_toggle() {
         let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_hextent(50, 20);
+        app.set_detail_hextent(50, 20); // max 30
         app.detail_hscroll_right();
-        assert!(app.clamped_detail_hscroll() > 0, "precondition");
+        let before = app.clamped_detail_hscroll();
+        assert!(before > 0, "precondition");
 
         app.toggle_raw_mode();
-        assert_eq!(app.clamped_detail_hscroll(), 0);
+        app.set_detail_hextent(50, 20); // same extent: same place
+        assert_eq!(app.clamped_detail_hscroll(), before);
     }
 
     #[test]
