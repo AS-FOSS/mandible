@@ -167,6 +167,15 @@ pub struct App {
     /// fit scrolled the content off the top into blank space, and getting
     /// back required as many presses up as had gone down.
     detail_max_scroll: std::cell::Cell<usize>,
+    /// A scroll *proportion* (0.0..=1.0) carried across a raw/rendered
+    /// toggle, resolved against the next view's extent. Line offsets are
+    /// meaningless across the two renderings of one node, but the reader's
+    /// approximate place in the document is not — this is what lets `t`
+    /// flip between them for comparison without snapping to the top.
+    /// A `Cell` because the renderer (`&App`) is the first to know the new
+    /// extent; key handlers (`&mut App`) materialize it into
+    /// [`Self::detail_scroll`] before applying their own movement.
+    pending_detail_fraction: std::cell::Cell<Option<f64>>,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
     /// Whether hidden/deprecated items are shown (toggled with `.`).
@@ -297,6 +306,7 @@ impl App {
             tree_viewport: 0,
             detail_scroll: 0,
             detail_max_scroll: std::cell::Cell::new(0),
+            pending_detail_fraction: std::cell::Cell::new(None),
             show_help: false,
             show_hidden: false,
             status_message: None,
@@ -788,7 +798,7 @@ impl App {
         self.selected = previously_selected
             .and_then(|path| self.rows.iter().position(|row| row.path == path))
             .unwrap_or_else(|| self.selected.min(self.rows.len().saturating_sub(1)));
-        self.detail_scroll = 0;
+        self.reset_detail_scroll();
     }
 
     /// `t`: toggle the verbatim view — the tool's own `--help` bytes
@@ -806,12 +816,31 @@ impl App {
     /// in hand. Turning the mode *off* never needs one.
     pub fn toggle_raw_mode(&mut self) -> Option<Effect> {
         self.raw_mode = !self.raw_mode;
-        // Scroll offsets don't carry between two completely different
+        // A line offset doesn't carry between two completely different
         // renderings of the same node: line 40 of a flag table is not line
-        // 40 of the raw text, so keeping the offset lands the reader
-        // somewhere arbitrary in whichever view they just switched to.
+        // 40 of the raw text. The reader's *proportional* place does —
+        // flipping `t` to compare the parse against the source shouldn't
+        // throw them back to the top — so the fraction is carried and the
+        // offset resolved once the new view's extent is known.
+        let max = self.detail_max_scroll.get();
+        self.pending_detail_fraction.set(if max > 0 {
+            Some(self.detail_scroll.min(max) as f64 / max as f64)
+        } else {
+            None
+        });
         self.detail_scroll = 0;
         self.raw_fetch_needed()
+    }
+
+    /// Resolve a fraction carried across a raw/rendered toggle into a line
+    /// offset for the current view, and clear it. Key handlers call this
+    /// before moving so their movement starts from where the reader sees
+    /// the pane, not from the stale offset underneath it.
+    fn materialize_pending_detail_scroll(&mut self) {
+        if let Some(fraction) = self.pending_detail_fraction.take() {
+            let max = self.detail_max_scroll.get();
+            self.detail_scroll = (fraction * max as f64).round() as usize;
+        }
     }
 
     /// The fetch required to render the current selection verbatim, if the
@@ -871,6 +900,7 @@ impl App {
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
         self.selected_flag = None;
+        self.materialize_pending_detail_scroll();
         let max = self.detail_max_scroll.get();
         self.detail_scroll = self.detail_scroll.saturating_add(1).min(max);
     }
@@ -887,12 +917,22 @@ impl App {
     /// The current scroll offset, clamped to what the last frame could
     /// actually show.
     pub fn clamped_detail_scroll(&self) -> usize {
-        self.detail_scroll.min(self.detail_max_scroll.get())
+        let max = self.detail_max_scroll.get();
+        // A fraction still pending from a raw/rendered toggle takes
+        // precedence: the extent it needs arrives from the renderer one
+        // frame after the toggle, so this is where it first takes effect
+        // on screen. It stays pending (peek, not take) until a key handler
+        // materializes it — this method takes `&self`.
+        match self.pending_detail_fraction.get() {
+            Some(fraction) => (fraction * max as f64).round() as usize,
+            None => self.detail_scroll.min(max),
+        }
     }
 
     /// Detail pane scroll up.
     pub fn detail_scroll_up(&mut self) {
         self.selected_flag = None;
+        self.materialize_pending_detail_scroll();
         self.detail_scroll = self.detail_scroll.saturating_sub(1);
     }
 
@@ -900,6 +940,9 @@ impl App {
     /// doesn't stay scrolled into a different node's content.
     pub fn reset_detail_scroll(&mut self) {
         self.detail_scroll = 0;
+        // A new node's content has no relation to the old node's place;
+        // a fraction carried across a view toggle must not survive into it.
+        self.pending_detail_fraction.set(None);
     }
 
     /// Set a status bar message (e.g. after a copy).
@@ -930,6 +973,35 @@ mod tests {
     use super::*;
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
+
+    /// The reader's proportional place survives a raw/rendered toggle:
+    /// halfway down a 200-line rendering must land halfway down a 50-line
+    /// raw text, keep showing there before any key is pressed, and a later
+    /// keypress must move from that place — while a selection change drops
+    /// the carried place entirely.
+    #[test]
+    fn raw_toggle_keeps_proportional_scroll() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20); // max 200
+        app.detail_scroll = 100;
+        app.toggle_raw_mode();
+        // Renderer reports the raw view's extent on the next frame.
+        app.set_detail_extent(70, 20); // max 50
+        assert_eq!(app.clamped_detail_scroll(), 25);
+        app.detail_scroll_down();
+        assert_eq!(app.clamped_detail_scroll(), 26);
+
+        // Toggling back carries the place in the other direction too.
+        app.toggle_raw_mode();
+        app.set_detail_extent(220, 20);
+        assert_eq!(app.clamped_detail_scroll(), 104); // 26/50 of 200
+
+        // A new selection has unrelated content: nothing carries.
+        app.toggle_raw_mode();
+        app.reset_detail_scroll();
+        app.set_detail_extent(70, 20);
+        assert_eq!(app.clamped_detail_scroll(), 0);
+    }
 
     /// Drive the (real, async, `nucleo`-backed) search index until its
     /// results stop changing for a few consecutive polls, bounded overall
