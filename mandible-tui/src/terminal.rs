@@ -35,9 +35,22 @@ pub fn init() -> io::Result<Term> {
 
 /// Leave raw mode, the alternate screen, and mouse capture. Safe to call
 /// even if `init` partially failed.
+///
+/// Order is load-bearing and the reverse of [`init`]: mouse capture is
+/// switched off and pending input drained *while the terminal is still
+/// raw*. The original order disabled raw mode first, leaving a window
+/// where the terminal was cooked but still reporting mouse motion — any
+/// movement during quit landed SGR report fragments (`35;24;9M…`) in the
+/// shell's input buffer, echoed after exit as garbage. The drain eats
+/// reports already in flight when the capture-off sequence was written;
+/// `poll` with a zero timeout never blocks, so this is safe even when
+/// `init` never got as far as raw mode.
 pub fn restore() -> io::Result<()> {
-    disable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(stdout, DisableMouseCapture, LeaveAlternateScreen)?;
+    while crossterm::event::poll(std::time::Duration::ZERO).unwrap_or(false) {
+        let _ = crossterm::event::read();
+    }
+    disable_raw_mode()?;
     Ok(())
 }
