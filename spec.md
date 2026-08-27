@@ -959,6 +959,15 @@ damage a user's machine, and it gets its own section and its own tests.
    tool writing `$XDG_CACHE_HOME/x` and reading `$HOME/x` saw one file — so
    every probe ran against an environment that cannot occur.
 
+   **The redirect is all-or-nothing: if the scratch directory cannot be built,
+   the probe is refused with a named error, never run against the inherited
+   environment.** The first implementation fell back silently when tempdir
+   creation failed, and skipped any single subdirectory that failed — a probe
+   could run with this rule partially or wholly absent and nothing recorded
+   it. The likely causes (`$TMPDIR` missing, unwritable, or full) are machine
+   problems that a loud refusal surfaces and a silent downgrade converts into
+   exactly the unprompted writes this rule exists to stop.
+
    **The residual risk is now measured, not hypothetical.** The timeout kills the
    probe's *process group*, which a child that calls `setsid` leaves — so
    anything that daemonises survives it. A full-`PATH` sweep in CI loses roughly

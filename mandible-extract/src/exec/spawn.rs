@@ -62,6 +62,27 @@ pub enum ExecError {
         /// The path that was refused.
         path: String,
     },
+    /// The per-invocation scratch directory (spec §6 rule 8) could not be
+    /// built, so the probe was refused rather than run against the
+    /// inherited environment. The redirect is all-or-nothing: rule 8's own
+    /// motivating incident [M-11] was tools writing *unprompted* into the
+    /// invoking directory on `--help`, and the silent best-effort fallback
+    /// that used to live here reproduced exactly that (a font-cache stub
+    /// in whatever directory mandible was started from) with nothing
+    /// recording it had happened. The likely causes — `$TMPDIR` missing,
+    /// unwritable, or full — are machine problems a loud, named error
+    /// surfaces and a silent downgrade hides.
+    #[error(
+        "{path} not probed: the scratch redirect required by spec §6 rule 8 \
+         could not be built: {source}"
+    )]
+    ScratchUnavailable {
+        /// The path that was refused.
+        path: String,
+        /// The underlying filesystem error.
+        #[source]
+        source: std::io::Error,
+    },
     /// [`crate::exec::Transcript`] has no recording for the exact argv a
     /// tier asked for (keyed on [`InertArgv::args`], not on the enum
     /// variant or the tool name — see that type's doc comment for why).
@@ -328,10 +349,11 @@ pub fn run_inert(
     // these variables) is outside what an environment/CWD redirect can
     // reach. That residual is documented, not silently assumed away — see
     // this module's top-level doc comment.
-    let scratch = Scratch::create();
-    if let Some(scratch) = &scratch {
-        scratch.apply(&mut cmd);
-    }
+    let scratch = Scratch::create().map_err(|source| ExecError::ScratchUnavailable {
+        path: path_str.clone(),
+        source,
+    })?;
+    scratch.apply(&mut cmd);
 
     // Rule 4's other half: a probe is not complete while its descendants
     // are alive. `arm_subreaper` makes orphaned descendants reparent to
@@ -404,10 +426,7 @@ pub fn run_inert(
     // Done here, at the boundary that applied the redirect, so every tier,
     // every grammar, `--doctor` and the verbatim view (`t`) all get the
     // masked form without knowing this happened.
-    let (stdout, stderr) = match &scratch {
-        Some(scratch) => (scratch.mask(&stdout), scratch.mask(&stderr)),
-        None => (stdout, stderr),
-    };
+    let (stdout, stderr) = (scratch.mask(&stdout), scratch.mask(&stderr));
 
     Ok(ExecOutput {
         stdout,
@@ -473,28 +492,30 @@ struct Scratch {
 }
 
 impl Scratch {
-    /// Best-effort: a probe still runs without a scratch directory
-    /// (falling back to the inherited environment) rather than failing
-    /// over containment.
-    fn create() -> Option<Scratch> {
+    /// All-or-nothing: every redirect target is built, or the whole
+    /// scratch fails and the caller refuses the probe. This used to be
+    /// best-effort — tempdir failure fell back to the inherited
+    /// environment, and a failed subdirectory was silently skipped — which
+    /// meant a probe could run with rule 8 partially or wholly absent and
+    /// nothing recording it. Since the redirect is the safety layer that
+    /// keeps unprompted writes ([M-11]) out of the user's own directories,
+    /// a partial application is a containment hole, not a degraded mode.
+    fn create() -> std::io::Result<Scratch> {
         // Short prefix on purpose. A tool wraps its own help text at the
         // `COLUMNS` we set, so a long path is more likely to be split
         // across two lines, and a split string cannot be matched. Keeping
         // it short reduces how often that happens; it cannot rule it out.
-        let dir = tempfile::Builder::new().prefix("mnd-").tempdir().ok()?;
+        let dir = tempfile::Builder::new().prefix("mnd-").tempdir()?;
 
         let mut masks = Vec::new();
         for (var, subdir) in SCRATCH_VARS {
             let path = dir.path().join(subdir);
-            if std::fs::create_dir_all(&path).is_err() {
-                continue;
-            }
+            std::fs::create_dir_all(&path)?;
             push_mask(&mut masks, &path, &format!("${var}"));
         }
         let cwd = dir.path().join(SCRATCH_CWD);
-        if std::fs::create_dir_all(&cwd).is_ok() {
-            push_mask(&mut masks, &cwd, "$PWD");
-        }
+        std::fs::create_dir_all(&cwd)?;
+        push_mask(&mut masks, &cwd, "$PWD");
         // Backstop for a path derived from the root some other way (a tool
         // printing the parent of `$TMPDIR`, say). It should never fire,
         // and if it does, something visibly ours beats a real-looking path
@@ -503,7 +524,7 @@ impl Scratch {
         push_mask(&mut masks, dir.path(), "$MANDIBLE_SCRATCH");
         masks.sort_by_key(|(path, _)| std::cmp::Reverse(path.len()));
 
-        Some(Scratch { _dir: dir, masks })
+        Ok(Scratch { _dir: dir, masks })
     }
 
     fn apply(&self, cmd: &mut Command) {
@@ -1177,6 +1198,31 @@ mod tests {
             distinct.len(),
             paths.len(),
             "redirected variables share a directory: {paths:?}"
+        );
+    }
+
+    /// Rule 8 is all-or-nothing: when the scratch redirect cannot be
+    /// built, the probe must be *refused with a named error*, never run
+    /// against the inherited environment. The silent best-effort fallback
+    /// this replaces ran probes with the caller's own cwd, which is how a
+    /// font-cache stub ended up committed to this repository ([M-11]'s
+    /// incident class, reproduced). `TMPDIR` pointing at a regular file
+    /// makes every tempdir creation fail; safe to set process-wide here
+    /// because nextest runs each test in its own process.
+    #[test]
+    fn scratch_failure_refuses_the_probe_instead_of_running_unredirected() {
+        let holder = tempfile::NamedTempFile::new().unwrap();
+        std::env::set_var("TMPDIR", holder.path());
+
+        let err = run_inert(
+            Path::new("/bin/true"),
+            &InertArgv::HelpLong,
+            Duration::from_secs(2),
+        )
+        .expect_err("a probe without its scratch redirect must be refused");
+        assert!(
+            matches!(err, ExecError::ScratchUnavailable { .. }),
+            "expected ScratchUnavailable, got {err:?}"
         );
     }
 
