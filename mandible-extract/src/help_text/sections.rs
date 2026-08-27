@@ -905,6 +905,39 @@ fn parse_body(
         .description
         .as_deref()
         .is_some_and(|d| command_mode_seed(d, profile));
+    // True from the moment an `is_ignorable_heading` heading (`EXAMPLES:`,
+    // a `Report bugs`-shaped line) is captured until a *structurally
+    // strong* block — a real flags block, word grid, or command table, not
+    // merely "content that fell through to the generic bare-block
+    // fallback" — is recognized under some later, non-ignorable heading.
+    // Exists solely to gate [`recover_stanza_head_flag`] below: an
+    // `EXAMPLES:` section's own invocation lines (`bpftrace -e
+    // 'tracepoint:raw_syscalls:sys_enter { ... }'`, `bpftrace -l
+    // '*sleep*'`) are, line for line, indistinguishable from a genuine
+    // LVM stanza head — the tool's own name, then a bare flag token, with
+    // more-indented content (the example's own one-line description)
+    // beneath it. `is_ignorable_heading` alone cannot see this: it is
+    // tested per candidate heading, and neither example line's own text
+    // starts with "example" or contains "report bugs" — only the
+    // `EXAMPLES:` heading that introduces them does, and every following
+    // heading candidate is re-examined independently of it (the "rewind"
+    // path below carries no memory of what came before). Measured: a full
+    // sweep before this guard existed fabricated `bpftrace -e`/`-l` flag
+    // rows whose value was a fragment of the example invocation, and it
+    // displaced the real, described `-e`/`-l` rows the tool's own
+    // `Options:`-shaped block already provides.
+    //
+    // Deliberately *not* reset by the generic `scan_bare_block` +
+    // `emit_choices`/`emit_subcommands` fallback (the path every one of
+    // `EXAMPLES:`'s own invocation lines actually takes, since their
+    // one-line description is not flag- or command-shaped): resetting
+    // there would clear the flag on the *first* example line and reopen
+    // the fabrication on the second. Only a positively-recognized
+    // structural block — the same set of branches that already gate their
+    // own emission on `!is_ignorable_heading(&heading)`, plus a few more
+    // whose shape cannot occur inside an examples section at all — clears
+    // it.
+    let mut in_ignorable_section = false;
 
     // 3. Section blocks: scan the rest of the output for a heading line
     // followed by more-indented content — or, if the very first content
@@ -991,6 +1024,9 @@ fn parse_body(
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;
+        if is_ignorable_heading(&heading) {
+            in_ignorable_section = true;
+        }
         i += 1;
         while i < lines.len() && lines[i].trim().is_empty() {
             i += 1;
@@ -1028,6 +1064,7 @@ fn parse_body(
                     i += 1;
                 }
                 if !is_ignorable_heading(&heading) {
+                    in_ignorable_section = false;
                     let recognized = is_recognized_command_heading(&heading, profile);
                     if recognized {
                         command_mode = true;
@@ -1096,6 +1133,7 @@ fn parse_body(
                 {
                     i = end;
                     command_mode = true;
+                    in_ignorable_section = false;
                     let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
                     total_entries += seen;
                     clean_entries += clean;
@@ -1130,9 +1168,22 @@ fn parse_body(
         // block at all): the head line names its flag either way, so this
         // runs once per heading rather than being folded into any one of
         // the branches that follow.
-        if let Some(flag) = recover_stanza_head_flag(&heading, tool_name) {
-            if result.flags.len() < MAX_RECOVERED_ENTRIES {
-                result.flags.push(flag);
+        //
+        // Gated on `!in_ignorable_section`: `bpftrace --help`'s own
+        // `EXAMPLES:` block writes each example as "the tool's own name,
+        // then a bare flag token, then a one-line description" —
+        // `bpftrace -e 'tracepoint:raw_syscalls:sys_enter { ... }'` — the
+        // identical shape to a real stanza head, and without this guard it
+        // fabricated `-e`/`-l` rows whose value was a fragment of the
+        // example invocation, displacing the real, described rows from
+        // `bpftrace`'s own `Options:` block. See `in_ignorable_section`'s
+        // own doc comment for why this has to be section context rather
+        // than a per-line check.
+        if !in_ignorable_section {
+            if let Some(flag) = recover_stanza_head_flag(&heading, tool_name) {
+                if result.flags.len() < MAX_RECOVERED_ENTRIES {
+                    result.flags.push(flag);
+                }
             }
         }
 
@@ -1169,6 +1220,7 @@ fn parse_body(
                         entries.insert(0, (first_name, None));
                         i = end;
                         command_mode = true;
+                        in_ignorable_section = false;
                         let raw_tokens = command_table_token_index(raw);
                         let (seen, clean) =
                             emit_headed_command_table(entries, &raw_tokens, &mut result);
@@ -1195,6 +1247,10 @@ fn parse_body(
                 command_mode = false;
                 continue;
             }
+            // A real, non-ignorable flags block — structurally strong
+            // evidence we are not (or no longer) inside an examples-shaped
+            // section. See `in_ignorable_section`'s own doc comment.
+            in_ignorable_section = false;
             if packed {
                 let seen = entries.len();
                 emit_packed_flags(meaningful_flag_group(heading), entries, &mut result);
@@ -1239,6 +1295,7 @@ fn parse_body(
             if let Some((end, entries)) = scan_argparse_subparsers(&lines, i, heading_indent) {
                 i = end;
                 command_mode = false;
+                in_ignorable_section = false;
                 let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
                 total_entries += seen;
                 clean_entries += clean;
@@ -1265,6 +1322,7 @@ fn parse_body(
             let (end, entries) = scan_bare_block(&lines, i, heading_indent, false);
             i = end;
             command_mode = false;
+            in_ignorable_section = false;
             let (block_seen, block_clean) =
                 emit_declared_positionals(entries, &usage_lines, &mut result);
             total_entries += block_seen;
@@ -1342,6 +1400,7 @@ fn parse_body(
             if let Some((end, entries)) = scan_bare_command_table(&lines, i) {
                 i = end;
                 command_mode = true;
+                in_ignorable_section = false;
                 let raw_tokens = command_table_token_index(raw);
                 let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, &mut result);
                 total_entries += seen;
@@ -1366,6 +1425,7 @@ fn parse_body(
             let (end, entries) = scan_comma_separated_commands(&lines, i);
             i = end;
             command_mode = true;
+            in_ignorable_section = false;
             let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
             total_entries += seen;
             clean_entries += clean;
@@ -1388,6 +1448,17 @@ fn parse_body(
 
         if recognized || command_mode {
             command_mode = true;
+            // Only `recognized` (this exact heading's own text says
+            // "commands") is strong enough to clear the flag here — the
+            // `command_mode` sticky-chain half of this condition is not:
+            // it can still be true from an *inherited* chain rather than
+            // this heading's own evidence, which is exactly the kind of
+            // indirect signal `in_ignorable_section` must not trust (see
+            // its own doc comment on why the generic bare-block fallback
+            // is deliberately excluded from clearing it).
+            if recognized {
+                in_ignorable_section = false;
+            }
             let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
             total_entries += seen;
             clean_entries += clean;
@@ -8302,6 +8373,64 @@ mod tests {
                 .flags
                 .iter()
                 .any(|f| f.long.as_deref() == Some("debug")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// `bpftrace --help`'s real `EXAMPLES:` block writes each example as
+    /// "the tool's own name, then a bare flag token, then a one-line
+    /// description" — `tool -e 'tracepoint:raw_syscalls:sys_enter { ... }'`
+    /// — line for line the same shape as a genuine LVM stanza head. Without
+    /// `in_ignorable_section` gating `recover_stanza_head_flag`, this
+    /// fabricated `-e`/`-l` rows whose value was a fragment of the example
+    /// invocation, displacing the real, described `-e`/`-l` rows from the
+    /// `OPTIONS:` block above. This pins the fix: the real, described flags
+    /// survive untouched and nothing from `EXAMPLES:` is mined at all.
+    #[test]
+    fn examples_section_invocation_lines_are_never_read_as_stanza_heads() {
+        let help = "tool - a tool\n\
+                     \n\
+                     OPTIONS:\n\
+                     \x20\x20\x20\x20-e 'program'   execute this program\n\
+                     \x20\x20\x20\x20-l [search]    list probes\n\
+                     \n\
+                     EXAMPLES:\n\
+                     tool -l '*sleep*'\n\
+                     \x20\x20\x20\x20list probes containing \"sleep\"\n\
+                     tool -e 'tracepoint:raw_syscalls:sys_enter { @[comm] = count(); }'\n\
+                     \x20\x20\x20\x20count syscalls by process name\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        let e_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('e'))
+            .collect();
+        assert_eq!(e_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(e_flags[0].value_name.as_deref(), Some("'program'"));
+        assert!(
+            e_flags[0].description.is_some(),
+            "flags: {:?}",
+            parsed.flags
+        );
+
+        let l_flags: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short == Some('l'))
+            .collect();
+        assert_eq!(l_flags.len(), 1, "flags: {:?}", parsed.flags);
+        assert!(
+            l_flags[0].description.is_some(),
+            "flags: {:?}",
+            parsed.flags
+        );
+
+        assert!(
+            !parsed.flags.iter().any(|f| f
+                .value_name
+                .as_deref()
+                .is_some_and(|v| v.contains("sleep") || v.contains("tracepoint"))),
             "flags: {:?}",
             parsed.flags
         );
