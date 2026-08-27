@@ -130,21 +130,15 @@ surprising against the tool's own `--help`.
 <details>
 <summary><h2>Configuration</h2></summary>
 
-Everything you can customize lives in one directory:
-
-| File | What it controls |
-|---|---|
-| `~/.config/mandible/config.toml` | mandible's own behavior (the settings below) |
-| `~/.config/mandible/overrides/<tool>.toml` | your corrections to one tool's documentation |
-
-Neither file needs to exist — everything has a default.
+Settings live in `~/.config/mandible/config.toml`. The file doesn't need to
+exist — everything has a default.
 
 ### Settings
 
 Long preformatted lines (the raw `--help` view, USAGE synopses) scroll
-sideways with the `←`/`→` arrow keys (or vim's `h`/`l`) instead of wrapping,
-and a dim `<`/`>` marker sits beside each line that continues past the pane
-edge. Set `horizontal_scroll = false` to wrap everything instead.
+sideways with `←`/`→` (or `h`/`l`) instead of wrapping, and a dim `<`/`>`
+marker sits beside each line that continues past the pane edge. Set
+`horizontal_scroll = false` to wrap everything instead.
 
 ```toml
 # ~/.config/mandible/config.toml
@@ -153,29 +147,10 @@ edge. Set `horizontal_scroll = false` to wrap everything instead.
 horizontal_scroll = true  # the default
 ```
 
-### Per-tool overrides
-
-Anything mandible gets wrong about a tool, you can correct locally in
-`~/.config/mandible/overrides/<tool>.toml`:
-
-```toml
-summary = "my better one-line description"
-
-[[flags]]
-long = "verbose"
-short = "v"
-description = "a description that actually explains it"
-
-[[node]]
-path = ["build"]
-summary = "corrections apply to subcommands too"
-```
-
-These are yours and are never committed to this repository.
-
-> **Note:** an override fixes a tool for you today. Consider also opening an
-> issue: the real fix belongs in a framework grammar, where it improves every
-> tool built with that framework at once.
+Getting a tool's *documentation* right is mandible's job, not yours — if
+something parses wrong, `mandible --report <tool>` and an issue is the fix that
+helps everyone. (Local per-tool corrections do exist for the impatient:
+`~/.config/mandible/overrides/<tool>.toml`.)
 
 ### Environment variables
 
