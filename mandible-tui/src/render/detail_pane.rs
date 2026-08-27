@@ -290,7 +290,9 @@ fn render_verbatim(
         if index < wrapped_prefix_lines {
             push_wrapped_notice(&mut lines, &text, width);
         } else if app.horizontal_scroll_enabled {
-            lines.push(Line::from(hscroll_trim(&text, hoffset).into_owned()));
+            lines.push(Line::from(
+                hscroll_window(&text, hoffset, width).into_owned(),
+            ));
         } else {
             lines.push(Line::from(text));
         }
@@ -301,30 +303,51 @@ fn render_verbatim(
     frame.render_widget(paragraph, inner);
 }
 
-/// Trim `offset` display-width columns off the left of `s`, for horizontal
-/// scrolling of preformatted content. Character-by-character, never a raw
-/// byte slice (AGENTS.md: never slice tool-derived text at a byte offset —
-/// this project has shipped a UTF-8-boundary panic from exactly that
-/// shortcut once already). A double-width character that straddles the
-/// offset boundary is dropped whole rather than split — splitting it would
-/// emit half a cell and misalign every column after it, which is worse
-/// than losing one character's width of the scroll.
-fn hscroll_trim(s: &str, offset: usize) -> std::borrow::Cow<'_, str> {
-    if offset == 0 {
+/// The visible window of `s` for horizontal scrolling of preformatted
+/// content: `offset` display-width columns trimmed off the left, then
+/// capped to at most `width` columns of what remains.
+///
+/// The cap matters as much as the trim. The structured detail pane's
+/// `Paragraph` keeps `Wrap` enabled as a defensive fallback (this module's
+/// top doc comment) for content this function's caller does *not* produce —
+/// every other line here is already pre-wrapped to fit. A preformatted
+/// line handed over wider than `width` is exactly the shape `Wrap` exists
+/// to catch, so without the cap it silently re-wraps a synopsis this
+/// feature deliberately stopped wrapping, restarting the continuation flush
+/// left with no memory of the line's own indent — precisely the
+/// "wrapping makes soup" failure this feature exists to remove, just
+/// reintroduced one layer up. Found by rendering `ip` through a real pty
+/// rather than trusting `TestBackend` (AGENTS.md §3.2): a synthetic fixture
+/// narrow enough to need the cap was never in the corpus.
+///
+/// Character-by-character, never a raw byte slice (AGENTS.md: never slice
+/// tool-derived text at a byte offset — this project has shipped a
+/// UTF-8-boundary panic from exactly that shortcut once already). A
+/// double-width character that straddles either boundary is dropped whole
+/// rather than split — splitting it would emit half a cell and misalign
+/// every column after it, which is worse than losing one character's width
+/// of the scroll.
+fn hscroll_window(s: &str, offset: usize, width: usize) -> std::borrow::Cow<'_, str> {
+    if offset == 0 && display_width(s) <= width {
         return std::borrow::Cow::Borrowed(s);
     }
     let mut remaining = offset;
+    let mut budget = width;
     let mut result = String::new();
-    let mut trimming = true;
+    let mut trimming = offset > 0;
     for ch in s.chars() {
+        let w = UnicodeWidthChar::width(ch).unwrap_or(0);
         if trimming {
-            let w = UnicodeWidthChar::width(ch).unwrap_or(0);
             if w <= remaining {
                 remaining -= w;
                 continue;
             }
             trimming = false;
         }
+        if w > budget {
+            break;
+        }
+        budget -= w;
         result.push(ch);
     }
     std::borrow::Cow::Owned(result)
@@ -458,7 +481,9 @@ fn build_lines(
             app.set_detail_hextent(max_width, width);
             let hoffset = app.clamped_detail_hscroll();
             for line in usage_lines {
-                lines.push(Line::from(hscroll_trim(&line, hoffset).into_owned()));
+                lines.push(Line::from(
+                    hscroll_window(&line, hoffset, width).into_owned(),
+                ));
             }
         } else {
             for u in &node.usage {
@@ -1966,18 +1991,38 @@ mod tests {
 
         let app = test_app();
         assert!(app.horizontal_scroll_enabled, "default is on");
-        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
-        let usage_lines: Vec<String> = built
+        let width = 46;
+        let built = build_lines(
+            &node,
+            false,
+            width,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &app,
+        );
+        // Unscrolled, the line shows a `width`-column prefix of the
+        // synopsis — the rest reachable with `l`, never reflowed onto a
+        // second line the way the disabled path wraps it.
+        let usage_lines: Vec<&Line> = built
             .lines
             .iter()
-            .map(text_of)
-            .filter(|t| t.contains(long_url))
+            .filter(|l| text_of(l).trim_start().starts_with("url https"))
             .collect();
         assert_eq!(
             usage_lines.len(),
             1,
             "a preformatted synopsis must not be split across lines: {:?}",
             built.lines.iter().map(text_of).collect::<Vec<_>>()
+        );
+        let shown = text_of(usage_lines[0]);
+        assert!(
+            long_url.starts_with(shown.trim_start().trim_start_matches("url ")),
+            "the visible portion must be an unbroken prefix of the real synopsis: {shown:?}"
+        );
+        assert!(
+            display_width(&shown) <= width,
+            "must not overflow the pane and rely on Paragraph::Wrap to save it: {shown:?}"
         );
     }
 
