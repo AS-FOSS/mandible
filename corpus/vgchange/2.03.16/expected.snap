@@ -1,0 +1,374 @@
+name: vgchange
+usage:
+- vgchange ( -l|--logicalvolume Number, -p|--maxphysicalvolumes Number, -u|--uuid, -s|--physicalextentsize Size[m|UNIT], -x|--resizeable y|n, --addtag Tag, --deltag Tag, --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit, --pvmetadatacopies 0|1|2, --vgmetadatacopies all|unmanaged|Number, --profile String, --detachprofile, --metadataprofile String, --setautoactivation y|n ) [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [ --poll y|n ] [ --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+- vgchange --monitor y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [ --sysinit ] [ --ignorelockingfailure ] [ --poll y|n ] [ --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+- vgchange --poll y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [ --ignorelockingfailure ] [ --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+positionals:
+- name: COMMON_OPTIONS
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'K'
+  long: ignoreactivationskip
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: partial
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  long: autobackup
+  value_name: y|n
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: select
+  value_name: String
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: force
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: activationmode
+  value_name: partial|degraded|complete
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: sysinit
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: readonly
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: ignorelockingfailure
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: monitor
+  value_name: y|n
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: poll
+  value_name: y|n
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: autoactivation
+  value_name: String
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: ignoremonitoring
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: noudevsync
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- long: reportformat
+  value_name: basic|json
+  value_kind: Required
+  group: vgchange -a|--activate y|n|ay
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  long: autobackup
+  value_name: y|n
+  value_kind: Required
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: select
+  value_name: String
+  value_kind: Required
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: force
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- long: sysinit
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- long: ignorelockingfailure
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- long: poll
+  value_name: y|n
+  value_kind: Required
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- long: ignoremonitoring
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- long: noudevsync
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- long: reportformat
+  value_name: basic|json
+  value_kind: Required
+  group: vgchange --refresh
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: select
+  value_name: String
+  value_kind: Required
+  group: vgchange --lockstart
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: select
+  value_name: String
+  value_kind: Required
+  group: vgchange --lockstop
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: debug
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: quiet
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  long: verbose
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'y'
+  long: yes
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  long: test
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: commandprofile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: config
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: driverloaded
+  value_name: y|n
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: nolocking
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: lockopt
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: longhelp
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: profile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: devicesfile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: devices
+  value_name: PV
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: nohints
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- long: journal
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: logicalvolume
+  value_name: Number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'p'
+  long: maxphysicalvolumes
+  value_name: Number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'u'
+  long: uuid
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 's'
+  long: physicalextentsize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- short: 'x'
+  long: resizeable
+  value_name: y|n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: addtag
+  value_name: Tag
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: deltag
+  value_name: Tag
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: alloc
+  value_name: contiguous|cling|cling_by_tags|normal|anywhere|inherit
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: pvmetadatacopies
+  value_name: 0|1|2
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: vgmetadatacopies
+  value_name: all|unmanaged|Number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: detachprofile
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: metadataprofile
+  value_name: String
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: setautoactivation
+  value_name: y|n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
