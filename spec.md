@@ -1899,6 +1899,20 @@ overflows the border by one cell per wide character.
   a final dimmed "Inherited" group, and hidden/deprecated flags suppressed unless
   toggled with `.`.
 - Scroll state is per-pane; the wheel scrolls the pane under the cursor.
+- **Detail-pane content that is preformatted scrolls horizontally instead of
+  wrapping; prose does not.** The raw `--help` view (`t`) and a node's
+  USAGE-section synopsis lines are the tool author's own layout — wrapping
+  them at pane width reflows spacing that was part of their meaning, into
+  something no more readable than the original. `h`/`l`/`←`/`→` scroll that
+  content when the detail pane has focus, clamped to the widest line on
+  screen, with a `←`/`→` marker in the pane's border when there is more off
+  that edge. The summary, description, and flag list are unaffected either
+  way — they are mandible's own prose and keep wrapping to the pane width as
+  everywhere else in this section. Opinionated enough to need an escape
+  hatch: `[ui] horizontal_scroll` in `~/.config/mandible/config.toml`
+  (`mandible-core`'s `config` module — a sibling of Tier F's per-tool
+  `overrides/<tool>.toml`, spec §7) defaults to `true`, and `false` restores
+  plain wrapping for this content too.
 
 **Empty and degraded states are designed, not incidental:** a node whose children
 are still being extracted shows a subtle spinner row; a tool where only Tier B

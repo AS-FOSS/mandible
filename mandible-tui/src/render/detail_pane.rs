@@ -139,10 +139,11 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 /// Draw the horizontal-scroll overflow affordance in the detail pane's
-/// border — a single glyph on the top edge, the one row spec §9's border
-/// rules let a pane draw anything other than the plain rule character or a
-/// title into (`border_integrity.rs` checks every *other* border cell
-/// strictly). Placed a couple of cells inside the top-right corner, never
+/// border — a single glyph on the top edge, the one row that already
+/// legitimately carries something other than the plain rule character (the
+/// breadcrumb title, spec §2) and so the one row `border_integrity.rs`
+/// checks less strictly than the other three. Placed a couple of cells
+/// inside the top-right corner, never
 /// on it, so a very long breadcrumb can never push this into corner
 /// territory and `border_integrity.rs`'s exact-corner-glyph assertion never
 /// sees anything but the rounded/ASCII corner it expects.
@@ -151,6 +152,22 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 /// exactly the same guard the scroll keys use (`App::detail_hscroll_left`
 /// /`_right`), so "off" never draws a marker for an offset the user has no
 /// way to have created.
+///
+/// **Deliberately drawn regardless of which pane has focus**, even though
+/// `h`/`l`/`←`/`→` only reach [`App::detail_hscroll_left`]/`_right` while
+/// `Focus::Detail` (`event::handle_detail_key`) — with the tree focused,
+/// this can promise more content on a side no keypress currently reaches.
+/// That was a conscious choice, not an oversight: the alternative is a pane
+/// that silently clips a USAGE line or raw `--help` text with no sign
+/// anything is missing until the reader happens to `Tab` over and press
+/// `l`, and a wrong-but-honest "there's more, go focus this pane to see it"
+/// is a smaller failure than that silent clipping — the same asymmetry
+/// spec §9's border-corruption lesson already treats as the more dangerous
+/// direction (content quietly doing something the reader can't see beats
+/// content quietly *not* telling them there's more of it). Revisit this if
+/// user feedback says the marker reads as broken rather than as "Tab over
+/// for more" — the fix then is gating on `app.focus == Focus::Detail` here,
+/// not changing what the marker itself draws.
 fn draw_hscroll_affordance(frame: &mut Frame, area: Rect, app: &App) {
     if !app.horizontal_scroll_enabled || area.width < 6 || area.height == 0 {
         return;
@@ -229,14 +246,12 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// block in this pane is (see this
 /// module's top doc comment on why the rest of the pane pre-wraps
 /// everything itself) — this is preformatted output, and re-wrapping it
-/// would silently edit the tool author's own text. Without `Wrap`,
-/// `ratatui::widgets::Paragraph` clips an over-width line at the pane's
-/// edge rather than reflowing it, which is the "horizontal scroll rather
-/// than reflow" spec §7 Tier B step 3 calls for; a horizontal scroll
-/// *offset* is not yet wired to a key in this batch (it always starts at
-/// column 0), but the important safety property — content never reflows,
-/// and can therefore never smear into the pane border the way an
-/// unsanitized newline once did (spec §9) — holds regardless. Safe to hand
+/// would silently edit the tool author's own text. `h`/`l`/`←`/`→` scroll
+/// it horizontally instead (spec §9: preformatted detail-pane content
+/// scrolls rather than wraps); the important safety property — content
+/// never reflows, and can therefore never smear into the pane border the
+/// way an unsanitized newline once did (spec §9) — holds regardless of
+/// which offset is showing. Safe to hand
 /// straight to a `Span` because every `Text` reaching here already went
 /// through one of `mandible_core::Text`'s sanitizing constructors —
 /// `Text::sanitize` for `node.unparsed` (level-3 degradation), or
@@ -314,9 +329,9 @@ fn render_verbatim(
 /// line handed over wider than `width` is exactly the shape `Wrap` exists
 /// to catch, so without the cap it silently re-wraps a synopsis this
 /// feature deliberately stopped wrapping, restarting the continuation flush
-/// left with no memory of the line's own indent — precisely the
-/// "wrapping makes soup" failure this feature exists to remove, just
-/// reintroduced one layer up. Found by rendering `ip` through a real pty
+/// left with no memory of the line's own indent — precisely the reflowed,
+/// meaning-scrambling failure spec §9 introduced this feature to remove,
+/// just reintroduced one layer up. Found by rendering `ip` through a real pty
 /// rather than trusting `TestBackend` (AGENTS.md §3.2): a synthetic fixture
 /// narrow enough to need the cap was never in the corpus.
 ///
@@ -465,8 +480,8 @@ fn build_lines(
         let indent = "  ";
         if app.horizontal_scroll_enabled {
             // A synopsis is preformatted — spacing inside it is part of
-            // its meaning (spec §9: "wrapping makes soup"). One `Line` per
-            // usage form, never re-flowed; `h`/`l` reveal the rest instead
+            // its meaning, so spec §9 has it scroll rather than wrap. One
+            // `Line` per usage form, never re-flowed; `h`/`l` reveal the rest instead
             // of the old greedy word-wrap eating it into a ragged block.
             let usage_lines: Vec<String> = node
                 .usage
@@ -1981,8 +1996,8 @@ mod tests {
 
     /// The toggle **on** (the default): a USAGE synopsis is preformatted
     /// and must stay on one line rather than being greedily word-wrapped,
-    /// with `h`/`l` revealing the rest instead (spec §9: "wrapping makes
-    /// soup" for this content).
+    /// with `h`/`l` revealing the rest instead (spec §9: preformatted
+    /// detail-pane content scrolls rather than wraps).
     #[test]
     fn usage_synopsis_stays_on_one_line_when_horizontal_scroll_is_enabled() {
         let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));

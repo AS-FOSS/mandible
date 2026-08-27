@@ -1,6 +1,7 @@
 //! The status bar: keybinding hints, or a transient status message (spec
 //! §2's footer row: `↑↓ move   → expand   / search   y copy   ? help   q
-//! quit`).
+//! quit`; `→`'s label has since grown a second meaning, spec §9, see
+//! [`hints`]).
 
 use crate::app::App;
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width};
@@ -25,10 +26,18 @@ use ratatui::Frame;
 /// together reads as one long string rather than a list of keys.
 /// Built per-frame because the arrow glyphs depend on what the terminal
 /// can draw (see [`crate::glyphs`]).
+///
+/// `←→` already meant two things before the detail pane's horizontal
+/// scroll existed — `↑↓ move` names one hint for "move the tree selection"
+/// *and* "scroll the detail pane" depending on focus, and that ambiguity
+/// was accepted deliberately rather than switching the row. `←→` now covers
+/// a third meaning (collapse/expand vs. horizontal scroll) the same way:
+/// the label names both rather than picking one focus's meaning and
+/// leaving it wrong in the other, which a focus-conditional label would.
 fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
     vec![
         format!("{} move", glyphs.arrows_vertical),
-        format!("{} expand", glyphs.arrows_horizontal),
+        format!("{} expand/scroll", glyphs.arrows_horizontal),
         "/ search".to_string(),
         "Tab pane".to_string(),
         "t raw".to_string(),
