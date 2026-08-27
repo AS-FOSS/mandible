@@ -10,7 +10,7 @@ once it reaches a published 0.1.0 release.
 
 ### Added
 
-- The detail pane's raw `--help` view (`t`) and USAGE-section synopsis lines now scroll horizontally with `h`/`l`/`←`/`→` instead of wrapping, with a `←`/`→` marker drawn in the pane's border when there is more content off that edge and, per line, a muted vim-style `>`/`<` in the last/first column of exactly the lines clipped at that edge (a line that fits stays untouched); the rest of the detail pane (description, flags) is unaffected and still wraps as before. Controlled by a new `[ui] horizontal_scroll` key in `~/.config/mandible/config.toml` (default `true`); setting it to `false` restores the previous wrapping behavior exactly.
+- The detail pane's raw `--help` view (`t`) and USAGE-section synopsis lines now scroll horizontally with `h`/`l`/`←`/`→` instead of wrapping, with a `←`/`→` marker drawn in the pane's border when there is more content off that edge and, per line, a muted vim-style `>`/`<` drawn in the pane's padding gutter against the border beside exactly the lines clipped at that edge (the text keeps its full width; a line that fits gets no marker); the rest of the detail pane (description, flags) is unaffected and still wraps as before. Controlled by a new `[ui] horizontal_scroll` key in `~/.config/mandible/config.toml` (default `true`); setting it to `false` restores the previous wrapping behavior exactly.
 
 ### Fixed
 

@@ -135,6 +135,13 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .wrap(Wrap { trim: false })
         .scroll((scroll, 0));
     frame.render_widget(paragraph, inner);
+    draw_clip_marker_rails(
+        frame,
+        inner,
+        app.color_enabled,
+        &built.clip_rows,
+        scroll as usize,
+    );
     draw_hscroll_affordance(frame, area, app);
 }
 
@@ -301,19 +308,25 @@ fn render_verbatim(
         0
     };
 
+    let mut clip_rows: Vec<(usize, bool, bool)> = Vec::new();
     for (index, text) in body.into_iter().enumerate() {
         if index < wrapped_prefix_lines {
             push_wrapped_notice(&mut lines, &text, width);
         } else if app.horizontal_scroll_enabled {
-            lines.push(hscroll_line(&text, hoffset, width, app.color_enabled));
+            let (line, left, right) = hscroll_line(&text, hoffset, width);
+            if left || right {
+                clip_rows.push((lines.len(), left, right));
+            }
+            lines.push(line);
         } else {
             lines.push(Line::from(text));
         }
     }
     app.set_detail_extent(lines.len(), inner.height as usize);
-    let scroll = app.clamped_detail_scroll() as u16;
-    let paragraph = Paragraph::new(lines).scroll((scroll, 0));
+    let scroll = app.clamped_detail_scroll();
+    let paragraph = Paragraph::new(lines).scroll((scroll as u16, 0));
     frame.render_widget(paragraph, inner);
+    draw_clip_marker_rails(frame, inner, app.color_enabled, &clip_rows, scroll);
 }
 
 /// The visible window of `s` for horizontal scrolling of preformatted
@@ -340,50 +353,64 @@ fn render_verbatim(
 /// rather than split — splitting it would emit half a cell and misalign
 /// every column after it, which is worse than losing one character's width
 /// of the scroll.
-/// One preformatted line rendered at a horizontal offset, with vim-style
-/// clip markers: a muted `>` in the last column when content continues
-/// past the right edge, a muted `<` in the first column when the offset
-/// has trimmed content off the left (`listchars extends:>,precedes:<` is
-/// the precedent every terminal user already knows). Per line, not per
-/// pane: a short line that fits is untouched, which is exactly what makes
-/// the clipped one next to it noticeable. Each marker replaces one column
-/// of content at its edge, so column alignment across lines is preserved.
-/// A line that ends exactly at the edge hides nothing and gets no marker;
-/// a line entirely behind the offset renders empty rather than as a stray
-/// `<`.
-fn hscroll_line(s: &str, offset: usize, width: usize, color_enabled: bool) -> Line<'static> {
+/// The visible window of one preformatted line at a horizontal offset,
+/// plus whether content was clipped off each edge. The flags feed
+/// [`draw_clip_marker_rails`], which draws vim-style `<`/`>` markers
+/// (`listchars extends:>,precedes:<`) — in the pane's one-column padding
+/// gutter against the border, NOT inside the text: the maintainer's call,
+/// so the marker reads as a rail on the wall and the text keeps its full
+/// width and natural columns. A line that ends exactly at the edge hides
+/// nothing and reports no clip; a line entirely behind the offset renders
+/// empty with no stray left marker.
+fn hscroll_line(s: &str, offset: usize, width: usize) -> (Line<'static>, bool, bool) {
     let total = display_width(s);
     if offset == 0 && total <= width {
-        return Line::from(s.to_string());
+        return (Line::from(s.to_string()), false, false);
     }
     if total <= offset || width == 0 {
-        return Line::default();
+        return (Line::default(), false, false);
     }
     let clipped_left = offset > 0;
     let clipped_right = total > offset + width;
-    let content_offset = offset + usize::from(clipped_left);
-    let content_width = width
-        .saturating_sub(usize::from(clipped_left))
-        .saturating_sub(usize::from(clipped_right));
-    let mut spans: Vec<Span<'static>> = Vec::with_capacity(3);
+    let line = Line::from(hscroll_window(s, offset, width).into_owned());
+    (line, clipped_left, clipped_right)
+}
+
+/// Draw the per-line clip markers into the padding gutters either side of
+/// `inner` — the one blank column `Block::padding` leaves between border
+/// and content. `clip_rows` holds `(line index, clipped_left,
+/// clipped_right)` in the same index space the paragraph's vertical
+/// `scroll` uses, so a marker follows its line when the pane scrolls
+/// vertically and disappears with it off-screen.
+fn draw_clip_marker_rails(
+    frame: &mut Frame,
+    inner: Rect,
+    color_enabled: bool,
+    clip_rows: &[(usize, bool, bool)],
+    vscroll: usize,
+) {
+    if inner.x == 0 || clip_rows.is_empty() {
+        return;
+    }
+    let left_x = inner.x - 1;
+    let right_x = inner.x + inner.width;
     let marker = style::muted(color_enabled);
-    if clipped_left {
-        spans.push(Span::styled("<", marker));
-    }
-    spans.push(Span::raw(
-        hscroll_window(s, content_offset, content_width).into_owned(),
-    ));
-    if clipped_right {
-        // Pad to the marker column so `>` sits at the pane edge even when
-        // a double-width character was dropped whole at the boundary.
-        let shown = display_width(spans.last().map(|s| s.content.as_ref()).unwrap_or(""));
-        let pad = content_width.saturating_sub(shown);
-        if pad > 0 {
-            spans.push(Span::raw(" ".repeat(pad)));
+    let buf = frame.buffer_mut();
+    for &(idx, left, right) in clip_rows {
+        let Some(row) = idx.checked_sub(vscroll) else {
+            continue;
+        };
+        if row >= inner.height as usize {
+            continue;
         }
-        spans.push(Span::styled(">", marker));
+        let y = inner.y + row as u16;
+        if left {
+            buf[(left_x, y)].set_symbol("<").set_style(marker);
+        }
+        if right {
+            buf[(right_x, y)].set_symbol(">").set_style(marker);
+        }
     }
-    Line::from(spans)
 }
 
 fn hscroll_window(s: &str, offset: usize, width: usize) -> std::borrow::Cow<'_, str> {
@@ -471,6 +498,9 @@ struct BuiltLines {
     /// The line index [`Flag`] `app.selected_flag` starts at, if it was
     /// found on `node`.
     target_flag_line: Option<usize>,
+    /// `(line index, clipped_left, clipped_right)` for each horizontally
+    /// clipped preformatted line, consumed by [`draw_clip_marker_rails`].
+    clip_rows: Vec<(usize, bool, bool)>,
 }
 
 fn build_lines(
@@ -484,6 +514,7 @@ fn build_lines(
 ) -> BuiltLines {
     let mut lines = Vec::new();
     let mut target_flag_line = None;
+    let mut clip_rows: Vec<(usize, bool, bool)> = Vec::new();
     // Reset every frame, not just when a USAGE section is present below —
     // otherwise a node with no USAGE at all would leave the previous
     // node's extent sitting in the `Cell`, and the overflow affordance
@@ -540,7 +571,11 @@ fn build_lines(
             app.set_detail_hextent(max_width, width);
             let hoffset = app.clamped_detail_hscroll();
             for line in usage_lines {
-                lines.push(hscroll_line(&line, hoffset, width, app.color_enabled));
+                let (built, left, right) = hscroll_line(&line, hoffset, width);
+                if left || right {
+                    clip_rows.push((lines.len(), left, right));
+                }
+                lines.push(built);
             }
         } else {
             for u in &node.usage {
@@ -579,6 +614,7 @@ fn build_lines(
     BuiltLines {
         lines,
         target_flag_line,
+        clip_rows,
     }
 }
 
@@ -2073,20 +2109,11 @@ mod tests {
             built.lines.iter().map(text_of).collect::<Vec<_>>()
         );
         let shown = text_of(usage_lines[0]);
-        // The clipped line ends with the vim-style `>` extends marker;
-        // everything before it must still be an unbroken prefix.
+        // The clip marker lives in the padding gutter (see
+        // `draw_clip_marker_rails`), never inside the text, so the line
+        // itself is a clean unbroken prefix at full width.
         assert!(
-            shown.trim_end().ends_with('>'),
-            "a clipped synopsis line must carry the extends marker: {shown:?}"
-        );
-        assert!(
-            long_url.starts_with(
-                shown
-                    .trim_start()
-                    .trim_start_matches("url ")
-                    .trim_end()
-                    .trim_end_matches('>')
-            ),
+            long_url.starts_with(shown.trim_start().trim_start_matches("url ")),
             "the visible portion must be an unbroken prefix of the real synopsis: {shown:?}"
         );
         assert!(
