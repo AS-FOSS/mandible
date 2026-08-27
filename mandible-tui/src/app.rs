@@ -192,14 +192,25 @@ pub struct App {
     detail_max_hscroll: std::cell::Cell<usize>,
     /// Whether `h`/`l`/`←`/`→` scroll the detail pane horizontally instead
     /// of doing nothing there, and whether preformatted content (raw view,
-    /// USAGE lines) is left unwrapped in the first place. Read once at
-    /// construction from `~/.config/mandible/config.toml`'s `[ui]` table
-    /// (`mandible_core::config`) — same "read once, plain field" shape as
-    /// [`Self::color_enabled`] and [`Self::glyphs`], and for the same
-    /// reason: it cannot change mid-run, and tests need to set it directly
-    /// without mutating process-wide environment state. `false` must
-    /// reproduce today's wrapping behavior byte for byte — this is an
-    /// opinionated default, so it ships with an off switch.
+    /// USAGE lines) is left unwrapped in the first place.
+    ///
+    /// Defaults to `true` here — [`App::new`] is a pure constructor with no
+    /// filesystem I/O, so it never itself reads
+    /// `~/.config/mandible/config.toml`. Reading that file is the
+    /// composition root's job: `mandible/src/app_runner.rs`'s `new_app`
+    /// calls `mandible_core::config::load` once and overwrites this field
+    /// on the freshly-built `App`, the same way every other startup concern
+    /// already lives there rather than in `App::new`. A constructor that
+    /// touches the real filesystem made every test (and every other
+    /// embedder of this crate) hostage to whichever `config.toml` happened
+    /// to exist on the machine running them — a `horizontal_scroll = false`
+    /// left over from someone's own use of mandible silently flipped this
+    /// field's default in the test suite and made "off reproduces today's
+    /// behavior" pass for the wrong reason.
+    ///
+    /// A plain `pub` field, like [`Self::color_enabled`] and
+    /// [`Self::glyphs`], so tests can set it directly without any global
+    /// state to isolate.
     pub horizontal_scroll_enabled: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
@@ -341,7 +352,7 @@ impl App {
             pending_detail_fraction: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
-            horizontal_scroll_enabled: mandible_core::config::load().ui.horizontal_scroll,
+            horizontal_scroll_enabled: true,
             show_help: false,
             show_hidden: false,
             status_message: None,
@@ -994,8 +1005,8 @@ impl App {
         self.detail_hscroll = 0;
     }
 
-    /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9's
-    /// "give preformatted content horizontal scrolling instead" of
+    /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9:
+    /// preformatted detail-pane content scrolls horizontally rather than
     /// wrapping). A no-op when the config toggle is off, or already at the
     /// left edge — `saturating_sub` alone would still be correct here, but
     /// the early return also means a disabled toggle never touches
