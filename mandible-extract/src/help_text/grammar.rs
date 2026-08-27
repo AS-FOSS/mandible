@@ -584,6 +584,122 @@ pub fn looks_like_bracket_flag_row(input: &str) -> bool {
     bracket_flag_row_content(input).is_some()
 }
 
+// --- the parenthesized alternation group --------------------------------
+//
+// LVM's own emitter writes a *different* multi-mode-synopsis shape for a
+// tool whose flags satisfy "any one of these is required, after which the
+// rest are optional" (`vgchange`'s own first stanza, `lvconvert`'s stanzas
+// for `--merge`/`--splitmirrors`/etc. use the same convention): one bare
+// `(` opens a group, one flag entry per physical line separated by a
+// trailing `,`, and the group's last entry closes with `)` on its own
+// line — never `[`-brackets, and spanning many physical lines rather than
+// the one-flag-per-`[...]`-line shape [`bracket_flag_row_content`] reads:
+//
+// ```text
+//   vgchange
+//   ( -l|--logicalvolume Number,
+//     -p|--maxphysicalvolumes Number,
+//     -u|--uuid,
+//     ...
+//        --setautoactivation y|n )
+// ```
+//
+// A member row routinely opens with `-` itself (`-p|--maxphysicalvolumes
+// Number,`), which [`looks_like_flag_start`] already treats as unambiguous
+// evidence that a usage-block continuation line is really a flag-table row
+// ending the block — correct for the shapes that predicate was built for,
+// wrong here, where the row is one alternative inside a still-open group
+// rather than a fresh table. Distinguishing the two is a matter of
+// *running paren depth*, not per-line content, so `sections::parse_body`'s
+// usage-block loop tracks it directly with [`paren_depth_delta`] rather
+// than asking this module to re-decide "is this line still inside the
+// group" from content alone on every line.
+
+/// True if `t` (already left-trimmed) opens a multi-line parenthesized
+/// alternation group: a bare `(` immediately followed by a flag token, with
+/// the group left unclosed on this same physical line (an ordinary
+/// same-line parenthetical aside, `(see below)`, always balances and is
+/// refused here). A name match alone is not required — unlike
+/// [`looks_like_unlabeled_synopsis_line`](super::sections::looks_like_unlabeled_synopsis_line),
+/// this predicate is consulted only where the caller has already
+/// established the surrounding line is a synopsis head or one of its
+/// continuations, so the flag-token-right-after-`(` shape alone is the
+/// evidence — prose essentially never opens a line with `(` followed
+/// immediately by a bare `-`-prefixed word.
+pub fn looks_like_paren_alternation_open(t: &str) -> bool {
+    if paren_depth_delta(t) <= 0 {
+        return false;
+    }
+    let Some(rest) = t.strip_prefix('(') else {
+        return false;
+    };
+    rest.split_whitespace()
+        .next()
+        .is_some_and(is_bare_flag_token)
+}
+
+/// Running paren-depth contribution of one physical line: `(` count minus
+/// `)` count. Shared by `sections::parse_body`'s usage-block loop (which
+/// must keep treating a member row as "still inside the group" for as long
+/// as the count stays above zero, regardless of what the row's own text
+/// looks like) and `sections::extract_usage_flags`'s own pass over the
+/// same physical lines afterward (which needs to know which lines the
+/// group covers to hand them to [`paren_alternation_member_content`]
+/// instead of the ordinary per-line segment walk) — one depth rule, not
+/// two.
+pub fn paren_depth_delta(t: &str) -> i32 {
+    t.matches('(').count() as i32 - t.matches(')').count() as i32
+}
+
+/// True if `word` is a bare flag token — starts with `-`, is not just
+/// `-`/`--` alone, and the dash(es) are immediately followed by an
+/// alphanumeric character (so `--`, `-`, or a lone `-` used as a
+/// stdin/stdout placeholder never counts).
+pub(super) fn is_bare_flag_token(word: &str) -> bool {
+    word.len() > 1
+        && word.starts_with('-')
+        && word
+            .trim_start_matches('-')
+            .starts_with(|c: char| c.is_alphanumeric())
+}
+
+/// The inner content of one member row inside an open
+/// [`looks_like_paren_alternation_open`] group — the row with its opening
+/// `(` (the group's first row only), trailing `,` (every row but the
+/// last), and trailing `)` (the last row only) stripped, leaving exactly
+/// the same `-`/`--`-spelling-plus-optional-value fragment a
+/// [`bracket_flag_row_content`] row already hands to [`parse_flag_spec`].
+/// `None` when, once stripped, the remainder does not itself start with
+/// `-` — refuses a row the caller mis-tracked into the group rather than
+/// fabricate a flag from content that fails this check; `parse_body`'s own
+/// depth bookkeeping should never actually produce that input, but the
+/// check costs nothing to keep honest.
+///
+/// `|` inside a member (`-l|--logicalvolume`, the alias separator; `y|n` or
+/// `contiguous|cling|...`, a value's own choice list) is untouched here —
+/// handed to [`parse_flag_spec`] unchanged, exactly as
+/// `bracket_flag_row_content`'s own doc comment explains for the identical
+/// ambiguity: [`take_rest_value_token`]'s `alias_follows` guard (built for
+/// `sg_sanitize`'s `--count=OC|-c OC`) already reads a value's own `|` as
+/// part of the value, never as a second alias.
+pub fn paren_alternation_member_content(input: &str) -> Option<&str> {
+    let mut s = input.trim();
+    if let Some(rest) = s.strip_prefix('(') {
+        s = rest.trim_start();
+    }
+    if let Some(rest) = s.strip_suffix(')') {
+        s = rest.trim_end();
+    }
+    if let Some(rest) = s.strip_suffix(',') {
+        s = rest.trim_end();
+    }
+    if s.starts_with('-') {
+        Some(s)
+    } else {
+        None
+    }
+}
+
 // --- the flag-alternation group ----------------------------------------
 //
 // A *delimited alternation of flag spellings* is one notation with three

@@ -1,0 +1,132 @@
+  vgchange - Change volume group attributes
+
+  Change a general VG attribute. 
+  For options listed in parentheses, any one is 
+  required, after which the others are optional.
+  vgchange
+	( -l|--logicalvolume Number,
+	  -p|--maxphysicalvolumes Number,
+	  -u|--uuid,
+	  -s|--physicalextentsize Size[m|UNIT],
+	  -x|--resizeable y|n,
+	     --addtag Tag,
+	     --deltag Tag,
+	     --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit,
+	     --pvmetadatacopies 0|1|2,
+	     --vgmetadatacopies all|unmanaged|Number,
+	     --profile String,
+	     --detachprofile,
+	     --metadataprofile String,
+	     --setautoactivation y|n )
+
+	[ -A|--autobackup y|n ]
+	[ -S|--select String ]
+	[ -f|--force ]
+	[    --poll y|n ]
+	[    --ignoremonitoring ]
+	[    --noudevsync ]
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Start or stop monitoring LVs from dmeventd.
+  vgchange --monitor y|n
+	[ -A|--autobackup y|n ]
+	[ -S|--select String ]
+	[ -f|--force ]
+	[    --sysinit ]
+	[    --ignorelockingfailure ]
+	[    --poll y|n ]
+	[    --ignoremonitoring ]
+	[    --noudevsync ]
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Start or stop processing LV conversions.
+  vgchange --poll y|n
+	[ -A|--autobackup y|n ]
+	[ -S|--select String ]
+	[ -f|--force ]
+	[    --ignorelockingfailure ]
+	[    --ignoremonitoring ]
+	[    --noudevsync ]
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Activate or deactivate LVs.
+  vgchange -a|--activate y|n|ay
+	[ -K|--ignoreactivationskip ]
+	[ -P|--partial ]
+	[ -A|--autobackup y|n ]
+	[ -S|--select String ]
+	[ -f|--force ]
+	[    --activationmode partial|degraded|complete ]
+	[    --sysinit ]
+	[    --readonly ]
+	[    --ignorelockingfailure ]
+	[    --monitor y|n ]
+	[    --poll y|n ]
+	[    --autoactivation String ]
+	[    --ignoremonitoring ]
+	[    --noudevsync ]
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Reactivate LVs using the latest metadata.
+  vgchange --refresh
+	[ -A|--autobackup y|n ]
+	[ -S|--select String ]
+	[ -f|--force ]
+	[    --sysinit ]
+	[    --ignorelockingfailure ]
+	[    --poll y|n ]
+	[    --ignoremonitoring ]
+	[    --noudevsync ]
+	[    --reportformat basic|json ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Change the system ID of a VG.
+  vgchange --systemid String VG
+	[ COMMON_OPTIONS ]
+
+  Start the lockspace of a shared VG in lvmlockd.
+  vgchange --lockstart
+	[ -S|--select String ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Stop the lockspace of a shared VG in lvmlockd.
+  vgchange --lockstop
+	[ -S|--select String ]
+	[ COMMON_OPTIONS ]
+	[ VG|Tag|Select ... ]
+
+  Change the lock type for a shared VG.
+  vgchange --locktype sanlock|dlm|none VG
+	[ COMMON_OPTIONS ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.

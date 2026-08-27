@@ -42,9 +42,10 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{
-    bracket_flag_row_content, is_bare_flag_spelling, looks_like_bracket_flag_row,
-    looks_like_flag_start, parse_bundled_shorts, parse_flag_alternation, parse_flag_spec,
-    split_alternatives, FlagSpec,
+    bracket_flag_row_content, is_bare_flag_spelling, is_bare_flag_token,
+    looks_like_bracket_flag_row, looks_like_flag_start, looks_like_paren_alternation_open,
+    paren_alternation_member_content, paren_depth_delta, parse_bundled_shorts,
+    parse_flag_alternation, parse_flag_spec, split_alternatives, FlagSpec,
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
@@ -419,10 +420,58 @@ fn parse_body(
         // `extract_positionals` needs every one of them, not just the
         // first, to recognize the whole thing as the primary line.
         let mut line_entry_index = vec![0usize];
+        // Running depth of an open parenthesized alternation group (LVM's
+        // "for options listed in parentheses, any one is required"
+        // convention — `vgchange`'s own first stanza), tracked only for an
+        // unlabelled synopsis (`labelled_usage_start.is_none()`, matching
+        // every other LVM-shape guard in this loop): a member row routinely
+        // opens with `-` itself, which the "a continuation line that reads
+        // as a flag entry ends the block" check just below would otherwise
+        // end the block on. See `grammar::looks_like_paren_alternation_open`
+        // and `grammar::paren_depth_delta`'s own doc comments for why depth,
+        // not per-line content, is what has to decide this.
+        let mut paren_group_depth: i32 = 0;
+        // True for exactly the one loop iteration right after
+        // `paren_group_depth` returns to zero — consulted only by the blank-
+        // line handler just below, which needs to tell "a blank line right
+        // after the group's own closing `)`" (still the *same* stanza's own
+        // trailing bracket-row flag list, `vgchange`'s own `[ -A|--autobackup
+        // y|n ]` and its siblings) apart from an ordinary between-stanza
+        // blank line (which requires `looks_like_stanza_continuation_head`
+        // evidence instead, below). Reset unconditionally at the bottom of
+        // every other line's handling so it cannot survive past the one
+        // blank line it exists for.
+        let mut just_closed_paren_group = false;
         i += 1;
         while i < lines.len() {
             let l = lines[i];
             if l.trim().is_empty() {
+                if paren_group_depth > 0 {
+                    // A blank line inside an unclosed group is not a shape
+                    // any real specimen produces; refuse to guess at what it
+                    // means rather than fabricate a continuation across it.
+                    paren_group_depth = 0;
+                    just_closed_paren_group = false;
+                }
+                if just_closed_paren_group {
+                    just_closed_paren_group = false;
+                    if let Some(next) = lines.get(i + 1) {
+                        let t = next.trim_start();
+                        if !t.is_empty() && looks_like_bracket_flag_row(t) {
+                            // The group's own trailing bracket-row flag list
+                            // continues after exactly one blank line —
+                            // `vgchange`'s first stanza reads `( ... )` then
+                            // a blank line then `[ -A|--autobackup y|n ]`,
+                            // still the *same* stanza, not a new one, so
+                            // this is deliberately not the
+                            // `looks_like_stanza_continuation_head` check
+                            // below (that one is for a fresh `<tool> ...`
+                            // head line, never a bracket row on its own).
+                            i += 1;
+                            continue;
+                        }
+                    }
+                }
                 // Some tools write their unlabelled synopsis as **one
                 // stanza per operation mode / invocation form** — a prose
                 // description line, then its own `<tool> <args>` head, then
@@ -523,6 +572,49 @@ fn parse_body(
                 break;
             }
             let trimmed_start = l.trim_start();
+            if labelled_usage_start.is_none() && paren_group_depth > 0 {
+                // Already inside an open parenthesized alternation group:
+                // every line up to the matching close is a member of it,
+                // regardless of shape. A member row routinely opens with
+                // `-` itself (`-p|--maxphysicalvolumes Number,`), which the
+                // "a continuation line that reads as a flag entry ends the
+                // block" check just below would otherwise misread as a
+                // fresh flag-table row ending the usage block one line into
+                // the group — depth, not content, is what says this line
+                // still belongs to it, so it is folded in unconditionally,
+                // bypassing every content-shape check below the same way a
+                // backslash continuation does.
+                paren_group_depth += paren_depth_delta(trimmed_start);
+                if paren_group_depth <= 0 {
+                    paren_group_depth = 0;
+                    just_closed_paren_group = true;
+                } else {
+                    just_closed_paren_group = false;
+                }
+                let trimmed = l.trim().to_string();
+                usage_lines.push(trimmed.clone());
+                if let Some(last) = usage_entries.last_mut() {
+                    last.push(' ');
+                    last.push_str(&trimmed);
+                }
+                line_entry_index.push(usage_entries.len() - 1);
+                i += 1;
+                continue;
+            }
+            if labelled_usage_start.is_none()
+                && paren_group_depth == 0
+                && looks_like_paren_alternation_open(trimmed_start)
+            {
+                // Opens the group: hand off to the depth-tracking branch
+                // above for every later line, but this opening row itself
+                // still falls through to the ordinary flow just below,
+                // which already appends it correctly (it is more indented
+                // than the stanza head and, starting with `(` rather than
+                // `-`, trips none of the content checks that would end the
+                // block).
+                paren_group_depth = paren_depth_delta(trimmed_start);
+            }
+            just_closed_paren_group = false;
             let is_marker =
                 starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
             let is_own_name =
@@ -2572,34 +2664,27 @@ pub fn looks_like_unlabeled_synopsis_line(t: &str, name: &str) -> bool {
 
 /// True if `lines[idx]` is a bare own-name invocation line — no bracket
 /// notation on the line itself — whose *very next* physical line is
-/// unambiguous flag-row evidence ([`looks_like_bracket_flag_row`]). Shared
-/// by the unlabelled-synopsis entry point (this file's `unlabelled_synopsis_start`)
-/// and the multi-stanza continuation check in the usage-block loop below it
-/// — both need exactly this one test, and a second copy would drift.
+/// unambiguous flag-row evidence: either [`looks_like_bracket_flag_row`]
+/// (`vgck`'s `[ -d|--debug ]`) or [`looks_like_paren_alternation_open`]
+/// (`vgchange`'s `( -l|--logicalvolume Number,`, the "any one of these is
+/// required" convention). Shared by the unlabelled-synopsis entry point
+/// (this file's `unlabelled_synopsis_start`) and the multi-stanza
+/// continuation check in the usage-block loop below it — both need exactly
+/// this one test, and a second copy would drift.
 ///
 /// Narrow and structural, never keyed on any tool's name: a name-only line
 /// only counts when the next line is itself unambiguous flag-row notation,
 /// never merely because it comes right after a name match. LVM's own
-/// emitter (`vgck`, `vgck --updatemetadata VG`, `vgextend VG PV ...`) is
-/// the specimen this was measured against, not a special case for it.
+/// emitter (`vgck`, `vgck --updatemetadata VG`, `vgextend VG PV ...`,
+/// `vgchange`'s own paren-alternation first stanza) is the specimen this
+/// was measured against, not a special case for it.
 fn looks_like_bare_synopsis_head(lines: &[&str], idx: usize, name: &str) -> bool {
     let t = lines[idx].trim_start();
     starts_with_tool_name(t, name)
-        && lines
-            .get(idx + 1)
-            .is_some_and(|next| looks_like_bracket_flag_row(next.trim_start()))
-}
-
-/// True if `word` is a bare flag token — starts with `-`, is not just
-/// `-`/`--` alone, and the dash(es) are immediately followed by an
-/// alphanumeric character (so `--`, `-`, or a lone `-` used as a
-/// stdin/stdout placeholder never counts).
-fn is_bare_flag_token(word: &str) -> bool {
-    word.len() > 1
-        && word.starts_with('-')
-        && word
-            .trim_start_matches('-')
-            .starts_with(|c: char| c.is_alphanumeric())
+        && lines.get(idx + 1).is_some_and(|next| {
+            let next = next.trim_start();
+            looks_like_bracket_flag_row(next) || looks_like_paren_alternation_open(next)
+        })
 }
 
 /// True if `lines[idx]` continues an already-open unlabelled synopsis into
@@ -7102,7 +7187,31 @@ fn extract_positionals(
 /// comment for why a duplicate is *dropped* rather than merged.
 fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
     let mut out: Vec<Flag> = Vec::new();
+    // Running depth of an open parenthesized alternation group (LVM's
+    // "for options listed in parentheses, any one is required" convention),
+    // tracked over these same physical lines the same way `parse_body`'s
+    // own usage-block loop already tracked it while collecting them
+    // (`grammar::paren_depth_delta`) — re-derived here rather than passed
+    // in because `usage_lines` alone determines the same open/close
+    // boundaries deterministically. Needed because a member row routinely
+    // opens with `-` itself (`-p|--maxphysicalvolumes Number,`), which must
+    // be read via `paren_alternation_member_content`, not the ordinary
+    // segment walk below — that walk has no notion of a comma-terminated
+    // alternative and would mis-tokenize it (`,` is not a recognized
+    // separator anywhere in `usage_segments`).
+    let mut paren_group_depth: i32 = 0;
     for line in usage_lines {
+        let trimmed = line.trim();
+        if paren_group_depth > 0 || looks_like_paren_alternation_open(trimmed) {
+            paren_group_depth += paren_depth_delta(trimmed);
+            if paren_group_depth < 0 {
+                paren_group_depth = 0;
+            }
+            if let Some(content) = paren_alternation_member_content(trimmed) {
+                push_usage_flag(&mut out, parse_flag_spec(content));
+            }
+            continue;
+        }
         // A whole line that is one docopt bracket-group flag row (LVM's
         // `[ -A|--autobackup y|n ]`) is read directly by
         // `bracket_flag_row_content` + `parse_flag_spec`, never by the

@@ -1,0 +1,101 @@
+# Regression fixture for the parenthesized-alternation stanza fix:
+# `vgchange --help`'s own **first** stanza documents its mutually-exclusive
+# mode flags as a multi-line `( -l|--logicalvolume Number, ... )` group —
+# "For options listed in parentheses, any one is required, after which the
+# others are optional." — never LVM's more common one-`[...]`-per-line
+# bracket-row shape `corpus/vgck/audit-seed2` and `corpus/pvscan/2.03.16`
+# pin. Before this fix the unlabelled-synopsis entry point
+# (`sections::looks_like_bare_synopsis_head`) required the line right
+# after a bare `vgchange` head to be a bracket-flag-row
+# (`grammar::looks_like_bracket_flag_row`), which a `(`-opened row never
+# is, so the block never opened at all and this whole tool rendered
+# verbatim: zero flags, zero usage lines, for a tool with roughly 40 real
+# flags across nine stanzas.
+#
+# A second, LVM-specimen-specific wrinkle this fixture also pins: the
+# first stanza's own trailing bracket-row flag list (`[ -A|--autobackup
+# y|n ]` and its seven siblings) sits after a **blank line separating it
+# from the closing `)` of the paren group**, still the *same* stanza —
+# unlike `vgck`/`pvscan`, whose stanzas never have an internal blank line
+# at all. `sections::parse_body`'s blank-line handler now recognizes this
+# one narrow shape (a blank line immediately after a just-closed
+# parenthesized-alternation group, followed by ordinary bracket-row
+# evidence) as continuing the *current* entry rather than requiring
+# `looks_like_stanza_continuation_head` (a fresh `<tool> ...` line), which
+# that trailing bracket list is not.
+#
+# Verified against this machine's real `vgchange --help` (lvm2 2.03.16,
+# `dpkg -l lvm2`, Ubuntu 24.04.4): help.txt is the tool's own stdout,
+# byte-exact; help.stderr.txt carries the one "Running as a non-root user"
+# warning line this environment's vgchange always emits (the parser reads
+# stdout here since it is non-empty and help-shaped — see
+# `help_text::pick_stream`'s own truth table — so the warning never
+# reaches the tree either way).
+#
+# Honest residuals, deliberately not claimed here:
+# - The paren group's own "any ONE of these is required" relation has no
+#   home in the IR (`Flag::required` is a per-flag bool, not a "choose
+#   exactly one of this set" group relation) — every flag recovered from
+#   the group is emitted with `required: false`, which is honestly
+#   incomplete rather than fabricated (asserting all fourteen required
+#   independently would be worse: false at runtime, since only one may be
+#   given).
+# - Every recovered flag here is undescribed, same as `vgck`/`pvscan`:
+#   LVM's own emitter never documents an individual flag inline outside
+#   `--longhelp`, so `min_status` stays `low-confidence` for the same
+#   reason those two fixtures' does.
+# - A separate, PRE-EXISTING gap in fix/multi-stanza-synopsis's own
+#   between-stanza prose skip — discovered by this fixture, not introduced
+#   or fixed by the paren-alternation change above, and deliberately left
+#   alone here rather than widened without its own measurement: the
+#   blank-line handler skips at most one prose line between stanzas only
+#   when it passes `is_prose_sentence`, which requires
+#   `MIN_PROSE_SENTENCE_WORDS` (5) words. `vgchange`'s own stanza-4
+#   description, "Activate or deactivate LVs." (4 words), fails that
+#   floor, so the lookahead never reaches the `vgchange -a|--activate
+#   y|n|ay` head beneath it and the *entire* usage block ends there —
+#   `-a`/`--activate` and every stanza after it (`--refresh`,
+#   `--systemid`, `--lockstart`, `--lockstop`, `--locktype`) are absent
+#   from `usage` and from the flag list (their own `[...]` bracket rows
+#   still surface separately, via the generic headingless-block scanner,
+#   with the stanza's own head line as a `group` label rather than a real
+#   flag — visible below as `group: 'vgchange -a|--activate y|n|ay'` with
+#   no accompanying `-a`/`--activate` flag entry). Not claimed by
+#   `must_contain_flags`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "vgchange"
+version = "2.03.16"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.3"
+
+[[capture]]
+argv = ["vgchange", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "low-confidence"
+must_contain_flags = [
+  "-l", "--logicalvolume",
+  "-p", "--maxphysicalvolumes",
+  "-u", "--uuid",
+  "-s", "--physicalextentsize",
+  "-x", "--resizeable",
+  "--addtag",
+  "--deltag",
+  "--alloc",
+  "--pvmetadatacopies",
+  "--vgmetadatacopies",
+  "--detachprofile",
+  "--metadataprofile",
+  "--setautoactivation",
+  "-A", "--autobackup",
+  "--monitor",
+  "--poll",
+]
