@@ -90,6 +90,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     // mandible decided.
     if let Some(raw) = app.raw_help_for_selected() {
         render_raw_mode(frame, inner, app, raw);
+        draw_hscroll_affordance(frame, area, app);
         return;
     }
 
@@ -106,6 +107,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
             &format!("unparsed {} showing raw --help output", app.glyphs.absent),
             node.unparsed.iter().map(|t| t.as_str().to_string()),
         );
+        draw_hscroll_affordance(frame, area, app);
         return;
     }
 
@@ -117,6 +119,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         app.color_enabled,
         app.selected_flag.as_ref(),
         app.glyphs,
+        app,
     );
     // Search selecting a flag scrolls straight to it (spec §10): the line
     // index is exact because every line above was pre-wrapped by us, not
@@ -132,6 +135,39 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .wrap(Wrap { trim: false })
         .scroll((scroll, 0));
     frame.render_widget(paragraph, inner);
+    draw_hscroll_affordance(frame, area, app);
+}
+
+/// Draw the horizontal-scroll overflow affordance in the detail pane's
+/// border — a single glyph on the top edge, the one row spec §9's border
+/// rules let a pane draw anything other than the plain rule character or a
+/// title into (`border_integrity.rs` checks every *other* border cell
+/// strictly). Placed a couple of cells inside the top-right corner, never
+/// on it, so a very long breadcrumb can never push this into corner
+/// territory and `border_integrity.rs`'s exact-corner-glyph assertion never
+/// sees anything but the rounded/ASCII corner it expects.
+///
+/// A no-op with the config toggle off — `app.horizontal_scroll_enabled` is
+/// exactly the same guard the scroll keys use (`App::detail_hscroll_left`
+/// /`_right`), so "off" never draws a marker for an offset the user has no
+/// way to have created.
+fn draw_hscroll_affordance(frame: &mut Frame, area: Rect, app: &App) {
+    if !app.horizontal_scroll_enabled || area.width < 6 || area.height == 0 {
+        return;
+    }
+    let can_left = app.detail_hscroll_can_go_left();
+    let can_right = app.detail_hscroll_can_go_right();
+    if !can_left && !can_right {
+        return;
+    }
+    let buf = frame.buffer_mut();
+    let y = area.y;
+    if can_right {
+        buf[(area.x + area.width - 2, y)].set_char(app.glyphs.more_right);
+    }
+    if can_left {
+        buf[(area.x + area.width - 3, y)].set_char(app.glyphs.more_left);
+    }
 }
 
 /// Render the verbatim view (`t`): the tool's own `--help` output for the
@@ -229,9 +265,32 @@ fn render_verbatim(
     lines.push(Line::default());
     let body: Vec<String> = body.collect();
     let wrapped_prefix_lines = unverified_notice_prefix_len(&body);
+
+    // Everything past the mandible-authored notice prefix is the tool's
+    // own preformatted bytes (see this function's doc comment above) —
+    // exactly the content spec §9 wants scrolled rather than wrapped. The
+    // notice prefix itself stays prose: it's mandible's own text, already
+    // wrapped by `push_wrapped_notice`, and immune to the horizontal
+    // offset the same way DESCRIPTION/FLAGS stay immune in the structured
+    // view below.
+    let hoffset = if app.horizontal_scroll_enabled {
+        let max_width = body
+            .iter()
+            .skip(wrapped_prefix_lines)
+            .map(|line| display_width(line))
+            .max()
+            .unwrap_or(0);
+        app.set_detail_hextent(max_width, width);
+        app.clamped_detail_hscroll()
+    } else {
+        0
+    };
+
     for (index, text) in body.into_iter().enumerate() {
         if index < wrapped_prefix_lines {
             push_wrapped_notice(&mut lines, &text, width);
+        } else if app.horizontal_scroll_enabled {
+            lines.push(Line::from(hscroll_trim(&text, hoffset).into_owned()));
         } else {
             lines.push(Line::from(text));
         }
@@ -240,6 +299,35 @@ fn render_verbatim(
     let scroll = app.clamped_detail_scroll() as u16;
     let paragraph = Paragraph::new(lines).scroll((scroll, 0));
     frame.render_widget(paragraph, inner);
+}
+
+/// Trim `offset` display-width columns off the left of `s`, for horizontal
+/// scrolling of preformatted content. Character-by-character, never a raw
+/// byte slice (AGENTS.md: never slice tool-derived text at a byte offset —
+/// this project has shipped a UTF-8-boundary panic from exactly that
+/// shortcut once already). A double-width character that straddles the
+/// offset boundary is dropped whole rather than split — splitting it would
+/// emit half a cell and misalign every column after it, which is worse
+/// than losing one character's width of the scroll.
+fn hscroll_trim(s: &str, offset: usize) -> std::borrow::Cow<'_, str> {
+    if offset == 0 {
+        return std::borrow::Cow::Borrowed(s);
+    }
+    let mut remaining = offset;
+    let mut result = String::new();
+    let mut trimming = true;
+    for ch in s.chars() {
+        if trimming {
+            let w = UnicodeWidthChar::width(ch).unwrap_or(0);
+            if w <= remaining {
+                remaining -= w;
+                continue;
+            }
+            trimming = false;
+        }
+        result.push(ch);
+    }
+    std::borrow::Cow::Owned(result)
 }
 
 /// Recognize only the display-only prose prepended by `not_attested_fallback`.
@@ -310,9 +398,17 @@ fn build_lines(
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
+    app: &App,
 ) -> BuiltLines {
     let mut lines = Vec::new();
     let mut target_flag_line = None;
+    // Reset every frame, not just when a USAGE section is present below —
+    // otherwise a node with no USAGE at all would leave the previous
+    // node's extent sitting in the `Cell`, and the overflow affordance
+    // would draw for content that isn't even on screen anymore.
+    if app.horizontal_scroll_enabled {
+        app.set_detail_hextent(0, width);
+    }
 
     if let Some(summary) = &node.summary {
         for chunk in wrap_words(summary.as_str(), width) {
@@ -341,14 +437,36 @@ fn build_lines(
 
     if !node.usage.is_empty() {
         lines.push(heading_line_ruled("USAGE", width, color_enabled, glyphs));
-        for u in &node.usage {
-            let full = usage_signature(&node.name, u.as_str());
-            // Indented as a block, the way API documentation sets a
-            // signature apart from its prose.
-            let indent = "  ";
-            let avail = width.saturating_sub(display_width(indent)).max(1);
-            for chunk in wrap_words(&full, avail) {
-                lines.push(Line::from(format!("{indent}{chunk}")));
+        // Indented as a block, the way API documentation sets a signature
+        // apart from its prose.
+        let indent = "  ";
+        if app.horizontal_scroll_enabled {
+            // A synopsis is preformatted — spacing inside it is part of
+            // its meaning (spec §9: "wrapping makes soup"). One `Line` per
+            // usage form, never re-flowed; `h`/`l` reveal the rest instead
+            // of the old greedy word-wrap eating it into a ragged block.
+            let usage_lines: Vec<String> = node
+                .usage
+                .iter()
+                .map(|u| format!("{indent}{}", usage_signature(&node.name, u.as_str())))
+                .collect();
+            let max_width = usage_lines
+                .iter()
+                .map(|line| display_width(line))
+                .max()
+                .unwrap_or(0);
+            app.set_detail_hextent(max_width, width);
+            let hoffset = app.clamped_detail_hscroll();
+            for line in usage_lines {
+                lines.push(Line::from(hscroll_trim(&line, hoffset).into_owned()));
+            }
+        } else {
+            for u in &node.usage {
+                let full = usage_signature(&node.name, u.as_str());
+                let avail = width.saturating_sub(display_width(indent)).max(1);
+                for chunk in wrap_words(&full, avail) {
+                    lines.push(Line::from(format!("{indent}{chunk}")));
+                }
             }
         }
         lines.push(Line::default());
@@ -1078,6 +1196,16 @@ mod tests {
         n
     }
 
+    /// A minimal `App` for tests that only need `build_lines`'s `app`
+    /// parameter for its horizontal-scroll bookkeeping — the config
+    /// defaults to on, matching a real run with no `config.toml`.
+    fn test_app() -> App {
+        App::new(
+            "test".to_string(),
+            CommandNode::new("test", Provenance::single(Source::HelpText)),
+        )
+    }
+
     fn text_of(line: &Line) -> String {
         line.spans.iter().map(|s| s.content.as_ref()).collect()
     }
@@ -1097,7 +1225,15 @@ mod tests {
     fn hidden_flags_suppressed_by_default() {
         let mut node = node_with_flags();
         node.flags[0].hidden = true;
-        let built = build_lines(&node, false, 80, true, None, crate::glyphs::UNICODE);
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
         let joined: String = built.lines.iter().map(text_of).collect();
         assert!(!joined.contains("--interactive"));
     }
@@ -1106,7 +1242,15 @@ mod tests {
     fn hidden_flags_shown_when_toggled() {
         let mut node = node_with_flags();
         node.flags[0].hidden = true;
-        let built = build_lines(&node, true, 80, true, None, crate::glyphs::UNICODE);
+        let built = build_lines(
+            &node,
+            true,
+            80,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
         let joined: String = built.lines.iter().map(text_of).collect();
         assert!(joined.contains("--interactive"));
     }
@@ -1524,6 +1668,7 @@ mod tests {
             true,
             Some(&FlagKey::Long("interactive".to_string())),
             crate::glyphs::UNICODE,
+            &test_app(),
         );
         let idx = built.target_flag_line.expect("flag should be found");
         let line_text = text_of(&built.lines[idx]);
@@ -1533,7 +1678,15 @@ mod tests {
     #[test]
     fn no_target_flag_means_no_scroll_override() {
         let node = node_with_flags();
-        let built = build_lines(&node, false, 80, true, None, crate::glyphs::UNICODE);
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
         assert_eq!(built.target_flag_line, None);
     }
 
@@ -1758,13 +1911,21 @@ mod tests {
     /// carries an over-long token must still show the whole token
     /// somewhere in the rendered lines, and never emit an ellipsis in its
     /// place.
+    ///
+    /// Pinned with the horizontal-scroll toggle explicitly **off**: this is
+    /// the pre-existing wrapping behavior, and `horizontal_scroll = false`
+    /// (spec: the config toggle for this feature) must reproduce it
+    /// exactly. The toggle **on** has its own test below, where the same
+    /// token stays on one unwrapped line instead.
     #[test]
-    fn build_lines_wraps_rather_than_truncates_a_long_usage_token() {
+    fn build_lines_wraps_rather_than_truncates_a_long_usage_token_with_scroll_disabled() {
         let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
         let long_url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef0123456789abcdef0123456789abcd";
         node.usage = vec![Text::sanitize(long_url)];
 
-        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE);
+        let mut app = test_app();
+        app.horizontal_scroll_enabled = false;
+        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
         // Every usage line carries its own 2-space block indent (see the
         // USAGE section of `build_lines`) — strip it per line before
         // rejoining so adjacent chunks of the broken token reassemble
@@ -1785,6 +1946,67 @@ mod tests {
         assert!(
             !joined.contains('…'),
             "an over-long token must never be ellipsis-truncated: {joined:?}"
+        );
+        assert!(
+            built.lines.len() > 1,
+            "with scrolling disabled the long token should still wrap across lines: {:?}",
+            built.lines.iter().map(text_of).collect::<Vec<_>>()
+        );
+    }
+
+    /// The toggle **on** (the default): a USAGE synopsis is preformatted
+    /// and must stay on one line rather than being greedily word-wrapped,
+    /// with `h`/`l` revealing the rest instead (spec §9: "wrapping makes
+    /// soup" for this content).
+    #[test]
+    fn usage_synopsis_stays_on_one_line_when_horizontal_scroll_is_enabled() {
+        let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
+        let long_url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef0123456789abcdef0123456789abcd";
+        node.usage = vec![Text::sanitize(long_url)];
+
+        let app = test_app();
+        assert!(app.horizontal_scroll_enabled, "default is on");
+        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
+        let usage_lines: Vec<String> = built
+            .lines
+            .iter()
+            .map(text_of)
+            .filter(|t| t.contains(long_url))
+            .collect();
+        assert_eq!(
+            usage_lines.len(),
+            1,
+            "a preformatted synopsis must not be split across lines: {:?}",
+            built.lines.iter().map(text_of).collect::<Vec<_>>()
+        );
+    }
+
+    /// Scrolling right trims preformatted USAGE content from the left —
+    /// the same offset the affordance in the border reflects — while
+    /// leaving everything else (here, nothing else on this node) alone.
+    /// Two-pass, matching how a real frame works: the first pass tells
+    /// `App` how wide the content is (`set_detail_hextent`), only after
+    /// which a scroll key has something to clamp against.
+    #[test]
+    fn usage_synopsis_scrolls_horizontally_when_enabled() {
+        let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
+        let long_url = "x".repeat(200);
+        node.usage = vec![Text::sanitize(&long_url)];
+
+        let mut app = test_app();
+        let _ = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
+        app.detail_hscroll_right();
+        app.detail_hscroll_right();
+        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
+        let usage_line = built
+            .lines
+            .iter()
+            .map(text_of)
+            .find(|t| t.contains('x'))
+            .expect("usage line should still be present");
+        assert!(
+            !usage_line.trim_start().starts_with("url xxxx"),
+            "the line should have scrolled past its own start: {usage_line:?}"
         );
     }
 }

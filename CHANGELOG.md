@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- The detail pane's raw `--help` view (`t`) and USAGE-section synopsis lines now scroll horizontally with `h`/`l`/`←`/`→` instead of wrapping, with a `←`/`→` marker drawn in the pane's border when there is more content off that edge; the rest of the detail pane (description, flags) is unaffected and still wraps as before. Controlled by a new `[ui] horizontal_scroll` key in `~/.config/mandible/config.toml` (default `true`); setting it to `false` restores the previous wrapping behavior exactly.
+
 ### Fixed
 
 - Pressing `t` to flip between the parsed view and the tool's own `--help` reset the detail pane to the top on every toggle, which broke the exact comparison the verbatim view exists for; the pane now carries the reader's place as a proportion of the view's extent and resolves it against the other view's height, surviving any number of consecutive toggles, while a selection change still starts at the top.
