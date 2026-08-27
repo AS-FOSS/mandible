@@ -1651,4 +1651,87 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("WHEN"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
+
+    // --- the parenthesized alternation group ----------------------------
+
+    /// The positive case: a bare `(` immediately followed by a flag token,
+    /// left unclosed on the line — `vgchange`'s own
+    /// `( -l|--logicalvolume Number,`.
+    #[test]
+    fn paren_alternation_open_fires_on_an_unclosed_leading_paren_flag_group() {
+        assert!(looks_like_paren_alternation_open(
+            "( -l|--logicalvolume Number,"
+        ));
+        assert!(looks_like_paren_alternation_open("(    --addtag Tag,"));
+    }
+
+    /// A row using `|` as a plain alias separator, with no paren group at
+    /// all, must never be claimed by this predicate — it has no leading
+    /// `(`, so it is not this shape regardless of how many aliases or
+    /// values it carries.
+    #[test]
+    fn paren_alternation_open_is_false_with_no_leading_paren() {
+        assert!(!looks_like_paren_alternation_open(
+            "-l|--logicalvolume Number,"
+        ));
+        assert!(!looks_like_paren_alternation_open(
+            "[ -A|--autobackup y|n ]"
+        ));
+    }
+
+    /// A same-line, already-balanced parenthetical is not a multi-line
+    /// group opening, even when the first word after `(` happens to look
+    /// flag-shaped — the defining evidence is that the group is left
+    /// *unclosed*, not merely that `(` is followed by a dash.
+    #[test]
+    fn paren_alternation_open_refuses_a_balanced_same_line_parenthetical() {
+        assert!(!looks_like_paren_alternation_open("(-x see docs)"));
+        assert!(!looks_like_paren_alternation_open(
+            "(-h) print this help information"
+        ));
+    }
+
+    /// The three physical-line shapes a member row takes, stripped down to
+    /// exactly what `bracket_flag_row_content` already hands
+    /// `parse_flag_spec` for the bracket-row shape: opening (leading `(`,
+    /// trailing `,`), middle (trailing `,` only), and closing (trailing
+    /// `)` only, no comma).
+    #[test]
+    fn paren_alternation_member_content_strips_open_close_and_comma() {
+        assert_eq!(
+            paren_alternation_member_content("( -l|--logicalvolume Number,"),
+            Some("-l|--logicalvolume Number")
+        );
+        assert_eq!(
+            paren_alternation_member_content("-u|--uuid,"),
+            Some("-u|--uuid")
+        );
+        assert_eq!(
+            paren_alternation_member_content("--setautoactivation y|n )"),
+            Some("--setautoactivation y|n")
+        );
+    }
+
+    /// `|` inside a member is untouched by the stripping — it is still an
+    /// alias separator (`-l|--logicalvolume`) or a value's own choice list
+    /// (`y|n`), exactly as `bracket_flag_row_content` leaves it for
+    /// `parse_flag_spec` to resolve via `take_rest_value_token`'s
+    /// `alias_follows` guard.
+    #[test]
+    fn paren_alternation_member_content_feeds_parse_flag_spec_correctly() {
+        let content = paren_alternation_member_content("-x|--resizeable y|n,").unwrap();
+        let spec = parse_flag_spec(content);
+        assert_eq!(spec.short, Some('x'));
+        assert_eq!(spec.long.as_deref(), Some("resizeable"));
+        assert_eq!(spec.value_name.as_deref(), Some("y|n"));
+    }
+
+    /// A row that, once stripped, does not start with `-` is refused
+    /// outright rather than fabricated into a flag — the defensive check
+    /// `parse_body`'s own depth bookkeeping should never actually need.
+    #[test]
+    fn paren_alternation_member_content_refuses_a_non_flag_row() {
+        assert_eq!(paren_alternation_member_content("( COMMON_OPTIONS,"), None);
+        assert_eq!(paren_alternation_member_content("VG|Tag )"), None);
+    }
 }

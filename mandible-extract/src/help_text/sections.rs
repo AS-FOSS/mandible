@@ -7968,6 +7968,138 @@ mod tests {
         );
     }
 
+    // --- the parenthesized alternation stanza ---------------------------
+    //
+    // `headingless_invocation_table_stanzas_are_not_reopened_as_usage`
+    // (above) and `stanza_with_wrapped_multi_line_description_is_refused`
+    // (above) already pin the two hazards fix/multi-stanza-synopsis
+    // guarded (`corepack`'s headingless invocation table, `pydoc3`'s own
+    // multi-physical-line stanza descriptions) — both fixtures contain no
+    // `(` at all, so `paren_group_depth` never leaves zero for either one
+    // and this fix's own code path is never reached by them; re-run
+    // unchanged by `cargo nextest run --workspace`, not duplicated here.
+
+    /// The positive case: a bare `vgchange`-shaped synopsis whose first
+    /// continuation opens a multi-line `(` group, one flag per physical
+    /// line, closed by `)` on the last member's own line. Every member is
+    /// recovered with a clean value (no leftover `,` from the shape's own
+    /// separator) and the alias/value split `bracket_flag_row_content`
+    /// already resolves for the bracket-row shape.
+    #[test]
+    fn paren_alternation_stanza_recovers_every_member_with_clean_values() {
+        let help = "tool\n\
+                     \t( -a|--aaa Number,\n\
+                     \t  -b|--bbb,\n\
+                     \t     --ccc y|n )\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        assert_eq!(parsed.usage.len(), 1, "usage: {:?}", parsed.usage);
+
+        let aaa = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("aaa"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(aaa.short, Some('a'));
+        assert_eq!(aaa.value_name.as_deref(), Some("Number"));
+
+        let bbb = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("bbb"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(bbb.short, Some('b'));
+        assert_eq!(bbb.value_name, None);
+
+        let ccc = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("ccc"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(ccc.value_name.as_deref(), Some("y|n"));
+
+        for f in &parsed.flags {
+            if let Some(v) = &f.value_name {
+                assert!(
+                    !v.ends_with(','),
+                    "flag {:?} kept the shape's own trailing comma",
+                    f.long
+                );
+            }
+        }
+    }
+
+    /// `vgchange`'s own specimen wrinkle: the group's trailing bracket-row
+    /// flag list sits after a blank line separating it from the group's
+    /// closing `)` — still the *same* stanza, not a new one. This pins
+    /// `just_closed_paren_group`, the narrowest branch this fix adds: the
+    /// blank line must fold the bracket rows into the still-open usage
+    /// entry rather than requiring fresh `looks_like_stanza_continuation_head`
+    /// evidence (a bracket row is never a stanza head).
+    #[test]
+    fn trailing_bracket_rows_continue_across_the_blank_line_after_the_closing_paren() {
+        let help = "tool\n\
+                     \t( -a|--aaa Number,\n\
+                     \t     --ccc y|n )\n\
+                     \n\
+                     \t[ -d|--ddd ]\n\
+                     \t[ -e|--eee ]\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        assert_eq!(
+            parsed.usage.len(),
+            1,
+            "the trailing bracket rows must join the one open stanza, not start a second: {:?}",
+            parsed.usage
+        );
+        assert!(
+            parsed.usage[0].contains("-d|--ddd") && parsed.usage[0].contains("-e|--eee"),
+            "usage: {:?}",
+            parsed.usage
+        );
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("ddd")),
+            "flags: {:?}",
+            parsed.flags
+        );
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("eee")),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// A row using `|` as a plain alias separator with no paren group at
+    /// all (an ordinary bracket-row flag list, no `(` anywhere in the
+    /// document) must parse exactly as it always did — `paren_group_depth`
+    /// stays at zero throughout, so this fix's own code path never fires.
+    #[test]
+    fn a_plain_alias_separator_row_with_no_paren_group_is_unaffected() {
+        let help = "tool\n\
+                     \t[ -a|--aaa Number ]\n\
+                     \t[ -b|--bbb y|n ]\n";
+        let parsed = parse_with_profile(help, None, Some("tool"));
+        assert_eq!(parsed.usage.len(), 1, "usage: {:?}", parsed.usage);
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .any(|f| f.long.as_deref() == Some("aaa")),
+            "flags: {:?}",
+            parsed.flags
+        );
+        let bbb = parsed
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("bbb"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
+    }
+
     // --- compute_confidence's one-row-sample fallback -------------------
 
     /// Pins all four `total_entries == 1` combinations. The regression
