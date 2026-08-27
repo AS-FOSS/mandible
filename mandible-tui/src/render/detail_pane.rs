@@ -305,9 +305,7 @@ fn render_verbatim(
         if index < wrapped_prefix_lines {
             push_wrapped_notice(&mut lines, &text, width);
         } else if app.horizontal_scroll_enabled {
-            lines.push(Line::from(
-                hscroll_window(&text, hoffset, width).into_owned(),
-            ));
+            lines.push(hscroll_line(&text, hoffset, width, app.color_enabled));
         } else {
             lines.push(Line::from(text));
         }
@@ -342,6 +340,52 @@ fn render_verbatim(
 /// rather than split — splitting it would emit half a cell and misalign
 /// every column after it, which is worse than losing one character's width
 /// of the scroll.
+/// One preformatted line rendered at a horizontal offset, with vim-style
+/// clip markers: a muted `>` in the last column when content continues
+/// past the right edge, a muted `<` in the first column when the offset
+/// has trimmed content off the left (`listchars extends:>,precedes:<` is
+/// the precedent every terminal user already knows). Per line, not per
+/// pane: a short line that fits is untouched, which is exactly what makes
+/// the clipped one next to it noticeable. Each marker replaces one column
+/// of content at its edge, so column alignment across lines is preserved.
+/// A line that ends exactly at the edge hides nothing and gets no marker;
+/// a line entirely behind the offset renders empty rather than as a stray
+/// `<`.
+fn hscroll_line(s: &str, offset: usize, width: usize, color_enabled: bool) -> Line<'static> {
+    let total = display_width(s);
+    if offset == 0 && total <= width {
+        return Line::from(s.to_string());
+    }
+    if total <= offset || width == 0 {
+        return Line::default();
+    }
+    let clipped_left = offset > 0;
+    let clipped_right = total > offset + width;
+    let content_offset = offset + usize::from(clipped_left);
+    let content_width = width
+        .saturating_sub(usize::from(clipped_left))
+        .saturating_sub(usize::from(clipped_right));
+    let mut spans: Vec<Span<'static>> = Vec::with_capacity(3);
+    let marker = style::muted(color_enabled);
+    if clipped_left {
+        spans.push(Span::styled("<", marker));
+    }
+    spans.push(Span::raw(
+        hscroll_window(s, content_offset, content_width).into_owned(),
+    ));
+    if clipped_right {
+        // Pad to the marker column so `>` sits at the pane edge even when
+        // a double-width character was dropped whole at the boundary.
+        let shown = display_width(spans.last().map(|s| s.content.as_ref()).unwrap_or(""));
+        let pad = content_width.saturating_sub(shown);
+        if pad > 0 {
+            spans.push(Span::raw(" ".repeat(pad)));
+        }
+        spans.push(Span::styled(">", marker));
+    }
+    Line::from(spans)
+}
+
 fn hscroll_window(s: &str, offset: usize, width: usize) -> std::borrow::Cow<'_, str> {
     if offset == 0 && display_width(s) <= width {
         return std::borrow::Cow::Borrowed(s);
@@ -496,9 +540,7 @@ fn build_lines(
             app.set_detail_hextent(max_width, width);
             let hoffset = app.clamped_detail_hscroll();
             for line in usage_lines {
-                lines.push(Line::from(
-                    hscroll_window(&line, hoffset, width).into_owned(),
-                ));
+                lines.push(hscroll_line(&line, hoffset, width, app.color_enabled));
             }
         } else {
             for u in &node.usage {
@@ -2031,8 +2073,20 @@ mod tests {
             built.lines.iter().map(text_of).collect::<Vec<_>>()
         );
         let shown = text_of(usage_lines[0]);
+        // The clipped line ends with the vim-style `>` extends marker;
+        // everything before it must still be an unbroken prefix.
         assert!(
-            long_url.starts_with(shown.trim_start().trim_start_matches("url ")),
+            shown.trim_end().ends_with('>'),
+            "a clipped synopsis line must carry the extends marker: {shown:?}"
+        );
+        assert!(
+            long_url.starts_with(
+                shown
+                    .trim_start()
+                    .trim_start_matches("url ")
+                    .trim_end()
+                    .trim_end_matches('>')
+            ),
             "the visible portion must be an unbroken prefix of the real synopsis: {shown:?}"
         );
         assert!(

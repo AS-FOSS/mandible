@@ -494,6 +494,76 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
     );
 }
 
+/// Per-line clip markers (vim's `listchars extends:>,precedes:<`): a line
+/// that overflows the pane carries a muted `>` in its own last column and,
+/// once scrolled, a `<` in its first — while a short line beside it stays
+/// untouched. The contrast between marked and unmarked neighbors is the
+/// point: the pane-border affordance says "somewhere there's more", the
+/// per-line marker says "this line".
+#[test]
+fn hscroll_clip_markers_mark_only_the_clipped_lines() {
+    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
+    root.usage = vec![
+        Text::sanitize("wide -a"),
+        Text::sanitize(&format!("wide {}", "x".repeat(200))),
+    ];
+    let mut app = App::new("wide".to_string(), root);
+    app.focus = mandible_tui::Focus::Detail;
+    assert!(app.horizontal_scroll_enabled, "default is on");
+
+    let width = 60u16;
+    let height = 20u16;
+    let regions =
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, height), app.focus);
+    let detail_rect = regions.detail.expect("detail pane visible at this width");
+
+    let render_once = |app: &App| -> ratatui::buffer::Buffer {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| mandible_tui::render::render(frame, app))
+            .unwrap();
+        terminal.backend().buffer().clone()
+    };
+    // The content cells between border+padding on each side of one row.
+    let row_text = |buffer: &ratatui::buffer::Buffer, y: u16| -> String {
+        (detail_rect.x + 1..detail_rect.x + detail_rect.width - 1)
+            .map(|x| buffer[(x, y)].symbol().to_string())
+            .collect()
+    };
+    let find_row = |buffer: &ratatui::buffer::Buffer, needle: &str| -> u16 {
+        (detail_rect.y + 1..detail_rect.y + detail_rect.height - 1)
+            .find(|&y| row_text(buffer, y).contains(needle))
+            .unwrap_or_else(|| panic!("no row containing {needle:?}"))
+    };
+
+    let buffer = render_once(&app);
+    let long_row = row_text(&buffer, find_row(&buffer, "xxxx"));
+    let short_row = row_text(&buffer, find_row(&buffer, "-a"));
+    assert!(
+        long_row.trim_end().ends_with('>'),
+        "clipped line must end with the extends marker: {long_row:?}"
+    );
+    assert!(
+        !short_row.contains('>') && !short_row.contains('<'),
+        "a line that fits carries no marker: {short_row:?}"
+    );
+
+    for _ in 0..5 {
+        app.detail_hscroll_right();
+    }
+    let buffer = render_once(&app);
+    let long_row = row_text(&buffer, find_row(&buffer, "xxxx"));
+    assert!(
+        long_row.trim_start().starts_with('<'),
+        "scrolled line must open with the precedes marker: {long_row:?}"
+    );
+    assert!(
+        long_row.trim_end().ends_with('>'),
+        "still more to the right at offset 5: {long_row:?}"
+    );
+}
+
 /// The affordance is drawn regardless of which pane has focus — a
 /// deliberate choice documented on `draw_hscroll_affordance` itself: even
 /// though `h`/`l`/`←`/`→` only reach the detail pane's scroll while it is
