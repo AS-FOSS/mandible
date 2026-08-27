@@ -141,15 +141,16 @@ Neither file needs to exist — everything has a default.
 
 ### Settings
 
+Long preformatted lines (the raw `--help` view, USAGE synopses) scroll
+horizontally with `h`/`l` instead of wrapping, with a dim `<`/`>` marker beside
+each line that continues past the pane edge. Set `horizontal_scroll = false` to
+wrap everything instead.
+
 ```toml
 # ~/.config/mandible/config.toml
 
 [ui]
-# Long preformatted lines (the raw --help view, USAGE synopses) scroll
-# horizontally with h/l instead of wrapping, with a dim </> marker beside
-# each line that continues past the pane edge. Set to false to wrap
-# everything instead, exactly as before this setting existed.
-horizontal_scroll = true
+horizontal_scroll = true  # the default
 ```
 
 ### Per-tool overrides
@@ -172,10 +173,9 @@ summary = "corrections apply to subcommands too"
 
 These are yours and are never committed to this repository.
 
-> [!TIP]
-> An override fixes a tool for you today. Consider also opening an issue: the real
-> fix belongs in a framework grammar, where it improves every tool built with that
-> framework at once.
+> **Note:** an override fixes a tool for you today. Consider also opening an
+> issue: the real fix belongs in a framework grammar, where it improves every
+> tool built with that framework at once.
 
 ### Environment variables
 
