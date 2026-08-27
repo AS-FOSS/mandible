@@ -42,58 +42,81 @@ use std::path::{Path, PathBuf};
 /// test, and the `/tmp/ptyvenv` that `AGENTS.md` documents for the pty
 /// screenshot tool. `/home` and `/Users` catch a developer's own checkout
 /// path, which is the same mistake wearing different clothes.
-const MACHINE_LOCAL_PREFIXES: [&str; 4] = ["\"/tmp/", "\"/home/", "\"/Users/", "\"/var/folders/"];
+/// Deliberately matched *without* requiring a preceding `"`. The first
+/// version of this lint anchored on the quote, which only ever matched a
+/// prefix sitting at the very *start* of a string literal — so a
+/// machine-local path embedded further into one, `"file:///home/…"`, went
+/// unseen. (Measured, because the obvious guesses are wrong: `r"/home/…"`
+/// and `concat!("/home/", user)` were both already caught by the anchored
+/// form, since each puts a quote immediately before the prefix. Only the
+/// mid-literal case is new.) Comment lines are skipped below, which is
+/// what the quote was really buying.
+///
+/// One hole neither form closes, stated so nobody assumes otherwise:
+/// a path assembled piecewise, `PathBuf::from("/home").join(user)`, has no
+/// `/home/` substring anywhere and is invisible to a line-wise text lint.
+/// Catching that needs a real AST pass, which is not worth it for a
+/// mistake that has never once arrived in that shape.
+///
+/// `/root/` is deliberately **not** on this list, and the reason is worth
+/// keeping: adding it fires on `framework::artifact`'s clap fingerprint,
+/// `b"/root/.cargo/registry/src/index.crates.io/clap_builder-…/src/lib.rs"`,
+/// which is not a path this code ever opens — it is a byte pattern *other*
+/// binaries carry, baked in by whichever machine compiled them, and the
+/// test that uses it writes it into a `tempfile::tempdir()`. That is the
+/// "inline literal" the assertion below recommends, so flagging it would
+/// be the detector degrading working code to catch a case nobody has ever
+/// hit. Same tension applies to the four prefixes that *are* listed: if a
+/// future fingerprint has to embed one of them, the fingerprint is right
+/// and this list is what changes.
+const MACHINE_LOCAL_PREFIXES: [&str; 4] = ["/tmp/", "/home/", "/Users/", "/var/folders/"];
+
+/// Directories with no first-party Rust source to lint. `target` and `tmp`
+/// are build and scratch output, `.git` and `.claude` are tooling state
+/// (the latter holds agent worktrees, whose own checkouts are linted on
+/// their own branches, not through this one).
+const SKIPPED_DIRS: [&str; 4] = ["target", ".git", ".claude", "tmp"];
 
 #[test]
 fn no_source_file_references_a_machine_local_absolute_path() {
     let workspace_root = workspace_root();
-    let crate_src_dirs = [
-        "mandible-core/src",
-        "mandible-extract/src",
-        "mandible-search/src",
-        "mandible-tui/src",
-        "mandible/src",
-        "xtask/src",
-        "mandible-extract/tests",
-        "mandible-tui/tests",
-    ];
 
+    // Walked from the workspace root rather than from a hand-listed set of
+    // crate directories. The list version silently stopped covering
+    // anything it was not updated for: `mandible-core/tests` existed and
+    // was never on it, so a test added there was unlinted, and every new
+    // crate would have arrived the same way — a lint that needs a human to
+    // remember it is the thing it was written to replace.
     let mut violations = Vec::new();
-    for dir in crate_src_dirs {
-        let dir = workspace_root.join(dir);
-        if !dir.exists() {
+    for file in rust_files(&workspace_root) {
+        // The lint's own pattern table necessarily contains the
+        // literals it searches for. Exempting the implementing file is
+        // the standard shape for a self-referential lint.
+        if file
+            .file_name()
+            .is_some_and(|n| n == "no_machine_local_paths.rs")
+        {
             continue;
         }
-        for file in rust_files(&dir) {
-            // The lint's own pattern table necessarily contains the
-            // literals it searches for. Exempting the implementing file is
-            // the standard shape for a self-referential lint.
-            if file
-                .file_name()
-                .is_some_and(|n| n == "no_machine_local_paths.rs")
-            {
+        let text = std::fs::read_to_string(&file).unwrap_or_default();
+        for (lineno, line) in text.lines().enumerate() {
+            // This file quotes the offending shape in its own doc
+            // comment to explain the rule; exempt doc/line comments
+            // so the explanation doesn't trip the check it documents.
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") {
                 continue;
             }
-            let text = std::fs::read_to_string(&file).unwrap_or_default();
-            for (lineno, line) in text.lines().enumerate() {
-                // This file quotes the offending shape in its own doc
-                // comment to explain the rule; exempt doc/line comments
-                // so the explanation doesn't trip the check it documents.
-                let trimmed = line.trim_start();
-                if trimmed.starts_with("//") {
-                    continue;
-                }
-                for prefix in MACHINE_LOCAL_PREFIXES {
-                    if line.contains(prefix) {
-                        violations.push(format!(
-                            "{}:{}: {}",
-                            file.strip_prefix(&workspace_root)
-                                .unwrap_or(&file)
-                                .display(),
-                            lineno + 1,
-                            line.trim()
-                        ));
-                    }
+            for prefix in MACHINE_LOCAL_PREFIXES {
+                if line.contains(prefix) {
+                    violations.push(format!(
+                        "{}:{}: {}",
+                        file.strip_prefix(&workspace_root)
+                            .unwrap_or(&file)
+                            .display(),
+                        lineno + 1,
+                        line.trim()
+                    ));
                 }
             }
         }
@@ -117,6 +140,12 @@ fn rust_files(dir: &Path) -> Vec<PathBuf> {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path
+                .file_name()
+                .is_some_and(|n| SKIPPED_DIRS.iter().any(|s| n == *s))
+            {
+                continue;
+            }
             out.extend(rust_files(&path));
         } else if path.extension().is_some_and(|e| e == "rs") {
             out.push(path);
