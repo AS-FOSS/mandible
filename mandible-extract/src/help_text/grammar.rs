@@ -711,7 +711,13 @@ fn split_at_matching_close(input: &str, open: char, close: char) -> Option<(&str
 /// Split an alternation group's content on `|` at its own nesting depth 0,
 /// dropping empty fragments. Depth is counted over both bracket pairs, so a
 /// nested value spec on one alternative is never split through.
-fn split_alternatives(content: &str) -> Vec<&str> {
+///
+/// `pub(super)`: also reused by `sections::split_bnf_alternation_row` for
+/// the iproute2-family flag-row shape, which needs the same depth-aware
+/// split but over a row that is never itself wrapped in a `{`/`[` pair (the
+/// wrapping delimiter is consumed earlier, by `split_shared_heading_row`,
+/// on the line the row's own heading shared).
+pub(super) fn split_alternatives(content: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut depth = 0i32;
     let mut start = 0usize;
@@ -741,7 +747,7 @@ fn split_alternatives(content: &str) -> Vec<&str> {
 /// predicate is the only thing standing between "an alternation of flags"
 /// and "an alternation of anything at all", and the shapes it turns away
 /// are every one of them a *different* defect family with its own ambiguity.
-fn is_bare_flag_spelling(token: &str) -> bool {
+pub(super) fn is_bare_flag_spelling(token: &str) -> bool {
     if let Some(name) = token.strip_prefix("--") {
         let mut cs = name.chars();
         return cs.next().is_some_and(|c| c.is_ascii_alphabetic())

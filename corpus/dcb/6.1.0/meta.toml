@@ -1,0 +1,62 @@
+# Regression fixture for the alias-pairing half of the bnf-alternation-options
+# fix (`split_bnf_alternation_row` in `mandible-extract/src/help_text/sections.rs`):
+# `dcb` is the one iproute2-family sibling that spells every flag's short and
+# long forms as two separate `|`-alternatives rather than folding the long
+# form into a bracketed abbreviation suffix the way `ip`/`vdpa`/`bridge`/
+# `rdma`/`devlink` do:
+#
+#     OPTIONS := [ -V | --Version | -i | --iec | -j | --json
+#                | -N | --Numeric | -p | --pretty
+#                | -s | --statistics | -v | --verbose]
+#
+# Naively splitting every top-level `|` here would produce twelve
+# one-spelling fragments (`-V`, `--Version`, `-i`, `--iec`, ...) instead of
+# six flags; `split_bnf_alternation_row` instead folds a bare short
+# immediately followed by a bare long back into one alias-list segment
+# before validating anything, so each `-X | --Long` pair becomes one flag
+# with both spellings. Also exercises the group's `[`-bracket opener
+# (`split_shared_heading_row` already treats `[` the same as `{`) and the
+# wrapped continuation lines leading with `|` rather than repeating a flag
+# spelling (`looks_like_bnf_continuation_row`, gated the same way the row
+# splitter is — on this block's own heading having come from the `:=`
+# operator clause, never a bare leading `|` alone: `sg_write_x` wraps a
+# single flag's own continuation the identical way and must not be read as
+# a fresh entry).
+#
+# Before this fix: zero flags recovered from `OPTIONS` at all (the whole
+# block was swallowed into `-f`'s usage-derived description, or similar,
+# depending on how the heading-misattribution quirk documented in
+# `corpus/vdpa/6.1.0/meta.toml` happened to land). After it: all six
+# `OPTIONS` pairs recovered, each with both short and long spellings, no
+# stray leftover text, no fabricated values. Measured over the 2,301 frozen
+# captures in `audit/queue-captures/` alongside this fix: zero fleet
+# regressions once the reader was gated on `:=` evidence rather than a bare
+# `|` (see `split_bnf_alternation_row`'s own doc comment for the 8-tool
+# false-positive sweep — `btrfsck`, `dpkg`, `mkfs.btrfs`, `pvchange`,
+# `sg_get_config`, `sg_write_x`, `update-java-alternatives`, `vgchange` —
+# that gate exists to close).
+#
+# Honest residual: like `corpus/vdpa/6.1.0`, none of these flags carry
+# `group: "OPTIONS :"` — `dcb`'s own `where OBJECT := { app | buffer | ... }`
+# production also fits on one physical line, so the same headingless-path
+# quirk applies. See that fixture's meta.toml for the mechanism.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dcb"
+version = "6.1.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.3"
+
+[[capture]]
+argv = ["dcb", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["-V", "-i", "-j", "-N", "-p", "-s", "-v"]

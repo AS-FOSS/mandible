@@ -18,12 +18,32 @@
 # fix's effect on `ip`/`bridge`/`dcb`/`devlink`/`rdma` (see `corpus/ip/6.1.0`
 # for the multi-line, wrapped-continuation sibling of this same shape).
 #
-# Honest residual, deliberately not claimed here: `-n`, `-j` and `-p` are
-# `|`-alternation members after `-V`, not the first token of their own
-# physical line, so they stay inside `-V`'s recovered `description` text
-# rather than becoming separate flags — the same, explicitly out-of-scope
-# `-l[oops]`-style alternation-expansion family the maintainer held back
-# from this fix.
+# Update (bnf-alternation-options fix): the `-l[oops]`-style family held
+# back above is now in scope. `-n`, `-j` and `-p` are now their own flags —
+# `split_bnf_alternation_row` (`mandible-extract/src/help_text/sections.rs`)
+# splits the row's top-level `|`-alternatives, gated on this block's own
+# heading having come from the `:=` operator clause rather than an
+# ordinary column gap (never a bare `|` alone — see that function's own doc
+# comment for the 8-tool false-positive sweep that gate exists to close).
+# The document's leaked BNF grammar line (`where OBJECT := { mgmtdev | dev
+# }`) no longer becomes the node's `description` either.
+#
+# Honest residual: none of these four flags carry `group: "OPTIONS :"`, the
+# way `corpus/ip/6.1.0`'s equivalent flags do. `vdpa`'s whole `where OBJECT
+# := ...` production fits on one physical line, and the general section
+# loop reads that single line as an ordinary heading whose "content" is
+# whatever comes next indented more than column 0 — which the *following*,
+# unrelated `OPTIONS :` heading line always is, regardless of what it
+# actually is. The engine never revisits `OPTIONS :` as a heading of its
+# own; it reaches the OPTIONS row through the *headingless* flags-block
+# path once the bare-block scan dedents back out, which is why the BNF
+# evidence this fix depends on had to be tracked per *row* rather than per
+# heading (see `split_shared_heading_rows`'s own doc comment) — and why
+# these four flags land ungrouped. `ip`'s `where OBJECT := ...` wraps
+# across four physical lines, which happens to make its own bare-block
+# scan dedent at the real `OPTIONS :` line instead, letting that heading
+# be recognized normally. Cosmetic (a UI grouping label, not a fabrication
+# or a missing flag), and out of this fix's scope to chase further.
 
 [bless]
 provenance = "agent"

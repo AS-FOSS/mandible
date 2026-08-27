@@ -42,8 +42,9 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{
-    bracket_flag_row_content, looks_like_bracket_flag_row, looks_like_flag_start,
-    parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, FlagSpec,
+    bracket_flag_row_content, is_bare_flag_spelling, looks_like_bracket_flag_row,
+    looks_like_flag_start, parse_bundled_shorts, parse_flag_alternation, parse_flag_spec,
+    split_alternatives, FlagSpec,
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
@@ -228,17 +229,25 @@ pub fn parse_with_profile(
     // Structurally non-recursive: the rewrite is applied at most once,
     // and `parse_body` never calls back into this function.
     match split_shared_heading_rows(&raw) {
-        Some(rewritten) => parse_body(&rewritten, profile, tool_name),
-        None => parse_body(&raw, profile, tool_name),
+        Some((rewritten, bnf_row_lines)) => {
+            parse_body(&rewritten, profile, tool_name, &bnf_row_lines)
+        }
+        None => parse_body(&raw, profile, tool_name, &std::collections::HashSet::new()),
     }
 }
 
 /// [`parse_with_profile`]'s engine, over text whose shared heading rows
-/// have already been split out.
+/// have already been split out. `bnf_row_lines` is that split's own
+/// record of which *row* lines (by index into `raw`'s own lines) came from
+/// a `:=` BNF production rather than an ordinary column-gap heading — see
+/// [`split_shared_heading_rows`]'s doc comment for why this is the only
+/// place that fact can still be read from, and why it is keyed on the row
+/// rather than the heading beside it.
 fn parse_body(
     raw: &str,
     profile: Option<&FrameworkProfile>,
     tool_name: Option<&str>,
+    bnf_row_lines: &std::collections::HashSet<usize>,
 ) -> ParsedHelp {
     let lines: Vec<&str> = raw.lines().collect();
     let mut result = ParsedHelp::default();
@@ -726,7 +735,10 @@ fn parse_body(
             }
         } else if leading_whitespace(l) == 0 {
             let t = l.trim_start();
-            if !starts_with_usage_prefix(t) && !in_usage_block(j) {
+            if !starts_with_usage_prefix(t)
+                && !in_usage_block(j)
+                && !looks_like_bnf_production_line(t)
+            {
                 current.push(l);
             }
         }
@@ -824,7 +836,17 @@ fn parse_body(
         // flag entry, so there is no heading to consume — scan it in
         // place.
         if looks_like_flag_start(line.trim_start()) {
-            let (end, entries, packed) = scan_flags_block(&lines, i);
+            // No recognized heading governs this block, but the row
+            // itself may still be the one `split_shared_heading_rows`
+            // recovered from a `:=` production whose own heading the
+            // engine never revisited as a heading (see that function's
+            // doc comment on why it is keyed on the row for exactly this
+            // reason) — `dcb` and `vdpa` both reach their `OPTIONS`
+            // row this way, since their single-line `where OBJECT := ...`
+            // production is misread as an ordinary heading whose
+            // "content" is the next, unrelated line.
+            let heading_is_bnf = bnf_row_lines.contains(&i);
+            let (end, entries, packed) = scan_flags_block(&lines, i, heading_is_bnf);
             i = end;
             if packed {
                 let seen = entries.len();
@@ -1054,7 +1076,11 @@ fn parse_body(
         // their options table, and keying the whole decision off row one
         // threw the rest of the block away. See `flags_block_start`.
         if let Some(flags_start) = flags_block_start(&lines, i) {
-            let (end, entries, packed) = scan_flags_block(&lines, flags_start);
+            // `flags_start` — never `heading_idx` — is the evidence: see
+            // `split_shared_heading_rows`'s doc comment for why the BNF
+            // fact is keyed on the row rather than the heading beside it.
+            let heading_is_bnf = bnf_row_lines.contains(&flags_start);
+            let (end, entries, packed) = scan_flags_block(&lines, flags_start, heading_is_bnf);
             i = end;
             if is_ignorable_heading(&heading) {
                 command_mode = false;
@@ -2673,6 +2699,43 @@ fn looks_like_usage_fragment(t: &str) -> bool {
     matches!(t.as_bytes().first(), Some(b'[') | Some(b'<') | Some(b'{'))
 }
 
+/// True when `line` opens a BNF grammar production — `LABEL := ...`, with
+/// or without a leading `where` keyword: iproute2's own convention,
+/// `where OBJECT := { address | addrlabel | ... }` and
+/// `OPTIONS := { -V[ersion] | ... }`.
+///
+/// This is what a column-0 line carrying a bare `:=` actually is once the
+/// usage block above it has ended — grammar, not the tool's own
+/// description — and without this test it silently became one: `ip`'s and
+/// `vdpa`'s entire node `description` was exactly this one line
+/// (`where OBJECT := { address | addrlabel | amt | ... }`), because it is
+/// the first column-0 line in the document once `Usage:`'s block closes,
+/// and nothing distinguished it from a genuine leading-prose sentence. The
+/// production's own *wrapped continuation* lines never reach this test at
+/// all — they sit indented under it, so the description-paragraph scan
+/// (only ever column-0 lines) never considers them either; this closes the
+/// one line that would otherwise have been read as prose.
+///
+/// The label before `:=` (after stripping a leading `where`) must be
+/// short, plain words — the same shape [`is_section_heading_line`] already
+/// trusts for an ordinary heading — so a sentence that merely happens to
+/// contain a stray `:=` deep in prose (an environment-variable assignment
+/// quoted in an example, say) is never mistaken for one.
+fn looks_like_bnf_production_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    let trimmed = trimmed
+        .strip_prefix("where")
+        .map_or(trimmed, str::trim_start);
+    let Some(op) = trimmed.find(":=") else {
+        return false;
+    };
+    let label = trimmed[..op].trim_end();
+    !label.is_empty()
+        && label
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ' ' || c == '-')
+}
+
 /// Rewrite every line that carries a section heading **and** the first row
 /// of that section's own table into the two lines it means.
 ///
@@ -2781,25 +2844,61 @@ fn looks_like_usage_fragment(t: &str) -> bool {
 ///
 /// Returns `None` when no line matched, so the overwhelmingly common
 /// document is parsed from its own borrowed `&str` with no allocation.
-fn split_shared_heading_rows(raw: &str) -> Option<String> {
+///
+/// The returned [`HashSet`] names, by 0-indexed line number in the
+/// *rewritten* text, every **row** line (never the heading line beside it)
+/// this function recovered via the `:=` operator clause — never the plain
+/// column-gap clause. This is the one piece of evidence
+/// [`split_bnf_alternation_row`] is gated on: a BNF `:=` production and an
+/// ordinary options table can both write a short/long pair joined by a
+/// bare `|` (`btrfsck`'s own `-E|--subvol-extents <subvolid>` uses `|` as a
+/// plain alias separator, no grammar involved), and only the *document* —
+/// not the row's own text — says which is which. By the point
+/// [`scan_flags_block`] sees a row, the operator itself is already gone
+/// from both the heading and the row (this function's own job), so the set
+/// is the only way that fact survives to reach it.
+///
+/// **Keyed on the row, not the heading**, because the engine does not
+/// always recognize the heading `split_shared_heading_row` produced as a
+/// heading in its own right before handing a block to
+/// [`scan_flags_block`]. A `where OBJECT := { ... }` production that fits
+/// on one physical line (`dcb`, `vdpa`) reads, to the general section
+/// loop, as a heading of its own whose "content" is merely whatever is
+/// indented more than column 0 — which the very next `OPTIONS :` heading
+/// line always is, coincidentally, regardless of what it actually is. The
+/// loop never revisits that line as a heading in its own right; it reaches
+/// [`scan_flags_block`] straight from the *headingless* call site once the
+/// bare-block scan dedents back out, with no heading index available to
+/// check at all. The row itself, though, is always exactly the first line
+/// [`scan_flags_block`] is asked to start from — [`flags_block_start`]
+/// never skips ahead of an already-flag-shaped first line — so recording
+/// row lines is what makes the gate reachable from *either* call site.
+fn split_shared_heading_rows(raw: &str) -> Option<(String, std::collections::HashSet<usize>)> {
     let mut out = String::new();
     let mut split_any = false;
+    let mut bnf_row_lines = std::collections::HashSet::new();
+    let mut out_line_no = 0usize;
     for line in raw.lines() {
         match split_shared_heading_row(line) {
-            Some((heading, row)) => {
+            Some((heading, row, is_bnf)) => {
                 split_any = true;
+                if is_bnf {
+                    bnf_row_lines.insert(out_line_no + 1);
+                }
                 out.push_str(&heading);
                 out.push('\n');
                 out.push_str(&row);
                 out.push('\n');
+                out_line_no += 2;
             }
             None => {
                 out.push_str(line);
                 out.push('\n');
+                out_line_no += 1;
             }
         }
     }
-    split_any.then_some(out)
+    split_any.then_some((out, bnf_row_lines))
 }
 
 /// One line's worth of [`split_shared_heading_rows`]: the heading line and
@@ -2809,7 +2908,7 @@ fn split_shared_heading_rows(raw: &str) -> Option<String> {
 ///
 /// Char-indexed throughout, never a byte-offset `&str` slice — AGENTS.md's
 /// rule against slicing captured tool output at a raw byte offset.
-fn split_shared_heading_row(line: &str) -> Option<(String, String)> {
+fn split_shared_heading_row(line: &str) -> Option<(String, String, bool)> {
     let chars: Vec<char> = line.chars().collect();
     let indent = chars.iter().take_while(|c| c.is_whitespace()).count();
     if chars[..indent].iter().any(|c| *c != ' ') {
@@ -2862,7 +2961,7 @@ fn split_shared_heading_row(line: &str) -> Option<(String, String)> {
     let heading: String = chars[..=colon].iter().collect();
     let mut row_line = " ".repeat(row_start);
     row_line.push_str(&row);
-    Some((heading, row_line))
+    Some((heading, row_line, has_bnf_operator))
 }
 
 /// Fewest whitespace-separated words a period-terminated single-field line
@@ -4353,6 +4452,245 @@ fn try_split_packed_row(line: &str) -> Option<Vec<(String, String)>> {
     Some(entries)
 }
 
+/// True when `trimmed` is a continuation of a BNF alternation group whose
+/// own line leads with the operator instead of a fresh flag spelling —
+/// `dcb --help`'s `OPTIONS := [ ... ]` production wraps as
+///
+/// ```text
+///        OPTIONS := [ -V | --Version | -i | --iec | -j | --json
+///                   | -N | --Numeric | -p | --pretty
+///                   | -s | --statistics | -v | --verbose]
+/// ```
+///
+/// where the second and third physical lines open on the `|` that
+/// separates them from the line above, not on a flag — every sibling in
+/// this family (`ip`, `vdpa`, `bridge`, `rdma`, `devlink`) instead repeats
+/// a flag spelling at the start of every wrapped line, which
+/// [`looks_like_flag_start`] already recognizes as its own entry. Without
+/// this, a `|`-led line is neither an entry (fails `looks_like_flag_start`,
+/// which never accepts a leading `|`) nor read as a continuation of useful
+/// shape — [`scan_flags_block`]'s continuation branch would still glue its
+/// raw text onto the previous entry's `description`, but a BNF grammar row
+/// carries no description to append to, so the text would sit there
+/// unparsed rather than becoming the extra flags it names.
+///
+/// Requires flag-shaped content after the leading `|` and whitespace, not
+/// just the `|` itself, so an unrelated line that happens to start a
+/// physical line with `|` for some other reason (a table border, a
+/// "pipe-or" example) is never swept in on the character alone.
+fn looks_like_bnf_continuation_row(trimmed: &str) -> bool {
+    trimmed
+        .strip_prefix('|')
+        .is_some_and(|rest| looks_like_flag_start(rest.trim_start()))
+}
+
+/// True when `token`, trimmed, is a short flag spelling and nothing else —
+/// no abbreviation bracket, no value, no alias of its own
+/// ([`is_bare_flag_spelling`]) — and specifically the *short* half of that
+/// shape (a long spelling fails the "one character" arm of that predicate
+/// on its own).
+fn is_unadorned_short(token: &str) -> bool {
+    let t = token.trim();
+    !t.starts_with("--") && is_bare_flag_spelling(t)
+}
+
+/// The long-spelling counterpart to [`is_unadorned_short`]: `--name` and
+/// nothing else.
+fn is_unadorned_long(token: &str) -> bool {
+    let t = token.trim();
+    t.starts_with("--") && is_bare_flag_spelling(t)
+}
+
+/// The opening delimiter that would match a given closing one.
+fn matching_open(close: char) -> char {
+    match close {
+        '}' => '{',
+        ')' => '(',
+        _ => '[',
+    }
+}
+
+/// Trims a trailing closing bracket (`}`/`)`/`]`) that has no opening
+/// counterpart earlier in the *same* segment — the residue of an
+/// *enclosing* BNF alternation group's own closer landing on the row's
+/// last alternative once the row has been split on `|`: `vdpa`'s
+/// `-p[retty] }` (space-separated from its own abbreviation bracket) and
+/// `dcb`'s `--verbose]` (glued straight onto the long spelling, closing the
+/// `[` that `split_shared_heading_row` already consumed when it recognized
+/// the block's opening line) are the same shape at two different
+/// distances.
+///
+/// The no-matching-opener test is what tells this apart from a bracket
+/// that really does belong to the segment: `-b[atch] [filename]`'s own
+/// trailing `]` closes a `[` two tokens earlier in the *same* segment, so
+/// it is left untouched, while `-c[olor]`'s own abbreviation bracket
+/// (already closed by [`grammar::strip_short_abbrev_suffix`] before this
+/// ever runs) never reaches this function without a group-closer glued
+/// past it in the first place.
+fn strip_trailing_stray_bracket(segment: &str) -> &str {
+    let trimmed = segment.trim_end();
+    let Some(last) = trimmed.chars().next_back() else {
+        return trimmed;
+    };
+    if !matches!(last, '}' | ')' | ']') {
+        return trimmed;
+    }
+    let before = &trimmed[..trimmed.len() - last.len_utf8()];
+    if before.contains(matching_open(last)) {
+        trimmed
+    } else {
+        before.trim_end()
+    }
+}
+
+/// Read a flag-table row as a BNF alternation group listing several
+/// distinct flags on one physical line — the shape iproute2's shared help
+/// emitter writes for its `OPTIONS := { ... }` production, once
+/// [`split_shared_heading_row`] has already separated the row from the
+/// heading it opened on (`ip`, `vdpa`, `bridge`, `rdma`, `devlink`; `dcb`
+/// opens its group with `[` rather than `{`, which that function already
+/// treats the same way — see its own doc comment). Returns one `(spec,
+/// description)` pair per recovered alternative, description always empty
+/// — a BNF grammar row carries no prose at all, only spellings — or `None`
+/// when the row does not conform closely enough to split without risking a
+/// fabrication.
+///
+/// # Two shapes inside one row, told apart by a pairing rule
+///
+/// `ip`'s convention spells a flag's long form as a bracketed suffix
+/// glued onto the same token (`-V[ersion]`), so every top-level
+/// `|`-segment is already a complete, self-contained flag. `dcb` never
+/// abbreviates this way and instead spells the short and long forms as two
+/// adjacent alternatives (`-V | --Version`) — the ordinary alias-list
+/// convention [`parse_flag_spec`] already reads via a comma, just spelled
+/// with `|` here. A bare short immediately followed by a bare long —
+/// neither carrying a bracket, value, or anything else of its own
+/// ([`is_unadorned_short`]/[`is_unadorned_long`]) — is folded back into one
+/// alias-list segment before anything else runs, so `dcb`'s six pairs
+/// become six flags rather than twelve one-spelling fragments.
+///
+/// # The false-positive guard: every segment must fully, cleanly consume
+///
+/// A top-level `|`-split alone is not sufficient evidence: `sg_sanitize`'s
+/// `--count=OC|-c OC  OC is overwrite count` also splits into two dash-led
+/// segments, and the two are one flag with an alias and a shared value, not
+/// two flags — kept together by [`parse_flag_spec`]'s own alias-
+/// continuation grammar precisely so a naive splitter doesn't take them
+/// apart (see `alias_follows`'s doc comment). Checked per segment after the
+/// pairing step above:
+///
+/// 1. [`looks_like_flag_start`] — a segment that fails even to look like a
+///    flag row on its own is never something worth guessing at.
+/// 2. `parse_flag_spec` must report `fully_consumed`: nothing left over
+///    once its own spelling/value grammar has run. `sg_sanitize`'s second
+///    segment leaves `"is overwrite count"` unconsumed and fails this.
+/// 3. A recovered value must (a) not itself start with `-` — a value is
+///    never another flag's spelling, which is what `devlink`'s un-piped
+///    `-v[erbose] -s[tatistics] -[he]x` tail would otherwise fabricate onto
+///    `-v` — and (b) only exist where the segment actually has a
+///    whitespace boundary before it: `ip`'s own un-bracketed multi-letter
+///    abbreviations (`-iec`, `-ts[hort]`) glue a bare word directly onto
+///    the short letter with nothing between them, and reading that glued
+///    run as a value is exactly the fabrication
+///    [`grammar::strip_short_abbrev_suffix`]'s own doc comment already
+///    warns about one layer in.
+/// 4. An *unpaired* segment (one raw `|`-fragment, not the short/long join
+///    above) may carry only one flag-shaped word. Without this, `rdma`'s
+///    `-p[retty] -r[aw]` — one `|`-segment, two flags run together by a
+///    bare space, the "missing separator" shape this reader deliberately
+///    stays out of — would not fail condition 2 at all:
+///    [`parse_flag_spec`]'s alias loop silently *consumes* `-r[aw]` as a
+///    discarded extra spelling rather than leaving it as leftover text, so
+///    `fully_consumed` comes back `true` with no value and no visible sign
+///    `-r` was ever there. Counting flag-shaped words is what catches a
+///    swallow that leaves no other trace.
+///
+/// Any segment failing any of the three refuses the **whole row** — this
+/// reader never partially splits a line, which would leave some of a row's
+/// flags recovered as separate entries and others still glued into
+/// whichever one happened to parse, with nothing distinguishing the two
+/// outcomes for a reviewer. A row this conservative about is one where
+/// `ip`'s own multi-letter-abbreviation defect (`corpus/ip/6.1.0/meta.toml`)
+/// already stops the whole line from benefiting — reported, not silently
+/// patched over.
+fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, String)>> {
+    let trimmed = line.trim();
+    let raw_segments = split_alternatives(trimmed);
+    if raw_segments.len() < 2 {
+        return None;
+    }
+    // Clean each segment's own trailing stray bracket *before* the pairing
+    // decision below, not after: `dcb`'s last pair (`-v`, `--verbose]`)
+    // only reads as a bare short/long pair once `--verbose]`'s glued group
+    // closer is gone — done any later, `-v` and `--verbose` would each end
+    // up a separate one-spelling flag instead of one flag with both.
+    let segments: Vec<&str> = raw_segments
+        .iter()
+        .map(|s| strip_trailing_stray_bracket(s))
+        .collect();
+
+    // `(text, was_paired)` — `was_paired` marks a group built by joining a
+    // bare short and its bare long below, which legitimately carries two
+    // flag-shaped words on purpose; every other group is one raw `|`-
+    // segment and must carry exactly one.
+    let mut groups: Vec<(String, bool)> = Vec::new();
+    let mut idx = 0;
+    while idx < segments.len() {
+        let seg = segments[idx];
+        if is_unadorned_short(seg)
+            && segments
+                .get(idx + 1)
+                .is_some_and(|next| is_unadorned_long(next))
+        {
+            groups.push((format!("{} | {}", seg, segments[idx + 1]), true));
+            idx += 2;
+        } else {
+            groups.push((seg.to_string(), false));
+            idx += 1;
+        }
+    }
+    if groups.len() < 2 {
+        return None;
+    }
+
+    let mut entries = Vec::with_capacity(groups.len());
+    for (candidate, was_paired) in &groups {
+        if !looks_like_flag_start(candidate) {
+            return None;
+        }
+        // A missing-separator hazard one layer finer than the top-level
+        // `|`-split catches: `rdma`'s `-p[retty] -r[aw]` is a *single*
+        // `|`-segment (no pipe inside it at all) whose two flags are
+        // instead run together with a bare space — the exact shape
+        // `parse_flag_spec`'s alias loop silently swallows, discarding
+        // `-r[aw]` with no value, no leftover text, and therefore no
+        // `fully_consumed` failure to catch it on. Refusing whenever an
+        // *unpaired* group carries more than one flag-shaped word is what
+        // stops that swallow from reaching this reader at all — the row
+        // is refused rather than quietly losing a real flag.
+        if !*was_paired
+            && candidate
+                .split_whitespace()
+                .filter(|w| looks_like_flag_start(w))
+                .count()
+                > 1
+        {
+            return None;
+        }
+        let spec = parse_flag_spec(candidate);
+        if !spec.fully_consumed {
+            return None;
+        }
+        if let Some(value) = &spec.value_name {
+            if value.starts_with('-') || !candidate.contains(char::is_whitespace) {
+                return None;
+            }
+        }
+        entries.push((candidate.clone(), String::new()));
+    }
+    Some(entries)
+}
+
 /// True when every entry row in a flags block splits cleanly via
 /// [`try_split_packed_row`] (no row anywhere carries real prose this shape
 /// would otherwise fabricate a boundary inside) **and** at least one row
@@ -4387,7 +4725,11 @@ enum FlagsBlockRow<'a> {
     Continuation(&'a str),
 }
 
-fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String, String)>, bool) {
+fn scan_flags_block<'a>(
+    lines: &[&'a str],
+    start: usize,
+    heading_is_bnf: bool,
+) -> (usize, Vec<(String, String)>, bool) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
@@ -4404,7 +4746,21 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
         let trimmed = line.trim_start();
 
         let is_entry_start = (looks_like_flag_start(trimmed)
-            || looks_like_bracket_flag_row(trimmed))
+            || looks_like_bracket_flag_row(trimmed)
+            // Gated the same way `split_bnf_alternation_row` is, and for
+            // the identical reason: a leading `|` introduces a BNF
+            // alternation's own wrapped continuation (`dcb`'s `| -N |
+            // --Numeric | ...`) in exactly one shape this fleet has, but a
+            // bare `|`-led line is also how `sg_write_x` wraps a single
+            // alias onto its own line (`--generation=EOG,NOG` / `    |-G
+            // EOG,NOG    and New ORWgeneration field to NOG`) — there the
+            // leading `|` is a continuation *marker*, not grammar, and
+            // reading it as a fresh entry split a real flag's own
+            // continuation into a second, fabricated `-G`. Only a heading
+            // known to be `:=`-shaped may read this leading-`|` shape as
+            // anything other than the ordinary ("more indented, glue it
+            // onto the entry above") continuation rule already handles.
+            || (heading_is_bnf && looks_like_bnf_continuation_row(trimmed)))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         if is_entry_start {
@@ -4488,6 +4844,58 @@ fn scan_flags_block<'a>(lines: &[&'a str], start: usize) -> (usize, Vec<(String,
                 if packed {
                     if let Some(subs) = try_split_packed_row(line) {
                         entries.extend(subs);
+                        continue;
+                    }
+                }
+                // A BNF alternation group naming several distinct flags on
+                // one physical line (iproute2's shared `OPTIONS := { ... }`
+                // emitter) — see `split_bnf_alternation_row`'s own doc
+                // comment for the shape and the false-positive guard that
+                // keeps this from ever taking `sg_sanitize`'s alias-plus-
+                // value `|` apart the same way.
+                //
+                // **Gated on `heading_is_bnf`.** A bare `|` alone is not
+                // sufficient evidence, full stop — `btrfsck`'s own
+                // `-E|--subvol-extents <subvolid>` (a normal short/long
+                // pair, `|` as its plain alias separator, no grammar
+                // anywhere near it) and the whole `lv*`/`vg*`/`pv*` family's
+                // `-A|--autobackup y|n` convention both satisfy every
+                // per-segment check below on their own — each half
+                // independently `fully_consumed` — and only the *document*
+                // says these are one flag, not the BNF shape this reader
+                // targets. Measured full-fleet before this gate existed: 8
+                // tools outside the iproute2 family (`btrfsck`, `dpkg`,
+                // `mkfs.btrfs`, `pvchange`, `sg_get_config`, `sg_write_x`,
+                // `update-java-alternatives`, `vgchange`) had a real,
+                // previously-correct short/long pair torn into two
+                // half-flags. `heading_is_bnf` is `true` only when *this*
+                // block's own heading was produced by
+                // `split_shared_heading_row`'s `:=`-operator clause — the
+                // one piece of evidence that actually distinguishes the two
+                // shapes — never inherited from context or guessed at from
+                // the row's own text.
+                //
+                // Never both at once in practice: `packed` requires *every*
+                // entry line in the block to split via `try_split_packed_row`,
+                // which treats a bare `|` token as neither a new packed
+                // entry (`token_opens_packed_entry` requires a dash) nor a
+                // valid operand (`token_is_packed_operand`) — so a real BNF
+                // alternation row (which always contains a `|`) fails
+                // `try_split_packed_row` on sight and `packed` comes back
+                // `false` for the whole block. The `if packed` branch above
+                // is what would run first if a block ever did satisfy both,
+                // but that block does not occur in the measured fleet.
+                //
+                // Tried after the bracket-row and packed-row cases above
+                // (never competes with LVM's shape: that row's whole content
+                // sits inside one outer bracket, so it has no *top-level*
+                // `|` for this to find) and before the ordinary column
+                // splitters below, which would otherwise read the row's
+                // first flag only and bury every alternative after it in
+                // that flag's own `description`.
+                if heading_is_bnf {
+                    if let Some(alternatives) = split_bnf_alternation_row(line.trim()) {
+                        entries.extend(alternatives);
                         continue;
                     }
                 }
@@ -12439,7 +12847,8 @@ Options:
             split_shared_heading_row("Options:  -h, --help    print this message"),
             Some((
                 "Options:".to_string(),
-                "          -h, --help    print this message".to_string()
+                "          -h, --help    print this message".to_string(),
+                false
             ))
         );
     }
@@ -12463,7 +12872,8 @@ Options:
             Some((
                 "       OPTIONS :".to_string(),
                 "                    -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |"
-                    .to_string()
+                    .to_string(),
+                true
             ))
         );
         // `dcb`'s sibling shape: a `[`-bracket instead of `{`.
@@ -12471,7 +12881,8 @@ Options:
             split_shared_heading_row("       OPTIONS := [ -V | --Version | -i | --iec ]"),
             Some((
                 "       OPTIONS :".to_string(),
-                "                    -V | --Version | -i | --iec ]".to_string()
+                "                    -V | --Version | -i | --iec ]".to_string(),
+                true
             ))
         );
     }
@@ -12499,6 +12910,141 @@ Options:
         // the remainder `-m option)` does satisfy `looks_like_flag_start`
         // on its own. Requiring the BNF operator keeps this line intact.
         assert_eq!(split_shared_heading_row("modes: (-m option)"), None);
+    }
+
+    /// `ip`'s own `OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |
+    /// -r[esolve] |` row: every top-level `|`-segment already carries its
+    /// own abbreviation bracket, so each one is a complete, self-contained
+    /// flag and all four are recovered.
+    #[test]
+    fn a_bnf_alternation_row_of_self_contained_abbreviated_flags_splits_fully() {
+        let entries =
+            split_bnf_alternation_row("-V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |")
+                .expect("row splits");
+        let specs: Vec<&str> = entries.iter().map(|(s, _)| s.as_str()).collect();
+        assert_eq!(
+            specs,
+            vec!["-V[ersion]", "-s[tatistics]", "-d[etails]", "-r[esolve]"]
+        );
+        assert!(entries.iter().all(|(_, desc)| desc.is_empty()));
+    }
+
+    /// `dcb`'s own convention: short and long spelled as two adjacent
+    /// alternatives rather than one abbreviated token. A bare short
+    /// immediately followed by a bare long folds back into one flag with
+    /// both spellings, never two one-spelling fragments.
+    #[test]
+    fn a_bnf_alternation_row_pairs_bare_short_and_long_spellings() {
+        let entries = split_bnf_alternation_row("-V | --Version | -i | --iec | -j | --json")
+            .expect("row splits");
+        assert_eq!(entries.len(), 3);
+        let short = parse_flag_spec(&entries[0].0);
+        assert_eq!(short.short, Some('V'));
+        assert_eq!(short.long.as_deref(), Some("Version"));
+    }
+
+    /// `sg_sanitize`'s real `--count=OC|-c OC` (from `corpus/sg_sanitize`):
+    /// splits into two top-level `|`-segments, and the two are one flag —
+    /// an alias plus a shared value — never two, because the second
+    /// segment (`-c OC  OC is overwrite count`) leaves real prose
+    /// unconsumed and fails `fully_consumed` on its own, independent of
+    /// any outer gating.
+    ///
+    /// This function alone cannot refuse every non-BNF `|`-joined pair,
+    /// though — `btrfsck`'s real `-E|--subvol-extents <subvolid>` DOES
+    /// split cleanly at this level (both halves are, on their own, a
+    /// perfectly good `fully_consumed` flag), which is exactly why the
+    /// per-segment checks here are not the whole guard: the caller
+    /// ([`scan_flags_block`]) never invokes this function at all unless
+    /// the block's own heading came from a `:=` production. See
+    /// `a_plain_pipe_joined_flag_row_survives_parse_with_profile_unsplit`
+    /// below for that gate exercised end to end, on the real shape that
+    /// caught this before the gate existed.
+    #[test]
+    fn a_row_gluing_one_flags_alias_and_value_through_a_pipe_is_never_split() {
+        assert_eq!(
+            split_bnf_alternation_row("--count=OC|-c OC  OC is overwrite count"),
+            None
+        );
+    }
+
+    /// `rdma`'s real `-p[retty] -r[aw]}` and `devlink`'s real
+    /// `-v[erbose] -s[tatistics] -[he]x`: two or three flags run together
+    /// by a bare space inside one `|`-segment (the "missing separator"
+    /// shape this reader deliberately refuses). Without the
+    /// more-than-one-flag-shaped-word guard, `parse_flag_spec`'s own alias
+    /// loop silently swallows the second flag with no leftover text at
+    /// all, so `fully_consumed` alone cannot catch it.
+    #[test]
+    fn a_row_whose_segment_runs_two_flags_together_with_a_bare_space_is_refused() {
+        assert_eq!(
+            split_bnf_alternation_row("-V[ersion] | -d[etails] | -j[son] | -p[retty] -r[aw]}"),
+            None
+        );
+        assert_eq!(
+            split_bnf_alternation_row(
+                "-V[ersion] | -n[o-nice-names] | -j[son] | -p[retty] | -v[erbose] -s[tatistics] -[he]x }"
+            ),
+            None
+        );
+    }
+
+    /// `vdpa`'s real closing brace, one space after the last flag's own
+    /// abbreviation bracket (`-p[retty] }`), and `dcb`'s real closing
+    /// bracket glued directly onto a bare long spelling with no space at
+    /// all (`--verbose]`) — the enclosing group's own closer landing on
+    /// the row's last alternative two different ways. Both must vanish
+    /// without being read as that flag's value.
+    #[test]
+    fn a_trailing_stray_group_closer_never_becomes_a_value() {
+        assert_eq!(strip_trailing_stray_bracket("-p[retty] }"), "-p[retty]");
+        assert_eq!(strip_trailing_stray_bracket("--verbose]"), "--verbose");
+        // A bracket that closes something real in the *same* segment is
+        // never touched.
+        assert_eq!(
+            strip_trailing_stray_bracket("-b[atch] [filename]"),
+            "-b[atch] [filename]"
+        );
+    }
+
+    /// End-to-end regression for the false-positive sweep
+    /// `split_bnf_alternation_row`'s own doc comment describes: a real
+    /// short/long pair joined by `|` outside any `:=` production must
+    /// come through `parse_with_profile` completely unsplit, whether or
+    /// not the document elsewhere contains a real BNF heading.
+    #[test]
+    fn a_plain_pipe_joined_flag_row_survives_parse_with_profile_unsplit() {
+        let raw = "Usage: btrfsck [options] <device>\n\nOptions:\n    -Q|--qgroup-report        print a report on qgroup consistency\n    -E|--subvol-extents <subvolid>\n                              print subvolume extents and sharing state\n";
+        let result = parse_with_profile(raw, None, Some("btrfsck"));
+        let e = result
+            .flags
+            .iter()
+            .find(|f| f.long.as_deref() == Some("subvol-extents"))
+            .expect("subvol-extents recovered as one flag");
+        assert_eq!(e.short, Some('E'));
+        assert_eq!(e.value_name.as_deref(), Some("<subvolid>"));
+        assert!(
+            !result
+                .flags
+                .iter()
+                .any(|f| f.short.is_none() && f.long.is_none()),
+            "no half-flag left behind"
+        );
+    }
+
+    /// `where OBJECT := { address | ... }` is BNF grammar, not the tool's
+    /// own description — the leak `looks_like_bnf_production_line` closes.
+    #[test]
+    fn a_bnf_production_line_never_becomes_the_description() {
+        assert!(looks_like_bnf_production_line(
+            "where  OBJECT := { address | addrlabel | amt }"
+        ));
+        assert!(looks_like_bnf_production_line("OPTIONS := { -V | -s }"));
+        // An ordinary sentence that happens to start with the same word
+        // must stay eligible to become the description.
+        assert!(!looks_like_bnf_production_line(
+            "where possible, prefer the short spelling"
+        ));
     }
 
     /// Spec §6's attestation gate reads `CommandNode::heading_attested`,

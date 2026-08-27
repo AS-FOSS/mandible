@@ -45,10 +45,42 @@
 # missing flags, but stays `[xfail]` — `-s` and `-d` are still missing,
 # by design.
 #
-# The rest of this fixture's original note still applies unchanged: `-r`
-# still carries a mangled `value_name` from an unrelated defect (a
-# two-letter abbreviation prefix, `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`) —
-# out of this fixture's scope.
+# Second update (bnf-alternation-options fix,
+# `split_bnf_alternation_row`/`looks_like_bnf_production_line` in the same
+# file): the `-l[oops]`-style family held back above is now in scope, gated
+# on the row's own heading having come from the `:=` operator clause (never
+# a bare `|` alone — `btrfsck`'s real `-E|--subvol-extents <subvolid>` and
+# the whole `lv*`/`vg*`/`pv*` family's `-A|--autobackup y|n` use the same
+# character as a plain alias separator, no grammar involved, and a fleet
+# sweep over the 2,301 frozen captures in `audit/queue-captures/` caught
+# exactly that false positive on 8 tools before this gate existed). `-s`
+# and `-d` are now their own flags, and `-0`/`-6`/`-B`/`-M` (never
+# previously reachable at all, silently absorbed into `-V`'s discarded
+# alias run) are recovered too. The document's leaked BNF grammar line
+# (`where OBJECT := { address | ... }`) no longer becomes the node's
+# `description` either — a BNF production is grammar, not prose.
+#
+# Honest residual, not fixed by this round: `ip` now carries **two**
+# `short: 'r'` flags — a clean boolean (`-r[esolve]`, correctly split from
+# the block's first physical line) and the original mangled one
+# (`value_name: "c[vbuf]"`, from `-rc[vbuf] [size] | ...`, this fixture's
+# own pre-existing two-letter-abbreviation defect, noted below). That row
+# still refuses to split as a whole — one of its segments
+# (`-rc[vbuf] [size]`) does not fully consume on its own, which is the same
+# false-positive guard that keeps this reader from fabricating elsewhere —
+# so the row falls back unchanged to the old single-column read, and the
+# two independently-sourced `-r` entries now coexist rather than one
+# replacing the other. Flagged for the maintainer rather than silently
+# resolved: deduplicating same-spelling flags within one node is a
+# different, unmeasured change this fixture does not attempt.
+#
+# The rest of this fixture's original note still applies unchanged: the
+# surviving mangled `-r` still carries a mangled `value_name` from an
+# unrelated defect (a two-letter abbreviation prefix,
+# `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`) — out of this fixture's scope. `-o`
+# and `-l` also remain unsplit for the identical reason: `-ts[hort]` and
+# `-br[ief]` share the same glued, bracket-less multi-letter shape, so
+# their whole rows are refused rather than partially split.
 
 [bless]
 provenance = "agent"
