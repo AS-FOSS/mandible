@@ -263,6 +263,15 @@ update Appendix A in the same commit, with the method.
   personal details of any kind (names beyond the git author, machines,
   schedules, private context). If a comment is longer than the diff is
   interesting, it's too long.
+- **Commands in public prose are written for a stranger's machine, not
+  transcribed from yours.** A "see it yourself" block is instructions, not a
+  session log: no absolute paths from the writer's setup (`/tmp/ptyvenv`,
+  scratch dirs, venv locations), no local scaffolding steps a reader doesn't
+  need. Give the shortest portable commands that reproduce the result from a
+  fresh clone; where a helper needs one-time setup, describe it in a phrase
+  ("in a venv with `pyte` installed") rather than pasting your own setup
+  lines. The `no_machine_local_paths` lint guards code; this rule is the
+  same idea for PR/issue/commit text, where no lint will catch it.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
