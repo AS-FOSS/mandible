@@ -135,6 +135,77 @@ fn is_ignorable_heading(heading: &str) -> bool {
     lower.starts_with("example") || lower.contains("report bugs")
 }
 
+/// True when `heading` positively names a section whose rows describe CLI
+/// flags.  This vocabulary is used only to leave an otherwise-contained
+/// examples/reporting region at the *same* indentation; ordinary section
+/// parsing remains shape-driven and does not require these words.
+///
+/// Same-indent text inside a worked example is inherently ambiguous.  A
+/// label such as `Input:` can govern `--flag`-shaped sample data just as an
+/// `Options:` heading governs real flags.  Requiring both this explicit CLI
+/// vocabulary and a real flag-block shape below the heading is the positive
+/// evidence that lets the containment boundary reopen without treating the
+/// first generic `X:` label as structural documentation.
+fn names_flag_section(heading: &str) -> bool {
+    if !is_section_heading_line(heading) {
+        return false;
+    }
+    let lower = heading.to_lowercase();
+    if lower.contains("example") {
+        return false;
+    }
+    lower.split(|c: char| !c.is_alphanumeric()).any(|word| {
+        matches!(
+            word,
+            "option"
+                | "options"
+                | "flag"
+                | "flags"
+                | "switch"
+                | "switches"
+                | "modifier"
+                | "modifiers"
+                | "mode"
+                | "modes"
+                | "operation"
+                | "operations"
+                | "argument"
+                | "arguments"
+        )
+    })
+}
+
+/// Whether the line at `heading_idx` is strong enough to end a hidden
+/// ignorable region without a dedent.  The heading wording alone is not
+/// enough: its following nonblank content must be more indented and must
+/// independently satisfy the existing bounded flag-block recognizer.
+fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
+    const MIN_ATTESTED_SECTION_FLAGS: usize = 2;
+
+    let heading = lines[heading_idx];
+    if !names_flag_section(heading.trim()) {
+        return false;
+    }
+    let heading_indent = leading_whitespace(heading);
+    let mut content_idx = heading_idx + 1;
+    while content_idx < lines.len() && lines[content_idx].trim().is_empty() {
+        content_idx += 1;
+    }
+    if content_idx >= lines.len() || leading_whitespace(lines[content_idx]) <= heading_indent {
+        return false;
+    }
+    let Some(flags_start) = flags_block_start(lines, content_idx) else {
+        return false;
+    };
+    // One flag-shaped sample row is still cheap to produce inside a worked
+    // example.  A run of at least two independently parsed rows, combined
+    // with the explicit heading vocabulary above, is the minimum evidence
+    // that may reopen a same-indent section.  A physical dedent remains the
+    // lossless exit for genuine one-row sections.
+    let (_, entries, _) = scan_flags_block(lines, flags_start, false);
+    entries.len() >= MIN_ATTESTED_SECTION_FLAGS
+}
+
 /// True if `heading` mentions "command"/"commands"/"subcommand"/
 /// "subcommands" as a whole word (case-insensitive) — spec §7 Tier B rule
 /// 1's literal recognized-heading test. Matches `"Commands:"`,
@@ -938,6 +1009,22 @@ fn parse_body(
     // whose shape cannot occur inside an examples section at all — clears
     // it.
     let mut in_ignorable_section = false;
+    // Some hand-written help indents `Examples:` beneath the prose sentence
+    // immediately before it.  The generic relative-indent engine otherwise
+    // promotes that prose sentence to a heading and consumes the marker as
+    // ordinary content, so `is_ignorable_heading` never gets to establish
+    // the section context at all.  While this is `Some(indent)`, the marker
+    // was found in exactly that obscured shape and the whole region is
+    // fenced before *any* headingless or headed emission path can see its
+    // rows.  A physical dedent always closes the region.  At the marker's
+    // own indent, only `starts_attested_flag_section` may close it; a plain
+    // `Input:`/`Output:` label inside the example may not.
+    //
+    // This state is deliberately separate from `in_ignorable_section`:
+    // direct, correctly-recognized `Examples:` headings retain their
+    // established behavior, while the stronger whole-region fence applies
+    // only to markers that the prose-parent quirk would otherwise hide.
+    let mut obscured_ignorable_indent: Option<usize> = None;
 
     // 3. Section blocks: scan the rest of the output for a heading line
     // followed by more-indented content — or, if the very first content
@@ -955,6 +1042,18 @@ fn parse_body(
         if line.trim().is_empty() {
             i += 1;
             continue;
+        }
+        if let Some(marker_indent) = obscured_ignorable_indent {
+            let indent = leading_whitespace(line);
+            if indent < marker_indent
+                || (indent == marker_indent && starts_attested_flag_section(&lines, i))
+            {
+                obscured_ignorable_indent = None;
+                in_ignorable_section = false;
+            } else {
+                i += 1;
+                continue;
+            }
         }
         // Headingless flags block: the current line already looks like a
         // flag entry, so there is no heading to consume — scan it in
@@ -1023,6 +1122,22 @@ fn parse_body(
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;
+        if is_prose_sentence(&heading) {
+            let mut marker_idx = heading_idx + 1;
+            while marker_idx < lines.len() && lines[marker_idx].trim().is_empty() {
+                marker_idx += 1;
+            }
+            if marker_idx < lines.len()
+                && leading_whitespace(lines[marker_idx]) > heading_indent
+                && is_ignorable_heading(lines[marker_idx].trim())
+            {
+                obscured_ignorable_indent = Some(leading_whitespace(lines[marker_idx]));
+                in_ignorable_section = true;
+                command_mode = false;
+                i = marker_idx + 1;
+                continue;
+            }
+        }
         if is_ignorable_heading(&heading) {
             in_ignorable_section = true;
         }
@@ -3214,14 +3329,18 @@ const MIN_PROSE_SENTENCE_WORDS: usize = 5;
 /// and the usage-block's own more-indented-continuation check in
 /// [`parse_with_profile`], which stops a synopsis from swallowing
 /// `sg_emc_trespass`'s trailing sentences and mining `LUN`/`SP`/`EMC` out of
-/// them as fabricated positionals); the other two copy a heading into a
-/// `group` and nowhere else — never by [`is_recognized_command_heading`],
-/// never by `command_mode`, never by anything that sets
-/// `CommandNode::heading_attested`. Spec §6's attestation gate reads
-/// `heading_attested`, so the set of nodes eligible to become `<word>
-/// --help` probe argv is bit-for-bit identical before and after this
-/// change; `mandible-extract/tests/exec_policy.rs`'s
-/// `prose_heading_suppression_does_not_widen_probe_eligibility` pins that.
+/// them as fabricated positionals); two more only decide whether a heading
+/// may be copied into a flag's `group`. The section loop has one additional,
+/// deliberately subtractive use: a prose line followed by a more-indented
+/// [`is_ignorable_heading`] marker opens `obscured_ignorable_indent`, whose
+/// whole-region fence can remove entries fabricated from worked examples.
+/// It never recognizes a command heading or sets
+/// `CommandNode::heading_attested`, and its same-indent exit admits only an
+/// attested *flag* section, so it cannot widen the set of nodes eligible to
+/// become `<word> --help` probe argv. The jar and internal-`Commands:`
+/// regression tests beside the section parser pin that safety boundary;
+/// `mandible-extract/tests/exec_policy.rs` separately pins the older,
+/// group-only call sites.
 fn is_prose_sentence(heading: &str) -> bool {
     let trimmed = heading.trim_end();
     if !trimmed.ends_with('.') || trimmed.ends_with("...") {
@@ -8030,15 +8149,12 @@ mod tests {
     /// com.foo.Main --module-version 1.0` — structurally indistinguishable
     /// from a bare stanza head by the flag-count-one shape alone. A plain
     /// English sentence at column 0 earlier in the document (`"restore
-    /// individual classes or resources from an archive."`) is read as a
-    /// heading whose "content" is the entire indented `Examples:` block
-    /// beneath it (an unrelated, pre-existing engine quirk: any
-    /// more-indented content promotes the line above it to a heading), so
-    /// `is_ignorable_heading`/`in_ignorable_section` never independently
-    /// sees the `Examples:` marker text at all here — the second-flag
-    /// guard in [`grammar::looks_like_stanza_head_flag`] is what actually
-    /// stops this one. The real, described `--update`/`-u` and
-    /// `--file`/`-f` rows survive untouched.
+    /// individual classes or resources from an archive."`) would otherwise
+    /// own the entire more-indented `Examples:` block, hiding the marker
+    /// from `is_ignorable_heading`. The obscured-section fence must now
+    /// suppress both the chained stanza candidate and its wrapped
+    /// `-C foo/ ...` row while preserving the real, described
+    /// `--update`/`-u` and `--file`/`-f` rows.
     #[test]
     fn jars_chained_example_invocation_is_never_read_as_a_stanza_head() {
         let help = "jar creates an archive for classes and resources, and can manipulate or\n\
@@ -8072,6 +8188,121 @@ mod tests {
                 .any(|f| f.long.as_deref() == Some("file")),
             "flags: {:?}",
             parsed.flags
+        );
+        assert_eq!(parsed.flags.len(), 2, "flags: {:?}", parsed.flags);
+        assert!(
+            parsed.flags.iter().all(|flag| flag.short != Some('C')),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// The complete structural shape around OpenJDK's examples, not only
+    /// the chained `--update` row pinned above.  The prose sentence before
+    /// each one-space-indented `Examples:` marker must not become the
+    /// marker's owner, the wrapped `-C foo/ ...` example rows must never be
+    /// emitted as flags, and the real same-indent sections after the second
+    /// examples block must still be parsed with their groups intact.
+    #[test]
+    fn jars_indented_examples_are_contained_before_real_flag_sections() {
+        let help = "Usage: jar [OPTION...] [ [--release VERSION] [-C dir] files] ...\n\
+                     jar creates an archive for classes and resources, and can manipulate or\n\
+                     restore individual classes or resources from an archive.\n\
+                     \n\
+                     \x20Examples:\n\
+                     \x20# Create a modular jar archive, where the module descriptor is located in\n\
+                     \x20# classes/module-info.class:\n\
+                     \x20jar --create --file foo.jar --main-class com.foo.Main --module-version 1.0\n\
+                     \x20\x20\x20\x20\x20-C foo/ classes resources\n\
+                     \x20# Update an existing non-modular jar to a modular jar:\n\
+                     \x20jar --update --file foo.jar --main-class com.foo.Main --module-version 1.0\n\
+                     \x20\x20\x20\x20\x20-C foo/ module-info.class\n\
+                     \n\
+                     To shorten or simplify the jar command, you can specify arguments in a separate\n\
+                     text file and pass it to the jar command with the at sign (@) as a prefix.\n\
+                     \n\
+                     \x20Examples:\n\
+                     \x20# Read additional options and list of class files from the file classes.list\n\
+                     \x20jar --create --file my.jar @classes.list\n\
+                     \n\
+                     \x20Main operation mode:\n\
+                     \n\
+                     \x20\x20-c, --create               Create the archive\n\
+                     \x20\x20-u, --update               Update an existing jar archive\n\
+                     \n\
+                     \x20Operation modifiers valid in any mode:\n\
+                     \n\
+                     \x20\x20-C DIR                     Change to the specified directory\n\
+                     \x20\x20-f, --file=FILE            The archive file name\n";
+
+        let parsed = parse_with_profile(help, None, Some("jar"));
+        assert!(
+            parsed.subcommands.is_empty(),
+            "nodes: {:?}",
+            parsed.subcommands
+        );
+        assert_eq!(parsed.flags.len(), 4, "flags: {:?}", parsed.flags);
+
+        let change_dir: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|flag| flag.short == Some('C'))
+            .collect();
+        assert_eq!(change_dir.len(), 1, "flags: {:?}", parsed.flags);
+        assert_eq!(change_dir[0].value_name.as_deref(), Some("DIR"));
+        assert_eq!(
+            change_dir[0].group.as_deref(),
+            Some("Operation modifiers valid in any mode:")
+        );
+
+        for long in ["create", "update"] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|flag| flag.long.as_deref() == Some(long))
+                .unwrap_or_else(|| panic!("missing --{long} in {:?}", parsed.flags));
+            assert_eq!(flag.group.as_deref(), Some("Main operation mode:"));
+        }
+        assert!(!parsed.saw_unattributable_content);
+        assert_eq!(parsed.confidence, 1.0);
+    }
+
+    /// A same-indent, colon-terminated label inside an examples block is
+    /// not by itself a new CLI section.  `Input:`/`Output:` are common
+    /// worked-example labels and their payload may itself begin with `-`;
+    /// reopening on the first generic `X:` line would therefore replace
+    /// one fabrication with another.  A positively identified options
+    /// section after them must still reopen normal parsing.
+    #[test]
+    fn labels_inside_indented_examples_do_not_reopen_flag_parsing() {
+        let help = "demo explains how its processing pipeline behaves for callers.\n\
+                     This sentence introduces the worked examples printed immediately below.\n\
+                     \x20Examples:\n\
+                     \x20Input:\n\
+                     \x20\x20\x20--fake-one VALUE   example input, not a supported option\n\
+                     \x20\x20\x20--fake-two VALUE   another example input\n\
+                     \x20Output:\n\
+                     \x20\x20\x20--fake-result      rendered example output\n\
+                     \x20Commands:\n\
+                     \x20\x20\x20invented-one       example output, not a subcommand\n\
+                     \x20\x20\x20invented-two       another example output\n\
+                     \x20Options:\n\
+                     \x20\x20\x20--fake-option      one option shown by the example\n\
+                     \x20Supported options:\n\
+                     \x20\x20\x20--real VALUE       actual supported option\n\
+                     \x20\x20\x20--verbose          actual verbosity option\n";
+
+        let parsed = parse_with_profile(help, None, Some("demo"));
+        let longs: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter_map(|flag| flag.long.as_deref())
+            .collect();
+        assert_eq!(longs, ["real", "verbose"], "flags: {:?}", parsed.flags);
+        assert!(
+            parsed.subcommands.is_empty(),
+            "nodes: {:?}",
+            parsed.subcommands
         );
     }
 
