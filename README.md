@@ -109,9 +109,10 @@ CI gates every change against a fixed tool list, and sweeps the whole `PATH`
 separately for the broad picture.
 
 Coverage is not accuracy, though, and the honest number is lower than a green badge
-suggests. To measure accuracy, a human reviews a randomly drawn sample of real tools
-against each tool's own `--help` text. The sample is committed to the repo *before*
-any verdict is recorded, so it cannot be quietly redrawn once the results look bad.
+suggests. Accuracy is measured by a human-reviewed audit: a randomly drawn sample of
+real tools, each checked by a person against the tool's own `--help` text. The sample
+is committed to the repo *before* any verdict is recorded, so it cannot be quietly
+redrawn once the results look bad.
 
 In the most recent sample, **25 of 43 tools parsed fully correctly — about 58%**.
 A sample of 43 is small, so the true rate across all tools could plausibly be
