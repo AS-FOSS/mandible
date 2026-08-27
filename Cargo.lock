@@ -929,6 +929,7 @@ name = "mandible-core"
 version = "0.4.4"
 dependencies = [
  "anyhow",
+ "directories",
  "insta",
  "proptest",
  "serde",
@@ -938,6 +939,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "toml",
+ "tracing",
 ]
 
 [[package]]

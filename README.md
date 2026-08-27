@@ -142,6 +142,20 @@ contains what you typed. `everything` searches flags, summaries and descriptions
 fuzzily, so `gco` finds `checkout`. `/` opens the first, and pressing it again
 switches to the second.
 
+### Settings
+
+`~/.config/mandible/config.toml` holds general settings, separate from the
+per-tool overrides below:
+
+```toml
+[ui]
+horizontal_scroll = true  # default; false restores the old wrap-everything behavior
+```
+
+`horizontal_scroll` controls whether preformatted detail-pane content — the
+raw `--help` view (`t`) and USAGE synopsis lines — scrolls with `h`/`l`
+instead of wrapping. A missing file, table, or key all mean the default.
+
 ### Overrides
 
 Anything mandible gets wrong about a tool, you can correct locally. Drop a TOML file

@@ -427,6 +427,182 @@ fn ascii_glyph_set_renders_a_pure_ascii_frame() {
     }
 }
 
+/// A node whose USAGE synopsis is wider than the pane: the horizontal-scroll
+/// overflow affordance (spec §9: preformatted detail-pane content scrolls
+/// rather than wraps) must show a right-pointing marker while
+/// unscrolled, switch to a left-pointing one once fully scrolled right, and
+/// — the point of testing it here rather than only in `detail_pane`'s own
+/// unit tests — never disturb any of the border cells `assert_border_intact`
+/// checks strictly (left/right/bottom edges, all four corners).
+#[test]
+fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border() {
+    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
+    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+
+    let mut app = App::new("wide".to_string(), root);
+    app.focus = mandible_tui::Focus::Detail;
+    assert!(app.horizontal_scroll_enabled, "default is on");
+
+    let width = 60u16;
+    let height = 20u16;
+    let regions =
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, height), app.focus);
+    let detail_rect = regions.detail.expect("detail pane visible at this width");
+
+    let render_once = |app: &App| -> ratatui::buffer::Buffer {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| mandible_tui::render::render(frame, app))
+            .unwrap();
+        terminal.backend().buffer().clone()
+    };
+
+    // Unscrolled: more content to the right, none to the left.
+    let buffer = render_once(&app);
+    assert_border_intact(&buffer, regions.search);
+    assert_border_intact(&buffer, detail_rect);
+    let right_marker = detail_rect.x + detail_rect.width - 2;
+    let left_marker = detail_rect.x + detail_rect.width - 3;
+    assert_eq!(
+        buffer[(right_marker, detail_rect.y)].symbol(),
+        "→",
+        "should signal more content to the right"
+    );
+    assert_ne!(
+        buffer[(left_marker, detail_rect.y)].symbol(),
+        "←",
+        "nothing scrolled off the left yet"
+    );
+
+    // Scroll all the way right: the affordance should flip.
+    for _ in 0..64 {
+        app.detail_hscroll_right();
+    }
+    let buffer = render_once(&app);
+    assert_border_intact(&buffer, regions.search);
+    assert_border_intact(&buffer, detail_rect);
+    assert_eq!(
+        buffer[(left_marker, detail_rect.y)].symbol(),
+        "←",
+        "should signal more content to the left once scrolled"
+    );
+    assert_ne!(
+        buffer[(right_marker, detail_rect.y)].symbol(),
+        "→",
+        "fully scrolled right: nothing more to reveal"
+    );
+}
+
+/// The affordance is drawn regardless of which pane has focus — a
+/// deliberate choice documented on `draw_hscroll_affordance` itself: even
+/// though `h`/`l`/`←`/`→` only reach the detail pane's scroll while it is
+/// focused, a marker that disappeared with the tree focused would let a
+/// USAGE line clip silently until the reader happened to `Tab` over, which
+/// is the worse failure. Pinned here so a future change to that decision is
+/// a deliberate edit to this test, not a silent regression.
+#[test]
+fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
+    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
+    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+
+    let mut app = App::new("wide".to_string(), root);
+    app.focus = mandible_tui::Focus::Tree;
+    assert!(app.horizontal_scroll_enabled, "default is on");
+
+    let width = 60u16;
+    let height = 20u16;
+    let regions =
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, height), app.focus);
+    let detail_rect = regions.detail.expect("detail pane visible at this width");
+
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| mandible_tui::render::render(frame, &app))
+        .unwrap();
+    let buffer = terminal.backend().buffer().clone();
+    assert_border_intact(&buffer, detail_rect);
+    let right_marker = detail_rect.x + detail_rect.width - 2;
+    assert_eq!(
+        buffer[(right_marker, detail_rect.y)].symbol(),
+        "→",
+        "the affordance is not gated on detail-pane focus"
+    );
+}
+
+/// The ASCII glyph set's affordance markers (`<`/`>`) are what actually
+/// reach the screen under `MANDIBLE_ASCII=1` — the Unicode arrows above are
+/// exactly the kind of glyph this project refuses to rely on everywhere.
+#[test]
+fn detail_pane_hscroll_affordance_uses_the_ascii_glyphs() {
+    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
+    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+
+    let mut app = App::new("wide".to_string(), root);
+    app.focus = mandible_tui::Focus::Detail;
+    app.glyphs = mandible_tui::glyphs::ASCII;
+
+    let width = 60u16;
+    let height = 20u16;
+    let regions =
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, height), app.focus);
+    let detail_rect = regions.detail.expect("detail pane visible at this width");
+
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| mandible_tui::render::render(frame, &app))
+        .unwrap();
+    let buffer = terminal.backend().buffer().clone();
+    // ASCII borders use `+` corners, not the rounded glyphs
+    // `assert_border_intact` checks for — this asserts the ASCII-specific
+    // property directly instead.
+    let right_marker = detail_rect.x + detail_rect.width - 2;
+    assert_eq!(buffer[(right_marker, detail_rect.y)].symbol(), ">");
+    for y in 0..height {
+        for x in 0..width {
+            assert!(
+                buffer[(x, y)].symbol().is_ascii(),
+                "non-ASCII symbol {:?} at ({x},{y}) with the ASCII glyph set",
+                buffer[(x, y)].symbol()
+            );
+        }
+    }
+}
+
+/// The config toggle off must reproduce today's rendering exactly: no
+/// affordance marker anywhere on the detail pane's border, even for a node
+/// whose USAGE is far wider than the pane — because with the toggle off
+/// that content wraps instead of overflowing, so there is nothing to mark.
+#[test]
+fn detail_pane_hscroll_affordance_absent_when_the_config_toggle_is_off() {
+    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
+    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+
+    let mut app = App::new("wide".to_string(), root);
+    app.focus = mandible_tui::Focus::Detail;
+    app.horizontal_scroll_enabled = false;
+
+    let width = 60u16;
+    let height = 20u16;
+    let regions =
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, width, height), app.focus);
+    let detail_rect = regions.detail.expect("detail pane visible at this width");
+
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| mandible_tui::render::render(frame, &app))
+        .unwrap();
+    let buffer = terminal.backend().buffer().clone();
+    assert_border_intact(&buffer, detail_rect);
+    let top_row: String = (detail_rect.x..detail_rect.x + detail_rect.width)
+        .map(|x| buffer[(x, detail_rect.y)].symbol().to_string())
+        .collect();
+    assert!(!top_row.contains('→') && !top_row.contains('←'));
+}
+
 /// The Unicode set is still what a UTF-8 terminal gets — the fallback must
 /// not quietly become the default for everyone.
 #[test]

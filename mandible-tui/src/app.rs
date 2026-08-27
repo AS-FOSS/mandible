@@ -176,6 +176,42 @@ pub struct App {
     /// extent; key handlers (`&mut App`) materialize it into
     /// [`Self::detail_scroll`] before applying their own movement.
     pending_detail_fraction: std::cell::Cell<Option<f64>>,
+    /// Detail pane horizontal scroll offset, in display columns. Only ever
+    /// nonzero for preformatted content (the raw `--help` view and
+    /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
+    /// the pane width and has nothing to scroll to.
+    detail_hscroll: usize,
+    /// How far the detail pane's widest *preformatted* line extends past
+    /// the current viewport width, written by the renderer each frame —
+    /// same `Cell`-for-interior-mutability reasoning as
+    /// [`Self::detail_max_scroll`]: rendering takes `&App`, and the content
+    /// width at the current pane width is a fact only the renderer knows.
+    /// Zero when nothing on screen is preformatted (plain prose has no
+    /// horizontal extent worth scrolling to), which both clamps `h`/`l` to
+    /// no-ops and tells the renderer not to draw the overflow affordance.
+    detail_max_hscroll: std::cell::Cell<usize>,
+    /// Whether `h`/`l`/`←`/`→` scroll the detail pane horizontally instead
+    /// of doing nothing there, and whether preformatted content (raw view,
+    /// USAGE lines) is left unwrapped in the first place.
+    ///
+    /// Defaults to `true` here — [`App::new`] is a pure constructor with no
+    /// filesystem I/O, so it never itself reads
+    /// `~/.config/mandible/config.toml`. Reading that file is the
+    /// composition root's job: `mandible/src/app_runner.rs`'s `new_app`
+    /// calls `mandible_core::config::load` once and overwrites this field
+    /// on the freshly-built `App`, the same way every other startup concern
+    /// already lives there rather than in `App::new`. A constructor that
+    /// touches the real filesystem made every test (and every other
+    /// embedder of this crate) hostage to whichever `config.toml` happened
+    /// to exist on the machine running them — a `horizontal_scroll = false`
+    /// left over from someone's own use of mandible silently flipped this
+    /// field's default in the test suite and made "off reproduces today's
+    /// behavior" pass for the wrong reason.
+    ///
+    /// A plain `pub` field, like [`Self::color_enabled`] and
+    /// [`Self::glyphs`], so tests can set it directly without any global
+    /// state to isolate.
+    pub horizontal_scroll_enabled: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
     /// Whether hidden/deprecated items are shown (toggled with `.`).
@@ -258,6 +294,13 @@ const STATUS_MESSAGE_TTL: Duration = Duration::from_secs(4);
 /// flag stays set, so no change is ever dropped.
 const REBUILD_MIN_INTERVAL: Duration = Duration::from_millis(250);
 
+/// Columns moved per `h`/`l`/`←`/`→` press in the detail pane. Larger than
+/// the vertical scroll's one-line-per-press step deliberately: preformatted
+/// content this feature targets (long USAGE synopses, wide `--help` tables)
+/// tends to overflow by tens of columns at once, and a one-column step would
+/// take many presses to reveal anything.
+const DETAIL_HSCROLL_STEP: usize = 8;
+
 /// Case-insensitive **substring** match of `query` against `name`.
 ///
 /// Deliberately literal, not a subsequence, because that is the whole
@@ -307,6 +350,9 @@ impl App {
             detail_scroll: 0,
             detail_max_scroll: std::cell::Cell::new(0),
             pending_detail_fraction: std::cell::Cell::new(None),
+            detail_hscroll: 0,
+            detail_max_hscroll: std::cell::Cell::new(0),
+            horizontal_scroll_enabled: true,
             show_help: false,
             show_hidden: false,
             status_message: None,
@@ -535,6 +581,7 @@ impl App {
             self.selected += 1;
         }
         self.selected_flag = None;
+        self.detail_hscroll = 0;
         self.follow_selection();
     }
 
@@ -542,6 +589,7 @@ impl App {
     pub fn move_up(&mut self) {
         self.selected = self.selected.saturating_sub(1);
         self.selected_flag = None;
+        self.detail_hscroll = 0;
         self.follow_selection();
     }
 
@@ -665,6 +713,7 @@ impl App {
             }
         }
         self.selected_flag = None;
+        self.detail_hscroll = 0;
         self.follow_selection();
     }
 
@@ -697,6 +746,7 @@ impl App {
             self.selected = idx;
         }
         self.selected_flag = None;
+        self.detail_hscroll = 0;
         self.follow_selection();
     }
 
@@ -833,6 +883,11 @@ impl App {
         });
         self.pending_detail_fraction.set(fraction);
         self.detail_scroll = 0;
+        // A horizontal offset doesn't carry across the toggle either, for
+        // the same reason the vertical one doesn't get a fraction beyond
+        // it: raw text and a parsed USAGE block are unrelated documents,
+        // so "26 columns in" means nothing between them.
+        self.detail_hscroll = 0;
         self.raw_fetch_needed()
     }
 
@@ -947,6 +1002,65 @@ impl App {
         // A new node's content has no relation to the old node's place;
         // a fraction carried across a view toggle must not survive into it.
         self.pending_detail_fraction.set(None);
+        self.detail_hscroll = 0;
+    }
+
+    /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9:
+    /// preformatted detail-pane content scrolls horizontally rather than
+    /// wrapping). A no-op when the config toggle is off, or already at the
+    /// left edge — `saturating_sub` alone would still be correct here, but
+    /// the early return also means a disabled toggle never touches
+    /// [`Self::detail_hscroll`] at all, which is one less thing for the
+    /// "config off reproduces today's output exactly" property to depend
+    /// on holding elsewhere.
+    pub fn detail_hscroll_left(&mut self) {
+        if !self.horizontal_scroll_enabled {
+            return;
+        }
+        self.detail_hscroll = self.detail_hscroll.saturating_sub(DETAIL_HSCROLL_STEP);
+    }
+
+    /// `l`/`→`: scroll the detail pane right, clamped to
+    /// [`Self::detail_max_hscroll`] — the widest preformatted line on
+    /// screen minus the viewport width, written by the renderer each frame
+    /// exactly like [`Self::detail_max_scroll`] is for vertical scroll.
+    pub fn detail_hscroll_right(&mut self) {
+        if !self.horizontal_scroll_enabled {
+            return;
+        }
+        let max = self.detail_max_hscroll.get();
+        self.detail_hscroll = self
+            .detail_hscroll
+            .saturating_add(DETAIL_HSCROLL_STEP)
+            .min(max);
+    }
+
+    /// Record how far the detail pane's preformatted content can usefully
+    /// scroll horizontally, from the renderer. Called every frame the
+    /// detail pane draws preformatted content, with `0` when there is
+    /// none on screen — that both clamps `h`/`l` to a no-op and prevents a
+    /// stale nonzero extent from a previous node leaking into this frame's
+    /// overflow affordance (see [`Self::detail_hscroll_can_go_right`]).
+    pub fn set_detail_hextent(&self, max_line_width: usize, viewport_width: usize) {
+        self.detail_max_hscroll
+            .set(max_line_width.saturating_sub(viewport_width));
+    }
+
+    /// The current horizontal offset, clamped to what the last frame could
+    /// actually show — same shape as [`Self::clamped_detail_scroll`].
+    pub fn clamped_detail_hscroll(&self) -> usize {
+        self.detail_hscroll.min(self.detail_max_hscroll.get())
+    }
+
+    /// Whether there is preformatted content hidden off the left edge —
+    /// i.e. whether the overflow affordance belongs on that side.
+    pub fn detail_hscroll_can_go_left(&self) -> bool {
+        self.clamped_detail_hscroll() > 0
+    }
+
+    /// Whether there is preformatted content hidden off the right edge.
+    pub fn detail_hscroll_can_go_right(&self) -> bool {
+        self.clamped_detail_hscroll() < self.detail_max_hscroll.get()
     }
 
     /// Set a status bar message (e.g. after a copy).
@@ -1660,6 +1774,106 @@ mod tests {
             app.search_populate_count(),
             after_reload + 1,
             "the first arrival after a reload must not be throttled"
+        );
+    }
+
+    // --- detail pane horizontal scroll ---
+
+    #[test]
+    fn detail_hscroll_clamps_at_both_ends() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.horizontal_scroll_enabled = true;
+        app.set_detail_hextent(50, 20); // max 30
+
+        for _ in 0..10 {
+            app.detail_hscroll_right();
+        }
+        assert_eq!(
+            app.clamped_detail_hscroll(),
+            30,
+            "must never exceed max_line_width - viewport_width"
+        );
+
+        for _ in 0..10 {
+            app.detail_hscroll_left();
+        }
+        assert_eq!(app.clamped_detail_hscroll(), 0, "must never go negative");
+    }
+
+    #[test]
+    fn detail_hscroll_is_a_noop_with_the_config_toggle_off() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.horizontal_scroll_enabled = false;
+        app.set_detail_hextent(50, 20);
+        app.detail_hscroll_right();
+        app.detail_hscroll_right();
+        assert_eq!(
+            app.clamped_detail_hscroll(),
+            0,
+            "off must not scroll at all"
+        );
+    }
+
+    #[test]
+    fn detail_hscroll_resets_on_selection_change() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_hextent(50, 20);
+        app.detail_hscroll_right();
+        assert!(app.clamped_detail_hscroll() > 0, "precondition");
+
+        app.move_down();
+        assert_eq!(
+            app.clamped_detail_hscroll(),
+            0,
+            "a new selection has unrelated content to scroll through"
+        );
+    }
+
+    #[test]
+    fn detail_hscroll_resets_on_collapse_or_jump_to_parent() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase
+        app.expand_selected();
+        app.ensure_rows_fresh();
+        app.selected = 3; // --onto-helper
+        app.set_detail_hextent(50, 20);
+        app.detail_hscroll_right();
+        assert!(app.clamped_detail_hscroll() > 0, "precondition");
+
+        app.collapse_or_jump_to_parent();
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+    }
+
+    #[test]
+    fn detail_hscroll_resets_on_raw_mode_toggle() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_hextent(50, 20);
+        app.detail_hscroll_right();
+        assert!(app.clamped_detail_hscroll() > 0, "precondition");
+
+        app.toggle_raw_mode();
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+    }
+
+    #[test]
+    fn detail_hscroll_overflow_flags_track_the_current_offset() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_hextent(50, 20); // max 30
+        assert!(!app.detail_hscroll_can_go_left());
+        assert!(app.detail_hscroll_can_go_right());
+
+        app.detail_hscroll_right(); // step 8: offset 8
+        assert!(app.detail_hscroll_can_go_left());
+        assert!(app.detail_hscroll_can_go_right());
+
+        for _ in 0..10 {
+            app.detail_hscroll_right();
+        }
+        assert_eq!(app.clamped_detail_hscroll(), 30);
+        assert!(app.detail_hscroll_can_go_left());
+        assert!(
+            !app.detail_hscroll_can_go_right(),
+            "fully scrolled right: nothing more to reveal"
         );
     }
 }

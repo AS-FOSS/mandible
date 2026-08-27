@@ -53,6 +53,31 @@ enum LoopExit {
     ReviewSubmit(ReviewSubmission),
 }
 
+/// Build an `App` for `tool`, with settings resolved from the user's
+/// `config.toml` applied on top of `App::new`'s pure defaults.
+///
+/// `App::new` itself does no filesystem I/O — it is a plain constructor, so
+/// every embedder (including this crate's own tests, and `mandible-tui`'s)
+/// gets deterministic defaults regardless of what happens to exist on the
+/// machine running them. Reading `~/.config/mandible/config.toml` is a
+/// startup concern, so it belongs here at the composition root beside
+/// everything else `main.rs`/`app_runner.rs` already resolves before the
+/// first frame — never inside `App::new`, which broke exactly this: a
+/// `horizontal_scroll = false` left over from someone's own use of
+/// mandible on the machine running the test suite silently changed what
+/// "off reproduces today's behavior" was testing against.
+///
+/// The one real call site for a fresh tool session, whether that's `mandible
+/// <tool>` ([`main`][crate::main] via the caller of this function) or one
+/// tool inside `mandible --review` ([`run_review_loop`]) — both go through
+/// this instead of `App::new` directly, so the config is never forgotten on
+/// either path.
+pub fn new_app(tool: String, stub: mandible_core::CommandNode) -> App {
+    let mut app = App::new(tool, stub);
+    app.horizontal_scroll_enabled = mandible_core::config::load().ui.horizontal_scroll;
+    app
+}
+
 /// Run the interactive TUI for `app` until the user quits. Always restores
 /// the terminal on the way out, even if the loop returns an error.
 pub fn run(mut app: App) -> anyhow::Result<()> {
@@ -124,7 +149,7 @@ fn run_review_loop(term: &mut terminal::Term, dir: &Path, seed: u64) -> anyhow::
             entry.tool.clone(),
             mandible_core::Provenance::default(),
         );
-        let mut app = App::new(entry.tool.clone(), stub);
+        let mut app = new_app(entry.tool.clone(), stub);
         app.review = Some(review_overlay_for(&entry, remaining, total));
 
         match run_loop(term, &mut app)? {
@@ -459,5 +484,68 @@ fn discard_input_typed_during_the_block() {
             }
             _ => return,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mandible_core::config::CONFIG_DIR_ENV;
+
+    /// Serializes this module's tests against `MANDIBLE_CONFIG_DIR` —
+    /// `std::env::set_var` is process-global and nextest runs tests from
+    /// one binary on multiple threads, so two tests setting it concurrently
+    /// would race.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn stub() -> mandible_core::CommandNode {
+        mandible_core::CommandNode::new("git", mandible_core::Provenance::default())
+    }
+
+    /// The regression this whole fix exists for: `new_app` — not `App::new`
+    /// — is where a real `config.toml` takes effect. Reproduces the report
+    /// exactly: a `config.toml` with `horizontal_scroll = false` on disk
+    /// must actually turn the feature off on an `App` built through the
+    /// real composition root, and `App::new` itself must stay pure (always
+    /// `true`, regardless of what's on disk) so nothing but this one
+    /// function ever reads the file.
+    #[test]
+    fn new_app_honors_config_toml_while_app_new_stays_pure() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.toml"),
+            "[ui]\nhorizontal_scroll = false\n",
+        )
+        .unwrap();
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
+
+        let pure = App::new("git".to_string(), stub());
+        assert!(
+            pure.horizontal_scroll_enabled,
+            "App::new must never read config.toml itself"
+        );
+
+        let wired = new_app("git".to_string(), stub());
+        assert!(
+            !wired.horizontal_scroll_enabled,
+            "new_app must apply the real config.toml"
+        );
+
+        std::env::remove_var(CONFIG_DIR_ENV);
+    }
+
+    /// The default: no `config.toml` on disk still leaves the feature on
+    /// through the real composition root, not just through `App::new`.
+    #[test]
+    fn new_app_defaults_to_horizontal_scroll_on_with_no_config_file() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
+
+        let app = new_app("git".to_string(), stub());
+        assert!(app.horizontal_scroll_enabled);
+
+        std::env::remove_var(CONFIG_DIR_ENV);
     }
 }

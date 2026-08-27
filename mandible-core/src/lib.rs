@@ -10,6 +10,7 @@
 #![warn(missing_docs)]
 
 pub mod audit;
+pub mod config;
 mod merge;
 mod node;
 mod noderef;

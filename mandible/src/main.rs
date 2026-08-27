@@ -119,7 +119,7 @@ fn main() -> anyhow::Result<()> {
         );
     }
     let stub = mandible_core::CommandNode::new(tool.clone(), mandible_core::Provenance::default());
-    let app = mandible_tui::App::new(tool, stub);
+    let app = app_runner::new_app(tool, stub);
 
     app_runner::run(app)
 }

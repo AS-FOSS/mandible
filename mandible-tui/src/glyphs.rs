@@ -49,6 +49,13 @@ pub struct Glyphs {
     pub absent: &'static str,
     /// Horizontal rule drawn after a section heading.
     pub rule: &'static str,
+    /// Overflow affordance drawn in the detail pane's top border when
+    /// horizontally-scrollable content extends further left than the
+    /// current view (spec §9: preformatted content scrolls rather than
+    /// wraps, and needs a visible sign there is more to see).
+    pub more_left: char,
+    /// Same, for content extending further right.
+    pub more_right: char,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -66,6 +73,8 @@ pub const UNICODE: Glyphs = Glyphs {
     arrows_horizontal: "←→",
     absent: "—",
     rule: "─",
+    more_left: '←',
+    more_right: '→',
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -84,6 +93,8 @@ pub const ASCII: Glyphs = Glyphs {
     arrows_horizontal: "left/right",
     absent: "-",
     rule: "-",
+    more_left: '<',
+    more_right: '>',
 };
 
 /// Pick a glyph set from the environment.
@@ -122,6 +133,8 @@ mod tests {
         // The whole point: nothing here can render as tofu.
         assert!(ASCII.chevron_open.is_ascii());
         assert!(ASCII.chevron_closed.is_ascii());
+        assert!(ASCII.more_left.is_ascii());
+        assert!(ASCII.more_right.is_ascii());
         for s in [
             ASCII.ellipsis,
             ASCII.prompt,

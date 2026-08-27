@@ -1,6 +1,7 @@
 //! The status bar: keybinding hints, or a transient status message (spec
 //! §2's footer row: `↑↓ move   → expand   / search   y copy   ? help   q
-//! quit`).
+//! quit`; `→`'s label has since grown a second meaning, spec §9, see
+//! [`hints`]).
 
 use crate::app::App;
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width};
@@ -25,10 +26,33 @@ use ratatui::Frame;
 /// together reads as one long string rather than a list of keys.
 /// Built per-frame because the arrow glyphs depend on what the terminal
 /// can draw (see [`crate::glyphs`]).
-fn hints(glyphs: crate::glyphs::Glyphs) -> Vec<String> {
+///
+/// `←→` already meant two things before the detail pane's horizontal
+/// scroll existed — `↑↓ move` names one hint for "move the tree selection"
+/// *and* "scroll the detail pane" depending on focus, and that ambiguity
+/// was accepted deliberately rather than switching the row. `←→` now covers
+/// a third meaning (collapse/expand vs. horizontal scroll) the same way:
+/// the label names both rather than picking one focus's meaning and
+/// leaving it wrong in the other, which a focus-conditional label would.
+///
+/// That label does still depend on one thing: `horizontal_scroll_enabled`.
+/// This is the config's state, not the focus state — `[ui]
+/// horizontal_scroll = false` promises the pre-existing rendering exactly,
+/// and the footer is part of what a user sees, so `expand/scroll` would be
+/// advertising a behavior they explicitly turned off. `expand` alone is
+/// also shorter, which matters independently: at 80 columns the wider
+/// label pushed `Tab pane` off the row — the one hint that gets a user
+/// *to* the pane where the scroll half of the label would apply — so
+/// leaving the short label as the default-off case fixes both at once.
+fn hints(glyphs: crate::glyphs::Glyphs, horizontal_scroll_enabled: bool) -> Vec<String> {
+    let horizontal_hint = if horizontal_scroll_enabled {
+        format!("{} expand/scroll", glyphs.arrows_horizontal)
+    } else {
+        format!("{} expand", glyphs.arrows_horizontal)
+    };
     vec![
         format!("{} move", glyphs.arrows_vertical),
-        format!("{} expand", glyphs.arrows_horizontal),
+        horizontal_hint,
         "/ search".to_string(),
         "Tab pane".to_string(),
         "t raw".to_string(),
@@ -64,8 +88,12 @@ const LEFT_MARGIN: &str = "  ";
 /// reader most needs to be told the full list exists. Pinning it also
 /// means adding a hint can no longer silently push it off the row, which
 /// is how `r` stayed invisible for five releases.
-fn hints_for_width(width: usize, glyphs: crate::glyphs::Glyphs) -> String {
-    let all = hints(glyphs);
+fn hints_for_width(
+    width: usize,
+    glyphs: crate::glyphs::Glyphs,
+    horizontal_scroll_enabled: bool,
+) -> String {
+    let all = hints(glyphs, horizontal_scroll_enabled);
     let split = all.len().saturating_sub(PINNED_HINTS);
     let (rest, pinned) = all.split_at(split);
     let pinned_len: usize = pinned.iter().map(|h| h.chars().count()).sum::<usize>()
@@ -119,7 +147,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 
     let margin_width = display_width(LEFT_MARGIN) * 2;
     let hints_budget = width.saturating_sub(right_width + margin_width + 2);
-    let hints = hints_for_width(hints_budget, app.glyphs);
+    let hints = hints_for_width(hints_budget, app.glyphs, app.horizontal_scroll_enabled);
 
     let mut spans = vec![
         Span::raw(LEFT_MARGIN),
@@ -160,8 +188,8 @@ mod tests {
 
     #[test]
     fn wide_terminal_shows_every_hint() {
-        let rendered = hints_for_width(120, crate::glyphs::UNICODE);
-        for h in hints(crate::glyphs::UNICODE) {
+        let rendered = hints_for_width(120, crate::glyphs::UNICODE, true);
+        for h in hints(crate::glyphs::UNICODE, true) {
             assert!(rendered.contains(&h), "{h} missing from {rendered:?}");
         }
     }
@@ -175,7 +203,7 @@ mod tests {
     /// rather than quietly shrinking the footer.
     #[test]
     fn every_action_key_is_named_at_full_width() {
-        let rendered = hints_for_width(140, crate::glyphs::UNICODE);
+        let rendered = hints_for_width(140, crate::glyphs::UNICODE, true);
         for key in [
             "/ search", "Tab pane", "t raw", "y copy", "r reload", "? help",
         ] {
@@ -187,7 +215,7 @@ mod tests {
     /// thing that should turn into boxes for someone who cannot get out.
     #[test]
     fn ascii_fallback_hints_are_pure_ascii() {
-        let rendered = hints_for_width(120, crate::glyphs::ASCII);
+        let rendered = hints_for_width(120, crate::glyphs::ASCII, true);
         assert!(rendered.is_ascii(), "{rendered:?}");
         assert!(rendered.contains("^C quit"));
     }
@@ -198,7 +226,7 @@ mod tests {
     #[test]
     fn quit_hint_survives_a_narrow_terminal() {
         for width in [20, 30, 40, 60, 88] {
-            let hints = hints_for_width(width, crate::glyphs::UNICODE);
+            let hints = hints_for_width(width, crate::glyphs::UNICODE, true);
             assert!(hints.contains("^C quit"), "width {width}: {hints:?}");
             // A narrow row hides most of the footer, which is exactly
             // where the reader needs to know the full list exists.
@@ -208,6 +236,66 @@ mod tests {
                 "width {width} overflowed: {hints:?}"
             );
         }
+    }
+
+    /// The whole point of the review round that added this: `[ui]
+    /// horizontal_scroll = false` must restore the footer exactly, not
+    /// just the pane content. `expand/scroll` is also long enough to push
+    /// `Tab pane` off an 80-column row, so the off state fixes both at
+    /// once — proven by comparing directly against the pre-feature label.
+    #[test]
+    fn horizontal_hint_matches_the_config_toggle() {
+        for width in [40, 60, 80, 100, 120, 140] {
+            let on = hints_for_width(width, crate::glyphs::UNICODE, true);
+            let off = hints_for_width(width, crate::glyphs::UNICODE, false);
+
+            assert!(
+                !off.contains("expand/scroll"),
+                "off must not advertise the disabled behavior at width {width}: {off:?}"
+            );
+
+            // `off`'s label is strictly shorter, so at any width it can
+            // only fit as many or more of the non-pinned hints than `on`
+            // does — never fewer. This is the structural version of the
+            // review-round finding: the wider `on` label pushed `Tab
+            // pane` off an 80-column row, and `off` restoring the short
+            // label must never lose a hint `on` still had room for.
+            for hint in ["t raw", "Esc back", "y copy", "r reload", "Tab pane"] {
+                if on.contains(hint) {
+                    assert!(
+                        off.contains(hint),
+                        "off dropped {hint:?} at width {width} while on kept it: on={on:?} off={off:?}"
+                    );
+                }
+            }
+        }
+
+        // At a comfortable width, off still names collapse/expand — it
+        // only drops the "/scroll" half, not the whole hint.
+        let off_wide = hints_for_width(120, crate::glyphs::UNICODE, false);
+        assert!(off_wide.contains("expand"), "{off_wide:?}");
+
+        // The specific bug this test pins: `render()` subtracts the
+        // right-hand provenance text's width from an 80-column terminal
+        // before budgeting hints (see `render`'s `hints_budget`), which is
+        // what actually pushed `Tab pane` off the row in a real 80-column
+        // frame — the review round's finding used a full pty capture, not
+        // `hints_for_width` in isolation. Reproduced at the raw-width
+        // crossover: the enabled label is long enough to cost `Tab pane`
+        // — the one hint that reaches the pane the feature applies to —
+        // while the disabled label, exactly as wide as before this
+        // feature existed, keeps it.
+        let crossover = 68;
+        let on = hints_for_width(crossover, crate::glyphs::UNICODE, true);
+        let off = hints_for_width(crossover, crate::glyphs::UNICODE, false);
+        assert!(
+            !on.contains("Tab pane"),
+            "expected width {crossover} to be the known trade-off point: {on:?}"
+        );
+        assert!(
+            off.contains("Tab pane"),
+            "off must restore Tab pane at the width where on drops it: {off:?}"
+        );
     }
 
     /// The controls keep a left margin rather than starting hard against
@@ -222,8 +310,8 @@ mod tests {
     /// budgeted for it — otherwise the two overlap at narrow widths.
     #[test]
     fn hints_shrink_to_leave_room_for_the_right_hand_text() {
-        let full = hints_for_width(120, crate::glyphs::UNICODE);
-        let squeezed = hints_for_width(40, crate::glyphs::UNICODE);
+        let full = hints_for_width(120, crate::glyphs::UNICODE, true);
+        let squeezed = hints_for_width(40, crate::glyphs::UNICODE, true);
         assert!(
             squeezed.chars().count() < full.chars().count(),
             "hints should give way: {squeezed:?} vs {full:?}"

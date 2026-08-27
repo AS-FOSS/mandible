@@ -89,6 +89,13 @@ fn handle_detail_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.detail_scroll_down(),
         KeyCode::Up | KeyCode::Char('k') => app.detail_scroll_up(),
+        // `h`/`l` and the arrow keys mean something different per pane
+        // (spec §2): in the tree they collapse/expand, here they scroll
+        // preformatted content horizontally. Scoped to this function, which
+        // only runs while `Focus::Detail` — `handle_tree_key` keeps its own
+        // meaning for the same keys untouched.
+        KeyCode::Left | KeyCode::Char('h') => app.detail_hscroll_left(),
+        KeyCode::Right | KeyCode::Char('l') => app.detail_hscroll_right(),
         KeyCode::Char('y') => return copy_text_for_selection(app).map(Effect::Copy),
         _ => {}
     }
@@ -251,6 +258,39 @@ mod tests {
             handle_key(&mut a, key(KeyCode::Char('y'))),
             Some(Effect::Copy("git".to_string()))
         );
+    }
+
+    /// `h`/`l` mean something different per pane (spec §2): in the tree
+    /// they collapse/jump-to-parent and expand; in the detail pane they
+    /// scroll preformatted content horizontally. Neither meaning should
+    /// leak into the other pane's focus.
+    #[test]
+    fn h_and_l_are_scoped_to_the_focused_pane() {
+        let mut a = app();
+        a.expand_selected();
+        a.ensure_rows_fresh();
+        a.selected = 1; // "add", a leaf
+
+        // Tree focus: `h` jumps to parent, unaffected by horizontal scroll.
+        assert_eq!(a.focus, Focus::Tree);
+        handle_key(&mut a, key(KeyCode::Char('h')));
+        assert_eq!(a.selected_row().unwrap().name, "git");
+        assert_eq!(a.clamped_detail_hscroll(), 0);
+
+        // Detail focus: `l` scrolls horizontally rather than expanding a
+        // tree row, and does not move the tree selection at all.
+        a.toggle_focus();
+        assert_eq!(a.focus, Focus::Detail);
+        a.set_detail_hextent(50, 10); // give it something to scroll to
+        let selected_before = a.selected;
+        handle_key(&mut a, key(KeyCode::Char('l')));
+        assert_eq!(a.selected, selected_before, "l must not move the tree");
+        assert!(
+            a.clamped_detail_hscroll() > 0,
+            "l should have scrolled the detail pane right"
+        );
+        handle_key(&mut a, key(KeyCode::Char('h')));
+        assert_eq!(a.clamped_detail_hscroll(), 0, "h should scroll back left");
     }
 
     #[test]

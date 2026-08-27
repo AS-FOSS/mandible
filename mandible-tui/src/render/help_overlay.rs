@@ -25,6 +25,10 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
         Some("t"),
         "Verbatim: the tool\u{2019}s own --help, unparsed",
     ),
+    (
+        Some("h l  ← →"),
+        "Scroll preformatted text sideways (detail pane focused)",
+    ),
     (Some("."), "Show hidden and deprecated items"),
     (None, "ACTIONS"),
     (Some("y"), "Copy selected flag or command path"),
