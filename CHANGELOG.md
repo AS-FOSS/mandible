@@ -2260,7 +2260,7 @@ time, recorded here for a complete changelog)
 ### Changed (batch 5)
 
 - **Project renamed from `mantui` to `mandible`.** Canonical repository is
-  now `https://github.com/sadigaxund/mandible`. All 7 crates, the binary
+  now `https://github.com/AS-FOSS/mandible`. All 7 crates, the binary
   (`mantui` → `mandible`), user-facing paths (`~/.cache/mantui/` →
   `~/.cache/mandible/`, `~/.config/mantui/overrides/` →
   `~/.config/mandible/overrides/`), and every doc/prose reference were
