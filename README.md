@@ -117,10 +117,7 @@ In the most recent sample, **25 of 43 tools parsed fully correctly — about 58%
 A sample of 43 is small, so the true rate across all tools could plausibly be
 anywhere from roughly 43% to 72% — a statistical margin of error, not a second
 measurement. Tools that mandible itself marks `ok` do better: 80% correct, with a
-margin of roughly 61% to 91%. One more caveat: when the same tools were reviewed a
-second time, the two human reviews only agreed 11 times out of 16 — so every figure
-here is approximate, and differences between measurement rounds are partly the
-reviewer changing their mind, not the parser changing quality.
+margin of roughly 61% to 91%.
 
 mandible is useful today and wrong often enough that you should check anything
 surprising against the tool's own `--help`.
