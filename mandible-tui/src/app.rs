@@ -822,12 +822,16 @@ impl App {
         // flipping `t` to compare the parse against the source shouldn't
         // throw them back to the top — so the fraction is carried and the
         // offset resolved once the new view's extent is known.
-        let max = self.detail_max_scroll.get();
-        self.pending_detail_fraction.set(if max > 0 {
-            Some(self.detail_scroll.min(max) as f64 / max as f64)
-        } else {
-            None
+        // A fraction still pending from the *previous* toggle carries
+        // through unchanged — a proportion is view-independent. Computing
+        // it fresh from `detail_scroll` here would read the zero the last
+        // toggle left behind, which is precisely the rapid `t`-`t`-`t`
+        // comparison this feature exists for.
+        let fraction = self.pending_detail_fraction.take().or_else(|| {
+            let max = self.detail_max_scroll.get();
+            (max > 0).then(|| self.detail_scroll.min(max) as f64 / max as f64)
         });
+        self.pending_detail_fraction.set(fraction);
         self.detail_scroll = 0;
         self.raw_fetch_needed()
     }
@@ -1001,6 +1005,27 @@ mod tests {
         app.reset_detail_scroll();
         app.set_detail_extent(70, 20);
         assert_eq!(app.clamped_detail_scroll(), 0);
+    }
+
+    /// The rapid `t`-`t`-`t` comparison, with no scroll key pressed in
+    /// between: the place must survive every flip, not just the first.
+    /// (The first version computed the second toggle's fraction from the
+    /// zeroed offset the first toggle left behind — reset to top on the
+    /// second press, found by the maintainer in real use.)
+    #[test]
+    fn repeated_raw_toggle_without_scrolling_keeps_place() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20); // rendered: max 200
+        app.detail_scroll = 150;
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20); // raw: max 50
+        assert_eq!(app.clamped_detail_scroll(), 38); // 0.75 of 50, rounded
+        app.toggle_raw_mode();
+        app.set_detail_extent(220, 20);
+        assert_eq!(app.clamped_detail_scroll(), 150);
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20);
+        assert_eq!(app.clamped_detail_scroll(), 38);
     }
 
     /// Drive the (real, async, `nucleo`-backed) search index until its
