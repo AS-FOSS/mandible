@@ -109,16 +109,14 @@ CI gates every change against a fixed tool list, and sweeps the whole `PATH`
 separately for the broad picture.
 
 Coverage is not accuracy, though, and the honest number is lower than a green badge
-suggests. Accuracy is measured by a human-reviewed audit: a randomly drawn sample of
-real tools, each checked by a person against the tool's own `--help` text. The sample
-is committed to the repo *before* any verdict is recorded, so it cannot be quietly
-redrawn once the results look bad.
-
-In the most recent sample, **25 of 43 tools parsed fully correctly — about 58%**.
-A sample of 43 is small, so the true rate across all tools could plausibly be
-anywhere from roughly 43% to 72% — a statistical margin of error, not a second
-measurement. Tools that mandible itself marks `ok` do better: 80% correct, with a
-margin of roughly 61% to 91%.
+suggests. Accuracy comes from a human-reviewed audit, where a person checks a randomly
+drawn sample of real tools against each tool's own `--help` text. The sample is
+committed to the repo before any verdict is recorded, so it cannot be quietly redrawn
+once the results look bad. In the most recent audit, **25 of 43 tools parsed fully
+correctly, about 58%**. A sample that small leaves real statistical slack, so the true
+rate across all tools could sit anywhere between about 43% and 72%. Tools that
+mandible itself marks `ok` do better, at 80% correct with a plausible range of 61%
+to 91%.
 
 mandible is useful today and wrong often enough that you should check anything
 surprising against the tool's own `--help`.
