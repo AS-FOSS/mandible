@@ -1,0 +1,216 @@
+tool: diffstat
+stratum: ok
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: diffstat [options] [files]
+
+Reads from one or more input files which contain output from 'diff',
+producing a histogram of total lines changed for each file referenced.
+If no filename is given on the command line, reads from standard input.
+
+Options:
+  -b      ignore lines matching "Binary files XXX and YYY differ"
+  -c      prefix each line with comment (#)
+  -C      add SGR color escape sequences to highlight the histogram
+  -d      debug - prints a lot of information
+  -D PATH specify location of patched files, use for unchanged-count
+  -e FILE redirect standard error to FILE
+  -E      trim escape-sequences, e.g., from colordiff
+  -f NUM  format (0=concise, 1=normal, 2=filled, 4=values)
+  -h      print this message
+  -k      do not merge filenames
+  -K      resolve ambiguity of "only" filenames
+  -l      list filenames only
+  -m      merge insert/delete data in chunks as modified-lines
+  -n NUM  specify minimum width for the filenames (default: auto)
+  -N NUM  specify maximum width for the filenames (default: auto)
+  -o FILE redirect standard output to FILE
+  -O      inspect only files listed in diff for -S/-D options
+  -p NUM  specify number of pathname-separators to strip (default: common)
+  -q      suppress the "0 files changed" message for empty diffs
+  -r NUM  specify rounding for histogram (0=none, 1=simple, 2=adjusted)
+  -R      assume patch was created with old and new files swapped
+  -s      show only the summary line
+  -S PATH specify location of original files, use for unchanged-count
+  -t      print a table (comma-separated-values) rather than histogram
+  -T      print amounts (like -t option) in addition to histogram
+  -u      do not sort the input list
+  -v      show progress if output is redirected to a file
+  -V      prints the version number
+  -w NUM  specify maximum width of the output (default: 80)
+
+
+=== parsed tree ===
+name: diffstat
+usage:
+- 'Usage: diffstat [options] [files]'
+flags:
+- short: 'b'
+  description: ignore lines matching "Binary files XXX and YYY differ"
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  description: prefix each line with comment (#)
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  description: add SGR color escape sequences to highlight the histogram
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  description: debug - prints a lot of information
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  value_name: PATH
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  value_name: FILE
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  description: trim escape-sequences, e.g., from colordiff
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  value_name: NUM
+  value_kind: Required
+  description: format (0=concise, 1=normal, 2=filled, 4=values)
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  description: print this message
+  provenance:
+    sources:
+    - help-text
+- short: 'k'
+  description: do not merge filenames
+  provenance:
+    sources:
+    - help-text
+- short: 'K'
+  description: resolve ambiguity of "only" filenames
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  description: list filenames only
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  description: merge insert/delete data in chunks as modified-lines
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  value_name: NUM
+  value_kind: Required
+  description: 'specify minimum width for the filenames (default: auto)'
+  provenance:
+    sources:
+    - help-text
+- short: 'N'
+  value_name: NUM
+  value_kind: Required
+  description: 'specify maximum width for the filenames (default: auto)'
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  value_name: FILE
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  description: inspect only files listed in diff for -S/-D options
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  value_name: NUM
+  value_kind: Required
+  description: 'specify number of pathname-separators to strip (default: common)'
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  description: suppress the "0 files changed" message for empty diffs
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  value_name: NUM
+  value_kind: Required
+  description: specify rounding for histogram (0=none, 1=simple, 2=adjusted)
+  provenance:
+    sources:
+    - help-text
+- short: 'R'
+  description: assume patch was created with old and new files swapped
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  description: show only the summary line
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  value_name: PATH
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 't'
+  description: print a table (comma-separated-values) rather than histogram
+  provenance:
+    sources:
+    - help-text
+- short: 'T'
+  description: print amounts (like -t option) in addition to histogram
+  provenance:
+    sources:
+    - help-text
+- short: 'u'
+  description: do not sort the input list
+  provenance:
+    sources:
+    - help-text
+- short: 'v'
+  description: show progress if output is redirected to a file
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  description: prints the version number
+  provenance:
+    sources:
+    - help-text
+- short: 'w'
+  value_name: NUM
+  value_kind: Required
+  description: 'specify maximum width of the output (default: 80)'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

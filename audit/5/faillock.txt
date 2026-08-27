@@ -1,0 +1,42 @@
+tool: faillock
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+/usr/sbin/faillock: Unknown option: --help
+Usage: /usr/sbin/faillock [--dir /path/to/tally-directory] [--user username] [--reset] [--legacy-output]
+
+
+=== parsed tree ===
+name: faillock
+description: '/usr/sbin/faillock: Unknown option: --help'
+usage:
+- 'Usage: /usr/sbin/faillock [--dir /path/to/tally-directory] [--user username] [--reset] [--legacy-output]'
+flags:
+- long: dir
+  value_name: /path/to/tally-directory
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: user
+  value_name: username
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: reset
+  provenance:
+    sources:
+    - help-text-synopsis
+- long: legacy-output
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,95 @@
+tool: dbiprof
+stratum: ok
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+dbiprof [options] [files]
+
+Reads and merges DBI profile data from files and prints a summary.
+
+files: defaults to dbi.prof
+
+options:
+
+    -number=N        show top N, defaults to 10
+    -sort=S          sort by S, defaults to total
+    -reverse         reverse the sort
+    -match=K=V       for filtering, see docs
+    -exclude=K=V     for filtering, see docs
+    -case_sensitive  for -match and -exclude
+    -delete          rename files before reading then delete afterwards
+    -version         print version number and exit
+    -help            print this help
+
+
+
+=== parsed tree ===
+name: dbiprof
+description: dbiprof [options] [files]
+flags:
+- short: 'n'
+  value_name: umber=N
+  value_kind: Required
+  description: show top N, defaults to 10
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  value_name: ort=S
+  value_kind: Required
+  description: sort by S, defaults to total
+  provenance:
+    sources:
+    - help-text
+- long: reverse
+  single_dash: true
+  description: reverse the sort
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  value_name: atch=K=V
+  value_kind: Required
+  description: for filtering, see docs
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  value_name: xclude=K=V
+  value_kind: Required
+  description: for filtering, see docs
+  provenance:
+    sources:
+    - help-text
+- short: 'c'
+  value_name: ase_sensitive
+  value_kind: Required
+  description: for -match and -exclude
+  provenance:
+    sources:
+    - help-text
+- long: delete
+  single_dash: true
+  description: rename files before reading then delete afterwards
+  provenance:
+    sources:
+    - help-text
+- long: version
+  single_dash: true
+  description: print version number and exit
+  provenance:
+    sources:
+    - help-text
+- long: help
+  single_dash: true
+  description: print this help
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

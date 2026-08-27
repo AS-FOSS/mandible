@@ -1,0 +1,107 @@
+tool: msgexec
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: /usr/bin/msgexec [OPTION] COMMAND [COMMAND-OPTION]
+
+Applies a command to all translations of a translation catalog.
+The COMMAND can be any program that reads a translation from standard
+input.  It is invoked once for each translation.  Its output becomes
+msgexec's output.  msgexec's return code is the maximum return code
+across all invocations.
+
+A special builtin command called '0' outputs the translation, followed by a
+null byte.  The output of "msgexec 0" is suitable as input for "xargs -0".
+
+Command input:
+  --newline                   add newline at the end of input
+
+Mandatory arguments to long options are mandatory for short options too.
+
+Input file location:
+  -i, --input=INPUTFILE       input PO file
+  -D, --directory=DIRECTORY   add DIRECTORY to list for input files search
+If no input file is given or if it is -, standard input is read.
+
+Input file syntax:
+  -P, --properties-input      input file is in Java .properties syntax
+      --stringtable-input     input file is in NeXTstep/GNUstep .strings syntax
+
+Informative output:
+  -h, --help                  display this help and exit
+  -V, --version               output version information and exit
+
+Report bugs in the bug tracker at <https://savannah.gnu.org/projects/gettext>
+or by email to <bug-gettext@gnu.org>.
+
+
+=== parsed tree ===
+name: msgexec
+usage:
+- 'Usage: /usr/bin/msgexec [OPTION] COMMAND [COMMAND-OPTION]'
+positionals:
+- name: COMMAND
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: newline
+  group: 'Command input:'
+  description: add newline at the end of input
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  long: input
+  value_name: INPUTFILE
+  value_kind: Required
+  group: 'Input file location:'
+  description: input PO file
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: directory
+  value_name: DIRECTORY
+  value_kind: Required
+  group: 'Input file location:'
+  description: add DIRECTORY to list for input files search
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: properties-input
+  group: 'Input file syntax:'
+  description: input file is in Java .properties syntax
+  provenance:
+    sources:
+    - help-text
+- long: stringtable-input
+  group: 'Input file syntax:'
+  description: input file is in NeXTstep/GNUstep .strings syntax
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  group: 'Informative output:'
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  group: 'Informative output:'
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

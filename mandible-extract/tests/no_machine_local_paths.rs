@@ -104,7 +104,7 @@ fn no_source_file_references_a_machine_local_absolute_path() {
             // comment to explain the rule; exempt doc/line comments
             // so the explanation doesn't trip the check it documents.
             let trimmed = line.trim_start();
-            if trimmed.starts_with("//") {
+            if trimmed.starts_with("//") || trimmed.starts_with('#') {
                 continue;
             }
             for prefix in MACHINE_LOCAL_PREFIXES {
@@ -147,7 +147,16 @@ fn rust_files(dir: &Path) -> Vec<PathBuf> {
                 continue;
             }
             out.extend(rust_files(&path));
-        } else if path.extension().is_some_and(|e| e == "rs") {
+        } else if path
+            .extension()
+            .is_some_and(|e| e == "rs" || e == "py" || e == "sh")
+        {
+            // `.py` and `.sh` joined `.rs` after the committed specimen
+            // moved: the machine-local `/tmp/ptyvenv` that kept reappearing
+            // in agents' output was being *copied from*
+            // `scripts/pty_screenshot.py`'s own usage text, which no lint
+            // covered. Prose files stay out — AGENTS.md legitimately names
+            // the forbidden shapes when stating the rule.
             out.push(path);
         }
     }

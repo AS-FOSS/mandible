@@ -1,0 +1,61 @@
+tool: btrfs-find-root
+stratum: ok
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+usage: btrfs-find-usage [options] <device>
+
+    Attempt to find tree roots on the device
+
+    -a                        search through all metadata even if the root has been found 
+    -o OBJECTID               filter by the tree's object id 
+    -l LEVEL                  filter by tree level, (default: 0) 
+    -g GENERATION             filter by tree generation 
+
+
+
+=== parsed tree ===
+name: btrfs-find-root
+usage:
+- 'usage: btrfs-find-usage [options] <device>'
+positionals:
+- name: device
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'a'
+  description: search through all metadata even if the root has been found
+  provenance:
+    sources:
+    - help-text
+- short: 'o'
+  value_name: OBJECTID
+  value_kind: Required
+  description: filter by the tree's object id
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  value_name: LEVEL
+  value_kind: Required
+  description: 'filter by tree level, (default: 0)'
+  provenance:
+    sources:
+    - help-text
+- short: 'g'
+  value_name: GENERATION
+  value_kind: Required
+  description: filter by tree generation
+  provenance:
+    sources:
+    - help-text
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

@@ -1,0 +1,81 @@
+tool: nice
+stratum: ok
+K1 (single-dash-long defect): suggested TRUE — leave as-is to confirm, or add `k1=false` to your verdict to override
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: /usr/bin/nice [OPTION] [COMMAND [ARG]...]
+Run COMMAND with an adjusted niceness, which affects process scheduling.
+With no COMMAND, print the current niceness.  Niceness values range from
+-20 (most favorable to the process) to 19 (least favorable to the process).
+
+Mandatory arguments to long options are mandatory for short options too.
+  -n, --adjustment=N   add integer N to the niceness (default 10)
+      --help        display this help and exit
+      --version     output version information and exit
+
+NOTE: your shell may have its own version of nice, which usually supersedes
+the version described here.  Please refer to your shell's documentation
+for details about the options it supports.
+
+Exit status:
+  125  if the nice command itself fails
+  126  if COMMAND is found but cannot be invoked
+  127  if COMMAND cannot be found
+  -    the exit status of COMMAND otherwise
+
+GNU coreutils online help: <https://www.gnu.org/software/coreutils/>
+Report any translation bugs to <https://translationproject.org/team/>
+Full documentation <https://www.gnu.org/software/coreutils/nice>
+or available locally via: info '(coreutils) nice invocation'
+
+
+=== parsed tree ===
+name: nice
+description: Run COMMAND with an adjusted niceness, which affects process scheduling. With no COMMAND, print the current niceness. Niceness values range from -20 (most favorable to the process) to 19 (least favorable to the process).
+usage:
+- 'Usage: /usr/bin/nice [OPTION] [COMMAND [ARG]...]'
+positionals:
+- name: COMMAND
+  provenance:
+    sources:
+    - help-text
+- name: ARG
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: '2'
+  value_name: '0'
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: adjustment
+  value_name: N
+  value_kind: Required
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: add integer N to the niceness (default 10)
+  provenance:
+    sources:
+    - help-text
+- long: help
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: Mandatory arguments to long options are mandatory for short options too.
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 0.8
+children_filled: true

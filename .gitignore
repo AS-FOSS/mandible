@@ -58,3 +58,4 @@ audit/*/fixtures/
 # Regenerate locally with `xtask audit freeze`; `xtask audit reclassify`
 # needs this directory present to avoid a full PATH re-sweep.
 audit/queue-captures/
+.venv/

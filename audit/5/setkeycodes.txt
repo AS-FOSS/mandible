@@ -1,0 +1,51 @@
+tool: setkeycodes
+stratum: ok
+K1 (single-dash-long defect): not flagged (nothing of this class detected)
+K2 (existence-detector tokenizer gap): not flagged (nothing of this class detected)
+K3 (subcommand help never fetched): not flagged (nothing of this class detected)
+
+=== raw --help ===
+Usage: setkeycodes [option...] scancode keycode ...
+
+(where scancode is either xx or e0xx, given in hexadecimal,
+and keycode is given in decimal)
+
+Options:
+  -C, --console=DEV   the console device to be used.
+  -V, --version       print version number.
+  -h, --help          print this usage message.
+
+Report bugs to authors.
+
+
+
+=== parsed tree ===
+name: setkeycodes
+usage:
+- 'Usage: setkeycodes [option...] scancode keycode ...'
+flags:
+- short: 'C'
+  long: console
+  value_name: DEV
+  value_kind: Required
+  description: the console device to be used.
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: version
+  description: print version number.
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: print this usage message.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

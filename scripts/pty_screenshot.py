@@ -17,7 +17,7 @@ markdown-leak and ragged-rewrap defects were found this way.
 
 Requires `pyte` (terminal emulator):
 
-    python3 -m venv /tmp/ptyvenv && /tmp/ptyvenv/bin/pip install pyte
+    python3 -m venv .venv && .venv/bin/pip install pyte
 
 Usage:
 
@@ -77,8 +77,8 @@ def capture(argv, cols, rows, key_groups, settle=1.5, step=0.6):
         import pyte
     except ImportError:
         sys.exit(
-            "pyte is required: python3 -m venv /tmp/ptyvenv && "
-            "/tmp/ptyvenv/bin/pip install pyte"
+            "pyte is required: python3 -m venv .venv && "
+            ".venv/bin/pip install pyte"
         )
 
     screen = pyte.Screen(cols, rows)
