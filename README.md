@@ -142,9 +142,9 @@ Neither file needs to exist — everything has a default.
 ### Settings
 
 Long preformatted lines (the raw `--help` view, USAGE synopses) scroll
-horizontally with `h`/`l` instead of wrapping, with a dim `<`/`>` marker beside
-each line that continues past the pane edge. Set `horizontal_scroll = false` to
-wrap everything instead.
+sideways with the `←`/`→` arrow keys (or vim's `h`/`l`) instead of wrapping,
+and a dim `<`/`>` marker sits beside each line that continues past the pane
+edge. Set `horizontal_scroll = false` to wrap everything instead.
 
 ```toml
 # ~/.config/mandible/config.toml
@@ -189,9 +189,9 @@ These are yours and are never committed to this repository.
 ### Keys
 
 `?` inside mandible lists every binding, and the footer keeps the important ones
-on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `h`/`l`
-to scroll wide lines, `t` for the tool's own `--help`, `y` to copy the selected
-flag, `q` to quit.
+on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`→`
+to scroll wide lines sideways, `t` for the tool's own `--help`, `y` to copy the
+selected flag, `q` to quit.
 
 Search has two modes: `names` matches command names literally; `everything`
 searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
