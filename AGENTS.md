@@ -214,6 +214,10 @@ These cost real time when rediscovered.
 - **All three workflows carry `paths-ignore` for `**/*.md`, `docs/**`,
   `LICENSE-*`, `NOTICE` and `.gitignore`.** A documentation-only push skips CI
   entirely, which is correct but surprising the first time.
+- **`xtask corpus --bless` invents an `expected.snap` for xfail fixtures that
+  intentionally have none.** After any bless, check `git status` for new
+  untracked snapshots and delete them — committing one silently converts an
+  xfail into a guarded wrong tree.
 
 Do not re-derive these. They are measured, with method, in **`spec.md`
 Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
@@ -253,8 +257,42 @@ update Appendix A in the same commit, with the method.
   Fable directs an Opus orchestrator, the trailer says Fable; if that Opus
   directs Sonnet workers, still Fable. One session otherwise produces commits
   signed by three different models for one coordinated change, which reads as
-  inconsistency in the history. Never include a session URL in a commit
-  message or PR body.
+  inconsistency in the history.
+- **Never attach a session URL anywhere on GitHub — commit messages, PR
+  bodies, issue or PR comments — even when tooling is configured to add one
+  automatically.** A session link is private workflow detail; publishing it
+  leaks information about the maintainer's setup and process. There is no
+  exception.
+- **Never address other people on GitHub without the maintainer's explicit
+  consent.** No replies to outside contributors, no comments on issues or PRs
+  beyond what the maintainer asked for in that specific instance. The account
+  speaks with the maintainer's voice, and an agent answering a stranger
+  commits the maintainer to words they never chose.
+- **One branch and one PR per bundle of tasks in a session.** A second is
+  allowed only when the grouping genuinely needs separating — and then ask
+  explicitly before opening it. Anything less disciplined produces a PR list
+  that reads as ceremony rather than work (eight PRs were once opened for
+  one-file edits in a single day, one of them to delete a 2-byte file).
+- **If an artifact leaks into commit history, notify the maintainer first —
+  never force-overwrite.** Rewriting published history is destructive and
+  irreversible for everyone downstream; whether and how to do it is the
+  maintainer's decision alone. Report what leaked and wait.
+- **Docs and trivial no-risk changes go direct to main; a PR is for work
+  where pre-merge verification earns its cost.** Docs-only pushes skip CI
+  entirely (`paths-ignore`, §4), so a self-opened, self-merged PR for a
+  paragraph adds a merge commit and a dead branch while gating nothing.
+  Direct to main: prose (README/AGENTS/spec wording), CHANGELOG entries
+  (run the guard locally), file deletions, `.gitignore`, typo-class fixes.
+  PR: parser/extraction logic, features, releases — the units where review
+  has actually caught bugs here.
+- **Never loosen a detector or parser rule to catch more cases if it can
+  degrade tools that already work.** A permissive instrument hides the
+  defects it exists to find, and a detector that fires on correct parses
+  cannot be used to gate. When a rule misses a case, first measure what
+  loosening would cost across the fleet; if it admits any currently-correct
+  parse, keep the strict rule, record the miss as a documented lower bound,
+  and fix the *scoring* rather than the check. Out-of-scope misses stay
+  counted and named in every report — hiding them is goalpost-moving.
 - **Public prose describes the change, not the conversation.** Commit
   messages, PR bodies, and issue/PR comments state what changed and why, in
   the fewest words that stay clear. Never paste the maintainer's private
