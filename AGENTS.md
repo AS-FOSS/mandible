@@ -170,13 +170,6 @@ prose.
 
 These cost real time when rediscovered.
 
-- **Never assume `rm` frees disk space — on some machines it is aliased to a
-  trash tool.** Such an alias moves files to `~/.local/share/Trash`, so a
-  cleanup can report success while the disk stays full. Thirty agent worktrees
-  once held ~90G of `target/` between them, the disk hit 100%, and three
-  running agents broke mid-task — each of them independently fighting the same
-  wall. Check `type rm` once per host; if it is aliased, use `/bin/rm`, and
-  check the trash directory before believing a cleanup worked.
 - **Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`,** which
   blocks the unprivileged user namespaces `exec::containment` builds a
   full-`PATH` sweep's containment out of. It is the default on GitHub's
@@ -251,13 +244,6 @@ update Appendix A in the same commit, with the method.
 
 ## 5. Working agreements
 
-- **Commit signature precedence: the model at the top of the delegation chain
-  signs.** The `Co-Authored-By: Claude <model> <noreply@anthropic.com>` trailer
-  names the *orchestrating* model, not whichever subordinate typed the diff: if
-  Fable directs an Opus orchestrator, the trailer says Fable; if that Opus
-  directs Sonnet workers, still Fable. One session otherwise produces commits
-  signed by three different models for one coordinated change, which reads as
-  inconsistency in the history.
 - **Never attach a session URL anywhere on GitHub — commit messages, PR
   bodies, issue or PR comments — even when tooling is configured to add one
   automatically.** A session link is private workflow detail; publishing it
