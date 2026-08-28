@@ -162,6 +162,20 @@ any failure and can emit `--message-format libtest-json` when a structured
 result is actually needed — read *that*, or read the exit code, never the
 prose.
 
+### 3.4 A guard is not done until you have watched it fail
+
+When you add or change a detector, a lint, a meta-check, or a CI guard,
+break the thing it protects — plant the defect, remove the row, disable the
+lane — and confirm the run goes red **naming what you removed**. If it stays
+green, or fails without naming it, the guard is decorative. Running it
+against the healthy repo and seeing green proves nothing at all: a guard is
+uniquely easy to write in a form that can never go red, and its green runs
+then read as evidence forever. This project has already paid for instrument
+blindness once — the fabrication count read 154 when the true number was 52,
+because the existence oracle could not see shapes it claimed to measure, and
+nothing in its output said so. Commit before you attack your own work (§5)
+so the restore afterwards has something to restore to.
+
 ---
 
 ## 4. Environment facts
@@ -300,10 +314,19 @@ update Appendix A in the same commit, with the method.
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
 - **Commit before you attack your own work.** Disabling a check to prove its
-  test fails is required here (§3.1), and the restore afterwards is a
+  test fails is required here (§3.1, §3.4), and the restore afterwards is a
   destructive command: an agent ran `git checkout --` on the file it had just
   written but not yet committed, and lost it. Commit first, then attack, then
   restore — the restore has something to restore *to*.
+- **Fix the defect you found; do not write it up.** When you discover a real
+  defect while doing something else and the fix is contained, fix it in the
+  same change. The test is blunt: if documenting the limitation costs more to
+  carry than the fix costs to write, write the fix. A fix you have *verified*
+  is never a "known issue" — verifying was the expensive part. A defect that
+  produces a silently wrong answer is never deferrable: a loud failure can
+  wait behind a caveat; a wrong value nobody is told about cannot. When a fix
+  is genuinely out of scope, file an issue naming what it would take — never
+  leave a caveat in prose that reads as a decision nobody made.
 - **A result that exists only on one machine is not a result.** `audit/queue.toml`
   is called *tracked* by `xtask::queue`'s module doc and again by spec §16's
   storage note — and was never committed by any commit on any branch, because
@@ -346,6 +369,50 @@ update Appendix A in the same commit, with the method.
 - Never invoke a tool binary outside the argv allowlist in spec §6. Running a
   bare binary is how you launch a REPL, block on stdin, or start a daemon.
 
+### 5.1 Change-trigger matrix
+
+When you touch the left column, the right column moves **in the same
+commit/PR** — this is a lookup, not a judgment call at the end of a round.
+Each row points at the section that says why.
+
+| If you change… | You must also… |
+|---|---|
+| Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]` (§2) |
+| A measurement that contradicts `spec.md` Appendix A | update Appendix A with the new number and its method (§4) |
+| A design contract — schema, probe/argv rules, display semantics | amend the governing `spec.md` section; spec.md is the design authority, and a PR body is not a record |
+| Rendering code | capture before/after pty screens (§3.2) and attach them to the PR |
+| An extraction tier's argv construction | keep/add a test exercising the **real** argv (§3.1) |
+| The `unsafe` count in `mandible-extract` | update the §5 exception list AND the crate doc comment in `mandible-extract/src/lib.rs` |
+| Fixtures via `xtask corpus --bless` | check `git status` for invented xfail snapshots and delete them (§4) |
+| A detector, lint, or CI guard | watch it fail first (§3.4) |
+
+### 5.2 Recurring task playbooks
+
+The two workflows that repeat every round, in the shape *what you see → what
+you run → what you decide*, so they stop being re-derived from history.
+
+**Adding or fixing a parser family.**
+- *See:* a tool renders wrong in the TUI, or a sweep/verdict names a shape.
+- *Run:* reproduce against the captured bytes or the live tool; write the
+  corpus fixture first; implement in the framework/shape tier — never
+  per-tool (§1); `xtask coverage --tools <affected…>` as the cheap pre-check
+  (a pinned list reproduces full-`PATH` numbers exactly), then the full
+  sweep when the change warrants it; the §5 gates.
+- *Decide:* whether the recognizer can admit a currently-correct parse — if
+  it can, keep it strict and fix the scoring instead (§5). Ship with a "see
+  it yourself" block: the exact `mandible <tool>` commands and what changed,
+  written portably (§5) — the maintainer verifies parser fixes visually, not
+  by fixture green — plus pty screenshots in the PR.
+
+**Cutting a release.**
+- *See:* the maintainer has asked for a release, CHANGELOG `[Unreleased]`
+  holds the round, and the maintainer's visual pass is done.
+- *Run:* the release PR, then the tag; watch the workflow run whose
+  tag/headBranch matches the tag just pushed — never "the latest run" —
+  and confirm the assets and crates it actually published.
+- *Decide:* nothing. Release timing and content are the maintainer's call;
+  never tag or publish unprompted.
+
 ---
 
 ## 6. Maintaining this file
@@ -374,8 +441,11 @@ lifecycle. Review the whole file whenever you finish a batch of work.
 **Do not duplicate `spec.md`.** Link to it. Duplication means two sources that
 will disagree, and the disagreement will be discovered at the worst time.
 
-**Keep it under ~200 lines.** If it grows past that, something belongs in
-`spec.md` (design), `CONTRIBUTING.md` (human process), or the bin.
+**Growth is policed by earned entries, not a line count.** There is no line
+budget (the old ~200-line cap was arbitrary and is retired — maintainer,
+2026-08-29). What keeps this file honest is the rule above: every entry names
+the failure it prevents, and an entry whose cause is fixed gets deleted.
+Design still belongs in `spec.md`, human process in `CONTRIBUTING.md`.
 
 **Date-stamp anything environment-dependent**, and re-verify rather than trust
 it. Facts about other people's tools go stale.
