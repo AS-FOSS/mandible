@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [Unreleased]
+
+### Changed
+
+- 0.5.0 IR: flags, positionals, modifiers and environment variables become one kind-tagged `Entity` carrying every documented spelling in document order, replacing the parallel-vector schema whose `short`/`long` pair could hold only two of a row's spellings (ffplay documents `-h`, `-?`, `-help` and `--help` as a single row); this change migrates flags, leaving their rendering, search and merge behaviour identical — every corpus fixture's tree is byte-for-byte unchanged — and makes the public IR types `#[non_exhaustive]` so the positional, modifier and environment-variable stages can follow without another breaking change.
+
 ## [0.4.5] - 2026-08-28
 
 ### Added

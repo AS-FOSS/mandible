@@ -202,13 +202,18 @@ year without touching the UI.
 
 ```rust
 /// mandible-core: the shared schema every extraction tier must produce.
+/// Every public struct here is `#[non_exhaustive]`: downstream crates
+/// build through a constructor and assign the public fields, which is what
+/// lets 0.5.x add fields (§4.5's remaining stages each do) without a
+/// breaking release.
 pub struct CommandNode {
     pub name: String,
     pub aliases: Vec<String>,
     pub summary: Option<Text>,          // one-line hint
     pub description: Option<Text>,      // long-form prose
     pub usage: Vec<Text>,               // raw usage patterns, kept verbatim
-    pub flags: Vec<Flag>,
+    /// Documented flags, as `EntityKind::Flag` entities (§4.5).
+    pub flags: Vec<Entity>,
     pub positionals: Vec<Positional>,
     pub subcommands: Vec<CommandNode>,
     pub examples: Vec<Example>,
@@ -217,27 +222,6 @@ pub struct CommandNode {
     /// True when this node's children are known-complete. False means the
     /// subtree has not been extracted yet (see §5, lazy extraction).
     pub children_filled: bool,
-    pub provenance: Provenance,
-}
-
-pub struct Flag {
-    pub short: Option<char>,
-    pub long: Option<String>,
-    pub value_name: Option<String>,     // "FILE" in `--output FILE`
-    pub value_kind: ValueKind,
-    pub choices: Vec<Text>,             // `--format {json|yaml|table}`
-    pub repeatable: bool,
-    pub required: bool,
-    pub hidden: bool,
-    pub deprecated: Option<Text>,
-    /// True when inherited from an ancestor (cobra persistent / carapace
-    /// `persistentflags`). Rendered in a separate, dimmed group.
-    pub inherited: bool,
-    /// Display grouping from the source, e.g. tar's "Main operation mode".
-    pub group: Option<String>,
-    pub description: Option<Text>,
-    pub default: Option<Text>,
-    pub env_var: Option<String>,
     pub provenance: Provenance,
 }
 
@@ -274,11 +258,25 @@ pub struct Entity {
     pub description: Option<Text>,
     pub group: Option<String>,
     pub see_also: Vec<Text>,
+    /// An environment variable documented on this entity's own row — a
+    /// `[env: FOO]` annotation or an override file's `env_var` key. This
+    /// is a *cross-reference a flag carries*, distinct from an
+    /// `EntityKind::EnvVar` entity, which is a variable documented as an
+    /// item in its own right.
+    pub env_var: Option<String>,
     pub provenance: Provenance,
+    // ... plus the flags carried over from the type this replaced:
+    // repeatable, required, hidden, deprecated, inherited, default.
 }
 
 pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
 ```
+
+`short()`, `long()`, `negatable()` and `single_dash()` are **derived from
+`spellings` by shape**, not stored: two dashes is long, one dash is long
+when the name is longer than a single character (`-help`, `-vv`, `-CC`)
+and short otherwise. A one-character single-dash spelling is a short flag,
+because `-x` is `-x` whichever slot a previous schema filed it under.
 
 `Spelling`'s exact shape is finalized in the schema PR, under one
 constraint carried over from `Flag::negatable` and `Flag::single_dash`:
