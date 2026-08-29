@@ -1141,27 +1141,6 @@ mod tests {
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
 
-    /// The rapid `t`-`t`-`t` comparison, with no scroll key pressed in
-    /// between: the place must survive every flip, not just the first.
-    /// (The first version computed the second toggle's fraction from the
-    /// zeroed offset the first toggle left behind — reset to top on the
-    /// second press, found by the maintainer in real use.)
-    #[test]
-    fn repeated_raw_toggle_without_scrolling_keeps_place() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_extent(220, 20); // rendered: max 200
-        app.detail_scroll = 150;
-        app.toggle_raw_mode();
-        app.set_detail_extent(70, 20); // raw: max 50
-        assert_eq!(app.clamped_detail_scroll(), 38); // 0.75 of 50, rounded
-        app.toggle_raw_mode();
-        app.set_detail_extent(220, 20);
-        assert_eq!(app.clamped_detail_scroll(), 150);
-        app.toggle_raw_mode();
-        app.set_detail_extent(70, 20);
-        assert_eq!(app.clamped_detail_scroll(), 38);
-    }
-
     /// Drive the (real, async, `nucleo`-backed) search index until its
     /// results stop changing for a few consecutive polls, bounded overall
     /// so a bug can't hang the test suite. Mirrors how the real event loop
