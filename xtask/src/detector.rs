@@ -75,7 +75,7 @@
 
 use crate::corpus;
 use mandible_core::audit::{self, AuditFile};
-use mandible_core::{CommandNode, Positional, Provenance, Source};
+use mandible_core::{CommandNode, Entity, Provenance, Source};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -779,8 +779,8 @@ impl Detector for VerbatimFallback {
 /// True when `node` and everything below it carries no flag, no positional
 /// and no child.
 fn tree_is_structureless(node: &CommandNode) -> bool {
-    node.flags.is_empty()
-        && node.positionals.is_empty()
+    node.flags().next().is_none()
+        && node.positionals().next().is_none()
         && node.subcommands.iter().all(tree_is_structureless)
         && node.subcommands.is_empty()
 }
@@ -811,7 +811,7 @@ impl Detector for UnparsedArgparsePositional {
          it, and the extracted root has no positionals"
     }
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
-        if !evidence.root.positionals.is_empty() {
+        if evidence.root.positionals().next().is_some() {
             return Vec::new();
         }
         let listed = argparse_positional_names(evidence.raw);
@@ -889,14 +889,16 @@ options:
 
 fn argparse_positional_node(name: &str, positionals: &[&str], subcommands: &[&str]) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.positionals = positionals
-        .iter()
-        .map(|p| {
-            let mut positional = Positional::new(*p, Provenance::single(Source::HelpText));
-            positional.required = true;
-            positional
-        })
-        .collect();
+    root.set_positionals(
+        positionals
+            .iter()
+            .map(|p| {
+                let mut positional = Entity::positional(*p, Provenance::single(Source::HelpText));
+                positional.required = true;
+                positional
+            })
+            .collect(),
+    );
     root.subcommands = subcommands
         .iter()
         .map(|s| CommandNode::new(*s, Provenance::single(Source::HelpText)))
@@ -1436,10 +1438,12 @@ const VGEXTEND_BARE_OWN_NAME_SYNOPSIS: &str = concat!(
 /// A root carrying `positionals` with the given names, all help-text-sourced.
 fn positional_node(name: &str, positionals: &[&str]) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.positionals = positionals
-        .iter()
-        .map(|p| Positional::new(*p, Provenance::single(Source::HelpText)))
-        .collect();
+    root.set_positionals(
+        positionals
+            .iter()
+            .map(|p| Entity::positional(*p, Provenance::single(Source::HelpText)))
+            .collect(),
+    );
     root
 }
 
@@ -3038,9 +3042,9 @@ mod tests {
     fn unparsed_positional_is_silent_when_positionals_were_extracted() {
         let raw = "positional arguments:\n  pid  process id\n";
         let mut with = node("t");
-        let mut pid = mandible_core::Positional::new("pid", Provenance::single(Source::HelpText));
+        let mut pid = mandible_core::Entity::positional("pid", Provenance::single(Source::HelpText));
         pid.required = true;
-        with.positionals.push(pid);
+        with.entities.push(pid);
         assert!(UnparsedArgparsePositional
             .hits(&ToolEvidence { raw, root: &with })
             .is_empty());
