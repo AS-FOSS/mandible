@@ -117,7 +117,7 @@ pub fn report_hint(tool: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{CommandNode, Flag, Provenance, Source};
+    use mandible_core::{CommandNode, Entity, Provenance, Source};
     use mandible_extract::{ExtractionResult, TierStatus};
 
     /// The exact defect this file was fixed for: a root whose flags are
@@ -133,7 +133,7 @@ mod tests {
     fn reports_an_em_dash_not_zero_percent_when_nothing_is_describable() {
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
         for name in ["paginate", "git-dir", "no-pager"] {
-            root.flags.push(Flag::long(
+            root.flags.push(Entity::flag_long(
                 name,
                 Provenance::single(Source::HelpTextSynopsis),
             ));
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn reports_a_percentage_when_some_flags_are_describable() {
         let mut root = CommandNode::new("sometool", Provenance::single(Source::HelpText));
-        let mut f = Flag::long("verbose", Provenance::single(Source::HelpText));
+        let mut f = Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         f.description = Some(mandible_core::Text::sanitize("be more talkative"));
         root.flags.push(f);
         let loaded = ExtractionResult {

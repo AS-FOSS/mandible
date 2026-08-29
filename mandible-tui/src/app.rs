@@ -1353,7 +1353,7 @@ mod tests {
         // is correct and reads as a broken filter.
         let mut root = sample_tree();
         let mut autosquash =
-            mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+            mandible_core::Entity::flag_long("autosquash", Provenance::single(Source::HelpText));
         autosquash.description = Some(mandible_core::Text::sanitize(
             "Automatically squash commits",
         ));
@@ -1392,7 +1392,7 @@ mod tests {
     fn manual_navigation_clears_the_selected_flag_target() {
         let mut root = sample_tree();
         let mut autosquash =
-            mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+            mandible_core::Entity::flag_long("autosquash", Provenance::single(Source::HelpText));
         autosquash.description = Some(mandible_core::Text::sanitize(
             "Automatically squash commits",
         ));

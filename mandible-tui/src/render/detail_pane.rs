@@ -1,5 +1,5 @@
 //! The detail pane: breadcrumb header, description, flags grouped by
-//! [`mandible_core::Flag::group`] (inherited flags in a final dimmed group),
+//! [`mandible_core::Entity::group`] (inherited flags in a final dimmed group),
 //! and a provenance footer (spec §2, §9, §9.2).
 //!
 //! **Every line handed to the `Paragraph` is already wrapped to the
@@ -30,7 +30,7 @@ use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
-use mandible_core::{CommandNode, Flag, FlagKey, ValueKind};
+use mandible_core::{CommandNode, Entity, FlagKey, Spelling, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -589,7 +589,7 @@ fn build_lines(
         lines.push(Line::default());
     }
 
-    let visible_flags: Vec<&Flag> = node
+    let visible_flags: Vec<&Entity> = node
         .flags
         .iter()
         .filter(|f| show_hidden || (!f.hidden && f.deprecated.is_none()))
@@ -884,7 +884,7 @@ impl FlagLayout {
 }
 
 /// Choose the layout for `flags` in a pane `width` columns wide.
-fn flag_layout(flags: &[&Flag], width: usize) -> FlagLayout {
+fn flag_layout(flags: &[&Entity], width: usize) -> FlagLayout {
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
     let lead = display_width(FLAG_INDENT);
     let gap = 2;
@@ -924,7 +924,7 @@ fn flag_layout(flags: &[&Flag], width: usize) -> FlagLayout {
 }
 
 fn flag_lines(
-    flags: &[&Flag],
+    flags: &[&Entity],
     width: usize,
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
@@ -937,8 +937,8 @@ fn flag_lines(
     // here sorted them alphabetically, so "Archive format selection" came
     // first and the author's ordering was silently discarded.
     let mut group_order: Vec<Option<String>> = Vec::new();
-    let mut own_groups: HashMap<Option<String>, Vec<&Flag>> = HashMap::new();
-    let mut inherited: Vec<&Flag> = Vec::new();
+    let mut own_groups: HashMap<Option<String>, Vec<&Entity>> = HashMap::new();
+    let mut inherited: Vec<&Entity> = Vec::new();
 
     for f in flags {
         if f.inherited {
@@ -954,7 +954,7 @@ fn flag_lines(
 
     let mut out = Vec::new();
     let mut target_line = None;
-    let mut note_if_target = |out: &[Line<'static>], f: &Flag| {
+    let mut note_if_target = |out: &[Line<'static>], f: &Entity| {
         if target_line.is_none() && target_flag.is_some_and(|k| f.matches_key(k)) {
             target_line = Some(out.len());
         }
@@ -1007,37 +1007,26 @@ fn heading_line_owned(text: String, color_enabled: bool) -> Line<'static> {
 /// description hangs indented under where it started rather than
 /// restarting at column 0.
 /// A flag's spelling, e.g. `-i, --interactive`.
-fn flag_name_spec(flag: &Flag) -> String {
-    let mut spec = String::new();
-    if let Some(s) = flag.short {
-        spec.push('-');
-        spec.push(s);
-    }
-    if flag.short.is_some() && flag.long.is_some() {
-        spec.push_str(", ");
-    }
-    if let Some(l) = &flag.long {
-        // One dash or two is reconstructed for display from `single_dash`,
-        // exactly like `[no-]` below: the IR's `long` is always the bare
-        // name (`"help"`, never `"-help"`), so a tool spelling its long
-        // options with one dash (`qemu -help`, `bpftrace -vv`) would
-        // otherwise be shown a spelling that does not work.
-        spec.push_str(if flag.single_dash { "-" } else { "--" });
-        // Reconstruct the getopt_long `--[no-]foo` convention for display
-        // from `negatable` — the IR's `long` is always the base name
-        // (never `[no-]foo`/`no-foo`), so this is the one place that
-        // spelling comes back together.
-        if flag.negatable {
-            spec.push_str("[no-]");
-        }
-        spec.push_str(l);
-    }
-    spec
+fn flag_name_spec(flag: &Entity) -> String {
+    // Every documented spelling, comma-separated, each reconstructed by
+    // `Spelling::render`: the dashes and the getopt_long `--[no-]foo`
+    // convention are display metadata, because the IR stores every name
+    // bare (`"help"`, never `"-help"`; `"foo"`, never `"[no-]foo"`) so
+    // that what a user searches and copies has no punctuation smuggled
+    // into it. This is the one place that spelling comes back together —
+    // and it is a *list*, so a row documenting four spellings
+    // (`-h, -?, -help, --help`) renders all four rather than the two a
+    // short/long pair could hold.
+    flag.spellings
+        .iter()
+        .map(Spelling::render)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// A flag's value placeholder as its own column entry, e.g. `FILE` or
 /// `[FILE]` when optional. `None` when the flag takes no value.
-fn flag_value_text(flag: &Flag) -> Option<String> {
+fn flag_value_text(flag: &Entity) -> Option<String> {
     flag.value_name
         .as_ref()
         .and_then(|name| match flag.value_kind {
@@ -1048,7 +1037,7 @@ fn flag_value_text(flag: &Flag) -> Option<String> {
 }
 
 fn flag_line(
-    flag: &Flag,
+    flag: &Entity,
     dim: bool,
     width: usize,
     color_enabled: bool,
@@ -1294,15 +1283,15 @@ mod tests {
             }),
         );
         n.summary = Some(Text::sanitize("Reapply commits on top of another base tip"));
-        let mut f1 = Flag::long(
+        let mut f1 = Entity::flag_long(
             "interactive",
             Provenance::single(Source::KnownSpec {
                 provider: "carapace".to_string(),
             }),
         );
-        f1.short = Some('i');
+        f1.spellings.insert(0, Spelling::short('i'));
         f1.description = Some(Text::sanitize("Make a list of commits"));
-        let mut f2 = Flag::long(
+        let mut f2 = Entity::flag_long(
             "help",
             Provenance::single(Source::KnownSpec {
                 provider: "carapace".to_string(),
@@ -1331,7 +1320,7 @@ mod tests {
     #[test]
     fn inherited_flags_are_grouped_last() {
         let node = node_with_flags();
-        let flags: Vec<&Flag> = node.flags.iter().collect();
+        let flags: Vec<&Entity> = node.flags.iter().collect();
         let (lines, _) = flag_lines(&flags, 80, true, None, crate::glyphs::UNICODE);
         let text: Vec<String> = lines.iter().map(text_of).collect();
         let inherited_pos = text.iter().position(|l| l.contains("INHERITED")).unwrap();
@@ -1381,8 +1370,10 @@ mod tests {
     #[test]
     fn flag_descriptions_share_one_column() {
         let mk = |short: Option<char>, long: &str, value: Option<&str>, desc: &str| {
-            let mut f = mandible_core::Flag::long(long, Provenance::single(Source::HelpText));
-            f.short = short;
+            let mut f = mandible_core::Entity::flag_long(long, Provenance::single(Source::HelpText));
+            if let Some(c) = short {
+                f.spellings.insert(0, Spelling::short(c));
+            }
             f.value_name = value.map(|v| v.to_string());
             if value.is_some() {
                 f.value_kind = ValueKind::Required;
@@ -1400,7 +1391,7 @@ mod tests {
             ),
             mk(Some('e'), "env", Some("list"), "Set environment variables"),
         ];
-        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+        let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
         let (lines, _) = flag_lines(&refs, 80, true, None, crate::glyphs::UNICODE);
 
         // Column at which each row's description text begins.
@@ -1439,10 +1430,12 @@ mod tests {
     /// exactly rather than inferred from runs of whitespace (the value
     /// placeholder is also preceded by a run of whitespace, which is what
     /// makes the inference ambiguous).
-    fn docker_global_flags() -> Vec<mandible_core::Flag> {
+    fn docker_global_flags() -> Vec<mandible_core::Entity> {
         let mk = |short: Option<char>, long: &str, value: Option<&str>| {
-            let mut f = mandible_core::Flag::long(long, Provenance::single(Source::HelpText));
-            f.short = short;
+            let mut f = mandible_core::Entity::flag_long(long, Provenance::single(Source::HelpText));
+            if let Some(c) = short {
+                f.spellings.insert(0, Spelling::short(c));
+            }
             f.value_name = value.map(|v| v.to_string());
             if value.is_some() {
                 f.value_kind = ValueKind::Required;
@@ -1494,7 +1487,7 @@ mod tests {
     #[test]
     fn descriptions_share_one_column_at_every_width() {
         let flags = docker_global_flags();
-        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+        let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         for width in 20..=160 {
             let (lines, _) = flag_lines(&refs, width, true, None, crate::glyphs::UNICODE);
@@ -1522,7 +1515,7 @@ mod tests {
     #[test]
     fn a_narrow_pane_stacks_instead_of_shredding_prose() {
         let flags = docker_global_flags();
-        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+        let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         assert_eq!(flag_layout(&refs, 38), FlagLayout::Stacked);
         let (lines, _) = flag_lines(&refs, 38, true, None, crate::glyphs::UNICODE);
@@ -1556,15 +1549,15 @@ mod tests {
         // A spelling that merely *looks* long is not an outlier: a 49-char
         // name at this width still leaves 59 columns for prose, and the
         // cap admits it deliberately rather than spending a line on it.
-        let mut monster = mandible_core::Flag::long(
+        let mut monster = mandible_core::Entity::flag_long(
             "an-extremely-long-option-name-that-nobody-would-ever-type-by-hand",
             Provenance::single(Source::HelpText),
         );
         monster.description = Some(Text::sanitize("zzz does something"));
         flags.push(monster);
-        let refs: Vec<&mandible_core::Flag> = flags.iter().collect();
+        let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
-        let without: Vec<&mandible_core::Flag> = refs[..refs.len() - 1].to_vec();
+        let without: Vec<&mandible_core::Entity> = refs[..refs.len() - 1].to_vec();
         assert_eq!(
             flag_layout(&refs, 120),
             flag_layout(&without, 120),
@@ -1625,11 +1618,7 @@ mod tests {
     fn an_unfollowed_confession_warns_with_the_advertised_argv() {
         let mut node = node_with_flags();
         node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
-        node.confession = Some(mandible_core::Confession {
-            word: "all".to_string(),
-            flag: "--help".to_string(),
-            followed: false,
-        });
+        node.confession = Some(mandible_core::Confession::new("all".to_string(), "--help".to_string(), false));
         let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
             .expect("an unfollowed confession must be surfaced even on a confident parse");
         assert!(caveat.contains("--help all"), "{caveat:?}");
@@ -1641,11 +1630,7 @@ mod tests {
     fn a_followed_confession_gets_no_caveat() {
         let mut node = node_with_flags();
         node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
-        node.confession = Some(mandible_core::Confession {
-            word: "all".to_string(),
-            flag: "--help".to_string(),
-            followed: true,
-        });
+        node.confession = Some(mandible_core::Confession::new("all".to_string(), "--help".to_string(), true));
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
     }
 
@@ -1668,7 +1653,7 @@ mod tests {
     /// restart at column 0.
     #[test]
     fn wrapped_flag_description_hangs_indented_not_flush_left() {
-        let mut flag = Flag::long("tlscacert", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("tlscacert", Provenance::single(Source::HelpText));
         flag.value_name = Some("string".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize(
@@ -1711,8 +1696,8 @@ mod tests {
     /// foreground — three distinct spans, not one undifferentiated run.
     #[test]
     fn flag_line_has_distinctly_styled_spans() {
-        let mut flag = Flag::long("output", Provenance::single(Source::HelpText));
-        flag.short = Some('o');
+        let mut flag = Entity::flag_long("output", Provenance::single(Source::HelpText));
+        flag.spellings.insert(0, Spelling::short('o'));
         flag.value_name = Some("FILE".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize("Write output to FILE"));
@@ -1744,7 +1729,7 @@ mod tests {
 
     #[test]
     fn deprecated_flag_gets_a_tag() {
-        let mut flag = Flag::long("old-flag", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("old-flag", Provenance::single(Source::HelpText));
         flag.deprecated = Some(Text::sanitize("use --new-flag instead"));
         flag.description = Some(Text::sanitize("Old behavior"));
         let lines = flag_line(
@@ -1843,7 +1828,7 @@ mod tests {
         // A node that parses perfectly well, so anything verbatim on
         // screen can only have come from the raw path overriding it.
         let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
-        let mut flag = Flag::long("verbose", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         flag.description = Some(Text::sanitize("PARSED-FLAG-DESCRIPTION"));
         root.flags.push(flag);
         let mut app = App::new("tool".to_string(), root);
