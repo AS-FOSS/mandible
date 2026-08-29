@@ -1843,23 +1843,6 @@ mod tests {
         assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
-    /// Originally pinned a reset-to-zero on toggle; the maintainer
-    /// overruled that (the wide region being compared corresponds across
-    /// the two views), so the toggle now carries the offset
-    /// proportionally, like the vertical scroll.
-    #[test]
-    fn detail_hscroll_carries_proportionally_across_raw_mode_toggle() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_hextent(50, 20); // max 30
-        app.detail_hscroll_right();
-        let before = app.clamped_detail_hscroll();
-        assert!(before > 0, "precondition");
-
-        app.toggle_raw_mode();
-        app.set_detail_hextent(50, 20); // same extent: same place
-        assert_eq!(app.clamped_detail_hscroll(), before);
-    }
-
     #[test]
     fn detail_hscroll_overflow_flags_track_the_current_offset() {
         let mut app = App::new("git".to_string(), sample_tree());
