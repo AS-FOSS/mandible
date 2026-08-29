@@ -96,7 +96,7 @@
 //! which is the right direction for a number that becomes a gate.
 
 use crate::existence::spelling_occurs;
-use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
+use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
 
 /// True when `value` is one or more copies of `short` and nothing else.
 ///
@@ -121,10 +121,10 @@ fn value_repeats_short(short: char, value: &str) -> bool {
 ///
 /// A long alias is not disqualifying — `-V, --version` is still a boolean —
 /// so only the short spelling and the value kind are compared.
-fn documents_bare_boolean(flags: &[Flag], short: char) -> bool {
+fn documents_bare_boolean(flags: &[Entity], short: char) -> bool {
     flags
         .iter()
-        .any(|f| f.short == Some(short) && f.value_kind == ValueKind::None)
+        .any(|f| f.short() == Some(short) && f.value_kind == ValueKind::None)
 }
 
 /// One repeated-character flag read as its own first character plus a value.
@@ -160,10 +160,10 @@ impl RepeatReport {
 /// Whether `flag` is a repeated-character flag misread against `siblings`
 /// (the flags of the node it belongs to) and `raw`, and the real token it
 /// misread — `None` when any condition in this module's doc comment fails.
-fn misread_token(flag: &Flag, siblings: &[Flag], raw: &str) -> Option<String> {
+fn misread_token(flag: &Entity, siblings: &[Entity], raw: &str) -> Option<String> {
     // 1. A bare short flag carrying a required value.
-    let short = flag.short?;
-    if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+    let short = flag.short()?;
+    if flag.long().is_some() || flag.value_kind != ValueKind::Required {
         return None;
     }
     let value = flag.value_name.as_deref()?;
@@ -190,7 +190,7 @@ fn walk(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Misread>) {
         let Some(token) = misread_token(flag, &node.flags, raw) else {
             continue;
         };
-        let Some(short) = flag.short else {
+        let Some(short) = flag.short() else {
             continue;
         };
         out.push(Misread {
@@ -231,10 +231,8 @@ pub fn detect(raw: &str, root: &CommandNode) -> RepeatReport {
 /// A flag as `sections::emit_flags` builds one from an option-table row:
 /// short spelling, no long name, whatever value the grammar read, and the
 /// plain [`Source::HelpText`] provenance a described row carries.
-fn table_flag(short: char, value: Option<&str>) -> Flag {
-    let mut flag = Flag::long("", Provenance::single(Source::HelpText));
-    flag.long = None;
-    flag.short = Some(short);
+fn table_flag(short: char, value: Option<&str>) -> Entity {
+    let mut flag = Entity::flag_short(short, Provenance::single(Source::HelpText));
     flag.value_name = value.map(str::to_string);
     flag.value_kind = if value.is_some() {
         ValueKind::Required
@@ -245,7 +243,7 @@ fn table_flag(short: char, value: Option<&str>) -> Flag {
 }
 
 /// A one-node tree named `name` carrying `flags`.
-fn tree(name: &str, flags: Vec<Flag>) -> CommandNode {
+fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
     root.flags = flags;
     root
@@ -424,7 +422,7 @@ pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
 mod tests {
     use super::*;
 
-    fn report(raw: &str, name: &str, flags: Vec<Flag>) -> RepeatReport {
+    fn report(raw: &str, name: &str, flags: Vec<Entity>) -> RepeatReport {
         detect(raw, &tree(name, flags))
     }
 
@@ -526,7 +524,8 @@ mod tests {
     fn a_flag_carrying_a_long_name_stays_silent() {
         let raw = "usage: t [-v] [-vv]\n";
         let mut flag = table_flag('v', Some("v"));
-        flag.long = Some("verbose".to_string());
+        flag.spellings
+            .push(mandible_core::Spelling::long("verbose"));
         let r = report(raw, "t", vec![table_flag('v', None), flag]);
         assert_eq!(r.misread_count(), 0);
     }
@@ -565,7 +564,9 @@ mod tests {
     #[test]
     fn documents_bare_boolean_ignores_a_long_alias_but_not_a_value() {
         let mut with_long = table_flag('V', None);
-        with_long.long = Some("version".to_string());
+        with_long
+            .spellings
+            .push(mandible_core::Spelling::long("version"));
         assert!(documents_bare_boolean(&[with_long], 'V'));
         assert!(!documents_bare_boolean(&[table_flag('V', Some("x"))], 'V'));
         assert!(!documents_bare_boolean(&[table_flag('v', None)], 'V'));

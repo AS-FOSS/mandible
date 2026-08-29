@@ -117,7 +117,7 @@
 //! So every condition below is a rejection of a specific shape that *looks*
 //! like an interrupted alias list and is not:
 //!
-//! 1. **The flag carries a value spec** ([`Flag::value_name`]). No value, no
+//! 1. **The flag carries a value spec** ([`mandible_core::Entity::value_name`]). No value, no
 //!    interruption — an alias list with nothing between its members already
 //!    parses correctly, and a pair separated by anything *other* than a
 //!    value spec is a different defect (see [`Scope`] below).
@@ -159,15 +159,15 @@
 //!   boundary. The two never arrive at the flag-spec grammar as one
 //!   fragment, so there is no fragment for this rule to read.
 //!
-//! A third shape is out of reach of the *data model* rather than of this
-//! rule: `jdeprscan`'s `-? -h --help` names two shorts and
-//! [`mandible_core::Flag`] holds one `short: Option<char>`, exactly as
-//! `-A, --catenate, --concatenate` names two longs and it holds one `long`.
-//! Nothing can be reported there that a wider `Flag` would not have to fix
-//! first.
+//! A third shape is out of reach of this module's accessors rather than of
+//! this rule: `jdeprscan`'s `-? -h --help` names two shorts and
+//! [`mandible_core::Entity::short`] surfaces one `Option<char>`, exactly as
+//! `-A, --catenate, --concatenate` names two longs and
+//! [`mandible_core::Entity::long`] surfaces one. Nothing can be reported
+//! there without reading `spellings` directly.
 
 use crate::existence::is_word_char;
-use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
+use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
 use std::collections::BTreeSet;
 
 /// The two characters a help formatter uses to separate the spellings of
@@ -333,10 +333,10 @@ fn anchor_end(raw: &[char], needle: &str) -> Option<usize> {
 /// only ever suppress a report, never manufacture one.
 fn spellings_in_tree(node: &CommandNode, out: &mut BTreeSet<String>) {
     for flag in &node.flags {
-        if let Some(c) = flag.short {
+        if let Some(c) = flag.short() {
             out.insert(format!("-{c}"));
         }
-        if let Some(long) = &flag.long {
+        if let Some(long) = flag.long() {
             out.insert(format!("--{long}"));
         }
     }
@@ -348,12 +348,12 @@ fn spellings_in_tree(node: &CommandNode, out: &mut BTreeSet<String>) {
 /// The kept spellings this flag could have been anchored by, longest first
 /// — a long name is more specific than a single character, so matching it
 /// first makes the anchor claim as exact as the tree allows.
-fn kept_spellings(flag: &Flag) -> Vec<String> {
+fn kept_spellings(flag: &Entity) -> Vec<String> {
     let mut out = Vec::new();
-    if let Some(long) = &flag.long {
+    if let Some(long) = flag.long() {
         out.push(format!("--{long}"));
     }
-    if let Some(c) = flag.short {
+    if let Some(c) = flag.short() {
         out.push(format!("-{c}"));
     }
     out
@@ -364,7 +364,11 @@ fn kept_spellings(flag: &Flag) -> Vec<String> {
 ///
 /// Split out from [`detect`]'s walk so the five conditions read in one
 /// place and can be exercised one at a time.
-fn dropped_alias(flag: &Flag, raw: &[char], known: &BTreeSet<String>) -> Option<(String, String)> {
+fn dropped_alias(
+    flag: &Entity,
+    raw: &[char],
+    known: &BTreeSet<String>,
+) -> Option<(String, String)> {
     // 1. A value spec is what interrupts an alias list; without one there
     //    is nothing for this rule to be about.
     let value = flag.value_name.as_deref()?;
@@ -452,10 +456,14 @@ pub fn detect(raw: &str, root: &CommandNode) -> AliasReport {
 /// A help-text-sourced flag as `sections::emit_flags` builds it: the
 /// spellings the grammar recovered, the placeholder it stored verbatim, and
 /// the description column beside it.
-fn row_flag(short: Option<char>, long: Option<&str>, value: Option<&str>) -> Flag {
-    let mut flag = Flag::long("", Provenance::single(Source::HelpText));
-    flag.long = long.map(str::to_string);
-    flag.short = short;
+fn row_flag(short: Option<char>, long: Option<&str>, value: Option<&str>) -> Entity {
+    let mut flag = Entity::flag_spelled(
+        short,
+        long.map(str::to_string),
+        false,
+        false,
+        Provenance::single(Source::HelpText),
+    );
     flag.value_name = value.map(str::to_string);
     flag.value_kind = if value.is_some() {
         ValueKind::Required
@@ -466,7 +474,7 @@ fn row_flag(short: Option<char>, long: Option<&str>, value: Option<&str>) -> Fla
 }
 
 /// A one-node tree named `name` carrying `flags`.
-fn tree(name: &str, flags: Vec<Flag>) -> CommandNode {
+fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
     root.flags = flags;
     root

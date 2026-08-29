@@ -79,7 +79,7 @@ use mandible_core::audit::{
     extract_tag_override, family_meaning, load, parse_verdict_word, save, tag_display,
     verdict_path, AuditFile, AuditMeta, Entry,
 };
-use mandible_core::{CommandNode, Flag};
+use mandible_core::{CommandNode, Entity};
 use mandible_extract::exec::ExecOutput;
 use mandible_extract::{default_tiers_with_probe, ExtractionResult, Runner};
 use rayon::prelude::*;
@@ -191,8 +191,8 @@ pub(crate) fn classify_all_with_recordings(
 /// glued the rest of a multi-character single-dash spelling onto
 /// `value_name` (`-fdump-scos` -> `short=Some('f')`, `long=None`,
 /// `value_name=Some("dump-scos")`). See [`Entry::k1`].
-fn is_k1_flag(flag: &Flag) -> bool {
-    flag.short.is_some() && flag.long.is_none() && flag.value_name.is_some()
+fn is_k1_flag(flag: &Entity) -> bool {
+    flag.short().is_some() && flag.long().is_none() && flag.value_name.is_some()
 }
 
 /// `(matching, total)` flag counts across `node` and every descendant, for
@@ -1642,10 +1642,9 @@ fn sample_flag_specs(root: &CommandNode) -> Vec<String> {
     root.flags
         .iter()
         .filter_map(|f| {
-            f.long
-                .as_deref()
+            f.long()
                 .map(|l| format!("--{l}"))
-                .or_else(|| f.short.map(|s| format!("-{s}")))
+                .or_else(|| f.short().map(|s| format!("-{s}")))
         })
         .take(SAMPLE_FLAG_CAP)
         .collect()
@@ -1836,18 +1835,20 @@ mod tests {
     // K1 pre-tag
     // -------------------------------------------------------------
 
-    fn k1_flag() -> Flag {
-        let mut f = Flag::long("", Provenance::single(Source::HelpText));
-        f.short = Some('f');
-        f.long = None;
+    fn k1_flag() -> Entity {
+        let mut f = Entity::flag_short('f', Provenance::single(Source::HelpText));
         f.value_name = Some("dump-scos".to_string());
         f
     }
 
-    fn ordinary_flag(short: char, long: &str) -> Flag {
-        let mut f = Flag::long(long, Provenance::single(Source::HelpText));
-        f.short = Some(short);
-        f
+    fn ordinary_flag(short: char, long: &str) -> Entity {
+        Entity::flag_spelled(
+            Some(short),
+            Some(long.to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        )
     }
 
     #[test]
@@ -1981,8 +1982,10 @@ mod tests {
         // heading — `CommandNode::new` defaults `heading_attested` to
         // `false`, which is the honest state for exactly this case.
         let mut root = CommandNode::new("git-lfs", Provenance::single(Source::HelpText));
-        root.flags
-            .push(Flag::long("version", Provenance::single(Source::HelpText)));
+        root.flags.push(Entity::flag_long(
+            "version",
+            Provenance::single(Source::HelpText),
+        ));
         root.subcommands.push(CommandNode::new(
             "install",
             Provenance::single(Source::HelpText),
@@ -2028,8 +2031,10 @@ mod tests {
         // this single pass — the ordinary, unremarkable lazy-fill state
         // every multi-level tool is in at sample time.
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
-        root.flags
-            .push(Flag::long("version", Provenance::single(Source::HelpText)));
+        root.flags.push(Entity::flag_long(
+            "version",
+            Provenance::single(Source::HelpText),
+        ));
         let mut child = CommandNode::new("clone", Provenance::single(Source::HelpText));
         child.heading_attested = true;
         root.subcommands.push(child);

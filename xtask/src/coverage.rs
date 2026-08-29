@@ -250,7 +250,7 @@ struct FlagFingerprint {
 }
 
 /// One tool's full field-level fingerprint: every flag, keyed by a stable
-/// per-node identity (never [`mandible_core::Flag::spelling`], which folds
+/// per-node identity (never [`mandible_core::Entity::spelling`], which folds
 /// the value placeholder into the same string a value_name change would
 /// then also perturb — see [`flag_identity`]), plus the full set of
 /// subcommand paths its tree reaches.
@@ -269,17 +269,17 @@ struct ToolFingerprint {
 /// path (`(root)` for the tool's own top-level flags) so two different
 /// subcommands' same-spelled flag (`git commit -m` vs `git tag -m`) never
 /// collide.
-fn flag_identity(path: &str, flag: &mandible_core::Flag) -> String {
+fn flag_identity(path: &str, flag: &mandible_core::Entity) -> String {
     let mut spelling = String::new();
-    if let Some(c) = flag.short {
+    if let Some(c) = flag.short() {
         spelling.push('-');
         spelling.push(c);
     }
-    if let Some(l) = &flag.long {
+    if let Some(l) = flag.long() {
         if !spelling.is_empty() {
             spelling.push(',');
         }
-        spelling.push_str(if flag.single_dash { "-" } else { "--" });
+        spelling.push_str(if flag.single_dash() { "-" } else { "--" });
         spelling.push_str(l);
     }
     format!("{path}::{spelling}")
@@ -2720,11 +2720,16 @@ mod tests {
     /// with no process spawned at all.
     #[test]
     fn fingerprint_footer_round_trips_a_synthetic_tree() {
-        use mandible_core::{CommandNode, Flag, Provenance, Source, Text, ValueKind};
+        use mandible_core::{CommandNode, Entity, Provenance, Source, Text, ValueKind};
 
         let mut root = CommandNode::new("demo", Provenance::single(Source::HelpText));
-        let mut flag = Flag::long("verbose", Provenance::single(Source::HelpText));
-        flag.short = Some('v');
+        let mut flag = Entity::flag_spelled(
+            Some('v'),
+            Some("verbose".to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        );
         flag.description = Some(Text::sanitize("increase verbosity"));
         flag.choices = vec![Text::sanitize("low"), Text::sanitize("high")];
         flag.value_name = Some("LEVEL".to_string());
@@ -2816,12 +2821,10 @@ mod tests {
     /// the line survives and the value_name comes back byte-for-byte.
     #[test]
     fn fingerprint_footer_round_trips_a_value_name_containing_the_flag_list_separator() {
-        use mandible_core::{CommandNode, Flag, Provenance, Source};
+        use mandible_core::{CommandNode, Entity, Provenance, Source};
 
         let mut root = CommandNode::new("awk", Provenance::single(Source::HelpText));
-        let mut flag = Flag::long("L", Provenance::single(Source::HelpText));
-        flag.long = None;
-        flag.short = Some('L');
+        let mut flag = Entity::flag_short('L', Provenance::single(Source::HelpText));
         flag.value_name = Some("fatal|invalid|no-ext".to_string());
         root.flags.push(flag);
 
@@ -2859,34 +2862,35 @@ mod tests {
     /// (the escape character itself, which must round-trip too).
     #[test]
     fn fingerprint_footer_round_trips_every_separator_character() {
-        use mandible_core::{CommandNode, Flag, Provenance, Source};
+        use mandible_core::{CommandNode, Entity, Provenance, Source};
 
         let mut root = CommandNode::new("demo", Provenance::single(Source::HelpText));
 
-        let mut comma_flag = Flag::long("comma-value", Provenance::single(Source::HelpText));
+        let mut comma_flag = Entity::flag_long("comma-value", Provenance::single(Source::HelpText));
         comma_flag.value_name = Some("a,b".to_string());
         root.flags.push(comma_flag);
 
-        let mut equals_flag = Flag::long("equals-value", Provenance::single(Source::HelpText));
+        let mut equals_flag =
+            Entity::flag_long("equals-value", Provenance::single(Source::HelpText));
         equals_flag.value_name = Some("a=b".to_string());
         root.flags.push(equals_flag);
 
-        let mut colon_flag = Flag::long("colon-value", Provenance::single(Source::HelpText));
+        let mut colon_flag = Entity::flag_long("colon-value", Provenance::single(Source::HelpText));
         colon_flag.value_name = Some("a:b".to_string());
         root.flags.push(colon_flag);
 
-        let mut tab_flag = Flag::long("tab-value", Provenance::single(Source::HelpText));
+        let mut tab_flag = Entity::flag_long("tab-value", Provenance::single(Source::HelpText));
         tab_flag.value_name = Some("a\tb".to_string());
         root.flags.push(tab_flag);
 
         let mut backslash_flag =
-            Flag::long("backslash-value", Provenance::single(Source::HelpText));
+            Entity::flag_long("backslash-value", Provenance::single(Source::HelpText));
         backslash_flag.value_name = Some("a\\b".to_string());
         root.flags.push(backslash_flag);
 
         // Defensive: a flag whose own long spelling (not just its
         // value_name) carries the flag-list separator.
-        let pipe_id_flag = Flag::long("weird|name", Provenance::single(Source::HelpText));
+        let pipe_id_flag = Entity::flag_long("weird|name", Provenance::single(Source::HelpText));
         root.flags.push(pipe_id_flag);
 
         // Defensive: a subcommand name carrying the subcommand-list

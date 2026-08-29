@@ -244,7 +244,7 @@ mod tests {
         use mandible_core::{Provenance, Source};
 
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
-        root.flags.push(mandible_core::Flag::long(
+        root.flags.push(mandible_core::Entity::flag_long(
             "paginate",
             Provenance::single(Source::HelpTextSynopsis),
         ));
@@ -273,14 +273,15 @@ mod tests {
 
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
         for name in ["paginate", "git-dir", "no-pager"] {
-            root.flags.push(mandible_core::Flag::long(
+            root.flags.push(mandible_core::Entity::flag_long(
                 name,
                 Provenance::single(Source::HelpTextSynopsis),
             ));
         }
         let mut restore = CommandNode::new("restore", Provenance::single(Source::HelpText));
         for name in ["source", "staged"] {
-            let mut f = mandible_core::Flag::long(name, Provenance::single(Source::HelpText));
+            let mut f =
+                mandible_core::Entity::flag_long(name, Provenance::single(Source::HelpText));
             f.description = Some(mandible_core::Text::sanitize("described from -h"));
             restore.flags.push(f);
         }
@@ -314,12 +315,9 @@ mod tests {
     fn node_with_unfollowed_confession() -> CommandNode {
         use mandible_core::{Confession, Provenance, Source};
         let mut root = CommandNode::new("curl", Provenance::single(Source::HelpText));
-        root.confession = Some(Confession {
-            word: "all".to_string(),
-            flag: "--help".to_string(),
-            followed: false,
-        });
-        let mut f = mandible_core::Flag::long("verbose", Provenance::single(Source::HelpText));
+        root.confession = Some(Confession::new("all", "--help", false));
+        let mut f =
+            mandible_core::Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         f.description = Some(mandible_core::Text::sanitize("be more talkative"));
         root.flags.push(f);
         root
@@ -347,20 +345,17 @@ mod tests {
     fn incomplete_never_elevates_a_worse_status() {
         use mandible_core::{Confession, Provenance, Source};
         let mut root = CommandNode::new("mystery", Provenance::single(Source::HelpText));
-        root.confession = Some(Confession {
-            word: "all".to_string(),
-            flag: "--help".to_string(),
-            followed: false,
-        });
+        root.confession = Some(Confession::new("all", "--help", false));
         // No description at all -> pct_flags_with_text stays None-or-low;
         // add one undescribed flag to force `low-confidence` via the
         // existing 50% rule rather than `pct_flags_with_text: None`.
-        root.flags.push(mandible_core::Flag::long(
+        root.flags.push(mandible_core::Entity::flag_long(
             "verbose",
             Provenance::single(Source::HelpText),
         ));
         root.flags.push({
-            let mut f = mandible_core::Flag::long("quiet", Provenance::single(Source::HelpText));
+            let mut f =
+                mandible_core::Entity::flag_long("quiet", Provenance::single(Source::HelpText));
             f.description = None;
             f
         });
@@ -380,17 +375,15 @@ mod tests {
     fn an_unfollowed_confession_on_a_subcommand_still_caps_the_tree() {
         use mandible_core::{Confession, Provenance, Source};
         let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
-        let mut f = mandible_core::Flag::long("verbose", Provenance::single(Source::HelpText));
+        let mut f =
+            mandible_core::Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         f.description = Some(mandible_core::Text::sanitize("be more talkative"));
         root.flags.push(f);
 
         let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        child.confession = Some(Confession {
-            word: "all".to_string(),
-            flag: "--help".to_string(),
-            followed: false,
-        });
-        let mut cf = mandible_core::Flag::long("amend", Provenance::single(Source::HelpText));
+        child.confession = Some(Confession::new("all", "--help", false));
+        let mut cf =
+            mandible_core::Entity::flag_long("amend", Provenance::single(Source::HelpText));
         cf.description = Some(mandible_core::Text::sanitize("amend the previous thing"));
         child.flags.push(cf);
         root.subcommands.push(child);
@@ -412,12 +405,9 @@ mod tests {
     fn a_followed_confession_does_not_cap_the_status() {
         use mandible_core::{Confession, Provenance, Source};
         let mut root = CommandNode::new("curl", Provenance::single(Source::HelpText));
-        root.confession = Some(Confession {
-            word: "all".to_string(),
-            flag: "--help".to_string(),
-            followed: true,
-        });
-        let mut f = mandible_core::Flag::long("verbose", Provenance::single(Source::HelpText));
+        root.confession = Some(Confession::new("all", "--help", true));
+        let mut f =
+            mandible_core::Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         f.description = Some(mandible_core::Text::sanitize("be more talkative"));
         root.flags.push(f);
 
