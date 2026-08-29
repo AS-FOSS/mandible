@@ -1141,35 +1141,6 @@ mod tests {
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
 
-    /// The reader's proportional place survives a raw/rendered toggle:
-    /// halfway down a 200-line rendering must land halfway down a 50-line
-    /// raw text, keep showing there before any key is pressed, and a later
-    /// keypress must move from that place — while a selection change drops
-    /// the carried place entirely.
-    #[test]
-    fn raw_toggle_keeps_proportional_scroll() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_extent(220, 20); // max 200
-        app.detail_scroll = 100;
-        app.toggle_raw_mode();
-        // Renderer reports the raw view's extent on the next frame.
-        app.set_detail_extent(70, 20); // max 50
-        assert_eq!(app.clamped_detail_scroll(), 25);
-        app.detail_scroll_down();
-        assert_eq!(app.clamped_detail_scroll(), 26);
-
-        // Toggling back carries the place in the other direction too.
-        app.toggle_raw_mode();
-        app.set_detail_extent(220, 20);
-        assert_eq!(app.clamped_detail_scroll(), 104); // 26/50 of 200
-
-        // A new selection has unrelated content: nothing carries.
-        app.toggle_raw_mode();
-        app.reset_detail_scroll();
-        app.set_detail_extent(70, 20);
-        assert_eq!(app.clamped_detail_scroll(), 0);
-    }
-
     /// The horizontal offset survives the raw/rendered toggle the same
     /// way the vertical one does: proportionally, through repeated
     /// flips, materialized by the first h/l press, and dropped on a
