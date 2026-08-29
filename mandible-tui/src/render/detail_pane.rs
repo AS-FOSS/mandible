@@ -578,8 +578,8 @@ struct BuiltLines {
 /// run of them reads as loose text against the pane border rather than as a
 /// list; the flag-shaped sections keep the edge, where the short and long
 /// columns are structure the eye follows down the section. The indent is
-/// [`POSITIONAL_INDENT`] — the long-flag column, so the inset section lands
-/// on a column the page already has rather than beside one.
+/// [`POSITIONAL_INDENT`], a number of its own rather than a share of the
+/// flag columns.
 const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
     (EntityKind::Positional, "POSITIONALS", POSITIONAL_INDENT),
     (EntityKind::Flag, "FLAGS", 0),
@@ -1140,21 +1140,19 @@ const SHORT_COLUMN: usize = 0;
 /// letter as well.
 const LONG_COLUMN: usize = "-X, ".len();
 
-/// The indent POSITIONALS rows are inset by (spec §9.3): the long-flag
-/// column, [`LONG_COLUMN`].
+/// The indent POSITIONALS rows are inset by (spec §9.3).
 ///
-/// Derived, never a number of its own. An inset section and a flag-shaped
-/// one are read down the same page, so the one column the pane already
-/// has is the one to put the positionals on: a bare name in POSITIONALS
-/// then starts exactly where `--verbose` starts in FLAGS, and the reader
-/// follows one edge from the top of the document to the bottom instead of
-/// two that nearly agree. A second constant here could only ever drift
-/// away from the first.
+/// Two columns: enough to set a loose list of bare names in from the pane's
+/// edge, and not so much that it costs the descriptions width. Its own
+/// number, deliberately **not** [`LONG_COLUMN`] — the inset exists to keep
+/// a run of dashless names off the pane's border, which is a question about
+/// this section alone, and tying it to the flag columns would couple two
+/// layouts that have no reason to move together.
 ///
 /// MODIFIERS and ENVIRONMENT are bare-name sections too, but they are laid
 /// out like FLAGS — one tight list against the content edge — and stay
 /// there.
-const POSITIONAL_INDENT: usize = LONG_COLUMN;
+const POSITIONAL_INDENT: usize = 2;
 
 /// The column an entity's spellings start at within a section indented by
 /// `indent` (spec §9.3).

@@ -2199,18 +2199,18 @@ Rules:
   detail pane is 41 columns wide and the clamp puts the column at 13,
   which still holds a short-and-long pair; wider heads push their own
   first lines.
-- **POSITIONALS is inset to the long column; the flag-shaped sections are
+- **POSITIONALS is inset by two columns; the flag-shaped sections are
   not.** A positional's name carries no dashes to start it, so a run of
   bare names at the content edge reads as loose text against the pane's
-  border rather than as a list. The inset is the long column itself — the
-  width of a short prefix, `-X, ` — and not a second number chosen to be
-  small: a positional then starts exactly where a preindented long starts
-  in FLAGS, so one edge runs down the whole document. An inset that merely
-  approaches that column is worse than none, because two nearly-aligned
-  columns on one page read as a mistake rather than as a choice. FLAGS,
-  MODIFIERS and ENVIRONMENT keep the edge: their short and long columns
-  are structure the eye follows down the section, and an indent would push
-  that structure right to buy nothing.
+  border rather than as a list. Two columns is enough to set that list in
+  from the edge and little enough that it costs the descriptions nothing
+  that matters. The number is the section's own and is deliberately not
+  the long column: the inset answers a question about this section alone,
+  and deriving it from the flag columns would couple two layouts that have
+  no reason to move together. FLAGS, MODIFIERS and ENVIRONMENT keep the
+  edge: their short and long columns are structure the eye follows down
+  the section, and an indent would push that structure right to buy
+  nothing.
 - **Exactly one blank row between a section's last row and the next
   section's header**, and none above the first header on the page. The
   separator belongs to the section that opens, never to the one that
