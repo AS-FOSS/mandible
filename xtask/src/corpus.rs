@@ -56,7 +56,7 @@
 //! shared runner having a bad afternoon.
 
 use crate::coverage::ScoreFormat;
-use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
+use mandible_core::{CommandNode, Entity, Provenance, Source, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
@@ -1054,7 +1054,7 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 /// `must_contain_flags_by_path`/`must_not_contain_flags` spec (the last
 /// one negated by its caller, so that a positive and a negative claim can
 /// never disagree about what a spelling *means*): `--long-name` matches
-/// [`mandible_core::Flag::long`], `-x` matches [`mandible_core::Flag::short`],
+/// [`mandible_core::Entity::long`], `-x` matches [`mandible_core::Entity::short`],
 /// anything else is matched against `long` verbatim. Only ever checks the
 /// one node it's given, never recursing into its subcommands itself —
 /// `must_contain_flags` calls this with the fixture's root (what a tool
@@ -1063,14 +1063,14 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 /// [`find_node_by_path`] resolved.
 fn flag_present(node: &CommandNode, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
-        node.flags.iter().any(|f| f.long.as_deref() == Some(long))
+        node.flags.iter().any(|f| f.long() == Some(long))
     } else if let Some(short) = spec.strip_prefix('-') {
         short
             .chars()
             .next()
-            .is_some_and(|c| node.flags.iter().any(|f| f.short == Some(c)))
+            .is_some_and(|c| node.flags.iter().any(|f| f.short() == Some(c)))
     } else {
-        node.flags.iter().any(|f| f.long.as_deref() == Some(spec))
+        node.flags.iter().any(|f| f.long() == Some(spec))
     }
 }
 
@@ -1455,9 +1455,9 @@ fn count_flags(node: &CommandNode) -> usize {
 
 fn collect_flag_names(node: &CommandNode, out: &mut BTreeSet<String>) {
     for f in &node.flags {
-        if let Some(long) = &f.long {
+        if let Some(long) = f.long() {
             out.insert(format!("--{long}"));
-        } else if let Some(short) = f.short {
+        } else if let Some(short) = f.short() {
             out.insert(format!("-{short}"));
         }
     }
@@ -1541,9 +1541,13 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
         .flags
         .iter()
         .map(|f| {
-            let mut flag = Flag::long("", Provenance::single(Source::HelpText));
-            flag.long = f.long.clone();
-            flag.short = f.short;
+            let mut flag = Entity::flag_spelled(
+                f.short,
+                f.long.clone(),
+                false,
+                false,
+                Provenance::single(Source::HelpText),
+            );
             flag.description = f.description.as_deref().map(Text::sanitize);
             flag
         })
@@ -2176,13 +2180,9 @@ run = ["--source", "--staged"]
             vec!["must_contain_positionals: missing pid, interval"]
         );
 
-        root.positionals.push(Positional {
-            name: "pid".into(),
-            required: true,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut pid = Positional::new("pid", Provenance::single(Source::HelpText));
+        pid.required = true;
+        root.positionals.push(pid);
         assert_eq!(
             check_contract(&contract, Some(&root))
                 .iter()
@@ -2191,13 +2191,10 @@ run = ["--source", "--staged"]
             vec!["must_contain_positionals: missing interval"]
         );
 
-        root.positionals.push(Positional {
-            name: "interval".into(),
-            required: false,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        root.positionals.push(Positional::new(
+            "interval",
+            Provenance::single(Source::HelpText),
+        ));
         assert!(check_contract(&contract, Some(&root)).is_empty());
         // No root at all is a failure of the same field, never a silent pass.
         assert_eq!(
@@ -2226,13 +2223,15 @@ run = ["--source", "--staged"]
         let mut root = CommandNode::new("mariadb-check", Provenance::single(Source::HelpText));
 
         // A tree that invents neither is clean.
-        root.flags
-            .push(Flag::long("check", Provenance::single(Source::HelpText)));
+        root.flags.push(Entity::flag_long(
+            "check",
+            Provenance::single(Source::HelpText),
+        ));
         assert!(check_contract(&contract, Some(&root)).is_empty());
 
         // The phantom appears: reported, and named by the spelling the
         // fixture author wrote, not by the stripped long name.
-        root.flags.push(Flag::long(
+        root.flags.push(Entity::flag_long(
             "-------------------------------",
             Provenance::single(Source::HelpText),
         ));
@@ -2245,8 +2244,10 @@ run = ["--source", "--staged"]
         );
 
         // Both present, both named, in the fixture's own order.
-        root.flags
-            .push(Flag::long("bogus", Provenance::single(Source::HelpText)));
+        root.flags.push(Entity::flag_long(
+            "bogus",
+            Provenance::single(Source::HelpText),
+        ));
         assert_eq!(
             check_contract(&contract, Some(&root))
                 .iter()
@@ -2262,9 +2263,7 @@ run = ["--source", "--staged"]
             ..ContractMeta::default()
         };
         let mut shorty = CommandNode::new("t", Provenance::single(Source::HelpText));
-        let mut short_flag = Flag::long("verbose", Provenance::single(Source::HelpText));
-        short_flag.short = Some('b');
-        short_flag.long = None;
+        let short_flag = Entity::flag_short('b', Provenance::single(Source::HelpText));
         shorty.flags.push(short_flag);
         assert!(check_contract(&short_only, Some(&shorty)).is_empty());
 
@@ -2272,9 +2271,10 @@ run = ["--source", "--staged"]
         // carrying the forbidden spelling is out of scope.
         let mut with_child = CommandNode::new("t", Provenance::single(Source::HelpText));
         let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        child
-            .flags
-            .push(Flag::long("bogus", Provenance::single(Source::HelpText)));
+        child.flags.push(Entity::flag_long(
+            "bogus",
+            Provenance::single(Source::HelpText),
+        ));
         with_child.subcommands.push(child);
         let bogus_only = ContractMeta {
             must_not_contain_flags: vec!["--bogus".into()],
@@ -2491,7 +2491,7 @@ stdout = "help-sub.txt"
         let sub = &root.subcommands[0];
         assert_eq!(sub.name, "sub");
         assert!(
-            sub.flags.iter().any(|f| f.long.as_deref() == Some("deep")),
+            sub.flags.iter().any(|f| f.long() == Some("deep")),
             "the recursive fill must have picked up sub's own captured --help: {sub:?}"
         );
     }

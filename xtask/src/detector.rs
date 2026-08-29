@@ -891,12 +891,10 @@ fn argparse_positional_node(name: &str, positionals: &[&str], subcommands: &[&st
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
     root.positionals = positionals
         .iter()
-        .map(|p| Positional {
-            name: (*p).to_string(),
-            required: true,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
+        .map(|p| {
+            let mut positional = Positional::new(*p, Provenance::single(Source::HelpText));
+            positional.required = true;
+            positional
         })
         .collect();
     root.subcommands = subcommands
@@ -1303,10 +1301,10 @@ const DROPPED_ALIAS_EXCLUSIONS: &[Exclusion] = &[
                long form past the description column — since recovered, by the aligned-spelling- \
                column split (`help_text::sections::spelling_run`), so this half of the ground is \
                now historical and the row is kept here because the ground is still *measured* \
-               from it — and `-? -h --help` names a second short that `mandible_core::Flag` has \
-               no field to hold (one `short: Option<char>`), exactly as `-A, --catenate, \
-               --concatenate` names a second long it cannot hold either; that second half is \
-               what still excludes the tool",
+               from it — and `-? -h --help` names a second short that this module's `short()` \
+               accessor has no way to surface (one `Option<char>`), exactly as `-A, --catenate, \
+               --concatenate` names a second long its `long()` accessor cannot surface either; \
+               that second half is what still excludes the tool",
     },
 ];
 
@@ -1340,7 +1338,8 @@ impl Detector for DroppedAliasDetector {
                     boundary and a whole flag spelling follows it. Pairs separated by anything \
                     else are deliberately not claimed: a wide space run is the description column \
                     (`jdeprscan`), a brace group is its own labelled family (`eqn`), and a second \
-                    short or a second long has no field in `mandible_core::Flag` to reach at all. \
+                    short or a second long has no accessor to reach at all (`Entity::short`/ \
+                    `Entity::long` each surface one). \
                     Narrow on purpose — the loose rule this replaces would merge two genuinely \
                     different flags, and a fabricated alias is worse than a dropped one",
             known_exclusions: DROPPED_ALIAS_EXCLUSIONS,
@@ -1439,13 +1438,7 @@ fn positional_node(name: &str, positionals: &[&str]) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
     root.positionals = positionals
         .iter()
-        .map(|p| Positional {
-            name: (*p).to_string(),
-            required: false,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        })
+        .map(|p| Positional::new(*p, Provenance::single(Source::HelpText)))
         .collect();
     root
 }
@@ -3045,13 +3038,9 @@ mod tests {
     fn unparsed_positional_is_silent_when_positionals_were_extracted() {
         let raw = "positional arguments:\n  pid  process id\n";
         let mut with = node("t");
-        with.positionals.push(mandible_core::Positional {
-            name: "pid".to_string(),
-            required: true,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut pid = mandible_core::Positional::new("pid", Provenance::single(Source::HelpText));
+        pid.required = true;
+        with.positionals.push(pid);
         assert!(UnparsedArgparsePositional
             .hits(&ToolEvidence { raw, root: &with })
             .is_empty());

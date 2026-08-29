@@ -93,7 +93,7 @@
 //!
 //! - **Alias pairing** (`mandible_core::merge::pair_aliases`) merges a
 //!   short and long row that arrived as separate items with identical
-//!   descriptions into one `Flag` carrying both `short` and `long`. Each
+//!   descriptions into one entity carrying both a short and a long spelling. Each
 //!   spelling is still checked independently against the *whole* raw text
 //!   (not required to sit on the same line or even the same cell as its
 //!   partner) — pairing only ever unifies items that came from the same
@@ -111,7 +111,7 @@
 //!   and bare `--gpg-sign` all attest the same stored flag.
 //! - **Negatable booleans**: `--[no-]source` is stored as `long: "source"`,
 //!   `negatable: true` — `long` never contains the brackets
-//!   (`mandible_core::Flag::negatable`'s own doc comment). The raw text
+//!   (`mandible_core::Entity::negatable`'s own doc comment). The raw text
 //!   never contains the bare substring `--source` at all in this shape; it
 //!   contains `--[no-]source` (or getopt_long's shorter `--[no]source`).
 //!   [`long_candidates`] builds both bracketed forms (plus the bare form,
@@ -194,7 +194,7 @@
 //! no second, unrecorded raw text a deeper node's fields could have
 //! legitimately come from instead.
 
-use mandible_core::{is_command_name_shaped, CommandNode, Flag, Provenance, Source};
+use mandible_core::{is_command_name_shaped, CommandNode, Entity, Provenance, Source};
 use std::collections::HashSet;
 
 /// Whether `flag_char` may not immediately follow (or precede) a candidate
@@ -990,7 +990,7 @@ fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a 
 /// respecting match of the *actual extracted value text* — a coincidental
 /// collision with unrelated raw text is not a realistic risk for any
 /// value_name with real content.
-fn short_candidates(flag: &Flag, short: char) -> Vec<String> {
+fn short_candidates(flag: &Entity, short: char) -> Vec<String> {
     let mut candidates = vec![format!("-{short}")];
     if let Some(value) = &flag.value_name {
         candidates.push(format!("-{short}{value}"));
@@ -1085,16 +1085,16 @@ fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
 /// *actual extracted value text*, so a genuinely invented long flag with a
 /// value spec is still reported (`detect_still_flags_a_genuinely_
 /// fabricated_long_flag_with_a_value_name`).
-fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
+fn long_candidates(flag: &Entity, long: &str) -> Vec<String> {
     // One dash or two, from the flag itself. A single-dash long option
-    // (`mandible_core::Flag::single_dash` — `qemu -help`, `bpftrace -vv`,
+    // (`mandible_core::Entity::single_dash` — `qemu -help`, `bpftrace -vv`,
     // `lto-dump -CC`) holds its bare name in `long` exactly as a `--`
     // option does, so searching the raw text for `--vv` would report a
     // perfectly real, correctly-parsed flag as an invention. Measured: the
     // repeated-character repair moved `lto-dump` from 10 fabrications to 12
     // until this was fixed, and both were `-CC`/`-MM`.
-    let dashes = if flag.single_dash { "-" } else { "--" };
-    let bases = if flag.negatable {
+    let dashes = if flag.single_dash() { "-" } else { "--" };
+    let bases = if flag.negatable() {
         vec![
             format!("{dashes}[no-]{long}"),
             format!("{dashes}[no]{long}"),
@@ -1117,10 +1117,10 @@ fn long_candidates(flag: &Flag, long: &str) -> Vec<String> {
 
 /// The display spelling for a fabrication report — `--[no-]foo` for a
 /// negatable long flag, `--foo` otherwise, matching
-/// `mandible_core::Flag::spelling`'s own convention for the long half.
-fn display_long(flag: &Flag, long: &str) -> String {
-    let dashes = if flag.single_dash { "-" } else { "--" };
-    if flag.negatable {
+/// `mandible_core::Entity::spelling`'s own convention for the long half.
+fn display_long(flag: &Entity, long: &str) -> String {
+    let dashes = if flag.single_dash() { "-" } else { "--" };
+    if flag.negatable() {
         format!("{dashes}[no-]{long}")
     } else {
         format!("{dashes}{long}")
@@ -1157,7 +1157,7 @@ pub enum FabricationKind {
     /// A `CommandNode::name` with no line-start-ish occurrence anywhere in
     /// the raw text — [M-10]'s exact shape.
     Subcommand,
-    /// A `Flag` short or long spelling with no boundary-respecting
+    /// An `Entity` short or long spelling with no boundary-respecting
     /// occurrence anywhere in the raw text.
     Flag,
     /// A `Positional` name that occurs at no position a real operand
@@ -1183,7 +1183,7 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
         if !is_help_text_sourced(&flag.provenance) {
             continue;
         }
-        if let Some(short) = flag.short {
+        if let Some(short) = flag.short() {
             let spelling = format!("-{short}");
             let candidates = short_candidates(flag, short);
             let attested = candidates.iter().any(|c| spelling_occurs(raw, c))
@@ -1196,7 +1196,7 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
                 });
             }
         }
-        if let Some(long) = &flag.long {
+        if let Some(long) = flag.long() {
             let candidates = long_candidates(flag, long);
             if !candidates.iter().any(|c| spelling_occurs(raw, c)) {
                 out.push(Fabrication {
@@ -1291,12 +1291,14 @@ mod tests {
     use crate::misattribution::RecordingProbe;
     use mandible_core::{Provenance, Source};
 
-    fn help_text_flag(short: Option<char>, long: Option<&str>, negatable: bool) -> Flag {
-        let mut flag = Flag::long(long.unwrap_or(""), Provenance::single(Source::HelpText));
-        flag.short = short;
-        flag.long = long.map(str::to_string);
-        flag.negatable = negatable;
-        flag
+    fn help_text_flag(short: Option<char>, long: Option<&str>, negatable: bool) -> Entity {
+        Entity::flag_spelled(
+            short,
+            long.map(str::to_string),
+            false,
+            negatable,
+            Provenance::single(Source::HelpText),
+        )
     }
 
     fn help_text_node(name: &str) -> CommandNode {
@@ -1645,14 +1647,14 @@ mod tests {
         let raw = "    -v      verbose messages\n    -vv     more verbose messages\n";
         let mut root = help_text_node("t");
         let mut flag = help_text_flag(None, Some("vv"), false);
-        flag.single_dash = true;
+        flag.spellings = vec![mandible_core::Spelling::single_dash("vv")];
         root.flags.push(flag);
         assert_eq!(detect(raw, &root).fabrication_count(), 0);
         // ...and a genuinely invented one is still reported, with the
         // single-dash spelling it claims to have.
         let mut root = help_text_node("t");
         let mut flag = help_text_flag(None, Some("qq"), false);
-        flag.single_dash = true;
+        flag.spellings = vec![mandible_core::Spelling::single_dash("qq")];
         root.flags.push(flag);
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
@@ -2003,7 +2005,7 @@ mod tests {
     fn detect_does_not_flag_a_short_and_long_pair_from_separate_alias_rows() {
         // `mandible_core::merge::pair_aliases`'s own real shape: `-R` and
         // `--repo` arrive as two rows with an identical description and
-        // get unified into one `Flag` carrying both spellings. Neither
+        // get unified into one `Entity` carrying both spellings. Neither
         // needs to sit next to the other in the raw text.
         let raw = "  -R  Select another repository\n  --repo  Select another repository (long form documented on its own line)\n";
         let mut root = help_text_node("gh");
@@ -2017,13 +2019,12 @@ mod tests {
     fn detect_ignores_flags_not_sourced_from_help_text() {
         let raw = "  -v, --verbose  be verbose\n";
         let mut root = help_text_node("t");
-        let mut invented = Flag::long(
+        let invented = Entity::flag_long(
             "totally-invented",
             Provenance::single(Source::KnownSpec {
                 provider: "carapace".to_string(),
             }),
         );
-        invented.short = None;
         root.flags.push(invented);
         let report = detect(raw, &root);
         assert_eq!(
@@ -2184,13 +2185,7 @@ mod tests {
     // --- positional operands ---------------------------------------------
 
     fn help_text_positional(name: &str) -> mandible_core::Positional {
-        mandible_core::Positional {
-            name: name.to_string(),
-            required: false,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        }
+        mandible_core::Positional::new(name, Provenance::single(Source::HelpText))
     }
 
     /// Every option-list placeholder shape the 15-tool fix removed, each

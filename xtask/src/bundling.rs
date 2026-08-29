@@ -240,7 +240,7 @@
 //! deleting this module.
 
 use crate::existence::spelling_occurs;
-use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
+use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
 use std::collections::HashSet;
 
 /// The fewest swallowed members a cluster must have before it is reported.
@@ -431,14 +431,14 @@ impl BundleReport {
 ///
 /// Split out from [`detect`]'s walk so the seven conditions are readable in
 /// one place and testable one at a time.
-fn collapsed_cluster(flag: &Flag, raw: &str) -> Option<String> {
+fn collapsed_cluster(flag: &Entity, raw: &str) -> Option<String> {
     // 1. Synopsis-sourced.
     if !is_synopsis_sourced(&flag.provenance) {
         return None;
     }
     // 2. A bare short flag carrying a required value.
-    let short = flag.short?;
-    if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+    let short = flag.short()?;
+    if flag.long().is_some() || flag.value_kind != ValueKind::Required {
         return None;
     }
     let value = flag.value_name.as_deref()?;
@@ -476,7 +476,7 @@ fn walk(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Collapse>) {
         let Some(cluster) = collapsed_cluster(flag, raw) else {
             continue;
         };
-        let Some(short) = flag.short else {
+        let Some(short) = flag.short() else {
             continue;
         };
         out.push(Collapse {
@@ -525,14 +525,11 @@ pub fn detect(raw: &str, root: &CommandNode) -> BundleReport {
 // facts (which cluster, how many flags destroyed); these cases are the
 // subset a shipped binary can re-run on demand.
 
-/// A short flag carrying `value`, sourced from `source` — built the way
-/// `mandible_core::Flag`'s own constructors allow (there is only a
-/// `Flag::long`), then corrected, exactly as `crate::existence`'s own
-/// helper does.
-fn short_flag(short: char, value: Option<&str>, source: Source) -> Flag {
-    let mut flag = Flag::long("", Provenance::single(source));
-    flag.long = None;
-    flag.short = Some(short);
+/// A short flag carrying `value`, sourced from `source` — built through
+/// [`Entity::flag_short`], then corrected, exactly as `crate::existence`'s
+/// own helper does.
+fn short_flag(short: char, value: Option<&str>, source: Source) -> Entity {
+    let mut flag = Entity::flag_short(short, Provenance::single(source));
     flag.value_name = value.map(str::to_string);
     flag.value_kind = if value.is_some() {
         ValueKind::Required
@@ -545,7 +542,7 @@ fn short_flag(short: char, value: Option<&str>, source: Source) -> Flag {
 /// A synopsis-sourced flag exactly as `sections::push_usage_flag` builds
 /// it: short spelling, no long name, a required value, no description (a
 /// usage line has none to give).
-fn synopsis_flag(short: char, value: Option<&str>) -> Flag {
+fn synopsis_flag(short: char, value: Option<&str>) -> Entity {
     short_flag(short, value, Source::HelpTextSynopsis)
 }
 
@@ -554,7 +551,7 @@ fn synopsis_node(name: &str) -> CommandNode {
 }
 
 /// A one-node tree named `name` carrying `flags`.
-fn tree(name: &str, flags: Vec<Flag>) -> CommandNode {
+fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = synopsis_node(name);
     root.flags = flags;
     root
@@ -772,7 +769,7 @@ mod tests {
     }
 
     /// Build a one-node tree carrying `flags` and run [`detect`] over it.
-    fn report(raw: &str, name: &str, flags: Vec<Flag>) -> BundleReport {
+    fn report(raw: &str, name: &str, flags: Vec<Entity>) -> BundleReport {
         detect(raw, &tree(name, flags))
     }
 
@@ -1101,7 +1098,7 @@ mod tests {
         // one was read from something else entirely.
         let raw = "usage: t [-aBcD]\n";
         let mut flag = synopsis_flag('a', Some("BcD"));
-        flag.long = Some("alpha".to_string());
+        flag.spellings.push(mandible_core::Spelling::long("alpha"));
         let r = report(raw, "t", vec![flag]);
         assert_eq!(r.collapse_count(), 0);
     }
@@ -1245,7 +1242,7 @@ mod tests {
         // Every member is its own flag now — asserted before the detector
         // runs, so this cannot pass for the wrong reason (a tree with no
         // synopsis flags at all would also report zero collapses).
-        let shorts: Vec<char> = root.flags.iter().filter_map(|f| f.short).collect();
+        let shorts: Vec<char> = root.flags.iter().filter_map(|f| f.short()).collect();
         for member in "AbdDefhHIJKlLnNOpqStuUvxX#".chars() {
             assert!(
                 shorts.contains(&member),
@@ -1278,7 +1275,7 @@ mod tests {
             let flag = root
                 .flags
                 .iter()
-                .find(|f| f.short == Some(member))
+                .find(|f| f.short() == Some(member))
                 .unwrap_or_else(|| panic!("-{member} missing from tmux's tree"));
             assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
             assert_eq!(flag.value_kind, ValueKind::None, "-{member} takes no value");
@@ -1293,7 +1290,7 @@ mod tests {
             let flag = root
                 .flags
                 .iter()
-                .find(|f| f.short == Some(short))
+                .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| panic!("-{short} missing from tmux's tree"));
             assert_eq!(flag.value_name.as_deref(), Some(value));
         }

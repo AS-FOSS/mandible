@@ -383,16 +383,16 @@ impl Vocabulary {
             self.names.insert(p.name.to_lowercase());
         }
         for flag in &node.flags {
-            if let Some(short) = flag.short {
+            if let Some(short) = flag.short() {
                 self.flags.insert(format!("-{short}"));
                 if let Some(v) = &flag.value_name {
                     self.flags.insert(format!("-{short}{v}"));
                     self.flags.insert(format!("-{short}={v}"));
                 }
             }
-            if let Some(long) = &flag.long {
+            if let Some(long) = flag.long() {
                 self.flags.insert(format!("--{long}"));
-                if flag.negatable {
+                if flag.negatable() {
                     self.flags.insert(format!("--[no-]{long}"));
                     self.flags.insert(format!("--[no]{long}"));
                 }
@@ -817,17 +817,20 @@ fn print_validation(ranked: &[Ranked], _top: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Flag, Provenance, Source};
+    use mandible_core::{Entity, Provenance, Source};
 
     fn node(name: &str) -> CommandNode {
         CommandNode::new(name, Provenance::single(Source::HelpText))
     }
 
-    fn flag(short: Option<char>, long: Option<&str>) -> Flag {
-        let mut f = Flag::long(long.unwrap_or(""), Provenance::single(Source::HelpText));
-        f.short = short;
-        f.long = long.map(str::to_string);
-        f
+    fn flag(short: Option<char>, long: Option<&str>) -> Entity {
+        Entity::flag_spelled(
+            short,
+            long.map(str::to_string),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        )
     }
 
     // --- the guard ------------------------------------------------------
@@ -1009,7 +1012,9 @@ mod tests {
         let mut root = node("t");
         for (s, l) in [('s', "source"), ('q', "quiet")] {
             let mut f = flag(Some(s), Some(l));
-            f.negatable = true;
+            for spelling in &mut f.spellings {
+                spelling.negatable = true;
+            }
             root.flags.push(f);
         }
         assert_eq!(analyze(raw, &root).unaccounted, 0);
