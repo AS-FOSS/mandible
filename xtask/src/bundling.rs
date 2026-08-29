@@ -472,7 +472,7 @@ fn collapsed_cluster(flag: &Entity, raw: &str) -> Option<String> {
 }
 
 fn walk(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Collapse>) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         let Some(cluster) = collapsed_cluster(flag, raw) else {
             continue;
         };
@@ -553,7 +553,7 @@ fn synopsis_node(name: &str) -> CommandNode {
 /// A one-node tree named `name` carrying `flags`.
 fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = synopsis_node(name);
-    root.flags = flags;
+    root.set_flags(flags);
     root
 }
 
@@ -1177,7 +1177,7 @@ mod tests {
         let raw = "usage: t sub [-aBcD]\n";
         let mut root = node("t");
         let mut sub = node("sub");
-        sub.flags.push(synopsis_flag('a', Some("BcD")));
+        sub.entities.push(synopsis_flag('a', Some("BcD")));
         root.subcommands.push(sub);
         let r = detect(raw, &root);
         assert_eq!(r.collapse_count(), 1);
@@ -1242,7 +1242,7 @@ mod tests {
         // Every member is its own flag now — asserted before the detector
         // runs, so this cannot pass for the wrong reason (a tree with no
         // synopsis flags at all would also report zero collapses).
-        let shorts: Vec<char> = root.flags.iter().filter_map(|f| f.short()).collect();
+        let shorts: Vec<char> = root.flags().filter_map(|f| f.short()).collect();
         for member in "AbdDefhHIJKlLnNOpqStuUvxX#".chars() {
             assert!(
                 shorts.contains(&member),
@@ -1273,8 +1273,7 @@ mod tests {
         let root = parse_through_the_real_pipeline("tmux", raw);
         for member in "2CDlNuVv".chars() {
             let flag = root
-                .flags
-                .iter()
+                .flags()
                 .find(|f| f.short() == Some(member))
                 .unwrap_or_else(|| panic!("-{member} missing from tmux's tree"));
             assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
@@ -1288,8 +1287,7 @@ mod tests {
             ('T', "features"),
         ] {
             let flag = root
-                .flags
-                .iter()
+                .flags()
                 .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| panic!("-{short} missing from tmux's tree"));
             assert_eq!(flag.value_name.as_deref(), Some(value));
