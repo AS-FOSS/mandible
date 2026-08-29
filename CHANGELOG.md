@@ -12,6 +12,8 @@ once it reaches a published 0.1.0 release.
 
 - 0.5.0 IR: flags, positionals, modifiers and environment variables become one kind-tagged `Entity` carrying every documented spelling in document order, replacing the parallel-vector schema whose `short`/`long` pair could hold only two of a row's spellings (ffplay documents `-h`, `-?`, `-help` and `--help` as a single row); this change migrates flags and positionals, unifying a node's per-kind vectors into one `entities` vector read through kind-filtered accessors (`flags()`, `positionals()`) and folding a positional's variadic `...` onto the `repeatable` a repeatable flag already used, leaving rendering, search and merge behaviour identical — every corpus fixture's tree is byte-for-byte unchanged — and makes the public IR types `#[non_exhaustive]` so the modifier and environment-variable stages can follow without another breaking change.
 
+- The detail pane is now one scrollable document of sections — DESCRIPTION, USAGE, POSITIONALS, FLAGS, MODIFIERS, ENVIRONMENT, in that order and only when non-empty — with the entity count in each list section's header (`FLAGS (41)`), groups drawn as a full-width mixed-case divider rule whose rows stay at the section's own margin, inherited flags as the final such group rather than a section of their own, and a spelling column computed per section and fitted to the majority rather than the widest row, so an unusually wide entity hangs its description on the next line at a four-column indent instead of pushing every other description right; a wrapped entry stays one row for selection and scrolling, and a search that selects a flag near the end of a long list no longer scrolls past the end of the pane's content.
+
 ## [0.4.5] - 2026-08-28
 
 ### Added

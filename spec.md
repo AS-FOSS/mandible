@@ -2149,9 +2149,13 @@ Rules:
   FLAGS, MODIFIERS, ENVIRONMENT) computes its own spelling column, fitted
   to roughly the p90 spelling width — the majority, not the outliers. An
   entity whose spellings exceed the cap puts its description on the next
-  line with a **small fixed hanging indent** (not aligned to the shared
+  line with a **four-column hanging indent** (not aligned to the shared
   column — the outlier is already visually exceptional, and the fixed
-  indent gives its description the width back). Never per-row columns (the
+  indent gives its description the width back). Four is deep enough to
+  read as subordinate to the spelling above it and shallow enough to give
+  an already-exceptional row its width back; it is the same indent §9.1a's
+  narrow-pane stacked layout subordinates every description by, so the
+  pane has one hanging indent rather than two. Never per-row columns (the
   old ragged-docker bug), never a global uncapped column (one long
   spelling starves every description). A wrapped entry is **one logical
   row** for selection and scroll math — the alternative recreates the
