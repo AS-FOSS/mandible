@@ -2140,16 +2140,29 @@ Rules:
   `MODIFIERS (17)`.
 - **Spellings collapse to one row**: `-h, -?, -help, --help` is a single
   entry (§4.5), which is itself crowding relief.
-- **Flag column: capped shared column.** Fit the
-  spelling column to roughly the p90 spelling width — the majority, not
-  the outliers; an entity whose spellings exceed the cap puts its
-  description on the next line with a hanging indent. Never per-row
-  columns (the old ragged-docker bug), never a global uncapped column (one
-  long flag starves every description).
+- **Capped shared column, per section.** Every list section (POSITIONALS,
+  FLAGS, MODIFIERS, ENVIRONMENT) computes its own spelling column, fitted
+  to roughly the p90 spelling width — the majority, not the outliers. An
+  entity whose spellings exceed the cap puts its description on the next
+  line with a **small fixed hanging indent** (not aligned to the shared
+  column — the outlier is already visually exceptional, and the fixed
+  indent gives its description the width back). Never per-row columns (the
+  old ragged-docker bug), never a global uncapped column (one long
+  spelling starves every description). A wrapped entry is **one logical
+  row** for selection and scroll math — the alternative recreates the
+  unbounded-detail-pane-scroll bug class, and a regression test pins it.
 - **ENVIRONMENT is display-only**: documented vars under an explicit
   heading only, no probing, no inferred cross-references (§4.5).
-- **`group` headers replace repetition** within a section, as flag groups
-  render today.
+- **Group dividers.** Within a section, a `group` renders once as a
+  full-width dimmed rule with its label inline, mixed case
+  (`─ Operation ───────…`); the rows beneath sit at the section's normal
+  margin — no extra indent, so grouping costs no width. Section headers
+  are CAPS with a count, group dividers mixed-case without one: the shape
+  distinction survives a terminal that ignores dimming, per §9.2.
+- **Descriptions always wrap.** Sections are mandible's own layout, so
+  nothing in them is ever clipped or horizontally scrolled; `[ui]
+  horizontal_scroll` governs only content whose layout is not ours — the
+  raw view and verbatim USAGE synopsis lines.
 
 ---
 
