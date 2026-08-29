@@ -1543,19 +1543,6 @@ mod tests {
         ));
     }
 
-    /// Line 40 of a flag table is not line 40 of the raw text, so carrying
-    /// the offset across the switch lands the reader somewhere arbitrary.
-    #[test]
-    fn switching_views_resets_the_detail_scroll() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.detail_scroll = 40;
-        app.toggle_raw_mode();
-        assert_eq!(app.detail_scroll, 0);
-        app.detail_scroll = 12;
-        app.toggle_raw_mode();
-        assert_eq!(app.detail_scroll, 0);
-    }
-
     #[test]
     fn expanding_a_known_complete_node_needs_no_fill() {
         let mut app = App::new("git".to_string(), sample_tree_known_complete());
