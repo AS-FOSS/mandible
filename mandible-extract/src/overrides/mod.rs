@@ -183,11 +183,12 @@ impl NodeOverride {
         node.description = self.description.map(|s| Text::sanitize(&s));
         node.hidden = self.hidden.unwrap_or(false);
         node.deprecated = self.deprecated.map(|s| Text::sanitize(&s));
-        node.flags = self
-            .flags
-            .into_iter()
-            .map(FlagOverride::into_flag)
-            .collect();
+        node.set_flags(
+            self.flags
+                .into_iter()
+                .map(FlagOverride::into_flag)
+                .collect(),
+        );
         node
     }
 }
@@ -292,7 +293,7 @@ mod tests {
             node.summary.as_ref().unwrap().as_str(),
             "a corrected summary"
         );
-        assert_eq!(node.flags[0].short(), Some('o'));
+        assert_eq!(node.flags().next().unwrap().short(), Some('o'));
         assert_eq!(node.provenance.sources[0], Source::UserOverride);
     }
 
@@ -330,7 +331,7 @@ mod tests {
         let node = file
             .as_root_override()
             .into_command_node("tool".to_string());
-        assert!(node.flags.is_empty());
+        assert!(node.flags().next().is_none());
         assert!(node.subcommands.is_empty());
     }
 
@@ -393,7 +394,7 @@ mod tests {
             )
             .expect("root override should resolve");
         assert_eq!(node.summary.as_ref().unwrap().as_str(), "custom summary");
-        assert_eq!(node.flags[0].long(), Some("verbose"));
+        assert_eq!(node.flags().next().unwrap().long(), Some("verbose"));
 
         std::env::remove_var(CONFIG_DIR_ENV);
     }

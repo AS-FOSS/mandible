@@ -354,7 +354,7 @@ impl NativeTier {
                 if let Some(flag) =
                     flag_from_candidate(&candidate.value, candidate.description_text(), &provenance)
                 {
-                    node.flags.push(flag);
+                    node.entities.push(flag);
                 }
             }
         }
@@ -916,7 +916,7 @@ mod tests {
             "leaf".to_string(),
         );
         assert!(node.subcommands.is_empty());
-        assert!(node.flags.is_empty());
+        assert!(node.flags().next().is_none());
     }
 
     #[test]
@@ -1070,7 +1070,7 @@ mod tests {
             .expect("detect having succeeded, extract_node must too");
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["build"], "{names:?}");
-        assert!(node.flags.iter().any(|f| f.long() == Some("all")));
+        assert!(node.flags().any(|f| f.long() == Some("all")));
     }
 
     /// The dynamic-argument guard through **real argv construction**
@@ -1123,7 +1123,7 @@ mod tests {
             node.subcommands.iter().map(|c| &c.name).collect::<Vec<_>>()
         );
         assert!(
-            node.flags.iter().any(|f| f.long() == Some("time")),
+            node.flags().any(|f| f.long() == Some("time")),
             "the flags probe must keep working at a leaf"
         );
     }

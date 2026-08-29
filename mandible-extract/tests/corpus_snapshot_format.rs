@@ -120,7 +120,7 @@ fn tar_help_through_the_real_pipeline_snapshots_readably() {
         .expect("the transcript covers the exact argv extract_node sends");
 
     assert!(
-        !node.flags.is_empty(),
+        node.flags().next().is_some(),
         "expected tar --help to parse real flags, got none: {node:?}"
     );
 

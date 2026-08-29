@@ -1041,8 +1041,8 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     let mut node = CommandNode::new(name, provenance);
     node.description = parsed.description.as_deref().map(Text::sanitize);
     node.usage = parsed.usage.iter().map(|s| Text::sanitize(s)).collect();
-    node.flags = parsed.flags;
-    node.positionals = parsed.positionals;
+    node.set_flags(parsed.flags);
+    node.set_positionals(parsed.positionals);
     node.subcommands = parsed.subcommands;
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct
@@ -1256,7 +1256,7 @@ mod tests {
         let raw = fixture("tar_help.stdout");
         let node = build_node("tar", &raw, None, "tar");
         assert_eq!(node.name, "tar");
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
         assert!(node.provenance.confidence.unwrap() > 0.0);
         // A single probe genuinely discovers the complete direct-children
         // list for this level (spec §5.2) — tar has none, which is itself
@@ -1297,7 +1297,7 @@ mod tests {
         assert!(!node.unparsed.is_empty());
         assert_eq!(node.unparsed.len(), 2);
         assert_eq!(node.unparsed[0].as_str(), raw.lines().next().unwrap());
-        assert!(node.flags.is_empty());
+        assert!(node.flags().next().is_none());
         assert!(node.subcommands.is_empty());
         assert!(node.usage.is_empty());
         assert!(node.description.is_none());
@@ -1593,7 +1593,7 @@ mod tests {
         let node = tier
             .extract_node(&tool, &["tar".to_string()], ATTESTED)
             .unwrap();
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
 
         // The GNU-argp assertions below only apply to *GNU* tar. macOS
         // ships bsdtar, which is a different program that happens to have
@@ -1645,7 +1645,7 @@ mod tests {
             node.detected_framework.as_deref(),
             Some(Framework::ClapV3V4.name())
         );
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         for want in ["add", "edit", "import", "init", "query", "remove"] {
             assert!(names.contains(&want), "{names:?}");
@@ -1739,7 +1739,7 @@ mod tests {
             .extract_node(&tool, &["ip".to_string()], ATTESTED)
             .unwrap();
         assert!(
-            !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
+            !node.usage.is_empty() || node.flags().next().is_some() || !node.subcommands.is_empty(),
             "expected ip's stderr-only help to produce *something*"
         );
     }
@@ -1755,7 +1755,7 @@ mod tests {
             .extract_node(&tool, &["openssl".to_string()], ATTESTED)
             .unwrap();
         assert!(
-            !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
+            !node.usage.is_empty() || node.flags().next().is_some() || !node.subcommands.is_empty(),
             "expected openssl's stderr-only help to produce *something*"
         );
     }
@@ -1801,7 +1801,7 @@ mod tests {
             .extract_node(&tool, &["tar".to_string()], ATTESTED)
             .expect("the transcript covers the exact argv this tier sends");
         assert_eq!(node.name, "tar");
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
     }
 
     /// The self-similar-fan-out hazard [M-19] found live against `mandible
@@ -1911,7 +1911,7 @@ mod tests {
             child.subcommands.is_empty(),
             "preset-all genuinely has none of its own"
         );
-        let flag_names: Vec<&str> = child.flags.iter().filter_map(|f| f.long()).collect();
+        let flag_names: Vec<&str> = child.flags().filter_map(|f| f.long()).collect();
         assert!(
             flag_names.contains(&"force"),
             "a genuinely distinct subcommand's own flags must still parse: {flag_names:?}"
@@ -1988,12 +1988,13 @@ mod tests {
             .extract_node(&tool, &["openssl".to_string(), "cmp".to_string()], ATTESTED)
             .expect("the transcript covers the exact argv this tier sends");
 
+        let flags: Vec<_> = node.flags().collect();
         assert!(
-            !node.usage.is_empty() || !node.flags.is_empty(),
+            !node.usage.is_empty() || !flags.is_empty(),
             "expected the parser to read stderr's help-shaped document \
              instead of stdout's two diagnostic lines; got usage={:?} flags={:?}",
             node.usage,
-            node.flags
+            flags
         );
         // openssl spells its long options single-dash (`-cmd val`), so the
         // generic grammar reads them as a short flag plus a value name
@@ -2004,19 +2005,19 @@ mod tests {
         // lines contain no flag syntax whatsoever), identified by
         // descriptions that only the real document has.
         assert!(
-            node.flags.len() >= 5,
+            flags.len() >= 5,
             "expected the ~6 real flags from stderr's document, not the \
              empty parse the two stdout diagnostic lines would produce: {:?}",
-            node.flags
+            flags
         );
         assert!(
-            node.flags.iter().any(|f| f
+            flags.iter().any(|f| f
                 .description
                 .as_ref()
                 .is_some_and(|d| d.as_str().contains("CMP request to send"))),
             "expected the `-cmd` flag's real description from stderr's \
              document to have parsed: {:?}",
-            node.flags
+            flags
         );
     }
 }
