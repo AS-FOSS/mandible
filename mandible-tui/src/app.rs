@@ -167,15 +167,6 @@ pub struct App {
     /// fit scrolled the content off the top into blank space, and getting
     /// back required as many presses up as had gone down.
     detail_max_scroll: std::cell::Cell<usize>,
-    /// A scroll *proportion* (0.0..=1.0) carried across a raw/rendered
-    /// toggle, resolved against the next view's extent. Line offsets are
-    /// meaningless across the two renderings of one node, but the reader's
-    /// approximate place in the document is not — this is what lets `t`
-    /// flip between them for comparison without snapping to the top.
-    /// A `Cell` because the renderer (`&App`) is the first to know the new
-    /// extent; key handlers (`&mut App`) materialize it into
-    /// [`Self::detail_scroll`] before applying their own movement.
-    pending_detail_fraction: std::cell::Cell<Option<f64>>,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -190,12 +181,19 @@ pub struct App {
     /// horizontal extent worth scrolling to), which both clamps `h`/`l` to
     /// no-ops and tells the renderer not to draw the overflow affordance.
     detail_max_hscroll: std::cell::Cell<usize>,
-    /// The horizontal twin of [`Self::pending_detail_fraction`]: a scroll
-    /// proportion carried across a raw/rendered toggle, resolved against
-    /// the next view's horizontal extent. Same lifecycle: set by the
-    /// toggle, shown by [`Self::clamped_detail_hscroll`], materialized by
-    /// the first `h`/`l` press, dropped on selection change.
-    pending_detail_hfraction: std::cell::Cell<Option<f64>>,
+    /// Where each view left the detail pane, indexed by the [`Self::raw_mode`]
+    /// it belongs to (see [`view_slot`]). [`Self::detail_scroll`] and
+    /// [`Self::detail_hscroll`] hold the *showing* view's position; this
+    /// holds the other one's, so `t` is a swap rather than a computation.
+    ///
+    /// Both offsets are kept, and kept literally. Nothing is mapped, scaled
+    /// or seeded between the views: one node's parse and its `--help` text
+    /// place the same flag at unrelated coordinates, so any derived position
+    /// is a position neither view was ever showing, and a reader hopping
+    /// `t` to compare a spelling has to find their place again by hand
+    /// every time. A view nobody has scrolled yet for this node holds
+    /// `(0, 0)` and opens at the top-left.
+    saved_detail_offsets: [DetailOffsets; 2],
     /// Whether `h`/`l`/`←`/`→` scroll the detail pane horizontally instead
     /// of doing nothing there, and whether preformatted content (raw view,
     /// USAGE lines) is left unwrapped in the first place.
@@ -288,6 +286,23 @@ pub struct App {
     pub review: Option<crate::app_review::ReviewOverlay>,
 }
 
+/// One view's scroll position in the detail pane: a line offset and a
+/// display-column offset, exactly as the reader left them.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+struct DetailOffsets {
+    vertical: usize,
+    horizontal: usize,
+}
+
+/// Which half of [`App::saved_detail_offsets`] a view owns.
+///
+/// A function rather than a bare `as usize` at each call site so the two
+/// views can never be indexed by two different conventions — the whole
+/// per-view memory is one bit of state read four times.
+fn view_slot(raw_mode: bool) -> usize {
+    usize::from(raw_mode)
+}
+
 /// How long a status message stays in the footer before the keybinding
 /// hints come back. Long enough to read a copied flag spelling, short
 /// enough that the hints are never gone when someone looks up needing
@@ -366,10 +381,9 @@ impl App {
             tree_viewport: 0,
             detail_scroll: 0,
             detail_max_scroll: std::cell::Cell::new(0),
-            pending_detail_fraction: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
-            pending_detail_hfraction: std::cell::Cell::new(None),
+            saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
             show_help: false,
             show_hidden: false,
@@ -601,7 +615,7 @@ impl App {
         }
         self.selected_flag = None;
         self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        self.forget_saved_detail_offsets();
         self.follow_selection();
     }
 
@@ -610,7 +624,7 @@ impl App {
         self.selected = self.selected.saturating_sub(1);
         self.selected_flag = None;
         self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        self.forget_saved_detail_offsets();
         self.follow_selection();
     }
 
@@ -735,7 +749,7 @@ impl App {
         }
         self.selected_flag = None;
         self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        self.forget_saved_detail_offsets();
         self.follow_selection();
     }
 
@@ -769,7 +783,7 @@ impl App {
         }
         self.selected_flag = None;
         self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        self.forget_saved_detail_offsets();
         self.follow_selection();
     }
 
@@ -887,59 +901,39 @@ impl App {
     ///
     /// Returns the fetch the caller must run, if the text isn't already
     /// in hand. Turning the mode *off* never needs one.
+    /// Each view keeps its own place. Leaving one stores where it was —
+    /// line and column both — and arriving at the other restores what it
+    /// stored, so `t` puts the reader back exactly where that view last
+    /// stood and movement in one view never moves the other.
+    ///
+    /// Nothing is derived across the boundary. Line 40 of a flag table is
+    /// not line 40 of the raw text, and no scaling makes it so: the
+    /// coordinates of one flag in the two renderings are unrelated, which
+    /// is precisely why the comparison needs the pane put back rather than
+    /// approximated. A view with nothing stored yet opens at the top-left,
+    /// and a stored position too deep for content that has since shrunk is
+    /// clamped when it is shown and again when it is moved
+    /// ([`Self::clamped_detail_scroll`], [`Self::detail_scroll_down`]) —
+    /// this method cannot clamp it itself, because the extent it would
+    /// clamp against is still the extent of the view being left.
     pub fn toggle_raw_mode(&mut self) -> Option<Effect> {
+        self.saved_detail_offsets[view_slot(self.raw_mode)] = DetailOffsets {
+            vertical: self.detail_scroll,
+            horizontal: self.detail_hscroll,
+        };
         self.raw_mode = !self.raw_mode;
-        // A line offset doesn't carry between two completely different
-        // renderings of the same node: line 40 of a flag table is not line
-        // 40 of the raw text. The reader's *proportional* place does —
-        // flipping `t` to compare the parse against the source shouldn't
-        // throw them back to the top — so the fraction is carried and the
-        // offset resolved once the new view's extent is known.
-        // A fraction still pending from the *previous* toggle carries
-        // through unchanged — a proportion is view-independent. Computing
-        // it fresh from `detail_scroll` here would read the zero the last
-        // toggle left behind, which is precisely the rapid `t`-`t`-`t`
-        // comparison this feature exists for.
-        let fraction = self.pending_detail_fraction.take().or_else(|| {
-            let max = self.detail_max_scroll.get();
-            (max > 0).then(|| self.detail_scroll.min(max) as f64 / max as f64)
-        });
-        self.pending_detail_fraction.set(fraction);
-        self.detail_scroll = 0;
-        // The horizontal offset carries as a proportion too. An absolute
-        // column is meaningless across the two renderings, but when the
-        // reader has scrolled into the wide part of a synopsis, the raw
-        // text's wide part is the region they are comparing against —
-        // resetting to column zero on every `t` made that comparison
-        // impossible (maintainer-reported, same failure as the vertical
-        // reset this method already fixes).
-        let hfraction = self.pending_detail_hfraction.take().or_else(|| {
-            let max = self.detail_max_hscroll.get();
-            (max > 0).then(|| self.detail_hscroll.min(max) as f64 / max as f64)
-        });
-        self.pending_detail_hfraction.set(hfraction);
-        self.detail_hscroll = 0;
+        let restored = self.saved_detail_offsets[view_slot(self.raw_mode)];
+        self.detail_scroll = restored.vertical;
+        self.detail_hscroll = restored.horizontal;
         self.raw_fetch_needed()
     }
 
-    /// The horizontal twin of
-    /// [`Self::materialize_pending_detail_scroll`].
-    fn materialize_pending_detail_hscroll(&mut self) {
-        if let Some(fraction) = self.pending_detail_hfraction.take() {
-            let max = self.detail_max_hscroll.get();
-            self.detail_hscroll = (fraction * max as f64).round() as usize;
-        }
-    }
-
-    /// Resolve a fraction carried across a raw/rendered toggle into a line
-    /// offset for the current view, and clear it. Key handlers call this
-    /// before moving so their movement starts from where the reader sees
-    /// the pane, not from the stale offset underneath it.
-    fn materialize_pending_detail_scroll(&mut self) {
-        if let Some(fraction) = self.pending_detail_fraction.take() {
-            let max = self.detail_max_scroll.get();
-            self.detail_scroll = (fraction * max as f64).round() as usize;
-        }
+    /// Drop what both views remember, so each one opens at the top-left
+    /// next time it is shown. Called wherever the content underneath them
+    /// changes identity: an offset into one node's document addresses
+    /// nothing in another's.
+    fn forget_saved_detail_offsets(&mut self) {
+        self.saved_detail_offsets = [DetailOffsets::default(); 2];
     }
 
     /// The fetch required to render the current selection verbatim, if the
@@ -999,9 +993,13 @@ impl App {
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
         self.selected_flag = None;
-        self.materialize_pending_detail_scroll();
         let max = self.detail_max_scroll.get();
-        self.detail_scroll = self.detail_scroll.saturating_add(1).min(max);
+        // Start from where the pane is actually showing, not from an offset
+        // deeper than the content it now holds — a restored position into
+        // shrunken content, or a resize that reflowed the document shorter.
+        // Without this, `↓` from such an offset would move a number nobody
+        // can see and `↑` would need as many presses to get back.
+        self.detail_scroll = self.detail_scroll.min(max).saturating_add(1).min(max);
     }
 
     /// Record how far the detail pane can scroll, from the renderer.
@@ -1016,34 +1014,32 @@ impl App {
     /// The current scroll offset, clamped to what the last frame could
     /// actually show.
     pub fn clamped_detail_scroll(&self) -> usize {
-        let max = self.detail_max_scroll.get();
-        // A fraction still pending from a raw/rendered toggle takes
-        // precedence: the extent it needs arrives from the renderer one
-        // frame after the toggle, so this is where it first takes effect
-        // on screen. It stays pending (peek, not take) until a key handler
-        // materializes it — this method takes `&self`.
-        match self.pending_detail_fraction.get() {
-            Some(fraction) => (fraction * max as f64).round() as usize,
-            None => self.detail_scroll.min(max),
-        }
+        // This clamp is where a position restored by `t` meets the target
+        // view's real extent: the renderer sets that extent immediately
+        // before reading this, so content that shrank since the position
+        // was saved lands at its own last line rather than past it.
+        self.detail_scroll.min(self.detail_max_scroll.get())
     }
 
     /// Detail pane scroll up.
     pub fn detail_scroll_up(&mut self) {
         self.selected_flag = None;
-        self.materialize_pending_detail_scroll();
-        self.detail_scroll = self.detail_scroll.saturating_sub(1);
+        // Clamped first for the same reason as [`Self::detail_scroll_down`]:
+        // one press moves one line from where the reader is looking.
+        self.detail_scroll = self
+            .detail_scroll
+            .min(self.detail_max_scroll.get())
+            .saturating_sub(1);
     }
 
     /// Reset detail scroll — called on selection change so the pane
     /// doesn't stay scrolled into a different node's content.
     pub fn reset_detail_scroll(&mut self) {
         self.detail_scroll = 0;
-        // A new node's content has no relation to the old node's place;
-        // a fraction carried across a view toggle must not survive into it.
-        self.pending_detail_fraction.set(None);
         self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        // A new node's content has no relation to the old node's place, in
+        // either view, so neither view's memory of it survives.
+        self.forget_saved_detail_offsets();
     }
 
     /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9:
@@ -1058,8 +1054,10 @@ impl App {
         if !self.horizontal_scroll_enabled {
             return;
         }
-        self.materialize_pending_detail_hscroll();
-        self.detail_hscroll = self.detail_hscroll.saturating_sub(DETAIL_HSCROLL_STEP);
+        self.detail_hscroll = self
+            .detail_hscroll
+            .min(self.detail_max_hscroll.get())
+            .saturating_sub(DETAIL_HSCROLL_STEP);
     }
 
     /// `l`/`→`: scroll the detail pane right, clamped to
@@ -1070,10 +1068,10 @@ impl App {
         if !self.horizontal_scroll_enabled {
             return;
         }
-        self.materialize_pending_detail_hscroll();
         let max = self.detail_max_hscroll.get();
         self.detail_hscroll = self
             .detail_hscroll
+            .min(max)
             .saturating_add(DETAIL_HSCROLL_STEP)
             .min(max);
     }
@@ -1092,13 +1090,7 @@ impl App {
     /// The current horizontal offset, clamped to what the last frame could
     /// actually show — same shape as [`Self::clamped_detail_scroll`].
     pub fn clamped_detail_hscroll(&self) -> usize {
-        let max = self.detail_max_hscroll.get();
-        // Peek, don't take: rendering takes `&self`; a key handler
-        // materializes it. Mirrors [`Self::clamped_detail_scroll`].
-        match self.pending_detail_hfraction.get() {
-            Some(fraction) => (fraction * max as f64).round() as usize,
-            None => self.detail_hscroll.min(max),
-        }
+        self.detail_hscroll.min(self.detail_max_hscroll.get())
     }
 
     /// Whether there is preformatted content hidden off the left edge —
@@ -1140,6 +1132,93 @@ mod tests {
     use super::*;
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
+
+    /// Each view owns its vertical place. `t` restores the target view's
+    /// last line exactly — not a proportion of it — and scrolling one view
+    /// leaves the other's saved line untouched. Supersedes the
+    /// proportional carry, which resolved 100/200 of the parsed view into
+    /// line 25 of a 50-line raw text: a line neither view was showing.
+    #[test]
+    fn each_view_keeps_its_own_vertical_place() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20); // parsed: max 200
+        app.detail_scroll = 100;
+
+        // First visit to the raw view starts at the top, whatever the
+        // parsed view is showing.
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20); // raw: max 50
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        app.detail_scroll_down();
+        assert_eq!(app.clamped_detail_scroll(), 1);
+
+        // Back to parsed: exactly where it was, not 1/50 of 200.
+        app.toggle_raw_mode();
+        app.set_detail_extent(220, 20);
+        assert_eq!(app.clamped_detail_scroll(), 100);
+
+        // And the raw view kept its own line while parsed was showing.
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20);
+        assert_eq!(app.clamped_detail_scroll(), 1);
+    }
+
+    /// The horizontal offset is remembered per view on the same terms, and
+    /// a column scrolled in one view never appears in the other.
+    #[test]
+    fn each_view_keeps_its_own_horizontal_place() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        assert!(app.horizontal_scroll_enabled, "default is on");
+        app.set_detail_hextent(140, 40); // parsed: max 100
+        app.detail_hscroll = 50;
+
+        app.toggle_raw_mode();
+        app.set_detail_hextent(90, 40); // raw: max 50
+        assert_eq!(app.clamped_detail_hscroll(), 0, "first visit starts left");
+        app.detail_hscroll_right();
+        assert_eq!(app.clamped_detail_hscroll(), DETAIL_HSCROLL_STEP);
+
+        app.toggle_raw_mode();
+        app.set_detail_hextent(140, 40);
+        assert_eq!(app.clamped_detail_hscroll(), 50);
+
+        app.toggle_raw_mode();
+        app.set_detail_hextent(90, 40);
+        assert_eq!(app.clamped_detail_hscroll(), DETAIL_HSCROLL_STEP);
+    }
+
+    /// The rapid `t`-`t`-`t` comparison the key exists for: with no scroll
+    /// key pressed in between, each view keeps returning to its own place,
+    /// on both axes, for as many flips as it takes.
+    #[test]
+    fn repeated_toggles_return_each_view_to_its_own_place() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20); // parsed: max 200
+        app.set_detail_hextent(140, 40); // parsed: max 100
+        app.detail_scroll = 150;
+        app.detail_hscroll = 64;
+
+        // Give the raw view a place of its own to return to.
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20); // raw: max 50
+        app.set_detail_hextent(90, 40); // raw: max 50
+        app.detail_scroll = 38;
+        app.detail_hscroll = 24;
+
+        for _ in 0..3 {
+            app.toggle_raw_mode();
+            app.set_detail_extent(220, 20);
+            app.set_detail_hextent(140, 40);
+            assert_eq!(app.clamped_detail_scroll(), 150);
+            assert_eq!(app.clamped_detail_hscroll(), 64);
+
+            app.toggle_raw_mode();
+            app.set_detail_extent(70, 20);
+            app.set_detail_hextent(90, 40);
+            assert_eq!(app.clamped_detail_scroll(), 38);
+            assert_eq!(app.clamped_detail_hscroll(), 24);
+        }
+    }
 
     /// Drive the (real, async, `nucleo`-backed) search index until its
     /// results stop changing for a few consecutive polls, bounded overall

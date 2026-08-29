@@ -2007,6 +2007,19 @@ overflows the border by one cell per wide character.
   a final dimmed "Inherited" group, and hidden/deprecated flags suppressed unless
   toggled with `.`.
 - Scroll state is per-pane; the wheel scrolls the pane under the cursor.
+- **The parsed view and the raw view each keep their own scroll position,
+  vertical and horizontal.** `t` restores the position the view being
+  entered was last left at, exactly, and movement in one view never moves
+  the other. Nothing is mapped, scaled or seeded between them: the two
+  renderings of one node place the same flag at unrelated coordinates —
+  mandible sets the parse's layout, the tool author sets its own — so a
+  derived position is one neither view was showing, and checking a
+  spelling across `t` means finding the place again on every press. A view
+  not yet scrolled for the selected node opens at the top-left; a
+  remembered position is clamped to the extent the view actually has when
+  it is restored, since content can change size in between; and changing
+  the selected node clears what both views remember, because an offset
+  into one node's document addresses nothing in another's.
 - **Detail-pane content that is preformatted scrolls horizontally instead of
   wrapping; prose does not.** The raw `--help` view (`t`) and a node's
   USAGE-section synopsis lines are the tool author's own layout — wrapping
