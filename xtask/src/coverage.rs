@@ -321,7 +321,7 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
         return fp;
     };
     fn walk(node: &mandible_core::CommandNode, path: &str, fp: &mut ToolFingerprint) {
-        for flag in &node.flags {
+        for flag in node.flags() {
             let id = flag_identity(path, flag);
             let description_hash = flag
                 .description
@@ -2734,7 +2734,7 @@ mod tests {
         flag.choices = vec![Text::sanitize("low"), Text::sanitize("high")];
         flag.value_name = Some("LEVEL".to_string());
         flag.value_kind = ValueKind::Required;
-        root.flags.push(flag);
+        root.entities.push(flag);
         root.subcommands.push(CommandNode::new(
             "child",
             Provenance::single(Source::HelpText),
@@ -2826,7 +2826,7 @@ mod tests {
         let mut root = CommandNode::new("awk", Provenance::single(Source::HelpText));
         let mut flag = Entity::flag_short('L', Provenance::single(Source::HelpText));
         flag.value_name = Some("fatal|invalid|no-ext".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
 
         let mut r = row("awk", 1, Some(0.0), "ok");
         r.fingerprint = build_fingerprint(Some(&root));
@@ -2868,30 +2868,30 @@ mod tests {
 
         let mut comma_flag = Entity::flag_long("comma-value", Provenance::single(Source::HelpText));
         comma_flag.value_name = Some("a,b".to_string());
-        root.flags.push(comma_flag);
+        root.entities.push(comma_flag);
 
         let mut equals_flag =
             Entity::flag_long("equals-value", Provenance::single(Source::HelpText));
         equals_flag.value_name = Some("a=b".to_string());
-        root.flags.push(equals_flag);
+        root.entities.push(equals_flag);
 
         let mut colon_flag = Entity::flag_long("colon-value", Provenance::single(Source::HelpText));
         colon_flag.value_name = Some("a:b".to_string());
-        root.flags.push(colon_flag);
+        root.entities.push(colon_flag);
 
         let mut tab_flag = Entity::flag_long("tab-value", Provenance::single(Source::HelpText));
         tab_flag.value_name = Some("a\tb".to_string());
-        root.flags.push(tab_flag);
+        root.entities.push(tab_flag);
 
         let mut backslash_flag =
             Entity::flag_long("backslash-value", Provenance::single(Source::HelpText));
         backslash_flag.value_name = Some("a\\b".to_string());
-        root.flags.push(backslash_flag);
+        root.entities.push(backslash_flag);
 
         // Defensive: a flag whose own long spelling (not just its
         // value_name) carries the flag-list separator.
         let pipe_id_flag = Entity::flag_long("weird|name", Provenance::single(Source::HelpText));
-        root.flags.push(pipe_id_flag);
+        root.entities.push(pipe_id_flag);
 
         // Defensive: a subcommand name carrying the subcommand-list
         // separator.
