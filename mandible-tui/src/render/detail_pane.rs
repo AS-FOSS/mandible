@@ -789,10 +789,15 @@ fn heading_line_ruled(
     };
     let used = display_width(&heading) + 1;
     let rule_width = width.saturating_sub(used);
+    // Label and rule are one piece of furniture, so the label is drawn in
+    // exactly the rule's style — same color, and no bold, which brightens
+    // a foreground on many terminals and would recreate the mismatch
+    // through an attribute rather than a color. CAPS and the count are
+    // what mark this out as the outer level, not weight.
     let shade = style::section_rule(palette);
-    let mut spans = vec![Span::styled(heading, style::muted_bold(palette.color))];
+    let mut spans = vec![Span::styled(heading, shade)];
     if rule_width > 0 {
-        spans.push(Span::raw(" "));
+        spans.push(Span::styled(" ", shade));
         spans.push(Span::styled(glyphs.rule.repeat(rule_width), shade));
     }
     Line::from(spans)
@@ -2791,9 +2796,21 @@ mod tests {
     }
 
     /// Spec §9.3, the wiring half: which line draws in which level of the
-    /// pane's neutral hierarchy.
+    /// pane's neutral hierarchy, and — at **both** levels — that a label
+    /// is drawn in exactly its own rule's style.
     ///
-    /// Supersedes the pin that named `Gray` and `DarkGray` directly. Those
+    /// The label half supersedes a pin that asserted the mismatch as
+    /// correct. It checked the match on the group divider and then
+    /// asserted the section header's label as `muted_bold` against its
+    /// own plainly-styled rule, so the defect at the level the eye reads
+    /// first was written into the test as the expected value — which is
+    /// why it was reported twice from outside before anything here could
+    /// see it. The match is now one property quantified over both levels
+    /// rather than a fact stated about one of them, and bold is checked
+    /// explicitly, since bold brightens a foreground on many terminals
+    /// and recreates the mismatch through an attribute.
+    ///
+    /// Supersedes, too, the pin that named `Gray` and `DarkGray` directly. Those
     /// two are the whole of what the sixteen named colors offer below a
     /// default foreground, and `Gray` is *at* it — so the section rule
     /// read at the brightness of the pane borders around it and the
@@ -2805,7 +2822,7 @@ mod tests {
     /// because the text is identical by construction: both are runs of the
     /// same rule glyph, and only the style tells them apart.
     #[test]
-    fn the_two_rule_levels_are_wired_to_their_own_shades() {
+    fn every_rule_label_is_drawn_in_its_own_rules_style() {
         let glyphs = crate::glyphs::UNICODE;
         let palette = style::Palette::extended();
         let header = heading_line_ruled("FLAGS", Some(3), 60, palette, glyphs);
@@ -2831,15 +2848,26 @@ mod tests {
         assert_eq!(header_rule, style::section_rule(palette));
         assert_eq!(divider_rule, style::group_rule(palette));
 
-        assert_eq!(
-            label_style(&divider, "Main operation mode"),
-            divider_rule,
-            "a divider's label must match its own rule"
-        );
-        assert_eq!(
-            label_style(&header, "FLAGS (3)"),
-            style::muted_bold(palette.color)
-        );
+        // The property, at both levels: a label is its own rule's style.
+        for (level, line, text, rule) in [
+            ("section header", &header, "FLAGS (3)", header_rule),
+            (
+                "group divider",
+                &divider,
+                "Main operation mode",
+                divider_rule,
+            ),
+        ] {
+            let label = label_style(line, text);
+            assert_eq!(
+                label, rule,
+                "the {level}'s label must be drawn in its own rule's style"
+            );
+            assert!(
+                !label.add_modifier.contains(ratatui::style::Modifier::BOLD),
+                "the {level}'s label is bold, which brightens it away from its rule"
+            );
+        }
 
         // The two levels still differ from each other — a matched label is
         // not an excuse for one flat shade over the whole pane.
