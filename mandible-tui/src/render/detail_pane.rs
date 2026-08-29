@@ -2243,14 +2243,32 @@ mod tests {
         );
     }
 
-    /// Every section computes its own column (spec §9.3): a long
+    /// Every section computes its own column (spec §9.3): a wide
     /// positional name must not push the flag list's descriptions right.
+    ///
+    /// The column is read off the flag's own rendered row rather than
+    /// through `description_columns`, which also reports the section
+    /// headings (they are prose at column 0) — a set-membership assertion
+    /// over that helper's output is satisfied by the heading alone and
+    /// would pass however the columns were computed.
     #[test]
     fn each_section_computes_its_own_column() {
+        /// The column `needle`'s row starts its description at.
+        fn column_of(built: &BuiltLines, needle: &str) -> usize {
+            let row = built
+                .lines
+                .iter()
+                .map(text_of)
+                .find(|t| t.contains(needle) && t.contains("zzz"))
+                .unwrap_or_else(|| panic!("no described row for {needle}"));
+            let at = row.find("zzz").expect("checked above");
+            display_width(&row[..at])
+        }
+
         let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
         let mut flag = Entity::flag_long("all", Provenance::single(Source::HelpText));
         flag.description = Some(Text::sanitize("zzz include everything"));
-        node.entities.push(flag.clone());
+        node.entities.push(flag);
         let flags_only = build_lines(
             &node,
             false,
@@ -2260,10 +2278,13 @@ mod tests {
             crate::glyphs::UNICODE,
             &test_app(),
         );
-        let flag_column = description_columns(&flags_only.lines);
 
+        // Wide enough to move a shared column well clear of the flag
+        // section's own, and narrow enough that the 45% pane cap still
+        // admits it — a name the cap excludes would be excluded from a
+        // shared column too, and this test would then pass either way.
         let mut positional = Entity::positional(
-            "a-very-long-positional-metavariable",
+            "a-long-positional-name",
             Provenance::single(Source::HelpText),
         );
         positional.description = Some(Text::sanitize("zzz the thing to operate on"));
@@ -2277,11 +2298,15 @@ mod tests {
             crate::glyphs::UNICODE,
             &test_app(),
         );
-        let columns = description_columns(&both.lines);
+
+        assert_eq!(
+            column_of(&both, "--all"),
+            column_of(&flags_only, "--all"),
+            "the flag section's column moved when a positional was added"
+        );
         assert!(
-            columns.contains(&flag_column[0]),
-            "the flag section's column moved when a positional was added: \
-             {columns:?} vs {flag_column:?}"
+            column_of(&both, "a-long-positional-name") > column_of(&both, "--all"),
+            "the fixture must actually have two different columns to tell apart"
         );
     }
 
