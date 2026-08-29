@@ -395,65 +395,87 @@ fn a_group_divider_degrades_to_ascii() {
 }
 
 /// Spec §9.3's capped column, on screen: the majority of a section's
-/// entities share one description column, and an entity past the column
-/// puts its description on the next line at the small fixed hanging
-/// indent — one number for every hanging row in the pane, well inside the
-/// column it could not reach.
+/// entities share one description column, and an entity whose head runs
+/// past that column starts its own first description line one space past
+/// its head, with everything else in the section — its own continuation
+/// lines included — still on the column.
 ///
-/// The hanging indent's *value* is deliberately not asserted here. What
-/// spec §9.3 promises is that it is a single fixed number smaller than the
-/// column the outlier missed, and that is what fails when the rule is
-/// broken; pinning the digit as well only means this test has to be edited
-/// whenever the layout's own arithmetic moves, which is how a pin turns
-/// into a transcript of the implementation.
+/// This supersedes the hanging-indent pin: the rule it checked (a wide row
+/// must not drag the column right for everyone, and must not invent a
+/// column of its own) is the same one, but the place the exception lands
+/// is now defined by the row's own head rather than by a second fixed
+/// number. Both halves are read off the rendered frame, since the column
+/// that matters is the one a reader sees.
 #[test]
-fn a_wide_entity_hangs_its_description_at_the_fixed_indent() {
+fn a_wide_entity_pushes_only_its_own_first_line() {
     let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
     for i in 0..9 {
         node.entities.push(entity(
             EntityKind::Flag,
             Spelling::long(format!("opt-{i}")),
-            "zzz an ordinary description",
+            "zzz zzz zzz",
         ));
     }
     let mut wide = entity(
         EntityKind::Flag,
         Spelling::long("an-extremely-long-option-name-nobody-would-type"),
-        "zzz the outlier's description",
+        // Every word is the marker, so a continuation line can be located
+        // as exactly as a first one.
+        "zzz zzz zzz zzz zzz zzz zzz zzz",
     );
     wide.value_kind = ValueKind::None;
     node.entities.push(wide);
 
-    // Wide enough that the table layout is the one under test: below the
-    // width where a table can leave prose a readable amount of room the
-    // whole section stacks (spec §9.1a) and there is no shared column left
-    // to hang below.
+    // Wide enough that the nine ordinary rows have room to sit beside
+    // their descriptions, so the outlier is the only thing under test.
     let rows = detail_rows(&app_for(node), 140, 30);
     let joined = rows.join("\n");
 
-    let mut shared = Vec::new();
-    let mut hanging = Vec::new();
+    // Every description line on screen, split by whether it shares its row
+    // with a head.
+    let mut beside_a_head: Vec<(usize, String)> = Vec::new();
+    let mut continuations: Vec<usize> = Vec::new();
     for row in &rows {
         let Some(at) = row.find("zzz") else { continue };
         if row.trim_start().starts_with("zzz") {
-            hanging.push(at);
+            continuations.push(at);
         } else {
-            shared.push(at);
+            beside_a_head.push((at, row[..at].trim_end().to_string()));
         }
     }
-    assert_eq!(shared.len(), 9, "nine rows share the column:\n{joined}");
-    assert!(
-        shared.windows(2).all(|w| w[0] == w[1]),
-        "the shared column is not shared: {shared:?}\n{joined}"
+
+    // Nine rows on the column, and one past it.
+    let mut columns: Vec<usize> = beside_a_head.iter().map(|(at, _)| *at).collect();
+    columns.sort_unstable();
+    let shared = columns[0];
+    assert_eq!(
+        columns.iter().filter(|c| **c == shared).count(),
+        9,
+        "nine rows share the column:\n{joined}"
     );
-    assert_eq!(hanging.len(), 1, "exactly the outlier hangs:\n{joined}");
+    let (pushed, head) = beside_a_head
+        .iter()
+        .find(|(at, _)| *at != shared)
+        .unwrap_or_else(|| panic!("the outlier must be pushed past the column:\n{joined}"));
     assert!(
-        hanging[0] > 0,
-        "a hanging description must still read as subordinate: {hanging:?}\n{joined}"
+        head.contains("an-extremely-long-option-name"),
+        "only the outlier may miss the column: {head:?}\n{joined}"
+    );
+    assert_eq!(
+        *pushed,
+        head.chars().count() + 1,
+        "a pushed description starts one space past its own head:\n{joined}"
+    );
+
+    // ...and nothing else in the section left the column, the outlier's
+    // own wrapped tail included.
+    assert!(
+        !continuations.is_empty(),
+        "the fixture must wrap, or continuation lines prove nothing:\n{joined}"
     );
     assert!(
-        hanging[0] < shared[0],
-        "a hanging description must not be indented past the column it missed"
+        continuations.iter().all(|c| *c == shared),
+        "a continuation line left the column: {continuations:?}\n{joined}"
     );
 }
 

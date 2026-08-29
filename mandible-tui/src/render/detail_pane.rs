@@ -564,20 +564,20 @@ struct BuiltLines {
     rows: Vec<EntryRow>,
 }
 
-/// The list sections of spec §9.3, in render order, each keyed by the
-/// [`EntityKind`] it holds.
+/// The list sections of spec §9.3, in render order: the [`EntityKind`]
+/// each holds, its heading, and the indent its rows are inset by.
 ///
-/// The whole of the per-kind knowledge in this pane. There is no branch on
-/// kind anywhere below: a section renders because its kind has entities,
-/// and the two kinds no parser emits yet (`Modifier`, `EnvVar`) go through
-/// exactly the same code as the two that do. `DESCRIPTION` and `USAGE` are
-/// not here because they are node prose, not entity lists — they carry no
-/// count and take no shared column.
-const LIST_SECTIONS: [(EntityKind, &str); 4] = [
-    (EntityKind::Positional, "POSITIONALS"),
-    (EntityKind::Flag, "FLAGS"),
-    (EntityKind::Modifier, "MODIFIERS"),
-    (EntityKind::EnvVar, "ENVIRONMENT"),
+/// The whole of the per-kind knowledge in this pane, and it is *data*.
+/// There is no branch on kind anywhere below: a section renders because its
+/// kind has entities, and the two kinds no parser emits yet (`Modifier`,
+/// `EnvVar`) go through exactly the same code as the two that do.
+/// `DESCRIPTION` and `USAGE` are not here because they are node prose, not
+/// entity lists — they carry no count and take no shared column.
+const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
+    (EntityKind::Positional, "POSITIONALS", 0),
+    (EntityKind::Flag, "FLAGS", 0),
+    (EntityKind::Modifier, "MODIFIERS", 0),
+    (EntityKind::EnvVar, "ENVIRONMENT", 0),
 ];
 
 fn build_lines(
@@ -678,7 +678,7 @@ fn build_lines(
     // empty section renders nothing at all — not a heading over blank
     // space — which is what keeps a tool with only a description and flags
     // looking exactly as it did before this section model existed.
-    for (kind, label) in LIST_SECTIONS {
+    for (kind, label, indent) in LIST_SECTIONS {
         let visible: Vec<&Entity> = node
             .entities_of(kind)
             .filter(|e| show_hidden || (!e.hidden && e.deprecated.is_none()))
@@ -694,7 +694,7 @@ fn build_lines(
             glyphs,
         ));
         let base = lines.len();
-        let section = section_lines(&visible, width, color_enabled, target_flag, glyphs);
+        let section = section_lines(&visible, width, indent, color_enabled, target_flag, glyphs);
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
         }
@@ -1052,15 +1052,21 @@ const DESC_COLUMN_CAP_PERCENT: usize = 45;
 /// gives the width back to the other nine.
 const SHARED_COLUMN_PERCENTILE: usize = 90;
 
-/// Prose narrower than this reads as a shredded column rather than a
-/// sentence, so a table that cannot leave this much room becomes a
-/// [`SectionLayout::Stacked`] list instead.
+/// The narrowest a description is allowed to be. A section's shared column
+/// is clamped down until this much of the pane is left for prose, however
+/// wide the section's heads are (spec §9.3).
 ///
 /// Measured against real output rather than picked: at 20 columns
 /// `docker pull`'s `--platform` description breaks as "Set / platform /
 /// if server / is / multi-pla… / capable" — six lines, one of them
-/// truncated mid-word, for six words of text. 28 is the point either side
-/// of which the table and the stacked list swap places on legibility.
+/// truncated mid-word, for six words of text. At 28 the same description
+/// reads as prose. In a 90-column terminal the detail pane is 41 columns
+/// wide, which puts the clamp at column 13 — enough for a short-and-long
+/// pair, with wider heads pushing their own first line right.
+///
+/// Clamping the column is not the same as letting a wide head clamp its
+/// own description: the column moves for the whole section, so every
+/// description in it still begins in the same place.
 const MIN_DESC_WIDTH: usize = 28;
 
 /// Where a short spelling starts: the true left edge of the content area
@@ -1078,21 +1084,8 @@ const SHORT_COLUMN: usize = 0;
 /// letter as well.
 const LONG_COLUMN: usize = "-X, ".len();
 
-/// The hanging indent a description falls back to when its entity's
-/// spellings are wider than the section's shared column, and the indent
-/// the stacked layout subordinates every description by (spec §9.3).
-///
-/// Two columns past [`LONG_COLUMN`]: deep enough to read as subordinate to
-/// the deepest column a spelling can start at — at the long column itself
-/// a description would sit flush under a preindented long and stop reading
-/// as its description at all — and shallow enough to give an
-/// already-exceptional row its width back. Deliberately **not** the shared
-/// column: an entity that overflowed the column is visually exceptional
-/// whatever it does next, and aligning its description to a column it
-/// could not reach spends the pane's width restating that.
-const HANGING_INDENT: usize = LONG_COLUMN + 2;
-
-/// The column an entity's spellings start at (spec §9.3).
+/// The column an entity's spellings start at within a section indented by
+/// `indent` (spec §9.3).
 ///
 /// Shape decides it, never kind and never the section: a row whose first
 /// documented spelling is a short (or a dashless name — a positional, a
@@ -1105,7 +1098,12 @@ const HANGING_INDENT: usize = LONG_COLUMN + 2;
 /// natural exception: there is no single "the long" in such a row to align,
 /// so preindenting it would push a list of names right for no column, and
 /// its length already marks it out.
-fn spelling_column(entity: &Entity) -> usize {
+fn spelling_column(entity: &Entity, indent: usize) -> usize {
+    indent + bare_spelling_column(entity)
+}
+
+/// [`spelling_column`] before the section's own indent is added.
+fn bare_spelling_column(entity: &Entity) -> usize {
     if entity.spellings.len() > 2 {
         return SHORT_COLUMN;
     }
@@ -1140,39 +1138,21 @@ fn spelling_column(entity: &Entity) -> usize {
 /// is not a table at all. The cap was silently setting a target that most
 /// rows then missed individually.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SectionLayout {
-    /// Spelling-with-placeholder and description in two aligned columns.
+struct SectionLayout {
+    /// The section's shared description column: where every description
+    /// line in the section begins.
     ///
-    /// The placeholder is part of what the reader types, so it is measured
-    /// as part of the spelling rather than given an aligned slot of its
-    /// own (spec §9.3). A slot has to be wide enough for the section's
-    /// widest placeholder, which is width every row pays and one row
-    /// needs: `grep`'s `-e, --regexp PATTERNS` ran past the description
-    /// column on a placeholder alone, hanging the description of a row
-    /// whose first line was mostly empty.
-    ///
-    /// The column is invariant for the list: a row too wide for it hangs
-    /// its description onto the next line rather than pushing the column
-    /// right for itself alone.
-    Table { description: usize },
-    /// Spelling and placeholder on one line, description indented
-    /// underneath.
-    ///
-    /// What every narrow-terminal help renderer falls back to, and for the
-    /// same reason: it gives prose the full width of the pane and keeps a
-    /// perfectly straight left edge, neither of which a table can do once
-    /// the columns eat more than half the room.
-    Stacked,
-}
-
-impl SectionLayout {
-    /// Where descriptions begin under this layout.
-    fn description_column(self) -> usize {
-        match self {
-            SectionLayout::Table { description, .. } => description,
-            SectionLayout::Stacked => HANGING_INDENT,
-        }
-    }
+    /// The one number the whole section shares. The placeholder is part of
+    /// what the reader types, so it is measured as part of the spelling
+    /// rather than given an aligned slot of its own (spec §9.3): a slot
+    /// has to be wide enough for the section's widest placeholder, which
+    /// is width every row pays and one row needs — `grep`'s `-e,
+    /// --regexp PATTERNS` ran past the description column on a placeholder
+    /// alone.
+    description: usize,
+    /// Columns every row in the section is inset by — [`POSITIONAL_INDENT`]
+    /// for POSITIONALS, zero for the flag-shaped sections.
+    indent: usize,
 }
 
 /// The width that fits [`SHARED_COLUMN_PERCENTILE`] of `widths` — the
@@ -1193,23 +1173,34 @@ fn percentile_width(widths: impl Iterator<Item = usize>) -> usize {
     widths[rank - 1]
 }
 
-/// Choose the layout for one section's `entities` in a pane `width`
-/// columns wide.
+/// The layout for one section's `entities` in a pane `width` columns wide,
+/// inset by `indent`.
 ///
-/// Two independent bounds on the shared column, and it is the *lower* of
-/// them:
+/// Three bounds on the shared column, and it is the *lowest* of them:
 ///
 /// 1. **The percentile** (spec §9.3): fitted to the majority, so the widest
-///    tenth hangs rather than setting a column for everyone else.
-/// 2. **The pane cap** (spec §9.1a): a spelling past
+///    tenth pushes its own first line right rather than setting a column
+///    for everyone else.
+/// 2. **The pane cap** (spec §9.1a): a head past
 ///    [`DESC_COLUMN_CAP_PERCENT`] of the pane gets no vote at all, however
-///    many of its kind there are — a section where *most* spellings are
+///    many of its kind there are — a section where *most* heads are
 ///    enormous must still leave prose a readable width.
+/// 3. **The clamp** (spec §9.3): whatever the first two say, the column
+///    comes down until [`MIN_DESC_WIDTH`] columns are left for prose. This
+///    is what a narrow pane degrades by — the column moves, and the
+///    section stays one layout with one column rather than swapping to a
+///    second one at some threshold width.
+///
+/// …and one floor under all three: the column never comes further left
+/// than two past the deepest column a spelling can start at. The area left
+/// of the column is reserved for heads, so a column inside it would put
+/// descriptions to the *left* of the preindented longs they belong to,
+/// where a description stops reading as one.
 ///
 /// Outliers are excluded from the measurement rather than clamped to it. A
 /// clamped column is a column the outlier still misses; an excluded one is
-/// a column it can hang below while every other row stays aligned.
-fn section_layout(entities: &[&Entity], width: usize) -> SectionLayout {
+/// a column it starts one space past while every other row stays aligned.
+fn section_layout(entities: &[&Entity], width: usize, indent: usize) -> SectionLayout {
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
     let gap = 2;
 
@@ -1218,28 +1209,19 @@ fn section_layout(entities: &[&Entity], width: usize) -> SectionLayout {
     // actually starts, and a placeholder is measured as part of the
     // spelling it belongs to rather than against a slot of its own.
     let fits = |w: usize| w + gap <= cap;
-    let fitting: Vec<usize> = entities
+    let fitting = entities
         .iter()
-        .map(|e| entity_head_width(e))
-        .filter(|w| fits(*w))
-        .collect();
+        .map(|e| entity_head_width(e, indent))
+        .filter(|w| fits(*w));
 
-    // Exclusion presupposes that what it excludes are outliers. Once the
-    // cap has removed half the section, the column left behind is one a
-    // minority chose and the majority then hangs below — which is the
-    // shape spec §9.1a rules out, arrived at from the other direction: a
-    // column most rows miss is worse than no column, because the eye keeps
-    // trying to use it. A section in that state stacks instead.
-    if fitting.len() * 2 <= entities.len() {
-        return SectionLayout::Stacked;
+    let floor = indent + LONG_COLUMN + gap;
+    let description = (percentile_width(fitting) + gap)
+        .min(width.saturating_sub(MIN_DESC_WIDTH))
+        .max(floor);
+    SectionLayout {
+        description,
+        indent,
     }
-    let head = percentile_width(fitting.into_iter());
-
-    let description = head + gap;
-    if width.saturating_sub(description) < MIN_DESC_WIDTH {
-        return SectionLayout::Stacked;
-    }
-    SectionLayout::Table { description }
 }
 
 /// One section's rendered body: its lines, its logical rows, and where a
@@ -1263,11 +1245,12 @@ const INHERITED_GROUP: &str = "Inherited";
 fn section_lines(
     entities: &[&Entity],
     width: usize,
+    indent: usize,
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
 ) -> SectionBody {
-    let layout = section_layout(entities, width);
+    let layout = section_layout(entities, width, indent);
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
     // need first, and its 17 groups are sequenced deliberately. A BTreeMap
@@ -1420,17 +1403,17 @@ fn entity_name_spec(flag: &Entity) -> String {
         .join(", ")
 }
 
-/// How wide one entity's row runs before its description: from the pane's
-/// left edge, through the column its shape starts it at, to the end of its
-/// value placeholder.
+/// How wide one entity's head runs: from the pane's left edge, through the
+/// section's indent and the column its shape starts it at, to the end of
+/// its value placeholder.
 ///
 /// The single width the section's shared column is fitted to (spec §9.3).
 /// It has to be one number, because a placeholder measured separately is a
 /// placeholder the row is not charged for: `grep`'s `-e, --regexp
 /// PATTERNS` fits a column measured over `-e, --regexp` and overruns the
 /// one it is rendered against.
-fn entity_head_width(entity: &Entity) -> usize {
-    let mut width = spelling_column(entity) + display_width(&entity_name_spec(entity));
+fn entity_head_width(entity: &Entity, indent: usize) -> usize {
+    let mut width = spelling_column(entity, indent) + display_width(&entity_name_spec(entity));
     if let Some(v) = entity_value_text(entity) {
         width += 1 + display_width(&v);
     }
@@ -1451,9 +1434,14 @@ fn entity_value_text(flag: &Entity) -> Option<String> {
 
 /// One entity's spellings, value placeholder, and description — each
 /// styled per spec §9.2's table (spelling: accent; value placeholder:
-/// muted; description: default foreground) — wrapped so a multi-line
-/// description hangs under where it started rather than restarting at
-/// column 0.
+/// muted; description: default foreground) — laid out against the
+/// section's shared column.
+///
+/// Every description line starts at that column, first and continuation
+/// alike, so the left of the section is heads and the right is prose. The
+/// one exception is a head that reaches the column: it keeps its own line
+/// and its first description line starts one space past where it ends,
+/// with every continuation back at the column (spec §9.3).
 ///
 /// The returned lines are one logical row (spec §9.3); the caller records
 /// that as an [`EntryRow`].
@@ -1469,10 +1457,12 @@ fn entity_line(
     let name_spec = entity_name_spec(flag);
     let value_text = entity_value_text(flag);
 
-    // Two columns, chosen by the row's own shape (spec §9.3): shorts at
-    // the content edge, longs preindented so every long in the section
-    // starts in the same place whether or not a short precedes it.
-    let leading = " ".repeat(spelling_column(flag));
+    // Two columns, chosen by the row's own shape (spec §9.3), behind the
+    // section's own indent: shorts at the content edge, longs preindented
+    // so every long in the section starts in the same place whether or not
+    // a short precedes it.
+    let head_column = spelling_column(flag, layout.indent);
+    let leading = " ".repeat(head_column);
     let leading = leading.as_str();
     let spelling_style = if dim {
         style::muted(color_enabled)
@@ -1525,11 +1515,11 @@ fn entity_line(
     // synthetic fixture in the corpus had a placeholder that wide.
     let mut head: Vec<Line<'static>> = Vec::new();
     if prefix_width > width {
-        // Budget the wrap at the hanging indent's width rather than the
-        // pane's, so the first chunk fits behind the row's own indent and
-        // every continuation fits behind the hanging one.
-        let budget = width.saturating_sub(HANGING_INDENT).max(1);
-        let indent = " ".repeat(HANGING_INDENT);
+        // Budget the wrap at the row's own column, so every line of the
+        // head sits in the area reserved for heads rather than drifting
+        // into the description's.
+        let budget = width.saturating_sub(head_column).max(1);
+        let indent = leading.to_string();
         for (i, chunk) in wrap_words(&name_spec, budget).into_iter().enumerate() {
             let text = if i == 0 {
                 format!("{leading}{chunk}")
@@ -1597,45 +1587,84 @@ fn entity_line(
     // at its own width instead, so a list could show three different
     // "columns" at once.
     //
-    // So a row that does not fit hangs: its description starts on the next
-    // line at `HANGING_INDENT`, a small fixed indent rather than the shared
-    // column (spec §9.3 — the row is already visually exceptional, and the
-    // fixed indent gives its description the width back). The spelling is
-    // never truncated to force alignment (spec §9.1's rule for the tree
-    // applies here too) and the column never moves: the row costs one extra
-    // line, which is the only one of the three that nothing else has to pay
-    // for.
-    let gap = 2;
-    let column = layout.description_column();
-    // A head that had to be broken across lines has already left the
-    // column behind, so its description hangs by construction.
-    let hangs = !head.is_empty() || prefix_width + gap > column;
-    let indent_width = if hangs { HANGING_INDENT } else { column };
-    let available = width.saturating_sub(indent_width).max(1);
-    let chunks = wrap_words(&description_text, available);
+    // Every description line therefore starts at the column, and the left
+    // of the section is reserved for heads. A head that reaches the column
+    // is the one exception (spec §9.3): it cannot be truncated to fit
+    // (spec §9.1's rule for the tree applies here too) and it must not
+    // move the column for the rest of the section, so it keeps its line
+    // and its *first* description line starts one space past where it
+    // ends. Every later line of that same description is back at the
+    // column, which is what keeps the exception a per-row nudge rather
+    // than a second layout.
+    let column = layout.description;
+    let rest_width = width.saturating_sub(column).max(1);
 
     let mut lines = Vec::new();
-    let mut chunks_iter = chunks.into_iter();
-    if !hangs {
-        if let Some(first_chunk) = chunks_iter.next() {
-            first_line_spans.push(Span::raw(" ".repeat(column - prefix_width)));
-            first_line_spans.push(Span::styled(first_chunk, desc_style));
-        }
-    }
+    let mut remainder = description_text.clone();
     if head.is_empty() {
+        // One space past the head, or the column — whichever is further
+        // right. They coincide for every row whose head fits.
+        let start = column.max(prefix_width + 1);
+        let first = width
+            .checked_sub(start)
+            .and_then(|room| leading_words(&remainder, room));
+        if let Some((first_chunk, rest)) = first {
+            first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
+            first_line_spans.push(Span::styled(first_chunk, desc_style));
+            remainder = rest;
+        }
         lines.push(Line::from(first_line_spans));
     } else {
+        // A head broken across lines has taken the pane's whole width for
+        // itself; its description begins on the line after it, at the
+        // column like any other.
         lines.extend(head);
     }
 
-    let indent_str = " ".repeat(indent_width);
-    for chunk in chunks_iter {
-        lines.push(Line::from(Span::styled(
-            format!("{indent_str}{chunk}"),
-            desc_style,
-        )));
+    let indent_str = " ".repeat(column);
+    if !remainder.is_empty() {
+        for chunk in wrap_words(&remainder, rest_width) {
+            lines.push(Line::from(Span::styled(
+                format!("{indent_str}{chunk}"),
+                desc_style,
+            )));
+        }
     }
     lines
+}
+
+/// The words of `text` that fit in `width` display columns, and what is
+/// left of it — `None` when not even the first word fits.
+///
+/// The greedy first line of a description whose head pushed it right
+/// (spec §9.3). A word too wide for the room beside the head is not broken
+/// there: `None` sends the whole description to the next line, where the
+/// section's column gives it the room to break in. Splitting it twice —
+/// once against a few leftover cells, once against the column — is how a
+/// pushed row ends up less readable than a plain one.
+fn leading_words(text: &str, width: usize) -> Option<(String, String)> {
+    let mut first = String::new();
+    let mut used = 0usize;
+    let mut words = text.split_whitespace();
+    let mut rest: Vec<&str> = Vec::new();
+
+    for word in words.by_ref() {
+        let candidate = used + usize::from(used > 0) + display_width(word);
+        if candidate > width {
+            rest.push(word);
+            break;
+        }
+        if used > 0 {
+            first.push(' ');
+        }
+        first.push_str(word);
+        used = candidate;
+    }
+    if first.is_empty() {
+        return None;
+    }
+    rest.extend(words);
+    Some((first, rest.join(" ")))
 }
 
 /// The provenance footer (spec §2, §4.2): which sources contributed, and
@@ -1795,7 +1824,7 @@ mod tests {
     fn inherited_flags_are_grouped_last() {
         let node = node_with_flags();
         let flags: Vec<&Entity> = node.flags().collect();
-        let lines = section_lines(&flags, 80, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(&flags, 80, 0, true, None, crate::glyphs::UNICODE).lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
         // A group divider, not a section header (spec §9.3): `INHERITED`
         // in caps would read as a section of its own, and inherited flags
@@ -1883,7 +1912,7 @@ mod tests {
             ),
         ];
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
-        let lines = section_lines(&refs, 80, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(&refs, 80, 0, true, None, crate::glyphs::UNICODE).lines;
 
         // Column at which each row's description text begins, located by a
         // marker rather than inferred from runs of whitespace: a row's
@@ -1921,8 +1950,13 @@ mod tests {
             if value.is_some() {
                 f.value_kind = ValueKind::Required;
             }
+            // Every word is the marker, so the column of *every*
+            // description line can be located exactly — a continuation
+            // line is not distinguishable from a wrapped head by
+            // indentation alone, and guessing is how a pin ends up
+            // measuring the wrong lines.
             f.description = Some(Text::sanitize(
-                "zzz set the thing to the other thing and then keep going for a while",
+                "zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz",
             ));
             f
         };
@@ -1938,20 +1972,35 @@ mod tests {
     }
 
     /// The column that every description line in `lines` starts at.
+    ///
+    /// Located by the `zzz` marker every word of the fixture descriptions
+    /// carries, so first lines and continuation lines are both measured
+    /// and a head — wrapped or not — is never mistaken for either.
     fn description_columns(lines: &[Line<'static>]) -> Vec<usize> {
         lines
             .iter()
             .filter_map(|line| {
                 let text = text_of(line);
-                if let Some(at) = text.find("zzz") {
-                    return Some(display_width(&text[..at]));
-                }
-                // A continuation line: prose with no spelling on it.
-                let trimmed = text.trim_start();
-                if trimmed.is_empty() || trimmed.starts_with('-') {
-                    return None;
-                }
-                Some(text.len() - trimmed.len())
+                let at = text.find("zzz")?;
+                Some(display_width(&text[..at]))
+            })
+            .collect()
+    }
+
+    /// Every description line in `lines`, as `(column, head)` — `head`
+    /// being the text of the row's head where the description shares a
+    /// line with one, and `None` on a continuation line or a line whose
+    /// description starts at the very left edge.
+    fn description_starts(lines: &[Line<'static>]) -> Vec<(usize, Option<String>)> {
+        lines
+            .iter()
+            .filter_map(|line| {
+                let text = text_of(line);
+                let at = text.find("zzz")?;
+                let before = &text[..at];
+                let head = before.trim_end();
+                let head = (!head.is_empty()).then(|| head.to_string());
+                Some((display_width(before), head))
             })
             .collect()
     }
@@ -1966,93 +2015,111 @@ mod tests {
     /// string` also losing the gap that separates a spelling from its
     /// value, so the two ran together as one token.
     ///
-    /// So the property is not "one column" — spec §9.3 gives a row too
-    /// wide for the column a second, equally fixed place to start, the
-    /// pane's hanging indent, and which rows need it is a function of the
-    /// pane's width. It is that **both** numbers are the section's, never
-    /// the row's: at every width every description begins either at the
-    /// section's own column or at the one hanging indent, and each of
-    /// those is a single number for the whole section.
+    /// Spec §9.3 states the rule as one layout with one column and one
+    /// per-row exception, and this pins it line by line, which is stronger
+    /// than the "at most two distinct columns" it supersedes: a
+    /// continuation line is *always* at the section's column, and a first
+    /// line is either at that column or exactly one space past the end of
+    /// its own head — never at some third place, and never at a per-row
+    /// indent of its own.
     #[test]
-    fn descriptions_never_start_at_a_column_the_row_chose() {
+    fn every_description_line_starts_at_the_column_or_one_space_past_its_head() {
         let flags = docker_global_flags();
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         for width in 20..=160 {
-            let lines = section_lines(&refs, width, true, None, crate::glyphs::UNICODE).lines;
-            let starts = description_columns(&lines);
+            let lines = section_lines(&refs, width, 0, true, None, crate::glyphs::UNICODE).lines;
+            let column = section_layout(&refs, width, 0).description;
+            let starts = description_starts(&lines);
             assert!(
                 !starts.is_empty(),
                 "width {width}: no descriptions rendered"
             );
-            let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
-            assert!(
-                distinct.len() <= 2,
-                "width {width}: descriptions start at {distinct:?} — at most the \
-                 section's column and the hanging indent"
-            );
-            // The hanging indent is the pane's, not the row's, so a second
-            // column can only ever be that one number.
-            let hanging: Vec<usize> = distinct
-                .iter()
-                .copied()
-                .filter(|c| *c == HANGING_INDENT)
-                .collect();
-            let shared: Vec<usize> = distinct
-                .iter()
-                .copied()
-                .filter(|c| *c != HANGING_INDENT)
-                .collect();
-            assert!(
-                shared.len() <= 1,
-                "width {width}: {shared:?} are two different shared columns"
-            );
-            assert!(
-                distinct.len() < 2 || hanging.len() == 1,
-                "width {width}: a second column that is not the hanging indent: {distinct:?}"
-            );
+            for (start, head) in starts {
+                let Some(head) = head else {
+                    assert_eq!(
+                        start, column,
+                        "width {width}: a continuation line must start at the \
+                         section's column {column}"
+                    );
+                    continue;
+                };
+                if start == column {
+                    continue;
+                }
+                assert!(
+                    start > column,
+                    "width {width}: {head:?} started its description at {start}, \
+                     left of the section's column {column}"
+                );
+                assert_eq!(
+                    start,
+                    display_width(&head) + 1,
+                    "width {width}: a head past the column is followed by exactly \
+                     one space, not a column of its own: {head:?}"
+                );
+            }
         }
     }
 
-    /// Below the point where a table can leave prose a readable width, the
-    /// list stacks rather than shredding descriptions into a narrow strip.
+    /// A pane too narrow for the section's own column brings the column
+    /// down rather than shredding prose into a strip: the column is the
+    /// thing that degrades, and the section stays one layout.
     ///
     /// At 90 columns `docker pull`'s `--platform` description used to
     /// break as "Set / platform / if server / is / multi-pla… / capable" —
     /// six lines for six words, one truncated mid-word, because the
-    /// columns had eaten everything but 9 cells of the pane.
+    /// columns had eaten everything but 9 cells of the pane. This
+    /// supersedes the stacked-layout pin: what guarantees the same
+    /// legibility now is the clamp, not a second layout.
     #[test]
-    fn a_narrow_pane_stacks_instead_of_shredding_prose() {
+    fn a_narrow_pane_clamps_the_column_rather_than_shredding_prose() {
         let flags = docker_global_flags();
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
-        assert_eq!(section_layout(&refs, 38), SectionLayout::Stacked);
-        let lines = section_lines(&refs, 38, true, None, crate::glyphs::UNICODE).lines;
-        for start in description_columns(&lines) {
-            assert_eq!(start, HANGING_INDENT, "stacked prose must be flush");
+        for width in 34..=60 {
+            let column = section_layout(&refs, width, 0).description;
+            assert!(
+                width - column >= MIN_DESC_WIDTH,
+                "width {width}: column {column} leaves {} for prose",
+                width - column
+            );
+            // ...and the clamp is a clamp, not a reset: it only ever moves
+            // the column left of where the section's own heads put it.
+            let unclamped = percentile_width(
+                refs.iter()
+                    .map(|e| entity_head_width(e, 0))
+                    .filter(|w| w + 2 <= width * DESC_COLUMN_CAP_PERCENT / 100),
+            ) + 2;
+            assert!(
+                column <= unclamped.max(LONG_COLUMN + 2),
+                "width {width}: the clamp moved the column right, to {column}"
+            );
         }
-        // The whole point of stacking: prose gets the pane, not a strip.
-        // Measured on the rendered lines rather than asserted against the
-        // constants, which would only restate the arithmetic above.
+
+        // Prose really does get that width on the page, measured on the
+        // rendered lines rather than restated from the arithmetic above.
+        let lines = section_lines(&refs, 38, 0, true, None, crate::glyphs::UNICODE).lines;
         let widest_prose = lines
             .iter()
             .map(text_of)
-            .filter(|t| !t.trim_start().starts_with('-'))
+            .filter(|t| t.contains("zzz"))
             .map(|t| display_width(t.trim()))
             .max()
             .unwrap_or(0);
         assert!(
             widest_prose >= MIN_DESC_WIDTH,
-            "stacked prose still shredded: widest line was {widest_prose}"
+            "prose still shredded: widest description line was {widest_prose}"
         );
     }
 
     /// One very long spelling must not drag every other row's description
     /// against the right-hand edge — the reason a cap existed at all. It
-    /// now hangs instead of widening the column, so the cap's original job
-    /// is done without the raggedness it used to cause.
+    /// now pushes only its own first line instead of widening the column,
+    /// so the cap's original job is done without the raggedness it used to
+    /// cause.
     #[test]
-    fn one_overlong_spelling_hangs_rather_than_moving_the_column() {
+    fn one_overlong_head_pushes_only_its_own_first_line() {
         let mut flags = docker_global_flags();
         // Past the 45% cap at 120 columns, which is the point of the test.
         // A spelling that merely *looks* long is not an outlier: a 49-char
@@ -2062,54 +2129,51 @@ mod tests {
             "an-extremely-long-option-name-that-nobody-would-ever-type-by-hand",
             Provenance::single(Source::HelpText),
         );
-        monster.description = Some(Text::sanitize("zzz does something"));
+        monster.description = Some(Text::sanitize(
+            "zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz",
+        ));
         flags.push(monster);
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         let without: Vec<&mandible_core::Entity> = refs[..refs.len() - 1].to_vec();
+        let shared = section_layout(&refs, 120, 0).description;
         assert_eq!(
-            section_layout(&refs, 120),
-            section_layout(&without, 120),
+            section_layout(&refs, 120, 0),
+            section_layout(&without, 120, 0),
             "an outlier spelling must not set the column for the list"
         );
 
-        let lines = section_lines(&refs, 120, true, None, crate::glyphs::UNICODE).lines;
-        let distinct: std::collections::BTreeSet<usize> =
-            description_columns(&lines).into_iter().collect();
-        // Spec §9.3 supersedes the old single-column pin here. Two columns
-        // is the *designed* outcome, and asserting one hid which: the
-        // outlier's description hangs at the small fixed indent rather than
-        // at the shared column it could not reach, and every other row is
-        // still aligned on that column. Both halves are asserted, so this
-        // is a stronger statement than the count it replaces — it names the
-        // two numbers instead of counting them.
-        assert_eq!(distinct.len(), 2, "expected column + hang: {distinct:?}");
-        assert!(
-            distinct.contains(&HANGING_INDENT),
-            "the outlier must hang at the fixed indent: {distinct:?}"
-        );
-        let shared = *distinct
-            .iter()
-            .find(|c| **c != HANGING_INDENT)
-            .expect("a shared column");
-        assert_eq!(
-            description_columns(&lines)
-                .into_iter()
-                .filter(|c| *c == HANGING_INDENT)
-                .count(),
-            1,
-            "only the outlier may hang; every other row sits at {shared}"
-        );
+        let lines = section_lines(&refs, 120, 0, true, None, crate::glyphs::UNICODE).lines;
+        let starts = description_starts(&lines);
 
-        // ...and it hangs: its spelling occupies a line of its own.
-        let joined: Vec<String> = lines.iter().map(text_of).collect();
-        let row = joined
+        // Exactly one line in the section starts past the shared column,
+        // and it is the outlier's own first line, one space past its head.
+        // This is stronger than the two-numbers pin it supersedes: it says
+        // *which* line may miss the column, and by how much.
+        let pushed: Vec<&(usize, Option<String>)> =
+            starts.iter().filter(|(c, _)| *c != shared).collect();
+        assert_eq!(
+            pushed.len(),
+            1,
+            "only the outlier may be pushed: {starts:?}"
+        );
+        let (start, head) = pushed[0];
+        let head = head.as_deref().expect("the outlier's head shares its line");
+        assert!(head.contains("an-extremely-long-option-name"), "{head:?}");
+        assert_eq!(*start, display_width(head) + 1);
+
+        // ...and its own continuation lines come back to the column, so
+        // the push is one line's worth of exception and no more.
+        let outlier = lines
             .iter()
-            .find(|l| l.contains("an-extremely-long-option-name"))
+            .position(|l| text_of(l).contains("an-extremely-long-option-name"))
             .expect("outlier row missing");
-        assert!(
-            !row.contains("zzz"),
-            "an over-long spelling should hang its description, not push the column: {row:?}"
+        let continuation = text_of(&lines[outlier + 1]);
+        assert!(continuation.contains("zzz"), "{continuation:?}");
+        assert_eq!(
+            continuation.len() - continuation.trim_start().len(),
+            shared,
+            "a pushed row's continuation must return to the column: {continuation:?}"
         );
     }
 
@@ -2192,44 +2256,56 @@ mod tests {
     /// indent under the description column on continuation lines, not
     /// restart at column 0.
     #[test]
-    fn wrapped_flag_description_hangs_indented_not_flush_left() {
+    fn a_pushed_description_continues_at_the_shared_column() {
         let mut flag = Entity::flag_long("tlscacert", Provenance::single(Source::HelpText));
         flag.value_name = Some("string".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize(
             "Trust certs signed only by this CA (default \"\")",
         ));
+        let column = 20;
         let lines = entity_line(
             &flag,
             false,
             40,
             true,
-            SectionLayout::Table { description: 20 },
+            SectionLayout {
+                description: column,
+                indent: 0,
+            },
         );
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
-        let first_text = text_of(&lines[0]);
-        // This row's spelling plus value runs to 24, past the column, so it
-        // hangs: line 0 is the spelling alone and the description starts on
-        // line 1. What it hangs *to* is what spec §9.3 changed — the small
-        // fixed indent, not the shared column this row could not reach.
-        //
-        // The pin the old assertion carried is kept and strengthened, not
-        // dropped: the failure it guarded against was a continuation that
-        // clears *this row's own prefix*, which is the per-row indent that
-        // made a list of flags render with three different "columns" at
-        // once. Every line here is checked against one number that is the
-        // same for every hanging row in the pane, and asserted to be well
-        // clear of this row's 24-column prefix.
+
+        // This row's spelling plus value runs to 24, past the column, so
+        // its first description line is pushed to 25 — one space past its
+        // own head, and nowhere else.
+        let first = text_of(&lines[0]);
+        let head = "    --tlscacert string";
+        assert!(first.starts_with(head), "{first:?}");
+        assert_eq!(
+            first.find("Trust"),
+            Some(head.len() + 1),
+            "a head past the column is followed by exactly one space: {first:?}"
+        );
+
+        // The pin the old hanging-indent assertion carried is kept and
+        // strengthened, not dropped: the failure it guarded against was a
+        // continuation that clears *this row's own prefix*, which is the
+        // per-row indent that made a list of flags render with three
+        // different "columns" at once. Every continuation here is checked
+        // against the section's own column — one number the whole section
+        // shares — and that number is well clear of this row's 24-column
+        // prefix.
         for line in &lines[1..] {
             let text = text_of(line);
             let indent_len = text.len() - text.trim_start().len();
             assert_eq!(
-                indent_len, HANGING_INDENT,
-                "first={first_text:?} line={text:?} must start at the fixed hanging indent"
+                indent_len, column,
+                "first={first:?} line={text:?} must continue at the shared column"
             );
             assert!(
-                indent_len < display_width(&first_text),
-                "a hanging description must not be indented by its own row's width"
+                indent_len < display_width(&first),
+                "a description must not be indented by its own row's width"
             );
         }
     }
@@ -2249,7 +2325,10 @@ mod tests {
             false,
             80,
             true,
-            SectionLayout::Table { description: 20 },
+            SectionLayout {
+                description: 20,
+                indent: 0,
+            },
         );
         let spans = &lines[0].spans;
         assert!(spans.len() >= 3, "{spans:?}");
@@ -2277,7 +2356,10 @@ mod tests {
             false,
             80,
             true,
-            SectionLayout::Table { description: 20 },
+            SectionLayout {
+                description: 20,
+                indent: 0,
+            },
         );
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
@@ -2350,7 +2432,7 @@ mod tests {
             mk('c', "count", None),
         ];
         let refs: Vec<&Entity> = flags.iter().collect();
-        let text: Vec<String> = section_lines(&refs, 60, true, None, crate::glyphs::UNICODE)
+        let text: Vec<String> = section_lines(&refs, 60, 0, true, None, crate::glyphs::UNICODE)
             .lines
             .iter()
             .map(text_of)
@@ -2385,15 +2467,24 @@ mod tests {
         );
     }
 
-    /// Spec §9.1a: excluding an outlier from the column's measurement is
-    /// only excluding an outlier while the excluded are a minority. Once
-    /// the cap has removed half the section, what is left chooses a column
-    /// the rest of the rows then miss — so the section stacks instead.
+    /// Spec §9.1a: a head past the 45% cap gets no vote on the column,
+    /// however many of its kind there are. Where the cap excludes most of
+    /// a section, the column the minority sets still serves the whole
+    /// section — every row's description continues at it, and the excluded
+    /// rows push only their own first lines.
+    ///
+    /// This supersedes the pin that sent such a section to a stacked
+    /// layout. The failure that rule guarded against — most of a section
+    /// missing the column it is supposedly aligned on — is now impossible
+    /// by construction rather than by choosing a second layout: a row that
+    /// cannot reach the column never renders a line at any other one.
     #[test]
-    fn a_column_is_never_chosen_by_the_minority_that_fits_the_cap() {
+    fn a_column_the_minority_fits_still_serves_the_whole_section() {
         let mk = |long: &str| {
             let mut f = Entity::flag_long(long, Provenance::single(Source::HelpText));
-            f.description = Some(Text::sanitize("zzz what this one does"));
+            f.description = Some(Text::sanitize(
+                "zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz",
+            ));
             f
         };
         // Four rows well past 45% of a 60-column pane, one comfortably
@@ -2407,24 +2498,28 @@ mod tests {
         let cap = 60 * DESC_COLUMN_CAP_PERCENT / 100;
         let fitting = refs
             .iter()
-            .filter(|e| entity_head_width(e) + 2 <= cap)
+            .filter(|e| entity_head_width(e, 0) + 2 <= cap)
             .count();
         assert_eq!(fitting, 1, "the fixture must leave a minority fitting");
 
-        assert_eq!(
-            section_layout(&refs, 60),
-            SectionLayout::Stacked,
-            "a column one row in five can reach is not a column"
+        let column = section_layout(&refs, 60, 0).description;
+        let starts = description_starts(
+            &section_lines(&refs, 60, 0, true, None, crate::glyphs::UNICODE).lines,
         );
-        let starts = description_columns(
-            &section_lines(&refs, 60, true, None, crate::glyphs::UNICODE).lines,
+        assert!(
+            starts.len() > refs.len(),
+            "the fixture must wrap, or continuation lines prove nothing: {starts:?}"
         );
-        let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
-        assert_eq!(
-            distinct.len(),
-            1,
-            "a stacked section has one left edge: {starts:?}"
-        );
+        for (start, head) in &starts {
+            match head {
+                None => assert_eq!(start, &column, "a continuation line left the column"),
+                Some(head) => assert!(
+                    *start == column || *start == display_width(head) + 1,
+                    "{head:?} started its description at {start}, neither the \
+                     column {column} nor one space past its own head"
+                ),
+            }
+        }
     }
 
     /// Spec §9.3's two columns: a short spelling starts at the content
@@ -2459,7 +2554,7 @@ mod tests {
             ]),
         ];
         let refs: Vec<&Entity> = flags.iter().collect();
-        let text: Vec<String> = section_lines(&refs, 80, true, None, crate::glyphs::UNICODE)
+        let text: Vec<String> = section_lines(&refs, 80, 0, true, None, crate::glyphs::UNICODE)
             .lines
             .iter()
             .map(text_of)
@@ -2502,7 +2597,7 @@ mod tests {
 
         // ...and the whole section still shares one description column.
         let starts = description_columns(
-            &section_lines(&refs, 80, true, None, crate::glyphs::UNICODE).lines,
+            &section_lines(&refs, 80, 0, true, None, crate::glyphs::UNICODE).lines,
         );
         let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
         assert_eq!(
@@ -2512,36 +2607,53 @@ mod tests {
         );
     }
 
-    /// Spec §9.3: a hanging description clears the long column, so a
-    /// preindented long never has its own description sitting flush
-    /// beneath it.
+    /// Spec §9.3: the column never comes further left than the deepest
+    /// column a spelling can start at, so a preindented long never has its
+    /// own description sitting flush beneath it — or, worse, left of it.
     ///
-    /// The hanging indent used to be able to coincide with the column a
-    /// lone long starts at, and at that value the row renders as a name
-    /// with a sentence directly under it at the same left edge — two lines
-    /// of equal rank, with nothing to say the second belongs to the first.
-    /// This is what makes the indent an indent rather than a number that
-    /// happens to be small.
+    /// The old hanging indent could coincide with the column a lone long
+    /// starts at, and at that value the row renders as a name with a
+    /// sentence directly under it at the same left edge — two lines of
+    /// equal rank, with nothing to say the second belongs to the first.
+    /// The floor under the clamp is what keeps that from coming back at a
+    /// pane width narrow enough to squeeze the column into the head area,
+    /// which is the one thing that can now move the column left.
     #[test]
-    fn a_hanging_description_clears_the_long_it_belongs_to() {
+    fn the_column_never_moves_left_of_the_heads_it_serves() {
         let mut flag = Entity::flag_long("config", Provenance::single(Source::HelpText));
-        flag.description = Some(Text::sanitize("location of client config files"));
+        flag.description = Some(Text::sanitize(
+            "zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz",
+        ));
         assert_eq!(
-            spelling_column(&flag),
+            spelling_column(&flag, 0),
             LONG_COLUMN,
             "the fixture must be a preindented lone long"
         );
+        let refs = [&flag];
 
-        let lines = entity_line(&flag, false, 60, true, SectionLayout::Stacked);
-        assert!(lines.len() >= 2, "expected a stacked row: {lines:?}");
-        let name = text_of(&lines[0]);
-        let description = text_of(&lines[1]);
-        let indent = |t: &str| t.len() - t.trim_start().len();
-        assert!(
-            indent(&description) > indent(&name),
-            "a description flush under its own spelling reads as a second row, \
-             not as that row's description: {name:?} / {description:?}"
-        );
+        // Every width, including the ones where the clamp is doing all the
+        // work: a description that starts at or left of its own spelling
+        // has stopped being that spelling's description.
+        for width in 10..=120 {
+            let layout = section_layout(&refs, width, 0);
+            assert!(
+                layout.description > spelling_column(&flag, 0),
+                "width {width}: column {} is not clear of the long column",
+                layout.description
+            );
+            let lines = entity_line(&flag, false, width, true, layout);
+            let head_column = spelling_column(&flag, 0);
+            // Only the description's own lines — a head wide enough to
+            // wrap contributes lines of its own, and those belong in the
+            // head area by design.
+            for (start, _) in description_starts(&lines) {
+                assert!(
+                    start > head_column,
+                    "width {width}: a description at {start} is flush under or left \
+                     of the spelling it belongs to, at {head_column}"
+                );
+            }
+        }
     }
 
     /// Spec §9.3: a group divider's rule is drawn one shade lighter than
@@ -2605,7 +2717,7 @@ mod tests {
             flags.push(f);
         }
         let refs: Vec<&Entity> = flags.iter().collect();
-        let lines = section_lines(&refs, 60, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(&refs, 60, 0, true, None, crate::glyphs::UNICODE).lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
 
         assert_eq!(
@@ -2643,20 +2755,20 @@ mod tests {
         // thing that can be excluding it.
         let mut flags: Vec<Entity> = (0..9).map(|i| mk(&format!("opt-{i}"))).collect();
         let short_only: Vec<&Entity> = flags.iter().collect();
-        let narrow = section_layout(&short_only, 100);
+        let narrow = section_layout(&short_only, 100, 0);
 
         flags.push(mk("a-considerably-wider-option-name"));
         let with_outlier: Vec<&Entity> = flags.iter().collect();
         // Measured where the row actually starts — these are long-only
         // spellings, so each is preindented to the long column (spec
         // §9.3) and the cap sees that width, not the bare text's.
-        let widest = spelling_column(&flags[9]) + display_width(&entity_name_spec(&flags[9]));
+        let widest = spelling_column(&flags[9], 0) + display_width(&entity_name_spec(&flags[9]));
         assert!(
             widest + 2 <= 100 * DESC_COLUMN_CAP_PERCENT / 100,
             "the outlier must be inside the pane cap, or this measures the cap"
         );
         assert_eq!(
-            section_layout(&with_outlier, 100),
+            section_layout(&with_outlier, 100, 0),
             narrow,
             "the widest tenth must not set the column"
         );
@@ -2669,7 +2781,7 @@ mod tests {
         wide.push(mk("opt-0"));
         let wide_refs: Vec<&Entity> = wide.iter().collect();
         assert_ne!(
-            section_layout(&wide_refs, 100),
+            section_layout(&wide_refs, 100, 0),
             narrow,
             "a majority of wide spellings must set a wide column"
         );
