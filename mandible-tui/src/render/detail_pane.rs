@@ -958,14 +958,23 @@ fn group_label(raw: &str) -> String {
     label
 }
 
-/// A group divider within a section (spec §9.3): a full-width dimmed rule
-/// with the group's label inline, `─ Operation ─────…`.
+/// A group divider within a section (spec §9.3): a full-width rule with
+/// the group's label inline, `─ Operation ─────…`.
 ///
 /// The rows beneath it stay at the section's normal margin — grouping is
 /// drawn, never indented, so it costs no width. The leading rule cell is
 /// what makes the divider recognizable as subordinate at a glance: a
 /// section header starts with its own name at column 0, a group starts with
 /// the rule that runs through it.
+///
+/// The rule is drawn one shade lighter than the section header's
+/// ([`style::faint`] against [`style::muted`]), so a divider reads as
+/// subordinate to the header above it rather than as its equal. The label
+/// keeps the muted shade: it is the part that has to stay readable, and
+/// the weight difference belongs to the furniture, not the words.
+///
+/// `ruled` is false for a divider that opens its section — see
+/// [`group_divider_lead_line`], which is what that case renders instead.
 ///
 /// The label is tool-authored text of unbounded length, so it is truncated
 /// to the pane rather than trusted to fit — a divider that wrapped would
@@ -976,19 +985,53 @@ fn group_divider_line(
     width: usize,
     color_enabled: bool,
     glyphs: Glyphs,
+    ruled: bool,
 ) -> Line<'static> {
     let muted = style::muted(color_enabled);
+    if !ruled {
+        return group_divider_lead_line(label, width, color_enabled, glyphs);
+    }
+    let faint = style::faint(color_enabled);
     // One rule cell, a space either side of the label, and at least one
     // trailing rule cell: the budget the label has to fit inside.
     let furniture = display_width(glyphs.rule) * 2 + 2;
     let label = truncate_to_width_marker(label, width.saturating_sub(furniture), glyphs.ellipsis);
-    let inline = format!("{} {label} ", glyphs.rule);
-    let trail = width.saturating_sub(display_width(&inline));
-    let mut spans = vec![Span::styled(inline, muted)];
+    let trail =
+        width.saturating_sub(display_width(&label) + furniture - display_width(glyphs.rule));
+    let mut spans = vec![
+        Span::styled(format!("{} ", glyphs.rule), faint),
+        Span::styled(label, muted),
+        Span::styled(" ", faint),
+    ];
     if trail > 0 {
-        spans.push(Span::styled(glyphs.rule.repeat(trail), muted));
+        spans.push(Span::styled(glyphs.rule.repeat(trail), faint));
     }
     Line::from(spans)
+}
+
+/// The divider that **opens** a section: its label alone, at column 0,
+/// with no rule at all (spec §9.3).
+///
+/// A section header already draws a full-width rule, and a ruled divider
+/// on the very next line draws a second one directly beneath it. Two
+/// full-width rules one above the other read as a single doubled line —
+/// the header's own rule stops looking like a boundary and the group's
+/// stops looking like a subdivision of it. The header's rule is the
+/// boundary; the group only needs to be named, and naming it at column 0
+/// under a heading that also starts at column 0 is what a sub-heading
+/// looks like.
+///
+/// Distinguishable from the section header with every attribute stripped
+/// (spec §9.2): the header is CAPS with a count and a rule running to the
+/// pane's edge, this is mixed case with neither.
+fn group_divider_lead_line(
+    label: &str,
+    width: usize,
+    color_enabled: bool,
+    glyphs: Glyphs,
+) -> Line<'static> {
+    let label = truncate_to_width_marker(label, width, glyphs.ellipsis);
+    Line::from(Span::styled(label, style::muted(color_enabled)))
 }
 
 /// A spelling wider than this fraction of the pane does not get to set the
@@ -1239,8 +1282,17 @@ fn section_lines(
         };
         if let Some(key) = key {
             let label = labels.get(&key).map_or(key.as_str(), String::as_str);
-            body.lines
-                .push(group_divider_line(label, width, color_enabled, glyphs));
+            // A divider that opens its section drops its rule: the section
+            // header a line above already drew one, and two full-width
+            // rules in a row read as one doubled line (spec §9.3).
+            let ruled = !body.lines.is_empty();
+            body.lines.push(group_divider_line(
+                label,
+                width,
+                color_enabled,
+                glyphs,
+                ruled,
+            ));
         }
         for e in group {
             push_entity(
@@ -1256,11 +1308,13 @@ fn section_lines(
     }
 
     if !inherited.is_empty() {
+        let ruled = !body.lines.is_empty();
         body.lines.push(group_divider_line(
             INHERITED_GROUP,
             width,
             color_enabled,
             glyphs,
+            ruled,
         ));
         for e in inherited {
             push_entity(
@@ -1752,36 +1806,30 @@ mod tests {
             f
         };
         let flags = [
-            mk(Some('d'), "detach", None, "Detached mode"),
+            mk(Some('d'), "detach", None, "zzz detached mode"),
             mk(
                 None,
                 "detach-keys",
                 Some("string"),
-                "Override the key sequence",
+                "zzz override the key sequence",
             ),
-            mk(Some('e'), "env", Some("list"), "Set environment variables"),
+            mk(
+                Some('e'),
+                "env",
+                Some("list"),
+                "zzz set environment variables",
+            ),
         ];
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
         let lines = section_lines(&refs, 80, true, None, crate::glyphs::UNICODE).lines;
 
-        // Column at which each row's description text begins.
-        let starts: Vec<usize> = lines
-            .iter()
-            .filter_map(|line| {
-                let text = text_of(line);
-                let trimmed = text.trim_start();
-                if trimmed.starts_with('-') {
-                    // A flag row: find where the description follows the
-                    // spelling and its run of padding.
-                    let spec_end = text.find("  ")?;
-                    let rest = &text[spec_end..];
-                    let pad = rest.len() - rest.trim_start().len();
-                    Some(spec_end + pad)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        // Column at which each row's description text begins, located by a
+        // marker rather than inferred from runs of whitespace: a row's
+        // leading indent and the padding before a value placeholder are
+        // both runs of whitespace too, so "the first double space" finds a
+        // different thing on different rows and the measurement stops
+        // meaning what its name says.
+        let starts = description_columns(&lines);
 
         assert!(starts.len() >= 3, "expected a row per flag, got {starts:?}");
         assert!(
@@ -2191,6 +2239,84 @@ mod tests {
                 "a group label must not read as a section header: {label:?}"
             );
         }
+    }
+
+    /// Spec §9.3: a group divider's rule is drawn one shade lighter than
+    /// the rule that closes a section header, while its label keeps the
+    /// header's shade — the weight difference is in the furniture, not the
+    /// words.
+    ///
+    /// Asserted on the styles of the spans rather than on their text,
+    /// because the text is identical by construction: both are runs of the
+    /// same rule glyph, and only the style tells them apart.
+    #[test]
+    fn a_group_divider_rule_is_lighter_than_a_section_header_rule() {
+        let glyphs = crate::glyphs::UNICODE;
+        let header = heading_line_ruled("FLAGS", Some(3), 60, true, glyphs);
+        let divider = group_divider_line("Main operation mode", 60, true, glyphs, true);
+
+        let rule_style = |line: &Line<'static>| {
+            line.spans
+                .iter()
+                .find(|s| s.content.starts_with(glyphs.rule) && s.content.chars().count() > 1)
+                .map(|s| s.style)
+                .expect("a rule run")
+        };
+        let header_rule = rule_style(&header);
+        let divider_rule = rule_style(&divider);
+        assert_eq!(header_rule, style::muted(true));
+        assert_eq!(divider_rule, style::faint(true));
+        assert_ne!(
+            header_rule, divider_rule,
+            "the two rules must not read as one weight"
+        );
+
+        // The label is not what was lightened.
+        let label = divider
+            .spans
+            .iter()
+            .find(|s| s.content.contains("Main operation mode"))
+            .expect("a label span");
+        assert_eq!(label.style, style::muted(true));
+
+        // Spec §9.2: lightening is additive over the muted color and never
+        // the sole distinction. A terminal that ignores `DIM` sees exactly
+        // the muted rule it saw before, and the CAPS-and-count shape is
+        // what still separates the two lines there.
+        assert_eq!(style::faint(true).fg, style::muted(true).fg);
+        assert!(text_of(&header).starts_with("FLAGS (3) "));
+        assert!(text_of(&divider).starts_with("─ Main operation mode "));
+    }
+
+    /// Spec §9.3: a divider that opens its section renders its label alone
+    /// at column 0 — the section header a line above already drew the
+    /// rule, and a second full-width rule beneath it reads as one doubled
+    /// line.
+    #[test]
+    fn a_section_opening_divider_carries_no_rule() {
+        let mut flags = Vec::new();
+        for (group, name) in [("Operation:", "create"), ("Devices:", "file")] {
+            let mut f = Entity::flag_long(name, Provenance::single(Source::HelpText));
+            f.group = Some(group.to_string());
+            f.description = Some(Text::sanitize("does a thing"));
+            flags.push(f);
+        }
+        let refs: Vec<&Entity> = flags.iter().collect();
+        let lines = section_lines(&refs, 60, true, None, crate::glyphs::UNICODE).lines;
+        let text: Vec<String> = lines.iter().map(text_of).collect();
+
+        assert_eq!(
+            text[0], "Operation",
+            "the opening divider is its label alone: {text:?}"
+        );
+        let later = text
+            .iter()
+            .find(|t| t.contains("Devices"))
+            .expect("a second divider");
+        assert!(
+            later.starts_with("─ Devices ") && later.ends_with('─'),
+            "a later divider keeps its rule: {later:?}"
+        );
     }
 
     /// Spec §9.3: the shared column is fitted to roughly the p90 spelling

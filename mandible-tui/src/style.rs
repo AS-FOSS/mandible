@@ -53,6 +53,21 @@ pub fn muted_bold(color_enabled: bool) -> Style {
     muted(color_enabled).add_modifier(Modifier::BOLD)
 }
 
+/// One step back from [`muted`]: the rule a group divider is drawn with,
+/// lighter than the rule that closes a section header (spec §9.3), so two
+/// rules in the same pane read as two levels rather than one repeated.
+///
+/// `DIM` is used here **additively**, on text that is already `DarkGray`,
+/// which is what keeps it clear of spec §9.2's rule against `DIM` as a
+/// substitute for a muted color: a terminal that ignores `DIM` renders
+/// this exactly as [`muted`], i.e. as the divider looked before, and
+/// nothing is lost. It is never the sole distinction either — a section
+/// header is CAPS with a count, a group divider mixed case without one,
+/// and that shape survives every attribute being stripped.
+pub fn faint(color_enabled: bool) -> Style {
+    muted(color_enabled).add_modifier(Modifier::DIM)
+}
+
 /// Muted + italic: a flag's value placeholder (`<FILE>`).
 pub fn muted_italic(color_enabled: bool) -> Style {
     muted(color_enabled).add_modifier(Modifier::ITALIC)

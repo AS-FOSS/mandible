@@ -2163,11 +2163,28 @@ Rules:
 - **ENVIRONMENT is display-only**: documented vars under an explicit
   heading only, no probing, no inferred cross-references (§4.5).
 - **Group dividers.** Within a section, a `group` renders once as a
-  full-width dimmed rule with its label inline, mixed case
+  full-width rule with its label inline, mixed case
   (`─ Operation ───────…`); the rows beneath sit at the section's normal
   margin — no extra indent, so grouping costs no width. Section headers
   are CAPS with a count, group dividers mixed-case without one: the shape
   distinction survives a terminal that ignores dimming, per §9.2.
+  - The divider's rule is drawn one shade lighter than the section
+    header's, so two rules in the same pane read as two levels rather than
+    one weight repeated. The label keeps the header's shade — the weight
+    difference belongs to the furniture, not the words. It is additive
+    over the muted color and never the sole distinction (§9.2): a terminal
+    that renders both shades identically still has the CAPS-and-count
+    shape to read.
+  - **A divider that opens its section drops its rule** and renders its
+    label alone at column 0. The section header drew a full-width rule on
+    the line above, and a second one immediately beneath it reads as a
+    single doubled line — the header's rule stops reading as the section
+    boundary and the group's stops reading as a subdivision of it. The
+    header's rule is the boundary; the group needs only to be named, and a
+    mixed-case label at column 0 beneath a CAPS heading at column 0 is
+    what a sub-heading looks like. Dividers later in the same section keep
+    their rule, where they genuinely separate one run of rows from
+    another.
 - **Descriptions always wrap.** Sections are mandible's own layout, so
   nothing in them is ever clipped or horizontally scrolled; `[ui]
   horizontal_scroll` governs only content whose layout is not ours — the

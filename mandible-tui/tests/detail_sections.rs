@@ -284,6 +284,67 @@ fn a_group_divider_is_shaped_differently_from_a_section_header() {
     );
 }
 
+/// Spec §9.3: a group divider that **opens** its section renders its label
+/// alone at column 0, with no rule at all.
+///
+/// A section header ends in a full-width rule. A ruled divider on the very
+/// next line puts a second full-width rule directly beneath it, and the
+/// pair reads as one doubled line rather than as a boundary and a
+/// subdivision of it. Read off the symbol grid, which carries no styling —
+/// the same terminal spec §9.2 writes the shape rules for.
+#[test]
+fn a_divider_that_opens_its_section_drops_its_rule() {
+    let mut node = CommandNode::new("tar", Provenance::single(Source::HelpText));
+    for (group, name) in [
+        ("Main operation mode:", "create"),
+        ("Main operation mode:", "extract"),
+        ("DEVICE SELECTION AND SWITCHING:", "file"),
+    ] {
+        let mut e = entity(
+            EntityKind::Flag,
+            Spelling::long(name),
+            "does one of the things tar does",
+        );
+        e.group = Some(group.to_string());
+        node.entities.push(e);
+    }
+    let rows = detail_rows(&app_for(node), 90, 30);
+    let joined = rows.join("\n");
+
+    let index = |needle: &str| {
+        rows.iter()
+            .position(|r| r.contains(needle))
+            .unwrap_or_else(|| panic!("no row for {needle:?}:\n{joined}"))
+    };
+    let header = index("FLAGS (3)");
+    let first = index("Main operation mode");
+    let second = index("Device selection and switching");
+
+    assert_eq!(
+        first,
+        header + 1,
+        "the first divider must sit directly under the header:\n{joined}"
+    );
+    assert_eq!(
+        rows[first], "Main operation mode",
+        "a divider opening its section is its label alone:\n{joined}"
+    );
+    // ...and the header above it is still ruled, so what was removed is
+    // the *second* rule of the pair, not the boundary itself.
+    assert!(
+        rows[header].ends_with('─'),
+        "the section header keeps its rule:\n{joined}"
+    );
+    // A later divider in the same section still separates one run of rows
+    // from another, and keeps its rule.
+    assert!(
+        rows[second].starts_with("─ Device selection and switching ─")
+            && rows[second].ends_with('─'),
+        "a later divider stays ruled: {:?}\n{joined}",
+        rows[second]
+    );
+}
+
 /// The same frame with the ASCII glyph set: a divider degrades to `-`
 /// like every other rule in the pane, and the shape that carries its
 /// meaning survives (spec §9.2 — a glyph may only be used if there is
@@ -376,11 +437,7 @@ fn a_wide_entity_hangs_its_description_at_the_fixed_indent() {
         shared.windows(2).all(|w| w[0] == w[1]),
         "the shared column is not shared: {shared:?}\n{joined}"
     );
-    assert_eq!(
-        hanging.len(),
-        1,
-        "exactly the outlier hangs:\n{joined}"
-    );
+    assert_eq!(hanging.len(), 1, "exactly the outlier hangs:\n{joined}");
     assert!(
         hanging[0] > 0,
         "a hanging description must still read as subordinate: {hanging:?}\n{joined}"
