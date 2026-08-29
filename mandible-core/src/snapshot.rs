@@ -10,7 +10,7 @@
 //!
 //! # Why this is a *separate* serialization from `CommandNode`'s own derive
 //!
-//! `CommandNode` (and `Flag`, `Positional`, `Provenance`, ...) already derive
+//! `CommandNode` (and `Entity`, `Positional`, `Provenance`, ...) already derive
 //! `Serialize`/`Deserialize` for round-tripping — e.g. the `Transcript`
 //! replay seam (`mandible-extract/src/exec/probe.rs`). That derive is
 //! full-fidelity by design: every field, every `None`, every empty `Vec`,
@@ -64,7 +64,7 @@
 //! alphabetical order occasionally costs.
 //!
 //! **There is nothing else to normalize.** Every field `CommandNode` (and
-//! `Flag`, `Positional`, `Example`, `Provenance`) exposes already reaches
+//! `Entity`, `Positional`, `Example`, `Provenance`) exposes already reaches
 //! serialization through a `Vec`/`SmallVec` in source order — an audit of
 //! `mandible-core` and the extraction pipeline in `mandible-extract` found
 //! no `HashMap`/`HashSet` whose iteration order reaches an emitted
@@ -74,7 +74,8 @@
 //! strip — elapsed time lives on `mandible-extract::ExtractionResult`, one
 //! layer above the IR this module snapshots, so it never reaches here.
 
-use crate::node::{CommandNode, Example, Flag, Positional, ValueKind};
+use crate::entity::Entity;
+use crate::node::{CommandNode, Example, Positional, ValueKind};
 use crate::provenance::{Provenance, Source};
 use serde::Serialize;
 
@@ -139,9 +140,10 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
-/// Snapshot form of [`Flag`]. Field order matches `Flag`'s own declaration;
-/// every `Option`/`Vec` field is omitted when empty, every `bool` field is
-/// omitted when `false`.
+/// Snapshot form of a flag [`Entity`]. Field order matches the pre-0.5.0
+/// `Flag`'s own declaration, and must keep matching it —
+/// see the `From` impl below. Every `Option`/`Vec` field is omitted when
+/// empty, every `bool` field is omitted when `false`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FlagSnapshot {
     /// Short spelling, e.g. `'i'` for `-i`.
@@ -199,26 +201,40 @@ pub struct FlagSnapshot {
     pub provenance: ProvenanceSnapshot,
 }
 
-impl From<&Flag> for FlagSnapshot {
-    fn from(f: &Flag) -> Self {
+impl From<&Entity> for FlagSnapshot {
+    /// **The field layout is frozen, deliberately.** This struct's shape,
+    /// field order and `skip_serializing_if` rules are what 105 committed
+    /// `expected.snap` fixtures are written in, so it stays the pre-0.5.0
+    /// `Flag`'s shape even though the IR behind it is now [`Entity`]: the
+    /// four spelling keys are recovered through `Entity`'s accessors
+    /// (`short`/`long`/`negatable`/`single_dash`, pinned against the old
+    /// `Flag` fields by `entity.rs`'s parity tests) rather than read from
+    /// stored fields.
+    ///
+    /// Rendering `spellings` as a list here would be the honest 0.5.0
+    /// shape and would move every fixture at once, which is exactly what
+    /// the migration's success condition forbids — a snapshot diff must
+    /// mean a *parse* changed. The reshape belongs with the stage that
+    /// actually emits multi-spelling entities.
+    fn from(e: &Entity) -> Self {
         FlagSnapshot {
-            short: f.short,
-            long: f.long.clone(),
-            value_name: f.value_name.clone(),
-            value_kind: f.value_kind,
-            choices: f.choices.iter().map(|t| t.as_str().to_string()).collect(),
-            repeatable: f.repeatable,
-            required: f.required,
-            negatable: f.negatable,
-            single_dash: f.single_dash,
-            hidden: f.hidden,
-            deprecated: f.deprecated.as_ref().map(|t| t.as_str().to_string()),
-            inherited: f.inherited,
-            group: f.group.clone(),
-            description: f.description.as_ref().map(|t| t.as_str().to_string()),
-            default: f.default.as_ref().map(|t| t.as_str().to_string()),
-            env_var: f.env_var.clone(),
-            provenance: ProvenanceSnapshot::from(&f.provenance),
+            short: e.short(),
+            long: e.long().map(str::to_string),
+            value_name: e.value_name.clone(),
+            value_kind: e.value_kind,
+            choices: e.choices.iter().map(|t| t.as_str().to_string()).collect(),
+            repeatable: e.repeatable,
+            required: e.required,
+            negatable: e.negatable(),
+            single_dash: e.single_dash(),
+            hidden: e.hidden,
+            deprecated: e.deprecated.as_ref().map(|t| t.as_str().to_string()),
+            inherited: e.inherited,
+            group: e.group.clone(),
+            description: e.description.as_ref().map(|t| t.as_str().to_string()),
+            default: e.default.as_ref().map(|t| t.as_str().to_string()),
+            env_var: e.env_var.clone(),
+            provenance: ProvenanceSnapshot::from(&e.provenance),
         }
     }
 }
@@ -419,7 +435,7 @@ mod tests {
             Provenance::with_confidence(Source::HelpText, confidence),
         );
         n.summary = Some(Text::sanitize("does a thing"));
-        n.flags.push(Flag::long(
+        n.flags.push(Entity::flag_long(
             "verbose",
             Provenance::with_confidence(Source::HelpText, confidence),
         ));
@@ -521,7 +537,7 @@ mod tests {
         let mut commit = CommandNode::new("commit", Provenance::single(Source::HelpText));
         commit.summary = Some(Text::sanitize("Record changes to the repository"));
         commit.flags.push({
-            let mut f = Flag::long("amend", Provenance::single(Source::HelpText));
+            let mut f = Entity::flag_long("amend", Provenance::single(Source::HelpText));
             f.description = Some(Text::sanitize("amend the previous commit"));
             f
         });

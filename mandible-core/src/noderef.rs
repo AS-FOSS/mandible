@@ -73,12 +73,12 @@ fn names_match(node: &CommandNode, segment: &str) -> bool {
     node.name == segment || node.aliases.iter().any(|a| a == segment)
 }
 
-/// Resolve a [`NodeRef`] to the flag it addresses, if any.
+/// Resolve a [`NodeRef`] to the flag entity it addresses, if any.
 pub fn resolve_flag<'a>(
     root: &'a CommandNode,
     path: &[String],
     key: &FlagKey,
-) -> Option<&'a crate::node::Flag> {
+) -> Option<&'a crate::entity::Entity> {
     let node = resolve(root, path)?;
     node.flags.iter().find(|f| f.matches_key(key))
 }

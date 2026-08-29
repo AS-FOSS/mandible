@@ -11,7 +11,8 @@
 //! order wins": attempt order is a cost ordering (spec §7); conflict
 //! resolution is authority (spec §4.4).
 
-use crate::node::{CommandNode, Flag, Positional};
+use crate::entity::{Dashes, Entity, Spelling};
+use crate::node::{CommandNode, Positional};
 use crate::provenance::{Axis, Provenance};
 use crate::text::Text;
 use std::collections::HashMap;
@@ -183,9 +184,9 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
 /// Merge flags by identity (long name, else short letter, else
 /// description-as-fallback) across several already alias-paired flag lists,
 /// applying the same two-axis authority resolution per field.
-pub fn merge_flag_lists(lists: Vec<Vec<Flag>>) -> Vec<Flag> {
+pub fn merge_flag_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
     let mut order: Vec<String> = Vec::new();
-    let mut buckets: HashMap<String, Vec<Flag>> = HashMap::new();
+    let mut buckets: HashMap<String, Vec<Entity>> = HashMap::new();
     for list in lists {
         for flag in list {
             let key = flag_identity(&flag);
@@ -204,8 +205,8 @@ pub fn merge_flag_lists(lists: Vec<Vec<Flag>>) -> Vec<Flag> {
         .collect()
 }
 
-fn flag_identity(f: &Flag) -> String {
-    match (&f.long, f.short) {
+fn flag_identity(f: &Entity) -> String {
+    match (f.long(), f.short()) {
         (Some(l), _) => format!("L:{l}"),
         (None, Some(s)) => format!("S:{s}"),
         (None, None) => format!(
@@ -215,16 +216,30 @@ fn flag_identity(f: &Flag) -> String {
     }
 }
 
-fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
+fn merge_flag_bucket(mut bucket: Vec<Entity>) -> Entity {
     if bucket.len() == 1 {
         return bucket.pop().expect("len checked");
     }
 
-    let short = bucket.iter().find_map(|f| f.short);
-    let long = pick_option(
-        bucket.iter().map(|f| (&f.provenance, f.long.as_ref())),
+    // The spelling halves are resolved **independently**, exactly as they
+    // were when they were four separate `Flag` fields, and only then
+    // reassembled into a `spellings` vec. Picking a whole `Spelling` by
+    // authority instead would silently couple them: a high-authority
+    // source that omits the `[no-]` a lower-authority one documented would
+    // start erasing the negatability, which no field-level rule here has
+    // ever done.
+    let short = bucket.iter().find_map(|f| f.short());
+    let long_name = pick_option(
+        bucket
+            .iter()
+            .map(|f| (&f.provenance, f.long_spelling().map(|s| &s.name))),
         Axis::Structural,
     );
+    // One dash or two, and negatability, are facts about how the tool
+    // spells this option: a single source that saw it is enough, because
+    // no other source can have seen the same flag spelled the other way.
+    let negatable = bucket.iter().any(|f| f.negatable());
+    let single_dash = bucket.iter().any(|f| f.single_dash());
     let value_name = pick_option(
         bucket
             .iter()
@@ -246,13 +261,6 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
     );
     let repeatable = bucket.iter().any(|f| f.repeatable);
     let required = bucket.iter().any(|f| f.required);
-    let negatable = bucket.iter().any(|f| f.negatable);
-    // Same rule as `negatable`, and for the same reason: one dash or
-    // two is a fact about how the tool spells this option, so a single
-    // source that saw the single-dash spelling is enough — no other
-    // source can have seen it spelled with two and be describing the
-    // same flag.
-    let single_dash = bucket.iter().any(|f| f.single_dash);
     let hidden = bucket.iter().all(|f| f.hidden) && !bucket.is_empty();
     let deprecated = pick_option(
         bucket
@@ -279,31 +287,51 @@ fn merge_flag_bucket(mut bucket: Vec<Flag>) -> Flag {
         bucket.iter().map(|f| (&f.provenance, f.env_var.as_ref())),
         Axis::Structural,
     );
+    let see_also = pick_vec(bucket.iter().map(|f| (&f.provenance, &f.see_also)), Axis::Prose);
 
     let mut provenance = Provenance::default();
     for f in &bucket {
         provenance.absorb(&f.provenance);
     }
 
-    Flag {
-        short,
-        long,
-        value_name,
-        value_kind,
-        choices,
-        repeatable,
-        required,
-        negatable,
-        single_dash,
-        hidden,
-        deprecated,
-        inherited,
-        group,
-        description,
-        default,
-        env_var,
-        provenance,
+    // Short first, then long — the order the display spelling reads in
+    // (`-i, --interactive`), and the order the snapshot's `short`/`long`
+    // keys are recovered from.
+    let mut spellings = Vec::new();
+    if let Some(c) = short {
+        spellings.push(Spelling::short(c));
     }
+    if let Some(name) = long_name {
+        spellings.push(Spelling {
+            name,
+            dashes: if single_dash {
+                Dashes::Single
+            } else {
+                Dashes::Double
+            },
+            negatable,
+        });
+    }
+
+    // Identity is spelling-based, so every entity in a bucket is the same
+    // kind; take it from the first rather than assuming `Flag`, so the
+    // later positional/modifier/env-var stages inherit this unchanged.
+    let mut merged = Entity::new(bucket[0].kind, provenance);
+    merged.spellings = spellings;
+    merged.value_name = value_name;
+    merged.value_kind = value_kind;
+    merged.choices = choices;
+    merged.repeatable = repeatable;
+    merged.required = required;
+    merged.hidden = hidden;
+    merged.deprecated = deprecated;
+    merged.inherited = inherited;
+    merged.group = group;
+    merged.description = description;
+    merged.default = default;
+    merged.see_also = see_also;
+    merged.env_var = env_var;
+    merged
 }
 
 /// Merge positionals across candidate lists by name identity.
@@ -460,15 +488,15 @@ where
 /// `-R` as separate rows with identical descriptions). Within one node's
 /// flag list, items whose descriptions match exactly and whose short/long
 /// slots are complementary unify into one `Flag`. Must run before merge.
-pub fn pair_aliases(flags: Vec<Flag>) -> Vec<Flag> {
-    let mut result: Vec<Flag> = Vec::with_capacity(flags.len());
+pub fn pair_aliases(flags: Vec<Entity>) -> Vec<Entity> {
+    let mut result: Vec<Entity> = Vec::with_capacity(flags.len());
     'outer: for flag in flags {
-        if flag.short.is_some() && flag.long.is_some() {
+        if flag.short().is_some() && flag.long().is_some() {
             result.push(flag);
             continue;
         }
         // A flag with neither spelling can't be paired meaningfully.
-        if flag.short.is_none() && flag.long.is_none() {
+        if flag.short().is_none() && flag.long().is_none() {
             result.push(flag);
             continue;
         }
@@ -499,12 +527,12 @@ pub fn pair_aliases(flags: Vec<Flag>) -> Vec<Flag> {
 /// real `-CC` was absorbed into an unrelated `-Wspeculative`, claiming a
 /// spelling that tool does not have. Measured on a full `PATH` sweep: two
 /// tools, four flags, and the only losses in the sweep-diff that found it.
-fn complementary(a: &Flag, b: &Flag) -> bool {
-    if a.single_dash || b.single_dash {
+fn complementary(a: &Entity, b: &Entity) -> bool {
+    if a.single_dash() || b.single_dash() {
         return false;
     }
-    (a.short.is_some() && a.long.is_none() && b.short.is_none() && b.long.is_some())
-        || (a.long.is_some() && a.short.is_none() && b.long.is_none() && b.short.is_some())
+    (a.short().is_some() && a.long().is_none() && b.short().is_none() && b.long().is_some())
+        || (a.long().is_some() && a.short().is_none() && b.long().is_none() && b.short().is_some())
 }
 
 /// Whether `a` and `b` agree about *taking a value at all* — the second
@@ -531,24 +559,33 @@ fn complementary(a: &Flag, b: &Flag) -> bool {
 /// spelling. A source may legitimately name the metavar on one row and not
 /// the other (`-R` beside `--repo <string>`), and requiring those to match
 /// would un-pair the aliases this function exists to let through.
-fn same_value_shape(a: &Flag, b: &Flag) -> bool {
+fn same_value_shape(a: &Entity, b: &Entity) -> bool {
     a.value_kind == b.value_kind
 }
 
-fn same_description(a: &Flag, b: &Flag) -> bool {
+fn same_description(a: &Entity, b: &Entity) -> bool {
     match (&a.description, &b.description) {
         (Some(x), Some(y)) => x == y,
         _ => false,
     }
 }
 
-fn absorb_pair(existing: &mut Flag, other: Flag) {
-    if existing.short.is_none() {
-        existing.short = other.short;
-    }
-    if existing.long.is_none() {
-        existing.long = other.long;
-    }
+fn absorb_pair(existing: &mut Entity, other: Entity) {
+    // Rebuilt short-first rather than appended, because [`complementary`]
+    // admits the pair in either arrival order: `--repo` meeting `-R` must
+    // still come out spelled `-R, --repo`, not `--repo, -R`. Appending
+    // `other`'s spelling would make the rendered order depend on which row
+    // the source happened to print first.
+    let short = existing
+        .short_spelling()
+        .or_else(|| other.short_spelling())
+        .cloned();
+    let long = existing
+        .long_spelling()
+        .or_else(|| other.long_spelling())
+        .cloned();
+    existing.spellings = short.into_iter().chain(long).collect();
+
     existing.value_name = existing.value_name.clone().or(other.value_name);
     if matches!(existing.value_kind, crate::node::ValueKind::None) {
         existing.value_kind = other.value_kind;
@@ -713,15 +750,21 @@ mod tests {
 
     // --- alias pairing ---
 
-    fn paired_flag(short: Option<char>, long: Option<&str>, desc: &str) -> Flag {
-        let mut f = Flag::long(
-            long.unwrap_or_default(),
+    /// A flag entity spelled short, long, or both — the short spelling
+    /// always first, which is the order `pair_aliases` must also produce.
+    fn paired_flag(short: Option<char>, long: Option<&str>, desc: &str) -> Entity {
+        let mut f = Entity::new(
+            crate::entity::EntityKind::Flag,
             Provenance::single(Source::NativeDynamic {
                 protocol: "cobra-dunder-complete".to_string(),
             }),
         );
-        f.long = long.map(|s| s.to_string());
-        f.short = short;
+        if let Some(c) = short {
+            f.spellings.push(Spelling::short(c));
+        }
+        if let Some(l) = long {
+            f.spellings.push(Spelling::long(l));
+        }
         f.description = Some(Text::sanitize(desc));
         f
     }
@@ -734,8 +777,8 @@ mod tests {
         ];
         let paired = pair_aliases(flags);
         assert_eq!(paired.len(), 1);
-        assert_eq!(paired[0].short, Some('R'));
-        assert_eq!(paired[0].long.as_deref(), Some("repo"));
+        assert_eq!(paired[0].short(), Some('R'));
+        assert_eq!(paired[0].long(), Some("repo"));
     }
 
     /// Two rows that disagree about taking a value are two different
@@ -771,8 +814,8 @@ mod tests {
         assert!(
             paired
                 .iter()
-                .any(|f| f.long.as_deref() == Some("allow-multiple-definition")
-                    && f.short.is_none()
+                .any(|f| f.long() == Some("allow-multiple-definition")
+                    && f.short().is_none()
                     && f.value_kind == ValueKind::None),
             "the long form takes no value: {paired:?}"
         );
@@ -789,7 +832,7 @@ mod tests {
     #[test]
     fn does_not_pair_a_single_dash_long_option_with_any_short_flag() {
         let mut cc = paired_flag(None, Some("CC"), "[disabled]");
-        cc.single_dash = true;
+        cc.spellings = vec![Spelling::single_dash("CC")];
         let flags = vec![paired_flag(Some('W'), None, "[disabled]"), cc];
         let paired = pair_aliases(flags);
         assert_eq!(
@@ -841,8 +884,8 @@ mod tests {
     #[test]
     fn merge_unifies_flags_by_identity_across_sources() {
         let mut a = node_from(Source::HelpText, "git");
-        let mut fa = Flag::long("interactive", Provenance::single(Source::HelpText));
-        fa.short = Some('i');
+        let mut fa = Entity::flag_long("interactive", Provenance::single(Source::HelpText));
+        fa.spellings.insert(0, Spelling::short('i'));
         fa.description = Some(Text::sanitize("terse"));
         a.flags.push(fa);
 
@@ -852,13 +895,13 @@ mod tests {
             },
             "git",
         );
-        let mut fb = Flag::long(
+        let mut fb = Entity::flag_long(
             "interactive",
             Provenance::single(Source::KnownSpec {
                 provider: "carapace".to_string(),
             }),
         );
-        fb.short = Some('i');
+        fb.spellings.insert(0, Spelling::short('i'));
         fb.description = Some(Text::sanitize("rich"));
         b.flags.push(fb);
 
@@ -868,6 +911,6 @@ mod tests {
             merged.flags[0].description.as_ref().unwrap().as_str(),
             "rich"
         );
-        assert_eq!(merged.flags[0].short, Some('i'));
+        assert_eq!(merged.flags[0].short(), Some('i'));
     }
 }
