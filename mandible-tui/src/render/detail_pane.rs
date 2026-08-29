@@ -640,8 +640,23 @@ fn build_lines(
                 lines.push(Line::default());
             }
             first = false;
-            for chunk in wrap_words(paragraph_text, width) {
-                lines.push(Line::from(chunk));
+            // A single `\n` inside a paragraph is structure the author
+            // marked and `Text::sanitize` kept — a bullet, an indented
+            // row, an example invocation (spec §4.1). Flowing prose has
+            // already been joined into one logical line by that point, so
+            // every break here is deliberate and each logical line is
+            // wrapped on its own, at its own indent, rather than being
+            // fed to one `split_whitespace` that would erase it. Wrapping
+            // the whole paragraph as one string is what put `grep`'s
+            // `Example:` line back in the middle of the sentence after it,
+            // after the IR had correctly separated them.
+            for logical in paragraph_text.split('\n') {
+                let indent = logical.len() - logical.trim_start().len();
+                let indent_str = " ".repeat(indent);
+                let avail = width.saturating_sub(indent).max(1);
+                for chunk in wrap_words(logical, avail) {
+                    lines.push(Line::from(format!("{indent_str}{chunk}")));
+                }
             }
         }
     }
@@ -1918,6 +1933,74 @@ mod tests {
             !text[inherited_pos].contains("INHERITED"),
             "the inherited group must not shout: {:?}",
             text[inherited_pos]
+        );
+    }
+
+    /// A break `Text::sanitize` kept inside a description paragraph is
+    /// structure, and the pane must render it as one (spec §4.1, §9.3).
+    /// Wrapping the whole paragraph through one `split_whitespace` put
+    /// `grep`'s `Example:` line straight back into the middle of the
+    /// sentence after it, undoing at render time what the IR had just got
+    /// right — the defect was visible in the pane while every IR-level
+    /// test passed.
+    #[test]
+    fn a_preserved_description_break_renders_as_its_own_line() {
+        let mut node = node_with_flags();
+        node.description = Some(Text::sanitize(
+            "Search for PATTERNS in each FILE.\n\
+             Example: grep -i 'hello world' menu.h main.c\n\
+             PATTERNS can contain multiple patterns separated by newlines.",
+        ));
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let text: Vec<String> = built.lines.iter().map(text_of).collect();
+        let example = text
+            .iter()
+            .position(|l| l.contains("Example:"))
+            .expect("the example row renders");
+        assert_eq!(
+            text[example].trim(),
+            "Example: grep -i 'hello world' menu.h main.c",
+            "the example row must be a line of its own: {:?}",
+            text[example]
+        );
+        assert!(
+            text[example + 1].trim().starts_with("PATTERNS can contain"),
+            "the sentence after it must start its own line: {:?}",
+            text[example + 1]
+        );
+    }
+
+    /// The anti-case at the render layer: ordinary hard-wrapped prose has
+    /// no preserved breaks to honour, so it still reflows to the pane's
+    /// width as one paragraph.
+    #[test]
+    fn hard_wrapped_description_prose_still_reflows_in_the_pane() {
+        let mut node = node_with_flags();
+        node.description = Some(Text::sanitize(
+            "Search for PATTERNS\nin each FILE named on\nthe command line.",
+        ));
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let text: Vec<String> = built.lines.iter().map(text_of).collect();
+        assert!(
+            text.iter()
+                .any(|l| l.trim() == "Search for PATTERNS in each FILE named on the command line."),
+            "prose must reflow to one line at this width: {text:?}"
         );
     }
 

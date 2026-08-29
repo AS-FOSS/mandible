@@ -335,8 +335,39 @@ times. The fix has to be at the boundary where untrusted text enters the IR,
 because there are three consumers (tree, detail pane, clipboard) and each would
 otherwise need its own defense. Widgets are permitted to assume `Text` is clean.
 
-`Text` retains paragraph breaks (`\n\n`) for the detail pane's description
-rendering; the tree pane collapses to a single line at render time.
+**Within the prose tier, reflowing is the rule and structure is the
+exception.** A description is hard-wrapped to whatever width its author
+wrote for, and the pane re-wraps it to its own, so those breaks are noise:
+`sanitize` joins them, which is what stops a re-wrap from coming out ragged
+against already-short lines. But some breaks are the author's meaning, and
+they are recognized per line against the paragraph the line sits in:
+
+- **Indented deeper than the paragraph's base indent**, the base being the
+  smallest indentation any line in that paragraph carries. A *uniformly*
+  indented block is therefore ordinary prose and reflows; only a line
+  indented *within* its block is structure.
+- **A list row**: `- `, `* `, `+ `, `• `, `1. `, `1) `.
+- **An example invocation**: an `Example:`/`e.g.` label followed by
+  command-shaped text — a bare command word and then an option or a shell
+  operator. Shape only, never a tool name (§1). The second half of that
+  test is what makes the rule safe: without it every prose sentence after
+  an `Example:` label qualifies, so the recognizer deliberately misses
+  `Example: cp src dst` rather than admit a sentence.
+
+A structural line keeps its break and its indentation relative to the
+paragraph's base, clamped so a source that documents inside a wide table
+cannot hand the pane an indent that leaves prose no room; the line after
+one starts fresh rather than joining onto it. Everything else joins. This
+is why the parser hands descriptions over with their source breaks intact
+rather than pre-joining them: the decision belongs to the one place that
+can make it, and it can only be made on text that still has the breaks.
+
+`Text` retains paragraph breaks (`\n\n`) and these preserved single breaks
+for the detail pane's description rendering, which wraps each logical line
+at its own indent; the tree pane collapses all of it to a single line at
+render time. The `\n`-free invariant a widget relies on is unchanged —
+every newline in a `Text` is one `sanitize` put there deliberately, and no
+widget ever receives a raw one.
 
 **Sanitization has two tiers, chosen by whose layout the text is.** Prose is
 mandible's to set: a description is re-wrapped to the pane's width, so its
@@ -2296,7 +2327,10 @@ Rules:
 - **Descriptions always wrap.** Sections are mandible's own layout, so
   nothing in them is ever clipped or horizontally scrolled; `[ui]
   horizontal_scroll` governs only content whose layout is not ours — the
-  raw view and verbatim USAGE synopsis lines.
+  raw view and verbatim USAGE synopsis lines. A DESCRIPTION's preserved
+  breaks (§4.1) wrap too: each logical line is wrapped on its own, at its
+  own indent, so a bullet or an example row keeps its line without any
+  part of it escaping the pane's width.
 
 ---
 

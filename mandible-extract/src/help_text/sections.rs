@@ -865,13 +865,29 @@ fn parse_body(
         Some(first) if paragraphs.len() > 1 && is_banner_paragraph(first) => true,
         _ => false,
     };
-    let description_lines: Vec<&str> = if drop_first_paragraph {
-        paragraphs[1..].iter().flatten().copied().collect()
+    // Handed over with its line structure intact — one `\n` per source
+    // line, `\n\n` between paragraphs — rather than pre-flattened with
+    // spaces. Deciding which of those breaks is hard-wrapping to be
+    // undone and which is structure to be kept is `Text::sanitize`'s job
+    // (spec §4.1), and it can only do that job on text that still has the
+    // breaks: joining here with a space threw the evidence away first and
+    // then asked the sanitizer to reflow the result. `grep --help`'s
+    // `Example: grep -i 'hello world' menu.h main.c` is the case — the
+    // sanitizer keeps an example row on its own line, but only when it is
+    // still given one.
+    let kept: Vec<Vec<&str>> = if drop_first_paragraph {
+        paragraphs.into_iter().skip(1).collect()
     } else {
-        paragraphs.into_iter().flatten().collect()
+        paragraphs
     };
-    if !description_lines.is_empty() {
-        result.description = Some(description_lines.join(" "));
+    let description = kept
+        .iter()
+        .map(|paragraph| paragraph.join("\n"))
+        .filter(|paragraph| !paragraph.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    if !description.is_empty() {
+        result.description = Some(description);
     }
 
     // A run of command-group headings is recognized either by its own
@@ -11748,9 +11764,19 @@ Options:
     fn a_banner_shaped_paragraph_with_no_fallback_is_kept() {
         let raw = "mytool 1.2.3\nDoes a thing.\n\nUsage: mytool [OPTIONS]\n";
         let parsed = parse(raw);
+        // The parser hands the paragraph over with its source breaks
+        // intact (spec §4.1: which break is hard-wrapping and which is
+        // structure is the sanitizer's call, not the parser's) …
         assert_eq!(
             parsed.description.as_deref(),
-            Some("mytool 1.2.3 Does a thing.")
+            Some("mytool 1.2.3\nDoes a thing.")
+        );
+        // … and neither line is structural, so both still reflow into one
+        // paragraph exactly as they did when the parser flattened them
+        // itself.
+        assert_eq!(
+            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
+            "mytool 1.2.3 Does a thing."
         );
     }
 
@@ -11778,9 +11804,17 @@ Options:
         // first paragraph's line is a whole sentence (more than the two
         // bare tokens `<name> <version>` a real banner is), not merely
         // because there's nothing to fall back to.
+        // The blank line between them survives as a paragraph break: the
+        // detail pane renders one as a blank row (spec §4.1, §9.3), and it
+        // only ever could once the parser stopped flattening the two
+        // paragraphs into a single space-joined line here.
         assert_eq!(
             parsed.description.as_deref(),
-            Some("Build v2 is faster than v1. See the changelog for details.")
+            Some("Build v2 is faster than v1.\n\nSee the changelog for details.")
+        );
+        assert_eq!(
+            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
+            "Build v2 is faster than v1.\n\nSee the changelog for details."
         );
     }
 
@@ -11858,7 +11892,14 @@ Options:
         let parsed = parse_named(raw, "sshd");
         assert_eq!(
             parsed.description.as_deref(),
-            Some("unknown option -- - OpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13")
+            Some("unknown option -- -\nOpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13")
+        );
+        // Neither line is structural, so the pair still reflows into one
+        // paragraph once sanitized — the parser keeps the breaks, the
+        // sanitizer decides about them (spec §4.1).
+        assert_eq!(
+            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
+            "unknown option -- - OpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13"
         );
     }
 
