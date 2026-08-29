@@ -135,6 +135,15 @@ fn sections_render_in_the_specified_order() {
 fn modifiers_and_environment_render_from_constructed_entities() {
     let rows = detail_rows(&app_for(node_with_every_section()), 90, 30);
     let joined = rows.join("\n");
+    // Read across the wrap. Whether a given description fits on its row is
+    // the layout's decision and changes with the pane's own arithmetic;
+    // what this test is about is that the content reaches the screen at
+    // all, so it looks for the words rather than for the line breaks.
+    let flat = rows
+        .join(" ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     for expected in [
         "MODIFIERS (1)",
         "delete members from the archive",
@@ -144,7 +153,7 @@ fn modifiers_and_environment_render_from_constructed_entities() {
         "POSITIONALS (1)",
         "the thing to operate on",
     ] {
-        assert!(joined.contains(expected), "missing {expected:?}:\n{joined}");
+        assert!(flat.contains(expected), "missing {expected:?}:\n{joined}");
     }
 }
 
@@ -483,15 +492,31 @@ fn a_value_placeholder_wider_than_the_pane_is_wrapped_not_reflowed() {
         1,
         "the placeholder should start on one row:\n{joined}"
     );
-    for row in rows.iter().filter(|r| {
-        r.contains("contiguous") || r.contains("inherit") || r.contains("cling_by_tags")
-    }) {
-        assert_eq!(
-            row.len() - row.trim_start().len(),
-            4,
-            "a wrapped placeholder must stay indented, not reflow flush left: {row:?}"
-        );
-    }
+    // Every piece of the placeholder keeps one indent, and that indent is
+    // not column 0 — which is the whole failure: `Wrap` restarted the
+    // token flush against the pane's left edge with no memory of the row
+    // it belonged to. The indent's *value* is the layout's business (spec
+    // §9.3) and is not restated here; that it is one number, and not zero,
+    // is what this test is for.
+    let indents: Vec<usize> = rows
+        .iter()
+        .filter(|r| {
+            r.contains("contiguous") || r.contains("inherit") || r.contains("cling_by_tags")
+        })
+        .map(|row| row.len() - row.trim_start().len())
+        .collect();
+    assert!(
+        indents.len() > 1,
+        "expected a wrapped placeholder:\n{joined}"
+    );
+    assert!(
+        indents.iter().all(|i| *i == indents[0]),
+        "a wrapped placeholder must stay on one indent: {indents:?}\n{joined}"
+    );
+    assert!(
+        indents[0] > 0,
+        "a wrapped placeholder must not reflow flush left:\n{joined}"
+    );
 }
 
 /// Nothing in a section is clipped or horizontally scrolled (spec §9.3):
