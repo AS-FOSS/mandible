@@ -573,8 +573,13 @@ struct BuiltLines {
 /// `EnvVar`) go through exactly the same code as the two that do.
 /// `DESCRIPTION` and `USAGE` are not here because they are node prose, not
 /// entity lists — they carry no count and take no shared column.
+/// POSITIONALS is the one section carrying an indent (spec §9.3). Its rows
+/// are bare names with no dashes to start them, so at the content edge a
+/// run of them reads as loose text against the pane border rather than as a
+/// list; the flag-shaped sections keep the edge, where the short and long
+/// columns are structure the eye follows down the section.
 const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
-    (EntityKind::Positional, "POSITIONALS", 0),
+    (EntityKind::Positional, "POSITIONALS", POSITIONAL_INDENT),
     (EntityKind::Flag, "FLAGS", 0),
     (EntityKind::Modifier, "MODIFIERS", 0),
     (EntityKind::EnvVar, "ENVIRONMENT", 0),
@@ -1083,6 +1088,14 @@ const SHORT_COLUMN: usize = 0;
 /// one column without having to know which rows happen to have a short
 /// letter as well.
 const LONG_COLUMN: usize = "-X, ".len();
+
+/// The indent POSITIONALS rows are inset by (spec §9.3).
+///
+/// Two columns: enough to set a loose list of bare names in from the pane's
+/// edge, and not so much that it costs the descriptions width. MODIFIERS
+/// and ENVIRONMENT are bare-name sections too, but they are laid out like
+/// FLAGS — one tight list against the content edge — and stay there.
+const POSITIONAL_INDENT: usize = 2;
 
 /// The column an entity's spellings start at within a section indented by
 /// `indent` (spec §9.3).

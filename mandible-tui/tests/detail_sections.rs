@@ -182,6 +182,46 @@ fn empty_sections_do_not_render() {
     }
 }
 
+/// Spec §9.3: POSITIONALS rows are inset from the content edge, and the
+/// flag-shaped sections are not.
+///
+/// Compared between sections rather than against a number: the positional,
+/// the modifier and the environment variable in this fixture are all bare
+/// names of the same shape, so the only thing that can put them in
+/// different columns is the section each is in. Read off the frame, since
+/// the inset only exists to be seen.
+#[test]
+fn positionals_are_inset_and_the_flag_shaped_sections_stay_flush() {
+    let rows = detail_rows(&app_for(node_with_every_section()), 90, 30);
+    let joined = rows.join("\n");
+    let column_of = |needle: &str| {
+        let row = rows
+            .iter()
+            .find(|r| r.trim_start().starts_with(needle))
+            .unwrap_or_else(|| panic!("no row for {needle}:\n{joined}"));
+        row.len() - row.trim_start().len()
+    };
+
+    let positional = column_of("target");
+    assert!(
+        positional > 0,
+        "a bare positional name sits flush against the pane border:\n{joined}"
+    );
+    for flush in ["d ", "TOOL_CONFIG"] {
+        assert_eq!(
+            column_of(flush),
+            0,
+            "{flush:?} left the content edge the tight sections align on:\n{joined}"
+        );
+    }
+    // Small: an inset that costs the descriptions real width is a different
+    // decision from setting a loose list in from the edge.
+    assert!(
+        positional <= 4,
+        "the inset is {positional} columns:\n{joined}"
+    );
+}
+
 /// Counts are the section's own entity count, and they follow what is
 /// actually rendered rather than what the node holds: a hidden flag is
 /// suppressed by default (spec §9), so counting it would advertise rows
