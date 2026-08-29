@@ -709,12 +709,12 @@ mod tests {
             protocol: "test".to_string(),
         });
         let long = flag_from_candidate("--all-tags", "Download all tagged images", &prov).unwrap();
-        assert_eq!(long.long.as_deref(), Some("all-tags"));
-        assert_eq!(long.short, None);
+        assert_eq!(long.long(), Some("all-tags"));
+        assert_eq!(long.short(), None);
 
         let short = flag_from_candidate("-a", "Download all tagged images", &prov).unwrap();
-        assert_eq!(short.short, Some('a'));
-        assert_eq!(short.long, None);
+        assert_eq!(short.short(), Some('a'));
+        assert_eq!(short.long(), None);
     }
 
     #[test]
@@ -1070,7 +1070,7 @@ mod tests {
             .expect("detect having succeeded, extract_node must too");
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["build"], "{names:?}");
-        assert!(node.flags.iter().any(|f| f.long.as_deref() == Some("all")));
+        assert!(node.flags.iter().any(|f| f.long() == Some("all")));
     }
 
     /// The dynamic-argument guard through **real argv construction**
@@ -1123,7 +1123,7 @@ mod tests {
             node.subcommands.iter().map(|c| &c.name).collect::<Vec<_>>()
         );
         assert!(
-            node.flags.iter().any(|f| f.long.as_deref() == Some("time")),
+            node.flags.iter().any(|f| f.long() == Some("time")),
             "the flags probe must keep working at a leaf"
         );
     }

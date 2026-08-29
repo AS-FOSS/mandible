@@ -146,9 +146,7 @@ fn a_tool_that_advertises_the_command_is_still_probed_and_still_extracts() {
         )
         .expect("evidence is present, so extraction must proceed exactly as before");
     assert!(
-        node.flags
-            .iter()
-            .any(|f| f.long.as_deref() == Some("verbose")),
+        node.flags.iter().any(|f| f.long() == Some("verbose")),
         "the recovered flags must be unchanged by the gate: {:?}",
         node.flags
     );

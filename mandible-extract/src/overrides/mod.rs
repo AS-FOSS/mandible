@@ -292,7 +292,7 @@ mod tests {
             node.summary.as_ref().unwrap().as_str(),
             "a corrected summary"
         );
-        assert_eq!(node.flags[0].short, Some('o'));
+        assert_eq!(node.flags[0].short(), Some('o'));
         assert_eq!(node.provenance.sources[0], Source::UserOverride);
     }
 
@@ -393,7 +393,7 @@ mod tests {
             )
             .expect("root override should resolve");
         assert_eq!(node.summary.as_ref().unwrap().as_str(), "custom summary");
-        assert_eq!(node.flags[0].long.as_deref(), Some("verbose"));
+        assert_eq!(node.flags[0].long(), Some("verbose"));
 
         std::env::remove_var(CONFIG_DIR_ENV);
     }

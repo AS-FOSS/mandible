@@ -740,7 +740,7 @@ _mytool "$@"
         let flags = extract_zsh_flags(script, &prov());
         let by_long: std::collections::HashMap<&str, &Entity> = flags
             .iter()
-            .filter_map(|f| f.long.as_deref().map(|l| (l, f)))
+            .filter_map(|f| f.long().map(|l| (l, f)))
             .collect();
         assert!(by_long.contains_key("verbose"), "{flags:?}");
         assert!(by_long.contains_key("format"), "{flags:?}");
@@ -749,7 +749,7 @@ _mytool "$@"
             by_long["verbose"].description.as_ref().unwrap().as_str(),
             "enable verbose output"
         );
-        let shorts: Vec<char> = flags.iter().filter_map(|f| f.short).collect();
+        let shorts: Vec<char> = flags.iter().filter_map(|f| f.short()).collect();
         assert!(shorts.contains(&'v'));
         assert!(shorts.contains(&'h'));
     }
@@ -760,8 +760,8 @@ _mytool "$@"
         let flags = extract_bash_flags(script, &prov());
         assert_eq!(flags.len(), 4);
         assert!(flags.iter().all(|f| f.description.is_none()));
-        assert!(flags.iter().any(|f| f.long.as_deref() == Some("verbose")));
-        assert!(flags.iter().any(|f| f.short == Some('v')));
+        assert!(flags.iter().any(|f| f.long() == Some("verbose")));
+        assert!(flags.iter().any(|f| f.short() == Some('v')));
     }
 
     #[test]
@@ -876,10 +876,7 @@ _mytool "$@"
                 },
             )
             .expect("the transcript covers the exact `completion zsh` argv this tier sends");
-        assert!(node
-            .flags
-            .iter()
-            .any(|f| f.long.as_deref() == Some("verbose")));
+        assert!(node.flags.iter().any(|f| f.long() == Some("verbose")));
     }
 
     /// The negative case: a transcript that covers neither `completion
@@ -1050,9 +1047,6 @@ _mytool() {
                 },
             )
             .expect("evidence is present, so the tier must extract as it always did");
-        assert!(node
-            .flags
-            .iter()
-            .any(|f| f.long.as_deref() == Some("verbose")));
+        assert!(node.flags.iter().any(|f| f.long() == Some("verbose")));
     }
 }

@@ -510,7 +510,11 @@ fn probe_help_text_confession_aware(
         return Ok((
             text,
             flag.to_string(),
-            Some(Confession::new(directives[0].word.clone(), directives[0].flag.to_string(), false)),
+            Some(Confession::new(
+                directives[0].word.clone(),
+                directives[0].flag.to_string(),
+                false,
+            )),
         ));
     };
 
@@ -522,7 +526,11 @@ fn probe_help_text_confession_aware(
         Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
             pick_stream(&out.stdout, &out.stderr),
             format!("{} {}", chosen.flag, chosen.word),
-            Some(Confession::new(chosen.word.clone(), chosen.flag.to_string(), true)),
+            Some(Confession::new(
+                chosen.word.clone(),
+                chosen.flag.to_string(),
+                true,
+            )),
         )),
         // The follow-up probe failed, timed out, was refused (rule 0), or
         // came back empty on both streams: keep the original, truncated
@@ -532,7 +540,11 @@ fn probe_help_text_confession_aware(
         _ => Ok((
             text,
             flag.to_string(),
-            Some(Confession::new(chosen.word.clone(), chosen.flag.to_string(), false)),
+            Some(Confession::new(
+                chosen.word.clone(),
+                chosen.flag.to_string(),
+                false,
+            )),
         )),
     }
 }
@@ -1332,10 +1344,7 @@ mod tests {
         let parsed =
             sections::parse_with_profile(&raw, Some(&profile::profile(Framework::GnuArgp)), None);
         assert!(parsed.subcommands.is_empty());
-        let create = parsed
-            .flags
-            .iter()
-            .find(|f| f.long.as_deref() == Some("create"));
+        let create = parsed.flags.iter().find(|f| f.long() == Some("create"));
         assert!(create.is_some(), "expected --create to still be recovered");
     }
 
@@ -1358,11 +1367,7 @@ mod tests {
         for want in ["clean", "new", "init", "add", "remove", "install"] {
             assert!(names.contains(&want), "{names:?}");
         }
-        let long_flags: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let long_flags: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         for want in ["version", "locked", "offline", "frozen", "help"] {
             assert!(long_flags.contains(&want), "{long_flags:?}");
         }
@@ -1379,11 +1384,7 @@ mod tests {
             sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["init", "build", "run"], "{names:?}");
-        let long_flags: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let long_flags: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         assert!(long_flags.contains(&"verbose"));
         assert!(long_flags.contains(&"config"));
     }
@@ -1545,11 +1546,7 @@ mod tests {
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"build"), "{names:?}");
         assert!(names.contains(&"init"), "{names:?}");
-        let long_flags: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let long_flags: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         assert!(long_flags.contains(&"verbose"));
         assert!(long_flags.contains(&"help"));
     }
@@ -1914,11 +1911,7 @@ mod tests {
             child.subcommands.is_empty(),
             "preset-all genuinely has none of its own"
         );
-        let flag_names: Vec<&str> = child
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let flag_names: Vec<&str> = child.flags.iter().filter_map(|f| f.long()).collect();
         assert!(
             flag_names.contains(&"force"),
             "a genuinely distinct subcommand's own flags must still parse: {flag_names:?}"
