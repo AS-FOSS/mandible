@@ -182,16 +182,25 @@ fn empty_sections_do_not_render() {
     }
 }
 
-/// Spec §9.3: POSITIONALS rows are inset from the content edge, and the
-/// flag-shaped sections are not.
+/// Spec §9.3: POSITIONALS rows are inset to the long-flag column, and the
+/// flag-shaped sections stay flush against the content edge.
 ///
 /// Compared between sections rather than against a number: the positional,
 /// the modifier and the environment variable in this fixture are all bare
 /// names of the same shape, so the only thing that can put them in
 /// different columns is the section each is in. Read off the frame, since
 /// the inset only exists to be seen.
+///
+/// Supersedes the pin that allowed any inset of four columns or fewer.
+/// That bound admitted three different layouts and could not distinguish
+/// the one the design asks for: the positional's name must land on exactly
+/// the column `--verbose` lands on in FLAGS, so the reader follows one
+/// edge down the whole document. `<= 4` passes with the positionals one
+/// column shy of that edge, which is the failure worth catching — a near
+/// miss reads worse than a plain inset, because two almost-aligned columns
+/// look like a mistake rather than a choice.
 #[test]
-fn positionals_are_inset_and_the_flag_shaped_sections_stay_flush() {
+fn positionals_are_inset_to_the_long_column_and_the_flag_sections_stay_flush() {
     let rows = detail_rows(&app_for(node_with_every_section()), 90, 30);
     let joined = rows.join("\n");
     let column_of = |needle: &str| {
@@ -214,11 +223,14 @@ fn positionals_are_inset_and_the_flag_shaped_sections_stay_flush() {
             "{flush:?} left the content edge the tight sections align on:\n{joined}"
         );
     }
-    // Small: an inset that costs the descriptions real width is a different
-    // decision from setting a loose list in from the edge.
-    assert!(
-        positional <= 4,
-        "the inset is {positional} columns:\n{joined}"
+    // The one number in the assertion is read off the page, not written
+    // down here: `--verbose` is a long with no short in front of it, so
+    // FLAGS preindents it to the long column, and that is the column the
+    // positionals must share.
+    assert_eq!(
+        positional,
+        column_of("--verbose"),
+        "a positional must start where a preindented long starts:\n{joined}"
     );
 }
 
