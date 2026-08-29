@@ -1635,9 +1635,20 @@ mod tests {
         let flags: Vec<&Entity> = node.flags().collect();
         let lines = section_lines(&flags, 80, true, None, crate::glyphs::UNICODE).lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
-        let inherited_pos = text.iter().position(|l| l.contains("INHERITED")).unwrap();
+        // A group divider, not a section header (spec §9.3): `INHERITED`
+        // in caps would read as a section of its own, and inherited flags
+        // are a group *within* FLAGS.
+        let inherited_pos = text
+            .iter()
+            .position(|l| l.contains(INHERITED_GROUP))
+            .unwrap();
         let help_pos = text.iter().position(|l| l.contains("--help")).unwrap();
         assert!(help_pos > inherited_pos);
+        assert!(
+            !text[inherited_pos].contains("INHERITED"),
+            "the inherited group must not shout: {:?}",
+            text[inherited_pos]
+        );
     }
 
     #[test]
