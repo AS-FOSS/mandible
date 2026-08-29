@@ -614,8 +614,7 @@ impl App {
             self.selected += 1;
         }
         self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.forget_saved_detail_offsets();
+        self.reset_detail_scroll();
         self.follow_selection();
     }
 
@@ -623,8 +622,7 @@ impl App {
     pub fn move_up(&mut self) {
         self.selected = self.selected.saturating_sub(1);
         self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.forget_saved_detail_offsets();
+        self.reset_detail_scroll();
         self.follow_selection();
     }
 
@@ -748,8 +746,7 @@ impl App {
             }
         }
         self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.forget_saved_detail_offsets();
+        self.reset_detail_scroll();
         self.follow_selection();
     }
 
@@ -782,8 +779,7 @@ impl App {
             self.selected = idx;
         }
         self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.forget_saved_detail_offsets();
+        self.reset_detail_scroll();
         self.follow_selection();
     }
 
@@ -928,14 +924,6 @@ impl App {
         self.raw_fetch_needed()
     }
 
-    /// Drop what both views remember, so each one opens at the top-left
-    /// next time it is shown. Called wherever the content underneath them
-    /// changes identity: an offset into one node's document addresses
-    /// nothing in another's.
-    fn forget_saved_detail_offsets(&mut self) {
-        self.saved_detail_offsets = [DetailOffsets::default(); 2];
-    }
-
     /// The fetch required to render the current selection verbatim, if the
     /// mode is on and this node's text is neither in hand nor already in
     /// flight.
@@ -1032,14 +1020,17 @@ impl App {
             .saturating_sub(1);
     }
 
-    /// Reset detail scroll — called on selection change so the pane
-    /// doesn't stay scrolled into a different node's content.
+    /// Put the detail pane back at the top-left and drop what both views
+    /// remember, so each one opens there next time it is shown.
+    ///
+    /// Called from every path that changes which node the pane is
+    /// describing. An offset into one node's document addresses nothing in
+    /// another's — neither the showing view's own place nor the other
+    /// view's stored one — so all four numbers go at once.
     pub fn reset_detail_scroll(&mut self) {
         self.detail_scroll = 0;
         self.detail_hscroll = 0;
-        // A new node's content has no relation to the old node's place, in
-        // either view, so neither view's memory of it survives.
-        self.forget_saved_detail_offsets();
+        self.saved_detail_offsets = [DetailOffsets::default(); 2];
     }
 
     /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9:
@@ -1218,6 +1209,37 @@ mod tests {
             assert_eq!(app.clamped_detail_scroll(), 38);
             assert_eq!(app.clamped_detail_hscroll(), 24);
         }
+    }
+
+    /// Moving the tree selection puts the pane back at the top-left in
+    /// both views, not just the one on screen. Keyboard navigation used to
+    /// clear the horizontal offset and leave the vertical one pointing
+    /// into the document of the node the reader had just left, while a
+    /// mouse click on the very same row cleared both.
+    #[test]
+    fn moving_the_selection_resets_both_views() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        app.detail_scroll = 100;
+        app.detail_hscroll = 32;
+
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20);
+        app.set_detail_hextent(90, 40);
+        app.detail_scroll = 30;
+        app.detail_hscroll = 16;
+
+        app.move_down();
+        assert_eq!(app.clamped_detail_scroll(), 0, "raw view starts at the top");
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+
+        // The parsed view has nothing stored for the new node either.
+        app.toggle_raw_mode();
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
     /// Drive the (real, async, `nucleo`-backed) search index until its
