@@ -1,5 +1,5 @@
 //! Per-item provenance: which extraction source(s) contributed a
-//! [`crate::CommandNode`], [`crate::Flag`], or [`crate::Positional`], and the
+//! [`crate::CommandNode`], [`crate::Entity`], or [`crate::Positional`], and the
 //! two-axis [`Authority`] each source carries for merge decisions.
 //!
 //! See spec §4.2 and §4.4. Provenance lives on each item individually —

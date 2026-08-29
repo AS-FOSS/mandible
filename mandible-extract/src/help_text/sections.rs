@@ -37,7 +37,7 @@
 //! 4. An unrecognized bare-word block nested under a flag (its heading
 //!    names that flag, e.g. `"Valid arguments for the --quoting-style
 //!    option are:"`, or it immediately follows the flag with no other
-//!    heading between) becomes that flag's [`mandible_core::Flag::choices`],
+//!    heading between) becomes that flag's [`mandible_core::Entity::choices`],
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
@@ -3157,7 +3157,7 @@ const MIN_PROSE_SENTENCE_WORDS: usize = 5;
 /// read as introducing that neighbour's block. A tool that closes its
 /// preamble with a sentence and then indents its option table one column
 /// therefore hands the scanner a sentence where a heading belongs, and
-/// every flag in the block inherits it as [`mandible_core::Flag::group`] —
+/// every flag in the block inherits it as [`mandible_core::Entity::group`] —
 /// which the flags pane renders, uppercased, as a section header:
 ///
 /// ```text
@@ -5519,7 +5519,7 @@ fn cells_name_the_same_value(a: &str, b: &str) -> bool {
 /// measured. Rows naming several shorts at once (`jdeprscan`'s
 /// `-? -h --help`) are **not** in scope and are not touched here: they are
 /// blocked one step earlier, because `-? -h` is a single cell with real
-/// trailing text, and even if they were not, `mandible_core::Flag` has one
+/// trailing text, and even if they were not, `mandible_core::Entity` has one
 /// `short: Option<char>` and no field to hold the second.
 ///
 /// The caller applies this only to a block that shows the column actually

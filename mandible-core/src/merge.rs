@@ -523,7 +523,7 @@ pub fn pair_aliases(flags: Vec<Entity>) -> Vec<Entity> {
 /// **A single-dash long option is never the long half of such a pair.** The
 /// alias convention this function exists for is one dash and two
 /// (`-R, --repo`); a flag whose own spelling is already a single dash
-/// (`-help`, `-CC`, `-vv`; see [`crate::Flag::single_dash`]) has no short
+/// (`-help`, `-CC`, `-vv`; see [`Entity::single_dash`]) has no short
 /// alias to be paired with, and offering it one is how `gcc`-family tools
 /// lose flags: `lto-dump` gives hundreds of its options the description
 /// `[disabled]`, so [`same_description`] matches almost anything and the
