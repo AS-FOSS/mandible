@@ -212,9 +212,11 @@ pub struct CommandNode {
     pub summary: Option<Text>,          // one-line hint
     pub description: Option<Text>,      // long-form prose
     pub usage: Vec<Text>,               // raw usage patterns, kept verbatim
-    /// Documented flags, as `EntityKind::Flag` entities (§4.5).
-    pub flags: Vec<Entity>,
-    pub positionals: Vec<Positional>,
+    /// Every documented item this node carries — flags, positionals,
+    /// modifiers, environment variables — as one kind-tagged vector,
+    /// in document order within each kind (§4.5). Read one kind through
+    /// `flags()`, `positionals()` or `entities_of(kind)`.
+    pub entities: Vec<Entity>,
     pub subcommands: Vec<CommandNode>,
     pub examples: Vec<Example>,
     pub hidden: bool,
@@ -226,14 +228,6 @@ pub struct CommandNode {
 }
 
 pub enum ValueKind { None, Required, Optional }
-
-pub struct Positional {
-    pub name: String,
-    pub required: bool,
-    pub variadic: bool,
-    pub description: Option<Text>,
-    pub provenance: Provenance,
-}
 
 pub struct Example { pub command: Text, pub explanation: Option<Text> }
 ```
@@ -278,6 +272,14 @@ when the name is longer than a single character (`-help`, `-vv`, `-CC`)
 and short otherwise. A one-character single-dash spelling is a short flag,
 because `-x` is `-x` whichever slot a previous schema filed it under.
 
+A dashless kind carries exactly one `Spelling`, and that bare name is the
+whole of its spelling: a positional's `pathspec`, a modifier letter, a
+variable name. It has no `short()`/`long()`, and `primary_name()` is how
+it is read. `repeatable` covers both notations for *may be given more
+than once* — a flag the tool accepts repeatedly, and a positional written
+with an ellipsis (`<pathspec>...`) — so the ellipsis needs no field of
+its own.
+
 `Spelling`'s exact shape is finalized in the schema PR, under one
 constraint carried over from `Flag::negatable` and `Flag::single_dash`:
 the searched/copied name never smuggles punctuation (`-h`, `-?`, `-help`,
@@ -289,9 +291,14 @@ Rules that govern the migration:
 - **`#[non_exhaustive]` lands in the same pass.** It blocks cross-crate
   struct literals — 61 sites at the time of the decision — and the entity
   migration rewrites those same sites anyway. One rewrite, not two.
-- **Sequence:** schema + `Flag`→`Entity{kind: Flag}` migration first, with
-  every corpus snapshot **byte-identical** before and after; then
-  positionals; then modifiers; then env vars.
+- **Sequence:** one kind at a time — flags, then positionals, then
+  modifiers, then env vars — with every corpus snapshot
+  **byte-identical** before and after each. A snapshot diff during a
+  migration stage means the code is wrong, never the fixture, which is
+  why the frozen `FlagSnapshot`/`PositionalSnapshot` layouts are
+  partitioned out of the one vector by kind rather than reshaped around
+  `spellings`. Reshaping them belongs with the stage that first emits
+  multi-spelling entities.
 - **Env vars are strict-sections-only**: an
   `EntityKind::EnvVar` may be produced only from a row under an explicitly
   labeled environment heading in the tool's own help text. Never scavenged
@@ -387,7 +394,7 @@ independently. After a three-tier merge the node's badge names whichever tier
 landed first, while the flag descriptions underneath may come from a different
 tier entirely — **the badge lies.** Since the badge exists specifically as a
 trust signal, an inaccurate one is worse than none. Provenance therefore lives on
-`CommandNode`, `Flag`, and `Positional` individually, and the detail pane's footer
+`CommandNode` and each `Entity` individually, and the detail pane's footer
 summarizes: `carapace + help-text · structure ✓ · prose ✓`.
 
 ### 4.3 Addressing: `NodeRef`

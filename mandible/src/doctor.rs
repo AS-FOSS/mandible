@@ -133,7 +133,7 @@ mod tests {
     fn reports_an_em_dash_not_zero_percent_when_nothing_is_describable() {
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
         for name in ["paginate", "git-dir", "no-pager"] {
-            root.flags.push(Entity::flag_long(
+            root.entities.push(Entity::flag_long(
                 name,
                 Provenance::single(Source::HelpTextSynopsis),
             ));
@@ -167,7 +167,7 @@ mod tests {
         let mut root = CommandNode::new("sometool", Provenance::single(Source::HelpText));
         let mut f = Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         f.description = Some(mandible_core::Text::sanitize("be more talkative"));
-        root.flags.push(f);
+        root.entities.push(f);
         let loaded = ExtractionResult {
             tool: "sometool".to_string(),
             root: Some(root),
