@@ -1471,7 +1471,8 @@ fn push_entity(
 }
 
 /// An entity's spellings, e.g. `-i, --interactive` for a flag or
-/// `pathspec` for a positional.
+/// `pathspec` for a positional — with a repeatable positional's `...`
+/// (spec §9.3).
 fn entity_name_spec(flag: &Entity) -> String {
     // Every documented spelling, comma-separated, each reconstructed by
     // `Spelling::render`: the dashes and the getopt_long `--[no-]foo`
@@ -1482,11 +1483,24 @@ fn entity_name_spec(flag: &Entity) -> String {
     // and it is a *list*, so a row documenting four spellings
     // (`-h, -?, -help, --help`) renders all four rather than the two a
     // short/long pair could hold.
-    flag.spellings
+    let spellings = flag
+        .spellings
         .iter()
         .map(Spelling::render)
         .collect::<Vec<_>>()
-        .join(", ")
+        .join(", ");
+    // `repeatable` is one fact spelled two ways by the two kinds'
+    // notation (`Entity::repeatable`): a flag says it by being accepted
+    // again (`-v -v -v`), a positional by the POSIX synopsis ellipsis the
+    // parser read it from (`FILE...`). Only the positional's notation is
+    // a suffix on the name, so only POSITIONALS gets one back — putting
+    // `...` on `-v` would invent a spelling nobody can type. Required/no
+    // marker is untouched; the ellipsis says "more than one", not
+    // "at least one".
+    if flag.kind == EntityKind::Positional && flag.repeatable {
+        return format!("{spellings}...");
+    }
+    spellings
 }
 
 /// How wide one entity's head runs: from the pane's left edge, through the
@@ -3065,6 +3079,46 @@ mod tests {
             section_layout(&wide_refs, 100, 0),
             narrow,
             "a majority of wide spellings must set a wide column"
+        );
+    }
+
+    /// A repeatable positional renders the POSIX synopsis ellipsis
+    /// (spec §9.3). The parser already reads `repeatable` off the `...`
+    /// the tool printed; the pane was dropping it, so `grep`'s `FILE` and
+    /// a single-file positional looked identical in POSITIONALS.
+    #[test]
+    fn a_repeatable_positional_renders_its_ellipsis() {
+        let mut once = Entity::positional("PATTERNS", Provenance::single(Source::HelpText));
+        once.required = true;
+        let mut many = Entity::positional("FILE", Provenance::single(Source::HelpText));
+        many.repeatable = true;
+        assert_eq!(entity_name_spec(&once), "PATTERNS");
+        assert_eq!(entity_name_spec(&many), "FILE...");
+    }
+
+    /// The anti-case: `repeatable` is one field for two kinds, and only
+    /// the positional's notation is an ellipsis on the name. A repeatable
+    /// *flag* (`-v -v -v`) must not grow a `...` — that would render a
+    /// spelling nobody can type.
+    #[test]
+    fn a_repeatable_flag_gets_no_ellipsis() {
+        let mut verbose = Entity::flag_long("verbose", Provenance::single(Source::HelpText));
+        verbose.repeatable = true;
+        assert_eq!(entity_name_spec(&verbose), "--verbose");
+    }
+
+    /// The ellipsis is measured as part of the head, not drawn past it:
+    /// a name the section's column was fitted to must not overrun that
+    /// column by the three characters the pane added after measuring.
+    #[test]
+    fn the_ellipsis_is_charged_to_the_row_that_carries_it() {
+        let mut many = Entity::positional("FILE", Provenance::single(Source::HelpText));
+        many.repeatable = true;
+        let mut once = Entity::positional("FILE", Provenance::single(Source::HelpText));
+        once.repeatable = false;
+        assert_eq!(
+            entity_head_width(&many, POSITIONAL_INDENT),
+            entity_head_width(&once, POSITIONAL_INDENT) + 3
         );
     }
 

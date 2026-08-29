@@ -2214,6 +2214,16 @@ Rules:
   a row documenting more than two spellings (`-h, -?, -help, --help`):
   there is no single long in such a row for a column to align, and its
   length already marks it out.
+- **A repeatable positional renders `name...`.** The POSIX synopsis
+  ellipsis is how a tool says "one or more of these", it is what the
+  parser read `repeatable` out of in the first place, and without it
+  `grep`'s `FILE` is indistinguishable from a positional that takes
+  exactly one. It is measured as part of the head like any other part of
+  a spelling, so a row carrying it is charged for it. Only POSITIONALS:
+  `repeatable` is one field for two kinds, and a flag says the same thing
+  by being accepted again (`-v -v -v`), not by an ellipsis — `--verbose...`
+  would render a spelling nobody can type. Required/no marker is
+  unchanged; the ellipsis says "more than one", not "at least one".
 - **The value placeholder is part of the spelling.** It renders one space
   behind the spelling it belongs to and is measured with it as a single
   width (§9.1a); it never takes an aligned column of its own, so a row's
