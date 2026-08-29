@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [Unreleased]
+
+### Added
+
+- The release workflow now updates the Homebrew tap itself: after a tag's assets are published it renders `Formula/mandible.rb` from the version and the four `.sha256` assets the release already carries (read from those assets, never recomputed from a second build, and cross-checked so a digest taken over some other file is refused) and commits it to `AS-FOSS/homebrew-mandible` through GitHub's `createCommitOnBranch` API, which signs the commit; `scripts/render_formula.sh` renders the same formula locally so a broken one is not something you discover after tagging.
+
 ## [0.4.5] - 2026-08-28
 
 ### Added

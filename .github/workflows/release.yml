@@ -353,6 +353,116 @@ jobs:
             --verify-tag \
             $(find artifacts -type f | sort)
 
+  # Point the Homebrew tap at the release that was just published.
+  #
+  # The checksums are *downloaded from the release*, not recomputed. A
+  # rebuild here would be a different build: if it ever disagreed with the
+  # tarball the release actually serves, the formula would describe a
+  # binary nobody can install, and the mismatch would surface as a failed
+  # `brew install` rather than as a failed release. `scripts/render_formula.sh`
+  # therefore reads the published `.sha256` assets and cross-checks that
+  # each digest was computed over the asset the formula's URL points at.
+  #
+  # The commit is made through GitHub's GraphQL `createCommitOnBranch`
+  # rather than `git push`. Commits created that way are signed by GitHub
+  # and show as Verified; a push from a runner would be unsigned, and an
+  # unsigned commit is not something this project ships — least of all into
+  # the repository that tells `brew` which binary to trust.
+  homebrew:
+    name: bump homebrew tap
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render the formula from the published checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+          mkdir -p sums
+          gh release download "v${version}" \
+            --repo "${{ github.repository }}" \
+            --dir sums \
+            --pattern "mandible-v${version}-*.tar.gz.sha256"
+
+          scripts/render_formula.sh "$version" sums > mandible.rb
+          cat mandible.rb
+
+      # Skipped rather than failed when the token is absent, so a fork or a
+      # rehearsal dispatch does not turn a good release red over a tap it
+      # was never going to be allowed to write to. The log line names the
+      # secret, because a silently skipped step is how a tap quietly stops
+      # tracking releases.
+      - name: Commit the formula to AS-FOSS/homebrew-mandible
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_REGISTRY_TOKEN }}
+          TAP_OWNER: AS-FOSS
+          TAP_NAME: homebrew-mandible
+          TAP_BRANCH: main
+          FORMULA_PATH: Formula/mandible.rb
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::HOMEBREW_REGISTRY_TOKEN is not set — the Homebrew tap was not updated for v${VERSION}. Set that secret, or edit ${TAP_OWNER}/${TAP_NAME}'s ${FORMULA_PATH} by hand."
+            exit 0
+          fi
+
+          tap="${TAP_OWNER}/${TAP_NAME}"
+
+          # Identical content means there is nothing to say. Without this,
+          # a re-pushed tag would land an empty commit on the tap every
+          # time.
+          if gh api "repos/${tap}/contents/${FORMULA_PATH}?ref=${TAP_BRANCH}" \
+               --jq .content 2>/dev/null | base64 -d > current.rb; then
+            if cmp -s current.rb mandible.rb; then
+              echo "${tap} ${FORMULA_PATH} already describes v${VERSION}; nothing to commit."
+              exit 0
+            fi
+          fi
+
+          # `expectedHeadOid` makes the write a compare-and-swap: if
+          # anything else committed to the tap between this read and the
+          # mutation, the API rejects the commit instead of clobbering it.
+          head_oid="$(gh api graphql \
+            -f query='query($owner:String!,$name:String!,$ref:String!){
+              repository(owner:$owner,name:$name){ ref(qualifiedName:$ref){ target{ oid } } }
+            }' \
+            -F owner="${TAP_OWNER}" -F name="${TAP_NAME}" -F ref="refs/heads/${TAP_BRANCH}" \
+            --jq '.data.repository.ref.target.oid')"
+
+          if [ -z "$head_oid" ] || [ "$head_oid" = "null" ]; then
+            echo "::error::could not read ${tap}@${TAP_BRANCH} — check that HOMEBREW_REGISTRY_TOKEN still grants contents access to it" >&2
+            exit 1
+          fi
+
+          jq -n \
+            --arg repo "$tap" \
+            --arg branch "${TAP_BRANCH}" \
+            --arg oid "$head_oid" \
+            --arg path "${FORMULA_PATH}" \
+            --arg contents "$(base64 -w0 mandible.rb)" \
+            --arg headline "chore(formula): mandible ${VERSION}" \
+            --arg body "Prebuilt-binary URLs and checksums for the v${VERSION} release assets, on all four supported targets." \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }",
+              variables: {
+                input: {
+                  branch: { repositoryNameWithOwner: $repo, branchName: $branch },
+                  expectedHeadOid: $oid,
+                  message: { headline: $headline, body: $body },
+                  fileChanges: { additions: [ { path: $path, contents: $contents } ] }
+                }
+              }
+            }' > commit.json
+
+          gh api graphql --input commit.json > commit-result.json
+          jq -r '.data.createCommitOnBranch.commit.url' commit-result.json
+
   # Last, and only on a real tag: crates.io publishing is irreversible.
   # Order follows the dependency graph — a dependency must exist on the
   # registry before anything that depends on it can be published. Modern
