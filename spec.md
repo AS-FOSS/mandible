@@ -338,23 +338,33 @@ otherwise need its own defense. Widgets are permitted to assume `Text` is clean.
 `Text` retains paragraph breaks (`\n\n`) for the detail pane's description
 rendering; the tree pane collapses to a single line at render time.
 
-**The raw pane (key `t`, §2) deliberately does not go through
-`Text::sanitize`.** Its whole job is showing the tool's own bytes, and
-`sanitize`'s whitespace-collapsing and paragraph-unwrapping are exactly what
-would destroy the column alignment a reviewer needs to judge the parser
-against. A second constructor, `Text::sanitize_preserving_layout`, exists for
-this one path: it strips ANSI/OSC/DCS escapes, stray carriage returns, and
-other C0 controls (a raw terminal escape or a lying `\r` could scramble the
-reader's terminal, so this much neutralization is not optional even for a
-"raw" view), and expands tabs to spaces at 8-column stops, because `ratatui`
-gives a bare `\t` zero display width and leaving it unexpanded would misalign
-columns rather than preserve them. It does not collapse whitespace, trim, or
-unwrap paragraphs, and it is truncated to the same `MAX_TEXT_CHARS` bound as
-`sanitize`. `Text::sanitize` itself, and every use of it on the path that
-feeds the IR, is untouched; only `mandible-extract`'s `help_text::raw_help*`
-functions call the preserving variant. The two constructors are verified
-apart: diffing the raw pane against independently captured `--help` output
-for `du` (column alignment) and `curl --help all` (large output) came back
+**Sanitization has two tiers, chosen by whose layout the text is.** Prose is
+mandible's to set: a description is re-wrapped to the pane's width, so its
+source line breaks are noise and `Text::sanitize` unwraps them. A synopsis
+and a raw `--help` dump are the *author's* layout: the spacing in
+`Usage:  docker import [OPTIONS] file|URL|-`, the four columns LVM pads a
+long-only option out to so it lands under its siblings' longs, and the
+alignment of a two-column options table are all things someone drew, and
+collapsing them destroys information the reader came for. The second tier is
+`Text::sanitize_preserving_layout`: it strips ANSI/OSC/DCS escapes, stray
+carriage returns, and other C0 controls (a raw terminal escape or a lying
+`\r` could scramble the reader's terminal, so this much neutralization is
+not optional even for a "raw" view), and expands tabs to spaces at 8-column
+stops, because `ratatui` gives a bare `\t` zero display width and leaving it
+unexpanded would misalign columns rather than preserve them. It does not
+collapse whitespace, trim, or unwrap paragraphs, and it is truncated to the
+same `MAX_TEXT_CHARS` bound as `sanitize`.
+
+Two paths take the layout tier, and no others: the raw pane (key `t`, §2),
+whose whole job is showing the tool's own bytes, and `CommandNode::usage`,
+whose synopses §9.3 already treats as content whose layout is not
+mandible's — the USAGE section scrolls sideways rather than re-flowing.
+Each is handed one already-line-split string at a time: a raw-help line, or
+one logical usage entry, whose wrapped continuations Tier B's parser has
+already joined. Everything else that feeds the IR — descriptions above all
+— goes through `Text::sanitize`. The two constructors are verified apart:
+diffing the raw pane against independently captured `--help` output for `du`
+(column alignment) and `curl --help all` (large output) came back
 byte-identical.
 
 One consequence worth knowing when comparing the pane to your own terminal:

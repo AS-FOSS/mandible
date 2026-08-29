@@ -1040,7 +1040,20 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
 
     let mut node = CommandNode::new(name, provenance);
     node.description = parsed.description.as_deref().map(Text::sanitize);
-    node.usage = parsed.usage.iter().map(|s| Text::sanitize(s)).collect();
+    // A synopsis is the tool's own layout, not ours (spec §4.1, §9.3): the
+    // spacing inside `Usage:  docker import [OPTIONS] file|URL|-` and the
+    // columns a tool lines its alternative forms up in are how the author
+    // wrote the invocation, and `Text::sanitize`'s whitespace collapse
+    // erases exactly that. The detail pane already treats USAGE as content
+    // whose layout is not mandible's — it scrolls the section sideways
+    // rather than re-flowing it — so the IR must stop flattening it first.
+    // Each entry is one logical, already-line-joined invocation form, which
+    // is the input `Text::sanitize_preserving_layout` is defined over.
+    node.usage = parsed
+        .usage
+        .iter()
+        .map(|s| Text::sanitize_preserving_layout(s))
+        .collect();
     node.set_flags(parsed.flags);
     node.set_positionals(parsed.positionals);
     node.subcommands = parsed.subcommands;
@@ -1282,6 +1295,40 @@ mod tests {
             "identified confidence was {:?}",
             identified.provenance.confidence
         );
+    }
+
+    /// A synopsis keeps the spacing the tool printed (spec §4.1's layout
+    /// tier). LVM pads a long-only option out to the column its short-and-
+    /// long siblings put their long in, and that padding is the alignment
+    /// the author drew; `Text::sanitize`'s whitespace collapse used to
+    /// flatten it to one space before the pane ever saw it.
+    #[test]
+    fn usage_keeps_the_tools_own_column_spacing() {
+        let raw = "Usage:  prog  [ -A|--autobackup y|n ] [    --reportformat basic|json ]\n\n\
+                   Options:\n  -A, --autobackup y|n   back up\n";
+        let node = build_node("prog", raw, None, "prog");
+        assert_eq!(
+            node.usage,
+            vec![mandible_core::Text::sanitize_preserving_layout(
+                "Usage:  prog  [ -A|--autobackup y|n ] [    --reportformat basic|json ]"
+            )],
+            "usage: {:?}",
+            node.usage
+        );
+    }
+
+    /// The anti-case for the row above: a `\t` in a synopsis is still
+    /// expanded to 8-column stops rather than passed through, because
+    /// `ratatui` gives a bare tab zero display width and would misalign
+    /// the very columns this is preserving (`pastebinit` writes
+    /// `Usage:\tpastebinit [OPTION...]`).
+    #[test]
+    fn usage_expands_tabs_rather_than_passing_them_through() {
+        let raw = "Usage:\tprog [OPTION...]\n\nOptions:\n  -a, --all   everything\n";
+        let node = build_node("prog", raw, None, "prog");
+        assert_eq!(node.usage.len(), 1, "usage: {:?}", node.usage);
+        assert!(!node.usage[0].as_str().contains('\t'));
+        assert_eq!(node.usage[0].as_str(), "Usage:  prog [OPTION...]");
     }
 
     /// Level 3 (spec §7 Tier B step 3): a probe that recovers no flags, no

@@ -1,7 +1,7 @@
 name: sg_emc_trespass
 description: 'Unrecognized switch: --help'
 usage:
-- 'Usage: sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE'
+- 'Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE'
 positionals:
 - name: DEVICE
   required: true

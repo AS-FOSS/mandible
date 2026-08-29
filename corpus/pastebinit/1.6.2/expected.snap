@@ -1,7 +1,7 @@
 name: pastebinit
 description: 'Invalid arguments: option --help not recognized! pastebinit v1.6.2 Reads on stdin for input or takes a list of files as parameters'
 usage:
-- 'Usage: pastebinit [OPTION...] [FILE...]'
+- 'Usage:  pastebinit [OPTION...] [FILE...]'
 positionals:
 - name: FILE
   provenance:

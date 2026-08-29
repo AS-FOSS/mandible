@@ -88,14 +88,17 @@ impl Text {
         truncate_chars(&trimmed, MAX_TEXT_CHARS)
     }
 
-    /// Like [`Text::sanitize`], but for the raw-help display path (the
-    /// verbatim pane, `t`), whose entire job is showing a tool's own bytes
-    /// as they arrived — not turning them into IR prose. `Text::sanitize`
-    /// is the wrong gate there: its steps 6-8 (unwrap hard-wrapped
-    /// paragraphs, collapse whitespace runs, trim leading/trailing
-    /// whitespace) are exactly what destroy column alignment, and column
-    /// alignment is the one thing a side-by-side "does this match the raw
-    /// pane's ground truth" review depends on.
+    /// Like [`Text::sanitize`], but for text whose layout is the tool's own
+    /// rather than mandible's (spec §4.1's second tier): the raw-help pane
+    /// (`t`), whose entire job is showing a tool's own bytes as they
+    /// arrived, and the usage synopses in `CommandNode::usage`, where the
+    /// spacing that lines a tool's alternative invocation forms up is part
+    /// of what the author wrote. `Text::sanitize` is the wrong gate for
+    /// both: its steps 6-8 (unwrap hard-wrapped paragraphs, collapse
+    /// whitespace runs, trim leading/trailing whitespace) are exactly what
+    /// destroy column alignment, and column alignment is the one thing a
+    /// side-by-side "does this match the raw pane's ground truth" review
+    /// depends on.
     ///
     /// This still neutralizes terminal control sequences — the one thing
     /// the raw pane cannot safely pass through, since ANSI/OSC/DCS escapes,
@@ -125,10 +128,12 @@ impl Text {
     /// blank lines are whatever the caller's own line-splitting already
     /// produced.
     ///
-    /// Only [`mandible-extract`'s `help_text::raw_help*` functions] call
-    /// this; every other consumer of a `--help` probe keeps going through
-    /// [`Text::sanitize`] unchanged — this is an additional path for
-    /// display, not a redefinition of the existing one.
+    /// Callers pass one already-line-split string at a time: a raw-help
+    /// line, or one logical usage entry (the `--help` parser joins a
+    /// wrapped synopsis's continuations before it ever gets here). Every
+    /// other consumer of a `--help` probe — descriptions above all — keeps
+    /// going through [`Text::sanitize`], which reflows prose. This is the
+    /// layout tier of that split, not a redefinition of it.
     pub fn sanitize_preserving_layout(raw: &str) -> Text {
         let no_escapes = strip_escapes(raw);
         let no_control = strip_c0_keep_tabs(&no_escapes);
