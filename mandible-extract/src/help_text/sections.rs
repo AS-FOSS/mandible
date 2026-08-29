@@ -49,8 +49,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, CommandNode, Entity, Positional, Provenance, Source,
-    Spelling, Text, ValueKind,
+    is_command_name_shaped, strip_escapes, CommandNode, Entity, Provenance, Source, Spelling, Text,
+    ValueKind,
 };
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
@@ -82,7 +82,7 @@ pub struct ParsedHelp {
     pub usage: Vec<String>,
     /// Positional placeholders pulled out of the usage line
     /// (`<value>`/`FILE`-shaped tokens not preceded by `-`).
-    pub positionals: Vec<Positional>,
+    pub positionals: Vec<Entity>,
     /// Flags recovered from dash-led blocks.
     pub flags: Vec<Entity>,
     /// Subcommand stubs recovered from bare-word blocks under a
@@ -1480,7 +1480,7 @@ fn parse_body(
     // *described* flags land in `result.flags`) so a duplicate spelling can
     // be recognized and dropped rather than added a second time.
     //
-    // **Deliberately not `mandible_core::merge_flag_lists`.** A first cut
+    // **Deliberately not `mandible_core::merge_entity_lists`.** A first cut
     // used it and a real-`PATH` sweep caught the bug: that function
     // rebuckets *every* flag in the combined list by identity, which is
     // correct for merging several tiers' candidates for the same node (each
@@ -4091,7 +4091,11 @@ fn emit_declared_positionals(
         };
         clean += 1;
         let description = non_empty_text(&desc_text);
-        if let Some(existing) = out.positionals.iter_mut().find(|p| p.name == name) {
+        if let Some(existing) = out
+            .positionals
+            .iter_mut()
+            .find(|p| p.primary_name() == name)
+        {
             // The synopsis found this one first and has no description to
             // offer; the block does. Nothing else is overwritten — the
             // synopsis is the authority on `required`/`variadic` because it
@@ -4112,9 +4116,9 @@ fn emit_declared_positionals(
                     spec_text.trim_end().ends_with("..."),
                 )
             });
-        let mut positional = Positional::new(name, Provenance::single(Source::HelpText));
+        let mut positional = Entity::positional(name, Provenance::single(Source::HelpText));
         positional.required = required;
-        positional.variadic = variadic;
+        positional.repeatable = variadic;
         positional.description = description;
         out.positionals.push(positional);
     }
@@ -7171,7 +7175,7 @@ fn primary_synopsis_lines(
 fn extract_positionals(
     usage_lines: &[String],
     primary_lines: std::collections::HashSet<usize>,
-) -> Vec<Positional> {
+) -> Vec<Entity> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for (line_idx, line) in usage_lines.iter().enumerate() {
@@ -7267,9 +7271,9 @@ fn extract_positionals(
                 continue;
             }
             let required = !token.contains('[') && !line.contains(&format!("[{token}"));
-            let mut positional = Positional::new(name, Provenance::single(Source::HelpText));
+            let mut positional = Entity::positional(name, Provenance::single(Source::HelpText));
             positional.required = required;
-            positional.variadic = variadic;
+            positional.repeatable = variadic;
             out.push(positional);
         }
     }
@@ -8155,7 +8159,7 @@ mod tests {
             !parsed
                 .positionals
                 .iter()
-                .any(|p| p.name == "HTTP" || p.name == "HTML"),
+                .any(|p| p.primary_name() == "HTTP" || p.primary_name() == "HTML"),
             "positionals: {:?}",
             parsed.positionals
         );
@@ -10234,7 +10238,11 @@ Options:
     #[test]
     fn git_root_positionals_are_exactly_command_and_args() {
         let parsed = parse(GIT_HELP);
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["command", "args"], "{names:?}");
     }
 
@@ -10248,7 +10256,11 @@ Options:
     #[test]
     fn flag_values_in_a_usage_line_are_never_positionals() {
         let parsed = parse("usage: widget [-C <dir>] [--tag=<name>] <target> [--config FILE]\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["target"], "{names:?}");
     }
 
@@ -10262,13 +10274,21 @@ Options:
     #[test]
     fn a_token_after_a_self_closed_bracket_flag_is_a_real_positional() {
         let parsed = parse("Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["DEVICE"], "{names:?}");
 
         // The general shape, with more than one self-closed flag ahead of
         // an uppercase operand.
         let parsed = parse("usage: widget [-h] [-v] FILE\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["FILE"], "{names:?}");
     }
 
@@ -10291,7 +10311,7 @@ Options:
             let names: Vec<String> = parse(line)
                 .positionals
                 .into_iter()
-                .map(|p| p.name)
+                .map(|p| p.primary_name().to_string())
                 .collect();
             assert!(
                 !names
@@ -10309,7 +10329,11 @@ Options:
     #[test]
     fn a_real_operand_is_not_mistaken_for_an_option_list_placeholder() {
         let parsed = parse("usage: git [<options>] <command> [<args>]\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["command", "args"], "{names:?}");
     }
 
@@ -10335,9 +10359,9 @@ Options:
             .iter()
             .map(|p| {
                 (
-                    p.name.as_str(),
+                    p.primary_name(),
                     p.required,
-                    p.variadic,
+                    p.repeatable,
                     p.description.as_ref().map(|d| d.as_str()),
                 )
             })
@@ -10386,7 +10410,7 @@ Options:
             parsed
                 .positionals
                 .iter()
-                .map(|p| &p.name)
+                .map(|p| p.primary_name())
                 .collect::<Vec<_>>()
         );
     }
@@ -10412,7 +10436,7 @@ Options:
             parsed
                 .positionals
                 .iter()
-                .map(|p| &p.name)
+                .map(|p| p.primary_name())
                 .collect::<Vec<_>>()
         );
         assert!(parsed.saw_unattributable_content);
@@ -13133,8 +13157,11 @@ Options:
 
         // No fabricated `LUN`/`SP`/`EMC` operands; `DEVICE` survives as the
         // one real positional the usage line actually names.
-        let positional_names: Vec<&str> =
-            parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let positional_names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(positional_names, vec!["DEVICE"], "{positional_names:?}");
 
         let flag = |short: char| {
