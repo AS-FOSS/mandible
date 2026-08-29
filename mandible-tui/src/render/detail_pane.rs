@@ -2707,13 +2707,26 @@ mod tests {
             .expect("a label span");
         assert_eq!(label.style, style::muted(true));
 
-        // Spec §9.2: lightening is additive over the muted color and never
-        // the sole distinction. A terminal that ignores `DIM` sees exactly
-        // the muted rule it saw before, and the CAPS-and-count shape is
-        // what still separates the two lines there.
-        assert_eq!(style::faint(true).fg, style::muted(true).fg);
+        // Spec §9.2: the lightening is additive over a named color and
+        // never the sole distinction. The divider's rule carries a color of
+        // its own — not the absence of one — so a terminal that ignores
+        // `DIM` still draws a rule, and the CAPS-and-count shape is what
+        // separates the two lines there.
+        assert!(style::faint(true).fg.is_some());
+        assert!(style::faint(true)
+            .add_modifier
+            .contains(ratatui::style::Modifier::DIM));
         assert!(text_of(&header).starts_with("FLAGS (3) "));
         assert!(text_of(&divider).starts_with("─ Main operation mode "));
+
+        // ...and the divider is not simply the header's own shade: the
+        // base moved up a step, so the rule reads as furniture rather than
+        // as murk against the background.
+        assert_ne!(
+            style::faint(true).fg,
+            style::muted(true).fg,
+            "the divider's rule must carry its own shade"
+        );
     }
 
     /// Spec §9.3: a divider that opens its section renders its label alone

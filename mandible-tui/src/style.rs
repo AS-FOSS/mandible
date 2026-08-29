@@ -57,15 +57,26 @@ pub fn muted_bold(color_enabled: bool) -> Style {
 /// lighter than the rule that closes a section header (spec §9.3), so two
 /// rules in the same pane read as two levels rather than one repeated.
 ///
-/// `DIM` is used here **additively**, on text that is already `DarkGray`,
-/// which is what keeps it clear of spec §9.2's rule against `DIM` as a
-/// substitute for a muted color: a terminal that ignores `DIM` renders
-/// this exactly as [`muted`], i.e. as the divider looked before, and
-/// nothing is lost. It is never the sole distinction either — a section
-/// header is CAPS with a count, a group divider mixed case without one,
-/// and that shape survives every attribute being stripped.
+/// `Gray` dimmed, not `DarkGray` dimmed. `DarkGray` is the darkest step in
+/// the named palette that is not black, and dimming it again put the
+/// divider so close to the background that it read as murk rather than as
+/// furniture. Taking the base one step up and letting `DIM` bring it back
+/// down lands the rule between the two: still under the section header's
+/// weight where `DIM` is honored, and legible.
+///
+/// `DIM` is used here **additively**, over a named color rather than in
+/// place of one, which is what keeps it clear of spec §9.2's rule against
+/// `DIM` as a substitute for a muted color. It is never the sole
+/// distinction either — a section header is CAPS with a count, a group
+/// divider mixed case without one, and that shape survives every attribute
+/// being stripped, which is what a terminal that ignores `DIM` reads the
+/// two levels from.
 pub fn faint(color_enabled: bool) -> Style {
-    muted(color_enabled).add_modifier(Modifier::DIM)
+    if color_enabled {
+        Style::default().fg(Color::Gray).add_modifier(Modifier::DIM)
+    } else {
+        muted(false).add_modifier(Modifier::DIM)
+    }
 }
 
 /// Muted + italic: a flag's value placeholder (`<FILE>`).
