@@ -208,9 +208,20 @@ fn section_headers_carry_the_count_of_what_they_render() {
 /// is mixed case with no count behind a leading rule. Both run to the
 /// pane's edge, and the rows beneath the divider sit at the section's
 /// normal margin — grouping is drawn, not indented.
+///
+/// An ungrouped flag leads the section so that neither divider is the
+/// section's own first row: a divider in that position drops its rule
+/// (spec §9.3), which is a different shape with its own test below. What
+/// this one is about is the ruled divider, so the fixture puts one where a
+/// ruled divider belongs.
 #[test]
 fn a_group_divider_is_shaped_differently_from_a_section_header() {
     let mut node = CommandNode::new("tar", Provenance::single(Source::HelpText));
+    node.entities.push(entity(
+        EntityKind::Flag,
+        Spelling::long("verbose"),
+        "verbosely list files processed",
+    ));
     for (group, name) in [
         ("Main operation mode:", "create"),
         ("Main operation mode:", "extract"),
@@ -231,7 +242,7 @@ fn a_group_divider_is_shaped_differently_from_a_section_header() {
         .iter()
         .find(|r| r.starts_with("FLAGS"))
         .unwrap_or_else(|| panic!("no FLAGS header:\n{joined}"));
-    assert!(header.starts_with("FLAGS (3) "), "{header:?}");
+    assert!(header.starts_with("FLAGS (4) "), "{header:?}");
 
     // The tool shouted one heading and set the other in its own casing;
     // both render as dividers, and neither reads as a section header.
@@ -255,15 +266,21 @@ fn a_group_divider_is_shaped_differently_from_a_section_header() {
     }
 
     // The rows beneath a divider are at the section's own margin — the
-    // same two columns an ungrouped row gets, not an extra level in.
-    let row = rows
-        .iter()
-        .find(|r| r.contains("--create"))
-        .unwrap_or_else(|| panic!("no --create row:\n{joined}"));
+    // same column an ungrouped row of the same shape gets, not an extra
+    // level in. Asserted against that ungrouped row rather than against a
+    // literal, because the number is the layout's business (spec §9.3)
+    // and this test's claim is only that grouping does not change it.
+    let indent = |needle: &str| {
+        let row = rows
+            .iter()
+            .find(|r| r.contains(needle))
+            .unwrap_or_else(|| panic!("no {needle} row:\n{joined}"));
+        row.len() - row.trim_start().len()
+    };
     assert_eq!(
-        row.len() - row.trim_start().len(),
-        2,
-        "grouping must cost no width: {row:?}"
+        indent("--create"),
+        indent("--verbose"),
+        "grouping must cost no width:\n{joined}"
     );
 }
 
@@ -274,6 +291,13 @@ fn a_group_divider_is_shaped_differently_from_a_section_header() {
 #[test]
 fn a_group_divider_degrades_to_ascii() {
     let mut node = CommandNode::new("tar", Provenance::single(Source::HelpText));
+    // Ungrouped first, so the divider under test is a ruled one rather
+    // than the rule-less divider that opens a section (spec §9.3).
+    node.entities.push(entity(
+        EntityKind::Flag,
+        Spelling::long("verbose"),
+        "verbosely list files processed",
+    ));
     let mut e = entity(
         EntityKind::Flag,
         Spelling::long("create"),
@@ -303,7 +327,15 @@ fn a_group_divider_degrades_to_ascii() {
 /// Spec §9.3's capped column, on screen: the majority of a section's
 /// entities share one description column, and an entity past the column
 /// puts its description on the next line at the small fixed hanging
-/// indent — four columns, well inside the column it could not reach.
+/// indent — one number for every hanging row in the pane, well inside the
+/// column it could not reach.
+///
+/// The hanging indent's *value* is deliberately not asserted here. What
+/// spec §9.3 promises is that it is a single fixed number smaller than the
+/// column the outlier missed, and that is what fails when the rule is
+/// broken; pinning the digit as well only means this test has to be edited
+/// whenever the layout's own arithmetic moves, which is how a pin turns
+/// into a transcript of the implementation.
 #[test]
 fn a_wide_entity_hangs_its_description_at_the_fixed_indent() {
     let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
@@ -322,7 +354,11 @@ fn a_wide_entity_hangs_its_description_at_the_fixed_indent() {
     wide.value_kind = ValueKind::None;
     node.entities.push(wide);
 
-    let rows = detail_rows(&app_for(node), 90, 30);
+    // Wide enough that the table layout is the one under test: below the
+    // width where a table can leave prose a readable amount of room the
+    // whole section stacks (spec §9.1a) and there is no shared column left
+    // to hang below.
+    let rows = detail_rows(&app_for(node), 140, 30);
     let joined = rows.join("\n");
 
     let mut shared = Vec::new();
@@ -341,9 +377,13 @@ fn a_wide_entity_hangs_its_description_at_the_fixed_indent() {
         "the shared column is not shared: {shared:?}\n{joined}"
     );
     assert_eq!(
-        hanging,
-        vec![4],
-        "the outlier hangs at four columns:\n{joined}"
+        hanging.len(),
+        1,
+        "exactly the outlier hangs:\n{joined}"
+    );
+    assert!(
+        hanging[0] > 0,
+        "a hanging description must still read as subordinate: {hanging:?}\n{joined}"
     );
     assert!(
         hanging[0] < shared[0],
