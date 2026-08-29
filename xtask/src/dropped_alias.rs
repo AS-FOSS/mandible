@@ -332,7 +332,7 @@ fn anchor_end(raw: &[char], needle: &str) -> Option<usize> {
 /// question. Conservative in the direction this project requires — it can
 /// only ever suppress a report, never manufacture one.
 fn spellings_in_tree(node: &CommandNode, out: &mut BTreeSet<String>) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         if let Some(c) = flag.short() {
             out.insert(format!("-{c}"));
         }
@@ -408,7 +408,7 @@ fn walk(
     known: &BTreeSet<String>,
     out: &mut Vec<DroppedAlias>,
 ) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         if let Some((kept, witness)) = dropped_alias(flag, raw, known) {
             let dropped = witness.rsplit(' ').next().unwrap_or_default().to_string();
             out.push(DroppedAlias {
@@ -476,7 +476,7 @@ fn row_flag(short: Option<char>, long: Option<&str>, value: Option<&str>) -> Ent
 /// A one-node tree named `name` carrying `flags`.
 fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.flags = flags;
+    root.set_flags(flags);
     root
 }
 
