@@ -2017,7 +2017,7 @@ full text on selection; a tree summary only has to disambiguate `push` from
 - Width ladder: full layout above 60 columns; **names only** below it (drop
   summaries rather than showing eight useless characters); stacked panes below 50.
 
-### 9.1a Flag rows: a table, or honestly not one
+### 9.1a Flag rows: one table, one column
 
 The detail pane's flag list is a two-column table — spelling, description. A
 value placeholder belongs to the spelling it follows and is measured with it,
@@ -2033,26 +2033,24 @@ told apart, by style (§9.2) rather than by position.
   wide rows are allowed to miss. A column that most rows share and some rows
   don't is not alignment, it is noise that looks like alignment — and it is
   worse than no column at all, because the eye keeps trying to use it.
-- **A row too wide for the column hangs**: its description starts on the next
-  line, at the column. It never pushes the column right for itself, and the
-  spelling is never truncated to force alignment (as in §9.1, names win). The
-  row costs one extra line, which is the only cost nothing else has to pay.
+- **A row too wide for the column starts its own first description line one
+  space past its head**, and is back at the column for every line after that.
+  It never pushes the column right for itself, and the spelling is never
+  truncated to force alignment (as in §9.1, names win). The exception costs
+  that one line its alignment and costs nothing else anything.
 - **An outlier row is excluded from the measurement, not clamped to it.**
-  Clamping sets a column the outlier still misses; excluding lets it hang while
-  every other row stays aligned. Threshold: a row wider than 45% of the pane —
-  spelling and placeholder together — does not get a vote.
-- **Excluding is only excluding while the excluded are a minority.** Once the
-  threshold has removed half the section, the column left behind is one a
-  minority chose and the majority hangs below it — the same defect as the first
-  rule's, reached from the other side. A section in that state stacks.
-- **Below the width where the table can leave prose a readable amount of room
-  (28 columns), stop pretending and stack**: spelling and placeholder on one
-  line,
-  description indented beneath. A table whose columns have eaten the pane
-  breaks six words of prose across six lines; a stacked list at the same width
-  reads normally. This is the same judgement as the tree's width ladder —
-  degrade to a different layout deliberately rather than to a worse version of
-  the same one.
+  Clamping sets a column the outlier still misses; excluding lets it run on
+  past the column while every other row stays aligned. Threshold: a row wider
+  than 45% of the pane — spelling and placeholder together — does not get a
+  vote.
+- **A pane too narrow for the column brings the column down, never the
+  layout.** The column is clamped until the description has 28 columns to wrap
+  in, measured rather than picked: at 20 columns `docker pull`'s `--platform`
+  description breaks as "Set / platform / if server / is / multi-pla… /
+  capable" — six lines, one truncated mid-word, for six words of text — and at
+  28 the same description reads as prose. A second layout at some threshold
+  width would make one list look like two different products either side of
+  it; a column that moves reads the same everywhere.
 
 ### 9.2 The styling contract
 
@@ -2176,21 +2174,38 @@ Rules:
   roughly the p90 row width — the majority, not the outliers — measured
   from the pane's left edge through the end of the placeholder, so a
   preindented long is measured where it renders and a placeholder is
-  charged to the row that carries it. An entity whose row exceeds the cap
-  puts its description on the next line at the **hanging indent**, two
-  columns past the long column (not aligned to the shared column — the
-  outlier is already visually exceptional, and the fixed indent gives its
-  description the width back). Two past the long column is the shallowest indent that
-  still reads as subordinate to the deepest column a spelling can start
-  at: at the long column itself a description would sit flush beneath a
-  preindented long and stop reading as its description. It is the same
-  indent §9.1a's narrow-pane stacked layout subordinates every description
-  by, so the pane has one hanging indent rather than two. Never per-row
-  columns (the old ragged-docker bug), never a global uncapped column (one
-  long spelling starves every description). A wrapped entry is **one
-  logical row** for selection and scroll math — the alternative recreates
-  the unbounded-detail-pane-scroll bug class, and a regression test pins
-  it.
+  charged to the row that carries it. **Every description line in the
+  section begins at that column, first line and continuation alike**: the
+  left of a section is heads, the right is prose, and the reader's eye
+  has one edge to follow down the page. Never per-row columns (the old
+  ragged-docker bug), never a global uncapped column (one long spelling
+  starves every description). A wrapped entry is **one logical row** for
+  selection and scroll math — the alternative recreates the
+  unbounded-detail-pane-scroll bug class, and a regression test pins it.
+- **A head that reaches the column pushes its own first line, and only
+  that.** It keeps its line, its first description line starts one space
+  past where the head ends, and every continuation of that description is
+  back at the shared column. The head is never truncated to make it fit
+  and never moves the column for the section, so the exception stays a
+  per-row nudge rather than a second layout. A head too wide for the pane
+  itself wraps within the head area, each line at the column its own
+  spelling started at, and its description begins on the line beneath at
+  the shared column — `vgchange --alloc`, whose 55-column placeholder
+  outruns a 41-column pane, is the shape this is for.
+- **A narrow pane moves the column, not the layout** (§9.1a): the column
+  is clamped down until the description has its 28 columns, and never
+  below two past the long column, where a description would start left of
+  the preindented spelling it belongs to. In a 90-column terminal the
+  detail pane is 41 columns wide and the clamp puts the column at 13,
+  which still holds a short-and-long pair; wider heads push their own
+  first lines.
+- **POSITIONALS is inset by two columns; the flag-shaped sections are
+  not.** A positional's name carries no dashes to start it, so a run of
+  bare names at the content edge reads as loose text against the pane's
+  border rather than as a list. FLAGS, MODIFIERS and ENVIRONMENT keep the
+  edge: their short and long columns are structure the eye follows down
+  the section, and an indent would push that structure right to buy
+  nothing.
 - **ENVIRONMENT is display-only**: documented vars under an explicit
   heading only, no probing, no inferred cross-references (§4.5).
 - **Group dividers.** Within a section, a `group` renders once as a
@@ -2202,10 +2217,13 @@ Rules:
   - The divider's rule is drawn one shade lighter than the section
     header's, so two rules in the same pane read as two levels rather than
     one weight repeated. The label keeps the header's shade — the weight
-    difference belongs to the furniture, not the words. It is additive
-    over the muted color and never the sole distinction (§9.2): a terminal
-    that renders both shades identically still has the CAPS-and-count
-    shape to read.
+    difference belongs to the furniture, not the words. The rule takes a
+    named color one step up from the muted one with the lightening applied
+    over it, rather than lightening the muted color itself: the darkest
+    step in the palette lightened again reads as murk against the
+    background rather than as furniture. Lightening is never the sole
+    distinction (§9.2) — a terminal that ignores it still has the
+    CAPS-and-count shape to read.
   - **A divider that opens its section drops its rule** and renders its
     label alone at column 0. The section header drew a full-width rule on
     the line above, and a second one immediately beneath it reads as a
