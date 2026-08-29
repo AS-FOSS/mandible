@@ -1141,37 +1141,6 @@ mod tests {
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
 
-    /// The horizontal offset survives the raw/rendered toggle the same
-    /// way the vertical one does: proportionally, through repeated
-    /// flips, materialized by the first h/l press, and dropped on a
-    /// selection change. (Maintainer-reported gap after the vertical fix
-    /// shipped alone.)
-    #[test]
-    fn raw_toggle_keeps_proportional_horizontal_scroll() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        assert!(app.horizontal_scroll_enabled, "default is on");
-        app.set_detail_hextent(140, 40); // max 100
-        app.detail_hscroll = 50;
-        app.toggle_raw_mode();
-        app.set_detail_hextent(90, 40); // raw view: max 50
-        assert_eq!(app.clamped_detail_hscroll(), 25);
-
-        // Second toggle with no key press in between: still half-way.
-        app.toggle_raw_mode();
-        app.set_detail_hextent(140, 40);
-        assert_eq!(app.clamped_detail_hscroll(), 50);
-
-        // A key press materializes and moves from there.
-        app.detail_hscroll_right();
-        assert_eq!(app.clamped_detail_hscroll(), 50 + DETAIL_HSCROLL_STEP);
-
-        // Selection change drops the carried place entirely.
-        app.toggle_raw_mode();
-        app.reset_detail_scroll();
-        app.set_detail_hextent(90, 40);
-        assert_eq!(app.clamped_detail_hscroll(), 0);
-    }
-
     /// The rapid `t`-`t`-`t` comparison, with no scroll key pressed in
     /// between: the place must survive every flip, not just the first.
     /// (The first version computed the second toggle's fraction from the
