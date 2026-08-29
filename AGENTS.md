@@ -301,6 +301,15 @@ update Appendix A in the same commit, with the method.
   personal details of any kind (names beyond the git author, machines,
   schedules, private context). If a comment is longer than the diff is
   interesting, it's too long.
+- **The spec states the design; it never narrates its status.** No
+  "approved but not yet implemented", no "to be done", no "this changes
+  when X ships", and no conversation residue ("maintainer decision
+  \<date\>") in `spec.md` or any other doc — §16's decisions log is the
+  one dedicated home for rulings, and version-stamped section titles
+  ("Revision 4 (0.5.0)") are the one sanctioned marker. Write every design
+  as the final specification and edit it directly when the design changes.
+  Status narration litters the spec and is exactly the residue that gets
+  left behind after the work ships. (Maintainer rule, 2026-08-29.)
 - **Commands in public prose are written for a stranger's machine, not
   transcribed from yours.** A "see it yourself" block is instructions, not a
   session log: no absolute paths from the writer's setup (`/tmp/ptyvenv`,
