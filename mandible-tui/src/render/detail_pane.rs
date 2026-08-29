@@ -619,7 +619,7 @@ fn build_lines(
     }
 
     if let Some(description) = &node.description {
-        open_section(&mut lines);
+        open_block(&mut lines, SECTION_BLANKS);
         lines.push(heading_line_ruled(
             "DESCRIPTION",
             None,
@@ -663,7 +663,7 @@ fn build_lines(
     }
 
     if !node.usage.is_empty() {
-        open_section(&mut lines);
+        open_block(&mut lines, SECTION_BLANKS);
         lines.push(heading_line_ruled("USAGE", None, width, palette, glyphs));
         // Indented as a block, the way API documentation sets a signature
         // apart from its prose.
@@ -718,7 +718,7 @@ fn build_lines(
         if visible.is_empty() {
             continue;
         }
-        open_section(&mut lines);
+        open_block(&mut lines, SECTION_BLANKS);
         lines.push(heading_line_ruled(
             label,
             Some(visible.len()),
@@ -750,23 +750,41 @@ fn build_lines(
     }
 }
 
-/// Put exactly one blank row between whatever is already on the page and
-/// the section header about to be pushed (spec §9.3) — never zero, never
-/// two, and never one at the very top.
+/// Blank rows above a section header: two, because a section is the
+/// pane's outer level and reads as a chapter (spec §9.3).
+const SECTION_BLANKS: usize = 2;
+
+/// Blank rows above a ruled group divider: one. A group is a subdivision
+/// of the section containing it, so it gets less air than the section
+/// does — the gap sizes are the container hierarchy made visible, which
+/// is why they are two constants and not one number used twice.
+const GROUP_BLANKS: usize = 1;
+
+/// Put exactly `blanks` blank rows between whatever is already on the page
+/// and the heading about to be pushed (spec §9.3) — never fewer, never
+/// more, and never any at the very top of the document.
 ///
-/// The separator belongs to the section that *opens*, not to the one that
+/// The separator belongs to the block that *opens*, not to the one that
 /// closes. Every section used to push its own trailing blank instead,
 /// which made the boundary the sum of two independent decisions: a section
 /// that wrapped its last row, ended on a group, or ran a paragraph split
 /// out into an empty trailer contributed a different number of blanks from
 /// its neighbour, and the page's rhythm changed with the content. One
-/// caller, one rule, and the trailing blanks a section may leave behind
-/// are absorbed here rather than counted on.
-fn open_section(lines: &mut Vec<Line<'static>>) {
+/// caller per level, one rule, and whatever blank rows the block above
+/// left behind are absorbed here rather than counted on — which is what
+/// makes the count exact rather than merely a minimum.
+///
+/// Nothing is pushed *below* a heading: the header's or divider's own rule
+/// is already a horizontal line separating it from its rows, and a blank
+/// under it would set the label adrift from the list it names.
+fn open_block(lines: &mut Vec<Line<'static>>, blanks: usize) {
     while lines.last().is_some_and(line_is_blank) {
         lines.pop();
     }
-    if !lines.is_empty() {
+    if lines.is_empty() {
+        return;
+    }
+    for _ in 0..blanks {
         lines.push(Line::default());
     }
 }
@@ -1460,6 +1478,15 @@ fn section_lines(
             // header a line above already drew one, and two full-width
             // rules in a row read as one doubled line (spec §9.3).
             let ruled = !body.lines.is_empty();
+            // …and for the same reason it takes no blank row either. The
+            // label belongs to the header directly above it, the way a
+            // sub-heading does; a gap there would separate the two things
+            // that go together and leave the section header floating.
+            // Every *later* divider genuinely ends one run of rows and
+            // starts another, so it gets its one row of air.
+            if ruled {
+                open_block(&mut body.lines, GROUP_BLANKS);
+            }
             body.lines
                 .push(group_divider_line(label, width, palette, glyphs, ruled));
         }
@@ -1478,6 +1505,9 @@ fn section_lines(
 
     if !inherited.is_empty() {
         let ruled = !body.lines.is_empty();
+        if ruled {
+            open_block(&mut body.lines, GROUP_BLANKS);
+        }
         body.lines.push(group_divider_line(
             INHERITED_GROUP,
             width,

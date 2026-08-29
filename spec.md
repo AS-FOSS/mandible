@@ -2321,14 +2321,28 @@ Rules:
   edge: their short and long columns are structure the eye follows down
   the section, and an indent would push that structure right to buy
   nothing.
-- **Exactly one blank row between a section's last row and the next
-  section's header**, and none above the first header on the page. The
-  separator belongs to the section that opens, never to the one that
-  closes: a boundary owned by both ends is the sum of two decisions and
-  varies with the content, so a section that wraps its last row, ends on a
-  group, or carries an empty trailing paragraph spaces differently from
-  its neighbour. One rule, one place, and whatever blank rows a section
-  leaves behind are absorbed rather than counted on.
+- **The vertical gaps are the container hierarchy.** Two blank rows above
+  a section header, one above a ruled group divider, none below either,
+  and none at all above the first header on the page. A section is a
+  chapter and a group is a paragraph within it, so the section boundary
+  gets the wider gap; the eye reads depth off the spacing before it reads
+  a word, and a page where every boundary is one row is a page where a
+  reader has to count rules to know which level they are at. Nothing goes
+  *beneath* a heading: its own full-width rule is already the line
+  separating it from its rows, and a blank under it would set the label
+  adrift from the list it names.
+
+  Each count is **exact, not a minimum**. The separator belongs to the
+  block that opens, never to the one that closes: a boundary owned by both
+  ends is the sum of two decisions and varies with the content, so a
+  section that wraps its last row, ends on a group, or carries an empty
+  trailing paragraph would space differently from its neighbour. One rule
+  per level, one place, and whatever blank rows the block above leaves
+  behind are absorbed rather than counted on. For the same reason the gap
+  never varies with how much the block above it held: a short section
+  followed by two blanks costs a couple of rows, and buying them back by
+  measuring the section above is precisely the content-dependent boundary
+  this rule exists to remove.
 - **ENVIRONMENT is display-only**: documented vars under an explicit
   heading only, no probing, no inferred cross-references (§4.5).
 - **Group dividers are label-first, like the headers above them.** Within
@@ -2374,16 +2388,20 @@ Rules:
     recreates the mismatch through an attribute instead of a colour. What
     marks the section header out as the outer level is its shade and its
     CAPS-and-count shape, never extra weight on its words.
-  - **A divider that opens its section drops its rule** and renders its
-    label alone at column 0. The section header drew a full-width rule on
-    the line above, and a second one immediately beneath it reads as a
-    single doubled line — the header's rule stops reading as the section
-    boundary and the group's stops reading as a subdivision of it. The
-    header's rule is the boundary; the group needs only to be named, and a
-    mixed-case label at column 0 beneath a CAPS heading at column 0 is
-    what a sub-heading looks like. Dividers later in the same section keep
-    their rule, where they genuinely separate one run of rows from
-    another.
+  - **A divider that opens its section drops its rule and its blank row**,
+    and renders its label alone at column 0 directly beneath the header.
+    The section header drew a full-width rule on the line above, and a
+    second one immediately beneath it reads as a single doubled line —
+    the header's rule stops reading as the section boundary and the
+    group's stops reading as a subdivision of it. The header's rule is
+    the boundary; the group needs only to be named, and a mixed-case
+    label at column 0 beneath a CAPS heading at column 0 is what a
+    sub-heading looks like. The blank row goes for the same reason the
+    rule does: such a divider is part of the heading above it rather than
+    a break from anything, and a gap between the two would leave the
+    section header floating over a label it introduces. Dividers later in
+    the same section keep both — they genuinely end one run of rows and
+    start another.
 - **Descriptions always wrap.** Sections are mandible's own layout, so
   nothing in them is ever clipped or horizontally scrolled; `[ui]
   horizontal_scroll` governs only content whose layout is not ours — the

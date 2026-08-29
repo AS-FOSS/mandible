@@ -260,21 +260,25 @@ fn section_headers_carry_the_count_of_what_they_render() {
     );
 }
 
-/// Spec §9.3: exactly one blank row sits between a section's last row and
-/// the next section's header — never none, never two, and never one above
-/// the first header on the page.
+/// Spec §9.3: the gaps down the page are the container hierarchy made
+/// visible — two blank rows above a section header, one above a ruled
+/// group divider, none below either (its rule is the separator), and none
+/// at all above the first header on the page. Each count is exact, not a
+/// minimum.
 ///
 /// The fixture is built so the boundaries differ in every way a boundary
 /// can: DESCRIPTION ends on a wrapped paragraph after a paragraph break,
 /// USAGE on a verbatim synopsis line, POSITIONALS on a wrapped
 /// description, and FLAGS on a group. Each of those used to contribute its
 /// own trailing blank independently of the next section's, which is what
-/// let the page's rhythm change with the content.
+/// let the page's rhythm change with the content. MODIFIERS opens on a
+/// group so the section-opening divider — which takes neither a rule nor a
+/// blank, because it belongs to the header above it — is on screen too.
 ///
 /// Read off the frame, because uneven spacing down a page is a failure a
 /// reader sees and nothing else reports.
 #[test]
-fn exactly_one_blank_row_separates_every_section() {
+fn blank_rows_follow_the_container_hierarchy() {
     let sections = [
         "DESCRIPTION",
         "USAGE",
@@ -310,18 +314,23 @@ fn exactly_one_blank_row_separates_every_section() {
         e.group = Some("Operation:".to_string());
         node.entities.push(e);
     }
-    node.entities.push(entity(
-        EntityKind::Modifier,
-        Spelling::bare("d"),
-        "delete members from the archive",
-    ));
+    // Both modifiers are grouped, so MODIFIERS opens on a divider (no
+    // rule, no blank) and carries a second one later (rule, one blank).
+    for (name, group, text) in [
+        ("d", "Mode:", "delete members from the archive"),
+        ("v", "Generic:", "be verbose about it"),
+    ] {
+        let mut e = entity(EntityKind::Modifier, Spelling::bare(name), text);
+        e.group = Some(group.to_string());
+        node.entities.push(e);
+    }
     node.entities.push(entity(
         EntityKind::EnvVar,
         Spelling::bare("TOOL_CONFIG"),
         "path to the configuration file",
     ));
 
-    let rows = detail_rows(&app_for(node), 120, 44);
+    let rows = detail_rows(&app_for(node), 120, 48);
     let joined = rows.join("\n");
     let headers: Vec<usize> = rows
         .iter()
@@ -348,15 +357,58 @@ fn exactly_one_blank_row_separates_every_section() {
         headers[0], 0,
         "the first section starts at the top, with no blank above it:\n{joined}"
     );
+
+    // How many blank rows immediately precede row `at`.
+    let blanks_above = |at: usize| rows[..at].iter().rev().take_while(|r| r.is_empty()).count();
+
     for &at in &headers[1..] {
-        assert!(
-            rows[at - 1].is_empty(),
-            "no blank row above {:?}:\n{joined}",
-            rows[at]
+        assert_eq!(
+            blanks_above(at),
+            2,
+            "a section header takes exactly two blank rows above it, {:?} had {}:\n{joined}",
+            rows[at],
+            blanks_above(at)
         );
+    }
+
+    // The group dividers, told apart by shape the way a reader tells them
+    // apart: a ruled one runs its rule to the pane's edge, the one that
+    // opens a section is its label alone.
+    let ruled: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| {
+            (r.starts_with("Operation ") || r.starts_with("Generic ")) && r.contains('─')
+        })
+        .map(|(i, _)| i)
+        .collect();
+    assert_eq!(ruled.len(), 2, "expected two ruled dividers:\n{joined}");
+    for &at in &ruled {
+        assert_eq!(
+            blanks_above(at),
+            1,
+            "a ruled group divider takes exactly one blank row above it, {:?} had {}:\n{joined}",
+            rows[at],
+            blanks_above(at)
+        );
+    }
+
+    let opening = rows
+        .iter()
+        .position(|r| r == "Mode")
+        .expect("the section-opening divider, its label alone:\n{joined}");
+    assert_eq!(
+        blanks_above(opening),
+        0,
+        "a divider that opens its section belongs to the header above it:\n{joined}"
+    );
+
+    // Nothing is ever pushed below a heading: its own rule is the
+    // separator, and a blank under it would set the label adrift.
+    for &at in headers.iter().chain(ruled.iter()).chain([opening].iter()) {
         assert!(
-            !rows[at - 2].is_empty(),
-            "two blank rows above {:?}:\n{joined}",
+            !rows[at + 1].is_empty(),
+            "no blank row belongs under {:?}:\n{joined}",
             rows[at]
         );
     }
