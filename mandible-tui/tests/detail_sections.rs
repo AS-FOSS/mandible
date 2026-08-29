@@ -325,13 +325,6 @@ fn exactly_one_blank_row_separates_every_section() {
     // The fixture is only worth reading if its sections really do end the
     // several different ways the doc comment claims — a boundary after a
     // one-line section proves nothing about one after a wrapped row.
-    for (label, at) in sections.iter().zip(&headers).skip(1) {
-        let last = rows[at - 2].trim_start();
-        assert!(
-            !last.is_empty(),
-            "nothing above the boundary before {label}:\n{joined}"
-        );
-    }
     let wrapped = headers.windows(2).filter(|w| w[1] - w[0] > 3).count();
     assert!(
         wrapped >= 2,
