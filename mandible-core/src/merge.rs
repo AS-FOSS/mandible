@@ -574,20 +574,31 @@ fn same_description(a: &Entity, b: &Entity) -> bool {
 }
 
 fn absorb_pair(existing: &mut Entity, other: Entity) {
-    // Rebuilt short-first rather than appended, because [`complementary`]
-    // admits the pair in either arrival order: `--repo` meeting `-R` must
-    // still come out spelled `-R, --repo`, not `--repo, -R`. Appending
-    // `other`'s spelling would make the rendered order depend on which row
-    // the source happened to print first.
-    let short = existing
-        .short_spelling()
-        .or_else(|| other.short_spelling())
-        .cloned();
-    let long = existing
-        .long_spelling()
-        .or_else(|| other.long_spelling())
-        .cloned();
-    existing.spellings = short.into_iter().chain(long).collect();
+    // Splice `other`'s spelling into the position it belongs in — a short
+    // at the front, a long at the back — rather than appending it or
+    // rebuilding the list from two slots.
+    //
+    // Appending is wrong because [`complementary`] admits the pair in
+    // either arrival order: `--repo` meeting `-R` must still come out
+    // spelled `-R, --repo`, never `--repo, -R`, so the rendered order
+    // cannot depend on which row the source printed first.
+    //
+    // Rebuilding from a short/long pair is wrong for a subtler reason: it
+    // silently drops any *further* spelling `existing` carries. Nothing
+    // emits a multi-spelling entity yet, but the whole point of the entity
+    // schema is that something soon will (ffplay's `-h, -?, -help,
+    // --help`), and a lossy merge that only misbehaves once that lands is
+    // exactly the kind of defect that gets blamed on the later change.
+    if existing.short_spelling().is_none() {
+        if let Some(s) = other.short_spelling() {
+            existing.spellings.insert(0, s.clone());
+        }
+    }
+    if existing.long_spelling().is_none() {
+        if let Some(l) = other.long_spelling() {
+            existing.spellings.push(l.clone());
+        }
+    }
 
     existing.value_name = existing.value_name.clone().or(other.value_name);
     if matches!(existing.value_kind, crate::node::ValueKind::None) {
@@ -882,6 +893,42 @@ mod tests {
         let once = pair_aliases(flags);
         let twice = pair_aliases(once.clone());
         assert_eq!(once, twice);
+    }
+
+    /// Pairing splices the incoming spelling into place and keeps every
+    /// spelling the surviving entity already had.
+    ///
+    /// The `-h, -?` half is the case a two-slot rebuild loses: `short()`
+    /// reports only the first short, so reconstructing the entity from
+    /// `short()` + `long()` would silently drop `-?`. Nothing emits a
+    /// multi-spelling entity yet, which is exactly why this is pinned now
+    /// — the loss would otherwise first appear as a bug in whichever later
+    /// change starts emitting them.
+    #[test]
+    fn pairing_keeps_every_spelling_the_survivor_already_had() {
+        let mut multi = paired_flag(Some('h'), None, "show help");
+        multi.spellings.push(Spelling::short('?'));
+        let long = paired_flag(None, Some("help"), "show help");
+
+        let paired = pair_aliases(vec![multi, long]);
+        assert_eq!(paired.len(), 1, "the pair must unify");
+        assert_eq!(paired[0].spelling(), "-h, -?, --help");
+    }
+
+    /// The long half arriving *first* must still render short-first: which
+    /// row the source printed first is not a fact about the flag.
+    #[test]
+    fn pairing_renders_short_first_whichever_row_arrived_first() {
+        let long_first = vec![
+            paired_flag(None, Some("repo"), "select a repository"),
+            paired_flag(Some('R'), None, "select a repository"),
+        ];
+        let short_first = vec![
+            paired_flag(Some('R'), None, "select a repository"),
+            paired_flag(None, Some("repo"), "select a repository"),
+        ];
+        assert_eq!(pair_aliases(long_first)[0].spelling(), "-R, --repo");
+        assert_eq!(pair_aliases(short_first)[0].spelling(), "-R, --repo");
     }
 
     #[test]
