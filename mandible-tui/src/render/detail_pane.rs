@@ -126,7 +126,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         node,
         app.show_hidden,
         width,
-        app.color_enabled,
+        app.palette,
         app.selected_flag.as_ref(),
         app.glyphs,
         app,
@@ -591,7 +591,7 @@ fn build_lines(
     node: &CommandNode,
     show_hidden: bool,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
     app: &App,
@@ -623,7 +623,7 @@ fn build_lines(
             "DESCRIPTION",
             None,
             width,
-            color_enabled,
+            palette,
             glyphs,
         ));
         // One blank row *between* paragraphs and none after the last: the
@@ -648,13 +648,7 @@ fn build_lines(
 
     if !node.usage.is_empty() {
         open_section(&mut lines);
-        lines.push(heading_line_ruled(
-            "USAGE",
-            None,
-            width,
-            color_enabled,
-            glyphs,
-        ));
+        lines.push(heading_line_ruled("USAGE", None, width, palette, glyphs));
         // Indented as a block, the way API documentation sets a signature
         // apart from its prose.
         let indent = "  ";
@@ -710,11 +704,11 @@ fn build_lines(
             label,
             Some(visible.len()),
             width,
-            color_enabled,
+            palette,
             glyphs,
         ));
         let base = lines.len();
-        let section = section_lines(&visible, width, indent, color_enabled, target_flag, glyphs);
+        let section = section_lines(&visible, width, indent, palette, target_flag, glyphs);
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
         }
@@ -786,7 +780,7 @@ fn heading_line_ruled(
     text: &str,
     count: Option<usize>,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     glyphs: Glyphs,
 ) -> Line<'static> {
     let heading = match count {
@@ -795,13 +789,11 @@ fn heading_line_ruled(
     };
     let used = display_width(&heading) + 1;
     let rule_width = width.saturating_sub(used);
-    let mut spans = vec![Span::styled(heading, style::muted_bold(color_enabled))];
+    let shade = style::section_rule(palette);
+    let mut spans = vec![Span::styled(heading, style::muted_bold(palette.color))];
     if rule_width > 0 {
         spans.push(Span::raw(" "));
-        spans.push(Span::styled(
-            glyphs.rule.repeat(rule_width),
-            style::section_rule(color_enabled),
-        ));
+        spans.push(Span::styled(glyphs.rule.repeat(rule_width), shade));
     }
     Line::from(spans)
 }
@@ -1043,23 +1035,23 @@ fn group_label(raw: &str) -> String {
 fn group_divider_line(
     label: &str,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     glyphs: Glyphs,
     ruled: bool,
 ) -> Line<'static> {
-    let muted = style::muted(color_enabled);
+    let shade = style::group_rule(palette);
     if !ruled {
-        return group_divider_lead_line(label, width, color_enabled, glyphs);
+        return group_divider_lead_line(label, width, palette, glyphs);
     }
     // A space behind the label and at least one rule cell after it: the
     // budget the label has to fit inside.
     let furniture = display_width(glyphs.rule) + 1;
     let label = truncate_to_width_marker(label, width.saturating_sub(furniture), glyphs.ellipsis);
     let rule_width = width.saturating_sub(display_width(&label) + 1);
-    let mut spans = vec![Span::styled(label, muted)];
+    let mut spans = vec![Span::styled(label, shade)];
     if rule_width > 0 {
-        spans.push(Span::styled(" ", muted));
-        spans.push(Span::styled(glyphs.rule.repeat(rule_width), muted));
+        spans.push(Span::styled(" ", shade));
+        spans.push(Span::styled(glyphs.rule.repeat(rule_width), shade));
     }
     Line::from(spans)
 }
@@ -1082,11 +1074,11 @@ fn group_divider_line(
 fn group_divider_lead_line(
     label: &str,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     glyphs: Glyphs,
 ) -> Line<'static> {
     let label = truncate_to_width_marker(label, width, glyphs.ellipsis);
-    Line::from(Span::styled(label, style::muted(color_enabled)))
+    Line::from(Span::styled(label, style::group_rule(palette)))
 }
 
 /// A spelling wider than this fraction of the pane does not get to set the
@@ -1323,7 +1315,7 @@ fn section_lines(
     entities: &[&Entity],
     width: usize,
     indent: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
 ) -> SectionBody {
@@ -1372,7 +1364,7 @@ fn section_lines(
                 e,
                 false,
                 width,
-                color_enabled,
+                palette.color,
                 layout,
                 target_flag,
             );
@@ -1388,13 +1380,8 @@ fn section_lines(
             // header a line above already drew one, and two full-width
             // rules in a row read as one doubled line (spec §9.3).
             let ruled = !body.lines.is_empty();
-            body.lines.push(group_divider_line(
-                label,
-                width,
-                color_enabled,
-                glyphs,
-                ruled,
-            ));
+            body.lines
+                .push(group_divider_line(label, width, palette, glyphs, ruled));
         }
         for e in group {
             push_entity(
@@ -1402,7 +1389,7 @@ fn section_lines(
                 e,
                 false,
                 width,
-                color_enabled,
+                palette.color,
                 layout,
                 target_flag,
             );
@@ -1414,7 +1401,7 @@ fn section_lines(
         body.lines.push(group_divider_line(
             INHERITED_GROUP,
             width,
-            color_enabled,
+            palette,
             glyphs,
             ruled,
         ));
@@ -1424,7 +1411,7 @@ fn section_lines(
                 e,
                 true,
                 width,
-                color_enabled,
+                palette.color,
                 layout,
                 target_flag,
             );
@@ -1901,7 +1888,15 @@ mod tests {
     fn inherited_flags_are_grouped_last() {
         let node = node_with_flags();
         let flags: Vec<&Entity> = node.flags().collect();
-        let lines = section_lines(&flags, 80, 0, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(
+            &flags,
+            80,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
         // A group divider, not a section header (spec §9.3): `INHERITED`
         // in caps would read as a section of its own, and inherited flags
@@ -1927,7 +1922,7 @@ mod tests {
             &node,
             false,
             80,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &test_app(),
@@ -1944,7 +1939,7 @@ mod tests {
             &node,
             true,
             80,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &test_app(),
@@ -1989,7 +1984,15 @@ mod tests {
             ),
         ];
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
-        let lines = section_lines(&refs, 80, 0, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(
+            &refs,
+            80,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines;
 
         // Column at which each row's description text begins, located by a
         // marker rather than inferred from runs of whitespace: a row's
@@ -2105,7 +2108,15 @@ mod tests {
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         for width in 20..=160 {
-            let lines = section_lines(&refs, width, 0, true, None, crate::glyphs::UNICODE).lines;
+            let lines = section_lines(
+                &refs,
+                width,
+                0,
+                style::Palette::extended(),
+                None,
+                crate::glyphs::UNICODE,
+            )
+            .lines;
             let column = section_layout(&refs, width, 0).description;
             let starts = description_starts(&lines);
             assert!(
@@ -2176,7 +2187,15 @@ mod tests {
 
         // Prose really does get that width on the page, measured on the
         // rendered lines rather than restated from the arithmetic above.
-        let lines = section_lines(&refs, 38, 0, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(
+            &refs,
+            38,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines;
         let widest_prose = lines
             .iter()
             .map(text_of)
@@ -2220,7 +2239,15 @@ mod tests {
             "an outlier spelling must not set the column for the list"
         );
 
-        let lines = section_lines(&refs, 120, 0, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(
+            &refs,
+            120,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines;
         let starts = description_starts(&lines);
 
         // Exactly one line in the section starts past the shared column,
@@ -2509,11 +2536,18 @@ mod tests {
             mk('c', "count", None),
         ];
         let refs: Vec<&Entity> = flags.iter().collect();
-        let text: Vec<String> = section_lines(&refs, 60, 0, true, None, crate::glyphs::UNICODE)
-            .lines
-            .iter()
-            .map(text_of)
-            .collect();
+        let text: Vec<String> = section_lines(
+            &refs,
+            60,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines
+        .iter()
+        .map(text_of)
+        .collect();
         let row = |needle: &str| {
             text.iter()
                 .find(|t| t.contains(needle))
@@ -2581,7 +2615,15 @@ mod tests {
 
         let column = section_layout(&refs, 60, 0).description;
         let starts = description_starts(
-            &section_lines(&refs, 60, 0, true, None, crate::glyphs::UNICODE).lines,
+            &section_lines(
+                &refs,
+                60,
+                0,
+                style::Palette::extended(),
+                None,
+                crate::glyphs::UNICODE,
+            )
+            .lines,
         );
         assert!(
             starts.len() > refs.len(),
@@ -2631,11 +2673,18 @@ mod tests {
             ]),
         ];
         let refs: Vec<&Entity> = flags.iter().collect();
-        let text: Vec<String> = section_lines(&refs, 80, 0, true, None, crate::glyphs::UNICODE)
-            .lines
-            .iter()
-            .map(text_of)
-            .collect();
+        let text: Vec<String> = section_lines(
+            &refs,
+            80,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines
+        .iter()
+        .map(text_of)
+        .collect();
         let row = |needle: &str| {
             text.iter()
                 .find(|t| t.contains(needle))
@@ -2674,7 +2723,15 @@ mod tests {
 
         // ...and the whole section still shares one description column.
         let starts = description_columns(
-            &section_lines(&refs, 80, 0, true, None, crate::glyphs::UNICODE).lines,
+            &section_lines(
+                &refs,
+                80,
+                0,
+                style::Palette::extended(),
+                None,
+                crate::glyphs::UNICODE,
+            )
+            .lines,
         );
         let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
         assert_eq!(
@@ -2733,29 +2790,26 @@ mod tests {
         }
     }
 
-    /// Spec §9.3: the section header's rule is the heavier of the pane's
-    /// two rules and the group divider's the lighter, and a divider's
-    /// label is drawn in the same shade as the rule running out of it.
+    /// Spec §9.3, the wiring half: which line draws in which level of the
+    /// pane's neutral hierarchy.
     ///
-    /// Supersedes the previous pin, which asserted the ordering the other
-    /// way round and separated the two levels with `Modifier::DIM`. That
-    /// pin could not see its own failure: on a terminal that ignores
-    /// dimming — several do (spec §9.2) — the "lighter" rule was drawn in
-    /// `Gray` against the header's `DarkGray` and came out *brighter* than
-    /// the line it was meant to sit under. The ordering is now carried by
-    /// two plain named colors, and [`style`]'s own
-    /// `the_section_rule_outweighs_the_group_rule_without_dimming` pins
-    /// which of the two is lighter; what this test pins is the wiring —
-    /// which line draws with which — and the label/rule match.
+    /// Supersedes the pin that named `Gray` and `DarkGray` directly. Those
+    /// two are the whole of what the sixteen named colors offer below a
+    /// default foreground, and `Gray` is *at* it — so the section rule
+    /// read at the brightness of the pane borders around it and the
+    /// hierarchy had two visible levels where it needs three.
+    /// [`style`]'s own `the_three_neutral_levels_step_clearly_apart` pins
+    /// the shades and their separation; this pins which line gets which.
     ///
     /// Asserted on the styles of the spans rather than on their text,
     /// because the text is identical by construction: both are runs of the
     /// same rule glyph, and only the style tells them apart.
     #[test]
-    fn a_section_header_rule_outweighs_a_group_divider_rule() {
+    fn the_two_rule_levels_are_wired_to_their_own_shades() {
         let glyphs = crate::glyphs::UNICODE;
-        let header = heading_line_ruled("FLAGS", Some(3), 60, true, glyphs);
-        let divider = group_divider_line("Main operation mode", 60, true, glyphs, true);
+        let palette = style::Palette::extended();
+        let header = heading_line_ruled("FLAGS", Some(3), 60, palette, glyphs);
+        let divider = group_divider_line("Main operation mode", 60, palette, glyphs, true);
 
         let rule_style = |line: &Line<'static>| {
             line.spans
@@ -2764,45 +2818,49 @@ mod tests {
                 .map(|s| s.style)
                 .expect("a rule run")
         };
+        let label_style = |line: &Line<'static>, text: &str| {
+            line.spans
+                .iter()
+                .find(|s| s.content.contains(text))
+                .map(|s| s.style)
+                .unwrap_or_else(|| panic!("a label span for {text:?}"))
+        };
+
         let header_rule = rule_style(&header);
         let divider_rule = rule_style(&divider);
-        assert_eq!(header_rule, style::section_rule(true));
-        assert_eq!(divider_rule, style::muted(true));
+        assert_eq!(header_rule, style::section_rule(palette));
+        assert_eq!(divider_rule, style::group_rule(palette));
+
+        assert_eq!(
+            label_style(&divider, "Main operation mode"),
+            divider_rule,
+            "a divider's label must match its own rule"
+        );
+        assert_eq!(
+            label_style(&header, "FLAGS (3)"),
+            style::muted_bold(palette.color)
+        );
+
+        // The two levels still differ from each other — a matched label is
+        // not an excuse for one flat shade over the whole pane.
         assert_ne!(
             header_rule, divider_rule,
             "the two rules must not read as one weight"
         );
 
-        // The divider's label and its own rule are one piece of furniture,
-        // so they are one shade. A label in a different muted shade from
-        // the line running out of it reads as two unrelated marks sharing
-        // a row, which is the mismatch this replaces.
-        let label = divider
-            .spans
-            .iter()
-            .find(|s| s.content.contains("Main operation mode"))
-            .expect("a label span");
-        assert_eq!(
-            label.style, divider_rule,
-            "a divider's label must match its own rule"
-        );
-
-        // The section header's label keeps the stronger styling that makes
-        // it the outer level's name, so the two labels do not read alike
-        // either.
-        let heading = header.spans.first().expect("a heading span");
-        assert_eq!(heading.style, style::muted_bold(true));
-        assert_ne!(heading.style, label.style);
-
-        // Neither rule is dimmed: the ordering above must survive a
-        // terminal that drops the attribute entirely (spec §9.2).
+        // Neither level is dimmed: the ordering must survive a terminal
+        // that drops the attribute entirely (spec §9.2).
         for (name, style) in [("header", header_rule), ("divider", divider_rule)] {
             assert!(
                 !style.add_modifier.contains(ratatui::style::Modifier::DIM),
                 "the {name} rule leans on DIM"
             );
         }
+
+        // Shape, not weight, is what keeps the two readable apart once
+        // every attribute is stripped.
         assert!(text_of(&header).starts_with("FLAGS (3) "));
+        assert!(text_of(&divider).starts_with("Main operation mode "));
     }
 
     /// Spec §9.3: a divider that opens its section renders its label alone
@@ -2819,7 +2877,15 @@ mod tests {
             flags.push(f);
         }
         let refs: Vec<&Entity> = flags.iter().collect();
-        let lines = section_lines(&refs, 60, 0, true, None, crate::glyphs::UNICODE).lines;
+        let lines = section_lines(
+            &refs,
+            60,
+            0,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+        )
+        .lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
 
         assert_eq!(
@@ -2919,7 +2985,7 @@ mod tests {
             &node,
             false,
             80,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &test_app(),
@@ -2939,7 +3005,7 @@ mod tests {
             &node,
             false,
             80,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &test_app(),
@@ -2988,7 +3054,7 @@ mod tests {
             &node,
             false,
             width,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &app,
@@ -3045,7 +3111,7 @@ mod tests {
             &node,
             false,
             60,
-            true,
+            style::Palette::extended(),
             Some(&target),
             crate::glyphs::UNICODE,
             &test_app(),
@@ -3075,7 +3141,7 @@ mod tests {
             &node,
             false,
             80,
-            true,
+            style::Palette::extended(),
             Some(&target),
             crate::glyphs::UNICODE,
             &test_app(),
@@ -3093,7 +3159,7 @@ mod tests {
             &node,
             false,
             80,
-            true,
+            style::Palette::extended(),
             Some(&FlagKey::Long("interactive".to_string())),
             crate::glyphs::UNICODE,
             &test_app(),
@@ -3110,7 +3176,7 @@ mod tests {
             &node,
             false,
             80,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &test_app(),
@@ -3353,7 +3419,15 @@ mod tests {
 
         let mut app = test_app();
         app.horizontal_scroll_enabled = false;
-        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
+        let built = build_lines(
+            &node,
+            false,
+            46,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &app,
+        );
         // Every usage line carries its own 2-space block indent (see the
         // USAGE section of `build_lines`) — strip it per line before
         // rejoining so adjacent chunks of the broken token reassemble
@@ -3399,7 +3473,7 @@ mod tests {
             &node,
             false,
             width,
-            true,
+            style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
             &app,
@@ -3445,10 +3519,26 @@ mod tests {
         node.usage = vec![Text::sanitize(&long_url)];
 
         let mut app = test_app();
-        let _ = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
+        let _ = build_lines(
+            &node,
+            false,
+            46,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &app,
+        );
         app.detail_hscroll_right();
         app.detail_hscroll_right();
-        let built = build_lines(&node, false, 46, true, None, crate::glyphs::UNICODE, &app);
+        let built = build_lines(
+            &node,
+            false,
+            46,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &app,
+        );
         let usage_line = built
             .lines
             .iter()

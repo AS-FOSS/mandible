@@ -16,12 +16,13 @@
 //! - **Respect `NO_COLOR`** (<https://no-color.org>) **and `TERM=dumb`**:
 //!   every style function here degrades to bold/reverse/underline only,
 //!   rather than emitting color codes a user explicitly asked not to see
-//!   or a terminal has said it cannot render. A depth ladder (truecolor →
-//!   256 → 16) is deliberately *not* implemented: it would mean choosing
-//!   specific RGB values, which is exactly what the first rule above rules
-//!   out. Named ANSI colors already work at every depth that has color at
-//!   all, and look native in each user's own theme rather than only in
-//!   whichever one the author happened to use.
+//!   or a terminal has said it cannot render. There is no truecolor tier
+//!   and no RGB anywhere; the one place depth is consulted at all is the
+//!   detail pane's pair of rule shades ([`section_rule`], [`group_rule`]),
+//!   which need two steps below the terminal's default foreground and
+//!   cannot get them from the sixteen named colors. Those two read the
+//!   xterm-256 gray ramp when [`Palette::extended`] says it is available
+//!   and fall back to `DarkGray` for both levels when it is not.
 //! - **The accent is spent only on the payload the user came for**: flag
 //!   spellings, the selected row, the focused pane's border.
 
@@ -55,30 +56,173 @@ pub fn muted_bold(color_enabled: bool) -> Style {
     muted(color_enabled).add_modifier(Modifier::BOLD)
 }
 
-/// The rule that closes a section header (spec §9.3): `Gray`, one step
-/// **brighter** than [`muted`], which is the shade a group divider draws
-/// both its rule and its label in.
+/// The first index of the xterm-256 gray ramp (`#080808`). Indices
+/// [`GRAY_RAMP_FIRST`]`..=`[`GRAY_RAMP_LAST`] step evenly from near-black
+/// to near-white, ten points of gray apart, which is what makes two
+/// *visibly separated* neutral shades expressible at all — the sixteen
+/// named colors offer exactly one step below a default foreground
+/// (`DarkGray`), and the pane needs two.
+pub const GRAY_RAMP_FIRST: u8 = 232;
+/// The last index of the xterm-256 gray ramp (`#eeeeee`).
+pub const GRAY_RAMP_LAST: u8 = 255;
+
+/// The section-header level's gray (`#949494`): the brighter of the
+/// detail pane's two rule shades, and a clear step below the pane borders
+/// above it.
+pub const SECTION_GRAY: u8 = 246;
+
+/// The group-divider level's gray (`#585858`): the dimmer of the two, a
+/// clear step below [`SECTION_GRAY`] and near enough to `DarkGray` that
+/// the sixteen-color fallback lands on the same level rather than beside
+/// it.
+pub const GROUP_GRAY: u8 = 240;
+
+/// What the terminal can be asked to draw: whether color is wanted at all,
+/// and whether the xterm-256 palette is available.
 ///
-/// The two rules carry the pane's two levels, and the outer level is the
-/// heavier one: a section boundary reads across the whole document, a
-/// group divider subdivides one section. Both shades are plain named
-/// colors, so the ordering is a property of the palette rather than of a
-/// modifier — `Gray` is ANSI 7 and `DarkGray` ANSI 8 (bright black), and
-/// 7 stays the lighter of the two in every theme that has color at all.
-///
-/// The ordering deliberately owes nothing to `Modifier::DIM`. A previous
-/// version separated the two levels by dimming one of them, which several
-/// terminals ignore outright (spec §9.2) — and on such a terminal the
-/// dimmed rule rendered *brighter* than the one it was supposed to sit
-/// under, inverting the hierarchy on exactly the machines the muted-over-
-/// `DIM` rule exists to protect. Nothing here is dimmed, so what a
-/// terminal draws is what was specified.
-pub fn section_rule(color_enabled: bool) -> Style {
-    if color_enabled {
-        Style::default().fg(Color::Gray)
-    } else {
-        Style::default()
+/// `extended` is meaningless when `color` is false, and every function
+/// here treats it that way. The pair exists as one value rather than two
+/// loose `bool`s because they are read together at exactly the points
+/// where a shade is chosen, and two adjacent booleans at a call site are
+/// the kind of thing that gets swapped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Palette {
+    /// Whether to emit color at all — [`color_enabled_from_env`].
+    pub color: bool,
+    /// Whether the xterm-256 palette is available — [`extended_from_env`].
+    pub extended: bool,
+}
+
+impl Palette {
+    /// The palette this process's environment describes.
+    pub fn from_env() -> Palette {
+        let color = color_enabled_from_env();
+        Palette {
+            color,
+            extended: color && extended_from_env(),
+        }
     }
+
+    /// No color at all: `NO_COLOR`, `TERM=dumb`, or a redirected stdout.
+    pub fn plain() -> Palette {
+        Palette {
+            color: false,
+            extended: false,
+        }
+    }
+
+    /// Color, but only the sixteen named ones.
+    pub fn basic() -> Palette {
+        Palette {
+            color: true,
+            extended: false,
+        }
+    }
+
+    /// Color including the xterm-256 palette.
+    pub fn extended() -> Palette {
+        Palette {
+            color: true,
+            extended: true,
+        }
+    }
+}
+
+/// The pane's **three-step** neutral hierarchy, brightest first: the pane
+/// borders (the terminal's own default foreground, untouched), then the
+/// section header's rule and label, then the group divider's
+/// ([`group_rule`]). Each step is clearly dimmer than the one above it, so
+/// a section boundary reads as subordinate to the pane it lives in and a
+/// group divider as subordinate to the section.
+///
+/// The sixteen named colors cannot express this. `Gray` is ANSI 7, which
+/// *is* the default foreground in most themes — a rule drawn in it reads
+/// at exactly the border's brightness rather than under it — and below it
+/// there is only `DarkGray`, one step for two levels. So the two rule
+/// shades are the one place in this crate that consults color depth: with
+/// the xterm-256 gray ramp available they take [`SECTION_GRAY`] and
+/// [`GROUP_GRAY`], two evenly separated neutrals that sit under any
+/// ordinary foreground.
+///
+/// **Fallback**: without the extended palette both levels collapse to
+/// `DarkGray`. That keeps the step below the borders, which is the
+/// ordering that matters most, and gives up only the distinction between
+/// the two inner levels — which spec §9.2's shape rule carries anyway,
+/// since a section header is CAPS with a count and a group divider mixed
+/// case without one. A wrong guess about depth therefore costs a
+/// distinction, never legibility.
+///
+/// Indexed, never RGB (spec §9.2): a gray ramp index is still a palette
+/// entry the user's terminal resolves, not a color chosen for one theme.
+/// And nothing here is dimmed — an earlier version separated the levels
+/// with `Modifier::DIM`, which several terminals ignore outright, and on
+/// those the "dimmer" rule came out brighter than the one it was meant to
+/// sit under.
+pub fn section_rule(palette: Palette) -> Style {
+    rule_shade(palette, SECTION_GRAY)
+}
+
+/// The group-divider level of the hierarchy [`section_rule`] documents:
+/// the dimmest of the three steps, drawn on both the divider's rule and
+/// its label.
+pub fn group_rule(palette: Palette) -> Style {
+    rule_shade(palette, GROUP_GRAY)
+}
+
+/// One level of the neutral hierarchy: its gray ramp index where the
+/// extended palette is available, `DarkGray` where only the sixteen named
+/// colors are, and no color at all where color is off.
+fn rule_shade(palette: Palette, gray: u8) -> Style {
+    match (palette.color, palette.extended) {
+        (true, true) => Style::default().fg(Color::Indexed(gray)),
+        (true, false) => Style::default().fg(Color::DarkGray),
+        (false, _) => Style::default(),
+    }
+}
+
+/// Whether the terminal has the xterm-256 palette, read conservatively
+/// from the environment: a wrong `true` would draw the pane's furniture in
+/// colors the terminal cannot resolve, so anything unrecognized is
+/// answered `false` and takes the `DarkGray` fallback.
+///
+/// There is no terminal *query* here on purpose. Asking a terminal about
+/// its palette means writing an escape sequence and reading the reply,
+/// which needs the tty in raw mode at a point where mandible has not set
+/// it up yet, and hangs for the timeout on every terminal that does not
+/// answer. The environment is what every other tool reads for this, and
+/// the cost of being wrong is one lost distinction rather than a broken
+/// screen.
+///
+/// `COLORTERM` is checked first because a terminal that sets it
+/// (`truecolor`/`24bit`) always has 256 colors as well, whatever its
+/// `TERM` says — `alacritty` and `wezterm` both report a bare `TERM` and
+/// announce themselves this way.
+pub fn extended_from_env() -> bool {
+    announces_256_colors(
+        std::env::var("COLORTERM").ok().as_deref(),
+        std::env::var("TERM").ok().as_deref(),
+    )
+}
+
+/// [`extended_from_env`]'s decision, as a function of the two variables it
+/// reads.
+///
+/// Split out so the rule can be tested over its whole input space: env
+/// vars are process-wide, and mutating them under a parallel test runner
+/// is unsound (see `color_enabled_from_env`'s own note). A test that
+/// restates the logic instead of calling it cannot fail when the logic
+/// changes, which is the one thing this test exists to do.
+fn announces_256_colors(colorterm: Option<&str>, term: Option<&str>) -> bool {
+    if let Some(colorterm) = colorterm {
+        let colorterm = colorterm.to_ascii_lowercase();
+        if colorterm == "truecolor" || colorterm == "24bit" {
+            return true;
+        }
+    }
+    // `-256color` is the conventional terminfo suffix, and `direct` the
+    // one for the truecolor entries (`xterm-direct`), which are a
+    // superset.
+    term.is_some_and(|t| t.contains("256color") || t.contains("direct"))
 }
 
 /// Muted + italic: a flag's value placeholder (`<FILE>`).
@@ -209,36 +353,132 @@ mod tests {
         assert!(muted(true).fg.is_some());
     }
 
-    /// Spec §9.3: the section header's rule is the heavier of the pane's
-    /// two rules and the group divider's the lighter, and the ordering
-    /// holds on a terminal that ignores `Modifier::DIM`.
+    /// The gray ramp index a rule shade resolves to, or `None` if it is
+    /// not an indexed color.
+    fn ramp_index(style: Style) -> Option<u8> {
+        match style.fg {
+            Some(Color::Indexed(i)) => Some(i),
+            _ => None,
+        }
+    }
+
+    /// Spec §9.3's three-step neutral hierarchy, asserted by index
+    /// arithmetic on the gray ramp: pane borders (the terminal's default
+    /// foreground, which this crate never sets) are brightest, then the
+    /// section header's rule, then the group divider's — each a clearly
+    /// visible step below the last.
     ///
-    /// Pinned as named colors rather than as an abstract "brighter",
-    /// because a `Style` carries no brightness a test can compare: `Gray`
-    /// is ANSI 7 and `DarkGray` ANSI 8 (bright black), and 7 is the
-    /// lighter of the pair in every theme that has color at all. The
-    /// `DIM` half of the assertion is the one that matters most — an
-    /// earlier version separated the two levels by dimming the brighter
-    /// color, which inverted the hierarchy outright on the terminals that
-    /// drop dimming.
+    /// Arithmetic rather than named constants, because "clearly dimmer"
+    /// is a claim about *distance* and two named colors cannot express
+    /// one. On the ramp each index is ten points of gray from its
+    /// neighbour, so a gap can be required rather than merely an
+    /// inequality — the failure this rules out is a pair chosen one or
+    /// two indices apart, which orders correctly and is invisible.
+    ///
+    /// The headroom assertion is the other half: the ramp's top end
+    /// (`251`+) is where a neutral starts reading at the brightness of an
+    /// ordinary default foreground, which is exactly the defect that
+    /// replaced `Gray` here — a section rule indistinguishable from the
+    /// pane border it sits inside.
     #[test]
-    fn the_section_rule_outweighs_the_group_rule_without_dimming() {
-        assert_eq!(section_rule(true).fg, Some(Color::Gray));
-        assert_eq!(muted(true).fg, Some(Color::DarkGray));
-        assert_ne!(
-            section_rule(true).fg,
-            muted(true).fg,
-            "the two rules must not read as one weight"
+    fn the_three_neutral_levels_step_clearly_apart() {
+        let section = ramp_index(section_rule(Palette::extended())).expect("an indexed section");
+        let group = ramp_index(group_rule(Palette::extended())).expect("an indexed group");
+
+        for (name, i) in [("section", section), ("group", group)] {
+            assert!(
+                (GRAY_RAMP_FIRST..=GRAY_RAMP_LAST).contains(&i),
+                "the {name} shade at {i} is outside the gray ramp, so it is not a neutral"
+            );
+        }
+        assert!(
+            section > group,
+            "the section rule ({section}) must be brighter than the group rule ({group})"
         );
-        for (name, style) in [
-            ("section_rule", section_rule(true)),
-            ("muted", muted(true)),
-            ("section_rule (no color)", section_rule(false)),
-            ("muted (no color)", muted(false)),
+        assert!(
+            section - group >= 4,
+            "{} points of gray between the two levels is not a visible step",
+            (section - group) as u16 * 10
+        );
+        // ...and the brighter of the two still sits under a default
+        // foreground, so the borders keep the top of the hierarchy.
+        assert!(
+            section <= 250,
+            "the section rule at {section} reads at the brightness of the pane borders"
+        );
+    }
+
+    /// Without the extended palette both levels collapse to `DarkGray`:
+    /// the step below the borders survives, and only the distinction
+    /// between the two inner levels is given up — which spec §9.2's shape
+    /// rule (CAPS with a count against mixed case without one) carries on
+    /// its own.
+    #[test]
+    fn sixteen_color_terminals_get_one_shade_for_both_levels() {
+        assert_eq!(section_rule(Palette::basic()).fg, Some(Color::DarkGray));
+        assert_eq!(group_rule(Palette::basic()).fg, Some(Color::DarkGray));
+        assert_eq!(section_rule(Palette::plain()).fg, None);
+        assert_eq!(group_rule(Palette::plain()).fg, None);
+    }
+
+    /// Nothing in the hierarchy is dimmed. An earlier version separated
+    /// the two levels with `Modifier::DIM`, which several terminals ignore
+    /// outright — and on those the "dimmer" rule came out *brighter* than
+    /// the one it was meant to sit under, inverting the hierarchy on
+    /// exactly the machines spec §9.2's rule exists to protect.
+    #[test]
+    fn no_level_of_the_hierarchy_leans_on_dim() {
+        for palette in [Palette::extended(), Palette::basic(), Palette::plain()] {
+            for (name, style) in [
+                ("section_rule", section_rule(palette)),
+                ("group_rule", group_rule(palette)),
+                ("muted", muted(palette.color)),
+            ] {
+                assert!(
+                    !style.add_modifier.contains(Modifier::DIM),
+                    "{name} leans on DIM at {palette:?}, and many terminals ignore it"
+                );
+            }
+        }
+    }
+
+    /// The depth probe answers `false` for anything it does not
+    /// positively recognize: a wrong `true` paints the pane's furniture in
+    /// colors the terminal cannot resolve, while a wrong `false` costs one
+    /// distinction the shape rule already carries.
+    ///
+    /// Driven through the real decision function rather than a restated
+    /// copy of it, over the inputs it reads — env vars are process-wide
+    /// and mutating them under a parallel test runner is unsound (see
+    /// `dumb_and_missing_term_disable_color`).
+    #[test]
+    fn the_depth_probe_recognizes_only_known_signals() {
+        let recognizes = announces_256_colors;
+        for (colorterm, term) in [
+            (Some("truecolor"), Some("xterm")),
+            (Some("24bit"), None),
+            (Some("TrueColor"), Some("dumb-ish")),
+            (None, Some("xterm-256color")),
+            (None, Some("screen-256color")),
+            (None, Some("xterm-direct")),
         ] {
             assert!(
-                !style.add_modifier.contains(Modifier::DIM),
-                "{name} leans on DIM, which many terminals ignore"
+                recognizes(colorterm, term),
+                "{colorterm:?}/{term:?} announces 256 colors"
+            );
+        }
+        for (colorterm, term) in [
+            (None, Some("xterm")),
+            (None, Some("screen")),
+            (None, Some("linux")),
+            (None, Some("vt100")),
+            (Some("16"), Some("xterm")),
+            (Some(""), None),
+            (None, None),
+        ] {
+            assert!(
+                !recognizes(colorterm, term),
+                "{colorterm:?}/{term:?} must fall back rather than be guessed at"
             );
         }
     }

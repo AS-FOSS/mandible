@@ -256,6 +256,14 @@ pub struct App {
     /// process-wide environment state (which is unsound across Rust's
     /// parallel test runner).
     pub color_enabled: bool,
+    /// What the terminal can be asked to draw, including whether the
+    /// xterm-256 palette is available for the detail pane's two rule
+    /// shades (spec §9.3). Read once at construction alongside
+    /// `color_enabled`, which is this value's `color` field — the two are
+    /// set from one [`crate::style::Palette::from_env`] call so they
+    /// cannot disagree, and both stay plain `pub` fields so tests can
+    /// choose a depth without mutating process-wide environment state.
+    pub palette: crate::style::Palette,
     /// The glyph set this terminal can actually draw, chosen once from the
     /// locale (see [`crate::glyphs`]). A plain field rather than a lookup
     /// per frame for the same reason `color_enabled` is: it cannot change
@@ -337,6 +345,9 @@ impl App {
         expanded.insert(vec![root.name.clone()]);
         let mut search_index = SearchIndex::new();
         search_index.populate(&root);
+        // One read of the environment for both, so `color_enabled` and
+        // `palette.color` cannot disagree about whether color is on.
+        let palette = crate::style::Palette::from_env();
         let mut app = App {
             tool,
             root,
@@ -367,7 +378,8 @@ impl App {
             search_index,
             search_index_stale: false,
             search_index_rebuilt_at: None,
-            color_enabled: crate::style::color_enabled_from_env(),
+            color_enabled: palette.color,
+            palette,
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
             review: None,
