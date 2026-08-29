@@ -2126,6 +2126,247 @@ mod tests {
         assert_eq!(group_key("Global Options"), group_key("GLOBAL OPTIONS:"));
     }
 
+    /// Spec §9.3: a group divider's label is mixed case, never CAPS —
+    /// that shape difference is what keeps it distinguishable from a
+    /// section header on a terminal that ignores dimming (spec §9.2).
+    ///
+    /// A heading the tool shouted is set in sentence case; one that
+    /// carries the author's own casing keeps it, because there the mixed
+    /// case is information rather than a help-text formatting convention.
+    #[test]
+    fn group_labels_are_mixed_case_never_caps() {
+        assert_eq!(group_label("GLOBAL OPTIONS:"), "Global options");
+        assert_eq!(group_label("Main operation mode:"), "Main operation mode");
+        assert_eq!(group_label("main"), "Main");
+        for raw in ["GLOBAL OPTIONS:", "Main operation mode:", "main"] {
+            let label = group_label(raw);
+            assert!(
+                label.chars().any(char::is_lowercase),
+                "a group label must not read as a section header: {label:?}"
+            );
+        }
+    }
+
+    /// Spec §9.3: the shared column is fitted to roughly the p90 spelling
+    /// width — "the majority, not the outliers" — so the widest tenth of a
+    /// section hangs instead of setting a column for everyone else.
+    ///
+    /// Measured on the column arithmetic rather than the rendered text,
+    /// because the failure this rules out is a column *number* that one
+    /// entity chose: nine short spellings and one long one produce the
+    /// same column as nine short spellings alone.
+    #[test]
+    fn the_shared_column_fits_the_majority_not_the_widest() {
+        let mk = |long: &str| {
+            let mut f = Entity::flag_long(long, Provenance::single(Source::HelpText));
+            f.description = Some(Text::sanitize("zzz something worth reading"));
+            f
+        };
+        // Nine spellings of the same modest width, and one much wider —
+        // wide enough to matter, narrow enough that the 45% pane cap
+        // (spec §9.1a) still admits it, so the percentile is the only
+        // thing that can be excluding it.
+        let mut flags: Vec<Entity> = (0..9).map(|i| mk(&format!("opt-{i}"))).collect();
+        let short_only: Vec<&Entity> = flags.iter().collect();
+        let narrow = section_layout(&short_only, 100);
+
+        flags.push(mk("a-considerably-wider-option-name"));
+        let with_outlier: Vec<&Entity> = flags.iter().collect();
+        let widest = display_width(&entity_name_spec(&flags[9]));
+        assert!(
+            2 + widest + 2 <= 100 * DESC_COLUMN_CAP_PERCENT / 100,
+            "the outlier must be inside the pane cap, or this measures the cap"
+        );
+        assert_eq!(
+            section_layout(&with_outlier, 100),
+            narrow,
+            "the widest tenth must not set the column"
+        );
+
+        // ...and the exclusion is a percentile, not a rule about single
+        // rows: once the wide spellings *are* the majority they win it.
+        let mut wide: Vec<Entity> = (0..9)
+            .map(|i| mk(&format!("a-considerably-wider-option-{i}")))
+            .collect();
+        wide.push(mk("opt-0"));
+        let wide_refs: Vec<&Entity> = wide.iter().collect();
+        assert_ne!(
+            section_layout(&wide_refs, 100),
+            narrow,
+            "a majority of wide spellings must set a wide column"
+        );
+    }
+
+    /// Every section computes its own column (spec §9.3): a long
+    /// positional name must not push the flag list's descriptions right.
+    #[test]
+    fn each_section_computes_its_own_column() {
+        let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("all", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("zzz include everything"));
+        node.entities.push(flag.clone());
+        let flags_only = build_lines(
+            &node,
+            false,
+            80,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let flag_column = description_columns(&flags_only.lines);
+
+        let mut positional = Entity::positional(
+            "a-very-long-positional-metavariable",
+            Provenance::single(Source::HelpText),
+        );
+        positional.description = Some(Text::sanitize("zzz the thing to operate on"));
+        node.entities.insert(0, positional);
+        let both = build_lines(
+            &node,
+            false,
+            80,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let columns = description_columns(&both.lines);
+        assert!(
+            columns.contains(&flag_column[0]),
+            "the flag section's column moved when a positional was added: \
+             {columns:?} vs {flag_column:?}"
+        );
+    }
+
+    /// Spec §9.3: a wrapped entry is **one logical row** for selection and
+    /// scroll math, however many screen lines its description takes.
+    ///
+    /// The bug class this pins is the unbounded detail-pane scroll: a pane
+    /// that counts rows where it renders lines (or the reverse) runs off
+    /// the end of its own content by exactly the number of wraps on
+    /// screen. So all three numbers are checked against each other — one
+    /// row per entity, every rendered line accounted for by exactly one
+    /// row or by the section furniture, and a scroll extent taken from the
+    /// lines rather than the rows.
+    #[test]
+    fn a_wrapped_entry_is_one_logical_row() {
+        let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        for i in 0..12 {
+            let mut f = Entity::flag_long(
+                format!("option-number-{i}"),
+                Provenance::single(Source::HelpText),
+            );
+            // Long enough to wrap several times in a narrow pane, so rows
+            // and lines cannot coincidentally agree.
+            f.description = Some(Text::sanitize(
+                "a description long enough that it has to wrap onto several \
+                 further lines before it runs out of words to say",
+            ));
+            node.entities.push(f);
+        }
+        let width = 46;
+        let app = test_app();
+        let built = build_lines(
+            &node,
+            false,
+            width,
+            true,
+            None,
+            crate::glyphs::UNICODE,
+            &app,
+        );
+
+        assert_eq!(built.rows.len(), 12, "one logical row per entity");
+        assert!(
+            built.rows.iter().any(|r| r.lines > 1),
+            "the fixture must actually wrap, or this proves nothing"
+        );
+        // Rows are disjoint, ordered, and inside the document.
+        let mut next = built.rows[0].first_line;
+        for row in &built.rows {
+            assert_eq!(
+                row.first_line, next,
+                "rows must not overlap or gap: {row:?}"
+            );
+            assert!(row.lines >= 1);
+            next = row.first_line + row.lines;
+        }
+        assert!(next <= built.lines.len());
+
+        // Scroll math is in lines, and stops at the end of the content —
+        // never at the end of the rows, which would leave the last
+        // entity's wrapped tail unreachable, and never past it.
+        let viewport = 10;
+        let mut scroller = test_app();
+        scroller.set_detail_extent(built.lines.len(), viewport);
+        for _ in 0..(built.lines.len() + 20) {
+            scroller.detail_scroll_down();
+        }
+        assert_eq!(
+            scroller.clamped_detail_scroll(),
+            built.lines.len() - viewport,
+            "scrolling must stop with the last line on screen"
+        );
+    }
+
+    /// The scroll a search target produces is bounded by the same extent
+    /// the user's own scrolling is (spec §9.3's scroll math). Targeting
+    /// the last flag of a long list used to set the offset to that flag's
+    /// line with no clamp at all, scrolling the document off the top.
+    #[test]
+    fn a_search_target_near_the_end_does_not_scroll_past_it() {
+        let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        for i in 0..40 {
+            let mut f =
+                Entity::flag_long(format!("option-{i}"), Provenance::single(Source::HelpText));
+            f.description = Some(Text::sanitize("something"));
+            node.entities.push(f);
+        }
+        let target = FlagKey::Long("option-39".to_string());
+        let built = build_lines(
+            &node,
+            false,
+            60,
+            true,
+            Some(&target),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let line = built.target_flag_line.expect("the flag should be found");
+        let viewport = 10;
+        let scroll = target_scroll(&built, line, viewport);
+        assert!(
+            scroll <= built.lines.len() - viewport,
+            "scrolled past the end: {scroll} of {} lines",
+            built.lines.len()
+        );
+        assert!(
+            line >= scroll && line < scroll + viewport,
+            "the targeted row must still be on screen"
+        );
+    }
+
+    /// A row already wholly visible scrolls nothing: throwing away the
+    /// DESCRIPTION above a flag that was on screen anyway is a worse
+    /// answer than leaving the pane where it is.
+    #[test]
+    fn a_search_target_already_on_screen_does_not_scroll() {
+        let node = node_with_flags();
+        let target = FlagKey::Long("interactive".to_string());
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            true,
+            Some(&target),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let line = built.target_flag_line.expect("the flag should be found");
+        assert_eq!(target_scroll(&built, line, 40), 0);
+    }
+
     /// Closing spec §10's open item: selecting a flag via search must
     /// scroll the detail pane to that exact flag's line.
     #[test]
