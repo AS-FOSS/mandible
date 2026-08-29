@@ -302,7 +302,7 @@ impl ExtractionTier for CompletionScriptTier {
         let name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
         let mut node =
             CommandNode::new(name, Provenance::single(Source::CompletionScript { shell }));
-        node.flags = flags;
+        node.set_flags(flags);
         Ok(node)
     }
 
@@ -876,7 +876,7 @@ _mytool "$@"
                 },
             )
             .expect("the transcript covers the exact `completion zsh` argv this tier sends");
-        assert!(node.flags.iter().any(|f| f.long() == Some("verbose")));
+        assert!(node.flags().any(|f| f.long() == Some("verbose")));
     }
 
     /// The negative case: a transcript that covers neither `completion
@@ -1047,6 +1047,6 @@ _mytool() {
                 },
             )
             .expect("evidence is present, so the tier must extract as it always did");
-        assert!(node.flags.iter().any(|f| f.long() == Some("verbose")));
+        assert!(node.flags().any(|f| f.long() == Some("verbose")));
     }
 }

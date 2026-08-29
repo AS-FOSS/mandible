@@ -94,14 +94,11 @@ impl ExtractionResult {
 }
 
 fn count_flags(node: &CommandNode) -> usize {
-    node.flags.len() + node.subcommands.iter().map(count_flags).sum::<usize>()
+    node.flags().count() + node.subcommands.iter().map(count_flags).sum::<usize>()
 }
 
 fn count_describable_flags(node: &CommandNode) -> usize {
-    node.flags
-        .iter()
-        .filter(|f| f.provenance.describable())
-        .count()
+    node.flags().filter(|f| f.provenance.describable()).count()
         + node
             .subcommands
             .iter()
@@ -117,10 +114,7 @@ fn count_describable_flags(node: &CommandNode) -> usize {
 /// [`ExtractionResult::flag_description_ratio`]'s numerator to stay
 /// consistent with its denominator.
 fn count_described_flags(node: &CommandNode) -> usize {
-    node.flags
-        .iter()
-        .filter(|f| f.description.is_some())
-        .count()
+    node.flags().filter(|f| f.description.is_some()).count()
         + node
             .subcommands
             .iter()
