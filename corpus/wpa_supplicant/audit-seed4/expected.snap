@@ -5,7 +5,7 @@ description: |-
   This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/)
 usage:
 - 'usage:'
-- wpa_supplicant [-BddhKLqqstuvW] [-P<pid file>] [-g<global ctrl>] [-G<group>] -i<ifname> -c<config file> [-C<ctrl>] [-D<driver>] [-p<driver_param>] [-b<br_ifname>] [-e<entropy file>] [-f<debug file>] [-o<override driver>] [-O<override ctrl>] [-N -i<ifname> -c<conf> [-C<ctrl>] [-D<driver>] [-m<P2P Device config file>] [-p<driver_param>] [-b<br_ifname>] [-I<config file>] ...]
+- '  wpa_supplicant [-BddhKLqqstuvW] [-P<pid file>] [-g<global ctrl>] [-G<group>] -i<ifname> -c<config file> [-C<ctrl>] [-D<driver>] [-p<driver_param>] [-b<br_ifname>] [-e<entropy file>] [-f<debug file>] [-o<override driver>] [-O<override ctrl>] [-N -i<ifname> -c<conf> [-C<ctrl>] [-D<driver>] [-m<P2P Device config file>] [-p<driver_param>] [-b<br_ifname>] [-I<config file>] ...]'
 flags:
 - short: 'b'
   description: optional bridge interface name

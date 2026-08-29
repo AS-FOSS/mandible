@@ -742,7 +742,15 @@ fn parse_body(
             let trimmed = l.trim().to_string();
             usage_lines.push(trimmed.clone());
             if starts_new_entry {
-                usage_entries.push(trimmed);
+                // A form keeps the indentation its author gave it: `ip`
+                // lines its second invocation form up under the first, and
+                // spec §4.1 has the pane reproduce that alignment rather
+                // than flatten every form to the left edge. Only the
+                // display form (`usage_entries`) carries it —
+                // `usage_lines`, which feeds the positional and
+                // synopsis-flag grammars below, stays trimmed, because
+                // those read tokens and never columns.
+                usage_entries.push(l.trim_end().to_string());
             } else if let Some(last) = usage_entries.last_mut() {
                 // The backslash *is* the join: it is the marker the wrap
                 // introduced, exactly as the removed newline was, so it
@@ -9621,7 +9629,7 @@ mod tests {
             parsed.usage,
             vec![
                 "Usage: du [OPTION]... [FILE]...".to_string(),
-                "or:  du [OPTION]... --files0-from=F".to_string(),
+                "  or:  du [OPTION]... --files0-from=F".to_string(),
             ],
             "or: must stay a separate entry, not join onto the line above"
         );
@@ -9655,7 +9663,7 @@ mod tests {
         let parsed = parse_named(raw, "prog");
         assert_eq!(
             parsed.usage,
-            vec!["Usage: prog foo".to_string(), "prog bar".to_string()],
+            vec!["Usage: prog foo".to_string(), "       prog bar".to_string(),],
             "{:?}",
             parsed.usage
         );
@@ -13399,9 +13407,9 @@ Options:
             parsed.usage,
             vec![
                 "Usage:".to_string(),
-                "update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>"
+                "    update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>"
                     .to_string(),
-                "update-xmlcatalog <options> --del --root --type <type> --id <id>".to_string(),
+                "    update-xmlcatalog <options> --del --root --type <type> --id <id>".to_string(),
             ],
             "each wrapped form is one usage entry, with the continuation \
              marker consumed by the join it performed"

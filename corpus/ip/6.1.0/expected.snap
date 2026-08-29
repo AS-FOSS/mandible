@@ -1,7 +1,7 @@
 name: ip
 usage:
 - 'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }'
-- ip [ -force ] -batch filename
+- '       ip [ -force ] -batch filename'
 positionals:
 - name: OBJECT
   required: true

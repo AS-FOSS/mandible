@@ -40,7 +40,7 @@ use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
 use crate::style;
-use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling, ValueKind};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling, Text, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -667,15 +667,15 @@ fn build_lines(
         // Indented as a block, the way API documentation sets a signature
         // apart from its prose.
         let indent = "  ";
+        let forms = usage_forms(&node.name, &node.usage);
         if app.horizontal_scroll_enabled {
             // A synopsis is preformatted — spacing inside it is part of
             // its meaning, so spec §9 has it scroll rather than wrap. One
             // `Line` per usage form, never re-flowed; `h`/`l` reveal the rest instead
             // of the old greedy word-wrap eating it into a ragged block.
-            let usage_lines: Vec<String> = node
-                .usage
+            let usage_lines: Vec<String> = forms
                 .iter()
-                .map(|u| format!("{indent}{}", usage_signature(&node.name, u.as_str())))
+                .map(|(pad, text)| format!("{indent}{}{text}", " ".repeat(*pad)))
                 .collect();
             let max_width = usage_lines
                 .iter()
@@ -692,11 +692,14 @@ fn build_lines(
                 lines.push(built);
             }
         } else {
-            for u in &node.usage {
-                let full = usage_signature(&node.name, u.as_str());
-                let avail = width.saturating_sub(display_width(indent)).max(1);
-                for chunk in wrap_words(&full, avail) {
-                    lines.push(Line::from(format!("{indent}{chunk}")));
+            // Wrapping mode keeps the same left edge for a form's own
+            // continuation rows, so a form that has to wrap still reads as
+            // one form rather than drifting back to the block indent.
+            for (pad, text) in &forms {
+                let lead = format!("{indent}{}", " ".repeat(*pad));
+                let avail = width.saturating_sub(display_width(&lead)).max(1);
+                for chunk in wrap_words(text, avail) {
+                    lines.push(Line::from(format!("{lead}{chunk}")));
                 }
             }
         }
@@ -846,26 +849,80 @@ fn heading_line_ruled(
 /// very first token is a placeholder), so nothing is found there and the
 /// name still gets prepended — which is what keeps a bare pattern like
 /// `[OPTIONS] <url>` a complete, copy-pasteable invocation.
-fn usage_signature(node_name: &str, usage: &str) -> String {
+/// One usage form, as the column its text began at in the tool's own
+/// output and the text itself.
+///
+/// The column is the form's leading indentation plus whatever a `Usage:`
+/// label occupied in front of it, because both are width the author put
+/// there and only one of them survives into the rendered line. It is what
+/// [`usage_forms`] compensates with.
+fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
     let name = defensive_single_line(node_name);
-    let mut text = defensive_single_line(usage);
+    let raw = defensive_single_line(usage);
+
+    // The author's own indentation. Tabs are already expanded to spaces at
+    // 8-column stops by `Text::sanitize_preserving_layout`, so counting
+    // leading spaces is counting columns.
+    let mut text = raw.trim_start_matches(' ').to_string();
+    let mut column = raw.chars().count() - text.chars().count();
 
     // Drop a leading `usage:` label, case-insensitively — the heading says
-    // it.
-    let trimmed = text.trim_start();
-    if trimmed.len() >= 6 && trimmed[..6].eq_ignore_ascii_case("usage:") {
-        text = trimmed[6..].trim_start().to_string();
+    // it — and charge its width to the column, since the text that
+    // followed it started that far in.
+    if text.len() >= 6 && text[..6].eq_ignore_ascii_case("usage:") {
+        let after = text[6..].trim_start().to_string();
+        column += text.chars().count() - after.chars().count();
+        text = after;
     }
 
-    if name.is_empty() || usage_names_the_node(&text, &name) {
+    let text = if name.is_empty() || usage_names_the_node(&text, &name) {
         text
     } else {
         format!("{name} {text}")
-    }
+    };
+    (column, text)
+}
+
+/// Every usage form, each as the padding it renders behind and its text —
+/// the tool's own alignment, compensated for the label the first form no
+/// longer shows (spec §4.1).
+///
+/// A tool draws its alternative invocations lined up under each other, and
+/// it lines them up against the `Usage: ` label it printed in front of the
+/// first one:
+///
+/// ```text
+/// Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
+///        ip [ -force ] -batch filename
+/// ```
+///
+/// The `USAGE` heading already says "usage", so the label is dropped — and
+/// dropping it moves the first form seven columns left while the second
+/// stays where the author put it, which is worse than not preserving the
+/// indentation at all. So every form shifts left by the first form's own
+/// content column: form one lands at the block indent, and the rest keep
+/// their positions *relative to it*, which is the alignment the author
+/// actually drew.
+///
+/// A form indented less than that shift — `du`'s `  or:  du ...`, whose
+/// two columns are fewer than the seven `Usage: ` occupied — clamps at the
+/// block indent rather than going negative. It cannot be aligned as drawn
+/// once the label it was drawn against is gone, and the honest fallback is
+/// the left edge.
+fn usage_forms(node_name: &str, usage: &[Text]) -> Vec<(usize, String)> {
+    let forms: Vec<(usize, String)> = usage
+        .iter()
+        .map(|u| usage_form(node_name, u.as_str()))
+        .collect();
+    let shift = forms.first().map(|(column, _)| *column).unwrap_or(0);
+    forms
+        .into_iter()
+        .map(|(column, text)| (column.saturating_sub(shift), text))
+        .collect()
 }
 
 /// Whether `name` already appears among `text`'s leading run of bare
-/// command-path words — see [`usage_signature`] for why the search covers
+/// command-path words — see [`usage_form`] for why the search covers
 /// the whole run rather than only the first token.
 fn usage_names_the_node(text: &str, name: &str) -> bool {
     text.split_whitespace()
@@ -3475,6 +3532,96 @@ mod tests {
         assert!(rendered.contains("and nothing else"), "{rendered}");
     }
 
+    /// Every form's rendered padding, for a tool's own synopsis block.
+    fn pads(name: &str, forms: &[&str]) -> Vec<usize> {
+        let usage: Vec<Text> = forms
+            .iter()
+            .map(|f| Text::sanitize_preserving_layout(f))
+            .collect();
+        usage_forms(name, &usage)
+            .into_iter()
+            .map(|(pad, _)| pad)
+            .collect()
+    }
+
+    /// `ip` lines its second invocation form up under the first, against
+    /// the `Usage: ` label it printed in front of the first. The heading
+    /// supplies that label, so the pane drops it — and dropping it must
+    /// take the second form's indentation with it, or the two forms come
+    /// out seven columns apart from each other having been drawn flush.
+    #[test]
+    fn the_label_width_is_compensated_so_forms_stay_as_drawn() {
+        assert_eq!(
+            pads(
+                "ip",
+                &[
+                    "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }",
+                    "       ip [ -force ] -batch filename",
+                ]
+            ),
+            vec![0, 0],
+            "both forms were drawn flush and must render flush"
+        );
+        let usage: Vec<Text> = ["Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }"]
+            .iter()
+            .map(|f| Text::sanitize_preserving_layout(f))
+            .collect();
+        assert_eq!(
+            usage_forms("ip", &usage)[0].1,
+            "ip [ OPTIONS ] OBJECT { COMMAND | help }",
+            "the label itself is still dropped"
+        );
+    }
+
+    /// A form the author indented *deeper* than the first stays deeper by
+    /// exactly that much — the compensation is a shift of the whole block,
+    /// never a flattening of it.
+    #[test]
+    fn a_form_indented_deeper_than_the_first_stays_deeper() {
+        assert_eq!(
+            pads(
+                "prog",
+                &[
+                    "Usage: prog build [OPTIONS]",
+                    "       prog test [OPTIONS]",
+                    "           prog test --only NAME",
+                ]
+            ),
+            vec![0, 0, 4]
+        );
+    }
+
+    /// The clamp. `du` draws its second form against a two-column `  or:`
+    /// marker, which is fewer columns than the seven `Usage: ` occupied,
+    /// so the compensation would push it negative. It clamps at the block
+    /// indent instead of wrapping around or panicking.
+    #[test]
+    fn a_form_indented_less_than_the_label_clamps_at_zero() {
+        assert_eq!(
+            pads(
+                "du",
+                &[
+                    "Usage: du [OPTION]... [FILE]...",
+                    "  or:  du [OPTION]... --files0-from=F",
+                ]
+            ),
+            vec![0, 0]
+        );
+    }
+
+    /// A single-form tool is the common case and must be untouched by any
+    /// of this: one form, no compensation to make, flush at the block
+    /// indent whether or not it carried a label.
+    #[test]
+    fn a_single_form_tool_renders_flush_at_the_block_indent() {
+        assert_eq!(pads("tar", &["Usage: tar [OPTION...] [FILE]..."]), vec![0]);
+        assert_eq!(pads("mytool", &["mytool [OPTIONS] FILE"]), vec![0]);
+        // Including one the tool itself indented: with nothing to align
+        // against, the author's margin is not alignment and the form sits
+        // at the block indent like any other.
+        assert_eq!(pads("mytool", &["    mytool [OPTIONS] FILE"]), vec![0]);
+    }
+
     /// The reported defect: cobra prints the *full* command path in its
     /// usage line, not just the leaf node's own name — `docker import
     /// --help` yields `Usage:  docker import [OPTIONS] file|URL|-
@@ -3485,25 +3632,26 @@ mod tests {
     /// pushed off the front. The correct output is the tool's own line,
     /// byte for byte.
     #[test]
-    fn usage_signature_does_not_prepend_when_the_full_path_already_names_the_node() {
+    fn a_usage_form_does_not_prepend_when_the_full_path_already_names_the_node() {
         assert_eq!(
-            usage_signature(
+            usage_form(
                 "import",
                 "docker import [OPTIONS] file|URL|- [REPOSITORY[:TAG]]"
-            ),
+            )
+            .1,
             "docker import [OPTIONS] file|URL|- [REPOSITORY[:TAG]]"
         );
         // Same shape, a second real tool (docker pull), so this isn't
         // one coincidental fixture.
         assert_eq!(
-            usage_signature("pull", "docker pull [OPTIONS] NAME[:TAG|@DIGEST]"),
+            usage_form("pull", "docker pull [OPTIONS] NAME[:TAG|@DIGEST]").1,
             "docker pull [OPTIONS] NAME[:TAG|@DIGEST]"
         );
         // argparse does the same thing, and for a node three levels deep
         // the leading run is three words wide, not one — the fix has to
         // scan the whole run, not just swap which single word it checks.
         assert_eq!(
-            usage_signature("outlier", "smokecli columns outlier [-h] [-v] [-n]"),
+            usage_form("outlier", "smokecli columns outlier [-h] [-v] [-n]").1,
             "smokecli columns outlier [-h] [-v] [-n]"
         );
     }
@@ -3515,12 +3663,12 @@ mod tests {
     /// node's name genuinely does not appear anywhere in the usage text,
     /// so it must still be prepended.
     #[test]
-    fn usage_signature_still_prepends_when_the_name_is_truly_absent() {
+    fn a_usage_form_still_prepends_when_the_name_is_truly_absent() {
         assert_eq!(
-            usage_signature("mytool", "[OPTIONS] FILE"),
+            usage_form("mytool", "[OPTIONS] FILE").1,
             "mytool [OPTIONS] FILE"
         );
-        assert_eq!(usage_signature("cat", "<url>"), "cat <url>");
+        assert_eq!(usage_form("cat", "<url>").1, "cat <url>");
     }
 
     /// A single over-long token must survive wrapping intact — broken

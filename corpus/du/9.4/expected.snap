@@ -2,7 +2,7 @@ name: du
 description: Summarize device usage of the set of FILEs, recursively for directories.
 usage:
 - 'Usage: du [OPTION]... [FILE]...'
-- 'or:  du [OPTION]... --files0-from=F'
+- '  or:  du [OPTION]... --files0-from=F'
 positionals:
 - name: FILE
   variadic: true

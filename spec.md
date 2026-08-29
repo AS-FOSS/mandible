@@ -398,6 +398,31 @@ diffing the raw pane against independently captured `--help` output for `du`
 (column alignment) and `curl --help all` (large output) came back
 byte-identical.
 
+**A usage form keeps the indentation its author gave it, and the pane
+reproduces the alignment that indentation was drawn for.** A tool lines its
+alternative invocations up under each other, and it lines them up against
+the `Usage: ` label it printed in front of the first one:
+
+```text
+Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
+       ip [ -force ] -batch filename
+```
+
+The `USAGE` heading already says "usage", so the pane drops that label —
+and dropping it moves the first form seven columns left while the second
+stays where the author put it. Keeping the indentation without accounting
+for the label is therefore worse than discarding it. So every form shifts
+left by the first form's own **content column**: its leading indentation
+plus whatever a label occupied in front of it. The first form lands at the
+block indent and the rest keep their positions *relative to it*, which is
+the alignment the tool actually drew. A form indented less than that shift
+— `du`'s `  or:  du ...`, two columns against the seven `Usage: ` took —
+clamps at the block indent rather than going negative: once the label it
+was drawn against is gone it cannot be aligned as drawn, and the left edge
+is the honest fallback. `CommandNode::usage` stores the author's own
+indentation; the compensation is the pane's, computed per node from the
+forms it is about to draw.
+
 One consequence worth knowing when comparing the pane to your own terminal:
 mandible probes tools by absolute resolved path, so a tool that echoes its
 own `argv[0]` prints `Usage: /usr/bin/du` in the pane and `Usage: du` in a

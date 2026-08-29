@@ -1,9 +1,9 @@
 name: renice
 usage:
 - 'Usage:'
-- renice [-n|--priority|--relative] <priority> [-p|--pid] <pid>...
-- renice [-n|--priority|--relative] <priority>  -g|--pgrp <pgid>...
-- renice [-n|--priority|--relative] <priority>  -u|--user <user>...
+- ' renice [-n|--priority|--relative] <priority> [-p|--pid] <pid>...'
+- ' renice [-n|--priority|--relative] <priority>  -g|--pgrp <pgid>...'
+- ' renice [-n|--priority|--relative] <priority>  -u|--user <user>...'
 positionals:
 - name: priority
   required: true
