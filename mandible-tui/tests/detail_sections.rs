@@ -519,6 +519,79 @@ fn a_value_placeholder_wider_than_the_pane_is_wrapped_not_reflowed() {
     );
 }
 
+/// Spec §9.3's two spelling columns, on screen: shorts at the content
+/// edge, every long one short-prefix in whether or not a short precedes
+/// it.
+///
+/// The failure this rules out is the one the preindent exists for — a
+/// list where `--config` and `-c, --context` start their long names two
+/// columns apart, so the eye has to re-find the long on every row instead
+/// of running down one column. Read off the rendered frame, because the
+/// column that matters is the one a reader sees, not the one the layout
+/// computed.
+#[test]
+fn longs_share_one_column_whether_or_not_a_short_precedes_them() {
+    let mut node = CommandNode::new("docker", Provenance::single(Source::HelpText));
+    for (short, long) in [
+        (None, "config"),
+        (Some('c'), "context"),
+        (Some('D'), "debug"),
+        (None, "tls"),
+        (Some('l'), "log-level"),
+        (None, "tlscacert"),
+    ] {
+        let mut e = entity(
+            EntityKind::Flag,
+            Spelling::long(long),
+            "sets one of the things docker sets",
+        );
+        if let Some(c) = short {
+            e.spellings.insert(0, Spelling::short(c));
+        }
+        node.entities.push(e);
+    }
+    let rows = detail_rows(&app_for(node), 90, 30);
+    let joined = rows.join("\n");
+
+    // Matched on the row's last whitespace-separated spelling token
+    // rather than on a substring, so `--tls` cannot be found inside
+    // `--tlscacert`'s row.
+    let mut columns = Vec::new();
+    for long in [
+        "--config",
+        "--context",
+        "--debug",
+        "--tls",
+        "--log-level",
+        "--tlscacert",
+    ] {
+        let row = rows
+            .iter()
+            .find(|r| r.split_whitespace().any(|w| w == long))
+            .unwrap_or_else(|| panic!("no row for {long:?}:\n{joined}"));
+        columns.push(row.find(long).expect("checked above"));
+    }
+    assert!(
+        columns.windows(2).all(|w| w[0] == w[1]),
+        "longs start at {columns:?}, not one column:\n{joined}"
+    );
+    assert!(
+        columns[0] > 0,
+        "the long column must leave room for a short prefix:\n{joined}"
+    );
+
+    // ...and the shorts are at the edge, which is what puts the longs
+    // there without any padding of their own.
+    let with_short = rows
+        .iter()
+        .find(|r| r.contains("--context"))
+        .expect("checked above");
+    assert!(
+        with_short.starts_with("-c, --context"),
+        "a short leads at the content edge: {with_short:?}"
+    );
+}
+
 /// Nothing in a section is clipped or horizontally scrolled (spec §9.3):
 /// `[ui] horizontal_scroll` governs the raw view and verbatim USAGE lines
 /// only. A long description wraps at the pane width whatever the toggle

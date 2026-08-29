@@ -40,7 +40,7 @@ use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
 use crate::style;
-use mandible_core::{CommandNode, Entity, EntityKind, FlagKey, Spelling, ValueKind};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -1063,20 +1063,64 @@ const SHARED_COLUMN_PERCENTILE: usize = 90;
 /// of which the table and the stacked list swap places on legibility.
 const MIN_DESC_WIDTH: usize = 28;
 
-/// Leading indent for every entity row.
-const ENTITY_INDENT: &str = "  ";
+/// Where a short spelling starts: the true left edge of the content area
+/// (spec §9.3). There is no uniform margin on a list section — the row's
+/// own shape decides which of the two columns it starts at.
+const SHORT_COLUMN: usize = 0;
+
+/// Where a long spelling starts, whether or not a short precedes it
+/// (spec §9.3): the display width of a short prefix, `-X, `.
+///
+/// A row that has a short renders it at [`SHORT_COLUMN`] and its long
+/// lands here by arithmetic; a row with no short is preindented to the
+/// same place. That is the whole point — the eye follows the longs down
+/// one column without having to know which rows happen to have a short
+/// letter as well.
+const LONG_COLUMN: usize = "-X, ".len();
 
 /// The hanging indent a description falls back to when its entity's
 /// spellings are wider than the section's shared column, and the indent
 /// the stacked layout subordinates every description by (spec §9.3).
 ///
-/// Four columns: deep enough to read as subordinate to the spelling above
-/// it, shallow enough to give an already-exceptional row its width back.
-/// Deliberately **not** the shared column — an entity that overflowed the
-/// column is visually exceptional whatever it does next, and aligning its
-/// description to a column it could not reach spends the pane's width
-/// restating that.
-const HANGING_INDENT: usize = 4;
+/// Two columns past [`LONG_COLUMN`]: deep enough to read as subordinate to
+/// the deepest column a spelling can start at — at the long column itself
+/// a description would sit flush under a preindented long and stop reading
+/// as its description at all — and shallow enough to give an
+/// already-exceptional row its width back. Deliberately **not** the shared
+/// column: an entity that overflowed the column is visually exceptional
+/// whatever it does next, and aligning its description to a column it
+/// could not reach spends the pane's width restating that.
+const HANGING_INDENT: usize = LONG_COLUMN + 2;
+
+/// The column an entity's spellings start at (spec §9.3).
+///
+/// Shape decides it, never kind and never the section: a row whose first
+/// documented spelling is a short (or a dashless name — a positional, a
+/// modifier letter, a variable) starts at the content edge, and a row that
+/// has only long spellings is preindented so its first long lands in the
+/// same column a short row's long does.
+///
+/// A row documenting more than two spellings (`-h, -?, -help, --help`)
+/// flows from the short column whatever its first spelling is. It is the
+/// natural exception: there is no single "the long" in such a row to align,
+/// so preindenting it would push a list of names right for no column, and
+/// its length already marks it out.
+fn spelling_column(entity: &Entity) -> usize {
+    if entity.spellings.len() > 2 {
+        return SHORT_COLUMN;
+    }
+    if entity
+        .spellings
+        .iter()
+        .any(|s| matches!(s.dashes, Dashes::None))
+    {
+        return SHORT_COLUMN;
+    }
+    if entity.short_spelling().is_some() {
+        return SHORT_COLUMN;
+    }
+    LONG_COLUMN
+}
 
 /// How a whole section is arranged. Chosen once **per section**, never per
 /// row — a per-row decision is exactly what made this ragged.
@@ -1166,14 +1210,17 @@ fn percentile_width(widths: impl Iterator<Item = usize>) -> usize {
 /// a column it can hang below while every other row stays aligned.
 fn section_layout(entities: &[&Entity], width: usize) -> SectionLayout {
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
-    let lead = display_width(ENTITY_INDENT);
     let gap = 2;
 
-    let fits = |w: usize| lead + w + gap <= cap;
-    let spelling_column = percentile_width(
+    // Measured from the pane's own left edge, so a preindented long row
+    // is measured where it actually starts. Measuring the spelling text
+    // alone would make a long-only row look narrower than it renders and
+    // set a column it then misses.
+    let fits = |w: usize| w + gap <= cap;
+    let spelling = percentile_width(
         entities
             .iter()
-            .map(|e| display_width(&entity_name_spec(e)))
+            .map(|e| spelling_column(e) + display_width(&entity_name_spec(e)))
             .filter(|w| fits(*w)),
     );
     let value_width = percentile_width(
@@ -1184,7 +1231,7 @@ fn section_layout(entities: &[&Entity], width: usize) -> SectionLayout {
             .filter(|w| fits(*w)),
     );
 
-    let value = lead + spelling_column + gap;
+    let value = spelling + gap;
     // When nothing in this section takes a value the column collapses,
     // rather than leaving a blank strip down the pane.
     let description = value
@@ -1410,7 +1457,11 @@ fn entity_line(
     let name_spec = entity_name_spec(flag);
     let value_text = entity_value_text(flag);
 
-    let leading = ENTITY_INDENT;
+    // Two columns, chosen by the row's own shape (spec §9.3): shorts at
+    // the content edge, longs preindented so every long in the section
+    // starts in the same place whether or not a short precedes it.
+    let leading = " ".repeat(spelling_column(flag));
+    let leading = leading.as_str();
     let spelling_style = if dim {
         style::muted(color_enabled)
     } else {
@@ -2241,6 +2292,91 @@ mod tests {
         }
     }
 
+    /// Spec §9.3's two columns: a short spelling starts at the content
+    /// edge, and every long starts one short-prefix in — including a long
+    /// with no short partner, which is preindented to get there.
+    ///
+    /// The point of the preindent is that the eye can follow the longs
+    /// down a single column without first having to notice which rows
+    /// happen to carry a short letter, so what is asserted is the column
+    /// each long *lands in*, not the padding each row was given.
+    #[test]
+    fn shorts_start_at_the_edge_and_longs_align_in_one_column() {
+        let mk = |spellings: Vec<Spelling>| {
+            let mut e = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+            e.spellings = spellings;
+            e.description = Some(Text::sanitize("zzz does a thing"));
+            e
+        };
+        let flags = [
+            mk(vec![Spelling::short('d'), Spelling::long("detach")]),
+            mk(vec![Spelling::long("detach-keys")]),
+            mk(vec![Spelling::short('D')]),
+            mk(vec![
+                Spelling::short('h'),
+                Spelling::single_dash("help"),
+                Spelling::long("help"),
+            ]),
+            mk(vec![
+                Spelling::long("one"),
+                Spelling::long("two"),
+                Spelling::long("three"),
+            ]),
+        ];
+        let refs: Vec<&Entity> = flags.iter().collect();
+        let text: Vec<String> = section_lines(&refs, 80, true, None, crate::glyphs::UNICODE)
+            .lines
+            .iter()
+            .map(text_of)
+            .collect();
+        let row = |needle: &str| {
+            text.iter()
+                .find(|t| t.contains(needle))
+                .unwrap_or_else(|| panic!("no row for {needle}: {text:?}"))
+                .clone()
+        };
+
+        // A short/long pair leads with the short at the edge, which puts
+        // its long exactly one short prefix in.
+        let pair = row("--detach ");
+        assert!(pair.starts_with("-d, --detach"), "{pair:?}");
+        assert_eq!(pair.find("--detach"), Some(LONG_COLUMN), "{pair:?}");
+
+        // A long with no short is preindented to the same column.
+        let lone = row("--detach-keys");
+        assert_eq!(lone.find("--detach-keys"), Some(LONG_COLUMN), "{lone:?}");
+        assert!(
+            lone.starts_with(&" ".repeat(LONG_COLUMN)),
+            "a lone long is preindented, not padded elsewhere: {lone:?}"
+        );
+
+        // A short with no long stays at the edge rather than reserving a
+        // column nothing follows it into.
+        let short_only = row("-D ");
+        assert!(short_only.starts_with("-D"), "{short_only:?}");
+
+        // More than two spellings flows from the short column: there is no
+        // single "the long" in such a row for a column to align.
+        for needle in ["-h, -help, --help", "--one, --two, --three"] {
+            let many = row(needle);
+            assert!(
+                many.starts_with(needle),
+                "a multi-spelling row flows from the edge: {many:?}"
+            );
+        }
+
+        // ...and the whole section still shares one description column.
+        let starts = description_columns(
+            &section_lines(&refs, 80, true, None, crate::glyphs::UNICODE).lines,
+        );
+        let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
+        assert_eq!(
+            distinct.len(),
+            1,
+            "two columns, one description: {starts:?}"
+        );
+    }
+
     /// Spec §9.3: a group divider's rule is drawn one shade lighter than
     /// the rule that closes a section header, while its label keeps the
     /// header's shade — the weight difference is in the furniture, not the
@@ -2344,9 +2480,12 @@ mod tests {
 
         flags.push(mk("a-considerably-wider-option-name"));
         let with_outlier: Vec<&Entity> = flags.iter().collect();
-        let widest = display_width(&entity_name_spec(&flags[9]));
+        // Measured where the row actually starts — these are long-only
+        // spellings, so each is preindented to the long column (spec
+        // §9.3) and the cap sees that width, not the bare text's.
+        let widest = spelling_column(&flags[9]) + display_width(&entity_name_spec(&flags[9]));
         assert!(
-            2 + widest + 2 <= 100 * DESC_COLUMN_CAP_PERCENT / 100,
+            widest + 2 <= 100 * DESC_COLUMN_CAP_PERCENT / 100,
             "the outlier must be inside the pane cap, or this measures the cap"
         );
         assert_eq!(
