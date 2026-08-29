@@ -217,6 +217,44 @@ impl Entity {
         e
     }
 
+    /// A flag entity from the short/long spelling pair the extraction
+    /// tiers' scratch types still work in (`help_text`'s `FlagSpec`,
+    /// `completion_script`'s `ParsedArgSpec`, an override file's row).
+    ///
+    /// This is the IR boundary, and the one place the short-then-long
+    /// order is decided — `-i, --interactive`, never the reverse — so that
+    /// no producer has to remember it. `single_dash` and `negatable` apply
+    /// to the long spelling, which is the only one they were ever able to
+    /// describe.
+    ///
+    /// A tier that genuinely reads more than two spellings off one row
+    /// (ffplay's `-h, -?, -help, --help`) builds `spellings` directly and
+    /// does not come through here.
+    pub fn flag_spelled(
+        short: Option<char>,
+        long: Option<String>,
+        single_dash: bool,
+        negatable: bool,
+        provenance: Provenance,
+    ) -> Entity {
+        let mut e = Entity::new(EntityKind::Flag, provenance);
+        if let Some(c) = short {
+            e.spellings.push(Spelling::short(c));
+        }
+        if let Some(name) = long {
+            e.spellings.push(Spelling {
+                name,
+                dashes: if single_dash {
+                    Dashes::Single
+                } else {
+                    Dashes::Double
+                },
+                negatable,
+            });
+        }
+        e
+    }
+
     /// The long-like spelling, if this entity has one.
     ///
     /// "Long-like" is decided by *shape*, which is the whole point of the
@@ -588,6 +626,31 @@ mod tests {
         assert_eq!(e.long(), Some("vv"));
         assert!(e.single_dash());
         assert_eq!(e.spelling(), "-v, -vv");
+    }
+
+    /// `flag_spelled` is the adapter every tier now emits through, so it
+    /// has to agree with the conversion the parity tests measure against
+    /// for every shape in the matrix.
+    #[test]
+    fn flag_spelled_agrees_with_the_flag_conversion() {
+        for f in parity_cases() {
+            let mut built = Entity::flag_spelled(
+                f.short,
+                f.long.clone(),
+                f.single_dash,
+                f.negatable,
+                f.provenance.clone(),
+            );
+            // `flag_spelled` decides spellings only; the value fields are
+            // the caller's, so carry them over before comparing the
+            // rendered form.
+            built.value_name = f.value_name.clone();
+            built.value_kind = f.value_kind;
+            let converted = Entity::from(f);
+            assert_eq!(built.spellings, converted.spellings);
+            assert_eq!(built.spelling(), converted.spelling());
+            assert_eq!(built.key(), converted.key());
+        }
     }
 
     #[test]

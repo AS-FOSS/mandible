@@ -510,11 +510,7 @@ fn probe_help_text_confession_aware(
         return Ok((
             text,
             flag.to_string(),
-            Some(Confession {
-                word: directives[0].word.clone(),
-                flag: directives[0].flag.to_string(),
-                followed: false,
-            }),
+            Some(Confession::new(directives[0].word.clone(), directives[0].flag.to_string(), false)),
         ));
     };
 
@@ -526,11 +522,7 @@ fn probe_help_text_confession_aware(
         Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
             pick_stream(&out.stdout, &out.stderr),
             format!("{} {}", chosen.flag, chosen.word),
-            Some(Confession {
-                word: chosen.word.clone(),
-                flag: chosen.flag.to_string(),
-                followed: true,
-            }),
+            Some(Confession::new(chosen.word.clone(), chosen.flag.to_string(), true)),
         )),
         // The follow-up probe failed, timed out, was refused (rule 0), or
         // came back empty on both streams: keep the original, truncated
@@ -540,11 +532,7 @@ fn probe_help_text_confession_aware(
         _ => Ok((
             text,
             flag.to_string(),
-            Some(Confession {
-                word: chosen.word.clone(),
-                flag: chosen.flag.to_string(),
-                followed: false,
-            }),
+            Some(Confession::new(chosen.word.clone(), chosen.flag.to_string(), false)),
         )),
     }
 }
@@ -1038,51 +1026,36 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     };
     let provenance = Provenance::with_confidence(Source::HelpText, confidence);
 
-    CommandNode {
-        name: name.to_string(),
-        aliases: Vec::new(),
-        summary: None,
-        description: parsed.description.as_deref().map(Text::sanitize),
-        usage: parsed.usage.iter().map(|s| Text::sanitize(s)).collect(),
-        flags: parsed.flags,
-        positionals: parsed.positionals,
-        subcommands: parsed.subcommands,
-        examples: Vec::new(),
-        hidden: false,
-        deprecated: None,
-        // A single probe of this node genuinely does discover its
-        // complete direct-children *list* (spec §5.2: "the names of its
-        // direct subcommands" — one level, not recursive) — whatever the
-        // "Commands:"-shaped section names, or an empty list for a
-        // flags-only leaf like `tar`. That list's accuracy is exactly
-        // what `confidence` already communicates; `children_filled`
-        // itself is about *this level* being known, not about the
-        // subcommands' own children (which stay `children_filled: false`
-        // stubs until each is, in turn, expanded and probed — that's the
-        // lazy per-node expansion spec §5.2 describes, driven by the
-        // runner, not by recursing here).
-        children_filled: true,
-        group: None,
-        unparsed: Vec::new(),
-        detected_framework,
-        provenance,
-        // This node is the probed node itself (the root `--help` was run
-        // against, or a subcommand's own node once *its* `--help` is
-        // probed in turn) — never a bare-word entry recovered from a
-        // listing under some other node's heading, so there is no heading
-        // to attest to. `emit_subcommands`/`process_word_grid` are what
-        // set this `true`, for the stub entries `parsed.subcommands`
-        // already carries into this node's `subcommands` list above.
-        heading_attested: false,
-        // Same reasoning as `heading_attested` immediately above: this is
-        // the probed node itself, never a stub entry recovered from some
-        // other node's headingless invocation table.
-        invocation_attested: false,
-        // Set by the caller (`HelpTextTier::extract_node`), which is the
-        // only place with the confession-aware probe result this function
-        // doesn't see — see `build_node`'s own callers.
-        confession: None,
-    }
+    let mut node = CommandNode::new(name, provenance);
+    node.description = parsed.description.as_deref().map(Text::sanitize);
+    node.usage = parsed.usage.iter().map(|s| Text::sanitize(s)).collect();
+    node.flags = parsed.flags;
+    node.positionals = parsed.positionals;
+    node.subcommands = parsed.subcommands;
+    // A single probe of this node genuinely does discover its complete
+    // direct-children *list* (spec §5.2: "the names of its direct
+    // subcommands" — one level, not recursive) — whatever the
+    // "Commands:"-shaped section names, or an empty list for a flags-only
+    // leaf like `tar`. That list's accuracy is exactly what `confidence`
+    // already communicates; `children_filled` itself is about *this level*
+    // being known, not about the subcommands' own children (which stay
+    // `children_filled: false` stubs until each is, in turn, expanded and
+    // probed — that's the lazy per-node expansion spec §5.2 describes,
+    // driven by the runner, not by recursing here).
+    node.children_filled = true;
+    node.detected_framework = detected_framework;
+    // `heading_attested`, `invocation_attested` and `confession` keep
+    // `CommandNode::new`'s defaults. This node is the probed node itself
+    // (the root `--help` was run against, or a subcommand's own node once
+    // *its* `--help` is probed in turn) — never a bare-word entry
+    // recovered from a listing under some other node's heading, so there
+    // is no heading or invocation table to attest to.
+    // `emit_subcommands`/`process_word_grid` are what set those `true`,
+    // for the stub entries `parsed.subcommands` already carries into this
+    // node's `subcommands` list above. `confession` is set by the caller
+    // (`HelpTextTier::extract_node`), the only place with the
+    // confession-aware probe result this function doesn't see.
+    node
 }
 
 /// Give up on structure entirely and carry `raw` verbatim in

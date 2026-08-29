@@ -99,7 +99,7 @@ use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{
-    is_command_name_shaped, Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind,
+    is_command_name_shaped, Authority, CommandNode, Entity, Provenance, Source, Text,
 };
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -573,7 +573,7 @@ fn populate_subcommands(
 /// spelling (`-a` or `--all-tags`, never a combined `-a, --all-tags`
 /// spec), so this needs none of Tier B's flag-spec grammar — just which
 /// dash shape it is.
-fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) -> Option<Flag> {
+fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) -> Option<Entity> {
     let trimmed = value.trim();
     let (short, long) = if let Some(long) = trimmed.strip_prefix("--") {
         if long.is_empty() {
@@ -589,25 +589,9 @@ fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) 
         }
         (Some(c), None)
     };
-    Some(Flag {
-        short,
-        long,
-        value_name: None,
-        value_kind: ValueKind::None,
-        choices: Vec::new(),
-        repeatable: false,
-        required: false,
-        negatable: false,
-        single_dash: false,
-        hidden: false,
-        deprecated: None,
-        inherited: false,
-        group: None,
-        description: non_empty_text(description),
-        default: None,
-        env_var: None,
-        provenance: provenance.clone(),
-    })
+    let mut flag = Entity::flag_spelled(short, long, false, false, provenance.clone());
+    flag.description = non_empty_text(description);
+    Some(flag)
 }
 
 fn non_empty_text(s: &str) -> Option<Text> {

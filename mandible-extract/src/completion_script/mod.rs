@@ -85,7 +85,7 @@ use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use brush_parser::ast;
-use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
+use mandible_core::{Authority, CommandNode, Entity, Provenance, Source, Text, ValueKind};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -316,7 +316,7 @@ impl ExtractionTier for CompletionScriptTier {
 /// Request zsh first, bash as fallback (spec §7 Tier C); return the shell
 /// name used and the flags recovered, or `None` if neither produced a
 /// script with anything this tier recognizes.
-fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(String, Vec<Flag>)> {
+fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(String, Vec<Entity>)> {
     for shell in ["zsh", "bash"] {
         let Ok(out) = probe.run(
             tool_path,
@@ -444,8 +444,8 @@ fn walk_compound_command(cc: &ast::CompoundCommand, out: &mut Vec<(String, Vec<S
 }
 
 /// Find every `_arguments` call anywhere in `script` and parse its
-/// argument words as zsh `_arguments` spec strings into [`Flag`]s.
-fn extract_zsh_flags(script: &str, provenance: &Provenance) -> Vec<Flag> {
+/// argument words as zsh `_arguments` spec strings into flag entities.
+fn extract_zsh_flags(script: &str, provenance: &Provenance) -> Vec<Entity> {
     let mut flags = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (name, words) in all_simple_commands(script) {
@@ -470,7 +470,7 @@ fn extract_zsh_flags(script: &str, provenance: &Provenance) -> Vec<Flag> {
 /// Find `complete -W "word1 word2 ..." <tool>` calls and recover the
 /// listed words as bare, description-less flag spellings (spec §7 Tier
 /// C: "bash ... spellings only").
-fn extract_bash_flags(script: &str, provenance: &Provenance) -> Vec<Flag> {
+fn extract_bash_flags(script: &str, provenance: &Provenance) -> Vec<Entity> {
     let mut flags = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (name, words) in all_simple_commands(script) {
@@ -561,30 +561,15 @@ struct ParsedArgSpec {
 }
 
 impl ParsedArgSpec {
-    fn into_flag(self, provenance: Provenance) -> Flag {
-        Flag {
-            short: self.short,
-            long: self.long,
-            value_name: None,
-            value_kind: if self.takes_value {
-                ValueKind::Required
-            } else {
-                ValueKind::None
-            },
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: None,
-            description: self.description.as_deref().map(Text::sanitize),
-            default: None,
-            env_var: None,
-            provenance,
-        }
+    fn into_flag(self, provenance: Provenance) -> Entity {
+        let mut flag = Entity::flag_spelled(self.short, self.long, false, false, provenance);
+        flag.value_kind = if self.takes_value {
+            ValueKind::Required
+        } else {
+            ValueKind::None
+        };
+        flag.description = self.description.as_deref().map(Text::sanitize);
+        flag
     }
 }
 
@@ -753,7 +738,7 @@ _mytool() {
 _mytool "$@"
 "#;
         let flags = extract_zsh_flags(script, &prov());
-        let by_long: std::collections::HashMap<&str, &Flag> = flags
+        let by_long: std::collections::HashMap<&str, &Entity> = flags
             .iter()
             .filter_map(|f| f.long.as_deref().map(|l| (l, f)))
             .collect();

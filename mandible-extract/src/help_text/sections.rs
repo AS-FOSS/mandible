@@ -49,8 +49,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, CommandNode, Flag, Positional, Provenance, Source, Text,
-    ValueKind,
+    is_command_name_shaped, strip_escapes, CommandNode, Entity, Positional, Provenance, Source,
+    Spelling, Text, ValueKind,
 };
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
@@ -84,7 +84,7 @@ pub struct ParsedHelp {
     /// (`<value>`/`FILE`-shaped tokens not preceded by `-`).
     pub positionals: Vec<Positional>,
     /// Flags recovered from dash-led blocks.
-    pub flags: Vec<Flag>,
+    pub flags: Vec<Entity>,
     /// Subcommand stubs recovered from bare-word blocks under a
     /// recognized command heading (not yet extracted themselves —
     /// `children_filled: false`).
@@ -1616,15 +1616,15 @@ fn parse_body(
 /// `wpa_supplicant`'s `[-BddhKLqqstuvW]`) stays split, because the only
 /// evidence that would admit it is the token's shape and `lessecho`'s `-nn`
 /// has exactly that shape.
-fn repair_repeated_character_flags(flags: &mut [Flag], glued_tokens: &GluedTokenIndex<'_>) {
+fn repair_repeated_character_flags(flags: &mut [Entity], glued_tokens: &GluedTokenIndex<'_>) {
     let booleans: Vec<char> = flags
         .iter()
         .filter(|f| f.value_kind == ValueKind::None)
-        .filter_map(|f| f.short)
+        .filter_map(|f| f.short())
         .collect();
     for flag in flags.iter_mut() {
-        let Some(short) = flag.short else { continue };
-        if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+        let Some(short) = flag.short() else { continue };
+        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
             continue;
         }
         let Some(value) = flag.value_name.as_deref() else {
@@ -1640,12 +1640,11 @@ fn repair_repeated_character_flags(flags: &mut [Flag], glued_tokens: &GluedToken
         if !glued_tokens.contains(&token) {
             continue;
         }
-        // The name is the whole run, `long` holds it bare, and
-        // `single_dash` is what puts one dash in front of it at display
-        // time — see `mandible_core::Flag::single_dash`.
-        flag.long = Some(token[1..].to_string());
-        flag.single_dash = true;
-        flag.short = None;
+        // The whole run becomes one single-dash long spelling, replacing
+        // the short-plus-glued-value pair the grammar produced: the name
+        // is held bare and `Dashes::Single` is what puts one dash in front
+        // of it at display time.
+        flag.spellings = vec![Spelling::single_dash(&token[1..])];
         flag.value_name = None;
         flag.value_kind = ValueKind::None;
     }
@@ -2032,7 +2031,7 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// `"pu"` — the correct **name** under a missing value spec, which is
 /// strictly better than a fabricated name under a fabricated value spec,
 /// and is exactly what `repair_repeated_character_flags` does with `-vv`.
-fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedTokenIndex<'_>) {
+fn repair_single_dash_long_options(flags: &mut [Entity], glued_tokens: &GluedTokenIndex<'_>) {
     for flag in flags.iter_mut() {
         // 1. Option-table-sourced, never synopsis.
         if !flag.provenance.sources.contains(&Source::HelpText)
@@ -2041,8 +2040,8 @@ fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedToken
             continue;
         }
         // 2. A bare short flag carrying a required value.
-        let Some(short) = flag.short else { continue };
-        if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+        let Some(short) = flag.short() else { continue };
+        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
             continue;
         }
         let Some(tail) = flag.value_name.as_deref() else {
@@ -2081,12 +2080,11 @@ fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedToken
         if !glued_tokens.contains(&format!("-{short}{tail}")) {
             continue;
         }
-        // The name is the run up to the `=`, `long` holds it bare, and
-        // `single_dash` is what puts one dash in front of it at display
-        // time — see `mandible_core::Flag::single_dash`.
-        flag.long = Some(name_token[1..].to_string());
-        flag.single_dash = true;
-        flag.short = None;
+        // The run up to the `=` becomes one single-dash long spelling,
+        // replacing the short-plus-glued-name pair the grammar produced:
+        // the name is held bare and `Dashes::Single` is what puts one dash
+        // in front of it at display time.
+        flag.spellings = vec![Spelling::single_dash(&name_token[1..])];
         match glued_value {
             // `-foffload=<targets>`: the document wrote the value spec
             // itself, so it survives the repair on the flag it belongs to.
@@ -3472,11 +3470,10 @@ fn command_mode_seed(text: &str, profile: Option<&FrameworkProfile>) -> bool {
 /// unlabeled enum list in `--help` output conventionally follows the flag
 /// it enumerates with no other heading in between (tar's `--format=FORMAT`
 /// immediately followed by `"FORMAT is one of the following:"`).
-fn find_owning_flag_index(heading: &str, flags: &[Flag]) -> Option<usize> {
+fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<usize> {
     let lower = heading.to_lowercase();
     if let Some(idx) = flags.iter().position(|f| {
-        f.long
-            .as_deref()
+        f.long()
             .is_some_and(|l| lower.contains(&format!("--{}", l.to_lowercase())))
     }) {
         return Some(idx);
@@ -3510,18 +3507,17 @@ fn process_word_grid(
             }
             clean += 1;
             if treat_as_commands {
-                out.try_push_subcommand(CommandNode {
-                    group: heading_can_name_a_group(heading).then(|| heading.to_string()),
-                    // `treat_as_commands` is only ever `true` when the
-                    // grid's heading was `recognized` or the parser was
-                    // already in `command_mode` (see the caller) — i.e.
-                    // this entry has exactly the positive evidence spec
-                    // issue #2 asks `structure_sanity` to trust, even
-                    // though a word-grid entry carries no per-entry
-                    // description (openssl's `asn1parse`, `ciphers`, ...).
-                    heading_attested: true,
-                    ..CommandNode::new(token, Provenance::single(Source::HelpText))
-                });
+                let mut node = CommandNode::new(token, Provenance::single(Source::HelpText));
+                node.group = heading_can_name_a_group(heading).then(|| heading.to_string());
+                // `treat_as_commands` is only ever `true` when the grid's
+                // heading was `recognized` or the parser was already in
+                // `command_mode` (see the caller) — i.e. this entry has
+                // exactly the positive evidence spec issue #2 asks
+                // `structure_sanity` to trust, even though a word-grid
+                // entry carries no per-entry description (openssl's
+                // `asn1parse`, `ciphers`, ...).
+                node.heading_attested = true;
+                out.try_push_subcommand(node);
             }
         }
     }
@@ -3583,7 +3579,7 @@ fn meaningful_flag_group(heading: String) -> Option<String> {
 /// other recovered flag (`required: false`), even though LVM's own prose
 /// ("any one is required") makes it semantically mandatory — the IR has no
 /// per-group "choose exactly one of N" relation to spend on that.
-fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Flag> {
+fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Entity> {
     let name = tool_name?;
     if is_ignorable_heading(heading) || !starts_with_tool_name(heading, name) {
         return None;
@@ -3601,25 +3597,17 @@ fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Fl
     if spec.short.is_none() && spec.long.is_none() {
         return None;
     }
-    Some(Flag {
-        short: spec.short,
-        long: spec.long,
-        value_name: spec.value_name,
-        value_kind: spec.value_kind,
-        choices: Vec::new(),
-        repeatable: false,
-        required: false,
-        negatable: spec.negatable,
-        single_dash: false,
-        hidden: false,
-        deprecated: None,
-        inherited: false,
-        group: meaningful_flag_group(heading.to_string()),
-        description: None,
-        default: None,
-        env_var: None,
-        provenance: Provenance::single(Source::HelpText),
-    })
+    let mut flag = Entity::flag_spelled(
+        spec.short,
+        spec.long,
+        false,
+        spec.negatable,
+        Provenance::single(Source::HelpText),
+    );
+    flag.value_name = spec.value_name;
+    flag.value_kind = spec.value_kind;
+    flag.group = meaningful_flag_group(heading.to_string());
+    Some(flag)
 }
 
 fn emit_flags(
@@ -3643,25 +3631,18 @@ fn emit_flags(
             // emit a garbage entry.
             continue;
         }
-        out.flags.push(Flag {
-            short: spec.short,
-            long: spec.long,
-            value_name: spec.value_name,
-            value_kind: spec.value_kind,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: spec.negatable,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: group.clone(),
-            description: non_empty_text(&desc_text),
-            default: None,
-            env_var: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut flag = Entity::flag_spelled(
+            spec.short,
+            spec.long,
+            false,
+            spec.negatable,
+            Provenance::single(Source::HelpText),
+        );
+        flag.value_name = spec.value_name;
+        flag.value_kind = spec.value_kind;
+        flag.group = group.clone();
+        flag.description = non_empty_text(&desc_text);
+        out.flags.push(flag);
     }
     (seen, clean)
 }
@@ -3726,25 +3707,17 @@ fn emit_packed_flags(group: Option<String>, entries: Vec<(String, String)>, out:
         } else {
             ValueKind::Required
         };
-        out.flags.push(Flag {
+        let mut flag = Entity::flag_spelled(
             short,
             long,
-            value_name: (!operand.is_empty()).then_some(operand),
-            value_kind,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
             single_dash,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: group.clone(),
-            description: None,
-            default: None,
-            env_var: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+            false,
+            Provenance::single(Source::HelpText),
+        );
+        flag.value_name = (!operand.is_empty()).then_some(operand);
+        flag.value_kind = value_kind;
+        flag.group = group.clone();
+        out.flags.push(flag);
     }
 }
 
@@ -4139,13 +4112,11 @@ fn emit_declared_positionals(
                     spec_text.trim_end().ends_with("..."),
                 )
             });
-        out.positionals.push(Positional {
-            name,
-            required,
-            variadic,
-            description,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut positional = Positional::new(name, Provenance::single(Source::HelpText));
+        positional.required = required;
+        positional.variadic = variadic;
+        positional.description = description;
+        out.positionals.push(positional);
     }
     (seen, clean)
 }
@@ -7296,13 +7267,10 @@ fn extract_positionals(
                 continue;
             }
             let required = !token.contains('[') && !line.contains(&format!("[{token}"));
-            out.push(Positional {
-                name,
-                required,
-                variadic,
-                description: None,
-                provenance: Provenance::single(Source::HelpText),
-            });
+            let mut positional = Positional::new(name, Provenance::single(Source::HelpText));
+            positional.required = required;
+            positional.variadic = variadic;
+            out.push(positional);
         }
     }
     out
@@ -7333,8 +7301,8 @@ fn extract_positionals(
 /// style block elsewhere in the same output) is [`parse_with_profile`]'s
 /// job, via [`flag_spelling_already_present`] — see that function's doc
 /// comment for why a duplicate is *dropped* rather than merged.
-fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
-    let mut out: Vec<Flag> = Vec::new();
+fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
+    let mut out: Vec<Entity> = Vec::new();
     // Running depth of an open parenthesized alternation group (LVM's
     // "for options listed in parentheses, any one is required" convention),
     // tracked over these same physical lines the same way `parse_body`'s
@@ -7585,10 +7553,10 @@ fn shared_operand(rest: &str) -> Option<String> {
 /// function exists to provide: an existing flag, right or wrong, is never
 /// altered by anything found here — only ever left alone or joined by a
 /// new one.
-fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
+fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
-        (candidate.long.is_some() && f.long == candidate.long)
-            || (candidate.short.is_some() && f.short == candidate.short)
+        (candidate.long().is_some() && f.long() == candidate.long())
+            || (candidate.short().is_some() && f.short() == candidate.short())
     })
 }
 
@@ -7611,7 +7579,7 @@ fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
 /// `-V` and `-v` are eight switches and says nothing else about any of
 /// them. Fabricating a description from the usage line's own text is the
 /// same spec §7 Tier B violation [`extract_usage_flags`] forbids.
-fn push_usage_token(out: &mut Vec<Flag>, token: &str) {
+fn push_usage_token(out: &mut Vec<Entity>, token: &str) {
     if let Some(members) = parse_bundled_shorts(token) {
         for member in members {
             if out.len() >= MAX_RECOVERED_ENTRIES {
@@ -7641,29 +7609,20 @@ fn push_usage_token(out: &mut Vec<Flag>, token: &str) {
 /// (spec §4.4 is unaffected), but a distinct source so spec §13's
 /// `pct_flags_with_text` can tell a structurally-undescribable flag apart from
 /// one that merely wasn't described.
-fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
+fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
     if spec.short.is_none() && spec.long.is_none() {
         return;
     }
-    out.push(Flag {
-        short: spec.short,
-        long: spec.long,
-        value_name: spec.value_name,
-        value_kind: spec.value_kind,
-        choices: Vec::new(),
-        repeatable: false,
-        required: false,
-        negatable: spec.negatable,
-        single_dash: false,
-        hidden: false,
-        deprecated: None,
-        inherited: false,
-        group: None,
-        description: None,
-        default: None,
-        env_var: None,
-        provenance: Provenance::single(Source::HelpTextSynopsis),
-    });
+    let mut flag = Entity::flag_spelled(
+        spec.short,
+        spec.long,
+        false,
+        spec.negatable,
+        Provenance::single(Source::HelpTextSynopsis),
+    );
+    flag.value_name = spec.value_name;
+    flag.value_kind = spec.value_kind;
+    out.push(flag);
 }
 
 /// Pair a short-only and a long-only [`FlagSpec`] into one, or refuse
@@ -7906,7 +7865,7 @@ const MAX_PROSE_PARAGRAPH_INDENT: usize = 3;
 /// row parsed: jdeprscan's `-l    --list` row yields a flag with
 /// `short: 'l'` and no long name at all, and `The --list (-l) option …`
 /// still finds it through the `-l` in the parenthetical.
-fn backfill_prose_paragraph_descriptions(flags: &mut [Flag], lines: &[&str]) {
+fn backfill_prose_paragraph_descriptions(flags: &mut [Entity], lines: &[&str]) {
     if flags.is_empty() {
         return;
     }
@@ -7997,11 +7956,11 @@ fn prose_option_reference(line: &str) -> Option<Vec<String>> {
 
 /// True if `flag` is the flag `spelling` names — `--list` against its
 /// `long`, `-l` against its `short`, and a single-dash long option
-/// (`-print-sysroot`) against its `long` when [`Flag::single_dash`] says
+/// (`-print-sysroot`) against its long spelling when the entity says
 /// that is how the tool spells it.
-fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
+fn flag_answers_to_spelling(flag: &Entity, spelling: &str) -> bool {
     if let Some(long) = spelling.strip_prefix("--") {
-        return !long.is_empty() && flag.long.as_deref() == Some(long) && !flag.single_dash;
+        return !long.is_empty() && flag.long() == Some(long) && !flag.single_dash();
     }
     let Some(rest) = spelling.strip_prefix('-') else {
         return false;
@@ -8011,11 +7970,11 @@ fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
     }
     let mut chars = rest.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
-        if flag.short == Some(c) {
+        if flag.short() == Some(c) {
             return true;
         }
     }
-    flag.single_dash && flag.long.as_deref() == Some(rest)
+    flag.single_dash() && flag.long() == Some(rest)
 }
 
 #[cfg(test)]
