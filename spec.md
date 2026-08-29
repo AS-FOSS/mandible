@@ -9,7 +9,7 @@ outside world in this document has been measured on a real machine; measurements
 are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline as
 **[M-n]**. When a measurement contradicts an assumption, the measurement wins.
 
-**Revision 3.** Revision 3 deletes the vendored spec catalog and the on-disk cache, and reorganizes `--help` parsing around the *framework* that generated the text (§7 Tier A′, §7 Tier B, §11). Revision 2's changes from revision 1 are in [Appendix B](#appendix-b--what-changed-in-revision-2).
+**Revision 3.** Revision 3 deletes the vendored spec catalog and the on-disk cache, and reorganizes `--help` parsing around the *framework* that generated the text (§7 Tier A′, §7 Tier B, §11). Revision 2's changes from revision 1 are in [Appendix B](#appendix-b--what-changed-in-revision-2). Revision 4 (the 0.5.0 entity schema and sectioned detail pane) is approved and specified in §4.5 and §9.3 but not yet implemented; this header flips when it ships.
 
 ---
 
@@ -253,6 +253,59 @@ pub struct Positional {
 
 pub struct Example { pub command: Text, pub explanation: Option<Text> }
 ```
+
+### 4.5 Revision 4 (0.5.0): one entity kind, not four parallel vectors
+
+**Approved design, not yet implemented.** The 0.5.0 release replaces
+`Flag`/`Positional` (and the never-built modifier and env-var vectors they
+would have implied) with **one** entity type:
+
+```rust
+pub struct Entity {
+    pub kind: EntityKind,
+    /// Every documented spelling, in document order. Dissolves the
+    /// multi-spelling bug: ffplay documents `-h`, `-?`, `-help`, `--help`
+    /// as one row and today's `short: Option<char>` + `long:
+    /// Option<String>` can hold only two of the four.
+    pub spellings: Vec<Spelling>,
+    pub value_name: Option<String>,
+    pub value_kind: ValueKind,
+    pub choices: Vec<Text>,
+    pub description: Option<Text>,
+    pub group: Option<String>,
+    pub see_also: Vec<Text>,
+    pub provenance: Provenance,
+}
+
+pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
+```
+
+`Spelling`'s exact shape is finalized in the schema PR, under one
+constraint carried over from `Flag::negatable` and `Flag::single_dash`:
+the searched/copied name never smuggles punctuation (`-h`, `-?`, `-help`,
+`--help`, and `--[no-]foo` must all be representable as name + rendering
+metadata, never as a name containing dashes or brackets).
+
+Rules that govern the migration:
+
+- **`#[non_exhaustive]` lands in the same pass.** It blocks cross-crate
+  struct literals — 61 sites at the time of the decision — and the entity
+  migration rewrites those same sites anyway. One rewrite, not two.
+- **Sequence:** schema + `Flag`→`Entity{kind: Flag}` migration first, with
+  every corpus snapshot **byte-identical** before and after; then
+  positionals; then modifiers; then env vars.
+- **Env vars are strict-sections-only** (maintainer, 2026-08-29): an
+  `EntityKind::EnvVar` may be produced only from a row under an explicitly
+  labeled environment heading in the tool's own help text. Never scavenged
+  from ALL_CAPS words in prose — `PATH`, `FILE`, `TERM` placeholders are
+  exactly the fabrication class §13.1e detectors exist to catch. A tool
+  that documents its env vars only in the man page gets no ENVIRONMENT
+  section, and that is correct: mandible renders the author's documented
+  surface, it does not claim completeness (§1 product definition). No
+  inferred env→flag cross-references — the variable's own description text
+  stands; `see_also` is populated only from explicit statements.
+- **Display contract** for each kind is §9.3's; the two sections were
+  approved together and change together.
 
 ### 4.1 `Text`: the sanitization invariant
 
@@ -2066,6 +2119,38 @@ Markup handling is staged: Tier A prose is flattened to plain text today
 (`Text::sanitize_markdown`). The better end state keeps parsed spans in the IR so
 inline code and link labels can be *styled* rather than stripped — git's prose is
 dense with both. Do this only once the plain-text path is stable.
+
+### 9.3 Revision 4 (0.5.0): the detail pane is sections, not tabs
+
+**Approved design, not yet implemented; final layout is vetoed on pty
+mockups before any of it ships.** The right pane becomes one scrollable
+document of sections, rendered **in this order and only when non-empty**:
+
+1. `DESCRIPTION`
+2. `USAGE`
+3. `POSITIONALS` (maintainer decision 2026-08-29: not "ARGUMENTS")
+4. `FLAGS`
+5. `MODIFIERS`
+6. `ENVIRONMENT`
+
+Rules:
+
+- **Empty sections do not render.** A tool with only a description and
+  flags looks exactly like today — `grep`'s pane is unchanged.
+- **Counts in headers** for the list sections: `FLAGS (41)`,
+  `MODIFIERS (17)`.
+- **Spellings collapse to one row**: `-h, -?, -help, --help` is a single
+  entry (§4.5), which is itself crowding relief.
+- **Flag column: capped shared column** (maintainer, 2026-08-28). Fit the
+  spelling column to roughly the p90 spelling width — the majority, not
+  the outliers; an entity whose spellings exceed the cap puts its
+  description on the next line with a hanging indent. Never per-row
+  columns (the old ragged-docker bug), never a global uncapped column (one
+  long flag starves every description).
+- **ENVIRONMENT is display-only**: documented vars under an explicit
+  heading only, no probing, no inferred cross-references (§4.5).
+- **`group` headers replace repetition** within a section, as flag groups
+  render today.
 
 ---
 
