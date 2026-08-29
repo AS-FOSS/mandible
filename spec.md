@@ -2063,7 +2063,8 @@ One accent, spent only on information. Everything else is neutral.
 | Tree summary | Muted |
 | Focused pane border | Accent; unfocused muted |
 | Breadcrumb | Ancestors muted, leaf bold |
-| Section heading (`DESCRIPTION`, `FLAGS`) | Bold muted |
+| Section heading (`DESCRIPTION`, `FLAGS`) | Its own rule's shade exactly, never bolder (§9.3) |
+| Group divider | One step below the section heading, label and rule alike (§9.3) |
 | **Flag spelling** | **Accent** — the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
 | Flag description | Default foreground |
@@ -2083,10 +2084,18 @@ Four implementation rules that matter more than the palette:
   ignore `DIM` outright and others render it nearly invisible — a portability
   trap that only manifests on someone else's machine.
 - **Respect `NO_COLOR` and `TERM=dumb`**, degrading to bold/reverse/underline
-  only. A colour-depth ladder (truecolor → 256 → 16) is deliberately **not**
-  implemented: it would require choosing specific RGB values, which the first
-  rule above rules out. Named ANSI colours already work at every depth that has
-  colour at all.
+  only. There is no truecolor tier and no RGB anywhere: named ANSI colours work
+  at every depth that has colour at all, and look native in the user's own
+  theme. Depth is consulted in exactly one place — the detail pane's two rule
+  shades (§9.3), which need two steps below the terminal's default foreground
+  and cannot get them from sixteen colours, so they read the xterm-256 **gray
+  ramp** where it is available and fall back to `DarkGray` where it is not. A
+  ramp index is still a palette entry the terminal resolves, not a colour
+  chosen for one theme, which is what keeps this inside the rule above. Depth
+  is read from `COLORTERM`/`TERM` rather than queried: a query needs the tty in
+  raw mode before the TUI has set it up and hangs on any terminal that does not
+  answer, and an unrecognized terminal must take the fallback rather than a
+  guess.
 - **Highlight search matches.** `nucleo` returns match indices for free;
   underlining matched characters is the difference between "the list changed"
   and "here is why this matched."
@@ -2231,23 +2240,39 @@ Rules:
   row and every section-opening divider otherwise share. Section headers
   are CAPS with a count, group dividers mixed-case without one: the shape
   distinction survives a terminal that ignores dimming, per §9.2.
-  - **The section header's rule is the brighter of the two shades and the
-    group divider's the darker** — `Gray` over `DarkGray` — so two rules
-    in the same pane read as two levels rather than one weight repeated,
-    with the heavier weight on the boundary that reads across the whole
-    document rather than on the one subdividing a single section. Both are
-    plain named colors and neither is dimmed: the ordering is a property
-    of the palette, so it holds unchanged on the terminals that ignore
-    `DIM` (§9.2), where a dimmed brighter color would come out *brighter*
-    than the rule it is meant to sit under and invert the hierarchy
-    outright. Shade is never the sole distinction either — the
-    CAPS-and-count shape survives every attribute being stripped.
-  - **A divider's label is drawn in the same shade as its own rule.**
-    Label and line are one piece of furniture; two muted shades inside it
-    read as unrelated marks that happen to share a row. The weight
-    difference belongs between the levels, not within one. The section
-    header's label keeps its own stronger styling, which is what names the
-    outer level.
+  - **Three neutral steps, brightest first: pane borders, section header,
+    group divider.** The borders keep the terminal's own default
+    foreground and are not touched; the section header's rule is a clear
+    step below them, and the group divider's a clear step below that. Each
+    level is subordinate to the one containing it, and the eye can tell
+    which is which without reading a word.
+  - **The two rule shades come from the xterm-256 gray ramp**, at indices
+    `246` and `240` — evenly separated neutrals that both sit under an
+    ordinary foreground. The sixteen named colours cannot express this:
+    `Gray` is ANSI 7, which *is* the default foreground in most themes, so
+    a rule drawn in it reads at the border's brightness rather than under
+    it, and below it there is only `DarkGray` — one step for two levels.
+    Nothing here is dimmed. `Modifier::DIM` is ignored outright by several
+    terminals (§9.2), and on those a dimmed brighter colour comes out
+    *brighter* than the rule it is meant to sit under, inverting the
+    hierarchy on exactly the machines the rule exists to protect.
+  - **Without the extended palette both levels collapse to `DarkGray`.**
+    The step below the borders survives, which is the ordering that
+    matters most; what is given up is the distinction between the two
+    inner levels, and §9.2's shape rule carries that on its own — a
+    section header is CAPS with a count, a group divider mixed case
+    without one. A wrong guess about depth therefore costs a distinction,
+    never legibility, which is why the probe answers `false` for anything
+    it does not positively recognize.
+  - **A label is drawn in exactly its own rule's style, at both levels** —
+    same colour, and never bold. Label and line are one piece of
+    furniture, and a label in a different shade from the line running out
+    of it reads as two unrelated marks that happen to share a row. Bold is
+    excluded by the same rule rather than as a separate one: it brightens
+    the foreground on many terminals, so a bold label over a plain rule
+    recreates the mismatch through an attribute instead of a colour. What
+    marks the section header out as the outer level is its shade and its
+    CAPS-and-count shape, never extra weight on its words.
   - **A divider that opens its section drops its rule** and renders its
     label alone at column 0. The section header drew a full-width rule on
     the line above, and a second one immediately beneath it reads as a
