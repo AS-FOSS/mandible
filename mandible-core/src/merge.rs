@@ -11,8 +11,8 @@
 //! order wins": attempt order is a cost ordering (spec §7); conflict
 //! resolution is authority (spec §4.4).
 
-use crate::entity::{Dashes, Entity, Spelling};
-use crate::node::{CommandNode, Positional};
+use crate::entity::{Dashes, Entity, EntityKind, Spelling};
+use crate::node::CommandNode;
 use crate::provenance::{Axis, Provenance};
 use crate::text::Text;
 use std::collections::HashMap;
@@ -39,15 +39,16 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     }
     if candidates.len() == 1 {
         let mut only = candidates.pop().expect("len checked above");
-        only.flags = pair_aliases(only.flags);
+        let flags = only.take_entities_of(EntityKind::Flag);
+        only.set_flags(pair_aliases(flags));
         return Ok(only);
     }
 
     // Alias-pair each candidate's own flags before it participates in
     // cross-source merge (spec §4.4: "Pairing runs before merge").
     for c in &mut candidates {
-        let flags = std::mem::take(&mut c.flags);
-        c.flags = pair_aliases(flags);
+        let flags = c.take_entities_of(EntityKind::Flag);
+        c.set_flags(pair_aliases(flags));
     }
 
     let name = pick_option(
@@ -151,9 +152,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         provenance.absorb(&c.provenance);
     }
 
-    let flags = merge_flag_lists(candidates.iter().map(|c| c.flags.clone()).collect());
-    let positionals =
-        merge_positional_lists(candidates.iter().map(|c| c.positionals.clone()).collect());
+    let entities = merge_entity_lists(candidates.iter().map(|c| c.entities.clone()).collect());
     let subcommands =
         merge_subcommand_lists(candidates.iter().map(|c| c.subcommands.clone()).collect())?;
     let examples = merge_examples(candidates.iter().map(|c| c.examples.clone()).collect());
@@ -164,8 +163,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         summary,
         description,
         usage,
-        flags,
-        positionals,
+        entities,
         subcommands,
         examples,
         hidden,
@@ -181,42 +179,60 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     })
 }
 
-/// Merge flags by identity (long name, else short letter, else
-/// description-as-fallback) across several already alias-paired flag lists,
-/// applying the same two-axis authority resolution per field.
-pub fn merge_flag_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
-    let mut order: Vec<String> = Vec::new();
-    let mut buckets: HashMap<String, Vec<Entity>> = HashMap::new();
+/// Merge entities by identity across several candidate lists (already
+/// alias-paired, for flags), applying the two-axis authority resolution per
+/// field.
+///
+/// Identity is [`entity_identity`]'s: the kind, then the long name, else the
+/// short letter, else the bare name a dashless kind carries, else the
+/// description. Two entities of different kinds never share a bucket, so a
+/// positional called `verbose` and a `--verbose` flag stay two items.
+/// Relative order within each kind is the order of first appearance, which
+/// is what the snapshot's per-kind sections are written in.
+pub fn merge_entity_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
+    let mut order: Vec<(EntityKind, String)> = Vec::new();
+    let mut buckets: HashMap<(EntityKind, String), Vec<Entity>> = HashMap::new();
     for list in lists {
-        for flag in list {
-            let key = flag_identity(&flag);
+        for entity in list {
+            let key = entity_identity(&entity);
             if !buckets.contains_key(&key) {
                 order.push(key.clone());
             }
-            buckets.entry(key).or_default().push(flag);
+            buckets.entry(key).or_default().push(entity);
         }
     }
     order
         .into_iter()
         .map(|key| {
             let bucket = buckets.remove(&key).expect("key came from this map");
-            merge_flag_bucket(bucket)
+            merge_entity_bucket(bucket)
         })
         .collect()
 }
 
-fn flag_identity(f: &Entity) -> String {
-    match (f.long(), f.short()) {
+/// The identity two entities must share to be the same item.
+///
+/// The kind leads, because a flag and a positional that happen to be
+/// spelled alike are unrelated items, not two sources' accounts of one.
+/// After that: the long name, else the short letter — the pre-0.5.0
+/// `Flag`'s own preference order — else, for a kind spelled without dashes
+/// (a positional's `pathspec`, a modifier letter, a variable name), that
+/// bare name, which is what the pre-0.5.0 `Positional` merged on. The
+/// description is the last resort for a flag with no spelling at all.
+fn entity_identity(e: &Entity) -> (EntityKind, String) {
+    let key = match (e.long(), e.short()) {
         (Some(l), _) => format!("L:{l}"),
         (None, Some(s)) => format!("S:{s}"),
+        (None, None) if !e.spellings.is_empty() => format!("N:{}", e.primary_name()),
         (None, None) => format!(
             "D:{}",
-            f.description.as_ref().map(|d| d.as_str()).unwrap_or("")
+            e.description.as_ref().map(|d| d.as_str()).unwrap_or("")
         ),
-    }
+    };
+    (e.kind, key)
 }
 
-fn merge_flag_bucket(mut bucket: Vec<Entity>) -> Entity {
+fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     if bucket.len() == 1 {
         return bucket.pop().expect("len checked");
     }
@@ -315,6 +331,15 @@ fn merge_flag_bucket(mut bucket: Vec<Entity>) -> Entity {
             negatable,
         });
     }
+    // A dashless spelling — a positional's name, a modifier letter, a
+    // variable name — has no short/long halves to resolve independently,
+    // and it *is* the bucket's identity, so every entity here carries the
+    // same one. Take it verbatim rather than reconstructing it.
+    if spellings.is_empty() {
+        if let Some(bare) = bucket.iter().find_map(|e| e.spellings.first()) {
+            spellings.push(bare.clone());
+        }
+    }
 
     // Identity is spelling-based, so every entity in a bucket is the same
     // kind; take it from the first rather than assuming `Flag`, so the
@@ -335,48 +360,6 @@ fn merge_flag_bucket(mut bucket: Vec<Entity>) -> Entity {
     merged.see_also = see_also;
     merged.env_var = env_var;
     merged
-}
-
-/// Merge positionals across candidate lists by name identity.
-pub fn merge_positional_lists(lists: Vec<Vec<Positional>>) -> Vec<Positional> {
-    let mut order: Vec<String> = Vec::new();
-    let mut buckets: HashMap<String, Vec<Positional>> = HashMap::new();
-    for list in lists {
-        for p in list {
-            if !buckets.contains_key(&p.name) {
-                order.push(p.name.clone());
-            }
-            buckets.entry(p.name.clone()).or_default().push(p);
-        }
-    }
-    order
-        .into_iter()
-        .map(|name| {
-            let mut bucket = buckets.remove(&name).expect("key came from this map");
-            if bucket.len() == 1 {
-                return bucket.pop().expect("len checked");
-            }
-            let required = bucket.iter().any(|p| p.required);
-            let variadic = bucket.iter().any(|p| p.variadic);
-            let description = pick_option(
-                bucket
-                    .iter()
-                    .map(|p| (&p.provenance, p.description.as_ref())),
-                Axis::Prose,
-            );
-            let mut provenance = Provenance::default();
-            for p in &bucket {
-                provenance.absorb(&p.provenance);
-            }
-            Positional {
-                name,
-                required,
-                variadic,
-                description,
-                provenance,
-            }
-        })
-        .collect()
 }
 
 /// Merge subcommand lists recursively by name (spec §4.4: "Subcommands
@@ -937,7 +920,7 @@ mod tests {
         let mut fa = Entity::flag_long("interactive", Provenance::single(Source::HelpText));
         fa.spellings.insert(0, Spelling::short('i'));
         fa.description = Some(Text::sanitize("terse"));
-        a.flags.push(fa);
+        a.entities.push(fa);
 
         let mut b = node_from(
             Source::KnownSpec {
@@ -953,14 +936,78 @@ mod tests {
         );
         fb.spellings.insert(0, Spelling::short('i'));
         fb.description = Some(Text::sanitize("rich"));
-        b.flags.push(fb);
+        b.entities.push(fb);
 
         let merged = merge_nodes(vec![a, b]).unwrap();
-        assert_eq!(merged.flags.len(), 1);
+        let flags: Vec<&Entity> = merged.flags().collect();
+        assert_eq!(flags.len(), 1);
+        assert_eq!(flags[0].description.as_ref().unwrap().as_str(), "rich");
+        assert_eq!(flags[0].short(), Some('i'));
+    }
+
+    /// A positional merges on its name across sources, taking `required`
+    /// and `repeatable` from any source that saw them and its description
+    /// from the highest prose authority — the rule the pre-0.5.0
+    /// `merge_positional_lists` applied, now one arm of the entity merge.
+    #[test]
+    fn merge_unifies_positionals_by_name_across_sources() {
+        let mut a = node_from(Source::HelpText, "git");
+        let mut pa = Entity::positional("pathspec", Provenance::single(Source::HelpText));
+        pa.repeatable = true;
+        pa.description = Some(Text::sanitize("terse"));
+        a.entities.push(pa);
+
+        let spec = Source::KnownSpec {
+            provider: "carapace".to_string(),
+        };
+        let mut b = node_from(spec.clone(), "git");
+        let mut pb = Entity::positional("pathspec", Provenance::single(spec));
+        pb.required = true;
+        pb.description = Some(Text::sanitize("rich"));
+        b.entities.push(pb);
+
+        let merged = merge_nodes(vec![a, b]).unwrap();
+        let positionals: Vec<&Entity> = merged.positionals().collect();
+        assert_eq!(positionals.len(), 1);
+        assert_eq!(positionals[0].primary_name(), "pathspec");
+        assert!(positionals[0].required, "required survives from one source");
+        assert!(
+            positionals[0].repeatable,
+            "variadic survives from the other source"
+        );
         assert_eq!(
-            merged.flags[0].description.as_ref().unwrap().as_str(),
+            positionals[0].description.as_ref().unwrap().as_str(),
             "rich"
         );
-        assert_eq!(merged.flags[0].short(), Some('i'));
+    }
+
+    /// Kind leads the merge identity, and the case that needs it is the
+    /// description fallback: an entity with no spelling at all is
+    /// identified by its description text, which two *different kinds* can
+    /// share. Without the kind in the key these two collide, and the
+    /// survivor takes its kind from whichever arrived first — a positional
+    /// silently rendered as a flag, or the reverse.
+    #[test]
+    fn entities_of_different_kinds_never_share_a_merge_bucket() {
+        let mut a = node_from(Source::HelpText, "tool");
+        let shared = Text::sanitize("the thing to operate on");
+
+        let mut spelling_less_flag =
+            Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+        spelling_less_flag.description = Some(shared.clone());
+        a.entities.push(spelling_less_flag);
+
+        let mut spelling_less_positional =
+            Entity::new(EntityKind::Positional, Provenance::single(Source::HelpText));
+        spelling_less_positional.description = Some(shared);
+        a.entities.push(spelling_less_positional);
+
+        let merged = merge_nodes(vec![a.clone(), a]).unwrap();
+        assert_eq!(merged.flags().count(), 1, "the flag survives as a flag");
+        assert_eq!(
+            merged.positionals().count(),
+            1,
+            "the positional is not absorbed into the flag's bucket"
+        );
     }
 }

@@ -10,12 +10,16 @@
 //! `short: Option<char>` + `long: Option<String>` pair can hold only two
 //! of the four.
 //!
-//! Migration is staged (spec §4.5). The Flag stage is complete:
-//! `CommandNode::flags` is `Vec<Entity>` and the pre-0.5.0 `Flag` survives
-//! only as this module's test-local parity reference, against which
-//! [`Entity::spelling`], [`Entity::key`] and the `short`/`long`/
-//! `negatable`/`single_dash` accessors are pinned — corpus snapshots stay
-//! byte-identical across the migration.
+//! Migration is staged (spec §4.5). The flag and positional stages are
+//! complete: a node carries one [`CommandNode::entities`] vector
+//! (`CommandNode::flags()` and `CommandNode::positionals()` filter it by
+//! kind), and the pre-0.5.0 `Flag` and `Positional` survive only as this
+//! module's test-local parity references, against which
+//! [`Entity::spelling`], [`Entity::key`], [`Entity::primary_name`] and the
+//! `short`/`long`/`negatable`/`single_dash` accessors are pinned — corpus
+//! snapshots stay byte-identical across the migration.
+//!
+//! [`CommandNode::entities`]: crate::CommandNode::entities
 
 use serde::{Deserialize, Serialize};
 
@@ -107,7 +111,7 @@ impl Spelling {
 
 /// Which kind of documented item an [`Entity`] is. Decides which detail
 /// pane section it renders under (spec §9.3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EntityKind {
     /// A dashed option: `-i`, `--interactive`, `-help`.
     Flag,
@@ -142,7 +146,11 @@ pub struct Entity {
     pub value_kind: ValueKind,
     /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`.
     pub choices: Vec<Text>,
-    /// True if this entity may be given more than once.
+    /// True if this entity may be given more than once: a flag the tool
+    /// accepts repeatedly (`-v -v -v`), and a positional written with an
+    /// ellipsis (`<pathspec>...`) — the pre-0.5.0 `Positional::variadic`.
+    /// One field, because "may be given more than once" is the same fact
+    /// about both, spelled differently by the two kinds' notation.
     pub repeatable: bool,
     /// True if this entity is required.
     pub required: bool,
@@ -214,6 +222,16 @@ impl Entity {
     pub fn flag_short(c: char, provenance: Provenance) -> Entity {
         let mut e = Entity::new(EntityKind::Flag, provenance);
         e.spellings.push(Spelling::short(c));
+        e
+    }
+
+    /// A positional argument: one dashless spelling holding the name the
+    /// tool shows in its usage line (`pathspec`), optional and
+    /// non-repeating until the caller says otherwise. The direct
+    /// counterpart of the pre-0.5.0 `Positional::new`.
+    pub fn positional(name: impl Into<String>, provenance: Provenance) -> Entity {
+        let mut e = Entity::new(EntityKind::Positional, provenance);
+        e.spellings.push(Spelling::bare(name));
         e
     }
 
@@ -299,6 +317,18 @@ impl Entity {
     pub fn single_dash(&self) -> bool {
         self.long_spelling()
             .is_some_and(|s| matches!(s.dashes, Dashes::Single))
+    }
+
+    /// The bare name of the first documented spelling, or `""` for an
+    /// entity with no spellings at all.
+    ///
+    /// For the kinds that carry exactly one spelling — positionals,
+    /// modifiers, environment variables — this is *the* name, and the one
+    /// the pre-0.5.0 `Positional::name` held. For a flag it is whichever
+    /// spelling the tool printed first, which is why flag code asks
+    /// [`Entity::short`]/[`Entity::long`] instead.
+    pub fn primary_name(&self) -> &str {
+        self.spellings.first().map_or("", |s| s.name.as_str())
     }
 
     /// True if `key` addresses this entity, checking every spelling
@@ -475,6 +505,51 @@ impl From<Flag> for Entity {
             env_var: f.env_var,
             provenance: f.provenance,
         }
+    }
+}
+
+/// The pre-0.5.0 `Positional`, kept **only** as this module's parity
+/// reference, for the same reason as [`Flag`] above: it is the independent
+/// statement of what an `EntityKind::Positional` entity has to reproduce.
+/// Its four data fields are exactly the four keys
+/// [`crate::PositionalSnapshot`] writes, and the migration's success
+/// condition is that they keep coming out the same.
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Positional {
+    pub name: String,
+    pub required: bool,
+    pub variadic: bool,
+    pub description: Option<Text>,
+    pub provenance: Provenance,
+}
+
+#[cfg(test)]
+impl Positional {
+    /// A minimal positional: named, optional, not variadic, undescribed.
+    pub fn new(name: impl Into<String>, provenance: Provenance) -> Positional {
+        Positional {
+            name: name.into(),
+            required: false,
+            variadic: false,
+            description: None,
+            provenance,
+        }
+    }
+}
+
+#[cfg(test)]
+impl From<Positional> for Entity {
+    /// Lossless conversion from the pre-0.5.0 `Positional`. The name
+    /// becomes the one dashless spelling, and `variadic` becomes
+    /// [`Entity::repeatable`] — the two notations (`<file>...` and a flag
+    /// given twice) for one fact.
+    fn from(p: Positional) -> Entity {
+        let mut e = Entity::positional(p.name, p.provenance);
+        e.required = p.required;
+        e.repeatable = p.variadic;
+        e.description = p.description;
+        e
     }
 }
 
@@ -682,5 +757,99 @@ mod tests {
         e.spellings = vec![Spelling::bare("d")];
         assert_eq!(e.spelling(), "d");
         assert_eq!(e.key(), None);
+    }
+
+    /// Every positional shape the corpus contains: plain, required,
+    /// variadic, described, and the combinations.
+    pub(super) fn positional_parity_cases() -> Vec<Positional> {
+        let mut cases = vec![Positional::new("pathspec", Provenance::default())];
+
+        let mut required = Positional::new("FILE", Provenance::default());
+        required.required = true;
+        cases.push(required);
+
+        let mut variadic = Positional::new("args", Provenance::default());
+        variadic.variadic = true;
+        cases.push(variadic);
+
+        let mut both = Positional::new("path", Provenance::default());
+        both.required = true;
+        both.variadic = true;
+        both.description = Some(Text::sanitize("one or more paths to add"));
+        cases.push(both);
+
+        cases
+    }
+
+    /// The four fields `PositionalSnapshot` writes come back off the
+    /// entity: the name off `primary_name()`, `variadic` off
+    /// `repeatable`, and `required`/`description` unchanged.
+    ///
+    /// This is the positional half of what keeps the corpus fixtures
+    /// byte-identical — the snapshot no longer has a `Positional` to copy
+    /// from, it asks the entity, so a disagreement here is a moved
+    /// fixture.
+    #[test]
+    fn positional_accessors_reproduce_the_fields_they_replaced() {
+        for p in positional_parity_cases() {
+            let expected = (
+                p.name.clone(),
+                p.required,
+                p.variadic,
+                p.description.clone(),
+            );
+            let e = Entity::from(p.clone());
+            assert_eq!(
+                (
+                    e.primary_name().to_string(),
+                    e.required,
+                    e.repeatable,
+                    e.description.clone()
+                ),
+                expected,
+                "positional parity failed for {}",
+                p.name
+            );
+        }
+    }
+
+    /// The frozen `PositionalSnapshot` a corpus fixture is written in comes
+    /// out of the entity exactly as it came out of the pre-0.5.0
+    /// `Positional`. The expected value is that type's own conversion,
+    /// written out here rather than derived from the entity, so the two
+    /// paths stay independent statements of the same layout.
+    #[test]
+    fn positional_snapshot_matches_the_pre_0_5_0_type() {
+        use crate::snapshot::{PositionalSnapshot, ProvenanceSnapshot};
+        for p in positional_parity_cases() {
+            let expected = PositionalSnapshot {
+                name: p.name.clone(),
+                required: p.required,
+                variadic: p.variadic,
+                description: p.description.as_ref().map(|t| t.as_str().to_string()),
+                provenance: ProvenanceSnapshot::from(&p.provenance),
+            };
+            assert_eq!(
+                PositionalSnapshot::from(&Entity::from(p.clone())),
+                expected,
+                "snapshot parity failed for {}",
+                p.name
+            );
+        }
+    }
+
+    /// A positional is one dashless spelling, so it renders as the bare
+    /// name and has no flag key to be addressed by.
+    #[test]
+    fn a_positional_is_one_dashless_spelling() {
+        let e = Entity::positional("pathspec", Provenance::default());
+        assert_eq!(e.kind, EntityKind::Positional);
+        assert_eq!(e.spellings.len(), 1);
+        assert_eq!(e.spellings[0].dashes, Dashes::None);
+        assert_eq!(e.spelling(), "pathspec");
+        assert_eq!(e.primary_name(), "pathspec");
+        assert_eq!(e.key(), None);
+        assert_eq!(e.short(), None);
+        assert_eq!(e.long(), None);
     }
 }

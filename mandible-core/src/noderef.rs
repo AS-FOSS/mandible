@@ -80,7 +80,7 @@ pub fn resolve_flag<'a>(
     key: &FlagKey,
 ) -> Option<&'a crate::entity::Entity> {
     let node = resolve(root, path)?;
-    node.flags.iter().find(|f| f.matches_key(key))
+    node.flags().find(|f| f.matches_key(key))
 }
 
 #[cfg(test)]

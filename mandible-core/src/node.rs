@@ -1,8 +1,8 @@
-//! The intermediate representation itself: [`CommandNode`],
-//! [`Positional`], [`Example`]. See spec §4; the documented items a node
-//! carries are [`Entity`](crate::Entity), in `entity.rs`.
+//! The intermediate representation itself: [`CommandNode`], [`Example`].
+//! See spec §4; the documented items a node carries are
+//! [`Entity`](crate::Entity), in `entity.rs`.
 
-use crate::entity::Entity;
+use crate::entity::{Entity, EntityKind};
 use crate::provenance::Provenance;
 use crate::text::Text;
 use serde::{Deserialize, Serialize};
@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// `#[non_exhaustive]`: build one with [`CommandNode::new`] and mutate the
 /// public fields. Cross-crate struct literals are forbidden by design, so
-/// 0.5.x can add fields — the positionals, modifiers and env-var stages of
-/// spec §4.5 each do — without a breaking release.
+/// 0.5.x can add fields — the modifier and env-var stages of spec §4.5
+/// each do — without a breaking release.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CommandNode {
@@ -29,13 +29,16 @@ pub struct CommandNode {
     pub description: Option<Text>,
     /// Raw usage patterns, kept verbatim (not re-flowed).
     pub usage: Vec<Text>,
-    /// This node's own flags, as [`EntityKind::Flag`](crate::EntityKind)
-    /// entities (not including inherited ones from ancestors — those are
-    /// represented by [`Entity::inherited`](crate::Entity) on the entities
-    /// that originated in an ancestor and were propagated down).
-    pub flags: Vec<Entity>,
-    /// Positional arguments.
-    pub positionals: Vec<Positional>,
+    /// Every documented item this node carries — flags, positionals,
+    /// modifiers, environment variables — as one kind-tagged vector
+    /// (spec §4.5), in document order within each kind. Read one kind
+    /// through [`CommandNode::flags`], [`CommandNode::positionals`] or
+    /// [`CommandNode::entities_of`].
+    ///
+    /// Flags here are the node's *own*, in the sense that an inherited
+    /// one carries [`Entity::inherited`](crate::Entity) rather than being
+    /// filed anywhere else.
+    pub entities: Vec<Entity>,
     /// Direct subcommands.
     pub subcommands: Vec<CommandNode>,
     /// Worked examples.
@@ -210,8 +213,7 @@ impl CommandNode {
             summary: None,
             description: None,
             usage: Vec::new(),
-            flags: Vec::new(),
-            positionals: Vec::new(),
+            entities: Vec::new(),
             subcommands: Vec::new(),
             examples: Vec::new(),
             hidden: false,
@@ -226,6 +228,68 @@ impl CommandNode {
             confession: None,
         }
     }
+
+    /// This node's entities of one kind, in document order.
+    ///
+    /// The kind-filtered accessors are the whole ergonomic case for one
+    /// vector over four: a consumer that only cares about flags reads
+    /// [`CommandNode::flags`] and never learns that anything else shares
+    /// the storage.
+    pub fn entities_of(&self, kind: EntityKind) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities.iter().filter(move |e| e.kind == kind)
+    }
+
+    /// This node's entities of one kind, mutably, in document order.
+    pub fn entities_of_mut(&mut self, kind: EntityKind) -> impl Iterator<Item = &mut Entity> {
+        self.entities.iter_mut().filter(move |e| e.kind == kind)
+    }
+
+    /// This node's flags, in document order.
+    pub fn flags(&self) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities_of(EntityKind::Flag)
+    }
+
+    /// This node's flags, mutably, in document order.
+    pub fn flags_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        self.entities_of_mut(EntityKind::Flag)
+    }
+
+    /// This node's positional arguments, in document order.
+    pub fn positionals(&self) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities_of(EntityKind::Positional)
+    }
+
+    /// Replace every entity of one kind, leaving the other kinds and their
+    /// relative order untouched. The replacements land at the end of the
+    /// vector, which is invisible to every consumer: order is only ever
+    /// read within a kind.
+    ///
+    /// `replacement` is trusted to be of `kind` — it is what a tier just
+    /// built for that kind — and mixing kinds in it would be a producer
+    /// bug, not something this can repair.
+    pub fn set_entities_of(&mut self, kind: EntityKind, replacement: Vec<Entity>) {
+        self.entities.retain(|e| e.kind != kind);
+        self.entities.extend(replacement);
+    }
+
+    /// Replace this node's flags, keeping every other kind.
+    pub fn set_flags(&mut self, flags: Vec<Entity>) {
+        self.set_entities_of(EntityKind::Flag, flags);
+    }
+
+    /// Replace this node's positionals, keeping every other kind.
+    pub fn set_positionals(&mut self, positionals: Vec<Entity>) {
+        self.set_entities_of(EntityKind::Positional, positionals);
+    }
+
+    /// Remove every entity of one kind and return them in document order.
+    pub fn take_entities_of(&mut self, kind: EntityKind) -> Vec<Entity> {
+        let (taken, rest) = std::mem::take(&mut self.entities)
+            .into_iter()
+            .partition(|e| e.kind == kind);
+        self.entities = rest;
+        taken
+    }
 }
 
 /// Whether a flag takes a value, and if so, whether it's required.
@@ -238,39 +302,6 @@ pub enum ValueKind {
     Required,
     /// The flag may optionally be given a value.
     Optional,
-}
-
-/// A positional argument, e.g. `<pathspec>...`.
-///
-/// `#[non_exhaustive]`: build one with [`Positional::new`] and mutate the
-/// public fields. The positionals stage of spec §4.5 folds this type into
-/// [`Entity`], so the constructor is also the seam that migration moves.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct Positional {
-    /// The argument's name as shown in usage, e.g. `"pathspec"`.
-    pub name: String,
-    /// True if this positional must be supplied.
-    pub required: bool,
-    /// True if this positional accepts multiple values (`...`).
-    pub variadic: bool,
-    /// The positional's description.
-    pub description: Option<Text>,
-    /// Which source(s) contributed this positional's fields.
-    pub provenance: Provenance,
-}
-
-impl Positional {
-    /// A minimal positional: named, optional, not variadic, undescribed.
-    pub fn new(name: impl Into<String>, provenance: Provenance) -> Positional {
-        Positional {
-            name: name.into(),
-            required: false,
-            variadic: false,
-            description: None,
-            provenance,
-        }
-    }
 }
 
 /// A worked example: a command line plus an optional explanation.
