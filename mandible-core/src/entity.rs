@@ -517,11 +517,12 @@ mod tests {
     /// fields, so those four functions are precisely what stands between
     /// the migration and a moved snapshot.
     fn parity_cases() -> Vec<Flag> {
-        let mut cases = Vec::new();
-        cases.push(flag(Some('i'), Some("interactive")));
-        cases.push(flag(None, Some("color")));
-        cases.push(flag(Some('?'), None));
-        cases.push(flag(None, None));
+        let mut cases = vec![
+            flag(Some('i'), Some("interactive")),
+            flag(None, Some("color")),
+            flag(Some('?'), None),
+            flag(None, None),
+        ];
 
         let mut negatable = flag(None, Some("staged"));
         negatable.negatable = true;

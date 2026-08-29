@@ -1370,7 +1370,8 @@ mod tests {
     #[test]
     fn flag_descriptions_share_one_column() {
         let mk = |short: Option<char>, long: &str, value: Option<&str>, desc: &str| {
-            let mut f = mandible_core::Entity::flag_long(long, Provenance::single(Source::HelpText));
+            let mut f =
+                mandible_core::Entity::flag_long(long, Provenance::single(Source::HelpText));
             if let Some(c) = short {
                 f.spellings.insert(0, Spelling::short(c));
             }
@@ -1432,7 +1433,8 @@ mod tests {
     /// makes the inference ambiguous).
     fn docker_global_flags() -> Vec<mandible_core::Entity> {
         let mk = |short: Option<char>, long: &str, value: Option<&str>| {
-            let mut f = mandible_core::Entity::flag_long(long, Provenance::single(Source::HelpText));
+            let mut f =
+                mandible_core::Entity::flag_long(long, Provenance::single(Source::HelpText));
             if let Some(c) = short {
                 f.spellings.insert(0, Spelling::short(c));
             }
@@ -1618,7 +1620,11 @@ mod tests {
     fn an_unfollowed_confession_warns_with_the_advertised_argv() {
         let mut node = node_with_flags();
         node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
-        node.confession = Some(mandible_core::Confession::new("all".to_string(), "--help".to_string(), false));
+        node.confession = Some(mandible_core::Confession::new(
+            "all".to_string(),
+            "--help".to_string(),
+            false,
+        ));
         let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
             .expect("an unfollowed confession must be surfaced even on a confident parse");
         assert!(caveat.contains("--help all"), "{caveat:?}");
@@ -1630,7 +1636,11 @@ mod tests {
     fn a_followed_confession_gets_no_caveat() {
         let mut node = node_with_flags();
         node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
-        node.confession = Some(mandible_core::Confession::new("all".to_string(), "--help".to_string(), true));
+        node.confession = Some(mandible_core::Confession::new(
+            "all".to_string(),
+            "--help".to_string(),
+            true,
+        ));
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
     }
 

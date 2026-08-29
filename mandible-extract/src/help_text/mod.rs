@@ -510,7 +510,11 @@ fn probe_help_text_confession_aware(
         return Ok((
             text,
             flag.to_string(),
-            Some(Confession::new(directives[0].word.clone(), directives[0].flag.to_string(), false)),
+            Some(Confession::new(
+                directives[0].word.clone(),
+                directives[0].flag.to_string(),
+                false,
+            )),
         ));
     };
 
@@ -522,7 +526,11 @@ fn probe_help_text_confession_aware(
         Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
             pick_stream(&out.stdout, &out.stderr),
             format!("{} {}", chosen.flag, chosen.word),
-            Some(Confession::new(chosen.word.clone(), chosen.flag.to_string(), true)),
+            Some(Confession::new(
+                chosen.word.clone(),
+                chosen.flag.to_string(),
+                true,
+            )),
         )),
         // The follow-up probe failed, timed out, was refused (rule 0), or
         // came back empty on both streams: keep the original, truncated
@@ -532,7 +540,11 @@ fn probe_help_text_confession_aware(
         _ => Ok((
             text,
             flag.to_string(),
-            Some(Confession::new(chosen.word.clone(), chosen.flag.to_string(), false)),
+            Some(Confession::new(
+                chosen.word.clone(),
+                chosen.flag.to_string(),
+                false,
+            )),
         )),
     }
 }

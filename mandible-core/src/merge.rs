@@ -287,7 +287,10 @@ fn merge_flag_bucket(mut bucket: Vec<Entity>) -> Entity {
         bucket.iter().map(|f| (&f.provenance, f.env_var.as_ref())),
         Axis::Structural,
     );
-    let see_also = pick_vec(bucket.iter().map(|f| (&f.provenance, &f.see_also)), Axis::Prose);
+    let see_also = pick_vec(
+        bucket.iter().map(|f| (&f.provenance, &f.see_also)),
+        Axis::Prose,
+    );
 
     let mut provenance = Provenance::default();
     for f in &bucket {
