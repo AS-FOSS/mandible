@@ -253,10 +253,10 @@ fn section_headers_carry_the_count_of_what_they_render() {
 /// terminal — it carries no styling at all — so this reads the two shapes
 /// exactly as such a terminal would.
 ///
-/// The header is CAPS with a count and its name at column 0; the divider
-/// is mixed case with no count behind a leading rule. Both run to the
-/// pane's edge, and the rows beneath the divider sit at the section's
-/// normal margin — grouping is drawn, not indented.
+/// Both are label-first at column 0 with a rule running to the pane's
+/// edge; the header is CAPS with a count and the divider mixed case
+/// without one. The rows beneath the divider sit at the section's normal
+/// margin — grouping is drawn, not indented.
 ///
 /// An ungrouped flag leads the section so that neither divider is the
 /// section's own first row: a divider in that position drops its rule
@@ -301,8 +301,8 @@ fn a_group_divider_is_shaped_differently_from_a_section_header() {
             .find(|r| r.contains(label))
             .unwrap_or_else(|| panic!("no divider for {label:?}:\n{joined}"));
         assert!(
-            divider.starts_with('─'),
-            "a group divider leads with the rule: {divider:?}"
+            divider.starts_with(&format!("{label} ─")),
+            "a group divider leads with its label, then the rule: {divider:?}"
         );
         assert!(
             !divider.contains('('),
@@ -378,6 +378,10 @@ fn a_divider_that_opens_its_section_drops_its_rule() {
         rows[first], "Main operation mode",
         "a divider opening its section is its label alone:\n{joined}"
     );
+    assert!(
+        !rows[first].contains('─'),
+        "an opening divider draws no rule at all:\n{joined}"
+    );
     // ...and the header above it is still ruled, so what was removed is
     // the *second* rule of the pair, not the boundary itself.
     assert!(
@@ -387,8 +391,7 @@ fn a_divider_that_opens_its_section_drops_its_rule() {
     // A later divider in the same section still separates one run of rows
     // from another, and keeps its rule.
     assert!(
-        rows[second].starts_with("─ Device selection and switching ─")
-            && rows[second].ends_with('─'),
+        rows[second].starts_with("Device selection and switching ─") && rows[second].ends_with('─'),
         "a later divider stays ruled: {:?}\n{joined}",
         rows[second]
     );
@@ -424,10 +427,7 @@ fn a_group_divider_degrades_to_ascii() {
         .iter()
         .find(|r| r.contains("Main operation mode"))
         .unwrap_or_else(|| panic!("no divider:\n{joined}"));
-    assert!(
-        divider.starts_with("- Main operation mode -"),
-        "{divider:?}"
-    );
+    assert!(divider.starts_with("Main operation mode -"), "{divider:?}");
     assert!(
         divider.is_ascii(),
         "the ASCII frame must stay ASCII: {divider:?}"

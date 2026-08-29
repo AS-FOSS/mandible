@@ -966,14 +966,23 @@ fn group_label(raw: &str) -> String {
     label
 }
 
-/// A group divider within a section (spec §9.3): a full-width rule with
-/// the group's label inline, `─ Operation ─────…`.
+/// A group divider within a section (spec §9.3): the group's label at
+/// column 0 with a rule running from it to the pane's edge,
+/// `Operation ──────…`.
 ///
 /// The rows beneath it stay at the section's normal margin — grouping is
-/// drawn, never indented, so it costs no width. The leading rule cell is
-/// what makes the divider recognizable as subordinate at a glance: a
-/// section header starts with its own name at column 0, a group starts with
-/// the rule that runs through it.
+/// drawn, never indented, so it costs no width.
+///
+/// Label-first, like the section header above it ([`heading_line_ruled`]).
+/// The divider used to open with a single rule cell before its label, on
+/// the theory that leading with the rule marked it as subordinate — but a
+/// one-cell stub of a line is not a level, it is a decoration, and it cost
+/// the pane its one straight left edge: every heading, every divider and
+/// every ungrouped row starts at column 0, so the eye reads the document
+/// down one margin. What actually separates the two levels is the shade of
+/// the rule and the shape of the label — CAPS with a count against mixed
+/// case without one — neither of which needs a cell of furniture in front
+/// of the words to carry it.
 ///
 /// Rule and label are both drawn in [`style::muted`], one shade darker
 /// than the section header's [`style::section_rule`], so a divider reads
@@ -1001,19 +1010,15 @@ fn group_divider_line(
     if !ruled {
         return group_divider_lead_line(label, width, color_enabled, glyphs);
     }
-    // One rule cell, a space either side of the label, and at least one
-    // trailing rule cell: the budget the label has to fit inside.
-    let furniture = display_width(glyphs.rule) * 2 + 2;
+    // A space behind the label and at least one rule cell after it: the
+    // budget the label has to fit inside.
+    let furniture = display_width(glyphs.rule) + 1;
     let label = truncate_to_width_marker(label, width.saturating_sub(furniture), glyphs.ellipsis);
-    let trail =
-        width.saturating_sub(display_width(&label) + furniture - display_width(glyphs.rule));
-    let mut spans = vec![
-        Span::styled(format!("{} ", glyphs.rule), muted),
-        Span::styled(label, muted),
-        Span::styled(" ", muted),
-    ];
-    if trail > 0 {
-        spans.push(Span::styled(glyphs.rule.repeat(trail), muted));
+    let rule_width = width.saturating_sub(display_width(&label) + 1);
+    let mut spans = vec![Span::styled(label, muted)];
+    if rule_width > 0 {
+        spans.push(Span::styled(" ", muted));
+        spans.push(Span::styled(glyphs.rule.repeat(rule_width), muted));
     }
     Line::from(spans)
 }
@@ -2779,8 +2784,8 @@ mod tests {
             .find(|t| t.contains("Devices"))
             .expect("a second divider");
         assert!(
-            later.starts_with("─ Devices ") && later.ends_with('─'),
-            "a later divider keeps its rule: {later:?}"
+            later.starts_with("Devices ─") && later.ends_with('─'),
+            "a later divider keeps its rule, behind its own label: {later:?}"
         );
     }
 
