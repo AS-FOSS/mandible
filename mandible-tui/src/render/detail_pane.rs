@@ -1947,15 +1947,23 @@ mod tests {
 
     /// The reported defect, at every width rather than one.
     ///
-    /// A shared column is only shared if it is the same number for every
-    /// row. It was not: the column was capped at 45% of the pane and any
-    /// row too wide for the cap started its description at its own width
-    /// instead, so `docker`'s global flags rendered descriptions at three
-    /// different columns (19, 24 and 28) in a 90-column terminal — with
-    /// `--log-level string` also losing the gap that separates a spelling
-    /// from its value, so the two ran together as one token.
+    /// A description never starts at a column its own row chose. It used
+    /// to: the shared column was capped at 45% of the pane and any row too
+    /// wide for the cap started its description at its own width instead,
+    /// so `docker`'s global flags rendered descriptions at three different
+    /// columns (19, 24 and 28) in a 90-column terminal — with `--log-level
+    /// string` also losing the gap that separates a spelling from its
+    /// value, so the two ran together as one token.
+    ///
+    /// So the property is not "one column" — spec §9.3 gives a row too
+    /// wide for the column a second, equally fixed place to start, the
+    /// pane's hanging indent, and which rows need it is a function of the
+    /// pane's width. It is that **both** numbers are the section's, never
+    /// the row's: at every width every description begins either at the
+    /// section's own column or at the one hanging indent, and each of
+    /// those is a single number for the whole section.
     #[test]
-    fn descriptions_share_one_column_at_every_width() {
+    fn descriptions_never_start_at_a_column_the_row_chose() {
         let flags = docker_global_flags();
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
@@ -1967,10 +1975,30 @@ mod tests {
                 "width {width}: no descriptions rendered"
             );
             let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
-            assert_eq!(
-                distinct.len(),
-                1,
-                "width {width}: descriptions start at {distinct:?}, not one shared column"
+            assert!(
+                distinct.len() <= 2,
+                "width {width}: descriptions start at {distinct:?} — at most the \
+                 section's column and the hanging indent"
+            );
+            // The hanging indent is the pane's, not the row's, so a second
+            // column can only ever be that one number.
+            let hanging: Vec<usize> = distinct
+                .iter()
+                .copied()
+                .filter(|c| *c == HANGING_INDENT)
+                .collect();
+            let shared: Vec<usize> = distinct
+                .iter()
+                .copied()
+                .filter(|c| *c != HANGING_INDENT)
+                .collect();
+            assert!(
+                shared.len() <= 1,
+                "width {width}: {shared:?} are two different shared columns"
+            );
+            assert!(
+                distinct.len() < 2 || hanging.len() == 1,
+                "width {width}: a second column that is not the hanging indent: {distinct:?}"
             );
         }
     }
