@@ -728,16 +728,19 @@ fn build_lines(
 ///
 /// The rule is what gives the pane hierarchy: without it, a bold word and
 /// the body text beneath it are two lines of similar weight, and the eye
-/// has nothing to anchor a section boundary to. Drawn in the muted style so
-/// it separates without competing, and through the glyph set so a
-/// non-UTF-8 terminal gets `-` rather than tofu.
+/// has nothing to anchor a section boundary to. Drawn in
+/// [`style::section_rule`] — the heavier of the pane's two rule shades,
+/// because a section boundary reads across the whole document while a
+/// group divider only subdivides one section — and through the glyph set
+/// so a non-UTF-8 terminal gets `-` rather than tofu.
 ///
 /// Shape, not styling, is what separates this from a group divider
-/// ([`group_divider_line`]): CAPS with a count and the label first, against
-/// mixed case with no count behind a leading rule. Spec §9.2 forbids
-/// making dimming the sole distinction between two kinds of text, because
-/// several terminals ignore it — so the two must still read differently
-/// with every attribute stripped, and they do.
+/// ([`group_divider_line`]): both are label-first with a rule running to
+/// the pane's edge, and this one is CAPS with a count against the
+/// divider's mixed case without one. Spec §9.2 forbids making an
+/// attribute the sole distinction between two kinds of text, because
+/// several terminals ignore attributes — so the two must still read
+/// differently with every one stripped, and they do.
 fn heading_line_ruled(
     text: &str,
     count: Option<usize>,
@@ -756,7 +759,7 @@ fn heading_line_ruled(
         spans.push(Span::raw(" "));
         spans.push(Span::styled(
             glyphs.rule.repeat(rule_width),
-            style::muted(color_enabled),
+            style::section_rule(color_enabled),
         ));
     }
     Line::from(spans)
@@ -972,11 +975,13 @@ fn group_label(raw: &str) -> String {
 /// section header starts with its own name at column 0, a group starts with
 /// the rule that runs through it.
 ///
-/// The rule is drawn one shade lighter than the section header's
-/// ([`style::faint`] against [`style::muted`]), so a divider reads as
-/// subordinate to the header above it rather than as its equal. The label
-/// keeps the muted shade: it is the part that has to stay readable, and
-/// the weight difference belongs to the furniture, not the words.
+/// Rule and label are both drawn in [`style::muted`], one shade darker
+/// than the section header's [`style::section_rule`], so a divider reads
+/// as subordinate to the header above it rather than as its equal. The
+/// two are one shade because they are one piece of furniture: a label in
+/// a different muted shade from the line running out of it reads as two
+/// unrelated marks that happen to share a row. The difference in weight
+/// belongs between the levels, not inside one of them.
 ///
 /// `ruled` is false for a divider that opens its section — see
 /// [`group_divider_lead_line`], which is what that case renders instead.
@@ -996,7 +1001,6 @@ fn group_divider_line(
     if !ruled {
         return group_divider_lead_line(label, width, color_enabled, glyphs);
     }
-    let faint = style::faint(color_enabled);
     // One rule cell, a space either side of the label, and at least one
     // trailing rule cell: the budget the label has to fit inside.
     let furniture = display_width(glyphs.rule) * 2 + 2;
@@ -1004,12 +1008,12 @@ fn group_divider_line(
     let trail =
         width.saturating_sub(display_width(&label) + furniture - display_width(glyphs.rule));
     let mut spans = vec![
-        Span::styled(format!("{} ", glyphs.rule), faint),
+        Span::styled(format!("{} ", glyphs.rule), muted),
         Span::styled(label, muted),
-        Span::styled(" ", faint),
+        Span::styled(" ", muted),
     ];
     if trail > 0 {
-        spans.push(Span::styled(glyphs.rule.repeat(trail), faint));
+        spans.push(Span::styled(glyphs.rule.repeat(trail), muted));
     }
     Line::from(spans)
 }
@@ -2677,16 +2681,26 @@ mod tests {
         }
     }
 
-    /// Spec §9.3: a group divider's rule is drawn one shade lighter than
-    /// the rule that closes a section header, while its label keeps the
-    /// header's shade — the weight difference is in the furniture, not the
-    /// words.
+    /// Spec §9.3: the section header's rule is the heavier of the pane's
+    /// two rules and the group divider's the lighter, and a divider's
+    /// label is drawn in the same shade as the rule running out of it.
+    ///
+    /// Supersedes the previous pin, which asserted the ordering the other
+    /// way round and separated the two levels with `Modifier::DIM`. That
+    /// pin could not see its own failure: on a terminal that ignores
+    /// dimming — several do (spec §9.2) — the "lighter" rule was drawn in
+    /// `Gray` against the header's `DarkGray` and came out *brighter* than
+    /// the line it was meant to sit under. The ordering is now carried by
+    /// two plain named colors, and [`style`]'s own
+    /// `the_section_rule_outweighs_the_group_rule_without_dimming` pins
+    /// which of the two is lighter; what this test pins is the wiring —
+    /// which line draws with which — and the label/rule match.
     ///
     /// Asserted on the styles of the spans rather than on their text,
     /// because the text is identical by construction: both are runs of the
     /// same rule glyph, and only the style tells them apart.
     #[test]
-    fn a_group_divider_rule_is_lighter_than_a_section_header_rule() {
+    fn a_section_header_rule_outweighs_a_group_divider_rule() {
         let glyphs = crate::glyphs::UNICODE;
         let header = heading_line_ruled("FLAGS", Some(3), 60, true, glyphs);
         let divider = group_divider_line("Main operation mode", 60, true, glyphs, true);
@@ -2700,41 +2714,43 @@ mod tests {
         };
         let header_rule = rule_style(&header);
         let divider_rule = rule_style(&divider);
-        assert_eq!(header_rule, style::muted(true));
-        assert_eq!(divider_rule, style::faint(true));
+        assert_eq!(header_rule, style::section_rule(true));
+        assert_eq!(divider_rule, style::muted(true));
         assert_ne!(
             header_rule, divider_rule,
             "the two rules must not read as one weight"
         );
 
-        // The label is not what was lightened.
+        // The divider's label and its own rule are one piece of furniture,
+        // so they are one shade. A label in a different muted shade from
+        // the line running out of it reads as two unrelated marks sharing
+        // a row, which is the mismatch this replaces.
         let label = divider
             .spans
             .iter()
             .find(|s| s.content.contains("Main operation mode"))
             .expect("a label span");
-        assert_eq!(label.style, style::muted(true));
-
-        // Spec §9.2: the lightening is additive over a named color and
-        // never the sole distinction. The divider's rule carries a color of
-        // its own — not the absence of one — so a terminal that ignores
-        // `DIM` still draws a rule, and the CAPS-and-count shape is what
-        // separates the two lines there.
-        assert!(style::faint(true).fg.is_some());
-        assert!(style::faint(true)
-            .add_modifier
-            .contains(ratatui::style::Modifier::DIM));
-        assert!(text_of(&header).starts_with("FLAGS (3) "));
-        assert!(text_of(&divider).starts_with("─ Main operation mode "));
-
-        // ...and the divider is not simply the header's own shade: the
-        // base moved up a step, so the rule reads as furniture rather than
-        // as murk against the background.
-        assert_ne!(
-            style::faint(true).fg,
-            style::muted(true).fg,
-            "the divider's rule must carry its own shade"
+        assert_eq!(
+            label.style, divider_rule,
+            "a divider's label must match its own rule"
         );
+
+        // The section header's label keeps the stronger styling that makes
+        // it the outer level's name, so the two labels do not read alike
+        // either.
+        let heading = header.spans.first().expect("a heading span");
+        assert_eq!(heading.style, style::muted_bold(true));
+        assert_ne!(heading.style, label.style);
+
+        // Neither rule is dimmed: the ordering above must survive a
+        // terminal that drops the attribute entirely (spec §9.2).
+        for (name, style) in [("header", header_rule), ("divider", divider_rule)] {
+            assert!(
+                !style.add_modifier.contains(ratatui::style::Modifier::DIM),
+                "the {name} rule leans on DIM"
+            );
+        }
+        assert!(text_of(&header).starts_with("FLAGS (3) "));
     }
 
     /// Spec §9.3: a divider that opens its section renders its label alone

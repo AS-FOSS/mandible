@@ -4,7 +4,8 @@
 //! Four rules that matter more than the palette:
 //!
 //! - **ANSI indexed colors, not RGB.** [`ACCENT`] and [`WARNING`] are
-//!   `ratatui::style::Color` named variants (`Cyan`, `Yellow`, `DarkGray`),
+//!   `ratatui::style::Color` named variants (`Cyan`, `Yellow`, `Gray`,
+//!   `DarkGray`),
 //!   which resolve through the user's own terminal theme — no
 //!   `Color::Rgb(..)` appears anywhere in this crate. Native-looking output
 //!   in Solarized, Gruvbox, or a light terminal costs nothing extra this
@@ -35,7 +36,8 @@ pub const ACCENT: Color = Color::Cyan;
 pub const WARNING: Color = Color::Yellow;
 
 /// Muted text (spec §9.2: tree summaries, breadcrumb ancestors, group
-/// headings, provenance footer, inherited-group flags, deprecated tags).
+/// dividers — label and rule alike, provenance footer, inherited-group
+/// flags, deprecated tags).
 /// `DarkGray`, not `Modifier::DIM`. Degrades to no styling under
 /// `NO_COLOR` — muted text carries no meaning beyond "less important than
 /// its neighbors," which has nothing to communicate once color is off.
@@ -53,29 +55,29 @@ pub fn muted_bold(color_enabled: bool) -> Style {
     muted(color_enabled).add_modifier(Modifier::BOLD)
 }
 
-/// One step back from [`muted`]: the rule a group divider is drawn with,
-/// lighter than the rule that closes a section header (spec §9.3), so two
-/// rules in the same pane read as two levels rather than one repeated.
+/// The rule that closes a section header (spec §9.3): `Gray`, one step
+/// **brighter** than [`muted`], which is the shade a group divider draws
+/// both its rule and its label in.
 ///
-/// `Gray` dimmed, not `DarkGray` dimmed. `DarkGray` is the darkest step in
-/// the named palette that is not black, and dimming it again put the
-/// divider so close to the background that it read as murk rather than as
-/// furniture. Taking the base one step up and letting `DIM` bring it back
-/// down lands the rule between the two: still under the section header's
-/// weight where `DIM` is honored, and legible.
+/// The two rules carry the pane's two levels, and the outer level is the
+/// heavier one: a section boundary reads across the whole document, a
+/// group divider subdivides one section. Both shades are plain named
+/// colors, so the ordering is a property of the palette rather than of a
+/// modifier — `Gray` is ANSI 7 and `DarkGray` ANSI 8 (bright black), and
+/// 7 stays the lighter of the two in every theme that has color at all.
 ///
-/// `DIM` is used here **additively**, over a named color rather than in
-/// place of one, which is what keeps it clear of spec §9.2's rule against
-/// `DIM` as a substitute for a muted color. It is never the sole
-/// distinction either — a section header is CAPS with a count, a group
-/// divider mixed case without one, and that shape survives every attribute
-/// being stripped, which is what a terminal that ignores `DIM` reads the
-/// two levels from.
-pub fn faint(color_enabled: bool) -> Style {
+/// The ordering deliberately owes nothing to `Modifier::DIM`. A previous
+/// version separated the two levels by dimming one of them, which several
+/// terminals ignore outright (spec §9.2) — and on such a terminal the
+/// dimmed rule rendered *brighter* than the one it was supposed to sit
+/// under, inverting the hierarchy on exactly the machines the muted-over-
+/// `DIM` rule exists to protect. Nothing here is dimmed, so what a
+/// terminal draws is what was specified.
+pub fn section_rule(color_enabled: bool) -> Style {
     if color_enabled {
-        Style::default().fg(Color::Gray).add_modifier(Modifier::DIM)
+        Style::default().fg(Color::Gray)
     } else {
-        muted(false).add_modifier(Modifier::DIM)
+        Style::default()
     }
 }
 
@@ -205,6 +207,40 @@ mod tests {
     fn muted_has_no_color_when_disabled() {
         assert_eq!(muted(false).fg, None);
         assert!(muted(true).fg.is_some());
+    }
+
+    /// Spec §9.3: the section header's rule is the heavier of the pane's
+    /// two rules and the group divider's the lighter, and the ordering
+    /// holds on a terminal that ignores `Modifier::DIM`.
+    ///
+    /// Pinned as named colors rather than as an abstract "brighter",
+    /// because a `Style` carries no brightness a test can compare: `Gray`
+    /// is ANSI 7 and `DarkGray` ANSI 8 (bright black), and 7 is the
+    /// lighter of the pair in every theme that has color at all. The
+    /// `DIM` half of the assertion is the one that matters most — an
+    /// earlier version separated the two levels by dimming the brighter
+    /// color, which inverted the hierarchy outright on the terminals that
+    /// drop dimming.
+    #[test]
+    fn the_section_rule_outweighs_the_group_rule_without_dimming() {
+        assert_eq!(section_rule(true).fg, Some(Color::Gray));
+        assert_eq!(muted(true).fg, Some(Color::DarkGray));
+        assert_ne!(
+            section_rule(true).fg,
+            muted(true).fg,
+            "the two rules must not read as one weight"
+        );
+        for (name, style) in [
+            ("section_rule", section_rule(true)),
+            ("muted", muted(true)),
+            ("section_rule (no color)", section_rule(false)),
+            ("muted (no color)", muted(false)),
+        ] {
+            assert!(
+                !style.add_modifier.contains(Modifier::DIM),
+                "{name} leans on DIM, which many terminals ignore"
+            );
+        }
     }
 
     #[test]
