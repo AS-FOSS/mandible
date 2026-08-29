@@ -2027,22 +2027,28 @@ mod tests {
         );
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
         let first_text = text_of(&lines[0]);
-        // Every description line — the first as well as the continuations
-        // — sits at the column the list agreed on, never at column 0 and
-        // never at this row's own width.
+        // This row's spelling plus value runs to 24, past the column, so it
+        // hangs: line 0 is the spelling alone and the description starts on
+        // line 1. What it hangs *to* is what spec §9.3 changed — the small
+        // fixed indent, not the shared column this row could not reach.
         //
-        // This row's spelling plus value runs to 24, past the column, so
-        // it hangs: line 0 is the spelling alone and the description
-        // starts on line 1. The earlier assertion here demanded the
-        // continuation clear *this row's* prefix, which is precisely the
-        // per-row indent that made a list of flags render with three
-        // different "columns" at once.
+        // The pin the old assertion carried is kept and strengthened, not
+        // dropped: the failure it guarded against was a continuation that
+        // clears *this row's own prefix*, which is the per-row indent that
+        // made a list of flags render with three different "columns" at
+        // once. Every line here is checked against one number that is the
+        // same for every hanging row in the pane, and asserted to be well
+        // clear of this row's 24-column prefix.
         for line in &lines[1..] {
             let text = text_of(line);
             let indent_len = text.len() - text.trim_start().len();
             assert_eq!(
-                indent_len, 20,
-                "first={first_text:?} line={text:?} must start at the shared column"
+                indent_len, HANGING_INDENT,
+                "first={first_text:?} line={text:?} must start at the fixed hanging indent"
+            );
+            assert!(
+                indent_len < display_width(&first_text),
+                "a hanging description must not be indented by its own row's width"
             );
         }
     }
