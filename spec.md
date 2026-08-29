@@ -2199,31 +2199,55 @@ Rules:
   detail pane is 41 columns wide and the clamp puts the column at 13,
   which still holds a short-and-long pair; wider heads push their own
   first lines.
-- **POSITIONALS is inset by two columns; the flag-shaped sections are
+- **POSITIONALS is inset to the long column; the flag-shaped sections are
   not.** A positional's name carries no dashes to start it, so a run of
   bare names at the content edge reads as loose text against the pane's
-  border rather than as a list. FLAGS, MODIFIERS and ENVIRONMENT keep the
-  edge: their short and long columns are structure the eye follows down
-  the section, and an indent would push that structure right to buy
-  nothing.
+  border rather than as a list. The inset is the long column itself — the
+  width of a short prefix, `-X, ` — and not a second number chosen to be
+  small: a positional then starts exactly where a preindented long starts
+  in FLAGS, so one edge runs down the whole document. An inset that merely
+  approaches that column is worse than none, because two nearly-aligned
+  columns on one page read as a mistake rather than as a choice. FLAGS,
+  MODIFIERS and ENVIRONMENT keep the edge: their short and long columns
+  are structure the eye follows down the section, and an indent would push
+  that structure right to buy nothing.
+- **Exactly one blank row between a section's last row and the next
+  section's header**, and none above the first header on the page. The
+  separator belongs to the section that opens, never to the one that
+  closes: a boundary owned by both ends is the sum of two decisions and
+  varies with the content, so a section that wraps its last row, ends on a
+  group, or carries an empty trailing paragraph spaces differently from
+  its neighbour. One rule, one place, and whatever blank rows a section
+  leaves behind are absorbed rather than counted on.
 - **ENVIRONMENT is display-only**: documented vars under an explicit
   heading only, no probing, no inferred cross-references (§4.5).
-- **Group dividers.** Within a section, a `group` renders once as a
-  full-width rule with its label inline, mixed case
-  (`─ Operation ───────…`); the rows beneath sit at the section's normal
-  margin — no extra indent, so grouping costs no width. Section headers
+- **Group dividers are label-first, like the headers above them.** Within
+  a section, a `group` renders once as its label at column 0 followed by a
+  rule to the pane's edge, mixed case (`Operation ────────…`); the rows
+  beneath sit at the section's normal margin — no extra indent, so
+  grouping costs no width. Nothing precedes the label: a stub of rule in
+  front of the words is a decoration rather than a level, and it costs the
+  pane its one straight left edge, which every heading, every ungrouped
+  row and every section-opening divider otherwise share. Section headers
   are CAPS with a count, group dividers mixed-case without one: the shape
   distinction survives a terminal that ignores dimming, per §9.2.
-  - The divider's rule is drawn one shade lighter than the section
-    header's, so two rules in the same pane read as two levels rather than
-    one weight repeated. The label keeps the header's shade — the weight
-    difference belongs to the furniture, not the words. The rule takes a
-    named color one step up from the muted one with the lightening applied
-    over it, rather than lightening the muted color itself: the darkest
-    step in the palette lightened again reads as murk against the
-    background rather than as furniture. Lightening is never the sole
-    distinction (§9.2) — a terminal that ignores it still has the
-    CAPS-and-count shape to read.
+  - **The section header's rule is the brighter of the two shades and the
+    group divider's the darker** — `Gray` over `DarkGray` — so two rules
+    in the same pane read as two levels rather than one weight repeated,
+    with the heavier weight on the boundary that reads across the whole
+    document rather than on the one subdividing a single section. Both are
+    plain named colors and neither is dimmed: the ordering is a property
+    of the palette, so it holds unchanged on the terminals that ignore
+    `DIM` (§9.2), where a dimmed brighter color would come out *brighter*
+    than the rule it is meant to sit under and invert the hierarchy
+    outright. Shade is never the sole distinction either — the
+    CAPS-and-count shape survives every attribute being stripped.
+  - **A divider's label is drawn in the same shade as its own rule.**
+    Label and line are one piece of furniture; two muted shades inside it
+    read as unrelated marks that happen to share a row. The weight
+    difference belongs between the levels, not within one. The section
+    header's label keeps its own stronger styling, which is what names the
+    outer level.
   - **A divider that opens its section drops its rule** and renders its
     label alone at column 0. The section header drew a full-width rule on
     the line above, and a second one immediately beneath it reads as a
