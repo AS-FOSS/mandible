@@ -186,8 +186,9 @@ fn misread_token(flag: &Entity, siblings: &[Entity], raw: &str) -> Option<String
 }
 
 fn walk(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Misread>) {
-    for flag in &node.flags {
-        let Some(token) = misread_token(flag, &node.flags, raw) else {
+    let siblings: Vec<Entity> = node.flags().cloned().collect();
+    for flag in node.flags() {
+        let Some(token) = misread_token(flag, &siblings, raw) else {
             continue;
         };
         let Some(short) = flag.short() else {
@@ -245,7 +246,7 @@ fn table_flag(short: char, value: Option<&str>) -> Entity {
 /// A one-node tree named `name` carrying `flags`.
 fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.flags = flags;
+    root.set_flags(flags);
     root
 }
 
@@ -577,8 +578,8 @@ mod tests {
         let raw = "usage: t sub [-v] [-vv]\n";
         let mut root = CommandNode::new("t", Provenance::single(Source::HelpText));
         let mut sub = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        sub.flags.push(table_flag('v', None));
-        sub.flags.push(table_flag('v', Some("v")));
+        sub.entities.push(table_flag('v', None));
+        sub.entities.push(table_flag('v', Some("v")));
         root.subcommands.push(sub);
         let r = detect(raw, &root);
         assert_eq!(r.misread_count(), 1);

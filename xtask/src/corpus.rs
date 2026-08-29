@@ -176,7 +176,7 @@ struct ContractMeta {
     /// "this operand is the point" in a form that can be pointed at when it
     /// stops holding.
     ///
-    /// Matched on `Positional::name` exactly, root only — the same scope
+    /// Matched on `Entity::primary_name` exactly, root only — the same scope
     /// `must_contain_flags` has, and for the same reason: a name is what a
     /// user types, and nothing else about the entry is asserted here.
     #[serde(default)]
@@ -989,7 +989,11 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
     let missing_positionals: Vec<&str> = contract
         .must_contain_positionals
         .iter()
-        .filter(|name| !root.positionals.iter().any(|p| &&p.name == name))
+        .filter(|name| {
+            !root
+                .positionals()
+                .any(|p| p.primary_name() == name.as_str())
+        })
         .map(|s| s.as_str())
         .collect();
     if !missing_positionals.is_empty() {
@@ -1063,14 +1067,14 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 /// [`find_node_by_path`] resolved.
 fn flag_present(node: &CommandNode, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
-        node.flags.iter().any(|f| f.long() == Some(long))
+        node.flags().any(|f| f.long() == Some(long))
     } else if let Some(short) = spec.strip_prefix('-') {
         short
             .chars()
             .next()
-            .is_some_and(|c| node.flags.iter().any(|f| f.short() == Some(c)))
+            .is_some_and(|c| node.flags().any(|f| f.short() == Some(c)))
     } else {
-        node.flags.iter().any(|f| f.long() == Some(spec))
+        node.flags().any(|f| f.long() == Some(spec))
     }
 }
 
@@ -1450,11 +1454,11 @@ fn count_nodes(node: &CommandNode) -> usize {
 }
 
 fn count_flags(node: &CommandNode) -> usize {
-    node.flags.len() + node.subcommands.iter().map(count_flags).sum::<usize>()
+    node.flags().count() + node.subcommands.iter().map(count_flags).sum::<usize>()
 }
 
 fn collect_flag_names(node: &CommandNode, out: &mut BTreeSet<String>) {
-    for f in &node.flags {
+    for f in node.flags() {
         if let Some(long) = f.long() {
             out.insert(format!("--{long}"));
         } else if let Some(short) = f.short() {
@@ -1537,21 +1541,22 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
     node.heading_attested = n.heading_attested;
     node.invocation_attested = n.invocation_attested;
     node.unparsed = n.unparsed.iter().map(|s| Text::sanitize(s)).collect();
-    node.flags = n
-        .flags
-        .iter()
-        .map(|f| {
-            let mut flag = Entity::flag_spelled(
-                f.short,
-                f.long.clone(),
-                false,
-                false,
-                Provenance::single(Source::HelpText),
-            );
-            flag.description = f.description.as_deref().map(Text::sanitize);
-            flag
-        })
-        .collect();
+    node.set_flags(
+        n.flags
+            .iter()
+            .map(|f| {
+                let mut flag = Entity::flag_spelled(
+                    f.short,
+                    f.long.clone(),
+                    false,
+                    false,
+                    Provenance::single(Source::HelpText),
+                );
+                flag.description = f.description.as_deref().map(Text::sanitize);
+                flag
+            })
+            .collect(),
+    );
     node.subcommands = n.subcommands.iter().map(snap_to_command_node).collect();
     node
 }
@@ -2017,7 +2022,7 @@ pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Positional, Provenance, Source};
+    use mandible_core::{Provenance, Source};
     use std::fs;
 
     /// A minimal but complete two-fixture corpus in a temp dir: one clean
@@ -2180,9 +2185,9 @@ run = ["--source", "--staged"]
             vec!["must_contain_positionals: missing pid, interval"]
         );
 
-        let mut pid = Positional::new("pid", Provenance::single(Source::HelpText));
+        let mut pid = Entity::positional("pid", Provenance::single(Source::HelpText));
         pid.required = true;
-        root.positionals.push(pid);
+        root.entities.push(pid);
         assert_eq!(
             check_contract(&contract, Some(&root))
                 .iter()
@@ -2191,7 +2196,7 @@ run = ["--source", "--staged"]
             vec!["must_contain_positionals: missing interval"]
         );
 
-        root.positionals.push(Positional::new(
+        root.entities.push(Entity::positional(
             "interval",
             Provenance::single(Source::HelpText),
         ));
@@ -2223,7 +2228,7 @@ run = ["--source", "--staged"]
         let mut root = CommandNode::new("mariadb-check", Provenance::single(Source::HelpText));
 
         // A tree that invents neither is clean.
-        root.flags.push(Entity::flag_long(
+        root.entities.push(Entity::flag_long(
             "check",
             Provenance::single(Source::HelpText),
         ));
@@ -2231,7 +2236,7 @@ run = ["--source", "--staged"]
 
         // The phantom appears: reported, and named by the spelling the
         // fixture author wrote, not by the stripped long name.
-        root.flags.push(Entity::flag_long(
+        root.entities.push(Entity::flag_long(
             "-------------------------------",
             Provenance::single(Source::HelpText),
         ));
@@ -2244,7 +2249,7 @@ run = ["--source", "--staged"]
         );
 
         // Both present, both named, in the fixture's own order.
-        root.flags.push(Entity::flag_long(
+        root.entities.push(Entity::flag_long(
             "bogus",
             Provenance::single(Source::HelpText),
         ));
@@ -2264,14 +2269,14 @@ run = ["--source", "--staged"]
         };
         let mut shorty = CommandNode::new("t", Provenance::single(Source::HelpText));
         let short_flag = Entity::flag_short('b', Provenance::single(Source::HelpText));
-        shorty.flags.push(short_flag);
+        shorty.entities.push(short_flag);
         assert!(check_contract(&short_only, Some(&shorty)).is_empty());
 
         // What it does not claim (2): nothing below the root. A subcommand
         // carrying the forbidden spelling is out of scope.
         let mut with_child = CommandNode::new("t", Provenance::single(Source::HelpText));
         let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        child.flags.push(Entity::flag_long(
+        child.entities.push(Entity::flag_long(
             "bogus",
             Provenance::single(Source::HelpText),
         ));
@@ -2491,7 +2496,7 @@ stdout = "help-sub.txt"
         let sub = &root.subcommands[0];
         assert_eq!(sub.name, "sub");
         assert!(
-            sub.flags.iter().any(|f| f.long() == Some("deep")),
+            sub.flags().any(|f| f.long() == Some("deep")),
             "the recursive fill must have picked up sub's own captured --help: {sub:?}"
         );
     }

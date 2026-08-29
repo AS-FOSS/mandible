@@ -1179,7 +1179,7 @@ impl ExistenceReport {
 }
 
 fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabrication>) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         if !is_help_text_sourced(&flag.provenance) {
             continue;
         }
@@ -1222,15 +1222,15 @@ fn check_positionals(
     operands: &HashSet<&str>,
     out: &mut Vec<Fabrication>,
 ) {
-    for positional in &node.positionals {
+    for positional in node.positionals() {
         if !is_help_text_sourced(&positional.provenance) {
             continue;
         }
-        if !operands.contains(positional.name.as_str()) {
+        if !operands.contains(positional.primary_name()) {
             out.push(Fabrication {
                 path: path.to_string(),
                 kind: FabricationKind::Positional,
-                name: positional.name.clone(),
+                name: positional.primary_name().to_string(),
             });
         }
     }
@@ -1435,12 +1435,13 @@ mod tests {
     fn detect_does_not_flag_the_members_of_a_real_cluster() {
         let mut root = help_text_node("tmux");
         for member in "2CDlNuVv".chars() {
-            root.flags.push(help_text_flag(Some(member), None, false));
+            root.entities
+                .push(help_text_flag(Some(member), None, false));
         }
         for (short, value) in [('c', "shell-command"), ('f', "file"), ('T', "features")] {
             let mut flag = help_text_flag(Some(short), None, false);
             flag.value_name = Some(value.to_string());
-            root.flags.push(flag);
+            root.entities.push(flag);
         }
         let report = detect(TMUX_USAGE, &root);
         assert_eq!(
@@ -1489,7 +1490,7 @@ mod tests {
     #[test]
     fn a_genuinely_invented_short_flag_is_still_reported_beside_a_cluster() {
         let mut root = help_text_node("tmux");
-        root.flags.push(help_text_flag(Some('Q'), None, false));
+        root.entities.push(help_text_flag(Some('Q'), None, false));
         let report = detect(TMUX_USAGE, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].name, "-Q");
@@ -1515,7 +1516,7 @@ mod tests {
         let mut root = help_text_node("lto-dump");
         let mut flag = help_text_flag(Some('f'), None, false);
         flag.value_name = Some("dump-scos".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(GCC_SINGLE_DASH_LINE, &root);
         assert_eq!(
             report.fabrication_count(),
@@ -1541,7 +1542,7 @@ mod tests {
         let mut root = help_text_node("lto-dump");
         let mut flag = help_text_flag(None, Some("param"), false);
         flag.value_name = Some("lazy-modules=".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 0);
     }
@@ -1575,7 +1576,7 @@ mod tests {
         let mut root = help_text_node("t");
         let mut flag = help_text_flag(Some('z'), None, false);
         flag.value_name = Some("totally-invented".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].name, "-z");
@@ -1614,7 +1615,7 @@ mod tests {
         let mut root = help_text_node("cryptsetup");
         let mut flag = help_text_flag(None, Some("perf-no"), false);
         flag.value_name = Some("_read_workqueue".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
         assert_eq!(report.fabrication_count(), 0);
     }
@@ -1628,7 +1629,7 @@ mod tests {
         let mut root = help_text_node("t");
         let mut flag = help_text_flag(None, Some("perf-no"), false);
         flag.value_name = Some("_totally_invented".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(CRYPTSETUP_UNDERSCORE_LINE, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].name, "--perf-no");
@@ -1648,14 +1649,14 @@ mod tests {
         let mut root = help_text_node("t");
         let mut flag = help_text_flag(None, Some("vv"), false);
         flag.spellings = vec![mandible_core::Spelling::single_dash("vv")];
-        root.flags.push(flag);
+        root.entities.push(flag);
         assert_eq!(detect(raw, &root).fabrication_count(), 0);
         // ...and a genuinely invented one is still reported, with the
         // single-dash spelling it claims to have.
         let mut root = help_text_node("t");
         let mut flag = help_text_flag(None, Some("qq"), false);
         flag.spellings = vec![mandible_core::Spelling::single_dash("qq")];
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].name, "-qq");
@@ -1973,7 +1974,8 @@ mod tests {
     fn detect_flags_a_fabricated_flag_spelling() {
         let raw = "  -v, --verbose  be verbose\n";
         let mut root = help_text_node("t");
-        root.flags.push(help_text_flag(None, Some("quiet"), false));
+        root.entities
+            .push(help_text_flag(None, Some("quiet"), false));
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].kind, FabricationKind::Flag);
@@ -1986,7 +1988,7 @@ mod tests {
         let mut root = help_text_node("git");
         let mut flag = help_text_flag(Some('S'), Some("gpg-sign"), false);
         flag.value_name = Some("<keyid>".to_string());
-        root.flags.push(flag);
+        root.entities.push(flag);
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 0);
     }
@@ -1995,7 +1997,7 @@ mod tests {
     fn detect_does_not_flag_a_negatable_flag_against_its_bracketed_raw_form() {
         let raw = "  -s, --[no-]source <tree-ish>\n         use tree-ish as source\n";
         let mut root = help_text_node("git");
-        root.flags
+        root.entities
             .push(help_text_flag(Some('s'), Some("source"), true));
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 0);
@@ -2009,7 +2011,7 @@ mod tests {
         // needs to sit next to the other in the raw text.
         let raw = "  -R  Select another repository\n  --repo  Select another repository (long form documented on its own line)\n";
         let mut root = help_text_node("gh");
-        root.flags
+        root.entities
             .push(help_text_flag(Some('R'), Some("repo"), false));
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 0);
@@ -2025,7 +2027,7 @@ mod tests {
                 provider: "carapace".to_string(),
             }),
         );
-        root.flags.push(invented);
+        root.entities.push(invented);
         let report = detect(raw, &root);
         assert_eq!(
             report.fabrication_count(),
@@ -2108,7 +2110,7 @@ mod tests {
         let mut root = help_text_node("git");
         let mut clone = help_text_node("clone");
         clone
-            .flags
+            .entities
             .push(help_text_flag(None, Some("invented"), false));
         root.subcommands.push(clone);
         let report = detect(raw, &root);
@@ -2167,7 +2169,7 @@ mod tests {
             (None, Some("sparse-version")),
             (None, Some("occurrence")),
         ] {
-            root.flags.push(help_text_flag(short, long, false));
+            root.entities.push(help_text_flag(short, long, false));
         }
         let report = detect(raw, &root);
         assert_eq!(
@@ -2184,8 +2186,8 @@ mod tests {
 
     // --- positional operands ---------------------------------------------
 
-    fn help_text_positional(name: &str) -> mandible_core::Positional {
-        mandible_core::Positional::new(name, Provenance::single(Source::HelpText))
+    fn help_text_positional(name: &str) -> mandible_core::Entity {
+        mandible_core::Entity::positional(name, Provenance::single(Source::HelpText))
     }
 
     /// Every option-list placeholder shape the 15-tool fix removed, each
@@ -2234,8 +2236,8 @@ mod tests {
     fn detect_flags_the_option_list_placeholder_and_spares_the_operand_beside_it() {
         for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
             let mut root = help_text_node("t");
-            root.positionals.push(help_text_positional(placeholder));
-            root.positionals.push(help_text_positional(operand));
+            root.entities.push(help_text_positional(placeholder));
+            root.entities.push(help_text_positional(operand));
             let report = detect(raw, &root);
             let names: Vec<&String> = report.fabrications.iter().map(|f| &f.name).collect();
             assert_eq!(names, vec![placeholder], "for {raw:?}");
@@ -2251,8 +2253,8 @@ mod tests {
     fn detects_tars_own_fabricated_option_operand_against_its_real_corpus_text() {
         let raw = include_str!("../../corpus/tar/1.35/help.txt");
         let mut root = help_text_node("tar");
-        root.positionals.push(help_text_positional("OPTION"));
-        root.positionals.push(help_text_positional("FILE"));
+        root.entities.push(help_text_positional("OPTION"));
+        root.entities.push(help_text_positional("FILE"));
         let report = detect(raw, &root);
         assert_eq!(
             report.fabrication_count(),
@@ -2277,8 +2279,8 @@ mod tests {
     fn a_synopsis_that_writes_its_own_flags_has_no_placeholder_slot() {
         let raw = "usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-S TOP_SIZE] [-v] pid [interval]\n";
         let mut root = help_text_node("uobjnew");
-        root.positionals.push(help_text_positional("pid"));
-        root.positionals.push(help_text_positional("interval"));
+        root.entities.push(help_text_positional("pid"));
+        root.entities.push(help_text_positional("interval"));
         assert_eq!(detect(raw, &root).fabrication_count(), 0);
     }
 
@@ -2289,8 +2291,8 @@ mod tests {
     fn an_unbracketed_first_slot_is_never_the_option_list() {
         let raw = "Usage: basename NAME [SUFFIX]\n";
         let mut root = help_text_node("basename");
-        root.positionals.push(help_text_positional("NAME"));
-        root.positionals.push(help_text_positional("SUFFIX"));
+        root.entities.push(help_text_positional("NAME"));
+        root.entities.push(help_text_positional("SUFFIX"));
         assert_eq!(detect(raw, &root).fabrication_count(), 0);
     }
 
@@ -2305,7 +2307,7 @@ mod tests {
             ("Usage: strace-log-merge STRACE_LOG\n", "STRACE_LOG"),
         ] {
             let mut root = help_text_node("t");
-            root.positionals.push(help_text_positional(name));
+            root.entities.push(help_text_positional(name));
             let report = detect(raw, &root);
             assert_eq!(report.fabrication_count(), 0, "for {raw:?}");
         }
@@ -2331,8 +2333,8 @@ mod tests {
     fn a_wrapped_synopsis_still_attests_the_operands_on_its_last_line() {
         let raw = include_str!("../../corpus/git/2.43.0/help.txt");
         let mut root = help_text_node("git");
-        root.positionals.push(help_text_positional("command"));
-        root.positionals.push(help_text_positional("args"));
+        root.entities.push(help_text_positional("command"));
+        root.entities.push(help_text_positional("args"));
         let report = detect(raw, &root);
         assert_eq!(
             report.fabrication_count(),
@@ -2376,7 +2378,7 @@ mod tests {
             "  interval              print every specified number of seconds\n",
         );
         let mut root = help_text_node("uobjnew");
-        root.positionals.push(help_text_positional("interval"));
+        root.entities.push(help_text_positional("interval"));
         assert_eq!(detect(raw, &root).fabrication_count(), 0);
     }
 
@@ -2387,7 +2389,7 @@ mod tests {
     fn detect_flags_an_operand_that_occurs_nowhere() {
         let raw = "Usage: tar [OPTION...] [FILE]...\n";
         let mut root = help_text_node("tar");
-        root.positionals.push(help_text_positional("TELEPORT"));
+        root.entities.push(help_text_positional("TELEPORT"));
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].kind, FabricationKind::Positional);
@@ -2402,7 +2404,7 @@ mod tests {
         structural.provenance = Provenance::single(Source::NativeDynamic {
             protocol: "cobra-dunder-complete".to_string(),
         });
-        root.positionals.push(structural);
+        root.entities.push(structural);
         assert_eq!(
             detect(raw, &root).fabrication_count(),
             0,
@@ -2415,7 +2417,7 @@ mod tests {
         let raw = "Usage: t [OPTION...] <file>\n   sub    do a thing\n";
         let mut root = help_text_node("t");
         let mut sub = help_text_node("sub");
-        sub.positionals.push(help_text_positional("invented"));
+        sub.entities.push(help_text_positional("invented"));
         root.subcommands.push(sub);
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
@@ -2431,8 +2433,8 @@ mod tests {
     fn an_operand_written_after_a_bracketed_flag_is_still_attested() {
         let raw = "Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...\n";
         let mut root = help_text_node("lzgrep");
-        root.positionals.push(help_text_positional("PATTERN"));
-        root.positionals.push(help_text_positional("FILE"));
+        root.entities.push(help_text_positional("PATTERN"));
+        root.entities.push(help_text_positional("FILE"));
         assert_eq!(detect(raw, &root).fabrication_count(), 0);
     }
 
@@ -2482,8 +2484,8 @@ mod tests {
     #[test]
     fn detect_does_not_flag_ghs_real_operands_from_its_unlabelled_synopsis() {
         let mut root = help_text_node("gh");
-        root.positionals.push(help_text_positional("command"));
-        root.positionals.push(help_text_positional("subcommand"));
+        root.entities.push(help_text_positional("command"));
+        root.entities.push(help_text_positional("subcommand"));
         let report = detect(GH_USAGE, &root);
         assert_eq!(
             report.fabrication_count(),
@@ -2530,7 +2532,7 @@ mod tests {
     #[test]
     fn detect_does_not_flag_nfsidmaps_real_operand_from_the_name_prefixed_idiom() {
         let mut root = help_text_node("nfsidmap");
-        root.positionals.push(help_text_positional("path"));
+        root.entities.push(help_text_positional("path"));
         let report = detect(NFSIDMAP_USAGE, &root);
         assert_eq!(
             report.fabrication_count(),
@@ -2583,8 +2585,8 @@ mod tests {
     #[test]
     fn detect_does_not_flag_vgextends_real_operands_from_its_bare_own_name_line() {
         let mut root = help_text_node("vgextend");
-        root.positionals.push(help_text_positional("VG"));
-        root.positionals.push(help_text_positional("PV"));
+        root.entities.push(help_text_positional("VG"));
+        root.entities.push(help_text_positional("PV"));
         let report = detect(VGEXTEND_USAGE, &root);
         assert_eq!(
             report.fabrication_count(),

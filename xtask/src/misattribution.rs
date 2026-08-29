@@ -652,7 +652,7 @@ fn own_spellings(flag: &Entity) -> Vec<String> {
 }
 
 fn find_suspects(node: &CommandNode, path: &str, index: &DefinitionIndex, out: &mut Vec<Suspect>) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         let Some(description) = flag.description.as_ref() else {
             continue;
         };
@@ -756,7 +756,7 @@ mod tests {
             Provenance::single(Source::HelpText),
         );
         flag.description = Some(Text::sanitize(desc));
-        node.flags.push(flag);
+        node.entities.push(flag);
         node
     }
 
@@ -791,7 +791,7 @@ mod tests {
         q.description = Some(Text::sanitize(
             "-a AND selections (OR)     -b avoid kernel blocks",
         ));
-        root.flags.push(q);
+        root.entities.push(q);
         // No -a, no -b in the tree at all — matching the real bug exactly.
         let report = detect(LSOF_TABLE, &root);
         assert_eq!(report.suspect_count(), 1);
@@ -1001,7 +1001,7 @@ mod tests {
             Provenance::single(Source::HelpText),
         );
         v.description = Some(Text::sanitize("-v, --verbose  be verbose"));
-        node.flags.push(v);
+        node.entities.push(v);
         let report = detect(raw, &node);
         assert_eq!(report.suspect_count(), 0);
     }

@@ -216,13 +216,13 @@ fn spelling_present(node: &CommandNode, member: &str) -> bool {
             false
         }
     };
-    node.flags.iter().any(matches) || node.subcommands.iter().any(|c| spelling_present(c, member))
+    node.flags().any(matches) || node.subcommands.iter().any(|c| spelling_present(c, member))
 }
 
 /// The flag anywhere in `node`'s tree that carries `member`'s spelling and a
 /// `value_name` with a group delimiter still in it, if there is one.
 fn leaked_value(node: &CommandNode, member: &str) -> Option<String> {
-    for flag in &node.flags {
+    for flag in node.flags() {
         let is_member = if let Some(name) = member.strip_prefix("--") {
             flag.long() == Some(name)
         } else if let Some(rest) = member.strip_prefix('-') {
@@ -248,8 +248,8 @@ fn leaked_value(node: &CommandNode, member: &str) -> Option<String> {
 /// and no child — the `verbatim-fallback` state, which this detector steps
 /// around (see the module doc comment, decision 2).
 fn tree_is_structureless(node: &CommandNode) -> bool {
-    node.flags.is_empty()
-        && node.positionals.is_empty()
+    node.flags().next().is_none()
+        && node.positionals().next().is_none()
         && node.subcommands.is_empty()
         && node.subcommands.iter().all(tree_is_structureless)
 }
@@ -354,7 +354,7 @@ fn flag(short: Option<char>, long: Option<&str>, value: Option<&str>, source: So
 
 fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.flags = flags;
+    root.set_flags(flags);
     root
 }
 
