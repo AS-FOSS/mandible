@@ -11,6 +11,7 @@
 
 pub mod audit;
 pub mod config;
+mod entity;
 mod merge;
 mod node;
 mod noderef;
@@ -19,6 +20,7 @@ mod provenance;
 mod snapshot;
 mod text;
 
+pub use entity::{Dashes, Entity, EntityKind, Spelling};
 pub use merge::{
     merge_flag_lists, merge_nodes, merge_positional_lists, merge_subcommand_lists, pair_aliases,
     MergeError,
