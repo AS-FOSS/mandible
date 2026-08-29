@@ -761,13 +761,13 @@ fn line_is_blank(line: &Line<'static>) -> bool {
 /// A section heading followed by a rule to the pane's edge, with the
 /// section's entity count for the list sections: `FLAGS (41)`.
 ///
-/// The rule is what gives the pane hierarchy: without it, a bold word and
-/// the body text beneath it are two lines of similar weight, and the eye
-/// has nothing to anchor a section boundary to. Drawn in
-/// [`style::section_rule`] — the heavier of the pane's two rule shades,
-/// because a section boundary reads across the whole document while a
-/// group divider only subdivides one section — and through the glyph set
-/// so a non-UTF-8 terminal gets `-` rather than tofu.
+/// The rule is what gives the pane hierarchy: without it, a word and the
+/// body text beneath it are two lines of similar weight, and the eye has
+/// nothing to anchor a section boundary to. Label and rule alike are drawn
+/// in [`style::section_rule`] — the middle of the pane's three neutral
+/// steps, a clear step below the borders around it and a clear step above
+/// the group divider that subdivides it — and the rule goes through the
+/// glyph set so a non-UTF-8 terminal gets `-` rather than tofu.
 ///
 /// Shape, not styling, is what separates this from a group divider
 /// ([`group_divider_line`]): both are label-first with a rule running to
@@ -1022,13 +1022,15 @@ fn group_label(raw: &str) -> String {
 /// case without one — neither of which needs a cell of furniture in front
 /// of the words to carry it.
 ///
-/// Rule and label are both drawn in [`style::muted`], one shade darker
-/// than the section header's [`style::section_rule`], so a divider reads
-/// as subordinate to the header above it rather than as its equal. The
-/// two are one shade because they are one piece of furniture: a label in
-/// a different muted shade from the line running out of it reads as two
-/// unrelated marks that happen to share a row. The difference in weight
-/// belongs between the levels, not inside one of them.
+/// Rule and label are both drawn in [`style::group_rule`], the dimmest of
+/// the pane's three neutral steps and a clear step below the section
+/// header's [`style::section_rule`], so a divider reads as subordinate to
+/// the header above it rather than as its equal. The two spans are one
+/// style because they are one piece of furniture: a label in a different
+/// shade from the line running out of it reads as two unrelated marks
+/// that happen to share a row. The difference in weight belongs between
+/// the levels, never inside one of them — which is also why no label
+/// anywhere in this pane is bold.
 ///
 /// `ruled` is false for a divider that opens its section — see
 /// [`group_divider_lead_line`], which is what that case renders instead.
