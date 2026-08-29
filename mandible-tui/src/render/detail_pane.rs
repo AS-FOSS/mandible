@@ -1040,7 +1040,8 @@ fn group_divider_lead_line(
 }
 
 /// A spelling wider than this fraction of the pane does not get to set the
-/// shared column — it hangs instead (see [`SectionLayout::Table`]). One
+/// shared column — it runs on past it instead, pushing its own first
+/// description line and nothing else (see [`SectionLayout`]). One
 /// 40-character flag name in a list of short ones used to push every
 /// description in the list against the right-hand edge. Mirrors the tree
 /// pane's summary-column rule (spec §9.1).
@@ -1150,6 +1151,13 @@ fn bare_spelling_column(entity: &Entity) -> usize {
 /// descriptions starting at three different columns (19, 24 and 28), which
 /// is not a table at all. The cap was silently setting a target that most
 /// rows then missed individually.
+///
+/// A wide row does start its own first line past the column today, which
+/// looks like that defect and is not it: it is one line of one row, one
+/// space past that row's head, and every other line of that description —
+/// and every line of every other row — is on the column. What made the old
+/// behaviour ragged was that a row's *whole* description moved, so the
+/// section had no column at all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SectionLayout {
     /// The section's shared description column: where every description
