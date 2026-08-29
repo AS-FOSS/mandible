@@ -519,6 +519,63 @@ fn a_value_placeholder_wider_than_the_pane_is_wrapped_not_reflowed() {
     );
 }
 
+/// Spec §9.3, on screen: a placeholder is part of the spelling it belongs
+/// to, so `grep`'s `-e, --regexp PATTERNS` reaches its description on its
+/// own row instead of overrunning a slot and hanging it.
+///
+/// The pane is rendered wide, because the failure is about a column being
+/// wide enough for the row rather than about a narrow terminal: at the
+/// width where the section stacks, everything hangs by design and the
+/// defect is invisible.
+#[test]
+fn a_placeholder_does_not_hang_the_description_it_shares_a_row_with() {
+    let mut node = CommandNode::new("grep", Provenance::single(Source::HelpText));
+    for (short, long, value) in [
+        ('e', "regexp", Some("PATTERNS")),
+        ('f', "file", Some("FILE")),
+        ('i', "ignore-case", None),
+        ('c', "count", None),
+        ('v', "invert-match", None),
+    ] {
+        let mut e = entity(
+            EntityKind::Flag,
+            Spelling::long(long),
+            "zzz what this one does",
+        );
+        e.spellings.insert(0, Spelling::short(short));
+        if let Some(v) = value {
+            e.value_name = Some(v.to_string());
+            e.value_kind = ValueKind::Required;
+        }
+        node.entities.push(e);
+    }
+
+    let rows = detail_rows(&app_for(node), 140, 30);
+    let joined = rows.join("\n");
+    let row = rows
+        .iter()
+        .find(|r| r.contains("PATTERNS"))
+        .unwrap_or_else(|| panic!("no --regexp row:\n{joined}"));
+    assert!(
+        row.starts_with("-e, --regexp PATTERNS"),
+        "the placeholder follows its spelling directly: {row:?}"
+    );
+    assert!(
+        row.contains("zzz"),
+        "the placeholder must not push the description onto its own line: {row:?}\n{joined}"
+    );
+    // The placeholders are not aligned with each other — there is no slot.
+    let file_row = rows
+        .iter()
+        .find(|r| r.contains(" FILE"))
+        .unwrap_or_else(|| panic!("no --file row:\n{joined}"));
+    assert_ne!(
+        row.find("PATTERNS"),
+        file_row.find("FILE"),
+        "placeholders must not share a column:\n{joined}"
+    );
+}
+
 /// Spec §9.3's two spelling columns, on screen: shorts at the content
 /// edge, every long one short-prefix in whether or not a short precedes
 /// it.

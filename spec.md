@@ -2019,11 +2019,15 @@ full text on selection; a tree summary only has to disambiguate `push` from
 
 ### 9.1a Flag rows: a table, or honestly not one
 
-The detail pane's flag list is a three-column table — spelling, value
-placeholder, description. Three rather than two because a placeholder answers a
-different question from a spelling (`--env` is what you type, `list` is what it
-takes); run together as `--env list` they read as one token, while in their own
-columns the list can be scanned down either one.
+The detail pane's flag list is a two-column table — spelling, description. A
+value placeholder belongs to the spelling it follows and is measured with it,
+one space behind it (`--env list`), never given an aligned column of its own:
+such a column has to be as wide as the section's widest placeholder, and every
+row in the section pays that width whether it takes a value or not. `grep`'s
+`-e, --regexp PATTERNS` is what settles it — the placeholder alone pushed the
+row past the description column, so the description hung onto a second line
+beneath a first line that was mostly empty. Spelling and placeholder are still
+told apart, by style (§9.2) rather than by position.
 
 - **The description column is one number for the whole list.** Not a target the
   wide rows are allowed to miss. A column that most rows share and some rows
@@ -2033,12 +2037,17 @@ columns the list can be scanned down either one.
   line, at the column. It never pushes the column right for itself, and the
   spelling is never truncated to force alignment (as in §9.1, names win). The
   row costs one extra line, which is the only cost nothing else has to pay.
-- **An outlier spelling is excluded from the measurement, not clamped to it.**
+- **An outlier row is excluded from the measurement, not clamped to it.**
   Clamping sets a column the outlier still misses; excluding lets it hang while
-  every other row stays aligned. Threshold: a spelling wider than 45% of the
-  pane does not get a vote.
+  every other row stays aligned. Threshold: a row wider than 45% of the pane —
+  spelling and placeholder together — does not get a vote.
+- **Excluding is only excluding while the excluded are a minority.** Once the
+  threshold has removed half the section, the column left behind is one a
+  minority chose and the majority hangs below it — the same defect as the first
+  rule's, reached from the other side. A section in that state stacks.
 - **Below the width where the table can leave prose a readable amount of room
-  (28 columns), stop pretending and stack**: spelling and value on one line,
+  (28 columns), stop pretending and stack**: spelling and placeholder on one
+  line,
   description indented beneath. A table whose columns have eaten the pane
   breaks six words of prose across six lines; a stacked list at the same width
   reads normally. This is the same judgement as the tree's width ladder —
@@ -2157,15 +2166,21 @@ Rules:
   a row documenting more than two spellings (`-h, -?, -help, --help`):
   there is no single long in such a row for a column to align, and its
   length already marks it out.
+- **The value placeholder is part of the spelling.** It renders one space
+  behind the spelling it belongs to and is measured with it as a single
+  width (§9.1a); it never takes an aligned column of its own, so a row's
+  placeholder cannot push that row's own description onto a second line
+  while its first sits empty. Style, not position, keeps the two apart.
 - **Capped shared column, per section.** Every list section (POSITIONALS,
-  FLAGS, MODIFIERS, ENVIRONMENT) computes its own spelling column, fitted
-  to roughly the p90 spelling width — the majority, not the outliers —
-  measured from the pane's left edge, so a preindented long is measured
-  where it renders. An entity whose spellings exceed the cap puts its
-  description on the next line at the **hanging indent**, two columns past
-  the long column (not aligned to the shared column — the outlier is
-  already visually exceptional, and the fixed indent gives its description
-  the width back). Two past the long column is the shallowest indent that
+  FLAGS, MODIFIERS, ENVIRONMENT) computes its own column, fitted to
+  roughly the p90 row width — the majority, not the outliers — measured
+  from the pane's left edge through the end of the placeholder, so a
+  preindented long is measured where it renders and a placeholder is
+  charged to the row that carries it. An entity whose row exceeds the cap
+  puts its description on the next line at the **hanging indent**, two
+  columns past the long column (not aligned to the shared column — the
+  outlier is already visually exceptional, and the fixed indent gives its
+  description the width back). Two past the long column is the shallowest indent that
   still reads as subordinate to the deepest column a spelling can start
   at: at the long column itself a description would sit flush beneath a
   preindented long and stop reading as its description. It is the same

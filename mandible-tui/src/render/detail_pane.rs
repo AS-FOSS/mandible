@@ -1141,21 +1141,22 @@ fn spelling_column(entity: &Entity) -> usize {
 /// rows then missed individually.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SectionLayout {
-    /// Spelling, value placeholder and description in three aligned
-    /// columns.
+    /// Spelling-with-placeholder and description in two aligned columns.
     ///
-    /// Three rather than two, because a value placeholder is a different
-    /// *kind* of thing from a spelling — `--env` and `list` answer "what do
-    /// I type" and "what does it take". Run together as `--env list` they
-    /// read as one token; in their own columns the whole list can be
-    /// scanned down either one, which is what a parameter table in API
-    /// documentation is for.
+    /// The placeholder is part of what the reader types, so it is measured
+    /// as part of the spelling rather than given an aligned slot of its
+    /// own (spec §9.3). A slot has to be wide enough for the section's
+    /// widest placeholder, which is width every row pays and one row
+    /// needs: `grep`'s `-e, --regexp PATTERNS` ran past the description
+    /// column on a placeholder alone, hanging the description of a row
+    /// whose first line was mostly empty.
     ///
-    /// Both columns are invariant for the list: a row too wide for them
-    /// hangs its description onto the next line rather than pushing the
-    /// column right for itself alone.
-    Table { value: usize, description: usize },
-    /// Spelling and value on one line, description indented underneath.
+    /// The column is invariant for the list: a row too wide for it hangs
+    /// its description onto the next line rather than pushing the column
+    /// right for itself alone.
+    Table { description: usize },
+    /// Spelling and placeholder on one line, description indented
+    /// underneath.
     ///
     /// What every narrow-terminal help renderer falls back to, and for the
     /// same reason: it gives prose the full width of the pane and keeps a
@@ -1212,39 +1213,33 @@ fn section_layout(entities: &[&Entity], width: usize) -> SectionLayout {
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
     let gap = 2;
 
-    // Measured from the pane's own left edge, so a preindented long row
-    // is measured where it actually starts. Measuring the spelling text
-    // alone would make a long-only row look narrower than it renders and
-    // set a column it then misses.
+    // One measured width per row, from the pane's own left edge to the end
+    // of the row's placeholder: a preindented long is measured where it
+    // actually starts, and a placeholder is measured as part of the
+    // spelling it belongs to rather than against a slot of its own.
     let fits = |w: usize| w + gap <= cap;
-    let spelling = percentile_width(
-        entities
-            .iter()
-            .map(|e| spelling_column(e) + display_width(&entity_name_spec(e)))
-            .filter(|w| fits(*w)),
-    );
-    let value_width = percentile_width(
-        entities
-            .iter()
-            .filter_map(|e| entity_value_text(e))
-            .map(|v| display_width(&v))
-            .filter(|w| fits(*w)),
-    );
+    let fitting: Vec<usize> = entities
+        .iter()
+        .map(|e| entity_head_width(e))
+        .filter(|w| fits(*w))
+        .collect();
 
-    let value = spelling + gap;
-    // When nothing in this section takes a value the column collapses,
-    // rather than leaving a blank strip down the pane.
-    let description = value
-        + if value_width == 0 {
-            0
-        } else {
-            value_width + gap
-        };
+    // Exclusion presupposes that what it excludes are outliers. Once the
+    // cap has removed half the section, the column left behind is one a
+    // minority chose and the majority then hangs below — which is the
+    // shape spec §9.1a rules out, arrived at from the other direction: a
+    // column most rows miss is worse than no column, because the eye keeps
+    // trying to use it. A section in that state stacks instead.
+    if fitting.len() * 2 <= entities.len() {
+        return SectionLayout::Stacked;
+    }
+    let head = percentile_width(fitting.into_iter());
 
+    let description = head + gap;
     if width.saturating_sub(description) < MIN_DESC_WIDTH {
         return SectionLayout::Stacked;
     }
-    SectionLayout::Table { value, description }
+    SectionLayout::Table { description }
 }
 
 /// One section's rendered body: its lines, its logical rows, and where a
@@ -1425,8 +1420,25 @@ fn entity_name_spec(flag: &Entity) -> String {
         .join(", ")
 }
 
-/// An entity's value placeholder as its own column entry, e.g. `FILE` or
-/// `[FILE]` when optional. `None` when it takes no value.
+/// How wide one entity's row runs before its description: from the pane's
+/// left edge, through the column its shape starts it at, to the end of its
+/// value placeholder.
+///
+/// The single width the section's shared column is fitted to (spec §9.3).
+/// It has to be one number, because a placeholder measured separately is a
+/// placeholder the row is not charged for: `grep`'s `-e, --regexp
+/// PATTERNS` fits a column measured over `-e, --regexp` and overruns the
+/// one it is rendered against.
+fn entity_head_width(entity: &Entity) -> usize {
+    let mut width = spelling_column(entity) + display_width(&entity_name_spec(entity));
+    if let Some(v) = entity_value_text(entity) {
+        width += 1 + display_width(&v);
+    }
+    width
+}
+
+/// An entity's value placeholder, e.g. `FILE` or `[FILE]` when optional.
+/// `None` when it takes no value.
 fn entity_value_text(flag: &Entity) -> Option<String> {
     flag.value_name
         .as_ref()
@@ -1487,17 +1499,16 @@ fn entity_line(
     )];
     let mut prefix_width = display_width(leading) + display_width(&name_spec);
     if let Some(v) = &value_text {
-        // Padded to its own column, so values line up down the list rather
-        // than sitting wherever each spelling happens to end. In stacked
-        // mode there is no column to reach, so a single space separates
-        // them — the description below is what carries the alignment.
-        let pad = match layout {
-            SectionLayout::Table { value, .. } => value.saturating_sub(prefix_width).max(1),
-            SectionLayout::Stacked => 1,
-        };
-        first_line_spans.push(Span::raw(" ".repeat(pad)));
+        // One space after the spelling, never a pad to a slot of its own
+        // (spec §9.3). The placeholder is part of what the reader types,
+        // and a slot for it is width every row in the section pays so that
+        // the widest placeholder can line up — which is how a row whose
+        // first line was mostly empty ended up hanging its description.
+        // The distinction between name and placeholder is carried by the
+        // style, which costs nothing.
+        first_line_spans.push(Span::raw(" "));
         first_line_spans.push(Span::styled(v.clone(), value_style));
-        prefix_width += pad + display_width(v);
+        prefix_width += 1 + display_width(v);
     }
 
     // A head wider than the pane is broken across lines here, rather than
@@ -2193,10 +2204,7 @@ mod tests {
             false,
             40,
             true,
-            SectionLayout::Table {
-                value: 18,
-                description: 20,
-            },
+            SectionLayout::Table { description: 20 },
         );
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
         let first_text = text_of(&lines[0]);
@@ -2241,10 +2249,7 @@ mod tests {
             false,
             80,
             true,
-            SectionLayout::Table {
-                value: 18,
-                description: 20,
-            },
+            SectionLayout::Table { description: 20 },
         );
         let spans = &lines[0].spans;
         assert!(spans.len() >= 3, "{spans:?}");
@@ -2272,10 +2277,7 @@ mod tests {
             false,
             80,
             true,
-            SectionLayout::Table {
-                value: 18,
-                description: 20,
-            },
+            SectionLayout::Table { description: 20 },
         );
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
@@ -2318,6 +2320,111 @@ mod tests {
                 "a group label must not read as a section header: {label:?}"
             );
         }
+    }
+
+    /// Spec §9.3: a value placeholder is fused onto the spelling it
+    /// belongs to and measured with it — it gets no aligned slot of its
+    /// own.
+    ///
+    /// A slot has to be as wide as the section's widest placeholder, and
+    /// every row in the section pays that width whether it takes a value
+    /// or not. `grep`'s `-e, --regexp PATTERNS` is the case that named
+    /// it: the placeholder alone pushed the row past the description
+    /// column, so the description hung onto a second line while the first
+    /// sat mostly empty.
+    #[test]
+    fn a_placeholder_is_fused_onto_its_spelling_not_given_a_slot() {
+        let mk = |short: char, long: &str, value: Option<&str>| {
+            let mut f = Entity::flag_long(long, Provenance::single(Source::HelpText));
+            f.spellings.insert(0, Spelling::short(short));
+            f.value_name = value.map(str::to_string);
+            if value.is_some() {
+                f.value_kind = ValueKind::Required;
+            }
+            f.description = Some(Text::sanitize("zzz what this one does"));
+            f
+        };
+        let flags = [
+            mk('e', "regexp", Some("PATTERNS")),
+            mk('f', "file", Some("FILE")),
+            mk('c', "count", None),
+        ];
+        let refs: Vec<&Entity> = flags.iter().collect();
+        let text: Vec<String> = section_lines(&refs, 60, true, None, crate::glyphs::UNICODE)
+            .lines
+            .iter()
+            .map(text_of)
+            .collect();
+        let row = |needle: &str| {
+            text.iter()
+                .find(|t| t.contains(needle))
+                .unwrap_or_else(|| panic!("no row for {needle}: {text:?}"))
+                .clone()
+        };
+
+        // Each placeholder sits one space past its own spelling, so two
+        // rows of different spelling widths put theirs in different
+        // columns. A slot would line them up, which is exactly the width
+        // this stops spending.
+        let regexp = row("PATTERNS");
+        let file = row("FILE");
+        assert_eq!(regexp.find("PATTERNS"), Some("-e, --regexp".len() + 1));
+        assert_eq!(file.find("FILE"), Some("-f, --file".len() + 1));
+        assert_ne!(
+            regexp.find("PATTERNS"),
+            file.find("FILE"),
+            "placeholders must not share a column"
+        );
+
+        // ...and the section's column is measured over the fused width, so
+        // the widest of them still reaches its description on row one
+        // rather than hanging on a placeholder nobody measured.
+        assert!(
+            regexp.contains("zzz"),
+            "the placeholder's own width must not hang the description: {regexp:?}"
+        );
+    }
+
+    /// Spec §9.1a: excluding an outlier from the column's measurement is
+    /// only excluding an outlier while the excluded are a minority. Once
+    /// the cap has removed half the section, what is left chooses a column
+    /// the rest of the rows then miss — so the section stacks instead.
+    #[test]
+    fn a_column_is_never_chosen_by_the_minority_that_fits_the_cap() {
+        let mk = |long: &str| {
+            let mut f = Entity::flag_long(long, Provenance::single(Source::HelpText));
+            f.description = Some(Text::sanitize("zzz what this one does"));
+            f
+        };
+        // Four rows well past 45% of a 60-column pane, one comfortably
+        // inside it.
+        let mut flags: Vec<Entity> = (0..4)
+            .map(|i| mk(&format!("a-considerably-wider-option-{i}")))
+            .collect();
+        flags.push(mk("x"));
+        let refs: Vec<&Entity> = flags.iter().collect();
+
+        let cap = 60 * DESC_COLUMN_CAP_PERCENT / 100;
+        let fitting = refs
+            .iter()
+            .filter(|e| entity_head_width(e) + 2 <= cap)
+            .count();
+        assert_eq!(fitting, 1, "the fixture must leave a minority fitting");
+
+        assert_eq!(
+            section_layout(&refs, 60),
+            SectionLayout::Stacked,
+            "a column one row in five can reach is not a column"
+        );
+        let starts = description_columns(
+            &section_lines(&refs, 60, true, None, crate::glyphs::UNICODE).lines,
+        );
+        let distinct: std::collections::BTreeSet<usize> = starts.iter().copied().collect();
+        assert_eq!(
+            distinct.len(),
+            1,
+            "a stacked section has one left edge: {starts:?}"
+        );
     }
 
     /// Spec §9.3's two columns: a short spelling starts at the content
