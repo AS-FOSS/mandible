@@ -146,8 +146,11 @@ fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) -> Option<
                     let path = app.rows()[idx].path.clone();
                     return app.toggle_expand_path(&path).map(Effect::Fill);
                 } else {
+                    // `select_index` resets the detail pane itself, and
+                    // only when the click actually landed on a different
+                    // row. A second unconditional reset here would undo
+                    // that guard for the mouse alone.
                     app.select_index(idx);
-                    app.reset_detail_scroll();
                 }
             }
             return None;

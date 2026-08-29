@@ -610,19 +610,48 @@ impl App {
     /// Move the tree selection down one row.
     pub fn move_down(&mut self) {
         self.ensure_rows_fresh();
+        let was = self.selected_path();
         if self.selected + 1 < self.rows.len() {
             self.selected += 1;
         }
-        self.selected_flag = None;
-        self.reset_detail_scroll();
-        self.follow_selection();
+        self.settle_selection(was);
     }
 
     /// Move the tree selection up one row.
     pub fn move_up(&mut self) {
+        // `ensure_rows_fresh` for the same reason [`Self::move_down`]
+        // calls it: [`Self::settle_selection`] compares the row this key
+        // left against the row it arrived at, and a stale row list makes
+        // both sides of that comparison address the wrong node.
+        self.ensure_rows_fresh();
+        let was = self.selected_path();
         self.selected = self.selected.saturating_sub(1);
-        self.selected_flag = None;
-        self.reset_detail_scroll();
+        self.settle_selection(was);
+    }
+
+    /// Finish a navigation keypress: drop the detail pane's scroll and any
+    /// flag target **only if the selection actually moved to a different
+    /// node**, then bring the new selection on screen.
+    ///
+    /// `was` is [`Self::selected_path`] read before the move. The path,
+    /// not the index, is what decides: collapsing the selected row
+    /// re-flattens the tree underneath it while the pane goes on
+    /// describing the same node, and that is not a move.
+    ///
+    /// Guarding this is the whole point. [`Self::reset_detail_scroll`]
+    /// exists for "the pane now describes a different node", but every
+    /// navigation path used to call it unconditionally, including on the
+    /// presses that go nowhere: `j` on the last row, `k` on the first,
+    /// either one on a single-node tree, a click on the row already
+    /// selected. Reading a long `FLAGS` list and pressing `j` once too
+    /// often threw the reader back to the top of a document they had
+    /// scrolled minutes into, with nothing on screen having changed to
+    /// explain it — a keypress that does nothing must do *nothing*.
+    fn settle_selection(&mut self, was: Option<Vec<String>>) {
+        if self.selected_path() != was {
+            self.selected_flag = None;
+            self.reset_detail_scroll();
+        }
         self.follow_selection();
     }
 
@@ -729,6 +758,7 @@ impl App {
     /// selection to its parent.
     pub fn collapse_or_jump_to_parent(&mut self) {
         self.ensure_rows_fresh();
+        let was = self.selected_path();
         let Some(row) = self.rows.get(self.selected).cloned() else {
             return;
         };
@@ -745,9 +775,10 @@ impl App {
                 self.selected = idx;
             }
         }
-        self.selected_flag = None;
-        self.reset_detail_scroll();
-        self.follow_selection();
+        // Collapsing the selected row is not a move — the pane still
+        // describes the node it described a moment ago, so its scroll
+        // position still addresses something. Jumping to the parent is.
+        self.settle_selection(was);
     }
 
     /// Click/Enter/`l`/`→` shorthand: toggle expand state on the given row
@@ -775,12 +806,14 @@ impl App {
     /// row clicks).
     pub fn select_index(&mut self, idx: usize) {
         self.ensure_rows_fresh();
+        let was = self.selected_path();
         if idx < self.rows.len() {
             self.selected = idx;
         }
-        self.selected_flag = None;
-        self.reset_detail_scroll();
-        self.follow_selection();
+        // A click lands on the row that is already selected often enough
+        // to matter — the same rule as the arrow keys applies to it, and
+        // for the same reason (see [`Self::settle_selection`]).
+        self.settle_selection(was);
     }
 
     /// `/`: focus the search box. Pressing it again while the box is
@@ -1242,6 +1275,108 @@ mod tests {
         assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
+    /// A keypress that cannot move the selection must not move anything
+    /// else either: `k` on the first row and `j` on the last leave both
+    /// views' offsets and the flag target exactly where the reader left
+    /// them.
+    ///
+    /// Maintainer-reported. The scroll reset belongs to "the pane now
+    /// describes a different node", and every navigation path used to run
+    /// it unconditionally — so reading down a long `FLAGS` list and
+    /// pressing `j` once past the end threw the document back to the top
+    /// with nothing on screen having changed to explain why.
+    #[test]
+    fn a_boundary_press_leaves_both_views_where_they_were() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+
+        for (label, at_end) in [("first row", false), ("last row", true)] {
+            app.selected = if at_end { app.rows().len() - 1 } else { 0 };
+            app.detail_scroll = 100;
+            app.detail_hscroll = 32;
+            // Give the other view a stored place too, so a reset that
+            // wipes `saved_detail_offsets` cannot hide behind the
+            // showing view's own numbers.
+            app.toggle_raw_mode();
+            app.set_detail_extent(70, 20);
+            app.set_detail_hextent(90, 40);
+            app.detail_scroll = 30;
+            app.detail_hscroll = 16;
+            app.selected_flag = Some(mandible_core::FlagKey::Long("verbose".to_string()));
+
+            let before = app.selected;
+            if at_end {
+                app.move_down();
+            } else {
+                app.move_up();
+            }
+
+            assert_eq!(app.selected, before, "{label}: the selection cannot move");
+            assert_eq!(app.clamped_detail_scroll(), 30, "{label}: showing view");
+            assert_eq!(app.clamped_detail_hscroll(), 16, "{label}: showing view");
+            assert!(app.selected_flag.is_some(), "{label}: flag target");
+
+            // The view that was not showing kept its place as well.
+            app.toggle_raw_mode();
+            app.set_detail_extent(220, 20);
+            app.set_detail_hextent(140, 40);
+            assert_eq!(app.clamped_detail_scroll(), 100, "{label}: stored view");
+            assert_eq!(app.clamped_detail_hscroll(), 32, "{label}: stored view");
+        }
+    }
+
+    /// The other half of the same rule: a press that *does* move still
+    /// resets, so the guard cannot be satisfied by never resetting at all.
+    #[test]
+    fn a_real_move_still_resets_both_views() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 1;
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        app.detail_scroll = 100;
+        app.detail_hscroll = 32;
+        app.selected_flag = Some(mandible_core::FlagKey::Long("verbose".to_string()));
+
+        app.move_up();
+
+        assert_eq!(app.selected, 0, "this press moves");
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+        assert!(app.selected_flag.is_none());
+    }
+
+    /// The same rule on the other navigation paths. A click on the row
+    /// already selected is a no-op; collapsing the selected row leaves the
+    /// pane describing the very same node, so neither disturbs the
+    /// reader's place, while jumping to the parent does.
+    #[test]
+    fn clicks_and_collapses_that_go_nowhere_leave_the_pane_alone() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase, which has a child to collapse
+        app.expand_selected();
+        app.ensure_rows_fresh();
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        app.detail_scroll = 100;
+        app.detail_hscroll = 32;
+
+        app.select_index(2);
+        assert_eq!(app.clamped_detail_scroll(), 100, "click on the same row");
+        assert_eq!(app.clamped_detail_hscroll(), 32, "click on the same row");
+
+        app.collapse_or_jump_to_parent();
+        assert_eq!(app.selected_node().unwrap().name, "rebase");
+        assert_eq!(app.clamped_detail_scroll(), 100, "collapse is not a move");
+        assert_eq!(app.clamped_detail_hscroll(), 32, "collapse is not a move");
+
+        // Now the same key genuinely changes node, and resets.
+        app.collapse_or_jump_to_parent();
+        assert_eq!(app.selected_node().unwrap().name, "git");
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+    }
+
     /// Drive the (real, async, `nucleo`-backed) search index until its
     /// results stop changing for a few consecutive polls, bounded overall
     /// so a bug can't hang the test suite. Mirrors how the real event loop
@@ -1420,6 +1555,13 @@ mod tests {
     /// must drop the flag scroll target — otherwise the detail pane would
     /// keep snapping back to a flag on a command the user has since
     /// navigated away from.
+    ///
+    /// The press has to be one that genuinely moves. The filtered tree
+    /// here is two rows deep and the match puts the selection on the last
+    /// of them, so `j` cannot move at all — and a press that changes
+    /// nothing on screen leaves the target alone by design
+    /// ([`App::settle_selection`]). `k` is the move; the assertion below
+    /// that the selection changed keeps it one.
     #[test]
     fn manual_navigation_clears_the_selected_flag_target() {
         let mut root = sample_tree();
@@ -1440,7 +1582,9 @@ mod tests {
         app.ensure_rows_fresh();
         assert!(app.selected_flag.is_some(), "precondition");
 
-        app.move_down();
+        let before = app.selected_path();
+        app.move_up();
+        assert_ne!(app.selected_path(), before, "the press must actually move");
         assert_eq!(app.selected_flag, None);
     }
 
