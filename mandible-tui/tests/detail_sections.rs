@@ -351,6 +351,52 @@ fn a_wide_entity_hangs_its_description_at_the_fixed_indent() {
     );
 }
 
+/// A value placeholder wider than the whole pane is broken across lines
+/// by this module, not left for `Paragraph`'s defensive `Wrap` to reflow.
+///
+/// The real shape, from `vgchange --alloc`: one 55-column token,
+/// `contiguous|cling|cling_by_tags|normal|anywhere|inherit`, against a
+/// detail pane around 41 columns wide. `Wrap` restarted it at column 0
+/// with no memory of the row's indent, so the placeholder rendered flush
+/// against the pane's left edge two rows below the spelling it belongs to.
+/// Found through a real pty (AGENTS.md §3.2) — no corpus fixture had a
+/// placeholder that wide, and every line-level test passed throughout.
+#[test]
+fn a_value_placeholder_wider_than_the_pane_is_wrapped_not_reflowed() {
+    let mut node = CommandNode::new("vgchange", Provenance::single(Source::HelpText));
+    let mut flag = entity(
+        EntityKind::Flag,
+        Spelling::long("alloc"),
+        "set the allocation policy",
+    );
+    flag.value_name = Some("contiguous|cling|cling_by_tags|normal|anywhere|inherit".to_string());
+    flag.value_kind = ValueKind::Required;
+    node.entities.push(flag);
+    node.entities.push(entity(
+        EntityKind::Flag,
+        Spelling::long("uuid"),
+        "generate a new uuid",
+    ));
+
+    let rows = detail_rows(&app_for(node), 90, 30);
+    let joined = rows.join("\n");
+    let value_rows: Vec<&String> = rows.iter().filter(|r| r.contains("contiguous")).collect();
+    assert_eq!(
+        value_rows.len(),
+        1,
+        "the placeholder should start on one row:\n{joined}"
+    );
+    for row in rows.iter().filter(|r| {
+        r.contains("contiguous") || r.contains("inherit") || r.contains("cling_by_tags")
+    }) {
+        assert_eq!(
+            row.len() - row.trim_start().len(),
+            4,
+            "a wrapped placeholder must stay indented, not reflow flush left: {row:?}"
+        );
+    }
+}
+
 /// Nothing in a section is clipped or horizontally scrolled (spec §9.3):
 /// `[ui] horizontal_scroll` governs the raw view and verbatim USAGE lines
 /// only. A long description wraps at the pane width whatever the toggle

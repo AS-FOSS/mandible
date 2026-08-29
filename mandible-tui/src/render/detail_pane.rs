@@ -1395,6 +1395,43 @@ fn entity_line(
         prefix_width += pad + display_width(v);
     }
 
+    // A head wider than the pane is broken across lines here, rather than
+    // handed over for `Paragraph`'s defensive `Wrap` to reflow.
+    //
+    // This module pre-wraps everything precisely so that fallback never
+    // has to act (see the module doc), and where it did act the result was
+    // visibly wrong: `vgchange --alloc`'s value placeholder,
+    // `contiguous|cling|cling_by_tags|normal|anywhere|inherit`, is one
+    // 55-column token, and `Wrap` restarted it at column 0 with no memory
+    // of the row's indent — a value placeholder rendered flush against the
+    // pane's left edge, two rows below the spelling it belongs to. Found
+    // by rendering `vgchange` through a real pty (AGENTS.md §3.2); no
+    // synthetic fixture in the corpus had a placeholder that wide.
+    let mut head: Vec<Line<'static>> = Vec::new();
+    if prefix_width > width {
+        // Budget the wrap at the hanging indent's width rather than the
+        // pane's, so the first chunk fits behind the row's own indent and
+        // every continuation fits behind the hanging one.
+        let budget = width.saturating_sub(HANGING_INDENT).max(1);
+        let indent = " ".repeat(HANGING_INDENT);
+        for (i, chunk) in wrap_words(&name_spec, budget).into_iter().enumerate() {
+            let text = if i == 0 {
+                format!("{leading}{chunk}")
+            } else {
+                format!("{indent}{chunk}")
+            };
+            head.push(Line::from(Span::styled(text, spelling_style)));
+        }
+        if let Some(v) = &value_text {
+            for chunk in wrap_words(v, budget) {
+                head.push(Line::from(Span::styled(
+                    format!("{indent}{chunk}"),
+                    value_style,
+                )));
+            }
+        }
+    }
+
     let deprecated_tag = flag
         .deprecated
         .as_ref()
@@ -1430,6 +1467,9 @@ fn entity_line(
     }
 
     let Some(description_text) = description_text.filter(|d| !d.is_empty()) else {
+        if !head.is_empty() {
+            return head;
+        }
         return vec![Line::from(first_line_spans)];
     };
 
@@ -1451,7 +1491,9 @@ fn entity_line(
     // for.
     let gap = 2;
     let column = layout.description_column();
-    let hangs = prefix_width + gap > column;
+    // A head that had to be broken across lines has already left the
+    // column behind, so its description hangs by construction.
+    let hangs = !head.is_empty() || prefix_width + gap > column;
     let indent_width = if hangs { HANGING_INDENT } else { column };
     let available = width.saturating_sub(indent_width).max(1);
     let chunks = wrap_words(&description_text, available);
@@ -1464,7 +1506,11 @@ fn entity_line(
             first_line_spans.push(Span::styled(first_chunk, desc_style));
         }
     }
-    lines.push(Line::from(first_line_spans));
+    if head.is_empty() {
+        lines.push(Line::from(first_line_spans));
+    } else {
+        lines.extend(head);
+    }
 
     let indent_str = " ".repeat(indent_width);
     for chunk in chunks_iter {
