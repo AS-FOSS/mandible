@@ -613,10 +613,10 @@ fn build_lines(
                 Style::default().add_modifier(ratatui::style::Modifier::BOLD),
             )));
         }
-        lines.push(Line::default());
     }
 
     if let Some(description) = &node.description {
+        open_section(&mut lines);
         lines.push(heading_line_ruled(
             "DESCRIPTION",
             None,
@@ -624,15 +624,28 @@ fn build_lines(
             color_enabled,
             glyphs,
         ));
+        // One blank row *between* paragraphs and none after the last: the
+        // separator that closes the section belongs to whatever section
+        // opens next, and is `open_section`'s to place. An empty paragraph
+        // — what a source `\n\n\n\n` splits into — is skipped rather than
+        // rendered as a second blank row.
+        let mut first = true;
         for paragraph_text in description.as_str().split("\n\n") {
+            if paragraph_text.trim().is_empty() {
+                continue;
+            }
+            if !first {
+                lines.push(Line::default());
+            }
+            first = false;
             for chunk in wrap_words(paragraph_text, width) {
                 lines.push(Line::from(chunk));
             }
-            lines.push(Line::default());
         }
     }
 
     if !node.usage.is_empty() {
+        open_section(&mut lines);
         lines.push(heading_line_ruled(
             "USAGE",
             None,
@@ -676,7 +689,6 @@ fn build_lines(
                 }
             }
         }
-        lines.push(Line::default());
     }
 
     // The four list sections, in spec §9.3's order, from one loop. An
@@ -691,6 +703,7 @@ fn build_lines(
         if visible.is_empty() {
             continue;
         }
+        open_section(&mut lines);
         lines.push(heading_line_ruled(
             label,
             Some(visible.len()),
@@ -708,7 +721,6 @@ fn build_lines(
             lines: r.lines,
         }));
         lines.extend(section.lines);
-        lines.push(Line::default());
     }
 
     // Provenance is not rendered here at all any more: it describes where
@@ -721,6 +733,33 @@ fn build_lines(
         clip_rows,
         rows,
     }
+}
+
+/// Put exactly one blank row between whatever is already on the page and
+/// the section header about to be pushed (spec §9.3) — never zero, never
+/// two, and never one at the very top.
+///
+/// The separator belongs to the section that *opens*, not to the one that
+/// closes. Every section used to push its own trailing blank instead,
+/// which made the boundary the sum of two independent decisions: a section
+/// that wrapped its last row, ended on a group, or ran a paragraph split
+/// out into an empty trailer contributed a different number of blanks from
+/// its neighbour, and the page's rhythm changed with the content. One
+/// caller, one rule, and the trailing blanks a section may leave behind
+/// are absorbed here rather than counted on.
+fn open_section(lines: &mut Vec<Line<'static>>) {
+    while lines.last().is_some_and(line_is_blank) {
+        lines.pop();
+    }
+    if !lines.is_empty() {
+        lines.push(Line::default());
+    }
+}
+
+/// Whether a built line would render as an empty row: no spans, or nothing
+/// but whitespace in them.
+fn line_is_blank(line: &Line<'static>) -> bool {
+    line.spans.iter().all(|s| s.content.trim().is_empty())
 }
 
 /// A section heading followed by a rule to the pane's edge, with the

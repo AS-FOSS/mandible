@@ -247,6 +247,115 @@ fn section_headers_carry_the_count_of_what_they_render() {
     );
 }
 
+/// Spec §9.3: exactly one blank row sits between a section's last row and
+/// the next section's header — never none, never two, and never one above
+/// the first header on the page.
+///
+/// The fixture is built so the boundaries differ in every way a boundary
+/// can: DESCRIPTION ends on a wrapped paragraph after a paragraph break,
+/// USAGE on a verbatim synopsis line, POSITIONALS on a wrapped
+/// description, and FLAGS on a group. Each of those used to contribute its
+/// own trailing blank independently of the next section's, which is what
+/// let the page's rhythm change with the content.
+///
+/// Read off the frame, because uneven spacing down a page is a failure a
+/// reader sees and nothing else reports.
+#[test]
+fn exactly_one_blank_row_separates_every_section() {
+    let sections = [
+        "DESCRIPTION",
+        "USAGE",
+        "POSITIONALS",
+        "FLAGS",
+        "MODIFIERS",
+        "ENVIRONMENT",
+    ];
+    let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
+    node.description = Some(Text::sanitize(
+        "A first paragraph.\n\nA second paragraph, long enough that it has to wrap \
+         onto a further line before the section ends, so the boundary beneath it \
+         follows a continuation row rather than a heading.",
+    ));
+    node.usage = vec![Text::sanitize("tool [OPTIONS] <target>")];
+    node.entities.push(entity(
+        EntityKind::Positional,
+        Spelling::bare("target"),
+        "the thing to operate on, described at enough length that this row wraps \
+         and the section therefore ends on a continuation line",
+    ));
+    node.entities.push(entity(
+        EntityKind::Flag,
+        Spelling::long("verbose"),
+        "explain what is being done",
+    ));
+    for name in ["create", "extract"] {
+        let mut e = entity(
+            EntityKind::Flag,
+            Spelling::long(name),
+            "one of the things this tool does",
+        );
+        e.group = Some("Operation:".to_string());
+        node.entities.push(e);
+    }
+    node.entities.push(entity(
+        EntityKind::Modifier,
+        Spelling::bare("d"),
+        "delete members from the archive",
+    ));
+    node.entities.push(entity(
+        EntityKind::EnvVar,
+        Spelling::bare("TOOL_CONFIG"),
+        "path to the configuration file",
+    ));
+
+    let rows = detail_rows(&app_for(node), 120, 44);
+    let joined = rows.join("\n");
+    let headers: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| sections.iter().any(|s| r.starts_with(s)))
+        .map(|(i, _)| i)
+        .collect();
+    assert_eq!(
+        headers.len(),
+        sections.len(),
+        "every section must be on screen for the boundaries to be readable:\n{joined}"
+    );
+
+    // The fixture is only worth reading if its sections really do end the
+    // several different ways the doc comment claims — a boundary after a
+    // one-line section proves nothing about one after a wrapped row.
+    for (label, at) in sections.iter().zip(&headers).skip(1) {
+        let last = rows[at - 2].trim_start();
+        assert!(
+            !last.is_empty(),
+            "nothing above the boundary before {label}:\n{joined}"
+        );
+    }
+    let wrapped = headers.windows(2).filter(|w| w[1] - w[0] > 3).count();
+    assert!(
+        wrapped >= 2,
+        "the fixture must have sections that wrap, or the boundaries are all alike:\n{joined}"
+    );
+
+    assert_eq!(
+        headers[0], 0,
+        "the first section starts at the top, with no blank above it:\n{joined}"
+    );
+    for &at in &headers[1..] {
+        assert!(
+            rows[at - 1].is_empty(),
+            "no blank row above {:?}:\n{joined}",
+            rows[at]
+        );
+        assert!(
+            !rows[at - 2].is_empty(),
+            "two blank rows above {:?}:\n{joined}",
+            rows[at]
+        );
+    }
+}
+
 /// Spec §9.3 and §9.2: a section header and a group divider must stay
 /// distinguishable with every attribute stripped, because several
 /// terminals ignore dimming. `TestBackend`'s symbol grid *is* that
