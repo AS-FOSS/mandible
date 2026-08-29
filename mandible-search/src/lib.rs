@@ -223,7 +223,7 @@ fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<S
         cols[0] = haystack.as_str().into();
     });
 
-    for flag in &node.flags {
+    for flag in node.flags() {
         push_flag(injector, flag, &path);
     }
 
@@ -306,12 +306,12 @@ mod tests {
 
         let mut rebase = CommandNode::new("rebase", Provenance::single(Source::HelpText));
         rebase.summary = Some(Text::sanitize("Reapply commits on top of another base tip"));
-        rebase.flags.push(flag(
+        rebase.entities.push(flag(
             Some('i'),
             Some("interactive"),
             "Make a list of commits",
         ));
-        rebase.flags.push(flag(
+        rebase.entities.push(flag(
             None,
             Some("autosquash"),
             "Automatically squash commits",
@@ -319,7 +319,7 @@ mod tests {
 
         let mut add = CommandNode::new("add", Provenance::single(Source::HelpText));
         add.summary = Some(Text::sanitize("Add file contents to the index"));
-        add.flags
+        add.entities
             .push(flag(Some('p'), Some("patch"), "Interactively choose hunks"));
 
         root.subcommands.push(rebase);

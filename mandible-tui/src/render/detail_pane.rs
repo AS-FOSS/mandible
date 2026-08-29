@@ -590,8 +590,7 @@ fn build_lines(
     }
 
     let visible_flags: Vec<&Entity> = node
-        .flags
-        .iter()
+        .flags()
         .filter(|f| show_hidden || (!f.hidden && f.deprecated.is_none()))
         .collect();
 
@@ -1299,7 +1298,7 @@ mod tests {
         );
         f2.inherited = true;
         f2.description = Some(Text::sanitize("Show help"));
-        n.flags = vec![f1, f2];
+        n.set_flags(vec![f1, f2]);
         n
     }
 
@@ -1320,7 +1319,7 @@ mod tests {
     #[test]
     fn inherited_flags_are_grouped_last() {
         let node = node_with_flags();
-        let flags: Vec<&Entity> = node.flags.iter().collect();
+        let flags: Vec<&Entity> = node.flags().collect();
         let (lines, _) = flag_lines(&flags, 80, true, None, crate::glyphs::UNICODE);
         let text: Vec<String> = lines.iter().map(text_of).collect();
         let inherited_pos = text.iter().position(|l| l.contains("INHERITED")).unwrap();
@@ -1331,7 +1330,7 @@ mod tests {
     #[test]
     fn hidden_flags_suppressed_by_default() {
         let mut node = node_with_flags();
-        node.flags[0].hidden = true;
+        node.flags_mut().next().expect("a flag").hidden = true;
         let built = build_lines(
             &node,
             false,
@@ -1348,7 +1347,7 @@ mod tests {
     #[test]
     fn hidden_flags_shown_when_toggled() {
         let mut node = node_with_flags();
-        node.flags[0].hidden = true;
+        node.flags_mut().next().expect("a flag").hidden = true;
         let built = build_lines(
             &node,
             true,
@@ -1840,7 +1839,7 @@ mod tests {
         let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
         let mut flag = Entity::flag_long("verbose", Provenance::single(Source::HelpText));
         flag.description = Some(Text::sanitize("PARSED-FLAG-DESCRIPTION"));
-        root.flags.push(flag);
+        root.entities.push(flag);
         let mut app = App::new("tool".to_string(), root);
         let path = vec!["tool".to_string()];
 

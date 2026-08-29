@@ -32,7 +32,7 @@ fn node_with_a_flag(confidence: f32) -> CommandNode {
     );
     let mut f = Entity::flag_long("verbose", Provenance::single(Source::HelpTextSynopsis));
     f.spellings.insert(0, Spelling::short('v'));
-    n.flags = vec![f];
+    n.set_flags(vec![f]);
     n
 }
 

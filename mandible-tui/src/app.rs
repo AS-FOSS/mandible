@@ -1357,7 +1357,7 @@ mod tests {
         autosquash.description = Some(mandible_core::Text::sanitize(
             "Automatically squash commits",
         ));
-        root.subcommands[1].flags.push(autosquash); // rebase
+        root.subcommands[1].entities.push(autosquash); // rebase
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
@@ -1396,7 +1396,7 @@ mod tests {
         autosquash.description = Some(mandible_core::Text::sanitize(
             "Automatically squash commits",
         ));
-        root.subcommands[1].flags.push(autosquash); // rebase
+        root.subcommands[1].entities.push(autosquash); // rebase
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
