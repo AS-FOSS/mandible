@@ -130,14 +130,18 @@ fn each_view_returns_to_its_own_line() {
     scroll_down(&mut app, 21);
     let raw_place = app.clamped_detail_scroll();
     let raw_screen = detail_rows(&app);
-    assert_eq!(raw_place, 21);
+    assert_eq!(raw_place, 21, "the raw view has room of its own to scroll");
     assert_ne!(
         parsed_screen, raw_screen,
         "the two views must render differently for this test to mean anything"
     );
 
     app.toggle_raw_mode();
-    assert_eq!(app.clamped_detail_scroll(), parsed_place);
+    assert_eq!(
+        app.clamped_detail_scroll(),
+        parsed_place,
+        "the parsed view must return to its own line, not to a mapping of the raw view's"
+    );
     assert_eq!(
         detail_rows(&app),
         parsed_screen,
@@ -145,7 +149,11 @@ fn each_view_returns_to_its_own_line() {
     );
 
     app.toggle_raw_mode();
-    assert_eq!(app.clamped_detail_scroll(), raw_place);
+    assert_eq!(
+        app.clamped_detail_scroll(),
+        raw_place,
+        "the raw view must return to its own line, not to a mapping of the parsed view's"
+    );
     assert_eq!(
         detail_rows(&app),
         raw_screen,
@@ -180,12 +188,28 @@ fn each_view_returns_to_its_own_column() {
     );
 
     app.toggle_raw_mode();
-    assert_eq!(app.clamped_detail_hscroll(), parsed_column);
-    assert_eq!(detail_rows(&app), parsed_screen);
+    assert_eq!(
+        app.clamped_detail_hscroll(),
+        parsed_column,
+        "the parsed view must return to its own column"
+    );
+    assert_eq!(
+        detail_rows(&app),
+        parsed_screen,
+        "the parsed view came back at a different column"
+    );
 
     app.toggle_raw_mode();
-    assert_eq!(app.clamped_detail_hscroll(), raw_column);
-    assert_eq!(detail_rows(&app), raw_screen);
+    assert_eq!(
+        app.clamped_detail_hscroll(),
+        raw_column,
+        "the raw view must return to its own column"
+    );
+    assert_eq!(
+        detail_rows(&app),
+        raw_screen,
+        "the raw view came back at a different column"
+    );
 }
 
 /// Movement in one view never moves the other's stored position, however
@@ -212,7 +236,11 @@ fn scrolling_one_view_leaves_the_others_position_alone() {
         parsed_place,
         "the raw view's travel leaked into the parsed view"
     );
-    assert_eq!(detail_rows(&app), parsed_screen);
+    assert_eq!(
+        detail_rows(&app),
+        parsed_screen,
+        "the parsed view's screen changed while only the raw view was scrolled"
+    );
 }
 
 /// A view with nothing stored for this node opens at the top-left,
@@ -237,8 +265,16 @@ fn a_first_visit_to_a_view_starts_at_the_top_left() {
     assert!(app.clamped_detail_scroll() > 0 && app.clamped_detail_hscroll() > 0);
 
     app.toggle_raw_mode();
-    assert_eq!(app.clamped_detail_scroll(), 0);
-    assert_eq!(app.clamped_detail_hscroll(), 0);
+    assert_eq!(
+        app.clamped_detail_scroll(),
+        0,
+        "an unvisited view must not be seeded from the other view's line"
+    );
+    assert_eq!(
+        app.clamped_detail_hscroll(),
+        0,
+        "an unvisited view must not be seeded from the other view's column"
+    );
     assert_eq!(
         detail_rows(&app),
         raw_top,
@@ -314,12 +350,28 @@ fn a_node_change_clears_both_views_positions() {
 
     // The showing view starts at the top-left...
     detail_rows(&app);
-    assert_eq!(app.clamped_detail_scroll(), 0);
-    assert_eq!(app.clamped_detail_hscroll(), 0);
+    assert_eq!(
+        app.clamped_detail_scroll(),
+        0,
+        "the showing view kept a line belonging to the previous node"
+    );
+    assert_eq!(
+        app.clamped_detail_hscroll(),
+        0,
+        "the showing view kept a column belonging to the previous node"
+    );
 
     // ...and so does the one that was not showing when the node changed.
     app.toggle_raw_mode();
     detail_rows(&app);
-    assert_eq!(app.clamped_detail_scroll(), 0);
-    assert_eq!(app.clamped_detail_hscroll(), 0);
+    assert_eq!(
+        app.clamped_detail_scroll(),
+        0,
+        "the hidden view kept a line belonging to the previous node"
+    );
+    assert_eq!(
+        app.clamped_detail_hscroll(),
+        0,
+        "the hidden view kept a column belonging to the previous node"
+    );
 }
