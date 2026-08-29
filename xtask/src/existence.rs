@@ -1435,7 +1435,8 @@ mod tests {
     fn detect_does_not_flag_the_members_of_a_real_cluster() {
         let mut root = help_text_node("tmux");
         for member in "2CDlNuVv".chars() {
-            root.entities.push(help_text_flag(Some(member), None, false));
+            root.entities
+                .push(help_text_flag(Some(member), None, false));
         }
         for (short, value) in [('c', "shell-command"), ('f', "file"), ('T', "features")] {
             let mut flag = help_text_flag(Some(short), None, false);
@@ -1973,7 +1974,8 @@ mod tests {
     fn detect_flags_a_fabricated_flag_spelling() {
         let raw = "  -v, --verbose  be verbose\n";
         let mut root = help_text_node("t");
-        root.entities.push(help_text_flag(None, Some("quiet"), false));
+        root.entities
+            .push(help_text_flag(None, Some("quiet"), false));
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 1);
         assert_eq!(report.fabrications[0].kind, FabricationKind::Flag);

@@ -989,7 +989,11 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
     let missing_positionals: Vec<&str> = contract
         .must_contain_positionals
         .iter()
-        .filter(|name| !root.positionals().any(|p| p.primary_name() == name.as_str()))
+        .filter(|name| {
+            !root
+                .positionals()
+                .any(|p| p.primary_name() == name.as_str())
+        })
         .map(|s| s.as_str())
         .collect();
     if !missing_positionals.is_empty() {

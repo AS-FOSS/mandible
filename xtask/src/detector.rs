@@ -3042,7 +3042,8 @@ mod tests {
     fn unparsed_positional_is_silent_when_positionals_were_extracted() {
         let raw = "positional arguments:\n  pid  process id\n";
         let mut with = node("t");
-        let mut pid = mandible_core::Entity::positional("pid", Provenance::single(Source::HelpText));
+        let mut pid =
+            mandible_core::Entity::positional("pid", Provenance::single(Source::HelpText));
         pid.required = true;
         with.entities.push(pid);
         assert!(UnparsedArgparsePositional
