@@ -386,17 +386,29 @@ unexpanded would misalign columns rather than preserve them. It does not
 collapse whitespace, trim, or unwrap paragraphs, and it is truncated to the
 same `MAX_TEXT_CHARS` bound as `sanitize`.
 
-Two paths take the layout tier, and no others: the raw pane (key `t`, §2),
-whose whole job is showing the tool's own bytes, and `CommandNode::usage`,
+Three paths take the layout tier, and no others: the raw pane (key `t`,
+§2), whose whole job is showing the tool's own bytes; `CommandNode::usage`,
 whose synopses §9.3 already treats as content whose layout is not
-mandible's — the USAGE section scrolls sideways rather than re-flowing.
-Each is handed one already-line-split string at a time: a raw-help line, or
-one logical usage entry, whose wrapped continuations Tier B's parser has
-already joined. Everything else that feeds the IR — descriptions above all
-— goes through `Text::sanitize`. The two constructors are verified apart:
-diffing the raw pane against independently captured `--help` output for `du`
-(column alignment) and `curl --help all` (large output) came back
-byte-identical.
+mandible's — the USAGE section scrolls sideways rather than re-flowing;
+and `CommandNode::unparsed`, the verbatim fallback §7 Tier B step 3
+degrades to when nothing parsed. The third follows from the first: the
+fallback exists to show the author's document *because* mandible could not
+read it, so it is the raw pane under a different label, and text mandible
+has admitted it does not understand is the last text it may silently
+reformat. The columns a tool pads its help table into — `ar`'s
+`  m[ab]        - move file(s) in the archive` — are the only structure
+such a document still carries, and collapsing them is what a reader would
+have to un-do by hand against their own terminal.
+
+Each of the three is handed one already-line-split string at a time: a
+raw-help line, one logical usage entry (whose wrapped continuations Tier
+B's parser has already joined), or one line of the unparsed document.
+Everything else that feeds the IR — descriptions above all — goes through
+`Text::sanitize`. The rule that decides between them is ownership of the
+layout, never the field: mandible sets prose, the author sets everything
+shown as drawn. The two constructors are verified apart: diffing the raw
+pane against independently captured `--help` output for `du` (column
+alignment) and `curl --help all` (large output) came back byte-identical.
 
 **A usage form keeps the indentation its author gave it, and the pane
 reproduces the alignment that indentation was drawn for.** A tool lines its
@@ -2375,7 +2387,9 @@ Rules:
 - **Descriptions always wrap.** Sections are mandible's own layout, so
   nothing in them is ever clipped or horizontally scrolled; `[ui]
   horizontal_scroll` governs only content whose layout is not ours — the
-  raw view and verbatim USAGE synopsis lines. A DESCRIPTION's preserved
+  raw view, verbatim USAGE synopsis lines, and the `unparsed` fallback
+  (§4.1), which is the raw view under its own label and reaches the pane
+  by the same path rather than by machinery of its own. A DESCRIPTION's preserved
   breaks (§4.1) wrap too: each logical line is wrapped on its own, at its
   own indent, so a bullet or an example row keeps its line without any
   part of it escaping the pane's width.

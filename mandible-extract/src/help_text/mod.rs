@@ -1099,13 +1099,25 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
 /// and genuinely found nothing to attribute to this level, which is what
 /// stops the background warmer (`mandible/src/background.rs`) from
 /// cascading any further past this node.
+///
+/// The lines go through [`Text::sanitize_preserving_layout`], the same
+/// constructor [`format_streams`] uses for the raw pane and for the same
+/// reason (spec §4.1): this is the tool author's own document, shown
+/// because mandible could not read it, and the columns a tool pads its
+/// help table into are part of what the author drew. `Text::sanitize`
+/// collapses whitespace runs and trims, which left `ar`'s
+/// `  m[ab]        - move file(s) in the archive` rendering as
+/// `m[ab] - move file(s) in the archive` — a fallback that quietly
+/// reformats the text it exists to reproduce, and the honesty promise
+/// (§1) is the whole reason the fallback is there. One line per entry,
+/// which is what the layout tier's per-line contract requires.
 fn verbatim_node(name: &str, raw: &str, detected_framework: Option<String>) -> CommandNode {
     let provenance = Provenance::with_confidence(Source::HelpText, 0.0);
     let mut node = CommandNode::new(name, provenance);
     node.unparsed = raw
         .lines()
         .take(MAX_UNPARSED_LINES)
-        .map(Text::sanitize)
+        .map(Text::sanitize_preserving_layout)
         .collect();
     node.detected_framework = detected_framework;
     // Same rationale as the structurally-plausible path in `build_node`:
@@ -1348,6 +1360,35 @@ mod tests {
         assert!(node.subcommands.is_empty());
         assert!(node.usage.is_empty());
         assert!(node.description.is_none());
+    }
+
+    /// The verbatim fallback reproduces the author's layout (spec §4.1's
+    /// layout tier): leading indentation and the space runs a tool pads
+    /// its own columns with survive into `unparsed` exactly as printed.
+    ///
+    /// The columns are `ar`'s own — it pads a name out and then lines
+    /// every description up behind it — on a block that recovers no
+    /// structure, which is the state that reaches [`verbatim_node`].
+    /// `Text::sanitize` was rendering
+    /// `  elf32-littlearm         elf32-bigarm` as
+    /// `elf32-littlearm elf32-bigarm`: columns collapsed, every row
+    /// shoved against the left edge, in the one view whose entire purpose
+    /// is showing the document unedited.
+    #[test]
+    fn verbatim_fallback_preserves_the_authors_column_alignment() {
+        let raw = " supported targets:\n  elf64-littleaarch64     elf64-bigaarch64\n\
+                   \x20 elf32-littlearm         elf32-bigarm\n";
+        let node = build_node("ar", raw, None, "ar");
+        assert!(!node.unparsed.is_empty(), "expected the verbatim fallback");
+        let rendered: Vec<&str> = node.unparsed.iter().map(Text::as_str).collect();
+        assert_eq!(rendered, raw.lines().collect::<Vec<_>>(), "{rendered:?}");
+        // Named separately from the whole-document equality above so a
+        // failure says which half of the layout was lost.
+        assert!(rendered[0].starts_with(' '), "leading indent: {rendered:?}");
+        assert!(
+            rendered[2].contains("elf32-littlearm         elf32"),
+            "columns: {rendered:?}"
+        );
     }
 
     /// A structurally *plausible* parse (at least one flag/subcommand/

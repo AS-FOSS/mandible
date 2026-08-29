@@ -299,14 +299,15 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// never reflows, and can therefore never smear into the pane border the
 /// way an unsanitized newline once did (spec §9) — holds regardless of
 /// which offset is showing. Safe to hand
-/// straight to a `Span` because every `Text` reaching here already went
-/// through one of `mandible_core::Text`'s sanitizing constructors —
-/// `Text::sanitize` for `node.unparsed` (level-3 degradation), or
-/// `Text::sanitize_preserving_layout` for the verbatim view's own lines
-/// (`mandible-extract`'s `help_text::raw_help*`) — both of which guarantee
-/// no embedded control characters or newlines reach here; they differ only
-/// in whether whitespace/indentation is collapsed, never in that safety
-/// property. The heading and the recognizable unverified-subcommand notice
+/// straight to a `Span` because both bodies reaching here were built by
+/// `mandible_core::Text::sanitize_preserving_layout` (spec §4.1's layout
+/// tier), one line at a time: the verbatim view's own lines in
+/// `mandible-extract`'s `help_text::format_streams`, and `node.unparsed`
+/// in that module's `verbatim_node`. It guarantees no control characters
+/// and no embedded newline reach here, and it leaves indentation and
+/// column alignment exactly as the tool printed them — which is the
+/// point of both views, since a fallback that reformats the document it
+/// is showing is no longer showing it. The heading and the recognizable unverified-subcommand notice
 /// prefix are different: they are prose owned by mandible, so they wrap at the
 /// current inner width while the tool lines after them stay untouched.
 fn render_verbatim(
@@ -3530,6 +3531,77 @@ mod tests {
         assert!(rendered.contains("unparsed"), "{rendered}");
         assert!(rendered.contains("a friendly banner"), "{rendered}");
         assert!(rendered.contains("and nothing else"), "{rendered}");
+    }
+
+    /// The verbatim fallback draws the author's own columns (spec §4.1's
+    /// layout tier) and, being preformatted content whose layout is not
+    /// mandible's, participates in `[ui] horizontal_scroll` by the same
+    /// path the raw view does — no second mechanism.
+    ///
+    /// `ar`'s shape: `mandible ar`, then any subcommand. Every one of
+    /// them degrades to verbatim, and the padded `-` column that lines
+    /// the descriptions up was being collapsed away before it reached
+    /// here.
+    #[test]
+    fn verbatim_fallback_draws_aligned_columns_and_scrolls_sideways() {
+        use crate::app::App;
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        // Narrow enough that the padded rows overrun the pane, which is
+        // the only condition under which there is any horizontal scroll
+        // to exercise.
+        fn screen(app: &App) -> String {
+            let backend = TestBackend::new(40, 24);
+            let mut terminal = Terminal::new(backend).unwrap();
+            terminal
+                .draw(|frame| {
+                    let area = frame.area();
+                    render(frame, area, app);
+                })
+                .unwrap();
+            terminal
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|c| c.symbol())
+                .collect::<Vec<_>>()
+                .join("")
+        }
+
+        let mut root = CommandNode::new("ar", Provenance::with_confidence(Source::HelpText, 0.0));
+        root.unparsed = [
+            " commands:",
+            "  d            - delete file(s) from the archive",
+            "  m[ab]        - move file(s) in the archive",
+        ]
+        .iter()
+        .map(|l| Text::sanitize_preserving_layout(l))
+        .collect();
+        let mut app = App::new("ar".to_string(), root);
+        app.horizontal_scroll_enabled = true;
+
+        let rendered = screen(&app);
+        assert!(
+            rendered.contains("  d            - delete"),
+            "the author's own column must survive to the screen: {rendered}"
+        );
+        assert!(rendered.contains("  m[ab]        - move"), "{rendered}");
+
+        // Same content, scrolled: the fallback flows through the existing
+        // preformatted-content path, so `→` moves it rather than doing
+        // nothing (which is what a fallback with its own renderer would).
+        app.detail_hscroll_right();
+        let scrolled = screen(&app);
+        assert!(
+            !scrolled.contains("  d            - delete"),
+            "a scrolled pane must not still show column 0: {scrolled}"
+        );
+        assert!(
+            scrolled.contains("- delete file(s) from the"),
+            "the row itself is unchanged, only its window moved: {scrolled}"
+        );
     }
 
     /// Every form's rendered padding, for a tool's own synopsis block.
