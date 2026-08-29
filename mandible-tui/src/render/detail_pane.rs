@@ -1892,7 +1892,30 @@ mod tests {
         let lines = section_lines(&refs, 120, true, None, crate::glyphs::UNICODE).lines;
         let distinct: std::collections::BTreeSet<usize> =
             description_columns(&lines).into_iter().collect();
-        assert_eq!(distinct.len(), 1, "outlier broke the column: {distinct:?}");
+        // Spec §9.3 supersedes the old single-column pin here. Two columns
+        // is the *designed* outcome, and asserting one hid which: the
+        // outlier's description hangs at the small fixed indent rather than
+        // at the shared column it could not reach, and every other row is
+        // still aligned on that column. Both halves are asserted, so this
+        // is a stronger statement than the count it replaces — it names the
+        // two numbers instead of counting them.
+        assert_eq!(distinct.len(), 2, "expected column + hang: {distinct:?}");
+        assert!(
+            distinct.contains(&HANGING_INDENT),
+            "the outlier must hang at the fixed indent: {distinct:?}"
+        );
+        let shared = *distinct
+            .iter()
+            .find(|c| **c != HANGING_INDENT)
+            .expect("a shared column");
+        assert_eq!(
+            description_columns(&lines)
+                .into_iter()
+                .filter(|c| *c == HANGING_INDENT)
+                .count(),
+            1,
+            "only the outlier may hang; every other row sits at {shared}"
+        );
 
         // ...and it hangs: its spelling occupies a line of its own.
         let joined: Vec<String> = lines.iter().map(text_of).collect();
