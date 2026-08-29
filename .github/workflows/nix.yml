@@ -1,0 +1,35 @@
+# Builds the nix flake so a broken derivation is caught by the PR that
+# breaks it, not by the first nix user after a release. Runs only when the
+# flake or the things it consumes change.
+name: nix
+
+on:
+  pull_request:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "**/Cargo.toml"
+  push:
+    branches: [main]
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: nix build (x86_64-linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: nix flake check
+        run: nix flake check --print-build-logs
+      - name: nix build
+        run: nix build .#mandible --print-build-logs
+      - name: smoke-run the packaged binary
+        run: ./result/bin/mandible --version
