@@ -1,6 +1,16 @@
-//! The detail pane: breadcrumb header, description, flags grouped by
-//! [`mandible_core::Entity::group`] (inherited flags in a final dimmed group),
-//! and a provenance footer (spec §2, §9, §9.2).
+//! The detail pane: a breadcrumb header over **one scrollable document of
+//! sections** — `DESCRIPTION`, `USAGE`, `POSITIONALS`, `FLAGS`,
+//! `MODIFIERS`, `ENVIRONMENT`, in that order and only when non-empty
+//! (spec §9.3).
+//!
+//! The four list sections are driven purely by
+//! [`mandible_core::EntityKind`]: one loop over [`LIST_SECTIONS`] renders
+//! all four, so a kind no parser emits yet (modifiers, environment
+//! variables) is already rendered the day one does, and no section can
+//! acquire behaviour of its own. Within a section,
+//! [`mandible_core::Entity::group`] renders as a divider rule and
+//! inherited entities land in a final dimmed `Inherited` group
+//! (spec §9, §9.3).
 //!
 //! **Every line handed to the `Paragraph` is already wrapped to the
 //! pane's exact width before it gets there** — both the description
@@ -28,9 +38,9 @@
 
 use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
-use crate::sanitize::{defensive_single_line, display_width};
+use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
 use crate::style;
-use mandible_core::{CommandNode, Entity, FlagKey, Spelling, ValueKind};
+use mandible_core::{CommandNode, Entity, EntityKind, FlagKey, Spelling, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -128,9 +138,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     // Tell `App` how far this content can scroll, so `↓` stops at the end
     // instead of pushing it off the top into blank space.
     app.set_detail_extent(built.lines.len(), inner.height as usize);
-    let scroll = built
-        .target_flag_line
-        .unwrap_or_else(|| app.clamped_detail_scroll()) as u16;
+    let scroll = match built.target_flag_line {
+        Some(line) => target_scroll(&built, line, inner.height as usize),
+        None => app.clamped_detail_scroll(),
+    } as u16;
     let paragraph = Paragraph::new(built.lines)
         .wrap(Wrap { trim: false })
         .scroll((scroll, 0));
@@ -143,6 +154,35 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         scroll as usize,
     );
     draw_hscroll_affordance(frame, area, app);
+}
+
+/// Where to scroll so a search-selected entity is on screen (spec §10:
+/// selecting a flag "closes the loop" by showing it).
+///
+/// Scroll math over **logical rows** (spec §9.3), which is what makes the
+/// two edge cases below expressible at all — a row is a place in the
+/// document with a height, not a line index:
+///
+/// - A row already wholly visible from the top scrolls **nothing**.
+///   Scrolling a flag to the top of the pane when it was on screen anyway
+///   throws away the `DESCRIPTION` and `USAGE` above it to no purpose.
+/// - The offset is clamped to the document's own extent, so targeting the
+///   last flag of a long list cannot scroll past the end into blank space.
+///   That clamp is the same bound `App::set_detail_extent` puts on the
+///   user's own scrolling, and this path used to bypass it — the
+///   unbounded-detail-pane-scroll bug class, reached through search
+///   instead of through `↓`.
+fn target_scroll(built: &BuiltLines, first_line: usize, viewport: usize) -> usize {
+    let row_end = built
+        .rows
+        .iter()
+        .find(|r| r.first_line == first_line)
+        .map_or(first_line + 1, |r| r.first_line + r.lines);
+    if row_end <= viewport {
+        return 0;
+    }
+    let max = built.lines.len().saturating_sub(viewport);
+    first_line.min(max)
 }
 
 /// Draw the horizontal-scroll overflow affordance in the detail pane's
@@ -491,6 +531,25 @@ fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize)
     }
 }
 
+/// One rendered entity, as **one logical row** however many screen lines
+/// its description wrapped onto (spec §9.3).
+///
+/// This is the type that keeps the distinction honest. Selection addresses
+/// `first_line` — never a continuation line — and the scroll extent is
+/// taken from the *rendered* line count, never from a count of rows, so
+/// neither number can drift into the other. Conflating them is the
+/// unbounded-detail-pane-scroll bug class: a pane that scrolls in rows
+/// while it renders in lines runs off the end of its own content by
+/// exactly the number of wraps on screen, and
+/// `a_wrapped_entry_is_one_logical_row` pins it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EntryRow {
+    /// Index of the row's first line in [`BuiltLines::lines`].
+    first_line: usize,
+    /// How many lines the row occupies, always at least one.
+    lines: usize,
+}
+
 /// The rendered detail-pane content plus where a search-targeted flag
 /// landed, if any.
 struct BuiltLines {
@@ -501,7 +560,25 @@ struct BuiltLines {
     /// `(line index, clipped_left, clipped_right)` for each horizontally
     /// clipped preformatted line, consumed by [`draw_clip_marker_rails`].
     clip_rows: Vec<(usize, bool, bool)>,
+    /// One entry per rendered entity, in document order — see [`EntryRow`].
+    rows: Vec<EntryRow>,
 }
+
+/// The list sections of spec §9.3, in render order, each keyed by the
+/// [`EntityKind`] it holds.
+///
+/// The whole of the per-kind knowledge in this pane. There is no branch on
+/// kind anywhere below: a section renders because its kind has entities,
+/// and the two kinds no parser emits yet (`Modifier`, `EnvVar`) go through
+/// exactly the same code as the two that do. `DESCRIPTION` and `USAGE` are
+/// not here because they are node prose, not entity lists — they carry no
+/// count and take no shared column.
+const LIST_SECTIONS: [(EntityKind, &str); 4] = [
+    (EntityKind::Positional, "POSITIONALS"),
+    (EntityKind::Flag, "FLAGS"),
+    (EntityKind::Modifier, "MODIFIERS"),
+    (EntityKind::EnvVar, "ENVIRONMENT"),
+];
 
 fn build_lines(
     node: &CommandNode,
@@ -515,6 +592,7 @@ fn build_lines(
     let mut lines = Vec::new();
     let mut target_flag_line = None;
     let mut clip_rows: Vec<(usize, bool, bool)> = Vec::new();
+    let mut rows: Vec<EntryRow> = Vec::new();
     // Reset every frame, not just when a USAGE section is present below —
     // otherwise a node with no USAGE at all would leave the previous
     // node's extent sitting in the `Cell`, and the overflow affordance
@@ -536,6 +614,7 @@ fn build_lines(
     if let Some(description) = &node.description {
         lines.push(heading_line_ruled(
             "DESCRIPTION",
+            None,
             width,
             color_enabled,
             glyphs,
@@ -549,7 +628,13 @@ fn build_lines(
     }
 
     if !node.usage.is_empty() {
-        lines.push(heading_line_ruled("USAGE", width, color_enabled, glyphs));
+        lines.push(heading_line_ruled(
+            "USAGE",
+            None,
+            width,
+            color_enabled,
+            glyphs,
+        ));
         // Indented as a block, the way API documentation sets a signature
         // apart from its prose.
         let indent = "  ";
@@ -589,20 +674,35 @@ fn build_lines(
         lines.push(Line::default());
     }
 
-    let visible_flags: Vec<&Entity> = node
-        .flags()
-        .filter(|f| show_hidden || (!f.hidden && f.deprecated.is_none()))
-        .collect();
-
-    if !visible_flags.is_empty() {
-        lines.push(heading_line_ruled("FLAGS", width, color_enabled, glyphs));
-        let (flag_lines_out, target) =
-            flag_lines(&visible_flags, width, color_enabled, target_flag, glyphs);
-        let base = lines.len();
-        if let Some(t) = target {
-            target_flag_line = Some(base + t);
+    // The four list sections, in spec §9.3's order, from one loop. An
+    // empty section renders nothing at all — not a heading over blank
+    // space — which is what keeps a tool with only a description and flags
+    // looking exactly as it did before this section model existed.
+    for (kind, label) in LIST_SECTIONS {
+        let visible: Vec<&Entity> = node
+            .entities_of(kind)
+            .filter(|e| show_hidden || (!e.hidden && e.deprecated.is_none()))
+            .collect();
+        if visible.is_empty() {
+            continue;
         }
-        lines.extend(flag_lines_out);
+        lines.push(heading_line_ruled(
+            label,
+            Some(visible.len()),
+            width,
+            color_enabled,
+            glyphs,
+        ));
+        let base = lines.len();
+        let section = section_lines(&visible, width, color_enabled, target_flag, glyphs);
+        if target_flag_line.is_none() {
+            target_flag_line = section.target.map(|t| base + t);
+        }
+        rows.extend(section.rows.iter().map(|r| EntryRow {
+            first_line: base + r.first_line,
+            lines: r.lines,
+        }));
+        lines.extend(section.lines);
         lines.push(Line::default());
     }
 
@@ -614,23 +714,36 @@ fn build_lines(
         lines,
         target_flag_line,
         clip_rows,
+        rows,
     }
 }
 
-/// A section heading followed by a rule to the pane's edge.
+/// A section heading followed by a rule to the pane's edge, with the
+/// section's entity count for the list sections: `FLAGS (41)`.
 ///
 /// The rule is what gives the pane hierarchy: without it, a bold word and
 /// the body text beneath it are two lines of similar weight, and the eye
 /// has nothing to anchor a section boundary to. Drawn in the muted style so
 /// it separates without competing, and through the glyph set so a
 /// non-UTF-8 terminal gets `-` rather than tofu.
+///
+/// Shape, not styling, is what separates this from a group divider
+/// ([`group_divider_line`]): CAPS with a count and the label first, against
+/// mixed case with no count behind a leading rule. Spec §9.2 forbids
+/// making dimming the sole distinction between two kinds of text, because
+/// several terminals ignore it — so the two must still read differently
+/// with every attribute stripped, and they do.
 fn heading_line_ruled(
     text: &str,
+    count: Option<usize>,
     width: usize,
     color_enabled: bool,
     glyphs: Glyphs,
 ) -> Line<'static> {
-    let heading = text.to_string();
+    let heading = match count {
+        Some(n) => format!("{text} ({n})"),
+        None => text.to_string(),
+    };
     let used = display_width(&heading) + 1;
     let rule_width = width.saturating_sub(used);
     let mut spans = vec![Span::styled(heading, style::muted_bold(color_enabled))];
@@ -794,34 +907,111 @@ fn break_overlong_word(word: &str, width: usize) -> Vec<String> {
     chunks
 }
 
-/// Strip a group heading's trailing colon and normalize its casing, so
-/// carapace-sourced groups (already often plain, e.g. `"main"`) and
-/// help-text-sourced groups (raw heading text, e.g. `"GLOBAL OPTIONS:"`
-/// or `"Main operation mode:"`) render identically for the same logical
-/// grouping instead of carrying their source's formatting quirks into the
-/// UI verbatim.
-fn normalize_group_heading(raw: &str) -> String {
+/// A group heading with its source's punctuation stripped: single-lined,
+/// trimmed, and without the trailing colon a help-text heading carries
+/// (`"GLOBAL OPTIONS:"` → `"GLOBAL OPTIONS"`).
+///
+/// The casing is left exactly as the tool wrote it — that is
+/// [`group_label`]'s and [`group_key`]'s business, and they want different
+/// answers.
+fn strip_group_punctuation(raw: &str) -> String {
     defensive_single_line(raw)
         .trim()
         .trim_end_matches(':')
         .trim()
-        .to_uppercase()
+        .to_string()
 }
 
-/// Group flags by [`Flag::group`], with un-grouped flags first (under no
-/// heading) and inherited flags always last as their own muted group,
-/// regardless of their source `group` value (spec §9). Returns the lines
-/// plus, if `target_flag` matched one of `flags`, the index of its line.
+/// The identity a group is collected under: case-folded, so that
+/// carapace-sourced groups (already often plain, e.g. `"main"`) and
+/// help-text-sourced ones (raw heading text, e.g. `"GLOBAL OPTIONS:"`)
+/// collapse into one group rather than rendering the same logical grouping
+/// twice under two spellings of its name.
+fn group_key(raw: &str) -> String {
+    strip_group_punctuation(raw).to_uppercase()
+}
+
+/// The label a group divider displays: **mixed case, never CAPS**
+/// (spec §9.3).
+///
+/// CAPS is the section header's shape, and a group that also shouted would
+/// be indistinguishable from one on a terminal that drops the dimming
+/// (spec §9.2). So a heading the tool wrote in screaming caps
+/// (`"GLOBAL OPTIONS"`) is set in sentence case, while one that already
+/// carries the author's own casing (`"Main operation mode"`) keeps it —
+/// mixed case is information when the author chose it and noise when the
+/// help-text format imposed it. Either way the first character is
+/// capitalized, so `"main"` and `"Main"` render alike.
+fn group_label(raw: &str) -> String {
+    let stripped = strip_group_punctuation(raw);
+    let shouted = !stripped.chars().any(char::is_lowercase);
+    let mut label = String::with_capacity(stripped.len());
+    for (i, c) in stripped.chars().enumerate() {
+        if i == 0 {
+            label.extend(c.to_uppercase());
+        } else if shouted {
+            label.extend(c.to_lowercase());
+        } else {
+            label.push(c);
+        }
+    }
+    label
+}
+
+/// A group divider within a section (spec §9.3): a full-width dimmed rule
+/// with the group's label inline, `─ Operation ─────…`.
+///
+/// The rows beneath it stay at the section's normal margin — grouping is
+/// drawn, never indented, so it costs no width. The leading rule cell is
+/// what makes the divider recognizable as subordinate at a glance: a
+/// section header starts with its own name at column 0, a group starts with
+/// the rule that runs through it.
+///
+/// The label is tool-authored text of unbounded length, so it is truncated
+/// to the pane rather than trusted to fit — a divider that wrapped would
+/// stop being a rule, and one that overflowed would reach the border (spec
+/// §9's border-corruption lesson).
+fn group_divider_line(
+    label: &str,
+    width: usize,
+    color_enabled: bool,
+    glyphs: Glyphs,
+) -> Line<'static> {
+    let muted = style::muted(color_enabled);
+    // One rule cell, a space either side of the label, and at least one
+    // trailing rule cell: the budget the label has to fit inside.
+    let furniture = display_width(glyphs.rule) * 2 + 2;
+    let label = truncate_to_width_marker(label, width.saturating_sub(furniture), glyphs.ellipsis);
+    let inline = format!("{} {label} ", glyphs.rule);
+    let trail = width.saturating_sub(display_width(&inline));
+    let mut spans = vec![Span::styled(inline, muted)];
+    if trail > 0 {
+        spans.push(Span::styled(glyphs.rule.repeat(trail), muted));
+    }
+    Line::from(spans)
+}
+
 /// A spelling wider than this fraction of the pane does not get to set the
-/// shared column — it hangs instead (see [`FlagLayout::Table`]). One
+/// shared column — it hangs instead (see [`SectionLayout::Table`]). One
 /// 40-character flag name in a list of short ones used to push every
 /// description in the list against the right-hand edge. Mirrors the tree
 /// pane's summary-column rule (spec §9.1).
 const DESC_COLUMN_CAP_PERCENT: usize = 45;
 
+/// The share of a section's entities the shared column is fitted to
+/// (spec §9.3: "roughly the p90 spelling width — the majority, not the
+/// outliers").
+///
+/// Not the maximum. A column fitted to the widest spelling in the section
+/// is a column one entity chose for every other one, and the wider that
+/// entity is the less room the rest of the section's prose gets. Fitting
+/// the ninetieth percentile spends one extra line on the widest tenth and
+/// gives the width back to the other nine.
+const SHARED_COLUMN_PERCENTILE: usize = 90;
+
 /// Prose narrower than this reads as a shredded column rather than a
 /// sentence, so a table that cannot leave this much room becomes a
-/// [`FlagLayout::Stacked`] list instead.
+/// [`SectionLayout::Stacked`] list instead.
 ///
 /// Measured against real output rather than picked: at 20 columns
 /// `docker pull`'s `--platform` description breaks as "Set / platform /
@@ -830,13 +1020,28 @@ const DESC_COLUMN_CAP_PERCENT: usize = 45;
 /// of which the table and the stacked list swap places on legibility.
 const MIN_DESC_WIDTH: usize = 28;
 
-/// Leading indent for every flag row, and (in stacked mode) the extra
-/// indent that subordinates a description to the spelling above it.
-const FLAG_INDENT: &str = "  ";
-const STACKED_DESC_INDENT: usize = 6;
+/// Leading indent for every entity row.
+const ENTITY_INDENT: &str = "  ";
 
-/// How a whole flag list is arranged. Chosen once for the list, never per
+/// The hanging indent a description falls back to when its entity's
+/// spellings are wider than the section's shared column, and the indent
+/// the stacked layout subordinates every description by (spec §9.3).
+///
+/// Four columns: deep enough to read as subordinate to the spelling above
+/// it, shallow enough to give an already-exceptional row its width back.
+/// Deliberately **not** the shared column — an entity that overflowed the
+/// column is visually exceptional whatever it does next, and aligning its
+/// description to a column it could not reach spends the pane's width
+/// restating that.
+const HANGING_INDENT: usize = 4;
+
+/// How a whole section is arranged. Chosen once **per section**, never per
 /// row — a per-row decision is exactly what made this ragged.
+///
+/// Per section rather than per pane (spec §9.3): positionals, flags,
+/// modifiers and environment variables have nothing to say to each other's
+/// widths, and one column shared across all four would be set by whichever
+/// section happens to hold the longest name.
 ///
 /// The pane is not wide enough for a three-column table at every terminal
 /// size, and the previous code did not admit that. It computed one shared
@@ -848,7 +1053,7 @@ const STACKED_DESC_INDENT: usize = 6;
 /// is not a table at all. The cap was silently setting a target that most
 /// rows then missed individually.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FlagLayout {
+enum SectionLayout {
     /// Spelling, value placeholder and description in three aligned
     /// columns.
     ///
@@ -872,141 +1077,237 @@ enum FlagLayout {
     Stacked,
 }
 
-impl FlagLayout {
+impl SectionLayout {
     /// Where descriptions begin under this layout.
     fn description_column(self) -> usize {
         match self {
-            FlagLayout::Table { description, .. } => description,
-            FlagLayout::Stacked => STACKED_DESC_INDENT,
+            SectionLayout::Table { description, .. } => description,
+            SectionLayout::Stacked => HANGING_INDENT,
         }
     }
 }
 
-/// Choose the layout for `flags` in a pane `width` columns wide.
-fn flag_layout(flags: &[&Entity], width: usize) -> FlagLayout {
+/// The width that fits [`SHARED_COLUMN_PERCENTILE`] of `widths` — the
+/// smallest number at least that share of the entries are within.
+///
+/// Zero for an empty section, and the maximum for a section small enough
+/// that the percentile lands on it: a list of three flags aligns all three,
+/// because "the majority, not the outliers" only has anything to exclude
+/// once there is a tail to be an outlier in.
+fn percentile_width(widths: impl Iterator<Item = usize>) -> usize {
+    let mut widths: Vec<usize> = widths.collect();
+    if widths.is_empty() {
+        return 0;
+    }
+    widths.sort_unstable();
+    let n = widths.len();
+    let rank = (n * SHARED_COLUMN_PERCENTILE).div_ceil(100).max(1);
+    widths[rank - 1]
+}
+
+/// Choose the layout for one section's `entities` in a pane `width`
+/// columns wide.
+///
+/// Two independent bounds on the shared column, and it is the *lower* of
+/// them:
+///
+/// 1. **The percentile** (spec §9.3): fitted to the majority, so the widest
+///    tenth hangs rather than setting a column for everyone else.
+/// 2. **The pane cap** (spec §9.1a): a spelling past
+///    [`DESC_COLUMN_CAP_PERCENT`] of the pane gets no vote at all, however
+///    many of its kind there are — a section where *most* spellings are
+///    enormous must still leave prose a readable width.
+///
+/// Outliers are excluded from the measurement rather than clamped to it. A
+/// clamped column is a column the outlier still misses; an excluded one is
+/// a column it can hang below while every other row stays aligned.
+fn section_layout(entities: &[&Entity], width: usize) -> SectionLayout {
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
-    let lead = display_width(FLAG_INDENT);
+    let lead = display_width(ENTITY_INDENT);
     let gap = 2;
 
-    // Outliers are excluded from the measurement rather than clamped. A
-    // clamped column is a column the outlier still misses; an excluded one
-    // is a column it can hang below while every other row stays aligned.
     let fits = |w: usize| lead + w + gap <= cap;
-    let widest_spec = flags
-        .iter()
-        .map(|f| display_width(&flag_name_spec(f)))
-        .filter(|w| fits(*w))
-        .max()
-        .unwrap_or(0);
-    let widest_value = flags
-        .iter()
-        .filter_map(|f| flag_value_text(f))
-        .map(|v| display_width(&v))
-        .filter(|w| fits(*w))
-        .max()
-        .unwrap_or(0);
+    let spelling_column = percentile_width(
+        entities
+            .iter()
+            .map(|e| display_width(&entity_name_spec(e)))
+            .filter(|w| fits(*w)),
+    );
+    let value_width = percentile_width(
+        entities
+            .iter()
+            .filter_map(|e| entity_value_text(e))
+            .map(|v| display_width(&v))
+            .filter(|w| fits(*w)),
+    );
 
-    let value = lead + widest_spec + gap;
-    // When nothing in this list takes a value the column collapses, rather
-    // than leaving a blank strip down the pane.
+    let value = lead + spelling_column + gap;
+    // When nothing in this section takes a value the column collapses,
+    // rather than leaving a blank strip down the pane.
     let description = value
-        + if widest_value == 0 {
+        + if value_width == 0 {
             0
         } else {
-            widest_value + gap
+            value_width + gap
         };
 
     if width.saturating_sub(description) < MIN_DESC_WIDTH {
-        return FlagLayout::Stacked;
+        return SectionLayout::Stacked;
     }
-    FlagLayout::Table { value, description }
+    SectionLayout::Table { value, description }
 }
 
-fn flag_lines(
-    flags: &[&Entity],
+/// One section's rendered body: its lines, its logical rows, and where a
+/// search-targeted entity landed within it. All three index from the
+/// section's own first line; [`build_lines`] rebases them onto the pane.
+struct SectionBody {
+    lines: Vec<Line<'static>>,
+    rows: Vec<EntryRow>,
+    target: Option<usize>,
+}
+
+/// The label the final dimmed group of inherited entities renders under
+/// (spec §9): mixed case, like every other group divider, because it is
+/// one.
+const INHERITED_GROUP: &str = "Inherited";
+
+/// Render one section's entities: ungrouped first under no divider, then
+/// each [`Entity::group`] behind its divider, then inherited entities last
+/// as their own dimmed group, whatever their source `group` said
+/// (spec §9, §9.3).
+fn section_lines(
+    entities: &[&Entity],
     width: usize,
     color_enabled: bool,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
-) -> (Vec<Line<'static>>, Option<usize>) {
-    let layout = flag_layout(flags, width);
+) -> SectionBody {
+    let layout = section_layout(entities, width);
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
     // need first, and its 17 groups are sequenced deliberately. A BTreeMap
     // here sorted them alphabetically, so "Archive format selection" came
     // first and the author's ordering was silently discarded.
     let mut group_order: Vec<Option<String>> = Vec::new();
+    let mut labels: HashMap<String, String> = HashMap::new();
     let mut own_groups: HashMap<Option<String>, Vec<&Entity>> = HashMap::new();
     let mut inherited: Vec<&Entity> = Vec::new();
 
-    for f in flags {
-        if f.inherited {
-            inherited.push(f);
-        } else {
-            let key = f.group.as_ref().map(|g| normalize_group_heading(g));
-            if !own_groups.contains_key(&key) {
-                group_order.push(key.clone());
-            }
-            own_groups.entry(key).or_default().push(f);
+    for e in entities {
+        if e.inherited {
+            inherited.push(e);
+            continue;
         }
+        let raw = e.group.as_deref().unwrap_or_default();
+        let key = Some(group_key(raw)).filter(|k| !k.is_empty());
+        if !own_groups.contains_key(&key) {
+            group_order.push(key.clone());
+            if let Some(k) = &key {
+                // First occurrence names the group: two spellings of one
+                // heading collapse under `group_key`, and the label the
+                // reader sees is the one the tool introduced it with.
+                labels.insert(k.clone(), group_label(raw));
+            }
+        }
+        own_groups.entry(key).or_default().push(e);
     }
 
-    let mut out = Vec::new();
-    let mut target_line = None;
-    let mut note_if_target = |out: &[Line<'static>], f: &Entity| {
-        if target_line.is_none() && target_flag.is_some_and(|k| f.matches_key(k)) {
-            target_line = Some(out.len());
-        }
+    let mut body = SectionBody {
+        lines: Vec::new(),
+        rows: Vec::new(),
+        target: None,
     };
 
-    // Ungrouped flags first, with no heading, then each group in the order
-    // the tool introduced it.
+    // Ungrouped entities first, under no divider, then each group in the
+    // order the tool introduced it.
     if let Some(ungrouped) = own_groups.remove(&None) {
-        for f in ungrouped {
-            note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, layout));
+        for e in ungrouped {
+            push_entity(
+                &mut body,
+                e,
+                false,
+                width,
+                color_enabled,
+                layout,
+                target_flag,
+            );
         }
     }
     for key in group_order {
-        let Some(flags) = own_groups.remove(&key) else {
+        let Some(group) = own_groups.remove(&key) else {
             continue;
         };
-        if let Some(group) = key {
-            out.push(heading_line_owned(group, color_enabled));
+        if let Some(key) = key {
+            let label = labels.get(&key).map_or(key.as_str(), String::as_str);
+            body.lines
+                .push(group_divider_line(label, width, color_enabled, glyphs));
         }
-        for f in flags {
-            note_if_target(&out, f);
-            out.extend(flag_line(f, false, width, color_enabled, layout));
+        for e in group {
+            push_entity(
+                &mut body,
+                e,
+                false,
+                width,
+                color_enabled,
+                layout,
+                target_flag,
+            );
         }
     }
 
     if !inherited.is_empty() {
-        out.push(heading_line_ruled(
-            "INHERITED",
+        body.lines.push(group_divider_line(
+            INHERITED_GROUP,
             width,
             color_enabled,
             glyphs,
         ));
-        for f in inherited {
-            note_if_target(&out, f);
-            out.extend(flag_line(f, true, width, color_enabled, layout));
+        for e in inherited {
+            push_entity(
+                &mut body,
+                e,
+                true,
+                width,
+                color_enabled,
+                layout,
+                target_flag,
+            );
         }
     }
 
-    (out, target_line)
+    body
 }
 
-fn heading_line_owned(text: String, color_enabled: bool) -> Line<'static> {
-    Line::from(Span::styled(text, style::muted_bold(color_enabled)))
+/// Render one entity into `body` as **one logical row**, however many
+/// lines it wraps onto (spec §9.3).
+///
+/// The single place an [`EntryRow`] is created, and it records the row's
+/// first line — so a search landing on a wrapped entity scrolls to its
+/// spelling, not into the middle of its description.
+fn push_entity(
+    body: &mut SectionBody,
+    entity: &Entity,
+    dim: bool,
+    width: usize,
+    color_enabled: bool,
+    layout: SectionLayout,
+    target_flag: Option<&FlagKey>,
+) {
+    let first_line = body.lines.len();
+    if body.target.is_none() && target_flag.is_some_and(|k| entity.matches_key(k)) {
+        body.target = Some(first_line);
+    }
+    let rendered = entity_line(entity, dim, width, color_enabled, layout);
+    body.rows.push(EntryRow {
+        first_line,
+        lines: rendered.len(),
+    });
+    body.lines.extend(rendered);
 }
 
-/// One flag's spelling, value placeholder, and description — each styled
-/// per spec §9.2's table (spelling: accent; value placeholder: muted
-/// italic; description: default foreground) — wrapped so a multi-line
-/// description hangs indented under where it started rather than
-/// restarting at column 0.
-/// A flag's spelling, e.g. `-i, --interactive`.
-fn flag_name_spec(flag: &Entity) -> String {
+/// An entity's spellings, e.g. `-i, --interactive` for a flag or
+/// `pathspec` for a positional.
+fn entity_name_spec(flag: &Entity) -> String {
     // Every documented spelling, comma-separated, each reconstructed by
     // `Spelling::render`: the dashes and the getopt_long `--[no-]foo`
     // convention are display metadata, because the IR stores every name
@@ -1023,9 +1324,9 @@ fn flag_name_spec(flag: &Entity) -> String {
         .join(", ")
 }
 
-/// A flag's value placeholder as its own column entry, e.g. `FILE` or
-/// `[FILE]` when optional. `None` when the flag takes no value.
-fn flag_value_text(flag: &Entity) -> Option<String> {
+/// An entity's value placeholder as its own column entry, e.g. `FILE` or
+/// `[FILE]` when optional. `None` when it takes no value.
+fn entity_value_text(flag: &Entity) -> Option<String> {
     flag.value_name
         .as_ref()
         .and_then(|name| match flag.value_kind {
@@ -1035,19 +1336,27 @@ fn flag_value_text(flag: &Entity) -> Option<String> {
         })
 }
 
-fn flag_line(
+/// One entity's spellings, value placeholder, and description — each
+/// styled per spec §9.2's table (spelling: accent; value placeholder:
+/// muted; description: default foreground) — wrapped so a multi-line
+/// description hangs under where it started rather than restarting at
+/// column 0.
+///
+/// The returned lines are one logical row (spec §9.3); the caller records
+/// that as an [`EntryRow`].
+fn entity_line(
     flag: &Entity,
     dim: bool,
     width: usize,
     color_enabled: bool,
     // Where the value and description columns begin, shared across the
-    // whole flag list — see `flag_columns`.
-    layout: FlagLayout,
+    // whole section — see `section_layout`.
+    layout: SectionLayout,
 ) -> Vec<Line<'static>> {
-    let name_spec = flag_name_spec(flag);
-    let value_text = flag_value_text(flag);
+    let name_spec = entity_name_spec(flag);
+    let value_text = entity_value_text(flag);
 
-    let leading = "  ";
+    let leading = ENTITY_INDENT;
     let spelling_style = if dim {
         style::muted(color_enabled)
     } else {
@@ -1078,8 +1387,8 @@ fn flag_line(
         // mode there is no column to reach, so a single space separates
         // them — the description below is what carries the alignment.
         let pad = match layout {
-            FlagLayout::Table { value, .. } => value.saturating_sub(prefix_width).max(1),
-            FlagLayout::Stacked => 1,
+            SectionLayout::Table { value, .. } => value.saturating_sub(prefix_width).max(1),
+            SectionLayout::Stacked => 1,
         };
         first_line_spans.push(Span::raw(" ".repeat(pad)));
         first_line_spans.push(Span::styled(v.clone(), value_style));
@@ -1124,22 +1433,26 @@ fn flag_line(
         return vec![Line::from(first_line_spans)];
     };
 
-    // One description column for the entire list, not one per flag. That
-    // is what makes a parameter list read as a table — the defining visual
-    // element of API documentation — and it only holds if it is *always*
-    // the same number. It previously wasn't: the column was a target, and
-    // any row too wide for it silently started its description at its own
-    // width instead, so a list could show three different "columns" at
-    // once.
+    // One description column for the entire section, not one per entity.
+    // That is what makes a parameter list read as a table — the defining
+    // visual element of API documentation — and it only holds if it is
+    // *always* the same number. It previously wasn't: the column was a
+    // target, and any row too wide for it silently started its description
+    // at its own width instead, so a list could show three different
+    // "columns" at once.
     //
     // So a row that does not fit hangs: its description starts on the next
-    // line, at the shared column. The spelling is never truncated to force
-    // alignment (spec §9.1's rule for the tree applies here too) and the
-    // column never moves — the row costs one extra line, which is the only
-    // one of the three that nothing else has to pay for.
+    // line at `HANGING_INDENT`, a small fixed indent rather than the shared
+    // column (spec §9.3 — the row is already visually exceptional, and the
+    // fixed indent gives its description the width back). The spelling is
+    // never truncated to force alignment (spec §9.1's rule for the tree
+    // applies here too) and the column never moves: the row costs one extra
+    // line, which is the only one of the three that nothing else has to pay
+    // for.
     let gap = 2;
-    let indent_width = layout.description_column();
-    let hangs = prefix_width + gap > indent_width;
+    let column = layout.description_column();
+    let hangs = prefix_width + gap > column;
+    let indent_width = if hangs { HANGING_INDENT } else { column };
     let available = width.saturating_sub(indent_width).max(1);
     let chunks = wrap_words(&description_text, available);
 
@@ -1147,7 +1460,7 @@ fn flag_line(
     let mut chunks_iter = chunks.into_iter();
     if !hangs {
         if let Some(first_chunk) = chunks_iter.next() {
-            first_line_spans.push(Span::raw(" ".repeat(indent_width - prefix_width)));
+            first_line_spans.push(Span::raw(" ".repeat(column - prefix_width)));
             first_line_spans.push(Span::styled(first_chunk, desc_style));
         }
     }
@@ -1320,7 +1633,7 @@ mod tests {
     fn inherited_flags_are_grouped_last() {
         let node = node_with_flags();
         let flags: Vec<&Entity> = node.flags().collect();
-        let (lines, _) = flag_lines(&flags, 80, true, None, crate::glyphs::UNICODE);
+        let lines = section_lines(&flags, 80, true, None, crate::glyphs::UNICODE).lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
         let inherited_pos = text.iter().position(|l| l.contains("INHERITED")).unwrap();
         let help_pos = text.iter().position(|l| l.contains("--help")).unwrap();
@@ -1392,7 +1705,7 @@ mod tests {
             mk(Some('e'), "env", Some("list"), "Set environment variables"),
         ];
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
-        let (lines, _) = flag_lines(&refs, 80, true, None, crate::glyphs::UNICODE);
+        let lines = section_lines(&refs, 80, true, None, crate::glyphs::UNICODE).lines;
 
         // Column at which each row's description text begins.
         let starts: Vec<usize> = lines
@@ -1491,7 +1804,7 @@ mod tests {
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         for width in 20..=160 {
-            let (lines, _) = flag_lines(&refs, width, true, None, crate::glyphs::UNICODE);
+            let lines = section_lines(&refs, width, true, None, crate::glyphs::UNICODE).lines;
             let starts = description_columns(&lines);
             assert!(
                 !starts.is_empty(),
@@ -1518,10 +1831,10 @@ mod tests {
         let flags = docker_global_flags();
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
-        assert_eq!(flag_layout(&refs, 38), FlagLayout::Stacked);
-        let (lines, _) = flag_lines(&refs, 38, true, None, crate::glyphs::UNICODE);
+        assert_eq!(section_layout(&refs, 38), SectionLayout::Stacked);
+        let lines = section_lines(&refs, 38, true, None, crate::glyphs::UNICODE).lines;
         for start in description_columns(&lines) {
-            assert_eq!(start, STACKED_DESC_INDENT, "stacked prose must be flush");
+            assert_eq!(start, HANGING_INDENT, "stacked prose must be flush");
         }
         // The whole point of stacking: prose gets the pane, not a strip.
         // Measured on the rendered lines rather than asserted against the
@@ -1560,12 +1873,12 @@ mod tests {
 
         let without: Vec<&mandible_core::Entity> = refs[..refs.len() - 1].to_vec();
         assert_eq!(
-            flag_layout(&refs, 120),
-            flag_layout(&without, 120),
+            section_layout(&refs, 120),
+            section_layout(&without, 120),
             "an outlier spelling must not set the column for the list"
         );
 
-        let (lines, _) = flag_lines(&refs, 120, true, None, crate::glyphs::UNICODE);
+        let lines = section_lines(&refs, 120, true, None, crate::glyphs::UNICODE).lines;
         let distinct: std::collections::BTreeSet<usize> =
             description_columns(&lines).into_iter().collect();
         assert_eq!(distinct.len(), 1, "outlier broke the column: {distinct:?}");
@@ -1668,12 +1981,12 @@ mod tests {
         flag.description = Some(Text::sanitize(
             "Trust certs signed only by this CA (default \"\")",
         ));
-        let lines = flag_line(
+        let lines = entity_line(
             &flag,
             false,
             40,
             true,
-            FlagLayout::Table {
+            SectionLayout::Table {
                 value: 18,
                 description: 20,
             },
@@ -1710,12 +2023,12 @@ mod tests {
         flag.value_name = Some("FILE".to_string());
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize("Write output to FILE"));
-        let lines = flag_line(
+        let lines = entity_line(
             &flag,
             false,
             80,
             true,
-            FlagLayout::Table {
+            SectionLayout::Table {
                 value: 18,
                 description: 20,
             },
@@ -1741,12 +2054,12 @@ mod tests {
         let mut flag = Entity::flag_long("old-flag", Provenance::single(Source::HelpText));
         flag.deprecated = Some(Text::sanitize("use --new-flag instead"));
         flag.description = Some(Text::sanitize("Old behavior"));
-        let lines = flag_line(
+        let lines = entity_line(
             &flag,
             false,
             80,
             true,
-            FlagLayout::Table {
+            SectionLayout::Table {
                 value: 18,
                 description: 20,
             },
@@ -1757,15 +2070,20 @@ mod tests {
 
     /// The coordinator's second reported defect: a group heading must not
     /// carry its source's trailing colon or casing quirks into the UI —
-    /// `"GLOBAL OPTIONS:"` and `"Global Options"` must render the same.
+    /// `"GLOBAL OPTIONS:"` and `"Global Options"` must collect into one
+    /// group rather than rendering the same logical grouping twice.
+    ///
+    /// The *key* is what does that collecting, and it stays case-folded.
+    /// What changed with spec §9.3 is that the key is no longer what the
+    /// reader sees: a displayed CAPS heading is now the section header's
+    /// shape, so the label went mixed case and got its own function.
     #[test]
-    fn group_headings_strip_trailing_colon_and_normalize_case() {
-        assert_eq!(normalize_group_heading("GLOBAL OPTIONS:"), "GLOBAL OPTIONS");
-        assert_eq!(
-            normalize_group_heading("Main operation mode:"),
-            "MAIN OPERATION MODE"
-        );
-        assert_eq!(normalize_group_heading("main"), "MAIN");
+    fn group_keys_strip_trailing_colon_and_fold_case() {
+        assert_eq!(group_key("GLOBAL OPTIONS:"), "GLOBAL OPTIONS");
+        assert_eq!(group_key("Main operation mode:"), "MAIN OPERATION MODE");
+        assert_eq!(group_key("main"), "MAIN");
+        // Two spellings of one heading are one group.
+        assert_eq!(group_key("Global Options"), group_key("GLOBAL OPTIONS:"));
     }
 
     /// Closing spec §10's open item: selecting a flag via search must
