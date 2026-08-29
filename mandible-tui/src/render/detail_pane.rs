@@ -2377,6 +2377,38 @@ mod tests {
         );
     }
 
+    /// Spec §9.3: a hanging description clears the long column, so a
+    /// preindented long never has its own description sitting flush
+    /// beneath it.
+    ///
+    /// The hanging indent used to be able to coincide with the column a
+    /// lone long starts at, and at that value the row renders as a name
+    /// with a sentence directly under it at the same left edge — two lines
+    /// of equal rank, with nothing to say the second belongs to the first.
+    /// This is what makes the indent an indent rather than a number that
+    /// happens to be small.
+    #[test]
+    fn a_hanging_description_clears_the_long_it_belongs_to() {
+        let mut flag = Entity::flag_long("config", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("location of client config files"));
+        assert_eq!(
+            spelling_column(&flag),
+            LONG_COLUMN,
+            "the fixture must be a preindented lone long"
+        );
+
+        let lines = entity_line(&flag, false, 60, true, SectionLayout::Stacked);
+        assert!(lines.len() >= 2, "expected a stacked row: {lines:?}");
+        let name = text_of(&lines[0]);
+        let description = text_of(&lines[1]);
+        let indent = |t: &str| t.len() - t.trim_start().len();
+        assert!(
+            indent(&description) > indent(&name),
+            "a description flush under its own spelling reads as a second row, \
+             not as that row's description: {name:?} / {description:?}"
+        );
+    }
+
     /// Spec §9.3: a group divider's rule is drawn one shade lighter than
     /// the rule that closes a section header, while its label keeps the
     /// header's shade — the weight difference is in the furniture, not the
