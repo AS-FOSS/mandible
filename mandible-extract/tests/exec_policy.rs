@@ -561,11 +561,7 @@ exit 1
         node.unparsed.is_empty(),
         "node degraded to verbatim instead of using the -h fallback's real flags: {node:?}"
     );
-    let long_flags: Vec<&str> = node
-        .flags
-        .iter()
-        .filter_map(|f| f.long.as_deref())
-        .collect();
+    let long_flags: Vec<&str> = node.flags.iter().filter_map(|f| f.long()).collect();
     assert!(long_flags.contains(&"amend"), "{long_flags:?}");
     assert!(long_flags.contains(&"dry-run"), "{long_flags:?}");
     assert!(
@@ -722,11 +718,7 @@ exit 1
         dir.path().join("attested.help_ran").exists(),
         "the --help probe never ran for an attested word"
     );
-    let long_flags: Vec<&str> = node
-        .flags
-        .iter()
-        .filter_map(|f| f.long.as_deref())
-        .collect();
+    let long_flags: Vec<&str> = node.flags.iter().filter_map(|f| f.long()).collect();
     assert!(long_flags.contains(&"amend"), "{long_flags:?}");
 }
 
@@ -942,11 +934,7 @@ fn a_confessing_shim_is_followed_and_the_tree_reflects_the_expanded_document() {
         dir.path().join("widget.expand_ran").exists(),
         "the confession was detected but never followed — the expansion probe never ran"
     );
-    let long_flags: Vec<&str> = node
-        .flags
-        .iter()
-        .filter_map(|f| f.long.as_deref())
-        .collect();
+    let long_flags: Vec<&str> = node.flags.iter().filter_map(|f| f.long()).collect();
     assert!(
         long_flags.contains(&"extra"),
         "the tree must reflect the expanded document, not the 2-flag summary: {long_flags:?}"
@@ -1060,11 +1048,7 @@ exit 1
         "a confession inside the expanded document triggered a second \
          expansion — chaining must never happen"
     );
-    let long_flags: Vec<&str> = node
-        .flags
-        .iter()
-        .filter_map(|f| f.long.as_deref())
-        .collect();
+    let long_flags: Vec<&str> = node.flags.iter().filter_map(|f| f.long()).collect();
     assert!(long_flags.contains(&"quiet"), "{long_flags:?}");
     let confession = node.confession.as_ref().expect("must be recorded");
     assert!(confession.followed);
@@ -1103,11 +1087,7 @@ fn a_never_probe_named_shim_that_confesses_does_not_receive_the_expansion_argv()
         !dir.path().join("pkill.expand_ran").exists(),
         "rule 0 must refuse the expansion argv before the shim ever sees it"
     );
-    let long_flags: Vec<&str> = node
-        .flags
-        .iter()
-        .filter_map(|f| f.long.as_deref())
-        .collect();
+    let long_flags: Vec<&str> = node.flags.iter().filter_map(|f| f.long()).collect();
     assert!(
         !long_flags.contains(&"extra"),
         "the tree must still reflect the un-expanded summary: {long_flags:?}"
