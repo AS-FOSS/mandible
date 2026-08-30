@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- `mandible cargo clippy` now opens cargo's tree at `clippy` instead of failing with "unexpected argument 'clippy' found" (issue #70): a trailing subcommand path is valid and lands exactly where browsing to that node lands, and a subcommand the parent's own help never documents — the `cargo-clippy`/`git-lfs` convention — is discovered as an executable named `<tool>-<sub>` on `PATH`, shown as a child marked `unverified` (a filename is evidence about the filesystem and a guess about the tool) and probed against its own binary, so a word read off a filename never becomes an argument to the parent; a path the finished tree turns out not to have is reported in the status line beside the real names rather than refused before the tool opens, and `--doctor`/`--report` still take a tool name alone.
+
 ### Fixed
 
 - `jar --help` no longer turns wrapped `-C foo/ ...` rows from its indented `Examples:` blocks into duplicate flags or loses the `Main operation mode:` group: when indentation would otherwise promote the preceding prose sentence to a fake heading and hide the ignorable marker, the parser now contains that whole region until a physical dedent or a positively worded, structurally attested multi-row flag section; generic `Input:`/`Output:` labels, command-shaped example data, and single flag-shaped samples remain contained, with no tool-name-keyed logic.
