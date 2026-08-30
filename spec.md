@@ -2193,8 +2193,21 @@ overflows the border by one cell per wide character.
   everywhere else in this section. Opinionated enough to need an escape
   hatch: `[ui] horizontal_scroll` in `~/.config/mandible/config.toml`
   (`mandible-core`'s `config` module — a sibling of Tier F's per-tool
-  `overrides/<tool>.toml`, spec §7) defaults to `true`, and `false` restores
-  plain wrapping for this content too.
+  `overrides/<tool>.toml`, spec §7) defaults to `true`.
+- **`horizontal_scroll = false` means every view wraps, and no view ever
+  clips.** The setting turns sideways scrolling off; it does not turn
+  content loss on. With it off there is no offset for the reader to move,
+  so a preformatted line wider than the pane continues onto the next row
+  instead of ending at the border — including in the raw view and the
+  `unparsed` fallback, the two places whose entire purpose is showing the
+  reader what the tool printed and where a silent cut is therefore worst.
+  Such a line still is not *reflowed*: a line that fits arrives byte for
+  byte, a row keeps whatever run of spaces the author put inside it, the
+  cut prefers a whitespace boundary and falls back to one between
+  characters so an unbroken token survives whole, and a continuation row
+  carries the line's own leading indent so a wrapped table row stays
+  visibly part of that row. Prose wrapping is unchanged in this mode, and
+  so is everything about the default one.
 
 **Empty and degraded states are designed, not incidental:** a node whose children
 are still being extracted shows a subtle spinner row; a tool where only Tier B
