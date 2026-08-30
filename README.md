@@ -46,15 +46,15 @@ Linux and macOS, on x86_64 and arm64. Windows is not supported: the containment 
 relies on POSIX process groups, and Windows tools use conventions (`/?`, PowerShell's
 own help system) this project does not speak.
 
-```console
-brew install as-foss/mandible/mandible   # Homebrew, macOS or Linux
-cargo binstall mandible                  # prebuilt binary, no compiling
-cargo install mandible                   # from source
-nix run github:AS-FOSS/mandible          # without installing
-dnf copr enable as-foss/mandible         # Fedora and EPEL: enable the COPR repo
-dnf install mandible                     # ...and install from it
+**Homebrew** — macOS or Linux
 
-# Debian and Ubuntu, from the signed apt repository:
+```console
+brew install as-foss/mandible/mandible
+```
+
+**Debian / Ubuntu** — signed apt repository
+
+```console
 sudo curl -fsSL https://as-foss.github.io/mandible-apt/mandible-archive-keyring.gpg \
   -o /usr/share/keyrings/mandible-archive-keyring.gpg
 sudo tee /etc/apt/sources.list.d/mandible.sources >/dev/null <<'EOF'
@@ -66,6 +66,29 @@ Architectures: amd64 arm64
 Signed-By: /usr/share/keyrings/mandible-archive-keyring.gpg
 EOF
 sudo apt-get update && sudo apt-get install mandible
+```
+
+**Fedora / EPEL** — COPR repository
+
+```console
+sudo dnf copr enable as-foss/mandible
+sudo dnf install mandible
+```
+
+**Nix** — run without installing, or use as a flake input
+
+```console
+nix run github:AS-FOSS/mandible
+```
+
+**Cargo** — `binstall` fetches the prebuilt binary, `install` builds from source
+
+```console
+cargo binstall mandible
+```
+
+```console
+cargo install mandible
 ```
 
 Standalone binaries, `.deb` and `.rpm` packages, each with a `.sha256`, are attached
