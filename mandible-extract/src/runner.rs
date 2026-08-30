@@ -65,6 +65,19 @@ impl ExtractionResult {
         self.root.as_ref().map(count_modifiers).unwrap_or(0)
     }
 
+    /// Total environment variables in the merged tree, counted
+    /// recursively — [`Self::modifier_count`]'s twin for the other kind
+    /// spec §7 Tier B's two emission stages produce (Environment
+    /// sections).
+    ///
+    /// Its own number for the same reason `modifier_count` is: an
+    /// environment variable is not a flag, and folding `node`'s nineteen
+    /// documented variables into its flag count would redefine the "%
+    /// flags with text" ratio for every tool that has any.
+    pub fn env_var_count(&self) -> usize {
+        self.root.as_ref().map(count_env_vars).unwrap_or(0)
+    }
+
     /// Total flags in the merged tree whose source *could*, in principle,
     /// have supplied a description (spec §13's metric design rules, rule
     /// 2: "denominators are conditioned on what the source could have
@@ -111,6 +124,10 @@ fn count_flags(node: &CommandNode) -> usize {
 
 fn count_modifiers(node: &CommandNode) -> usize {
     node.modifiers().count() + node.subcommands.iter().map(count_modifiers).sum::<usize>()
+}
+
+fn count_env_vars(node: &CommandNode) -> usize {
+    node.env_vars().count() + node.subcommands.iter().map(count_env_vars).sum::<usize>()
 }
 
 fn count_describable_flags(node: &CommandNode) -> usize {
