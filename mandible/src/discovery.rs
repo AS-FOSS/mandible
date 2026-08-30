@@ -34,7 +34,23 @@ use mandible_extract::{resolve_tool, PathSibling, ResolvedTool};
 /// able to overwrite what the tool said about it — a sibling whose name is
 /// already a child (or an alias of one) is simply dropped, since the
 /// documented node already reaches the same command.
+///
+/// **A parent that documents no subcommand at all gets none of these.** The
+/// convention is a tool *dispatching* on its first argument, and a tool that
+/// dispatches says so by documenting at least one command of its own; where
+/// there is no such list, a `<parent>-<sub>` file is far more likely a
+/// sibling tool sharing a name prefix. Measured on this rule's own worst
+/// case: `dpkg --help` lists no commands (its operations are flags), and the
+/// 27 `dpkg-*` programs beside it — `dpkg-deb`, `dpkg-architecture`,
+/// `dpkg-buildpackage` — are separate tools that `dpkg deb` does not reach.
+/// Without this, `mandible dpkg` opened on 27 rows of guesses and nothing
+/// else. Keyed on what the parent's own text said, never on its name (§1),
+/// and it cannot suppress issue #70's case: `cargo --help` and `git --help`
+/// both document plenty.
 pub fn attach_path_siblings(root: &mut CommandNode, siblings: &[PathSibling]) {
+    if root.subcommands.is_empty() {
+        return;
+    }
     for sibling in siblings {
         let documented = root
             .subcommands
@@ -139,6 +155,17 @@ mod tests {
         assert!(root.subcommands[0].summary.is_some());
     }
 
+    /// `dpkg --help` lists no commands at all, and the 27 `dpkg-*` programs
+    /// beside it are separate tools — `dpkg deb` reaches nothing. A tool
+    /// that dispatches documents at least one command of its own, so a
+    /// parent with no command list gets no convention children.
+    #[test]
+    fn a_parent_that_documents_no_subcommands_gets_no_convention_children() {
+        let mut root = node("dpkg");
+        attach_path_siblings(&mut root, &[sibling("deb", "dpkg-deb")]);
+        assert!(root.subcommands.is_empty());
+    }
+
     #[test]
     fn an_alias_of_a_documented_command_is_not_duplicated_either() {
         let mut root = node("cargo");
@@ -165,6 +192,7 @@ mod tests {
     #[test]
     fn a_discovered_node_is_probed_as_its_own_binarys_root() {
         let mut root = node("cargo");
+        root.subcommands.push(node("build"));
         attach_path_siblings(&mut root, &[sibling("clippy", "cargo-clippy")]);
         let tool = resolve_tool("cargo");
 
@@ -204,11 +232,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_discovered_node_fills_from_its_own_binary_and_never_through_the_parent() {
-        let dir = tempfile::TempDir::new().unwrap();
+        let dir = tempfile::TempDir::new_in(".").unwrap();
+        // The parent documents one command of its own, which is what says
+        // it dispatches at all (`attach_path_siblings`).
         shim(
             dir.path(),
             "mytool",
-            "Usage: mytool [OPTIONS]\n\nOptions:\n  --parent-only  Only the parent documents this",
+            "Usage: mytool [OPTIONS] <COMMAND>\n\nCommands:\n  local  A command the parent documents\n\nOptions:\n  --parent-only  Only the parent documents this",
         );
         shim(
             dir.path(),
@@ -226,12 +256,23 @@ mod tests {
         // tools off `PATH` while this one runs.
         std::env::set_var("PATH", std::env::join_paths(dirs).unwrap());
 
-        let mut root = node("mytool");
+        let tool = resolve_tool("mytool");
+        let runner = mandible_extract::Runner::new(mandible_extract::default_tiers());
+        // The real root, from the real binary, so the documented/discovered
+        // split is the one the running product would see.
+        let mut root = runner
+            .extract_full_for(&tool)
+            .root
+            .expect("the shim's own --help should extract");
+        assert!(
+            root.subcommands.iter().any(|c| c.name == "local"),
+            "the parent's own command list must be recovered first: {:?}",
+            root.subcommands.iter().map(|c| &c.name).collect::<Vec<_>>()
+        );
         attach_path_siblings(
             &mut root,
             &mandible_extract::discover_path_siblings("mytool"),
         );
-        let tool = resolve_tool("mytool");
         let extra = root
             .subcommands
             .iter()
@@ -240,7 +281,6 @@ mod tests {
             .clone();
         let tree_path = path(&["mytool", "extra"]);
 
-        let runner = mandible_extract::Runner::new(mandible_extract::default_tiers());
         let (target, probe_path) = probe_target(&root, &tool, &tree_path);
         let filled = runner.fill_node(&target, &probe_path, extra.clone());
         let through_parent = runner.fill_node(&tool, &tree_path, extra);
@@ -267,6 +307,7 @@ mod tests {
     #[test]
     fn a_child_of_a_discovered_node_is_probed_against_the_same_binary() {
         let mut root = node("git");
+        root.subcommands.push(node("commit"));
         attach_path_siblings(&mut root, &[sibling("lfs", "git-lfs")]);
         let lfs = root
             .subcommands

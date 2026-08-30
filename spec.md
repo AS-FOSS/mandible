@@ -675,6 +675,20 @@ never on a tool's name (§1).
   already documents (as a command or an alias) is dropped: the attested node
   already reaches the same command, and a guess must not overwrite what the
   tool said. The rest are appended after the documented children.
+- **A parent that documents no command at all gets none of these.**
+  Dispatching on a first argument is a thing a tool says it does by listing
+  at least one command of its own; where there is no such list, a
+  `<parent>-<sub>` file is far more likely a sibling *tool* sharing a name
+  prefix. `dpkg --help` lists no commands — its operations are flags — and
+  the 27 `dpkg-*` programs beside it (`dpkg-deb`, `dpkg-architecture`,
+  `dpkg-buildpackage`) are separate tools that `dpkg deb` does not reach;
+  without this rule `mandible dpkg` opened on 27 rows of guesses and nothing
+  else. It is keyed on what the parent's own text said, never on its name
+  (§1), and cannot suppress the case this section exists for: `cargo --help`
+  and `git --help` both document plenty. It does not make the convention
+  reliable where a list exists — `apt --help` lists commands, so `apt-get`
+  and `apt-cache` are shown, marked, and are not `apt get` — which is what
+  the marker below is for.
 - **Root level only.** The convention is a tool dispatching on its *first*
   argument. Nothing dispatches `cargo clippy fix` to `cargo-clippy-fix`, so
   nothing looks for one; a discovered node's own children come from its
