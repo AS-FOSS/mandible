@@ -7,11 +7,15 @@
 //! A section that builds correctly and is then clipped by the border, or a
 //! rule that stops two cells short, is invisible to a line-level test.
 //!
-//! `MODIFIERS` and `ENVIRONMENT` have no producer yet — no extraction tier
-//! emits `EntityKind::Modifier` or `EntityKind::EnvVar`. They are rendered
-//! by the same kind-keyed loop as the two kinds that do have producers, and
-//! the entities here are constructed directly to prove it: the day a parser
-//! emits one, the section is already on screen.
+//! All four list-section kinds now have a producer (`Flag`/`Positional`
+//! from the relocation stages, `Modifier`/`EnvVar` from the two emission
+//! stages — spec §4.5). They are rendered by one kind-keyed loop with no
+//! branch of its own, which is exactly what let both emission stages land
+//! with no change to this pane: `Modifier`'s and `EnvVar`'s entities below
+//! are still constructed directly (rather than parsed from real text) so
+//! this file stays a layout test — sections, order, headers, dividers —
+//! independent of either parser's own row grammar, which each has its own
+//! dedicated tests for.
 
 use mandible_core::{
     CommandNode, Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
@@ -129,8 +133,9 @@ fn sections_render_in_the_specified_order() {
     );
 }
 
-/// The two kinds no parser emits yet reach the screen with their content,
-/// not just their headers — driven purely by `EntityKind`.
+/// `Modifier` and `EnvVar` entities reach the screen with their content,
+/// not just their section headers — driven purely by `EntityKind`, with no
+/// branch of the pane's own naming either kind.
 #[test]
 fn modifiers_and_environment_render_from_constructed_entities() {
     let rows = detail_rows(&app_for(node_with_every_section()), 90, 30);
