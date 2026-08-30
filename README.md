@@ -205,6 +205,16 @@ Search has two modes: `names` matches command names literally; `everything`
 searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
 the first, pressing it again switches to the second.
 
+### Completions
+
+The packages install shell completions for you. For a hand-built binary,
+`mandible --completions <shell>` prints the script (bash, zsh, fish, and more)
+— drop it wherever your shell looks for completions.
+
+They cover more than flags: the tool argument completes to the commands on
+your `PATH`, so `mandible gi<TAB>` offers `git`, not the files in the current
+directory. (zsh and fish today; bash's script format can't express this yet.)
+
 ### Onto the prompt
 
 `y` gets a spelling as far as the clipboard. To land it on the command line
