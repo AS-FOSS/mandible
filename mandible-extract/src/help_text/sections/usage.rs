@@ -306,6 +306,127 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
     Some(flag)
 }
 
+/// Fewest whitespace-separated words the line above a stanza head must
+/// carry before [`stanza_description_above`] adopts it as that stanza's
+/// label.
+///
+/// Three, deliberately not [`MIN_PROSE_SENTENCE_WORDS`]'s five. The two
+/// numbers answer different questions and are not interchangeable. Five
+/// answers "is this indentation-promoted line prose rather than a section
+/// heading?", asked of any line anywhere in a document, where a two- or
+/// three-word *heading* is the thing that must never be claimed. This one
+/// is asked in a single, fully-bracketed slot — a lone line between a
+/// blank and a confirmed stanza head — where a heading and a description
+/// both name the block below and either is a better label than the
+/// invocation line. What the floor still has to keep out is a one- or
+/// two-word fragment, and three is the shortest real specimen in the
+/// measured family: `vgchange`'s own `Activate or deactivate LVs.` is
+/// four words, and a five-word floor would leave that one stanza — the
+/// tool's most-used mode — labelled by its head line while its five
+/// siblings carried their descriptions.
+pub(super) const MIN_STANZA_DESCRIPTION_WORDS: usize = 3;
+
+/// The description sentence a multi-variant tool writes directly above a
+/// usage stanza's head line, when `lines[head_idx]` is such a head and the
+/// line above it is such a sentence — LVM's own emitter, one stanza per
+/// invocation form:
+///
+/// ```text
+///   Start the lockspace of a shared VG in lvmlockd.
+///   vgchange --lockstart
+/// \t[ -S|--select String ]
+/// \t[ COMMON_OPTIONS ]
+/// ```
+///
+/// # The defect
+///
+/// The section loop reads `vgchange --lockstart` as the heading governing
+/// the bracket rows beneath it, so every flag in the stanza takes that
+/// head line as its [`mandible_core::Entity::group`] and the pane draws
+/// `Vgchange --lockstart ─────`. The sentence above it — the only
+/// human-meaningful thing the tool says about this invocation form — is
+/// consumed by nothing and dropped outright. A divider that repeats the
+/// spelling already printed on the row beneath it names the group with
+/// information the reader can already see, while the sentence that would
+/// have told them what the mode *does* is not in the tree at all.
+///
+/// # The rule, and what each clause keeps out
+///
+/// The head is the anchor, and it is the strongest one available:
+/// [`recover_stanza_head_flag`] must already have accepted
+/// `lines[head_idx]` as a stanza head — the tool's own name at a word
+/// boundary followed by exactly one bare flag token
+/// ([`looks_like_stanza_head_flag`]), never an ignorable heading. Nothing
+/// here is tried against an ordinary heading, so the question is only ever
+/// asked about a line that is already known to open an invocation form.
+/// Given that anchor, the line above must:
+///
+/// - **Sit at the head's own column.** A more-indented line is the head's
+///   own content and a less-indented one governs the head rather than
+///   describing it; only a line the author set flush with the head is
+///   writing about that head.
+/// - **Stand alone** — the line above *it* is blank, or absent. This is
+///   the anti-paragraph clause: a description that hard-wraps, or a
+///   trailing sentence of an unrelated paragraph that happens to end just
+///   above a stanza, has a non-blank neighbour above it, and adopting its
+///   last physical line would label the group with half a sentence.
+///   Refuse the whole shape rather than take the fragment.
+/// - **End in a full stop, and not an ellipsis** — the same terminator
+///   test [`is_prose_sentence`] uses, for the same two reasons: a label
+///   the author wrote as a label does not end in one, and a trailing
+///   `...` is docopt repetition notation rather than a sentence.
+/// - **Be a single field** ([`find_multi_space_gap`]) — a line with an
+///   aligned column is a table row, not a sentence.
+/// - **Not open with the tool's own name** ([`starts_with_tool_name`]) —
+///   so a stanza head that happens to end in a period can never become
+///   the label of the stanza beneath it, and neither can a worked-example
+///   invocation.
+/// - **Not open with flag or usage notation** — belt and braces beside
+///   the terminator test, so a bracket row or a flag line is refused on
+///   its shape as well as its punctuation.
+/// - **Carry at least [`MIN_STANZA_DESCRIPTION_WORDS`] words**, and not
+///   be an [`is_ignorable_heading`] marker.
+///
+/// Returns the sentence exactly as the tool wrote it, terminator included
+/// — the display layer strips a label's source punctuation (spec §9.3),
+/// the same way it already strips a heading's trailing colon.
+pub(super) fn stanza_description_above<'a>(
+    lines: &[&'a str],
+    head_idx: usize,
+    tool_name: Option<&str>,
+) -> Option<&'a str> {
+    let name = tool_name?;
+    if head_idx == 0 {
+        return None;
+    }
+    recover_stanza_head_flag(lines[head_idx].trim(), Some(name))?;
+    if head_idx >= 2 && !lines[head_idx - 2].trim().is_empty() {
+        return None;
+    }
+    let raw = lines[head_idx - 1];
+    if leading_whitespace(raw) != leading_whitespace(lines[head_idx]) {
+        return None;
+    }
+    let text = raw.trim();
+    if text.is_empty() || !text.ends_with('.') || text.ends_with("...") {
+        return None;
+    }
+    if text.split_whitespace().count() < MIN_STANZA_DESCRIPTION_WORDS {
+        return None;
+    }
+    if find_multi_space_gap(raw).is_some() {
+        return None;
+    }
+    if starts_with_tool_name(text, name)
+        || looks_like_flag_start(text)
+        || looks_like_usage_fragment(text)
+        || is_ignorable_heading(text)
+    {
+        return None;
+    }
+    Some(text)
+}
+
 /// Pull placeholder tokens (`<value>`, bare `UPPERCASE` words not preceded
 /// by `-`) out of usage lines as positionals. Best-effort: usage-line
 /// grammar is genuinely varied (docopt-style `[OPTIONS]`, `<required>`,
@@ -1441,7 +1562,20 @@ mod tests {
         assert_eq!(activate.short(), Some('a'));
         assert_eq!(activate.value_name.as_deref(), Some("y|n|ay"));
         assert_eq!(activate.value_kind, ValueKind::Required);
-        assert_eq!(activate.group.as_deref(), Some("tool -a|--activate y|n|ay"));
+        // `Do a thing.` is this stanza's own description, so it is the
+        // group's label and the head line is retained as a usage form
+        // instead ([`stanza_description_above`]); the assertion the shape
+        // this test exists for still makes is that the head flag and its
+        // block agree on whatever that label is.
+        assert_eq!(activate.group.as_deref(), Some("Do a thing."));
+        assert!(
+            parsed
+                .usage
+                .iter()
+                .any(|u| u == "tool -a|--activate y|n|ay"),
+            "usage: {:?}",
+            parsed.usage
+        );
         assert!(
             !activate.required,
             "not attempted: no fabricated required-ness"
@@ -2425,6 +2559,153 @@ mod tests {
     fn usage_synopsis_with_no_dash_tokens_yields_zero_flags() {
         let parsed = parse("Usage: mytool [FILE]... <target>\n");
         assert!(parsed.flags.is_empty(), "{:?}", parsed.flags);
+    }
+
+    // --- the stanza's own description as its group label ----------------
+
+    /// The one document shape that reaches this rule at all, spelled out
+    /// once here because it is not obvious and every test below reuses it:
+    /// a stanza is labelled by the **section** loop only after the usage
+    /// block has already ended, since a stanza the block itself reaches
+    /// becomes a `usage` entry with no group. So the preamble is a first
+    /// stanza that anchors the block, then a description too short for
+    /// `is_prose_sentence` to skip (`MIN_PROSE_SENTENCE_WORDS`, spec §7's
+    /// own recorded gap) which ends it, and only then the stanzas this
+    /// rule labels. Real `vgchange` has exactly this shape, and it is why
+    /// the two floors are separate numbers.
+    const STANZA_PREAMBLE: &str =
+        "tool\n\t[ -x|--xflag ]\n\nDo a thing.\ntool -a|--activate y|n|ay\n\t[ -f|--force ]\n";
+
+    /// A stanza reached by the section loop (its own head line read as the
+    /// heading governing the bracket rows beneath it) is labelled by the
+    /// description sentence above the head, its head flag and its bracket
+    /// rows agree on that label, and the head line itself is kept as a
+    /// usage form rather than discarded along with the label it used to be.
+    #[test]
+    fn stanza_group_label_is_the_description_above_its_head() {
+        let help = format!(
+            "{STANZA_PREAMBLE}\nStart the lockspace of a shared VG in lvmlockd.\ntool --lockstart\n\t[ -S|--select String ]\n\t[ COMMON_OPTIONS ]\n"
+        );
+        let parsed = parse_with_profile(&help, None, Some("tool"));
+        let label = Some("Start the lockspace of a shared VG in lvmlockd.");
+        let select = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("select"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(select.group.as_deref(), label, "flags: {:?}", parsed.flags);
+        let lockstart = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("lockstart"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(
+            lockstart.group.as_deref(),
+            label,
+            "the stanza's own head flag and its bracket rows must agree"
+        );
+        assert!(
+            parsed.usage.iter().any(|u| u == "tool --lockstart"),
+            "the head line must survive the relabel as a usage form: {:?}",
+            parsed.usage
+        );
+    }
+
+    /// The no-description fallback, which this change must not regress: a
+    /// stanza with a blank line above its head keeps the head line as its
+    /// label exactly as before, and contributes no usage entry.
+    #[test]
+    fn stanza_without_a_description_keeps_its_head_line_label() {
+        let help = format!(
+            "{STANZA_PREAMBLE}\ntool --lockstart\n\t[ -S|--select String ]\n\t[ COMMON_OPTIONS ]\n"
+        );
+        let parsed = parse_with_profile(&help, None, Some("tool"));
+        let select = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("select"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(select.group.as_deref(), Some("tool --lockstart"));
+        assert!(
+            !parsed.usage.iter().any(|u| u == "tool --lockstart"),
+            "no relabel, so nothing to retain: {:?}",
+            parsed.usage
+        );
+    }
+
+    /// The anti-paragraph clause. A sentence that is the *last line of a
+    /// paragraph* — something above it, no blank between — is not a
+    /// description of the stanza beneath it, and adopting it would label
+    /// the group with the tail of unrelated prose. Refused whole; the head
+    /// line keeps the label.
+    #[test]
+    fn trailing_line_of_a_paragraph_is_not_adopted_as_a_stanza_label() {
+        let help = format!(
+            "{STANZA_PREAMBLE}\nThis tool changes volume group attributes and is\ndocumented at length in the lvm manual page.\ntool --lockstart\n\t[ -S|--select String ]\n"
+        );
+        let parsed = parse_with_profile(&help, None, Some("tool"));
+        let select = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("select"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(
+            select.group.as_deref(),
+            Some("tool --lockstart"),
+            "flags: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// Every remaining clause of the recognizer, each refused on its own:
+    /// a differently-indented neighbour, a two-column table row, a line
+    /// opening with the tool's own name, an ellipsis, and a head that
+    /// names no flag at all (a bare `<tool>` invocation, which is not a
+    /// stanza head).
+    #[test]
+    fn stanza_description_recognizer_refuses_every_near_miss() {
+        let lines = [
+            "",
+            "  Start the lockspace of a VG.",
+            "  vgchange --lockstart",
+        ];
+        assert_eq!(
+            stanza_description_above(&lines, 2, Some("vgchange")),
+            Some("Start the lockspace of a VG.")
+        );
+        for near_miss in [
+            // Not at the head's own column.
+            "      Start the lockspace of a VG.",
+            // A two-column table row, not a sentence.
+            "  lockstart          Start the lockspace of a VG.",
+            // The tool's own name: another invocation line, never a label.
+            "  vgchange starts the lockspace of a VG.",
+            // Repetition notation, not a sentence terminator.
+            "  Start the lockspace of a VG...",
+            // No terminator at all.
+            "  Start the lockspace of a VG",
+            // Under the word floor.
+            "  Lockstart.",
+        ] {
+            let lines = ["", near_miss, "  vgchange --lockstart"];
+            assert_eq!(
+                stanza_description_above(&lines, 2, Some("vgchange")),
+                None,
+                "adopted {near_miss:?}"
+            );
+        }
+        // A bare own-name head names no mode, so it is not a stanza head
+        // and nothing above it is a stanza description.
+        let lines = ["", "  Read information about a VG.", "  vgchange"];
+        assert_eq!(stanza_description_above(&lines, 2, Some("vgchange")), None);
+        // No resolved tool name: the head line cannot be known to be an
+        // invocation of *this* tool rather than a coincidence.
+        let lines = [
+            "",
+            "  Start the lockspace of a VG.",
+            "  vgchange --lockstart",
+        ];
+        assert_eq!(stanza_description_above(&lines, 2, None), None);
     }
 
     /// A malformed/unmatched bracket in a usage line (never seen from a

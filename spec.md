@@ -1698,6 +1698,63 @@ The generic fallback parser (step 2) is built with `winnow`:
   comma-terminated line is still parsed in full. Colon- and
   period-terminated lines are excluded by construction, so this neither
   overlaps nor widens shapes 1 and 2 or `is_section_heading_line`.
+- **A usage stanza is labelled by its own description, not by its head
+  line.** A multi-variant tool documents each invocation form as a
+  *stanza*: a description sentence, then the form's head line, then that
+  form's option rows. LVM's whole `lv*`/`vg*`/`pv*` family writes every
+  mode this way —
+
+  ```text
+    Start the lockspace of a shared VG in lvmlockd.
+    vgchange --lockstart
+  \t[ -S|--select String ]
+  \t[ COMMON_OPTIONS ]
+  ```
+
+  — and where the usage block itself does not reach the stanza (it ends
+  at the first description too short for `is_prose_sentence`), the section
+  scanner reads the head line as the heading governing the rows beneath
+  it. Every flag in the stanza then takes the head line as its `group`,
+  and the sentence above is consumed by nothing. Both halves of that are
+  wrong: a divider reading `Vgchange --lockstart ────` names the group
+  with a spelling already printed on the row beneath it, while the one
+  human-meaningful thing the tool says about the mode is not in the tree
+  at all.
+
+  **The sentence becomes the group's label, and the head line becomes a
+  `usage` entry.** Nothing is traded away in either direction: the label
+  says what the mode does, and the head line is a verbatim invocation
+  form, which is what §4.5's `usage` holds — the same section the stanzas
+  the usage block *did* reach already occupy.
+
+  The rule is anchored on the head, not on the prose
+  (`sections::stanza_description_above`). The head must already be a
+  recognized stanza head — the tool's own name at a word boundary
+  followed by exactly one bare flag token, `recover_stanza_head_flag`'s
+  own test — so the question is never asked about an ordinary heading.
+  The line above it must then be a lone sentence: at the head's exact
+  column, with a blank line or nothing above it, terminated by a full
+  stop that is not an ellipsis, a single field with no aligned column, at
+  least three words, and neither the tool's own name nor flag or bracket
+  notation. **With no such line the head-line label stands unchanged**,
+  which is also what a stanza whose description hard-wraps across two
+  physical lines gets: the anti-paragraph clause refuses the whole shape
+  rather than label a group with the tail of a sentence.
+
+  The three-word floor is deliberately not `MIN_PROSE_SENTENCE_WORDS`'s
+  five, and the two are not interchangeable. Five answers "is this
+  indentation-promoted line prose rather than a section heading?", asked
+  of any line anywhere, where a short *heading* is the thing that must
+  never be claimed. This one is asked in a single fully-bracketed slot
+  where a heading and a description both name the block below and either
+  beats the invocation line; what remains to keep out is a one- or
+  two-word fragment. `vgchange`'s own `Activate or deactivate LVs.` is
+  four words, and a five-word floor would leave that one stanza — the
+  tool's most-used mode — labelled by its head line while its five
+  siblings carried their sentences.
+
+  A group label is displayed with its source's terminator stripped, the
+  full stop of a sentence exactly as the colon of a heading (§9.3).
 - **Never invent subcommands.** This tier shipped a bug where wrapped
   description continuation lines and enum value lists were parsed as commands:
   `tar` gained 39 phantom subcommands named *"treat them as errors"* and
@@ -2602,6 +2659,14 @@ Rules:
   row and every section-opening divider otherwise share. Section headers
   are CAPS with a count, group dividers mixed-case without one: the shape
   distinction survives a terminal that ignores dimming, per §9.2.
+  - **A label drops the terminator its source gave it** — the colon of
+    `GLOBAL OPTIONS:`, and the full stop of a label that is a whole
+    sentence the tool wrote (§7 Tier B makes a usage stanza's own
+    description that stanza's group label). The label runs straight into
+    the rule beside it, so a terminator stranded between the two reads as
+    a mark on the line rather than as the end of a sentence. One stop,
+    never an ellipsis: `...` is docopt repetition notation rather than
+    punctuation.
   - **Three neutral steps, brightest first: pane borders, section header,
     group divider.** The borders keep the terminal's own default
     foreground and are not touched; the section header's rule is a clear

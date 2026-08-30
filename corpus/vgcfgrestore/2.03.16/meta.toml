@@ -1,0 +1,83 @@
+# Regression fixture for the stanza-label rule's **retention** half
+# (fix/11-stanza-label-description, issue #11).
+#
+# `vgchange/2.03.16` pins the relabelling half — six stanzas whose group
+# divider stopped repeating the head line and started reading the tool's
+# own sentence. This tool pins the other direction, which no other
+# fixture reaches: a document whose usage block **never opens at all**,
+# so before this change its `usage` was empty and every stanza head line
+# existed in the tree only as a `group` label.
+#
+# Why the block never opens here: the unlabelled-synopsis entry point
+# (`sections::looks_like_bare_synopsis_head`) needs the line after a bare
+# own-name head to be unambiguous flag-row evidence, and every one of
+# this tool's four stanzas is continued by `[ COMMON_OPTIONS ]` alone — a
+# placeholder, not a flag row (`grammar::looks_like_bracket_flag_row`
+# requires the bracketed content to start with `-`). `vgck`'s first
+# stanza has a real `[ --reportformat basic|json ]` row and so does open
+# the block; this one has nothing but the placeholder, on all four.
+#
+# What the fix changes here, therefore:
+# - `usage` goes from empty to the two stanza heads whose label was
+#   adopted (`vgcfgrestore -f|--file String VG`, `vgcfgrestore -l|--list
+#   VG`), so the head line is not lost to the relabel and the pane grows
+#   a USAGE section it did not have.
+# - `-f`/`--file` and `-l`/`--list` carry their stanza's own sentence as
+#   `group` instead of the head line.
+#
+# Two of the four stanzas are deliberately **not** relabelled, and this
+# fixture pins that too — the strict recognizer's recorded misses:
+# - `vgcfgrestore VG` (stanza 1) names no flag at all, so it is not a
+#   stanza head (`recover_stanza_head_flag`) and "Restore VG metadata
+#   from last backup." is not adopted. That stanza reaches the tree
+#   through no path at all, before this fix or after it — a documented
+#   miss, not a regression, and the honest cost of anchoring the rule on
+#   a head that names its mode.
+# - `vgcfgrestore -l|--list -f|--file String` (stanza 4) names *two*
+#   flags, which `grammar::looks_like_stanza_head_flag` refuses by
+#   construction (it admits exactly one bare flag token), so "List one VG
+#   metadata backup file." is still dropped. Widening that predicate is
+#   not attempted here: it is the same predicate that keeps a worked
+#   example from being mined as a stanza head, and it has its own
+#   measurement.
+#
+# Captured on this machine's real `vgcfgrestore` (lvm2 2.03.16, Ubuntu
+# 24.04): help.txt is the tool's own stdout byte-exact, help.stderr.txt
+# the one non-root warning this environment always emits (stdout is
+# non-empty and help-shaped, so `help_text::pick_stream` reads it and the
+# warning never reaches the tree).
+#
+# Every recovered flag here is undescribed, same as every other LVM
+# fixture: the emitter documents individual flags only under
+# `--longhelp`, so `min_status` is `low-confidence`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "vgcfgrestore"
+version = "2.03.16"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.5.0"
+
+[[capture]]
+argv = ["vgcfgrestore", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "low-confidence"
+must_contain_flags = [
+  "-f", "--file",
+  "-l", "--list",
+  "-M", "--metadatatype",
+  "--force",
+  "-d", "--debug",
+  "--commandprofile",
+  "--journal",
+]
+# No `verdict_scope`: this bless is agent-reviewed (read against help.txt
+# above, stanza by stanza), not human-reviewed — see corpus/README.md's
+# "What `--bless` does and does not assert".

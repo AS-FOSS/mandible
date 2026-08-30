@@ -1157,18 +1157,31 @@ fn break_overlong_word(word: &str, width: usize) -> Vec<String> {
 }
 
 /// A group heading with its source's punctuation stripped: single-lined,
-/// trimmed, and without the trailing colon a help-text heading carries
-/// (`"GLOBAL OPTIONS:"` → `"GLOBAL OPTIONS"`).
+/// trimmed, and without the trailing terminator a help-text heading
+/// carries — the colon of `"GLOBAL OPTIONS:"`, and the full stop of a
+/// group whose label is a whole sentence the tool wrote
+/// (`"Start the lockspace of a shared VG in lvmlockd."`, LVM's own
+/// per-stanza description, which spec §7 Tier B makes that stanza's
+/// group label).
+///
+/// A divider is furniture: its label runs straight into the rule beside
+/// it, and a terminator stranded between the two reads as a mark on the
+/// line rather than as the end of a sentence — the same reason the colon
+/// goes. One trailing stop only, and never an ellipsis, which is docopt
+/// repetition notation rather than punctuation (a group named
+/// `"FILE..."` keeps its meaning).
 ///
 /// The casing is left exactly as the tool wrote it — that is
 /// [`group_label`]'s and [`group_key`]'s business, and they want different
 /// answers.
 fn strip_group_punctuation(raw: &str) -> String {
-    defensive_single_line(raw)
-        .trim()
-        .trim_end_matches(':')
-        .trim()
-        .to_string()
+    let single = defensive_single_line(raw);
+    let trimmed = single.trim().trim_end_matches(':').trim();
+    let unterminated = match trimmed.strip_suffix('.') {
+        Some(head) if !trimmed.ends_with("...") => head.trim_end(),
+        _ => trimmed,
+    };
+    unterminated.to_string()
 }
 
 /// The identity a group is collected under: case-folded, so that
@@ -2851,6 +2864,33 @@ mod tests {
                 "a group label must not read as a section header: {label:?}"
             );
         }
+    }
+
+    /// A group whose label is a whole sentence the tool wrote — LVM's
+    /// per-stanza description, which spec §7 Tier B makes that stanza's
+    /// group label — loses its full stop the same way a heading loses its
+    /// colon: the label runs straight into the divider's rule, and a
+    /// terminator between the two reads as a stray mark rather than as the
+    /// end of a sentence. One stop only, and never an ellipsis, which is
+    /// repetition notation rather than punctuation.
+    #[test]
+    fn group_labels_drop_a_sentence_terminator_like_a_heading_colon() {
+        assert_eq!(
+            group_label("Start the lockspace of a shared VG in lvmlockd."),
+            "Start the lockspace of a shared VG in lvmlockd"
+        );
+        assert_eq!(
+            group_label("Activate or deactivate LVs."),
+            "Activate or deactivate LVs"
+        );
+        // Not punctuation: docopt repetition notation stays.
+        assert_eq!(group_label("FILE..."), "File...");
+        // The colon rule is unchanged, and the two collapse to one key.
+        assert_eq!(group_label("Main operation mode:"), "Main operation mode");
+        assert_eq!(
+            group_key("Activate or deactivate LVs."),
+            group_key("Activate or deactivate LVs")
+        );
     }
 
     /// Spec §9.3: a value placeholder is fused onto the spelling it
