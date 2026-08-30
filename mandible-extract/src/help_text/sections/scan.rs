@@ -1053,19 +1053,30 @@ MODIFIERS:
         assert_eq!(parsed.modifiers[0].group.as_deref(), Some("MODIFIERS:"));
     }
 
-    /// The fleet's one near-miss, end to end: `pygettext3`'s reference
-    /// footnotes must not become a two-entry MODIFIERS section on a tool
-    /// that has no modifiers at all.
+    /// The fleet's one near-miss, end to end: a block of reference
+    /// footnotes must not become a MODIFIERS section on a tool that has no
+    /// modifiers at all. `pygettext3`'s own two footnotes are the rows,
+    /// verbatim.
+    ///
+    /// **Set under a heading, which `pygettext3` does not do.** In its real
+    /// output those footnotes sit in a prose region no heading governs, so
+    /// [`scan_modifier_table`] is never offered them and the row grammar
+    /// never runs — meaning a test that transcribed the document faithfully
+    /// proved nothing about the grammar and stayed green however the rules
+    /// were broken. It was written that way first and did exactly that.
+    /// Putting the same rows where the scan *is* offered them is what makes
+    /// this able to fail: verified red with both the digit rule and the
+    /// separator rule removed, and green again with either one restored —
+    /// which is also the evidence that they are two independent grounds
+    /// rather than one rule spelled twice.
     #[test]
     fn reference_footnotes_never_become_modifiers() {
         let help = "\
 Usage: pygettext [options] inputfile ...
 
-Options:
-  -h, --help    print this help message and exit
-
- [1] https://www.python.org/workshops/1997-10/proceedings/loewis.html
- [2] https://www.gnu.org/software/gettext/gettext.html
+References:
+  [1] https://www.python.org/workshops/1997-10/proceedings/loewis.html
+  [2] https://www.gnu.org/software/gettext/gettext.html
 ";
         let parsed = parse_named(help, "pygettext");
         assert!(parsed.modifiers.is_empty(), "{:?}", parsed.modifiers);
