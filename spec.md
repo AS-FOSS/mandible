@@ -1983,6 +1983,63 @@ heading they sit under. A recognizer that consumed the whole block, or that
 restarted section scanning after the run, would strip that group from four
 flags that carry it correctly today.
 
+**Environment sections.** A tool's own environment variables — `bpftrace`'s
+`BPFTRACE_BTF`, `node`'s `NODE_DEBUG` — become `EntityKind::EnvVar`
+entities (§4.5), rendered by §9.3's ENVIRONMENT section, but only when
+documented under an **explicitly labeled environment heading**: `PATH`,
+`FILE`, `TERM` and every other ALL_CAPS word in prose or a usage
+placeholder is exactly the fabrication class §13.1e's family detectors
+exist to catch, and a tool that documents its env vars only in a man page
+gets no ENVIRONMENT section here — mandible renders the author's
+documented surface, it does not claim completeness (§1).
+
+The recognizer is **heading-keyed, never row-keyed** — the opposite choice
+from the modifier-table recognizer above, and for the opposite reason. The
+modifier recognizer has no reliable heading to stand on (`ar`'s own
+headings are unreliable, as the modifier-table subsection describes), so it
+has to prove itself entirely from row shape. An environment section has the
+reverse problem: a bare identifier, a separator, and a description is not
+by itself distinguishable from an ordinary bare-word block or a flush-left
+config-variable table — `mysqlslap`'s settings listing is exactly a table
+shaped like this that documents defaults, not environment variables, and is
+the specimen [M-10] was found through. Here the heading is the only
+reliable signal, so the heading carries the whole weight: the row grammar
+only has to clear an ordinary separator-and-identifier bar once the heading
+has already matched.
+
+Measured over the 2,301 frozen captures under `audit/queue-captures/`: 57
+tool directories carry a heading that reduces (trimming, and dropping one
+optional trailing colon — never other trailing punctuation) to one of
+three exact words: `environment`, `environment variable`, `environment
+variables`. The largest family by far is `bpftrace` and roughly sixteen
+near-identical `.bt` trace scripts sharing its boilerplate `--help`, all
+under `ENVIRONMENT:`. Two labeled sections in the fleet (`ebtables`,
+`ebtables-nft`) document nothing beneath the heading and correctly produce
+no section — an empty label is not evidence of anything to recover. The
+near-misses excluded by the exact-word rule: a bare `env` heading (a
+subcommand list, not an environment section — none found in this fleet,
+but structurally excluded regardless), and every prose sentence that merely
+*mentions* "environment"/"environment variable" without being the heading
+itself (`clang`'s "Specify the target environment", `wget`'s "environment
+variable is used.", `rg`'s wrapped sentence ending "...the environment
+variable."). The row grammar reuses the same separator rule
+(`split_modifier_table_row`'s column-gap-or-dash-run) with the modifier
+table's bracket parsing dropped, since an environment row has no bracket to
+open.
+
+The row floor is **one**, not two: since the heading is already the
+positive evidence, a single row does not need a second row to corroborate
+it the way a headingless bracket row does. The scan skips at most one
+leading line that fails the row grammar before its run has to open —
+`gprofng`'s own `Environment:` heading is followed by an introductory
+sentence ("The following environment variables are supported:") before its
+real rows — which costs nothing when the skip guesses wrong, since the row
+scan that follows still has to find a real row or the whole result is
+`None` regardless. A recorded miss, on the same convention the modifier
+scanner already accepts: the run stops at the first blank line, so
+`gprofng`'s own two variables — printed as two blank-line-separated
+paragraphs rather than adjacent rows — yield only the first.
+
 ### Tier C — completion script structural parsing
 
 For tools not in a catalog that support `<tool> completion bash|zsh|fish`
