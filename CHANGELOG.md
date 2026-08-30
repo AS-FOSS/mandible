@@ -20,6 +20,8 @@ once it reaches a published 0.1.0 release.
 
 - `jar --help` no longer turns wrapped `-C foo/ ...` rows from its indented `Examples:` blocks into duplicate flags or loses the `Main operation mode:` group: when indentation would otherwise promote the preceding prose sentence to a fake heading and hide the ignorable marker, the parser now contains that whole region until a physical dedent or a positively worded, structurally attested multi-row flag section; generic `Input:`/`Output:` labels, command-shaped example data, and single flag-shaped samples remain contained, with no tool-name-keyed logic.
 
+- `dpkg --help`'s cross-reference sentence about `dpkg-deb` no longer becomes a section divider and a `-f, --field` option `dpkg` does not have (issue #80): a sentence that hard-wraps onto a hanging-indented line reads to the indentation-alone heading rule as a heading over a block, and when the wrap lands on a dash-led word that block parses as an options table, so the parser now recognizes the unfinished line by its own trailing comma and contains the whole wrapped region — bounded by the first blank line, dedent, or aligned column, so a genuine table beneath such a line is still parsed in full, with no tool-name-keyed logic.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added

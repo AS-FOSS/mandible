@@ -1165,6 +1165,13 @@ fn parse_body(
         if is_ignorable_heading(&heading) {
             in_ignorable_section = true;
         }
+        // A hard-wrapped prose sentence, whose second physical line the
+        // indentation-alone heading rule would otherwise hand to the flags
+        // scanner. Fenced whole — see `wrapped_prose_region_end`.
+        if let Some(end) = wrapped_prose_region_end(&lines, heading_idx) {
+            i = end;
+            continue;
+        }
         i += 1;
         while i < lines.len() && lines[i].trim().is_empty() {
             i += 1;
@@ -3411,6 +3418,90 @@ fn is_line_continuation_fragment(heading: &str) -> bool {
 /// was before.
 fn heading_can_name_a_group(heading: &str) -> bool {
     !is_prose_sentence(heading) && !is_line_continuation_fragment(heading)
+}
+
+/// Index just past a hard-wrapped prose sentence opening at `head`, or
+/// `None` when that line does not open one.
+///
+/// # The defect
+///
+/// The third face of the indentation-alone promotion [`is_prose_sentence`]
+/// and [`is_line_continuation_fragment`] each document one face of, and the
+/// only one where suppressing the `group` is not enough. A paragraph that
+/// hard-wraps with a hanging indent puts a *more-indented* line beneath an
+/// ordinary sentence, so the scanner reads the sentence as a heading and
+/// the rest of the sentence as its block — and when the wrap happens to
+/// land on a dash-led word, that block is a flags block:
+///
+/// ```text
+/// Use dpkg with -b, --build, -c, --contents, -e, --control, -I, --info,
+///   -f, --field, -x, --extract, -X, --vextract, --ctrl-tarfile, --fsys-tarfile
+/// on archives (type dpkg-deb --help).
+/// ```
+///
+/// One sentence, naming another program's options so a reader knows not to
+/// pass them here. `dpkg --help` acquires from it a section divider reading
+/// `USE DPKG WITH -B, --BUILD, -C, --CONTENTS, …` and, under it, a `-f,
+/// --field` option `dpkg` does not have.
+///
+/// Neither existing predicate can see this. [`is_prose_sentence`] requires
+/// a full stop, and a wrap by definition breaks the line *before* the
+/// sentence ends; [`is_line_continuation_fragment`] requires the author to
+/// have marked the wrap with a backslash, which prose never does. And
+/// suppressing the `group` alone would leave the fabricated flag behind,
+/// merely ungrouped — so this one has to fence the region rather than
+/// annotate it, the same containment shape the obscured-`Examples:` marker
+/// uses (see `obscured_ignorable_indent`).
+///
+/// # The rule, and what each clause keeps out
+///
+/// The head line:
+///
+/// - **Ends with a comma.** The author's own statement that the line is not
+///   finished — the wrap-marker prose does write, where a backslash is the
+///   one a synopsis writes. A section heading is a label, and no label ends
+///   mid-list; a colon-terminated heading ([`is_section_heading_line`]) and
+///   a period-terminated sentence ([`is_prose_sentence`]) are both excluded
+///   by construction, so this neither overlaps nor widens either of them.
+/// - **Is a single field** ([`find_multi_space_gap`], the same test and the
+///   same reason as [`is_prose_sentence`]): a line with an aligned column is
+///   a table row, not running prose, whatever punctuation ends it.
+/// - **Is at least [`MIN_PROSE_SENTENCE_WORDS`] words**, so a short
+///   comma-carrying label can never qualify.
+///
+/// and the continuation must actually exist: the **immediately** next
+/// physical line — no blank line may intervene, because a wrapped sentence
+/// never contains one — is indented further and is itself a single field.
+/// The region then runs while those two conditions keep holding, so it ends
+/// at the first blank line, the first dedent to the head's own column, or
+/// the first line carrying an aligned column. That last clause is what
+/// bounds the fence to prose flow: a real option table's rows have a column
+/// gap, so the region can never swallow one even if a comma-terminated line
+/// somehow introduced it.
+fn wrapped_prose_region_end(lines: &[&str], head: usize) -> Option<usize> {
+    let head_line = lines.get(head)?;
+    let trimmed = head_line.trim_end();
+    if !trimmed.ends_with(',') {
+        return None;
+    }
+    if trimmed.split_whitespace().count() < MIN_PROSE_SENTENCE_WORDS {
+        return None;
+    }
+    if find_multi_space_gap(head_line).is_some() {
+        return None;
+    }
+    let head_indent = leading_whitespace(head_line);
+    let mut end = head + 1;
+    while let Some(line) = lines.get(end) {
+        if line.trim().is_empty()
+            || leading_whitespace(line) <= head_indent
+            || find_multi_space_gap(line).is_some()
+        {
+            break;
+        }
+        end += 1;
+    }
+    (end > head + 1).then_some(end)
 }
 
 /// Longest label this will accept before a `:` still counts as a section
@@ -8283,6 +8374,118 @@ mod tests {
             parsed.subcommands.is_empty(),
             "nodes: {:?}",
             parsed.subcommands
+        );
+    }
+
+    // --- hard-wrapped prose sentences (issue #80) ---
+
+    /// `dpkg --help` closes its command list with one sentence, wrapped
+    /// across three physical lines, that names *another program's* options
+    /// so a reader knows not to pass them to this one. The hanging indent
+    /// makes line two more-indented than line one, so the indentation-alone
+    /// heading rule reads the sentence as a section heading over a flags
+    /// block — and because the wrap lands on `-f,`, that block parses.
+    ///
+    /// Both halves of the fabrication have to go: the divider the flags
+    /// pane renders from the `group`, and the `-f, --field` option `dpkg`
+    /// does not have. The real `Options:` table beneath must be untouched.
+    #[test]
+    fn wrapped_cross_reference_sentence_yields_no_heading_and_no_flags() {
+        let help = "Usage: dpkg [<option>...] <command>\n\
+                     \n\
+                     Commands:\n\
+                     \x20\x20-i|--install       <.deb file name>...\n\
+                     \n\
+                     Use dpkg with -b, --build, -c, --contents, -e, --control, -I, --info,\n\
+                     \x20\x20-f, --field, -x, --extract, -X, --vextract, --ctrl-tarfile, --fsys-tarfile\n\
+                     on archives (type dpkg-deb --help).\n\
+                     \n\
+                     Options:\n\
+                     \x20\x20--admindir=<directory>     Use <directory> instead of /var/lib/dpkg.\n\
+                     \x20\x20--robot                    Use machine-readable output on some commands.\n";
+
+        let parsed = parse_with_profile(help, None, Some("dpkg"));
+        for spelling in [
+            "field",
+            "extract",
+            "vextract",
+            "ctrl-tarfile",
+            "fsys-tarfile",
+        ] {
+            assert!(
+                parsed.flags.iter().all(|f| f.long() != Some(spelling)),
+                "fabricated --{spelling}: {:?}",
+                parsed.flags
+            );
+        }
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| !f.group.as_deref().is_some_and(|g| g.starts_with("Use "))),
+            "fabricated group: {:?}",
+            parsed.flags
+        );
+        // The real table beneath the sentence still parses, descriptions
+        // and all — containment must not be bought by losing structure.
+        for spelling in ["admindir", "robot"] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.long() == Some(spelling))
+                .unwrap_or_else(|| panic!("missing --{spelling} in {:?}", parsed.flags));
+            assert!(
+                flag.description.is_some(),
+                "--{spelling} lost its description: {:?}",
+                parsed.flags
+            );
+        }
+    }
+
+    /// The fence is bounded by shape, not by how far the paragraph runs: a
+    /// genuine, column-aligned option table directly beneath a
+    /// comma-terminated line is a table row, not sentence flow, so the
+    /// region must end before it and the rows must still be recovered.
+    #[test]
+    fn comma_terminated_line_over_an_aligned_table_still_yields_its_flags() {
+        let help = "Usage: demo [OPTIONS]\n\
+                     \n\
+                     The options below accept a size, a duration, or a count,\n\
+                     \x20\x20--limit <n>        cap the number of records read\n\
+                     \x20\x20--timeout <secs>   give up after this many seconds\n";
+
+        let parsed = parse_with_profile(help, None, Some("demo"));
+        for spelling in ["limit", "timeout"] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| f.long() == Some(spelling))
+                .unwrap_or_else(|| panic!("missing --{spelling} in {:?}", parsed.flags));
+            assert!(
+                flag.description.is_some(),
+                "--{spelling} lost its description: {:?}",
+                parsed.flags
+            );
+        }
+    }
+
+    /// A blank line ends the fence, because a wrapped sentence never
+    /// contains one. Without that clause the region would run from a
+    /// comma-terminated trailing line straight through the blank separator
+    /// and swallow whatever section came next.
+    #[test]
+    fn blank_line_after_a_comma_terminated_line_ends_the_prose_fence() {
+        let help = "Usage: demo [OPTIONS]\n\
+                     \n\
+                     Accepts a size, a duration, a count, or a ratio,\n\
+                     \n\
+                     \x20\x20--limit <n>        cap the number of records read\n";
+
+        let parsed = parse_with_profile(help, None, Some("demo"));
+        assert!(
+            parsed.flags.iter().any(|f| f.long() == Some("limit")),
+            "flags: {:?}",
+            parsed.flags
         );
     }
 

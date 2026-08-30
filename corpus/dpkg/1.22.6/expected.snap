@@ -1,0 +1,440 @@
+name: dpkg
+usage:
+- 'Usage: dpkg [<option>...] <command>'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- short: 'i'
+  long: install
+  group: 'Commands:'
+  description: <.deb file name>... | -R|--recursive <directory>...
+  provenance:
+    sources:
+    - help-text
+- long: unpack
+  group: 'Commands:'
+  description: <.deb file name>... | -R|--recursive <directory>...
+  provenance:
+    sources:
+    - help-text
+- short: 'A'
+  long: record-avail
+  group: 'Commands:'
+  description: <.deb file name>... | -R|--recursive <directory>...
+  provenance:
+    sources:
+    - help-text
+- long: configure
+  group: 'Commands:'
+  description: <package>... | -a|--pending
+  provenance:
+    sources:
+    - help-text
+- long: triggers-only
+  group: 'Commands:'
+  description: <package>... | -a|--pending
+  provenance:
+    sources:
+    - help-text
+- short: 'r'
+  long: remove
+  group: 'Commands:'
+  description: <package>... | -a|--pending
+  provenance:
+    sources:
+    - help-text
+- short: 'P'
+  long: purge
+  group: 'Commands:'
+  description: <package>... | -a|--pending
+  provenance:
+    sources:
+    - help-text
+- short: 'V'
+  long: verify
+  value_name: <package>...
+  value_kind: Optional
+  group: 'Commands:'
+  description: Verify the integrity of package(s).
+  provenance:
+    sources:
+    - help-text
+- long: get-selections
+  value_name: <pattern>...
+  value_kind: Optional
+  group: 'Commands:'
+  description: Get list of selections to stdout.
+  provenance:
+    sources:
+    - help-text
+- long: set-selections
+  group: 'Commands:'
+  description: Set package selections from stdin.
+  provenance:
+    sources:
+    - help-text
+- long: clear-selections
+  group: 'Commands:'
+  description: Deselect every non-essential package.
+  provenance:
+    sources:
+    - help-text
+- long: update-avail
+  value_name: <Packages-file>
+  value_kind: Optional
+  group: 'Commands:'
+  description: Replace available packages info.
+  provenance:
+    sources:
+    - help-text
+- long: merge-avail
+  value_name: <Packages-file>
+  value_kind: Optional
+  group: 'Commands:'
+  description: Merge with info from file.
+  provenance:
+    sources:
+    - help-text
+- long: clear-avail
+  group: 'Commands:'
+  description: Erase existing available info.
+  provenance:
+    sources:
+    - help-text
+- long: forget-old-unavail
+  group: 'Commands:'
+  description: Forget uninstalled unavailable pkgs.
+  provenance:
+    sources:
+    - help-text
+- short: 's'
+  long: status
+  value_name: <package>...
+  value_kind: Optional
+  group: 'Commands:'
+  description: Display package status details.
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: print-avail
+  value_name: <package>...
+  value_kind: Optional
+  group: 'Commands:'
+  description: Display available version details.
+  provenance:
+    sources:
+    - help-text
+- short: 'L'
+  long: listfiles
+  value_name: <package>
+  value_kind: Required
+  group: 'Commands:'
+  description: List files 'owned' by package(s).
+  provenance:
+    sources:
+    - help-text
+- short: 'l'
+  long: list
+  value_name: <pattern>...
+  value_kind: Optional
+  group: 'Commands:'
+  description: List packages concisely.
+  provenance:
+    sources:
+    - help-text
+- short: 'S'
+  long: search
+  value_name: <pattern>
+  value_kind: Required
+  group: 'Commands:'
+  description: Find package(s) owning file(s).
+  provenance:
+    sources:
+    - help-text
+- short: 'C'
+  long: audit
+  value_name: <package>...
+  value_kind: Optional
+  group: 'Commands:'
+  description: Check for broken package(s).
+  provenance:
+    sources:
+    - help-text
+- long: yet-to-unpack
+  group: 'Commands:'
+  description: Print packages selected for installation.
+  provenance:
+    sources:
+    - help-text
+- long: predep-package
+  group: 'Commands:'
+  description: Print pre-dependencies to unpack.
+  provenance:
+    sources:
+    - help-text
+- long: add-architecture
+  value_name: <arch>
+  value_kind: Required
+  group: 'Commands:'
+  description: Add <arch> to the list of architectures.
+  provenance:
+    sources:
+    - help-text
+- long: remove-architecture
+  value_name: <arch>
+  value_kind: Required
+  group: 'Commands:'
+  description: Remove <arch> from the list of architectures.
+  provenance:
+    sources:
+    - help-text
+- long: print-architecture
+  group: 'Commands:'
+  description: Print dpkg architecture.
+  provenance:
+    sources:
+    - help-text
+- long: print-foreign-architectures
+  group: 'Commands:'
+  description: Print allowed foreign architectures.
+  provenance:
+    sources:
+    - help-text
+- long: assert-help
+  group: 'Commands:'
+  description: Show help on assertions.
+  provenance:
+    sources:
+    - help-text
+- long: assert-
+  value_name: <feature>
+  value_kind: Required
+  group: 'Commands:'
+  description: Assert support for the specified feature.
+  provenance:
+    sources:
+    - help-text
+- long: validate-
+  value_name: <thing>
+  value_kind: Required
+  group: 'Commands:'
+  description: Validate a <thing>'s <string>.
+  provenance:
+    sources:
+    - help-text
+- long: compare-versions
+  value_name: <a>
+  value_kind: Required
+  group: 'Commands:'
+  description: Compare version numbers - see below.
+  provenance:
+    sources:
+    - help-text
+- long: force-help
+  group: 'Commands:'
+  description: Show help on forcing.
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: debug
+  value_name: h
+  value_kind: Required
+  group: 'Commands:'
+  description: Show help on debugging.
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  long: help
+  group: 'Commands:'
+  description: Show this help message.
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: 'Commands:'
+  description: Show the version.
+  provenance:
+    sources:
+    - help-text
+- long: admindir
+  value_name: <directory>
+  value_kind: Required
+  description: Use <directory> instead of /var/lib/dpkg.
+  provenance:
+    sources:
+    - help-text
+- long: root
+  value_name: <directory>
+  value_kind: Required
+  description: Install on a different root directory.
+  provenance:
+    sources:
+    - help-text
+- long: instdir
+  value_name: <directory>
+  value_kind: Required
+  description: Change installation dir without changing admin dir.
+  provenance:
+    sources:
+    - help-text
+- long: pre-invoke
+  value_name: <command>
+  value_kind: Required
+  description: Set a pre-invoke hook.
+  provenance:
+    sources:
+    - help-text
+- long: post-invoke
+  value_name: <command>
+  value_kind: Required
+  description: Set a post-invoke hook.
+  provenance:
+    sources:
+    - help-text
+- long: path-exclude
+  value_name: <pattern>
+  value_kind: Required
+  description: Do not install paths which match a shell pattern.
+  provenance:
+    sources:
+    - help-text
+- long: path-include
+  value_name: <pattern>
+  value_kind: Required
+  description: Re-include a pattern after a previous exclusion.
+  provenance:
+    sources:
+    - help-text
+- short: 'O'
+  long: selected-only
+  description: Skip packages not selected for install/upgrade.
+  provenance:
+    sources:
+    - help-text
+- short: 'E'
+  long: skip-same-version
+  description: Skip packages with same installed version/arch.
+  provenance:
+    sources:
+    - help-text
+- short: 'G'
+  long: refuse-downgrade
+  description: Skip packages with earlier version than installed.
+  provenance:
+    sources:
+    - help-text
+- short: 'B'
+  long: auto-deconfigure
+  description: Install even if it would break some other package.
+  provenance:
+    sources:
+    - help-text
+- long: triggers
+  negatable: true
+  description: Skip or force consequential trigger processing.
+  provenance:
+    sources:
+    - help-text
+- long: verify-format
+  value_name: <format>
+  value_kind: Required
+  description: 'Verify output format (supported: ''rpm'').'
+  provenance:
+    sources:
+    - help-text
+- long: no-pager
+  description: Disables the use of any pager.
+  provenance:
+    sources:
+    - help-text
+- long: no-debsig
+  description: Do not try to verify package signatures.
+  provenance:
+    sources:
+    - help-text
+- long: no-act
+  description: Just say what we would do - don't do it.
+  provenance:
+    sources:
+    - help-text
+- short: 'D'
+  long: debug
+  value_name: <octal>
+  value_kind: Required
+  description: Enable debugging (see -Dhelp or --debug=help).
+  provenance:
+    sources:
+    - help-text
+- long: status-fd
+  value_name: <n>
+  value_kind: Required
+  description: Send status change updates to file descriptor <n>.
+  provenance:
+    sources:
+    - help-text
+- long: status-logger
+  value_name: <command>
+  value_kind: Required
+  description: Send status change updates to <command>'s stdin.
+  provenance:
+    sources:
+    - help-text
+- long: log
+  value_name: <filename>
+  value_kind: Required
+  description: Log status changes and actions to <filename>.
+  provenance:
+    sources:
+    - help-text
+- long: ignore-depends
+  value_name: <package>
+  value_kind: Required
+  description: Ignore dependencies involving <package>.
+  provenance:
+    sources:
+    - help-text
+- long: force-
+  value_name: <thing>
+  value_kind: Required
+  description: Override problems (see --force-help).
+  provenance:
+    sources:
+    - help-text
+- long: no-force-
+  value_name: <thing>
+  value_kind: Required
+  description: Stop when problems encountered.
+  provenance:
+    sources:
+    - help-text
+- long: refuse-
+  value_name: <thing>
+  value_kind: Required
+  description: Ditto.
+  provenance:
+    sources:
+    - help-text
+- long: abort-after
+  value_name: <n>
+  value_kind: Required
+  description: Abort after encountering <n> errors.
+  provenance:
+    sources:
+    - help-text
+- long: robot
+  description: Use machine-readable output on some commands.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

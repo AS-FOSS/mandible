@@ -1635,6 +1635,49 @@ The generic fallback parser (step 2) is built with `winnow`:
   under headings like "Main operation mode"; `git --help` groups commands under
   "work on the current change". Discarding that grouping is the difference
   between a scannable pane and an undifferentiated wall.
+
+  A heading is recognized by **relative indentation** — any line whose next
+  non-blank neighbour is indented further introduces that neighbour's block —
+  because real headings sit at no fixed column (`tar` indents its own by one
+  space, its entries by two). That rule has one systematic false positive:
+  **running prose whose hard wrap puts a hanging-indented line beneath an
+  ordinary sentence.** The sentence is promoted to a heading and the rest of
+  the sentence becomes its block. Three shapes of it, and the binding rule
+  for each:
+
+  1. The sentence **ends** on the promoted line (`nano`'s "When a filename is
+     '-', nano reads data from standard input."; GNU argp's "Mandatory
+     arguments to long options are mandatory for short options too.", 56
+     tools). The block below it is a real option table, so only the `group`
+     is wrong: the heading is **suppressed**, the block parses unchanged
+     (`is_prose_sentence`).
+  2. The author marked the wrap with a backslash (`update-xmlcatalog`'s
+     synopsis, 7 tools). Same remedy — suppress the `group`
+     (`is_line_continuation_fragment`).
+  3. The sentence **continues** onto the indented line, so that line is not
+     a block at all but more of the sentence. Suppressing the `group` is not
+     enough here, because the continuation is still mined: when the wrap
+     lands on a dash-led word the parser reads an options table out of a
+     paragraph. `dpkg --help` (issue #80) wraps one cross-reference sentence
+     — "Use dpkg with -b, --build, … -f, --field, … on archives (type
+     dpkg-deb --help)." — across three lines, and acquired from it both a
+     section divider and a `-f, --field` option that belongs to a different
+     program. **The whole wrapped region is contained**: neither heading nor
+     entries are recovered from any of its lines
+     (`wrapped_prose_region_end`), the same remedy the obscured-`Examples:`
+     marker gets.
+
+  Shape 3 is recognized by the author's own unfinished-line marker, a
+  trailing comma, on a line that is a single field (no aligned column) of at
+  least five words, immediately followed — no blank line, since a wrapped
+  sentence contains none — by a more-indented line that is itself a single
+  field. The region then runs while both conditions hold, so it ends at the
+  first blank line, the first dedent, or the first line carrying an aligned
+  column. That last bound is what keeps the fence off real structure: an
+  option table's rows have a column gap, so a genuine block beneath a
+  comma-terminated line is still parsed in full. Colon- and
+  period-terminated lines are excluded by construction, so this neither
+  overlaps nor widens shapes 1 and 2 or `is_section_heading_line`.
 - **Never invent subcommands.** This tier shipped a bug where wrapped
   description continuation lines and enum value lists were parsed as commands:
   `tar` gained 39 phantom subcommands named *"treat them as errors"* and
