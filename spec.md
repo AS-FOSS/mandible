@@ -4023,6 +4023,14 @@ the relationship clear.
   Fedora, where `vendor-completions` is. Every channel generates them from the
   built binary's own `--completions <shell>`, so there is one generator and no
   packaging path that can install a file the shell will not find.
+- Every argument that names a tool — the `TOOL` positional, `--doctor`'s value
+  and `--report`'s value — completes to the command names on `$PATH`. Each one
+  is a program mandible is about to run `--help` on, so the shell's own command
+  table is the candidate set; the filename completion a shell otherwise
+  defaults to offers the contents of the current directory, which is never what
+  `mandible gi<TAB>` is asking for. The `SUBCOMMAND` words after `TOOL` are
+  names inside one tool's tree, not commands on `$PATH`, and are not completed
+  this way.
 - The shell integration (§2's `--print-selection` binding) ships the same way
   and is installed to no path at all: `mandible --shell-init <shell>` prints it,
   from a snippet in `packaging/shell/` compiled into the binary, and the user

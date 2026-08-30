@@ -119,13 +119,9 @@ produced a tool's output, then applies that framework's grammar. For example:
 </div>
 
 > [!TIP]
-> You can also try to probe executable files: `mandible scripts/custom.py`
-
-> [!TIP]
-> Open straight at a subcommand: `mandible cargo clippy`. Commands the parent's
-> own help never lists — `cargo-clippy`, `git-lfs` and the like — are found on
-> `PATH` and shown marked `unverified`, since the naming convention is evidence
-> about the filesystem and a guess about the tool.
+> Open straight at a subcommand: `mandible cargo clippy`. Subcommands that live
+> as separate `<tool>-<sub>` binaries (`cargo-clippy`, `git-lfs`) show up too,
+> marked `unverified`: they were found on `PATH`, not in the parent's own help.
 
 ## Is it actually universal?
 
@@ -164,7 +160,7 @@ surprising against the tool's own `--help`.
 <summary><h2>Configuration</h2></summary>
 
 Settings live in `~/.config/mandible/config.toml`. The file doesn't need to
-exist — everything has a default.
+exist; everything has a default.
 
 ### Settings
 
@@ -180,9 +176,9 @@ marker sits beside each line that continues past the pane edge. Set
 horizontal_scroll = true  # the default
 ```
 
-Getting a tool's *documentation* right is mandible's job, not yours — if
-something parses wrong, `mandible --report <tool>` and an issue is the fix that
-helps everyone. (Local per-tool corrections do exist for the impatient:
+Getting a tool's *documentation* right is mandible's job, not yours. If
+something parses wrong, `mandible --report <tool>` plus an issue fixes it for
+everyone. (Local per-tool corrections do exist for the impatient:
 `~/.config/mandible/overrides/<tool>.toml`.)
 
 ### Environment variables
@@ -205,6 +201,25 @@ Search has two modes: `names` matches command names literally; `everything`
 searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
 the first, pressing it again switches to the second.
 
+### Completions
+
+The packages install shell completions for you. For a hand-built binary,
+`mandible --completions <shell>` prints the script (bash, zsh, fish, and
+more); drop it wherever your shell looks for completions. For zsh:
+
+```console
+$ mkdir -p ~/.zfunc && mandible --completions zsh > ~/.zfunc/_mandible
+```
+
+then add `fpath=(~/.zfunc $fpath)` to `~/.zshrc`, above its `compinit` line.
+zsh silently skips completion directories it considers insecure (anything
+under `/tmp`), so keep the file under your home.
+
+The tool argument completes too, to the command names on your `PATH`:
+`mandible gi<TAB>` suggests `git` rather than whatever files sit in the
+current directory. zsh and fish do this today; bash's script format can't
+express it yet.
+
 ### Onto the prompt
 
 `y` gets a spelling as far as the clipboard. To land it on the command line
@@ -215,8 +230,8 @@ $ eval "$(mandible --shell-init bash)"   # or: zsh — in your ~/.bashrc, ~/.zsh
 ```
 
 Now type a tool name, press `Ctrl-X m`, browse, and press `Enter`: the command
-you selected — `git commit --amend`, say — replaces the line, ready to edit.
-Quit with `q` and the line is left exactly as it was.
+you selected (`git commit --amend`, say) replaces the line, ready to edit.
+Quit with `q` and the line stays exactly as it was.
 
 The binding is a few lines of shell around `mandible --print-selection <tool>`,
 which browses as usual but makes `Enter` print the selection instead of
@@ -233,9 +248,10 @@ nodes: 29
 flags: 2 (100.0% described)
 ```
 
-`--doctor` reports which framework was identified, which sources contributed, and how
-much of the tool was understood. It turns "mandible is wrong about tool X" into "the
-cobra grammar mishandles Y", which is a bug someone can actually fix.
+`--doctor` reports which framework mandible identified, which sources
+contributed, and how much of the tool it understood. It turns "mandible is
+wrong about tool X" into "the cobra grammar mishandles Y", which is a bug
+someone can actually fix.
 
 </details>
 
