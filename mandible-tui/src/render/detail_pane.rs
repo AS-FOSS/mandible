@@ -292,13 +292,21 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 /// [`wrap_words`] and are not given `Paragraph::wrap` the way every other
 /// block in this pane is (see this
 /// module's top doc comment on why the rest of the pane pre-wraps
-/// everything itself) — this is preformatted output, and re-wrapping it
+/// everything itself) — this is preformatted output, and re-flowing it
 /// would silently edit the tool author's own text. `h`/`l`/`←`/`→` scroll
 /// it horizontally instead (spec §9: preformatted detail-pane content
 /// scrolls rather than wraps); the important safety property — content
 /// never reflows, and can therefore never smear into the pane border the
 /// way an unsanitized newline once did (spec §9) — holds regardless of
-/// which offset is showing. Safe to hand
+/// which offset is showing.
+///
+/// With `[ui] horizontal_scroll` off there is no offset to move, so a line
+/// wider than the pane goes to [`wrap_preformatted`] instead: it keeps
+/// every column the author drew and continues the overflow on the next
+/// row rather than dropping it. Off means *wrap*, never *clip* — this
+/// pane is the one view whose job is showing the reader exactly what the
+/// tool printed, and a pane that quietly ends a line at the border tells
+/// them nothing is missing. Safe to hand
 /// straight to a `Span` because both bodies reaching here were built by
 /// `mandible_core::Text::sanitize_preserving_layout` (spec §4.1's layout
 /// tier), one line at a time: the verbatim view's own lines in
@@ -360,7 +368,9 @@ fn render_verbatim(
             }
             lines.push(line);
         } else {
-            lines.push(Line::from(text));
+            for row in wrap_preformatted(&text, width) {
+                lines.push(Line::from(row));
+            }
         }
     }
     app.set_detail_extent(lines.len(), inner.height as usize);
@@ -452,6 +462,105 @@ fn draw_clip_marker_rails(
             buf[(right_x, y)].set_symbol(">").set_style(marker);
         }
     }
+}
+
+/// Wrap one preformatted line to `width` display columns, losing nothing.
+///
+/// The wrap-mode counterpart of [`hscroll_line`]: with `[ui]
+/// horizontal_scroll` off there is no horizontal offset for the reader to
+/// move, so a line wider than the pane has to arrive on more than one row
+/// or it does not arrive at all. It used to arrive on exactly one, and the
+/// `Paragraph` this pane's verbatim path builds carries no `Wrap` (that is
+/// the whole point of the scrolling path) — so everything past the pane's
+/// last column was silently dropped, in the one view whose purpose is
+/// showing the reader what the tool actually printed.
+///
+/// Not [`wrap_words`], which is prose wrapping: it splits on whitespace
+/// and rejoins with single spaces, so `ar`'s padded command table would
+/// come back as `d - delete file(s) from the archive` with the column the
+/// author aligned on collapsed away — the exact reformatting spec §4.1's
+/// layout tier exists to stop. Here instead:
+///
+/// - a line that fits is returned byte-identical, which is every line of
+///   most tools' help output;
+/// - an over-wide line is cut at a whitespace boundary when there is one
+///   in the window and hard-cut between characters when there is not, so a
+///   single unbroken 5,000-column token still survives whole;
+/// - each cut keeps the text either side of it exactly as written —
+///   interior runs of spaces inside a row are never touched;
+/// - continuation rows carry the line's own leading indent, so a wrapped
+///   table row stays visibly part of that row rather than drifting to
+///   column 0. The indent is dropped when it would take half the pane or
+///   more, since a 38-column indent in a 40-column pane turns one line
+///   into a tall column of two-character rows.
+///
+/// Character-by-character, never a raw byte slice at a computed column
+/// (AGENTS.md's byte-slicing rule) — [`width_prefix_end`] only ever
+/// returns a real `char` boundary.
+fn wrap_preformatted(line: &str, width: usize) -> Vec<String> {
+    let width = width.max(1);
+    if display_width(line) <= width {
+        return vec![line.to_string()];
+    }
+    let indent_width = display_width(&line[..line.len() - line.trim_start().len()]);
+    let hang = if indent_width * 2 < width {
+        " ".repeat(indent_width)
+    } else {
+        String::new()
+    };
+
+    let mut rows: Vec<String> = Vec::new();
+    let mut rest = line;
+    while !rest.is_empty() {
+        let prefix = if rows.is_empty() { "" } else { hang.as_str() };
+        let avail = width.saturating_sub(display_width(prefix)).max(1);
+        let mut cut = width_prefix_end(rest, avail);
+        if cut == 0 {
+            // A single character wider than the whole budget: take it
+            // anyway and overflow by the unavoidable minimum, exactly as
+            // `break_overlong_word` does, rather than loop forever.
+            cut = rest
+                .chars()
+                .next()
+                .map_or(rest.len(), |c: char| c.len_utf8());
+        }
+        if cut == rest.len() {
+            rows.push(format!("{prefix}{rest}"));
+            break;
+        }
+        // Prefer a whitespace boundary inside the window, so a word is not
+        // split when it did not have to be — but never one that would emit
+        // a row with no content on it.
+        let mut end = cut;
+        if let Some(pos) = rest[..cut].rfind(char::is_whitespace) {
+            if !rest[..pos].trim().is_empty() {
+                end = pos;
+            }
+        }
+        rows.push(format!("{prefix}{}", &rest[..end]));
+        rest = if end < cut {
+            // Broke at whitespace: that run was the break, not content.
+            rest[end..].trim_start()
+        } else {
+            &rest[end..]
+        };
+    }
+    rows
+}
+
+/// The byte index ending the longest prefix of `s` that fits `width`
+/// display columns — always a `char` boundary, so slicing at it cannot
+/// panic on multi-byte input.
+fn width_prefix_end(s: &str, width: usize) -> usize {
+    let mut used = 0usize;
+    for (idx, ch) in s.char_indices() {
+        let w = UnicodeWidthChar::width(ch).unwrap_or(0);
+        if used + w > width {
+            return idx;
+        }
+        used += w;
+    }
+    s.len()
 }
 
 fn hscroll_window(s: &str, offset: usize, width: usize) -> std::borrow::Cow<'_, str> {
@@ -3857,6 +3966,99 @@ mod tests {
             // past it.
             assert!(display_width(chunk) <= 3, "chunk too wide: {chunk:?}");
         }
+    }
+
+    /// The wrap-mode rule for preformatted content, stated as the two
+    /// halves it has to satisfy at once: a line that fits is untouched,
+    /// and a line that does not is continued rather than cut.
+    ///
+    /// The second half is the defect this function was written for —
+    /// `[ui] horizontal_scroll = false` used to hand the raw view's lines
+    /// to a `Paragraph` with no `Wrap`, which ended each one at the pane's
+    /// last column and dropped the rest with no indication at all.
+    #[test]
+    fn wrap_preformatted_keeps_short_lines_verbatim_and_continues_long_ones() {
+        // Byte-identical when it fits, columns and all: this is `ar`'s
+        // padded command table, whose alignment is the author's own.
+        let aligned = "  m[ab]        - move file(s) in the archive";
+        assert_eq!(wrap_preformatted(aligned, 60), vec![aligned.to_string()]);
+        // Exactly the width still fits — the cut is at wider-than, not
+        // at as-wide-as.
+        assert_eq!(
+            wrap_preformatted(aligned, display_width(aligned)),
+            vec![aligned.to_string()]
+        );
+
+        let rows = wrap_preformatted(aligned, 24);
+        assert!(rows.len() > 1, "an over-wide line must continue: {rows:?}");
+        for row in &rows {
+            assert!(display_width(row) <= 24, "row overruns the pane: {row:?}");
+        }
+        // Nothing lost: every non-whitespace character comes back in
+        // order, whether the break fell on a space or inside a word.
+        let squash = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+        assert_eq!(squash(&rows.concat()), squash(aligned));
+        // The author's own run of spaces survives inside a row rather
+        // than being collapsed the way `wrap_words` would collapse it.
+        assert!(
+            rows[0].contains("m[ab]        -"),
+            "interior columns were reflowed: {rows:?}"
+        );
+        // And the continuation carries the line's own indent.
+        assert!(
+            rows[1].starts_with("  ") && !rows[1].starts_with("   "),
+            "{rows:?}"
+        );
+    }
+
+    /// A line with no whitespace at all — the shape `wrap_words` handles
+    /// with [`break_overlong_word`] — must be cut between characters and
+    /// survive whole, never truncated to what fitted.
+    #[test]
+    fn wrap_preformatted_hard_cuts_a_line_with_nowhere_to_break() {
+        let url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef";
+        let rows = wrap_preformatted(url, 20);
+        assert!(rows.len() > 1, "{rows:?}");
+        assert_eq!(rows.concat(), url, "the line must survive intact");
+        for row in &rows {
+            assert!(display_width(row) <= 20, "row overruns: {row:?}");
+        }
+    }
+
+    /// Cuts land between characters, chosen by display width — so a
+    /// double-width glyph is never split in half and never allowed to
+    /// overflow the row it ends (the same property
+    /// [`break_overlong_word`] holds, reached by a different path).
+    #[test]
+    fn wrap_preformatted_never_splits_a_double_width_character() {
+        let cjk = "日本語のテキストで境界を壊すテスト文字列です";
+        let rows = wrap_preformatted(cjk, 7);
+        assert_eq!(rows.concat(), cjk);
+        for row in &rows {
+            assert!(display_width(row) <= 7, "row overruns: {row:?}");
+        }
+    }
+
+    /// Degenerate inputs a real `--help` document contains: a blank line
+    /// (which is layout and must keep its row), and an indent so deep it
+    /// would leave no room for content, which drops the hanging indent
+    /// rather than emitting a tall column of near-empty rows.
+    #[test]
+    fn wrap_preformatted_handles_blank_lines_and_a_pane_swallowing_indent() {
+        assert_eq!(wrap_preformatted("", 20), vec![String::new()]);
+        assert_eq!(wrap_preformatted("   ", 20), vec!["   ".to_string()]);
+
+        let deep = format!("{}some text that has to go somewhere", " ".repeat(18));
+        let rows = wrap_preformatted(&deep, 20);
+        for row in &rows {
+            assert!(display_width(row) <= 20, "row overruns: {row:?}");
+        }
+        assert!(
+            rows[1..].iter().all(|row| !row.starts_with("   ")),
+            "an indent wider than half the pane must not be carried: {rows:?}"
+        );
+        let squash = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+        assert_eq!(squash(&rows.concat()), squash(&deep));
     }
 
     /// The end-to-end path for the reported repro: a node whose `usage`

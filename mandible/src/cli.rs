@@ -1,7 +1,7 @@
 //! Command-line argument parsing.
 
 use crate::shell_init::ShellInit;
-use clap::Parser;
+use clap::{Parser, ValueHint};
 use std::path::PathBuf;
 
 /// mandible: a universal, interactive TUI reference for CLI tools.
@@ -10,6 +10,11 @@ use std::path::PathBuf;
 pub struct Cli {
     /// The tool to open, e.g. "git". Required unless `--doctor`, `--report`,
     /// or `--review` is given.
+    ///
+    /// Completes to the command names on `$PATH`: the argument is a tool
+    /// mandible will run `--help` on, so the candidate set is exactly the
+    /// shell's own command table, not a list of files (spec §15).
+    #[arg(value_hint = ValueHint::CommandName)]
     pub tool: Option<String>,
 
     /// A subcommand path within TOOL to open at, e.g. `mandible cargo
@@ -24,7 +29,7 @@ pub struct Cli {
     /// Print extraction diagnostics for TOOL (tier statuses, node/flag
     /// counts, %described, catalog vendoring date, timing) instead of
     /// opening the TUI. See spec §5.3.
-    #[arg(long, value_name = "TOOL")]
+    #[arg(long, value_name = "TOOL", value_hint = ValueHint::CommandName)]
     pub doctor: Option<String>,
 
     /// Print a paste-ready bug report for TOOL (mandible's version, TOOL's
@@ -34,7 +39,7 @@ pub struct Cli {
     /// already takes a bare `[TOOL]` positional (`mandible git`), so a
     /// `report` subcommand would be ambiguous against a tool literally
     /// named `report`.
-    #[arg(long, value_name = "TOOL")]
+    #[arg(long, value_name = "TOOL", value_hint = ValueHint::CommandName)]
     pub report: Option<String>,
 
     /// Print a shell completion script for SHELL to stdout and exit,

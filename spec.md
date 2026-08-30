@@ -2236,8 +2236,21 @@ overflows the border by one cell per wide character.
   everywhere else in this section. Opinionated enough to need an escape
   hatch: `[ui] horizontal_scroll` in `~/.config/mandible/config.toml`
   (`mandible-core`'s `config` module — a sibling of Tier F's per-tool
-  `overrides/<tool>.toml`, spec §7) defaults to `true`, and `false` restores
-  plain wrapping for this content too.
+  `overrides/<tool>.toml`, spec §7) defaults to `true`.
+- **`horizontal_scroll = false` means every view wraps, and no view ever
+  clips.** The setting turns sideways scrolling off; it does not turn
+  content loss on. With it off there is no offset for the reader to move,
+  so a preformatted line wider than the pane continues onto the next row
+  instead of ending at the border — including in the raw view and the
+  `unparsed` fallback, the two places whose entire purpose is showing the
+  reader what the tool printed and where a silent cut is therefore worst.
+  Such a line still is not *reflowed*: a line that fits arrives byte for
+  byte, a row keeps whatever run of spaces the author put inside it, the
+  cut prefers a whitespace boundary and falls back to one between
+  characters so an unbroken token survives whole, and a continuation row
+  carries the line's own leading indent so a wrapped table row stays
+  visibly part of that row. Prose wrapping is unchanged in this mode, and
+  so is everything about the default one.
 
 **Empty and degraded states are designed, not incidental:** a node whose children
 are still being extracted shows a subtle spinner row; a tool where only Tier B
@@ -4066,6 +4079,14 @@ the relationship clear.
   Fedora, where `vendor-completions` is. Every channel generates them from the
   built binary's own `--completions <shell>`, so there is one generator and no
   packaging path that can install a file the shell will not find.
+- Every argument that names a tool — the `TOOL` positional, `--doctor`'s value
+  and `--report`'s value — completes to the command names on `$PATH`. Each one
+  is a program mandible is about to run `--help` on, so the shell's own command
+  table is the candidate set; the filename completion a shell otherwise
+  defaults to offers the contents of the current directory, which is never what
+  `mandible gi<TAB>` is asking for. The `SUBCOMMAND` words after `TOOL` are
+  names inside one tool's tree, not commands on `$PATH`, and are not completed
+  this way.
 - The shell integration (§2's `--print-selection` binding) ships the same way
   and is installed to no path at all: `mandible --shell-init <shell>` prints it,
   from a snippet in `packaging/shell/` compiled into the binary, and the user

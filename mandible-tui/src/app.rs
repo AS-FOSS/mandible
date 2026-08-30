@@ -1196,8 +1196,8 @@ impl App {
     /// left edge — `saturating_sub` alone would still be correct here, but
     /// the early return also means a disabled toggle never touches
     /// [`Self::detail_hscroll`] at all, which is one less thing for the
-    /// "config off reproduces today's output exactly" property to depend
-    /// on holding elsewhere.
+    /// "with the toggle off nothing is ever drawn at an offset" property
+    /// to depend on holding elsewhere.
     pub fn detail_hscroll_left(&mut self) {
         if !self.horizontal_scroll_enabled {
             return;
