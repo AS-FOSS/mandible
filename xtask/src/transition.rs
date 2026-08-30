@@ -2162,6 +2162,95 @@ mod tests {
         assert!(!t.is_identical());
     }
 
+    /// A scoreboard whose footer carries only pre-generalization `#fp` lines
+    /// (no `EntityKind` tag in the entity id) is detected as
+    /// [`FingerprintFormat::V1`].
+    #[test]
+    fn a_scoreboard_with_only_v1_fp_lines_is_detected_as_v1() {
+        let text = format!(
+            "{}#fp t\t\t(root)::--flag=0:-:-:-\n",
+            sample_text(&[&row_line("t", "ok", 1, 10)])
+        );
+        let parsed = parse_scoreboard(&text);
+        assert_eq!(parsed.fingerprint_format, Some(FingerprintFormat::V1));
+    }
+
+    /// A scoreboard whose footer carries `#fp2` lines (the current,
+    /// `EntityKind`-tagged format) is detected as [`FingerprintFormat::V2`].
+    #[test]
+    fn a_scoreboard_with_fp2_lines_is_detected_as_v2() {
+        let text = format!(
+            "{}#fp2 t\t\t(root)::Flag::--flag=0:-:-:-\n",
+            sample_text(&[&row_line("t", "ok", 1, 10)])
+        );
+        let parsed = parse_scoreboard(&text);
+        assert_eq!(parsed.fingerprint_format, Some(FingerprintFormat::V2));
+    }
+
+    /// A scoreboard with no fingerprint footer at all — predates the
+    /// feature entirely — carries no format, distinct from either version.
+    #[test]
+    fn a_scoreboard_with_no_fp_footer_has_no_fingerprint_format() {
+        let before = scoreboard(vec![("t", "ok", 1, 10)]);
+        assert_eq!(before.fingerprint_format, None);
+    }
+
+    /// **The migration-story guard this task exists for.** A V1-footer
+    /// scoreboard and a V2-footer scoreboard must never be silently joined:
+    /// [`fingerprint_format_mismatch`] must name the mismatch so a caller
+    /// (`xtask/src/main.rs`'s `run_sweep_diff`) can refuse to proceed,
+    /// rather than let [`field_diff`] misread every V1 entity id as
+    /// "removed" (it doesn't carry the `EntityKind` tag a V2 id does) and
+    /// every V2 entity id as "added" — a false wholesale loss-and-gain, not
+    /// a real one.
+    #[test]
+    fn fingerprint_format_mismatch_names_a_v1_v2_pair() {
+        let v1_text = format!(
+            "{}#fp t\t\t(root)::--flag=0:-:-:-\n",
+            sample_text(&[&row_line("t", "ok", 1, 10)])
+        );
+        let v2_text = format!(
+            "{}#fp2 t\t\t(root)::Flag::--flag=0:-:-:-\n",
+            sample_text(&[&row_line("t", "ok", 1, 10)])
+        );
+        let v1 = parse_scoreboard(&v1_text);
+        let v2 = parse_scoreboard(&v2_text);
+        assert_eq!(v1.fingerprint_format, Some(FingerprintFormat::V1));
+        assert_eq!(v2.fingerprint_format, Some(FingerprintFormat::V2));
+
+        let msg = fingerprint_format_mismatch(&v1, &v2)
+            .expect("a V1/V2 pair must be reported as a mismatch, never silently diffed");
+        assert!(msg.contains("V1"), "message must name the V1 side: {msg}");
+        assert!(msg.contains("V2"), "message must name the V2 side: {msg}");
+
+        // Reversed order — same mismatch, must still be caught.
+        let msg_rev = fingerprint_format_mismatch(&v2, &v1)
+            .expect("the mismatch must be caught regardless of which side is --before");
+        assert!(msg_rev.contains("V1") && msg_rev.contains("V2"));
+    }
+
+    /// Two scoreboards agreeing on format — both V1, both V2, or both
+    /// carrying no footer at all (the pre-existing legacy-pair case, already
+    /// handled by `field_diff_unmeasured`) — are never reported as a
+    /// mismatch.
+    #[test]
+    fn fingerprint_format_mismatch_is_none_when_both_sides_agree() {
+        let v2_text = format!(
+            "{}#fp2 t\t\t(root)::Flag::--flag=0:-:-:-\n",
+            sample_text(&[&row_line("t", "ok", 1, 10)])
+        );
+        let v2_a = parse_scoreboard(&v2_text);
+        let v2_b = parse_scoreboard(&v2_text);
+        assert_eq!(fingerprint_format_mismatch(&v2_a, &v2_b), None);
+
+        let no_footer_a = scoreboard(vec![("t", "ok", 1, 10)]);
+        let no_footer_b = scoreboard(vec![("t", "ok", 1, 10)]);
+        assert_eq!(
+            fingerprint_format_mismatch(&no_footer_a, &no_footer_b),
+            None
+        );
+    }
+
     // The end-to-end render→parse round trip used to live here, driven by a
     // real `grep --help` probe, and asserted "at least one flag carries a
     // description" — a fact about the *host's* grep (GNU grep documents its

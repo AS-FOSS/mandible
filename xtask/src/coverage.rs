@@ -3014,6 +3014,81 @@ mod tests {
         );
     }
 
+    /// **The positive-signal proof this task exists for.** A node carrying
+    /// one entity of every `EntityKind` — a flag, a positional, a modifier,
+    /// and an env-var item — all with the *same* bare spelling (`"x"`),
+    /// must fingerprint as four distinct entries, not collapse into one:
+    /// `entity_identity`'s `EntityKind` tag is what tells `ar`'s `x`
+    /// modifier apart from a hypothetical `x` flag on the same node, and is
+    /// exactly what the pre-generalization fingerprint (flags only, no kind
+    /// tag) could never have expressed even by accident, since it only ever
+    /// saw the flag.
+    #[test]
+    fn every_entity_kind_fingerprints_as_a_distinct_entry() {
+        use mandible_core::{CommandNode, Entity, EntityKind, Provenance, Source};
+
+        let mut root = CommandNode::new("demo", Provenance::single(Source::HelpText));
+        root.entities.push(Entity::flag_short(
+            'x',
+            Provenance::single(Source::HelpText),
+        ));
+        root.entities.push(Entity::positional(
+            "x",
+            Provenance::single(Source::HelpText),
+        ));
+        root.entities
+            .push(Entity::modifier('x', Provenance::single(Source::HelpText)));
+        root.entities.push(Entity::env_var_item(
+            "x",
+            Provenance::single(Source::HelpText),
+        ));
+
+        let fp = build_fingerprint(Some(&root));
+        assert_eq!(
+            fp.flags.len(),
+            4,
+            "four different EntityKinds sharing one bare spelling must not collide: {:?}",
+            fp.flags.keys().collect::<Vec<_>>()
+        );
+        assert!(fp.flags.contains_key("(root)::Flag::-x"));
+        assert!(fp.flags.contains_key("(root)::Positional::x"));
+        assert!(fp.flags.contains_key("(root)::Modifier::x"));
+        assert!(fp.flags.contains_key("(root)::EnvVar::x"));
+
+        // Round-trips through the real wire format too, not just the
+        // in-memory ToolFingerprint.
+        let mut r = row("demo", 4, Some(0.0), "ok");
+        r.fingerprint = fp;
+        let rows = vec![r];
+        let agg = compute_aggregate(&rows);
+        let text = render_text(&rows, &agg);
+        assert!(
+            text.contains("#fp2 "),
+            "the emitted footer must use the v2 line prefix"
+        );
+        let parsed = crate::transition::parse_scoreboard(&text);
+        let round_tripped = parsed
+            .fingerprints
+            .get("demo")
+            .expect("demo fingerprint present in the #fp2 footer");
+        assert_eq!(round_tripped.flags.len(), 4);
+        for kind in [
+            EntityKind::Flag,
+            EntityKind::Positional,
+            EntityKind::Modifier,
+            EntityKind::EnvVar,
+        ] {
+            let id = format!(
+                "(root)::{kind:?}::{}",
+                if kind == EntityKind::Flag { "-x" } else { "x" }
+            );
+            assert!(
+                round_tripped.flags.contains_key(&id),
+                "{id} must survive the round trip"
+            );
+        }
+    }
+
     // `structure_sanity`'s own unit tests (fabricated names, empty nodes,
     // the root-name exclusion, `heading_attested` provenance, a clean
     // tree) now live in `status.rs`'s test module, alongside the function
