@@ -114,6 +114,12 @@ must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 must_contain_positionals = ["pid"]   # same, for root positional operands —
                                      # matched on the operand's name, which
                                      # is what a user actually types
+must_contain_modifiers = ["a", "U"]  # same, for the single-letter modifiers
+                                     # a tool documents in a modifier table
+                                     # (`ar`'s `[a]`, `[U]`). Bare letters,
+                                     # no brackets; case is significant,
+                                     # since `[u]` and `[U]` are different
+                                     # modifiers on the tools that have them
 
 # The one *negative* claim: root flag spellings the tree must NOT carry.
 # Everything above says "the parser dropped something real"; this says

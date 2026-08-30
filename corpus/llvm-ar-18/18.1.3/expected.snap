@@ -1,0 +1,181 @@
+name: llvm-ar-18
+description: 'OVERVIEW: LLVM Archiver'
+usage:
+- 'USAGE: llvm-ar-18 [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]'
+- '       llvm-ar-18 -M [<mri-script]'
+positionals:
+- name: archive
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: format
+  description: '- archive format to create =default - default =gnu - gnu =darwin - darwin =bsd - bsd =bigarchive - big archive (AIX OS)'
+  provenance:
+    sources:
+    - help-text
+- long: plugin
+  value_name: <string>
+  value_kind: Required
+  description: '- ignored for compatibility'
+  provenance:
+    sources:
+    - help-text
+- short: 'h'
+  long: help
+  description: '- display this help and exit'
+  provenance:
+    sources:
+    - help-text
+- long: output
+  description: '- the directory to extract archive members to'
+  provenance:
+    sources:
+    - help-text
+- long: rsp-quoting
+  description: '- quoting style for response files =posix - posix =windows - windows'
+  provenance:
+    sources:
+    - help-text
+- long: thin
+  description: '- create a thin archive'
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: '- print the version and exit'
+  provenance:
+    sources:
+    - help-text
+- short: 'X'
+  value_name: '{32|64|32_64|any}'
+  value_kind: Required
+  description: '- object mode (only for AIX OS)'
+  provenance:
+    sources:
+    - help-text
+- short: 'M'
+  provenance:
+    sources:
+    - help-text-synopsis
+modifiers:
+- name: a
+  group: 'MODIFIERS:'
+  description: put [files] after [relpos]
+  provenance:
+    sources:
+    - help-text
+- name: b
+  group: 'MODIFIERS:'
+  description: put [files] before [relpos] (same as [i])
+  provenance:
+    sources:
+    - help-text
+- name: c
+  group: 'MODIFIERS:'
+  description: do not warn if archive had to be created
+  provenance:
+    sources:
+    - help-text
+- name: D
+  group: 'MODIFIERS:'
+  description: use zero for timestamps and uids/gids (default)
+  provenance:
+    sources:
+    - help-text
+- name: h
+  group: 'MODIFIERS:'
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- name: i
+  group: 'MODIFIERS:'
+  description: put [files] before [relpos] (same as [b])
+  provenance:
+    sources:
+    - help-text
+- name: l
+  group: 'MODIFIERS:'
+  description: ignored for compatibility
+  provenance:
+    sources:
+    - help-text
+- name: L
+  group: 'MODIFIERS:'
+  description: add archive's contents
+  provenance:
+    sources:
+    - help-text
+- name: N
+  group: 'MODIFIERS:'
+  description: use instance [count] of name
+  provenance:
+    sources:
+    - help-text
+- name: o
+  group: 'MODIFIERS:'
+  description: preserve original dates
+  provenance:
+    sources:
+    - help-text
+- name: O
+  group: 'MODIFIERS:'
+  description: display member offsets
+  provenance:
+    sources:
+    - help-text
+- name: P
+  group: 'MODIFIERS:'
+  description: use full names when matching (implied for thin archives)
+  provenance:
+    sources:
+    - help-text
+- name: s
+  group: 'MODIFIERS:'
+  description: create an archive index (cf. ranlib)
+  provenance:
+    sources:
+    - help-text
+- name: S
+  group: 'MODIFIERS:'
+  description: do not build a symbol table
+  provenance:
+    sources:
+    - help-text
+- name: T
+  group: 'MODIFIERS:'
+  description: deprecated, use --thin instead
+  provenance:
+    sources:
+    - help-text
+- name: u
+  group: 'MODIFIERS:'
+  description: update only [files] newer than archive contents
+  provenance:
+    sources:
+    - help-text
+- name: U
+  group: 'MODIFIERS:'
+  description: use actual timestamps and uids/gids
+  provenance:
+    sources:
+    - help-text
+- name: v
+  group: 'MODIFIERS:'
+  description: be verbose about actions taken
+  provenance:
+    sources:
+    - help-text
+- name: V
+  group: 'MODIFIERS:'
+  description: display the version and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -10,10 +10,11 @@
 //! `short: Option<char>` + `long: Option<String>` pair can hold only two
 //! of the four.
 //!
-//! Migration is staged (spec §4.5). The flag and positional stages are
-//! complete: a node carries one [`CommandNode::entities`] vector
-//! (`CommandNode::flags()` and `CommandNode::positionals()` filter it by
-//! kind), and the pre-0.5.0 `Flag` and `Positional` survive only as this
+//! Migration is staged (spec §4.5). The flag, positional and modifier
+//! stages are complete: a node carries one [`CommandNode::entities`] vector
+//! (`CommandNode::flags()`, `CommandNode::positionals()` and
+//! `CommandNode::modifiers()` filter it by kind), and the pre-0.5.0 `Flag`
+//! and `Positional` survive only as this
 //! module's test-local parity references, against which
 //! [`Entity::spelling`], [`Entity::key`], [`Entity::primary_name`] and the
 //! `short`/`long`/`negatable`/`single_dash` accessors are pinned — corpus
@@ -248,6 +249,20 @@ impl Entity {
     pub fn positional(name: impl Into<String>, provenance: Provenance) -> Entity {
         let mut e = Entity::new(EntityKind::Positional, provenance);
         e.spellings.push(Spelling::bare(name));
+        e
+    }
+
+    /// A modifier: one dashless spelling holding the letter a tool's own
+    /// modifier table documents (`ar`'s `[a]`, `[D]`, `[l <text> ]`).
+    ///
+    /// Takes a `char` rather than a name, because one character is the
+    /// whole of a modifier's notation — it is typed glued to an operation
+    /// letter (`ar rv`), so there is no longer spelling for it to have.
+    /// A `String` here would let a producer file a whole word under a kind
+    /// that cannot render one.
+    pub fn modifier(letter: char, provenance: Provenance) -> Entity {
+        let mut e = Entity::new(EntityKind::Modifier, provenance);
+        e.spellings.push(Spelling::bare(letter.to_string()));
         e
     }
 
@@ -944,6 +959,34 @@ mod tests {
                 p.name
             );
         }
+    }
+
+    /// A modifier is one dashless *letter*: it renders bare, carries no
+    /// flag key, and is not addressed as a short flag even though its
+    /// spelling is a single character — the dash is what makes `-a` a
+    /// short flag, and a modifier has none.
+    #[test]
+    fn a_modifier_is_one_dashless_letter() {
+        let e = Entity::modifier('a', Provenance::default());
+        assert_eq!(e.kind, EntityKind::Modifier);
+        assert_eq!(e.spellings.len(), 1);
+        assert_eq!(e.spellings[0].dashes, Dashes::None);
+        assert_eq!(e.spelling(), "a");
+        assert_eq!(e.primary_name(), "a");
+        assert_eq!(e.key(), None);
+        assert_eq!(e.short(), None);
+        assert_eq!(e.long(), None);
+        assert!(!e.matches_key(&FlagKey::Short('a')));
+    }
+
+    /// `ar`'s `[l <text> ]`: a modifier that takes an operand renders it
+    /// the same way a flag's is rendered, one space behind the spelling.
+    #[test]
+    fn a_modifier_can_carry_an_operand() {
+        let mut e = Entity::modifier('l', Provenance::default());
+        e.value_name = Some("<text>".into());
+        e.value_kind = ValueKind::Required;
+        assert_eq!(e.spelling(), "l <text>");
     }
 
     /// A positional is one dashless spelling, so it renders as the bare

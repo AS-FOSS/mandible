@@ -667,6 +667,422 @@ pub(super) fn scan_bare_command_table<'a>(
         .then_some((end, entries))
 }
 
+/// One row of a modifier table: the letter, the operand the table spells
+/// beside it, and its description (spec §7 Tier B, "Modifier tables").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ModifierRow {
+    /// The modifier letter itself — `a` for `[a]`, `l` for `[l <text> ]`.
+    pub letter: char,
+    /// The operand written inside the brackets after the letter, if any:
+    /// `<text>` in `ar`'s `[l <text> ]`.
+    pub value_name: Option<String>,
+    /// The row's description, with the separator that introduced it
+    /// removed. Never empty — a row without one is not admitted at all.
+    pub description: String,
+}
+
+/// The shortest run of rows that may be read as a modifier table.
+///
+/// Two, the same floor [`MIN_ATTESTED_SECTION_FLAGS`] uses and for the same
+/// reason: one bracketed row is cheap for an unrelated document to produce
+/// by accident, a run of them is a table. Measured against the 2,301 frozen
+/// captures under `audit/queue-captures/`: the only length-2 run in the
+/// fleet that [`split_modifier_table_row`]'s grammar looked at was
+/// `pygettext3`'s reference footnotes (`[1] https://…`, `[2] https://…`),
+/// and that shape is refused on two independent grounds inside the row
+/// grammar itself, so no document in the fleet reaches this floor except a
+/// genuine modifier table.
+const MIN_MODIFIER_TABLE_ROWS: usize = 2;
+
+/// Split one modifier-table row — `ar`'s `[a]          - put file(s) after
+/// [member-name]`, `llvm-ar`'s `[a] - put [files] after [relpos]` — into a
+/// [`ModifierRow`]. `None` for anything that is not that shape.
+///
+/// The grammar is deliberately narrow, because a bracketed token is common
+/// punctuation and a modifier table is rare:
+///
+/// - The row **opens** with `[`, and the bracket closes on the same row.
+/// - Inside the bracket, the first token is **exactly one ASCII letter**.
+///   Not a digit: `pygettext3` writes its two reference footnotes as
+///   `[1] https://…` / `[2] https://…`, consecutive rows that satisfy every
+///   structural rule here, and a footnote marker is not a modifier. Not two
+///   characters: `[ab]` is the optional-group notation a *command* row
+///   spells its accepted modifiers with (`ar`'s `m[ab]`, already read by
+///   [`strip_optional_modifier_suffix`]), and `[COMMON_OPTIONS]` is a usage
+///   placeholder.
+/// - Anything further inside the bracket is that letter's **operand**
+///   (`[l <text> ]`), kept verbatim.
+/// - After the bracket there must be an explicit **separator** — a ` - `
+///   run, or a column gap of two or more spaces (or a tab) — and then a
+///   non-empty description. A single space and then text is not a modifier
+///   row; that is the footnote shape a second time, and it is the whole
+///   difference between a table and a sentence that opens with a bracket.
+///
+/// The dash is punctuation *between two columns*, exactly what
+/// [`split_at_dash`] already treats it as, so it is stripped rather than
+/// left at the head of the description. It is looked for before the column
+/// gap because both specimens write one, and only the dash reading gets
+/// `llvm-ar`'s single-space rows apart into two columns at all.
+pub(super) fn split_modifier_table_row(line: &str) -> Option<ModifierRow> {
+    let trimmed = line.trim();
+    let inner_and_rest = trimmed.strip_prefix('[')?;
+    let close = inner_and_rest.find(']')?;
+    let inner = &inner_and_rest[..close];
+    let rest = &inner_and_rest[close + 1..];
+
+    let mut tokens = inner.split_whitespace();
+    let head = tokens.next()?;
+    let mut head_chars = head.chars();
+    let letter = head_chars.next()?;
+    if head_chars.next().is_some() || !letter.is_ascii_alphabetic() {
+        return None;
+    }
+    let operand = tokens.collect::<Vec<_>>().join(" ");
+    let value_name = (!operand.is_empty()).then_some(operand);
+
+    // `find_dash_separator` wants the space *before* the dash, which the
+    // slice after `]` still carries. A row whose dash has no space in front
+    // of it (`[a]- text`) is not two columns and is correctly refused here.
+    let description = match find_dash_separator(rest) {
+        Some(idx) => split_at_dash(rest, idx).1,
+        None => {
+            // [`find_multi_space_gap`] wants content *before* a gap, and
+            // `rest` opens with the gap itself, so it cannot answer this
+            // one. The leading run is measured directly instead, against
+            // that function's own [`MIN_COLUMN_GAP_SPACES`] threshold and
+            // its same "a tab is always a column gap" rule.
+            let gap = rest.len() - rest.trim_start().len();
+            let is_column_gap =
+                gap >= MIN_COLUMN_GAP_SPACES || rest.get(..gap).is_some_and(|g| g.contains('\t'));
+            if !is_column_gap {
+                return None;
+            }
+            rest.trim().to_string()
+        }
+    };
+    // A description has to *say* something. Emptiness is not a strong
+    // enough test on its own: `[a]  -` (a row whose separator is the last
+    // thing on the line) leaves the lone dash behind as the description,
+    // since trimming the line first puts the dash out of
+    // `find_dash_separator`'s reach and the column-gap branch then reads it
+    // as content. Requiring one alphanumeric character refuses that and
+    // every other punctuation-only remnant, while keeping real descriptions
+    // that merely start with punctuation (`-1 means unlimited`).
+    let description = description.trim();
+    if !description.chars().any(|c| c.is_alphanumeric()) {
+        return None;
+    }
+    Some(ModifierRow {
+        letter,
+        value_name,
+        description: description.to_string(),
+    })
+}
+
+/// Scan a run of modifier-table rows starting at `lines[start]` — the
+/// `[a]`/`[b]`/`[D]` tables binutils `ar` prints under ` command specific
+/// modifiers:` and ` generic modifiers:`, and `llvm-ar` under `MODIFIERS:`.
+/// Returns the index just past the run and its rows, or `None` when the run
+/// is shorter than [`MIN_MODIFIER_TABLE_ROWS`].
+///
+/// **The run must open at `lines[start]`.** That is what stops this from
+/// reaching into the middle of somebody else's block and claiming a stray
+/// bracketed line as a table: it is offered a heading's first content line,
+/// and declines immediately if that line is not a modifier row.
+///
+/// It also **stops at the first line that is not one**, which is what makes
+/// this safe to run ahead of the flags scanner rather than instead of it:
+/// `ar`'s ` generic modifiers:` is seven bracket rows, then `@<file>`, then
+/// four ordinary long options, and everything from `@<file>` onward is left
+/// exactly where it was for the caller's existing flag-block handling to
+/// read unchanged — including the group those four flags already carry.
+///
+/// A line indented past the run's own baseline folds into the previous
+/// row's description, the same wrapped-continuation rule
+/// [`split_entries`] and [`scan_bare_command_table`] both apply.
+pub(super) fn scan_modifier_table(
+    lines: &[&str],
+    start: usize,
+) -> Option<(usize, Vec<ModifierRow>)> {
+    let baseline = leading_whitespace(lines[start]);
+    let mut rows: Vec<ModifierRow> = Vec::new();
+    let mut i = start;
+    while i < lines.len() {
+        let line = lines[i];
+        if line.trim().is_empty() {
+            break;
+        }
+        let indent = leading_whitespace(line);
+        if indent > baseline {
+            let Some(last) = rows.last_mut() else {
+                break;
+            };
+            last.description.push(' ');
+            last.description.push_str(line.trim());
+            i += 1;
+            continue;
+        }
+        if indent < baseline {
+            break;
+        }
+        let Some(row) = split_modifier_table_row(line) else {
+            break;
+        };
+        rows.push(row);
+        i += 1;
+    }
+    (rows.len() >= MIN_MODIFIER_TABLE_ROWS).then_some((i, rows))
+}
+
+#[cfg(test)]
+mod modifier_tests {
+    use super::*;
+
+    fn row(line: &str) -> Option<ModifierRow> {
+        split_modifier_table_row(line)
+    }
+
+    /// Both real spellings of a modifier row: `ar`'s column-padded
+    /// dash-separated one and `llvm-ar`'s single-space dash-separated one.
+    /// The letter, the description and the stripped separator come out the
+    /// same either way — the two tools' formatting differs, what they
+    /// document does not.
+    #[test]
+    fn both_real_spellings_of_a_modifier_row_read_the_same() {
+        let padded = row("  [a]          - put file(s) after [member-name]").expect("ar row");
+        let tight = row("  [a] - put [files] after [relpos]").expect("llvm-ar row");
+        assert_eq!(padded.letter, 'a');
+        assert_eq!(tight.letter, 'a');
+        assert_eq!(padded.description, "put file(s) after [member-name]");
+        assert_eq!(tight.description, "put [files] after [relpos]");
+        assert_eq!(padded.value_name, None);
+    }
+
+    /// `ar`'s `[l <text> ]`: the operand inside the brackets is the
+    /// modifier's value, not part of its letter and not part of its
+    /// description.
+    #[test]
+    fn an_operand_inside_the_brackets_is_the_value() {
+        let r = row("  [l <text> ]  - specify the dependencies of this library").expect("row");
+        assert_eq!(r.letter, 'l');
+        assert_eq!(r.value_name.as_deref(), Some("<text>"));
+        assert_eq!(r.description, "specify the dependencies of this library");
+    }
+
+    /// A column gap with no dash at all is still a two-column row.
+    #[test]
+    fn a_column_gap_alone_separates_a_modifier_row() {
+        let r = row("  [v]     be verbose").expect("row");
+        assert_eq!(r.letter, 'v');
+        assert_eq!(r.description, "be verbose");
+    }
+
+    /// **The refusals, one per rule.** `pygettext3`'s reference footnotes
+    /// are the fleet's only near-miss (measured over the 2,301 frozen
+    /// captures under `audit/queue-captures/`) and they fail twice over: a
+    /// digit is not a letter, and one space is not a separator. The rest
+    /// are the notations a bracketed token otherwise carries in real help
+    /// text, none of which documents a modifier.
+    #[test]
+    fn the_shapes_that_are_not_modifier_rows_are_refused() {
+        // pygettext3's footnotes — a digit, and a single space.
+        assert_eq!(
+            row(" [1] https://www.python.org/workshops/1997-10/proceedings/loewis.html"),
+            None
+        );
+        assert_eq!(row(" [1]   https://example.invalid/paper"), None, "a digit");
+        assert_eq!(row("  [a] one space only"), None, "no separator");
+        // Multi-character brackets: an optional-group suffix's own group,
+        // and a usage placeholder.
+        assert_eq!(row("  [ab]  - put file(s) somewhere"), None);
+        assert_eq!(row("  [COMMON_OPTIONS]  - the usual"), None);
+        // A bracketed *flag*, which is usage notation, not a modifier.
+        assert_eq!(row("  [-a]  - some flag"), None);
+        // A row with a letter and a separator but nothing after it.
+        assert_eq!(row("  [a]  -   "), None);
+        // Not a bracket row at all.
+        assert_eq!(row("  -a   some flag"), None);
+        assert_eq!(row("  [a  - never closed"), None);
+    }
+
+    /// A modifier table is a *run*: one bracketed row on its own is not
+    /// enough evidence, which is what keeps an isolated bracketed line in
+    /// somebody else's block from becoming a one-row MODIFIERS section.
+    #[test]
+    fn one_row_is_not_a_table() {
+        let lines = ["  [a]  - put file(s) after", "  something else entirely"];
+        assert_eq!(scan_modifier_table(&lines, 0), None);
+    }
+
+    /// The scan stops at the first row that is not a modifier row, leaving
+    /// the rest of the block where it was. This is what lets `ar`'s
+    /// ` generic modifiers:` keep its four long options — and their group —
+    /// while its seven bracket rows become modifiers.
+    #[test]
+    fn the_scan_stops_at_the_first_row_that_is_not_one() {
+        let lines = [
+            "  [c]          - do not warn if the library had to be created",
+            "  [s]          - create an archive index (cf. ranlib)",
+            "  @<file>      - read options from <file>",
+            "  --thin       - make a thin archive",
+        ];
+        let (end, rows) = scan_modifier_table(&lines, 0).expect("two rows is a table");
+        assert_eq!(end, 2, "stopped before @<file>");
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1].letter, 's');
+    }
+
+    /// A wrapped description folds into the row above it, the same rule
+    /// every other block scanner in this module applies.
+    #[test]
+    fn a_wrapped_description_folds_into_its_row() {
+        let lines = [
+            "  [u]  - only replace files that are newer",
+            "         than current archive contents",
+            "  [v]  - be verbose",
+        ];
+        let (end, rows) = scan_modifier_table(&lines, 0).expect("table");
+        assert_eq!(end, 3);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows[0].description,
+            "only replace files that are newer than current archive contents"
+        );
+    }
+
+    /// The run has to open at the line the scan is offered: it is never
+    /// allowed to hunt forward into a block for something bracket-shaped.
+    #[test]
+    fn the_run_must_open_at_the_offered_line() {
+        let lines = [
+            "  ordinary text here",
+            "  [a]  - put file(s) after",
+            "  [b]  - put file(s) before",
+        ];
+        assert_eq!(scan_modifier_table(&lines, 0), None);
+    }
+
+    /// End to end through the engine, on `ar`'s own shape: the modifier
+    /// rows become modifiers, and the four long options that follow the
+    /// bracket rows *inside the same section* keep both their spellings and
+    /// the group that section names. The second half is the whole reason
+    /// the call site falls through instead of restarting the loop.
+    #[test]
+    fn a_modifier_table_leaves_the_flags_beneath_it_alone() {
+        let help = "\
+Usage: ar [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] archive-file file...
+ command specific modifiers:
+  [a]          - put file(s) after [member-name]
+  [b]          - put file(s) before [member-name] (same as [i])
+  [N]          - use instance [count] of name
+ generic modifiers:
+  [c]          - do not warn if the library had to be created
+  [l <text> ]  - specify the dependencies of this library
+  @<file>      - read options from <file>
+  --target=BFDNAME - specify the target object format as BFDNAME
+  --thin       - make a thin archive
+";
+        let parsed = parse_named(help, "ar");
+
+        let letters: Vec<&str> = parsed
+            .modifiers
+            .iter()
+            .map(mandible_core::Entity::primary_name)
+            .collect();
+        assert_eq!(letters, ["a", "b", "N", "c", "l"], "{letters:?}");
+
+        // The operand row keeps its value, and the letter is not part of it.
+        let l = parsed
+            .modifiers
+            .iter()
+            .find(|m| m.primary_name() == "l")
+            .expect("[l <text> ]");
+        assert_eq!(l.value_name.as_deref(), Some("<text>"));
+
+        // Each table's own heading names its group.
+        assert_eq!(
+            parsed.modifiers[0].group.as_deref(),
+            Some("command specific modifiers:")
+        );
+        assert_eq!(
+            parsed.modifiers[3].group.as_deref(),
+            Some("generic modifiers:")
+        );
+
+        // ...and the flags after the bracket rows are untouched, group
+        // included.
+        for want in ["target", "thin"] {
+            let f = parsed
+                .flags
+                .iter()
+                .find(|f| f.long() == Some(want))
+                .unwrap_or_else(|| panic!("--{want} lost"));
+            assert_eq!(f.group.as_deref(), Some("generic modifiers:"));
+        }
+        // A modifier is never also a flag.
+        assert!(!parsed.flags.iter().any(|f| f.short() == Some('a')));
+    }
+
+    /// `llvm-ar`'s spelling of the same table: an explicit `MODIFIERS:`
+    /// heading and single-space dash separators. Nothing about the
+    /// recognizer is keyed on either tool — this is the second document
+    /// that proves it.
+    #[test]
+    fn the_other_tools_modifier_table_reads_the_same_way() {
+        let help = "\
+OVERVIEW: LLVM Archiver
+
+USAGE: llvm-ar [options] [-]<operation>[modifiers] <archive> [files]
+
+MODIFIERS:
+  [a] - put [files] after [relpos]
+  [b] - put [files] before [relpos] (same as [i])
+  [c] - do not warn if archive had to be created
+";
+        let parsed = parse_named(help, "llvm-ar");
+        let letters: Vec<&str> = parsed
+            .modifiers
+            .iter()
+            .map(mandible_core::Entity::primary_name)
+            .collect();
+        assert_eq!(letters, ["a", "b", "c"]);
+        assert_eq!(
+            parsed.modifiers[0].description.as_ref().map(|d| d.as_str()),
+            Some("put [files] after [relpos]")
+        );
+        assert_eq!(parsed.modifiers[0].group.as_deref(), Some("MODIFIERS:"));
+    }
+
+    /// The fleet's one near-miss, end to end: a block of reference
+    /// footnotes must not become a MODIFIERS section on a tool that has no
+    /// modifiers at all. `pygettext3`'s own two footnotes are the rows,
+    /// verbatim.
+    ///
+    /// **Set under a heading, which `pygettext3` does not do.** In its real
+    /// output those footnotes sit in a prose region no heading governs, so
+    /// [`scan_modifier_table`] is never offered them and the row grammar
+    /// never runs — meaning a test that transcribed the document faithfully
+    /// proved nothing about the grammar and stayed green however the rules
+    /// were broken. It was written that way first and did exactly that.
+    /// Putting the same rows where the scan *is* offered them is what makes
+    /// this able to fail: verified red with both the digit rule and the
+    /// separator rule removed, and green again with either one restored —
+    /// which is also the evidence that they are two independent grounds
+    /// rather than one rule spelled twice.
+    #[test]
+    fn reference_footnotes_never_become_modifiers() {
+        let help = "\
+Usage: pygettext [options] inputfile ...
+
+References:
+  [1] https://www.python.org/workshops/1997-10/proceedings/loewis.html
+  [2] https://www.gnu.org/software/gettext/gettext.html
+";
+        let parsed = parse_named(help, "pygettext");
+        assert!(parsed.modifiers.is_empty(), "{:?}", parsed.modifiers);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

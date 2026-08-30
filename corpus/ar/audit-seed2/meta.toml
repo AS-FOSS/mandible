@@ -30,3 +30,13 @@ min_subcommands = 8
 # block happened to end exactly at `--target`. They are the regression
 # this fixture exists to catch.
 must_contain_flags = ["--target", "--output", "--record-libdeps", "--thin", "--plugin"]
+# Both modifier tables in full: ten under ` command specific modifiers:`
+# and seven under ` generic modifiers:`. Case is significant — this tool
+# documents `[D]` and `[U]` beside `[d]`/`[u]` as different things. Before
+# modifiers were a kind, every one of these rows was dropped: the first
+# table's heading contains the word "command", so its rows went to the
+# subcommand path and failed the name-shape test one by one.
+must_contain_modifiers = [
+    "a", "b", "D", "U", "N", "f", "P", "o", "O", "u",
+    "c", "s", "l", "S", "T", "v", "V",
+]

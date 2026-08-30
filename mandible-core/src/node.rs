@@ -275,6 +275,11 @@ impl CommandNode {
         self.entities_of(EntityKind::Positional)
     }
 
+    /// This node's modifier letters, in document order.
+    pub fn modifiers(&self) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities_of(EntityKind::Modifier)
+    }
+
     /// Replace every entity of one kind, leaving the other kinds and their
     /// relative order untouched. The replacements land at the end of the
     /// vector, which is invisible to every consumer: order is only ever
@@ -296,6 +301,11 @@ impl CommandNode {
     /// Replace this node's positionals, keeping every other kind.
     pub fn set_positionals(&mut self, positionals: Vec<Entity>) {
         self.set_entities_of(EntityKind::Positional, positionals);
+    }
+
+    /// Replace this node's modifiers, keeping every other kind.
+    pub fn set_modifiers(&mut self, modifiers: Vec<Entity>) {
+        self.set_entities_of(EntityKind::Modifier, modifiers);
     }
 
     /// Remove every entity of one kind and return them in document order.

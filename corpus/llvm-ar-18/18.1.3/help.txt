@@ -1,0 +1,53 @@
+OVERVIEW: LLVM Archiver
+
+USAGE: llvm-ar-18 [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]
+       llvm-ar-18 -M [<mri-script]
+
+OPTIONS:
+  --format              - archive format to create
+    =default            -   default
+    =gnu                -   gnu
+    =darwin             -   darwin
+    =bsd                -   bsd
+    =bigarchive         -   big archive (AIX OS)
+  --plugin=<string>     - ignored for compatibility
+  -h --help             - display this help and exit
+  --output              - the directory to extract archive members to
+  --rsp-quoting         - quoting style for response files
+    =posix              -   posix
+    =windows            -   windows
+  --thin                - create a thin archive
+  --version             - print the version and exit
+  -X{32|64|32_64|any}   - object mode (only for AIX OS)
+  @<file>               - read options from <file>
+
+OPERATIONS:
+  d - delete [files] from the archive
+  m - move [files] in the archive
+  p - print contents of [files] found in the archive
+  q - quick append [files] to the archive
+  r - replace or insert [files] into the archive
+  s - act as ranlib
+  t - display list of files in archive
+  x - extract [files] from the archive
+
+MODIFIERS:
+  [a] - put [files] after [relpos]
+  [b] - put [files] before [relpos] (same as [i])
+  [c] - do not warn if archive had to be created
+  [D] - use zero for timestamps and uids/gids (default)
+  [h] - display this help and exit
+  [i] - put [files] before [relpos] (same as [b])
+  [l] - ignored for compatibility
+  [L] - add archive's contents
+  [N] - use instance [count] of name
+  [o] - preserve original dates
+  [O] - display member offsets
+  [P] - use full names when matching (implied for thin archives)
+  [s] - create an archive index (cf. ranlib)
+  [S] - do not build a symbol table
+  [T] - deprecated, use --thin instead
+  [u] - update only [files] newer than archive contents
+  [U] - use actual timestamps and uids/gids
+  [v] - be verbose about actions taken
+  [V] - display the version and exit

@@ -679,8 +679,11 @@ struct BuiltLines {
 ///
 /// The whole of the per-kind knowledge in this pane, and it is *data*.
 /// There is no branch on kind anywhere below: a section renders because its
-/// kind has entities, and the two kinds no parser emits yet (`Modifier`,
-/// `EnvVar`) go through exactly the same code as the two that do.
+/// kind has entities, and `EnvVar` — the one kind no parser emits yet —
+/// goes through exactly the same code as the three that do. `Modifier` is
+/// what that claim bought: the parser began emitting modifier letters
+/// (spec §7 Tier B) and this pane rendered a MODIFIERS section for `ar` and
+/// `llvm-ar` with no change to a line of it.
 /// `DESCRIPTION` and `USAGE` are not here because they are node prose, not
 /// entity lists — they carry no count and take no shared column.
 /// POSITIONALS is the one section carrying an indent (spec §9.3). Its rows
@@ -3465,6 +3468,75 @@ mod tests {
             column_of(&both, "a-long-positional-name") > column_of(&both, "--all"),
             "the fixture must actually have two different columns to tell apart"
         );
+    }
+
+    /// Spec §9.3: modifiers render as their own counted section, between
+    /// FLAGS and ENVIRONMENT, at the content edge rather than POSITIONALS'
+    /// inset — a bare letter, its operand one space behind it, and the
+    /// section's own shared description column.
+    ///
+    /// [`LIST_SECTIONS`] claims this pane needs no per-kind branch, and a
+    /// kind arriving from the parser for the first time is when that claim
+    /// is either true or isn't. `ar` is the specimen; the letters are its
+    /// own.
+    #[test]
+    fn modifiers_render_as_their_own_section() {
+        let mut node = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("thin", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("make a thin archive"));
+        node.entities.push(flag);
+        for (letter, description) in [('v', "be verbose"), ('S', "do not build a symbol table")] {
+            let mut m = Entity::modifier(letter, Provenance::single(Source::HelpText));
+            m.description = Some(Text::sanitize(description));
+            node.entities.push(m);
+        }
+        let mut valued = Entity::modifier('l', Provenance::single(Source::HelpText));
+        valued.value_name = Some("<text>".into());
+        valued.value_kind = mandible_core::ValueKind::Required;
+        valued.description = Some(Text::sanitize("specify the dependencies"));
+        node.entities.push(valued);
+
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let text: Vec<String> = built.lines.iter().map(text_of).collect();
+
+        let header = text
+            .iter()
+            .position(|l| l.starts_with("MODIFIERS (3)"))
+            .unwrap_or_else(|| panic!("no MODIFIERS header: {text:#?}"));
+        let flags_header = text
+            .iter()
+            .position(|l| l.starts_with("FLAGS ("))
+            .expect("FLAGS header");
+        assert!(flags_header < header, "MODIFIERS must follow FLAGS");
+
+        // The letter is bare — no dash invented for it — and sits at the
+        // content edge, not POSITIONALS' inset.
+        let row = text
+            .iter()
+            .find(|l| l.contains("be verbose"))
+            .unwrap_or_else(|| panic!("no row for [v]: {text:#?}"));
+        assert!(
+            row.starts_with('v'),
+            "modifier row not at the edge: {row:?}"
+        );
+        assert!(!row.contains("-v"), "a dash was invented: {row:?}");
+
+        // The operand renders one space behind the letter it belongs to.
+        assert!(
+            text.iter().any(|l| l.contains("l <text>")),
+            "operand not rendered with its letter: {text:#?}"
+        );
+
+        // One logical row per modifier, same as every other list section.
+        assert_eq!(built.rows.len(), 4);
     }
 
     /// Spec §9.3: a wrapped entry is **one logical row** for selection and

@@ -43,10 +43,115 @@ flags:
   provenance:
     sources:
     - help-text-synopsis
+modifiers:
+- name: a
+  group: 'command specific modifiers:'
+  description: put file(s) after [member-name]
+  provenance:
+    sources:
+    - help-text
+- name: b
+  group: 'command specific modifiers:'
+  description: put file(s) before [member-name] (same as [i])
+  provenance:
+    sources:
+    - help-text
+- name: D
+  group: 'command specific modifiers:'
+  description: use zero for timestamps and uids/gids (default)
+  provenance:
+    sources:
+    - help-text
+- name: U
+  group: 'command specific modifiers:'
+  description: use actual timestamps and uids/gids
+  provenance:
+    sources:
+    - help-text
+- name: N
+  group: 'command specific modifiers:'
+  description: use instance [count] of name
+  provenance:
+    sources:
+    - help-text
+- name: f
+  group: 'command specific modifiers:'
+  description: truncate inserted file names
+  provenance:
+    sources:
+    - help-text
+- name: P
+  group: 'command specific modifiers:'
+  description: use full path names when matching
+  provenance:
+    sources:
+    - help-text
+- name: o
+  group: 'command specific modifiers:'
+  description: preserve original dates
+  provenance:
+    sources:
+    - help-text
+- name: O
+  group: 'command specific modifiers:'
+  description: display offsets of files in the archive
+  provenance:
+    sources:
+    - help-text
+- name: u
+  group: 'command specific modifiers:'
+  description: only replace files that are newer than current archive contents
+  provenance:
+    sources:
+    - help-text
+- name: c
+  group: 'generic modifiers:'
+  description: do not warn if the library had to be created
+  provenance:
+    sources:
+    - help-text
+- name: s
+  group: 'generic modifiers:'
+  description: create an archive index (cf. ranlib)
+  provenance:
+    sources:
+    - help-text
+- name: l
+  value_name: <text>
+  value_kind: Required
+  group: 'generic modifiers:'
+  description: specify the dependencies of this library
+  provenance:
+    sources:
+    - help-text
+- name: S
+  group: 'generic modifiers:'
+  description: do not build a symbol table
+  provenance:
+    sources:
+    - help-text
+- name: T
+  group: 'generic modifiers:'
+  description: deprecated, use --thin instead
+  provenance:
+    sources:
+    - help-text
+- name: v
+  group: 'generic modifiers:'
+  description: be verbose
+  provenance:
+    sources:
+    - help-text
+- name: V
+  group: 'generic modifiers:'
+  description: display the version number
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text
-  confidence: 0.46
+  confidence: 0.5
 children_filled: true
 subcommands:
 - name: d
