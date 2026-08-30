@@ -366,13 +366,7 @@ jobs:
           version="${{ inputs.version || github.ref_name }}"
           version="${version#v}"
           {
-            echo "## Install"
-            echo
-            echo '```console'
-            echo "cargo install mandible"
-            echo '```'
-            echo
-            echo "Or download a binary below. Verify with the accompanying \`.sha256\`."
+            scripts/install_block.sh
             echo
             echo "---"
             echo
