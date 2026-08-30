@@ -9871,20 +9871,22 @@ mod tests {
     // (`corpus/tar/1.35/help.txt`, `corpus/git/2.43.0/help.txt` — see
     // corpus/README.md), rather than a byte-identical second copy under
     // this crate's own `tests/fixtures/`.
-    const TAR_HELP: &str = include_str!("../../../corpus/tar/1.35/help.txt");
-    const GIT_HELP: &str = include_str!("../../../corpus/git/2.43.0/help.txt");
-    const LSOF_HELP: &str = include_str!("../../../corpus/lsof/4.95.0/help.stderr.txt");
-    const UNZIP_HELP: &str = include_str!("../../../corpus/unzip/6.00/help.txt");
-    const ZOXIDE_HELP: &str = include_str!("../../../corpus/zoxide/0.9.9/help.txt");
+    const TAR_HELP: &str = include_str!("../../../../corpus/tar/1.35/help.txt");
+    const GIT_HELP: &str = include_str!("../../../../corpus/git/2.43.0/help.txt");
+    const LSOF_HELP: &str = include_str!("../../../../corpus/lsof/4.95.0/help.stderr.txt");
+    const UNZIP_HELP: &str = include_str!("../../../../corpus/unzip/6.00/help.txt");
+    const ZOXIDE_HELP: &str = include_str!("../../../../corpus/zoxide/0.9.9/help.txt");
 
-    const OPENSSL_HELP: &str = include_str!("../../tests/fixtures/help_text/openssl_help.stderr");
-    const IP_HELP: &str = include_str!("../../tests/fixtures/help_text/ip_help.stderr");
-    const DD_HELP: &str = include_str!("../../tests/fixtures/help_text/dd_help.stdout");
-    const LESS_HELP: &str = include_str!("../../tests/fixtures/help_text/less_help.stdout");
-    const SED_HELP: &str = include_str!("../../tests/fixtures/help_text/sed_help.stdout");
-    const FIND_HELP: &str = include_str!("../../tests/fixtures/help_text/find_help.stdout");
-    const CURL_HELP: &str = include_str!("../../tests/fixtures/help_text/curl_help.stdout");
-    const APT_GET_HELP: &str = include_str!("../../tests/fixtures/help_text/apt_get_help.stdout");
+    const OPENSSL_HELP: &str =
+        include_str!("../../../tests/fixtures/help_text/openssl_help.stderr");
+    const IP_HELP: &str = include_str!("../../../tests/fixtures/help_text/ip_help.stderr");
+    const DD_HELP: &str = include_str!("../../../tests/fixtures/help_text/dd_help.stdout");
+    const LESS_HELP: &str = include_str!("../../../tests/fixtures/help_text/less_help.stdout");
+    const SED_HELP: &str = include_str!("../../../tests/fixtures/help_text/sed_help.stdout");
+    const FIND_HELP: &str = include_str!("../../../tests/fixtures/help_text/find_help.stdout");
+    const CURL_HELP: &str = include_str!("../../../tests/fixtures/help_text/curl_help.stdout");
+    const APT_GET_HELP: &str =
+        include_str!("../../../tests/fixtures/help_text/apt_get_help.stdout");
 
     /// Regression for [M-10], found by reading the real TUI rather than a
     /// green test suite: `apt-get --help` gained the subcommands *"and"*,
