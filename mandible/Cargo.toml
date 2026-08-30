@@ -67,7 +67,13 @@ assets = [
     ["../packaging/mandible.1", "usr/share/man/man1/", "644"],
     ["../README.md", "usr/share/doc/mandible/README.md", "644"],
     ["target/release/completions/mandible", "usr/share/bash-completion/completions/mandible", "644"],
-    ["target/release/completions/_mandible", "usr/share/zsh/site-functions/_mandible", "644"],
+    # vendor-completions, not site-functions: Debian's zsh carries
+    # `/usr/share/zsh/vendor-completions` on its default `fpath` and does not
+    # carry `/usr/share/zsh/site-functions` at all, so a file installed under
+    # the latter is never found. The rpm below uses site-functions for the
+    # mirror-image reason. Measured on ubuntu:24.04 and fedora:latest with
+    # `zsh -c 'print -l $fpath'`.
+    ["target/release/completions/_mandible", "usr/share/zsh/vendor-completions/_mandible", "644"],
     ["target/release/completions/mandible.fish", "usr/share/fish/vendor_completions.d/mandible.fish", "644"],
 ]
 
