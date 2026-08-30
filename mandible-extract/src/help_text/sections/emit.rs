@@ -41,7 +41,10 @@ pub(super) fn emit_flags(
         // comment. Per-value descriptions have no home in the IR and are
         // dropped; only the bare value names survive, into the same
         // `choices` field clap's `[possible values: …]` already fills.
-        flag.choices = choice_names.into_iter().map(|c| Text::sanitize(&c)).collect();
+        flag.choices = choice_names
+            .into_iter()
+            .map(|c| Text::sanitize(&c))
+            .collect();
         out.flags.push(flag);
     }
     (seen, clean)

@@ -1485,4 +1485,67 @@ Options:
             Some("display this help and exit")
         );
     }
+
+    /// `jmod --help`'s real `--target-platform <String: target-` /
+    /// `  platform>` wrap (`corpus/jmod/17.0.20/help.txt`): the
+    /// continuation line completes the placeholder opened on the row
+    /// above, so it must join `value_name`, not `description`.
+    #[test]
+    fn a_wrapped_placeholder_continuation_joins_the_value_name_not_the_description() {
+        let parsed = parse_named(JMOD_HELP, "jmod");
+        let flag = flag_named(&parsed, "target-platform");
+        assert_eq!(
+            flag.value_name.as_deref(),
+            Some("<String: target-platform>"),
+            "the wrapped placeholder must be joined into value_name whole"
+        );
+        assert_eq!(
+            flag.description.as_ref().map(|t| t.as_str()),
+            Some("Target platform"),
+            "no placeholder tail must leak into the description"
+        );
+    }
+
+    /// `jmod --help`'s trailing `@<filename>  Read options from the
+    /// specified file` row (`corpus/jmod/17.0.20/help.txt`) must never
+    /// corrupt the row above it (`--version`), and must never itself
+    /// become a flag.
+    #[test]
+    fn an_argfile_row_never_corrupts_the_entry_above_it() {
+        let parsed = parse_named(JMOD_HELP, "jmod");
+        let version = flag_named(&parsed, "version");
+        assert_eq!(
+            version.description.as_ref().map(|t| t.as_str()),
+            Some("Version information"),
+            "the @<filename> row must not leak into --version's description: {:?}",
+            version.description
+        );
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long().is_some_and(|l| l.contains("filename"))),
+            "@<filename> must never become a flag of its own"
+        );
+    }
+
+    /// `llvm-ar --help`'s `--format` / `=default - default` / `=gnu - gnu`
+    /// / ... sub-rows (`corpus/llvm-ar-18/18.1.3/help.txt`) are `--format`'s
+    /// enumerated values and must land in `choices`, not its description.
+    #[test]
+    fn llvm_ar_format_sub_rows_become_choices_not_description_text() {
+        let parsed = parse_named(LLVM_AR_HELP, "llvm-ar-18");
+        let format = flag_named(&parsed, "format");
+        let choice_strs: Vec<&str> = format.choices.iter().map(|t| t.as_str()).collect();
+        assert_eq!(
+            choice_strs,
+            vec!["default", "gnu", "darwin", "bsd", "bigarchive"]
+        );
+        assert_eq!(
+            format.description.as_ref().map(|t| t.as_str()),
+            Some("- archive format to create"),
+            "the =value sub-rows must not remain in the description: {:?}",
+            format.description
+        );
+    }
 }

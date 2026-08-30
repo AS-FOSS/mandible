@@ -1884,4 +1884,28 @@ mod tests {
             "--locktype sanlock|dlm|none VG"
         ));
     }
+
+    /// jmod's own header-underline row (`corpus/jmod/17.0.20/help.txt`,
+    /// under its two-column `Option`/`Description` heading): a run of
+    /// dashes with no name character in it must never look like a flag
+    /// row, or it fabricates a flag named `----` (the leading `--` read as
+    /// the long-flag marker, the rest as its name).
+    #[test]
+    fn a_dash_underline_row_never_looks_like_a_flag_start() {
+        assert!(!looks_like_flag_start(
+            "------                              -----------"
+        ));
+        assert!(!looks_like_flag_start("---"));
+        assert!(!looks_like_flag_start("----------"));
+    }
+
+    /// `--` alone is a real, meaningful token in many tools (GNU getopt's
+    /// end-of-options marker) and must stay eligible to open a flag entry
+    /// — the dash-underline guard's threshold is 3, not 2, specifically so
+    /// this stays true.
+    #[test]
+    fn a_bare_double_dash_still_looks_like_a_flag_start() {
+        assert!(looks_like_flag_start("--"));
+        assert!(looks_like_flag_start("-- end of options"));
+    }
 }
