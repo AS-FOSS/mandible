@@ -94,9 +94,21 @@ pub struct Palette {
 }
 
 impl Palette {
-    /// The palette this process's environment describes.
+    /// The palette this process's environment describes for output written
+    /// to stdout.
     pub fn from_env() -> Palette {
-        let color = color_enabled_from_env();
+        Palette::for_sink(crate::terminal::Sink::Stdout)
+    }
+
+    /// The palette for output written to `sink`.
+    ///
+    /// The sink is part of the question, not a detail: the "is anything a
+    /// terminal at the other end" half of [`color_enabled_for_sink`] is
+    /// about the stream being drawn on. `mandible --print-selection` draws
+    /// on stderr while stdout is a pipe, and asking stdout there would
+    /// answer about the pipe and render the whole UI monochrome.
+    pub fn for_sink(sink: crate::terminal::Sink) -> Palette {
+        let color = color_enabled_for_sink(sink);
         Palette {
             color,
             extended: color && extended_from_env(),
@@ -269,10 +281,17 @@ pub fn search_match() -> Style {
     Style::default().add_modifier(Modifier::UNDERLINED)
 }
 
+/// [`color_enabled_for_sink`] for output written to stdout — what a
+/// non-TUI command that prints there (the `mandible mandible` about
+/// screen) asks.
+pub fn color_enabled_from_env() -> bool {
+    color_enabled_for_sink(crate::terminal::Sink::Stdout)
+}
+
 /// True unless the user's environment asks for no color at all
 /// (`NO_COLOR`, <https://no-color.org> — any non-empty value disables
-/// color; unset or empty leaves color on).
-pub fn color_enabled_from_env() -> bool {
+/// color; unset or empty leaves color on), or `sink` is not a terminal.
+pub fn color_enabled_for_sink(sink: crate::terminal::Sink) -> bool {
     // `NO_COLOR` is an explicit request and wins outright
     // (<https://no-color.org>).
     if std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty()) {
@@ -291,7 +310,7 @@ pub fn color_enabled_from_env() -> bool {
     // And nothing is a terminal at the other end of a pipe. Writing SGR
     // sequences into a file or a grep is the conventional mistake here —
     // `mandible mandible > notes.txt` should leave text, not escape codes.
-    crate::terminal::stdout_is_tty()
+    sink.is_tty()
 }
 
 /// A pure-ASCII border set.

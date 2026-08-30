@@ -75,6 +75,11 @@ pub enum Effect {
     /// The caller should run the probe and hand the result back through
     /// [`App::set_raw_help`].
     FetchRaw(Vec<String>),
+    /// Print this composed command line on stdout and exit (spec §2's
+    /// `--print-selection`). Only ever produced while
+    /// [`App::print_selection`] is set, which no ordinary `mandible <tool>`
+    /// session does.
+    PrintSelection(String),
 }
 
 /// One node's raw `--help` text, as far as the verbatim view has got.
@@ -276,6 +281,18 @@ pub struct App {
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
+    /// Whether `Enter` composes the selection onto the calling shell's
+    /// prompt instead of expanding the selected row (spec §2's
+    /// `--print-selection`).
+    ///
+    /// `false` in every ordinary `mandible <tool>` session, and nothing in
+    /// this crate ever sets it: the composition root
+    /// (`mandible/src/app_runner.rs`'s `new_app`) turns it on for the one
+    /// invocation that asked, the same way it applies `config.toml`. With
+    /// it off, every key means exactly what it meant before this mode
+    /// existed — `→`/`Enter`/`l` all expand — which is the property
+    /// `mandible-tui`'s own tests pin.
+    pub print_selection: bool,
     /// `Some` for the duration of one tool's session inside `mandible
     /// --review`, `None` in the ordinary `mandible <tool>` path. Carries the
     /// tool's stratum, pre-tag suggestions, and sample progress for the
@@ -396,6 +413,7 @@ impl App {
             palette,
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
+            print_selection: false,
             review: None,
         };
         app.ensure_rows_fresh();
@@ -601,6 +619,43 @@ impl App {
     /// The selected row's path from the root, e.g. `["git", "rebase"]`.
     pub fn selected_path(&self) -> Option<Vec<String>> {
         Some(self.selected_row()?.path.clone())
+    }
+
+    /// The command line this selection composes to: the selected node's
+    /// full command path, plus the selected flag's typed spelling when
+    /// search landed on one (spec §2's `--print-selection`).
+    ///
+    /// `git commit` for a command row; `git commit --amend` when
+    /// [`Self::selected_flag`] holds a flag that command actually
+    /// documents. A flag target that no longer resolves — the tree was
+    /// re-extracted, the row moved — composes the path alone rather than
+    /// guessing: a command that is merely incomplete can be finished on the
+    /// prompt, and one carrying a flag its tool does not have cannot.
+    ///
+    /// Nothing is appended for a flag's value: see
+    /// `Entity::shell_spelling`.
+    pub fn selection_command(&self) -> Option<String> {
+        let path = &self.selected_row()?.path;
+        let mut line = path.join(" ");
+        if let Some(spelling) = self.selected_flag.as_ref().and_then(|key| {
+            mandible_core::resolve_flag(&self.root, path, key).and_then(|e| e.shell_spelling())
+        }) {
+            line.push(' ');
+            line.push_str(&spelling);
+        }
+        Some(line)
+    }
+
+    /// Set the palette, keeping [`Self::color_enabled`] in step.
+    ///
+    /// The two are one decision read at two kinds of call site (see
+    /// `color_enabled`'s note), so they are set together here rather than
+    /// assigned separately by whoever knows the terminal — the composition
+    /// root, which is the only place that knows which stream is being drawn
+    /// on.
+    pub fn set_palette(&mut self, palette: crate::style::Palette) {
+        self.color_enabled = palette.color;
+        self.palette = palette;
     }
 
     fn mark_dirty(&mut self) {
@@ -1586,6 +1641,61 @@ mod tests {
         app.move_up();
         assert_ne!(app.selected_path(), before, "the press must actually move");
         assert_eq!(app.selected_flag, None);
+    }
+
+    /// `--print-selection`'s whole output, composed the way the user got
+    /// there: search a flag spelling, and the line is that flag's command
+    /// plus the flag — `git rebase --autosquash`, ready to edit.
+    #[test]
+    fn selection_command_composes_a_searched_flag_onto_its_command() {
+        let mut root = sample_tree();
+        root.subcommands[1]
+            .entities
+            .push(mandible_core::Entity::flag_spelled(
+                Some('i'),
+                Some("autosquash".to_string()),
+                false,
+                false,
+                Provenance::single(Source::HelpText),
+            ));
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        app.cycle_search_mode(); // Name -> Wide
+        for c in "autosquash".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+
+        assert_eq!(app.selected_row().unwrap().name, "rebase", "precondition");
+        // The long spelling, not the `-i` the tool printed first.
+        assert_eq!(
+            app.selection_command().as_deref(),
+            Some("git rebase --autosquash")
+        );
+    }
+
+    /// No flag target: a command row composes to its own full path, which
+    /// is the other half of what `Enter` accepts.
+    #[test]
+    fn selection_command_is_the_command_path_with_no_flag_target() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        assert_eq!(app.selection_command().as_deref(), Some("git"));
+        app.selected = 2; // rebase
+        assert_eq!(app.selection_command().as_deref(), Some("git rebase"));
+    }
+
+    /// A flag target the selected command does not document composes the
+    /// path alone. An incomplete line can be finished on the prompt; one
+    /// carrying a flag the tool does not have cannot, and printing it
+    /// would be the mode's one chance to hand over something wrong.
+    #[test]
+    fn selection_command_drops_a_flag_target_that_does_not_resolve() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase, which documents no flags at all
+        app.selected_flag = Some(mandible_core::FlagKey::Long("autosquash".to_string()));
+        assert_eq!(app.selection_command().as_deref(), Some("git rebase"));
     }
 
     #[test]

@@ -201,7 +201,7 @@ fn animate(color: bool) {
 
 /// True when the banner can be drawn: a real terminal, in a UTF-8 locale.
 fn banner_possible() -> bool {
-    mandible_tui::terminal::stdout_is_tty()
+    mandible_tui::terminal::Sink::Stdout.is_tty()
         && mandible_tui::glyphs::from_env() == mandible_tui::glyphs::UNICODE
 }
 

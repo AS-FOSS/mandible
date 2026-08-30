@@ -34,7 +34,13 @@ pub fn render(frame: &mut Frame, app: &App) {
     status_bar::render(frame, regions.status, app);
 
     if app.show_help {
-        help_overlay::render(frame, area, app.glyphs, app.color_enabled);
+        help_overlay::render(
+            frame,
+            area,
+            app.glyphs,
+            app.color_enabled,
+            app.print_selection,
+        );
     }
 
     if let Some(review) = &app.review {
