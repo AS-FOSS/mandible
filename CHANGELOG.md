@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to adhere to [Semantic Versioning](https://semver.org/)
 once it reaches a published 0.1.0 release.
 
+## [Unreleased]
+
+### Added
+
+- Every release body now opens with the install channels that actually work for that release — Homebrew, `cargo binstall`, `cargo install`, `nix run`, and the apt repository — instead of `cargo install` alone, rendered by `scripts/install_block.sh` so the list can be read and changed without pushing a tag to find out.
+- Releases now carry a `mandible-<version>-vendor.tar.xz` asset holding every crate the build needs, and `packaging/copr/mandible.spec` builds from it offline, so the SRPM is a complete description of the build and rebuilds anywhere with `rpmbuild --rebuild`; the release workflow builds that SRPM and submits it to COPR, skipping with a warning naming the `COPR_REGISTRY_TOKEN` secret when it is absent.
+- mandible can be installed from an apt repository at `https://as-foss.github.io/mandible-apt` (amd64 and arm64, every released version, `Release` clear-signed and detached-signed); the release workflow asks `AS-FOSS/mandible-apt` to rebuild it on each tag, skipping with a warning naming the manual `gh workflow run` fallback while the `APT_DISPATCH_TOKEN` secret that cross-repository dispatch needs does not exist.
+- The release workflow now updates the Homebrew tap itself: after a tag's assets are published it renders `Formula/mandible.rb` from the version and the four `.sha256` assets the release already carries (read from those assets, never recomputed from a second build, and cross-checked so a digest taken over some other file is refused) and commits it to `AS-FOSS/homebrew-mandible` through GitHub's `createCommitOnBranch` API, which signs the commit; `scripts/render_formula.sh` renders the same formula locally so a broken one is not something you discover after tagging.
+
 ## [0.4.5] - 2026-08-28
 
 ### Added
