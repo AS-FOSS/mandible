@@ -10,6 +10,8 @@ once it reaches a published 0.1.0 release.
 
 ### Added
 
+- `mandible cargo clippy` now opens cargo's tree at `clippy` instead of failing with "unexpected argument 'clippy' found" (issue #70): a trailing subcommand path is valid and lands exactly where browsing to that node lands, and a subcommand the parent's own help never documents — the `cargo-clippy`/`git-lfs` convention — is discovered as an executable named `<tool>-<sub>` on `PATH`, shown as a child marked `unverified` (a filename is evidence about the filesystem and a guess about the tool) and probed against its own binary, so a word read off a filename never becomes an argument to the parent; a path the finished tree turns out not to have is reported in the status line beside the real names rather than refused before the tool opens, and `--doctor`/`--report` still take a tool name alone.
+
 - Browsing can now end on the shell prompt instead of in the clipboard (issue #40): `mandible --print-selection <tool>` browses exactly as usual but makes `Enter` print the selected command — plus the flag search landed on, in its long spelling where the tool documents one and always in the affirmative form (`--color`, never the un-runnable `--[no-]color`) — to stdout and exit, drawing the UI on stderr so stdout carries that one line and nothing else, and `mandible --shell-init bash` (or `zsh`) prints the binding that puts it on the command line ready to edit: `Ctrl-X m` opens mandible on the word already typed and replaces the line with what you select, leaving it untouched if you quit instead. Without the flag nothing moves — `Enter` is still one of the three keys that expand a row.
 
 ### Fixed

@@ -110,10 +110,16 @@ impl Warmer {
     /// the submission was refused — the app is quitting, or the
     /// [`MAX_WARMED_NODES`] budget is spent — so a cascading caller knows
     /// to stop walking.
+    /// `tool` and `probe_path` say *what gets probed* — ordinarily the
+    /// session's tool at this node's own path, but a convention-discovered
+    /// node is probed against its own binary at a rebased path (spec §5.4,
+    /// `crate::discovery::probe_target`). `path` stays the node's place in
+    /// the tree, which is where the result is spliced.
     pub fn submit(
         &self,
         runner: Arc<Runner>,
         tool: ResolvedTool,
+        probe_path: Vec<String>,
         path: Vec<String>,
         existing: mandible_core::CommandNode,
     ) -> bool {
@@ -132,7 +138,7 @@ impl Warmer {
             if cancelled.load(Ordering::Relaxed) || stale(&generation) {
                 return;
             }
-            let result = runner.fill_node(&tool, &path, existing);
+            let result = runner.fill_node(&tool, &probe_path, existing);
             // Checked again after the probe, not only before it: a
             // re-extract that lands mid-probe is exactly the case this
             // exists for, and splicing this result would put a node from
@@ -162,23 +168,34 @@ impl Warmer {
     ///
     /// [`MAX_WARMED_NODES`] keeps the walk from becoming unbounded on a
     /// very large tree.
+    /// `root` is the whole tree, not just the node being walked: each
+    /// child's probe target is resolved against it
+    /// (`crate::discovery::probe_target`), because whether a node is probed
+    /// through the session's tool or through a `<parent>-<sub>` binary of
+    /// its own is a fact about its ancestors (spec §5.4). The node at `path`
+    /// must already be spliced into `root` when this is called.
     pub fn warm_children(
         &self,
         runner: &Arc<Runner>,
         tool: &ResolvedTool,
-        node: &mandible_core::CommandNode,
+        root: &mandible_core::CommandNode,
         path: &[String],
     ) -> Vec<Vec<String>> {
         let mut queued = Vec::new();
+        let Some(node) = mandible_core::resolve(root, path) else {
+            return queued;
+        };
         for child in &node.subcommands {
             if child.children_filled {
                 continue;
             }
             let mut child_path = path.to_vec();
             child_path.push(child.name.clone());
+            let (child_tool, probe_path) = crate::discovery::probe_target(root, tool, &child_path);
             if !self.submit(
                 Arc::clone(runner),
-                tool.clone(),
+                child_tool,
+                probe_path,
                 child_path.clone(),
                 child.clone(),
             ) {

@@ -121,6 +121,12 @@ produced a tool's output, then applies that framework's grammar. For example:
 > [!TIP]
 > You can also try to probe executable files: `mandible scripts/custom.py`
 
+> [!TIP]
+> Open straight at a subcommand: `mandible cargo clippy`. Commands the parent's
+> own help never lists — `cargo-clippy`, `git-lfs` and the like — are found on
+> `PATH` and shown marked `unverified`, since the naming convention is evidence
+> about the filesystem and a guess about the tool.
+
 ## Is it actually universal?
 
 That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline against
