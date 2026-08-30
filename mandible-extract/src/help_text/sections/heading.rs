@@ -396,9 +396,7 @@ pub(super) fn heading_can_name_a_group(heading: &str) -> bool {
 pub(super) fn is_dash_underline_row(line: &str) -> bool {
     let trimmed = line.trim();
     !trimmed.is_empty()
-        && trimmed
-            .split_whitespace()
-            .all(|token| is_dash_underline_token(token))
+        && trimmed.split_whitespace().all(is_dash_underline_token)
 }
 
 /// Index just past a hard-wrapped prose sentence opening at `head`, or
