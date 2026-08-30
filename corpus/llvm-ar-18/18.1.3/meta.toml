@@ -1,0 +1,40 @@
+# The second, independently formatted specimen of a modifier table. `ar`
+# pads its rows into columns and separates with ` - `; this one writes a
+# single space before the dash and heads the block `MODIFIERS:`. Recovering
+# both from one recognizer is what says the rule is keyed on the row's
+# shape rather than on either tool.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "llvm-ar-18"
+version = "18.1.3"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["llvm-ar-18", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+# The whole `MODIFIERS:` table, all nineteen rows. Case is significant —
+# this tool documents `[D]` and `[d]`, `[u]` and `[U]`, `[s]` and `[S]`,
+# `[l]` and `[L]`, `[o]` and `[O]` as distinct modifiers, so a recognizer
+# that lowercased a letter would satisfy half of this list twice and drop
+# the other half.
+must_contain_modifiers = [
+    "a", "b", "c", "D", "h", "i", "l", "L", "N", "o",
+    "O", "P", "s", "S", "T", "u", "U", "v", "V",
+]
+# The `OPTIONS:` block above the table, which parsed correctly before
+# modifiers existed and must go on doing so — the regression this fixture
+# guards besides its own subject. `--format` and `--rsp-quoting` are the
+# two whose `=value` enum rows sit beneath them, so they are the ones a
+# change to block scanning would disturb first.
+must_contain_flags = ["--format", "--plugin", "--output", "--rsp-quoting", "--thin", "--version"]
+# Deliberately no `min_subcommands`: this tool's `OPERATIONS:` table is not
+# recovered today (the heading says "operations", which is not evidence of
+# a command list under spec §7 Tier B rule 1), and pinning a floor of zero
+# would assert nothing while reading as though it did.

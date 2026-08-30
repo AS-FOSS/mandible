@@ -119,6 +119,42 @@ pub(super) fn emit_packed_flags(
     }
 }
 
+/// Emit a modifier table's rows as [`mandible_core::EntityKind::Modifier`]
+/// entities (spec §7 Tier B, "Modifier tables").
+///
+/// Every row [`scan_modifier_table`] returns is already a letter, an
+/// optional operand and a non-empty description — the row grammar admits
+/// nothing else — so unlike [`emit_flags`] and [`emit_subcommands`] there is
+/// no second shape check to fail here and no `saw_unattributable_content`
+/// to set: a row either was a modifier row or never reached this function.
+/// Both counts it returns are therefore the same number, which is what
+/// makes a recognized modifier table read as *understood* structure in the
+/// confidence ratio rather than as rows the grammar gave up on.
+pub(super) fn emit_modifiers(
+    group: Option<String>,
+    rows: Vec<ModifierRow>,
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let mut seen = 0usize;
+    for row in rows {
+        if out.modifiers.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        seen += 1;
+        let mut modifier = Entity::modifier(row.letter, Provenance::single(Source::HelpText));
+        modifier.value_kind = if row.value_name.is_some() {
+            ValueKind::Required
+        } else {
+            ValueKind::None
+        };
+        modifier.value_name = row.value_name;
+        modifier.group = group.clone();
+        modifier.description = non_empty_text(&row.description);
+        out.modifiers.push(modifier);
+    }
+    (seen, seen)
+}
+
 /// Emit a recognized bare-word block's entries as subcommand stubs (spec
 /// §7 Tier B rules 1 and 3). Entries failing the name-shape test are
 /// dropped, not emitted — never fabricated.

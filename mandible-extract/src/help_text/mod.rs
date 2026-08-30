@@ -572,7 +572,10 @@ fn looks_like_help_output(text: &str) -> bool {
     // whether `usage` ends up empty (see `parse_with_profile`'s doc
     // comment). No tool name is in scope at this call site anyway.
     let parsed = sections::parse_with_profile(text, None, None);
-    !parsed.flags.is_empty() || !parsed.subcommands.is_empty() || !parsed.usage.is_empty()
+    !parsed.flags.is_empty()
+        || !parsed.subcommands.is_empty()
+        || !parsed.modifiers.is_empty()
+        || !parsed.usage.is_empty()
 }
 
 /// Fetch one node's raw `--help` output verbatim, sanitized one [`Text`]
@@ -1020,8 +1023,14 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     let parsed = sections::parse_with_profile(raw, fw_profile.as_ref(), Some(tool_name));
     let detected_framework = framework.map(|f| f.name().to_string());
 
-    let structurally_plausible =
-        !parsed.flags.is_empty() || !parsed.subcommands.is_empty() || !parsed.usage.is_empty();
+    // A modifier table counts alongside the other three: it is a real
+    // recovered structure, and a document whose only structure is one would
+    // otherwise be thrown away for the verbatim fallback with the
+    // modifiers it did recover discarded.
+    let structurally_plausible = !parsed.flags.is_empty()
+        || !parsed.subcommands.is_empty()
+        || !parsed.modifiers.is_empty()
+        || !parsed.usage.is_empty();
 
     if !structurally_plausible {
         return verbatim_node(name, raw, detected_framework);
@@ -1056,6 +1065,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         .collect();
     node.set_flags(parsed.flags);
     node.set_positionals(parsed.positionals);
+    node.set_modifiers(parsed.modifiers);
     node.subcommands = parsed.subcommands;
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct

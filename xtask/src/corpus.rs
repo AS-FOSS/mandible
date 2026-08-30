@@ -36,8 +36,8 @@
 //!   (see [`render_snapshot`]'s doc comment on why).
 //! - **(b) `[contract]`**: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
-//!   `must_contain_positionals`, `must_not_contain_flags` (see
-//!   [`check_contract`]).
+//!   `must_contain_positionals`, `must_contain_modifiers`,
+//!   `must_not_contain_flags` (see [`check_contract`]).
 //! - **(c) Strict xfail**: a fixture marked `[xfail]` whose snapshot and
 //!   contract *both* pass fails the run — the bug got fixed and the
 //!   fixture must be promoted (`corpus/README.md`'s lifecycle rules).
@@ -181,6 +181,27 @@ struct ContractMeta {
     /// user types, and nothing else about the entry is asserted here.
     #[serde(default)]
     must_contain_positionals: Vec<String>,
+    /// Modifier letters the tree must carry — the same falsifiable promise
+    /// `must_contain_positionals` makes, for the kind 0.5.x added (spec
+    /// §4.5, §7 Tier B "Modifier tables").
+    ///
+    /// A modifier table is recovered by one narrow recognizer, and the only
+    /// other thing guarding it is `expected.snap` — which freezes
+    /// everything and therefore states nothing about what a fixture is
+    /// *for* (the distinction `must_contain_positionals`' own doc comment
+    /// draws, and the reason `corpus/lsof/4.95.0` is a cautionary tale).
+    /// Without this field, a future change that silently stopped
+    /// recognizing modifier tables would move five `ar`-family snapshots
+    /// and read, to a reviewer scanning a bless diff, exactly like a
+    /// deliberate reshape.
+    ///
+    /// Written as the bare letter (`"a"`, `"D"`), matched on
+    /// `Entity::primary_name` exactly, root only — the same scope and
+    /// matcher `must_contain_positionals` uses. Case is significant: `ar`
+    /// documents `[D]` and `[u]` as different modifiers from `[d]` and
+    /// `[U]`.
+    #[serde(default)]
+    must_contain_modifiers: Vec<String>,
     /// Root flag spellings the tree must **not** carry — the first
     /// *negative* claim in a `[contract]`, and the only way a fixture can
     /// say "the parser invented this".
@@ -734,6 +755,20 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
             ));
         }
 
+        let missing_modifiers: Vec<&str> = b
+            .must_contain_modifiers
+            .iter()
+            .filter(|name| !n.must_contain_modifiers.iter().any(|s| s == *name))
+            .map(String::as_str)
+            .collect();
+        if !missing_modifiers.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_contain_modifiers (dropped: {})",
+                base.label,
+                missing_modifiers.join(", ")
+            ));
+        }
+
         for (path, base_specs) in &b.must_contain_flags_by_path {
             let now_specs = n.must_contain_flags_by_path.get(path);
             let missing: Vec<&str> = base_specs
@@ -914,6 +949,11 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
                 "must_contain_positionals: no root produced".into(),
             ));
         }
+        if !contract.must_contain_modifiers.is_empty() {
+            failures.push(ContractFailure(
+                "must_contain_modifiers: no root produced".into(),
+            ));
+        }
         // `must_not_contain_flags` is deliberately absent from this list.
         // Every field above is a positive claim, which a missing tree
         // trivially breaks — "the tool has --paginate" cannot hold of no
@@ -1000,6 +1040,19 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
         failures.push(ContractFailure(format!(
             "must_contain_positionals: missing {}",
             missing_positionals.join(", ")
+        )));
+    }
+
+    let missing_modifiers: Vec<&str> = contract
+        .must_contain_modifiers
+        .iter()
+        .filter(|name| !root.modifiers().any(|m| m.primary_name() == name.as_str()))
+        .map(|s| s.as_str())
+        .collect();
+    if !missing_modifiers.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_contain_modifiers: missing {}",
+            missing_modifiers.join(", ")
         )));
     }
 

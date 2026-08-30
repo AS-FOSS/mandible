@@ -113,6 +113,9 @@ pub struct ParsedHelp {
     pub positionals: Vec<Entity>,
     /// Flags recovered from dash-led blocks.
     pub flags: Vec<Entity>,
+    /// Modifier letters recovered from a modifier table — `ar`'s `[a]`,
+    /// `[D]`, `[l <text> ]` rows (spec §7 Tier B, "Modifier tables").
+    pub modifiers: Vec<Entity>,
     /// Subcommand stubs recovered from bare-word blocks under a
     /// recognized command heading (not yet extracted themselves —
     /// `children_filled: false`).
@@ -1402,6 +1405,47 @@ fn parse_body(
                         continue;
                     }
                 }
+            }
+        }
+
+        // A modifier table — `ar`'s ` command specific modifiers:` and
+        // ` generic modifiers:` blocks, `llvm-ar`'s `MODIFIERS:` — gets
+        // first refusal on this heading's content, because its rows reach
+        // none of the branches below as anything but noise: a `[a]` row is
+        // not `looks_like_flag_start`, and under the recognized heading
+        // `command specific modifiers:` (which contains the word "command")
+        // it went to `emit_subcommands`, where every row failed the
+        // name-shape test and was dropped as unattributable. `ar`'s
+        // seventeen modifiers reached the tree as nothing at all.
+        //
+        // **Falls through rather than `continue`ing** when the block still
+        // has content past the run. `ar`'s ` generic modifiers:` is seven
+        // bracket rows, then `@<file>`, then `--target`/`--output`/
+        // `--record-libdeps`/`--thin`; those four must go on being read by
+        // the flags branch below *under this same heading*, so they keep
+        // the `group` they already carry. Re-entering the loop instead
+        // would reach them through the headingless-flags branch at the top,
+        // which has no heading to name a group with, and would silently
+        // strip it from four flags that have one today.
+        if let Some((end, rows)) = scan_modifier_table(&lines, i) {
+            i = end;
+            if !is_ignorable_heading(&heading) {
+                // A modifier table is positively-recognized structure, so
+                // it clears the examples-region flag the same way a real
+                // flags block does.
+                in_ignorable_section = false;
+                // ...and it positively contradicts a command list: `ar`'s
+                // own ` command specific modifiers:` heading contains the
+                // word "command", so without this the sticky chain would
+                // carry `command_mode` on into the sections after it.
+                command_mode = false;
+                let (seen, clean) =
+                    emit_modifiers(meaningful_flag_group(heading.clone()), rows, &mut result);
+                total_entries += seen;
+                clean_entries += clean;
+            }
+            if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+                continue;
             }
         }
 
