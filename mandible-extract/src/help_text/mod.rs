@@ -59,8 +59,8 @@ pub use grammar::{parse_flag_alternation, FlagAlternation};
 /// copy of "what is a flag" or "what is a bare cell" would let the oracle
 /// silently stop measuring what this splitter actually does. Only
 /// `fields_in_line` itself is deliberately *not* shared — see the block
-/// comment above [`sections::is_flag_shaped`] in `sections.rs` for why that
-/// one difference is load-bearing rather than an oversight.
+/// comment above [`sections::is_flag_shaped`] in `sections/layout.rs` for
+/// why that one difference is load-bearing rather than an oversight.
 pub use sections::{
     cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_GAP_SPACES,
     MIN_COLUMN_RECURRENCE,

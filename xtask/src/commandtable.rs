@@ -60,7 +60,7 @@ use std::collections::BTreeSet;
 pub const MIN_TABLE_ENTRIES: usize = 2;
 
 /// Ceiling on names collected from one table, so a pathological input
-/// (the repeated-banner case `sections.rs` pins at 20,000 lines) cannot
+/// (the repeated-banner case `sections/mod.rs` pins at 20,000 lines) cannot
 /// turn this scan superlinear. Far above any real command list.
 const MAX_TABLE_NAMES: usize = 256;
 
@@ -406,7 +406,7 @@ mod tests {
         assert!(!is_command_heading("Options:"));
     }
 
-    /// The repeated-banner input `sections.rs` pins: the detector must not
+    /// The repeated-banner input `sections/mod.rs` pins: the detector must not
     /// collect an unbounded name list from it.
     #[test]
     fn a_repeated_banner_does_not_grow_an_unbounded_name_list() {

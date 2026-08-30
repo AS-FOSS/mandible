@@ -724,7 +724,8 @@ exit 1
 
 /// Mirrors `non_attested_subcommand_word_is_never_probed_at_all`, but for
 /// spec §7 Tier B's headingless-invocation-table recognizer specifically —
-/// `mandible-extract/src/help_text/sections.rs::scan_headingless_invocation_table`.
+/// `mandible-extract/src/help_text/sections/scan.rs`'s
+/// `scan_headingless_invocation_table`.
 /// A node it recovers is existence-attested (its name is checked, not
 /// guessed) but deliberately **not** probe-eligible: `heading_attested`
 /// must stay `false` and its name must never reach the shim as argv, even
