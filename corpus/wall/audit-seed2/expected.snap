@@ -1,7 +1,7 @@
 name: wall
 usage:
 - 'Usage:'
-- wall [options] [<file> | <message>]
+- ' wall [options] [<file> | <message>]'
 positionals:
 - name: file
   provenance:

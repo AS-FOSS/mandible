@@ -99,7 +99,7 @@ use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{
-    is_command_name_shaped, Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind,
+    is_command_name_shaped, Authority, CommandNode, Entity, Provenance, Source, Text,
 };
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -354,7 +354,7 @@ impl NativeTier {
                 if let Some(flag) =
                     flag_from_candidate(&candidate.value, candidate.description_text(), &provenance)
                 {
-                    node.flags.push(flag);
+                    node.entities.push(flag);
                 }
             }
         }
@@ -573,7 +573,7 @@ fn populate_subcommands(
 /// spelling (`-a` or `--all-tags`, never a combined `-a, --all-tags`
 /// spec), so this needs none of Tier B's flag-spec grammar — just which
 /// dash shape it is.
-fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) -> Option<Flag> {
+fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) -> Option<Entity> {
     let trimmed = value.trim();
     let (short, long) = if let Some(long) = trimmed.strip_prefix("--") {
         if long.is_empty() {
@@ -589,25 +589,9 @@ fn flag_from_candidate(value: &str, description: &str, provenance: &Provenance) 
         }
         (Some(c), None)
     };
-    Some(Flag {
-        short,
-        long,
-        value_name: None,
-        value_kind: ValueKind::None,
-        choices: Vec::new(),
-        repeatable: false,
-        required: false,
-        negatable: false,
-        single_dash: false,
-        hidden: false,
-        deprecated: None,
-        inherited: false,
-        group: None,
-        description: non_empty_text(description),
-        default: None,
-        env_var: None,
-        provenance: provenance.clone(),
-    })
+    let mut flag = Entity::flag_spelled(short, long, false, false, provenance.clone());
+    flag.description = non_empty_text(description);
+    Some(flag)
 }
 
 fn non_empty_text(s: &str) -> Option<Text> {
@@ -725,12 +709,12 @@ mod tests {
             protocol: "test".to_string(),
         });
         let long = flag_from_candidate("--all-tags", "Download all tagged images", &prov).unwrap();
-        assert_eq!(long.long.as_deref(), Some("all-tags"));
-        assert_eq!(long.short, None);
+        assert_eq!(long.long(), Some("all-tags"));
+        assert_eq!(long.short(), None);
 
         let short = flag_from_candidate("-a", "Download all tagged images", &prov).unwrap();
-        assert_eq!(short.short, Some('a'));
-        assert_eq!(short.long, None);
+        assert_eq!(short.short(), Some('a'));
+        assert_eq!(short.long(), None);
     }
 
     #[test]
@@ -932,7 +916,7 @@ mod tests {
             "leaf".to_string(),
         );
         assert!(node.subcommands.is_empty());
-        assert!(node.flags.is_empty());
+        assert!(node.flags().next().is_none());
     }
 
     #[test]
@@ -1086,7 +1070,7 @@ mod tests {
             .expect("detect having succeeded, extract_node must too");
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["build"], "{names:?}");
-        assert!(node.flags.iter().any(|f| f.long.as_deref() == Some("all")));
+        assert!(node.flags().any(|f| f.long() == Some("all")));
     }
 
     /// The dynamic-argument guard through **real argv construction**
@@ -1139,7 +1123,7 @@ mod tests {
             node.subcommands.iter().map(|c| &c.name).collect::<Vec<_>>()
         );
         assert!(
-            node.flags.iter().any(|f| f.long.as_deref() == Some("time")),
+            node.flags().any(|f| f.long() == Some("time")),
             "the flags probe must keep working at a leaf"
         );
     }

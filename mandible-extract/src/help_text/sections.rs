@@ -37,7 +37,7 @@
 //! 4. An unrecognized bare-word block nested under a flag (its heading
 //!    names that flag, e.g. `"Valid arguments for the --quoting-style
 //!    option are:"`, or it immediately follows the flag with no other
-//!    heading between) becomes that flag's [`mandible_core::Flag::choices`],
+//!    heading between) becomes that flag's [`mandible_core::Entity::choices`],
 //!    not subcommands. If no owning flag can be identified either, the
 //!    block is dropped rather than guessed at.
 
@@ -49,7 +49,7 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, CommandNode, Flag, Positional, Provenance, Source, Text,
+    is_command_name_shaped, strip_escapes, CommandNode, Entity, Provenance, Source, Spelling, Text,
     ValueKind,
 };
 
@@ -82,9 +82,9 @@ pub struct ParsedHelp {
     pub usage: Vec<String>,
     /// Positional placeholders pulled out of the usage line
     /// (`<value>`/`FILE`-shaped tokens not preceded by `-`).
-    pub positionals: Vec<Positional>,
+    pub positionals: Vec<Entity>,
     /// Flags recovered from dash-led blocks.
-    pub flags: Vec<Flag>,
+    pub flags: Vec<Entity>,
     /// Subcommand stubs recovered from bare-word blocks under a
     /// recognized command heading (not yet extracted themselves —
     /// `children_filled: false`).
@@ -742,7 +742,15 @@ fn parse_body(
             let trimmed = l.trim().to_string();
             usage_lines.push(trimmed.clone());
             if starts_new_entry {
-                usage_entries.push(trimmed);
+                // A form keeps the indentation its author gave it: `ip`
+                // lines its second invocation form up under the first, and
+                // spec §4.1 has the pane reproduce that alignment rather
+                // than flatten every form to the left edge. Only the
+                // display form (`usage_entries`) carries it —
+                // `usage_lines`, which feeds the positional and
+                // synopsis-flag grammars below, stays trimmed, because
+                // those read tokens and never columns.
+                usage_entries.push(l.trim_end().to_string());
             } else if let Some(last) = usage_entries.last_mut() {
                 // The backslash *is* the join: it is the marker the wrap
                 // introduced, exactly as the removed newline was, so it
@@ -865,13 +873,29 @@ fn parse_body(
         Some(first) if paragraphs.len() > 1 && is_banner_paragraph(first) => true,
         _ => false,
     };
-    let description_lines: Vec<&str> = if drop_first_paragraph {
-        paragraphs[1..].iter().flatten().copied().collect()
+    // Handed over with its line structure intact — one `\n` per source
+    // line, `\n\n` between paragraphs — rather than pre-flattened with
+    // spaces. Deciding which of those breaks is hard-wrapping to be
+    // undone and which is structure to be kept is `Text::sanitize`'s job
+    // (spec §4.1), and it can only do that job on text that still has the
+    // breaks: joining here with a space threw the evidence away first and
+    // then asked the sanitizer to reflow the result. `grep --help`'s
+    // `Example: grep -i 'hello world' menu.h main.c` is the case — the
+    // sanitizer keeps an example row on its own line, but only when it is
+    // still given one.
+    let kept: Vec<Vec<&str>> = if drop_first_paragraph {
+        paragraphs.into_iter().skip(1).collect()
     } else {
-        paragraphs.into_iter().flatten().collect()
+        paragraphs
     };
-    if !description_lines.is_empty() {
-        result.description = Some(description_lines.join(" "));
+    let description = kept
+        .iter()
+        .map(|paragraph| paragraph.join("\n"))
+        .filter(|paragraph| !paragraph.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    if !description.is_empty() {
+        result.description = Some(description);
     }
 
     // A run of command-group headings is recognized either by its own
@@ -1480,7 +1504,7 @@ fn parse_body(
     // *described* flags land in `result.flags`) so a duplicate spelling can
     // be recognized and dropped rather than added a second time.
     //
-    // **Deliberately not `mandible_core::merge_flag_lists`.** A first cut
+    // **Deliberately not `mandible_core::merge_entity_lists`.** A first cut
     // used it and a real-`PATH` sweep caught the bug: that function
     // rebuckets *every* flag in the combined list by identity, which is
     // correct for merging several tiers' candidates for the same node (each
@@ -1616,15 +1640,15 @@ fn parse_body(
 /// `wpa_supplicant`'s `[-BddhKLqqstuvW]`) stays split, because the only
 /// evidence that would admit it is the token's shape and `lessecho`'s `-nn`
 /// has exactly that shape.
-fn repair_repeated_character_flags(flags: &mut [Flag], glued_tokens: &GluedTokenIndex<'_>) {
+fn repair_repeated_character_flags(flags: &mut [Entity], glued_tokens: &GluedTokenIndex<'_>) {
     let booleans: Vec<char> = flags
         .iter()
         .filter(|f| f.value_kind == ValueKind::None)
-        .filter_map(|f| f.short)
+        .filter_map(|f| f.short())
         .collect();
     for flag in flags.iter_mut() {
-        let Some(short) = flag.short else { continue };
-        if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+        let Some(short) = flag.short() else { continue };
+        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
             continue;
         }
         let Some(value) = flag.value_name.as_deref() else {
@@ -1640,12 +1664,11 @@ fn repair_repeated_character_flags(flags: &mut [Flag], glued_tokens: &GluedToken
         if !glued_tokens.contains(&token) {
             continue;
         }
-        // The name is the whole run, `long` holds it bare, and
-        // `single_dash` is what puts one dash in front of it at display
-        // time — see `mandible_core::Flag::single_dash`.
-        flag.long = Some(token[1..].to_string());
-        flag.single_dash = true;
-        flag.short = None;
+        // The whole run becomes one single-dash long spelling, replacing
+        // the short-plus-glued-value pair the grammar produced: the name
+        // is held bare and `Dashes::Single` is what puts one dash in front
+        // of it at display time.
+        flag.spellings = vec![Spelling::single_dash(&token[1..])];
         flag.value_name = None;
         flag.value_kind = ValueKind::None;
     }
@@ -2032,7 +2055,7 @@ const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// `"pu"` — the correct **name** under a missing value spec, which is
 /// strictly better than a fabricated name under a fabricated value spec,
 /// and is exactly what `repair_repeated_character_flags` does with `-vv`.
-fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedTokenIndex<'_>) {
+fn repair_single_dash_long_options(flags: &mut [Entity], glued_tokens: &GluedTokenIndex<'_>) {
     for flag in flags.iter_mut() {
         // 1. Option-table-sourced, never synopsis.
         if !flag.provenance.sources.contains(&Source::HelpText)
@@ -2041,8 +2064,8 @@ fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedToken
             continue;
         }
         // 2. A bare short flag carrying a required value.
-        let Some(short) = flag.short else { continue };
-        if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+        let Some(short) = flag.short() else { continue };
+        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
             continue;
         }
         let Some(tail) = flag.value_name.as_deref() else {
@@ -2081,12 +2104,11 @@ fn repair_single_dash_long_options(flags: &mut [Flag], glued_tokens: &GluedToken
         if !glued_tokens.contains(&format!("-{short}{tail}")) {
             continue;
         }
-        // The name is the run up to the `=`, `long` holds it bare, and
-        // `single_dash` is what puts one dash in front of it at display
-        // time — see `mandible_core::Flag::single_dash`.
-        flag.long = Some(name_token[1..].to_string());
-        flag.single_dash = true;
-        flag.short = None;
+        // The run up to the `=` becomes one single-dash long spelling,
+        // replacing the short-plus-glued-name pair the grammar produced:
+        // the name is held bare and `Dashes::Single` is what puts one dash
+        // in front of it at display time.
+        flag.spellings = vec![Spelling::single_dash(&name_token[1..])];
         match glued_value {
             // `-foffload=<targets>`: the document wrote the value spec
             // itself, so it survives the repair on the flag it belongs to.
@@ -3159,7 +3181,7 @@ const MIN_PROSE_SENTENCE_WORDS: usize = 5;
 /// read as introducing that neighbour's block. A tool that closes its
 /// preamble with a sentence and then indents its option table one column
 /// therefore hands the scanner a sentence where a heading belongs, and
-/// every flag in the block inherits it as [`mandible_core::Flag::group`] —
+/// every flag in the block inherits it as [`mandible_core::Entity::group`] —
 /// which the flags pane renders, uppercased, as a section header:
 ///
 /// ```text
@@ -3472,11 +3494,10 @@ fn command_mode_seed(text: &str, profile: Option<&FrameworkProfile>) -> bool {
 /// unlabeled enum list in `--help` output conventionally follows the flag
 /// it enumerates with no other heading in between (tar's `--format=FORMAT`
 /// immediately followed by `"FORMAT is one of the following:"`).
-fn find_owning_flag_index(heading: &str, flags: &[Flag]) -> Option<usize> {
+fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<usize> {
     let lower = heading.to_lowercase();
     if let Some(idx) = flags.iter().position(|f| {
-        f.long
-            .as_deref()
+        f.long()
             .is_some_and(|l| lower.contains(&format!("--{}", l.to_lowercase())))
     }) {
         return Some(idx);
@@ -3510,18 +3531,17 @@ fn process_word_grid(
             }
             clean += 1;
             if treat_as_commands {
-                out.try_push_subcommand(CommandNode {
-                    group: heading_can_name_a_group(heading).then(|| heading.to_string()),
-                    // `treat_as_commands` is only ever `true` when the
-                    // grid's heading was `recognized` or the parser was
-                    // already in `command_mode` (see the caller) — i.e.
-                    // this entry has exactly the positive evidence spec
-                    // issue #2 asks `structure_sanity` to trust, even
-                    // though a word-grid entry carries no per-entry
-                    // description (openssl's `asn1parse`, `ciphers`, ...).
-                    heading_attested: true,
-                    ..CommandNode::new(token, Provenance::single(Source::HelpText))
-                });
+                let mut node = CommandNode::new(token, Provenance::single(Source::HelpText));
+                node.group = heading_can_name_a_group(heading).then(|| heading.to_string());
+                // `treat_as_commands` is only ever `true` when the grid's
+                // heading was `recognized` or the parser was already in
+                // `command_mode` (see the caller) — i.e. this entry has
+                // exactly the positive evidence spec issue #2 asks
+                // `structure_sanity` to trust, even though a word-grid
+                // entry carries no per-entry description (openssl's
+                // `asn1parse`, `ciphers`, ...).
+                node.heading_attested = true;
+                out.try_push_subcommand(node);
             }
         }
     }
@@ -3583,7 +3603,7 @@ fn meaningful_flag_group(heading: String) -> Option<String> {
 /// other recovered flag (`required: false`), even though LVM's own prose
 /// ("any one is required") makes it semantically mandatory — the IR has no
 /// per-group "choose exactly one of N" relation to spend on that.
-fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Flag> {
+fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Entity> {
     let name = tool_name?;
     if is_ignorable_heading(heading) || !starts_with_tool_name(heading, name) {
         return None;
@@ -3601,25 +3621,17 @@ fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -> Option<Fl
     if spec.short.is_none() && spec.long.is_none() {
         return None;
     }
-    Some(Flag {
-        short: spec.short,
-        long: spec.long,
-        value_name: spec.value_name,
-        value_kind: spec.value_kind,
-        choices: Vec::new(),
-        repeatable: false,
-        required: false,
-        negatable: spec.negatable,
-        single_dash: false,
-        hidden: false,
-        deprecated: None,
-        inherited: false,
-        group: meaningful_flag_group(heading.to_string()),
-        description: None,
-        default: None,
-        env_var: None,
-        provenance: Provenance::single(Source::HelpText),
-    })
+    let mut flag = Entity::flag_spelled(
+        spec.short,
+        spec.long,
+        false,
+        spec.negatable,
+        Provenance::single(Source::HelpText),
+    );
+    flag.value_name = spec.value_name;
+    flag.value_kind = spec.value_kind;
+    flag.group = meaningful_flag_group(heading.to_string());
+    Some(flag)
 }
 
 fn emit_flags(
@@ -3643,25 +3655,18 @@ fn emit_flags(
             // emit a garbage entry.
             continue;
         }
-        out.flags.push(Flag {
-            short: spec.short,
-            long: spec.long,
-            value_name: spec.value_name,
-            value_kind: spec.value_kind,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: spec.negatable,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: group.clone(),
-            description: non_empty_text(&desc_text),
-            default: None,
-            env_var: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut flag = Entity::flag_spelled(
+            spec.short,
+            spec.long,
+            false,
+            spec.negatable,
+            Provenance::single(Source::HelpText),
+        );
+        flag.value_name = spec.value_name;
+        flag.value_kind = spec.value_kind;
+        flag.group = group.clone();
+        flag.description = non_empty_text(&desc_text);
+        out.flags.push(flag);
     }
     (seen, clean)
 }
@@ -3726,25 +3731,17 @@ fn emit_packed_flags(group: Option<String>, entries: Vec<(String, String)>, out:
         } else {
             ValueKind::Required
         };
-        out.flags.push(Flag {
+        let mut flag = Entity::flag_spelled(
             short,
             long,
-            value_name: (!operand.is_empty()).then_some(operand),
-            value_kind,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
             single_dash,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: group.clone(),
-            description: None,
-            default: None,
-            env_var: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+            false,
+            Provenance::single(Source::HelpText),
+        );
+        flag.value_name = (!operand.is_empty()).then_some(operand);
+        flag.value_kind = value_kind;
+        flag.group = group.clone();
+        out.flags.push(flag);
     }
 }
 
@@ -4118,7 +4115,11 @@ fn emit_declared_positionals(
         };
         clean += 1;
         let description = non_empty_text(&desc_text);
-        if let Some(existing) = out.positionals.iter_mut().find(|p| p.name == name) {
+        if let Some(existing) = out
+            .positionals
+            .iter_mut()
+            .find(|p| p.primary_name() == name)
+        {
             // The synopsis found this one first and has no description to
             // offer; the block does. Nothing else is overwritten — the
             // synopsis is the authority on `required`/`variadic` because it
@@ -4139,13 +4140,11 @@ fn emit_declared_positionals(
                     spec_text.trim_end().ends_with("..."),
                 )
             });
-        out.positionals.push(Positional {
-            name,
-            required,
-            variadic,
-            description,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut positional = Entity::positional(name, Provenance::single(Source::HelpText));
+        positional.required = required;
+        positional.repeatable = variadic;
+        positional.description = description;
+        out.positionals.push(positional);
     }
     (seen, clean)
 }
@@ -5548,7 +5547,7 @@ fn cells_name_the_same_value(a: &str, b: &str) -> bool {
 /// measured. Rows naming several shorts at once (`jdeprscan`'s
 /// `-? -h --help`) are **not** in scope and are not touched here: they are
 /// blocked one step earlier, because `-? -h` is a single cell with real
-/// trailing text, and even if they were not, `mandible_core::Flag` has one
+/// trailing text, and even if they were not, `mandible_core::Entity` has one
 /// `short: Option<char>` and no field to hold the second.
 ///
 /// The caller applies this only to a block that shows the column actually
@@ -7200,7 +7199,7 @@ fn primary_synopsis_lines(
 fn extract_positionals(
     usage_lines: &[String],
     primary_lines: std::collections::HashSet<usize>,
-) -> Vec<Positional> {
+) -> Vec<Entity> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for (line_idx, line) in usage_lines.iter().enumerate() {
@@ -7296,13 +7295,10 @@ fn extract_positionals(
                 continue;
             }
             let required = !token.contains('[') && !line.contains(&format!("[{token}"));
-            out.push(Positional {
-                name,
-                required,
-                variadic,
-                description: None,
-                provenance: Provenance::single(Source::HelpText),
-            });
+            let mut positional = Entity::positional(name, Provenance::single(Source::HelpText));
+            positional.required = required;
+            positional.repeatable = variadic;
+            out.push(positional);
         }
     }
     out
@@ -7333,8 +7329,8 @@ fn extract_positionals(
 /// style block elsewhere in the same output) is [`parse_with_profile`]'s
 /// job, via [`flag_spelling_already_present`] — see that function's doc
 /// comment for why a duplicate is *dropped* rather than merged.
-fn extract_usage_flags(usage_lines: &[String]) -> Vec<Flag> {
-    let mut out: Vec<Flag> = Vec::new();
+fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
+    let mut out: Vec<Entity> = Vec::new();
     // Running depth of an open parenthesized alternation group (LVM's
     // "for options listed in parentheses, any one is required" convention),
     // tracked over these same physical lines the same way `parse_body`'s
@@ -7585,10 +7581,10 @@ fn shared_operand(rest: &str) -> Option<String> {
 /// function exists to provide: an existing flag, right or wrong, is never
 /// altered by anything found here — only ever left alone or joined by a
 /// new one.
-fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
+fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
-        (candidate.long.is_some() && f.long == candidate.long)
-            || (candidate.short.is_some() && f.short == candidate.short)
+        (candidate.long().is_some() && f.long() == candidate.long())
+            || (candidate.short().is_some() && f.short() == candidate.short())
     })
 }
 
@@ -7611,7 +7607,7 @@ fn flag_spelling_already_present(candidate: &Flag, existing: &[Flag]) -> bool {
 /// `-V` and `-v` are eight switches and says nothing else about any of
 /// them. Fabricating a description from the usage line's own text is the
 /// same spec §7 Tier B violation [`extract_usage_flags`] forbids.
-fn push_usage_token(out: &mut Vec<Flag>, token: &str) {
+fn push_usage_token(out: &mut Vec<Entity>, token: &str) {
     if let Some(members) = parse_bundled_shorts(token) {
         for member in members {
             if out.len() >= MAX_RECOVERED_ENTRIES {
@@ -7641,29 +7637,20 @@ fn push_usage_token(out: &mut Vec<Flag>, token: &str) {
 /// (spec §4.4 is unaffected), but a distinct source so spec §13's
 /// `pct_flags_with_text` can tell a structurally-undescribable flag apart from
 /// one that merely wasn't described.
-fn push_usage_flag(out: &mut Vec<Flag>, spec: FlagSpec) {
+fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
     if spec.short.is_none() && spec.long.is_none() {
         return;
     }
-    out.push(Flag {
-        short: spec.short,
-        long: spec.long,
-        value_name: spec.value_name,
-        value_kind: spec.value_kind,
-        choices: Vec::new(),
-        repeatable: false,
-        required: false,
-        negatable: spec.negatable,
-        single_dash: false,
-        hidden: false,
-        deprecated: None,
-        inherited: false,
-        group: None,
-        description: None,
-        default: None,
-        env_var: None,
-        provenance: Provenance::single(Source::HelpTextSynopsis),
-    });
+    let mut flag = Entity::flag_spelled(
+        spec.short,
+        spec.long,
+        false,
+        spec.negatable,
+        Provenance::single(Source::HelpTextSynopsis),
+    );
+    flag.value_name = spec.value_name;
+    flag.value_kind = spec.value_kind;
+    out.push(flag);
 }
 
 /// Pair a short-only and a long-only [`FlagSpec`] into one, or refuse
@@ -7906,7 +7893,7 @@ const MAX_PROSE_PARAGRAPH_INDENT: usize = 3;
 /// row parsed: jdeprscan's `-l    --list` row yields a flag with
 /// `short: 'l'` and no long name at all, and `The --list (-l) option …`
 /// still finds it through the `-l` in the parenthetical.
-fn backfill_prose_paragraph_descriptions(flags: &mut [Flag], lines: &[&str]) {
+fn backfill_prose_paragraph_descriptions(flags: &mut [Entity], lines: &[&str]) {
     if flags.is_empty() {
         return;
     }
@@ -7997,11 +7984,11 @@ fn prose_option_reference(line: &str) -> Option<Vec<String>> {
 
 /// True if `flag` is the flag `spelling` names — `--list` against its
 /// `long`, `-l` against its `short`, and a single-dash long option
-/// (`-print-sysroot`) against its `long` when [`Flag::single_dash`] says
+/// (`-print-sysroot`) against its long spelling when the entity says
 /// that is how the tool spells it.
-fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
+fn flag_answers_to_spelling(flag: &Entity, spelling: &str) -> bool {
     if let Some(long) = spelling.strip_prefix("--") {
-        return !long.is_empty() && flag.long.as_deref() == Some(long) && !flag.single_dash;
+        return !long.is_empty() && flag.long() == Some(long) && !flag.single_dash();
     }
     let Some(rest) = spelling.strip_prefix('-') else {
         return false;
@@ -8011,11 +7998,11 @@ fn flag_answers_to_spelling(flag: &Flag, spelling: &str) -> bool {
     }
     let mut chars = rest.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
-        if flag.short == Some(c) {
+        if flag.short() == Some(c) {
             return true;
         }
     }
-    flag.single_dash && flag.long.as_deref() == Some(rest)
+    flag.single_dash() && flag.long() == Some(rest)
 }
 
 #[cfg(test)]
@@ -8056,20 +8043,17 @@ mod tests {
         let update_flags: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|f| f.long.as_deref() == Some("update"))
+            .filter(|f| f.long() == Some("update"))
             .collect();
         assert_eq!(update_flags.len(), 1, "flags: {:?}", parsed.flags);
-        assert_eq!(update_flags[0].short, Some('u'));
+        assert_eq!(update_flags[0].short(), Some('u'));
         assert!(
             update_flags[0].value_name.is_none(),
             "flags: {:?}",
             parsed.flags
         );
         assert!(
-            parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("file")),
+            parsed.flags.iter().any(|f| f.long() == Some("file")),
             "flags: {:?}",
             parsed.flags
         );
@@ -8090,16 +8074,13 @@ mod tests {
         let p_flags: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|f| f.short == Some('p'))
+            .filter(|f| f.short() == Some('p'))
             .collect();
         assert_eq!(p_flags.len(), 1, "flags: {:?}", parsed.flags);
-        assert_eq!(p_flags[0].long.as_deref(), Some("probe"));
+        assert_eq!(p_flags[0].long(), Some("probe"));
         assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("match-tag")
-                    || f.value_name.as_deref() == Some("--match-tag <tag>")),
+            !parsed.flags.iter().any(|f| f.long() == Some("match-tag")
+                || f.value_name.as_deref() == Some("--match-tag <tag>")),
             "flags: {:?}",
             parsed.flags
         );
@@ -8188,21 +8169,21 @@ mod tests {
         let help = "pydoc - the Python documentation tool\n\npydoc3 <name> ...\n    Show text documentation on something.\n\npydoc3 -k <keyword>\n    Search for a keyword in the synopsis lines of all available modules.\n\npydoc3 -p <port>\n    Start an HTTP server on the given port on the local machine.  Port\n    number 0 can be used to get an arbitrary unused port.\n";
         let parsed = parse_with_profile(help, None, Some("pydoc3"));
         assert!(
-            parsed.flags.iter().any(|f| f.short == Some('k')),
+            parsed.flags.iter().any(|f| f.short() == Some('k')),
             "flags: {:?}",
             parsed.flags
         );
         let p = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('p'))
+            .find(|f| f.short() == Some('p'))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(p.value_name.as_deref(), Some("<port>"));
         assert!(
             !parsed
                 .positionals
                 .iter()
-                .any(|p| p.name == "HTTP" || p.name == "HTML"),
+                .any(|p| p.primary_name() == "HTTP" || p.primary_name() == "HTML"),
             "positionals: {:?}",
             parsed.positionals
         );
@@ -8237,23 +8218,23 @@ mod tests {
         let aaa = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("aaa"))
+            .find(|f| f.long() == Some("aaa"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
-        assert_eq!(aaa.short, Some('a'));
+        assert_eq!(aaa.short(), Some('a'));
         assert_eq!(aaa.value_name.as_deref(), Some("Number"));
 
         let bbb = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("bbb"))
+            .find(|f| f.long() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
-        assert_eq!(bbb.short, Some('b'));
+        assert_eq!(bbb.short(), Some('b'));
         assert_eq!(bbb.value_name, None);
 
         let ccc = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("ccc"))
+            .find(|f| f.long() == Some("ccc"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(ccc.value_name.as_deref(), Some("y|n"));
 
@@ -8262,7 +8243,7 @@ mod tests {
                 assert!(
                     !v.ends_with(','),
                     "flag {:?} kept the shape's own trailing comma",
-                    f.long
+                    f.long()
                 );
             }
         }
@@ -8296,18 +8277,12 @@ mod tests {
             parsed.usage
         );
         assert!(
-            parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("ddd")),
+            parsed.flags.iter().any(|f| f.long() == Some("ddd")),
             "flags: {:?}",
             parsed.flags
         );
         assert!(
-            parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("eee")),
+            parsed.flags.iter().any(|f| f.long() == Some("eee")),
             "flags: {:?}",
             parsed.flags
         );
@@ -8325,17 +8300,14 @@ mod tests {
         let parsed = parse_with_profile(help, None, Some("tool"));
         assert_eq!(parsed.usage.len(), 1, "usage: {:?}", parsed.usage);
         assert!(
-            parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("aaa")),
+            parsed.flags.iter().any(|f| f.long() == Some("aaa")),
             "flags: {:?}",
             parsed.flags
         );
         let bbb = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("bbb"))
+            .find(|f| f.long() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
     }
@@ -8374,9 +8346,9 @@ mod tests {
         let activate = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("activate"))
+            .find(|f| f.long() == Some("activate"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
-        assert_eq!(activate.short, Some('a'));
+        assert_eq!(activate.short(), Some('a'));
         assert_eq!(activate.value_name.as_deref(), Some("y|n|ay"));
         assert_eq!(activate.value_kind, ValueKind::Required);
         assert_eq!(activate.group.as_deref(), Some("tool -a|--activate y|n|ay"));
@@ -8385,7 +8357,11 @@ mod tests {
             "not attempted: no fabricated required-ness"
         );
         assert_eq!(
-            parsed.flags.iter().filter(|f| f.short == Some('a')).count(),
+            parsed
+                .flags
+                .iter()
+                .filter(|f| f.short() == Some('a'))
+                .count(),
             1,
             "flags: {:?}",
             parsed.flags
@@ -8412,11 +8388,11 @@ mod tests {
         let systemid = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("systemid"))
+            .find(|f| f.long() == Some("systemid"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(systemid.value_name.as_deref(), Some("String"));
         assert!(
-            !parsed.flags.iter().any(|f| f.long.as_deref() == Some("VG")),
+            !parsed.flags.iter().any(|f| f.long() == Some("VG")),
             "flags: {:?}",
             parsed.flags
         );
@@ -8429,7 +8405,7 @@ mod tests {
         let help = "tool\n\t[ -f|--force ]\n";
         let parsed = parse_with_profile(help, None, Some("tool"));
         assert_eq!(parsed.flags.len(), 1, "flags: {:?}", parsed.flags);
-        assert_eq!(parsed.flags[0].long.as_deref(), Some("force"));
+        assert_eq!(parsed.flags[0].long(), Some("force"));
     }
 
     /// A negative case that must **not** be read as a stanza head: a
@@ -8441,18 +8417,12 @@ mod tests {
         let help = "tool\n\t[ -f|--force ]\n\nCommon options:\n\t[ -d|--debug ]\n";
         let parsed = parse_with_profile(help, None, Some("tool"));
         assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("options")),
+            !parsed.flags.iter().any(|f| f.long() == Some("options")),
             "flags: {:?}",
             parsed.flags
         );
         assert!(
-            parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("debug")),
+            parsed.flags.iter().any(|f| f.long() == Some("debug")),
             "flags: {:?}",
             parsed.flags
         );
@@ -8484,7 +8454,7 @@ mod tests {
         let e_flags: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|f| f.short == Some('e'))
+            .filter(|f| f.short() == Some('e'))
             .collect();
         assert_eq!(e_flags.len(), 1, "flags: {:?}", parsed.flags);
         assert_eq!(e_flags[0].value_name.as_deref(), Some("'program'"));
@@ -8497,7 +8467,7 @@ mod tests {
         let l_flags: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|f| f.short == Some('l'))
+            .filter(|f| f.short() == Some('l'))
             .collect();
         assert_eq!(l_flags.len(), 1, "flags: {:?}", parsed.flags);
         assert!(
@@ -8624,7 +8594,7 @@ mod tests {
     fn vgck_recovers_the_synopsis_continuation_flag() {
         let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
         let reportformat = flag_named(&parsed, "reportformat");
-        assert_eq!(reportformat.short, None);
+        assert_eq!(reportformat.short(), None);
         assert_eq!(reportformat.value_name.as_deref(), Some("basic|json"));
     }
 
@@ -8632,11 +8602,11 @@ mod tests {
     fn vgck_recovers_every_common_option_from_the_headed_bracket_table() {
         let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
         let debug = flag_named(&parsed, "debug");
-        assert_eq!(debug.short, Some('d'));
+        assert_eq!(debug.short(), Some('d'));
         assert_eq!(debug.value_name, None);
 
         let commandprofile = flag_named(&parsed, "commandprofile");
-        assert_eq!(commandprofile.short, None);
+        assert_eq!(commandprofile.short(), None);
         assert_eq!(commandprofile.value_name.as_deref(), Some("String"));
 
         let driverloaded = flag_named(&parsed, "driverloaded");
@@ -8683,8 +8653,8 @@ mod tests {
         assert!(parsed
             .flags
             .iter()
-            .all(|f| f.long.as_deref() != Some("COMMON_OPTIONS")));
-        assert!(parsed.flags.iter().all(|f| f.long.as_deref() != Some("VG")));
+            .all(|f| f.long() != Some("COMMON_OPTIONS")));
+        assert!(parsed.flags.iter().all(|f| f.long() != Some("VG")));
     }
 
     /// `vgextend`'s richer synopsis head (`vgextend VG PV ...`, still no
@@ -8706,11 +8676,11 @@ mod tests {
         let parsed = parse_with_profile(raw, None, Some("vgextend"));
 
         let autobackup = flag_named(&parsed, "autobackup");
-        assert_eq!(autobackup.short, Some('A'));
+        assert_eq!(autobackup.short(), Some('A'));
         assert_eq!(autobackup.value_name.as_deref(), Some("y|n"));
 
         let force = flag_named(&parsed, "force");
-        assert_eq!(force.short, Some('f'));
+        assert_eq!(force.short(), Some('f'));
         assert_eq!(force.value_name, None);
 
         let metadatasize = flag_named(&parsed, "metadatasize");
@@ -8758,10 +8728,10 @@ mod tests {
         let f_flags: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|f| f.short == Some('f'))
+            .filter(|f| f.short() == Some('f'))
             .collect();
         assert_eq!(f_flags.len(), 1, "{:#?}", parsed.flags);
-        assert_eq!(f_flags[0].long.as_deref(), Some("follow"));
+        assert_eq!(f_flags[0].long(), Some("follow"));
         assert_eq!(f_flags[0].value_name, None);
 
         // `-o, --output`'s description is now whole, not truncated at the
@@ -8800,17 +8770,14 @@ mod tests {
             "\t[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]\n",
         );
         let parsed = parse_with_profile(raw, None, Some("ethtool"));
-        assert!(parsed
-            .flags
-            .iter()
-            .all(|f| f.long.as_deref() != Some("all-groups")));
+        assert!(parsed.flags.iter().all(|f| f.long() != Some("all-groups")));
     }
 
-    fn flag_named(parsed: &ParsedHelp, long: &str) -> Flag {
+    fn flag_named(parsed: &ParsedHelp, long: &str) -> Entity {
         parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some(long))
+            .find(|f| f.long() == Some(long))
             .unwrap_or_else(|| {
                 panic!(
                     "no flag long=={long:?} in {:?}",
@@ -8832,9 +8799,9 @@ mod tests {
             ("dd", "(dry run) verbose debug info"),
         ] {
             let flag = flag_named(&parsed, name);
-            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            assert!(flag.single_dash(), "-{name} is spelled with one dash");
             assert_eq!(flag.spelling(), format!("-{name}"));
-            assert_eq!(flag.short, None);
+            assert_eq!(flag.short(), None);
             assert_eq!(flag.value_name, None);
             assert_eq!(flag.value_kind, ValueKind::None);
             assert_eq!(
@@ -8850,7 +8817,7 @@ mod tests {
             let flag = parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some(short))
+                .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| panic!("-{short} must survive"));
             assert_eq!(flag.value_kind, ValueKind::None);
         }
@@ -8865,7 +8832,7 @@ mod tests {
         let raw = "usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-a] file ...\n";
         let parsed = parse(raw);
         assert!(
-            parsed.flags.iter().all(|f| f.long.is_none()),
+            parsed.flags.iter().all(|f| f.long().is_none()),
             "no lessecho flag may be rewritten: {:?}",
             parsed
                 .flags
@@ -8877,7 +8844,7 @@ mod tests {
         // declares the bare spelling a boolean, confirming that condition
         // is what was doing the work rather than some other one failing.
         let parsed = parse("  -n         never overwrite\n  -nn        never ever overwrite\n");
-        assert!(flag_named(&parsed, "nn").single_dash);
+        assert!(flag_named(&parsed, "nn").single_dash());
     }
 
     /// A spaced value is indistinguishable from a glued one once
@@ -8886,7 +8853,7 @@ mod tests {
     fn a_spaced_value_is_never_repaired() {
         let parsed = parse("  -v         verbose\n  -v v       take a v\n");
         assert!(
-            parsed.flags.iter().all(|f| f.long.is_none()),
+            parsed.flags.iter().all(|f| f.long().is_none()),
             "only a glued token may be repaired: {:?}",
             parsed
                 .flags
@@ -8903,7 +8870,7 @@ mod tests {
     fn the_bundle_and_long_option_families_are_not_repaired_as_repeats() {
         let parsed = parse("  -2         two\n  -2CDlNuVv  a cluster\n  -Z         z\n  -Zscript   an unstable flag\n");
         assert!(
-            parsed.flags.iter().all(|f| f.long.is_none()),
+            parsed.flags.iter().all(|f| f.long().is_none()),
             "{:?}",
             parsed
                 .flags
@@ -9021,9 +8988,9 @@ mod tests {
         let parsed = parse(QEMU_TABLE);
         for name in ["help", "cpu", "one-insn-per-tb", "version"] {
             let flag = flag_named(&parsed, name);
-            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            assert!(flag.single_dash(), "-{name} is spelled with one dash");
             assert_eq!(flag.spelling(), format!("-{name}"));
-            assert_eq!(flag.short, None);
+            assert_eq!(flag.short(), None);
             assert_eq!(flag.value_name, None);
             assert_eq!(flag.value_kind, ValueKind::None);
         }
@@ -9039,10 +9006,11 @@ mod tests {
         let g = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('g'))
+            .find(|f| f.short() == Some('g'))
             .expect("-g must survive as a short flag");
         assert_eq!(
-            g.long, None,
+            g.long(),
+            None,
             "-g port is a correct parse, not a long option"
         );
         assert_eq!(g.value_name.as_deref(), Some("port"));
@@ -9053,7 +9021,7 @@ mod tests {
         assert!(parsed
             .flags
             .iter()
-            .any(|f| f.short == Some('h') && f.value_kind == ValueKind::None));
+            .any(|f| f.short() == Some('h') && f.value_kind == ValueKind::None));
     }
 
     /// The whole safety argument in one test: the GCC/Clang glued-value
@@ -9075,7 +9043,7 @@ mod tests {
         ] {
             let parsed = parse(row);
             assert!(
-                parsed.flags.iter().all(|f| f.long.is_none()),
+                parsed.flags.iter().all(|f| f.long().is_none()),
                 "a correct glued-value parse was destroyed by {row:?}: {:?}",
                 parsed
                     .flags
@@ -9114,13 +9082,13 @@ mod tests {
             ("exclude", "K=V"),
         ] {
             let flag = flag_named(&parsed, name);
-            assert!(flag.single_dash, "-{name} is spelled with one dash");
+            assert!(flag.single_dash(), "-{name} is spelled with one dash");
             // `Flag::spelling` writes a required value with a space, the
             // same repo-wide display convention that renders `--output=FILE`
             // as `--output FILE`; what matters here is that the *name* is
             // whole and the value is the tool's own.
             assert_eq!(flag.spelling(), format!("-{name} {value}"));
-            assert_eq!(flag.short, None);
+            assert_eq!(flag.short(), None);
             // The document wrote the value spec on the token, so unlike the
             // spaced case it survives the repair. `-match=K=V` splits at the
             // *first* `=` and keeps the rest verbatim.
@@ -9130,7 +9098,7 @@ mod tests {
         // The value-less rows in the same table are unchanged by the split.
         for name in ["reverse", "version"] {
             let flag = flag_named(&parsed, name);
-            assert!(flag.single_dash);
+            assert!(flag.single_dash());
             assert_eq!(flag.value_kind, ValueKind::None);
         }
     }
@@ -9154,8 +9122,8 @@ mod tests {
             ("std", "<standard>"),
         ] {
             let flag = flag_named(&parsed, name);
-            assert!(flag.single_dash, "-{name} is spelled with one dash");
-            assert_eq!(flag.short, None);
+            assert!(flag.single_dash(), "-{name} is spelled with one dash");
+            assert_eq!(flag.short(), None);
             assert_eq!(flag.value_name.as_deref(), Some(value));
         }
     }
@@ -9177,7 +9145,7 @@ mod tests {
         ] {
             let parsed = parse(row);
             assert!(
-                parsed.flags.iter().all(|f| f.long.is_none()),
+                parsed.flags.iter().all(|f| f.long().is_none()),
                 "a correct glued-value parse was destroyed by {row:?}: {:?}",
                 parsed
                     .flags
@@ -9201,7 +9169,7 @@ mod tests {
         ] {
             let parsed = parse(row);
             assert!(
-                parsed.flags.iter().all(|f| f.long.is_none()),
+                parsed.flags.iter().all(|f| f.long().is_none()),
                 "a spaced value was glued into a name by {row:?}: {:?}",
                 parsed
                     .flags
@@ -9223,7 +9191,7 @@ mod tests {
         let flag = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("case_sensitive"))
+            .find(|f| f.long() == Some("case_sensitive"))
             .unwrap_or_else(|| {
                 panic!(
                     "-case_sensitive was not recovered: {:?}",
@@ -9234,8 +9202,8 @@ mod tests {
                         .collect::<Vec<_>>()
                 )
             });
-        assert!(flag.single_dash, "it is spelled with one dash");
-        assert_eq!(flag.short, None, "the fabricated -c is gone");
+        assert!(flag.single_dash(), "it is spelled with one dash");
+        assert_eq!(flag.short(), None, "the fabricated -c is gone");
         assert_eq!(flag.value_kind, ValueKind::None);
         assert_eq!(
             flag.description.as_ref().map(|d| d.as_str()),
@@ -9246,7 +9214,7 @@ mod tests {
             !parsed
                 .flags
                 .iter()
-                .any(|f| f.short == Some('c') && f.long.is_none()),
+                .any(|f| f.short() == Some('c') && f.long().is_none()),
             "the invented -c is not left behind"
         );
     }
@@ -9286,7 +9254,7 @@ mod tests {
             let flag = parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some(name))
+                .find(|f| f.long() == Some(name))
                 .unwrap_or_else(|| {
                     panic!(
                         "-{name} was not recovered: {:?}",
@@ -9297,7 +9265,7 @@ mod tests {
                             .collect::<Vec<_>>()
                     )
                 });
-            assert!(flag.single_dash);
+            assert!(flag.single_dash());
             assert_eq!(
                 flag.description.as_ref().map(|d| d.as_str()),
                 Some(spec),
@@ -9333,10 +9301,7 @@ mod tests {
         ] {
             let parsed = parse(row);
             assert!(
-                parsed
-                    .flags
-                    .iter()
-                    .all(|f| f.long.as_deref() != Some(refused)),
+                parsed.flags.iter().all(|f| f.long() != Some(refused)),
                 "{row:?} was read as the long option -{refused}: {:?}",
                 parsed
                     .flags
@@ -9356,10 +9321,7 @@ mod tests {
         // outright rather than read as either a boolean or an empty value.
         let parsed = parse("  -foo=   an empty value spec\n");
         assert!(
-            parsed
-                .flags
-                .iter()
-                .all(|f| f.long.as_deref() != Some("foo")),
+            parsed.flags.iter().all(|f| f.long() != Some("foo")),
             "an empty value spec has no measured reading"
         );
         // `ip` writes a bracketed tail, so the grammar records
@@ -9369,14 +9331,14 @@ mod tests {
             parsed
                 .flags
                 .iter()
-                .all(|f| f.long.as_deref() != Some("human-readable")),
+                .all(|f| f.long() != Some("human-readable")),
             "ip's bracketed abbreviation is outside a Required-only fingerprint by construction"
         );
         // `sg_emc_trespass` glues the layout's own colon onto the flag, so
         // the tail is `"r:"` and is not an option name.
         let parsed = parse("    -hr: Set Honor Reservation bit\n");
         assert!(
-            parsed.flags.iter().all(|f| f.long.as_deref() != Some("hr")),
+            parsed.flags.iter().all(|f| f.long() != Some("hr")),
             "a tail carrying punctuation is not a name"
         );
     }
@@ -9389,10 +9351,7 @@ mod tests {
     fn a_synopsis_sourced_bundle_is_never_read_as_a_long_option() {
         let parsed = parse("usage: rpcbind [-adhilswfr]\n");
         assert!(
-            parsed
-                .flags
-                .iter()
-                .all(|f| f.long.as_deref() != Some("adhilswfr")),
+            parsed.flags.iter().all(|f| f.long() != Some("adhilswfr")),
             "the bundle belongs to parse_bundled_shorts, not to this repair: {:?}",
             parsed
                 .flags
@@ -9409,7 +9368,7 @@ mod tests {
     fn a_spaced_value_is_never_read_as_a_long_option() {
         let parsed = parse("  -g port    wait gdb connection to 'port'\n");
         assert!(
-            parsed.flags.iter().all(|f| f.long.is_none()),
+            parsed.flags.iter().all(|f| f.long().is_none()),
             "only a glued token may be repaired: {:?}",
             parsed
                 .flags
@@ -9427,13 +9386,13 @@ mod tests {
         // `-vvv` satisfies every other condition; condition 6 hands it off.
         let parsed = parse("  -vvv       even more verbose\n");
         assert!(
-            parsed.flags.iter().all(|f| f.long.is_none()),
+            parsed.flags.iter().all(|f| f.long().is_none()),
             "a repeated-character run is the other repair's, and only when it has its boolean"
         );
         // A one-character tail is the ambiguous population both repairs
         // decline: `rpcgen -Ss` and friends are half correct parses.
         let parsed = parse("  -ps        postscript\n");
-        assert!(parsed.flags.iter().all(|f| f.long.is_none()));
+        assert!(parsed.flags.iter().all(|f| f.long().is_none()));
     }
 
     #[test]
@@ -9607,11 +9566,7 @@ mod tests {
             "expected curl's full flag list, got {}",
             parsed.flags.len()
         );
-        let longs: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let longs: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         assert!(longs.contains(&"append"), "{longs:?}");
         assert!(longs.contains(&"anyauth"), "{longs:?}");
         // The usage block keeps its own line and stops before the flags.
@@ -9674,7 +9629,7 @@ mod tests {
             parsed.usage,
             vec![
                 "Usage: du [OPTION]... [FILE]...".to_string(),
-                "or:  du [OPTION]... --files0-from=F".to_string(),
+                "  or:  du [OPTION]... --files0-from=F".to_string(),
             ],
             "or: must stay a separate entry, not join onto the line above"
         );
@@ -9708,7 +9663,7 @@ mod tests {
         let parsed = parse_named(raw, "prog");
         assert_eq!(
             parsed.usage,
-            vec!["Usage: prog foo".to_string(), "prog bar".to_string()],
+            vec!["Usage: prog foo".to_string(), "       prog bar".to_string(),],
             "{:?}",
             parsed.usage
         );
@@ -9766,7 +9721,7 @@ mod tests {
         // usage-grammar fragment, and must still end the block rather than
         // being swallowed onto the synopsis.
         assert!(!parsed.usage[0].contains("Defaults"), "{:?}", parsed.usage);
-        let short_flags: Vec<Option<char>> = parsed.flags.iter().map(|f| f.short).collect();
+        let short_flags: Vec<Option<char>> = parsed.flags.iter().map(|f| f.short()).collect();
         // Spot-check flags documented only in the two (previously dropped)
         // continuation lines — none of these appear in the first line's
         // own groups (verified by hand against `usage_segments`'
@@ -9839,14 +9794,11 @@ mod tests {
     #[test]
     fn tar_main_operation_mode_group_recovered() {
         let parsed = parse(TAR_HELP);
-        let create = parsed
-            .flags
-            .iter()
-            .find(|f| f.long.as_deref() == Some("create"));
+        let create = parsed.flags.iter().find(|f| f.long() == Some("create"));
         assert!(
             create.is_some(),
             "expected --create among {:?}",
-            parsed.flags.iter().map(|f| &f.long).collect::<Vec<_>>()
+            parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
         );
         assert_eq!(
             create.unwrap().group.as_deref(),
@@ -9860,9 +9812,9 @@ mod tests {
         let create = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("create"))
+            .find(|f| f.long() == Some("create"))
             .unwrap();
-        assert_eq!(create.short, Some('c'));
+        assert_eq!(create.short(), Some('c'));
         assert!(create
             .description
             .as_ref()
@@ -9877,7 +9829,7 @@ mod tests {
         let occurrence = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("occurrence"))
+            .find(|f| f.long() == Some("occurrence"))
             .unwrap();
         let desc = occurrence.description.as_ref().unwrap().as_str();
         assert!(desc.contains("NUMBERth occurrence"), "{desc:?}");
@@ -9894,14 +9846,11 @@ mod tests {
     #[test]
     fn tar_long_only_flag_at_deeper_indent_is_its_own_flag() {
         let parsed = parse(TAR_HELP);
-        let delete = parsed
-            .flags
-            .iter()
-            .find(|f| f.long.as_deref() == Some("delete"));
+        let delete = parsed.flags.iter().find(|f| f.long() == Some("delete"));
         assert!(
             delete.is_some(),
             "expected --delete among {:?}",
-            parsed.flags.iter().map(|f| &f.long).collect::<Vec<_>>()
+            parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
         );
         assert_eq!(
             delete.unwrap().description.as_ref().unwrap().as_str(),
@@ -9916,16 +9865,13 @@ mod tests {
     #[test]
     fn tar_short_flag_after_long_only_run_is_recovered() {
         let parsed = parse(TAR_HELP);
-        let touch = parsed
-            .flags
-            .iter()
-            .find(|f| f.long.as_deref() == Some("touch"));
+        let touch = parsed.flags.iter().find(|f| f.long() == Some("touch"));
         assert!(
             touch.is_some(),
             "expected --touch among {:?}",
-            parsed.flags.iter().map(|f| &f.long).collect::<Vec<_>>()
+            parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
         );
-        assert_eq!(touch.unwrap().short, Some('m'));
+        assert_eq!(touch.unwrap().short(), Some('m'));
     }
 
     #[test]
@@ -9982,7 +9928,7 @@ mod tests {
         let format = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("format"))
+            .find(|f| f.long() == Some("format"))
             .expect("--format flag recovered");
         let choice_strs: Vec<&str> = format.choices.iter().map(|t| t.as_str()).collect();
         for want in ["gnu", "oldgnu", "pax", "posix", "ustar", "v7"] {
@@ -10013,7 +9959,7 @@ mod tests {
             let flag = parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some(want))
+                .find(|f| f.long() == Some(want))
                 .unwrap_or_else(|| panic!("--{want} consumed by the FORMAT enum"));
             assert!(
                 !flag
@@ -10030,7 +9976,7 @@ mod tests {
             parsed
                 .flags
                 .iter()
-                .any(|f| f.long.as_deref() == Some("label") && f.short == Some('V')),
+                .any(|f| f.long() == Some("label") && f.short() == Some('V')),
             "-V, --label lost"
         );
     }
@@ -10066,14 +10012,14 @@ Usage: prog [bs=BS] [--help]
         let parsed = parse(help);
         for want in ["progress", "verify"] {
             assert!(
-                parsed.flags.iter().any(|f| f.long.as_deref() == Some(want)),
+                parsed.flags.iter().any(|f| f.long() == Some(want)),
                 "--{want} consumed by the operand table: {:?}",
-                parsed.flags.iter().map(|f| &f.long).collect::<Vec<_>>()
+                parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
             );
         }
         // And the operands above them are still read as the bare block
         // they are, not promoted into flags or subcommands.
-        assert!(!parsed.flags.iter().any(|f| f.long.as_deref() == Some("bs")));
+        assert!(!parsed.flags.iter().any(|f| f.long() == Some("bs")));
         assert!(parsed.subcommands.is_empty(), "{:?}", parsed.subcommands);
     }
 
@@ -10244,7 +10190,7 @@ Options:
         let quoting_style = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("quoting-style"))
+            .find(|f| f.long() == Some("quoting-style"))
             .expect("--quoting-style flag recovered");
         let choice_strs: Vec<&str> = quoting_style.choices.iter().map(|t| t.as_str()).collect();
         assert!(choice_strs.contains(&"literal"), "{choice_strs:?}");
@@ -10316,7 +10262,11 @@ Options:
     #[test]
     fn git_root_positionals_are_exactly_command_and_args() {
         let parsed = parse(GIT_HELP);
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["command", "args"], "{names:?}");
     }
 
@@ -10330,7 +10280,11 @@ Options:
     #[test]
     fn flag_values_in_a_usage_line_are_never_positionals() {
         let parsed = parse("usage: widget [-C <dir>] [--tag=<name>] <target> [--config FILE]\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["target"], "{names:?}");
     }
 
@@ -10344,13 +10298,21 @@ Options:
     #[test]
     fn a_token_after_a_self_closed_bracket_flag_is_a_real_positional() {
         let parsed = parse("Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["DEVICE"], "{names:?}");
 
         // The general shape, with more than one self-closed flag ahead of
         // an uppercase operand.
         let parsed = parse("usage: widget [-h] [-v] FILE\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["FILE"], "{names:?}");
     }
 
@@ -10373,7 +10335,7 @@ Options:
             let names: Vec<String> = parse(line)
                 .positionals
                 .into_iter()
-                .map(|p| p.name)
+                .map(|p| p.primary_name().to_string())
                 .collect();
             assert!(
                 !names
@@ -10391,7 +10353,11 @@ Options:
     #[test]
     fn a_real_operand_is_not_mistaken_for_an_option_list_placeholder() {
         let parsed = parse("usage: git [<options>] <command> [<args>]\n");
-        let names: Vec<&str> = parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(names, vec!["command", "args"], "{names:?}");
     }
 
@@ -10417,9 +10383,9 @@ Options:
             .iter()
             .map(|p| {
                 (
-                    p.name.as_str(),
+                    p.primary_name(),
                     p.required,
-                    p.variadic,
+                    p.repeatable,
                     p.description.as_ref().map(|d| d.as_str()),
                 )
             })
@@ -10468,7 +10434,7 @@ Options:
             parsed
                 .positionals
                 .iter()
-                .map(|p| &p.name)
+                .map(|p| p.primary_name())
                 .collect::<Vec<_>>()
         );
     }
@@ -10494,7 +10460,7 @@ Options:
             parsed
                 .positionals
                 .iter()
-                .map(|p| &p.name)
+                .map(|p| p.primary_name())
                 .collect::<Vec<_>>()
         );
         assert!(parsed.saw_unattributable_content);
@@ -10516,10 +10482,10 @@ Options:
         let version = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("version"))
+            .find(|f| f.long() == Some("version"))
             .expect("--version recovered");
         assert_eq!(
-            version.short,
+            version.short(),
             Some('v'),
             "exactly one short + one long in a group must pair"
         );
@@ -10527,17 +10493,14 @@ Options:
         let help = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("help"))
+            .find(|f| f.long() == Some("help"))
             .expect("--help recovered");
-        assert_eq!(help.short, Some('h'));
+        assert_eq!(help.short(), Some('h'));
 
         // Four alternatives: never guess which short goes with which long.
         // Every spelling is its own unpaired flag, with no cross-pairing.
-        let spellings: Vec<(Option<char>, Option<&str>)> = parsed
-            .flags
-            .iter()
-            .map(|f| (f.short, f.long.as_deref()))
-            .collect();
+        let spellings: Vec<(Option<char>, Option<&str>)> =
+            parsed.flags.iter().map(|f| (f.short(), f.long())).collect();
         assert!(
             spellings.contains(&(Some('p'), None)),
             "expected an unpaired -p entry, got {spellings:?}"
@@ -10574,7 +10537,7 @@ Options:
         let verbose = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("verbose"))
+            .find(|f| f.long() == Some("verbose"))
             .expect("--verbose recovered from the synopsis");
         assert_eq!(
             verbose.provenance.sources.as_slice(),
@@ -10586,7 +10549,7 @@ Options:
         let loud = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("loud"))
+            .find(|f| f.long() == Some("loud"))
             .expect("--loud recovered from the Options: block");
         assert_eq!(loud.provenance.sources.as_slice(), [Source::HelpText]);
         assert!(loud.provenance.describable());
@@ -10603,7 +10566,7 @@ Options:
         let c = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('C'))
+            .find(|f| f.short() == Some('C'))
             .expect("-C recovered");
         assert_eq!(c.value_name.as_deref(), Some("<path>"));
         assert_eq!(c.value_kind, mandible_core::ValueKind::Required);
@@ -10611,14 +10574,14 @@ Options:
         let exec_path = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("exec-path"))
+            .find(|f| f.long() == Some("exec-path"))
             .expect("--exec-path recovered");
         assert_eq!(exec_path.value_kind, mandible_core::ValueKind::Optional);
 
         let git_dir = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("git-dir"))
+            .find(|f| f.long() == Some("git-dir"))
             .expect("--git-dir recovered");
         assert_eq!(git_dir.value_kind, mandible_core::ValueKind::Required);
     }
@@ -10639,7 +10602,7 @@ Options:
         let d = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('D'))
+            .find(|f| f.short() == Some('D'))
             .expect("-D recovered");
         assert_eq!(d.value_name.as_deref(), Some("pkcs11"));
         assert_eq!(d.value_kind, mandible_core::ValueKind::Required);
@@ -10647,21 +10610,21 @@ Options:
         let m = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('M'))
+            .find(|f| f.short() == Some('M'))
             .expect("-M recovered");
         assert_eq!(m.value_name.as_deref(), Some("generate"));
 
         let i = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('I'))
+            .find(|f| f.short() == Some('I'))
             .expect("-I recovered");
         assert_eq!(i.value_name.as_deref(), Some("certificate_identity"));
 
         let s = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('s'))
+            .find(|f| f.short() == Some('s'))
             .expect("-s recovered");
         assert_eq!(s.value_name.as_deref(), Some("ca_key"));
     }
@@ -10678,7 +10641,7 @@ Options:
         let h = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('h'))
+            .find(|f| f.short() == Some('h'))
             .expect("-h recovered");
         assert_eq!(h.value_name, None, "-h must stay boolean");
     }
@@ -10694,7 +10657,7 @@ Options:
         let k = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('k'))
+            .find(|f| f.short() == Some('k'))
             .expect("-k recovered");
         assert_eq!(k.value_name, None, "-k must stay boolean");
     }
@@ -10713,7 +10676,7 @@ Options:
             let flag = parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some(member))
+                .find(|f| f.short() == Some(member))
                 .unwrap_or_else(|| panic!("-{member} missing from {:?}", parsed.flags));
             assert_eq!(flag.value_name, None, "-{member} is a boolean switch");
             assert_eq!(
@@ -10721,7 +10684,7 @@ Options:
                 mandible_core::ValueKind::None,
                 "-{member} takes no value"
             );
-            assert_eq!(flag.long, None);
+            assert_eq!(flag.long(), None);
             assert!(flag.description.is_none(), "a usage line describes nothing");
         }
         for (short, value) in [
@@ -10734,7 +10697,7 @@ Options:
             let flag = parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some(short))
+                .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| panic!("-{short} missing from {:?}", parsed.flags));
             assert_eq!(flag.value_name.as_deref(), Some(value));
             assert_eq!(flag.value_kind, mandible_core::ValueKind::Required);
@@ -10753,12 +10716,12 @@ Options:
         let b = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('b'))
+            .find(|f| f.short() == Some('b'))
             .expect("-b recovered");
         assert_eq!(b.value_name.as_deref(), Some("{blocksize}[KMG]"));
         for member in "BeEksvxX".chars() {
             assert!(
-                parsed.flags.iter().any(|f| f.short == Some(member)),
+                parsed.flags.iter().any(|f| f.short() == Some(member)),
                 "-{member} missing from {:?}",
                 parsed.flags
             );
@@ -10777,11 +10740,11 @@ Options:
         let z = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('Z'))
+            .find(|f| f.short() == Some('Z'))
             .expect("-Zscript recovered");
         assert_eq!(z.value_name.as_deref(), Some("script"));
         assert!(
-            !parsed.flags.iter().any(|f| f.short == Some('s')),
+            !parsed.flags.iter().any(|f| f.short() == Some('s')),
             "-Zscript must not have been split: {:?}",
             parsed.flags
         );
@@ -10798,10 +10761,10 @@ Options:
         let raw = "Usage: od [-abcdfilosx]... [FILE]...\n\nOptions:\n  -a    named characters\n  -b    octal bytes\n";
         let parsed = parse(raw);
         for member in ['a', 'b'] {
-            let matches: Vec<&Flag> = parsed
+            let matches: Vec<&Entity> = parsed
                 .flags
                 .iter()
-                .filter(|f| f.short == Some(member))
+                .filter(|f| f.short() == Some(member))
                 .collect();
             assert_eq!(matches.len(), 1, "-{member}: {matches:?}");
             assert!(
@@ -10812,7 +10775,7 @@ Options:
         // ...and the members the table never described are still recovered.
         for member in ['c', 'd', 'f', 'i', 'l', 'o', 's', 'x'] {
             assert!(
-                parsed.flags.iter().any(|f| f.short == Some(member)),
+                parsed.flags.iter().any(|f| f.short() == Some(member)),
                 "-{member} missing from {:?}",
                 parsed.flags
             );
@@ -10829,10 +10792,10 @@ Options:
         let raw =
             "usage: widget [--verbose] [<file>]\n\nOptions:\n  --verbose    print extra output\n";
         let parsed = parse(raw);
-        let verbose: Vec<&Flag> = parsed
+        let verbose: Vec<&Entity> = parsed
             .flags
             .iter()
-            .filter(|f| f.long.as_deref() == Some("verbose"))
+            .filter(|f| f.long() == Some("verbose"))
             .collect();
         assert_eq!(
             verbose.len(),
@@ -10869,7 +10832,7 @@ Options:
         // since `[--flag` is bare (starts with `-`... actually with `[`)
         // and `<value>` is not flag-shaped. This just documents there is
         // no crash and no fabricated flag from the stray bracket itself.
-        assert!(parsed.flags.iter().all(|f| f.long.as_deref() != Some("")));
+        assert!(parsed.flags.iter().all(|f| f.long() != Some("")));
     }
 
     /// Regression for the third defect found alongside the two above:
@@ -10891,18 +10854,18 @@ Options:
         let staged = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('S'))
+            .find(|f| f.short() == Some('S'))
             .expect("short-spelled negatable flag must not be dropped");
-        assert_eq!(staged.long.as_deref(), Some("staged"));
-        assert!(staged.negatable);
+        assert_eq!(staged.long(), Some("staged"));
+        assert!(staged.negatable());
 
         let ignore_unmerged = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("ignore-unmerged"))
+            .find(|f| f.long() == Some("ignore-unmerged"))
             .expect("long-only negatable flag must not be dropped entirely");
-        assert!(ignore_unmerged.short.is_none());
-        assert!(ignore_unmerged.negatable);
+        assert!(ignore_unmerged.short().is_none());
+        assert!(ignore_unmerged.negatable());
         assert_eq!(
             ignore_unmerged.description.as_ref().map(|d| d.as_str()),
             Some("ignore unmerged entries"),
@@ -10913,12 +10876,12 @@ Options:
         let ours = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("ours"))
+            .find(|f| f.long() == Some("ours"))
             .expect("non-negatable flag must still parse");
-        assert!(!ours.negatable);
+        assert!(!ours.negatable());
 
         for f in &parsed.flags {
-            if let Some(long) = &f.long {
+            if let Some(long) = f.long() {
                 assert!(
                     !long.contains('[') && !long.contains(']'),
                     "long name must never contain brackets: {long:?}"
@@ -10969,16 +10932,13 @@ Options:
     #[test]
     fn sed_headingless_flags_block_is_recovered() {
         let parsed = parse(SED_HELP);
-        let quiet = parsed
-            .flags
-            .iter()
-            .find(|f| f.long.as_deref() == Some("quiet"));
+        let quiet = parsed.flags.iter().find(|f| f.long() == Some("quiet"));
         assert!(
             quiet.is_some(),
             "expected --quiet among {:?}",
-            parsed.flags.iter().map(|f| &f.long).collect::<Vec<_>>()
+            parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
         );
-        assert_eq!(quiet.unwrap().short, Some('n'));
+        assert_eq!(quiet.unwrap().short(), Some('n'));
         assert!(quiet
             .unwrap()
             .description
@@ -11125,7 +11085,7 @@ Options:
             .iter()
             .map(|f| {
                 (
-                    f.long.as_deref().unwrap_or(""),
+                    f.long().unwrap_or(""),
                     f.description.as_ref().map(|d| d.as_str()).unwrap_or(""),
                 )
             })
@@ -11160,7 +11120,7 @@ Options:
             .iter()
             .map(|f| {
                 (
-                    f.long.as_deref().unwrap_or(""),
+                    f.long().unwrap_or(""),
                     f.description.as_ref().map(|d| d.as_str()).unwrap_or(""),
                 )
             })
@@ -11197,7 +11157,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some(name))
+                .find(|f| f.long() == Some(name))
                 .unwrap_or_else(|| panic!("--{name} must be recovered"))
         };
         for (name, text) in [
@@ -11222,7 +11182,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some('h'))
+                .find(|f| f.short() == Some('h'))
                 .and_then(|f| f.description.as_ref())
                 .map(|d| d.as_str()),
             Some("This help text")
@@ -11249,7 +11209,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some(name))
+                .find(|f| f.long() == Some(name))
                 .unwrap_or_else(|| panic!("--{name} must be recovered"))
         };
         for (name, value) in [
@@ -11284,7 +11244,7 @@ Options:
         let flag = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("init-command"))
+            .find(|f| f.long() == Some("init-command"))
             .expect("--init-command must be recovered");
         assert_eq!(flag.value_name.as_deref(), Some("name"));
         assert_eq!(
@@ -11321,7 +11281,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some("for-removal"))
+                .find(|f| f.long() == Some("for-removal"))
                 .and_then(|f| f.description.as_ref())
                 .map(|d| d.as_str()),
             Some(
@@ -11333,7 +11293,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some('l'))
+                .find(|f| f.short() == Some('l'))
                 .and_then(|f| f.description.as_ref())
                 .map(|d| d.as_str()),
             Some("The --list (-l) option prints out the set of deprecated APIs.")
@@ -11363,7 +11323,7 @@ Options:
             !parsed
                 .flags
                 .iter()
-                .any(|f| f.long.as_deref() == Some("source-override")),
+                .any(|f| f.long() == Some("source-override")),
             "a paragraph must never create a flag: {:?}",
             parsed.flags
         );
@@ -11371,7 +11331,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some("regex"))
+                .find(|f| f.long() == Some("regex"))
                 .and_then(|f| f.description.as_ref())
                 .map(|d| d.as_str()),
             Some("interpret each keyword as a regex"),
@@ -11398,7 +11358,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.long.as_deref() == Some("dry-run"))
+                .find(|f| f.long() == Some("dry-run"))
                 .map(|f| f.description.is_none()),
             Some(true),
             "an indented sentence belongs to the row above it: {:?}",
@@ -11419,7 +11379,7 @@ Options:
         let flag = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("output"))
+            .find(|f| f.long() == Some("output"))
             .expect("--output must be recovered");
         assert_eq!(
             flag.description.as_ref().map(|d| d.as_str()),
@@ -11441,7 +11401,7 @@ Options:
         let flag = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("variable"))
+            .find(|f| f.long() == Some("variable"))
             .expect("--variable must be recovered");
         assert_eq!(
             flag.value_name.as_deref(),
@@ -11473,8 +11433,7 @@ Options:
             assert!(
                 !desc.starts_with('-'),
                 "a flag spelling was reported as a description: {:?} -> {desc:?}",
-                flag.short
-                    .or(flag.long.as_deref().and_then(|l| l.chars().next()))
+                flag.short().or(flag.long().and_then(|l| l.chars().next()))
             );
         }
     }
@@ -11492,11 +11451,7 @@ Options:
                     -q, --queue <value>    integer value to be sent with the signal\n \
                     -L, --table            list all signal names in a nice table\n";
         let parsed = parse(help);
-        let longs: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let longs: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         assert!(longs.contains(&"queue"), "{longs:?}");
         assert!(longs.contains(&"table"), "{longs:?}");
         assert!(
@@ -11588,7 +11543,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some(short))
+                .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| panic!("expected -{short} to be recovered"))
                 .description
                 .as_ref()
@@ -11624,7 +11579,7 @@ Options:
         let all = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("all"))
+            .find(|f| f.long() == Some("all"))
             .unwrap();
         assert_eq!(all.description.as_ref().unwrap().as_str(), "do everything");
         assert_eq!(parsed.flags.len(), 3);
@@ -11657,7 +11612,7 @@ Options:
                 parsed
                     .flags
                     .iter()
-                    .filter(|f| f.short == Some(short))
+                    .filter(|f| f.short() == Some(short))
                     .count(),
                 1,
                 "expected exactly one -{short}, got {:?}",
@@ -11665,7 +11620,7 @@ Options:
             );
         }
         assert!(
-            !parsed.flags.iter().any(|f| f.short.is_none()),
+            !parsed.flags.iter().any(|f| f.short().is_none()),
             "a spellingless (fabricated) flag was emitted: {:?}",
             parsed.flags
         );
@@ -11695,7 +11650,7 @@ Options:
                 parsed
                     .flags
                     .iter()
-                    .filter(|f| f.long.as_deref() == Some(long))
+                    .filter(|f| f.long() == Some(long))
                     .count(),
                 1,
                 "expected exactly one --{long}, got {:?}",
@@ -11708,7 +11663,7 @@ Options:
         // "short / long / description" shape, unrelated to and unchanged
         // by this batch), never a fabricated second entry.
         assert!(
-            !parsed.flags.iter().any(|f| f.long.is_none()),
+            !parsed.flags.iter().any(|f| f.long().is_none()),
             "a spellingless (fabricated) flag was emitted: {:?}",
             parsed.flags
         );
@@ -11737,7 +11692,7 @@ Options:
                 parsed
                     .flags
                     .iter()
-                    .filter(|fl| fl.short == Some(short))
+                    .filter(|fl| fl.short() == Some(short))
                     .count(),
                 1,
                 "expected exactly one -{short}, got {:?}",
@@ -11746,7 +11701,7 @@ Options:
         }
         for flag in &parsed.flags {
             let desc = flag.description.as_ref().map(|d| d.as_str()).unwrap_or("");
-            assert!(!desc.starts_with('-'), "{:?} -> {desc:?}", flag.short);
+            assert!(!desc.starts_with('-'), "{:?} -> {desc:?}", flag.short());
         }
     }
 
@@ -11763,7 +11718,7 @@ Options:
             parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some(short))
+                .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| panic!("expected -{short} to be recovered"))
                 .description
                 .as_ref()
@@ -11817,9 +11772,19 @@ Options:
     fn a_banner_shaped_paragraph_with_no_fallback_is_kept() {
         let raw = "mytool 1.2.3\nDoes a thing.\n\nUsage: mytool [OPTIONS]\n";
         let parsed = parse(raw);
+        // The parser hands the paragraph over with its source breaks
+        // intact (spec §4.1: which break is hard-wrapping and which is
+        // structure is the sanitizer's call, not the parser's) …
         assert_eq!(
             parsed.description.as_deref(),
-            Some("mytool 1.2.3 Does a thing.")
+            Some("mytool 1.2.3\nDoes a thing.")
+        );
+        // … and neither line is structural, so both still reflow into one
+        // paragraph exactly as they did when the parser flattened them
+        // itself.
+        assert_eq!(
+            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
+            "mytool 1.2.3 Does a thing."
         );
     }
 
@@ -11847,9 +11812,17 @@ Options:
         // first paragraph's line is a whole sentence (more than the two
         // bare tokens `<name> <version>` a real banner is), not merely
         // because there's nothing to fall back to.
+        // The blank line between them survives as a paragraph break: the
+        // detail pane renders one as a blank row (spec §4.1, §9.3), and it
+        // only ever could once the parser stopped flattening the two
+        // paragraphs into a single space-joined line here.
         assert_eq!(
             parsed.description.as_deref(),
-            Some("Build v2 is faster than v1. See the changelog for details.")
+            Some("Build v2 is faster than v1.\n\nSee the changelog for details.")
+        );
+        assert_eq!(
+            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
+            "Build v2 is faster than v1.\n\nSee the changelog for details."
         );
     }
 
@@ -11927,7 +11900,14 @@ Options:
         let parsed = parse_named(raw, "sshd");
         assert_eq!(
             parsed.description.as_deref(),
-            Some("unknown option -- - OpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13")
+            Some("unknown option -- -\nOpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13")
+        );
+        // Neither line is structural, so the pair still reflows into one
+        // paragraph once sanitized — the parser keeps the breaks, the
+        // sanitizer decides about them (spec §4.1).
+        assert_eq!(
+            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
+            "unknown option -- - OpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13"
         );
     }
 
@@ -12471,7 +12451,7 @@ Options:
     fn nanos_long_column_is_a_spelling_not_the_start_of_the_description() {
         let parsed = parse(NANO_TABLE);
         let a = flag_named(&parsed, "smarthome");
-        assert_eq!(a.short, Some('A'));
+        assert_eq!(a.short(), Some('A'));
         assert_eq!(
             a.description.as_ref().map(|t| t.as_str()),
             Some("Enable smart home key"),
@@ -12479,7 +12459,7 @@ Options:
              rule it read `--smarthome Enable smart home key`"
         );
         let c = flag_named(&parsed, "backupdir");
-        assert_eq!(c.short, Some('C'));
+        assert_eq!(c.short(), Some('C'));
         assert_eq!(c.value_name.as_deref(), Some("<dir>"));
         assert_eq!(c.value_kind, ValueKind::Required);
         assert_eq!(
@@ -12488,10 +12468,7 @@ Options:
         );
         // Nothing invented from the table's own header row.
         assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("option")),
+            !parsed.flags.iter().any(|f| f.long() == Some("option")),
             "the `Option  Long option  Meaning` header is not a flag"
         );
     }
@@ -12501,7 +12478,7 @@ Options:
         let parsed = parse(JDEPRSCAN_TABLE);
         for (long, short) in [("list", 'l'), ("verbose", 'v')] {
             let flag = flag_named(&parsed, long);
-            assert_eq!(flag.short, Some(short));
+            assert_eq!(flag.short(), Some(short));
             assert_eq!(
                 flag.description, None,
                 "the row has no description column, and none may be invented"
@@ -12512,9 +12489,9 @@ Options:
         // still lost. Asserted rather than left implicit so that a future
         // data-model change has to come here and say so.
         let help = flag_named(&parsed, "help");
-        assert_eq!(help.short, Some('?'));
+        assert_eq!(help.short(), Some('?'));
         assert!(
-            !parsed.flags.iter().any(|f| f.short == Some('h')),
+            !parsed.flags.iter().any(|f| f.short() == Some('h')),
             "`-h` is still dropped — see corpus/jdeprscan/audit-seed2"
         );
     }
@@ -12522,11 +12499,14 @@ Options:
     #[test]
     fn awks_tab_aligned_spelling_columns_are_read_as_spellings() {
         let parsed = parse(AWK_TABLE);
-        assert_eq!(flag_named(&parsed, "characters-as-bytes").short, Some('b'));
-        assert_eq!(flag_named(&parsed, "traditional").short, Some('c'));
-        assert_eq!(flag_named(&parsed, "copyright").short, Some('C'));
+        assert_eq!(
+            flag_named(&parsed, "characters-as-bytes").short(),
+            Some('b')
+        );
+        assert_eq!(flag_named(&parsed, "traditional").short(), Some('c'));
+        assert_eq!(flag_named(&parsed, "copyright").short(), Some('C'));
         let d = flag_named(&parsed, "dump-variables");
-        assert_eq!(d.short, Some('d'));
+        assert_eq!(d.short(), Some('d'));
         assert_eq!(d.value_kind, ValueKind::Optional);
     }
 
@@ -12555,7 +12535,7 @@ Options:
             ("assign", 'v', "var=val"),
         ] {
             let flag = flag_named(&parsed, long);
-            assert_eq!(flag.short, Some(short));
+            assert_eq!(flag.short(), Some(short));
             assert_eq!(
                 flag.value_name.as_deref(),
                 Some(value),
@@ -12586,11 +12566,11 @@ Options:
             "\t-L[fatal|invalid|no-ext]\t--lint[=fatal|invalid|no-ext]\n",
         ));
         let d = flag_named(&parsed, "dump-variables");
-        assert_eq!(d.short, Some('d'));
+        assert_eq!(d.short(), Some('d'));
         assert_eq!(d.value_name.as_deref(), Some("file"));
         assert_eq!(d.value_kind, ValueKind::Optional);
         let e = flag_named(&parsed, "source");
-        assert_eq!(e.short, Some('e'));
+        assert_eq!(e.short(), Some('e'));
         assert_eq!(
             e.value_name.as_deref(),
             Some("'program-text'"),
@@ -12599,11 +12579,11 @@ Options:
         );
         assert_eq!(e.value_kind, ValueKind::Required);
         let exec = flag_named(&parsed, "exec");
-        assert_eq!(exec.short, Some('E'));
+        assert_eq!(exec.short(), Some('E'));
         assert_eq!(exec.value_name.as_deref(), Some("file"));
         assert_eq!(exec.value_kind, ValueKind::Required);
         let lint = flag_named(&parsed, "lint");
-        assert_eq!(lint.short, Some('L'));
+        assert_eq!(lint.short(), Some('L'));
         assert_eq!(lint.value_name.as_deref(), Some("fatal|invalid|no-ext"));
         assert_eq!(lint.value_kind, ValueKind::Optional);
     }
@@ -12635,7 +12615,7 @@ Options:
             "                  Define new prompt.\n",
         ));
         let prompt = flag_named(&parsed, "prompt");
-        assert_eq!(prompt.short, Some('P'));
+        assert_eq!(prompt.short(), Some('P'));
         assert_eq!(prompt.value_name.as_deref(), Some("prompt"));
         assert_eq!(
             prompt.value_kind,
@@ -12647,7 +12627,7 @@ Options:
             Some("Define new prompt.")
         );
         let pattern = flag_named(&parsed, "pattern");
-        assert_eq!(pattern.short, Some('p'));
+        assert_eq!(pattern.short(), Some('p'));
         assert_eq!(pattern.value_name.as_deref(), Some("pattern"));
         assert_eq!(pattern.value_kind, ValueKind::Optional);
     }
@@ -12662,7 +12642,7 @@ Options:
             "    -b list  --bytes list  List of values to write(default = 0)\n",
         ));
         let count = flag_named(&parsed, "count");
-        assert_eq!(count.short, Some('c'));
+        assert_eq!(count.short(), Some('c'));
         assert_eq!(count.value_name.as_deref(), Some("num"));
         assert_eq!(count.value_kind, ValueKind::Required);
         assert_eq!(
@@ -12670,7 +12650,7 @@ Options:
             Some("Number of times to write(default = 1)")
         );
         let bytes = flag_named(&parsed, "bytes");
-        assert_eq!(bytes.short, Some('b'));
+        assert_eq!(bytes.short(), Some('b'));
         assert_eq!(bytes.value_name.as_deref(), Some("list"));
     }
 
@@ -12692,8 +12672,8 @@ Options:
                 .flags
                 .iter()
                 .any(|f| f.value_name.as_deref() == Some("chain")
-                    && f.long.as_deref() == Some("append")
-                    && f.short == Some('A')),
+                    && f.long() == Some("append")
+                    && f.short() == Some('A')),
             "`--append  -A chain` must not be merged into one valued flag: {:?}",
             parsed
                 .flags
@@ -12718,7 +12698,8 @@ Options:
         ));
         let strip = flag_named(&parsed, "strip-symbols");
         assert_eq!(
-            strip.short, None,
+            strip.short(),
+            None,
             "`-N for all symbols listed in <file>` is prose, not this flag's short spelling"
         );
         assert_eq!(strip.value_name.as_deref(), Some("<file>"));
@@ -12738,7 +12719,7 @@ Options:
         let x = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('x'))
+            .find(|f| f.short() == Some('x'))
             .expect("-x survives");
         assert_eq!(
             x.description.as_ref().map(|t| t.as_str()),
@@ -12746,10 +12727,7 @@ Options:
             "a description beginning with a spelling is still a description"
         );
         assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("foo")),
+            !parsed.flags.iter().any(|f| f.long() == Some("foo")),
             "`--foo` here is prose about another flag, not this flag's own name"
         );
     }
@@ -12768,7 +12746,7 @@ Options:
             "  --param=vect-max-peeling-for-alignment=<0,64> \t-1\n",
         ));
         assert!(
-            !parsed.flags.iter().any(|f| f.short == Some('1')),
+            !parsed.flags.iter().any(|f| f.short() == Some('1')),
             "a misaligned default-value column must not become a short spelling: {:?}",
             parsed
                 .flags
@@ -12801,7 +12779,8 @@ Options:
         for long in ["alpha", "gamma", "epsilon"] {
             let flag = flag_named(&parsed, long);
             assert_eq!(
-                flag.short, None,
+                flag.short(),
+                None,
                 "--{long} must not absorb its neighbour as a spelling"
             );
             assert_eq!(
@@ -12832,10 +12811,7 @@ Options:
             "  -c    do the third thing\n",
         ));
         assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.long.as_deref() == Some("beta")),
+            !parsed.flags.iter().any(|f| f.long() == Some("beta")),
             "one row is not evidence of a column"
         );
     }
@@ -12883,7 +12859,7 @@ Options:
         let b = parsed
             .flags
             .iter()
-            .find(|f| f.short == Some('b'))
+            .find(|f| f.short() == Some('b'))
             .expect("-b must be recovered");
         assert_eq!(
             b.description.as_ref().map(|d| d.as_str()),
@@ -12905,7 +12881,7 @@ Options:
         let file = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("file"))
+            .find(|f| f.long() == Some("file"))
             .expect("--file must be recovered");
         assert_eq!(
             file.description.as_ref().map(|d| d.as_str()),
@@ -12959,9 +12935,9 @@ Options:
         let flag = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("http_seekable"))
+            .find(|f| f.long() == Some("http_seekable"))
             .expect("-http_seekable must be recovered as one single-dash long option");
-        assert!(flag.single_dash);
+        assert!(flag.single_dash());
         assert_eq!(
             flag.description.as_ref().map(|d| d.as_str()),
             Some("<boolean> .D......... Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)")
@@ -13230,15 +13206,18 @@ Options:
 
         // No fabricated `LUN`/`SP`/`EMC` operands; `DEVICE` survives as the
         // one real positional the usage line actually names.
-        let positional_names: Vec<&str> =
-            parsed.positionals.iter().map(|p| p.name.as_str()).collect();
+        let positional_names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
         assert_eq!(positional_names, vec!["DEVICE"], "{positional_names:?}");
 
-        let flag = |short: char| -> Flag {
+        let flag = |short: char| {
             parsed
                 .flags
                 .iter()
-                .find(|f| f.short == Some(short))
+                .find(|f| f.short() == Some(short))
                 .unwrap_or_else(|| {
                     panic!(
                         "no flag short=={short:?} in {:?}",
@@ -13428,9 +13407,9 @@ Options:
             parsed.usage,
             vec![
                 "Usage:".to_string(),
-                "update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>"
+                "    update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>"
                     .to_string(),
-                "update-xmlcatalog <options> --del --root --type <type> --id <id>".to_string(),
+                "    update-xmlcatalog <options> --del --root --type <type> --id <id>".to_string(),
             ],
             "each wrapped form is one usage entry, with the continuation \
              marker consumed by the join it performed"
@@ -13473,7 +13452,7 @@ Options:
     fn a_heading_sharing_its_line_with_the_first_row_keeps_that_row() {
         let parsed = parse_named(UCONV_OPTIONS, "uconv");
         let help = flag_named(&parsed, "help");
-        assert_eq!(help.short, Some('h'));
+        assert_eq!(help.short(), Some('h'));
         assert_eq!(
             help.description.as_ref().map(|t| t.as_str()),
             Some("print this message")
@@ -13597,7 +13576,7 @@ Options:
         assert_eq!(entries.len(), 3);
         let short = parse_flag_spec(&entries[0].0);
         assert_eq!(short.short, Some('V'));
-        assert_eq!(short.long.as_deref(), Some("Version"));
+        assert_eq!(short.long, Some("Version".to_string()));
     }
 
     /// `sg_sanitize`'s real `--count=OC|-c OC` (from `corpus/sg_sanitize`):
@@ -13676,15 +13655,15 @@ Options:
         let e = result
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("subvol-extents"))
+            .find(|f| f.long() == Some("subvol-extents"))
             .expect("subvol-extents recovered as one flag");
-        assert_eq!(e.short, Some('E'));
+        assert_eq!(e.short(), Some('E'));
         assert_eq!(e.value_name.as_deref(), Some("<subvolid>"));
         assert!(
             !result
                 .flags
                 .iter()
-                .any(|f| f.short.is_none() && f.long.is_none()),
+                .any(|f| f.short().is_none() && f.long().is_none()),
             "no half-flag left behind"
         );
     }
@@ -13818,7 +13797,7 @@ Options:
         let wholename = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("wholename"))
+            .find(|f| f.long() == Some("wholename"))
             .expect("-wholename recovered");
         assert_eq!(wholename.value_name.as_deref(), Some("PATTERN"));
         assert!(
@@ -13826,10 +13805,10 @@ Options:
             "no description exists in this document; must not be fabricated: {:?}",
             wholename.description
         );
-        assert!(wholename.single_dash);
+        assert!(wholename.single_dash());
         for name in ["size", "true", "type", "uid"] {
             assert!(
-                parsed.flags.iter().any(|f| f.long.as_deref() == Some(name)),
+                parsed.flags.iter().any(|f| f.long() == Some(name)),
                 "expected {name} to be recovered as its own flag, not folded into -wholename"
             );
         }
@@ -13848,7 +13827,7 @@ Options:
         let exec_flags: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|f| f.long.as_deref() == Some("exec"))
+            .filter(|f| f.long() == Some("exec"))
             .collect();
         assert_eq!(
             exec_flags.len(),
@@ -13874,7 +13853,7 @@ Options:
         let help = parsed
             .flags
             .iter()
-            .find(|f| f.long.as_deref() == Some("help"))
+            .find(|f| f.long() == Some("help"))
             .expect("--help recovered");
         assert_eq!(
             help.description.as_ref().map(|t| t.as_str()),

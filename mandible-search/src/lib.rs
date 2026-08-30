@@ -223,7 +223,7 @@ fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<S
         cols[0] = haystack.as_str().into();
     });
 
-    for flag in &node.flags {
+    for flag in node.flags() {
         push_flag(injector, flag, &path);
     }
 
@@ -234,22 +234,28 @@ fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<S
     }
 }
 
-fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Flag, path: &[String]) {
+fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Entity, path: &[String]) {
     let Some(key) = flag.key() else {
-        return; // a flag with neither short nor long spelling can't be addressed
+        return; // a flag with no addressable spelling can't be indexed
     };
     let mut haystack = String::new();
-    if let Some(s) = flag.short {
-        haystack.push('-');
-        haystack.push(s);
-        haystack.push(' ');
-    }
-    if let Some(l) = &flag.long {
+    for spelling in &flag.spellings {
         // Search on the spelling the user would actually type: a
         // single-dash long option (`-help`, `-vv`) is never `--help`, and
         // indexing it that way would make it unfindable by its own name.
-        haystack.push_str(if flag.single_dash { "-" } else { "--" });
-        haystack.push_str(l);
+        //
+        // Built from the dashes and the bare name rather than through
+        // `Spelling::render`, deliberately: `render` reconstructs the
+        // `[no-]` of a negatable boolean for *display*, and nobody
+        // searches for `--[no-]staged`. Every documented spelling is
+        // indexed, so a row that names four of them is findable by all
+        // four.
+        haystack.push_str(match spelling.dashes {
+            mandible_core::Dashes::None => "",
+            mandible_core::Dashes::Single => "-",
+            mandible_core::Dashes::Double => "--",
+        });
+        haystack.push_str(&spelling.name);
         haystack.push(' ');
     }
     if let Some(v) = &flag.value_name {
@@ -260,9 +266,9 @@ fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Flag, pat
         haystack.push_str(d.as_str());
     }
     let primary_name = flag
-        .long
-        .clone()
-        .or_else(|| flag.short.map(|c| c.to_string()))
+        .long()
+        .map(str::to_string)
+        .or_else(|| flag.short().map(|c| c.to_string()))
         .unwrap_or_default();
     let entry = Entry {
         node_ref: NodeRef::Flag {
@@ -279,29 +285,19 @@ fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Flag, pat
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Flag, Provenance, Source, Text, ValueKind};
+    use mandible_core::{Entity, Provenance, Source, Text};
     use std::time::{Duration, Instant};
 
-    fn flag(short: Option<char>, long: Option<&str>, description: &str) -> Flag {
-        Flag {
+    fn flag(short: Option<char>, long: Option<&str>, description: &str) -> Entity {
+        let mut f = Entity::flag_spelled(
             short,
-            long: long.map(|s| s.to_string()),
-            value_name: None,
-            value_kind: ValueKind::None,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: None,
-            description: Some(Text::sanitize(description)),
-            default: None,
-            env_var: None,
-            provenance: Provenance::single(Source::HelpText),
-        }
+            long.map(|s| s.to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        );
+        f.description = Some(Text::sanitize(description));
+        f
     }
 
     fn sample_tree() -> CommandNode {
@@ -310,12 +306,12 @@ mod tests {
 
         let mut rebase = CommandNode::new("rebase", Provenance::single(Source::HelpText));
         rebase.summary = Some(Text::sanitize("Reapply commits on top of another base tip"));
-        rebase.flags.push(flag(
+        rebase.entities.push(flag(
             Some('i'),
             Some("interactive"),
             "Make a list of commits",
         ));
-        rebase.flags.push(flag(
+        rebase.entities.push(flag(
             None,
             Some("autosquash"),
             "Automatically squash commits",
@@ -323,7 +319,7 @@ mod tests {
 
         let mut add = CommandNode::new("add", Provenance::single(Source::HelpText));
         add.summary = Some(Text::sanitize("Add file contents to the index"));
-        add.flags
+        add.entities
             .push(flag(Some('p'), Some("patch"), "Interactively choose hunks"));
 
         root.subcommands.push(rebase);

@@ -134,7 +134,7 @@
 //! leaves a real bug unreported, a false positive blocks the fix.
 
 use crate::existence::spelling_occurs;
-use mandible_core::{CommandNode, Flag, Provenance, Source, ValueKind};
+use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
 
 /// The fewest characters a tail must carry before it is read as the rest of
 /// a long option's name.
@@ -236,14 +236,14 @@ impl SplitReport {
 
 /// Whether `flag` is a split single-dash long option, and the real token it
 /// split — `None` when any condition in this module's doc comment fails.
-fn split_token(flag: &Flag, raw: &str) -> Option<String> {
+fn split_token(flag: &Entity, raw: &str) -> Option<String> {
     // 1. Option-table-sourced, never synopsis.
     if !is_table_sourced(&flag.provenance) {
         return None;
     }
     // 2. A bare short flag carrying a required value.
-    let short = flag.short?;
-    if flag.long.is_some() || flag.value_kind != ValueKind::Required {
+    let short = flag.short()?;
+    if flag.long().is_some() || flag.value_kind != ValueKind::Required {
         return None;
     }
     let tail = flag.value_name.as_deref()?;
@@ -295,11 +295,11 @@ fn split_glued_value(tail: &str) -> Option<(&str, Option<&str>)> {
 }
 
 fn walk(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Split>) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         let Some(token) = split_token(flag, raw) else {
             continue;
         };
-        let Some(short) = flag.short else {
+        let Some(short) = flag.short() else {
             continue;
         };
         out.push(Split {
@@ -332,10 +332,8 @@ pub fn detect(raw: &str, root: &CommandNode) -> SplitReport {
 // harness.
 
 /// A flag as `sections::emit_flags` builds one from an option-table row.
-fn table_flag(short: char, value: Option<&str>) -> Flag {
-    let mut flag = Flag::long("", Provenance::single(Source::HelpText));
-    flag.long = None;
-    flag.short = Some(short);
+fn table_flag(short: char, value: Option<&str>) -> Entity {
+    let mut flag = Entity::flag_short(short, Provenance::single(Source::HelpText));
     flag.value_name = value.map(str::to_string);
     flag.value_kind = if value.is_some() {
         ValueKind::Required
@@ -346,9 +344,9 @@ fn table_flag(short: char, value: Option<&str>) -> Flag {
 }
 
 /// A one-node tree named `name` carrying `flags`.
-fn tree(name: &str, flags: Vec<Flag>) -> CommandNode {
+fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.flags = flags;
+    root.set_flags(flags);
     root
 }
 
@@ -632,7 +630,7 @@ pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
 mod tests {
     use super::*;
 
-    fn report(raw: &str, name: &str, flags: Vec<Flag>) -> SplitReport {
+    fn report(raw: &str, name: &str, flags: Vec<Entity>) -> SplitReport {
         detect(raw, &tree(name, flags))
     }
 
@@ -781,7 +779,7 @@ mod tests {
     fn a_flag_carrying_a_long_name_stays_silent() {
         let raw = "  -help   print this help\n";
         let mut flag = table_flag('h', Some("elp"));
-        flag.long = Some("help".to_string());
+        flag.spellings.push(mandible_core::Spelling::long("help"));
         let r = report(raw, "t", vec![flag]);
         assert_eq!(r.split_count(), 0);
     }
@@ -791,7 +789,7 @@ mod tests {
         let raw = "usage: t sub -help\n";
         let mut root = CommandNode::new("t", Provenance::single(Source::HelpText));
         let mut sub = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        sub.flags.push(table_flag('h', Some("elp")));
+        sub.entities.push(table_flag('h', Some("elp")));
         root.subcommands.push(sub);
         let r = detect(raw, &root);
         assert_eq!(r.split_count(), 1);
@@ -884,9 +882,8 @@ mod tests {
             "jitdump",
         ] {
             assert!(
-                root.flags
-                    .iter()
-                    .any(|f| f.long.as_deref() == Some(name) && f.single_dash),
+                root.flags()
+                    .any(|f| f.long() == Some(name) && f.single_dash()),
                 "-{name} is a real qemu option and must be in the tree under its own name"
             );
         }
@@ -898,9 +895,9 @@ mod tests {
             ('D', "logfile"),
         ] {
             assert!(
-                root.flags.iter().any(|f| {
-                    f.short == Some(short)
-                        && f.long.is_none()
+                root.flags().any(|f| {
+                    f.short() == Some(short)
+                        && f.long().is_none()
                         && f.value_name.as_deref() == Some(value)
                 }),
                 "-{short} {value} is a correct parse and must survive untouched"

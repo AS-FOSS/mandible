@@ -1,7 +1,7 @@
 name: fsck
 usage:
 - 'Usage:'
-- fsck [options] -- [fs-options] [<filesystem> ...]
+- ' fsck [options] -- [fs-options] [<filesystem> ...]'
 positionals:
 - name: filesystem
   provenance:

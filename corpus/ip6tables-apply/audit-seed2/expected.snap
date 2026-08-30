@@ -2,7 +2,7 @@ name: ip6tables-apply
 description: ip6tables-apply 1.1 -- a safer way to update iptables remotely
 usage:
 - 'Usage:'
-- ip6tables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}
+- '  ip6tables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}'
 flags:
 - short: 't'
   long: timeout

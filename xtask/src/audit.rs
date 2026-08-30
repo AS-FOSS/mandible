@@ -79,7 +79,7 @@ use mandible_core::audit::{
     extract_tag_override, family_meaning, load, parse_verdict_word, save, tag_display,
     verdict_path, AuditFile, AuditMeta, Entry,
 };
-use mandible_core::{CommandNode, Flag};
+use mandible_core::{CommandNode, Entity};
 use mandible_extract::exec::ExecOutput;
 use mandible_extract::{default_tiers_with_probe, ExtractionResult, Runner};
 use rayon::prelude::*;
@@ -191,15 +191,15 @@ pub(crate) fn classify_all_with_recordings(
 /// glued the rest of a multi-character single-dash spelling onto
 /// `value_name` (`-fdump-scos` -> `short=Some('f')`, `long=None`,
 /// `value_name=Some("dump-scos")`). See [`Entry::k1`].
-fn is_k1_flag(flag: &Flag) -> bool {
-    flag.short.is_some() && flag.long.is_none() && flag.value_name.is_some()
+fn is_k1_flag(flag: &Entity) -> bool {
+    flag.short().is_some() && flag.long().is_none() && flag.value_name.is_some()
 }
 
 /// `(matching, total)` flag counts across `node` and every descendant, for
 /// the K1 pre-tag's display line (e.g. "839/1454 flags match").
 fn k1_signature_stats(node: &CommandNode) -> (usize, usize) {
-    let mut matching = node.flags.iter().filter(|f| is_k1_flag(f)).count();
-    let mut total = node.flags.len();
+    let mut matching = node.flags().filter(|f| is_k1_flag(f)).count();
+    let mut total = node.flags().count();
     for child in &node.subcommands {
         let (m, t) = k1_signature_stats(child);
         matching += m;
@@ -292,7 +292,7 @@ fn k2_signature(report: &existence::ExistenceReport, raw: &str) -> Option<bool> 
 /// "is this node genuinely empty" checks in this codebase can never drift
 /// apart.
 fn is_bare_stub(node: &CommandNode) -> bool {
-    node.flags.is_empty() && node.subcommands.is_empty() && node.summary.is_none()
+    node.flags().next().is_none() && node.subcommands.is_empty() && node.summary.is_none()
 }
 
 /// True for a bare stub ([`is_bare_stub`]) that is *also* not
@@ -337,7 +337,7 @@ fn count_attestation_gated_stubs(node: &CommandNode) -> usize {
 
 /// Total flag count across `node` and every descendant.
 fn total_flags(node: &CommandNode) -> usize {
-    node.flags.len() + node.subcommands.iter().map(total_flags).sum::<usize>()
+    node.flags().count() + node.subcommands.iter().map(total_flags).sum::<usize>()
 }
 
 /// True when `root` has at least one subcommand yet the whole tree — root
@@ -1639,13 +1639,11 @@ pub fn cmd_fixtures(
 const SAMPLE_FLAG_CAP: usize = 5;
 
 fn sample_flag_specs(root: &CommandNode) -> Vec<String> {
-    root.flags
-        .iter()
+    root.flags()
         .filter_map(|f| {
-            f.long
-                .as_deref()
+            f.long()
                 .map(|l| format!("--{l}"))
-                .or_else(|| f.short.map(|s| format!("-{s}")))
+                .or_else(|| f.short().map(|s| format!("-{s}")))
         })
         .take(SAMPLE_FLAG_CAP)
         .collect()
@@ -1836,32 +1834,34 @@ mod tests {
     // K1 pre-tag
     // -------------------------------------------------------------
 
-    fn k1_flag() -> Flag {
-        let mut f = Flag::long("", Provenance::single(Source::HelpText));
-        f.short = Some('f');
-        f.long = None;
+    fn k1_flag() -> Entity {
+        let mut f = Entity::flag_short('f', Provenance::single(Source::HelpText));
         f.value_name = Some("dump-scos".to_string());
         f
     }
 
-    fn ordinary_flag(short: char, long: &str) -> Flag {
-        let mut f = Flag::long(long, Provenance::single(Source::HelpText));
-        f.short = Some(short);
-        f
+    fn ordinary_flag(short: char, long: &str) -> Entity {
+        Entity::flag_spelled(
+            Some(short),
+            Some(long.to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        )
     }
 
     #[test]
     fn k1_signature_flags_the_gcc_single_dash_long_shape() {
         let mut root = CommandNode::new("clang", Provenance::single(Source::HelpText));
-        root.flags.push(k1_flag());
-        root.flags.push(ordinary_flag('v', "verbose"));
+        root.entities.push(k1_flag());
+        root.entities.push(ordinary_flag('v', "verbose"));
         assert_eq!(k1_signature(&root), Some(true));
     }
 
     #[test]
     fn k1_signature_is_none_when_no_flag_matches() {
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
-        root.flags.push(ordinary_flag('v', "verbose"));
+        root.entities.push(ordinary_flag('v', "verbose"));
         assert_eq!(
             k1_signature(&root),
             None,
@@ -1873,7 +1873,7 @@ mod tests {
     fn k1_signature_recurses_into_subcommands() {
         let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
         let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        child.flags.push(k1_flag());
+        child.entities.push(k1_flag());
         root.subcommands.push(child);
         assert_eq!(
             k1_signature(&root),
@@ -1885,10 +1885,10 @@ mod tests {
     #[test]
     fn k1_signature_stats_counts_matching_and_total_across_the_tree() {
         let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
-        root.flags.push(k1_flag());
-        root.flags.push(ordinary_flag('v', "verbose"));
+        root.entities.push(k1_flag());
+        root.entities.push(ordinary_flag('v', "verbose"));
         let mut child = CommandNode::new("sub", Provenance::single(Source::HelpText));
-        child.flags.push(k1_flag());
+        child.entities.push(k1_flag());
         root.subcommands.push(child);
         assert_eq!(k1_signature_stats(&root), (2, 3));
     }
@@ -1981,8 +1981,10 @@ mod tests {
         // heading — `CommandNode::new` defaults `heading_attested` to
         // `false`, which is the honest state for exactly this case.
         let mut root = CommandNode::new("git-lfs", Provenance::single(Source::HelpText));
-        root.flags
-            .push(Flag::long("version", Provenance::single(Source::HelpText)));
+        root.entities.push(Entity::flag_long(
+            "version",
+            Provenance::single(Source::HelpText),
+        ));
         root.subcommands.push(CommandNode::new(
             "install",
             Provenance::single(Source::HelpText),
@@ -2028,8 +2030,10 @@ mod tests {
         // this single pass — the ordinary, unremarkable lazy-fill state
         // every multi-level tool is in at sample time.
         let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
-        root.flags
-            .push(Flag::long("version", Provenance::single(Source::HelpText)));
+        root.entities.push(Entity::flag_long(
+            "version",
+            Provenance::single(Source::HelpText),
+        ));
         let mut child = CommandNode::new("clone", Provenance::single(Source::HelpText));
         child.heading_attested = true;
         root.subcommands.push(child);

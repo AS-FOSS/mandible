@@ -11,6 +11,7 @@
 
 pub mod audit;
 pub mod config;
+mod entity;
 mod merge;
 mod node;
 mod noderef;
@@ -19,13 +20,11 @@ mod provenance;
 mod snapshot;
 mod text;
 
+pub use entity::{Dashes, Entity, EntityKind, Spelling};
 pub use merge::{
-    merge_flag_lists, merge_nodes, merge_positional_lists, merge_subcommand_lists, pair_aliases,
-    MergeError,
+    merge_entity_lists, merge_nodes, merge_subcommand_lists, pair_aliases, MergeError,
 };
-pub use node::{
-    is_command_name_shaped, CommandNode, Confession, Example, Flag, Positional, ValueKind,
-};
+pub use node::{is_command_name_shaped, CommandNode, Confession, Example, ValueKind};
 pub use noderef::{resolve, resolve_flag, resolve_mut, FlagKey, NodeRef};
 pub use provenance::{Authority, Axis, ManFormat, Provenance, Source};
 pub use snapshot::{

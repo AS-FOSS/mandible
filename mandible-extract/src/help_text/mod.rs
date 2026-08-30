@@ -510,11 +510,11 @@ fn probe_help_text_confession_aware(
         return Ok((
             text,
             flag.to_string(),
-            Some(Confession {
-                word: directives[0].word.clone(),
-                flag: directives[0].flag.to_string(),
-                followed: false,
-            }),
+            Some(Confession::new(
+                directives[0].word.clone(),
+                directives[0].flag.to_string(),
+                false,
+            )),
         ));
     };
 
@@ -526,11 +526,11 @@ fn probe_help_text_confession_aware(
         Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
             pick_stream(&out.stdout, &out.stderr),
             format!("{} {}", chosen.flag, chosen.word),
-            Some(Confession {
-                word: chosen.word.clone(),
-                flag: chosen.flag.to_string(),
-                followed: true,
-            }),
+            Some(Confession::new(
+                chosen.word.clone(),
+                chosen.flag.to_string(),
+                true,
+            )),
         )),
         // The follow-up probe failed, timed out, was refused (rule 0), or
         // came back empty on both streams: keep the original, truncated
@@ -540,11 +540,11 @@ fn probe_help_text_confession_aware(
         _ => Ok((
             text,
             flag.to_string(),
-            Some(Confession {
-                word: chosen.word.clone(),
-                flag: chosen.flag.to_string(),
-                followed: false,
-            }),
+            Some(Confession::new(
+                chosen.word.clone(),
+                chosen.flag.to_string(),
+                false,
+            )),
         )),
     }
 }
@@ -1038,51 +1038,49 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     };
     let provenance = Provenance::with_confidence(Source::HelpText, confidence);
 
-    CommandNode {
-        name: name.to_string(),
-        aliases: Vec::new(),
-        summary: None,
-        description: parsed.description.as_deref().map(Text::sanitize),
-        usage: parsed.usage.iter().map(|s| Text::sanitize(s)).collect(),
-        flags: parsed.flags,
-        positionals: parsed.positionals,
-        subcommands: parsed.subcommands,
-        examples: Vec::new(),
-        hidden: false,
-        deprecated: None,
-        // A single probe of this node genuinely does discover its
-        // complete direct-children *list* (spec §5.2: "the names of its
-        // direct subcommands" — one level, not recursive) — whatever the
-        // "Commands:"-shaped section names, or an empty list for a
-        // flags-only leaf like `tar`. That list's accuracy is exactly
-        // what `confidence` already communicates; `children_filled`
-        // itself is about *this level* being known, not about the
-        // subcommands' own children (which stay `children_filled: false`
-        // stubs until each is, in turn, expanded and probed — that's the
-        // lazy per-node expansion spec §5.2 describes, driven by the
-        // runner, not by recursing here).
-        children_filled: true,
-        group: None,
-        unparsed: Vec::new(),
-        detected_framework,
-        provenance,
-        // This node is the probed node itself (the root `--help` was run
-        // against, or a subcommand's own node once *its* `--help` is
-        // probed in turn) — never a bare-word entry recovered from a
-        // listing under some other node's heading, so there is no heading
-        // to attest to. `emit_subcommands`/`process_word_grid` are what
-        // set this `true`, for the stub entries `parsed.subcommands`
-        // already carries into this node's `subcommands` list above.
-        heading_attested: false,
-        // Same reasoning as `heading_attested` immediately above: this is
-        // the probed node itself, never a stub entry recovered from some
-        // other node's headingless invocation table.
-        invocation_attested: false,
-        // Set by the caller (`HelpTextTier::extract_node`), which is the
-        // only place with the confession-aware probe result this function
-        // doesn't see — see `build_node`'s own callers.
-        confession: None,
-    }
+    let mut node = CommandNode::new(name, provenance);
+    node.description = parsed.description.as_deref().map(Text::sanitize);
+    // A synopsis is the tool's own layout, not ours (spec §4.1, §9.3): the
+    // spacing inside `Usage:  docker import [OPTIONS] file|URL|-` and the
+    // columns a tool lines its alternative forms up in are how the author
+    // wrote the invocation, and `Text::sanitize`'s whitespace collapse
+    // erases exactly that. The detail pane already treats USAGE as content
+    // whose layout is not mandible's — it scrolls the section sideways
+    // rather than re-flowing it — so the IR must stop flattening it first.
+    // Each entry is one logical, already-line-joined invocation form, which
+    // is the input `Text::sanitize_preserving_layout` is defined over.
+    node.usage = parsed
+        .usage
+        .iter()
+        .map(|s| Text::sanitize_preserving_layout(s))
+        .collect();
+    node.set_flags(parsed.flags);
+    node.set_positionals(parsed.positionals);
+    node.subcommands = parsed.subcommands;
+    // A single probe of this node genuinely does discover its complete
+    // direct-children *list* (spec §5.2: "the names of its direct
+    // subcommands" — one level, not recursive) — whatever the
+    // "Commands:"-shaped section names, or an empty list for a flags-only
+    // leaf like `tar`. That list's accuracy is exactly what `confidence`
+    // already communicates; `children_filled` itself is about *this level*
+    // being known, not about the subcommands' own children (which stay
+    // `children_filled: false` stubs until each is, in turn, expanded and
+    // probed — that's the lazy per-node expansion spec §5.2 describes,
+    // driven by the runner, not by recursing here).
+    node.children_filled = true;
+    node.detected_framework = detected_framework;
+    // `heading_attested`, `invocation_attested` and `confession` keep
+    // `CommandNode::new`'s defaults. This node is the probed node itself
+    // (the root `--help` was run against, or a subcommand's own node once
+    // *its* `--help` is probed in turn) — never a bare-word entry
+    // recovered from a listing under some other node's heading, so there
+    // is no heading or invocation table to attest to.
+    // `emit_subcommands`/`process_word_grid` are what set those `true`,
+    // for the stub entries `parsed.subcommands` already carries into this
+    // node's `subcommands` list above. `confession` is set by the caller
+    // (`HelpTextTier::extract_node`), the only place with the
+    // confession-aware probe result this function doesn't see.
+    node
 }
 
 /// Give up on structure entirely and carry `raw` verbatim in
@@ -1101,13 +1099,25 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
 /// and genuinely found nothing to attribute to this level, which is what
 /// stops the background warmer (`mandible/src/background.rs`) from
 /// cascading any further past this node.
+///
+/// The lines go through [`Text::sanitize_preserving_layout`], the same
+/// constructor [`format_streams`] uses for the raw pane and for the same
+/// reason (spec §4.1): this is the tool author's own document, shown
+/// because mandible could not read it, and the columns a tool pads its
+/// help table into are part of what the author drew. `Text::sanitize`
+/// collapses whitespace runs and trims, which left `ar`'s
+/// `  m[ab]        - move file(s) in the archive` rendering as
+/// `m[ab] - move file(s) in the archive` — a fallback that quietly
+/// reformats the text it exists to reproduce, and the honesty promise
+/// (§1) is the whole reason the fallback is there. One line per entry,
+/// which is what the layout tier's per-line contract requires.
 fn verbatim_node(name: &str, raw: &str, detected_framework: Option<String>) -> CommandNode {
     let provenance = Provenance::with_confidence(Source::HelpText, 0.0);
     let mut node = CommandNode::new(name, provenance);
     node.unparsed = raw
         .lines()
         .take(MAX_UNPARSED_LINES)
-        .map(Text::sanitize)
+        .map(Text::sanitize_preserving_layout)
         .collect();
     node.detected_framework = detected_framework;
     // Same rationale as the structurally-plausible path in `build_node`:
@@ -1271,7 +1281,7 @@ mod tests {
         let raw = fixture("tar_help.stdout");
         let node = build_node("tar", &raw, None, "tar");
         assert_eq!(node.name, "tar");
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
         assert!(node.provenance.confidence.unwrap() > 0.0);
         // A single probe genuinely discovers the complete direct-children
         // list for this level (spec §5.2) — tar has none, which is itself
@@ -1299,6 +1309,40 @@ mod tests {
         );
     }
 
+    /// A synopsis keeps the spacing the tool printed (spec §4.1's layout
+    /// tier). LVM pads a long-only option out to the column its short-and-
+    /// long siblings put their long in, and that padding is the alignment
+    /// the author drew; `Text::sanitize`'s whitespace collapse used to
+    /// flatten it to one space before the pane ever saw it.
+    #[test]
+    fn usage_keeps_the_tools_own_column_spacing() {
+        let raw = "Usage:  prog  [ -A|--autobackup y|n ] [    --reportformat basic|json ]\n\n\
+                   Options:\n  -A, --autobackup y|n   back up\n";
+        let node = build_node("prog", raw, None, "prog");
+        assert_eq!(
+            node.usage,
+            vec![mandible_core::Text::sanitize_preserving_layout(
+                "Usage:  prog  [ -A|--autobackup y|n ] [    --reportformat basic|json ]"
+            )],
+            "usage: {:?}",
+            node.usage
+        );
+    }
+
+    /// The anti-case for the row above: a `\t` in a synopsis is still
+    /// expanded to 8-column stops rather than passed through, because
+    /// `ratatui` gives a bare tab zero display width and would misalign
+    /// the very columns this is preserving (`pastebinit` writes
+    /// `Usage:\tpastebinit [OPTION...]`).
+    #[test]
+    fn usage_expands_tabs_rather_than_passing_them_through() {
+        let raw = "Usage:\tprog [OPTION...]\n\nOptions:\n  -a, --all   everything\n";
+        let node = build_node("prog", raw, None, "prog");
+        assert_eq!(node.usage.len(), 1, "usage: {:?}", node.usage);
+        assert!(!node.usage[0].as_str().contains('\t'));
+        assert_eq!(node.usage[0].as_str(), "Usage:  prog [OPTION...]");
+    }
+
     /// Level 3 (spec §7 Tier B step 3): a probe that recovers no flags, no
     /// subcommands, and no usage line must degrade to verbatim rather than
     /// present an empty-but-structured node as if it were a real (if
@@ -1312,10 +1356,39 @@ mod tests {
         assert!(!node.unparsed.is_empty());
         assert_eq!(node.unparsed.len(), 2);
         assert_eq!(node.unparsed[0].as_str(), raw.lines().next().unwrap());
-        assert!(node.flags.is_empty());
+        assert!(node.flags().next().is_none());
         assert!(node.subcommands.is_empty());
         assert!(node.usage.is_empty());
         assert!(node.description.is_none());
+    }
+
+    /// The verbatim fallback reproduces the author's layout (spec §4.1's
+    /// layout tier): leading indentation and the space runs a tool pads
+    /// its own columns with survive into `unparsed` exactly as printed.
+    ///
+    /// The columns are `ar`'s own — it pads a name out and then lines
+    /// every description up behind it — on a block that recovers no
+    /// structure, which is the state that reaches [`verbatim_node`].
+    /// `Text::sanitize` was rendering
+    /// `  elf32-littlearm         elf32-bigarm` as
+    /// `elf32-littlearm elf32-bigarm`: columns collapsed, every row
+    /// shoved against the left edge, in the one view whose entire purpose
+    /// is showing the document unedited.
+    #[test]
+    fn verbatim_fallback_preserves_the_authors_column_alignment() {
+        let raw = " supported targets:\n  elf64-littleaarch64     elf64-bigaarch64\n\
+                   \x20 elf32-littlearm         elf32-bigarm\n";
+        let node = build_node("ar", raw, None, "ar");
+        assert!(!node.unparsed.is_empty(), "expected the verbatim fallback");
+        let rendered: Vec<&str> = node.unparsed.iter().map(Text::as_str).collect();
+        assert_eq!(rendered, raw.lines().collect::<Vec<_>>(), "{rendered:?}");
+        // Named separately from the whole-document equality above so a
+        // failure says which half of the layout was lost.
+        assert!(rendered[0].starts_with(' '), "leading indent: {rendered:?}");
+        assert!(
+            rendered[2].contains("elf32-littlearm         elf32"),
+            "columns: {rendered:?}"
+        );
     }
 
     /// A structurally *plausible* parse (at least one flag/subcommand/
@@ -1359,10 +1432,7 @@ mod tests {
         let parsed =
             sections::parse_with_profile(&raw, Some(&profile::profile(Framework::GnuArgp)), None);
         assert!(parsed.subcommands.is_empty());
-        let create = parsed
-            .flags
-            .iter()
-            .find(|f| f.long.as_deref() == Some("create"));
+        let create = parsed.flags.iter().find(|f| f.long() == Some("create"));
         assert!(create.is_some(), "expected --create to still be recovered");
     }
 
@@ -1385,11 +1455,7 @@ mod tests {
         for want in ["clean", "new", "init", "add", "remove", "install"] {
             assert!(names.contains(&want), "{names:?}");
         }
-        let long_flags: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let long_flags: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         for want in ["version", "locked", "offline", "frozen", "help"] {
             assert!(long_flags.contains(&want), "{long_flags:?}");
         }
@@ -1406,11 +1472,7 @@ mod tests {
             sections::parse_with_profile(&raw, Some(&profile::profile(Framework::Argparse)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["init", "build", "run"], "{names:?}");
-        let long_flags: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let long_flags: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         assert!(long_flags.contains(&"verbose"));
         assert!(long_flags.contains(&"config"));
     }
@@ -1572,11 +1634,7 @@ mod tests {
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"build"), "{names:?}");
         assert!(names.contains(&"init"), "{names:?}");
-        let long_flags: Vec<&str> = parsed
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let long_flags: Vec<&str> = parsed.flags.iter().filter_map(|f| f.long()).collect();
         assert!(long_flags.contains(&"verbose"));
         assert!(long_flags.contains(&"help"));
     }
@@ -1623,7 +1681,7 @@ mod tests {
         let node = tier
             .extract_node(&tool, &["tar".to_string()], ATTESTED)
             .unwrap();
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
 
         // The GNU-argp assertions below only apply to *GNU* tar. macOS
         // ships bsdtar, which is a different program that happens to have
@@ -1675,7 +1733,7 @@ mod tests {
             node.detected_framework.as_deref(),
             Some(Framework::ClapV3V4.name())
         );
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
         let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
         for want in ["add", "edit", "import", "init", "query", "remove"] {
             assert!(names.contains(&want), "{names:?}");
@@ -1769,7 +1827,7 @@ mod tests {
             .extract_node(&tool, &["ip".to_string()], ATTESTED)
             .unwrap();
         assert!(
-            !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
+            !node.usage.is_empty() || node.flags().next().is_some() || !node.subcommands.is_empty(),
             "expected ip's stderr-only help to produce *something*"
         );
     }
@@ -1785,7 +1843,7 @@ mod tests {
             .extract_node(&tool, &["openssl".to_string()], ATTESTED)
             .unwrap();
         assert!(
-            !node.usage.is_empty() || !node.flags.is_empty() || !node.subcommands.is_empty(),
+            !node.usage.is_empty() || node.flags().next().is_some() || !node.subcommands.is_empty(),
             "expected openssl's stderr-only help to produce *something*"
         );
     }
@@ -1831,7 +1889,7 @@ mod tests {
             .extract_node(&tool, &["tar".to_string()], ATTESTED)
             .expect("the transcript covers the exact argv this tier sends");
         assert_eq!(node.name, "tar");
-        assert!(!node.flags.is_empty());
+        assert!(node.flags().next().is_some());
     }
 
     /// The self-similar-fan-out hazard [M-19] found live against `mandible
@@ -1941,11 +1999,7 @@ mod tests {
             child.subcommands.is_empty(),
             "preset-all genuinely has none of its own"
         );
-        let flag_names: Vec<&str> = child
-            .flags
-            .iter()
-            .filter_map(|f| f.long.as_deref())
-            .collect();
+        let flag_names: Vec<&str> = child.flags().filter_map(|f| f.long()).collect();
         assert!(
             flag_names.contains(&"force"),
             "a genuinely distinct subcommand's own flags must still parse: {flag_names:?}"
@@ -2022,12 +2076,13 @@ mod tests {
             .extract_node(&tool, &["openssl".to_string(), "cmp".to_string()], ATTESTED)
             .expect("the transcript covers the exact argv this tier sends");
 
+        let flags: Vec<_> = node.flags().collect();
         assert!(
-            !node.usage.is_empty() || !node.flags.is_empty(),
+            !node.usage.is_empty() || !flags.is_empty(),
             "expected the parser to read stderr's help-shaped document \
              instead of stdout's two diagnostic lines; got usage={:?} flags={:?}",
             node.usage,
-            node.flags
+            flags
         );
         // openssl spells its long options single-dash (`-cmd val`), so the
         // generic grammar reads them as a short flag plus a value name
@@ -2038,19 +2093,19 @@ mod tests {
         // lines contain no flag syntax whatsoever), identified by
         // descriptions that only the real document has.
         assert!(
-            node.flags.len() >= 5,
+            flags.len() >= 5,
             "expected the ~6 real flags from stderr's document, not the \
              empty parse the two stdout diagnostic lines would produce: {:?}",
-            node.flags
+            flags
         );
         assert!(
-            node.flags.iter().any(|f| f
+            flags.iter().any(|f| f
                 .description
                 .as_ref()
                 .is_some_and(|d| d.as_str().contains("CMP request to send"))),
             "expected the `-cmd` flag's real description from stderr's \
              document to have parsed: {:?}",
-            node.flags
+            flags
         );
     }
 }

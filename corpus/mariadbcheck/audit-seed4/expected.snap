@@ -1,5 +1,10 @@
 name: mariadbcheck
-description: '/usr/bin/mariadbcheck Ver 2.7.4-MariaDB Distrib 10.11.14-MariaDB, for debian-linux-gnu (aarch64) Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others. This program can be used to CHECK (-c, -m, -C), REPAIR (-r), ANALYZE (-a), or OPTIMIZE (-o) tables. Some of the options (like -e or -q) can be used at the same time. Not all options are supported by all storage engines. The options -c, -r, -a, and -o are exclusive to each other, which means that the last option will be used, if several was specified. The option -c (--check) will be used by default, if none was specified. You can change the default behavior by making a symbolic link, or copying this file somewhere with another name, the alternatives are: mysqlrepair: The default option will be -r mysqlanalyze: The default option will be -a mysqloptimize: The default option will be -o'
+description: |-
+  /usr/bin/mariadbcheck Ver 2.7.4-MariaDB Distrib 10.11.14-MariaDB, for debian-linux-gnu (aarch64) Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+  This program can be used to CHECK (-c, -m, -C), REPAIR (-r), ANALYZE (-a), or OPTIMIZE (-o) tables. Some of the options (like -e or -q) can be used at the same time. Not all options are supported by all storage engines. The options -c, -r, -a, and -o are exclusive to each other, which means that the last option will be used, if several was specified.
+
+  The option -c (--check) will be used by default, if none was specified. You can change the default behavior by making a symbolic link, or copying this file somewhere with another name, the alternatives are: mysqlrepair: The default option will be -r mysqlanalyze: The default option will be -a mysqloptimize: The default option will be -o
 usage:
 - 'Usage: /usr/bin/mariadbcheck [OPTIONS] database [tables]'
 flags:

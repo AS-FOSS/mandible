@@ -2,7 +2,7 @@ name: iptables-apply
 description: iptables-apply 1.1 -- a safer way to update iptables remotely
 usage:
 - 'Usage:'
-- iptables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}
+- '  iptables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}'
 flags:
 - short: 't'
   long: timeout

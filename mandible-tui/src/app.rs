@@ -167,15 +167,6 @@ pub struct App {
     /// fit scrolled the content off the top into blank space, and getting
     /// back required as many presses up as had gone down.
     detail_max_scroll: std::cell::Cell<usize>,
-    /// A scroll *proportion* (0.0..=1.0) carried across a raw/rendered
-    /// toggle, resolved against the next view's extent. Line offsets are
-    /// meaningless across the two renderings of one node, but the reader's
-    /// approximate place in the document is not — this is what lets `t`
-    /// flip between them for comparison without snapping to the top.
-    /// A `Cell` because the renderer (`&App`) is the first to know the new
-    /// extent; key handlers (`&mut App`) materialize it into
-    /// [`Self::detail_scroll`] before applying their own movement.
-    pending_detail_fraction: std::cell::Cell<Option<f64>>,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -190,12 +181,19 @@ pub struct App {
     /// horizontal extent worth scrolling to), which both clamps `h`/`l` to
     /// no-ops and tells the renderer not to draw the overflow affordance.
     detail_max_hscroll: std::cell::Cell<usize>,
-    /// The horizontal twin of [`Self::pending_detail_fraction`]: a scroll
-    /// proportion carried across a raw/rendered toggle, resolved against
-    /// the next view's horizontal extent. Same lifecycle: set by the
-    /// toggle, shown by [`Self::clamped_detail_hscroll`], materialized by
-    /// the first `h`/`l` press, dropped on selection change.
-    pending_detail_hfraction: std::cell::Cell<Option<f64>>,
+    /// Where each view left the detail pane, indexed by the [`Self::raw_mode`]
+    /// it belongs to (see [`view_slot`]). [`Self::detail_scroll`] and
+    /// [`Self::detail_hscroll`] hold the *showing* view's position; this
+    /// holds the other one's, so `t` is a swap rather than a computation.
+    ///
+    /// Both offsets are kept, and kept literally. Nothing is mapped, scaled
+    /// or seeded between the views: one node's parse and its `--help` text
+    /// place the same flag at unrelated coordinates, so any derived position
+    /// is a position neither view was ever showing, and a reader hopping
+    /// `t` to compare a spelling has to find their place again by hand
+    /// every time. A view nobody has scrolled yet for this node holds
+    /// `(0, 0)` and opens at the top-left.
+    saved_detail_offsets: [DetailOffsets; 2],
     /// Whether `h`/`l`/`←`/`→` scroll the detail pane horizontally instead
     /// of doing nothing there, and whether preformatted content (raw view,
     /// USAGE lines) is left unwrapped in the first place.
@@ -256,6 +254,14 @@ pub struct App {
     /// process-wide environment state (which is unsound across Rust's
     /// parallel test runner).
     pub color_enabled: bool,
+    /// What the terminal can be asked to draw, including whether the
+    /// xterm-256 palette is available for the detail pane's two rule
+    /// shades (spec §9.3). Read once at construction alongside
+    /// `color_enabled`, which is this value's `color` field — the two are
+    /// set from one [`crate::style::Palette::from_env`] call so they
+    /// cannot disagree, and both stay plain `pub` fields so tests can
+    /// choose a depth without mutating process-wide environment state.
+    pub palette: crate::style::Palette,
     /// The glyph set this terminal can actually draw, chosen once from the
     /// locale (see [`crate::glyphs`]). A plain field rather than a lookup
     /// per frame for the same reason `color_enabled` is: it cannot change
@@ -278,6 +284,23 @@ pub struct App {
     /// (`mandible/src/app_runner.rs`'s `run_review`) attaches it right
     /// after building the app for each sampled tool.
     pub review: Option<crate::app_review::ReviewOverlay>,
+}
+
+/// One view's scroll position in the detail pane: a line offset and a
+/// display-column offset, exactly as the reader left them.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+struct DetailOffsets {
+    vertical: usize,
+    horizontal: usize,
+}
+
+/// Which half of [`App::saved_detail_offsets`] a view owns.
+///
+/// A function rather than a bare `as usize` at each call site so the two
+/// views can never be indexed by two different conventions — the whole
+/// per-view memory is one bit of state read four times.
+fn view_slot(raw_mode: bool) -> usize {
+    usize::from(raw_mode)
 }
 
 /// How long a status message stays in the footer before the keybinding
@@ -337,6 +360,9 @@ impl App {
         expanded.insert(vec![root.name.clone()]);
         let mut search_index = SearchIndex::new();
         search_index.populate(&root);
+        // One read of the environment for both, so `color_enabled` and
+        // `palette.color` cannot disagree about whether color is on.
+        let palette = crate::style::Palette::from_env();
         let mut app = App {
             tool,
             root,
@@ -355,10 +381,9 @@ impl App {
             tree_viewport: 0,
             detail_scroll: 0,
             detail_max_scroll: std::cell::Cell::new(0),
-            pending_detail_fraction: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
-            pending_detail_hfraction: std::cell::Cell::new(None),
+            saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
             show_help: false,
             show_hidden: false,
@@ -367,7 +392,8 @@ impl App {
             search_index,
             search_index_stale: false,
             search_index_rebuilt_at: None,
-            color_enabled: crate::style::color_enabled_from_env(),
+            color_enabled: palette.color,
+            palette,
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
             review: None,
@@ -584,21 +610,48 @@ impl App {
     /// Move the tree selection down one row.
     pub fn move_down(&mut self) {
         self.ensure_rows_fresh();
+        let was = self.selected_path();
         if self.selected + 1 < self.rows.len() {
             self.selected += 1;
         }
-        self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
-        self.follow_selection();
+        self.settle_selection(was);
     }
 
     /// Move the tree selection up one row.
     pub fn move_up(&mut self) {
+        // `ensure_rows_fresh` for the same reason [`Self::move_down`]
+        // calls it: [`Self::settle_selection`] compares the row this key
+        // left against the row it arrived at, and a stale row list makes
+        // both sides of that comparison address the wrong node.
+        self.ensure_rows_fresh();
+        let was = self.selected_path();
         self.selected = self.selected.saturating_sub(1);
-        self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        self.settle_selection(was);
+    }
+
+    /// Finish a navigation keypress: drop the detail pane's scroll and any
+    /// flag target **only if the selection actually moved to a different
+    /// node**, then bring the new selection on screen.
+    ///
+    /// `was` is [`Self::selected_path`] read before the move. The path,
+    /// not the index, is what decides: collapsing the selected row
+    /// re-flattens the tree underneath it while the pane goes on
+    /// describing the same node, and that is not a move.
+    ///
+    /// Guarding this is the whole point. [`Self::reset_detail_scroll`]
+    /// exists for "the pane now describes a different node", but every
+    /// navigation path used to call it unconditionally, including on the
+    /// presses that go nowhere: `j` on the last row, `k` on the first,
+    /// either one on a single-node tree, a click on the row already
+    /// selected. Reading a long `FLAGS` list and pressing `j` once too
+    /// often threw the reader back to the top of a document they had
+    /// scrolled minutes into, with nothing on screen having changed to
+    /// explain it — a keypress that does nothing must do *nothing*.
+    fn settle_selection(&mut self, was: Option<Vec<String>>) {
+        if self.selected_path() != was {
+            self.selected_flag = None;
+            self.reset_detail_scroll();
+        }
         self.follow_selection();
     }
 
@@ -705,6 +758,7 @@ impl App {
     /// selection to its parent.
     pub fn collapse_or_jump_to_parent(&mut self) {
         self.ensure_rows_fresh();
+        let was = self.selected_path();
         let Some(row) = self.rows.get(self.selected).cloned() else {
             return;
         };
@@ -721,10 +775,10 @@ impl App {
                 self.selected = idx;
             }
         }
-        self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
-        self.follow_selection();
+        // Collapsing the selected row is not a move — the pane still
+        // describes the node it described a moment ago, so its scroll
+        // position still addresses something. Jumping to the parent is.
+        self.settle_selection(was);
     }
 
     /// Click/Enter/`l`/`→` shorthand: toggle expand state on the given row
@@ -752,13 +806,14 @@ impl App {
     /// row clicks).
     pub fn select_index(&mut self, idx: usize) {
         self.ensure_rows_fresh();
+        let was = self.selected_path();
         if idx < self.rows.len() {
             self.selected = idx;
         }
-        self.selected_flag = None;
-        self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
-        self.follow_selection();
+        // A click lands on the row that is already selected often enough
+        // to matter — the same rule as the arrow keys applies to it, and
+        // for the same reason (see [`Self::settle_selection`]).
+        self.settle_selection(was);
     }
 
     /// `/`: focus the search box. Pressing it again while the box is
@@ -875,59 +930,31 @@ impl App {
     ///
     /// Returns the fetch the caller must run, if the text isn't already
     /// in hand. Turning the mode *off* never needs one.
+    /// Each view keeps its own place. Leaving one stores where it was —
+    /// line and column both — and arriving at the other restores what it
+    /// stored, so `t` puts the reader back exactly where that view last
+    /// stood and movement in one view never moves the other.
+    ///
+    /// Nothing is derived across the boundary. Line 40 of a flag table is
+    /// not line 40 of the raw text, and no scaling makes it so: the
+    /// coordinates of one flag in the two renderings are unrelated, which
+    /// is precisely why the comparison needs the pane put back rather than
+    /// approximated. A view with nothing stored yet opens at the top-left,
+    /// and a stored position too deep for content that has since shrunk is
+    /// clamped when it is shown and again when it is moved
+    /// ([`Self::clamped_detail_scroll`], [`Self::detail_scroll_down`]) —
+    /// this method cannot clamp it itself, because the extent it would
+    /// clamp against is still the extent of the view being left.
     pub fn toggle_raw_mode(&mut self) -> Option<Effect> {
+        self.saved_detail_offsets[view_slot(self.raw_mode)] = DetailOffsets {
+            vertical: self.detail_scroll,
+            horizontal: self.detail_hscroll,
+        };
         self.raw_mode = !self.raw_mode;
-        // A line offset doesn't carry between two completely different
-        // renderings of the same node: line 40 of a flag table is not line
-        // 40 of the raw text. The reader's *proportional* place does —
-        // flipping `t` to compare the parse against the source shouldn't
-        // throw them back to the top — so the fraction is carried and the
-        // offset resolved once the new view's extent is known.
-        // A fraction still pending from the *previous* toggle carries
-        // through unchanged — a proportion is view-independent. Computing
-        // it fresh from `detail_scroll` here would read the zero the last
-        // toggle left behind, which is precisely the rapid `t`-`t`-`t`
-        // comparison this feature exists for.
-        let fraction = self.pending_detail_fraction.take().or_else(|| {
-            let max = self.detail_max_scroll.get();
-            (max > 0).then(|| self.detail_scroll.min(max) as f64 / max as f64)
-        });
-        self.pending_detail_fraction.set(fraction);
-        self.detail_scroll = 0;
-        // The horizontal offset carries as a proportion too. An absolute
-        // column is meaningless across the two renderings, but when the
-        // reader has scrolled into the wide part of a synopsis, the raw
-        // text's wide part is the region they are comparing against —
-        // resetting to column zero on every `t` made that comparison
-        // impossible (maintainer-reported, same failure as the vertical
-        // reset this method already fixes).
-        let hfraction = self.pending_detail_hfraction.take().or_else(|| {
-            let max = self.detail_max_hscroll.get();
-            (max > 0).then(|| self.detail_hscroll.min(max) as f64 / max as f64)
-        });
-        self.pending_detail_hfraction.set(hfraction);
-        self.detail_hscroll = 0;
+        let restored = self.saved_detail_offsets[view_slot(self.raw_mode)];
+        self.detail_scroll = restored.vertical;
+        self.detail_hscroll = restored.horizontal;
         self.raw_fetch_needed()
-    }
-
-    /// The horizontal twin of
-    /// [`Self::materialize_pending_detail_scroll`].
-    fn materialize_pending_detail_hscroll(&mut self) {
-        if let Some(fraction) = self.pending_detail_hfraction.take() {
-            let max = self.detail_max_hscroll.get();
-            self.detail_hscroll = (fraction * max as f64).round() as usize;
-        }
-    }
-
-    /// Resolve a fraction carried across a raw/rendered toggle into a line
-    /// offset for the current view, and clear it. Key handlers call this
-    /// before moving so their movement starts from where the reader sees
-    /// the pane, not from the stale offset underneath it.
-    fn materialize_pending_detail_scroll(&mut self) {
-        if let Some(fraction) = self.pending_detail_fraction.take() {
-            let max = self.detail_max_scroll.get();
-            self.detail_scroll = (fraction * max as f64).round() as usize;
-        }
     }
 
     /// The fetch required to render the current selection verbatim, if the
@@ -987,9 +1014,13 @@ impl App {
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
         self.selected_flag = None;
-        self.materialize_pending_detail_scroll();
         let max = self.detail_max_scroll.get();
-        self.detail_scroll = self.detail_scroll.saturating_add(1).min(max);
+        // Start from where the pane is actually showing, not from an offset
+        // deeper than the content it now holds — a restored position into
+        // shrunken content, or a resize that reflowed the document shorter.
+        // Without this, `↓` from such an offset would move a number nobody
+        // can see and `↑` would need as many presses to get back.
+        self.detail_scroll = self.detail_scroll.min(max).saturating_add(1).min(max);
     }
 
     /// Record how far the detail pane can scroll, from the renderer.
@@ -1004,34 +1035,35 @@ impl App {
     /// The current scroll offset, clamped to what the last frame could
     /// actually show.
     pub fn clamped_detail_scroll(&self) -> usize {
-        let max = self.detail_max_scroll.get();
-        // A fraction still pending from a raw/rendered toggle takes
-        // precedence: the extent it needs arrives from the renderer one
-        // frame after the toggle, so this is where it first takes effect
-        // on screen. It stays pending (peek, not take) until a key handler
-        // materializes it — this method takes `&self`.
-        match self.pending_detail_fraction.get() {
-            Some(fraction) => (fraction * max as f64).round() as usize,
-            None => self.detail_scroll.min(max),
-        }
+        // This clamp is where a position restored by `t` meets the target
+        // view's real extent: the renderer sets that extent immediately
+        // before reading this, so content that shrank since the position
+        // was saved lands at its own last line rather than past it.
+        self.detail_scroll.min(self.detail_max_scroll.get())
     }
 
     /// Detail pane scroll up.
     pub fn detail_scroll_up(&mut self) {
         self.selected_flag = None;
-        self.materialize_pending_detail_scroll();
-        self.detail_scroll = self.detail_scroll.saturating_sub(1);
+        // Clamped first for the same reason as [`Self::detail_scroll_down`]:
+        // one press moves one line from where the reader is looking.
+        self.detail_scroll = self
+            .detail_scroll
+            .min(self.detail_max_scroll.get())
+            .saturating_sub(1);
     }
 
-    /// Reset detail scroll — called on selection change so the pane
-    /// doesn't stay scrolled into a different node's content.
+    /// Put the detail pane back at the top-left and drop what both views
+    /// remember, so each one opens there next time it is shown.
+    ///
+    /// Called from every path that changes which node the pane is
+    /// describing. An offset into one node's document addresses nothing in
+    /// another's — neither the showing view's own place nor the other
+    /// view's stored one — so all four numbers go at once.
     pub fn reset_detail_scroll(&mut self) {
         self.detail_scroll = 0;
-        // A new node's content has no relation to the old node's place;
-        // a fraction carried across a view toggle must not survive into it.
-        self.pending_detail_fraction.set(None);
         self.detail_hscroll = 0;
-        self.pending_detail_hfraction.set(None);
+        self.saved_detail_offsets = [DetailOffsets::default(); 2];
     }
 
     /// `h`/`←`: scroll the detail pane left, when it has focus (spec §9:
@@ -1046,8 +1078,10 @@ impl App {
         if !self.horizontal_scroll_enabled {
             return;
         }
-        self.materialize_pending_detail_hscroll();
-        self.detail_hscroll = self.detail_hscroll.saturating_sub(DETAIL_HSCROLL_STEP);
+        self.detail_hscroll = self
+            .detail_hscroll
+            .min(self.detail_max_hscroll.get())
+            .saturating_sub(DETAIL_HSCROLL_STEP);
     }
 
     /// `l`/`→`: scroll the detail pane right, clamped to
@@ -1058,10 +1092,10 @@ impl App {
         if !self.horizontal_scroll_enabled {
             return;
         }
-        self.materialize_pending_detail_hscroll();
         let max = self.detail_max_hscroll.get();
         self.detail_hscroll = self
             .detail_hscroll
+            .min(max)
             .saturating_add(DETAIL_HSCROLL_STEP)
             .min(max);
     }
@@ -1080,13 +1114,7 @@ impl App {
     /// The current horizontal offset, clamped to what the last frame could
     /// actually show — same shape as [`Self::clamped_detail_scroll`].
     pub fn clamped_detail_hscroll(&self) -> usize {
-        let max = self.detail_max_hscroll.get();
-        // Peek, don't take: rendering takes `&self`; a key handler
-        // materializes it. Mirrors [`Self::clamped_detail_scroll`].
-        match self.pending_detail_hfraction.get() {
-            Some(fraction) => (fraction * max as f64).round() as usize,
-            None => self.detail_hscroll.min(max),
-        }
+        self.detail_hscroll.min(self.detail_max_hscroll.get())
     }
 
     /// Whether there is preformatted content hidden off the left edge —
@@ -1129,85 +1157,224 @@ mod tests {
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
 
-    /// The reader's proportional place survives a raw/rendered toggle:
-    /// halfway down a 200-line rendering must land halfway down a 50-line
-    /// raw text, keep showing there before any key is pressed, and a later
-    /// keypress must move from that place — while a selection change drops
-    /// the carried place entirely.
+    /// Each view owns its vertical place. `t` restores the target view's
+    /// last line exactly — not a proportion of it — and scrolling one view
+    /// leaves the other's saved line untouched. Supersedes the
+    /// proportional carry, which resolved 100/200 of the parsed view into
+    /// line 25 of a 50-line raw text: a line neither view was showing.
     #[test]
-    fn raw_toggle_keeps_proportional_scroll() {
+    fn each_view_keeps_its_own_vertical_place() {
         let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_extent(220, 20); // max 200
+        app.set_detail_extent(220, 20); // parsed: max 200
         app.detail_scroll = 100;
-        app.toggle_raw_mode();
-        // Renderer reports the raw view's extent on the next frame.
-        app.set_detail_extent(70, 20); // max 50
-        assert_eq!(app.clamped_detail_scroll(), 25);
-        app.detail_scroll_down();
-        assert_eq!(app.clamped_detail_scroll(), 26);
 
-        // Toggling back carries the place in the other direction too.
+        // First visit to the raw view starts at the top, whatever the
+        // parsed view is showing.
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20); // raw: max 50
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        app.detail_scroll_down();
+        assert_eq!(app.clamped_detail_scroll(), 1);
+
+        // Back to parsed: exactly where it was, not 1/50 of 200.
         app.toggle_raw_mode();
         app.set_detail_extent(220, 20);
-        assert_eq!(app.clamped_detail_scroll(), 104); // 26/50 of 200
+        assert_eq!(app.clamped_detail_scroll(), 100);
 
-        // A new selection has unrelated content: nothing carries.
+        // And the raw view kept its own line while parsed was showing.
         app.toggle_raw_mode();
-        app.reset_detail_scroll();
         app.set_detail_extent(70, 20);
-        assert_eq!(app.clamped_detail_scroll(), 0);
+        assert_eq!(app.clamped_detail_scroll(), 1);
     }
 
-    /// The horizontal offset survives the raw/rendered toggle the same
-    /// way the vertical one does: proportionally, through repeated
-    /// flips, materialized by the first h/l press, and dropped on a
-    /// selection change. (Maintainer-reported gap after the vertical fix
-    /// shipped alone.)
+    /// The horizontal offset is remembered per view on the same terms, and
+    /// a column scrolled in one view never appears in the other.
     #[test]
-    fn raw_toggle_keeps_proportional_horizontal_scroll() {
+    fn each_view_keeps_its_own_horizontal_place() {
         let mut app = App::new("git".to_string(), sample_tree());
         assert!(app.horizontal_scroll_enabled, "default is on");
-        app.set_detail_hextent(140, 40); // max 100
+        app.set_detail_hextent(140, 40); // parsed: max 100
         app.detail_hscroll = 50;
-        app.toggle_raw_mode();
-        app.set_detail_hextent(90, 40); // raw view: max 50
-        assert_eq!(app.clamped_detail_hscroll(), 25);
 
-        // Second toggle with no key press in between: still half-way.
+        app.toggle_raw_mode();
+        app.set_detail_hextent(90, 40); // raw: max 50
+        assert_eq!(app.clamped_detail_hscroll(), 0, "first visit starts left");
+        app.detail_hscroll_right();
+        assert_eq!(app.clamped_detail_hscroll(), DETAIL_HSCROLL_STEP);
+
         app.toggle_raw_mode();
         app.set_detail_hextent(140, 40);
         assert_eq!(app.clamped_detail_hscroll(), 50);
 
-        // A key press materializes and moves from there.
-        app.detail_hscroll_right();
-        assert_eq!(app.clamped_detail_hscroll(), 50 + DETAIL_HSCROLL_STEP);
-
-        // Selection change drops the carried place entirely.
         app.toggle_raw_mode();
-        app.reset_detail_scroll();
         app.set_detail_hextent(90, 40);
+        assert_eq!(app.clamped_detail_hscroll(), DETAIL_HSCROLL_STEP);
+    }
+
+    /// The rapid `t`-`t`-`t` comparison the key exists for: with no scroll
+    /// key pressed in between, each view keeps returning to its own place,
+    /// on both axes, for as many flips as it takes.
+    #[test]
+    fn repeated_toggles_return_each_view_to_its_own_place() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20); // parsed: max 200
+        app.set_detail_hextent(140, 40); // parsed: max 100
+        app.detail_scroll = 150;
+        app.detail_hscroll = 64;
+
+        // Give the raw view a place of its own to return to.
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20); // raw: max 50
+        app.set_detail_hextent(90, 40); // raw: max 50
+        app.detail_scroll = 38;
+        app.detail_hscroll = 24;
+
+        for _ in 0..3 {
+            app.toggle_raw_mode();
+            app.set_detail_extent(220, 20);
+            app.set_detail_hextent(140, 40);
+            assert_eq!(app.clamped_detail_scroll(), 150);
+            assert_eq!(app.clamped_detail_hscroll(), 64);
+
+            app.toggle_raw_mode();
+            app.set_detail_extent(70, 20);
+            app.set_detail_hextent(90, 40);
+            assert_eq!(app.clamped_detail_scroll(), 38);
+            assert_eq!(app.clamped_detail_hscroll(), 24);
+        }
+    }
+
+    /// Moving the tree selection puts the pane back at the top-left in
+    /// both views, not just the one on screen. Keyboard navigation used to
+    /// clear the horizontal offset and leave the vertical one pointing
+    /// into the document of the node the reader had just left, while a
+    /// mouse click on the very same row cleared both.
+    #[test]
+    fn moving_the_selection_resets_both_views() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        app.detail_scroll = 100;
+        app.detail_hscroll = 32;
+
+        app.toggle_raw_mode();
+        app.set_detail_extent(70, 20);
+        app.set_detail_hextent(90, 40);
+        app.detail_scroll = 30;
+        app.detail_hscroll = 16;
+
+        app.move_down();
+        assert_eq!(app.clamped_detail_scroll(), 0, "raw view starts at the top");
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+
+        // The parsed view has nothing stored for the new node either.
+        app.toggle_raw_mode();
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        assert_eq!(app.clamped_detail_scroll(), 0);
         assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
-    /// The rapid `t`-`t`-`t` comparison, with no scroll key pressed in
-    /// between: the place must survive every flip, not just the first.
-    /// (The first version computed the second toggle's fraction from the
-    /// zeroed offset the first toggle left behind — reset to top on the
-    /// second press, found by the maintainer in real use.)
+    /// A keypress that cannot move the selection must not move anything
+    /// else either: `k` on the first row and `j` on the last leave both
+    /// views' offsets and the flag target exactly where the reader left
+    /// them.
+    ///
+    /// Maintainer-reported. The scroll reset belongs to "the pane now
+    /// describes a different node", and every navigation path used to run
+    /// it unconditionally — so reading down a long `FLAGS` list and
+    /// pressing `j` once past the end threw the document back to the top
+    /// with nothing on screen having changed to explain why.
     #[test]
-    fn repeated_raw_toggle_without_scrolling_keeps_place() {
+    fn a_boundary_press_leaves_both_views_where_they_were() {
         let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_extent(220, 20); // rendered: max 200
-        app.detail_scroll = 150;
-        app.toggle_raw_mode();
-        app.set_detail_extent(70, 20); // raw: max 50
-        assert_eq!(app.clamped_detail_scroll(), 38); // 0.75 of 50, rounded
-        app.toggle_raw_mode();
         app.set_detail_extent(220, 20);
-        assert_eq!(app.clamped_detail_scroll(), 150);
-        app.toggle_raw_mode();
-        app.set_detail_extent(70, 20);
-        assert_eq!(app.clamped_detail_scroll(), 38);
+        app.set_detail_hextent(140, 40);
+
+        for (label, at_end) in [("first row", false), ("last row", true)] {
+            app.selected = if at_end { app.rows().len() - 1 } else { 0 };
+            app.detail_scroll = 100;
+            app.detail_hscroll = 32;
+            // Give the other view a stored place too, so a reset that
+            // wipes `saved_detail_offsets` cannot hide behind the
+            // showing view's own numbers.
+            app.toggle_raw_mode();
+            app.set_detail_extent(70, 20);
+            app.set_detail_hextent(90, 40);
+            app.detail_scroll = 30;
+            app.detail_hscroll = 16;
+            app.selected_flag = Some(mandible_core::FlagKey::Long("verbose".to_string()));
+
+            let before = app.selected;
+            if at_end {
+                app.move_down();
+            } else {
+                app.move_up();
+            }
+
+            assert_eq!(app.selected, before, "{label}: the selection cannot move");
+            assert_eq!(app.clamped_detail_scroll(), 30, "{label}: showing view");
+            assert_eq!(app.clamped_detail_hscroll(), 16, "{label}: showing view");
+            assert!(app.selected_flag.is_some(), "{label}: flag target");
+
+            // The view that was not showing kept its place as well.
+            app.toggle_raw_mode();
+            app.set_detail_extent(220, 20);
+            app.set_detail_hextent(140, 40);
+            assert_eq!(app.clamped_detail_scroll(), 100, "{label}: stored view");
+            assert_eq!(app.clamped_detail_hscroll(), 32, "{label}: stored view");
+        }
+    }
+
+    /// The other half of the same rule: a press that *does* move still
+    /// resets, so the guard cannot be satisfied by never resetting at all.
+    #[test]
+    fn a_real_move_still_resets_both_views() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 1;
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        app.detail_scroll = 100;
+        app.detail_hscroll = 32;
+        app.selected_flag = Some(mandible_core::FlagKey::Long("verbose".to_string()));
+
+        app.move_up();
+
+        assert_eq!(app.selected, 0, "this press moves");
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        assert_eq!(app.clamped_detail_hscroll(), 0);
+        assert!(app.selected_flag.is_none());
+    }
+
+    /// The same rule on the other navigation paths. A click on the row
+    /// already selected is a no-op; collapsing the selected row leaves the
+    /// pane describing the very same node, so neither disturbs the
+    /// reader's place, while jumping to the parent does.
+    #[test]
+    fn clicks_and_collapses_that_go_nowhere_leave_the_pane_alone() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.selected = 2; // rebase, which has a child to collapse
+        app.expand_selected();
+        app.ensure_rows_fresh();
+        app.set_detail_extent(220, 20);
+        app.set_detail_hextent(140, 40);
+        app.detail_scroll = 100;
+        app.detail_hscroll = 32;
+
+        app.select_index(2);
+        assert_eq!(app.clamped_detail_scroll(), 100, "click on the same row");
+        assert_eq!(app.clamped_detail_hscroll(), 32, "click on the same row");
+
+        app.collapse_or_jump_to_parent();
+        assert_eq!(app.selected_node().unwrap().name, "rebase");
+        assert_eq!(app.clamped_detail_scroll(), 100, "collapse is not a move");
+        assert_eq!(app.clamped_detail_hscroll(), 32, "collapse is not a move");
+
+        // Now the same key genuinely changes node, and resets.
+        app.collapse_or_jump_to_parent();
+        assert_eq!(app.selected_node().unwrap().name, "git");
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
     /// Drive the (real, async, `nucleo`-backed) search index until its
@@ -1353,11 +1520,11 @@ mod tests {
         // is correct and reads as a broken filter.
         let mut root = sample_tree();
         let mut autosquash =
-            mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+            mandible_core::Entity::flag_long("autosquash", Provenance::single(Source::HelpText));
         autosquash.description = Some(mandible_core::Text::sanitize(
             "Automatically squash commits",
         ));
-        root.subcommands[1].flags.push(autosquash); // rebase
+        root.subcommands[1].entities.push(autosquash); // rebase
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
@@ -1388,15 +1555,22 @@ mod tests {
     /// must drop the flag scroll target — otherwise the detail pane would
     /// keep snapping back to a flag on a command the user has since
     /// navigated away from.
+    ///
+    /// The press has to be one that genuinely moves. The filtered tree
+    /// here is two rows deep and the match puts the selection on the last
+    /// of them, so `j` cannot move at all — and a press that changes
+    /// nothing on screen leaves the target alone by design
+    /// ([`App::settle_selection`]). `k` is the move; the assertion below
+    /// that the selection changed keeps it one.
     #[test]
     fn manual_navigation_clears_the_selected_flag_target() {
         let mut root = sample_tree();
         let mut autosquash =
-            mandible_core::Flag::long("autosquash", Provenance::single(Source::HelpText));
+            mandible_core::Entity::flag_long("autosquash", Provenance::single(Source::HelpText));
         autosquash.description = Some(mandible_core::Text::sanitize(
             "Automatically squash commits",
         ));
-        root.subcommands[1].flags.push(autosquash); // rebase
+        root.subcommands[1].entities.push(autosquash); // rebase
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
@@ -1408,7 +1582,9 @@ mod tests {
         app.ensure_rows_fresh();
         assert!(app.selected_flag.is_some(), "precondition");
 
-        app.move_down();
+        let before = app.selected_path();
+        app.move_up();
+        assert_ne!(app.selected_path(), before, "the press must actually move");
         assert_eq!(app.selected_flag, None);
     }
 
@@ -1610,19 +1786,6 @@ mod tests {
             app.raw_help_for_selected(),
             Some(RawHelp::Failed(_))
         ));
-    }
-
-    /// Line 40 of a flag table is not line 40 of the raw text, so carrying
-    /// the offset across the switch lands the reader somewhere arbitrary.
-    #[test]
-    fn switching_views_resets_the_detail_scroll() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.detail_scroll = 40;
-        app.toggle_raw_mode();
-        assert_eq!(app.detail_scroll, 0);
-        app.detail_scroll = 12;
-        app.toggle_raw_mode();
-        assert_eq!(app.detail_scroll, 0);
     }
 
     #[test]
@@ -1910,23 +2073,6 @@ mod tests {
 
         app.collapse_or_jump_to_parent();
         assert_eq!(app.clamped_detail_hscroll(), 0);
-    }
-
-    /// Originally pinned a reset-to-zero on toggle; the maintainer
-    /// overruled that (the wide region being compared corresponds across
-    /// the two views), so the toggle now carries the offset
-    /// proportionally, like the vertical scroll.
-    #[test]
-    fn detail_hscroll_carries_proportionally_across_raw_mode_toggle() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.set_detail_hextent(50, 20); // max 30
-        app.detail_hscroll_right();
-        let before = app.clamped_detail_hscroll();
-        assert!(before > 0, "precondition");
-
-        app.toggle_raw_mode();
-        app.set_detail_hextent(50, 20); // same extent: same place
-        assert_eq!(app.clamped_detail_hscroll(), before);
     }
 
     #[test]

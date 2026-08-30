@@ -1,10 +1,10 @@
 name: pvscan
 usage:
-- pvscan [ -e|--exported ] [ -n|--novolumegroup ] [ -s|--short ] [ -u|--uuid ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [ COMMON_OPTIONS ]
-- pvscan --cache [ -j|--major Number ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [ --minor Number ] [ --noudevsync ] [ COMMON_OPTIONS ] [ String|PV ... ]
-- pvscan --cache -a|--activate ay [ -j|--major Number ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [ --minor Number ] [ --noudevsync ] [ --autoactivation String ] [ COMMON_OPTIONS ] [ String|PV ... ]
-- pvscan --cache --listvg PV [ --ignorelockingfailure ] [ --checkcomplete ] [ --vgonline ] [ --udevoutput ] [ --autoactivation String ] [ COMMON_OPTIONS ]
-- pvscan --cache --listlvs PV [ --ignorelockingfailure ] [ --checkcomplete ] [ --vgonline ] [ COMMON_OPTIONS ]
+- pvscan [ -e|--exported ] [ -n|--novolumegroup ] [ -s|--short ] [ -u|--uuid ] [    --ignorelockingfailure ] [    --reportformat basic|json ] [ COMMON_OPTIONS ]
+- pvscan --cache [ -j|--major Number ] [    --ignorelockingfailure ] [    --reportformat basic|json ] [    --minor Number ] [    --noudevsync ] [ COMMON_OPTIONS ] [ String|PV ... ]
+- pvscan --cache -a|--activate ay [ -j|--major Number ] [    --ignorelockingfailure ] [    --reportformat basic|json ] [    --minor Number ] [    --noudevsync ] [    --autoactivation String ] [ COMMON_OPTIONS ] [ String|PV ... ]
+- pvscan --cache --listvg PV [    --ignorelockingfailure ] [    --checkcomplete ] [    --vgonline ] [    --udevoutput ] [    --autoactivation String ] [ COMMON_OPTIONS ]
+- pvscan --cache --listlvs PV [    --ignorelockingfailure ] [    --checkcomplete ] [    --vgonline ] [ COMMON_OPTIONS ]
 - pvscan --listlvs PV [ COMMON_OPTIONS ]
 - pvscan --listvg PV [ COMMON_OPTIONS ]
 positionals:

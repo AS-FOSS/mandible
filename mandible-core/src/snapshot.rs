@@ -10,7 +10,7 @@
 //!
 //! # Why this is a *separate* serialization from `CommandNode`'s own derive
 //!
-//! `CommandNode` (and `Flag`, `Positional`, `Provenance`, ...) already derive
+//! `CommandNode` (and `Entity`, `Provenance`, ...) already derive
 //! `Serialize`/`Deserialize` for round-tripping — e.g. the `Transcript`
 //! replay seam (`mandible-extract/src/exec/probe.rs`). That derive is
 //! full-fidelity by design: every field, every `None`, every empty `Vec`,
@@ -64,7 +64,7 @@
 //! alphabetical order occasionally costs.
 //!
 //! **There is nothing else to normalize.** Every field `CommandNode` (and
-//! `Flag`, `Positional`, `Example`, `Provenance`) exposes already reaches
+//! `Entity`, `Example`, `Provenance`) exposes already reaches
 //! serialization through a `Vec`/`SmallVec` in source order — an audit of
 //! `mandible-core` and the extraction pipeline in `mandible-extract` found
 //! no `HashMap`/`HashSet` whose iteration order reaches an emitted
@@ -74,7 +74,8 @@
 //! strip — elapsed time lives on `mandible-extract::ExtractionResult`, one
 //! layer above the IR this module snapshots, so it never reaches here.
 
-use crate::node::{CommandNode, Example, Flag, Positional, ValueKind};
+use crate::entity::Entity;
+use crate::node::{CommandNode, Example, ValueKind};
 use crate::provenance::{Provenance, Source};
 use serde::Serialize;
 
@@ -139,9 +140,10 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
-/// Snapshot form of [`Flag`]. Field order matches `Flag`'s own declaration;
-/// every `Option`/`Vec` field is omitted when empty, every `bool` field is
-/// omitted when `false`.
+/// Snapshot form of a flag [`Entity`]. Field order matches the pre-0.5.0
+/// `Flag`'s own declaration, and must keep matching it —
+/// see the `From` impl below. Every `Option`/`Vec` field is omitted when
+/// empty, every `bool` field is omitted when `false`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FlagSnapshot {
     /// Short spelling, e.g. `'i'` for `-i`.
@@ -199,31 +201,46 @@ pub struct FlagSnapshot {
     pub provenance: ProvenanceSnapshot,
 }
 
-impl From<&Flag> for FlagSnapshot {
-    fn from(f: &Flag) -> Self {
+impl From<&Entity> for FlagSnapshot {
+    /// **The field layout is frozen, deliberately.** This struct's shape,
+    /// field order and `skip_serializing_if` rules are what 105 committed
+    /// `expected.snap` fixtures are written in, so it stays the pre-0.5.0
+    /// `Flag`'s shape even though the IR behind it is now [`Entity`]: the
+    /// four spelling keys are recovered through `Entity`'s accessors
+    /// (`short`/`long`/`negatable`/`single_dash`, pinned against the old
+    /// `Flag` fields by `entity.rs`'s parity tests) rather than read from
+    /// stored fields.
+    ///
+    /// Rendering `spellings` as a list here would be the honest 0.5.0
+    /// shape and would move every fixture at once, which is exactly what
+    /// the migration's success condition forbids — a snapshot diff must
+    /// mean a *parse* changed. The reshape belongs with the stage that
+    /// actually emits multi-spelling entities.
+    fn from(e: &Entity) -> Self {
         FlagSnapshot {
-            short: f.short,
-            long: f.long.clone(),
-            value_name: f.value_name.clone(),
-            value_kind: f.value_kind,
-            choices: f.choices.iter().map(|t| t.as_str().to_string()).collect(),
-            repeatable: f.repeatable,
-            required: f.required,
-            negatable: f.negatable,
-            single_dash: f.single_dash,
-            hidden: f.hidden,
-            deprecated: f.deprecated.as_ref().map(|t| t.as_str().to_string()),
-            inherited: f.inherited,
-            group: f.group.clone(),
-            description: f.description.as_ref().map(|t| t.as_str().to_string()),
-            default: f.default.as_ref().map(|t| t.as_str().to_string()),
-            env_var: f.env_var.clone(),
-            provenance: ProvenanceSnapshot::from(&f.provenance),
+            short: e.short(),
+            long: e.long().map(str::to_string),
+            value_name: e.value_name.clone(),
+            value_kind: e.value_kind,
+            choices: e.choices.iter().map(|t| t.as_str().to_string()).collect(),
+            repeatable: e.repeatable,
+            required: e.required,
+            negatable: e.negatable(),
+            single_dash: e.single_dash(),
+            hidden: e.hidden,
+            deprecated: e.deprecated.as_ref().map(|t| t.as_str().to_string()),
+            inherited: e.inherited,
+            group: e.group.clone(),
+            description: e.description.as_ref().map(|t| t.as_str().to_string()),
+            default: e.default.as_ref().map(|t| t.as_str().to_string()),
+            env_var: e.env_var.clone(),
+            provenance: ProvenanceSnapshot::from(&e.provenance),
         }
     }
 }
 
-/// Snapshot form of [`Positional`].
+/// Snapshot form of a positional [`Entity`]. Like [`FlagSnapshot`], its
+/// field layout is frozen in the pre-0.5.0 `Positional`'s shape.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PositionalSnapshot {
     /// The argument's name as shown in usage, e.g. `"pathspec"`.
@@ -241,14 +258,20 @@ pub struct PositionalSnapshot {
     pub provenance: ProvenanceSnapshot,
 }
 
-impl From<&Positional> for PositionalSnapshot {
-    fn from(p: &Positional) -> Self {
+impl From<&Entity> for PositionalSnapshot {
+    /// **The field layout is frozen, deliberately** — the same rule
+    /// [`FlagSnapshot`]'s own conversion states, for the same reason. The
+    /// `name` key is the entity's single dashless spelling and `variadic`
+    /// is [`Entity::repeatable`], both pinned against the pre-0.5.0
+    /// `Positional`'s fields by `entity.rs`'s parity tests — including one
+    /// that rebuilds this very struct from that type and compares.
+    fn from(e: &Entity) -> Self {
         PositionalSnapshot {
-            name: p.name.clone(),
-            required: p.required,
-            variadic: p.variadic,
-            description: p.description.as_ref().map(|t| t.as_str().to_string()),
-            provenance: ProvenanceSnapshot::from(&p.provenance),
+            name: e.primary_name().to_string(),
+            required: e.required,
+            variadic: e.repeatable,
+            description: e.description.as_ref().map(|t| t.as_str().to_string()),
+            provenance: ProvenanceSnapshot::from(&e.provenance),
         }
     }
 }
@@ -386,8 +409,11 @@ impl From<&CommandNode> for NodeSnapshot {
             summary: n.summary.as_ref().map(|t| t.as_str().to_string()),
             description: n.description.as_ref().map(|t| t.as_str().to_string()),
             usage: n.usage.iter().map(|t| t.as_str().to_string()).collect(),
-            positionals: n.positionals.iter().map(PositionalSnapshot::from).collect(),
-            flags: n.flags.iter().map(FlagSnapshot::from).collect(),
+            // Partitioned out of the one kind-tagged vector (spec §4.5),
+            // each kind keeping the document order it was stored in — the
+            // two sections the frozen format has always had.
+            positionals: n.positionals().map(PositionalSnapshot::from).collect(),
+            flags: n.flags().map(FlagSnapshot::from).collect(),
             examples: n.examples.iter().map(ExampleSnapshot::from).collect(),
             group: n.group.clone(),
             deprecated: n.deprecated.as_ref().map(|t| t.as_str().to_string()),
@@ -419,7 +445,7 @@ mod tests {
             Provenance::with_confidence(Source::HelpText, confidence),
         );
         n.summary = Some(Text::sanitize("does a thing"));
-        n.flags.push(Flag::long(
+        n.entities.push(Entity::flag_long(
             "verbose",
             Provenance::with_confidence(Source::HelpText, confidence),
         ));
@@ -520,8 +546,8 @@ mod tests {
 
         let mut commit = CommandNode::new("commit", Provenance::single(Source::HelpText));
         commit.summary = Some(Text::sanitize("Record changes to the repository"));
-        commit.flags.push({
-            let mut f = Flag::long("amend", Provenance::single(Source::HelpText));
+        commit.entities.push({
+            let mut f = Entity::flag_long("amend", Provenance::single(Source::HelpText));
             f.description = Some(Text::sanitize("amend the previous commit"));
             f
         });

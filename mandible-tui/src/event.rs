@@ -146,8 +146,11 @@ fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) -> Option<
                     let path = app.rows()[idx].path.clone();
                     return app.toggle_expand_path(&path).map(Effect::Fill);
                 } else {
+                    // `select_index` resets the detail pane itself, and
+                    // only when the click actually landed on a different
+                    // row. A second unconditional reset here would undo
+                    // that guard for the mouse alone.
                     app.select_index(idx);
-                    app.reset_detail_scroll();
                 }
             }
             return None;
@@ -368,5 +371,45 @@ mod tests {
         );
         a.ensure_rows_fresh();
         assert_eq!(a.rows().len(), 2, "clicking again should re-expand");
+    }
+
+    /// Clicking the row that is already selected changes nothing, so it
+    /// must not move the detail pane either — the same rule `j`/`k` follow
+    /// (`App::settle_selection`).
+    ///
+    /// This lives at the event layer rather than beside the `App` tests
+    /// because the defect it guards was here: `handle_click` called
+    /// `reset_detail_scroll` itself, immediately after `select_index` had
+    /// already decided not to. A guard on `select_index` alone cannot see
+    /// a second reset stacked on top of it.
+    #[test]
+    fn clicking_the_row_already_selected_does_not_move_the_detail_pane() {
+        let mut a = app();
+        a.ensure_rows_fresh();
+        a.set_detail_extent(220, 20);
+        a.set_detail_hextent(140, 40);
+        a.detail_scroll = 100;
+        for _ in 0..4 {
+            a.detail_hscroll_right();
+        }
+        assert_eq!(a.clamped_detail_hscroll(), 32, "precondition");
+        assert_eq!(a.selected, 0);
+
+        let regions = layout::compute(ratatui::layout::Rect::new(0, 0, 100, 30), Focus::Tree);
+        let tree_rect = regions.tree.unwrap();
+        handle_mouse(
+            &mut a,
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: tree_rect.x + 6, // past the chevron: a row click
+                row: tree_rect.y + 1,    // the root, already selected
+                modifiers: KeyModifiers::NONE,
+            },
+            &regions,
+        );
+
+        assert_eq!(a.selected, 0, "the click landed on the selected row");
+        assert_eq!(a.clamped_detail_scroll(), 100);
+        assert_eq!(a.clamped_detail_hscroll(), 32);
     }
 }
