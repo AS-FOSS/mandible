@@ -1147,7 +1147,7 @@ damage a user's machine, and it gets its own section and its own tests.
    refused anyway, since `foo` naming a real process is exactly the risk).
    The gate also inherits whatever a grammar's own heading-recognition gets
    wrong — `heading_attested` is only as trustworthy as the rules in
-   `help_text/sections.rs` that set it, and those have needed several fixes
+   `help_text/sections/` that set it, and those have needed several fixes
    (AGENTS.md §2's invariant table records more than one) — while this list
    is closed on a fact about the program itself, independent of any parser.
    Belt and suspenders, on two different axes.
@@ -2879,7 +2879,7 @@ asserted in the abstract:
    as one.
 
 Rule 3 is not scoped to the corpus gate — it applies to any wall-clock
-assertion in the test suite. `mandible-extract/src/help_text/sections.rs`'s
+assertion in the test suite. `mandible-extract/src/help_text/sections/mod.rs`'s
 `repeated_identical_banner_does_not_explode_into_duplicate_subcommands`
 (20,000 repetitions of a banner, guarding the same O(n²)-on-repetitive-input
 class this module's `MAX_RECOVERED_ENTRIES` cap exists for) false-failed
@@ -4471,9 +4471,9 @@ any of these as current.
   fabricating from. It depresses no metric, because a node with zero flags
   has no described-ratio to report at all — the scoreboard prints `—` and
   the tool is excluded from the aggregate rather than counted against it. So
-  every precision tightening in `sections.rs` (the apt-get prose rule, the
-  mysqlslap same-indent rule, the curl usage-continuation rule) could pay
-  for itself in recall elsewhere on `PATH` and nothing would say so.
+  every precision tightening in `help_text/sections/` (the apt-get prose
+  rule, the mysqlslap same-indent rule, the curl usage-continuation rule)
+  could pay for itself in recall elsewhere on `PATH` and nothing would say so.
   §13.1's own lesson applies to its own gate set: a metric a failure mode
   can slip past is worse than no metric.
 

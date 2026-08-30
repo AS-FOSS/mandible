@@ -36,7 +36,7 @@
 //! It would be cheaper to ask `help_text::sections` which lines it thought
 //! were entries and subtract. That instrument would be blind by
 //! construction: the parser's largest known omission class is **rule 1**
-//! (`sections.rs`'s doc comment) — a bare-word block under a heading that
+//! (`sections/mod.rs`'s doc comment) — a bare-word block under a heading that
 //! never says the word "command" is dropped wholesale — and a residue
 //! check built on the parser's own notion of "this was an entry line"
 //! would agree with the parser that those lines were never entries. The
@@ -401,7 +401,7 @@ impl Vocabulary {
                 }
             }
             // A bare-word block the parser attached to a flag as its
-            // enumerated choices (`sections.rs` rule 4) was *consumed* —
+            // enumerated choices (`sections/mod.rs` rule 4) was *consumed* —
             // counting those rows as residue would report the rule working
             // as if it had failed.
             for choice in &flag.choices {
@@ -495,7 +495,7 @@ pub fn analyze(raw: &str, root: &CommandNode) -> ResidueReport {
             .filter_map(|(k, l)| classify(l, start + k + 1, &root.name, leading))
             .collect();
 
-        // Rule 2 of `sections.rs`, rediscovered independently and applied
+        // Rule 2 of `sections/mod.rs`, rediscovered independently and applied
         // only where it is actually needed: a name row deeper than its
         // block's name column is a wrapped description continuation, not a
         // new entry. Flag rows need no such guard — a wrapped description
@@ -1020,7 +1020,7 @@ mod tests {
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
 
-    /// `sections.rs` rule 4 routes an unrecognized bare-word block under a
+    /// `sections/mod.rs` rule 4 routes an unrecognized bare-word block under a
     /// flag into that flag's `choices`. Those rows were consumed; counting
     /// them as residue would report a working rule as a failure.
     #[test]

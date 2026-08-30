@@ -108,11 +108,11 @@ fn count_describable_flags(node: &CommandNode) -> usize {
 
 /// Flags with a description. A flag is only ever given a description when
 /// its source is describable (`push_usage_flag` never sets one, and the
-/// duplicate-dropping rule in `sections.rs` means a synopsis-only spelling
-/// never acquires one via merge either), so this is already implicitly a
-/// subset of [`count_describable_flags`] — no extra filter needed here for
-/// [`ExtractionResult::flag_description_ratio`]'s numerator to stay
-/// consistent with its denominator.
+/// duplicate-dropping rule in `sections/usage.rs` means a synopsis-only
+/// spelling never acquires one via merge either), so this is already
+/// implicitly a subset of [`count_describable_flags`] — no extra filter
+/// needed here for [`ExtractionResult::flag_description_ratio`]'s numerator
+/// to stay consistent with its denominator.
 fn count_described_flags(node: &CommandNode) -> usize {
     node.flags().filter(|f| f.description.is_some()).count()
         + node

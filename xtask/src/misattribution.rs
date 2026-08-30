@@ -1065,7 +1065,7 @@ mod tests {
     /// all-uppercase *name* with a deliberately mixed-case bracketed
     /// decoration) directly against the imported function, so a future
     /// change to the shared definition that breaks this shape fails here
-    /// too, not just in `sections.rs`'s own suite.
+    /// too, not just in `sections/layout.rs`'s own suite.
     #[test]
     fn is_value_placeholder_only_is_the_imported_extractor_definition() {
         assert!(is_value_placeholder_only("BLOCKSIZE[bskKmMgGtTpPeEzZyY]"));
@@ -1083,11 +1083,11 @@ mod tests {
     }
 
     /// `MIN_COLUMN_RECURRENCE` used to be two independent `const` items (one
-    /// here, one in `sections.rs`) that happened to both read `3` — nothing
-    /// enforced they stayed equal. Now there is exactly one, imported; this
-    /// pins the value so a change to the shared threshold is visible (and
-    /// reviewable) from this module's own test suite, not only from
-    /// `sections.rs`'s.
+    /// here, one in `sections/layout.rs`) that happened to both read `3` —
+    /// nothing enforced they stayed equal. Now there is exactly one,
+    /// imported; this pins the value so a change to the shared threshold is
+    /// visible (and reviewable) from this module's own test suite, not only
+    /// from `sections/layout.rs`'s.
     #[test]
     fn min_column_recurrence_is_the_single_shared_threshold() {
         assert_eq!(MIN_COLUMN_RECURRENCE, 3);
