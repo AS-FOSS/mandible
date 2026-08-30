@@ -129,13 +129,16 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         Axis::Structural,
     );
 
-    // The first contributor that carries one wins, not the highest
-    // structural authority: only tree assembly sets this (spec §5.4), and
-    // it is never in competition with a tier's account of the same node —
-    // a fill merges the discovered node with what the tool's binary said
-    // about itself, and the tier's candidate always carries `None`. Picking
-    // by authority would therefore let the tier's `None` erase the
-    // redirect, which is the one field a probe of this node depends on.
+    // Any contributor that carries one wins — the same "a merge can only
+    // add evidence, never take it away" reasoning `heading_attested` uses
+    // below, and for a field a probe of this node depends on. Only tree
+    // assembly sets it (spec §5.4), so at most one candidate ever has it:
+    // the discovered stub, merged on every fill against a tier's account of
+    // the binary itself, which is silent about it rather than in
+    // competition with it. `pick_option` would land on the same value (it
+    // skips `None`), by way of an authority comparison with nothing to
+    // compare — the stub carries no source at all, so it scores 0 on both
+    // axes — which reads as a contest this field never has.
     let discovered_binary = candidates.iter().find_map(|c| c.discovered_binary.clone());
 
     let structural_winner_idx =
@@ -711,6 +714,36 @@ mod tests {
         b.children_filled = true;
         let merged = merge_nodes(vec![a, b]).unwrap();
         assert!(merged.children_filled);
+    }
+
+    /// Spec §5.4: the discovered stub is merged against the tier's account
+    /// of the binary on every fill, and the redirect has to survive that —
+    /// it is what the *next* probe of this node is aimed at, so losing it
+    /// would send the following fill to the parent with a guessed word.
+    #[test]
+    fn a_discovered_binary_survives_a_merge_with_a_tier_that_has_none() {
+        let mut stub = CommandNode::new("clippy", Provenance::default());
+        stub.discovered_binary = Some("cargo-clippy".to_string());
+        let mut from_tier = node_from(Source::HelpText, "clippy");
+        from_tier.summary = Some(Text::sanitize("Checks a package"));
+
+        let merged = merge_nodes(vec![stub, from_tier]).unwrap();
+
+        assert_eq!(merged.discovered_binary.as_deref(), Some("cargo-clippy"));
+        assert_eq!(merged.summary.unwrap().as_str(), "Checks a package");
+    }
+
+    /// And an ordinary node never acquires one.
+    #[test]
+    fn merging_two_tier_nodes_leaves_no_discovered_binary() {
+        let a = node_from(Source::HelpText, "rebase");
+        let b = node_from(
+            Source::KnownSpec {
+                provider: "carapace".to_string(),
+            },
+            "rebase",
+        );
+        assert!(merge_nodes(vec![a, b]).unwrap().discovered_binary.is_none());
     }
 
     #[test]

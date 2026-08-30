@@ -48,18 +48,8 @@ fn main() -> anyhow::Result<()> {
     };
     let tool = tool.to_string();
 
-    // A subcommand path addresses one node of one tool's tree, which is a
-    // thing only the TUI has. `--doctor`/`--report` describe a whole tool,
-    // so extra words there are a request nothing can honour — said plainly
-    // rather than ignored, since a silently dropped argument reads as a
-    // report about `cargo clippy` that is really about `cargo`.
-    if !cli.subcommand.is_empty() && (cli.doctor.is_some() || cli.report.is_some()) {
-        anyhow::bail!(
-            "--doctor and --report take a tool name only; drop {:?} or run \
-             `mandible {tool} {}` for the interactive tree",
-            cli.subcommand.join(" "),
-            cli.subcommand.join(" "),
-        );
+    if let Some(refusal) = cli.subcommand_path_conflict() {
+        anyhow::bail!(refusal);
     }
 
     // `mandible mandible` shows the about screen rather than extracting

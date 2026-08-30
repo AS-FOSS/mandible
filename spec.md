@@ -700,9 +700,10 @@ as `cargo-clippy` at `["clippy", "fix"]`. The expand path and the raw view
 (`t`) use the same redirect, so the pane shows the document the tree was
 built from and names the argv that produced it. `CommandNode::
 discovered_binary` carries this on the node (`None` for everything a tier
-produces); merge keeps the first contributor that has one, since the tier
-candidate a fill merges against always has `None` and would otherwise erase
-the redirect, and the snapshot format omits it when absent.
+produces); merge keeps any contributor that has one — a merge can only add
+evidence, and the tier candidate a fill merges against is silent about this
+rather than in competition with it — and the snapshot format omits it when
+absent, so no fixture moves.
 
 **The node is marked unverified, and stays marked.** A filename is evidence
 about the filesystem and a guess about the tool: cargo really does dispatch
