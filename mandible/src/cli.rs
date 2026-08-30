@@ -1,5 +1,6 @@
 //! Command-line argument parsing.
 
+use crate::shell_init::ShellInit;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -44,6 +45,31 @@ pub struct Cli {
     /// ~/.zfunc/_mandible`).
     #[arg(long, value_name = "SHELL")]
     pub completions: Option<clap_complete::Shell>,
+
+    /// Browse as usual, but make `Enter` print the selected command (plus
+    /// the selected flag, if search landed on one) to stdout and exit,
+    /// instead of expanding the row. The TUI itself draws on stderr, so
+    /// stdout carries the composed line and nothing else — which is what
+    /// lets a shell binding put it on the prompt, ready to edit:
+    /// `mandible --shell-init bash` prints one.
+    ///
+    /// Nothing is printed if you quit instead (`q`, `Ctrl-C`), so the
+    /// binding leaves the line alone. `→`/`l` still expand.
+    #[arg(long, conflicts_with_all = ["doctor", "report", "review", "completions", "shell_init"])]
+    pub print_selection: bool,
+
+    /// Print the shell integration for SHELL (`bash` or `zsh`) to stdout
+    /// and exit: a widget that opens `mandible --print-selection` on the
+    /// word already on your command line and replaces the line with what
+    /// you select. Add `eval "$(mandible --shell-init bash)"` to your
+    /// shell's rc file.
+    ///
+    /// Emitted by the binary rather than installed as a file, for the same
+    /// reason `--completions` is (spec §15): one generator, so no packaging
+    /// channel can ship a snippet that disagrees with the flags this
+    /// version has.
+    #[arg(long, value_name = "SHELL")]
+    pub shell_init: Option<ShellInit>,
 
     /// Review `<dir>/<SEED>.toml`'s pending entries (`xtask audit sample`'s
     /// output) one at a time, inside the real TUI: each tool opens exactly

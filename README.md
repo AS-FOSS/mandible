@@ -205,6 +205,25 @@ Search has two modes: `names` matches command names literally; `everything`
 searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
 the first, pressing it again switches to the second.
 
+### Onto the prompt
+
+`y` gets a spelling as far as the clipboard. To land it on the command line
+instead, add the shell integration:
+
+```console
+$ eval "$(mandible --shell-init bash)"   # or: zsh — in your ~/.bashrc, ~/.zshrc
+```
+
+Now type a tool name, press `Ctrl-X m`, browse, and press `Enter`: the command
+you selected — `git commit --amend`, say — replaces the line, ready to edit.
+Quit with `q` and the line is left exactly as it was.
+
+The binding is a few lines of shell around `mandible --print-selection <tool>`,
+which browses as usual but makes `Enter` print the selection instead of
+expanding the row (the UI draws on stderr, so stdout carries just that one
+line). Bind it to a different key, or wrap it in your own widget, by reading
+what `--shell-init` prints.
+
 ### Diagnostics
 
 ```console

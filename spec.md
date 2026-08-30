@@ -133,7 +133,7 @@ users actually need — the tree is for structure, search is for flags.
 | Key | Action |
 |---|---|
 | `↑`/`↓`, `k`/`j` | Move tree selection |
-| `→`/`Enter`/`l` | Expand (triggers lazy extraction if the subtree is unfilled) |
+| `→`/`Enter`/`l` | Expand (triggers lazy extraction if the subtree is unfilled). `Enter` accepts instead under `--print-selection`, below |
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
 | `/` | Focus search |
 | `Esc` | Leave search, **keeping** the filter pinned; `Esc` again clears it |
@@ -166,6 +166,38 @@ staleness argument that removed the cache (§11). Rule 0 of §6 applies unchange
 `pkill --help` is shown, because that shape is measured harmless, but an
 interactive request does not widen what may be run — `pkill something --help`
 stays refused here exactly as it is in the extraction pipeline.
+
+**Handing the command over: `--print-selection`.** The journey `y` serves ends
+at the prompt, and the clipboard is one paste short of it. `mandible
+--print-selection <tool>` browses identically, except that `Enter` **accepts**:
+it prints the selected node's full command path — plus the selected flag's
+spelling, when search landed on one — to stdout, and exits. `→`/`l` still
+expand, so nothing becomes unreachable; `q`/`Ctrl-C` still quit, printing
+nothing at all, which is what leaves a shell binding's line untouched. Without
+the flag `Enter` is one of the three expand keys, unchanged.
+
+A TUI cannot type into the shell that launched it, so the shell reads the line
+back through a command substitution and puts it on its own prompt. That is what
+requires stdout to carry the composed line **and nothing else**, which in turn
+is a property of the whole program rather than of the renderer: the UI draws on
+**stderr** in this mode, and everything else that touches the terminal — the
+OSC-52 clipboard fallback, and the "is anything a terminal at the other end"
+half of the color check — is asked of the same stream the UI is drawn on
+(`mandible-tui`'s `terminal::Sink`). A stray escape sequence on stdout here is
+not a cosmetic defect; it is a corrupted command on someone's prompt.
+
+The spelling composed is the long one where the tool documents one, else the
+short letter, and always the affirmative form — `--color`, never the
+un-runnable `--[no-]color`, which documents two spellings rather than being one.
+No value placeholder is appended: the line is handed over to be *edited*, and a
+literal `FILE` in it is worse than a flag left unfinished.
+
+`mandible --shell-init bash|zsh` prints the binding that closes the loop: for
+bash a `bind -x` function assigning `READLINE_LINE`/`READLINE_POINT`, for zsh a
+zle widget assigning `BUFFER`/`CURSOR`, both on `Ctrl-X m` — readline's own
+extension prefix, which takes no key either shell had already bound. It reads
+the first word already on the line as the tool to open, and replaces the line
+with what comes back.
 
 ---
 
@@ -3966,7 +3998,8 @@ spec.md            This document
 .github/workflows/ ci.yml (fmt, clippy -D warnings, test, coverage-harness diff),
                    release.yml (tagged cross-platform binaries)
 xtask/             coverage harness, vendoring, packaging
-packaging/         debian/, rpm/, mandible.1 (man page for mandible itself)
+packaging/         debian/, rpm/, shell/ (the --shell-init snippets),
+                   mandible.1 (man page for mandible itself)
 ```
 
 **Cargo metadata.** Every crate carries `description`, `license`, `repository`,
@@ -3990,6 +4023,16 @@ the relationship clear.
   Fedora, where `vendor-completions` is. Every channel generates them from the
   built binary's own `--completions <shell>`, so there is one generator and no
   packaging path that can install a file the shell will not find.
+- The shell integration (§2's `--print-selection` binding) ships the same way
+  and is installed to no path at all: `mandible --shell-init <shell>` prints it,
+  from a snippet in `packaging/shell/` compiled into the binary, and the user
+  opts in with `eval "$(mandible --shell-init bash)"` in their rc file. The
+  one-generator rule applies for the same reason it does to completions — a
+  snippet that names flags the installed binary does not have is worse than no
+  snippet — but the *install* half does not: no shell auto-loads a key binding
+  the way it auto-loads completions, and a package that bound `Ctrl-X m` for
+  every user of a machine would be taking a key nobody asked it to. So every
+  channel is consistent by construction, because none of them install a file.
 - `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
 

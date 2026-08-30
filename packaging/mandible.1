@@ -18,6 +18,14 @@ mandible \- a universal, interactive TUI reference for CLI tools
 .I SHELL
 .br
 .B mandible
+.B \-\-print\-selection
+.I TOOL
+.br
+.B mandible
+.B \-\-shell\-init
+.I SHELL
+.br
+.B mandible
 .RB [ \-h | \-\-help ]
 .RB [ \-V | \-\-version ]
 .SH DESCRIPTION
@@ -37,7 +45,9 @@ never executes
 itself, and never runs the command you're looking up. Its job ends the
 moment you have found the right flag and can copy its exact spelling
 with
-.BR y .
+.BR y ,
+or hand the composed command to your shell to edit with
+.BR \-\-print\-selection .
 .PP
 Structure and descriptions are assembled from whichever of several
 extraction tiers apply to
@@ -103,6 +113,42 @@ mandible \-\-completions zsh > ~/.zfunc/_mandible
 .fi
 .RE
 .TP
+.B \-\-print\-selection
+Browse as usual, but make
+.B Enter
+print the selected command \(em plus the selected flag, when search
+landed on one \(em to stdout and exit, instead of expanding the row.
+The TUI draws on stderr in this mode, so stdout carries the composed
+line and nothing else, which is what lets a shell put it on the prompt
+ready to edit. Quitting with
+.B q
+or
+.B Ctrl\-C
+prints nothing, leaving the line alone.
+.B Right arrow
+and
+.B l
+still expand.
+.TP
+.B \-\-shell\-init \fISHELL\fR
+Print the shell integration for
+.I SHELL
+.RB ( bash
+or
+.BR zsh )
+to stdout and exit: a widget that opens
+.B \-\-print\-selection
+on the word already on your command line and replaces the line with
+what you select, bound to
+.BR "Ctrl\-X m" .
+Add it to your shell's rc file:
+.RS
+.PP
+.nf
+eval "$(mandible \-\-shell\-init bash)"
+.fi
+.RE
+.TP
 .B \-h\fR,\fB \-\-help
 Print help and exit.
 .TP
@@ -117,6 +163,10 @@ Move the tree selection.
 .TP
 .BR "Right arrow" ", " Enter ", " l
 Expand the selected node (extracting its children on first expand).
+Under
+.BR \-\-print\-selection ,
+.B Enter
+prints the selection and exits instead; the other two still expand.
 .TP
 .BR "Left arrow" ", " h
 Collapse the selected node, or jump to its parent if already collapsed.

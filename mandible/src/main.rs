@@ -11,9 +11,11 @@ mod discovery;
 mod doctor;
 mod pipeline;
 mod report;
+mod shell_init;
 
 use clap::{CommandFactory, Parser};
 use cli::Cli;
+use mandible_tui::terminal::Sink;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -31,8 +33,13 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if let Some(shell) = cli.shell_init {
+        print!("{}", shell.snippet());
+        return Ok(());
+    }
+
     if let Some(seed) = cli.review {
-        if !mandible_tui::terminal::stdout_is_tty() {
+        if !Sink::Stdout.is_tty() {
             anyhow::bail!(
                 "mandible --review requires an interactive terminal (stdout is not a tty)."
             );
@@ -56,7 +63,16 @@ fn main() -> anyhow::Result<()> {
     // the binary's own `--help`. Self-introspection is still available
     // through `mandible --doctor mandible`, which runs the real pipeline
     // against it — the form anyone actually wants for that purpose.
-    if cli.doctor.is_none() && cli.report.is_none() && tool == env!("CARGO_PKG_NAME") {
+    //
+    // Not under `--print-selection`, where stdout belongs to the calling
+    // shell: an easter egg printed there would be handed to the user as a
+    // command to run. In that mode mandible is a tool like any other, and
+    // browsing it composes `mandible` like browsing any other name does.
+    if cli.doctor.is_none()
+        && cli.report.is_none()
+        && !cli.print_selection
+        && tool == env!("CARGO_PKG_NAME")
+    {
         about::print();
         return Ok(());
     }
@@ -98,9 +114,29 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    if !mandible_tui::terminal::stdout_is_tty() {
+    // Which stream the UI is drawn on, decided once here and carried
+    // everywhere that touches the terminal (`mandible_tui::terminal::Sink`).
+    // Under `--print-selection` stdout is the calling shell's, so the UI
+    // moves to stderr and stdout carries the composed command and nothing
+    // else.
+    let sink = if cli.print_selection {
+        Sink::Stderr
+    } else {
+        Sink::Stdout
+    };
+
+    if !sink.is_tty() {
+        let stream = sink.name();
+        if cli.print_selection {
+            anyhow::bail!(
+                "mandible --print-selection draws on stderr, and {stream} is not a tty. \
+                 Run it with stderr attached to your terminal — \
+                 `sel=$(mandible --print-selection {tool})` does that, and \
+                 `mandible --shell-init bash` prints a binding that does it for you."
+            );
+        }
         anyhow::bail!(
-            "mandible requires an interactive terminal (stdout is not a tty). \
+            "mandible requires an interactive terminal ({stream} is not a tty). \
              Try running it directly in a terminal, or use `mandible --doctor {tool}` \
              for a non-interactive report."
         );
@@ -124,11 +160,12 @@ fn main() -> anyhow::Result<()> {
         );
     }
     let stub = mandible_core::CommandNode::new(tool.clone(), mandible_core::Provenance::default());
-    let mut app = app_runner::new_app(tool, stub);
+    let mut app = app_runner::new_app(tool, stub, sink);
+    app.print_selection = cli.print_selection;
     // Held as an intent rather than acted on: the tree is a bare stub until
     // the background root fill lands, so there is nothing to select yet
     // (spec §5.2 step 1, §5.4).
     app.requested_path = cli.requested_path();
 
-    app_runner::run(app)
+    app_runner::run(app, sink)
 }

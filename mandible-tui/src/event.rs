@@ -50,6 +50,17 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
 fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Esc => app.escape_search(),
+        // In `--print-selection` mode Enter accepts from the search box
+        // too, because that is where the flag journey ends: type part of a
+        // flag's name, the top hit selects its parent command and points
+        // the detail pane at the flag, and Enter hands the composed line
+        // back to the shell. Making it mean "move focus to the tree" there
+        // would put a second Enter between the user and the thing they came
+        // for. `Esc` still moves focus out while keeping the filter, which
+        // is what anyone who wanted the other meaning is reaching for.
+        KeyCode::Enter if app.print_selection => {
+            return app.selection_command().map(Effect::PrintSelection)
+        }
         KeyCode::Enter => app.focus = Focus::Tree,
         KeyCode::Backspace => app.search_backspace(),
         // Arrows move the (filtered) tree selection without leaving the
@@ -75,6 +86,15 @@ fn handle_tree_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
+        // `--print-selection` only: Enter accepts the selection and quits.
+        // Guarded rather than folded into the arm below so that with the
+        // mode off this function is byte-for-byte the one that shipped —
+        // `→`, `Enter` and `l` all expand, exactly as spec §2's table says.
+        // Expansion keeps both its other keys in the mode, so nothing
+        // becomes unreachable.
+        KeyCode::Enter if app.print_selection => {
+            return app.selection_command().map(Effect::PrintSelection)
+        }
         KeyCode::Right | KeyCode::Enter | KeyCode::Char('l') => {
             return app.expand_selected().map(Effect::Fill)
         }
@@ -294,6 +314,80 @@ mod tests {
         );
         handle_key(&mut a, key(KeyCode::Char('h')));
         assert_eq!(a.clamped_detail_hscroll(), 0, "h should scroll back left");
+    }
+
+    /// The hard requirement on `--print-selection`: with the mode off,
+    /// `Enter` is still one of the three expand keys, indistinguishable
+    /// from `→` and `l` (spec §2's interaction table).
+    ///
+    /// Asserted as an equality between the three effects rather than as
+    /// "Enter returns Fill", because the mode was added by putting a
+    /// guarded arm *in front of* the shared one, and the way that goes
+    /// wrong is the guard admitting a default session.
+    #[test]
+    fn enter_still_expands_when_print_selection_is_off() {
+        let by_key = |code| {
+            let mut a = app();
+            handle_key(&mut a, key(code))
+        };
+        let expected = Some(Effect::Fill(vec!["git".to_string()]));
+        assert_eq!(by_key(KeyCode::Enter), expected);
+        assert_eq!(by_key(KeyCode::Right), expected);
+        assert_eq!(by_key(KeyCode::Char('l')), expected);
+    }
+
+    /// With the mode on, `Enter` composes the selection instead — and
+    /// `→`/`l` keep expanding, so nothing becomes unreachable.
+    #[test]
+    fn enter_prints_the_selection_when_the_mode_is_on() {
+        let mut a = app();
+        a.print_selection = true;
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Enter)),
+            Some(Effect::PrintSelection("git".to_string()))
+        );
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Right)),
+            Some(Effect::Fill(vec!["git".to_string()]))
+        );
+    }
+
+    /// The end of the flag journey: search puts the tree on the flag's
+    /// parent command and remembers the flag (`App`'s own tests cover that
+    /// half), and `Enter` accepts from inside the search box — without the
+    /// detour through the tree an ordinary session takes, since that would
+    /// put a second `Enter` between the user and the thing they came for.
+    #[test]
+    fn enter_accepts_from_the_search_box_and_composes_the_flag() {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        let mut commit = CommandNode::new("commit", Provenance::single(Source::HelpText));
+        commit.entities.push(mandible_core::Entity::flag_long(
+            "amend",
+            Provenance::single(Source::HelpText),
+        ));
+        root.subcommands.push(commit);
+        let mut a = App::new("git".to_string(), root);
+        a.print_selection = true;
+        a.ensure_rows_fresh();
+        a.select_index(1); // "commit"
+        a.selected_flag = Some(mandible_core::FlagKey::Long("amend".to_string()));
+
+        a.focus_search();
+        assert_eq!(a.focus, Focus::Search);
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Enter)),
+            Some(Effect::PrintSelection("git commit --amend".to_string()))
+        );
+    }
+
+    /// …and with the mode off, that same `Enter` still just moves focus to
+    /// the tree, producing no effect at all.
+    #[test]
+    fn enter_in_the_search_box_still_moves_focus_by_default() {
+        let mut a = app();
+        a.focus_search();
+        assert_eq!(handle_key(&mut a, key(KeyCode::Enter)), None);
+        assert_eq!(a.focus, Focus::Tree);
     }
 
     #[test]

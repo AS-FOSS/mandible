@@ -51,6 +51,25 @@ enum LoopExit {
     /// `app.review.is_some()`; [`run`]'s plain single-tool path never sees
     /// this variant since it never attaches a review overlay.
     ReviewSubmit(ReviewSubmission),
+    /// `Enter` accepted a selection under `--print-selection`. Carries the
+    /// composed command line, which [`run`] prints on stdout *after* the
+    /// terminal is restored. Only ever produced when
+    /// `app.print_selection` is set, which nothing but `main` sets.
+    PrintSelection(String),
+}
+
+/// What [`apply_effect`] decided the event loop should do next.
+///
+/// It replaced a bare `bool` when a second reason to leave the loop
+/// appeared: `false` could only ever mean "quit", so a new exit had to
+/// carry its payload some other way — and the other way is a field
+/// somewhere that the three call sites would each have to remember to
+/// read.
+enum Control {
+    /// Keep polling.
+    Continue,
+    /// Leave the loop for this reason.
+    Exit(LoopExit),
 }
 
 /// Build an `App` for `tool`, with settings resolved from the user's
@@ -72,19 +91,37 @@ enum LoopExit {
 /// tool inside `mandible --review` ([`run_review_loop`]) — both go through
 /// this instead of `App::new` directly, so the config is never forgotten on
 /// either path.
-pub fn new_app(tool: String, stub: mandible_core::CommandNode) -> App {
+///
+/// `sink` is the stream the UI will be drawn on, which is also what
+/// decides whether there is a terminal at the other end to color for — see
+/// [`mandible_tui::style::Palette::for_sink`]. It is the composition
+/// root's to know for the same reason `config.toml` is.
+pub fn new_app(tool: String, stub: mandible_core::CommandNode, sink: terminal::Sink) -> App {
     let mut app = App::new(tool, stub);
     app.horizontal_scroll_enabled = mandible_core::config::load().ui.horizontal_scroll;
+    app.set_palette(mandible_tui::style::Palette::for_sink(sink));
     app
 }
 
 /// Run the interactive TUI for `app` until the user quits. Always restores
 /// the terminal on the way out, even if the loop returns an error.
-pub fn run(mut app: App) -> anyhow::Result<()> {
-    let mut term = terminal::init().context("failed to initialize the terminal")?;
-    let result = run_loop(&mut term, &mut app).map(|_| ());
-    let restore_result = terminal::restore().context("failed to restore the terminal");
-    result.and(restore_result)
+pub fn run(mut app: App, sink: terminal::Sink) -> anyhow::Result<()> {
+    let mut term = terminal::init(sink).context("failed to initialize the terminal")?;
+    let result = run_loop(&mut term, &mut app, sink);
+    let restore_result = terminal::restore(sink).context("failed to restore the terminal");
+    // The loop's own error wins over the restore's, as it did when this
+    // was one `result.and(restore_result)` — but the restore has already
+    // run either way, which is the part that matters.
+    let exit = result?;
+    restore_result?;
+    // Printed after the terminal is restored, never before: under
+    // `--print-selection` this is the one line the calling shell reads,
+    // and writing it while the alternate screen is still up interleaves it
+    // with the teardown sequences on their way to the *other* stream.
+    if let LoopExit::PrintSelection(line) = exit {
+        println!("{line}");
+    }
+    Ok(())
 }
 
 /// `mandible --review <seed>`: walk `<dir>/<seed>.toml`'s pending entries in
@@ -110,9 +147,11 @@ pub fn run_review(dir: &Path, seed: u64) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut term = terminal::init().context("failed to initialize the terminal")?;
+    let mut term =
+        terminal::init(terminal::Sink::Stdout).context("failed to initialize the terminal")?;
     let result = run_review_loop(&mut term, dir, seed);
-    let restore_result = terminal::restore().context("failed to restore the terminal");
+    let restore_result =
+        terminal::restore(terminal::Sink::Stdout).context("failed to restore the terminal");
     result.and(restore_result)
 }
 
@@ -149,11 +188,17 @@ fn run_review_loop(term: &mut terminal::Term, dir: &Path, seed: u64) -> anyhow::
             entry.tool.clone(),
             mandible_core::Provenance::default(),
         );
-        let mut app = new_app(entry.tool.clone(), stub);
+        let mut app = new_app(entry.tool.clone(), stub, terminal::Sink::Stdout);
         app.review = Some(review_overlay_for(&entry, remaining, total));
 
-        match run_loop(term, &mut app)? {
+        match run_loop(term, &mut app, terminal::Sink::Stdout)? {
             LoopExit::Quit => break,
+            // `--review` never turns `print_selection` on, so `Enter` is
+            // the verdict key there and never the accept key. Ending the
+            // session is the honest response to a variant this path
+            // cannot produce, rather than an `unreachable!` on a state
+            // one field change away from being reachable.
+            LoopExit::PrintSelection(_) => break,
             LoopExit::ReviewSubmit(submission) => {
                 apply_submission(&path, &mut manifest, idx, submission)?;
             }
@@ -223,7 +268,11 @@ fn record_skip(
     audit::save(path, manifest)
 }
 
-fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit> {
+fn run_loop(
+    term: &mut terminal::Term,
+    app: &mut App,
+    sink: terminal::Sink,
+) -> anyhow::Result<LoopExit> {
     let runner = Arc::new(Runner::new(default_tiers()));
     let resolved = resolve_tool(&app.tool);
     let warmer = Warmer::new();
@@ -335,9 +384,11 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit
                 }
                 if !claimed {
                     if let Some(effect) = tui_event::handle_key(app, key) {
-                        if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+                        if let Control::Exit(exit) =
+                            apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                        {
                             warmer.cancel();
-                            return Ok(LoopExit::Quit);
+                            return Ok(exit);
                         }
                     }
                 }
@@ -347,9 +398,11 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit
                 let area = ratatui::layout::Rect::new(0, 0, size.width, size.height);
                 let regions = layout::compute(area, app.focus);
                 if let Some(effect) = tui_event::handle_mouse(app, mouse, &regions) {
-                    if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+                    if let Control::Exit(exit) =
+                        apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                    {
                         warmer.cancel();
-                        return Ok(LoopExit::Quit);
+                        return Ok(exit);
                     }
                 }
             }
@@ -370,27 +423,37 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit
         // map lookup that returns `None` unless the mode is on and this
         // node is genuinely unfetched.
         if let Some(effect) = app.raw_fetch_needed() {
-            if !apply_effect(app, effect, &runner, &resolved, &warmer) {
+            if let Control::Exit(exit) =
+                apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+            {
                 warmer.cancel();
-                return Ok(LoopExit::Quit);
+                return Ok(exit);
             }
         }
     }
 }
 
-/// Apply an [`Effect`] produced by the event layer. Returns `false` if the
-/// app should quit.
+/// Apply an [`Effect`] produced by the event layer, saying whether the
+/// loop should keep going.
 fn apply_effect(
     app: &mut App,
     effect: Effect,
     runner: &Arc<Runner>,
     resolved: &mandible_extract::ResolvedTool,
     warmer: &Warmer,
-) -> bool {
+    sink: terminal::Sink,
+) -> Control {
     match effect {
-        Effect::Quit => return false,
+        Effect::Quit => return Control::Exit(LoopExit::Quit),
+        // The composed line is carried out of the loop rather than printed
+        // here: the terminal is still in raw mode and on the alternate
+        // screen at this point, and `run` prints it once both are undone.
+        Effect::PrintSelection(line) => return Control::Exit(LoopExit::PrintSelection(line)),
         Effect::Copy(text) => {
-            let status = match clipboard::copy(&text) {
+            // To `sink`, not to stdout: the OSC-52 fallback writes an
+            // escape sequence, and under `--print-selection` stdout is the
+            // line the calling shell will run.
+            let status = match clipboard::copy(&text, sink) {
                 Ok(()) => format!("copied: {text}"),
                 Err(_) => format!("copy failed (clipboard unavailable): {text}"),
             };
@@ -476,7 +539,7 @@ fn apply_effect(
             app.set_raw_help(path, result);
         }
     }
-    true
+    Control::Continue
 }
 
 /// Queue the root for a background fill, which is what starts the cascade
@@ -565,7 +628,7 @@ mod tests {
             "App::new must never read config.toml itself"
         );
 
-        let wired = new_app("git".to_string(), stub());
+        let wired = new_app("git".to_string(), stub(), terminal::Sink::Stdout);
         assert!(
             !wired.horizontal_scroll_enabled,
             "new_app must apply the real config.toml"
@@ -582,7 +645,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::env::set_var(CONFIG_DIR_ENV, dir.path());
 
-        let app = new_app("git".to_string(), stub());
+        let app = new_app("git".to_string(), stub(), terminal::Sink::Stdout);
         assert!(app.horizontal_scroll_enabled);
 
         std::env::remove_var(CONFIG_DIR_ENV);

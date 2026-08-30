@@ -99,13 +99,29 @@ impl Spelling {
     /// The user-visible form: dashes, then `[no-]` if negatable, then the
     /// name — exactly the reconstruction the pre-0.5.0 `Flag::spelling` performed.
     pub fn render(&self) -> String {
-        let dashes = match self.dashes {
+        let no = if self.negatable { "[no-]" } else { "" };
+        format!("{}{no}{}", self.dash_prefix(), self.name)
+    }
+
+    /// The form a user types: dashes and the name, with no `[no-]`
+    /// notation.
+    ///
+    /// [`Spelling::render`] is documentation — `--[no-]color` is how the
+    /// tool *describes* two spellings on one row, and it is not one of
+    /// them. Anything handing a spelling to a shell (spec §2's
+    /// `--print-selection`) needs the affirmative form, which is what this
+    /// returns; a reader who wants the negation types the `no-` themselves,
+    /// exactly as they would have read it off the row.
+    pub fn typed(&self) -> String {
+        format!("{}{}", self.dash_prefix(), self.name)
+    }
+
+    fn dash_prefix(&self) -> &'static str {
+        match self.dashes {
             Dashes::None => "",
             Dashes::Single => "-",
             Dashes::Double => "--",
-        };
-        let no = if self.negatable { "[no-]" } else { "" };
-        format!("{dashes}{no}{}", self.name)
+        }
     }
 }
 
@@ -358,6 +374,30 @@ impl Entity {
             }
         }
         spelling
+    }
+
+    /// The single spelling to put on a command line for this entity: the
+    /// long-like one when the tool documents one, otherwise the short
+    /// letter. `None` for an entity that is not a flag, and for a flag with
+    /// no spellings at all.
+    ///
+    /// The preference is the same one [`Entity::key`] already applies for
+    /// identity, and for the same reason: the long spelling is the one that
+    /// still reads as itself in someone's shell history a week later.
+    /// Rendered through [`Spelling::typed`], so a negatable flag composes as
+    /// `--color`, never as the un-runnable `--[no-]color`.
+    ///
+    /// No value placeholder is appended. A flag that takes one composes as
+    /// the bare flag, and the value is the user's to type — spec §2's
+    /// `--print-selection` hands over a line to *edit*, and inventing
+    /// `--output FILE` on it would put a literal `FILE` in their history.
+    pub fn shell_spelling(&self) -> Option<String> {
+        if !matches!(self.kind, EntityKind::Flag) {
+            return None;
+        }
+        self.long_spelling()
+            .or_else(|| self.short_spelling())
+            .map(Spelling::typed)
     }
 
     /// The canonical identity key for cross-source matching, with the same
@@ -749,6 +789,74 @@ mod tests {
         assert_eq!(e.spelling(), "-h, -?, -help, --help");
         // The long-like spelling wins the identity key.
         assert_eq!(e.key(), Some(FlagKey::Long("help".into())));
+    }
+
+    /// `shell_spelling` prefers the long-like spelling, falls back to the
+    /// short letter, and never emits the `[no-]` notation — the three rules
+    /// spec §2's `--print-selection` composes a command line from.
+    #[test]
+    fn shell_spelling_prefers_long_and_drops_the_no_notation() {
+        let both = Entity::flag_spelled(
+            Some('i'),
+            Some("interactive".into()),
+            false,
+            false,
+            Provenance::default(),
+        );
+        assert_eq!(both.shell_spelling().as_deref(), Some("--interactive"));
+
+        let short_only = Entity::flag_short('x', Provenance::default());
+        assert_eq!(short_only.shell_spelling().as_deref(), Some("-x"));
+
+        // A single-dash long keeps its one dash: `-help`, not `--help`.
+        let single = Entity::flag_spelled(
+            None,
+            Some("help".into()),
+            true,
+            false,
+            Provenance::default(),
+        );
+        assert_eq!(single.shell_spelling().as_deref(), Some("-help"));
+
+        // `--[no-]color` documents two spellings; only the affirmative one
+        // can be typed, and `spelling()` keeps showing the documentation.
+        let negatable = Entity::flag_spelled(
+            None,
+            Some("color".into()),
+            false,
+            true,
+            Provenance::default(),
+        );
+        assert_eq!(negatable.spelling(), "--[no-]color");
+        assert_eq!(negatable.shell_spelling().as_deref(), Some("--color"));
+    }
+
+    /// A value placeholder stays out of the composed spelling: the line is
+    /// handed over to be edited, and a literal `FILE` in it is worse than
+    /// nothing.
+    #[test]
+    fn shell_spelling_omits_the_value_placeholder() {
+        let mut e = Entity::flag_long("output", Provenance::default());
+        e.value_name = Some("FILE".into());
+        e.value_kind = ValueKind::Required;
+        assert_eq!(e.spelling(), "--output FILE");
+        assert_eq!(e.shell_spelling().as_deref(), Some("--output"));
+    }
+
+    /// Only flags compose. A positional's spelling is a placeholder name
+    /// (`pathspec`), and appending it to a command line would put that
+    /// literal word on the user's prompt.
+    #[test]
+    fn shell_spelling_is_none_for_non_flags() {
+        let p = Entity::positional("pathspec", Provenance::default());
+        assert_eq!(p.shell_spelling(), None);
+
+        let mut m = Entity::new(EntityKind::Modifier, Provenance::default());
+        m.spellings = vec![Spelling::bare("d")];
+        assert_eq!(m.shell_spelling(), None);
+
+        let empty = Entity::new(EntityKind::Flag, Provenance::default());
+        assert_eq!(empty.shell_spelling(), None);
     }
 
     #[test]
