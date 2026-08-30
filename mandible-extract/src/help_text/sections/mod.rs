@@ -53,6 +53,12 @@ use mandible_core::{
     ValueKind,
 };
 
+#[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
+use test_support::*;
+
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
 /// approaches this — `git` has ~170 top-level subcommands, `tar` 171
@@ -9203,24 +9209,6 @@ mod tests {
         assert!(parsed.flags.iter().all(|f| f.long() != Some("all-groups")));
     }
 
-    fn flag_named(parsed: &ParsedHelp, long: &str) -> Entity {
-        parsed
-            .flags
-            .iter()
-            .find(|f| f.long() == Some(long))
-            .unwrap_or_else(|| {
-                panic!(
-                    "no flag long=={long:?} in {:?}",
-                    parsed
-                        .flags
-                        .iter()
-                        .map(|f| f.spelling())
-                        .collect::<Vec<_>>()
-                )
-            })
-            .clone()
-    }
-
     #[test]
     fn bpftraces_repeated_character_flags_become_single_dash_long_options() {
         let parsed = parse(BPFTRACE_TROUBLESHOOTING);
@@ -9866,27 +9854,6 @@ mod tests {
         // letter with a shouting argument glued on.
         assert!(!token_is_uniformly_lowercase("-oOUTFILE"));
     }
-
-    // These two captures live once, as the corpus regression fixtures
-    // (`corpus/tar/1.35/help.txt`, `corpus/git/2.43.0/help.txt` — see
-    // corpus/README.md), rather than a byte-identical second copy under
-    // this crate's own `tests/fixtures/`.
-    const TAR_HELP: &str = include_str!("../../../../corpus/tar/1.35/help.txt");
-    const GIT_HELP: &str = include_str!("../../../../corpus/git/2.43.0/help.txt");
-    const LSOF_HELP: &str = include_str!("../../../../corpus/lsof/4.95.0/help.stderr.txt");
-    const UNZIP_HELP: &str = include_str!("../../../../corpus/unzip/6.00/help.txt");
-    const ZOXIDE_HELP: &str = include_str!("../../../../corpus/zoxide/0.9.9/help.txt");
-
-    const OPENSSL_HELP: &str =
-        include_str!("../../../tests/fixtures/help_text/openssl_help.stderr");
-    const IP_HELP: &str = include_str!("../../../tests/fixtures/help_text/ip_help.stderr");
-    const DD_HELP: &str = include_str!("../../../tests/fixtures/help_text/dd_help.stdout");
-    const LESS_HELP: &str = include_str!("../../../tests/fixtures/help_text/less_help.stdout");
-    const SED_HELP: &str = include_str!("../../../tests/fixtures/help_text/sed_help.stdout");
-    const FIND_HELP: &str = include_str!("../../../tests/fixtures/help_text/find_help.stdout");
-    const CURL_HELP: &str = include_str!("../../../tests/fixtures/help_text/curl_help.stdout");
-    const APT_GET_HELP: &str =
-        include_str!("../../../tests/fixtures/help_text/apt_get_help.stdout");
 
     /// Regression for [M-10], found by reading the real TUI rather than a
     /// green test suite: `apt-get --help` gained the subcommands *"and"*,
