@@ -16,6 +16,7 @@ mod shell_init;
 use clap::{CommandFactory, Parser};
 use cli::Cli;
 use mandible_tui::terminal::Sink;
+use std::io::Write;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -48,10 +49,23 @@ fn main() -> anyhow::Result<()> {
     }
 
     let Some(tool) = cli.target_tool() else {
-        anyhow::bail!(
-            "usage: mandible <tool>  (or: mandible --doctor <tool>, mandible --report <tool>, \
-             mandible --review <seed>)"
-        );
+        // A program whose whole job is showing people help answers a bare
+        // invocation with help, not with a one-line usage string: clap has
+        // already generated the real thing, listing every mode this
+        // paragraph would otherwise have to keep in sync by hand.
+        //
+        // On stderr, and exiting non-zero, because this *is* the error
+        // path — `-h`/`--help` remain the ways to ask for help on stdout,
+        // and nothing that reads mandible's stdout (a shell binding, a
+        // pipe) is handed a screen of text it did not ask for.
+        //
+        // The short line below is what carries the failing exit, since
+        // `std::process::exit` is confined to `mandible-extract/src/exec/`
+        // workspace-wide (see the `--doctor` note further down). It says
+        // only what is missing; the help above it says everything else.
+        let mut cmd = Cli::command();
+        write!(std::io::stderr(), "{}", cmd.render_help())?;
+        anyhow::bail!("no tool given");
     };
     let tool = tool.to_string();
 
