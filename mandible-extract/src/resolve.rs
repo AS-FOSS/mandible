@@ -69,9 +69,13 @@ pub fn discover_path_siblings(parent: &str) -> Vec<PathSibling> {
 /// tests use, so they never have to mutate the process-global `PATH` (which
 /// the test harness runs in parallel threads and cannot serialize).
 pub fn discover_path_siblings_in(dirs: &[PathBuf], parent: &str) -> Vec<PathSibling> {
-    // A tool the user spelled as a path (`mandible ./scripts/tool.py`) has
-    // no `PATH` neighbourhood to look in, and joining a prefix containing a
-    // separator would search a directory nobody named.
+    // Neither of these has a `PATH` neighbourhood to look in. The empty
+    // check is the one that changes an answer: the prefix would collapse to
+    // a bare `-`, and every `-foo` on `PATH` would read as a subcommand of
+    // nothing. A tool the user spelled as a path (`mandible
+    // ./scripts/tool.py`) can never match — a directory entry's file name
+    // holds no separator — so that half only skips a scan whose result is
+    // already known.
     if parent.is_empty() || parent.contains(std::path::MAIN_SEPARATOR) {
         return Vec::new();
     }
@@ -321,11 +325,18 @@ mod tests {
         assert_eq!(names, vec!["aaa", "mmm", "zzz"]);
     }
 
-    /// A tool spelled as a path has no `PATH` neighbourhood, and the prefix
-    /// join would search a directory nobody named.
+    /// A parent with no `PATH` neighbourhood finds nothing in it.
+    ///
+    /// The empty spelling is the half that can go wrong: its prefix
+    /// collapses to a bare `-`, and every `-foo` on `PATH` would read as a
+    /// subcommand of nothing. A path-spelled tool is asserted alongside it
+    /// because that is the case the early return is *written* for, even
+    /// though a directory entry's file name can never contain a separator.
+    #[cfg(unix)]
     #[test]
-    fn a_path_spelled_tool_has_no_siblings() {
-        let dir = tempfile::TempDir::new().unwrap();
+    fn a_parent_with_no_neighbourhood_matches_nothing() {
+        let dir = sibling_dir(&["-foo", "tool-real"], &[]);
+        assert!(discover_path_siblings_in(&[dir.path().to_path_buf()], "").is_empty());
         assert!(discover_path_siblings_in(
             &[dir.path().to_path_buf()],
             &format!(
@@ -335,7 +346,6 @@ mod tests {
             )
         )
         .is_empty());
-        assert!(discover_path_siblings_in(&[dir.path().to_path_buf()], "").is_empty());
     }
 
     /// A `libexec`-shaped directory on `PATH` must not hand the background
