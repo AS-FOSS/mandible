@@ -35,10 +35,15 @@ must_contain_flags = [
 #       -f, --field, -x, --extract, -X, --vextract, --ctrl-tarfile, --fsys-tarfile
 #     on archives (type dpkg-deb --help).
 #
-# Every spelling on it belongs to `dpkg-deb`, and the sentence says so.
-# The dash-led continuation row was mined as an options block, so these
-# names appeared as dpkg's own flags with the rest of the sentence as
-# their description.
+# That is running prose, not an options table, and it is not this
+# document's statement of dpkg's own options — it points the reader at
+# `dpkg-deb --help` for them. Mining it produced exactly one row,
+# `-f, --field`, undescribed, under a section divider made from the
+# sentence's first half: the shape of the source line decided which of
+# the seven spellings survived, which is what makes it fabrication
+# rather than recovery. Containment refuses the whole sentence; these
+# entries assert the parsed tree carries none of it (a claim about the
+# tree, never about the raw capture — corpus/README.md).
 must_not_contain_flags = [
     "--ctrl-tarfile",
     "--extract",
