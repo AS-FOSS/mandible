@@ -1166,7 +1166,11 @@ fn parse_body(
             i = end;
             if packed {
                 let seen = entries.len();
-                emit_packed_flags(None, entries, &mut result);
+                emit_packed_flags(
+                    None,
+                    entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
+                    &mut result,
+                );
                 total_entries += seen;
                 clean_entries += seen;
             } else {
@@ -1614,7 +1618,11 @@ fn parse_body(
                 .or_else(|| meaningful_flag_group(heading));
             if packed {
                 let seen = entries.len();
-                emit_packed_flags(group, entries, &mut result);
+                emit_packed_flags(
+                    group,
+                    entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
+                    &mut result,
+                );
                 total_entries += seen;
                 clean_entries += seen;
             } else {

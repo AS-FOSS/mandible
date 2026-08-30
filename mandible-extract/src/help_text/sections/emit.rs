@@ -6,12 +6,12 @@ use super::*;
 
 pub(super) fn emit_flags(
     group: Option<String>,
-    entries: Vec<(String, String)>,
+    entries: Vec<FlagRowEntry>,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let mut seen = 0usize;
     let mut clean = 0usize;
-    for (spec_text, desc_text) in entries {
+    for (spec_text, desc_text, choice_names) in entries {
         if out.flags.len() >= MAX_RECOVERED_ENTRIES {
             break;
         }
@@ -36,6 +36,12 @@ pub(super) fn emit_flags(
         flag.value_kind = spec.value_kind;
         flag.group = group.clone();
         flag.description = non_empty_text(&desc_text);
+        // `llvm-ar`'s own `=default`/`=gnu`/… sub-rows, nested directly
+        // under this flag's own row — see `choices_sub_row_value`'s doc
+        // comment. Per-value descriptions have no home in the IR and are
+        // dropped; only the bare value names survive, into the same
+        // `choices` field clap's `[possible values: …]` already fills.
+        flag.choices = choice_names.into_iter().map(|c| Text::sanitize(&c)).collect();
         out.flags.push(flag);
     }
     (seen, clean)

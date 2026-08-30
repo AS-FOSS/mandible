@@ -533,11 +533,89 @@ pub(super) enum FlagsBlockRow<'a> {
     Continuation(&'a str),
 }
 
+/// One recovered flag-table row: its spec text, its description, and any
+/// enumerated values nested directly under it (`llvm-ar`'s own `=default`/
+/// `=gnu`/… sub-rows under `--format` — see [`choices_sub_row_value`]).
+/// Kept as a named alias rather than a bare tuple purely so the three
+/// positions don't have to be remembered at every call site.
+pub(super) type FlagRowEntry = (String, String, Vec<String>);
+
+/// True when `trimmed` is an "argfile" row — `jmod`'s `@<filename>`,
+/// `llvm-ar`'s and `ar`'s `@<file>` — the GNU-family convention for "read
+/// more options from this file", spelled as an `@` immediately followed by
+/// a bracketed placeholder and nothing else in that same token.
+///
+/// This is neither a flag (no `-` prefix — [`looks_like_flag_start`]
+/// already refuses it) nor prose continuing the entry above it, and
+/// [`scan_flags_block`] must never fold it into either. Before this guard,
+/// jmod's own copy of this row corrupted `--version`'s description
+/// (`"Version information @<filename> Read options from the specified
+/// file"`) whenever an earlier row in the same block (jmod's own
+/// `Option`/`Description` header-underline row — see
+/// [`super::super::grammar::looks_like_flag_start`]'s dash-run guard) had
+/// pulled the block's minimum entry indent down far enough that an
+/// ordinary same-indent flag row started reading as "indented past the
+/// block's own entries" and therefore as a continuation.
+///
+/// Recognized structurally, never by tool name — any tool documenting a
+/// response-file convention this way hits the same guard. `ar`'s and
+/// `llvm-ar`'s own `@<file>` rows already happen not to corrupt anything
+/// today (the block ends at that row for unrelated reasons — see
+/// `flags_block_start`'s own doc comment for `ar`'s case), so this guard is
+/// a no-op for them and a real fix for jmod's.
+pub(super) fn looks_like_argfile_row(trimmed: &str) -> bool {
+    let Some(first) = trimmed.split_whitespace().next() else {
+        return false;
+    };
+    let Some(rest) = first.strip_prefix('@') else {
+        return false;
+    };
+    rest.len() > 2 && rest.starts_with('<') && rest.ends_with('>')
+}
+
+/// True when `spec`'s own text still carries an unclosed `<...>`
+/// placeholder — more `<` than `>` — meaning a wrapped continuation line
+/// below it may still belong to the placeholder itself rather than to the
+/// description.
+pub(super) fn placeholder_left_open(spec: &str) -> bool {
+    spec.matches('<').count() > spec.matches('>').count()
+}
+
+/// True when `trimmed` is `llvm-ar`'s own enumerated-value sub-row shape —
+/// `=default            -   default`, `=gnu            -   gnu` — nested
+/// directly under a flag row (`--format`) to name one of that flag's
+/// possible values, spec's own `Entity::choices` field (the same field
+/// clap's `[possible values: …]` already fills for a different tier).
+/// Returns the bare value name (`"default"`) when the row matches, `None`
+/// otherwise.
+///
+/// Two conditions, both required, so an ordinary wrapped-prose continuation
+/// line is never mistaken for this: the row opens with `=` immediately
+/// followed by a bare word (letters, digits, `-`, `_` — no whitespace, no
+/// other punctuation), and a real column/dash separator
+/// ([`find_description_gap`]) follows it before whatever description text
+/// comes next. The `=`-prefixed shape is rare enough on its own — measured
+/// against every captured `--help` document in this fleet, `llvm-ar` is the
+/// *only* tool that ever opens a continuation line this way — that neither
+/// condition needs to be looser to stay safe, and both keep the check from
+/// ever firing on an ordinary sentence that happens to start with `=`.
+pub(super) fn choices_sub_row_value(trimmed: &str) -> Option<&str> {
+    let rest = trimmed.strip_prefix('=')?;
+    let end = rest
+        .find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
+        .unwrap_or(rest.len());
+    if end == 0 {
+        return None;
+    }
+    find_description_gap(trimmed)?;
+    Some(&rest[..end])
+}
+
 pub(super) fn scan_flags_block<'a>(
     lines: &[&'a str],
     start: usize,
     heading_is_bnf: bool,
-) -> (usize, Vec<(String, String)>, bool) {
+) -> (usize, Vec<FlagRowEntry>, bool) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
@@ -552,6 +630,18 @@ pub(super) fn scan_flags_block<'a>(
         }
         let indent = leading_whitespace(line);
         let trimmed = line.trim_start();
+
+        // An "argfile" row (`@<filename>`/`@<file>`) is neither a flag
+        // entry nor a continuation of the one above it — see
+        // `looks_like_argfile_row`'s own doc comment. Ending the block here
+        // re-routes rather than drops: the same contract
+        // `nested_entry_table_starts_at`'s break already uses, so the
+        // caller resumes its own scan at exactly this line and the row is
+        // left for whatever comes after to read (or, finding nothing,
+        // leave unemitted) rather than corrupting the entry above it.
+        if looks_like_argfile_row(trimmed) {
+            break;
+        }
 
         let is_entry_start = (looks_like_flag_start(trimmed)
             || looks_like_bracket_flag_row(trimmed)
@@ -623,7 +713,7 @@ pub(super) fn scan_flags_block<'a>(
     // for a row a working splitter already owns.
     let packed = !multi_column && !aligned_spellings && block_is_packed_flag_rows(&entry_lines);
 
-    let mut entries: Vec<(String, String)> = Vec::new();
+    let mut entries: Vec<FlagRowEntry> = Vec::new();
     for row in rows {
         match row {
             FlagsBlockRow::Entry(line) => {
@@ -637,7 +727,7 @@ pub(super) fn scan_flags_block<'a>(
                 // would otherwise try to recover by looking for a
                 // whitespace gap that isn't there.
                 if let Some(content) = bracket_flag_row_content(line.trim()) {
-                    entries.push((content.to_string(), String::new()));
+                    entries.push((content.to_string(), String::new(), Vec::new()));
                     continue;
                 }
                 // The packed shape (`find --help`'s "Tests"/"Actions"
@@ -651,7 +741,7 @@ pub(super) fn scan_flags_block<'a>(
                 // below rather than panicking or dropping the row.
                 if packed {
                     if let Some(subs) = try_split_packed_row(line) {
-                        entries.extend(subs);
+                        entries.extend(subs.into_iter().map(|(s, d)| (s, d, Vec::new())));
                         continue;
                     }
                 }
@@ -703,7 +793,7 @@ pub(super) fn scan_flags_block<'a>(
                 // that flag's own `description`.
                 if heading_is_bnf {
                     if let Some(alternatives) = split_bnf_alternation_row(line.trim()) {
-                        entries.extend(alternatives);
+                        entries.extend(alternatives.into_iter().map(|(s, d)| (s, d, Vec::new())));
                         continue;
                     }
                 }
@@ -720,18 +810,56 @@ pub(super) fn scan_flags_block<'a>(
                 match split {
                     Some(fields) => {
                         for field in fields {
-                            entries
-                                .push((field.tokens.join(", "), field.trailing.trim().to_string()));
+                            entries.push((
+                                field.tokens.join(", "),
+                                field.trailing.trim().to_string(),
+                                Vec::new(),
+                            ));
                         }
                     }
-                    None if aligned_spellings => entries.push(split_aligned_spelling_entry(line)),
-                    None => entries.push(split_single_column_entry(line)),
+                    None if aligned_spellings => {
+                        let (s, d) = split_aligned_spelling_entry(line);
+                        entries.push((s, d, Vec::new()));
+                    }
+                    None => {
+                        let (s, d) = split_single_column_entry(line);
+                        entries.push((s, d, Vec::new()));
+                    }
                 }
             }
             FlagsBlockRow::Continuation(text) => {
                 if let Some(last) = entries.last_mut() {
-                    last.1.push(' ');
-                    last.1.push_str(text);
+                    // A continuation that completes an unclosed `<...>`
+                    // placeholder opened on the entry row above (jmod's own
+                    // `--target-platform <String: target-` / `  platform>`)
+                    // joins the placeholder itself, not the description —
+                    // see `placeholder_left_open`'s own doc comment. Joined
+                    // directly, with no space inserted: the wrap always
+                    // lands either mid-word right after a hyphen the source
+                    // text already carries (this specimen: "target-" +
+                    // "platform>") or, failing that, at whitespace the
+                    // trimming above has already discarded, and a hyphen at
+                    // the break is the only one of the two this fleet has
+                    // measured — see the doc comment on this arm's `if` for
+                    // why forcing a space in would be wrong for the case
+                    // actually observed.
+                    if placeholder_left_open(&last.0) {
+                        last.0.push_str(text);
+                    } else if let Some(choice) = choices_sub_row_value(text) {
+                        // llvm-ar's own `=default`/`=gnu`/… sub-rows: the
+                        // flag's enumerated values, not more description —
+                        // see `choices_sub_row_value`'s own doc comment.
+                        // Per-value descriptions have no home in the IR and
+                        // are intentionally dropped here (recorded as a
+                        // known limitation, not solved by inventing one).
+                        let choice = choice.to_string();
+                        if !last.2.contains(&choice) {
+                            last.2.push(choice);
+                        }
+                    } else {
+                        last.1.push(' ');
+                        last.1.push_str(text);
+                    }
                 }
             }
         }
