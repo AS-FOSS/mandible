@@ -1213,6 +1213,36 @@ fn parse_body(
             i += 1;
         }
         if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+            // An environment section flush with its own heading — no
+            // indent step at all between "Environment variables:" and its
+            // first row. `node`'s real `--help` writes exactly this shape
+            // (both at column 0), the same flush-left convention `dnf`'s
+            // command table below uses, and without this check here the
+            // heading-keyed recognizer below (which only ever runs once
+            // content strictly deeper than the heading has been
+            // established) never gets a chance to see rows that never
+            // step in from their own heading at all.
+            //
+            // Gated on the row sitting at exactly `heading_indent`, the
+            // same evidence bar the same-indent command table below
+            // requires, so a row that dedents past its own heading (the
+            // section has genuinely ended) is never swept in.
+            if i < lines.len()
+                && leading_whitespace(lines[i]) == heading_indent
+                && is_environment_heading(&heading)
+                && !is_ignorable_heading(&heading)
+            {
+                if let Some((end, rows)) = scan_env_var_table(&lines, i) {
+                    i = end;
+                    in_ignorable_section = false;
+                    command_mode = false;
+                    let (seen, clean) =
+                        emit_env_vars(meaningful_flag_group(heading.clone()), rows, &mut result);
+                    total_entries += seen;
+                    clean_entries += clean;
+                    continue;
+                }
+            }
             // Nothing more-indented follows. Some tools (openssl's
             // `--help`, and BSD-style listings generally) present a
             // command list as a same-indent word grid instead: a heading

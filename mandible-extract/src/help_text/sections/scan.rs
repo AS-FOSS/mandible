@@ -954,6 +954,46 @@ pub(super) fn split_env_var_row(line: &str) -> Option<EnvVarRow> {
     })
 }
 
+/// [`split_env_var_row`]'s permissive twin: a lone space is accepted as
+/// the separator, the shape a name too long for its own table's column
+/// convention falls back to (`node`'s
+/// `NODE_PENDING_PIPE_INSTANCES set the number of pending pipe instance`,
+/// one space where every shorter row in the same table gets two or more).
+///
+/// **Never called from [`split_env_var_row`] itself or from a candidate
+/// first row** — only from inside [`scan_env_var_table`]'s loop, and only
+/// once that table already has at least one row split_env_var_row's own,
+/// stricter grammar confirmed. A single space is too cheap a signal to
+/// open a table on alone (it is exactly the shape
+/// `the_shapes_that_are_not_env_var_rows_are_refused` pins as refused in
+/// isolation), but once the heading *and* a real row have both already
+/// agreed this is a genuine environment section, a second single-space row
+/// in the same run costs nothing more to trust.
+pub(super) fn split_env_var_row_single_space_fallback(line: &str) -> Option<EnvVarRow> {
+    let trimmed = line.trim();
+    let name_end = trimmed.find(char::is_whitespace)?;
+    let name = &trimmed[..name_end];
+    if !is_env_var_name_shaped(name) {
+        return None;
+    }
+    let rest = &trimmed[name_end..];
+    let after_one_space = rest.strip_prefix(' ')?;
+    // More than one space here is already `find_multi_space_gap`'s shape,
+    // which `split_env_var_row` would have taken care of — this function
+    // exists only for the *exactly one* case.
+    if after_one_space.starts_with(char::is_whitespace) {
+        return None;
+    }
+    let description = after_one_space.trim();
+    if description.is_empty() || !description.chars().any(|c| c.is_alphanumeric()) {
+        return None;
+    }
+    Some(EnvVarRow {
+        name: name.to_string(),
+        description: description.to_string(),
+    })
+}
+
 /// The shortest run of rows [`scan_env_var_table`] accepts as an
 /// environment section: **one**. Deliberately lower than
 /// [`MIN_MODIFIER_TABLE_ROWS`]'s floor of two, because the two recognizers
@@ -1041,8 +1081,48 @@ pub(super) fn scan_env_var_table(lines: &[&str], start: usize) -> Option<(usize,
         if indent < baseline {
             break;
         }
-        let Some(row) = split_env_var_row(line) else {
-            break;
+        let row = match split_env_var_row(line) {
+            Some(row) => row,
+            None => {
+                // A name too long to leave room for a separator on its own
+                // line — `node`'s own `NODE_TLS_REJECT_UNAUTHORIZED`, whose
+                // description begins entirely on the folded continuation
+                // beneath it, the same shape a flags block's own longest
+                // spellings use. Accepted only when the line is *nothing
+                // but* an identifier-shaped name and a deeper-indented
+                // line immediately follows to supply the description —
+                // never merely because a row failed to split, which would
+                // turn this into a second, laxer row grammar.
+                let name = line.trim();
+                let has_continuation = lines
+                    .get(i + 1)
+                    .is_some_and(|l| !l.trim().is_empty() && leading_whitespace(l) > baseline);
+                if is_env_var_name_shaped(name) && has_continuation {
+                    EnvVarRow {
+                        name: name.to_string(),
+                        description: String::new(),
+                    }
+                } else if !rows.is_empty() {
+                    // A single space where an unusually long name overflowed
+                    // its own column convention's alignment (`node`'s own
+                    // `NODE_PENDING_PIPE_INSTANCES set the number of...`,
+                    // one space, not the 2+ every shorter row in the same
+                    // table gets). `split_env_var_row` requires an explicit
+                    // separator everywhere else in this grammar, and still
+                    // does for a *candidate first row* — the heading alone
+                    // is not enough to trust a bare single space there. It
+                    // is enough once a real row has already been recovered
+                    // under this same heading: a second, independent piece
+                    // of evidence for the same table earns the row after it
+                    // the single-space fallback, and only that row.
+                    match split_env_var_row_single_space_fallback(line) {
+                        Some(row) => row,
+                        None => break,
+                    }
+                } else {
+                    break;
+                }
+            }
         };
         rows.push(row);
         i += 1;
@@ -1439,6 +1519,126 @@ Usage: bpftrace [options] filename\n\nOPTIONS:\n    -f FORMAT      output format
         // The unrelated flags block elsewhere in the same document is
         // untouched by the environment section.
         assert!(!parsed.flags.is_empty(), "{:?}", parsed.flags);
+    }
+
+    /// `node`'s real shape: the heading and its rows sit flush at the
+    /// *same* indent (column 0), no step in at all — unlike bpftrace's
+    /// (heading at column 0, rows indented) or fzf's (both indented under
+    /// a 2-space heading). The general engine only reaches the
+    /// more-indented environment-table branch when something steps in
+    /// past its own heading; a same-indent environment section needs the
+    /// same-indent branch (mirroring `dnf`'s flush-left command table) to
+    /// ever see it at all. This is a real fleet miss this test caught
+    /// directly against `node --help`'s own text before the same-indent
+    /// branch was added.
+    #[test]
+    fn a_flush_left_environment_section_is_still_read() {
+        let help = "\
+Usage: node [options] [ V8 options] [<program-entry-point> | -e \"script\" | -] [--] [arguments]
+
+Options:
+  -e, --eval=...             evaluate script
+
+Environment variables:
+FORCE_COLOR                 when set to 'true', 1, 2, 3, or an
+                            empty string causes NO_COLOR to be ignored.
+NO_COLOR                    Alias for NODE_DISABLE_COLORS
+NODE_PENDING_PIPE_INSTANCES set the number of pending pipe instance
+                            handles on Windows
+NODE_TLS_REJECT_UNAUTHORIZED
+                            set to 0 to disable TLS certificate
+                            validation
+";
+        let parsed = parse_named(help, "node");
+        let names: Vec<&str> = parsed
+            .env_vars
+            .iter()
+            .map(mandible_core::Entity::primary_name)
+            .collect();
+        // The whole real shape, not just the two ordinary rows: a name
+        // long enough to overflow its table's column convention down to a
+        // single space (`NODE_PENDING_PIPE_INSTANCES`), and a name so long
+        // its description starts entirely on the line beneath it
+        // (`NODE_TLS_REJECT_UNAUTHORIZED`). This is the regression the
+        // fleet sweep caught directly against real `node --help` text:
+        // both fallbacks were needed before `mandible node` recovered more
+        // than the first nine of node's nineteen real variables.
+        assert_eq!(
+            names,
+            [
+                "FORCE_COLOR",
+                "NO_COLOR",
+                "NODE_PENDING_PIPE_INSTANCES",
+                "NODE_TLS_REJECT_UNAUTHORIZED",
+            ],
+            "{names:?}"
+        );
+        assert_eq!(
+            parsed.env_vars[2].description.as_ref().map(|d| d.as_str()),
+            Some("set the number of pending pipe instance handles on Windows")
+        );
+        assert_eq!(
+            parsed.env_vars[3].description.as_ref().map(|d| d.as_str()),
+            Some("set to 0 to disable TLS certificate validation")
+        );
+        assert!(!parsed.flags.is_empty(), "{:?}", parsed.flags);
+    }
+
+    /// [`split_env_var_row_single_space_fallback`] in isolation: accepts
+    /// exactly one space, refuses everything [`split_env_var_row`] itself
+    /// would already have accepted (two-plus spaces, a dash run) or
+    /// refused for the same reasons (no separator, nothing after it, a
+    /// non-identifier leading token).
+    #[test]
+    fn the_single_space_fallback_accepts_only_a_lone_space() {
+        assert_eq!(
+            split_env_var_row_single_space_fallback(
+                "NODE_PENDING_PIPE_INSTANCES set the number of pending pipe instance"
+            ),
+            Some(EnvVarRow {
+                name: "NODE_PENDING_PIPE_INSTANCES".to_string(),
+                description: "set the number of pending pipe instance".to_string(),
+            })
+        );
+        assert_eq!(
+            split_env_var_row_single_space_fallback("NODE_DEBUG    two spaces already"),
+            None,
+            "already split_env_var_row's own shape"
+        );
+        assert_eq!(
+            split_env_var_row_single_space_fallback("NODE_DEBUG"),
+            None,
+            "nothing after the name at all"
+        );
+        assert_eq!(
+            split_env_var_row_single_space_fallback("NODE_DEBUG "),
+            None,
+            "a lone trailing space with nothing after it"
+        );
+        assert_eq!(
+            split_env_var_row_single_space_fallback("3AMPLE not an identifier"),
+            None,
+            "leads with a digit"
+        );
+    }
+
+    /// The single-space fallback is never consulted for a *candidate first
+    /// row* of a table: a single-space-only line offered as the table's
+    /// opening line is not read as a row by the strict grammar, so the
+    /// one-line-of-slack intro skip (for `gprofng`'s own prose sentence)
+    /// takes it instead — dropped, not fabricated, and never contributing
+    /// a name. The genuine row after it, in the ordinary two-space shape,
+    /// still opens the table and is recovered.
+    #[test]
+    fn the_single_space_fallback_never_opens_a_table_on_its_own() {
+        let lines = [
+            "NODE_OPTIONS set default CLI options",
+            "NODE_DEBUG    a real row",
+        ];
+        let (end, rows) = scan_env_var_table(&lines, 0).expect("second row opens the table");
+        assert_eq!(end, 2);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "NODE_DEBUG");
     }
 
     /// A heading that merely mentions "environment" in a prose sentence,
