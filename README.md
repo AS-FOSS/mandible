@@ -119,13 +119,9 @@ produced a tool's output, then applies that framework's grammar. For example:
 </div>
 
 > [!TIP]
-> You can also try to probe executable files: `mandible scripts/custom.py`
-
-> [!TIP]
-> Open straight at a subcommand: `mandible cargo clippy`. Commands the parent's
-> own help never lists — `cargo-clippy`, `git-lfs` and the like — are found on
-> `PATH` and shown marked `unverified`, since the naming convention is evidence
-> about the filesystem and a guess about the tool.
+> Open straight at a subcommand: `mandible cargo clippy`. Subcommands that live
+> as separate `<tool>-<sub>` binaries (`cargo-clippy`, `git-lfs`) show up too,
+> marked `unverified`: they were found on `PATH`, not in the parent's own help.
 
 ## Is it actually universal?
 
@@ -209,7 +205,15 @@ the first, pressing it again switches to the second.
 
 The packages install shell completions for you. For a hand-built binary,
 `mandible --completions <shell>` prints the script (bash, zsh, fish, and
-more); drop it wherever your shell looks for completions.
+more); drop it wherever your shell looks for completions. For zsh:
+
+```console
+$ mkdir -p ~/.zfunc && mandible --completions zsh > ~/.zfunc/_mandible
+```
+
+then add `fpath=(~/.zfunc $fpath)` to `~/.zshrc`, above its `compinit` line.
+zsh silently skips completion directories it considers insecure (anything
+under `/tmp`), so keep the file under your home.
 
 The tool argument completes too, to the command names on your `PATH`:
 `mandible gi<TAB>` suggests `git` rather than whatever files sit in the
