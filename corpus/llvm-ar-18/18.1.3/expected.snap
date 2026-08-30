@@ -179,3 +179,60 @@ provenance:
   - help-text
   confidence: 0.5
 children_filled: true
+subcommands:
+- name: d
+  summary: delete [files] from the archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: m
+  summary: move [files] in the archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: p
+  summary: print contents of [files] found in the archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: q
+  summary: quick append [files] to the archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: r
+  summary: replace or insert [files] into the archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: s
+  summary: act as ranlib
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: t
+  summary: display list of files in archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: x
+  summary: extract [files] from the archive
+  group: 'OPERATIONS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
