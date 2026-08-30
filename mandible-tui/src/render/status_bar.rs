@@ -37,8 +37,9 @@ use ratatui::Frame;
 ///
 /// That label does still depend on one thing: `horizontal_scroll_enabled`.
 /// This is the config's state, not the focus state — `[ui]
-/// horizontal_scroll = false` promises the pre-existing rendering exactly,
-/// and the footer is part of what a user sees, so `expand/scroll` would be
+/// horizontal_scroll = false` turns sideways scrolling off outright
+/// (spec §9: everything wraps in that mode), and the footer is part of
+/// what a user sees, so `expand/scroll` would be
 /// advertising a behavior they explicitly turned off. `expand` alone is
 /// also shorter, which matters independently: at 80 columns the wider
 /// label pushed `Tab pane` off the row — the one hint that gets a user
@@ -258,10 +259,12 @@ mod tests {
     }
 
     /// The whole point of the review round that added this: `[ui]
-    /// horizontal_scroll = false` must restore the footer exactly, not
-    /// just the pane content. `expand/scroll` is also long enough to push
-    /// `Tab pane` off an 80-column row, so the off state fixes both at
-    /// once — proven by comparing directly against the pre-feature label.
+    /// horizontal_scroll = false` has to reach the footer too, not just
+    /// the pane content — a hint for a key that now does nothing is a
+    /// promise the mode does not keep. `expand/scroll` is also long
+    /// enough to push `Tab pane` off an 80-column row, so the off state
+    /// fixes both at once — proven by comparing directly against the
+    /// pre-feature label.
     #[test]
     fn horizontal_hint_matches_the_config_toggle() {
         for width in [40, 60, 80, 100, 120, 140] {

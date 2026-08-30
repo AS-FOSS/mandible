@@ -18,6 +18,8 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- `[ui] horizontal_scroll = false` now wraps the raw `--help` view (`t`) and the `unparsed` fallback instead of quietly cutting every line at the pane's edge: with sideways scrolling off there was no key that could reach the rest and no marker saying it existed, so the one view whose purpose is showing what the tool printed was the one losing it — a line that fits still arrives byte for byte, a longer one keeps the author's interior columns and its own indent on the rows it continues onto, breaks at a space where there is one and between characters where there is not, and the default `true` (sideways scrolling with `←`/`→`/`h`/`l`) is unchanged.
+
 - The `y` clipboard fallback and the "is anything a terminal at the other end" colour check now both address the stream the UI is actually drawn on rather than reaching for stdout on their own, so the OSC-52 escape sequence can no longer be written into output another program is reading and a session whose stdout is redirected is no longer rendered monochrome while its terminal sits on stderr; a source lint keeps every path to a terminal inside `mandible-tui`'s one terminal module.
 
 - `jar --help` no longer turns wrapped `-C foo/ ...` rows from its indented `Examples:` blocks into duplicate flags or loses the `Main operation mode:` group: when indentation would otherwise promote the preceding prose sentence to a fake heading and hide the ignorable marker, the parser now contains that whole region until a physical dedent or a positively worded, structurally attested multi-row flag section; generic `Input:`/`Output:` labels, command-shaped example data, and single flag-shaped samples remain contained, with no tool-name-keyed logic.

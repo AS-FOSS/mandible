@@ -44,8 +44,9 @@ pub const CONFIG_DIR_ENV: &str = "MANDIBLE_CONFIG_DIR";
 pub struct UiConfig {
     /// Whether preformatted detail-pane content (the raw `--help` view and
     /// USAGE-section synopsis lines) scrolls horizontally instead of
-    /// wrapping. Default on; `false` restores exactly the pre-existing
-    /// wrapping behavior, byte for byte.
+    /// wrapping. Default on; `false` makes every view wrap and no view
+    /// clip (spec §9) — the setting turns sideways scrolling off, never
+    /// content off the edge of the pane.
     pub horizontal_scroll: bool,
 }
 
