@@ -937,10 +937,9 @@ pub(super) fn split_env_var_row(line: &str) -> Option<EnvVarRow> {
     }
     let description = if let Some(idx) = find_dash_separator(trimmed) {
         split_at_dash(trimmed, idx).1
-    } else if let Some(gap) = find_multi_space_gap(trimmed) {
-        trimmed[gap..].trim().to_string()
     } else {
-        return None;
+        let gap = find_multi_space_gap(trimmed)?;
+        trimmed[gap..].trim().to_string()
     };
     // A description has to *say* something, the same "at least one
     // alphanumeric character" test `split_modifier_table_row` applies —
@@ -1011,9 +1010,7 @@ const MIN_ENV_VAR_TABLE_ROWS: usize = 1;
 /// may extend before it means "section over" instead of "next entry".
 pub(super) fn scan_env_var_table(lines: &[&str], start: usize) -> Option<(usize, Vec<EnvVarRow>)> {
     let mut idx = start;
-    if idx < lines.len()
-        && !lines[idx].trim().is_empty()
-        && split_env_var_row(lines[idx]).is_none()
+    if idx < lines.len() && !lines[idx].trim().is_empty() && split_env_var_row(lines[idx]).is_none()
     {
         idx += 1;
         while idx < lines.len() && lines[idx].trim().is_empty() {
@@ -1316,8 +1313,9 @@ mod env_var_tests {
     /// differs, what it documents does not.
     #[test]
     fn every_real_column_shape_reads_the_same() {
-        let wide = row("    BPFTRACE_CACHE_USER_SYMBOLS       [default: auto] enable user symbol cache")
-            .expect("bpftrace row");
+        let wide =
+            row("    BPFTRACE_CACHE_USER_SYMBOLS       [default: auto] enable user symbol cache")
+                .expect("bpftrace row");
         assert_eq!(wide.name, "BPFTRACE_CACHE_USER_SYMBOLS");
         assert_eq!(wide.description, "[default: auto] enable user symbol cache");
 
@@ -1332,7 +1330,10 @@ mod env_var_tests {
         let narrow = row("    FZF_DEFAULT_COMMAND    Default command to use when input is tty")
             .expect("fzf row");
         assert_eq!(narrow.name, "FZF_DEFAULT_COMMAND");
-        assert_eq!(narrow.description, "Default command to use when input is tty");
+        assert_eq!(
+            narrow.description,
+            "Default command to use when input is tty"
+        );
     }
 
     /// A dash-separated row is accepted too, even though no tool in the
@@ -1354,7 +1355,11 @@ mod env_var_tests {
         assert_eq!(row("  --thin       - make a thin archive"), None, "a flag");
         assert_eq!(row("NODE_DEBUG single space only"), None, "no separator");
         assert_eq!(row("NODE_DEBUG    "), None, "nothing after the gap");
-        assert_eq!(row("3AMPLE   not an identifier"), None, "leads with a digit");
+        assert_eq!(
+            row("3AMPLE   not an identifier"),
+            None,
+            "leads with a digit"
+        );
     }
 
     /// A labeled section with exactly one row is still read: the heading
@@ -1391,7 +1396,10 @@ mod env_var_tests {
             "                               that uses dlopen() to execute Java code.",
         ];
         let (end, rows) = scan_env_var_table(&lines, 0).expect("table after the sentence");
-        assert_eq!(end, 3, "stops at the blank line separating the two variables");
+        assert_eq!(
+            end, 3,
+            "stops at the blank line separating the two variables"
+        );
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "GPROFNG_MAX_CALL_STACK_DEPTH");
     }

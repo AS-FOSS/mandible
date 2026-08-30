@@ -980,7 +980,9 @@ fn a_real_environment_section_reaches_the_screen_through_the_real_pipeline() {
     assert!(
         node.env_vars().count() >= 17,
         "expected bpftrace's real ENVIRONMENT table, got: {:?}",
-        node.env_vars().map(|e| e.primary_name()).collect::<Vec<_>>()
+        node.env_vars()
+            .map(|e| e.primary_name())
+            .collect::<Vec<_>>()
     );
 
     let rows = detail_rows(&app_for(node), 90, 200);
@@ -1003,7 +1005,11 @@ fn a_real_environment_section_reaches_the_screen_through_the_real_pipeline() {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    for name in ["BPFTRACE_BTF", "BPFTRACE_CACHE_USER_SYMBOLS", "BPFTRACE_VMLINUX"] {
+    for name in [
+        "BPFTRACE_BTF",
+        "BPFTRACE_CACHE_USER_SYMBOLS",
+        "BPFTRACE_VMLINUX",
+    ] {
         assert!(flat.contains(name), "missing {name}:\n{joined}");
     }
 }
