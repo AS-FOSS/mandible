@@ -3,6 +3,11 @@
 # single space before the dash and heads the block `MODIFIERS:`. Recovering
 # both from one recognizer is what says the rule is keyed on the row's
 # shape rather than on either tool.
+#
+# Also the fixture for the `OPERATIONS:` table (spec §7 Tier B rule 1's
+# "operations" heading extension): `ar`'s equivalent table sits under a
+# heading that already says "commands", so `llvm-ar` is the specimen that
+# actually exercises the extended vocabulary.
 
 [bless]
 provenance = "agent"
@@ -34,7 +39,11 @@ must_contain_modifiers = [
 # two whose `=value` enum rows sit beneath them, so they are the ones a
 # change to block scanning would disturb first.
 must_contain_flags = ["--format", "--plugin", "--output", "--rsp-quoting", "--thin", "--version"]
-# Deliberately no `min_subcommands`: this tool's `OPERATIONS:` table is not
-# recovered today (the heading says "operations", which is not evidence of
-# a command list under spec §7 Tier B rule 1), and pinning a floor of zero
-# would assert nothing while reading as though it did.
+# The `OPERATIONS:` table: eight single-letter operations (spec §7 Tier B
+# rule 1's "operations" heading extension). `min_subcommands` is a floor on
+# the *count*, not a per-name claim — the schema has no field asserting
+# specific subcommand names are present the way `must_contain_flags` and
+# `must_contain_modifiers` do for their own kinds, so a floor of exactly 8
+# is the strongest falsifiable claim available here; `expected.snap` pins
+# the exact letters, spellings and descriptions.
+min_subcommands = 8

@@ -1,0 +1,34 @@
+# The second, real-world beneficiary of spec §7 Tier B rule 1's "operations"
+# heading extension (`corpus/llvm-ar-18/18.1.3` is the first and the one the
+# extension was built for). `jmod`'s `Main operation modes:` table is a
+# genuine command list — create/extract/list/describe/hash, each a
+# ` - `-separated row — with no other heading in the document that names it,
+# so this fixture is what would silently regress if the extension's word
+# match or its flags-block-priority safety net ever narrowed. Pinned here so
+# a regression is caught even when only `llvm-ar-18` is touched by a future
+# change.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jmod"
+version = "17.0.20"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["jmod", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+# The whole `Main operation modes:` table: five operations, one per row.
+# The contract schema has no per-name subcommand-presence field (see
+# `corpus/llvm-ar-18/18.1.3/meta.toml`'s own note), so `min_subcommands`
+# is the strongest floor available; the snapshot pins the exact names.
+min_subcommands = 5
+# The option table above it, which must go on parsing unchanged — the
+# regression this fixture also guards against, same as llvm-ar-18's own
+# `OPTIONS:` claim.
+must_contain_flags = ["--class-path", "--module-path", "--version", "--help-extra"]

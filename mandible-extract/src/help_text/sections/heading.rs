@@ -693,22 +693,69 @@ pub(super) fn is_name_shaped_token(t: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// True if `heading` is a recognized command-block introduction: either
-/// spec §7 Tier B rule 1's literal generic test (mentions "command(s)" or
-/// "subcommand(s)" as a word), or — when a framework was identified — one
-/// of that framework's own extra heading markers
-/// ([`FrameworkProfile::command_heading_markers`]). A framework profile
-/// asserting [`FrameworkProfile::no_subcommand_concept`] overrides both:
-/// it means this framework's help output structurally never has
-/// subcommands, so no heading of any kind should ever be recognized here
-/// — the direct fix for [M-10] (spec §7 Tier B rule 1: "must produce zero
-/// subcommands"), made structural instead of incidental to which exact
-/// words one tool's heading happens to use.
+/// True if `heading` is a recognized command-block introduction: spec §7
+/// Tier B rule 1's literal generic test (mentions "command(s)" or
+/// "subcommand(s)" as a word, or — the extension below — "operation(s)"),
+/// or — when a framework was identified — one of that framework's own
+/// extra heading markers ([`FrameworkProfile::command_heading_markers`]).
+/// A framework profile asserting [`FrameworkProfile::no_subcommand_concept`]
+/// overrides both: it means this framework's help output structurally
+/// never has subcommands, so no heading of any kind should ever be
+/// recognized here — the direct fix for [M-10] (spec §7 Tier B rule 1:
+/// "must produce zero subcommands"), made structural instead of incidental
+/// to which exact words one tool's heading happens to use.
 ///
 /// This is *not* the whole test — a heading can also qualify by being
 /// part of a chain started by such a mention elsewhere (git's group
 /// headings) — see [`command_mode_seed`] and `command_mode` in
 /// [`parse_with_profile`].
+///
+/// # The "operations" extension (llvm-ar operations table)
+///
+/// `llvm-ar --help` documents its single-letter operations (`d`, `m`,
+/// `p`, ...) under an `OPERATIONS:` heading — the same class of table as
+/// `ar`'s and `llvm-ar`'s own `MODIFIERS:` block, and the same kind of
+/// evidence rule 1 already accepts for "command(s)": an operation letter
+/// *is* an invocation verb (`llvm-ar d archive.a file.o`), just as a
+/// subcommand name is. `binutils ar`'s equivalent table sits under a
+/// heading that already says "commands" and needed no change.
+///
+/// Measured over the 2,301 frozen captures in `audit/queue-captures/`:
+/// **22 tools** carry a heading whose text mentions "operation"/
+/// "operations". Of those, **20** (`autoconf`, `autom4te`, `automake`,
+/// `automake-1.16`, `autoreconf`, `autoupdate`, `btrfsck`, `cpio` ×7,
+/// `envsubst`, `jar` ×3, `m4`, `man`, `mount`, `msgcmp`, `msgfmt`,
+/// `msgmerge` ×2, `msgunfmt`, `pygmentize` ×2, `tar` ×2, `xgettext` — some
+/// tools carry more than one such heading) head an ordinary flags table
+/// (`Operation modes:`, `Main operation mode:`, `Operation modifiers
+/// valid in copy-in mode:`, `mount`'s `Operations:`, ...): every row is
+/// flag-shaped (`-h, --help`, `-B, --bind`), so
+/// [`super::flags_block_start`] claims the block as flags *before* this
+/// predicate is ever consulted (`parse_with_profile`'s flags-block check
+/// runs first and `continue`s the loop) — this extension cannot touch
+/// them regardless of what vocabulary it admits. The remaining **2**
+/// (`llvm-ar`'s `OPERATIONS:` and `jmod`'s `Main operation modes:`, both
+/// `corpus/llvm-ar-18/18.1.3` and a real fixture candidate respectively)
+/// are genuine tables of one-word invocation verbs with a ` - `-separated
+/// description each — precisely the shape this extension exists to
+/// recover, and precisely nothing else in the measured fleet has that
+/// shape under this vocabulary. No false positive was found; the only
+/// near-miss (`mount`'s bare `Operations:` heading over an actual flags
+/// table) is closed structurally by the flags-block gate above, not by
+/// narrowing the word list.
+///
+/// **This vocabulary is deliberately not folded into
+/// [`mentions_commands_word`] and does not reach [`command_mode_seed`].**
+/// `command_mode_seed` reads a tool's own *description prose*, not a
+/// heading, and seeds a sticky chain that later headings inherit; the
+/// same 2,301 captures show **141 tools** with the word "operation"/
+/// "operations" *somewhere* in their `--help` text (an upper bound on
+/// what a shared vocabulary would expose `command_mode_seed` to — most of
+/// that is ordinary English, e.g. "This performs a destructive
+/// operation"). Seeding a sticky command-list chain from that word in
+/// prose, fleet-wide, is a materially different and far riskier claim
+/// than recognizing it in a heading that introduces an indented block,
+/// so the extension is scoped to heading recognition only.
 pub(super) fn is_recognized_command_heading(
     heading: &str,
     profile: Option<&FrameworkProfile>,
@@ -721,7 +768,7 @@ pub(super) fn is_recognized_command_heading(
             return true;
         }
     }
-    mentions_commands_word(heading)
+    mentions_commands_word(heading) || mentions_operations_word(heading)
 }
 
 /// True if `text` (prose introducing a heading chain, e.g. git's "These
