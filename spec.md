@@ -335,13 +335,22 @@ Rules that govern the migration:
   struct literals — 61 sites at the time of the decision — and the entity
   migration rewrites those same sites anyway. One rewrite, not two.
 - **Sequence:** one kind at a time — flags, then positionals, then
-  modifiers, then env vars — with every corpus snapshot
-  **byte-identical** before and after each. A snapshot diff during a
-  migration stage means the code is wrong, never the fixture, which is
-  why the frozen `FlagSnapshot`/`PositionalSnapshot` layouts are
-  partitioned out of the one vector by kind rather than reshaped around
-  `spellings`. Reshaping them belongs with the stage that first emits
-  multi-spelling entities.
+  modifiers, then env vars.
+  - The two **relocation** stages, flags and positionals, move existing
+    data into the one vector and must leave every corpus snapshot
+    **byte-identical**. A snapshot diff there means the code is wrong,
+    never the fixture, which is why the frozen
+    `FlagSnapshot`/`PositionalSnapshot` layouts are partitioned out of the
+    one vector by kind rather than reshaped around `spellings`. Reshaping
+    them belongs with the stage that first emits multi-spelling entities.
+  - The two **emission** stages, modifiers and env vars, recover items no
+    tier produced before, so a snapshot that gains one is the stage
+    working. The bound is on *where*: a fixture may move only when its own
+    tool documents the kind being added, which the new section's
+    `skip_serializing_if` makes structural rather than a matter of care —
+    a tool with no modifier table has no `modifiers` key to differ in.
+    Each emission stage's snapshot section is new and therefore unfrozen;
+    neither may reshape a frozen one to make room.
 - **Env vars are strict-sections-only**: an
   `EntityKind::EnvVar` may be produced only from a row under an explicitly
   labeled environment heading in the tool's own help text. Never scavenged
@@ -1874,6 +1883,48 @@ verbs (`wpa_cli terminate`, `wpa_cli quit`) rather than argv subcommands in
 the clap/cobra sense, and such programs commonly ignore a trailing
 `--help` and just execute the verb, so even a correctly-attested name here
 is a `heading_attested`-shaped risk rule 0's gate exists to withhold.
+
+**Modifier tables.** A few tools document a class of item that is neither a
+flag nor a subcommand: a **modifier**, a single letter typed glued to an
+operation letter rather than given as its own dashed argument. binutils `ar`
+is the type specimen — `ar rv libfoo.a` is the operation `r` carrying the
+modifier `v` — and it prints them as their own tables, one for the modifiers
+particular commands accept and one for the modifiers any command accepts.
+`llvm-ar` prints the same class under a single `MODIFIERS:` heading. They
+become `EntityKind::Modifier` entities (§4.5), rendered by §9.3's MODIFIERS
+section.
+
+The recognizer is keyed on the **row**, never on the heading, which is what
+makes it general: `ar`'s own tables sit under headings that say
+"modifiers", but its first one also contains the word "command" and is
+therefore a *recognized command heading* under rule 1 — which is precisely
+how those rows used to be lost, sent to the subcommand path and dropped one
+by one for failing the command-name shape test. A row is a modifier row
+when it opens with `[`, closes that bracket on the same line, holds
+**exactly one ASCII letter** inside it, optionally followed by an operand
+(`ar`'s `[l <text> ]`), and follows the bracket with an **explicit
+separator** — a ` - ` run or a column gap — and then a description. Two
+such rows in succession are a table; one is not.
+
+Both halves of the letter rule are load-bearing, and both were measured
+rather than assumed. Across the 2,301 frozen captures in the audit queue
+the only document outside the `ar`/`llvm-ar` family that the grammar looks
+at twice is `pygettext3`, whose reference footnotes read `[1] https://…` /
+`[2] https://…`: two consecutive rows, bracketed, structurally
+indistinguishable from a modifier table except that a footnote marker is a
+digit and a lone space is not a column. A digit is therefore refused, and
+so is a single space — a strict rule with a recorded miss (a tool that
+documents a *numeric* modifier, if one exists, is not read) in preference
+to a permissive one that invents a section, per §13.1e's posture.
+
+The scan is offered a heading's first content line and **stops at the first
+row that is not a modifier row**, leaving the remainder of the block to the
+flag scanner under that same heading. This is not an optimization: `ar`'s
+` generic modifiers:` section runs seven bracket rows, then `@<file>`, then
+four ordinary long options, and those four take their `group` from the
+heading they sit under. A recognizer that consumed the whole block, or that
+restarted section scanning after the run, would strip that group from four
+flags that carry it correctly today.
 
 ### Tier C — completion script structural parsing
 
