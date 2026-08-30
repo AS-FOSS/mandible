@@ -46,13 +46,38 @@ Linux and macOS, on x86_64 and arm64. Windows is not supported: the containment 
 relies on POSIX process groups, and Windows tools use conventions (`/?`, PowerShell's
 own help system) this project does not speak.
 
-**Homebrew** — macOS or Linux
+**Cargo**
+
+```console
+# fetch prebuilt binary
+cargo binstall mandible
+```
+
+```console
+# build from source
+cargo install mandible
+```
+
+**Fedora / EPEL** (COPR repo)
+
+```console
+sudo dnf copr enable as-foss/mandible
+sudo dnf install mandible
+```
+
+**Nix**
+
+```console
+nix run github:AS-FOSS/mandible
+```
+
+**Homebrew** (macOS or Linux)
 
 ```console
 brew install as-foss/mandible/mandible
 ```
 
-**Debian / Ubuntu** — signed apt repository
+**Debian / Ubuntu** (signed apt repo)
 
 ```console
 sudo curl -fsSL https://as-foss.github.io/mandible-apt/mandible-archive-keyring.gpg \
@@ -68,28 +93,6 @@ EOF
 sudo apt-get update && sudo apt-get install mandible
 ```
 
-**Fedora / EPEL** — COPR repository
-
-```console
-sudo dnf copr enable as-foss/mandible
-sudo dnf install mandible
-```
-
-**Nix** — run without installing, or use as a flake input
-
-```console
-nix run github:AS-FOSS/mandible
-```
-
-**Cargo** — `binstall` fetches the prebuilt binary, `install` builds from source
-
-```console
-cargo binstall mandible
-```
-
-```console
-cargo install mandible
-```
 
 Standalone binaries, `.deb` and `.rpm` packages, each with a `.sha256`, are attached
 to every [release](https://github.com/AS-FOSS/mandible/releases/latest).
