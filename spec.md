@@ -176,6 +176,17 @@ expand, so nothing becomes unreachable; `q`/`Ctrl-C` still quit, printing
 nothing at all, which is what leaves a shell binding's line untouched. Without
 the flag `Enter` is one of the three expand keys, unchanged.
 
+**Accepting is bound to the focus, not to the key.** `Enter` accepts only from
+browse focus — the tree or the detail pane. While the **search box** has focus
+it does exactly what it does without the flag: commits the query, moves focus
+to the tree, keeps the filter. The mode changes what accepting does; it never
+changes how searching works, and a key that is a search box's only commit key
+cannot be spent on something else — reassigning it would leave `Esc`, which
+clears the filter on a second press, as the sole way out of the box. The flag
+journey therefore ends one `Enter` later than the tree selection it made: the
+first closes the search, the second accepts what search landed on, flag
+spelling and all.
+
 A TUI cannot type into the shell that launched it, so the shell reads the line
 back through a command substitution and puts it on its own prompt. That is what
 requires stdout to carry the composed line **and nothing else**, which in turn

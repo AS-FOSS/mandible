@@ -50,17 +50,13 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
 fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Esc => app.escape_search(),
-        // In `--print-selection` mode Enter accepts from the search box
-        // too, because that is where the flag journey ends: type part of a
-        // flag's name, the top hit selects its parent command and points
-        // the detail pane at the flag, and Enter hands the composed line
-        // back to the shell. Making it mean "move focus to the tree" there
-        // would put a second Enter between the user and the thing they came
-        // for. `Esc` still moves focus out while keeping the filter, which
-        // is what anyone who wanted the other meaning is reaching for.
-        KeyCode::Enter if app.print_selection => {
-            return app.selection_command().map(Effect::PrintSelection)
-        }
+        // Enter means what it means without `--print-selection` here: it
+        // commits the query and moves focus to the tree, keeping the filter
+        // (spec §2). Accepting from the box instead took the only key that
+        // closes search focus and left `Esc` — which also clears on a
+        // second press — as the only way out, so the mode changed how
+        // *searching* works rather than only what accepting does. The
+        // accept key is bound to browse focus, not to Enter globally.
         KeyCode::Enter => app.focus = Focus::Tree,
         KeyCode::Backspace => app.search_backspace(),
         // Arrows move the (filtered) tree selection without leaving the
@@ -87,6 +83,9 @@ fn handle_tree_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
         // `--print-selection` only: Enter accepts the selection and quits.
+        // Bound here rather than in `handle_key` so accepting is a property
+        // of *browse* focus: while the search box has focus Enter keeps its
+        // ordinary meaning, and the mode changes only what accepting does.
         // Guarded rather than folded into the arm below so that with the
         // mode off this function is byte-for-byte the one that shipped —
         // `→`, `Enter` and `l` all expand, exactly as spec §2's table says.
@@ -225,6 +224,21 @@ mod tests {
         App::new("git".to_string(), root)
     }
 
+    /// A tree whose one subcommand carries one flag, for the tests that
+    /// compose a whole `--print-selection` line.
+    fn flag_app() -> App {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        let mut commit = CommandNode::new("commit", Provenance::single(Source::HelpText));
+        commit.entities.push(mandible_core::Entity::flag_long(
+            "amend",
+            Provenance::single(Source::HelpText),
+        ));
+        root.subcommands.push(commit);
+        let mut a = App::new("git".to_string(), root);
+        a.ensure_rows_fresh();
+        a
+    }
+
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
     }
@@ -352,36 +366,50 @@ mod tests {
         );
     }
 
-    /// The end of the flag journey: search puts the tree on the flag's
-    /// parent command and remembers the flag (`App`'s own tests cover that
-    /// half), and `Enter` accepts from inside the search box — without the
-    /// detour through the tree an ordinary session takes, since that would
-    /// put a second `Enter` between the user and the thing they came for.
+    /// Accepting is bound to *browse* focus, not to `Enter` globally: with
+    /// the search box focused, `Enter` under `--print-selection` does what
+    /// it does without the flag — closes search focus, keeps the filter,
+    /// prints nothing. Otherwise the mode takes the only key that leaves
+    /// the box and leaves `Esc` (which clears the filter on a second press)
+    /// as the sole way out, changing how searching works rather than only
+    /// what accepting does.
+    ///
+    /// The second half of the test is the reason the first half is safe:
+    /// one more `Enter`, now from the tree, still accepts and still carries
+    /// the flag search landed on, so the journey ends where it always did.
     #[test]
-    fn enter_accepts_from_the_search_box_and_composes_the_flag() {
-        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
-        let mut commit = CommandNode::new("commit", Provenance::single(Source::HelpText));
-        commit.entities.push(mandible_core::Entity::flag_long(
-            "amend",
-            Provenance::single(Source::HelpText),
-        ));
-        root.subcommands.push(commit);
-        let mut a = App::new("git".to_string(), root);
+    fn enter_keeps_its_search_meaning_under_print_selection() {
+        let mut a = flag_app();
         a.print_selection = true;
-        a.ensure_rows_fresh();
         a.select_index(1); // "commit"
         a.selected_flag = Some(mandible_core::FlagKey::Long("amend".to_string()));
 
         a.focus_search();
+        handle_key(&mut a, key(KeyCode::Char('a')));
         assert_eq!(a.focus, Focus::Search);
+
         assert_eq!(
             handle_key(&mut a, key(KeyCode::Enter)),
-            Some(Effect::PrintSelection("git commit --amend".to_string()))
+            None,
+            "Enter in the search box must not print"
+        );
+        assert_eq!(a.focus, Focus::Tree, "Enter closes search focus");
+        assert_eq!(
+            a.active_filter(),
+            Some("a"),
+            "and keeps the filter it committed"
+        );
+
+        assert_eq!(
+            handle_key(&mut a, key(KeyCode::Enter)),
+            Some(Effect::PrintSelection("git commit --amend".to_string())),
+            "Enter from browse focus accepts, flag and all"
         );
     }
 
-    /// …and with the mode off, that same `Enter` still just moves focus to
-    /// the tree, producing no effect at all.
+    /// …and with the mode off, that same `Enter` does exactly the same
+    /// thing, which is the point: the two focus states are indistinguishable
+    /// across the flag.
     #[test]
     fn enter_in_the_search_box_still_moves_focus_by_default() {
         let mut a = app();

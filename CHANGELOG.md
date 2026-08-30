@@ -18,6 +18,12 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- Quitting while moving the mouse no longer leaves fragments of mouse reports (`35;35;6M…`) on the shell prompt: the terminal processes the disable-mouse-capture sequence asynchronously, so reports could still arrive after the single zero-timeout drain had found an empty queue and given up, and the drain now waits up to 25ms per poll for one more report, ending at the first empty poll and capped at 250ms in total so exit can never turn into a wait.
+
+- `mandible` with no arguments now prints the program's real help — clap's own generated usage, arguments and every flag — instead of a single `Error: usage: mandible <tool> (or: …)` line that named three modes and no flags; it goes to stderr and still exits non-zero, because nothing was asked for, while `-h`/`--help` keep printing to stdout and exiting zero.
+
+- `mandible --print-selection` no longer spends the search box's `Enter` on printing: while the search box has focus `Enter` means what it means without the flag — commit the query, move focus to the tree, keep the filter — and the selection is printed by `Enter` from the tree or detail pane, so the mode changes what accepting does without leaving `Esc`, which clears the filter on a second press, as the only way out of the search box.
+
 - `[ui] horizontal_scroll = false` now wraps the raw `--help` view (`t`) and the `unparsed` fallback instead of quietly cutting every line at the pane's edge: with sideways scrolling off there was no key that could reach the rest and no marker saying it existed, so the one view whose purpose is showing what the tool printed was the one losing it — a line that fits still arrives byte for byte, a longer one keeps the author's interior columns and its own indent on the rows it continues onto, breaks at a space where there is one and between characters where there is not, and the default `true` (sideways scrolling with `←`/`→`/`h`/`l`) is unchanged.
 
 - The `y` clipboard fallback and the "is anything a terminal at the other end" colour check now both address the stream the UI is actually drawn on rather than reaching for stdout on their own, so the OSC-52 escape sequence can no longer be written into output another program is reading and a session whose stdout is redirected is no longer rendered monochrome while its terminal sits on stderr; a source lint keeps every path to a terminal inside `mandible-tui`'s one terminal module.

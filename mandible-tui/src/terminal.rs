@@ -26,6 +26,7 @@ use crossterm::terminal::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::{self, IsTerminal, Stderr, Stdout};
+use std::time::{Duration, Instant};
 
 /// A live terminal handle, backed by `crossterm`.
 pub type Term = Terminal<CrosstermBackend<SinkWriter>>;
@@ -122,16 +123,94 @@ pub fn init(sink: Sink) -> io::Result<Term> {
 /// raw*. The original order disabled raw mode first, leaving a window
 /// where the terminal was cooked but still reporting mouse motion — any
 /// movement during quit landed SGR report fragments (`35;24;9M…`) in the
-/// shell's input buffer, echoed after exit as garbage. The drain eats
-/// reports already in flight when the capture-off sequence was written;
-/// `poll` with a zero timeout never blocks, so this is safe even when
-/// [`init`] never got as far as raw mode.
+/// shell's input buffer, echoed after exit as garbage.
+///
+/// The drain eats those reports, and it waits for them rather than
+/// sampling once. The emulator processes the capture-off sequence
+/// asynchronously, so a report can still be on its way *after* the
+/// sequence was written: a zero-timeout drain finds an empty queue,
+/// returns, and the report arrives a millisecond later with nobody left
+/// to read it — the same litter, now from a narrower race. So each poll
+/// is given [`DRAIN_POLL`] to produce something, and the drain ends at
+/// the first poll that comes back empty. [`DRAIN_BUDGET`] caps the whole
+/// thing, because a terminal that never stops talking must not be able to
+/// stop mandible from exiting.
+///
+/// Safe to call when [`init`] never got as far as raw mode: `poll` on a
+/// stream that is not a terminal errors rather than blocking, and an
+/// error ends the drain.
 pub fn restore(sink: Sink) -> io::Result<()> {
     let mut writer = sink.writer();
     execute!(writer, DisableMouseCapture, LeaveAlternateScreen)?;
-    while crossterm::event::poll(std::time::Duration::ZERO).unwrap_or(false) {
-        let _ = crossterm::event::read();
-    }
+    drain_pending_input();
     disable_raw_mode()?;
     Ok(())
+}
+
+/// How long one drain poll waits for a report still in transit. Long
+/// enough to cover an emulator's turnaround, short enough to be invisible
+/// on the way out.
+const DRAIN_POLL: Duration = Duration::from_millis(25);
+
+/// The drain's total budget. Quitting is not allowed to become a wait,
+/// however much the terminal has to say.
+const DRAIN_BUDGET: Duration = Duration::from_millis(250);
+
+/// Read and discard input until a poll comes back empty or the budget runs
+/// out. See [`restore`] for why the wait exists.
+fn drain_pending_input() {
+    let started = Instant::now();
+    while let Some(timeout) = drain_poll_timeout(started.elapsed()) {
+        match crossterm::event::poll(timeout) {
+            Ok(true) => {
+                let _ = crossterm::event::read();
+            }
+            // Empty (the drain is done) or no terminal to poll at all.
+            _ => return,
+        }
+    }
+}
+
+/// How long the next drain poll may block: at most [`DRAIN_POLL`], and
+/// never past what is left of [`DRAIN_BUDGET`]. `None` once the budget is
+/// spent, which is what bounds [`drain_pending_input`]'s loop.
+fn drain_poll_timeout(elapsed: Duration) -> Option<Duration> {
+    let left = DRAIN_BUDGET.checked_sub(elapsed)?;
+    if left.is_zero() {
+        return None;
+    }
+    Some(left.min(DRAIN_POLL))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The drain's bound, which is the half no terminal test can check:
+    /// every poll is short, and the sum of them cannot exceed the budget,
+    /// so `restore` returns even against a terminal that never goes quiet.
+    #[test]
+    fn the_drain_is_bounded_by_its_budget() {
+        assert_eq!(drain_poll_timeout(Duration::ZERO), Some(DRAIN_POLL));
+        assert_eq!(
+            drain_poll_timeout(DRAIN_BUDGET - DRAIN_POLL * 2),
+            Some(DRAIN_POLL),
+            "a poll well inside the budget gets a full slice"
+        );
+        assert_eq!(
+            drain_poll_timeout(DRAIN_BUDGET - Duration::from_millis(10)),
+            Some(Duration::from_millis(10)),
+            "the last poll is trimmed to what is left, never rounded up"
+        );
+        assert_eq!(
+            drain_poll_timeout(DRAIN_BUDGET),
+            None,
+            "a spent budget ends the loop"
+        );
+        assert_eq!(
+            drain_poll_timeout(DRAIN_BUDGET * 4),
+            None,
+            "and an overrun does not wrap around into another slice"
+        );
+    }
 }
