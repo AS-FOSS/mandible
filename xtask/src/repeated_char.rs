@@ -79,7 +79,7 @@
 //!
 //! It is also the condition the *fix* is written against, deliberately and
 //! character for character — see
-//! `help_text::sections::split_repeated_character_flags`. A detector meant to
+//! `help_text::sections::repair_repeated_character_flags`. A detector meant to
 //! read zero and a fix meant to reach zero must agree on what the defect is,
 //! or the zero means nothing.
 //!
