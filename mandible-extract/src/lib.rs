@@ -49,7 +49,9 @@ pub mod overrides;
 
 pub use errors::ExtractError;
 pub use exec::is_help_only_probe;
-pub use resolve::{resolve_tool, ResolvedTool};
+pub use resolve::{
+    discover_path_siblings, discover_path_siblings_in, resolve_tool, PathSibling, ResolvedTool,
+};
 pub use runner::{ExtractionResult, FillResult, Runner, TierStatus};
 pub use tier::{ExtractionTier, NodeHints};
 

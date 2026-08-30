@@ -129,6 +129,15 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         Axis::Structural,
     );
 
+    // The first contributor that carries one wins, not the highest
+    // structural authority: only tree assembly sets this (spec §5.4), and
+    // it is never in competition with a tier's account of the same node —
+    // a fill merges the discovered node with what the tool's binary said
+    // about itself, and the tier's candidate always carries `None`. Picking
+    // by authority would therefore let the tier's `None` erase the
+    // redirect, which is the one field a probe of this node depends on.
+    let discovered_binary = candidates.iter().find_map(|c| c.discovered_binary.clone());
+
     let structural_winner_idx =
         best_index(candidates.iter().map(|c| &c.provenance), Axis::Structural);
     let hidden = candidates[structural_winner_idx].hidden;
@@ -175,6 +184,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         provenance,
         heading_attested,
         invocation_attested,
+        discovered_binary,
         confession,
     })
 }

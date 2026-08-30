@@ -28,6 +28,99 @@ pub fn resolve_tool(name: &str) -> ResolvedTool {
     }
 }
 
+/// One child command discovered by the `<parent>-<sub>` convention: a file
+/// on `PATH` named after the parent tool plus a dash (spec §5.4). `cargo`'s
+/// `cargo-clippy` and `git`'s `git-lfs` are the two specimens; the rule is
+/// keyed on the naming convention alone and knows nothing about either tool.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathSibling {
+    /// The subcommand name — the part after the dash, e.g. `"clippy"`.
+    pub name: String,
+    /// The binary's own name, e.g. `"cargo-clippy"` — what a probe of this
+    /// node is actually sent to (spec §6), and what the UI names as the
+    /// evidence behind an unverified node (spec §9.2).
+    pub binary: String,
+}
+
+/// Upper bound on how many convention-discovered children one parent gets.
+///
+/// A backstop against a directory full of `<parent>-*` helpers (git's own
+/// `libexec` layout is ~150 of them, and a machine that puts such a
+/// directory on `PATH` would otherwise hand the background warmer that many
+/// extra probes for names the parent never documented), not a tuning knob.
+const MAX_PATH_SIBLINGS: usize = 64;
+
+/// Every `<parent>-<sub>` executable on `PATH`, as [`PathSibling`]s, in
+/// alphabetical order by subcommand name.
+///
+/// Filesystem-only, like everything else in this module: no process is
+/// spawned to discover a sibling, and nothing here decides whether one may
+/// be *probed* — that stays with `exec::run_inert` and spec §6, reached the
+/// same way any root `--help` probe is.
+pub fn discover_path_siblings(parent: &str) -> Vec<PathSibling> {
+    let Some(path_var) = std::env::var_os("PATH") else {
+        return Vec::new();
+    };
+    let dirs: Vec<PathBuf> = std::env::split_paths(&path_var).collect();
+    discover_path_siblings_in(&dirs, parent)
+}
+
+/// [`discover_path_siblings`] against an explicit directory list — the seam
+/// tests use, so they never have to mutate the process-global `PATH` (which
+/// the test harness runs in parallel threads and cannot serialize).
+pub fn discover_path_siblings_in(dirs: &[PathBuf], parent: &str) -> Vec<PathSibling> {
+    // A tool the user spelled as a path (`mandible ./scripts/tool.py`) has
+    // no `PATH` neighbourhood to look in, and joining a prefix containing a
+    // separator would search a directory nobody named.
+    if parent.is_empty() || parent.contains(std::path::MAIN_SEPARATOR) {
+        return Vec::new();
+    }
+    let prefix = format!("{parent}-");
+    let mut found: Vec<PathSibling> = Vec::new();
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let file_name = entry.file_name();
+            let Some(binary) = file_name.to_str() else {
+                continue;
+            };
+            let Some(sub) = binary.strip_prefix(&prefix) else {
+                continue;
+            };
+            // The same name-shape rule every tier applies before believing a
+            // bare word is a command (spec §7 Tier B rule 3), so a build
+            // artifact (`cargo-clippy.exe.bak`, `git-2.43`) or a
+            // capitalized helper never becomes a tree row.
+            if !mandible_core::is_command_name_shaped(sub) {
+                continue;
+            }
+            // First `PATH` entry wins, exactly as `find_on_path` resolves a
+            // tool name, so a shadowed sibling is reported once and by the
+            // binary that would actually run.
+            if found.iter().any(|s| s.name == sub) {
+                continue;
+            }
+            if !is_executable(&entry.path()) {
+                continue;
+            }
+            found.push(PathSibling {
+                name: sub.to_string(),
+                binary: binary.to_string(),
+            });
+        }
+    }
+    // Alphabetical, not `readdir` order: there is no document order to
+    // preserve here (spec §4.4's ordering argument is about what a tool's
+    // own text listed), and directory order differs between filesystems, so
+    // sorting is what makes the tree the same on two machines with the same
+    // binaries installed.
+    found.sort_by(|a, b| a.name.cmp(&b.name));
+    found.truncate(MAX_PATH_SIBLINGS);
+    found
+}
+
 fn find_on_path(name: &str) -> Option<PathBuf> {
     // A path separator in `name` means the caller already gave us a path;
     // don't search PATH for it, just check it directly.
@@ -152,6 +245,111 @@ mod tests {
             .expect("relative path should resolve");
         assert!(path.is_absolute(), "still relative: {}", path.display());
         assert!(path.ends_with("toolish"), "{}", path.display());
+    }
+
+    /// A directory of fixtures for the sibling-discovery tests: every entry
+    /// is created executable unless `plain` names it.
+    #[cfg(unix)]
+    fn sibling_dir(names: &[&str], plain: &[&str]) -> tempfile::TempDir {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::TempDir::new().unwrap();
+        for name in names {
+            let file = dir.path().join(name);
+            std::fs::write(&file, "#!/bin/sh\nexit 0\n").unwrap();
+            let mode = if plain.contains(name) { 0o644 } else { 0o755 };
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+        }
+        dir
+    }
+
+    /// The specimen from issue #70: `cargo --help` never lists `clippy`, but
+    /// `cargo-clippy` is right there on `PATH` (spec §5.4).
+    #[cfg(unix)]
+    #[test]
+    fn discovers_dash_prefixed_executables_as_subcommands() {
+        let dir = sibling_dir(&["cargo-clippy", "cargo-nextest", "cargo", "rustc"], &[]);
+        let found = discover_path_siblings_in(&[dir.path().to_path_buf()], "cargo");
+        let names: Vec<&str> = found.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["clippy", "nextest"]);
+        assert_eq!(found[0].binary, "cargo-clippy");
+    }
+
+    /// A file nobody can run is not a command, however it is named.
+    #[cfg(unix)]
+    #[test]
+    fn a_non_executable_file_is_not_a_sibling() {
+        let dir = sibling_dir(&["cargo-clippy", "cargo-notes"], &["cargo-notes"]);
+        let found = discover_path_siblings_in(&[dir.path().to_path_buf()], "cargo");
+        let names: Vec<&str> = found.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["clippy"]);
+    }
+
+    /// The same name-shape rule every tier applies to a bare word (spec §7
+    /// Tier B rule 3): a versioned or capitalized helper beside the tool is
+    /// not a subcommand name.
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_command_shaped_is_not_a_sibling() {
+        let dir = sibling_dir(&["git-lfs", "git-2.43", "git-README", "git-"], &[]);
+        let found = discover_path_siblings_in(&[dir.path().to_path_buf()], "git");
+        let names: Vec<&str> = found.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["lfs"]);
+    }
+
+    /// First `PATH` entry wins, exactly as [`find_on_path`] resolves a tool
+    /// name — a shadowed sibling must be reported once, under the binary
+    /// that would actually run.
+    #[cfg(unix)]
+    #[test]
+    fn a_shadowed_sibling_is_reported_once_from_the_first_path_entry() {
+        let first = sibling_dir(&["cargo-clippy"], &[]);
+        let second = sibling_dir(&["cargo-clippy"], &[]);
+        let found = discover_path_siblings_in(
+            &[first.path().to_path_buf(), second.path().to_path_buf()],
+            "cargo",
+        );
+        assert_eq!(found.len(), 1);
+    }
+
+    /// Directory order differs between filesystems; the tree must not.
+    #[cfg(unix)]
+    #[test]
+    fn siblings_come_back_in_alphabetical_order() {
+        let dir = sibling_dir(&["cargo-zzz", "cargo-aaa", "cargo-mmm"], &[]);
+        let found = discover_path_siblings_in(&[dir.path().to_path_buf()], "cargo");
+        let names: Vec<&str> = found.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["aaa", "mmm", "zzz"]);
+    }
+
+    /// A tool spelled as a path has no `PATH` neighbourhood, and the prefix
+    /// join would search a directory nobody named.
+    #[test]
+    fn a_path_spelled_tool_has_no_siblings() {
+        let dir = tempfile::TempDir::new().unwrap();
+        assert!(discover_path_siblings_in(
+            &[dir.path().to_path_buf()],
+            &format!(
+                ".{}scripts{}tool",
+                std::path::MAIN_SEPARATOR,
+                std::path::MAIN_SEPARATOR
+            )
+        )
+        .is_empty());
+        assert!(discover_path_siblings_in(&[dir.path().to_path_buf()], "").is_empty());
+    }
+
+    /// A `libexec`-shaped directory on `PATH` must not hand the background
+    /// warmer hundreds of extra probes.
+    #[cfg(unix)]
+    #[test]
+    fn discovery_is_capped() {
+        let names: Vec<String> = (0..MAX_PATH_SIBLINGS + 10)
+            .map(|i| format!("git-c{i:03}"))
+            .collect();
+        let refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        let dir = sibling_dir(&refs, &[]);
+        let found = discover_path_siblings_in(&[dir.path().to_path_buf()], "git");
+        assert_eq!(found.len(), MAX_PATH_SIBLINGS);
     }
 
     /// Making the path absolute must not follow symlinks, because the
