@@ -1,9 +1,9 @@
 //! `mandible --doctor <tool>`: a non-TUI diagnostic (spec §5.3).
 //!
 //! Prints the detected framework (spec §7 Tier A′), tier statuses,
-//! node/flag counts, and the fraction of *describable* flags that carry a
-//! description — the primary way to verify extraction behavior without a
-//! terminal.
+//! node/flag counts (plus modifiers, for the few tools that document any),
+//! and the fraction of *describable* flags that carry a description — the
+//! primary way to verify extraction behavior without a terminal.
 //!
 //! The percentage here is deliberately the **same instrument** as the
 //! `cargo xtask coverage` scoreboard (spec §13.1/§13.1b), computed via the
@@ -70,6 +70,16 @@ pub fn build_report(loaded: &LoadedTool) -> String {
             };
             writeln!(out, "nodes:      {nodes}").unwrap();
             writeln!(out, "flags:      {flags} ({pct} flags with text)").unwrap();
+            // Only when the tool has any. A modifier table is rare (spec
+            // §7 Tier B), and a `modifiers:  0` line on every other tool
+            // would be one more row to read past on the diagnostic whose
+            // whole job is to be scanned quickly. When they are there,
+            // saying so is the difference between `ar` reporting six
+            // recovered items and twenty-three.
+            let modifiers = loaded.modifier_count();
+            if modifiers > 0 {
+                writeln!(out, "modifiers:  {modifiers}").unwrap();
+            }
         }
         None => {
             writeln!(
@@ -179,6 +189,49 @@ mod tests {
         assert!(
             report.contains("flags:      1 (100.0% flags with text)"),
             "expected a real percentage, got:\n{report}"
+        );
+    }
+
+    /// Modifiers are counted and reported separately from flags — `ar`
+    /// recovers six of one and seventeen of the other, and a diagnostic
+    /// that says "flags: 6" alone describes a quarter of what the tier
+    /// produced. The line appears only when there are any, so every tool
+    /// without a modifier table reads exactly as it did before.
+    #[test]
+    fn modifiers_are_counted_separately_and_only_shown_when_present() {
+        let mut root = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        let mut f = Entity::flag_long("thin", Provenance::single(Source::HelpText));
+        f.description = Some(mandible_core::Text::sanitize("make a thin archive"));
+        root.entities.push(f);
+        let flags_only = ExtractionResult {
+            tool: "ar".to_string(),
+            root: Some(root.clone()),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        assert!(
+            !build_report(&flags_only).contains("modifiers:"),
+            "a tool with no modifier table must not grow a row for it"
+        );
+
+        for letter in ['v', 'S'] {
+            root.entities.push(Entity::modifier(
+                letter,
+                Provenance::single(Source::HelpText),
+            ));
+        }
+        let with_modifiers = ExtractionResult {
+            tool: "ar".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let report = build_report(&with_modifiers);
+        assert!(report.contains("modifiers:  2"), "{report}");
+        // ...and they did not inflate the flag count or its ratio.
+        assert!(
+            report.contains("flags:      1 (100.0% flags with text)"),
+            "{report}"
         );
     }
 }

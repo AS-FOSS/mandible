@@ -53,6 +53,18 @@ impl ExtractionResult {
         self.root.as_ref().map(count_flags).unwrap_or(0)
     }
 
+    /// Total modifier letters in the merged tree, counted recursively —
+    /// the same raw recall count [`Self::flag_count`] is, for the kind
+    /// spec §7 Tier B's modifier tables produce.
+    ///
+    /// Its own number rather than part of the flag count: a modifier is
+    /// not a flag, and adding seventeen of them to `ar`'s six would make
+    /// every "% flags with text" ratio built on that count mean something
+    /// different for the handful of tools that have any.
+    pub fn modifier_count(&self) -> usize {
+        self.root.as_ref().map(count_modifiers).unwrap_or(0)
+    }
+
     /// Total flags in the merged tree whose source *could*, in principle,
     /// have supplied a description (spec §13's metric design rules, rule
     /// 2: "denominators are conditioned on what the source could have
@@ -95,6 +107,10 @@ impl ExtractionResult {
 
 fn count_flags(node: &CommandNode) -> usize {
     node.flags().count() + node.subcommands.iter().map(count_flags).sum::<usize>()
+}
+
+fn count_modifiers(node: &CommandNode) -> usize {
+    node.modifiers().count() + node.subcommands.iter().map(count_modifiers).sum::<usize>()
 }
 
 fn count_describable_flags(node: &CommandNode) -> usize {
