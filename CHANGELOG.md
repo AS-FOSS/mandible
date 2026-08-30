@@ -2096,6 +2096,10 @@ Known gaps are tracked as issues; busybox's applet list is
 
 ## [Unreleased]
 
+### Added
+
+- **`flake.nix`** (issue #7): mandible is installable and runnable via nix (`nix run github:AS-FOSS/mandible`, or as a flake input), packaging the workspace binary with shell completions; a `nix.yml` workflow builds the flake on every PR that touches it so a broken derivation fails the PR that broke it.
+
 ### Added (batch 6 part 6, framework-support workflow)
 
 - **`.github/workflows/frameworks.yml`** (spec §13.1a): a framework matrix
