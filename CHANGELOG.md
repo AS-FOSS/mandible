@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- `jar --help` no longer turns wrapped `-C foo/ ...` rows from its indented `Examples:` blocks into duplicate flags or loses the `Main operation mode:` group: when indentation would otherwise promote the preceding prose sentence to a fake heading and hide the ignorable marker, the parser now contains that whole region until a physical dedent or a positively worded, structurally attested multi-row flag section; generic `Input:`/`Output:` labels, command-shaped example data, and single flag-shaped samples remain contained, with no tool-name-keyed logic.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added
