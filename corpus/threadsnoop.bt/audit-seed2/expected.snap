@@ -154,6 +154,109 @@ flags:
   provenance:
     sources:
     - help-text
+env_vars:
+- name: BPFTRACE_BTF
+  group: 'ENVIRONMENT:'
+  description: '[default: none] BTF file'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_CACHE_USER_SYMBOLS
+  group: 'ENVIRONMENT:'
+  description: '[default: auto] enable user symbol cache'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_CPP_DEMANGLE
+  group: 'ENVIRONMENT:'
+  description: '[default: 1] enable C++ symbol demangling'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_DEBUG_OUTPUT
+  group: 'ENVIRONMENT:'
+  description: '[default: 0] enable bpftrace''s internal debugging outputs'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_KERNEL_BUILD
+  group: 'ENVIRONMENT:'
+  description: '[default: /lib/modules/$(uname -r)] kernel build directory'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_KERNEL_SOURCE
+  group: 'ENVIRONMENT:'
+  description: '[default: /lib/modules/$(uname -r)] kernel headers directory'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_LOG_SIZE
+  group: 'ENVIRONMENT:'
+  description: '[default: 1000000] log size in bytes'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_MAX_BPF_PROGS
+  group: 'ENVIRONMENT:'
+  description: '[default: 512] max number of generated BPF programs'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_MAX_CAT_BYTES
+  group: 'ENVIRONMENT:'
+  description: '[default: 10k] maximum bytes read by cat builtin'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_MAX_MAP_KEYS
+  group: 'ENVIRONMENT:'
+  description: '[default: 4096] max keys in a map'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_MAX_PROBES
+  group: 'ENVIRONMENT:'
+  description: '[default: 512] max number of probes'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_MAX_STRLEN
+  group: 'ENVIRONMENT:'
+  description: '[default: 64] bytes on BPF stack per str()'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_MAX_TYPE_RES_ITERATIONS
+  group: 'ENVIRONMENT:'
+  description: '[default: 0] number of levels of nested field accesses for tracepoint args'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_PERF_RB_PAGES
+  group: 'ENVIRONMENT:'
+  description: '[default: 64] pages per CPU to allocate for ring buffer'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_STACK_MODE
+  group: 'ENVIRONMENT:'
+  description: '[default: bpftrace] Output format for ustack and kstack builtins'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_STR_TRUNC_TRAILER
+  group: 'ENVIRONMENT:'
+  description: '[default: ''..''] string truncation trailer'
+  provenance:
+    sources:
+    - help-text
+- name: BPFTRACE_VMLINUX
+  group: 'ENVIRONMENT:'
+  description: '[default: none] vmlinux path used for kernel symbol resolution'
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

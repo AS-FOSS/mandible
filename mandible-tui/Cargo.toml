@@ -28,3 +28,4 @@ base64.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+mandible-extract.workspace = true

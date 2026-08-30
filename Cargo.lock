@@ -980,6 +980,7 @@ dependencies = [
  "base64",
  "crossterm",
  "mandible-core",
+ "mandible-extract",
  "mandible-search",
  "proptest",
  "ratatui",

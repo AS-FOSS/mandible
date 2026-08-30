@@ -1,0 +1,32 @@
+# The second, independently formatted specimen of an environment section:
+# no trailing colon on the heading ("Environment variables" rather than
+# "ENVIRONMENT:"), a narrower column gap, and — unlike bpftrace's flush-left
+# `OPTIONS:` block — flags grouped under their own subheadings ("Search",
+# "Interface", "Layout", ...) sharing the same 2-space/4-space indent
+# convention the environment section itself uses. Recovering both from one
+# heading-keyed recognizer is what says the rule is keyed on the heading
+# text rather than on either tool's layout.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fzf"
+version = "0.44.1"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["fzf", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_env_vars = ["FZF_DEFAULT_COMMAND", "FZF_DEFAULT_OPTS", "FZF_API_KEY"]
+# The regression guard beside the fixture's own subject: one flag from each
+# of the grouped sections above the environment section, so a change to
+# the environment-heading recognizer's placement in `parse_body` can never
+# silently start swallowing (or splitting) the grouped flags blocks that
+# sit directly above it under the same layout convention.
+must_contain_flags = ["--extended", "--multi", "--height", "--history", "--preview", "--query"]
