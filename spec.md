@@ -3637,7 +3637,11 @@ the relationship clear.
 - Default features must build with no network and no C toolchain. That is why
   Tier D is opt-in.
 - Ship completions for mandible itself and `packaging/mandible.1`, installed to the
-  standard paths.
+  standard paths: `/usr/share/bash-completion/completions/mandible`,
+  `/usr/share/zsh/site-functions/_mandible`, and
+  `/usr/share/fish/vendor_completions.d/mandible.fish`. Every channel generates them
+  from the built binary's own `--completions <shell>`, so there is one generator and
+  no packaging path that can install a file the shell will not find.
 - `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
 

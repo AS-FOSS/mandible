@@ -235,6 +235,11 @@ jobs:
       - name: Build packages
         run: |
           cargo build --release --locked --bin mandible
+          # Both manifests install these by literal path; nothing else
+          # creates them. See the comment above the asset lists in
+          # mandible/Cargo.toml for why they are not globbed out of the
+          # build tree any more.
+          scripts/gen_completions.sh
           cargo deb --no-build -p mandible
           cargo generate-rpm -p mandible
 

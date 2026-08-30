@@ -15,6 +15,10 @@ once it reaches a published 0.1.0 release.
 - mandible can be installed from an apt repository at `https://as-foss.github.io/mandible-apt` (amd64 and arm64, every released version, `Release` clear-signed and detached-signed); the release workflow asks `AS-FOSS/mandible-apt` to rebuild it on each tag, skipping with a warning naming the manual `gh workflow run` fallback while the `APT_DISPATCH_TOKEN` secret that cross-repository dispatch needs does not exist.
 - The release workflow now updates the Homebrew tap itself: after a tag's assets are published it renders `Formula/mandible.rb` from the version and the four `.sha256` assets the release already carries (read from those assets, never recomputed from a second build, and cross-checked so a digest taken over some other file is refused) and commits it to `AS-FOSS/homebrew-mandible` through GitHub's `createCommitOnBranch` API, which signs the commit; `scripts/render_formula.sh` renders the same formula locally so a broken one is not something you discover after tagging.
 
+### Fixed
+
+- The rpm's and deb's shell completions were installed under build-hash paths and never loaded — every rpm shipped all three as `…/completions/mandible/mandible-<hash>/out/mandible.bash` and the deb did the same for bash, a directory where each shell looks for a file — because the packaging manifests globbed them out of the build script's hashed `OUT_DIR` and both packagers append a glob's matched path to the destination; completions are now generated from the built binary's own `--completions` by `scripts/gen_completions.sh`, the same generator the nix and Homebrew packages already used, and installed by literal path to `/usr/share/bash-completion/completions/mandible`, `/usr/share/zsh/site-functions/_mandible` and `/usr/share/fish/vendor_completions.d/mandible.fish`.
+
 ## [0.4.5] - 2026-08-28
 
 ### Added
