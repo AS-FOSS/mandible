@@ -249,7 +249,7 @@ fn build_row_line(
             spans.push(Span::raw(" ".repeat(pad_to - name_part_width)));
             if row.unverified {
                 let badge = truncate_to_width_marker(UNVERIFIED_BADGE, remaining, glyphs.ellipsis);
-                remaining -= display_width(&badge);
+                remaining = remaining.saturating_sub(display_width(&badge));
                 spans.push(Span::styled(badge, style::warning(color_enabled)));
             }
             if let Some(summary) = summary {
@@ -261,7 +261,7 @@ fn build_row_line(
                 // The separator only earns its cells when something legible
                 // follows it.
                 if remaining > display_width(&separator) {
-                    remaining -= display_width(&separator);
+                    remaining = remaining.saturating_sub(display_width(&separator));
                     let truncated = truncate_to_width_marker(&summary, remaining, glyphs.ellipsis);
                     spans.push(Span::styled(separator, style::muted(color_enabled)));
                     spans.push(Span::styled(truncated, style::muted(color_enabled)));
