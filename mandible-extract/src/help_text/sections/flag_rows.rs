@@ -574,11 +574,37 @@ pub(super) fn looks_like_argfile_row(trimmed: &str) -> bool {
 }
 
 /// True when `spec`'s own text still carries an unclosed `<...>`
-/// placeholder — more `<` than `>` — meaning a wrapped continuation line
-/// below it may still belong to the placeholder itself rather than to the
-/// description.
+/// placeholder, meaning a wrapped continuation line below it may still
+/// belong to the placeholder itself rather than to the description.
+///
+/// A placeholder can only *open* at a token boundary — `<` immediately
+/// preceded by whitespace or the start of the spec — never glued onto an
+/// earlier character. That is what tells jmod's real placeholder open
+/// (`--target-platform <String: target-`, where `<String:` is its own
+/// token) apart from `msgcat`'s real short flag spelled with the literal
+/// character `<` (`-<, --less-than=NUMBER`, whose `<` is glued directly
+/// onto the flag's own leading `-` with no token boundary in front of it).
+/// A naive raw `<`-vs-`>` count conflated the two: `-<, --less-than=NUMBER`
+/// has one `<` and zero `>`, so it read as an open placeholder too, and its
+/// real wrapped description (`definitions, defaults to infinite if not
+/// set`) was misrouted into the spec instead of staying the description —
+/// found via a full-`PATH` sweep, not a corpus fixture (`msgcat`/`msgcomm`
+/// are not in `corpus/`).
 pub(super) fn placeholder_left_open(spec: &str) -> bool {
-    spec.matches('<').count() > spec.matches('>').count()
+    let bytes = spec.as_bytes();
+    let mut open_idx: Option<usize> = None;
+    let mut at_token_start = true;
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b' ' || b == b'\t' {
+            at_token_start = true;
+            continue;
+        }
+        if at_token_start && b == b'<' {
+            open_idx = Some(i);
+        }
+        at_token_start = false;
+    }
+    open_idx.is_some_and(|i| !spec[i..].contains('>'))
 }
 
 /// True when `trimmed` is `llvm-ar`'s own enumerated-value sub-row shape —
@@ -1504,6 +1530,21 @@ Options:
             Some("Target platform"),
             "no placeholder tail must leak into the description"
         );
+    }
+
+    /// `msgcat`'s real `-<, --less-than=NUMBER` — a short flag literally
+    /// spelled with the `<` character — must never look like an open
+    /// placeholder: its own `<` is glued directly onto the leading `-`,
+    /// never preceded by whitespace, so it opens no token of its own.
+    /// Found via a full-`PATH` sweep, not a corpus fixture (`msgcat` is
+    /// not in `corpus/`): a naive raw `<`-vs-`>` count read this row's
+    /// wrapped description as more of the placeholder and misrouted it
+    /// into the spec.
+    #[test]
+    fn a_short_flag_spelled_with_the_literal_angle_bracket_is_never_an_open_placeholder() {
+        assert!(!placeholder_left_open("-<, --less-than=NUMBER"));
+        // The genuine open-placeholder case must still be recognized.
+        assert!(placeholder_left_open("--target-platform <String: target-"));
     }
 
     /// `jmod --help`'s trailing `@<filename>  Read options from the

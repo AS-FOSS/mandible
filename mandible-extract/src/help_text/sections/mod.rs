@@ -811,6 +811,16 @@ fn parse_body(
                 if is_section_heading_line(trimmed_start) {
                     break;
                 }
+                // A decorative dash-bracketed divider (`tree --help`'s own
+                // `------- Listing options -------`, no trailing colon) is
+                // never a usage continuation either — see
+                // `looks_like_dash_bracketed_heading`'s own doc comment for
+                // why this call site specifically needed it once the
+                // dash-underline guard stopped `looks_like_flag_start` from
+                // accidentally catching this shape.
+                if looks_like_dash_bracketed_heading(trimmed_start) {
+                    break;
+                }
                 // A line more indented than the base is not *always* a
                 // continuation — only when it still reads as usage grammar.
                 // `sg_emc_trespass` opens `Usage:  sg_emc_trespass [-d]
