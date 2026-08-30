@@ -8,7 +8,13 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- Browsing can now end on the shell prompt instead of in the clipboard (issue #40): `mandible --print-selection <tool>` browses exactly as usual but makes `Enter` print the selected command — plus the flag search landed on, in its long spelling where the tool documents one and always in the affirmative form (`--color`, never the un-runnable `--[no-]color`) — to stdout and exit, drawing the UI on stderr so stdout carries that one line and nothing else, and `mandible --shell-init bash` (or `zsh`) prints the binding that puts it on the command line ready to edit: `Ctrl-X m` opens mandible on the word already typed and replaces the line with what you select, leaving it untouched if you quit instead. Without the flag nothing moves — `Enter` is still one of the three keys that expand a row.
+
 ### Fixed
+
+- The `y` clipboard fallback and the "is anything a terminal at the other end" colour check now both address the stream the UI is actually drawn on rather than reaching for stdout on their own, so the OSC-52 escape sequence can no longer be written into output another program is reading and a session whose stdout is redirected is no longer rendered monochrome while its terminal sits on stderr; a source lint keeps every path to a terminal inside `mandible-tui`'s one terminal module.
 
 - `jar --help` no longer turns wrapped `-C foo/ ...` rows from its indented `Examples:` blocks into duplicate flags or loses the `Main operation mode:` group: when indentation would otherwise promote the preceding prose sentence to a fake heading and hide the ignorable marker, the parser now contains that whole region until a physical dedent or a positively worded, structurally attested multi-row flag section; generic `Input:`/`Output:` labels, command-shaped example data, and single flag-shaped samples remain contained, with no tool-name-keyed logic.
 
