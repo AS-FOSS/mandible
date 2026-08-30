@@ -1167,8 +1167,21 @@ mod tests {
     // positional already used.
 
     /// A `Modifier` entity's bare letter reaches the vocabulary and
-    /// attests a matching row — `ar`'s own shape (`ar rvD archive.a
-    /// foo.o`, documented as an indented `d  delete members...` table).
+    /// attests a matching row.
+    ///
+    /// The table below is deliberately **name-row shaped**
+    /// (`d<gutter>description`), not `ar`'s real bracketed modifier row
+    /// (`  [D]          - use zero for timestamps...`, see
+    /// `corpus/ar/audit-seed2/help.txt`) — a bracketed row is not
+    /// name-shaped and `classify` produces no row for it at all, so it
+    /// could never exercise this attribution. The name-row shape here is
+    /// the only one `classify` can emit a row for, which is also exactly
+    /// why the fleet-wide before/after residue diff over `corpus/` is
+    /// null today: no committed fixture's modifier table happens to be
+    /// name-shaped. `ar rvD archive.a foo.o` is real `ar` usage — modifier
+    /// letters glued to an operation letter — kept only as a familiar
+    /// example of the notation, not a claim about how `ar` prints its
+    /// table.
     #[test]
     fn a_modifier_entitys_letter_reaches_the_vocabulary() {
         let raw = "Modifiers:\n  d            delete members from the archive\n  r            insert with replacement\n";
