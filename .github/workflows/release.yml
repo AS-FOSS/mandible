@@ -25,6 +25,10 @@ on:
         description: "Also publish to crates.io (irreversible)"
         type: boolean
         default: false
+      submit_copr:
+        description: "Also submit the SRPM to COPR (safe to repeat; a tag does this automatically)"
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -299,12 +303,48 @@ jobs:
             target/generate-rpm/*.rpm
           if-no-files-found: error
 
+  # `cargo vendor` output, shipped as a release asset so the RPM spec can
+  # reference it as Source1 (packaging/copr/mandible.spec explains why the
+  # SRPM carries its dependencies rather than fetching them).
+  #
+  # Deliberately gated on nothing. This job downloads and repacks crates;
+  # it makes no claim about whether the code works, so making it wait for
+  # the test suite would only lengthen the critical path. Nothing is
+  # submitted anywhere on the strength of this job alone — the COPR job
+  # below still requires the release, and therefore the full suite, on any
+  # real tag.
+  vendor:
+    name: vendor the crate dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the vendor tarball
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          # --locked so the vendored set is the one Cargo.lock pins, which
+          # is what every other job in this workflow builds against.
+          cargo vendor --versioned-dirs --locked vendor > vendor-config.toml
+          tar -cJf "mandible-${version}-vendor.tar.xz" vendor
+          ls -lh "mandible-${version}-vendor.tar.xz"
+          # The spec appends its own equivalent of this; print it so a
+          # mismatch between what cargo generates and what the spec writes
+          # is visible in the log rather than only at build time.
+          cat vendor-config.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mandible-vendor
+          path: mandible-*-vendor.tar.xz
+          if-no-files-found: error
+
   # Skipped on a bare `workflow_dispatch` with no tag, so dispatching this
   # workflow is a safe rehearsal of the build half: you get binaries and
   # packages as artifacts without creating a Release or touching crates.io.
   release:
     name: github release
-    needs: [build, packages]
+    needs: [build, packages, vendor]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -508,6 +548,108 @@ jobs:
             -F "client_payload[tag]=${tag}"
 
           echo "dispatched a rebuild of ${APT_REPO} for ${tag}"
+
+  # Build the SRPM and hand it to COPR, which does the per-chroot builds.
+  #
+  # The SRPM is assembled here rather than by COPR's custom-source method,
+  # and packaging/copr/mandible.spec explains that choice at length: it
+  # carries its own vendored dependencies, so it builds offline in mock,
+  # in koji, or under a plain `rpmbuild --rebuild` on any machine, and it
+  # is a complete description of the build rather than a recipe only COPR
+  # can follow.
+  #
+  # On a tag this waits for the release. On a `workflow_dispatch` with
+  # submit_copr it needs only the vendor tarball, which makes resubmitting
+  # one version cheap — COPR builds are idempotent per (project, version)
+  # in the sense that a repeat submission simply supersedes the previous
+  # build, so re-running this is safe.
+  copr:
+    name: submit to copr
+    needs: [vendor, release]
+    if: |
+      always() && needs.vendor.result == 'success' && (
+        (startsWith(github.ref, 'refs/tags/') && needs.release.result == 'success')
+        || (github.event_name == 'workflow_dispatch' && inputs.submit_copr)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: fedora:41
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mandible-vendor
+
+      - name: Install the rpm and copr tooling
+        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools copr-cli git tar
+
+      - name: Build the SRPM
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+          mkdir -p rpmbuild/SOURCES rpmbuild/SPECS
+
+          # The same content GitHub serves at the spec's Source0 URL: the
+          # tag's tree under a `mandible-<version>/` prefix. Produced with
+          # git archive so this job does not depend on GitHub having
+          # generated that archive yet.
+          git config --global --add safe.directory "$PWD"
+          git archive --prefix="mandible-${version}/" \
+            -o "rpmbuild/SOURCES/mandible-${version}.tar.gz" HEAD
+
+          mv "mandible-${version}-vendor.tar.xz" rpmbuild/SOURCES/
+
+          # `Version:` in the checked-in spec tracks the workspace version
+          # so the spec is buildable by hand from a clean checkout. What
+          # reaches COPR is the tag being released, which is the only
+          # value that can be right here.
+          sed -e "s/^Version:.*/Version:        ${version}/" \
+            packaging/copr/mandible.spec > rpmbuild/SPECS/mandible.spec
+          grep '^Version:' rpmbuild/SPECS/mandible.spec
+
+          rpmbuild --define "_topdir ${PWD}/rpmbuild" -bs rpmbuild/SPECS/mandible.spec
+          ls -lh rpmbuild/SRPMS/
+
+      # Skipped, not failed, when the secret is absent: a fork has no COPR
+      # to submit to, and the release itself is already published and
+      # correct. The log line names the secret so a silently missing
+      # submission is not mistaken for a successful one.
+      - name: Submit to COPR
+        env:
+          COPR_REGISTRY_TOKEN: ${{ secrets.COPR_REGISTRY_TOKEN }}
+          # Set this repository variable to override where builds are
+          # submitted. Left unset, the project is `<username>/mandible`,
+          # with the username read from the API config itself.
+          COPR_PROJECT: ${{ vars.COPR_PROJECT }}
+        run: |
+          if [ -z "${COPR_REGISTRY_TOKEN}" ]; then
+            echo "::warning::COPR_REGISTRY_TOKEN is not set — the SRPM for ${VERSION} was built but not submitted to COPR. Add that secret (the contents of the API config from https://copr.fedorainfracloud.org/api/) to enable submission."
+            exit 0
+          fi
+
+          mkdir -p ~/.config
+          printf '%s\n' "${COPR_REGISTRY_TOKEN}" > ~/.config/copr
+          chmod 600 ~/.config/copr
+
+          # The owner is read from the config rather than written down
+          # here. The COPR project lives under the maintainer's Fedora
+          # account, which is not the GitHub organisation name, and a
+          # hardcoded owner would be a second place for that to be wrong.
+          project="${COPR_PROJECT}"
+          if [ -z "$project" ]; then
+            owner="$(awk -F'=' '/^[[:space:]]*username[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' ~/.config/copr)"
+            if [ -z "$owner" ]; then
+              echo "::error::COPR_REGISTRY_TOKEN holds no 'username =' line, so the project owner cannot be derived. Set the COPR_PROJECT repository variable to '<owner>/<project>' instead." >&2
+              exit 1
+            fi
+            project="${owner}/mandible"
+          fi
+          echo "submitting to ${project}"
+
+          srpm="$(ls rpmbuild/SRPMS/mandible-${VERSION}-*.src.rpm)"
+          copr-cli build "${project}" "${srpm}"
 
   # Last, and only on a real tag: crates.io publishing is irreversible.
   # Order follows the dependency graph — a dependency must exist on the
