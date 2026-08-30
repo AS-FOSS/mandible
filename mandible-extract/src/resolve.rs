@@ -253,10 +253,19 @@ mod tests {
 
     /// A directory of fixtures for the sibling-discovery tests: every entry
     /// is created executable unless `plain` names it.
+    ///
+    /// `new_in(".")` rather than `TempDir::new()`, for the same reason the
+    /// two tests above build their fixtures that way: this crate's tests
+    /// share one process under `cargo test`, some of them redirect `TMPDIR`
+    /// at a scratch directory they then delete (spec §6 rule 8), and a
+    /// concurrent `TempDir::new()` fails with `NotFound` on a `$TMPDIR` that
+    /// no longer exists. `cargo nextest` gives each test its own process and
+    /// never sees it, which is exactly the kind of runner-dependent failure
+    /// not worth leaving in place.
     #[cfg(unix)]
     fn sibling_dir(names: &[&str], plain: &[&str]) -> tempfile::TempDir {
         use std::os::unix::fs::PermissionsExt;
-        let dir = tempfile::TempDir::new().unwrap();
+        let dir = tempfile::TempDir::new_in(".").unwrap();
         for name in names {
             let file = dir.path().join(name);
             std::fs::write(&file, "#!/bin/sh\nexit 0\n").unwrap();
