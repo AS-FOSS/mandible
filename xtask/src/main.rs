@@ -718,10 +718,15 @@ fn run_corpus(
     Ok(())
 }
 
-/// Read and diff two scoreboards (`xtask sweep-diff`, WS2 part 1). Always
-/// exits `0` on a clean read of both files — see `transition.rs`'s doc
-/// comment on why this is non-blocking by construction (maintainer decision
-/// D4), not by a flag a caller has to remember to omit.
+/// Read and diff two scoreboards (`xtask sweep-diff`, WS2 part 1). Exits
+/// `0` on a clean, comparable read of both files — see `transition.rs`'s
+/// doc comment on why the *content* comparison is non-blocking by
+/// construction (maintainer decision D4), not by a flag a caller has to
+/// remember to omit. The one thing that does still fail loudly (nonzero
+/// exit, same as an unreadable file) is a `#fp`/`#fp2` fingerprint-format
+/// mismatch between the two scoreboards: that isn't a reportable content
+/// difference, it's an input the two sides can't be legitimately compared
+/// on at all — see `transition::fingerprint_format_mismatch`.
 fn run_sweep_diff(
     before: &std::path::Path,
     after: &std::path::Path,
@@ -743,6 +748,14 @@ fn run_sweep_diff(
 
     let before_parsed = transition::parse_scoreboard(&before_text);
     let after_parsed = transition::parse_scoreboard(&after_text);
+    // Refuse a V1/V2 fingerprint-format mismatch outright rather than let
+    // `diff` join two differently-shaped entity-identity schemes: see
+    // `transition::fingerprint_format_mismatch`'s doc comment for why that
+    // join would otherwise misreport every entity as removed on one side
+    // and added on the other.
+    if let Some(msg) = transition::fingerprint_format_mismatch(&before_parsed, &after_parsed) {
+        anyhow::bail!(msg);
+    }
     let t = transition::diff(&before_parsed, &after_parsed);
 
     let rendered = match format {
