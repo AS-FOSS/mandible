@@ -128,7 +128,13 @@ prints nothing, leaving the line alone.
 .B Right arrow
 and
 .B l
-still expand.
+still expand. Accepting belongs to the tree and detail panes: while the
+search bar has focus,
+.B Enter
+does what it does without this flag \(em commits the query, moves focus
+to the tree, keeps the filter \(em and the next
+.B Enter
+prints.
 .TP
 .B \-\-shell\-init \fISHELL\fR
 Print the shell integration for
@@ -166,7 +172,9 @@ Expand the selected node (extracting its children on first expand).
 Under
 .BR \-\-print\-selection ,
 .B Enter
-prints the selection and exits instead; the other two still expand.
+prints the selection and exits instead \(em from the tree or detail
+pane, not from the search bar, where it still just commits the query;
+the other two still expand.
 .TP
 .BR "Left arrow" ", " h
 Collapse the selected node, or jump to its parent if already collapsed.
