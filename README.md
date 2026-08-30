@@ -42,33 +42,60 @@ $ mandible docker
 
 ## Install
 
-### Pre-built binaries
+Linux and macOS, on x86_64 and arm64. Windows is not supported: the containment above
+relies on POSIX process groups, and Windows tools use conventions (`/?`, PowerShell's
+own help system) this project does not speak.
 
-Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
-containment described above relies on POSIX process groups, and native Windows tools
-use conventions (`/?`, PowerShell's own help system) that this project does not yet
-speak.
-
-<div align="center">
-
-| Platform              | Download |
-|:----------------------|:---------|
-| Linux x86_64          | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-x86_64-unknown-linux-gnu.tar.gz) |
-| Linux arm64           | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-aarch64-unknown-linux-gnu.tar.gz) |
-| macOS Apple Silicon   | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-aarch64-apple-darwin.tar.gz) |
-| macOS Intel           | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-x86_64-apple-darwin.tar.gz) |
-
-`.deb` and `.rpm` packages are attached to every [release](https://github.com/AS-FOSS/mandible/releases).  
-Each archive ships a matching `.sha256` checksum.
-</div>
-
-### Using Cargo
+**Cargo**
 
 ```console
+# fetch prebuilt binary
+cargo binstall mandible
+```
+
+```console
+# build from source
 cargo install mandible
 ```
 
+**Fedora / EPEL** (COPR repo)
 
+```console
+sudo dnf copr enable as-foss/mandible
+sudo dnf install mandible
+```
+
+**Nix**
+
+```console
+nix run github:AS-FOSS/mandible
+```
+
+**Homebrew** (macOS or Linux)
+
+```console
+brew install as-foss/mandible/mandible
+```
+
+**Debian / Ubuntu** (signed apt repo)
+
+```console
+sudo curl -fsSL https://as-foss.github.io/mandible-apt/mandible-archive-keyring.gpg \
+  -o /usr/share/keyrings/mandible-archive-keyring.gpg
+sudo tee /etc/apt/sources.list.d/mandible.sources >/dev/null <<'EOF'
+Types: deb
+URIs: https://as-foss.github.io/mandible-apt
+Suites: stable
+Components: main
+Architectures: amd64 arm64
+Signed-By: /usr/share/keyrings/mandible-archive-keyring.gpg
+EOF
+sudo apt-get update && sudo apt-get install mandible
+```
+
+
+Standalone binaries, `.deb` and `.rpm` packages, each with a `.sha256`, are attached
+to every [release](https://github.com/AS-FOSS/mandible/releases/latest).
 
 ## How it works
 

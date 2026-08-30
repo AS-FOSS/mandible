@@ -1,10 +1,4 @@
-// Command-line argument parsing.
-//
-// A regular (not `//!` inner) doc comment deliberately: `build.rs`
-// `include!`s this file verbatim to share the `Cli` definition with the
-// completion-script generator (see its doc comment), and `include!`
-// splices content at the call site rather than as a fresh module, where
-// an inner doc comment doesn't parse.
+//! Command-line argument parsing.
 
 use clap::Parser;
 use std::path::PathBuf;

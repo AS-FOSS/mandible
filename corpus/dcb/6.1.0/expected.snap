@@ -1,7 +1,7 @@
 name: dcb
 usage:
 - 'Usage: dcb [ OPTIONS ] OBJECT { COMMAND | help }'
-- dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname
+- '       dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname'
 positionals:
 - name: OBJECT
   required: true

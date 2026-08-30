@@ -1,8 +1,8 @@
 name: vgchange
 usage:
-- vgchange ( -l|--logicalvolume Number, -p|--maxphysicalvolumes Number, -u|--uuid, -s|--physicalextentsize Size[m|UNIT], -x|--resizeable y|n, --addtag Tag, --deltag Tag, --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit, --pvmetadatacopies 0|1|2, --vgmetadatacopies all|unmanaged|Number, --profile String, --detachprofile, --metadataprofile String, --setautoactivation y|n ) [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [ --poll y|n ] [ --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
-- vgchange --monitor y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [ --sysinit ] [ --ignorelockingfailure ] [ --poll y|n ] [ --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
-- vgchange --poll y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [ --ignorelockingfailure ] [ --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+- vgchange ( -l|--logicalvolume Number, -p|--maxphysicalvolumes Number, -u|--uuid, -s|--physicalextentsize Size[m|UNIT], -x|--resizeable y|n, --addtag Tag, --deltag Tag, --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit, --pvmetadatacopies 0|1|2, --vgmetadatacopies all|unmanaged|Number, --profile String, --detachprofile, --metadataprofile String, --setautoactivation y|n ) [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [    --poll y|n ] [    --ignoremonitoring ] [    --noudevsync ] [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+- vgchange --monitor y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [    --sysinit ] [    --ignorelockingfailure ] [    --poll y|n ] [    --ignoremonitoring ] [    --noudevsync ] [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+- vgchange --poll y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [    --ignorelockingfailure ] [    --ignoremonitoring ] [    --noudevsync ] [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
 positionals:
 - name: COMMON_OPTIONS
   required: true

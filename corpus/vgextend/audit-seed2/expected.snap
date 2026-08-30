@@ -1,6 +1,6 @@
 name: vgextend
 usage:
-- vgextend VG PV ... [ -A|--autobackup y|n ] [ -f|--force ] [ -Z|--zero y|n ] [ -M|--metadatatype lvm2 ] [ --labelsector Number ] [ --metadatasize Size[m|UNIT] ] [ --pvmetadatacopies 0|1|2 ] [ --metadataignore y|n ] [ --dataalignment Size[k|UNIT] ] [ --dataalignmentoffset Size[k|UNIT] ] [ --reportformat basic|json ] [ --restoremissing ] [ COMMON_OPTIONS ]
+- vgextend VG PV ... [ -A|--autobackup y|n ] [ -f|--force ] [ -Z|--zero y|n ] [ -M|--metadatatype lvm2 ] [    --labelsector Number ] [    --metadatasize Size[m|UNIT] ] [    --pvmetadatacopies 0|1|2 ] [    --metadataignore y|n ] [    --dataalignment Size[k|UNIT] ] [    --dataalignmentoffset Size[k|UNIT] ] [    --reportformat basic|json ] [    --restoremissing ] [ COMMON_OPTIONS ]
 positionals:
 - name: VG
   required: true

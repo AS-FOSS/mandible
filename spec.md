@@ -9,7 +9,7 @@ outside world in this document has been measured on a real machine; measurements
 are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline as
 **[M-n]**. When a measurement contradicts an assumption, the measurement wins.
 
-**Revision 3.** Revision 3 deletes the vendored spec catalog and the on-disk cache, and reorganizes `--help` parsing around the *framework* that generated the text (§7 Tier A′, §7 Tier B, §11). Revision 2's changes from revision 1 are in [Appendix B](#appendix-b--what-changed-in-revision-2).
+**Revision 4.** Revision 4 specifies the 0.5.0 entity schema and the sectioned detail pane (§4.5, §9.3). Revision 3 deleted the vendored spec catalog and the on-disk cache, and reorganized `--help` parsing around the *framework* that generated the text (§7 Tier A′, §7 Tier B, §11). Revision 2's changes from revision 1 are in [Appendix B](#appendix-b--what-changed-in-revision-2).
 
 ---
 
@@ -202,14 +202,21 @@ year without touching the UI.
 
 ```rust
 /// mandible-core: the shared schema every extraction tier must produce.
+/// Every public struct here is `#[non_exhaustive]`: downstream crates
+/// build through a constructor and assign the public fields, which is what
+/// lets 0.5.x add fields (§4.5's remaining stages each do) without a
+/// breaking release.
 pub struct CommandNode {
     pub name: String,
     pub aliases: Vec<String>,
     pub summary: Option<Text>,          // one-line hint
     pub description: Option<Text>,      // long-form prose
     pub usage: Vec<Text>,               // raw usage patterns, kept verbatim
-    pub flags: Vec<Flag>,
-    pub positionals: Vec<Positional>,
+    /// Every documented item this node carries — flags, positionals,
+    /// modifiers, environment variables — as one kind-tagged vector,
+    /// in document order within each kind (§4.5). Read one kind through
+    /// `flags()`, `positionals()` or `entities_of(kind)`.
+    pub entities: Vec<Entity>,
     pub subcommands: Vec<CommandNode>,
     pub examples: Vec<Example>,
     pub hidden: bool,
@@ -220,39 +227,90 @@ pub struct CommandNode {
     pub provenance: Provenance,
 }
 
-pub struct Flag {
-    pub short: Option<char>,
-    pub long: Option<String>,
-    pub value_name: Option<String>,     // "FILE" in `--output FILE`
-    pub value_kind: ValueKind,
-    pub choices: Vec<Text>,             // `--format {json|yaml|table}`
-    pub repeatable: bool,
-    pub required: bool,
-    pub hidden: bool,
-    pub deprecated: Option<Text>,
-    /// True when inherited from an ancestor (cobra persistent / carapace
-    /// `persistentflags`). Rendered in a separate, dimmed group.
-    pub inherited: bool,
-    /// Display grouping from the source, e.g. tar's "Main operation mode".
-    pub group: Option<String>,
-    pub description: Option<Text>,
-    pub default: Option<Text>,
-    pub env_var: Option<String>,
-    pub provenance: Provenance,
-}
-
 pub enum ValueKind { None, Required, Optional }
-
-pub struct Positional {
-    pub name: String,
-    pub required: bool,
-    pub variadic: bool,
-    pub description: Option<Text>,
-    pub provenance: Provenance,
-}
 
 pub struct Example { pub command: Text, pub explanation: Option<Text> }
 ```
+
+### 4.5 Revision 4 (0.5.0): one entity kind, not four parallel vectors
+
+The 0.5.0 schema replaces `Flag`/`Positional` (and the never-built
+modifier and env-var vectors they would have implied) with **one** entity
+type:
+
+```rust
+pub struct Entity {
+    pub kind: EntityKind,
+    /// Every documented spelling, in document order. Dissolves the
+    /// multi-spelling bug: ffplay documents `-h`, `-?`, `-help`, `--help`
+    /// as one row and today's `short: Option<char>` + `long:
+    /// Option<String>` can hold only two of the four.
+    pub spellings: Vec<Spelling>,
+    pub value_name: Option<String>,
+    pub value_kind: ValueKind,
+    pub choices: Vec<Text>,
+    pub description: Option<Text>,
+    pub group: Option<String>,
+    pub see_also: Vec<Text>,
+    /// An environment variable documented on this entity's own row — a
+    /// `[env: FOO]` annotation or an override file's `env_var` key. This
+    /// is a *cross-reference a flag carries*, distinct from an
+    /// `EntityKind::EnvVar` entity, which is a variable documented as an
+    /// item in its own right.
+    pub env_var: Option<String>,
+    pub provenance: Provenance,
+    // ... plus the flags carried over from the type this replaced:
+    // repeatable, required, hidden, deprecated, inherited, default.
+}
+
+pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
+```
+
+`short()`, `long()`, `negatable()` and `single_dash()` are **derived from
+`spellings` by shape**, not stored: two dashes is long, one dash is long
+when the name is longer than a single character (`-help`, `-vv`, `-CC`)
+and short otherwise. A one-character single-dash spelling is a short flag,
+because `-x` is `-x` whichever slot a previous schema filed it under.
+
+A dashless kind carries exactly one `Spelling`, and that bare name is the
+whole of its spelling: a positional's `pathspec`, a modifier letter, a
+variable name. It has no `short()`/`long()`, and `primary_name()` is how
+it is read. `repeatable` covers both notations for *may be given more
+than once* — a flag the tool accepts repeatedly, and a positional written
+with an ellipsis (`<pathspec>...`) — so the ellipsis needs no field of
+its own.
+
+`Spelling`'s exact shape is finalized in the schema PR, under one
+constraint carried over from `Flag::negatable` and `Flag::single_dash`:
+the searched/copied name never smuggles punctuation (`-h`, `-?`, `-help`,
+`--help`, and `--[no-]foo` must all be representable as name + rendering
+metadata, never as a name containing dashes or brackets).
+
+Rules that govern the migration:
+
+- **`#[non_exhaustive]` lands in the same pass.** It blocks cross-crate
+  struct literals — 61 sites at the time of the decision — and the entity
+  migration rewrites those same sites anyway. One rewrite, not two.
+- **Sequence:** one kind at a time — flags, then positionals, then
+  modifiers, then env vars — with every corpus snapshot
+  **byte-identical** before and after each. A snapshot diff during a
+  migration stage means the code is wrong, never the fixture, which is
+  why the frozen `FlagSnapshot`/`PositionalSnapshot` layouts are
+  partitioned out of the one vector by kind rather than reshaped around
+  `spellings`. Reshaping them belongs with the stage that first emits
+  multi-spelling entities.
+- **Env vars are strict-sections-only**: an
+  `EntityKind::EnvVar` may be produced only from a row under an explicitly
+  labeled environment heading in the tool's own help text. Never scavenged
+  from ALL_CAPS words in prose — `PATH`, `FILE`, `TERM` placeholders are
+  exactly the fabrication class §13.1e detectors exist to catch. A tool
+  that documents its env vars only in the man page gets no ENVIRONMENT
+  section, and that is correct: mandible renders the author's documented
+  surface, it does not claim completeness (§1 product definition). No
+  inferred env→flag cross-references — the variable's own description text
+  stands; `see_also` is populated only from explicit statements.
+- **Display contract** for each kind is §9.3's; the two sections change
+  together.
 
 ### 4.1 `Text`: the sanitization invariant
 
@@ -277,27 +335,105 @@ times. The fix has to be at the boundary where untrusted text enters the IR,
 because there are three consumers (tree, detail pane, clipboard) and each would
 otherwise need its own defense. Widgets are permitted to assume `Text` is clean.
 
-`Text` retains paragraph breaks (`\n\n`) for the detail pane's description
-rendering; the tree pane collapses to a single line at render time.
+**Within the prose tier, reflowing is the rule and structure is the
+exception.** A description is hard-wrapped to whatever width its author
+wrote for, and the pane re-wraps it to its own, so those breaks are noise:
+`sanitize` joins them, which is what stops a re-wrap from coming out ragged
+against already-short lines. But some breaks are the author's meaning, and
+they are recognized per line against the paragraph the line sits in:
 
-**The raw pane (key `t`, §2) deliberately does not go through
-`Text::sanitize`.** Its whole job is showing the tool's own bytes, and
-`sanitize`'s whitespace-collapsing and paragraph-unwrapping are exactly what
-would destroy the column alignment a reviewer needs to judge the parser
-against. A second constructor, `Text::sanitize_preserving_layout`, exists for
-this one path: it strips ANSI/OSC/DCS escapes, stray carriage returns, and
-other C0 controls (a raw terminal escape or a lying `\r` could scramble the
-reader's terminal, so this much neutralization is not optional even for a
-"raw" view), and expands tabs to spaces at 8-column stops, because `ratatui`
-gives a bare `\t` zero display width and leaving it unexpanded would misalign
-columns rather than preserve them. It does not collapse whitespace, trim, or
-unwrap paragraphs, and it is truncated to the same `MAX_TEXT_CHARS` bound as
-`sanitize`. `Text::sanitize` itself, and every use of it on the path that
-feeds the IR, is untouched; only `mandible-extract`'s `help_text::raw_help*`
-functions call the preserving variant. The two constructors are verified
-apart: diffing the raw pane against independently captured `--help` output
-for `du` (column alignment) and `curl --help all` (large output) came back
-byte-identical.
+- **Indented deeper than the paragraph's base indent**, the base being the
+  smallest indentation any line in that paragraph carries. A *uniformly*
+  indented block is therefore ordinary prose and reflows; only a line
+  indented *within* its block is structure.
+- **A list row**: `- `, `* `, `+ `, `• `, `1. `, `1) `.
+- **An example invocation**: an `Example:`/`e.g.` label followed by
+  command-shaped text — a bare command word and then an option or a shell
+  operator. Shape only, never a tool name (§1). The second half of that
+  test is what makes the rule safe: without it every prose sentence after
+  an `Example:` label qualifies, so the recognizer deliberately misses
+  `Example: cp src dst` rather than admit a sentence.
+
+A structural line keeps its break and its indentation relative to the
+paragraph's base, clamped so a source that documents inside a wide table
+cannot hand the pane an indent that leaves prose no room; the line after
+one starts fresh rather than joining onto it. Everything else joins. This
+is why the parser hands descriptions over with their source breaks intact
+rather than pre-joining them: the decision belongs to the one place that
+can make it, and it can only be made on text that still has the breaks.
+
+`Text` retains paragraph breaks (`\n\n`) and these preserved single breaks
+for the detail pane's description rendering, which wraps each logical line
+at its own indent; the tree pane collapses all of it to a single line at
+render time. The `\n`-free invariant a widget relies on is unchanged —
+every newline in a `Text` is one `sanitize` put there deliberately, and no
+widget ever receives a raw one.
+
+**Sanitization has two tiers, chosen by whose layout the text is.** Prose is
+mandible's to set: a description is re-wrapped to the pane's width, so its
+source line breaks are noise and `Text::sanitize` unwraps them. A synopsis
+and a raw `--help` dump are the *author's* layout: the spacing in
+`Usage:  docker import [OPTIONS] file|URL|-`, the four columns LVM pads a
+long-only option out to so it lands under its siblings' longs, and the
+alignment of a two-column options table are all things someone drew, and
+collapsing them destroys information the reader came for. The second tier is
+`Text::sanitize_preserving_layout`: it strips ANSI/OSC/DCS escapes, stray
+carriage returns, and other C0 controls (a raw terminal escape or a lying
+`\r` could scramble the reader's terminal, so this much neutralization is
+not optional even for a "raw" view), and expands tabs to spaces at 8-column
+stops, because `ratatui` gives a bare `\t` zero display width and leaving it
+unexpanded would misalign columns rather than preserve them. It does not
+collapse whitespace, trim, or unwrap paragraphs, and it is truncated to the
+same `MAX_TEXT_CHARS` bound as `sanitize`.
+
+Three paths take the layout tier, and no others: the raw pane (key `t`,
+§2), whose whole job is showing the tool's own bytes; `CommandNode::usage`,
+whose synopses §9.3 already treats as content whose layout is not
+mandible's — the USAGE section scrolls sideways rather than re-flowing;
+and `CommandNode::unparsed`, the verbatim fallback §7 Tier B step 3
+degrades to when nothing parsed. The third follows from the first: the
+fallback exists to show the author's document *because* mandible could not
+read it, so it is the raw pane under a different label, and text mandible
+has admitted it does not understand is the last text it may silently
+reformat. The columns a tool pads its help table into — `ar`'s
+`  m[ab]        - move file(s) in the archive` — are the only structure
+such a document still carries, and collapsing them is what a reader would
+have to un-do by hand against their own terminal.
+
+Each of the three is handed one already-line-split string at a time: a
+raw-help line, one logical usage entry (whose wrapped continuations Tier
+B's parser has already joined), or one line of the unparsed document.
+Everything else that feeds the IR — descriptions above all — goes through
+`Text::sanitize`. The rule that decides between them is ownership of the
+layout, never the field: mandible sets prose, the author sets everything
+shown as drawn. The two constructors are verified apart: diffing the raw
+pane against independently captured `--help` output for `du` (column
+alignment) and `curl --help all` (large output) came back byte-identical.
+
+**A usage form keeps the indentation its author gave it, and the pane
+reproduces the alignment that indentation was drawn for.** A tool lines its
+alternative invocations up under each other, and it lines them up against
+the `Usage: ` label it printed in front of the first one:
+
+```text
+Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
+       ip [ -force ] -batch filename
+```
+
+The `USAGE` heading already says "usage", so the pane drops that label —
+and dropping it moves the first form seven columns left while the second
+stays where the author put it. Keeping the indentation without accounting
+for the label is therefore worse than discarding it. So every form shifts
+left by the first form's own **content column**: its leading indentation
+plus whatever a label occupied in front of it. The first form lands at the
+block indent and the rest keep their positions *relative to it*, which is
+the alignment the tool actually drew. A form indented less than that shift
+— `du`'s `  or:  du ...`, two columns against the seven `Usage: ` took —
+clamps at the block indent rather than going negative: once the label it
+was drawn against is gone it cannot be aligned as drawn, and the left edge
+is the honest fallback. `CommandNode::usage` stores the author's own
+indentation; the compensation is the pane's, computed per node from the
+forms it is about to draw.
 
 One consequence worth knowing when comparing the pane to your own terminal:
 mandible probes tools by absolute resolved path, so a tool that echoes its
@@ -336,7 +472,7 @@ independently. After a three-tier merge the node's badge names whichever tier
 landed first, while the flag descriptions underneath may come from a different
 tier entirely — **the badge lies.** Since the badge exists specifically as a
 trust signal, an inaccurate one is worse than none. Provenance therefore lives on
-`CommandNode`, `Flag`, and `Positional` individually, and the detail pane's footer
+`CommandNode` and each `Entity` individually, and the detail pane's footer
 summarizes: `carapace + help-text · structure ✓ · prose ✓`.
 
 ### 4.3 Addressing: `NodeRef`
@@ -1908,6 +2044,19 @@ overflows the border by one cell per wide character.
   a final dimmed "Inherited" group, and hidden/deprecated flags suppressed unless
   toggled with `.`.
 - Scroll state is per-pane; the wheel scrolls the pane under the cursor.
+- **The parsed view and the raw view each keep their own scroll position,
+  vertical and horizontal.** `t` restores the position the view being
+  entered was last left at, exactly, and movement in one view never moves
+  the other. Nothing is mapped, scaled or seeded between them: the two
+  renderings of one node place the same flag at unrelated coordinates —
+  mandible sets the parse's layout, the tool author sets its own — so a
+  derived position is one neither view was showing, and checking a
+  spelling across `t` means finding the place again on every press. A view
+  not yet scrolled for the selected node opens at the top-left; a
+  remembered position is clamped to the extent the view actually has when
+  it is restored, since content can change size in between; and changing
+  the selected node clears what both views remember, because an offset
+  into one node's document addresses nothing in another's.
 - **Detail-pane content that is preformatted scrolls horizontally instead of
   wrapping; prose does not.** The raw `--help` view (`t`) and a node's
   USAGE-section synopsis lines are the tool author's own layout — wrapping
@@ -1959,33 +2108,40 @@ full text on selection; a tree summary only has to disambiguate `push` from
 - Width ladder: full layout above 60 columns; **names only** below it (drop
   summaries rather than showing eight useless characters); stacked panes below 50.
 
-### 9.1a Flag rows: a table, or honestly not one
+### 9.1a Flag rows: one table, one column
 
-The detail pane's flag list is a three-column table — spelling, value
-placeholder, description. Three rather than two because a placeholder answers a
-different question from a spelling (`--env` is what you type, `list` is what it
-takes); run together as `--env list` they read as one token, while in their own
-columns the list can be scanned down either one.
+The detail pane's flag list is a two-column table — spelling, description. A
+value placeholder belongs to the spelling it follows and is measured with it,
+one space behind it (`--env list`), never given an aligned column of its own:
+such a column has to be as wide as the section's widest placeholder, and every
+row in the section pays that width whether it takes a value or not. `grep`'s
+`-e, --regexp PATTERNS` is what settles it — the placeholder alone pushed the
+row past the description column, so the description hung onto a second line
+beneath a first line that was mostly empty. Spelling and placeholder are still
+told apart, by style (§9.2) rather than by position.
 
 - **The description column is one number for the whole list.** Not a target the
   wide rows are allowed to miss. A column that most rows share and some rows
   don't is not alignment, it is noise that looks like alignment — and it is
   worse than no column at all, because the eye keeps trying to use it.
-- **A row too wide for the column hangs**: its description starts on the next
-  line, at the column. It never pushes the column right for itself, and the
-  spelling is never truncated to force alignment (as in §9.1, names win). The
-  row costs one extra line, which is the only cost nothing else has to pay.
-- **An outlier spelling is excluded from the measurement, not clamped to it.**
-  Clamping sets a column the outlier still misses; excluding lets it hang while
-  every other row stays aligned. Threshold: a spelling wider than 45% of the
-  pane does not get a vote.
-- **Below the width where the table can leave prose a readable amount of room
-  (28 columns), stop pretending and stack**: spelling and value on one line,
-  description indented beneath. A table whose columns have eaten the pane
-  breaks six words of prose across six lines; a stacked list at the same width
-  reads normally. This is the same judgement as the tree's width ladder —
-  degrade to a different layout deliberately rather than to a worse version of
-  the same one.
+- **A row too wide for the column starts its own first description line one
+  space past its head**, and is back at the column for every line after that.
+  It never pushes the column right for itself, and the spelling is never
+  truncated to force alignment (as in §9.1, names win). The exception costs
+  that one line its alignment and costs nothing else anything.
+- **An outlier row is excluded from the measurement, not clamped to it.**
+  Clamping sets a column the outlier still misses; excluding lets it run on
+  past the column while every other row stays aligned. Threshold: a row wider
+  than 45% of the pane — spelling and placeholder together — does not get a
+  vote.
+- **A pane too narrow for the column brings the column down, never the
+  layout.** The column is clamped until the description has 28 columns to wrap
+  in, measured rather than picked: at 20 columns `docker pull`'s `--platform`
+  description breaks as "Set / platform / if server / is / multi-pla… /
+  capable" — six lines, one truncated mid-word, for six words of text — and at
+  28 the same description reads as prose. A second layout at some threshold
+  width would make one list look like two different products either side of
+  it; a column that moves reads the same everywhere.
 
 ### 9.2 The styling contract
 
@@ -1998,7 +2154,8 @@ One accent, spent only on information. Everything else is neutral.
 | Tree summary | Muted |
 | Focused pane border | Accent; unfocused muted |
 | Breadcrumb | Ancestors muted, leaf bold |
-| Section heading (`DESCRIPTION`, `FLAGS`) | Bold muted |
+| Section heading (`DESCRIPTION`, `FLAGS`) | Its own rule's shade exactly, never bolder (§9.3) |
+| Group divider | One step below the section heading, label and rule alike (§9.3) |
 | **Flag spelling** | **Accent** — the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
 | Flag description | Default foreground |
@@ -2018,10 +2175,18 @@ Four implementation rules that matter more than the palette:
   ignore `DIM` outright and others render it nearly invisible — a portability
   trap that only manifests on someone else's machine.
 - **Respect `NO_COLOR` and `TERM=dumb`**, degrading to bold/reverse/underline
-  only. A colour-depth ladder (truecolor → 256 → 16) is deliberately **not**
-  implemented: it would require choosing specific RGB values, which the first
-  rule above rules out. Named ANSI colours already work at every depth that has
-  colour at all.
+  only. There is no truecolor tier and no RGB anywhere: named ANSI colours work
+  at every depth that has colour at all, and look native in the user's own
+  theme. Depth is consulted in exactly one place — the detail pane's two rule
+  shades (§9.3), which need two steps below the terminal's default foreground
+  and cannot get them from sixteen colours, so they read the xterm-256 **gray
+  ramp** where it is available and fall back to `DarkGray` where it is not. A
+  ramp index is still a palette entry the terminal resolves, not a colour
+  chosen for one theme, which is what keeps this inside the rule above. Depth
+  is read from `COLORTERM`/`TERM` rather than queried: a query needs the tty in
+  raw mode before the TUI has set it up and hangs on any terminal that does not
+  answer, and an unrecognized terminal must take the fallback rather than a
+  guess.
 - **Highlight search matches.** `nucleo` returns match indices for free;
   underlining matched characters is the difference between "the list changed"
   and "here is why this matched."
@@ -2066,6 +2231,186 @@ Markup handling is staged: Tier A prose is flattened to plain text today
 (`Text::sanitize_markdown`). The better end state keeps parsed spans in the IR so
 inline code and link labels can be *styled* rather than stripped — git's prose is
 dense with both. Do this only once the plain-text path is stable.
+
+### 9.3 Revision 4 (0.5.0): the detail pane is sections, not tabs
+
+The right pane is one scrollable document of sections, rendered **in this
+order and only when non-empty**:
+
+1. `DESCRIPTION`
+2. `USAGE`
+3. `POSITIONALS`
+4. `FLAGS`
+5. `MODIFIERS`
+6. `ENVIRONMENT`
+
+Rules:
+
+- **Empty sections do not render.** A tool with only a description and
+  flags looks exactly like today — `grep`'s pane is unchanged.
+- **Counts in headers** for the list sections: `FLAGS (41)`,
+  `MODIFIERS (17)`.
+- **Spellings collapse to one row**: `-h, -?, -help, --help` is a single
+  entry (§4.5), which is itself crowding relief.
+- **Two spelling columns, set by the row's own shape.** A list section
+  has no uniform left margin. A **short** — one dash, one character —
+  starts at the true left edge of the content area, and every **long**
+  starts one short prefix in, at the width of `-X, `. A row that has a
+  short reaches that column by arithmetic; a row with only long spellings
+  is **preindented** to the same place, so the longs run down a single
+  column whether or not a short precedes them and the eye never has to
+  re-find where a name begins. A dashless spelling — a positional, a
+  modifier letter, a variable name — sits at the short column, and so does
+  a row documenting more than two spellings (`-h, -?, -help, --help`):
+  there is no single long in such a row for a column to align, and its
+  length already marks it out.
+- **A repeatable positional renders `name...`.** The POSIX synopsis
+  ellipsis is how a tool says "one or more of these", it is what the
+  parser read `repeatable` out of in the first place, and without it
+  `grep`'s `FILE` is indistinguishable from a positional that takes
+  exactly one. It is measured as part of the head like any other part of
+  a spelling, so a row carrying it is charged for it. Only POSITIONALS:
+  `repeatable` is one field for two kinds, and a flag says the same thing
+  by being accepted again (`-v -v -v`), not by an ellipsis — `--verbose...`
+  would render a spelling nobody can type. Required/no marker is
+  unchanged; the ellipsis says "more than one", not "at least one".
+- **The value placeholder is part of the spelling.** It renders one space
+  behind the spelling it belongs to and is measured with it as a single
+  width (§9.1a); it never takes an aligned column of its own, so a row's
+  placeholder cannot push that row's own description onto a second line
+  while its first sits empty. Style, not position, keeps the two apart.
+- **Capped shared column, per section.** Every list section (POSITIONALS,
+  FLAGS, MODIFIERS, ENVIRONMENT) computes its own column, fitted to
+  roughly the p90 row width — the majority, not the outliers — measured
+  from the pane's left edge through the end of the placeholder, so a
+  preindented long is measured where it renders and a placeholder is
+  charged to the row that carries it. **Every description line in the
+  section begins at that column, first line and continuation alike**: the
+  left of a section is heads, the right is prose, and the reader's eye
+  has one edge to follow down the page. Never per-row columns (the old
+  ragged-docker bug), never a global uncapped column (one long spelling
+  starves every description). A wrapped entry is **one logical row** for
+  selection and scroll math — the alternative recreates the
+  unbounded-detail-pane-scroll bug class, and a regression test pins it.
+- **A head that reaches the column pushes its own first line, and only
+  that.** It keeps its line, its first description line starts one space
+  past where the head ends, and every continuation of that description is
+  back at the shared column. The head is never truncated to make it fit
+  and never moves the column for the section, so the exception stays a
+  per-row nudge rather than a second layout. A head too wide for the pane
+  itself wraps within the head area, each line at the column its own
+  spelling started at, and its description begins on the line beneath at
+  the shared column — `vgchange --alloc`, whose 55-column placeholder
+  outruns a 41-column pane, is the shape this is for.
+- **A narrow pane moves the column, not the layout** (§9.1a): the column
+  is clamped down until the description has its 28 columns, and never
+  below two past the long column, where a description would start left of
+  the preindented spelling it belongs to. In a 90-column terminal the
+  detail pane is 41 columns wide and the clamp puts the column at 13,
+  which still holds a short-and-long pair; wider heads push their own
+  first lines.
+- **POSITIONALS is inset by two columns; the flag-shaped sections are
+  not.** A positional's name carries no dashes to start it, so a run of
+  bare names at the content edge reads as loose text against the pane's
+  border rather than as a list. Two columns is enough to set that list in
+  from the edge and little enough that it costs the descriptions nothing
+  that matters. The number is the section's own and is deliberately not
+  the long column: the inset answers a question about this section alone,
+  and deriving it from the flag columns would couple two layouts that have
+  no reason to move together. FLAGS, MODIFIERS and ENVIRONMENT keep the
+  edge: their short and long columns are structure the eye follows down
+  the section, and an indent would push that structure right to buy
+  nothing.
+- **The vertical gaps are the container hierarchy.** Two blank rows above
+  a section header, one above a ruled group divider, none below either,
+  and none at all above the first header on the page. A section is a
+  chapter and a group is a paragraph within it, so the section boundary
+  gets the wider gap; the eye reads depth off the spacing before it reads
+  a word, and a page where every boundary is one row is a page where a
+  reader has to count rules to know which level they are at. Nothing goes
+  *beneath* a heading: its own full-width rule is already the line
+  separating it from its rows, and a blank under it would set the label
+  adrift from the list it names.
+
+  Each count is **exact, not a minimum**. The separator belongs to the
+  block that opens, never to the one that closes: a boundary owned by both
+  ends is the sum of two decisions and varies with the content, so a
+  section that wraps its last row, ends on a group, or carries an empty
+  trailing paragraph would space differently from its neighbour. One rule
+  per level, one place, and whatever blank rows the block above leaves
+  behind are absorbed rather than counted on. For the same reason the gap
+  never varies with how much the block above it held: a short section
+  followed by two blanks costs a couple of rows, and buying them back by
+  measuring the section above is precisely the content-dependent boundary
+  this rule exists to remove.
+- **ENVIRONMENT is display-only**: documented vars under an explicit
+  heading only, no probing, no inferred cross-references (§4.5).
+- **Group dividers are label-first, like the headers above them.** Within
+  a section, a `group` renders once as its label at column 0 followed by a
+  rule to the pane's edge, mixed case (`Operation ────────…`); the rows
+  beneath sit at the section's normal margin — no extra indent, so
+  grouping costs no width. Nothing precedes the label: a stub of rule in
+  front of the words is a decoration rather than a level, and it costs the
+  pane its one straight left edge, which every heading, every ungrouped
+  row and every section-opening divider otherwise share. Section headers
+  are CAPS with a count, group dividers mixed-case without one: the shape
+  distinction survives a terminal that ignores dimming, per §9.2.
+  - **Three neutral steps, brightest first: pane borders, section header,
+    group divider.** The borders keep the terminal's own default
+    foreground and are not touched; the section header's rule is a clear
+    step below them, and the group divider's a clear step below that. Each
+    level is subordinate to the one containing it, and the eye can tell
+    which is which without reading a word.
+  - **The two rule shades come from the xterm-256 gray ramp**, at indices
+    `246` and `240` — evenly separated neutrals that both sit under an
+    ordinary foreground. The sixteen named colours cannot express this:
+    `Gray` is ANSI 7, which *is* the default foreground in most themes, so
+    a rule drawn in it reads at the border's brightness rather than under
+    it, and below it there is only `DarkGray` — one step for two levels.
+    Nothing here is dimmed. `Modifier::DIM` is ignored outright by several
+    terminals (§9.2), and on those a dimmed brighter colour comes out
+    *brighter* than the rule it is meant to sit under, inverting the
+    hierarchy on exactly the machines the rule exists to protect.
+  - **Without the extended palette both levels collapse to `DarkGray`.**
+    The step below the borders survives, which is the ordering that
+    matters most; what is given up is the distinction between the two
+    inner levels, and §9.2's shape rule carries that on its own — a
+    section header is CAPS with a count, a group divider mixed case
+    without one. A wrong guess about depth therefore costs a distinction,
+    never legibility, which is why the probe answers `false` for anything
+    it does not positively recognize.
+  - **A label is drawn in exactly its own rule's style, at both levels** —
+    same colour, and never bold. Label and line are one piece of
+    furniture, and a label in a different shade from the line running out
+    of it reads as two unrelated marks that happen to share a row. Bold is
+    excluded by the same rule rather than as a separate one: it brightens
+    the foreground on many terminals, so a bold label over a plain rule
+    recreates the mismatch through an attribute instead of a colour. What
+    marks the section header out as the outer level is its shade and its
+    CAPS-and-count shape, never extra weight on its words.
+  - **A divider that opens its section drops its rule and its blank row**,
+    and renders its label alone at column 0 directly beneath the header.
+    The section header drew a full-width rule on the line above, and a
+    second one immediately beneath it reads as a single doubled line —
+    the header's rule stops reading as the section boundary and the
+    group's stops reading as a subdivision of it. The header's rule is
+    the boundary; the group needs only to be named, and a mixed-case
+    label at column 0 beneath a CAPS heading at column 0 is what a
+    sub-heading looks like. The blank row goes for the same reason the
+    rule does: such a divider is part of the heading above it rather than
+    a break from anything, and a gap between the two would leave the
+    section header floating over a label it introduces. Dividers later in
+    the same section keep both — they genuinely end one run of rows and
+    start another.
+- **Descriptions always wrap.** Sections are mandible's own layout, so
+  nothing in them is ever clipped or horizontally scrolled; `[ui]
+  horizontal_scroll` governs only content whose layout is not ours — the
+  raw view, verbatim USAGE synopsis lines, and the `unparsed` fallback
+  (§4.1), which is the raw view under its own label and reaches the pane
+  by the same path rather than by machinery of its own. A DESCRIPTION's preserved
+  breaks (§4.1) wrap too: each logical line is wrapped on its own, at its
+  own indent, so a bullet or an example row keeps its line without any
+  part of it escaping the pane's width.
 
 ---
 
@@ -3540,7 +3885,14 @@ the relationship clear.
 - Default features must build with no network and no C toolchain. That is why
   Tier D is opt-in.
 - Ship completions for mandible itself and `packaging/mandible.1`, installed to the
-  standard paths.
+  standard paths: `/usr/share/bash-completion/completions/mandible` and
+  `/usr/share/fish/vendor_completions.d/mandible.fish` everywhere, and for zsh the
+  directory that distribution's zsh actually carries on its default `fpath` —
+  `/usr/share/zsh/vendor-completions/_mandible` on Debian, where
+  `site-functions` is absent, and `/usr/share/zsh/site-functions/_mandible` on
+  Fedora, where `vendor-completions` is. Every channel generates them from the
+  built binary's own `--completions <shell>`, so there is one generator and no
+  packaging path that can install a file the shell will not find.
 - `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
 

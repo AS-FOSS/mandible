@@ -1,6 +1,6 @@
 name: vgck
 usage:
-- vgck [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag ... ]
+- vgck [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag ... ]
 - vgck --updatemetadata VG [ COMMON_OPTIONS ]
 positionals:
 - name: COMMON_OPTIONS

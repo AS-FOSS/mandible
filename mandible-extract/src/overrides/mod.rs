@@ -26,7 +26,7 @@
 use crate::errors::ExtractError;
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
-use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
+use mandible_core::{Authority, CommandNode, Entity, Provenance, Source, Text};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -171,26 +171,25 @@ struct NodeOverride {
 impl NodeOverride {
     fn into_command_node(self, name: String) -> CommandNode {
         let provenance = Provenance::single(Source::UserOverride);
-        CommandNode {
-            name,
-            summary: self.summary.map(|s| Text::sanitize(&s)),
-            description: self.description.map(|s| Text::sanitize(&s)),
-            hidden: self.hidden.unwrap_or(false),
-            deprecated: self.deprecated.map(|s| Text::sanitize(&s)),
-            flags: self
-                .flags
+        // An override never claims to know the subcommand list or any
+        // other structural field — it only ever corrects specific fields
+        // on a node another tier already found (spec §7 Tier F: "the rare
+        // bad case has a clean exit", not a catalog replacement). Every
+        // field left at `CommandNode::new`'s default here is treated as
+        // "no opinion" by the merge (`pick_vec` skips empty candidates),
+        // so an override can never clobber real data from another tier.
+        let mut node = CommandNode::new(name, provenance);
+        node.summary = self.summary.map(|s| Text::sanitize(&s));
+        node.description = self.description.map(|s| Text::sanitize(&s));
+        node.hidden = self.hidden.unwrap_or(false);
+        node.deprecated = self.deprecated.map(|s| Text::sanitize(&s));
+        node.set_flags(
+            self.flags
                 .into_iter()
                 .map(FlagOverride::into_flag)
                 .collect(),
-            // An override never claims to know the subcommand list or any
-            // other structural field — it only ever corrects specific
-            // fields on a node another tier already found (spec §7 Tier
-            // F: "the rare bad case has a clean exit", not a catalog
-            // replacement). Empty `Vec`s here are treated as "no opinion"
-            // by the merge (`pick_vec` skips empty candidates), so they
-            // can never clobber real data from another tier.
-            ..CommandNode::new(String::new(), provenance)
-        }
+        );
+        node
     }
 }
 
@@ -218,26 +217,21 @@ struct FlagOverride {
 }
 
 impl FlagOverride {
-    fn into_flag(self) -> Flag {
-        Flag {
-            short: self.short,
-            long: self.long,
-            value_name: self.value_name,
-            value_kind: ValueKind::None,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
-            single_dash: false,
-            hidden: self.hidden.unwrap_or(false),
-            deprecated: self.deprecated.map(|s| Text::sanitize(&s)),
-            inherited: false,
-            group: None,
-            description: self.description.map(|s| Text::sanitize(&s)),
-            default: self.default.map(|s| Text::sanitize(&s)),
-            env_var: self.env_var,
-            provenance: Provenance::single(Source::UserOverride),
-        }
+    fn into_flag(self) -> Entity {
+        let mut flag = Entity::flag_spelled(
+            self.short,
+            self.long,
+            false,
+            false,
+            Provenance::single(Source::UserOverride),
+        );
+        flag.value_name = self.value_name;
+        flag.hidden = self.hidden.unwrap_or(false);
+        flag.deprecated = self.deprecated.map(|s| Text::sanitize(&s));
+        flag.description = self.description.map(|s| Text::sanitize(&s));
+        flag.default = self.default.map(|s| Text::sanitize(&s));
+        flag.env_var = self.env_var;
+        flag
     }
 }
 
@@ -299,7 +293,7 @@ mod tests {
             node.summary.as_ref().unwrap().as_str(),
             "a corrected summary"
         );
-        assert_eq!(node.flags[0].short, Some('o'));
+        assert_eq!(node.flags().next().unwrap().short(), Some('o'));
         assert_eq!(node.provenance.sources[0], Source::UserOverride);
     }
 
@@ -337,7 +331,7 @@ mod tests {
         let node = file
             .as_root_override()
             .into_command_node("tool".to_string());
-        assert!(node.flags.is_empty());
+        assert!(node.flags().next().is_none());
         assert!(node.subcommands.is_empty());
     }
 
@@ -400,7 +394,7 @@ mod tests {
             )
             .expect("root override should resolve");
         assert_eq!(node.summary.as_ref().unwrap().as_str(), "custom summary");
-        assert_eq!(node.flags[0].long.as_deref(), Some("verbose"));
+        assert_eq!(node.flags().next().unwrap().long(), Some("verbose"));
 
         std::env::remove_var(CONFIG_DIR_ENV);
     }

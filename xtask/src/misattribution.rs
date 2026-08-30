@@ -160,7 +160,7 @@
 //! footer, compared against the previous run for visibility, and never part
 //! of `--check`'s pass/fail decision.
 
-use mandible_core::{CommandNode, Flag};
+use mandible_core::{CommandNode, Entity};
 use mandible_extract::exec::{ExecError, ExecOutput, InertArgv, LiveProbe, Probe};
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
@@ -635,24 +635,24 @@ impl MisattributionReport {
 /// Canonical spellings for `flag` (`-x`/`--word`), used both for the
 /// `Suspect::flag` display value and to exclude a flag's own spelling from
 /// counting as an offending token in its own description.
-fn own_spellings(flag: &Flag) -> Vec<String> {
+fn own_spellings(flag: &Entity) -> Vec<String> {
     let mut spellings = Vec::new();
-    if let Some(short) = flag.short {
+    if let Some(short) = flag.short() {
         spellings.push(format!("-{short}"));
     }
-    if let Some(long) = &flag.long {
+    if let Some(long) = flag.long() {
         // One dash or two, from the flag itself — a single-dash long option
-        // (`mandible_core::Flag::single_dash`) is spelled `-vv`, never
+        // (`mandible_core::Entity::single_dash`) is spelled `-vv`, never
         // `--vv`, and getting this wrong would stop excluding a flag's own
         // spelling from its own description.
-        let dashes = if flag.single_dash { "-" } else { "--" };
+        let dashes = if flag.single_dash() { "-" } else { "--" };
         spellings.push(format!("{dashes}{long}"));
     }
     spellings
 }
 
 fn find_suspects(node: &CommandNode, path: &str, index: &DefinitionIndex, out: &mut Vec<Suspect>) {
-    for flag in &node.flags {
+    for flag in node.flags() {
         let Some(description) = flag.description.as_ref() else {
             continue;
         };
@@ -748,11 +748,15 @@ mod tests {
         desc: &str,
     ) -> CommandNode {
         let mut node = CommandNode::new(name, Provenance::single(Source::HelpText));
-        let mut flag = Flag::long(long.unwrap_or(""), Provenance::single(Source::HelpText));
-        flag.short = short;
-        flag.long = long.map(str::to_string);
+        let mut flag = Entity::flag_spelled(
+            short,
+            long.map(str::to_string),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        );
         flag.description = Some(Text::sanitize(desc));
-        node.flags.push(flag);
+        node.entities.push(flag);
         node
     }
 
@@ -783,12 +787,11 @@ mod tests {
     #[test]
     fn detects_regardless_of_whether_offending_flags_reached_the_tree() {
         let mut root = CommandNode::new("lsof", Provenance::single(Source::HelpText));
-        let mut q = Flag::long("", Provenance::single(Source::HelpText));
-        q.short = Some('?');
+        let mut q = Entity::flag_short('?', Provenance::single(Source::HelpText));
         q.description = Some(Text::sanitize(
             "-a AND selections (OR)     -b avoid kernel blocks",
         ));
-        root.flags.push(q);
+        root.entities.push(q);
         // No -a, no -b in the tree at all — matching the real bug exactly.
         let report = detect(LSOF_TABLE, &root);
         assert_eq!(report.suspect_count(), 1);
@@ -990,10 +993,15 @@ mod tests {
     fn a_flags_own_spelling_in_its_own_description_is_never_offending() {
         let raw = "  -v, --verbose  be verbose  -q, --quiet   be quiet\n  -a, --all      show all    -n, --dry-run be a no-op\n";
         let mut node = CommandNode::new("t", Provenance::single(Source::HelpText));
-        let mut v = Flag::long("verbose", Provenance::single(Source::HelpText));
-        v.short = Some('v');
+        let mut v = Entity::flag_spelled(
+            Some('v'),
+            Some("verbose".to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        );
         v.description = Some(Text::sanitize("-v, --verbose  be verbose"));
-        node.flags.push(v);
+        node.entities.push(v);
         let report = detect(raw, &node);
         assert_eq!(report.suspect_count(), 0);
     }

@@ -1,7 +1,7 @@
 name: pod2man
 usage:
 - 'Usage:'
-- pod2man [--center=string] [--date=string] [--encoding=encoding] [--errors=style] [--fixed=font] [--fixedbold=font] [--fixeditalic=font] [--fixedbolditalic=font] [--guesswork=rule[,rule...]] [--name=name] [--nourls] [--official] [--release=version] [--section=manext] [--quotes=quotes] [--lquote=quote] [--rquote=quote] [--stderr] [--utf8] [--verbose] [input [output] ...]
+- '    pod2man [--center=string] [--date=string] [--encoding=encoding] [--errors=style] [--fixed=font] [--fixedbold=font] [--fixeditalic=font] [--fixedbolditalic=font] [--guesswork=rule[,rule...]] [--name=name] [--nourls] [--official] [--release=version] [--section=manext] [--quotes=quotes] [--lquote=quote] [--rquote=quote] [--stderr] [--utf8] [--verbose] [input [output] ...]'
 flags:
 - short: 'c'
   long: center

@@ -21,9 +21,12 @@ pub const MAX_TEXT_CHARS: usize = 8192;
 /// Constructing a `Text` always goes through [`Text::sanitize`] (directly, or
 /// indirectly via `Deserialize`), which strips control characters and
 /// terminal escape sequences, resolves backspace-overstrike, expands tabs,
-/// collapses whitespace runs, normalizes newlines (preserving paragraph
-/// breaks), and truncates to [`MAX_TEXT_CHARS`]. Widgets and other consumers
-/// may assume a `Text` is safe to place directly into a rendering surface.
+/// normalizes newlines, reflows each paragraph — unwrapping prose, keeping
+/// the breaks the author marked as structure — and truncates to
+/// [`MAX_TEXT_CHARS`]. Widgets and other consumers may assume a `Text` is
+/// safe to place directly into a rendering surface: every newline it holds
+/// is one `sanitize` put there, a paragraph break or a preserved structural
+/// break, never a raw one from tool output.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Text(String);
 
@@ -37,15 +40,18 @@ impl Text {
     /// 3. Strip remaining C0 control characters and DEL.
     /// 4. Expand tabs to spaces at 8-column stops.
     /// 5. Normalize line endings to `\n`.
-    /// 6. Unwrap hard-wrapped paragraphs: a single `\n` inside a paragraph
-    ///    joins to a space (so a later re-wrap at the pane's actual width
-    ///    produces clean lines instead of re-wrapping already-short,
-    ///    pre-broken lines raggedly); `\n\n` stays a paragraph break;
-    ///    indented/code-like lines and list items (`- `, `* `, `1. `) are
-    ///    never joined to a neighbor, preserving block structure.
-    /// 7. Collapse runs of horizontal whitespace to a single space.
-    /// 8. Trim leading/trailing whitespace.
-    /// 9. Truncate to [`MAX_TEXT_CHARS`] characters, at a char boundary.
+    /// 6. Reflow each paragraph ([`reflow_structured`]): flowing prose
+    ///    unwraps to one logical line so a later re-wrap at the pane's
+    ///    actual width produces clean lines instead of re-wrapping
+    ///    already-short, pre-broken ones raggedly, while a line the author
+    ///    marked as structure — indented deeper than its paragraph, a list
+    ///    row, or an example invocation — keeps its own break and its
+    ///    relative indentation. `\n\n` stays a paragraph break.
+    /// 7. Collapse runs of horizontal whitespace within a line to a single
+    ///    space, and trim leading/trailing whitespace (step 6 does both,
+    ///    per logical line, so that a preserved line's own indentation
+    ///    survives).
+    /// 8. Truncate to [`MAX_TEXT_CHARS`] characters, at a char boundary.
     pub fn sanitize(raw: &str) -> Text {
         let no_escapes = strip_escapes(raw);
         Text(Self::finish_pipeline(&no_escapes))
@@ -82,20 +88,21 @@ impl Text {
         let no_control = strip_c0(&overstruck);
         let tabs_expanded = expand_tabs(&no_control, 8);
         let newlines_normalized = normalize_newlines(&tabs_expanded);
-        let unwrapped = unwrap_paragraphs(&newlines_normalized);
-        let collapsed = collapse_horizontal_whitespace(&unwrapped);
-        let trimmed = trim_lines_and_whole(&collapsed);
-        truncate_chars(&trimmed, MAX_TEXT_CHARS)
+        let reflowed = reflow_structured(&newlines_normalized);
+        truncate_chars(&reflowed, MAX_TEXT_CHARS)
     }
 
-    /// Like [`Text::sanitize`], but for the raw-help display path (the
-    /// verbatim pane, `t`), whose entire job is showing a tool's own bytes
-    /// as they arrived — not turning them into IR prose. `Text::sanitize`
-    /// is the wrong gate there: its steps 6-8 (unwrap hard-wrapped
-    /// paragraphs, collapse whitespace runs, trim leading/trailing
-    /// whitespace) are exactly what destroy column alignment, and column
-    /// alignment is the one thing a side-by-side "does this match the raw
-    /// pane's ground truth" review depends on.
+    /// Like [`Text::sanitize`], but for text whose layout is the tool's own
+    /// rather than mandible's (spec §4.1's second tier): the raw-help pane
+    /// (`t`), whose entire job is showing a tool's own bytes as they
+    /// arrived, and the usage synopses in `CommandNode::usage`, where the
+    /// spacing that lines a tool's alternative invocation forms up is part
+    /// of what the author wrote. `Text::sanitize` is the wrong gate for
+    /// both: its steps 6-8 (unwrap hard-wrapped paragraphs, collapse
+    /// whitespace runs, trim leading/trailing whitespace) are exactly what
+    /// destroy column alignment, and column alignment is the one thing a
+    /// side-by-side "does this match the raw pane's ground truth" review
+    /// depends on.
     ///
     /// This still neutralizes terminal control sequences — the one thing
     /// the raw pane cannot safely pass through, since ANSI/OSC/DCS escapes,
@@ -125,10 +132,12 @@ impl Text {
     /// blank lines are whatever the caller's own line-splitting already
     /// produced.
     ///
-    /// Only [`mandible-extract`'s `help_text::raw_help*` functions] call
-    /// this; every other consumer of a `--help` probe keeps going through
-    /// [`Text::sanitize`] unchanged — this is an additional path for
-    /// display, not a redefinition of the existing one.
+    /// Callers pass one already-line-split string at a time: a raw-help
+    /// line, or one logical usage entry (the `--help` parser joins a
+    /// wrapped synopsis's continuations before it ever gets here). Every
+    /// other consumer of a `--help` probe — descriptions above all — keeps
+    /// going through [`Text::sanitize`], which reflows prose. This is the
+    /// layout tier of that split, not a redefinition of it.
     pub fn sanitize_preserving_layout(raw: &str) -> Text {
         let no_escapes = strip_escapes(raw);
         let no_control = strip_c0_keep_tabs(&no_escapes);
@@ -370,75 +379,249 @@ fn normalize_newlines(input: &str) -> String {
     out
 }
 
-/// Unwrap hard-wrapped paragraphs: within a block of text (separated by
-/// blank lines), a `\n` that merely continues a sentence is replaced with a
-/// space, so a later re-wrap at the render width produces clean lines
-/// instead of re-wrapping already-short, pre-broken lines raggedly. Blank
-/// lines (paragraph breaks) are preserved. Lines that look like list items
-/// (`- `, `* `, `1. `) or that are indented (leading whitespace — treated
-/// as code-like) are never joined to a neighboring line in either
-/// direction, so genuine block structure survives.
+/// How far a preserved structural line may be indented, in columns,
+/// relative to its own paragraph.
 ///
-/// Must run before [`collapse_horizontal_whitespace`], which would
-/// otherwise erase the leading-whitespace signal this function uses to
-/// detect indented/code-like lines.
-fn unwrap_paragraphs(input: &str) -> String {
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum Prev {
-        /// Start of input, or immediately after a blank line: the next
-        /// line always starts fresh, no join decision to make.
-        Fresh,
-        /// The previous line was ordinary prose that may continue.
-        Joinable,
-        /// The previous line was a list item or indented/code-like line.
-        Standalone,
-    }
+/// The relative indent is what carries "this row sits under that one", and
+/// a couple of levels of it is all any `--help` text expresses. The number
+/// is a bound on the damage a pathological source can do, not a style
+/// choice: a tool that documents a description inside a 30-column table
+/// would otherwise hand the detail pane a 30-column indent to honour, and
+/// at the pane's real width (41 columns in a 90-column terminal, spec
+/// §9.3) that leaves a description no room to be read in. Deeper source
+/// indentation is clamped to this, so nesting still reads as nesting and
+/// the prose keeps its width.
+const MAX_STRUCTURAL_INDENT: usize = 8;
 
-    let mut out = String::with_capacity(input.len());
-    let mut prev = Prev::Fresh;
+/// Reflow each paragraph, keeping the structure its author marked and
+/// unwrapping everything else (spec §4.1's prose tier).
+///
+/// A `--help` description is two kinds of text at once, and the previous
+/// pass only modelled one of them. Prose is hard-wrapped to whatever width
+/// the tool's author happened to write for; the pane re-wraps it to its
+/// own width, so those breaks are noise and joining them is what stops a
+/// re-wrap from coming out ragged. But a bullet list, an indented block,
+/// and an example invocation are deliberate: `grep --help`'s
+///
+/// ```text
+/// Search for PATTERNS in each FILE.
+/// Example: grep -i 'hello world' menu.h main.c
+/// PATTERNS can contain multiple patterns separated by newlines.
+/// ```
+///
+/// has all three lines at column 0 with no blank line anywhere, so a pass
+/// that reads structure out of leading whitespace alone saw one paragraph
+/// and rendered `Example: grep -i 'hello world' menu.h main.c PATTERNS can
+/// contain multiple patterns...` — the example smeared into the sentence
+/// after it.
+///
+/// So structure is recognized per line, against the paragraph it sits in:
+///
+/// - **Deeper than its paragraph's base indent.** The base is the smallest
+///   indentation any line in the paragraph has, so a *uniformly* indented
+///   block is ordinary prose (it reflows, which the old leading-whitespace
+///   test would not let it do) and only a line that is indented *within*
+///   its block counts as structure.
+/// - **A list row** ([`is_list_row`]): `- `, `* `, `+ `, `• `, `1. `, `1) `.
+/// - **An example invocation** ([`is_example_row`]): an `Example:`/`e.g.`
+///   label followed by command-shaped text.
+///
+/// A structural line keeps its own break and its indentation relative to
+/// the paragraph's base (clamped to [`MAX_STRUCTURAL_INDENT`]); the line
+/// after one starts fresh rather than joining onto it. Everything else
+/// joins to the flowing line above it with a single space. Paragraph
+/// breaks (`\n\n`) survive, runs of blank lines collapse to one break, and
+/// each logical line has its internal whitespace collapsed and its ends
+/// trimmed — which is why this pass subsumes the separate collapse/trim
+/// passes it replaced: doing them globally would erase the very
+/// indentation it just decided to keep.
+fn reflow_structured(input: &str) -> String {
+    let mut paragraphs: Vec<String> = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
     for line in input.split('\n') {
         if line.trim().is_empty() {
-            out.push_str("\n\n");
-            prev = Prev::Fresh;
+            if !current.is_empty() {
+                paragraphs.push(reflow_paragraph(&current));
+                current.clear();
+            }
             continue;
         }
-        let standalone = is_standalone_line(line);
-        match prev {
-            Prev::Fresh => out.push_str(line),
-            Prev::Joinable if !standalone => {
-                out.push(' ');
-                out.push_str(line.trim_start());
-            }
-            Prev::Joinable | Prev::Standalone => {
-                out.push('\n');
-                out.push_str(line);
-            }
+        current.push(line);
+    }
+    if !current.is_empty() {
+        paragraphs.push(reflow_paragraph(&current));
+    }
+    paragraphs.retain(|p| !p.is_empty());
+    paragraphs.join("\n\n")
+}
+
+/// [`reflow_structured`] for one paragraph's worth of non-blank lines.
+fn reflow_paragraph(lines: &[&str]) -> String {
+    let base = lines
+        .iter()
+        .map(|l| leading_spaces(l))
+        .min()
+        .unwrap_or_default();
+
+    // Each entry is one logical line: its indent relative to `base`, and
+    // its whitespace-collapsed content.
+    let mut logical: Vec<(usize, String)> = Vec::new();
+    let mut prev_flows = false;
+    for line in lines {
+        let content = collapse_spaces(line.trim());
+        if content.is_empty() {
+            continue;
         }
-        prev = if standalone {
-            Prev::Standalone
+        let relative = leading_spaces(line).saturating_sub(base);
+        let structural = relative > 0 || is_list_row(&content) || is_example_row(&content);
+        if !structural && prev_flows {
+            if let Some((_, last)) = logical.last_mut() {
+                last.push(' ');
+                last.push_str(&content);
+            }
         } else {
-            Prev::Joinable
-        };
+            let indent = if structural {
+                relative.min(MAX_STRUCTURAL_INDENT)
+            } else {
+                0
+            };
+            logical.push((indent, content));
+        }
+        prev_flows = !structural;
+    }
+
+    logical
+        .into_iter()
+        .map(|(indent, content)| format!("{}{content}", " ".repeat(indent)))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Leading space count. Tabs are already expanded to spaces by this point
+/// in the pipeline, so a column count and a space count are the same
+/// number.
+fn leading_spaces(line: &str) -> usize {
+    line.len() - line.trim_start_matches(' ').len()
+}
+
+/// Collapse every run of spaces in an already-trimmed line to one space.
+fn collapse_spaces(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut in_run = false;
+    for c in line.chars() {
+        if c == ' ' {
+            in_run = true;
+            continue;
+        }
+        if in_run && !out.is_empty() {
+            out.push(' ');
+        }
+        in_run = false;
+        out.push(c);
     }
     out
 }
 
-/// A line that should never be joined to a neighbor when unwrapping
-/// paragraphs: indented (code-like), or a list item (`- `, `* `, `+ `, or
-/// `N. `).
-fn is_standalone_line(line: &str) -> bool {
-    if line.starts_with(' ') || line.starts_with('\t') {
-        return true;
-    }
-    if line.starts_with("- ") || line.starts_with("* ") || line.starts_with("+ ") {
-        return true;
-    }
-    if let Some(dot) = line.find(". ") {
-        if dot > 0 && line.as_bytes()[..dot].iter().all(|b| b.is_ascii_digit()) {
+/// A list row: a bullet (`- `, `* `, `+ `, `• `) or an enumerator
+/// (`1. `, `1) `). Shape only — the marker and the space after it, never a
+/// word.
+fn is_list_row(line: &str) -> bool {
+    for marker in ["- ", "* ", "+ ", "\u{2022} "] {
+        if line.starts_with(marker) {
             return true;
         }
     }
+    for sep in [". ", ") "] {
+        if let Some(at) = line.find(sep) {
+            if at > 0 && line.as_bytes()[..at].iter().all(|b| b.is_ascii_digit()) {
+                return true;
+            }
+        }
+    }
     false
+}
+
+/// An example row: a label (`Example:`, `Examples:`, `e.g.`, `eg:`, `For
+/// example:`) followed by text shaped like a command invocation.
+///
+/// Recognized by **shape, never by name** (AGENTS.md §1): the label is a
+/// fixed vocabulary of English documentation words, and what follows it is
+/// judged by [`looks_like_invocation`], which knows nothing about any
+/// particular tool. `Example: grep -i 'hello world' menu.h main.c` is an
+/// example row for exactly the same reason `Example: mytool --dry-run x`
+/// is — a bare word followed by an option — and `Example: the second form
+/// is usually what you want` is not one, for the same reason either way.
+fn is_example_row(line: &str) -> bool {
+    example_label_rest(line).is_some_and(looks_like_invocation)
+}
+
+/// The text after an example label, or `None` if the line does not open
+/// with one. Case-insensitive, and the label must start the line.
+fn example_label_rest(line: &str) -> Option<&str> {
+    for label in ["for example:", "examples:", "example:", "e.g.", "eg:"] {
+        if let Some(head) = line.get(..label.len()) {
+            if head.eq_ignore_ascii_case(label) {
+                let rest = line[label.len()..].trim();
+                return (!rest.is_empty()).then_some(rest);
+            }
+        }
+    }
+    None
+}
+
+/// Whether `text` is shaped like a command someone could type: a bare
+/// command word, then at least one option or shell operator.
+///
+/// The second half is what makes this safe to key structure off. Without
+/// it, "the second form is usually what you want" passes — its first word
+/// is bare and word-shaped like any command name — and every prose
+/// sentence after an `Example:` label would be pulled out of the flow it
+/// belongs in. Requiring a `-x`/`--xyz` token or a shell operator is a
+/// deliberately strict rule that misses `Example: cp src dst` rather than
+/// admit a sentence, per AGENTS.md §5: a recognizer that fires on prose
+/// cannot be used to decide layout.
+fn looks_like_invocation(text: &str) -> bool {
+    let mut tokens = text.split_whitespace();
+    let Some(head) = tokens.next() else {
+        return false;
+    };
+    if !is_command_word(head) {
+        return false;
+    }
+    tokens.clone().any(is_option_token)
+        || ["|", ">", "<", "&&", "$("]
+            .iter()
+            .any(|op| text.contains(op))
+}
+
+/// A bare command word: `grep`, `git`, `foo.sh`, `./run`, `dpkg-query`.
+/// Starts with a letter, a dot or a slash, ends alphanumeric (so a word
+/// carrying sentence punctuation — `files,` or `it.` — is not one), and
+/// holds nothing but the characters a program name is spelled with.
+fn is_command_word(word: &str) -> bool {
+    let mut chars = word.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '.' || first == '/') {
+        return false;
+    }
+    if !word.ends_with(|c: char| c.is_ascii_alphanumeric()) {
+        return false;
+    }
+    word.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '+'))
+}
+
+/// An option token: a dash followed by at least one more option character.
+/// `-i`, `--dry-run`, `--`-prefixed long forms; never a bare `-` (stdin)
+/// and never an em-dash-looking run of hyphens with nothing after it.
+fn is_option_token(word: &str) -> bool {
+    let Some(rest) = word.strip_prefix('-') else {
+        return false;
+    };
+    let rest = rest.strip_prefix('-').unwrap_or(rest);
+    rest.starts_with(|c: char| c.is_ascii_alphanumeric())
 }
 
 /// Recognize and normalize the small, closed set of markdown constructs
@@ -583,52 +766,6 @@ fn try_parse_emphasis(chars: &[char], open: usize, delim: char) -> Option<(Strin
 
 fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
-}
-
-/// Collapse runs of horizontal whitespace (spaces, after tab expansion) to a
-/// single space, and collapse runs of 3+ newlines down to exactly 2 so a
-/// `\n\n` paragraph break survives while pathological vertical whitespace
-/// does not.
-fn collapse_horizontal_whitespace(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    let mut space_run = false;
-    let mut newline_run = 0usize;
-    for c in input.chars() {
-        match c {
-            ' ' => {
-                space_run = true;
-                newline_run = 0;
-            }
-            '\n' => {
-                if space_run {
-                    // Trailing spaces before a newline are dropped, not kept.
-                    space_run = false;
-                }
-                newline_run += 1;
-                if newline_run <= 2 {
-                    out.push('\n');
-                }
-            }
-            _ => {
-                if space_run {
-                    out.push(' ');
-                    space_run = false;
-                }
-                newline_run = 0;
-                out.push(c);
-            }
-        }
-    }
-    if space_run {
-        out.push(' ');
-    }
-    out
-}
-
-/// Trim leading/trailing whitespace on each line and on the whole text.
-fn trim_lines_and_whole(input: &str) -> String {
-    let lines: Vec<&str> = input.lines().map(|l| l.trim_end_matches(' ')).collect();
-    lines.join("\n").trim().to_string()
 }
 
 /// Truncate to at most `max_chars` characters, respecting char boundaries.
@@ -1055,6 +1192,128 @@ mod tests {
         let json = serde_json::to_string(&t).unwrap();
         let back: Text = serde_json::from_str(&json).unwrap();
         assert_eq!(t, back);
+    }
+
+    // --- the structure recognizer (spec §4.1's prose tier) ---
+
+    /// The defect this exists for, in `grep --help`'s own words: three
+    /// column-0 lines, no blank line anywhere, and the middle one is an
+    /// example invocation that used to be smeared into the sentence after
+    /// it.
+    #[test]
+    fn example_row_keeps_its_own_line_between_two_prose_sentences() {
+        let raw = "Search for PATTERNS in each FILE.\n\
+                   Example: grep -i 'hello world' menu.h main.c\n\
+                   PATTERNS can contain multiple patterns separated by newlines.";
+        let t = Text::sanitize(raw);
+        assert_eq!(
+            t.as_str(),
+            "Search for PATTERNS in each FILE.\n\
+             Example: grep -i 'hello world' menu.h main.c\n\
+             PATTERNS can contain multiple patterns separated by newlines."
+        );
+    }
+
+    /// The anti-case, and the reason the recognizer wants an option or a
+    /// shell operator rather than just a bare first word: an `Example:`
+    /// label introducing a *sentence* is prose, and prose reflows.
+    #[test]
+    fn example_label_introducing_prose_still_reflows() {
+        let raw = "Consider the second form.\n\
+                   Example: the second form is usually what you want here\n\
+                   and it takes no options at all.";
+        let t = Text::sanitize(raw);
+        assert_eq!(
+            t.as_str(),
+            "Consider the second form. Example: the second form is usually what you want here and it takes no options at all."
+        );
+        assert!(!t.as_str().contains('\n'));
+    }
+
+    #[test]
+    fn eg_label_with_an_invocation_is_an_example_row() {
+        let raw = "Filters the output.\ne.g. mytool --dry-run build\nThe filter is applied last.";
+        let t = Text::sanitize(raw);
+        assert_eq!(
+            t.as_str(),
+            "Filters the output.\ne.g. mytool --dry-run build\nThe filter is applied last."
+        );
+    }
+
+    #[test]
+    fn example_row_is_recognized_by_a_shell_operator_too() {
+        let raw = "Reads stdin.\nExample: mytool build | tee log.txt\nOutput goes to stdout.";
+        let t = Text::sanitize(raw);
+        assert!(
+            t.as_str()
+                .contains("\nExample: mytool build | tee log.txt\n"),
+            "{:?}",
+            t.as_str()
+        );
+    }
+
+    #[test]
+    fn bullet_rows_keep_their_lines_at_the_paragraph_base() {
+        let raw = "Choose one of:\n- alpha does a thing\n* beta does another\n\u{2022} gamma\n1. delta\n2) epsilon";
+        let t = Text::sanitize(raw);
+        assert_eq!(
+            t.as_str(),
+            "Choose one of:\n- alpha does a thing\n* beta does another\n\u{2022} gamma\n1. delta\n2) epsilon"
+        );
+    }
+
+    #[test]
+    fn a_line_indented_deeper_than_its_paragraph_keeps_break_and_relative_indent() {
+        let raw = "Modes are:\n    fast   skip the checks\n    safe   run every check\nPick one.";
+        let t = Text::sanitize(raw);
+        assert_eq!(
+            t.as_str(),
+            "Modes are:\n    fast skip the checks\n    safe run every check\nPick one."
+        );
+    }
+
+    /// The other anti-case, and the behaviour change the base-indent rule
+    /// buys: a paragraph that is *uniformly* indented is ordinary
+    /// hard-wrapped prose, and must unwrap. The old leading-whitespace
+    /// test read every one of these lines as code-like and left the
+    /// pane re-wrapping already-short lines raggedly.
+    #[test]
+    fn uniformly_indented_hard_wrapped_prose_still_unwraps() {
+        let raw = "    Summarize device usage of the set of\n    FILEs, recursively for\n    directories.";
+        let t = Text::sanitize(raw);
+        assert_eq!(
+            t.as_str(),
+            "Summarize device usage of the set of FILEs, recursively for directories."
+        );
+    }
+
+    #[test]
+    fn relative_indent_is_clamped_rather_than_honoured_to_any_depth() {
+        let deep = " ".repeat(30);
+        let raw = format!("Table:\n{deep}value  what it means");
+        let t = Text::sanitize(&raw);
+        assert_eq!(t.as_str(), "Table:\n        value what it means");
+    }
+
+    #[test]
+    fn structure_preservation_survives_a_second_sanitize() {
+        let raw = "Search for PATTERNS in each FILE.\n\
+                   Example: grep -i 'hello world' menu.h main.c\n\
+                   - or use a list row\n\
+                   PATTERNS can contain multiple patterns.";
+        let once = Text::sanitize(raw);
+        let twice = Text::sanitize(once.as_str());
+        assert_eq!(once, twice);
+    }
+
+    #[test]
+    fn single_line_collapses_preserved_structure_for_the_tree_pane() {
+        let t = Text::sanitize("Search for PATTERNS.\nExample: grep -i x menu.h\n- and a bullet");
+        assert_eq!(
+            t.single_line(),
+            "Search for PATTERNS. Example: grep -i x menu.h - and a bullet"
+        );
+        assert!(!t.single_line().contains('\n'));
     }
 
     // --- sanitize_preserving_layout: the raw-help display path ---

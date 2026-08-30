@@ -1,0 +1,269 @@
+# Installs mandible the way a user would, through every channel the README
+# offers, and asserts the version that lands.
+#
+# Nothing here builds mandible. Every job consumes a channel's *published*
+# artifact — a tap formula, a flake, an apt repository, a COPR repo, a
+# crates.io release — which is what makes this different from `release.yml`:
+# that workflow proves the assets it just built are good, this one proves
+# they are still reachable and still resolve to the version they should,
+# days or weeks after the tag. A channel breaks silently otherwise, and the
+# first person to notice is a user typing an install command.
+#
+# The version assertion is the whole point of each job. Installing without
+# checking what installed passes just as happily on a channel stuck three
+# releases back, which is the failure this is built to catch.
+#
+# Every job is independent (`fail-fast: false`, no cross-job `needs` beyond
+# resolving the expected version) so one broken channel reports itself
+# rather than masking the seven that are fine.
+name: install-matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected:
+        description: "Version `mandible --version` must report, without the leading v (empty = the latest release tag)"
+        required: false
+        default: ""
+  schedule:
+    # Weekly, Monday morning UTC. A channel that rots does so on its own
+    # schedule — a tap left un-updated, an apt repository whose signing key
+    # expired, a COPR chroot retired by Fedora — none of which any push to
+    # this repository would trigger.
+    - cron: "23 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  # The COPR project this installs from, as one variable because it is named
+  # in two jobs and the namespace has already moved once (from a personal
+  # account to the `as-foss` one that now owns the canonical project).
+  COPR_OWNER: as-foss
+
+jobs:
+  # Resolved once, so every job asserts against the same string and a
+  # release published mid-run cannot make two jobs disagree.
+  resolve:
+    name: resolve expected version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REQUESTED: ${{ inputs.expected }}
+        run: |
+          version="${REQUESTED}"
+          if [ -z "${version}" ]; then
+            version="$(gh release view --repo "${REPO}" --json tagName -q .tagName)"
+          fi
+          # Accept `v0.4.5` or `0.4.5`; `mandible --version` prints neither
+          # a `v` nor a tag.
+          version="${version#v}"
+          if [ -z "${version}" ]; then
+            echo "::error::could not resolve a version to assert against" >&2
+            exit 1
+          fi
+          echo "expecting: ${version}"
+          echo "version=${version}" >>"$GITHUB_OUTPUT"
+
+  # Homebrew serves the same tap on both platforms; Linux exercises the
+  # linuxbrew prefix, which is a different install path in the formula and
+  # has broken independently of macOS before.
+  brew:
+    name: brew (${{ matrix.os }})
+    needs: resolve
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - name: Install
+        run: |
+          # Homebrew is preinstalled on both runner images, but only macOS
+          # puts it on PATH; on Linux it lives under its own prefix.
+          if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            echo "/home/linuxbrew/.linuxbrew/bin" >>"$GITHUB_PATH"
+          fi
+          brew install as-foss/mandible/mandible
+
+      - name: Assert version
+        env:
+          EXPECTED: ${{ needs.resolve.outputs.version }}
+        run: |
+          got="$(mandible --version | head -n1 | awk '{print $NF}')"
+          echo "brew (${{ matrix.os }}): mandible --version -> ${got}, expected ${EXPECTED}"
+          if [ "${got}" != "${EXPECTED}" ]; then
+            echo "::error::brew (${{ matrix.os }}) installed ${got}, expected ${EXPECTED}" >&2
+            exit 1
+          fi
+
+  # `nix run` builds from the flake at the default branch, so this asserts
+  # what a `nix run` user gets *today* — which tracks main, not the last
+  # tag. It goes red between a release and the version bump that follows it,
+  # and that is a true statement about the channel, not a flaky job.
+  nix:
+    name: nix run (${{ matrix.os }})
+    needs: resolve
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Install and assert version
+        env:
+          EXPECTED: ${{ needs.resolve.outputs.version }}
+        run: |
+          # No `mandible` on PATH afterwards by design — `nix run` is the
+          # install-free channel, so the command under test is the whole
+          # invocation the README prints.
+          got="$(nix run github:AS-FOSS/mandible -- --version | head -n1 | awk '{print $NF}')"
+          echo "nix (${{ matrix.os }}): mandible --version -> ${got}, expected ${EXPECTED}"
+          if [ "${got}" != "${EXPECTED}" ]; then
+            echo "::error::nix (${{ matrix.os }}) ran ${got}, expected ${EXPECTED}" >&2
+            exit 1
+          fi
+
+  # The README's apt block, run verbatim on both architectures the
+  # repository publishes. Typed out rather than sourced from the README so
+  # a drift between the two shows up as a failure here.
+  apt:
+    name: apt (${{ matrix.arch }})
+    needs: resolve
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - name: Install
+        run: |
+          sudo curl -fsSL https://as-foss.github.io/mandible-apt/mandible-archive-keyring.gpg \
+            -o /usr/share/keyrings/mandible-archive-keyring.gpg
+          sudo tee /etc/apt/sources.list.d/mandible.sources >/dev/null <<'EOF'
+          Types: deb
+          URIs: https://as-foss.github.io/mandible-apt
+          Suites: stable
+          Components: main
+          Architectures: amd64 arm64
+          Signed-By: /usr/share/keyrings/mandible-archive-keyring.gpg
+          EOF
+          sudo apt-get update && sudo apt-get install -y mandible
+
+      - name: Assert version
+        env:
+          EXPECTED: ${{ needs.resolve.outputs.version }}
+        run: |
+          # The assertion is against whatever a default `apt-get install`
+          # resolved, which is the newest version the repository offers for
+          # this architecture — not a version this job pinned.
+          dpkg-query -W -f '${Package} ${Version} ${Architecture}\n' mandible
+          got="$(mandible --version | head -n1 | awk '{print $NF}')"
+          echo "apt (${{ matrix.arch }}): mandible --version -> ${got}, expected ${EXPECTED}"
+          if [ "${got}" != "${EXPECTED}" ]; then
+            echo "::error::apt (${{ matrix.arch }}) installed ${got}, expected ${EXPECTED}" >&2
+            exit 1
+          fi
+
+  # Fedora, in the distribution's own container rather than on the Ubuntu
+  # runner, because `dnf copr enable` resolves the chroot from the running
+  # system and there is no useful answer for it on Ubuntu.
+  copr:
+    name: copr (fedora)
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: fedora:latest
+    steps:
+      - name: Install
+        run: |
+          dnf -y install dnf-plugins-core
+          dnf copr enable -y "${COPR_OWNER}/mandible"
+          dnf -y install mandible
+
+      - name: Assert version
+        env:
+          EXPECTED: ${{ needs.resolve.outputs.version }}
+        run: |
+          rpm -q mandible
+          got="$(mandible --version | head -n1 | awk '{print $NF}')"
+          echo "copr (fedora): mandible --version -> ${got}, expected ${EXPECTED}"
+          if [ "${got}" != "${EXPECTED}" ]; then
+            echo "::error::copr (fedora) installed ${got}, expected ${EXPECTED}" >&2
+            exit 1
+          fi
+
+  # Enterprise Linux through the same COPR project's EL chroot. Separate
+  # from the Fedora job because it is a separate build with separate
+  # dependencies, and because the plugin that enables a COPR repo is not
+  # present on a stock EL image — `epel-release` is what brings it in.
+  epel:
+    name: copr on EPEL (almalinux 9)
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: almalinux:9
+    steps:
+      - name: Install
+        run: |
+          dnf -y install epel-release
+          dnf -y install 'dnf-command(copr)'
+          dnf copr enable -y "${COPR_OWNER}/mandible"
+          dnf -y install mandible
+
+      - name: Assert version
+        env:
+          EXPECTED: ${{ needs.resolve.outputs.version }}
+        run: |
+          rpm -q mandible
+          got="$(mandible --version | head -n1 | awk '{print $NF}')"
+          echo "epel (almalinux 9): mandible --version -> ${got}, expected ${EXPECTED}"
+          if [ "${got}" != "${EXPECTED}" ]; then
+            echo "::error::epel (almalinux 9) installed ${got}, expected ${EXPECTED}" >&2
+            exit 1
+          fi
+
+  # cargo-binstall resolves the crates.io version and then fetches the
+  # matching GitHub release asset, so this job covers both at once: a
+  # published crate whose release assets are missing or misnamed fails here
+  # and nowhere else.
+  binstall:
+    name: cargo binstall
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-binstall
+
+      - name: Install
+        run: cargo binstall --no-confirm mandible
+
+      - name: Assert version
+        env:
+          EXPECTED: ${{ needs.resolve.outputs.version }}
+        run: |
+          got="$(mandible --version | head -n1 | awk '{print $NF}')"
+          echo "binstall: mandible --version -> ${got}, expected ${EXPECTED}"
+          if [ "${got}" != "${EXPECTED}" ]; then
+            echo "::error::cargo binstall installed ${got}, expected ${EXPECTED}" >&2
+            exit 1
+          fi

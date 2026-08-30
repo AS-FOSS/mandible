@@ -17,7 +17,7 @@
 //! `provenance_caveat` directly, never through the real frame/layout path
 //! the user actually sees.
 
-use mandible_core::{CommandNode, Flag, Provenance, Source, Text};
+use mandible_core::{CommandNode, Entity, Provenance, Source, Spelling, Text};
 use mandible_tui::app::App;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
@@ -30,9 +30,9 @@ fn node_with_a_flag(confidence: f32) -> CommandNode {
         "tool",
         Provenance::with_confidence(Source::HelpText, confidence),
     );
-    let mut f = Flag::long("verbose", Provenance::single(Source::HelpTextSynopsis));
-    f.short = Some('v');
-    n.flags = vec![f];
+    let mut f = Entity::flag_long("verbose", Provenance::single(Source::HelpTextSynopsis));
+    f.spellings.insert(0, Spelling::short('v'));
+    n.set_flags(vec![f]);
     n
 }
 

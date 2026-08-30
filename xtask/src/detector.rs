@@ -75,7 +75,7 @@
 
 use crate::corpus;
 use mandible_core::audit::{self, AuditFile};
-use mandible_core::{CommandNode, Positional, Provenance, Source};
+use mandible_core::{CommandNode, Entity, Provenance, Source};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -779,8 +779,8 @@ impl Detector for VerbatimFallback {
 /// True when `node` and everything below it carries no flag, no positional
 /// and no child.
 fn tree_is_structureless(node: &CommandNode) -> bool {
-    node.flags.is_empty()
-        && node.positionals.is_empty()
+    node.flags().next().is_none()
+        && node.positionals().next().is_none()
         && node.subcommands.iter().all(tree_is_structureless)
         && node.subcommands.is_empty()
 }
@@ -811,7 +811,7 @@ impl Detector for UnparsedArgparsePositional {
          it, and the extracted root has no positionals"
     }
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
-        if !evidence.root.positionals.is_empty() {
+        if evidence.root.positionals().next().is_some() {
             return Vec::new();
         }
         let listed = argparse_positional_names(evidence.raw);
@@ -889,16 +889,16 @@ options:
 
 fn argparse_positional_node(name: &str, positionals: &[&str], subcommands: &[&str]) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.positionals = positionals
-        .iter()
-        .map(|p| Positional {
-            name: (*p).to_string(),
-            required: true,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        })
-        .collect();
+    root.set_positionals(
+        positionals
+            .iter()
+            .map(|p| {
+                let mut positional = Entity::positional(*p, Provenance::single(Source::HelpText));
+                positional.required = true;
+                positional
+            })
+            .collect(),
+    );
     root.subcommands = subcommands
         .iter()
         .map(|s| CommandNode::new(*s, Provenance::single(Source::HelpText)))
@@ -1303,10 +1303,10 @@ const DROPPED_ALIAS_EXCLUSIONS: &[Exclusion] = &[
                long form past the description column — since recovered, by the aligned-spelling- \
                column split (`help_text::sections::spelling_run`), so this half of the ground is \
                now historical and the row is kept here because the ground is still *measured* \
-               from it — and `-? -h --help` names a second short that `mandible_core::Flag` has \
-               no field to hold (one `short: Option<char>`), exactly as `-A, --catenate, \
-               --concatenate` names a second long it cannot hold either; that second half is \
-               what still excludes the tool",
+               from it — and `-? -h --help` names a second short that this module's `short()` \
+               accessor has no way to surface (one `Option<char>`), exactly as `-A, --catenate, \
+               --concatenate` names a second long its `long()` accessor cannot surface either; \
+               that second half is what still excludes the tool",
     },
 ];
 
@@ -1340,7 +1340,8 @@ impl Detector for DroppedAliasDetector {
                     boundary and a whole flag spelling follows it. Pairs separated by anything \
                     else are deliberately not claimed: a wide space run is the description column \
                     (`jdeprscan`), a brace group is its own labelled family (`eqn`), and a second \
-                    short or a second long has no field in `mandible_core::Flag` to reach at all. \
+                    short or a second long has no accessor to reach at all (`Entity::short`/ \
+                    `Entity::long` each surface one). \
                     Narrow on purpose — the loose rule this replaces would merge two genuinely \
                     different flags, and a fabricated alias is worse than a dropped one",
             known_exclusions: DROPPED_ALIAS_EXCLUSIONS,
@@ -1437,16 +1438,12 @@ const VGEXTEND_BARE_OWN_NAME_SYNOPSIS: &str = concat!(
 /// A root carrying `positionals` with the given names, all help-text-sourced.
 fn positional_node(name: &str, positionals: &[&str]) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.positionals = positionals
-        .iter()
-        .map(|p| Positional {
-            name: (*p).to_string(),
-            required: false,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        })
-        .collect();
+    root.set_positionals(
+        positionals
+            .iter()
+            .map(|p| Entity::positional(*p, Provenance::single(Source::HelpText)))
+            .collect(),
+    );
     root
 }
 
@@ -3045,13 +3042,10 @@ mod tests {
     fn unparsed_positional_is_silent_when_positionals_were_extracted() {
         let raw = "positional arguments:\n  pid  process id\n";
         let mut with = node("t");
-        with.positionals.push(mandible_core::Positional {
-            name: "pid".to_string(),
-            required: true,
-            variadic: false,
-            description: None,
-            provenance: Provenance::single(Source::HelpText),
-        });
+        let mut pid =
+            mandible_core::Entity::positional("pid", Provenance::single(Source::HelpText));
+        pid.required = true;
+        with.entities.push(pid);
         assert!(UnparsedArgparsePositional
             .hits(&ToolEvidence { raw, root: &with })
             .is_empty());

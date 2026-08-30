@@ -207,26 +207,26 @@ fn groups(raw: &str) -> Vec<Group> {
 /// it), so the question is a single field comparison: a long name for
 /// `--input`, a short character for `-c`.
 fn spelling_present(node: &CommandNode, member: &str) -> bool {
-    let matches = |f: &mandible_core::Flag| {
+    let matches = |f: &mandible_core::Entity| {
         if let Some(name) = member.strip_prefix("--") {
-            f.long.as_deref() == Some(name)
+            f.long() == Some(name)
         } else if let Some(rest) = member.strip_prefix('-') {
-            rest.chars().next().is_some_and(|c| f.short == Some(c))
+            rest.chars().next().is_some_and(|c| f.short() == Some(c))
         } else {
             false
         }
     };
-    node.flags.iter().any(matches) || node.subcommands.iter().any(|c| spelling_present(c, member))
+    node.flags().any(matches) || node.subcommands.iter().any(|c| spelling_present(c, member))
 }
 
 /// The flag anywhere in `node`'s tree that carries `member`'s spelling and a
 /// `value_name` with a group delimiter still in it, if there is one.
 fn leaked_value(node: &CommandNode, member: &str) -> Option<String> {
-    for flag in &node.flags {
+    for flag in node.flags() {
         let is_member = if let Some(name) = member.strip_prefix("--") {
-            flag.long.as_deref() == Some(name)
+            flag.long() == Some(name)
         } else if let Some(rest) = member.strip_prefix('-') {
-            rest.chars().next().is_some_and(|c| flag.short == Some(c))
+            rest.chars().next().is_some_and(|c| flag.short() == Some(c))
         } else {
             false
         };
@@ -248,8 +248,8 @@ fn leaked_value(node: &CommandNode, member: &str) -> Option<String> {
 /// and no child — the `verbatim-fallback` state, which this detector steps
 /// around (see the module doc comment, decision 2).
 fn tree_is_structureless(node: &CommandNode) -> bool {
-    node.flags.is_empty()
-        && node.positionals.is_empty()
+    node.flags().next().is_none()
+        && node.positionals().next().is_none()
         && node.subcommands.is_empty()
         && node.subcommands.iter().all(tree_is_structureless)
 }
@@ -305,7 +305,7 @@ pub fn detect(raw: &str, root: &CommandNode) -> AlternationReport {
 // is gone" from "zero because the detector broke" at *runtime*, where no
 // test harness exists. Neither will accept a zero without these.
 
-use mandible_core::{Flag, Provenance, Source, ValueKind};
+use mandible_core::{Entity, Provenance, Source, ValueKind};
 
 /// `cache_restore --help`, byte-exact from
 /// `corpus/cache_restore/audit-seed2/help.txt` — every row of a real
@@ -335,10 +335,14 @@ const GIT_USAGE: &str =
 /// one condition the whole family's safety rests on.
 const CHOICE_USAGE: &str = "usage: t [--color={always|never|auto}] [{start|stop}]\n";
 
-fn flag(short: Option<char>, long: Option<&str>, value: Option<&str>, source: Source) -> Flag {
-    let mut f = Flag::long("", Provenance::single(source));
-    f.long = long.map(str::to_string);
-    f.short = short;
+fn flag(short: Option<char>, long: Option<&str>, value: Option<&str>, source: Source) -> Entity {
+    let mut f = Entity::flag_spelled(
+        short,
+        long.map(str::to_string),
+        false,
+        false,
+        Provenance::single(source),
+    );
     f.value_name = value.map(str::to_string);
     f.value_kind = if value.is_some() {
         ValueKind::Required
@@ -348,9 +352,9 @@ fn flag(short: Option<char>, long: Option<&str>, value: Option<&str>, source: So
     f
 }
 
-fn tree(name: &str, flags: Vec<Flag>) -> CommandNode {
+fn tree(name: &str, flags: Vec<Entity>) -> CommandNode {
     let mut root = CommandNode::new(name, Provenance::single(Source::HelpText));
-    root.flags = flags;
+    root.set_flags(flags);
     root
 }
 

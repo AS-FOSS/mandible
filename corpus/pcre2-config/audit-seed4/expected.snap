@@ -1,6 +1,6 @@
 name: pcre2-config
 usage:
-- 'Usage: pcre2-config [--prefix] [--exec-prefix] [--version] [--libs8] [--libs-posix] [--libs32] [--libs16] [--cflags] [--cflags-posix]'
+- 'Usage: pcre2-config [--prefix] [--exec-prefix] [--version] [--libs8] [--libs-posix] [--libs32] [--libs16]  [--cflags] [--cflags-posix]'
 flags:
 - long: prefix
   provenance:

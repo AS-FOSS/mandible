@@ -1,7 +1,7 @@
 name: unzip
 description: UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.
 usage:
-- 'Usage: unzip [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir] Default action is to extract files in list, except those in xlist, to exdir; file[.zip] may be a wildcard. -Z => ZipInfo mode ("unzip -Z" for usage).'
+- 'Usage: unzip [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir] Default action is to extract files in list, except those in xlist, to exdir; file[.zip] may be a wildcard.  -Z => ZipInfo mode ("unzip -Z" for usage).'
 flags:
 - short: 'p'
   description: extract files to pipe, no messages

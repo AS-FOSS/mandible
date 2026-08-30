@@ -379,20 +379,20 @@ impl Vocabulary {
         for alias in &node.aliases {
             self.names.insert(alias.clone());
         }
-        for p in &node.positionals {
-            self.names.insert(p.name.to_lowercase());
+        for p in node.positionals() {
+            self.names.insert(p.primary_name().to_lowercase());
         }
-        for flag in &node.flags {
-            if let Some(short) = flag.short {
+        for flag in node.flags() {
+            if let Some(short) = flag.short() {
                 self.flags.insert(format!("-{short}"));
                 if let Some(v) = &flag.value_name {
                     self.flags.insert(format!("-{short}{v}"));
                     self.flags.insert(format!("-{short}={v}"));
                 }
             }
-            if let Some(long) = &flag.long {
+            if let Some(long) = flag.long() {
                 self.flags.insert(format!("--{long}"));
-                if flag.negatable {
+                if flag.negatable() {
                     self.flags.insert(format!("--[no-]{long}"));
                     self.flags.insert(format!("--[no]{long}"));
                 }
@@ -817,17 +817,20 @@ fn print_validation(ranked: &[Ranked], _top: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Flag, Provenance, Source};
+    use mandible_core::{Entity, Provenance, Source};
 
     fn node(name: &str) -> CommandNode {
         CommandNode::new(name, Provenance::single(Source::HelpText))
     }
 
-    fn flag(short: Option<char>, long: Option<&str>) -> Flag {
-        let mut f = Flag::long(long.unwrap_or(""), Provenance::single(Source::HelpText));
-        f.short = short;
-        f.long = long.map(str::to_string);
-        f
+    fn flag(short: Option<char>, long: Option<&str>) -> Entity {
+        Entity::flag_spelled(
+            short,
+            long.map(str::to_string),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        )
     }
 
     // --- the guard ------------------------------------------------------
@@ -901,8 +904,8 @@ mod tests {
     fn a_fully_read_flag_table_is_not_residue() {
         let raw = "Options:\n  -a, --alpha    first\n  -b, --beta     second\n";
         let mut root = node("t");
-        root.flags.push(flag(Some('a'), Some("alpha")));
-        root.flags.push(flag(Some('b'), Some("beta")));
+        root.entities.push(flag(Some('a'), Some("alpha")));
+        root.entities.push(flag(Some('b'), Some("beta")));
         let report = analyze(raw, &root);
         assert_eq!(report.rows, 2);
         assert_eq!(report.unaccounted, 0);
@@ -913,8 +916,8 @@ mod tests {
         let raw =
             "Options:\n  -a, --alpha    first\n  -b, --beta     second\n  -c, --gamma    third\n";
         let mut root = node("t");
-        root.flags.push(flag(Some('a'), Some("alpha")));
-        root.flags.push(flag(Some('b'), Some("beta")));
+        root.entities.push(flag(Some('a'), Some("alpha")));
+        root.entities.push(flag(Some('b'), Some("beta")));
         let report = analyze(raw, &root);
         assert_eq!(report.unaccounted, 1, "the missing row is still reported");
         assert_eq!(report.signal, 0, "but one stray row is noise, not signal");
@@ -985,7 +988,7 @@ mod tests {
         for v in ["dump-scos", "dump-tree"] {
             let mut f = flag(Some('f'), None);
             f.value_name = Some(v.to_string());
-            root.flags.push(f);
+            root.entities.push(f);
         }
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
@@ -996,10 +999,10 @@ mod tests {
         let mut root = node("t");
         let mut a = flag(Some('S'), Some("gpg-sign"));
         a.value_name = Some("<keyid>".to_string());
-        root.flags.push(a);
+        root.entities.push(a);
         let mut b = flag(None, Some("param"));
         b.value_name = Some("lazy-modules=".to_string());
-        root.flags.push(b);
+        root.entities.push(b);
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
 
@@ -1009,8 +1012,10 @@ mod tests {
         let mut root = node("t");
         for (s, l) in [('s', "source"), ('q', "quiet")] {
             let mut f = flag(Some(s), Some(l));
-            f.negatable = true;
-            root.flags.push(f);
+            for spelling in &mut f.spellings {
+                spelling.negatable = true;
+            }
+            root.entities.push(f);
         }
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
@@ -1027,7 +1032,7 @@ mod tests {
             .iter()
             .map(|c| mandible_core::Text::sanitize(c))
             .collect();
-        root.flags.push(f);
+        root.entities.push(f);
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
 
@@ -1067,7 +1072,7 @@ mod tests {
         for v in ["a,<options>", "l,<options>"] {
             let mut f = flag(Some('W'), None);
             f.value_name = Some(v.to_string());
-            root.flags.push(f);
+            root.entities.push(f);
         }
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
@@ -1076,8 +1081,8 @@ mod tests {
     fn a_comma_separated_alias_pair_still_splits() {
         let raw = "Options:\n  -v, --verbose   be loud\n  -q, --quiet     be quiet\n";
         let mut root = node("t");
-        root.flags.push(flag(Some('v'), Some("verbose")));
-        root.flags.push(flag(Some('q'), Some("quiet")));
+        root.entities.push(flag(Some('v'), Some("verbose")));
+        root.entities.push(flag(Some('q'), Some("quiet")));
         assert_eq!(analyze(raw, &root).unaccounted, 0);
     }
 

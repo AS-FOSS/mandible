@@ -1,6 +1,6 @@
 name: sg_dd
 usage:
-- 'Usage: sg_dd [bs=BS] [conv=CONV] [count=COUNT] [ibs=BS] [if=IFILE] [iflag=FLAGS] [obs=BS] [of=OFILE] [oflag=FLAGS] [seek=SEEK] [skip=SKIP] [--dry-run] [--help] [--verbose] [--version]'
+- 'Usage: sg_dd  [bs=BS] [conv=CONV] [count=COUNT] [ibs=BS] [if=IFILE] [iflag=FLAGS] [obs=BS] [of=OFILE] [oflag=FLAGS] [seek=SEEK] [skip=SKIP] [--dry-run] [--help] [--verbose] [--version]'
 flags:
 - long: dry-run
   description: do preparation but bypass copy (or read)

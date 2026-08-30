@@ -85,7 +85,7 @@ use crate::exec::{InertArgv, LiveProbe, Probe};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use brush_parser::ast;
-use mandible_core::{Authority, CommandNode, Flag, Provenance, Source, Text, ValueKind};
+use mandible_core::{Authority, CommandNode, Entity, Provenance, Source, Text, ValueKind};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -302,7 +302,7 @@ impl ExtractionTier for CompletionScriptTier {
         let name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
         let mut node =
             CommandNode::new(name, Provenance::single(Source::CompletionScript { shell }));
-        node.flags = flags;
+        node.set_flags(flags);
         Ok(node)
     }
 
@@ -316,7 +316,7 @@ impl ExtractionTier for CompletionScriptTier {
 /// Request zsh first, bash as fallback (spec §7 Tier C); return the shell
 /// name used and the flags recovered, or `None` if neither produced a
 /// script with anything this tier recognizes.
-fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(String, Vec<Flag>)> {
+fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(String, Vec<Entity>)> {
     for shell in ["zsh", "bash"] {
         let Ok(out) = probe.run(
             tool_path,
@@ -444,8 +444,8 @@ fn walk_compound_command(cc: &ast::CompoundCommand, out: &mut Vec<(String, Vec<S
 }
 
 /// Find every `_arguments` call anywhere in `script` and parse its
-/// argument words as zsh `_arguments` spec strings into [`Flag`]s.
-fn extract_zsh_flags(script: &str, provenance: &Provenance) -> Vec<Flag> {
+/// argument words as zsh `_arguments` spec strings into flag entities.
+fn extract_zsh_flags(script: &str, provenance: &Provenance) -> Vec<Entity> {
     let mut flags = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (name, words) in all_simple_commands(script) {
@@ -470,7 +470,7 @@ fn extract_zsh_flags(script: &str, provenance: &Provenance) -> Vec<Flag> {
 /// Find `complete -W "word1 word2 ..." <tool>` calls and recover the
 /// listed words as bare, description-less flag spellings (spec §7 Tier
 /// C: "bash ... spellings only").
-fn extract_bash_flags(script: &str, provenance: &Provenance) -> Vec<Flag> {
+fn extract_bash_flags(script: &str, provenance: &Provenance) -> Vec<Entity> {
     let mut flags = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (name, words) in all_simple_commands(script) {
@@ -561,30 +561,15 @@ struct ParsedArgSpec {
 }
 
 impl ParsedArgSpec {
-    fn into_flag(self, provenance: Provenance) -> Flag {
-        Flag {
-            short: self.short,
-            long: self.long,
-            value_name: None,
-            value_kind: if self.takes_value {
-                ValueKind::Required
-            } else {
-                ValueKind::None
-            },
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: None,
-            description: self.description.as_deref().map(Text::sanitize),
-            default: None,
-            env_var: None,
-            provenance,
-        }
+    fn into_flag(self, provenance: Provenance) -> Entity {
+        let mut flag = Entity::flag_spelled(self.short, self.long, false, false, provenance);
+        flag.value_kind = if self.takes_value {
+            ValueKind::Required
+        } else {
+            ValueKind::None
+        };
+        flag.description = self.description.as_deref().map(Text::sanitize);
+        flag
     }
 }
 
@@ -753,9 +738,9 @@ _mytool() {
 _mytool "$@"
 "#;
         let flags = extract_zsh_flags(script, &prov());
-        let by_long: std::collections::HashMap<&str, &Flag> = flags
+        let by_long: std::collections::HashMap<&str, &Entity> = flags
             .iter()
-            .filter_map(|f| f.long.as_deref().map(|l| (l, f)))
+            .filter_map(|f| f.long().map(|l| (l, f)))
             .collect();
         assert!(by_long.contains_key("verbose"), "{flags:?}");
         assert!(by_long.contains_key("format"), "{flags:?}");
@@ -764,7 +749,7 @@ _mytool "$@"
             by_long["verbose"].description.as_ref().unwrap().as_str(),
             "enable verbose output"
         );
-        let shorts: Vec<char> = flags.iter().filter_map(|f| f.short).collect();
+        let shorts: Vec<char> = flags.iter().filter_map(|f| f.short()).collect();
         assert!(shorts.contains(&'v'));
         assert!(shorts.contains(&'h'));
     }
@@ -775,8 +760,8 @@ _mytool "$@"
         let flags = extract_bash_flags(script, &prov());
         assert_eq!(flags.len(), 4);
         assert!(flags.iter().all(|f| f.description.is_none()));
-        assert!(flags.iter().any(|f| f.long.as_deref() == Some("verbose")));
-        assert!(flags.iter().any(|f| f.short == Some('v')));
+        assert!(flags.iter().any(|f| f.long() == Some("verbose")));
+        assert!(flags.iter().any(|f| f.short() == Some('v')));
     }
 
     #[test]
@@ -891,10 +876,7 @@ _mytool "$@"
                 },
             )
             .expect("the transcript covers the exact `completion zsh` argv this tier sends");
-        assert!(node
-            .flags
-            .iter()
-            .any(|f| f.long.as_deref() == Some("verbose")));
+        assert!(node.flags().any(|f| f.long() == Some("verbose")));
     }
 
     /// The negative case: a transcript that covers neither `completion
@@ -1065,9 +1047,6 @@ _mytool() {
                 },
             )
             .expect("evidence is present, so the tier must extract as it always did");
-        assert!(node
-            .flags
-            .iter()
-            .any(|f| f.long.as_deref() == Some("verbose")));
+        assert!(node.flags().any(|f| f.long() == Some("verbose")));
     }
 }

@@ -1,13 +1,21 @@
-//! The intermediate representation itself: [`CommandNode`], [`Flag`],
-//! [`Positional`], [`Example`]. See spec §4.
+//! The intermediate representation itself: [`CommandNode`], [`Example`].
+//! See spec §4; the documented items a node carries are
+//! [`Entity`](crate::Entity), in `entity.rs`.
 
+use crate::entity::{Entity, EntityKind};
 use crate::provenance::Provenance;
 use crate::text::Text;
 use serde::{Deserialize, Serialize};
 
 /// One command or subcommand in the tree: `git`, `git rebase`,
 /// `git rebase --onto`'s parent, and so on.
+///
+/// `#[non_exhaustive]`: build one with [`CommandNode::new`] and mutate the
+/// public fields. Cross-crate struct literals are forbidden by design, so
+/// 0.5.x can add fields — the modifier and env-var stages of spec §4.5
+/// each do — without a breaking release.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CommandNode {
     /// The command's own name, e.g. `"rebase"` (not the full path).
     pub name: String,
@@ -21,12 +29,16 @@ pub struct CommandNode {
     pub description: Option<Text>,
     /// Raw usage patterns, kept verbatim (not re-flowed).
     pub usage: Vec<Text>,
-    /// This node's own flags (not including inherited ones from ancestors —
-    /// those are represented by [`Flag::inherited`] on the flags that
-    /// originated in an ancestor and were propagated down).
-    pub flags: Vec<Flag>,
-    /// Positional arguments.
-    pub positionals: Vec<Positional>,
+    /// Every documented item this node carries — flags, positionals,
+    /// modifiers, environment variables — as one kind-tagged vector
+    /// (spec §4.5), in document order within each kind. Read one kind
+    /// through [`CommandNode::flags`], [`CommandNode::positionals`] or
+    /// [`CommandNode::entities_of`].
+    ///
+    /// Flags here are the node's *own*, in the sense that an inherited
+    /// one carries [`Entity::inherited`](crate::Entity) rather than being
+    /// filed anywhere else.
+    pub entities: Vec<Entity>,
     /// Direct subcommands.
     pub subcommands: Vec<CommandNode>,
     /// Worked examples.
@@ -129,7 +141,10 @@ pub struct CommandNode {
 /// exists to name honestly, and a reader (`--doctor`, the detail pane's
 /// footer) needs the word and flag to explain *why* a tree is capped, not
 /// just that it is.
+///
+/// `#[non_exhaustive]`: build one with [`Confession::new`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Confession {
     /// The directive word, taken verbatim from the tool's own text — e.g.
     /// `"all"` for curl. Never fabricated, never guessed (spec §6 rule 2b).
@@ -144,6 +159,19 @@ pub struct Confession {
     /// refusal — and this node still reflects the original, truncated
     /// text; the status ladder caps at `incomplete` for exactly this case.
     pub followed: bool,
+}
+
+impl Confession {
+    /// A confession detected in a tool's own text: the directive `word`,
+    /// the `flag` printed alongside it, and whether the advertised argv was
+    /// actually re-probed.
+    pub fn new(word: impl Into<String>, flag: impl Into<String>, followed: bool) -> Confession {
+        Confession {
+            word: word.into(),
+            flag: flag.into(),
+            followed,
+        }
+    }
 }
 
 /// True if `s` looks like a real command/subcommand name: lowercase,
@@ -185,8 +213,7 @@ impl CommandNode {
             summary: None,
             description: None,
             usage: Vec::new(),
-            flags: Vec::new(),
-            positionals: Vec::new(),
+            entities: Vec::new(),
             subcommands: Vec::new(),
             examples: Vec::new(),
             hidden: false,
@@ -201,149 +228,67 @@ impl CommandNode {
             confession: None,
         }
     }
-}
 
-/// A single flag/option, e.g. `-i, --interactive`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Flag {
-    /// Short spelling, e.g. `Some('i')` for `-i`.
-    pub short: Option<char>,
-    /// Long spelling, e.g. `Some("interactive".into())` for `--interactive`.
-    pub long: Option<String>,
-    /// The value placeholder, e.g. `"FILE"` in `--output FILE`.
-    pub value_name: Option<String>,
-    /// Whether this flag takes no value, a required value, or an optional
-    /// one.
-    pub value_kind: ValueKind,
-    /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`.
-    pub choices: Vec<Text>,
-    /// True if this flag may be given more than once.
-    pub repeatable: bool,
-    /// True if this flag is required.
-    pub required: bool,
-    /// True if the tool documents this boolean flag's negation inline —
-    /// GNU getopt_long's `--[no-]foo` convention (git's own `--help`
-    /// formatter renders every negatable boolean this way). `long` always
-    /// holds the *base* name (`"foo"`, never `"[no-]foo"` or `"no-foo"`):
-    /// this field is what lets the negatability survive the parse without
-    /// smuggling `[`/`]` into the spelling users search and copy. See
-    /// `mandible-extract/src/help_text/grammar.rs`'s `try_long` for where
-    /// this is recognized, structurally, from the bracketed-prefix shape —
-    /// never from a tool name.
-    pub negatable: bool,
-    /// True when [`Self::long`] is spelled with **one** dash rather than two
-    /// — the single-dash long-option convention (`qemu -help`, `find -name`,
-    /// `gcc -fdump-scos`, `bpftrace -vv`), which is a real and common shape
-    /// that this model previously had no way to say.
+    /// This node's entities of one kind, in document order.
     ///
-    /// `long` holds the bare name either way (`"help"`, `"vv"`), so every
-    /// identity, merge and search path keeps working unchanged; this field
-    /// only decides how many dashes [`Self::spelling`] puts in front of it.
-    /// Storing `"-help"` in `long` instead would have put a dash inside the
-    /// spelling users search and copy, exactly the mistake
-    /// [`Self::negatable`]'s own doc comment records for `--[no-]foo`.
-    ///
-    /// Recognized structurally and never from a tool name: see
-    /// `help_text::sections::repair_repeated_character_flags` for the one
-    /// shape that currently sets it.
-    pub single_dash: bool,
-    /// True if this flag should be hidden by default.
-    pub hidden: bool,
-    /// `Some(reason)` when this flag is deprecated.
-    pub deprecated: Option<Text>,
-    /// True when this flag was declared on an ancestor node and propagated
-    /// down (cobra "persistent flag" / carapace `persistentflags`).
-    /// Rendered in a separate, dimmed group in the detail pane.
-    pub inherited: bool,
-    /// Display grouping from the source, e.g. tar's `"Main operation mode"`.
-    pub group: Option<String>,
-    /// The flag's description.
-    pub description: Option<Text>,
-    /// The flag's default value, if documented.
-    pub default: Option<Text>,
-    /// An environment variable that also sets this flag, if documented.
-    pub env_var: Option<String>,
-    /// Which source(s) contributed this flag's fields.
-    pub provenance: Provenance,
-}
-
-impl Flag {
-    /// A minimal flag with only a long spelling.
-    pub fn long(name: impl Into<String>, provenance: Provenance) -> Flag {
-        Flag {
-            short: None,
-            long: Some(name.into()),
-            value_name: None,
-            value_kind: ValueKind::None,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: None,
-            description: None,
-            default: None,
-            env_var: None,
-            provenance,
-        }
+    /// The kind-filtered accessors are the whole ergonomic case for one
+    /// vector over four: a consumer that only cares about flags reads
+    /// [`CommandNode::flags`] and never learns that anything else shares
+    /// the storage.
+    pub fn entities_of(&self, kind: EntityKind) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities.iter().filter(move |e| e.kind == kind)
     }
 
-    /// The canonical identity key used for cross-source matching and
-    /// addressing: prefer the long name, fall back to the short letter.
-    /// Returns `None` for a degenerate flag with neither (which cannot be
-    /// addressed and is only matched positionally during merge).
-    pub fn key(&self) -> Option<crate::noderef::FlagKey> {
-        if let Some(long) = &self.long {
-            Some(crate::noderef::FlagKey::Long(long.clone()))
-        } else {
-            self.short.map(crate::noderef::FlagKey::Short)
-        }
+    /// This node's entities of one kind, mutably, in document order.
+    pub fn entities_of_mut(&mut self, kind: EntityKind) -> impl Iterator<Item = &mut Entity> {
+        self.entities.iter_mut().filter(move |e| e.kind == kind)
     }
 
-    /// True if `key` addresses this flag, checking both spellings
-    /// regardless of which one is considered canonical.
-    pub fn matches_key(&self, key: &crate::noderef::FlagKey) -> bool {
-        match key {
-            crate::noderef::FlagKey::Long(l) => self.long.as_deref() == Some(l.as_str()),
-            crate::noderef::FlagKey::Short(s) => self.short == Some(*s),
-        }
+    /// This node's flags, in document order.
+    pub fn flags(&self) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities_of(EntityKind::Flag)
     }
 
-    /// A human-readable spelling for display and clipboard copy, e.g.
-    /// `"-i, --interactive"`, `"--output FILE"`, or `"-S, --[no-]staged"`
-    /// for a negatable boolean — the `[no-]` is reconstructed for display
-    /// from `negatable`, never stored in `long` itself (see the field's
-    /// doc comment).
+    /// This node's flags, mutably, in document order.
+    pub fn flags_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        self.entities_of_mut(EntityKind::Flag)
+    }
+
+    /// This node's positional arguments, in document order.
+    pub fn positionals(&self) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities_of(EntityKind::Positional)
+    }
+
+    /// Replace every entity of one kind, leaving the other kinds and their
+    /// relative order untouched. The replacements land at the end of the
+    /// vector, which is invisible to every consumer: order is only ever
+    /// read within a kind.
     ///
-    /// A [`Self::single_dash`] flag renders with one dash (`-help`, `-vv`),
-    /// reconstructed the same way and for the same reason: what a user has
-    /// to type is a display concern, and putting it in `long` would corrupt
-    /// the name every other code path matches on.
-    pub fn spelling(&self) -> String {
-        let mut parts = Vec::new();
-        if let Some(s) = self.short {
-            parts.push(format!("-{s}"));
-        }
-        if let Some(l) = &self.long {
-            let dashes = if self.single_dash { "-" } else { "--" };
-            if self.negatable {
-                parts.push(format!("{dashes}[no-]{l}"));
-            } else {
-                parts.push(format!("{dashes}{l}"));
-            }
-        }
-        let mut spelling = parts.join(", ");
-        if let Some(name) = &self.value_name {
-            match self.value_kind {
-                ValueKind::Required => spelling.push_str(&format!(" {name}")),
-                ValueKind::Optional => spelling.push_str(&format!("[={name}]")),
-                ValueKind::None => {}
-            }
-        }
-        spelling
+    /// `replacement` is trusted to be of `kind` — it is what a tier just
+    /// built for that kind — and mixing kinds in it would be a producer
+    /// bug, not something this can repair.
+    pub fn set_entities_of(&mut self, kind: EntityKind, replacement: Vec<Entity>) {
+        self.entities.retain(|e| e.kind != kind);
+        self.entities.extend(replacement);
+    }
+
+    /// Replace this node's flags, keeping every other kind.
+    pub fn set_flags(&mut self, flags: Vec<Entity>) {
+        self.set_entities_of(EntityKind::Flag, flags);
+    }
+
+    /// Replace this node's positionals, keeping every other kind.
+    pub fn set_positionals(&mut self, positionals: Vec<Entity>) {
+        self.set_entities_of(EntityKind::Positional, positionals);
+    }
+
+    /// Remove every entity of one kind and return them in document order.
+    pub fn take_entities_of(&mut self, kind: EntityKind) -> Vec<Entity> {
+        let (taken, rest) = std::mem::take(&mut self.entities)
+            .into_iter()
+            .partition(|e| e.kind == kind);
+        self.entities = rest;
+        taken
     }
 }
 
@@ -359,28 +304,26 @@ pub enum ValueKind {
     Optional,
 }
 
-/// A positional argument, e.g. `<pathspec>...`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Positional {
-    /// The argument's name as shown in usage, e.g. `"pathspec"`.
-    pub name: String,
-    /// True if this positional must be supplied.
-    pub required: bool,
-    /// True if this positional accepts multiple values (`...`).
-    pub variadic: bool,
-    /// The positional's description.
-    pub description: Option<Text>,
-    /// Which source(s) contributed this positional's fields.
-    pub provenance: Provenance,
-}
-
 /// A worked example: a command line plus an optional explanation.
+///
+/// `#[non_exhaustive]`: build one with [`Example::new`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Example {
     /// The example command line, verbatim.
     pub command: Text,
     /// An optional explanation of what the example does.
     pub explanation: Option<Text>,
+}
+
+impl Example {
+    /// An example command line with no explanation attached.
+    pub fn new(command: Text) -> Example {
+        Example {
+            command,
+            explanation: None,
+        }
+    }
 }
 
 #[cfg(test)]

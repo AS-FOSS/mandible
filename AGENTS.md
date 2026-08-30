@@ -162,6 +162,20 @@ any failure and can emit `--message-format libtest-json` when a structured
 result is actually needed — read *that*, or read the exit code, never the
 prose.
 
+### 3.4 A guard is not done until you have watched it fail
+
+When you add or change a detector, a lint, a meta-check, or a CI guard,
+break the thing it protects — plant the defect, remove the row, disable the
+lane — and confirm the run goes red **naming what you removed**. If it stays
+green, or fails without naming it, the guard is decorative. Running it
+against the healthy repo and seeing green proves nothing at all: a guard is
+uniquely easy to write in a form that can never go red, and its green runs
+then read as evidence forever. This project has already paid for instrument
+blindness once — the fabrication count read 154 when the true number was 52,
+because the existence oracle could not see shapes it claimed to measure, and
+nothing in its output said so. Commit before you attack your own work (§5)
+so the restore afterwards has something to restore to.
+
 ---
 
 ## 4. Environment facts
@@ -170,13 +184,6 @@ prose.
 
 These cost real time when rediscovered.
 
-- **Never assume `rm` frees disk space — on some machines it is aliased to a
-  trash tool.** Such an alias moves files to `~/.local/share/Trash`, so a
-  cleanup can report success while the disk stays full. Thirty agent worktrees
-  once held ~90G of `target/` between them, the disk hit 100%, and three
-  running agents broke mid-task — each of them independently fighting the same
-  wall. Check `type rm` once per host; if it is aliased, use `/bin/rm`, and
-  check the trash directory before believing a cleanup worked.
 - **Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`,** which
   blocks the unprivileged user namespaces `exec::containment` builds a
   full-`PATH` sweep's containment out of. It is the default on GitHub's
@@ -214,6 +221,10 @@ These cost real time when rediscovered.
 - **All three workflows carry `paths-ignore` for `**/*.md`, `docs/**`,
   `LICENSE-*`, `NOTICE` and `.gitignore`.** A documentation-only push skips CI
   entirely, which is correct but surprising the first time.
+- **`xtask corpus --bless` invents an `expected.snap` for xfail fixtures that
+  intentionally have none.** After any bless, check `git status` for new
+  untracked snapshots and delete them — committing one silently converts an
+  xfail into a guarded wrong tree.
 
 Do not re-derive these. They are measured, with method, in **`spec.md`
 Appendix A** (`[M-1]`…`[M-9]`). The ones that most often surprise:
@@ -247,14 +258,41 @@ update Appendix A in the same commit, with the method.
 
 ## 5. Working agreements
 
-- **Commit signature precedence: the model at the top of the delegation chain
-  signs.** The `Co-Authored-By: Claude <model> <noreply@anthropic.com>` trailer
-  names the *orchestrating* model, not whichever subordinate typed the diff: if
-  Fable directs an Opus orchestrator, the trailer says Fable; if that Opus
-  directs Sonnet workers, still Fable. One session otherwise produces commits
-  signed by three different models for one coordinated change, which reads as
-  inconsistency in the history. Never include a session URL in a commit
-  message or PR body.
+- **Never attach a session URL anywhere on GitHub — commit messages, PR
+  bodies, issue or PR comments — even when tooling is configured to add one
+  automatically.** A session link is private workflow detail; publishing it
+  leaks information about the maintainer's setup and process. There is no
+  exception.
+- **Never address other people on GitHub without the maintainer's explicit
+  consent.** No replies to outside contributors, no comments on issues or PRs
+  beyond what the maintainer asked for in that specific instance. The account
+  speaks with the maintainer's voice, and an agent answering a stranger
+  commits the maintainer to words they never chose.
+- **One branch and one PR per bundle of tasks in a session.** A second is
+  allowed only when the grouping genuinely needs separating — and then ask
+  explicitly before opening it. Anything less disciplined produces a PR list
+  that reads as ceremony rather than work (eight PRs were once opened for
+  one-file edits in a single day, one of them to delete a 2-byte file).
+- **If an artifact leaks into commit history, notify the maintainer first —
+  never force-overwrite.** Rewriting published history is destructive and
+  irreversible for everyone downstream; whether and how to do it is the
+  maintainer's decision alone. Report what leaked and wait.
+- **Docs and trivial no-risk changes go direct to main; a PR is for work
+  where pre-merge verification earns its cost.** Docs-only pushes skip CI
+  entirely (`paths-ignore`, §4), so a self-opened, self-merged PR for a
+  paragraph adds a merge commit and a dead branch while gating nothing.
+  Direct to main: prose (README/AGENTS/spec wording), CHANGELOG entries
+  (run the guard locally), file deletions, `.gitignore`, typo-class fixes.
+  PR: parser/extraction logic, features, releases — the units where review
+  has actually caught bugs here.
+- **Never loosen a detector or parser rule to catch more cases if it can
+  degrade tools that already work.** A permissive instrument hides the
+  defects it exists to find, and a detector that fires on correct parses
+  cannot be used to gate. When a rule misses a case, first measure what
+  loosening would cost across the fleet; if it admits any currently-correct
+  parse, keep the strict rule, record the miss as a documented lower bound,
+  and fix the *scoring* rather than the check. Out-of-scope misses stay
+  counted and named in every report — hiding them is goalpost-moving.
 - **Public prose describes the change, not the conversation.** Commit
   messages, PR bodies, and issue/PR comments state what changed and why, in
   the fewest words that stay clear. Never paste the maintainer's private
@@ -263,6 +301,15 @@ update Appendix A in the same commit, with the method.
   personal details of any kind (names beyond the git author, machines,
   schedules, private context). If a comment is longer than the diff is
   interesting, it's too long.
+- **The spec states the design; it never narrates its status.** No
+  "approved but not yet implemented", no "to be done", no "this changes
+  when X ships", and no conversation residue ("maintainer decision
+  \<date\>") in `spec.md` or any other doc — §16's decisions log is the
+  one dedicated home for rulings, and version-stamped section titles
+  ("Revision 4 (0.5.0)") are the one sanctioned marker. Write every design
+  as the final specification and edit it directly when the design changes.
+  Status narration litters the spec and is exactly the residue that gets
+  left behind after the work ships. (Maintainer rule, 2026-08-29.)
 - **Commands in public prose are written for a stranger's machine, not
   transcribed from yours.** A "see it yourself" block is instructions, not a
   session log: no absolute paths from the writer's setup (`/tmp/ptyvenv`,
@@ -276,10 +323,19 @@ update Appendix A in the same commit, with the method.
   uncommitted lines and left the tree not building. An interim commit that
   compiles beats an uncommitted one that does not.
 - **Commit before you attack your own work.** Disabling a check to prove its
-  test fails is required here (§3.1), and the restore afterwards is a
+  test fails is required here (§3.1, §3.4), and the restore afterwards is a
   destructive command: an agent ran `git checkout --` on the file it had just
   written but not yet committed, and lost it. Commit first, then attack, then
   restore — the restore has something to restore *to*.
+- **Fix the defect you found; do not write it up.** When you discover a real
+  defect while doing something else and the fix is contained, fix it in the
+  same change. The test is blunt: if documenting the limitation costs more to
+  carry than the fix costs to write, write the fix. A fix you have *verified*
+  is never a "known issue" — verifying was the expensive part. A defect that
+  produces a silently wrong answer is never deferrable: a loud failure can
+  wait behind a caveat; a wrong value nobody is told about cannot. When a fix
+  is genuinely out of scope, file an issue naming what it would take — never
+  leave a caveat in prose that reads as a decision nobody made.
 - **A result that exists only on one machine is not a result.** `audit/queue.toml`
   is called *tracked* by `xtask::queue`'s module doc and again by spec §16's
   storage note — and was never committed by any commit on any branch, because
@@ -322,6 +378,50 @@ update Appendix A in the same commit, with the method.
 - Never invoke a tool binary outside the argv allowlist in spec §6. Running a
   bare binary is how you launch a REPL, block on stdin, or start a daemon.
 
+### 5.1 Change-trigger matrix
+
+When you touch the left column, the right column moves **in the same
+commit/PR** — this is a lookup, not a judgment call at the end of a round.
+Each row points at the section that says why.
+
+| If you change… | You must also… |
+|---|---|
+| Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]` (§2) |
+| A measurement that contradicts `spec.md` Appendix A | update Appendix A with the new number and its method (§4) |
+| A design contract — schema, probe/argv rules, display semantics | amend the governing `spec.md` section; spec.md is the design authority, and a PR body is not a record |
+| Rendering code | capture before/after pty screens (§3.2) and attach them to the PR |
+| An extraction tier's argv construction | keep/add a test exercising the **real** argv (§3.1) |
+| The `unsafe` count in `mandible-extract` | update the §5 exception list AND the crate doc comment in `mandible-extract/src/lib.rs` |
+| Fixtures via `xtask corpus --bless` | check `git status` for invented xfail snapshots and delete them (§4) |
+| A detector, lint, or CI guard | watch it fail first (§3.4) |
+
+### 5.2 Recurring task playbooks
+
+The two workflows that repeat every round, in the shape *what you see → what
+you run → what you decide*, so they stop being re-derived from history.
+
+**Adding or fixing a parser family.**
+- *See:* a tool renders wrong in the TUI, or a sweep/verdict names a shape.
+- *Run:* reproduce against the captured bytes or the live tool; write the
+  corpus fixture first; implement in the framework/shape tier — never
+  per-tool (§1); `xtask coverage --tools <affected…>` as the cheap pre-check
+  (a pinned list reproduces full-`PATH` numbers exactly), then the full
+  sweep when the change warrants it; the §5 gates.
+- *Decide:* whether the recognizer can admit a currently-correct parse — if
+  it can, keep it strict and fix the scoring instead (§5). Ship with a "see
+  it yourself" block: the exact `mandible <tool>` commands and what changed,
+  written portably (§5) — the maintainer verifies parser fixes visually, not
+  by fixture green — plus pty screenshots in the PR.
+
+**Cutting a release.**
+- *See:* the maintainer has asked for a release, CHANGELOG `[Unreleased]`
+  holds the round, and the maintainer's visual pass is done.
+- *Run:* the release PR, then the tag; watch the workflow run whose
+  tag/headBranch matches the tag just pushed — never "the latest run" —
+  and confirm the assets and crates it actually published.
+- *Decide:* nothing. Release timing and content are the maintainer's call;
+  never tag or publish unprompted.
+
 ---
 
 ## 6. Maintaining this file
@@ -350,8 +450,11 @@ lifecycle. Review the whole file whenever you finish a batch of work.
 **Do not duplicate `spec.md`.** Link to it. Duplication means two sources that
 will disagree, and the disagreement will be discovered at the worst time.
 
-**Keep it under ~200 lines.** If it grows past that, something belongs in
-`spec.md` (design), `CONTRIBUTING.md` (human process), or the bin.
+**Growth is policed by earned entries, not a line count.** There is no line
+budget (the old ~200-line cap was arbitrary and is retired — maintainer,
+2026-08-29). What keeps this file honest is the rule above: every entry names
+the failure it prevents, and an entry whose cause is fixed gets deleted.
+Design still belongs in `spec.md`, human process in `CONTRIBUTING.md`.
 
 **Date-stamp anything environment-dependent**, and re-verify rather than trust
 it. Facts about other people's tools go stale.
