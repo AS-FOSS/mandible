@@ -164,6 +164,21 @@ fn a_wrapped_raw_line_keeps_the_authors_columns_and_its_own_indent() {
         "a continuation row must carry the line's own indent, not restart at \
          column 0 or gain one: {continuation:?}"
     );
+    // And it must be a continuation of *that* line rather than the next
+    // one: the two rows together read as a prefix of the source line, and
+    // the second adds to what the first showed.
+    let two = squash(&format!("{}{}", rows[first], continuation));
+    assert!(
+        squash(LONG_PROSE).starts_with(&two) && two.len() > squash(&rows[first]).len(),
+        "the row after a wrapped line did not continue it: {rows:?}"
+    );
+    // The author's own run of spaces inside the row survives; a prose
+    // word-wrap would have collapsed it to one.
+    assert!(
+        rows[first].contains("FORMAT   choose"),
+        "interior columns were reflowed away: {:?}",
+        rows[first]
+    );
 }
 
 /// The default state is untouched: `horizontal_scroll = true` still draws
