@@ -377,7 +377,28 @@ pub(super) fn is_line_continuation_fragment(heading: &str) -> bool {
 /// something that is positively not a heading, or it is left exactly as it
 /// was before.
 pub(super) fn heading_can_name_a_group(heading: &str) -> bool {
-    !is_prose_sentence(heading) && !is_line_continuation_fragment(heading)
+    !is_prose_sentence(heading)
+        && !is_line_continuation_fragment(heading)
+        && !is_dash_underline_row(heading)
+}
+
+/// True when `line`, trimmed, is nothing but dash characters and
+/// whitespace — a table's own column-underline decoration (jmod's own
+/// `Option`/`Description` header row: `------  -----------`) rather than a
+/// real heading. [`super::grammar::is_dash_underline_token`] already keeps
+/// this shape from opening a flag entry; this is the same rule applied to
+/// every whitespace-delimited run in the line, since a two-column
+/// underline row is two such runs, not one — and it exists here because
+/// the row can still reach [`meaningful_flag_group`]/[`process_word_grid`]
+/// as an ordinary heading candidate once it stops being read as a flag,
+/// carrying its own literal dashes into `Flag::group`/`CommandNode::group`
+/// otherwise.
+pub(super) fn is_dash_underline_row(line: &str) -> bool {
+    let trimmed = line.trim();
+    !trimmed.is_empty()
+        && trimmed
+            .split_whitespace()
+            .all(|token| is_dash_underline_token(token))
 }
 
 /// Index just past a hard-wrapped prose sentence opening at `head`, or

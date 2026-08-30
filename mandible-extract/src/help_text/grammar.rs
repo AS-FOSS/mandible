@@ -460,7 +460,34 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
 /// call, never a second copy of it.
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
-    trimmed.starts_with('-') || parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
+    if trimmed.starts_with('-') {
+        return !is_dash_underline_token(first_token(trimmed));
+    }
+    parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
+}
+
+/// The first whitespace-delimited token of `input`, or the whole string
+/// when it carries none.
+fn first_token(input: &str) -> &str {
+    input.split_whitespace().next().unwrap_or(input)
+}
+
+/// True when `token` is nothing but a run of 3 or more dashes — jmod's own
+/// header-underline row, `------  -----------`, printed directly under a
+/// two-column `Option`/`Description` heading to separate it from the rows
+/// beneath. Every character in the token's own would-be spelling is `-`,
+/// so admitting it as a flag row fabricates a flag named `----` (the two
+/// leading dashes stripped as the long-flag marker, the rest read as its
+/// name) — real structure invented from a table border, not a value the
+/// tool documents.
+///
+/// The threshold is 3, not 2: `--` alone is a real, meaningful token in
+/// many tools (GNU getopt's end-of-options marker, spelled as its own row
+/// in some `--help` conventions) and must stay eligible to open a flag
+/// entry. A dash run of 3 or more, with no other character anywhere in it,
+/// has no such reading — it is always table decoration, never a spelling.
+pub fn is_dash_underline_token(token: &str) -> bool {
+    token.len() >= 3 && token.bytes().all(|b| b == b'-')
 }
 
 // --- the docopt bracket-group flag row ----------------------------------

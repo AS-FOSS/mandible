@@ -42,7 +42,7 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{
-    bracket_flag_row_content, is_bare_flag_spelling, is_bare_flag_token,
+    bracket_flag_row_content, is_bare_flag_spelling, is_bare_flag_token, is_dash_underline_token,
     looks_like_bracket_flag_row, looks_like_flag_start, looks_like_paren_alternation_open,
     looks_like_stanza_head_flag, paren_alternation_member_content, paren_depth_delta,
     parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, split_alternatives, FlagSpec,
