@@ -1570,6 +1570,38 @@ Options:
         );
     }
 
+    /// Isolates the argfile guard from the dash-underline guard.
+    /// `an_argfile_row_never_corrupts_the_entry_above_it` above uses jmod,
+    /// whose block also carries a dash-underline header row — so disabling
+    /// *only* `looks_like_argfile_row` there still passes: the
+    /// dash-underline fix alone already keeps that block's minimum entry
+    /// indent from being pulled low enough to misclassify `@<filename>` as
+    /// a continuation (see the PR's own plant-watch-restore record for
+    /// this). `size --help` (real capture, `tests/fixtures/help_text/
+    /// size_help.stdout`, `TERM=dumb NO_COLOR=1 COLUMNS=100
+    /// LC_ALL=C.UTF-8`) has **no dash-underline row anywhere** — its
+    /// `--target=<bfdname>` row sits directly above `@<file>` with nothing
+    /// else in the block able to mask a failure — so a break here can only
+    /// be caused by the argfile guard itself.
+    #[test]
+    fn an_argfile_row_never_corrupts_the_entry_above_it_with_no_dash_underline_row_present() {
+        let parsed = parse_named(SIZE_HELP, "size");
+        let target = flag_named(&parsed, "target");
+        assert_eq!(
+            target.description.as_ref().map(|t| t.as_str()),
+            Some("Set the binary file format"),
+            "the @<file> row must not leak into --target's description: {:?}",
+            target.description
+        );
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long().is_some_and(|l| l.contains("file>"))),
+            "@<file> must never become a flag of its own"
+        );
+    }
+
     /// `llvm-ar --help`'s `--format` / `=default - default` / `=gnu - gnu`
     /// / ... sub-rows (`corpus/llvm-ar-18/18.1.3/help.txt`) are `--format`'s
     /// enumerated values and must land in `choices`, not its description.

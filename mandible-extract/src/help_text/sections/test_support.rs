@@ -47,3 +47,5 @@ pub(super) const CURL_HELP: &str =
     include_str!("../../../tests/fixtures/help_text/curl_help.stdout");
 pub(super) const APT_GET_HELP: &str =
     include_str!("../../../tests/fixtures/help_text/apt_get_help.stdout");
+pub(super) const SIZE_HELP: &str =
+    include_str!("../../../tests/fixtures/help_text/size_help.stdout");
