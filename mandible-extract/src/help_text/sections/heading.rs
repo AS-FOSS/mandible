@@ -313,15 +313,21 @@ pub(super) const MIN_PROSE_SENTENCE_WORDS: usize = 5;
 /// [`parse_with_profile`], which stops a synopsis from swallowing
 /// `sg_emc_trespass`'s trailing sentences and mining `LUN`/`SP`/`EMC` out of
 /// them as fabricated positionals); two more only decide whether a heading
-/// may be copied into a flag's `group`. The section loop has one additional,
-/// deliberately subtractive use: a prose line followed by a more-indented
-/// [`is_ignorable_heading`] marker opens `obscured_ignorable_indent`, whose
-/// whole-region fence can remove entries fabricated from worked examples.
-/// It never recognizes a command heading or sets
-/// `CommandNode::heading_attested`, and its same-indent exit admits only an
-/// attested *flag* section, so it cannot widen the set of nodes eligible to
-/// become `<word> --help` probe argv. The jar and internal-`Commands:`
-/// regression tests beside the section parser pin that safety boundary;
+/// may be copied into a flag's `group`. The section loop has one additional
+/// use: a prose line followed by a more-indented `is_obscured_fence_marker`
+/// opens `obscured_ignorable_indent`, whose whole-region fence can remove
+/// entries fabricated from worked examples. It never recognizes a command
+/// heading or sets `CommandNode::heading_attested`, and its reopening exit
+/// (`obscured_fence_reopens`) admits only an independently attested *flag*
+/// section, so it cannot widen the set of nodes eligible to become `<word>
+/// --help` probe argv — but calling the whole use "subtractive" overstates
+/// what it guarantees: the fence's *close* restores whatever
+/// `in_ignorable_section` held immediately before it opened (issue #77 edge
+/// 2), rather than clearing it, because clearing unconditionally could
+/// cancel a suppression a genuine, non-obscured `EXAMPLES:` heading had
+/// already established earlier in the same document — a real restoration,
+/// not a pure subtraction. The jar and internal-`Commands:` regression
+/// tests beside the section parser pin the argv-eligibility boundary;
 /// `mandible-extract/tests/exec_policy.rs` separately pins the older,
 /// group-only call sites.
 pub(super) fn is_prose_sentence(heading: &str) -> bool {
@@ -456,6 +462,98 @@ pub(super) fn wrapped_prose_region_end(lines: &[&str], head: usize) -> Option<us
         end += 1;
     }
     (end > head + 1).then_some(end)
+}
+
+/// True when `heading` may open the obscured-marker whole-region fence
+/// (`obscured_ignorable_indent`) — issue #77 edge 3.
+///
+/// [`is_ignorable_heading`] is a per-heading test: at every one of its other
+/// call sites, a false positive suppresses at most the one heading's own
+/// block. Reused as the trigger for a *whole-region* fence, the same
+/// looseness stopped being bounded — a mid-document `Report bugs to
+/// <maintainer@example.com>.` line, sitting under a lower-indented prose
+/// sentence purely by document layout, fenced everything after it until the
+/// next physical dedent. That line is a sentence (period-terminated, with
+/// usage-grammar punctuation in the address), not a label, and no fence
+/// trigger should treat it as one.
+///
+/// This adds [`is_section_heading_line`]'s own bar — short, colon-terminated,
+/// plain-word label — on top of [`is_ignorable_heading`]'s vocabulary, so the
+/// fence only opens on something that is heading-*shaped* as well as
+/// heading-*worded*: `Examples:` and `Report bugs:` qualify; `Report bugs to
+/// <maintainer@example.com>.` does not. `is_ignorable_heading` itself is left
+/// untouched — it is correct at its other ~10 call sites, and this predicate
+/// exists precisely so the fence stops borrowing it instead of tightening it
+/// out from under them.
+pub(super) fn is_obscured_fence_marker(heading: &str) -> bool {
+    is_section_heading_line(heading) && is_ignorable_heading(heading)
+}
+
+/// Whether the obscured-marker fence (`obscured_ignorable_indent`) may close
+/// at `lines[idx]`, given the marker's own indent — issue #77 edge 1.
+///
+/// The fence's original exits were a physical dedent below the marker's
+/// indent, or [`starts_attested_flag_section`] at *exactly* the marker's
+/// indent. Both are too narrow: a well-formed, positively-evidenced flag
+/// section indented *deeper* than the marker, or a headingless flag block at
+/// any indent at or past the marker's, previously had no exit at all and
+/// stayed suppressed for the rest of the document.
+///
+/// The fix widens *which indents* may exit, while keeping the exit itself
+/// exactly as evidence-gated as before — a fence any indented line can
+/// reopen is not a fence:
+///
+/// - A physical dedent (`indent < marker_indent`) still exits unconditionally,
+///   as it always did.
+/// - [`starts_attested_flag_section`] — heading vocabulary plus
+///   [`MIN_ATTESTED_SECTION_FLAGS`] independently parsed rows below it — now
+///   qualifies at the marker's indent *or deeper*, not only at exactly it.
+/// - A headingless run of at least [`MIN_ATTESTED_SECTION_FLAGS`] flag rows
+///   ([`starts_attested_headingless_flag_block`]) is admitted as the same
+///   evidence, since a headingless block can never satisfy a heading-vocabulary
+///   test in the first place.
+pub(super) fn obscured_fence_reopens(lines: &[&str], idx: usize, marker_indent: usize) -> bool {
+    let indent = leading_whitespace(lines[idx]);
+    if indent < marker_indent {
+        return true;
+    }
+    starts_attested_flag_section(lines, idx) || starts_attested_headingless_flag_block(lines, idx)
+}
+
+/// Headingless counterpart of [`starts_attested_flag_section`]: `lines[idx]`
+/// itself already looks like a flag row ([`looks_like_flag_start`]), no
+/// heading-shaped line immediately governs it, and the block it opens
+/// independently parses at least [`MIN_ATTESTED_SECTION_FLAGS`] rows.
+///
+/// The "no heading-shaped line immediately governs it" clause is load-
+/// bearing, not a stylistic nicety. `labels_inside_indented_examples_do_not_
+/// reopen_flag_parsing` (this file's sibling module) pins the shape that
+/// requires it: a worked example writes ` Input:`/` Output:` labels — real
+/// section headings by every structural test, just not ones naming CLI
+/// vocabulary — directly over sample rows that are themselves dash-led
+/// (`--fake-one VALUE   example input, not a supported option`). Dropping
+/// the "no governing heading" requirement would read every one of those
+/// rows as headingless and reopen on the same two-row floor, exactly
+/// reproducing the ambiguity [`names_flag_section`]'s own doc comment
+/// warns about — a label can govern `--flag`-shaped sample data as
+/// plausibly as it can govern real flags. A row is trusted as headingless
+/// only when nothing heading-shaped sits directly above it: `sed --help`'s
+/// own `Options:`-free block, whose entries start on line one with nothing
+/// above them at all, is the shape this clause is scoped to admit.
+pub(super) fn starts_attested_headingless_flag_block(lines: &[&str], idx: usize) -> bool {
+    if !looks_like_flag_start(lines[idx].trim_start()) {
+        return false;
+    }
+    if lines[..idx]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .is_some_and(|l| is_section_heading_line(l.trim()))
+    {
+        return false;
+    }
+    let (_, entries, _) = scan_flags_block(lines, idx, false);
+    entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
 /// Longest label this will accept before a `:` still counts as a section
@@ -595,22 +693,69 @@ pub(super) fn is_name_shaped_token(t: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// True if `heading` is a recognized command-block introduction: either
-/// spec §7 Tier B rule 1's literal generic test (mentions "command(s)" or
-/// "subcommand(s)" as a word), or — when a framework was identified — one
-/// of that framework's own extra heading markers
-/// ([`FrameworkProfile::command_heading_markers`]). A framework profile
-/// asserting [`FrameworkProfile::no_subcommand_concept`] overrides both:
-/// it means this framework's help output structurally never has
-/// subcommands, so no heading of any kind should ever be recognized here
-/// — the direct fix for [M-10] (spec §7 Tier B rule 1: "must produce zero
-/// subcommands"), made structural instead of incidental to which exact
-/// words one tool's heading happens to use.
+/// True if `heading` is a recognized command-block introduction: spec §7
+/// Tier B rule 1's literal generic test (mentions "command(s)" or
+/// "subcommand(s)" as a word, or — the extension below — "operation(s)"),
+/// or — when a framework was identified — one of that framework's own
+/// extra heading markers ([`FrameworkProfile::command_heading_markers`]).
+/// A framework profile asserting [`FrameworkProfile::no_subcommand_concept`]
+/// overrides both: it means this framework's help output structurally
+/// never has subcommands, so no heading of any kind should ever be
+/// recognized here — the direct fix for [M-10] (spec §7 Tier B rule 1:
+/// "must produce zero subcommands"), made structural instead of incidental
+/// to which exact words one tool's heading happens to use.
 ///
 /// This is *not* the whole test — a heading can also qualify by being
 /// part of a chain started by such a mention elsewhere (git's group
 /// headings) — see [`command_mode_seed`] and `command_mode` in
 /// [`parse_with_profile`].
+///
+/// # The "operations" extension (llvm-ar operations table)
+///
+/// `llvm-ar --help` documents its single-letter operations (`d`, `m`,
+/// `p`, ...) under an `OPERATIONS:` heading — the same class of table as
+/// `ar`'s and `llvm-ar`'s own `MODIFIERS:` block, and the same kind of
+/// evidence rule 1 already accepts for "command(s)": an operation letter
+/// *is* an invocation verb (`llvm-ar d archive.a file.o`), just as a
+/// subcommand name is. `binutils ar`'s equivalent table sits under a
+/// heading that already says "commands" and needed no change.
+///
+/// Measured over the 2,301 frozen captures in `audit/queue-captures/`:
+/// **22 tools** carry a heading whose text mentions "operation"/
+/// "operations". Of those, **20** (`autoconf`, `autom4te`, `automake`,
+/// `automake-1.16`, `autoreconf`, `autoupdate`, `btrfsck`, `cpio` ×7,
+/// `envsubst`, `jar` ×3, `m4`, `man`, `mount`, `msgcmp`, `msgfmt`,
+/// `msgmerge` ×2, `msgunfmt`, `pygmentize` ×2, `tar` ×2, `xgettext` — some
+/// tools carry more than one such heading) head an ordinary flags table
+/// (`Operation modes:`, `Main operation mode:`, `Operation modifiers
+/// valid in copy-in mode:`, `mount`'s `Operations:`, ...): every row is
+/// flag-shaped (`-h, --help`, `-B, --bind`), so
+/// [`super::flags_block_start`] claims the block as flags *before* this
+/// predicate is ever consulted (`parse_with_profile`'s flags-block check
+/// runs first and `continue`s the loop) — this extension cannot touch
+/// them regardless of what vocabulary it admits. The remaining **2**
+/// (`llvm-ar`'s `OPERATIONS:` and `jmod`'s `Main operation modes:`, both
+/// `corpus/llvm-ar-18/18.1.3` and a real fixture candidate respectively)
+/// are genuine tables of one-word invocation verbs with a ` - `-separated
+/// description each — precisely the shape this extension exists to
+/// recover, and precisely nothing else in the measured fleet has that
+/// shape under this vocabulary. No false positive was found; the only
+/// near-miss (`mount`'s bare `Operations:` heading over an actual flags
+/// table) is closed structurally by the flags-block gate above, not by
+/// narrowing the word list.
+///
+/// **This vocabulary is deliberately not folded into
+/// [`mentions_commands_word`] and does not reach [`command_mode_seed`].**
+/// `command_mode_seed` reads a tool's own *description prose*, not a
+/// heading, and seeds a sticky chain that later headings inherit; the
+/// same 2,301 captures show **141 tools** with the word "operation"/
+/// "operations" *somewhere* in their `--help` text (an upper bound on
+/// what a shared vocabulary would expose `command_mode_seed` to — most of
+/// that is ordinary English, e.g. "This performs a destructive
+/// operation"). Seeding a sticky command-list chain from that word in
+/// prose, fleet-wide, is a materially different and far riskier claim
+/// than recognizing it in a heading that introduces an indented block,
+/// so the extension is scoped to heading recognition only.
 pub(super) fn is_recognized_command_heading(
     heading: &str,
     profile: Option<&FrameworkProfile>,
@@ -623,7 +768,7 @@ pub(super) fn is_recognized_command_heading(
             return true;
         }
     }
-    mentions_commands_word(heading)
+    mentions_commands_word(heading) || mentions_operations_word(heading)
 }
 
 /// True if `text` (prose introducing a heading chain, e.g. git's "These

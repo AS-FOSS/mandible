@@ -2019,6 +2019,72 @@ mod tests {
         );
     }
 
+    /// [M-19]'s self-similar-fan-out guard, the `llvm-ar`-shaped instance.
+    ///
+    /// The "operations" heading extension (spec §7 Tier B rule 1) makes an
+    /// operation letter under `OPERATIONS:` a `heading_attested` subcommand,
+    /// which makes `<tool> <letter> --help` reachable probe argv (§6 rule
+    /// 2). Measured against the real `llvm-ar-18` binary: every operation
+    /// letter answers `--help` with the tool's own **root** help text,
+    /// byte-identical, regardless of the letter or how many precede it
+    /// (`llvm-ar-18 --help` and `llvm-ar-18 d --help` are the same 2,046
+    /// bytes) — LLVM's `cl::opt` parser processes `--help` before acting on
+    /// anything ahead of it, the same permutation behaviour this guard was
+    /// built for. Without `a_subcommand_probe_identical_to_the_root_does_not_fan_out`'s
+    /// cache check (above), that reading would hand every one of `d`,
+    /// `m`, `p`, `q`, `r`, `s`, `t`, `x` the same eight-operation
+    /// `OPERATIONS:` table as its own children — an 8-way fan-out at every
+    /// level, the exact `mandible systemctl` shape [M-19] records. It is
+    /// the existing guard, not the exit-0-and-no-files-touched fact alone,
+    /// that keeps this safe; this test pins that the guard actually covers
+    /// the new shape rather than assuming it by analogy.
+    #[test]
+    fn an_operation_letter_probe_identical_to_the_root_does_not_fan_out() {
+        let raw = "OVERVIEW: LLVM Archiver\n\nUSAGE: llvm-ar [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]\n\nOPERATIONS:\n  d - delete [files] from the archive\n  m - move [files] in the archive\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(raw)),
+            (
+                vec!["d".to_string(), "--help".to_string()],
+                exec_output(raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "llvm-ar".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/llvm-ar")),
+            version: None,
+        };
+
+        let root = tier
+            .extract_node(&tool, &["llvm-ar".to_string()], ATTESTED)
+            .expect("the transcript covers the root's argv");
+        let root_names: Vec<&str> = root.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(
+            root_names,
+            vec!["d", "m"],
+            "sanity: the root itself must read the two real operations"
+        );
+
+        let child = tier
+            .extract_node(&tool, &["llvm-ar".to_string(), "d".to_string()], ATTESTED)
+            .expect("the transcript covers this operation's argv too");
+        assert!(
+            child.subcommands.is_empty(),
+            "an operation probe identical to the root must not report the \
+             root's own OPERATIONS: table as this operation's children: {:?}",
+            child
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            child.children_filled,
+            "this level is still known-complete (empty), just not \
+             re-probed forever"
+        );
+    }
+
     /// The negative case: a transcript that does *not* contain the argv
     /// this tier actually sends must miss loudly, naming the argv it was
     /// asked for — never fall through to an empty, confidently-wrong

@@ -1762,9 +1762,11 @@ The generic fallback parser (step 2) is built with `winnow`:
   strictly worse than missing structure — a user cannot tell it is wrong. Four
   binding rules:
   1. A command block **must** be introduced by a recognized heading
-     (`Commands:`, `Subcommands:`, `Available Commands:`, `SUBCOMMANDS`, or a
-     git-style group heading). Layout alone is never sufficient evidence. `tar
-     --help` has no such heading, so the correct answer is **zero subcommands**.
+     (`Commands:`, `Subcommands:`, `Available Commands:`, `SUBCOMMANDS`, a
+     git-style group heading, or — the narrower extension below — a heading
+     mentioning "operation(s)"). Layout alone is never sufficient evidence.
+     `tar --help` has no such heading, so the correct answer is **zero
+     subcommands**.
   2. A line sitting at the description column with nothing at the name column is
      a **continuation** of the previous row, never a new row.
   3. A candidate command name must look like one: `^[a-z][a-z0-9_.-]*$`, no
@@ -1982,6 +1984,51 @@ four ordinary long options, and those four take their `group` from the
 heading they sit under. A recognizer that consumed the whole block, or that
 restarted section scanning after the run, would strip that group from four
 flags that carry it correctly today.
+
+**The "operations" heading.** `llvm-ar --help` documents its single-letter
+operations under an `OPERATIONS:` heading — the same shape as its own
+`MODIFIERS:` table and as binutils `ar`'s command table, just with a
+different word over it. Rule 1's vocabulary is extended to recognize a
+heading mentioning "operation" or "operations" as a whole word, on the same
+footing as "command(s)"/"subcommand(s)": an operation letter *is* an
+invocation verb — `llvm-ar d archive.a file.o` — exactly the way a
+subcommand name is, so a heading naming a table of them is the same class
+of evidence rule 1 already accepts. `ar`'s own equivalent table sits under
+a heading that already says "commands" and needed no change.
+
+The extension applies to **heading recognition only** — the test a heading
+must pass to introduce a command block — and does not reach the
+prose-seeded `command_mode` chain a tool's own description sentence can
+start. The two are deliberately different vocabularies. Measured over the
+2,301 frozen captures in `audit/queue-captures/`: 22 tools carry a heading
+whose text mentions "operation"/"operations". Of those, 20 (`autoconf`,
+`autom4te`, `automake`, `autoreconf`, `autoupdate`, `btrfsck`, `cpio`,
+`envsubst`, `jar`, `m4`, `man`, `mount`, `msgcmp`, `msgfmt`, `msgmerge`,
+`msgunfmt`, `pygmentize`, `tar`, `xgettext`) head an ordinary *flags* table
+(`Operation modes:`, `Main operation mode:`, `mount`'s own `Operations:`)
+— every row is flag-shaped, so the flags-block scan claims the block
+before heading recognition is ever consulted, structurally identical to
+how a flags table under a `Commands:`-worded heading was already safe.
+The remaining 2 (`llvm-ar`'s `OPERATIONS:`, `corpus/llvm-ar-18/18.1.3`, and
+`jmod`'s `Main operation modes:`) are genuine tables of one-word
+invocation verbs with a ` - `-separated description each — exactly the
+shape this extension exists to recover, and the only shape it does. A
+tool's own description prose mentioning "operation"/"operations" is far
+more common — 141 of the same 2,301 captures — which is why seeding a
+sticky command-list chain from that word, fleet-wide, stays out of scope:
+the extension widens what counts as a heading, never what counts as an
+introduction to one.
+
+A recovered operation is `heading_attested: true`, the same as any other
+entry under a recognized command heading (rule 0's closing paragraph,
+above), and so becomes eligible for `<word> --help` probe argv under
+§6 rule 2 exactly as a subcommand name would. Measured against the real
+`llvm-ar` and `jmod` binaries: every recovered word answers `--help`
+with its help text and exit 0, no archive or module file created or
+touched, because both tools' own argument parsers (LLVM's `cl::opt` and
+`jmod`'s launcher) process `--help` before acting on the preceding word
+regardless of its position — the same permutation behaviour rule 0's own
+measurement already relies on for GNU getopt.
 
 **Environment sections.** A tool's own environment variables — `bpftrace`'s
 `BPFTRACE_BTF`, `node`'s `NODE_DEBUG` — become `EntityKind::EnvVar`

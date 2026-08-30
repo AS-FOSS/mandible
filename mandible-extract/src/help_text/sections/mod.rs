@@ -157,6 +157,16 @@ impl ParsedHelp {
     }
 }
 
+/// Minimum count of independently parsed flag rows a same-indent (or
+/// deeper) block must produce before it is trusted as real structure over
+/// worked-example prose. Shared by [`starts_attested_flag_section`] (a
+/// headed block) and `heading::starts_attested_headingless_flag_block` (a
+/// headingless one): both read this as the same evidence bar, just applied
+/// to different shapes of the same question — "is this row run cheap for
+/// an unrelated document to have produced, or does it need a real flag
+/// table to explain it."
+pub(super) const MIN_ATTESTED_SECTION_FLAGS: usize = 2;
+
 /// Section headings that introduce worked examples or prose, not
 /// structure — a general (not tool-specific) exclusion, since "Examples:"
 /// sections showing up as fake subcommands is a real failure mode (e.g.
@@ -216,8 +226,6 @@ fn names_flag_section(heading: &str) -> bool {
 /// enough: its following nonblank content must be more indented and must
 /// independently satisfy the existing bounded flag-block recognizer.
 fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
-    const MIN_ATTESTED_SECTION_FLAGS: usize = 2;
-
     let heading = lines[heading_idx];
     if !names_flag_section(heading.trim()) {
         return false;
@@ -256,6 +264,26 @@ fn mentions_commands_word(s: &str) -> bool {
                 "command" | "commands" | "subcommand" | "subcommands"
             )
         })
+}
+
+/// True if `heading` mentions "operation"/"operations" as a whole word
+/// (case-insensitive) — spec §7 Tier B rule 1's extended heading
+/// vocabulary, `llvm-ar --help`'s `OPERATIONS:` table (issue: llvm-ar
+/// operations table). An operation letter is an invocation verb exactly
+/// the way a subcommand name is (`llvm-ar d archive.a file.o`), so a
+/// heading naming a table of them is the same class of evidence rule 1
+/// already accepts for "command(s)"/"subcommand(s)".
+///
+/// **Deliberately narrower in scope than [`mentions_commands_word`]: this
+/// predicate feeds only [`is_recognized_command_heading`], never
+/// [`command_mode_seed`].** The two vocabularies read as though they
+/// should be the same list, and are not, on purpose — see this crate's
+/// doc comment on `is_recognized_command_heading`'s call site for the
+/// measurement behind the split.
+fn mentions_operations_word(s: &str) -> bool {
+    s.split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .any(|w| matches!(w.as_str(), "operation" | "operations"))
 }
 
 // Rule 3's name-shape test (`^[a-z][a-z0-9_.-]*$`) lives in
@@ -1073,18 +1101,26 @@ fn parse_body(
     // immediately before it.  The generic relative-indent engine otherwise
     // promotes that prose sentence to a heading and consumes the marker as
     // ordinary content, so `is_ignorable_heading` never gets to establish
-    // the section context at all.  While this is `Some(indent)`, the marker
-    // was found in exactly that obscured shape and the whole region is
-    // fenced before *any* headingless or headed emission path can see its
-    // rows.  A physical dedent always closes the region.  At the marker's
-    // own indent, only `starts_attested_flag_section` may close it; a plain
-    // `Input:`/`Output:` label inside the example may not.
+    // the section context at all.  While this is `Some((indent, _))`, the
+    // marker was found in exactly that obscured shape and the whole region
+    // is fenced before *any* headingless or headed emission path can see
+    // its rows.  A physical dedent always closes the region; short of one,
+    // only `obscured_fence_reopens` (issue #77 edge 1: an independently
+    // attested flag section, headed or not, at the marker's indent or
+    // deeper) may close it — a plain `Input:`/`Output:` label inside the
+    // example may not, and neither may a bare dedent-free row of
+    // unattested content.
     //
     // This state is deliberately separate from `in_ignorable_section`:
     // direct, correctly-recognized `Examples:` headings retain their
     // established behavior, while the stronger whole-region fence applies
-    // only to markers that the prose-parent quirk would otherwise hide.
-    let mut obscured_ignorable_indent: Option<usize> = None;
+    // only to markers that the prose-parent quirk would otherwise hide. The
+    // tuple's second field is the value `in_ignorable_section` held the
+    // instant before the fence opened — the close restores it (issue #77
+    // edge 2) rather than clearing it outright, so a fence opened *inside*
+    // an already-suppressed `EXAMPLES:` section cannot cancel that
+    // suppression when it closes.
+    let mut obscured_ignorable_indent: Option<(usize, bool)> = None;
 
     // 3. Section blocks: scan the rest of the output for a heading line
     // followed by more-indented content — or, if the very first content
@@ -1103,13 +1139,10 @@ fn parse_body(
             i += 1;
             continue;
         }
-        if let Some(marker_indent) = obscured_ignorable_indent {
-            let indent = leading_whitespace(line);
-            if indent < marker_indent
-                || (indent == marker_indent && starts_attested_flag_section(&lines, i))
-            {
+        if let Some((marker_indent, prior_ignorable)) = obscured_ignorable_indent {
+            if obscured_fence_reopens(&lines, i, marker_indent) {
                 obscured_ignorable_indent = None;
-                in_ignorable_section = false;
+                in_ignorable_section = prior_ignorable;
             } else {
                 i += 1;
                 continue;
@@ -1189,9 +1222,10 @@ fn parse_body(
             }
             if marker_idx < lines.len()
                 && leading_whitespace(lines[marker_idx]) > heading_indent
-                && is_ignorable_heading(lines[marker_idx].trim())
+                && is_obscured_fence_marker(lines[marker_idx].trim())
             {
-                obscured_ignorable_indent = Some(leading_whitespace(lines[marker_idx]));
+                obscured_ignorable_indent =
+                    Some((leading_whitespace(lines[marker_idx]), in_ignorable_section));
                 in_ignorable_section = true;
                 command_mode = false;
                 i = marker_idx + 1;
@@ -2281,6 +2315,130 @@ mod tests {
         assert!(!is_command_name_shaped("42start"));
     }
 
+    // --- issue #77: obscured-`Examples:` fence edges ---------------------
+
+    /// Edge 1: a well-formed, positively-attested flag section indented
+    /// *deeper* than the obscured marker must still be recoverable — the
+    /// fence's only historical exits were a physical dedent, or an
+    /// attested flag section at *exactly* the marker's indent, so a real
+    /// `Options:` block sitting deeper than ` Examples:` (itself sitting
+    /// deeper than the prose sentence that obscures it) was silently lost
+    /// forever, with no dedent anywhere below to rescue it.
+    #[test]
+    fn obscured_fence_admits_a_deeper_attested_flag_section() {
+        let raw = "\
+This tool does many useful things for the busy user.
+  Examples:
+    widget run --now
+      runs immediately without prompting
+    widget stop
+      halts all processing at once
+    Options:
+      --now      run immediately without prompting
+      --stop     halt all processing at once
+";
+        let parsed = parse(raw);
+        let names: Vec<_> = parsed.flags.iter().map(|f| f.long()).collect();
+        assert!(
+            parsed.flags.iter().any(|f| f.long() == Some("now")),
+            "expected --now among {names:?}"
+        );
+        assert!(
+            parsed.flags.iter().any(|f| f.long() == Some("stop")),
+            "expected --stop among {names:?}"
+        );
+    }
+
+    /// Edge 1: the same widened exit admits a *headingless* flag block —
+    /// no heading vocabulary is possible when there is no heading, so the
+    /// row-count floor alone (`starts_attested_headingless_flag_block`)
+    /// must be the evidence.
+    #[test]
+    fn obscured_fence_admits_a_deeper_headingless_flag_block() {
+        let raw = "\
+This tool does many useful things for the busy user.
+  Examples:
+    widget run --now
+      runs immediately without prompting
+    --now      run immediately without prompting
+    --stop     halt all processing at once
+";
+        let parsed = parse(raw);
+        assert!(
+            parsed.flags.iter().any(|f| f.long() == Some("now")),
+            "expected --now among {:?}",
+            parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
+        );
+        assert!(
+            parsed.flags.iter().any(|f| f.long() == Some("stop")),
+            "expected --stop among {:?}",
+            parsed.flags.iter().map(|f| f.long()).collect::<Vec<_>>()
+        );
+    }
+
+    /// Edge 2: the fence's close must *restore* whatever `in_ignorable_section`
+    /// held before it opened, not clear it outright. Reproduced shape from
+    /// the issue: a real, non-obscured `EXAMPLES:` heading (which
+    /// legitimately suppresses `recover_stanza_head_flag` for the rest of
+    /// its section) contains a prose sentence with an obscured ` Examples:`
+    /// marker beneath it; the marker's own fence then closes on a physical
+    /// dedent back to a stanza-head-shaped example line
+    /// (`widget -x`). Clearing `in_ignorable_section` on that close cancels
+    /// the outer `EXAMPLES:` heading's own, entirely legitimate,
+    /// suppression — exactly the bpftrace fabrication class
+    /// `in_ignorable_section` exists to prevent — and the dedented example
+    /// line is misread as a real stanza head, fabricating a `-x` flag.
+    #[test]
+    fn obscured_fence_close_restores_rather_than_clears_suppression() {
+        let raw = "\
+EXAMPLES:
+
+This tool does many useful things for the busy user.
+  Examples:
+widget -x
+  run example x
+";
+        let parsed = parse_named(raw, "widget");
+        assert!(
+            !parsed.flags.iter().any(|f| f.short() == Some('x')),
+            "fence close must not fabricate -x from the example: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| (f.short(), f.long()))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Edge 3: the obscured-marker fence trigger must be stricter than
+    /// `is_ignorable_heading` — heading-shaped and colon-terminated, not
+    /// merely "starts with 'example' or contains 'report bugs'". Reproduced
+    /// shape from the issue: a mid-document `Report bugs to <address>.`
+    /// *sentence* (not a heading) sitting under a lower-indented prose
+    /// sentence must never open the whole-region fence; if it does, it
+    /// silently swallows every real command table after it (which the
+    /// edge-1 rescue cannot see, since it only recognizes flag evidence)
+    /// until a dedent that never comes.
+    #[test]
+    fn obscured_fence_trigger_requires_heading_shape() {
+        let raw = "\
+This tool supports many commands for the busy user.
+  Report bugs to <maintainer@example.com>.
+  start   begin processing
+  stop    end processing
+";
+        let parsed = parse(raw);
+        let names: Vec<_> = parsed.subcommands.iter().map(|c| &c.name).collect();
+        assert!(
+            parsed.subcommands.iter().any(|c| c.name == "start"),
+            "expected 'start' among {names:?}"
+        );
+        assert!(
+            parsed.subcommands.iter().any(|c| c.name == "stop"),
+            "expected 'stop' among {names:?}"
+        );
+    }
+
     #[test]
     fn mentions_commands_word_matches_whole_word_only() {
         assert!(mentions_commands_word("Commands:"));
@@ -2292,5 +2450,93 @@ mod tests {
         // "recommends" contains the substring "commands" but is not the
         // word "commands" — must not false-positive on substring match.
         assert!(!mentions_commands_word("This tool recommends caution."));
+    }
+
+    // --- the "operations" heading vocabulary (llvm-ar operations table) ---
+
+    #[test]
+    fn mentions_operations_word_matches_whole_word_only() {
+        assert!(mentions_operations_word("OPERATIONS:"));
+        assert!(mentions_operations_word("Main operation modes:"));
+        // "operational" contains the substring "operation" but is not the
+        // word "operation" — must not false-positive on substring match.
+        assert!(!mentions_operations_word("Operational readiness report:"));
+    }
+
+    /// `llvm-ar --help`'s real `OPERATIONS:` table (issue: llvm-ar
+    /// operations table), byte-shaped from `corpus/llvm-ar-18/18.1.3`: a
+    /// recognized-heading extension recovers it the same way `ar`'s own
+    /// `commands:`-headed table already parses, with the ` - ` separator
+    /// admissible because the heading is now `recognized`.
+    #[test]
+    fn llvm_ar_operations_table_recovered_as_subcommands() {
+        let raw = concat!(
+            "USAGE: llvm-ar [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]\n",
+            "\n",
+            "OPERATIONS:\n",
+            "  d - delete [files] from the archive\n",
+            "  m - move [files] in the archive\n",
+            "  p - print contents of [files] found in the archive\n",
+            "  q - quick append [files] to the archive\n",
+            "  r - replace or insert [files] into the archive\n",
+            "  s - act as ranlib\n",
+            "  t - display list of files in archive\n",
+            "  x - extract [files] from the archive\n",
+        );
+        let parsed = parse_named(raw, "llvm-ar");
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        for op in ["d", "m", "p", "q", "r", "s", "t", "x"] {
+            assert!(names.contains(&op), "missing operation {op:?}: {names:?}");
+        }
+        let delete = parsed.subcommands.iter().find(|c| c.name == "d").unwrap();
+        assert_eq!(
+            delete.summary.as_ref().map(|t| t.as_str()),
+            Some("delete [files] from the archive")
+        );
+        // Every recovered operation is heading-attested — the heading text
+        // itself said "OPERATIONS:", not merely a table row or a chain —
+        // which is what spec §6 rule 0's closing paragraph gates probe
+        // eligibility on.
+        assert!(
+            parsed.subcommands.iter().all(|c| c.heading_attested),
+            "an operation letter under a recognized OPERATIONS: heading \
+             must be heading_attested: {:?}",
+            parsed.subcommands
+        );
+    }
+
+    /// The measured false-positive candidate from spec §7 Tier B's
+    /// "operations" extension doc comment: `mount --help`'s `Operations:`
+    /// heading introduces an ordinary *flags* table (`-B, --bind`, `-M,
+    /// --move`), not a command list. The extension must not fabricate
+    /// subcommands from it — `flags_block_start` claims the block as
+    /// flags before `is_recognized_command_heading` is ever consulted,
+    /// and this test is the guard that the ordering keeps holding.
+    #[test]
+    fn flags_shaped_operations_heading_yields_no_subcommands() {
+        let raw = concat!(
+            "Operations:\n",
+            " -B, --bind              mount a subtree somewhere else (same as -o bind)\n",
+            " -M, --move              move a subtree to some other place\n",
+            " -R, --rbind             mount a subtree and all submounts somewhere else\n",
+        );
+        let parsed = parse_named(raw, "mount");
+        assert!(
+            parsed.subcommands.is_empty(),
+            "a flags table under an 'Operations:' heading must not become \
+             subcommands: {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| c.name.clone())
+                .collect::<Vec<_>>()
+        );
+        for spelling in ["bind", "move", "rbind"] {
+            assert!(
+                parsed.flags.iter().any(|f| f.long() == Some(spelling)),
+                "missing --{spelling} in {:?}",
+                parsed.flags
+            );
+        }
     }
 }

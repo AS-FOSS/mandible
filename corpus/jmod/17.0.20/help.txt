@@ -1,0 +1,49 @@
+Usage: jmod (create|extract|list|describe|hash) <OPTIONS> <jmod-file>
+
+Main operation modes:
+  create    - Creates a new jmod archive
+  extract   - Extracts all the files from the archive
+  list      - Prints the names of all the entries
+  describe  - Prints the module details
+  hash      - Records hashes of tied modules.
+
+ Option                              Description                           
+ ------                              -----------                           
+  -?, -h, --help                      Print this help message               
+  --class-path <path>                 Application jar files|dir containing  
+                                        classes                             
+  --cmds <path>                       Location of native commands           
+  --config <path>                     Location of user-editable config files
+  --date <date>                       Date and time for the timestamps of   
+                                        entries, specified in ISO-8601      
+                                        extended offset date-time with      
+                                        optional time-zone format, e.g.     
+                                        "2022-02-12T12:30:00-05:00"         
+  --dir <path>                        Target directory for extract          
+  --dry-run                           Dry run of hash mode                  
+  --exclude <pattern-list>            Exclude files matching the supplied   
+                                        comma separated pattern list, each  
+                                        element using one the following     
+                                        forms: <glob-pattern>, glob:<glob-  
+                                        pattern> or regex:<regex-pattern>   
+  --hash-modules <regex-pattern>      Compute and record hashes to tie a    
+                                        packaged module with modules        
+                                        matching the given <regex-pattern>  
+                                        and depending upon it directly or   
+                                        indirectly. The hashes are recorded 
+                                        in the JMOD file being created, or a
+                                        JMOD file or modular JAR on the     
+                                        module path specified the jmod hash 
+                                        command.                            
+  --header-files <path>               Location of header files              
+  --help-extra                        Print help on extra options           
+  --legal-notices <path>              Location of legal notices             
+  --libs <path>                       Location of native libraries          
+  --main-class <String: class-name>   Main class                            
+  --man-pages <path>                  Location of man pages                 
+  --module-version <module-version>   Module version                        
+  -p, --module-path <path>            Module path                           
+  --target-platform <String: target-  Target platform                       
+    platform>                                                               
+  --version                           Version information                   
+  @<filename>                         Read options from the specified file  

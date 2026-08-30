@@ -1,0 +1,182 @@
+name: jmod
+usage:
+- 'Usage: jmod (create|extract|list|describe|hash) <OPTIONS> <jmod-file>'
+positionals:
+- name: jmod-file
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- long: '----'
+  provenance:
+    sources:
+    - help-text
+- short: '?'
+  long: help
+  description: Print this help message
+  provenance:
+    sources:
+    - help-text
+- long: class-path
+  value_name: <path>
+  value_kind: Required
+  description: Application jar files|dir containing classes
+  provenance:
+    sources:
+    - help-text
+- long: cmds
+  value_name: <path>
+  value_kind: Required
+  description: Location of native commands
+  provenance:
+    sources:
+    - help-text
+- long: config
+  value_name: <path>
+  value_kind: Required
+  description: Location of user-editable config files
+  provenance:
+    sources:
+    - help-text
+- long: date
+  value_name: <date>
+  value_kind: Required
+  description: Date and time for the timestamps of entries, specified in ISO-8601 extended offset date-time with optional time-zone format, e.g. "2022-02-12T12:30:00-05:00"
+  provenance:
+    sources:
+    - help-text
+- long: dir
+  value_name: <path>
+  value_kind: Required
+  description: Target directory for extract
+  provenance:
+    sources:
+    - help-text
+- long: dry-run
+  description: Dry run of hash mode
+  provenance:
+    sources:
+    - help-text
+- long: exclude
+  value_name: <pattern-list>
+  value_kind: Required
+  description: 'Exclude files matching the supplied comma separated pattern list, each element using one the following forms: <glob-pattern>, glob:<glob- pattern> or regex:<regex-pattern>'
+  provenance:
+    sources:
+    - help-text
+- long: hash-modules
+  value_name: <regex-pattern>
+  value_kind: Required
+  description: Compute and record hashes to tie a packaged module with modules matching the given <regex-pattern> and depending upon it directly or indirectly. The hashes are recorded in the JMOD file being created, or a JMOD file or modular JAR on the module path specified the jmod hash command.
+  provenance:
+    sources:
+    - help-text
+- long: header-files
+  value_name: <path>
+  value_kind: Required
+  description: Location of header files
+  provenance:
+    sources:
+    - help-text
+- long: help-extra
+  description: Print help on extra options
+  provenance:
+    sources:
+    - help-text
+- long: legal-notices
+  value_name: <path>
+  value_kind: Required
+  description: Location of legal notices
+  provenance:
+    sources:
+    - help-text
+- long: libs
+  value_name: <path>
+  value_kind: Required
+  description: Location of native libraries
+  provenance:
+    sources:
+    - help-text
+- long: main-class
+  value_name: '<String: class-name>'
+  value_kind: Required
+  description: Main class
+  provenance:
+    sources:
+    - help-text
+- long: man-pages
+  value_name: <path>
+  value_kind: Required
+  description: Location of man pages
+  provenance:
+    sources:
+    - help-text
+- long: module-version
+  value_name: <module-version>
+  value_kind: Required
+  description: Module version
+  provenance:
+    sources:
+    - help-text
+- short: 'p'
+  long: module-path
+  value_name: <path>
+  value_kind: Required
+  description: Module path
+  provenance:
+    sources:
+    - help-text
+- long: target-platform
+  value_name: '<String:'
+  value_kind: Required
+  description: Target platform platform>
+  provenance:
+    sources:
+    - help-text
+- long: version
+  description: Version information @<filename> Read options from the specified file
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: create
+  summary: '- Creates a new jmod archive'
+  group: 'Main operation modes:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: extract
+  summary: '- Extracts all the files from the archive'
+  group: 'Main operation modes:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list
+  summary: '- Prints the names of all the entries'
+  group: 'Main operation modes:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: describe
+  summary: '- Prints the module details'
+  group: 'Main operation modes:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hash
+  summary: '- Records hashes of tied modules.'
+  group: 'Main operation modes:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

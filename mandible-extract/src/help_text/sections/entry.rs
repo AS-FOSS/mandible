@@ -695,7 +695,33 @@ pub(super) fn strip_colon_separator(desc: &str) -> &str {
     }
 }
 
+/// Fallback for a flag row with no aligned column at all, one placeholder
+/// notation further out than [`find_multi_space_gap`]: the description
+/// starts one space after a spec that ends in a bracketed or angle-bracket
+/// value (`--size N[bcwkMG]`, `--path <manifest-path>`), recognized by the
+/// boundary the closing `]`/`>` itself draws.
+///
+/// **The line must start with a flag (`-`)**, discovered by the same
+/// fabrication [`find_sentence_start_gap`]'s own doc comment (clause 1)
+/// already names for its sibling fallback: without the check, a bare-word
+/// block's row is read by this too, and a bracketed *operand* placeholder
+/// inside an otherwise ` - `-separated command/operation row (llvm-ar's
+/// `d - delete [files] from the archive`) is misread as *this* row's own
+/// value boundary — splitting `"d - delete [files]"` from `"from the
+/// archive"` and handing `emit_subcommands` a name that fails the
+/// command-name shape test, dropping the entry outright even though
+/// [`find_dash_separator`] would have split it correctly. Found while
+/// wiring spec §7 Tier B rule 1's "operations" heading extension through
+/// to the fixture it was measured against: `llvm-ar-18`'s `OPERATIONS:`
+/// table lost `d`, `m`, `p`, `q`, `r` and `x` (every row naming `[files]`)
+/// and kept only `s` and `t` (the two rows with no bracket at all) until
+/// this guard was added. [`find_equals_separator_gap`] and
+/// [`find_colon_separator_gap`] already carry the identical guard for the
+/// identical reason; this was the one fallback in the chain missing it.
 pub(super) fn find_placeholder_boundary_gap(line: &str) -> Option<usize> {
+    if !line.trim_start().starts_with('-') {
+        return None;
+    }
     let bytes = line.as_bytes();
     for (i, &b) in bytes.iter().enumerate() {
         if b != b'>' && b != b']' {
