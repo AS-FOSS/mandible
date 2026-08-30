@@ -834,6 +834,225 @@ pub(super) fn scan_modifier_table(
     (rows.len() >= MIN_MODIFIER_TABLE_ROWS).then_some((i, rows))
 }
 
+/// One row of an environment section: the variable name and its
+/// description (spec §7 Tier B, "Environment sections").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct EnvVarRow {
+    /// The variable name itself, e.g. `NODE_DEBUG`.
+    pub name: String,
+    /// The row's description, with the separator that introduced it
+    /// removed. Never empty — a row without one is not admitted at all.
+    pub description: String,
+}
+
+/// True for a token shaped like a shell identifier: an ASCII letter or
+/// underscore, then any run of ASCII letters, digits or underscores. This
+/// is the general shape of an environment variable's own name — POSIX
+/// defines it exactly this way — not a fleet-specific convention, so
+/// unlike [`is_environment_heading`] there is nothing tool-specific to
+/// measure here: it refuses a flag spelling (`--thin` opens with `-`), a
+/// prose word followed by punctuation, and a bare sentence fragment,
+/// while admitting both the fleet's overwhelmingly common `ALL_CAPS`
+/// spelling and a lowercase one (`http_proxy`) should a tool ever document
+/// one, since case is not part of what makes something an identifier.
+fn is_env_var_name_shaped(token: &str) -> bool {
+    let mut chars = token.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// True when `heading` is one of the small set of exact, explicit spellings
+/// a tool uses to introduce its own environment-variable documentation
+/// (spec §4.5: "an explicitly labeled environment heading").
+///
+/// **Heading-keyed, not row-keyed** — the opposite choice from
+/// [`split_modifier_table_row`]/[`scan_modifier_table`], and deliberately
+/// so. The modifier recognizer had no reliable heading to lean on (`ar`'s
+/// own modifier headings contain the word "command" and are themselves
+/// *recognized command headings* under a different rule), so it had to
+/// stand entirely on row shape. An environment section has exactly the
+/// opposite problem: the row shape alone — a bare identifier, a separator,
+/// a description — is indistinguishable from an ordinary bare-word block
+/// or a config-variable table (`mysqlslap`'s flush-left settings list is
+/// the [M-10] specimen that shape already burned this codebase on once).
+/// The heading is the only reliable signal here, so the heading is what is
+/// keyed on, strictly.
+///
+/// The exact set below is what the 2,301 frozen captures under
+/// `audit/queue-captures/` actually write, normalized by trimming and
+/// dropping one optional trailing colon (never other trailing punctuation
+/// — a wrapped sentence that merely *ends* with "environment variable."
+/// keeps its period and is correctly refused, which is what keeps `rg`'s
+/// and `msgmerge`'s prose from being read as a heading). Measured
+/// spellings: `ENVIRONMENT:` (the `bpftrace` family, by far the largest:
+/// bpftrace itself plus ~16 near-identical `.bt` trace scripts sharing its
+/// boilerplate `--help`), `Environment:` (`gprofng`, `mksquashfs`,
+/// `sqfstar`), `Environment variables:` (`node`, `nodejs`),
+/// `Environment variables` with no colon (`fzf`), `ENVIRONMENT` with no
+/// colon (`git-upload-pack`, man-page style), and `Environment variable:`
+/// (`ebtables`, `ebtables-nft` — both empty in the fleet, so they produce
+/// no entities regardless, which is correct: an empty labeled section
+/// documents nothing to recover). No other heading in the fleet reduces to
+/// one of these three normalized words, including the near-misses
+/// specifically checked for: a bare `env` heading (a subcommand list, not
+/// found in this fleet but structurally excluded — `env` alone is not in
+/// the set), and every prose sentence that merely *mentions* "environment
+/// variable" (`clang`'s "Specify the target environment", `wget`'s
+/// "environment variable is used.", `make`'s `--environment-overrides`).
+pub(super) fn is_environment_heading(heading: &str) -> bool {
+    let normalized = heading.trim().trim_end_matches(':').trim().to_lowercase();
+    matches!(
+        normalized.as_str(),
+        "environment" | "environment variable" | "environment variables"
+    )
+}
+
+/// Split one environment-section row — `bpftrace`'s
+/// `BPFTRACE_BTF                      [default: none] BTF file`, `node`'s
+/// `NODE_DEBUG                  ','-separated list of core modules`,
+/// `mksquashfs`'s tab-separated `SOURCE_DATE_EPOCH\tIf set, ...` — into an
+/// [`EnvVarRow`]. `None` for anything that is not that shape.
+///
+/// Reuses the same separator grammar [`split_entry_line_raw`] applies to
+/// an ordinary bare-word entry: a column gap of [`MIN_COLUMN_GAP_SPACES`]
+/// or more (or any run containing a tab, via [`find_multi_space_gap`]), or
+/// failing that a ` - ` run (via [`find_dash_separator`]/[`split_at_dash`]).
+/// Unlike a modifier row there is no bracket to strip first — the row opens
+/// directly with the name — so the separator is looked for over the row's
+/// full text rather than a slice after a closing bracket.
+///
+/// The first whitespace-delimited token must be
+/// [shell-identifier-shaped][is_env_var_name_shaped]: this is what refuses
+/// a flag row (`--thin`) or a bare sentence that happens to have a column
+/// gap in it further along.
+pub(super) fn split_env_var_row(line: &str) -> Option<EnvVarRow> {
+    let trimmed = line.trim();
+    let name_end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
+    let name = &trimmed[..name_end];
+    if !is_env_var_name_shaped(name) {
+        return None;
+    }
+    let description = if let Some(idx) = find_dash_separator(trimmed) {
+        split_at_dash(trimmed, idx).1
+    } else if let Some(gap) = find_multi_space_gap(trimmed) {
+        trimmed[gap..].trim().to_string()
+    } else {
+        return None;
+    };
+    // A description has to *say* something, the same "at least one
+    // alphanumeric character" test `split_modifier_table_row` applies —
+    // refuses a row whose separator is the last thing on the line.
+    let description = description.trim();
+    if !description.chars().any(|c| c.is_alphanumeric()) {
+        return None;
+    }
+    Some(EnvVarRow {
+        name: name.to_string(),
+        description: description.to_string(),
+    })
+}
+
+/// The shortest run of rows [`scan_env_var_table`] accepts as an
+/// environment section: **one**. Deliberately lower than
+/// [`MIN_MODIFIER_TABLE_ROWS`]'s floor of two, because the two recognizers
+/// stand on different evidence. A modifier table has no heading to trust —
+/// `ar`'s own headings are unreliable — so a run of independently-shaped
+/// rows is the *only* evidence available, and one bracketed row is cheap
+/// for an unrelated document to produce by accident. An environment
+/// section is the opposite: [`is_environment_heading`] has already matched
+/// an explicit, narrow label before a single row is ever looked at, so the
+/// row itself only has to clear the ordinary identifier-plus-separator bar
+/// [`split_env_var_row`] sets, not carry the whole burden of proof alone.
+///
+/// Measured over the 2,301 frozen captures under `audit/queue-captures/`:
+/// 57 tools carry an [`is_environment_heading`]-shaped heading; of those
+/// with any row at all, none has exactly one row that is *not* a genuine
+/// environment variable — the fleet offers no counterexample this floor
+/// would have to be raised to exclude. Two tools (`ebtables`,
+/// `ebtables-nft`) label the heading and then document nothing beneath
+/// it — zero rows, which produces no section regardless of this constant.
+const MIN_ENV_VAR_TABLE_ROWS: usize = 1;
+
+/// Scan a run of environment-section rows starting at `lines[start]` — the
+/// content immediately following a heading [`is_environment_heading`]
+/// already accepted. Returns the index just past the run and its rows, or
+/// `None` when the run is shorter than [`MIN_ENV_VAR_TABLE_ROWS`].
+///
+/// **Skips at most one leading line that is not itself a row** before the
+/// run has to open — `gprofng`'s own `Environment:` heading is followed by
+/// a blank line, then "The following environment variables are supported:"
+/// (a sentence ending in `:`, not the `.` [`is_prose_sentence`] requires,
+/// so that predicate cannot be reused here), then a blank line, then its
+/// real rows. The skip is deliberately unconditional on *what* the line
+/// is — only on [`split_env_var_row`] refusing it — which is safe
+/// specifically *because* the heading is already the positive evidence
+/// here: skipping the wrong line costs nothing, since the row scan that
+/// follows still has to find [`MIN_ENV_VAR_TABLE_ROWS`] real rows or the
+/// whole result is `None` exactly as if no skip had happened. This is the
+/// reverse of [`scan_modifier_table`], whose run must open at the exact
+/// offered line because it has no heading to fall back on if the run is
+/// wrong.
+///
+/// A line indented past the run's own baseline folds into the previous
+/// row's description, the same wrapped-continuation rule
+/// [`scan_modifier_table`] applies — `node`'s multi-line
+/// `FORCE_COLOR`/`NODE_DEBUG` descriptions and `mksquashfs`'s tab-indented
+/// `SOURCE_DATE_EPOCH` continuation both fold this way.
+///
+/// **Recorded miss:** the run stops at the first blank line, the same
+/// convention [`scan_modifier_table`] follows. `gprofng`'s real
+/// `Environment:` section blank-separates its two variables as two
+/// paragraphs, so only the first is recovered — a documented lower bound
+/// (spec §13.1e's posture) rather than a special case for blank-line-
+/// tolerant sections, which would also have to decide how far a blank run
+/// may extend before it means "section over" instead of "next entry".
+pub(super) fn scan_env_var_table(lines: &[&str], start: usize) -> Option<(usize, Vec<EnvVarRow>)> {
+    let mut idx = start;
+    if idx < lines.len()
+        && !lines[idx].trim().is_empty()
+        && split_env_var_row(lines[idx]).is_none()
+    {
+        idx += 1;
+        while idx < lines.len() && lines[idx].trim().is_empty() {
+            idx += 1;
+        }
+    }
+    if idx >= lines.len() {
+        return None;
+    }
+    let baseline = leading_whitespace(lines[idx]);
+    let mut rows: Vec<EnvVarRow> = Vec::new();
+    let mut i = idx;
+    while i < lines.len() {
+        let line = lines[i];
+        if line.trim().is_empty() {
+            break;
+        }
+        let indent = leading_whitespace(line);
+        if indent > baseline {
+            let Some(last) = rows.last_mut() else {
+                break;
+            };
+            last.description.push(' ');
+            last.description.push_str(line.trim());
+            i += 1;
+            continue;
+        }
+        if indent < baseline {
+            break;
+        }
+        let Some(row) = split_env_var_row(line) else {
+            break;
+        };
+        rows.push(row);
+        i += 1;
+    }
+    (rows.len() >= MIN_ENV_VAR_TABLE_ROWS).then_some((i, rows))
+}
+
 #[cfg(test)]
 mod modifier_tests {
     use super::*;
@@ -1080,6 +1299,189 @@ References:
 ";
         let parsed = parse_named(help, "pygettext");
         assert!(parsed.modifiers.is_empty(), "{:?}", parsed.modifiers);
+    }
+}
+
+#[cfg(test)]
+mod env_var_tests {
+    use super::*;
+
+    fn row(line: &str) -> Option<EnvVarRow> {
+        split_env_var_row(line)
+    }
+
+    /// The three real column shapes: a wide column-gap row (`bpftrace`), a
+    /// tab-separated row (`mksquashfs`), and a narrower column-gap row
+    /// (`fzf`). All three read the same way — the tool's own formatting
+    /// differs, what it documents does not.
+    #[test]
+    fn every_real_column_shape_reads_the_same() {
+        let wide = row("    BPFTRACE_CACHE_USER_SYMBOLS       [default: auto] enable user symbol cache")
+            .expect("bpftrace row");
+        assert_eq!(wide.name, "BPFTRACE_CACHE_USER_SYMBOLS");
+        assert_eq!(wide.description, "[default: auto] enable user symbol cache");
+
+        let tabbed = row("SOURCE_DATE_EPOCH\tIf set, this is used as the filesystem creation")
+            .expect("mksquashfs row");
+        assert_eq!(tabbed.name, "SOURCE_DATE_EPOCH");
+        assert_eq!(
+            tabbed.description,
+            "If set, this is used as the filesystem creation"
+        );
+
+        let narrow = row("    FZF_DEFAULT_COMMAND    Default command to use when input is tty")
+            .expect("fzf row");
+        assert_eq!(narrow.name, "FZF_DEFAULT_COMMAND");
+        assert_eq!(narrow.description, "Default command to use when input is tty");
+    }
+
+    /// A dash-separated row is accepted too, even though no tool in the
+    /// frozen fleet happens to use one for an environment row — the
+    /// grammar is the same one `split_modifier_table_row` uses, and this
+    /// pins that the second branch actually works rather than being dead
+    /// code nothing exercises.
+    #[test]
+    fn a_dash_separated_row_is_accepted() {
+        let r = row("PAGER - the pager used to display long output").expect("dash row");
+        assert_eq!(r.name, "PAGER");
+        assert_eq!(r.description, "the pager used to display long output");
+    }
+
+    /// The refusals: a flag row (opens with `-`), a row with no separator
+    /// at all, and a row whose separator has nothing after it.
+    #[test]
+    fn the_shapes_that_are_not_env_var_rows_are_refused() {
+        assert_eq!(row("  --thin       - make a thin archive"), None, "a flag");
+        assert_eq!(row("NODE_DEBUG single space only"), None, "no separator");
+        assert_eq!(row("NODE_DEBUG    "), None, "nothing after the gap");
+        assert_eq!(row("3AMPLE   not an identifier"), None, "leads with a digit");
+    }
+
+    /// A labeled section with exactly one row is still read: the heading
+    /// is the evidence here, unlike a modifier table's row-only floor of
+    /// two.
+    #[test]
+    fn one_row_is_enough_for_an_environment_section() {
+        let lines = ["EDITOR    the editor to invoke"];
+        let (end, rows) = scan_env_var_table(&lines, 0).expect("one row is enough");
+        assert_eq!(end, 1);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "EDITOR");
+    }
+
+    /// `gprofng`'s own shape: an introductory sentence sits between the
+    /// heading and the table's real rows, and the scan skips exactly that
+    /// one line.
+    ///
+    /// `gprofng`'s real `--help` blank-separates its two variables (a
+    /// paragraph break between each), and the run — like
+    /// [`scan_modifier_table`]'s — stops at the first blank line, so only
+    /// the first variable is recovered here. This is a recorded miss, the
+    /// same shape [`scan_modifier_table`] already accepts as a cost of the
+    /// engine's general "a blank line ends the block" convention rather
+    /// than something specific to environment sections.
+    #[test]
+    fn a_single_introductory_sentence_is_skipped() {
+        let lines = [
+            "The following environment variables are supported:",
+            "",
+            " GPROFNG_MAX_CALL_STACK_DEPTH  set the depth of the call stack (default is 256).",
+            "",
+            " GPROFNG_USE_JAVA_OPTIONS      may be set when profiling a C/C++ application",
+            "                               that uses dlopen() to execute Java code.",
+        ];
+        let (end, rows) = scan_env_var_table(&lines, 0).expect("table after the sentence");
+        assert_eq!(end, 3, "stops at the blank line separating the two variables");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "GPROFNG_MAX_CALL_STACK_DEPTH");
+    }
+
+    /// A wrapped description folds into the row above it.
+    #[test]
+    fn a_wrapped_description_folds_into_its_row() {
+        let lines = [
+            "FORCE_COLOR                 when set to 'true', 1, 2, 3, or an",
+            "                            empty string causes NO_COLOR to be ignored.",
+            "NO_COLOR                    Alias for NODE_DISABLE_COLORS",
+        ];
+        let (end, rows) = scan_env_var_table(&lines, 0).expect("table");
+        assert_eq!(end, 3);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows[0].description,
+            "when set to 'true', 1, 2, 3, or an empty string causes NO_COLOR to be ignored."
+        );
+    }
+
+    /// End to end through the engine: a real ENVIRONMENT section becomes
+    /// `EntityKind::EnvVar` entities, and the flags elsewhere in the same
+    /// document are untouched.
+    #[test]
+    fn an_environment_section_reads_end_to_end() {
+        let help = "\
+Usage: bpftrace [options] filename\n\nOPTIONS:\n    -f FORMAT      output format\n\nENVIRONMENT:\n    BPFTRACE_BTF                      [default: none] BTF file\n    BPFTRACE_CACHE_USER_SYMBOLS       [default: auto] enable user symbol cache\n";
+        let parsed = parse_named(help, "bpftrace");
+        let names: Vec<&str> = parsed
+            .env_vars
+            .iter()
+            .map(mandible_core::Entity::primary_name)
+            .collect();
+        assert_eq!(names, ["BPFTRACE_BTF", "BPFTRACE_CACHE_USER_SYMBOLS"]);
+        assert_eq!(parsed.env_vars[0].group.as_deref(), Some("ENVIRONMENT:"));
+        // The unrelated flags block elsewhere in the same document is
+        // untouched by the environment section.
+        assert!(!parsed.flags.is_empty(), "{:?}", parsed.flags);
+    }
+
+    /// A heading that merely mentions "environment" in a prose sentence,
+    /// or the fleet's own false-positive shapes (a wrapped sentence ending
+    /// in "environment variable.", a flag description that happens to
+    /// contain the phrase), never becomes an environment section — only
+    /// the exact labeled forms do.
+    #[test]
+    fn a_heading_that_only_mentions_environment_is_refused() {
+        assert!(!is_environment_heading("Specify the target environment"));
+        assert!(!is_environment_heading("environment variable."));
+        assert!(!is_environment_heading("ENV"));
+        assert!(!is_environment_heading("Environment Commands:"));
+    }
+
+    /// §13.1e's fabrication class, end to end: a usage line and a prose
+    /// paragraph full of `PATH`/`FILE`/`TERM`-shaped placeholders produce
+    /// zero `EnvVar` entities. Nothing here carries an explicitly labeled
+    /// environment heading, so [`is_environment_heading`] never fires and
+    /// the ALL_CAPS words are never scavenged.
+    #[test]
+    fn all_caps_prose_never_becomes_env_vars() {
+        let help = "\
+Usage: mytool [OPTIONS] FILE\n\nOPTIONS:\n  -o, --output FILE   write output to FILE\n\nmytool reads PATH and TERM from its caller but does not document them\nas configuration; FILE above is a positional placeholder, not a variable.\n";
+        let parsed = parse_named(help, "mytool");
+        assert!(parsed.env_vars.is_empty(), "{:?}", parsed.env_vars);
+    }
+
+    /// A heading that merely mentions "env" — a subcommand list, not an
+    /// environment section — produces zero `EnvVar` entities: the strict
+    /// heading set in [`is_environment_heading`] does not contain a bare
+    /// `env`/`Env Commands` spelling, so the bare-word block beneath it is
+    /// read as subcommands (or dropped), never as variables.
+    #[test]
+    fn a_bare_word_list_under_an_env_mentioning_heading_never_becomes_env_vars() {
+        let help = "\
+Usage: mytool [command]\n\nCommands:\n  env       print resolved environment\n  build     build the project\n  test      run tests\n";
+        let parsed = parse_named(help, "mytool");
+        assert!(parsed.env_vars.is_empty(), "{:?}", parsed.env_vars);
+    }
+
+    /// A real flags block that happens to sit under a heading merely
+    /// resembling "environment" text is still read as flags, not folded
+    /// into an environment section it does not belong to.
+    #[test]
+    fn a_flags_block_under_an_environment_ish_heading_is_still_flags() {
+        let help = "\
+Usage: mytool [OPTIONS]\n\nEnvironment overrides:\n  -e, --env-file FILE   load environment overrides from FILE\n  -q, --quiet           suppress output\n";
+        let parsed = parse_named(help, "mytool");
+        assert!(parsed.env_vars.is_empty(), "{:?}", parsed.env_vars);
+        assert_eq!(parsed.flags.len(), 2, "{:?}", parsed.flags);
     }
 }
 
