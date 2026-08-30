@@ -253,6 +253,26 @@ fn mentions_commands_word(s: &str) -> bool {
         })
 }
 
+/// True if `heading` mentions "operation"/"operations" as a whole word
+/// (case-insensitive) — spec §7 Tier B rule 1's extended heading
+/// vocabulary, `llvm-ar --help`'s `OPERATIONS:` table (issue: llvm-ar
+/// operations table). An operation letter is an invocation verb exactly
+/// the way a subcommand name is (`llvm-ar d archive.a file.o`), so a
+/// heading naming a table of them is the same class of evidence rule 1
+/// already accepts for "command(s)"/"subcommand(s)".
+///
+/// **Deliberately narrower in scope than [`mentions_commands_word`]: this
+/// predicate feeds only [`is_recognized_command_heading`], never
+/// [`command_mode_seed`].** The two vocabularies read as though they
+/// should be the same list, and are not, on purpose — see this crate's
+/// doc comment on `is_recognized_command_heading`'s call site for the
+/// measurement behind the split.
+fn mentions_operations_word(s: &str) -> bool {
+    s.split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .any(|w| matches!(w.as_str(), "operation" | "operations"))
+}
+
 // Rule 3's name-shape test (`^[a-z][a-z0-9_.-]*$`) lives in
 // `mandible_core::is_command_name_shaped` (imported above) — it's also half
 // of the coverage harness's structure-sanity check (spec §13.1), so there
@@ -2224,5 +2244,93 @@ mod tests {
         // "recommends" contains the substring "commands" but is not the
         // word "commands" — must not false-positive on substring match.
         assert!(!mentions_commands_word("This tool recommends caution."));
+    }
+
+    // --- the "operations" heading vocabulary (llvm-ar operations table) ---
+
+    #[test]
+    fn mentions_operations_word_matches_whole_word_only() {
+        assert!(mentions_operations_word("OPERATIONS:"));
+        assert!(mentions_operations_word("Main operation modes:"));
+        // "operational" contains the substring "operation" but is not the
+        // word "operation" — must not false-positive on substring match.
+        assert!(!mentions_operations_word("Operational readiness report:"));
+    }
+
+    /// `llvm-ar --help`'s real `OPERATIONS:` table (issue: llvm-ar
+    /// operations table), byte-shaped from `corpus/llvm-ar-18/18.1.3`: a
+    /// recognized-heading extension recovers it the same way `ar`'s own
+    /// `commands:`-headed table already parses, with the ` - ` separator
+    /// admissible because the heading is now `recognized`.
+    #[test]
+    fn llvm_ar_operations_table_recovered_as_subcommands() {
+        let raw = concat!(
+            "USAGE: llvm-ar [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]\n",
+            "\n",
+            "OPERATIONS:\n",
+            "  d - delete [files] from the archive\n",
+            "  m - move [files] in the archive\n",
+            "  p - print contents of [files] found in the archive\n",
+            "  q - quick append [files] to the archive\n",
+            "  r - replace or insert [files] into the archive\n",
+            "  s - act as ranlib\n",
+            "  t - display list of files in archive\n",
+            "  x - extract [files] from the archive\n",
+        );
+        let parsed = parse_named(raw, "llvm-ar");
+        let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
+        for op in ["d", "m", "p", "q", "r", "s", "t", "x"] {
+            assert!(names.contains(&op), "missing operation {op:?}: {names:?}");
+        }
+        let delete = parsed.subcommands.iter().find(|c| c.name == "d").unwrap();
+        assert_eq!(
+            delete.summary.as_ref().map(|t| t.as_str()),
+            Some("delete [files] from the archive")
+        );
+        // Every recovered operation is heading-attested — the heading text
+        // itself said "OPERATIONS:", not merely a table row or a chain —
+        // which is what spec §6 rule 0's closing paragraph gates probe
+        // eligibility on.
+        assert!(
+            parsed.subcommands.iter().all(|c| c.heading_attested),
+            "an operation letter under a recognized OPERATIONS: heading \
+             must be heading_attested: {:?}",
+            parsed.subcommands
+        );
+    }
+
+    /// The measured false-positive candidate from spec §7 Tier B's
+    /// "operations" extension doc comment: `mount --help`'s `Operations:`
+    /// heading introduces an ordinary *flags* table (`-B, --bind`, `-M,
+    /// --move`), not a command list. The extension must not fabricate
+    /// subcommands from it — `flags_block_start` claims the block as
+    /// flags before `is_recognized_command_heading` is ever consulted,
+    /// and this test is the guard that the ordering keeps holding.
+    #[test]
+    fn flags_shaped_operations_heading_yields_no_subcommands() {
+        let raw = concat!(
+            "Operations:\n",
+            " -B, --bind              mount a subtree somewhere else (same as -o bind)\n",
+            " -M, --move              move a subtree to some other place\n",
+            " -R, --rbind             mount a subtree and all submounts somewhere else\n",
+        );
+        let parsed = parse_named(raw, "mount");
+        assert!(
+            parsed.subcommands.is_empty(),
+            "a flags table under an 'Operations:' heading must not become \
+             subcommands: {:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| c.name.clone())
+                .collect::<Vec<_>>()
+        );
+        for spelling in ["bind", "move", "rbind"] {
+            assert!(
+                parsed.flags.iter().any(|f| f.long() == Some(spelling)),
+                "missing --{spelling} in {:?}",
+                parsed.flags
+            );
+        }
     }
 }
