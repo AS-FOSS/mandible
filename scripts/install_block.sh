@@ -20,6 +20,8 @@ channels=(
   'cargo binstall mandible                  # prebuilt binary, no compiling'
   'cargo install mandible                   # from source'
   'nix run github:AS-FOSS/mandible          # without installing'
+  'dnf copr enable as-foss/mandible         # Fedora and EPEL: enable the COPR repo'
+  'dnf install mandible                     # ...and install from it'
 )
 
 echo "## Install"

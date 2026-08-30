@@ -51,6 +51,8 @@ brew install as-foss/mandible/mandible   # Homebrew, macOS or Linux
 cargo binstall mandible                  # prebuilt binary, no compiling
 cargo install mandible                   # from source
 nix run github:AS-FOSS/mandible          # without installing
+dnf copr enable as-foss/mandible         # Fedora and EPEL: enable the COPR repo
+dnf install mandible                     # ...and install from it
 
 # Debian and Ubuntu, from the signed apt repository:
 sudo curl -fsSL https://as-foss.github.io/mandible-apt/mandible-archive-keyring.gpg \

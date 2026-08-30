@@ -36,10 +36,10 @@ permissions:
   contents: read
 
 env:
-  # The COPR project this installs from, as one variable because the
-  # namespace is expected to move (a personal `sakhund/mandible` to a group
-  # `@as-foss/mandible`) and it is named in two jobs.
-  COPR_OWNER: sakhund
+  # The COPR project this installs from, as one variable because it is named
+  # in two jobs and the namespace has already moved once (from a personal
+  # account to the `as-foss` one that now owns the canonical project).
+  COPR_OWNER: as-foss
 
 jobs:
   # Resolved once, so every job asserts against the same string and a
