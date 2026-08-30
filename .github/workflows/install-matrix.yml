@@ -25,6 +25,11 @@ on:
         description: "Version `mandible --version` must report, without the leading v (empty = the latest release tag)"
         required: false
         default: ""
+  # TEMPORARY, removed before this branch is done: GitHub will not accept a
+  # workflow_dispatch for a workflow that is not on the default branch, so
+  # this is the only way to run the matrix for real before it merges.
+  push:
+    branches: [feat/release-hardening]
   schedule:
     # Weekly, Monday morning UTC. A channel that rots does so on its own
     # schedule — a tap left un-updated, an apt repository whose signing key
