@@ -276,6 +276,57 @@ impl From<&Entity> for PositionalSnapshot {
     }
 }
 
+/// Snapshot form of a modifier [`Entity`] — a dashless letter documented in
+/// a tool's own modifier table (spec §4.5, §7 Tier B "Modifier tables").
+///
+/// Its keys are exactly what such a table can state: the letter, the operand
+/// the table spells beside it when it has one, the section that listed it,
+/// and its description. There is no `short`/`long` pair to recover here — a
+/// modifier carries one dashless [`crate::Spelling`], read through
+/// [`Entity::primary_name`] — and no `required`/`repeatable`, because a
+/// modifier table documents neither and a key nobody can populate is a key
+/// every reviewer has to read past on every fixture.
+///
+/// New in 0.5.x, so unlike [`FlagSnapshot`] and [`PositionalSnapshot`] this
+/// layout is **not** frozen in a pre-0.5.0 type's shape: it has no earlier
+/// spelling to stay byte-identical with. It appears in a fixture only where
+/// the tool actually documents a modifier table, which is why adding it
+/// moves those fixtures and no others.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ModifierSnapshot {
+    /// The modifier letter, e.g. `"a"` for `ar`'s `[a]`.
+    pub name: String,
+    /// The operand the table spells beside the letter, e.g. `"<text>"` in
+    /// `ar`'s `[l <text> ]`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_name: Option<String>,
+    /// Whether this modifier takes a value. Omitted for the common
+    /// no-value case, exactly as [`FlagSnapshot`]'s own is.
+    #[serde(skip_serializing_if = "is_no_value")]
+    pub value_kind: ValueKind,
+    /// The heading the table sat under, e.g. `"Generic modifiers"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// The modifier's description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Which source(s) contributed this modifier's fields.
+    pub provenance: ProvenanceSnapshot,
+}
+
+impl From<&Entity> for ModifierSnapshot {
+    fn from(e: &Entity) -> Self {
+        ModifierSnapshot {
+            name: e.primary_name().to_string(),
+            value_name: e.value_name.clone(),
+            value_kind: e.value_kind,
+            group: e.group.clone(),
+            description: e.description.as_ref().map(|t| t.as_str().to_string()),
+            provenance: ProvenanceSnapshot::from(&e.provenance),
+        }
+    }
+}
+
 /// Snapshot form of [`Example`].
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ExampleSnapshot {
@@ -321,6 +372,11 @@ pub struct NodeSnapshot {
     /// This node's own flags.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flags: Vec<FlagSnapshot>,
+    /// The modifier letters this node documents in a modifier table. After
+    /// `flags`, matching the order the detail pane renders the sections in
+    /// (spec §9.3).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub modifiers: Vec<ModifierSnapshot>,
     /// Worked examples.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<ExampleSnapshot>,
@@ -417,10 +473,13 @@ impl From<&CommandNode> for NodeSnapshot {
             description: n.description.as_ref().map(|t| t.as_str().to_string()),
             usage: n.usage.iter().map(|t| t.as_str().to_string()).collect(),
             // Partitioned out of the one kind-tagged vector (spec §4.5),
-            // each kind keeping the document order it was stored in — the
-            // two sections the frozen format has always had.
+            // each kind keeping the document order it was stored in. The
+            // first two are the sections the frozen format has always had;
+            // `modifiers` is the kind 0.5.x added, absent from every
+            // fixture whose tool documents no modifier table.
             positionals: n.positionals().map(PositionalSnapshot::from).collect(),
             flags: n.flags().map(FlagSnapshot::from).collect(),
+            modifiers: n.modifiers().map(ModifierSnapshot::from).collect(),
             examples: n.examples.iter().map(ExampleSnapshot::from).collect(),
             group: n.group.clone(),
             deprecated: n.deprecated.as_ref().map(|t| t.as_str().to_string()),
@@ -536,6 +595,49 @@ mod tests {
 
         assert!(render(&with_summary).contains("summary"));
         assert!(!render(&without_summary).contains("summary"));
+    }
+
+    /// A modifier is its own snapshot section: it never appears among the
+    /// `flags`, and its `name` key is the bare letter rather than a
+    /// `short`/`long` pair. This is the whole of what adding the kind
+    /// changes about the format, so it is asserted rather than left to a
+    /// fixture diff to state.
+    #[test]
+    fn a_modifier_is_a_section_of_its_own_not_a_flag() {
+        let mut node = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        node.entities.push(Entity::flag_long(
+            "thin",
+            Provenance::single(Source::HelpText),
+        ));
+        node.entities.push({
+            let mut m = Entity::modifier('v', Provenance::single(Source::HelpText));
+            m.description = Some(Text::sanitize("be verbose"));
+            m.group = Some("Generic modifiers".into());
+            m
+        });
+        let out = render(&node);
+
+        assert!(out.contains("modifiers:"), "{out}");
+        assert!(out.contains("name: v"), "{out}");
+        assert!(out.contains("be verbose"), "{out}");
+        // One flag, not two: the modifier did not leak into the frozen
+        // flag section, whose rows would have had to grow a spelling key
+        // for it.
+        assert_eq!(to_snapshot(&node).flags.len(), 1);
+        assert_eq!(to_snapshot(&node).modifiers.len(), 1);
+    }
+
+    /// A tool that documents no modifier table carries no `modifiers` key
+    /// at all — which is what keeps this addition from moving the 100-odd
+    /// fixtures whose tools have none.
+    #[test]
+    fn a_node_without_modifiers_has_no_modifiers_key() {
+        let mut node = CommandNode::new("grep", Provenance::single(Source::HelpText));
+        node.entities.push(Entity::flag_long(
+            "ignore-case",
+            Provenance::single(Source::HelpText),
+        ));
+        assert!(!render(&node).contains("modifiers"));
     }
 
     /// A synthetic-but-representative tree, snapshotted through `insta`
