@@ -143,22 +143,85 @@ pub struct ParsedScoreboard {
     /// small rather than silently large.
     pub unparseable_dropped: usize,
     /// Every tool's field-level fingerprint, parsed from the scoreboard's
-    /// `#fp` footer lines (`coverage::fingerprint_lines`'s own doc comment
-    /// has the line shape). **Absent for a scoreboard rendered before this
-    /// footer existed** — a tool missing from this map (as opposed to
-    /// present with an empty [`ParsedFingerprint`]) means "not measured,"
-    /// mirrored in [`diff`] by skipping field-level comparison for that
-    /// tool entirely rather than reporting a false wholesale removal of
-    /// every flag it has.
+    /// `#fp`/`#fp2` footer lines (`coverage::fingerprint_lines`'s own doc
+    /// comment has the line shape). **Absent for a scoreboard rendered
+    /// before this footer existed** — a tool missing from this map (as
+    /// opposed to present with an empty [`ParsedFingerprint`]) means "not
+    /// measured," mirrored in [`diff`] by skipping field-level comparison
+    /// for that tool entirely rather than reporting a false wholesale
+    /// removal of every flag it has.
     pub fingerprints: BTreeMap<String, ParsedFingerprint>,
+    /// Which fingerprint wire-format version this scoreboard's footer lines
+    /// were written in, detected from the line prefix actually present
+    /// (`None` when the scoreboard carries no fingerprint footer at all —
+    /// see [`FingerprintFormat`] and [`fingerprint_format_mismatch`]).
+    pub fingerprint_format: Option<FingerprintFormat>,
 }
 
-/// One flag's field-level fingerprint, read back from a `#fp` line —
-/// [`crate::coverage`]'s `FlagFingerprint`, parsed rather than shared
-/// directly: this module never depends on `mandible_core`/`mandible_extract`
-/// tree types, only on the already-rendered text (this module's own doc
-/// comment on why `sweep-diff` reads two rendered scoreboards, never talks
-/// to the extraction pipeline itself).
+/// Which `#fp`-family wire-format version a scoreboard's fingerprint footer
+/// was written in. Exists because the entity-identity strings the two
+/// versions embed are shaped differently and must never be joined as if
+/// they were the same key — see [`fingerprint_format_mismatch`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FingerprintFormat {
+    /// The pre-generalization format: `#fp <tool>\t<subs>\t<flags>` lines,
+    /// flags only, entity ids with no `EntityKind` tag
+    /// (`(root)::--flag`).
+    V1,
+    /// The current format (`coverage::FP_LINE_PREFIX_V2`'s doc comment):
+    /// `#fp2 <tool>\t<subs>\t<entities>` lines, every `EntityKind`, entity
+    /// ids carrying their kind (`(root)::Flag::--flag`,
+    /// `(root)::Modifier::d`, `(root)::EnvVar::BPFTRACE_BTF`).
+    V2,
+}
+
+/// Refuse to treat a V1-footer scoreboard and a V2-footer scoreboard as
+/// comparable: the entity `id` strings the two versions embed are different
+/// shapes (`(root)::--flag` vs `(root)::Flag::--flag`), so every id on one
+/// side would fail to match every id on the other, and [`field_diff`] would
+/// report every entity as removed on the V1 side and added on the V2 side —
+/// a false wholesale-loss-and-gain for every tool with a fingerprint,
+/// indistinguishable in the rendered report from a real regression. That is
+/// exactly the outcome AGENTS.md §5 calls never-deferrable: a wrong number
+/// nobody is told about. This function is the naming-out-loud step —
+/// callers (`xtask/src/main.rs`'s `run_sweep_diff`) call it before
+/// [`diff`] and bail with the returned message rather than proceed.
+///
+/// Returns `None` (no mismatch to report) when either side carries no
+/// fingerprint footer at all (`None` format — the pre-existing "legacy
+/// scoreboard pair" case [`diff`] already handles via
+/// `field_diff_unmeasured`, not a version mismatch) or when both sides
+/// agree on a format.
+pub fn fingerprint_format_mismatch(
+    before: &ParsedScoreboard,
+    after: &ParsedScoreboard,
+) -> Option<String> {
+    match (before.fingerprint_format, after.fingerprint_format) {
+        (Some(b), Some(a)) if b != a => Some(format!(
+            "fingerprint format mismatch: --before scoreboard carries {b:?} fingerprints, \
+             --after carries {a:?} — these use differently-shaped entity identities and cannot \
+             be field-diffed against each other (a V1/V2 join would misreport every entity as \
+             removed on one side and added on the other). Re-run the sweep that produced the \
+             {v1_side} scoreboard with the current xtask to get a matching pair.",
+            v1_side = if b == FingerprintFormat::V1 {
+                "--before"
+            } else {
+                "--after"
+            },
+        )),
+        _ => None,
+    }
+}
+
+/// One entity's field-level fingerprint, read back from a `#fp`/`#fp2`
+/// line — [`crate::coverage`]'s `FlagFingerprint`, parsed rather than
+/// shared directly: this module never depends on
+/// `mandible_core`/`mandible_extract` tree types, only on the
+/// already-rendered text (this module's own doc comment on why
+/// `sweep-diff` reads two rendered scoreboards, never talks to the
+/// extraction pipeline itself). Despite the `Flag`-era name, on a V2 line
+/// this describes any `EntityKind` — a positional, a modifier, an env-var
+/// item — exactly as it always described a flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedFlagFingerprint {
     pub has_description: bool,
@@ -167,7 +230,10 @@ pub struct ParsedFlagFingerprint {
     pub value_name: Option<String>,
 }
 
-/// One tool's field-level fingerprint, read back from its `#fp` line.
+/// One tool's field-level fingerprint, read back from its `#fp`/`#fp2` line
+/// — on a V2 line, every entity regardless of `EntityKind` (`flags` keeps
+/// its pre-generalization field name; see [`ParsedFlagFingerprint`]'s doc
+/// comment on the same naming carryover).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ParsedFingerprint {
     pub flags: BTreeMap<String, ParsedFlagFingerprint>,
@@ -337,6 +403,19 @@ const FP_ID_SEP: char = '=';
 /// Mirrors `coverage::FP_ENTRY_SEP` — same duplication convention as
 /// [`FP_FIELD_SEP`] above.
 const FP_ENTRY_SEP: char = ':';
+
+/// The pre-generalization `#fp` line prefix — flags only, entity ids with
+/// no `EntityKind` tag. Still read, never written: kept so a scoreboard
+/// produced by any earlier xtask still loads, tagged
+/// [`FingerprintFormat::V1`] rather than misread as V2.
+const FP_LINE_PREFIX_V1: &str = "#fp ";
+
+/// Mirrors `coverage::FP_LINE_PREFIX_V2` — same duplication convention as
+/// [`FP_FIELD_SEP`] above. Checked before [`FP_LINE_PREFIX_V1`] in
+/// [`parse_scoreboard`]'s footer loop, though the two can never actually
+/// collide (`"#fp2 ..."` fails `strip_prefix("#fp ")`: the character right
+/// after `#fp` is `2`, not a space).
+const FP_LINE_PREFIX_V2: &str = "#fp2 ";
 
 /// True when `header` is (or resembles) a scoreboard's own header line,
 /// used only to decide whether it carries the `misattr` column added after
@@ -629,9 +708,21 @@ pub fn parse_scoreboard(text: &str) -> ParsedScoreboard {
         }
     }
     for line in footer {
-        if let Some(rest) = line.strip_prefix("#fp ") {
+        if let Some(rest) = line.strip_prefix(FP_LINE_PREFIX_V2) {
             if let Some((tool, fp)) = parse_fingerprint_line(rest) {
                 out.fingerprints.insert(tool, fp);
+                out.fingerprint_format = Some(FingerprintFormat::V2);
+            }
+        } else if let Some(rest) = line.strip_prefix(FP_LINE_PREFIX_V1) {
+            if let Some((tool, fp)) = parse_fingerprint_line(rest) {
+                out.fingerprints.insert(tool, fp);
+                // Never downgrade an already-detected V2 to V1 — a
+                // genuinely mixed file can't happen from one xtask binary,
+                // but if it somehow did, V2 (the richer, current format) is
+                // the more informative reading to keep.
+                if out.fingerprint_format != Some(FingerprintFormat::V2) {
+                    out.fingerprint_format = Some(FingerprintFormat::V1);
+                }
             }
         }
     }

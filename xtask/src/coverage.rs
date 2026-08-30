@@ -228,19 +228,24 @@ struct Row {
     fingerprint: ToolFingerprint,
 }
 
-/// One flag's field-level fingerprint: whether it has a description at all,
-/// a hash of that description's text (`None` when there is no description),
-/// a hash of its choices list (`None` when it has none), and its
-/// `value_name` verbatim (short enough — usually one word — to carry
-/// directly rather than hash).
+/// One entity's field-level fingerprint (a flag, positional, modifier, or
+/// env-var item — see [`ToolFingerprint::flags`]): whether it has a
+/// description at all, a hash of that description's text (`None` when there
+/// is no description), a hash of its choices list (`None` when it has
+/// none), and its `value_name` verbatim (short enough — usually one word —
+/// to carry directly rather than hash). Named `FlagFingerprint` from when
+/// flags were the only kind fingerprinted; kept rather than renamed because
+/// every field already applies unchanged to every `EntityKind` — a
+/// positional's description, a modifier's operand `value_name`, an env-var
+/// item's description are exactly the same shape of fact.
 ///
 /// **Hashes, not full text**, for the description and choices: carrying
-/// every flag's full description into every scoreboard on every full-`PATH`
-/// sweep would make the checked-in `coverage-scoreboard.txt` and every CI
-/// artifact multiple times larger for a comparison that only ever needs to
-/// know "did this change," never "what did it used to say" — the scoreboard
-/// files it's diffing already exist on disk for a human to read the actual
-/// before/after text if a hash flags a change worth looking at.
+/// every entity's full description into every scoreboard on every
+/// full-`PATH` sweep would make the checked-in `coverage-scoreboard.txt` and
+/// every CI artifact multiple times larger for a comparison that only ever
+/// needs to know "did this change," never "what did it used to say" — the
+/// scoreboard files it's diffing already exist on disk for a human to read
+/// the actual before/after text if a hash flags a change worth looking at.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FlagFingerprint {
     has_description: bool,
@@ -249,40 +254,57 @@ struct FlagFingerprint {
     value_name: Option<String>,
 }
 
-/// One tool's full field-level fingerprint: every flag, keyed by a stable
-/// per-node identity (never [`mandible_core::Entity::spelling`], which folds
-/// the value placeholder into the same string a value_name change would
-/// then also perturb — see [`flag_identity`]), plus the full set of
-/// subcommand paths its tree reaches.
+/// One tool's full field-level fingerprint: every entity — flag, positional,
+/// modifier, env-var item, and any `EntityKind` added later — keyed by a
+/// stable per-node identity (never [`mandible_core::Entity::spelling`],
+/// which folds the value placeholder into the same string a value_name
+/// change would then also perturb — see [`entity_identity`]), plus the full
+/// set of subcommand paths its tree reaches.
+///
+/// The field is still named `flags` from when flags were the only kind
+/// fingerprinted; it now holds every entity on the node regardless of kind
+/// (`entity_identity`'s kind tag is what keeps a flag and a same-spelled
+/// positional/modifier/env-var from colliding in this one map).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct ToolFingerprint {
     flags: BTreeMap<String, FlagFingerprint>,
     subcommands: std::collections::BTreeSet<String>,
 }
 
-/// A flag's identity for fingerprinting purposes: short/long spelling and
-/// dash count, deliberately excluding `value_name`/`choices`/description —
-/// those are the fields this fingerprint exists to detect *changes* in, so
-/// folding them into the same key a change would also alter defeats the
-/// point (a `value_name` edit would silently become a remove-then-add
-/// instead of a same-flag change). Prefixed with the owning node's dotted
-/// path (`(root)` for the tool's own top-level flags) so two different
-/// subcommands' same-spelled flag (`git commit -m` vs `git tag -m`) never
-/// collide.
-fn flag_identity(path: &str, flag: &mandible_core::Entity) -> String {
-    let mut spelling = String::new();
-    if let Some(c) = flag.short() {
-        spelling.push('-');
-        spelling.push(c);
-    }
-    if let Some(l) = flag.long() {
-        if !spelling.is_empty() {
-            spelling.push(',');
-        }
-        spelling.push_str(if flag.single_dash() { "-" } else { "--" });
-        spelling.push_str(l);
-    }
-    format!("{path}::{spelling}")
+/// An entity's identity for fingerprinting purposes: every documented
+/// spelling's dash-prefixed name, deliberately excluding
+/// `value_name`/`choices`/description — those are the fields this
+/// fingerprint exists to detect *changes* in, so folding them into the same
+/// key a change would also alter defeats the point (a `value_name` edit
+/// would silently become a remove-then-add instead of a same-entity
+/// change). Prefixed with the owning node's dotted path (`(root)` for the
+/// tool's own top-level entities) so two different subcommands' same-spelled
+/// entity (`git commit -m` vs `git tag -m`) never collide, and with the
+/// entity's [`mandible_core::EntityKind`] (rendered via `{:?}`) so a flag and
+/// a positional/modifier/env-var that happen to share a bare spelling on the
+/// same node never collide either.
+///
+/// **Generic over `EntityKind` by construction, not by a match arm.** The
+/// kind tag comes from `{:?}` on the enum — Rust generates that impl from
+/// the variant list itself, so a fifth `EntityKind` variant added tomorrow
+/// gets a distinct, non-colliding identity automatically, with no edit here
+/// (AGENTS.md §1: no per-kind branching to grow when a kind is added, the
+/// same discipline that section demands for per-*tool* branching).
+fn entity_identity(path: &str, entity: &mandible_core::Entity) -> String {
+    let spelling = entity
+        .spellings
+        .iter()
+        .map(|s| {
+            let dash = match s.dashes {
+                mandible_core::Dashes::None => "",
+                mandible_core::Dashes::Single => "-",
+                mandible_core::Dashes::Double => "--",
+            };
+            format!("{dash}{}", s.name)
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("{path}::{:?}::{spelling}", entity.kind)
 }
 
 /// FNV-1a over raw bytes — deterministic across processes and Rust std
@@ -315,22 +337,32 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// list on the same two flags in the same change; whether that nets to a
 /// visible count delta is an accident of which other flags moved in the
 /// same run, not something `sweep-diff` should have to rely on.
+///
+/// **Every `EntityKind`, not flags alone.** Walks `node.entities` — flags,
+/// positionals, modifiers, env-var items, and whatever `EntityKind` variant
+/// is added next — rather than `node.flags()`. Before this, the fingerprint
+/// was structurally blind to every non-flag kind: `bpftrace` gaining 17
+/// `EntityKind::EnvVar` items or `ar` documenting 17 `EntityKind::Modifier`
+/// letters moved nothing in `#fp`, so `sweep-diff` could see a flag
+/// regression but never an env-var/modifier/positional gain or loss.
+/// [`entity_identity`]'s own doc comment is where the "no per-kind
+/// branching" discipline actually lives — this function just iterates.
 fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerprint {
     let mut fp = ToolFingerprint::default();
     let Some(root) = root else {
         return fp;
     };
     fn walk(node: &mandible_core::CommandNode, path: &str, fp: &mut ToolFingerprint) {
-        for flag in node.flags() {
-            let id = flag_identity(path, flag);
-            let description_hash = flag
+        for entity in &node.entities {
+            let id = entity_identity(path, entity);
+            let description_hash = entity
                 .description
                 .as_ref()
                 .map(|t| fnv1a(t.as_str().as_bytes()));
-            let choices_hash = if flag.choices.is_empty() {
+            let choices_hash = if entity.choices.is_empty() {
                 None
             } else {
-                let joined = flag
+                let joined = entity
                     .choices
                     .iter()
                     .map(mandible_core::Text::as_str)
@@ -341,10 +373,10 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
             fp.flags.insert(
                 id,
                 FlagFingerprint {
-                    has_description: flag.description.is_some(),
+                    has_description: entity.description.is_some(),
                     description_hash,
                     choices_hash,
-                    value_name: flag.value_name.clone(),
+                    value_name: entity.value_name.clone(),
                 },
             );
         }
@@ -370,7 +402,8 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
 ///
 /// **Why every separator, not just [`FP_FIELD_SEP`].** An earlier version of
 /// this function only replaced the top-level field separator (tab) and
-/// newline with a space, on the theory that `flag_identity` only ever emits
+/// newline with a space, on the theory that `entity_identity` (`flag_identity`
+/// before the fingerprint generalized past flags) only ever emits
 /// `-`, `,`, `.`, `:`, `(`, `)` and the tool's own spelling, and `value_name`
 /// — while free-form text lifted verbatim from a tool's own `--help` output
 /// — was assumed not to collide with the *other* separators this format
@@ -408,7 +441,7 @@ fn fp_escape(s: &str) -> String {
     out
 }
 
-/// Top-level field separator inside one `#fp` line (`#fp <tool>\t<subs>\t<flags>`)
+/// Top-level field separator inside one `#fp2` line (`#fp2 <tool>\t<subs>\t<entities>`)
 /// — duplicated into `crate::transition` as its own `FP_FIELD_SEP` for the
 /// same reason [`EXTRACT_TIMEOUT_MS`] is duplicated rather than imported: a
 /// single well-known, stable character, re-measured in the same commit as
@@ -416,24 +449,42 @@ fn fp_escape(s: &str) -> String {
 /// [`fp_escape`], same as the other three separators below.
 const FP_FIELD_SEP: char = '\t';
 
-/// Separator between flag entries inside one `#fp` line's flag-entry list
-/// (`<flag1>|<flag2>|...`) — mirrored in `crate::transition`.
+/// Separator between entity entries inside one `#fp2` line's entity-entry
+/// list (`<entity1>|<entity2>|...`) — mirrored in `crate::transition`.
 const FP_FLAG_SEP: char = '|';
 
-/// Separator between subcommand paths inside one `#fp` line's subcommand
+/// Separator between subcommand paths inside one `#fp2` line's subcommand
 /// list (`<sub1>,<sub2>,...`) — mirrored in `crate::transition`.
 const FP_SUBCOMMAND_SEP: char = ',';
 
-/// Separator between one flag entry's id and its fields (`<id>=<fields>`) —
+/// Separator between one entity entry's id and its fields (`<id>=<fields>`) —
 /// mirrored in `crate::transition`.
 const FP_ID_SEP: char = '=';
 
-/// Separator between one flag entry's fields
+/// Separator between one entity entry's fields
 /// (`<has_desc>:<desc_hash>:<choices_hash>:<value_name>`) — mirrored in
 /// `crate::transition`.
 const FP_ENTRY_SEP: char = ':';
 
-/// Render every row's [`ToolFingerprint`] as `#fp` footer lines, one per
+/// The `#fp2` line prefix ([`fingerprint_lines`]'s wire format, format
+/// version 2 — see this constant's own doc-adjacent version note below).
+/// Deliberately a different literal from the pre-generalization `"#fp "`
+/// prefix (mirrored in `crate::transition::FP_LINE_PREFIX_V1`), not a bumped
+/// suffix on the same prefix: a v1 reader's `strip_prefix("#fp ")` does not
+/// match `"#fp2 ..."` at all (the character after `#fp` is `2`, not a
+/// space), so a pre-generalization binary reading a post-generalization
+/// scoreboard silently sees no fingerprint footer — the same, already-
+/// handled "predates the footer" degraded path, never a corrupted read of
+/// entity identities it doesn't understand. See
+/// `crate::transition::FingerprintFormat` for why a v1-vs-v2 *pair* has to
+/// be refused outright rather than degraded: the entity `id` strings the
+/// two versions embed are shaped differently (`(root)::--flag` in v1 vs
+/// `(root)::Flag::--flag` in v2), so naively joining a v1 scoreboard against
+/// a v2 one on those ids would report every entity as removed on one side
+/// and added on the other — a false wholesale loss/gain, not a real one.
+const FP_LINE_PREFIX_V2: &str = "#fp2 ";
+
+/// Render every row's [`ToolFingerprint`] as `#fp2` footer lines, one per
 /// tool, in the same tool-name order `rows` is already sorted in ([`run_over`])
 /// — deterministic output, no separate sort needed here.
 ///
@@ -441,28 +492,36 @@ const FP_ENTRY_SEP: char = ':';
 /// `flags` and empty `subcommands`.** An earlier version of this function
 /// skipped those, on the (wrong) assumption that "nothing to fingerprint"
 /// and "not fingerprinted" were the same case. They aren't:
-/// [`crate::transition`] tells "this scoreboard predates the `#fp` footer"
-/// from "this tool measured clean" by whether a line exists at all, so
-/// skipping the empty case made every flagless/subcommandless tool — a
+/// [`crate::transition`] tells "this scoreboard predates the fingerprint
+/// footer" from "this tool measured clean" by whether a line exists at all,
+/// so skipping the empty case made every flagless/subcommandless tool — a
 /// verbatim tool, a zero-flag `ok` tool, roughly a quarter of a real
 /// full-`PATH` sweep — read as unmeasured instead of measured-with-nothing.
 /// Worse, it hid exactly the regression this whole fingerprint exists to
-/// catch: a tool that had flags on one side and loses every one of them
+/// catch: a tool that had entities on one side and loses every one of them
 /// produces a line on that side and *none* on the empty side, so the diff
-/// reported "unmeasured" for a total wipeout instead of every flag removed.
+/// reported "unmeasured" for a total wipeout instead of every entity
+/// removed.
 ///
-/// Line shape: `#fp <tool>\t<sub1>,<sub2>,...\t<flag1>|<flag2>|...` where
-/// each flag entry is `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
-/// (hashes as lowercase hex), and either list may be empty (`#fp true\t\t`
-/// for a tool with no subcommands and no flags). `tool`, each subcommand
-/// path, each flag `id` and `value_name` are individually run through
-/// [`fp_escape`] before being written, so none of them can ever contain a
-/// raw `\t`, `\n`, `|`, `,`, `=` or `:` — see that function's doc comment for
-/// why every one of those needs escaping, not just the top-level `\t`. Never
-/// mixed into `render_markdown`'s output: [`crate::transition::parse_scoreboard`]
-/// only ever reads a [`ScoreFormat::Text`] scoreboard (that module's own doc
-/// comment), so there is nothing that would read a markdown copy of this
-/// section.
+/// Line shape: `#fp2 <tool>\t<sub1>,<sub2>,...\t<entity1>|<entity2>|...` where
+/// each entity entry is `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
+/// (hashes as lowercase hex), `id` already carries its `EntityKind` tag
+/// ([`entity_identity`]'s own doc comment), and either list may be empty
+/// (`#fp2 true\t\t` for a tool with no subcommands and no entities). `tool`,
+/// each subcommand path, each entity `id` and `value_name` are individually
+/// run through [`fp_escape`] before being written, so none of them can ever
+/// contain a raw `\t`, `\n`, `|`, `,`, `=` or `:` — see that function's doc
+/// comment for why every one of those needs escaping, not just the
+/// top-level `\t`. Never mixed into `render_markdown`'s output:
+/// [`crate::transition::parse_scoreboard`] only ever reads a
+/// [`ScoreFormat::Text`] scoreboard (that module's own doc comment), so
+/// there is nothing that would read a markdown copy of this section.
+///
+/// **Format version 2.** The prior format (flags only, `id` with no kind
+/// tag) is `crate::transition::FingerprintFormat::V1`; this one, emitted
+/// unconditionally by this function now, is `V2`. `crate::transition`
+/// detects which one a scoreboard carries from the line prefix and refuses
+/// to field-diff a V1/V2 pair — see [`FP_LINE_PREFIX_V2`]'s doc comment.
 fn fingerprint_lines(rows: &[Row]) -> String {
     let mut out = String::new();
     for row in rows {
@@ -497,7 +556,7 @@ fn fingerprint_lines(rows: &[Row]) -> String {
             .collect::<Vec<_>>()
             .join("|");
         out.push_str(&format!(
-            "#fp {}{FP_FIELD_SEP}{subs}{FP_FIELD_SEP}{flags}\n",
+            "{FP_LINE_PREFIX_V2}{}{FP_FIELD_SEP}{subs}{FP_FIELD_SEP}{flags}\n",
             fp_escape(&row.tool),
         ));
     }
@@ -2915,36 +2974,36 @@ mod tests {
 
         assert_eq!(
             fp.flags
-                .get("(root)::--comma-value")
+                .get("(root)::Flag::--comma-value")
                 .and_then(|f| f.value_name.clone()),
             Some("a,b".to_string())
         );
         assert_eq!(
             fp.flags
-                .get("(root)::--equals-value")
+                .get("(root)::Flag::--equals-value")
                 .and_then(|f| f.value_name.clone()),
             Some("a=b".to_string())
         );
         assert_eq!(
             fp.flags
-                .get("(root)::--colon-value")
+                .get("(root)::Flag::--colon-value")
                 .and_then(|f| f.value_name.clone()),
             Some("a:b".to_string())
         );
         assert_eq!(
             fp.flags
-                .get("(root)::--tab-value")
+                .get("(root)::Flag::--tab-value")
                 .and_then(|f| f.value_name.clone()),
             Some("a\tb".to_string())
         );
         assert_eq!(
             fp.flags
-                .get("(root)::--backslash-value")
+                .get("(root)::Flag::--backslash-value")
                 .and_then(|f| f.value_name.clone()),
             Some("a\\b".to_string())
         );
         assert!(
-            fp.flags.contains_key("(root)::--weird|name"),
+            fp.flags.contains_key("(root)::Flag::--weird|name"),
             "a flag id carrying the flag-list separator must survive under its own key"
         );
 
