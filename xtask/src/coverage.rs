@@ -265,6 +265,19 @@ struct FlagFingerprint {
 /// fingerprinted; it now holds every entity on the node regardless of kind
 /// (`entity_identity`'s kind tag is what keeps a flag and a same-spelled
 /// positional/modifier/env-var from colliding in this one map).
+///
+/// **Anyone comparing this map's size against the scoreboard's `flags`
+/// column (e.g. a duplicate-carrying-tool scan: flag count exceeds unique
+/// `#fp2` id count) must first filter the ids to `EntityKind::Flag`.**
+/// Before this map covered every kind, that comparison was apples-to-apples
+/// by construction; now the id count includes positionals/modifiers/env-var
+/// items too, so an unfiltered comparison silently stops firing — it never
+/// errors, it just reports zero duplicate-carrying tools forever, which
+/// reads as "no duplicates exist" rather than "this scan is broken."
+/// Filtering to `Flag` first restores the exact pre-generalization count
+/// (measured on `ar`/`bpftrace`: the `Flag`-only id count equals the
+/// scoreboard's `flags` column exactly, while the unfiltered id count does
+/// not).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct ToolFingerprint {
     flags: BTreeMap<String, FlagFingerprint>,
