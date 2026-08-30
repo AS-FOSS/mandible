@@ -18,6 +18,8 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- Quitting while moving the mouse no longer leaves fragments of mouse reports (`35;35;6M…`) on the shell prompt: the terminal processes the disable-mouse-capture sequence asynchronously, so reports could still arrive after the single zero-timeout drain had found an empty queue and given up, and the drain now waits up to 25ms per poll for one more report, ending at the first empty poll and capped at 250ms in total so exit can never turn into a wait.
+
 - `mandible` with no arguments now prints the program's real help — clap's own generated usage, arguments and every flag — instead of a single `Error: usage: mandible <tool> (or: …)` line that named three modes and no flags; it goes to stderr and still exits non-zero, because nothing was asked for, while `-h`/`--help` keep printing to stdout and exiting zero.
 
 - `mandible --print-selection` no longer spends the search box's `Enter` on printing: while the search box has focus `Enter` means what it means without the flag — commit the query, move focus to the tree, keep the filter — and the selection is printed by `Enter` from the tree or detail pane, so the mode changes what accepting does without leaving `Esc`, which clears the filter on a second press, as the only way out of the search box.
