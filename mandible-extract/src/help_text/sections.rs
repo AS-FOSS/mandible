@@ -8175,7 +8175,7 @@ mod tests {
         );
         assert_eq!(parsed.flags.len(), 2, "flags: {:?}", parsed.flags);
         assert!(
-            parsed.flags.iter().all(|flag| flag.short != Some('C')),
+            parsed.flags.iter().all(|flag| flag.short() != Some('C')),
             "flags: {:?}",
             parsed.flags
         );
@@ -8230,7 +8230,7 @@ mod tests {
         let change_dir: Vec<_> = parsed
             .flags
             .iter()
-            .filter(|flag| flag.short == Some('C'))
+            .filter(|flag| flag.short() == Some('C'))
             .collect();
         assert_eq!(change_dir.len(), 1, "flags: {:?}", parsed.flags);
         assert_eq!(change_dir[0].value_name.as_deref(), Some("DIR"));
@@ -8243,7 +8243,7 @@ mod tests {
             let flag = parsed
                 .flags
                 .iter()
-                .find(|flag| flag.long.as_deref() == Some(long))
+                .find(|flag| flag.long() == Some(long))
                 .unwrap_or_else(|| panic!("missing --{long} in {:?}", parsed.flags));
             assert_eq!(flag.group.as_deref(), Some("Main operation mode:"));
         }
@@ -8277,11 +8277,7 @@ mod tests {
                      \x20\x20\x20--verbose          actual verbosity option\n";
 
         let parsed = parse_with_profile(help, None, Some("demo"));
-        let longs: Vec<_> = parsed
-            .flags
-            .iter()
-            .filter_map(|flag| flag.long.as_deref())
-            .collect();
+        let longs: Vec<_> = parsed.flags.iter().filter_map(|flag| flag.long()).collect();
         assert_eq!(longs, ["real", "verbose"], "flags: {:?}", parsed.flags);
         assert!(
             parsed.subcommands.is_empty(),
