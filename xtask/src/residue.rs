@@ -374,37 +374,66 @@ struct Vocabulary {
 }
 
 impl Vocabulary {
+    /// Absorb every entity a node carries, keyed on the **shape of what it
+    /// carries** — a dashed spelling or a bare one — never on
+    /// [`mandible_core::EntityKind`]. This is what lets a kind added later
+    /// (an `EnvVar` producer lands on a sibling branch) reach the
+    /// vocabulary with no further edit here: it is covered the moment it
+    /// exists, because it already has one of the two shapes below.
     fn absorb(&mut self, node: &CommandNode) {
         self.names.insert(node.name.clone());
         for alias in &node.aliases {
             self.names.insert(alias.clone());
         }
-        for p in node.positionals() {
-            self.names.insert(p.primary_name().to_lowercase());
-        }
-        for flag in node.flags() {
-            if let Some(short) = flag.short() {
-                self.flags.insert(format!("-{short}"));
-                if let Some(v) = &flag.value_name {
-                    self.flags.insert(format!("-{short}{v}"));
-                    self.flags.insert(format!("-{short}={v}"));
+        for entity in &node.entities {
+            if entity.short().is_some() || entity.long().is_some() {
+                // A dashed spelling: contributes flag keys, exactly as the
+                // pre-migration flag branch built them (including the
+                // GCC-family reconstruction and the `--[no-]long`
+                // negation forms — see the module doc comment).
+                if let Some(short) = entity.short() {
+                    self.flags.insert(format!("-{short}"));
+                    if let Some(v) = &entity.value_name {
+                        self.flags.insert(format!("-{short}{v}"));
+                        self.flags.insert(format!("-{short}={v}"));
+                    }
+                }
+                if let Some(long) = entity.long() {
+                    self.flags.insert(format!("--{long}"));
+                    if entity.negatable() {
+                        self.flags.insert(format!("--[no-]{long}"));
+                        self.flags.insert(format!("--[no]{long}"));
+                    }
+                    if let Some(v) = &entity.value_name {
+                        self.flags.insert(format!("--{long}={v}"));
+                    }
+                }
+            } else {
+                // A bare, dashless spelling (a positional, a modifier
+                // letter, or an environment variable name): contributes
+                // its primary name, exactly as the pre-migration
+                // positional branch did — lowercased, matching
+                // `is_command_name_shaped`'s own requirement that a name
+                // row's first token is all-lowercase, which is the only
+                // shape `classify` can ever produce a name row's key in
+                // today. An `EntityKind::EnvVar`'s ALL_CAPS name is
+                // unaffected in practice: `classify` never emits a name
+                // row for an uppercase table (see
+                // `an_environment_variable_table_is_not_a_name_row`), so
+                // there is no row this lowering could cause to
+                // mismatch — see this module's PR notes for the design
+                // fork this raised and why it was left as-is.
+                let name = entity.primary_name();
+                if !name.is_empty() {
+                    self.names.insert(name.to_lowercase());
                 }
             }
-            if let Some(long) = flag.long() {
-                self.flags.insert(format!("--{long}"));
-                if flag.negatable() {
-                    self.flags.insert(format!("--[no-]{long}"));
-                    self.flags.insert(format!("--[no]{long}"));
-                }
-                if let Some(v) = &flag.value_name {
-                    self.flags.insert(format!("--{long}={v}"));
-                }
-            }
-            // A bare-word block the parser attached to a flag as its
-            // enumerated choices (`sections/mod.rs` rule 4) was *consumed* —
-            // counting those rows as residue would report the rule working
-            // as if it had failed.
-            for choice in &flag.choices {
+            // Choices are attested the same way for every kind: a
+            // bare-word block the parser attached as an entity's
+            // enumerated choices (`sections/mod.rs` rule 4) was
+            // *consumed* — counting those rows as residue would report
+            // the rule working as if it had failed.
+            for choice in &entity.choices {
                 self.names.insert(choice.as_str().to_string());
             }
         }
@@ -817,7 +846,7 @@ fn print_validation(ranked: &[Ranked], _top: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Entity, Provenance, Source};
+    use mandible_core::{Entity, EntityKind, Provenance, Source, Spelling};
 
     fn node(name: &str) -> CommandNode {
         CommandNode::new(name, Provenance::single(Source::HelpText))
@@ -1126,6 +1155,70 @@ mod tests {
         let raw = "Usage: /usr/bin/chgrp [OPTION]... GROUP FILE...\n  or:  /usr/bin/chgrp [OPTION]... --reference=RFILE FILE...\n";
         let root = node("chgrp");
         assert_eq!(analyze(raw, &root).rows, 0);
+    }
+
+    // --- entity kinds beyond flags and positionals -----------------------
+    //
+    // `absorb` walks every entity generically, keyed on shape (a dashed
+    // spelling vs. a bare one) rather than on `EntityKind`. These tests
+    // pin that a `Modifier` and an `EnvVar` entity — the two kinds a
+    // `match` over `EntityKind` would have been tempted to special-case —
+    // both reach the vocabulary through the same bare-spelling branch a
+    // positional already used.
+
+    /// A `Modifier` entity's bare letter reaches the vocabulary and
+    /// attests a matching row.
+    ///
+    /// The table below is deliberately **name-row shaped**
+    /// (`d<gutter>description`), not `ar`'s real bracketed modifier row
+    /// (`  [D]          - use zero for timestamps...`, see
+    /// `corpus/ar/audit-seed2/help.txt`) — a bracketed row is not
+    /// name-shaped and `classify` produces no row for it at all, so it
+    /// could never exercise this attribution. The name-row shape here is
+    /// the only one `classify` can emit a row for, which is also exactly
+    /// why the fleet-wide before/after residue diff over `corpus/` is
+    /// null today: no committed fixture's modifier table happens to be
+    /// name-shaped. `ar rvD archive.a foo.o` is real `ar` usage — modifier
+    /// letters glued to an operation letter — kept only as a familiar
+    /// example of the notation, not a claim about how `ar` prints its
+    /// table.
+    #[test]
+    fn a_modifier_entitys_letter_reaches_the_vocabulary() {
+        let raw = "Modifiers:\n  d            delete members from the archive\n  r            insert with replacement\n";
+        let mut root = node("ar");
+        root.entities
+            .push(Entity::modifier('d', Provenance::single(Source::HelpText)));
+        root.entities
+            .push(Entity::modifier('r', Provenance::single(Source::HelpText)));
+        let report = analyze(raw, &root);
+        assert_eq!(report.rows, 2);
+        assert_eq!(
+            report.unaccounted, 0,
+            "a modifier's letter must attest its own row"
+        );
+    }
+
+    /// The forward-compatibility claim this whole rewrite exists for: an
+    /// `EntityKind::EnvVar` entity — a kind that exists on `main` today
+    /// even though no tier emits one yet (spec §4.5) — reaches the
+    /// vocabulary the moment one is constructed, with no further edit to
+    /// this file once a producer lands. Built directly (`Entity::new` +
+    /// a bare `Spelling`) rather than through a not-yet-existing
+    /// `Entity::env_var` constructor, since none exists on `main`.
+    #[test]
+    fn an_env_var_entitys_name_reaches_the_vocabulary() {
+        let mut e = Entity::new(EntityKind::EnvVar, Provenance::single(Source::HelpText));
+        e.spellings.push(Spelling::bare("FFREPORT"));
+        let mut root = node("ffmpeg");
+        root.entities.push(e);
+
+        let mut vocab = Vocabulary::default();
+        vocab.absorb(&root);
+        assert!(
+            vocab.names.contains("ffreport"),
+            "an EnvVar entity's name must reach the vocabulary: {:?}",
+            vocab.names
+        );
     }
 
     #[test]
