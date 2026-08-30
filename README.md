@@ -42,33 +42,57 @@ $ mandible docker
 
 ## Install
 
-### Pre-built binaries
+Linux and macOS, on x86_64 and arm64. Windows is not supported: the containment above
+relies on POSIX process groups, and Windows tools use conventions (`/?`, PowerShell's
+own help system) this project does not speak.
 
-Linux and macOS, on both x86_64 and arm64. Windows is not supported. The process
-containment described above relies on POSIX process groups, and native Windows tools
-use conventions (`/?`, PowerShell's own help system) that this project does not yet
-speak.
+**Homebrew** — macOS or Linux
 
-<div align="center">
+```console
+brew install as-foss/mandible/mandible
+```
 
-| Platform              | Download |
-|:----------------------|:---------|
-| Linux x86_64          | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-x86_64-unknown-linux-gnu.tar.gz) |
-| Linux arm64           | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-aarch64-unknown-linux-gnu.tar.gz) |
-| macOS Apple Silicon   | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-aarch64-apple-darwin.tar.gz) |
-| macOS Intel           | [`tar.gz`](https://github.com/AS-FOSS/mandible/releases/latest/download/mandible-x86_64-apple-darwin.tar.gz) |
+**Debian / Ubuntu** — signed apt repository
 
-`.deb` and `.rpm` packages are attached to every [release](https://github.com/AS-FOSS/mandible/releases).  
-Each archive ships a matching `.sha256` checksum.
-</div>
+```console
+sudo curl -fsSL https://as-foss.github.io/mandible-apt/mandible-archive-keyring.gpg \
+  -o /usr/share/keyrings/mandible-archive-keyring.gpg
+sudo tee /etc/apt/sources.list.d/mandible.sources >/dev/null <<'EOF'
+Types: deb
+URIs: https://as-foss.github.io/mandible-apt
+Suites: stable
+Components: main
+Architectures: amd64 arm64
+Signed-By: /usr/share/keyrings/mandible-archive-keyring.gpg
+EOF
+sudo apt-get update && sudo apt-get install mandible
+```
 
-### Using Cargo
+**Fedora / EPEL** — COPR repository
+
+```console
+sudo dnf copr enable as-foss/mandible
+sudo dnf install mandible
+```
+
+**Nix** — run without installing, or use as a flake input
+
+```console
+nix run github:AS-FOSS/mandible
+```
+
+**Cargo** — `binstall` fetches the prebuilt binary, `install` builds from source
+
+```console
+cargo binstall mandible
+```
 
 ```console
 cargo install mandible
 ```
 
-
+Standalone binaries, `.deb` and `.rpm` packages, each with a `.sha256`, are attached
+to every [release](https://github.com/AS-FOSS/mandible/releases/latest).
 
 ## How it works
 

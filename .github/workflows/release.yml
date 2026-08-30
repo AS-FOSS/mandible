@@ -25,6 +25,10 @@ on:
         description: "Also publish to crates.io (irreversible)"
         type: boolean
         default: false
+      submit_copr:
+        description: "Also submit the SRPM to COPR (safe to repeat; a tag does this automatically)"
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -231,6 +235,11 @@ jobs:
       - name: Build packages
         run: |
           cargo build --release --locked --bin mandible
+          # Both manifests install these by literal path; nothing else
+          # creates them. See the comment above the asset lists in
+          # mandible/Cargo.toml for why they are not globbed out of the
+          # build tree any more.
+          scripts/gen_completions.sh
           cargo deb --no-build -p mandible
           cargo generate-rpm -p mandible
 
@@ -299,12 +308,48 @@ jobs:
             target/generate-rpm/*.rpm
           if-no-files-found: error
 
+  # `cargo vendor` output, shipped as a release asset so the RPM spec can
+  # reference it as Source1 (packaging/copr/mandible.spec explains why the
+  # SRPM carries its dependencies rather than fetching them).
+  #
+  # Deliberately gated on nothing. This job downloads and repacks crates;
+  # it makes no claim about whether the code works, so making it wait for
+  # the test suite would only lengthen the critical path. Nothing is
+  # submitted anywhere on the strength of this job alone — the COPR job
+  # below still requires the release, and therefore the full suite, on any
+  # real tag.
+  vendor:
+    name: vendor the crate dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the vendor tarball
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          # --locked so the vendored set is the one Cargo.lock pins, which
+          # is what every other job in this workflow builds against.
+          cargo vendor --versioned-dirs --locked vendor > vendor-config.toml
+          tar -cJf "mandible-${version}-vendor.tar.xz" vendor
+          ls -lh "mandible-${version}-vendor.tar.xz"
+          # The spec appends its own equivalent of this; print it so a
+          # mismatch between what cargo generates and what the spec writes
+          # is visible in the log rather than only at build time.
+          cat vendor-config.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mandible-vendor
+          path: mandible-*-vendor.tar.xz
+          if-no-files-found: error
+
   # Skipped on a bare `workflow_dispatch` with no tag, so dispatching this
   # workflow is a safe rehearsal of the build half: you get binaries and
   # packages as artifacts without creating a Release or touching crates.io.
   release:
     name: github release
-    needs: [build, packages]
+    needs: [build, packages, vendor]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -326,13 +371,7 @@ jobs:
           version="${{ inputs.version || github.ref_name }}"
           version="${version#v}"
           {
-            echo "## Install"
-            echo
-            echo '```console'
-            echo "cargo install mandible"
-            echo '```'
-            echo
-            echo "Or download a binary below. Verify with the accompanying \`.sha256\`."
+            scripts/install_block.sh
             echo
             echo "---"
             echo
@@ -352,6 +391,273 @@ jobs:
             --notes-file release-notes.md \
             --verify-tag \
             $(find artifacts -type f | sort)
+
+  # Point the Homebrew tap at the release that was just published.
+  #
+  # The checksums are *downloaded from the release*, not recomputed. A
+  # rebuild here would be a different build: if it ever disagreed with the
+  # tarball the release actually serves, the formula would describe a
+  # binary nobody can install, and the mismatch would surface as a failed
+  # `brew install` rather than as a failed release. `scripts/render_formula.sh`
+  # therefore reads the published `.sha256` assets and cross-checks that
+  # each digest was computed over the asset the formula's URL points at.
+  #
+  # The commit is made through GitHub's GraphQL `createCommitOnBranch`
+  # rather than `git push`. Commits created that way are signed by GitHub
+  # and show as Verified; a push from a runner would be unsigned, and an
+  # unsigned commit is not something this project ships — least of all into
+  # the repository that tells `brew` which binary to trust.
+  homebrew:
+    name: bump homebrew tap
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render the formula from the published checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+          mkdir -p sums
+          gh release download "v${version}" \
+            --repo "${{ github.repository }}" \
+            --dir sums \
+            --pattern "mandible-v${version}-*.tar.gz.sha256"
+
+          scripts/render_formula.sh "$version" sums > mandible.rb
+          cat mandible.rb
+
+      # Skipped rather than failed when the token is absent, so a fork or a
+      # rehearsal dispatch does not turn a good release red over a tap it
+      # was never going to be allowed to write to. The log line names the
+      # secret, because a silently skipped step is how a tap quietly stops
+      # tracking releases.
+      - name: Commit the formula to AS-FOSS/homebrew-mandible
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_REGISTRY_TOKEN }}
+          TAP_OWNER: AS-FOSS
+          TAP_NAME: homebrew-mandible
+          TAP_BRANCH: main
+          FORMULA_PATH: Formula/mandible.rb
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::HOMEBREW_REGISTRY_TOKEN is not set — the Homebrew tap was not updated for v${VERSION}. Set that secret, or edit ${TAP_OWNER}/${TAP_NAME}'s ${FORMULA_PATH} by hand."
+            exit 0
+          fi
+
+          tap="${TAP_OWNER}/${TAP_NAME}"
+
+          # Identical content means there is nothing to say. Without this,
+          # a re-pushed tag would land an empty commit on the tap every
+          # time.
+          if gh api "repos/${tap}/contents/${FORMULA_PATH}?ref=${TAP_BRANCH}" \
+               --jq .content 2>/dev/null | base64 -d > current.rb; then
+            if cmp -s current.rb mandible.rb; then
+              echo "${tap} ${FORMULA_PATH} already describes v${VERSION}; nothing to commit."
+              exit 0
+            fi
+          fi
+
+          # `expectedHeadOid` makes the write a compare-and-swap: if
+          # anything else committed to the tap between this read and the
+          # mutation, the API rejects the commit instead of clobbering it.
+          head_oid="$(gh api graphql \
+            -f query='query($owner:String!,$name:String!,$ref:String!){
+              repository(owner:$owner,name:$name){ ref(qualifiedName:$ref){ target{ oid } } }
+            }' \
+            -F owner="${TAP_OWNER}" -F name="${TAP_NAME}" -F ref="refs/heads/${TAP_BRANCH}" \
+            --jq '.data.repository.ref.target.oid')"
+
+          if [ -z "$head_oid" ] || [ "$head_oid" = "null" ]; then
+            echo "::error::could not read ${tap}@${TAP_BRANCH} — check that HOMEBREW_REGISTRY_TOKEN still grants contents access to it" >&2
+            exit 1
+          fi
+
+          jq -n \
+            --arg repo "$tap" \
+            --arg branch "${TAP_BRANCH}" \
+            --arg oid "$head_oid" \
+            --arg path "${FORMULA_PATH}" \
+            --arg contents "$(base64 -w0 mandible.rb)" \
+            --arg headline "chore(formula): mandible ${VERSION}" \
+            --arg body "Prebuilt-binary URLs and checksums for the v${VERSION} release assets, on all four supported targets." \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }",
+              variables: {
+                input: {
+                  branch: { repositoryNameWithOwner: $repo, branchName: $branch },
+                  expectedHeadOid: $oid,
+                  message: { headline: $headline, body: $body },
+                  fileChanges: { additions: [ { path: $path, contents: $contents } ] }
+                }
+              }
+            }' > commit.json
+
+          gh api graphql --input commit.json > commit-result.json
+          jq -r '.data.createCommitOnBranch.commit.url' commit-result.json
+
+  # Tell AS-FOSS/mandible-apt to rebuild the apt repository around the
+  # release that was just published. That repository indexes the .deb
+  # assets from this project's releases and serves them over GitHub Pages;
+  # it holds no packages of its own, so it has nothing to publish until
+  # this release exists.
+  #
+  # This needs a token that can dispatch to a *different* repository, which
+  # `github.token` cannot do and `HOMEBREW_REGISTRY_TOKEN` is not scoped
+  # for — it grants contents on the Homebrew tap and nothing else. So the
+  # step names its own secret, `APT_DISPATCH_TOKEN`, and skips with a
+  # warning while that does not exist. Skipping is right here in a way it
+  # would not be for the signing key: the apt repository can be rebuilt at
+  # any time by hand, and the release itself is already published and
+  # correct.
+  #
+  #   gh workflow run publish.yml -R AS-FOSS/mandible-apt -f tag=vX.Y.Z
+  #
+  # is the manual equivalent, and it is the whole fallback.
+  apt-repo:
+    name: refresh the apt repository
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch a rebuild to AS-FOSS/mandible-apt
+        env:
+          GH_TOKEN: ${{ secrets.APT_DISPATCH_TOKEN }}
+          APT_REPO: AS-FOSS/mandible-apt
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          tag="${version#v}"
+          tag="v${tag}"
+
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::APT_DISPATCH_TOKEN is not set — the apt repository was not refreshed for ${tag}. Either add a token with contents:write on ${APT_REPO}, or run: gh workflow run publish.yml -R ${APT_REPO} -f tag=${tag}"
+            exit 0
+          fi
+
+          gh api "repos/${APT_REPO}/dispatches" \
+            --method POST \
+            -f event_type=release \
+            -F "client_payload[tag]=${tag}"
+
+          echo "dispatched a rebuild of ${APT_REPO} for ${tag}"
+
+  # Build the SRPM and hand it to COPR, which does the per-chroot builds.
+  #
+  # The SRPM is assembled here rather than by COPR's custom-source method,
+  # and packaging/copr/mandible.spec explains that choice at length: it
+  # carries its own vendored dependencies, so it builds offline in mock,
+  # in koji, or under a plain `rpmbuild --rebuild` on any machine, and it
+  # is a complete description of the build rather than a recipe only COPR
+  # can follow.
+  #
+  # On a tag this waits for the release. On a `workflow_dispatch` with
+  # submit_copr it needs only the vendor tarball, which makes resubmitting
+  # one version cheap — COPR builds are idempotent per (project, version)
+  # in the sense that a repeat submission simply supersedes the previous
+  # build, so re-running this is safe.
+  copr:
+    name: submit to copr
+    needs: [vendor, release]
+    if: |
+      always() && needs.vendor.result == 'success' && (
+        (startsWith(github.ref, 'refs/tags/') && needs.release.result == 'success')
+        || (github.event_name == 'workflow_dispatch' && inputs.submit_copr)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: fedora:41
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Before the checkout, not after. actions/checkout uses git when it
+      # can find one and otherwise silently falls back to downloading a
+      # source tarball through the REST API — which leaves no .git, and
+      # the `git archive` below then fails with "not a git repository".
+      # The fedora image ships no git, so this ordering is what makes the
+      # checkout an actual clone.
+      - name: Install the rpm and copr tooling
+        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools copr-cli git tar
+
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mandible-vendor
+
+      - name: Build the SRPM
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+          mkdir -p rpmbuild/SOURCES rpmbuild/SPECS
+
+          # The same content GitHub serves at the spec's Source0 URL: the
+          # tag's tree under a `mandible-<version>/` prefix. Produced with
+          # git archive so this job does not depend on GitHub having
+          # generated that archive yet.
+          git config --global --add safe.directory "$PWD"
+          git archive --prefix="mandible-${version}/" \
+            -o "rpmbuild/SOURCES/mandible-${version}.tar.gz" HEAD
+
+          mv "mandible-${version}-vendor.tar.xz" rpmbuild/SOURCES/
+
+          # `Version:` in the checked-in spec tracks the workspace version
+          # so the spec is buildable by hand from a clean checkout. What
+          # reaches COPR is the tag being released, which is the only
+          # value that can be right here.
+          sed -e "s/^Version:.*/Version:        ${version}/" \
+            packaging/copr/mandible.spec > rpmbuild/SPECS/mandible.spec
+          grep '^Version:' rpmbuild/SPECS/mandible.spec
+
+          rpmbuild --define "_topdir ${PWD}/rpmbuild" -bs rpmbuild/SPECS/mandible.spec
+          ls -lh rpmbuild/SRPMS/
+
+      # Skipped, not failed, when the secret is absent: a fork has no COPR
+      # to submit to, and the release itself is already published and
+      # correct. The log line names the secret so a silently missing
+      # submission is not mistaken for a successful one.
+      - name: Submit to COPR
+        env:
+          COPR_REGISTRY_TOKEN: ${{ secrets.COPR_REGISTRY_TOKEN }}
+          # Set this repository variable to override where builds are
+          # submitted. Left unset, the project is `<username>/mandible`,
+          # with the username read from the API config itself.
+          COPR_PROJECT: ${{ vars.COPR_PROJECT }}
+        run: |
+          if [ -z "${COPR_REGISTRY_TOKEN}" ]; then
+            echo "::warning::COPR_REGISTRY_TOKEN is not set — the SRPM for ${VERSION} was built but not submitted to COPR. Add that secret (the contents of the API config from https://copr.fedorainfracloud.org/api/) to enable submission."
+            exit 0
+          fi
+
+          mkdir -p ~/.config
+          printf '%s\n' "${COPR_REGISTRY_TOKEN}" > ~/.config/copr
+          chmod 600 ~/.config/copr
+
+          # The owner is read from the config rather than written down
+          # here. The COPR project lives under the maintainer's Fedora
+          # account, which is not the GitHub organisation name, and a
+          # hardcoded owner would be a second place for that to be wrong.
+          project="${COPR_PROJECT}"
+          if [ -z "$project" ]; then
+            owner="$(awk -F'=' '/^[[:space:]]*username[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' ~/.config/copr)"
+            if [ -z "$owner" ]; then
+              echo "::error::COPR_REGISTRY_TOKEN holds no 'username =' line, so the project owner cannot be derived. Set the COPR_PROJECT repository variable to '<owner>/<project>' instead." >&2
+              exit 1
+            fi
+            project="${owner}/mandible"
+          fi
+          echo "submitting to ${project}"
+
+          srpm="$(ls rpmbuild/SRPMS/mandible-${VERSION}-*.src.rpm)"
+          copr-cli build "${project}" "${srpm}"
 
   # Last, and only on a real tag: crates.io publishing is irreversible.
   # Order follows the dependency graph — a dependency must exist on the
