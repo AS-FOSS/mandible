@@ -154,10 +154,13 @@ fn each_snippet_is_the_packaged_file_verbatim() {
             .output()
             .expect("failed to run mandible");
         assert!(out.status.success(), "{shell}");
-        let packaged = std::fs::read(repo_root().join("packaging/shell").join(file))
+        // Compared as text, not as bytes: a mismatch here is read by a
+        // human, and two 1 KB byte vectors in an assertion message are not.
+        let printed = String::from_utf8(out.stdout).expect("the snippet is UTF-8");
+        let packaged = std::fs::read_to_string(repo_root().join("packaging/shell").join(file))
             .unwrap_or_else(|e| panic!("reading packaging/shell/{file}: {e}"));
         assert_eq!(
-            out.stdout, packaged,
+            printed, packaged,
             "`--shell-init {shell}` must print packaging/shell/{file} verbatim"
         );
     }
