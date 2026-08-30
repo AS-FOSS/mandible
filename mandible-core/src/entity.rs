@@ -10,10 +10,10 @@
 //! `short: Option<char>` + `long: Option<String>` pair can hold only two
 //! of the four.
 //!
-//! Migration is staged (spec §4.5). The flag, positional and modifier
-//! stages are complete: a node carries one [`CommandNode::entities`] vector
-//! (`CommandNode::flags()`, `CommandNode::positionals()` and
-//! `CommandNode::modifiers()` filter it by kind), and the pre-0.5.0 `Flag`
+//! Migration is staged (spec §4.5). All four stages are complete: a node
+//! carries one [`CommandNode::entities`] vector (`CommandNode::flags()`,
+//! `CommandNode::positionals()`, `CommandNode::modifiers()` and
+//! `CommandNode::env_vars()` filter it by kind), and the pre-0.5.0 `Flag`
 //! and `Positional` survive only as this
 //! module's test-local parity references, against which
 //! [`Entity::spelling`], [`Entity::key`], [`Entity::primary_name`] and the
@@ -263,6 +263,29 @@ impl Entity {
     pub fn modifier(letter: char, provenance: Provenance) -> Entity {
         let mut e = Entity::new(EntityKind::Modifier, provenance);
         e.spellings.push(Spelling::bare(letter.to_string()));
+        e
+    }
+
+    /// An environment variable documented as an item in its own right, under
+    /// an explicit environment heading in a tool's own help text (spec
+    /// §4.5, §7 Tier B "Environment sections") — `bpftrace`'s
+    /// `BPFTRACE_BTF`, `node`'s `NODE_DEBUG`.
+    ///
+    /// Takes a name (a word, not a single character) because a variable's
+    /// notation has no dash and no single-letter constraint the way a
+    /// modifier does — it is however long the tool spells it.
+    ///
+    /// **Not the same thing as [`Entity::env_var`]**, an existing field a
+    /// *flag* carries: that field is a cross-reference (`[env: FOO]`, or an
+    /// override file's `env_var` key) stating that some other, already-kind
+    /// `Flag` entity is also settable from an environment variable. An
+    /// `EntityKind::EnvVar` entity, built by this constructor, is the
+    /// variable itself, documented as its own row under its own heading —
+    /// the two are never merged, and a producer must never populate one from
+    /// the other.
+    pub fn env_var_item(name: impl Into<String>, provenance: Provenance) -> Entity {
+        let mut e = Entity::new(EntityKind::EnvVar, provenance);
+        e.spellings.push(Spelling::bare(name));
         e
     }
 
@@ -1002,5 +1025,42 @@ mod tests {
         assert_eq!(e.key(), None);
         assert_eq!(e.short(), None);
         assert_eq!(e.long(), None);
+    }
+
+    /// An env-var item is one dashless *name*: it renders bare, carries no
+    /// flag key, and is not addressed as a short flag — the same shape as a
+    /// modifier or a positional, just with a word instead of a letter.
+    #[test]
+    fn an_env_var_is_one_dashless_name() {
+        let e = Entity::env_var_item("NODE_DEBUG", Provenance::default());
+        assert_eq!(e.kind, EntityKind::EnvVar);
+        assert_eq!(e.spellings.len(), 1);
+        assert_eq!(e.spellings[0].dashes, Dashes::None);
+        assert_eq!(e.spelling(), "NODE_DEBUG");
+        assert_eq!(e.primary_name(), "NODE_DEBUG");
+        assert_eq!(e.key(), None);
+        assert_eq!(e.short(), None);
+        assert_eq!(e.long(), None);
+        assert!(!e.matches_key(&FlagKey::Short('N')));
+    }
+
+    /// `Entity.env_var` (a flag's cross-reference to a variable that also
+    /// sets it) and `EntityKind::EnvVar` (the variable documented as its
+    /// own item) are different things carried by different entities — a
+    /// flag with `env_var = Some("FOO")` is still `EntityKind::Flag`, never
+    /// `EntityKind::EnvVar`, and building one never touches the other.
+    #[test]
+    fn a_flags_env_var_field_is_not_an_env_var_entity() {
+        let mut flag = Entity::flag_long("port", Provenance::default());
+        flag.env_var = Some("APP_PORT".into());
+        assert_eq!(flag.kind, EntityKind::Flag);
+
+        let item = Entity::env_var_item("APP_PORT", Provenance::default());
+        assert_eq!(item.kind, EntityKind::EnvVar);
+        // The flag's cross-reference is untouched by the item's existence
+        // and vice versa: these are two independent entities, not one
+        // populated from the other.
+        assert_eq!(flag.env_var.as_deref(), Some("APP_PORT"));
+        assert_eq!(item.env_var, None);
     }
 }

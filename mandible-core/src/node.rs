@@ -280,6 +280,11 @@ impl CommandNode {
         self.entities_of(EntityKind::Modifier)
     }
 
+    /// This node's environment variables, in document order.
+    pub fn env_vars(&self) -> impl Iterator<Item = &Entity> + Clone {
+        self.entities_of(EntityKind::EnvVar)
+    }
+
     /// Replace every entity of one kind, leaving the other kinds and their
     /// relative order untouched. The replacements land at the end of the
     /// vector, which is invisible to every consumer: order is only ever
@@ -306,6 +311,11 @@ impl CommandNode {
     /// Replace this node's modifiers, keeping every other kind.
     pub fn set_modifiers(&mut self, modifiers: Vec<Entity>) {
         self.set_entities_of(EntityKind::Modifier, modifiers);
+    }
+
+    /// Replace this node's environment variables, keeping every other kind.
+    pub fn set_env_vars(&mut self, env_vars: Vec<Entity>) {
+        self.set_entities_of(EntityKind::EnvVar, env_vars);
     }
 
     /// Remove every entity of one kind and return them in document order.
