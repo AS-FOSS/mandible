@@ -11,6 +11,15 @@ pub struct Cli {
     /// or `--review` is given.
     pub tool: Option<String>,
 
+    /// A subcommand path within TOOL to open at, e.g. `mandible cargo
+    /// clippy` or `mandible git remote add` (spec §5.4). Opens exactly
+    /// where browsing to that node would land; a name the tool's own help
+    /// never documents still lands when a `<tool>-<sub>` binary is on PATH,
+    /// marked unverified. TUI only — `--doctor` and `--report` describe a
+    /// whole tool, and take a tool name alone.
+    #[arg(value_name = "SUBCOMMAND")]
+    pub subcommand: Vec<String>,
+
     /// Print extraction diagnostics for TOOL (tier statuses, node/flag
     /// counts, %described, catalog vendoring date, timing) instead of
     /// opening the TUI. See spec §5.3.
@@ -62,5 +71,60 @@ impl Cli {
             .as_deref()
             .or(self.doctor.as_deref())
             .or(self.tool.as_deref())
+    }
+
+    /// The full node path this invocation asks to open — the tool name
+    /// followed by [`Self::subcommand`] — or `None` when no subcommand was
+    /// given (`mandible git`, which opens at the root like it always has).
+    pub fn requested_path(&self) -> Option<Vec<String>> {
+        if self.subcommand.is_empty() {
+            return None;
+        }
+        let tool = self.tool.as_deref()?;
+        let mut path = vec![tool.to_string()];
+        path.extend(self.subcommand.iter().cloned());
+        Some(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> Cli {
+        Cli::try_parse_from(std::iter::once("mandible").chain(args.iter().copied()))
+            .expect("should parse")
+    }
+
+    /// Issue #70: `cargo clippy` is a real command that `cargo --help` never
+    /// lists, and mandible used to refuse the words outright with
+    /// "unexpected argument 'clippy' found".
+    #[test]
+    fn a_subcommand_path_parses_into_tool_and_words() {
+        let cli = parse(&["cargo", "clippy"]);
+        assert_eq!(cli.tool.as_deref(), Some("cargo"));
+        assert_eq!(cli.subcommand, vec!["clippy".to_string()]);
+        assert_eq!(
+            cli.requested_path(),
+            Some(vec!["cargo".to_string(), "clippy".to_string()])
+        );
+    }
+
+    #[test]
+    fn several_words_nest_in_order() {
+        let cli = parse(&["git", "remote", "add"]);
+        assert_eq!(
+            cli.requested_path(),
+            Some(vec![
+                "git".to_string(),
+                "remote".to_string(),
+                "add".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn a_bare_tool_requests_no_path() {
+        assert!(parse(&["git"]).requested_path().is_none());
     }
 }
