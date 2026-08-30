@@ -521,13 +521,35 @@ pub(super) fn obscured_fence_reopens(lines: &[&str], idx: usize, marker_indent: 
 }
 
 /// Headingless counterpart of [`starts_attested_flag_section`]: `lines[idx]`
-/// itself already looks like a flag row ([`looks_like_flag_start`]), and the
-/// block it opens independently parses at least [`MIN_ATTESTED_SECTION_FLAGS`]
-/// rows. No heading vocabulary is required or possible here — the whole
-/// point is that there is no heading — so the row-count floor is the only
-/// evidence, same floor and same reasoning as the headed case.
+/// itself already looks like a flag row ([`looks_like_flag_start`]), no
+/// heading-shaped line immediately governs it, and the block it opens
+/// independently parses at least [`MIN_ATTESTED_SECTION_FLAGS`] rows.
+///
+/// The "no heading-shaped line immediately governs it" clause is load-
+/// bearing, not a stylistic nicety. `labels_inside_indented_examples_do_not_
+/// reopen_flag_parsing` (this file's sibling module) pins the shape that
+/// requires it: a worked example writes ` Input:`/` Output:` labels — real
+/// section headings by every structural test, just not ones naming CLI
+/// vocabulary — directly over sample rows that are themselves dash-led
+/// (`--fake-one VALUE   example input, not a supported option`). Dropping
+/// the "no governing heading" requirement would read every one of those
+/// rows as headingless and reopen on the same two-row floor, exactly
+/// reproducing the ambiguity [`names_flag_section`]'s own doc comment
+/// warns about — a label can govern `--flag`-shaped sample data as
+/// plausibly as it can govern real flags. A row is trusted as headingless
+/// only when nothing heading-shaped sits directly above it: `sed --help`'s
+/// own `Options:`-free block, whose entries start on line one with nothing
+/// above them at all, is the shape this clause is scoped to admit.
 pub(super) fn starts_attested_headingless_flag_block(lines: &[&str], idx: usize) -> bool {
     if !looks_like_flag_start(lines[idx].trim_start()) {
+        return false;
+    }
+    if lines[..idx]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .is_some_and(|l| is_section_heading_line(l.trim()))
+    {
         return false;
     }
     let (_, entries, _) = scan_flags_block(lines, idx, false);
