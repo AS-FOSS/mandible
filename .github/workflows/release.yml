@@ -463,6 +463,52 @@ jobs:
           gh api graphql --input commit.json > commit-result.json
           jq -r '.data.createCommitOnBranch.commit.url' commit-result.json
 
+  # Tell AS-FOSS/mandible-apt to rebuild the apt repository around the
+  # release that was just published. That repository indexes the .deb
+  # assets from this project's releases and serves them over GitHub Pages;
+  # it holds no packages of its own, so it has nothing to publish until
+  # this release exists.
+  #
+  # This needs a token that can dispatch to a *different* repository, which
+  # `github.token` cannot do and `HOMEBREW_REGISTRY_TOKEN` is not scoped
+  # for — it grants contents on the Homebrew tap and nothing else. So the
+  # step names its own secret, `APT_DISPATCH_TOKEN`, and skips with a
+  # warning while that does not exist. Skipping is right here in a way it
+  # would not be for the signing key: the apt repository can be rebuilt at
+  # any time by hand, and the release itself is already published and
+  # correct.
+  #
+  #   gh workflow run publish.yml -R AS-FOSS/mandible-apt -f tag=vX.Y.Z
+  #
+  # is the manual equivalent, and it is the whole fallback.
+  apt-repo:
+    name: refresh the apt repository
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch a rebuild to AS-FOSS/mandible-apt
+        env:
+          GH_TOKEN: ${{ secrets.APT_DISPATCH_TOKEN }}
+          APT_REPO: AS-FOSS/mandible-apt
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          tag="${version#v}"
+          tag="v${tag}"
+
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::APT_DISPATCH_TOKEN is not set — the apt repository was not refreshed for ${tag}. Either add a token with contents:write on ${APT_REPO}, or run: gh workflow run publish.yml -R ${APT_REPO} -f tag=${tag}"
+            exit 0
+          fi
+
+          gh api "repos/${APT_REPO}/dispatches" \
+            --method POST \
+            -f event_type=release \
+            -F "client_payload[tag]=${tag}"
+
+          echo "dispatched a rebuild of ${APT_REPO} for ${tag}"
+
   # Last, and only on a real tag: crates.io publishing is irreversible.
   # Order follows the dependency graph — a dependency must exist on the
   # registry before anything that depends on it can be published. Modern
