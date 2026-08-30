@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-30
+
 ### Added
 
 - Every release body now opens with the install channels that actually work for that release — Homebrew, `cargo binstall`, `cargo install`, `nix run`, and the apt repository — instead of `cargo install` alone, rendered by `scripts/install_block.sh` so the list can be read and changed without pushing a tag to find out.
