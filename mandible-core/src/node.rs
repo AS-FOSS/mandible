@@ -122,6 +122,21 @@ pub struct CommandNode {
     /// never flagged as a fabricated phantom subcommand merely for not
     /// being probe-eligible.
     pub invocation_attested: bool,
+    /// The binary this node was discovered as, when it was found by the
+    /// `<parent>-<sub>` PATH convention rather than documented by its
+    /// parent's own help text (spec §5.4) — e.g. `Some("cargo-clippy")` on
+    /// the `clippy` child of `cargo`. `None` for every node any extraction
+    /// tier produced, which is all of them: only the tree assembly above
+    /// this crate (`mandible/src/discovery.rs`) ever sets it.
+    ///
+    /// `Some` is the *unverified* state, and the TUI says so (spec §9.2): a
+    /// file on `PATH` whose name starts with the parent's own name plus a
+    /// dash is a convention, not a claim the parent made, so the node is
+    /// real evidence about the filesystem and a guess about the tool. It is
+    /// also the redirect this node's own probing follows — everything at or
+    /// below it is probed against *that* binary, so the guessed word never
+    /// becomes argv for the parent (spec §6).
+    pub discovered_binary: Option<String>,
     /// What this node's own `--help` text said about being an incomplete
     /// document, if anything (spec §6 rule 2b: the "truncation confession"
     /// convention — curl's `--help` ending "For all options use the manual
@@ -225,6 +240,7 @@ impl CommandNode {
             provenance,
             heading_attested: false,
             invocation_attested: false,
+            discovered_binary: None,
             confession: None,
         }
     }

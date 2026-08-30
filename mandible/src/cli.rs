@@ -11,6 +11,15 @@ pub struct Cli {
     /// or `--review` is given.
     pub tool: Option<String>,
 
+    /// A subcommand path within TOOL to open at, e.g. `mandible cargo
+    /// clippy` or `mandible git remote add` (spec §5.4). Opens exactly
+    /// where browsing to that node would land; a name the tool's own help
+    /// never documents still lands when a `<tool>-<sub>` binary is on PATH,
+    /// marked unverified. TUI only — `--doctor` and `--report` describe a
+    /// whole tool, and take a tool name alone.
+    #[arg(value_name = "SUBCOMMAND")]
+    pub subcommand: Vec<String>,
+
     /// Print extraction diagnostics for TOOL (tier statuses, node/flag
     /// counts, %described, catalog vendoring date, timing) instead of
     /// opening the TUI. See spec §5.3.
@@ -62,5 +71,125 @@ impl Cli {
             .as_deref()
             .or(self.doctor.as_deref())
             .or(self.tool.as_deref())
+    }
+
+    /// The full node path this invocation asks to open — the tool name
+    /// followed by [`Self::subcommand`] — or `None` when no subcommand was
+    /// given (`mandible git`, which opens at the root like it always has).
+    pub fn requested_path(&self) -> Option<Vec<String>> {
+        if self.subcommand.is_empty() {
+            return None;
+        }
+        let tool = self.tool.as_deref()?;
+        let mut path = vec![tool.to_string()];
+        path.extend(self.subcommand.iter().cloned());
+        Some(path)
+    }
+
+    /// The refusal for the one combination no mode can honour: extra words
+    /// alongside a whole-tool diagnostic.
+    ///
+    /// A subcommand path addresses one node of one tool's tree, which is a
+    /// thing only the TUI has. `--doctor`/`--report` take their tool as the
+    /// flag's own value, so **every** positional beside them is extra — with
+    /// `--doctor cargo clippy`, clap binds `clippy` to the tool positional
+    /// and the diagnostic still describes `cargo`.
+    ///
+    /// Said plainly rather than dropped. Before a path was accepted at all
+    /// this combination was a parse error, and silently ignoring it now
+    /// would print a report about `cargo` to a reader who believes they
+    /// asked about `cargo clippy` — trading a clear refusal for a confidently
+    /// mislabelled answer.
+    pub fn subcommand_path_conflict(&self) -> Option<String> {
+        if self.doctor.is_none() && self.report.is_none() {
+            return None;
+        }
+        let stray: Vec<&str> = self
+            .tool
+            .as_deref()
+            .into_iter()
+            .chain(self.subcommand.iter().map(String::as_str))
+            .collect();
+        if stray.is_empty() {
+            return None;
+        }
+        let words = stray.join(" ");
+        let tool = self.target_tool().unwrap_or_default();
+        Some(format!(
+            "--doctor and --report take a tool name only; drop {words:?} or run \
+             `mandible {tool} {words}` for the interactive tree"
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> Cli {
+        Cli::try_parse_from(std::iter::once("mandible").chain(args.iter().copied()))
+            .expect("should parse")
+    }
+
+    /// Issue #70: `cargo clippy` is a real command that `cargo --help` never
+    /// lists, and mandible used to refuse the words outright with
+    /// "unexpected argument 'clippy' found".
+    #[test]
+    fn a_subcommand_path_parses_into_tool_and_words() {
+        let cli = parse(&["cargo", "clippy"]);
+        assert_eq!(cli.tool.as_deref(), Some("cargo"));
+        assert_eq!(cli.subcommand, vec!["clippy".to_string()]);
+        assert_eq!(
+            cli.requested_path(),
+            Some(vec!["cargo".to_string(), "clippy".to_string()])
+        );
+    }
+
+    #[test]
+    fn several_words_nest_in_order() {
+        let cli = parse(&["git", "remote", "add"]);
+        assert_eq!(
+            cli.requested_path(),
+            Some(vec![
+                "git".to_string(),
+                "remote".to_string(),
+                "add".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn a_bare_tool_requests_no_path() {
+        assert!(parse(&["git"]).requested_path().is_none());
+    }
+
+    /// A path alongside a whole-tool diagnostic is refused, never dropped:
+    /// silently ignoring it reports on `cargo` while the reader believes
+    /// they asked about `cargo clippy`. This was a parse error before a path
+    /// was accepted at all, and must not become a mislabelled answer.
+    #[test]
+    fn a_path_alongside_a_whole_tool_diagnostic_is_refused() {
+        let refusal = parse(&["--doctor", "cargo", "clippy"])
+            .subcommand_path_conflict()
+            .expect("must refuse rather than drop the words");
+        assert!(refusal.contains("clippy"), "{refusal}");
+        assert!(parse(&["--report", "cargo", "clippy"])
+            .subcommand_path_conflict()
+            .is_some());
+        // One stray word is as wrong as two: `--doctor cargo clippy` binds
+        // `clippy` to the tool positional, and the report is still `cargo`'s.
+        assert!(parse(&["--doctor", "cargo", "clippy"])
+            .subcommand
+            .is_empty());
+    }
+
+    #[test]
+    fn the_ordinary_forms_conflict_with_nothing() {
+        assert!(parse(&["cargo", "clippy"])
+            .subcommand_path_conflict()
+            .is_none());
+        assert!(parse(&["--doctor", "cargo"])
+            .subcommand_path_conflict()
+            .is_none());
     }
 }

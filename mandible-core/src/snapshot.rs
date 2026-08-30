@@ -351,6 +351,13 @@ pub struct NodeSnapshot {
     /// See [`crate::CommandNode::invocation_attested`].
     #[serde(skip_serializing_if = "is_false")]
     pub invocation_attested: bool,
+    /// The binary this node was discovered as under the `<parent>-<sub>`
+    /// PATH convention (spec §5.4), when it was. Omitted for every node an
+    /// extraction tier produced — which is every node a fixture replays,
+    /// since discovery reads the running machine's `PATH` and therefore
+    /// never happens under the corpus runner.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discovered_binary: Option<String>,
     /// The tool's raw `--help` output, one line per entry, set only when no
     /// parse produced anything structurally plausible.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -423,6 +430,7 @@ impl From<&CommandNode> for NodeSnapshot {
             children_filled: n.children_filled,
             heading_attested: n.heading_attested,
             invocation_attested: n.invocation_attested,
+            discovered_binary: n.discovered_binary.clone(),
             unparsed: n.unparsed.iter().map(|t| t.as_str().to_string()).collect(),
             // The order-preservation this whole module exists to protect:
             // straight `iter().map().collect()` over `n.subcommands`, no

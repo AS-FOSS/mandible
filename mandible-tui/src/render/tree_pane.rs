@@ -43,6 +43,14 @@ use ratatui::Frame;
 /// every summary in the pane off past the edge.
 const SUMMARY_COLUMN_CAP_PERCENT: usize = 40;
 
+/// What a convention-discovered row says about itself (spec §5.4, §9.2).
+///
+/// A word rather than a glyph, and an ASCII one: a symbol here would have
+/// to be learned, and this is the row's own claim about whether the command
+/// exists — the one thing on the row that must survive a terminal with no
+/// colour, no Unicode and no legend (spec §9.2's "what may be drawn").
+const UNVERIFIED_BADGE: &str = "unverified";
+
 /// Render the tree pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
     let focused = app.focus == Focus::Tree;
@@ -209,34 +217,54 @@ fn build_row_line(
         return Line::from(spans);
     }
 
-    if !hide_summary && name_part_width < width {
-        // A row's summary never changes because of a search. Swapping it
-        // for a "why this matched" hint made the pane's content shift under
-        // the user mid-keystroke, which is a worse problem than the one it
-        // solved — the filter itself is now precise enough not to need
-        // explaining.
-        if let Some(summary) = &row.summary {
-            let clean_summary = defensive_single_line(summary);
-            if !clean_summary.is_empty() {
-                // Align to the shared column when the name is short
-                // enough to leave room for it; otherwise the summary
-                // simply starts right after the name (still never
-                // truncating the name to force alignment).
-                // At least one space, always. When a name is longer than
-                // the shared column, `pad_to` used to collapse to exactly
-                // the name's width and the summary began in the very next
-                // cell: `dselect-upgradeFollow dselect…` in `apt-get`,
-                // which reads as one mangled word rather than a name and
-                // its description.
-                let pad_to = summary_column.max(name_part_width + 1);
-                let remaining = width.saturating_sub(pad_to);
-                if remaining > 0 {
-                    let padding = " ".repeat(pad_to - name_part_width);
-                    let truncated_summary =
-                        truncate_to_width_marker(&clean_summary, remaining, glyphs.ellipsis);
-                    spans.push(Span::raw(padding));
-                    spans.push(Span::styled(truncated_summary, style::muted(color_enabled)));
-                    return Line::from(spans);
+    // A row's summary never changes because of a search. Swapping it for a
+    // "why this matched" hint made the pane's content shift under the user
+    // mid-keystroke, which is a worse problem than the one it solved — the
+    // filter itself is now precise enough not to need explaining.
+    let summary = if hide_summary {
+        None
+    } else {
+        row.summary
+            .as_ref()
+            .map(|s| defensive_single_line(s))
+            .filter(|s| !s.is_empty())
+    };
+    // The unverified marker is *not* dropped with the summaries at narrow
+    // widths (spec §9.1's width ladder): a summary is a convenience, and
+    // this says whether the command on the row is one the tool documents at
+    // all (spec §5.4, §9.2). It takes the column first, and the summary
+    // gets what is left.
+    if (row.unverified || summary.is_some()) && name_part_width < width {
+        // Align to the shared column when the name is short enough to leave
+        // room for it; otherwise the summary simply starts right after the
+        // name (still never truncating the name to force alignment). At
+        // least one space, always. When a name is longer than the shared
+        // column, `pad_to` used to collapse to exactly the name's width and
+        // the summary began in the very next cell:
+        // `dselect-upgradeFollow dselect…` in `apt-get`, which reads as one
+        // mangled word rather than a name and its description.
+        let pad_to = summary_column.max(name_part_width + 1);
+        let mut remaining = width.saturating_sub(pad_to);
+        if remaining > 0 {
+            spans.push(Span::raw(" ".repeat(pad_to - name_part_width)));
+            if row.unverified {
+                let badge = truncate_to_width_marker(UNVERIFIED_BADGE, remaining, glyphs.ellipsis);
+                remaining = remaining.saturating_sub(display_width(&badge));
+                spans.push(Span::styled(badge, style::warning(color_enabled)));
+            }
+            if let Some(summary) = summary {
+                let separator = if row.unverified {
+                    format!(" {} ", glyphs.dot)
+                } else {
+                    String::new()
+                };
+                // The separator only earns its cells when something legible
+                // follows it.
+                if remaining > display_width(&separator) {
+                    remaining = remaining.saturating_sub(display_width(&separator));
+                    let truncated = truncate_to_width_marker(&summary, remaining, glyphs.ellipsis);
+                    spans.push(Span::styled(separator, style::muted(color_enabled)));
+                    spans.push(Span::styled(truncated, style::muted(color_enabled)));
                 }
             }
         }
@@ -298,6 +326,7 @@ mod tests {
             children_filled: true,
             hidden: false,
             pending: false,
+            unverified: false,
         }
     }
 
@@ -329,6 +358,83 @@ mod tests {
         let line = build_row_line(&r, 40, false, false, 10, true, None, crate::glyphs::UNICODE);
         let text = rendered(&line);
         assert!(display_width(&text) <= 40);
+    }
+
+    /// Spec §5.4/§9.2: a node the parent's own help never listed says so on
+    /// its row, in the warning shade — the one sanctioned non-accent colour.
+    #[test]
+    fn an_unverified_row_carries_the_badge() {
+        let mut r = row(1, "clippy", None, false);
+        r.unverified = true;
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        assert!(rendered(&line).contains("unverified"), "{line:?}");
+        let badge = line
+            .spans
+            .iter()
+            .find(|s| s.content.contains("unverified"))
+            .expect("badge span");
+        assert_eq!(badge.style, style::warning(true));
+    }
+
+    #[test]
+    fn an_ordinary_row_carries_no_badge() {
+        let r = row(1, "clean", Some("Remove the target directory"), false);
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        assert!(!rendered(&line).contains("unverified"), "{line:?}");
+    }
+
+    /// The badge takes the column first and the summary follows it, so a
+    /// discovered node that *does* have a summary shows both.
+    #[test]
+    fn a_badged_row_still_shows_its_summary_behind_a_separator() {
+        let mut r = row(1, "clippy", Some("Checks a package"), false);
+        r.unverified = true;
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let text = rendered(&line);
+        assert!(text.contains("unverified · Checks a package"), "{text:?}");
+    }
+
+    /// Spec §9.1's width ladder drops summaries on a narrow pane. The badge
+    /// is not a summary: it says whether the command exists at all.
+    #[test]
+    fn the_badge_survives_the_narrow_width_ladder() {
+        let mut r = row(1, "clippy", Some("Checks a package"), false);
+        r.unverified = true;
+        let line = build_row_line(&r, 40, true, false, 12, true, None, crate::glyphs::UNICODE);
+        let text = rendered(&line);
+        assert!(text.contains("unverified"), "{text:?}");
+        assert!(!text.contains("Checks a package"), "{text:?}");
+    }
+
+    #[test]
+    fn a_badged_row_still_respects_the_width_budget() {
+        // From the width at which the row's fixed prefix (indent, chevron,
+        // space) fits at all — narrower than that, no row of any kind fits,
+        // badge or no badge.
+        for width in prefix_width(2)..40 {
+            let mut r = row(
+                2,
+                "generate-rpm",
+                Some("a summary long enough to spill"),
+                false,
+            );
+            r.unverified = true;
+            let line = build_row_line(
+                &r,
+                width,
+                false,
+                false,
+                10,
+                true,
+                None,
+                crate::glyphs::UNICODE,
+            );
+            assert!(
+                display_width(&rendered(&line)) <= width,
+                "overflowed at width {width}: {:?}",
+                rendered(&line)
+            );
+        }
     }
 
     #[test]

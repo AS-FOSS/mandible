@@ -284,6 +284,16 @@ pub struct App {
     /// (`mandible/src/app_runner.rs`'s `run_review`) attaches it right
     /// after building the app for each sampled tool.
     pub review: Option<crate::app_review::ReviewOverlay>,
+    /// A subcommand path the command line asked to open — `mandible cargo
+    /// clippy` sets `["cargo", "clippy"]` (spec §5.4). Cleared by
+    /// [`App::settle_requested_path`] as soon as it lands on the node, or
+    /// as soon as the tree is complete enough to say the node does not
+    /// exist. `None` for a plain `mandible <tool>`.
+    ///
+    /// It cannot simply be selected at startup: the tree is empty until the
+    /// background root fill arrives (spec §5.2 step 1), so this is an intent
+    /// held across frames rather than an action taken on one.
+    pub requested_path: Option<Vec<String>>,
 }
 
 /// One view's scroll position in the detail pane: a line offset and a
@@ -397,6 +407,7 @@ impl App {
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
             review: None,
+            requested_path: None,
         };
         app.ensure_rows_fresh();
         app
@@ -752,6 +763,64 @@ impl App {
         // collapses a whole arrival batch into one rebuild.
         self.search_index_stale = true;
         self.mark_dirty();
+    }
+
+    /// Try to land on [`Self::requested_path`] — the subcommand path the
+    /// command line named (`mandible cargo clippy`, spec §5.4).
+    ///
+    /// Called after every batch of background fills, because the tree the
+    /// path addresses does not exist yet when the app is built: the node
+    /// arrives some frames later, and until it does there is nothing to
+    /// select and nothing to complain about either.
+    ///
+    /// Landing means exactly what browsing there by hand means — the
+    /// ancestors are opened and the node is selected, nothing is expanded
+    /// beyond that, because expansion is user intent (spec §5.2).
+    ///
+    /// The give-up condition is deliberately narrow: the parent that would
+    /// hold the missing segment must be **known-complete and not still being
+    /// filled**, so a path that simply has not arrived yet is never reported
+    /// as absent. Reporting it in the status line rather than refusing at
+    /// the command line is what keeps `mandible <tool> <typo>` a tool that
+    /// opened with a message instead of a shell error — the tree beside it
+    /// is exactly where the real name is.
+    pub fn settle_requested_path(&mut self) {
+        let Some(target) = self.requested_path.clone() else {
+            return;
+        };
+        if resolve(&self.root, &target).is_some() {
+            for depth in 1..target.len() {
+                self.expanded.insert(target[..depth].to_vec());
+            }
+            self.mark_dirty();
+            self.ensure_rows_fresh();
+            if let Some(idx) = self.rows.iter().position(|row| row.path == target) {
+                self.selected = idx;
+                self.selected_flag = None;
+                self.reset_detail_scroll();
+                self.follow_selection();
+            }
+            self.requested_path = None;
+            return;
+        }
+
+        // The first segment that isn't in the tree; everything before it is.
+        let Some(depth) = (1..target.len()).find(|&d| resolve(&self.root, &target[..=d]).is_none())
+        else {
+            return;
+        };
+        let parent_path = target[..depth].to_vec();
+        let parent_complete =
+            resolve(&self.root, &parent_path).is_some_and(|node| node.children_filled);
+        if parent_complete && !self.pending.contains(&parent_path) {
+            let message = format!(
+                "{} has no subcommand {:?}",
+                parent_path.join(" "),
+                target[depth]
+            );
+            self.set_status(message);
+            self.requested_path = None;
+        }
     }
 
     /// `←`/`h`: collapse the selected row if it's expanded, else jump
@@ -1412,6 +1481,72 @@ mod tests {
         ));
         root.subcommands.push(rebase);
         root
+    }
+
+    fn path(segments: &[&str]) -> Vec<String> {
+        segments.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// `mandible git rebase` lands exactly where browsing there lands: the
+    /// ancestors opened, the node selected (spec §5.4).
+    #[test]
+    fn a_requested_path_selects_its_node_once_the_tree_has_it() {
+        let mut app = App::new("git".to_string(), sample_tree_known_complete());
+        app.requested_path = Some(path(&["git", "rebase", "--onto-helper"]));
+
+        app.settle_requested_path();
+
+        assert_eq!(app.selected_node().unwrap().name, "--onto-helper");
+        assert!(
+            app.requested_path.is_none(),
+            "a landed path must not be re-applied on every later fill"
+        );
+    }
+
+    /// The tree is empty until the background root fill arrives (spec §5.2
+    /// step 1), and a path that has not arrived yet is not a path that is
+    /// missing — nothing may be reported until the parent that would hold it
+    /// is known-complete.
+    #[test]
+    fn a_requested_path_waits_instead_of_reporting_a_node_that_has_not_arrived() {
+        let stub = CommandNode::new("git", Provenance::default());
+        let mut app = App::new("git".to_string(), stub);
+        app.requested_path = Some(path(&["git", "rebase"]));
+
+        app.settle_requested_path();
+
+        assert!(app.status_message.is_none(), "{:?}", app.status_message);
+        assert!(
+            app.requested_path.is_some(),
+            "the intent must survive until the tree can answer"
+        );
+    }
+
+    /// And once it can answer, it says so rather than sitting on a
+    /// selection the user never asked for.
+    #[test]
+    fn a_requested_path_that_the_finished_tree_lacks_is_reported() {
+        let mut app = App::new("git".to_string(), sample_tree_known_complete());
+        app.requested_path = Some(path(&["git", "nosuchthing"]));
+
+        app.settle_requested_path();
+
+        let message = app.status_message.clone().expect("should have reported");
+        assert!(message.contains("nosuchthing"), "{message}");
+        assert!(app.requested_path.is_none());
+    }
+
+    /// A fill still in flight for the parent is not an answer either.
+    #[test]
+    fn a_requested_path_waits_while_its_parent_is_still_filling() {
+        let mut app = App::new("git".to_string(), sample_tree_known_complete());
+        app.requested_path = Some(path(&["git", "nosuchthing"]));
+        app.mark_pending(path(&["git"]));
+
+        app.settle_requested_path();
+
+        assert!(app.status_message.is_none(), "{:?}", app.status_message);
+        assert!(app.requested_path.is_some());
     }
 
     #[test]

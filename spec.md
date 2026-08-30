@@ -651,6 +651,84 @@ pane), and saves a verdict to the manifest immediately after every
 confirmation, never batched, so a killed session resumes at the next pending
 entry with everything answered so far intact.
 
+### 5.4 Subcommand paths, and children the parent never documented
+
+**`mandible <tool> <sub> [<sub>...]`** opens the tool at that node — the same
+place browsing there lands: the ancestors are expanded, the node is selected,
+and nothing else is expanded, because expansion is user intent (§5.2). The
+path is an *intent held across frames*, not an action taken at startup: the
+tree is a bare stub until the background root fill arrives, so the node is
+selected in whichever frame it first exists. A path the tree turns out not to
+have is reported in the status line — once the parent that would hold it is
+known-complete and not still filling, never before — rather than refused at
+the command line, because the tree beside the message is where the real name
+is. `--doctor` and `--report` describe a whole tool and take a tool name
+alone; extra words there are refused rather than dropped.
+
+**A `<parent>-<sub>` executable on `PATH` is a child discovered by
+convention.** `cargo --help` never lists `clippy`; `cargo-clippy` sits on
+`PATH`, and `cargo clippy` works because cargo dispatches to it. git does the
+same for `git-lfs`, and the rule is keyed on the naming convention alone —
+never on a tool's name (§1).
+
+- **The parent's own documentation wins.** A sibling whose name the tool
+  already documents (as a command or an alias) is dropped: the attested node
+  already reaches the same command, and a guess must not overwrite what the
+  tool said. The rest are appended after the documented children.
+- **A parent that documents no command at all gets none of these.**
+  Dispatching on a first argument is a thing a tool says it does by listing
+  at least one command of its own; where there is no such list, a
+  `<parent>-<sub>` file is far more likely a sibling *tool* sharing a name
+  prefix. `dpkg --help` lists no commands — its operations are flags — and
+  the 27 `dpkg-*` programs beside it (`dpkg-deb`, `dpkg-architecture`,
+  `dpkg-buildpackage`) are separate tools that `dpkg deb` does not reach;
+  without this rule `mandible dpkg` opened on 27 rows of guesses and nothing
+  else. It is keyed on what the parent's own text said, never on its name
+  (§1), and cannot suppress the case this section exists for: `cargo --help`
+  and `git --help` both document plenty. It does not make the convention
+  reliable where a list exists — `apt --help` lists commands, so `apt-get`
+  and `apt-cache` are shown, marked, and are not `apt get` — which is what
+  the marker below is for.
+- **Root level only.** The convention is a tool dispatching on its *first*
+  argument. Nothing dispatches `cargo clippy fix` to `cargo-clippy-fix`, so
+  nothing looks for one; a discovered node's own children come from its
+  binary's help in the ordinary way.
+- **Name-shape checked, first `PATH` entry wins, alphabetical, capped.** The
+  same "is this a command name" rule every tier applies to a bare word (§7
+  Tier B rule 3) keeps a versioned or capitalized helper out; a shadowed
+  sibling is reported once, under the binary that would actually run;
+  alphabetical because there is no document order to preserve and `readdir`
+  order differs between filesystems; capped at 64 per parent, so a `libexec`
+  directory on `PATH` cannot hand the warmer hundreds of extra probes.
+- **It is tree assembly, not an extraction tier.** Discovery reads the
+  running machine's `PATH`. A tier that did it would make every corpus
+  fixture (§13.2 — frozen bytes, zero subprocesses, a synthetic replay path)
+  depend on what happens to be installed beside the tool, and would put a
+  machine-local fact into `--doctor`'s account of what the *tool* said.
+
+**Probing follows the binary, not the guess.** A discovered node's probe
+target is its own binary with the path rebased onto it: `["cargo", "clippy"]`
+is probed as `cargo-clippy` at `["clippy"]` — a root `--help`, byte for byte
+what `mandible cargo-clippy` already runs — and `["cargo", "clippy", "fix"]`
+as `cargo-clippy` at `["clippy", "fix"]`. The expand path and the raw view
+(`t`) use the same redirect, so the pane shows the document the tree was
+built from and names the argv that produced it. `CommandNode::
+discovered_binary` carries this on the node (`None` for everything a tier
+produces); merge keeps any contributor that has one — a merge can only add
+evidence, and the tier candidate a fill merges against is silent about this
+rather than in competition with it — and the snapshot format omits it when
+absent, so no fixture moves.
+
+**The node is marked unverified, and stays marked.** A filename is evidence
+about the filesystem and a guess about the tool: cargo really does dispatch
+`cargo clippy`, and nothing dispatches `dpkg query` to `dpkg-query`. So the
+tree row carries an `unverified` marker and the detail pane names the binary
+the guess came from, ahead of every other caveat — how well that binary's own
+help parsed says nothing about whether the parent dispatches to it (§9.2).
+Showing the row is right, because the command is usually real and is
+otherwise unreachable from the tool the user opened; showing it unmarked
+would be the same move as inventing structure.
+
 ---
 
 ## 6. Execution safety policy
@@ -1176,6 +1254,20 @@ damage a user's machine, and it gets its own section and its own tests.
    **Residual:** a tool wraps its own help text at the `COLUMNS` we set, so a
    path split across two lines cannot be matched. The scratch prefix is kept
    short to make that rarer; it does not eliminate it.
+
+**A convention-discovered node adds no argv shape, and no exemption.** §5.4's
+`<parent>-<sub>` children are named by a file on `PATH`, not by anything the
+parent's help attested — exactly the kind of word rule 0's closing paragraph
+keeps out of argv — and no such word ever enters one. The node is probed as
+its *own binary's root* `--help`, which is not a subcommand word at all and
+so needs no attestation, precisely as the root the user typed does not. Every
+gate then applies to that binary on its own terms: rule 0 matches the file
+name it was discovered under (a `pkill`-named sibling is refused every shape
+but `--help`, like any other `pkill`), rule 8's scratch redirect and rule 4's
+reap are the same probe machinery, and a *deeper* word under such a node is
+attested by that binary's own help in the ordinary way. Discovery itself
+spawns nothing: it is a `readdir`, in the same filesystem-only module that
+already resolves a tool name.
 
 A test asserts rules 1, 2, and 3 by running the full pipeline against a shim
 binary that logs its argv and environment, and failing on any invocation outside
@@ -2107,6 +2199,11 @@ full text on selection; a tree summary only has to disambiguate `push` from
   summaries, never without names.
 - Width ladder: full layout above 60 columns; **names only** below it (drop
   summaries rather than showing eight useless characters); stacked panes below 50.
+- **An `unverified` marker (§5.4) takes the summary's column ahead of the
+  summary**, and the width ladder does not drop it: a summary is a
+  convenience, and this is the row's claim about whether the command exists
+  at all. A plain word rather than a glyph, so it survives a terminal with no
+  colour and no Unicode (§9.2).
 
 ### 9.1a Flag rows: one table, one column
 
@@ -2163,7 +2260,7 @@ One accent, spent only on information. Everything else is neutral.
 | Deprecated | Muted + a `(deprecated)` tag |
 | Search match characters | Underline, within the name only |
 | Provenance footer | Muted |
-| Low confidence | Warning color — the **one** sanctioned exception to single-accent |
+| Low confidence, and an `unverified` node (§5.4) | Warning color — the **one** sanctioned exception to single-accent |
 
 Four implementation rules that matter more than the palette:
 

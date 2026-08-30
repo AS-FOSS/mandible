@@ -40,6 +40,12 @@ pub struct TreeRow {
     /// row instead of a static chevron (spec §9 "designed degraded
     /// states").
     pub pending: bool,
+    /// True when this node was found by the `<parent>-<sub>` PATH
+    /// convention rather than documented by its parent's own help text
+    /// (spec §5.4) — [`mandible_core::CommandNode::discovered_binary`]. The
+    /// row says so (spec §9.2): the command is a guess made from a
+    /// filename, and every other row on screen is not.
+    pub unverified: bool,
 }
 
 /// Flatten `root` into visible rows.
@@ -98,6 +104,7 @@ fn make_row(
         children_filled: node.children_filled,
         hidden: node.hidden,
         pending,
+        unverified: node.discovered_binary.is_some(),
     }
 }
 

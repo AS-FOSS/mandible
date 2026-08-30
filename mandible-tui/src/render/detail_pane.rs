@@ -1916,6 +1916,19 @@ const LOW_CONFIDENCE: f32 = 0.5;
 /// present, and it is the same reasoning that moved the framework out of
 /// here: repeated identical metadata is noise, not provenance.
 pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
+    // Spec §5.4: this node's name came off a filename on `PATH`, not out of
+    // the parent's own help text, so the strongest caveat available about
+    // it is that the command may not exist at all. Checked before
+    // everything below, including the verbatim exemption: how well the
+    // binary's own help parsed says nothing about whether the parent
+    // dispatches to it, and naming the binary is what lets the reader
+    // settle that themselves.
+    if let Some(binary) = &node.discovered_binary {
+        return Some(format!(
+            "unverified: not in the parent's help; found on PATH as `{binary}`"
+        ));
+    }
+
     // A node rendered verbatim is not a bad parse — it is the designed
     // honest fallback (spec §7 Tier B step 3), it carries confidence 0.0
     // by construction, and the pane already says so in its own words. Every
@@ -2532,6 +2545,34 @@ mod tests {
             true,
         ));
         assert_eq!(provenance_caveat(&node, crate::glyphs::UNICODE), None);
+    }
+
+    /// Spec §5.4: a node discovered by the `<parent>-<sub>` PATH convention
+    /// names the binary it was found as, so the reader can settle for
+    /// themselves whether the parent really dispatches to it.
+    #[test]
+    fn a_convention_discovered_node_says_it_is_unverified() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.97);
+        node.discovered_binary = Some("cargo-clippy".to_string());
+        let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
+            .expect("a convention-discovered node must say so");
+        assert!(caveat.contains("unverified"), "{caveat:?}");
+        assert!(caveat.contains("cargo-clippy"), "{caveat:?}");
+    }
+
+    /// How well the *binary's own* help parsed says nothing about whether
+    /// the parent dispatches to it, so the two caveats are not alternatives
+    /// and the unverified one is the load-bearing half.
+    #[test]
+    fn an_unverified_node_says_so_even_when_it_degraded_to_verbatim() {
+        let mut node = node_with_flags();
+        node.provenance = Provenance::with_confidence(Source::HelpText, 0.0);
+        node.unparsed = vec![Text::sanitize("CARGO-CLIPPY(1)")];
+        node.discovered_binary = Some("cargo-clippy".to_string());
+        let caveat = provenance_caveat(&node, crate::glyphs::UNICODE)
+            .expect("verbatim must not swallow the unverified caveat");
+        assert!(caveat.contains("unverified"), "{caveat:?}");
     }
 
     /// A barely-parsed node says so. `find` scores 0.11 and `ip` 0.09 in

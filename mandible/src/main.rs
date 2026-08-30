@@ -7,6 +7,7 @@ mod about;
 mod app_runner;
 mod background;
 mod cli;
+mod discovery;
 mod doctor;
 mod pipeline;
 mod report;
@@ -46,6 +47,10 @@ fn main() -> anyhow::Result<()> {
         );
     };
     let tool = tool.to_string();
+
+    if let Some(refusal) = cli.subcommand_path_conflict() {
+        anyhow::bail!(refusal);
+    }
 
     // `mandible mandible` shows the about screen rather than extracting
     // the binary's own `--help`. Self-introspection is still available
@@ -119,7 +124,11 @@ fn main() -> anyhow::Result<()> {
         );
     }
     let stub = mandible_core::CommandNode::new(tool.clone(), mandible_core::Provenance::default());
-    let app = app_runner::new_app(tool, stub);
+    let mut app = app_runner::new_app(tool, stub);
+    // Held as an intent rather than acted on: the tree is a bare stub until
+    // the background root fill lands, so there is nothing to select yet
+    // (spec §5.2 step 1, §5.4).
+    app.requested_path = cli.requested_path();
 
     app_runner::run(app)
 }

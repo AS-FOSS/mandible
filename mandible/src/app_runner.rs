@@ -227,6 +227,12 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit
     let runner = Arc::new(Runner::new(default_tiers()));
     let resolved = resolve_tool(&app.tool);
     let warmer = Warmer::new();
+    // One `PATH` scan for the session (spec §5.4). Done here rather than
+    // inside the extraction pipeline because it reads the running machine's
+    // filesystem: a tier that did it would make every corpus fixture depend
+    // on what happens to be installed beside the tool — see
+    // `crate::discovery`'s module doc.
+    let siblings = mandible_extract::discover_path_siblings(&resolved.name);
 
     // Queue the root itself before the first frame. `main` hands us a stub
     // root carrying only the tool's name, so this is the fill that
@@ -239,17 +245,32 @@ fn run_loop(term: &mut terminal::Term, app: &mut App) -> anyhow::Result<LoopExit
         // Splice in any background fills that completed since the last
         // iteration before rendering, so the tree reflects them promptly.
         for warmed in warmer.drain() {
-            let node = warmed.result.node.clone();
+            let mut node = warmed.result.node;
+            // The root's children are the tool's own documented commands
+            // plus whatever the `<tool>-<sub>` convention finds on PATH
+            // (spec §5.4). Attached at the root only, because that is where
+            // the convention lives: cargo dispatches `cargo clippy` to
+            // `cargo-clippy`, and nothing dispatches `cargo clippy fix` to
+            // `cargo-clippy-fix`.
+            if warmed.path.len() == 1 {
+                crate::discovery::attach_path_siblings(&mut node, &siblings);
+            }
+            // Spliced before the cascade, not after: `warm_children` resolves
+            // each child's probe target against the tree, so the node it is
+            // about has to be in the tree first.
+            app.splice_filled_node(&warmed.path, node);
             // Cascade unconditionally: every fill queues the children it
             // just discovered, so the background walk reaches the whole
             // tree instead of stopping one level past whatever the user
             // expanded. Marking them pending is what makes them render as
             // loading rows rather than as silently empty ones.
-            let queued = warmer.warm_children(&runner, &resolved, &node, &warmed.path);
-            app.splice_filled_node(&warmed.path, node);
+            let queued = warmer.warm_children(&runner, &resolved, &app.root, &warmed.path);
             for path in queued {
                 app.mark_pending(path);
             }
+            // The node `mandible <tool> <sub>` asked for may have just
+            // arrived — or may now be known not to exist (spec §5.4).
+            app.settle_requested_path();
         }
 
         // Let a transient status message ("copied: …") time out. This loop
@@ -402,8 +423,12 @@ fn apply_effect(
         }
         Effect::Fill(path) => {
             if let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() {
+                // Same redirect the background cascade applies (spec §5.4):
+                // an expand on a convention-discovered node probes that
+                // node's own binary, never the parent with a guessed word.
+                let (tool, probe_path) = crate::discovery::probe_target(&app.root, resolved, &path);
                 app.mark_pending(path.clone());
-                warmer.submit(Arc::clone(runner), resolved.clone(), path, existing);
+                warmer.submit(Arc::clone(runner), tool, probe_path, path, existing);
             }
         }
         // Run on the UI thread rather than through the warm pool. This is
@@ -426,10 +451,23 @@ fn apply_effect(
                 heading_attested: mandible_core::resolve(&app.root, &path)
                     .is_some_and(|n| n.heading_attested),
             };
-            let result = match mandible_extract::help_text::raw_help(resolved, &path, hints) {
+            // Through the same redirect the parse itself went through
+            // (spec §5.4), for exactly the reason above: under a
+            // convention-discovered node the tree was built from
+            // `cargo-clippy --help`, so that is the document `t` has to
+            // show — and the argv line it prints names the binary that was
+            // really run, not an invocation nobody made.
+            let (raw_tool, raw_path) = crate::discovery::probe_target(&app.root, resolved, &path);
+            let result = match mandible_extract::help_text::raw_help(&raw_tool, &raw_path, hints) {
                 // Render the argv exactly as a human would type it, so
                 // the pane can name its own source rather than assume one.
-                Ok((lines, flag)) => RawHelp::Ready(lines, format!("{} {flag}", path.join(" "))),
+                Ok((lines, flag)) => {
+                    let argv = std::iter::once(raw_tool.name.clone())
+                        .chain(raw_path.iter().skip(1).cloned())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    RawHelp::Ready(lines, format!("{argv} {flag}"))
+                }
                 // Shown in the pane, not swallowed: "refused: kill is
                 // never probed" is a useful answer to `t`, and a blank
                 // pane is not.
@@ -458,6 +496,7 @@ fn submit_root_fill(
     warmer.submit(
         Arc::clone(runner),
         resolved.clone(),
+        root_path.clone(),
         root_path,
         app.root.clone(),
     );
