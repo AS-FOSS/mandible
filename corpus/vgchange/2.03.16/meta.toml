@@ -53,15 +53,27 @@
 #   `MIN_PROSE_SENTENCE_WORDS` (5) words. `vgchange`'s own stanza-4
 #   description, "Activate or deactivate LVs." (4 words), fails that
 #   floor, so the lookahead never reaches the `vgchange -a|--activate
-#   y|n|ay` head beneath it and the *entire* usage block ends there —
+#   y|n|ay` head beneath it and the *entire* usage block ends there.
 #   `-a`/`--activate` and every stanza after it (`--refresh`,
-#   `--systemid`, `--lockstart`, `--lockstop`, `--locktype`) are absent
-#   from `usage` and from the flag list (their own `[...]` bracket rows
-#   still surface separately, via the generic headingless-block scanner,
-#   with the stanza's own head line as a `group` label rather than a real
-#   flag — visible below as `group: 'vgchange -a|--activate y|n|ay'` with
-#   no accompanying `-a`/`--activate` flag entry). Not claimed by
-#   `must_contain_flags`.
+#   `--systemid`, `--lockstart`, `--lockstop`, `--locktype`) therefore
+#   reach the generic section scanner instead, which reads each stanza's
+#   head line as the heading governing that stanza's `[...]` bracket
+#   rows. That is still the path they take here, and it is what makes
+#   this fixture the specimen for the stanza-label rule below.
+#
+# fix/11-stanza-label-description gives those six stanzas the label the
+# tool actually wrote for them: a stanza whose head line is immediately
+# preceded by a lone description sentence takes that sentence as its
+# `group` (`sections::stanza_description_above`), so the pane's dividers
+# read "Activate or deactivate LVs" and "Start the lockspace of a shared
+# VG in lvmlockd" rather than repeating the spelling already printed on
+# the row beneath them, and the sentence — previously consumed by nothing
+# and dropped — is in the tree at all. The head line is not lost to the
+# swap: it is a usage form, so each of the six now appears in `usage`
+# beside the three the usage block itself reached. `-l`/`--logicalvolume`
+# and the rest of the paren group keep their `help-text-synopsis`
+# provenance and no group, unchanged — they are the first stanza's, which
+# the usage block did read.
 
 [bless]
 provenance = "agent"

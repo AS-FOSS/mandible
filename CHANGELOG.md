@@ -18,6 +18,8 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- A tool that documents each invocation form as a stanza — LVM's `vgchange`, `lvchange` and the rest of the family — now labels each stanza's flags with the description the tool wrote above it, so the dividers read `Activate or deactivate LVs` and `Start the lockspace of a shared VG in lvmlockd` instead of repeating the `Vgchange --lockstart` spelling already printed on the row beneath, and the stanza's head line is kept as a USAGE form rather than lost with the label it used to be; a stanza with no description above it keeps its head line as the label exactly as before (issue #11).
+
 - Quitting while moving the mouse no longer leaves fragments of mouse reports (`35;35;6M…`) on the shell prompt: the terminal processes the disable-mouse-capture sequence asynchronously, so reports could still arrive after the single zero-timeout drain had found an empty queue and given up, and the drain now waits up to 25ms per poll for one more report, ending at the first empty poll and capped at 250ms in total so exit can never turn into a wait.
 
 - `mandible` with no arguments now prints the program's real help — clap's own generated usage, arguments and every flag — instead of a single `Error: usage: mandible <tool> (or: …)` line that named three modes and no flags; it goes to stderr and still exits non-zero, because nothing was asked for, while `-h`/`--help` keep printing to stdout and exiting zero.

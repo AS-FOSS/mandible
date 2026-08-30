@@ -1,0 +1,44 @@
+  vgcfgrestore - Restore volume group configuration
+
+  Restore VG metadata from last backup.
+  vgcfgrestore VG
+	[ COMMON_OPTIONS ]
+
+  Restore VG metadata from specified file.
+  vgcfgrestore -f|--file String VG
+	[ COMMON_OPTIONS ]
+
+  List all VG metadata backups.
+  vgcfgrestore -l|--list VG
+	[ COMMON_OPTIONS ]
+
+  List one VG metadata backup file.
+  vgcfgrestore -l|--list -f|--file String
+	[ COMMON_OPTIONS ]
+	[ VG ]
+
+  Common options for command:
+	[ -M|--metadatatype lvm2 ]
+	[    --force ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.

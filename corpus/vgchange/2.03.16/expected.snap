@@ -3,6 +3,12 @@ usage:
 - vgchange ( -l|--logicalvolume Number, -p|--maxphysicalvolumes Number, -u|--uuid, -s|--physicalextentsize Size[m|UNIT], -x|--resizeable y|n, --addtag Tag, --deltag Tag, --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit, --pvmetadatacopies 0|1|2, --vgmetadatacopies all|unmanaged|Number, --profile String, --detachprofile, --metadataprofile String, --setautoactivation y|n ) [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [    --poll y|n ] [    --ignoremonitoring ] [    --noudevsync ] [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
 - vgchange --monitor y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [    --sysinit ] [    --ignorelockingfailure ] [    --poll y|n ] [    --ignoremonitoring ] [    --noudevsync ] [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
 - vgchange --poll y|n [ -A|--autobackup y|n ] [ -S|--select String ] [ -f|--force ] [    --ignorelockingfailure ] [    --ignoremonitoring ] [    --noudevsync ] [    --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+- vgchange -a|--activate y|n|ay
+- vgchange --refresh
+- vgchange --systemid String VG
+- vgchange --lockstart
+- vgchange --lockstop
+- vgchange --locktype sanlock|dlm|none VG
 positionals:
 - name: COMMON_OPTIONS
   required: true
@@ -14,19 +20,19 @@ flags:
   long: activate
   value_name: y|n|ay
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - short: 'K'
   long: ignoreactivationskip
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - short: 'P'
   long: partial
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
@@ -34,7 +40,7 @@ flags:
   long: autobackup
   value_name: y|n
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
@@ -42,78 +48,78 @@ flags:
   long: select
   value_name: String
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - short: 'f'
   long: force
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: activationmode
   value_name: partial|degraded|complete
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: sysinit
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: readonly
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: ignorelockingfailure
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: monitor
   value_name: y|n
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: poll
   value_name: y|n
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: autoactivation
   value_name: String
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: ignoremonitoring
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: noudevsync
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: reportformat
   value_name: basic|json
   value_kind: Required
-  group: vgchange -a|--activate y|n|ay
+  group: Activate or deactivate LVs.
   provenance:
     sources:
     - help-text
 - long: refresh
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
@@ -121,7 +127,7 @@ flags:
   long: autobackup
   value_name: y|n
   value_kind: Required
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
@@ -129,59 +135,59 @@ flags:
   long: select
   value_name: String
   value_kind: Required
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - short: 'f'
   long: force
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: sysinit
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: ignorelockingfailure
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: poll
   value_name: y|n
   value_kind: Required
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: ignoremonitoring
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: noudevsync
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: reportformat
   value_name: basic|json
   value_kind: Required
-  group: vgchange --refresh
+  group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
     - help-text
 - long: systemid
   value_name: String
   value_kind: Required
-  group: vgchange --systemid String VG
+  group: Change the system ID of a VG.
   provenance:
     sources:
     - help-text
 - long: lockstart
-  group: vgchange --lockstart
+  group: Start the lockspace of a shared VG in lvmlockd.
   provenance:
     sources:
     - help-text
@@ -189,12 +195,12 @@ flags:
   long: select
   value_name: String
   value_kind: Required
-  group: vgchange --lockstart
+  group: Start the lockspace of a shared VG in lvmlockd.
   provenance:
     sources:
     - help-text
 - long: lockstop
-  group: vgchange --lockstop
+  group: Stop the lockspace of a shared VG in lvmlockd.
   provenance:
     sources:
     - help-text
@@ -202,14 +208,14 @@ flags:
   long: select
   value_name: String
   value_kind: Required
-  group: vgchange --lockstop
+  group: Stop the lockspace of a shared VG in lvmlockd.
   provenance:
     sources:
     - help-text
 - long: locktype
   value_name: sanlock|dlm|none
   value_kind: Required
-  group: vgchange --locktype sanlock|dlm|none VG
+  group: Change the lock type for a shared VG.
   provenance:
     sources:
     - help-text

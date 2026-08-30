@@ -1352,8 +1352,40 @@ fn parse_body(
         // `bpftrace`'s own `Options:` block. See `in_ignorable_section`'s
         // own doc comment for why this has to be section context rather
         // than a per-line check.
+        //
+        // A stanza that carries its own description sentence directly
+        // above its head line labels its group with that sentence instead
+        // of the head line ([`stanza_description_above`] has the rule and
+        // every clause's reasoning). The head line is not lost by that
+        // swap: it is a usage form, so it goes where usage forms go —
+        // `result.usage`, the verbatim synopsis section (§4.5) — which is
+        // exactly where the stanzas this document's usage block *did*
+        // reach already sit. Pushed here rather than in that block because
+        // this is the one place that knows the head line was a stanza head
+        // and that its own text is about to stop being the group label;
+        // `extract_positionals` has already run by now, so nothing is
+        // mined out of the added line.
+        //
+        // Capped, not deduplicated. `i` only ever advances, so no physical
+        // line becomes `heading` twice and one document cannot repeat
+        // itself here; two identical entries mean the tool printed the
+        // stanza twice, which the synopsis section should say. A scan of
+        // `usage` per heading would meanwhile be the quadratic shape
+        // `MAX_RECOVERED_ENTRIES` exists for (`instmodsh`'s 8 MiB of
+        // repeated banner).
+        let stanza_label = if in_ignorable_section {
+            None
+        } else {
+            stanza_description_above(&lines, heading_idx, tool_name).map(str::to_string)
+        };
+        if stanza_label.is_some() && result.usage.len() < MAX_RECOVERED_ENTRIES {
+            result.usage.push(heading.clone());
+        }
         if !in_ignorable_section {
-            if let Some(flag) = recover_stanza_head_flag(&heading, tool_name) {
+            if let Some(mut flag) = recover_stanza_head_flag(&heading, tool_name) {
+                if let Some(label) = stanza_label.clone() {
+                    flag.group = Some(label);
+                }
                 if result.flags.len() < MAX_RECOVERED_ENTRIES {
                     result.flags.push(flag);
                 }
@@ -1424,14 +1456,23 @@ fn parse_body(
             // evidence we are not (or no longer) inside an examples-shaped
             // section. See `in_ignorable_section`'s own doc comment.
             in_ignorable_section = false;
+            // A stanza's own description sentence outranks its head line
+            // as the group's label — and only there: every other block in
+            // the document still takes `meaningful_flag_group`'s answer
+            // unchanged, including one whose heading merely happens to be
+            // prose (which that predicate deliberately refuses to name a
+            // group with, since a sentence promoted to a heading by
+            // indentation alone is a defect rather than a label).
+            let group = stanza_label
+                .clone()
+                .or_else(|| meaningful_flag_group(heading));
             if packed {
                 let seen = entries.len();
-                emit_packed_flags(meaningful_flag_group(heading), entries, &mut result);
+                emit_packed_flags(group, entries, &mut result);
                 total_entries += seen;
                 clean_entries += seen;
             } else {
-                let (seen, clean) =
-                    emit_flags(meaningful_flag_group(heading), entries, &mut result);
+                let (seen, clean) = emit_flags(group, entries, &mut result);
                 total_entries += seen;
                 clean_entries += clean;
             }
