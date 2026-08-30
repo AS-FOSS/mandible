@@ -8,10 +8,6 @@ positionals:
     sources:
     - help-text
 flags:
-- long: '----'
-  provenance:
-    sources:
-    - help-text
 - short: '?'
   long: help
   description: Print this help message
@@ -128,14 +124,14 @@ flags:
     sources:
     - help-text
 - long: target-platform
-  value_name: '<String:'
+  value_name: '<String: target-platform>'
   value_kind: Required
-  description: Target platform platform>
+  description: Target platform
   provenance:
     sources:
     - help-text
 - long: version
-  description: Version information @<filename> Read options from the specified file
+  description: Version information
   provenance:
     sources:
     - help-text

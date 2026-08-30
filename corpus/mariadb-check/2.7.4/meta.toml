@@ -50,6 +50,8 @@ must_contain_flags = ["--auto-repair", "--process-tables", "-c", "-r"]
 # the 90-odd flag descriptions were not.
 verdict_scope = ["flags", "subcommands"]
 
-[xfail]
-broken = true
-reason = "the `Variables (--variable-name=value)` defaults table's header ruler is parsed as a flag, so the tree carries a phantom option whose long name is 31 `-` characters; the tool has no such option"
+# Promoted: `looks_like_flag_start`'s dash-underline guard (fix/row-grammar-
+# jmod-llvm) refuses any row whose entire would-be spelling is a 3-or-more
+# run of dashes with no name character in it, which is exactly this ruler.
+# The phantom flag documented above is gone; `must_not_contain_flags` above
+# now guards against it recurring.

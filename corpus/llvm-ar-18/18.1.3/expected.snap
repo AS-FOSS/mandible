@@ -11,7 +11,13 @@ positionals:
     - help-text
 flags:
 - long: format
-  description: '- archive format to create =default - default =gnu - gnu =darwin - darwin =bsd - bsd =bigarchive - big archive (AIX OS)'
+  choices:
+  - default
+  - gnu
+  - darwin
+  - bsd
+  - bigarchive
+  description: '- archive format to create'
   provenance:
     sources:
     - help-text
@@ -34,7 +40,10 @@ flags:
     sources:
     - help-text
 - long: rsp-quoting
-  description: '- quoting style for response files =posix - posix =windows - windows'
+  choices:
+  - posix
+  - windows
+  description: '- quoting style for response files'
   provenance:
     sources:
     - help-text
