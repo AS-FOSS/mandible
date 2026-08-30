@@ -5,9 +5,10 @@
 //!
 //! The four list sections are driven purely by
 //! [`mandible_core::EntityKind`]: one loop over [`LIST_SECTIONS`] renders
-//! all four, so a kind no parser emits yet (modifiers, environment
-//! variables) is already rendered the day one does, and no section can
-//! acquire behaviour of its own. Within a section,
+//! all four, so every kind is rendered through the same code and no
+//! section can acquire behaviour of its own — proven twice over, first
+//! when the parser began emitting modifiers with no change to this file,
+//! then again for environment variables. Within a section,
 //! [`mandible_core::Entity::group`] renders as a divider rule and
 //! inherited entities land in a final dimmed `Inherited` group
 //! (spec §9, §9.3).
@@ -679,11 +680,12 @@ struct BuiltLines {
 ///
 /// The whole of the per-kind knowledge in this pane, and it is *data*.
 /// There is no branch on kind anywhere below: a section renders because its
-/// kind has entities, and `EnvVar` — the one kind no parser emits yet —
-/// goes through exactly the same code as the three that do. `Modifier` is
-/// what that claim bought: the parser began emitting modifier letters
-/// (spec §7 Tier B) and this pane rendered a MODIFIERS section for `ar` and
-/// `llvm-ar` with no change to a line of it.
+/// kind has entities, and every kind goes through exactly the same code.
+/// `Modifier` and `EnvVar` are what that claim bought: the parser began
+/// emitting modifier letters (spec §7 Tier B, "Modifier tables") and later
+/// environment variables (spec §7 Tier B, "Environment sections"), and this
+/// pane rendered a MODIFIERS section for `ar`/`llvm-ar` and an ENVIRONMENT
+/// section for `bpftrace`/`node`/`fzf` with no change to a line of it.
 /// `DESCRIPTION` and `USAGE` are not here because they are node prose, not
 /// entity lists — they carry no count and take no shared column.
 /// POSITIONALS is the one section carrying an indent (spec §9.3). Its rows
@@ -3537,6 +3539,61 @@ mod tests {
 
         // One logical row per modifier, same as every other list section.
         assert_eq!(built.rows.len(), 4);
+    }
+
+    /// Spec §9.3: environment variables render as their own counted
+    /// section, after MODIFIERS, at the content edge rather than
+    /// POSITIONALS' inset — the same claim `modifiers_render_as_their_own_section`
+    /// pins, exercised for the fourth and last `EntityKind`.
+    #[test]
+    fn env_vars_render_as_their_own_section() {
+        let mut node = CommandNode::new("node", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("version", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("print node's version"));
+        node.entities.push(flag);
+        for (name, description) in [
+            ("NODE_DEBUG", "list of core modules to debug"),
+            ("NO_COLOR", "alias for NODE_DISABLE_COLORS"),
+        ] {
+            let mut v = Entity::env_var_item(name, Provenance::single(Source::HelpText));
+            v.description = Some(Text::sanitize(description));
+            node.entities.push(v);
+        }
+
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let text: Vec<String> = built.lines.iter().map(text_of).collect();
+
+        let header = text
+            .iter()
+            .position(|l| l.starts_with("ENVIRONMENT (2)"))
+            .unwrap_or_else(|| panic!("no ENVIRONMENT header: {text:#?}"));
+        let flags_header = text
+            .iter()
+            .position(|l| l.starts_with("FLAGS ("))
+            .expect("FLAGS header");
+        assert!(flags_header < header, "ENVIRONMENT must follow FLAGS");
+
+        // The name is bare — no dash invented for it — and sits at the
+        // content edge, not POSITIONALS' inset.
+        let row = text
+            .iter()
+            .find(|l| l.contains("alias for NODE_DISABLE_COLORS"))
+            .unwrap_or_else(|| panic!("no row for NO_COLOR: {text:#?}"));
+        assert!(
+            row.starts_with("NO_COLOR"),
+            "env var row not at the edge: {row:?}"
+        );
+        assert!(!row.contains("-NO_COLOR"), "a dash was invented: {row:?}");
+
+        assert_eq!(built.rows.len(), 3);
     }
 
     /// Spec §9.3: a wrapped entry is **one logical row** for selection and

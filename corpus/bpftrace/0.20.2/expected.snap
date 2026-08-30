@@ -1,6 +1,9 @@
-name: tcpaccept.bt
+name: bpftrace
 usage:
-- 'USAGE: bpftrace [options] filename bpftrace [options] - <stdin input> bpftrace [options] -e ''program'''
+- 'USAGE:'
+- '    bpftrace [options] filename'
+- '    bpftrace [options] - <stdin input>'
+- '    bpftrace [options] -e ''program'''
 flags:
 - short: 'B'
   value_name: MODE

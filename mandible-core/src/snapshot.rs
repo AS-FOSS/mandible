@@ -327,6 +327,51 @@ impl From<&Entity> for ModifierSnapshot {
     }
 }
 
+/// Snapshot form of an environment-variable [`Entity`] — a name documented
+/// under a tool's own explicitly labeled environment heading (spec §4.5,
+/// §7 Tier B "Environment sections").
+///
+/// Its keys are exactly what such a row can state: the name, the section
+/// heading it sat under, and its description. No `value_name`/`value_kind`
+/// pair: measured over the frozen fleet's real environment sections
+/// (`bpftrace`, `node`, `fzf`, `mksquashfs`, …), no tool spells a value
+/// placeholder beside the name the way `ar`'s `[l <text> ]` does for a
+/// modifier — `bpftrace`'s `[default: none]` notes are prose *inside* the
+/// description, not a separate column, and are kept there verbatim rather
+/// than parsed out into a field nothing else in the fleet could populate.
+/// No `required`/`repeatable` either, for the same reason [`ModifierSnapshot`]
+/// has none: an environment row documents neither.
+///
+/// New in 0.5.x — like [`ModifierSnapshot`], this layout is **not** frozen
+/// in a pre-0.5.0 type's shape, since env vars had no pre-0.5.0 producer at
+/// all. It appears in a fixture only where the tool actually documents an
+/// environment section, which is why adding it moves those fixtures and no
+/// others.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct EnvVarSnapshot {
+    /// The variable name, e.g. `"NODE_DEBUG"`.
+    pub name: String,
+    /// The heading the row sat under, e.g. `"Environment variables:"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// The variable's description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Which source(s) contributed this variable's fields.
+    pub provenance: ProvenanceSnapshot,
+}
+
+impl From<&Entity> for EnvVarSnapshot {
+    fn from(e: &Entity) -> Self {
+        EnvVarSnapshot {
+            name: e.primary_name().to_string(),
+            group: e.group.clone(),
+            description: e.description.as_ref().map(|t| t.as_str().to_string()),
+            provenance: ProvenanceSnapshot::from(&e.provenance),
+        }
+    }
+}
+
 /// Snapshot form of [`Example`].
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ExampleSnapshot {
@@ -377,6 +422,11 @@ pub struct NodeSnapshot {
     /// (spec §9.3).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub modifiers: Vec<ModifierSnapshot>,
+    /// The environment variables this node documents under its own
+    /// explicitly labeled environment heading. After `modifiers`, matching
+    /// the order the detail pane renders the sections in (spec §9.3).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub env_vars: Vec<EnvVarSnapshot>,
     /// Worked examples.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<ExampleSnapshot>,
@@ -475,11 +525,13 @@ impl From<&CommandNode> for NodeSnapshot {
             // Partitioned out of the one kind-tagged vector (spec §4.5),
             // each kind keeping the document order it was stored in. The
             // first two are the sections the frozen format has always had;
-            // `modifiers` is the kind 0.5.x added, absent from every
-            // fixture whose tool documents no modifier table.
+            // `modifiers` and `env_vars` are the two kinds 0.5.x added,
+            // each absent from every fixture whose tool documents no such
+            // section.
             positionals: n.positionals().map(PositionalSnapshot::from).collect(),
             flags: n.flags().map(FlagSnapshot::from).collect(),
             modifiers: n.modifiers().map(ModifierSnapshot::from).collect(),
+            env_vars: n.env_vars().map(EnvVarSnapshot::from).collect(),
             examples: n.examples.iter().map(ExampleSnapshot::from).collect(),
             group: n.group.clone(),
             deprecated: n.deprecated.as_ref().map(|t| t.as_str().to_string()),
@@ -638,6 +690,46 @@ mod tests {
             Provenance::single(Source::HelpText),
         ));
         assert!(!render(&node).contains("modifiers"));
+    }
+
+    /// An env var is its own snapshot section: it never appears among the
+    /// `flags`, and its `name` key is the bare variable name rather than a
+    /// `short`/`long` pair.
+    #[test]
+    fn an_env_var_is_a_section_of_its_own_not_a_flag() {
+        let mut node = CommandNode::new("node", Provenance::single(Source::HelpText));
+        node.entities.push(Entity::flag_long(
+            "version",
+            Provenance::single(Source::HelpText),
+        ));
+        node.entities.push({
+            let mut v = Entity::env_var_item("NODE_DEBUG", Provenance::single(Source::HelpText));
+            v.description = Some(Text::sanitize("list of core modules to debug"));
+            v.group = Some("Environment variables:".into());
+            v
+        });
+        let out = render(&node);
+
+        assert!(out.contains("env_vars:"), "{out}");
+        assert!(out.contains("name: NODE_DEBUG"), "{out}");
+        assert!(out.contains("list of core modules to debug"), "{out}");
+        // One flag, not two: the env var did not leak into the frozen flag
+        // section.
+        assert_eq!(to_snapshot(&node).flags.len(), 1);
+        assert_eq!(to_snapshot(&node).env_vars.len(), 1);
+    }
+
+    /// A tool that documents no environment section carries no `env_vars`
+    /// key at all — which is what keeps this addition from moving every
+    /// fixture whose tool has none.
+    #[test]
+    fn a_node_without_env_vars_has_no_env_vars_key() {
+        let mut node = CommandNode::new("grep", Provenance::single(Source::HelpText));
+        node.entities.push(Entity::flag_long(
+            "ignore-case",
+            Provenance::single(Source::HelpText),
+        ));
+        assert!(!render(&node).contains("env_vars"));
     }
 
     /// A synthetic-but-representative tree, snapshotted through `insta`

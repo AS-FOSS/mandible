@@ -1,0 +1,483 @@
+name: fzf
+usage:
+- 'usage: fzf [options]'
+flags:
+- short: 'x'
+  long: extended
+  group: Search
+  description: Extended-search mode (enabled by default; +x or --no-extended to disable)
+  provenance:
+    sources:
+    - help-text
+- short: 'e'
+  long: exact
+  group: Search
+  description: Enable Exact-match
+  provenance:
+    sources:
+    - help-text
+- short: 'i'
+  group: Search
+  description: 'Case-insensitive match (default: smart-case match)'
+  provenance:
+    sources:
+    - help-text
+- long: scheme
+  value_name: SCHEME
+  value_kind: Required
+  description: Scoring scheme [default|path|history]
+  provenance:
+    sources:
+    - help-text
+- long: literal
+  description: Do not normalize latin script letters before matching
+  provenance:
+    sources:
+    - help-text
+- short: 'n'
+  long: nth
+  value_name: N[,..]
+  value_kind: Required
+  description: Comma-separated list of field index expressions for limiting search scope. Each can be a non-zero integer or a range expression ([BEGIN]..[END]).
+  provenance:
+    sources:
+    - help-text
+- long: with-nth
+  value_name: N[,..]
+  value_kind: Required
+  description: Transform the presentation of each line using field index expressions
+  provenance:
+    sources:
+    - help-text
+- short: 'd'
+  long: delimiter
+  value_name: STR
+  value_kind: Required
+  description: 'Field delimiter regex (default: AWK-style)'
+  provenance:
+    sources:
+    - help-text
+- long: track
+  description: Track the current selection when the result is updated
+  provenance:
+    sources:
+    - help-text
+- long: tac
+  description: Reverse the order of the input
+  provenance:
+    sources:
+    - help-text
+- long: disabled
+  description: Do not perform search
+  provenance:
+    sources:
+    - help-text
+- long: tiebreak
+  value_name: CRI[,..]
+  value_kind: Required
+  description: 'Comma-separated list of sort criteria to apply when the scores are tied [length|chunk|begin|end|index] (default: length)'
+  provenance:
+    sources:
+    - help-text
+- short: 'm'
+  long: multi
+  value_name: MAX
+  value_kind: Optional
+  group: Interface
+  description: Enable multi-select with tab/shift-tab
+  provenance:
+    sources:
+    - help-text
+- long: no-mouse
+  group: Interface
+  description: Disable mouse
+  provenance:
+    sources:
+    - help-text
+- long: bind
+  value_name: KEYBINDS
+  value_kind: Required
+  group: Interface
+  description: Custom key bindings. Refer to the man page.
+  provenance:
+    sources:
+    - help-text
+- long: cycle
+  group: Interface
+  description: Enable cyclic scroll
+  provenance:
+    sources:
+    - help-text
+- long: keep-right
+  group: Interface
+  description: Keep the right end of the line visible on overflow
+  provenance:
+    sources:
+    - help-text
+- long: scroll-off
+  value_name: LINES
+  value_kind: Required
+  group: Interface
+  description: 'Number of screen lines to keep above or below when scrolling to the top or to the bottom (default: 0)'
+  provenance:
+    sources:
+    - help-text
+- long: no-hscroll
+  group: Interface
+  description: Disable horizontal scroll
+  provenance:
+    sources:
+    - help-text
+- long: hscroll-off
+  value_name: COLS
+  value_kind: Required
+  group: Interface
+  description: 'Number of screen columns to keep to the right of the highlighted substring (default: 10)'
+  provenance:
+    sources:
+    - help-text
+- long: filepath-word
+  group: Interface
+  description: Make word-wise movements respect path separators
+  provenance:
+    sources:
+    - help-text
+- long: jump-labels
+  value_name: CHARS
+  value_kind: Required
+  group: Interface
+  description: Label characters for jump and jump-accept
+  provenance:
+    sources:
+    - help-text
+- long: height
+  value_name: '[~]HEIGHT[%]'
+  value_kind: Required
+  group: Layout
+  description: Display fzf window below the cursor with the given height instead of using fullscreen. If prefixed with '~', fzf will determine the height according to the input size.
+  provenance:
+    sources:
+    - help-text
+- long: min-height
+  value_name: HEIGHT
+  value_kind: Required
+  group: Layout
+  description: 'Minimum height when --height is given in percent (default: 10)'
+  provenance:
+    sources:
+    - help-text
+- long: layout
+  value_name: LAYOUT
+  value_kind: Required
+  group: Layout
+  description: 'Choose layout: [default|reverse|reverse-list]'
+  provenance:
+    sources:
+    - help-text
+- long: border
+  value_name: STYLE
+  value_kind: Optional
+  group: Layout
+  description: 'Draw border around the finder [rounded|sharp|bold|block|thinblock|double|horizontal|vertical| top|bottom|left|right|none] (default: rounded)'
+  provenance:
+    sources:
+    - help-text
+- long: border-label
+  value_name: LABEL
+  value_kind: Required
+  group: Layout
+  description: Label to print on the border
+  provenance:
+    sources:
+    - help-text
+- long: border-label-pos
+  value_name: COL
+  value_kind: Required
+  group: Layout
+  description: 'Position of the border label [POSITIVE_INTEGER: columns from left| NEGATIVE_INTEGER: columns from right][:bottom] (default: 0 or center)'
+  provenance:
+    sources:
+    - help-text
+- long: margin
+  value_name: MARGIN
+  value_kind: Required
+  group: Layout
+  description: Screen margin (TRBL | TB,RL | T,RL,B | T,R,B,L)
+  provenance:
+    sources:
+    - help-text
+- long: padding
+  value_name: PADDING
+  value_kind: Required
+  group: Layout
+  description: Padding inside border (TRBL | TB,RL | T,RL,B | T,R,B,L)
+  provenance:
+    sources:
+    - help-text
+- long: info
+  value_name: STYLE
+  value_kind: Required
+  group: Layout
+  description: Finder info style [default|right|hidden|inline[:SEPARATOR]|inline-right]
+  provenance:
+    sources:
+    - help-text
+- long: separator
+  value_name: STR
+  value_kind: Required
+  group: Layout
+  description: String to form horizontal separator on info line
+  provenance:
+    sources:
+    - help-text
+- long: no-separator
+  group: Layout
+  description: Hide info line separator
+  provenance:
+    sources:
+    - help-text
+- long: scrollbar
+  value_name: C1[C2
+  value_kind: Optional
+  group: Layout
+  description: Scrollbar character(s) (each for main and preview window)
+  provenance:
+    sources:
+    - help-text
+- long: no-scrollbar
+  group: Layout
+  description: Hide scrollbar
+  provenance:
+    sources:
+    - help-text
+- long: prompt
+  value_name: STR
+  value_kind: Required
+  group: Layout
+  description: 'Input prompt (default: ''> '')'
+  provenance:
+    sources:
+    - help-text
+- long: pointer
+  value_name: STR
+  value_kind: Required
+  group: Layout
+  description: 'Pointer to the current line (default: ''>'')'
+  provenance:
+    sources:
+    - help-text
+- long: marker
+  value_name: STR
+  value_kind: Required
+  group: Layout
+  description: 'Multi-select marker (default: ''>'')'
+  provenance:
+    sources:
+    - help-text
+- long: header
+  value_name: STR
+  value_kind: Required
+  group: Layout
+  description: String to print as header
+  provenance:
+    sources:
+    - help-text
+- long: header-lines
+  value_name: N
+  value_kind: Required
+  group: Layout
+  description: The first N lines of the input are treated as header
+  provenance:
+    sources:
+    - help-text
+- long: header-first
+  group: Layout
+  description: Print header before the prompt line
+  provenance:
+    sources:
+    - help-text
+- long: ellipsis
+  value_name: STR
+  value_kind: Required
+  group: Layout
+  description: 'Ellipsis to show when line is truncated (default: ''..'')'
+  provenance:
+    sources:
+    - help-text
+- long: ansi
+  group: Display
+  description: Enable processing of ANSI color codes
+  provenance:
+    sources:
+    - help-text
+- long: tabstop
+  value_name: SPACES
+  value_kind: Required
+  group: Display
+  description: 'Number of spaces for a tab character (default: 8)'
+  provenance:
+    sources:
+    - help-text
+- long: color
+  value_name: COLSPEC
+  value_kind: Required
+  group: Display
+  description: Base scheme (dark|light|16|bw) and/or custom colors
+  provenance:
+    sources:
+    - help-text
+- long: no-bold
+  group: Display
+  description: Do not use bold text
+  provenance:
+    sources:
+    - help-text
+- long: history
+  value_name: FILE
+  value_kind: Required
+  group: History
+  description: History file
+  provenance:
+    sources:
+    - help-text
+- long: history-size
+  value_name: N
+  value_kind: Required
+  group: History
+  description: 'Maximum number of history entries (default: 1000)'
+  provenance:
+    sources:
+    - help-text
+- long: preview
+  value_name: COMMAND
+  value_kind: Required
+  group: Preview
+  description: Command to preview highlighted line ({})
+  provenance:
+    sources:
+    - help-text
+- long: preview-window
+  value_name: OPT
+  value_kind: Required
+  group: Preview
+  description: 'Preview window layout (default: right:50%) [up|down|left|right][,SIZE[%]] [,[no]wrap][,[no]cycle][,[no]follow][,[no]hidden] [,border-BORDER_OPT] [,+SCROLL[OFFSETS][/DENOM]][,~HEADER_LINES] [,default][,<SIZE_THRESHOLD(ALTERNATIVE_LAYOUT)]'
+  provenance:
+    sources:
+    - help-text
+- long: preview-label
+  value_name: LABEL
+  value_kind: Required
+  group: Preview
+  provenance:
+    sources:
+    - help-text
+- long: preview-label-pos
+  value_name: N
+  value_kind: Required
+  group: Preview
+  description: Same as --border-label and --border-label-pos, but for preview window
+  provenance:
+    sources:
+    - help-text
+- short: 'q'
+  long: query
+  value_name: STR
+  value_kind: Required
+  group: Scripting
+  description: Start the finder with the given query
+  provenance:
+    sources:
+    - help-text
+- short: '1'
+  long: select-1
+  group: Scripting
+  description: Automatically select the only match
+  provenance:
+    sources:
+    - help-text
+- short: '0'
+  long: exit-0
+  group: Scripting
+  description: Exit immediately when there's no match
+  provenance:
+    sources:
+    - help-text
+- short: 'f'
+  long: filter
+  value_name: STR
+  value_kind: Required
+  group: Scripting
+  description: Filter mode. Do not start interactive finder.
+  provenance:
+    sources:
+    - help-text
+- long: print-query
+  group: Scripting
+  description: Print query as the first line
+  provenance:
+    sources:
+    - help-text
+- long: expect
+  value_name: KEYS
+  value_kind: Required
+  group: Scripting
+  description: Comma-separated list of keys to complete fzf
+  provenance:
+    sources:
+    - help-text
+- long: read0
+  group: Scripting
+  description: Read input delimited by ASCII NUL characters
+  provenance:
+    sources:
+    - help-text
+- long: print0
+  group: Scripting
+  description: Print output delimited by ASCII NUL characters
+  provenance:
+    sources:
+    - help-text
+- long: sync
+  group: Scripting
+  description: Synchronous search for multi-staged filtering
+  provenance:
+    sources:
+    - help-text
+- long: listen
+  value_name: '[ADDR:'
+  value_kind: Optional
+  group: Scripting
+  description: Start HTTP server to receive actions (POST /) (To allow remote process execution, use --listen-unsafe)
+  provenance:
+    sources:
+    - help-text
+- long: version
+  group: Scripting
+  description: Display version information and exit
+  provenance:
+    sources:
+    - help-text
+env_vars:
+- name: FZF_DEFAULT_COMMAND
+  group: Environment variables
+  description: Default command to use when input is tty
+  provenance:
+    sources:
+    - help-text
+- name: FZF_DEFAULT_OPTS
+  group: Environment variables
+  description: Default options (e.g. '--layout=reverse --inline-info')
+  provenance:
+    sources:
+    - help-text
+- name: FZF_API_KEY
+  group: Environment variables
+  description: X-API-Key header for HTTP server (--listen)
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

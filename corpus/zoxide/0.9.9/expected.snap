@@ -22,6 +22,43 @@ flags:
   provenance:
     sources:
     - help-text
+env_vars:
+- name: _ZO_DATA_DIR
+  group: 'Environment variables:'
+  description: Path for zoxide data files
+  provenance:
+    sources:
+    - help-text
+- name: _ZO_ECHO
+  group: 'Environment variables:'
+  description: Print the matched directory before navigating to it when set to 1
+  provenance:
+    sources:
+    - help-text
+- name: _ZO_EXCLUDE_DIRS
+  group: 'Environment variables:'
+  description: List of directory globs to be excluded
+  provenance:
+    sources:
+    - help-text
+- name: _ZO_FZF_OPTS
+  group: 'Environment variables:'
+  description: Custom flags to pass to fzf
+  provenance:
+    sources:
+    - help-text
+- name: _ZO_MAXAGE
+  group: 'Environment variables:'
+  description: Maximum total age after which entries start getting deleted
+  provenance:
+    sources:
+    - help-text
+- name: _ZO_RESOLVE_SYMLINKS
+  group: 'Environment variables:'
+  description: Resolve symlinks when storing paths
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

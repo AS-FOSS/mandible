@@ -202,6 +202,27 @@ struct ContractMeta {
     /// `[U]`.
     #[serde(default)]
     must_contain_modifiers: Vec<String>,
+    /// Environment variable names the tree must carry — the same
+    /// falsifiable promise `must_contain_modifiers` makes, for the other
+    /// kind 0.5.x added (spec §4.5, §7 Tier B "Environment sections").
+    ///
+    /// An environment section is recovered by a heading-keyed recognizer,
+    /// and the only other thing guarding it is `expected.snap` — which
+    /// freezes everything and therefore states nothing about what a
+    /// fixture is *for*. Without this field, a future change that silently
+    /// stopped recognizing environment sections would move a handful of
+    /// snapshots and read, to a reviewer scanning a bless diff, exactly
+    /// like a deliberate reshape.
+    ///
+    /// Written as the variable's own spelling (`"NODE_DEBUG"`), matched on
+    /// `Entity::primary_name` exactly, root only — the same scope and
+    /// matcher `must_contain_modifiers` uses. Case is significant: an
+    /// environment variable's name is meaningfully cased (`NODE_DEBUG` and
+    /// `node_debug` are different variables to the shell), unlike a
+    /// modifier letter's case-significance, which comes from two distinct
+    /// documented options rather than shell semantics.
+    #[serde(default)]
+    must_contain_env_vars: Vec<String>,
     /// Root flag spellings the tree must **not** carry — the first
     /// *negative* claim in a `[contract]`, and the only way a fixture can
     /// say "the parser invented this".
@@ -769,6 +790,20 @@ fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<Str
             ));
         }
 
+        let missing_env_vars: Vec<&str> = b
+            .must_contain_env_vars
+            .iter()
+            .filter(|name| !n.must_contain_env_vars.iter().any(|s| s == *name))
+            .map(String::as_str)
+            .collect();
+        if !missing_env_vars.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_contain_env_vars (dropped: {})",
+                base.label,
+                missing_env_vars.join(", ")
+            ));
+        }
+
         for (path, base_specs) in &b.must_contain_flags_by_path {
             let now_specs = n.must_contain_flags_by_path.get(path);
             let missing: Vec<&str> = base_specs
@@ -954,6 +989,11 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
                 "must_contain_modifiers: no root produced".into(),
             ));
         }
+        if !contract.must_contain_env_vars.is_empty() {
+            failures.push(ContractFailure(
+                "must_contain_env_vars: no root produced".into(),
+            ));
+        }
         // `must_not_contain_flags` is deliberately absent from this list.
         // Every field above is a positive claim, which a missing tree
         // trivially breaks — "the tool has --paginate" cannot hold of no
@@ -1053,6 +1093,19 @@ fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<Co
         failures.push(ContractFailure(format!(
             "must_contain_modifiers: missing {}",
             missing_modifiers.join(", ")
+        )));
+    }
+
+    let missing_env_vars: Vec<&str> = contract
+        .must_contain_env_vars
+        .iter()
+        .filter(|name| !root.env_vars().any(|v| v.primary_name() == name.as_str()))
+        .map(|s| s.as_str())
+        .collect();
+    if !missing_env_vars.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_contain_env_vars: missing {}",
+            missing_env_vars.join(", ")
         )));
     }
 
@@ -2343,6 +2396,88 @@ run = ["--source", "--staged"]
         );
     }
 
+    /// `must_contain_env_vars` in both directions, the same way
+    /// `must_contain_modifiers` is exercised above and for the same reason.
+    ///
+    /// Case is asserted explicitly: a variable name's case is meaningful to
+    /// the shell (`NODE_DEBUG` and `node_debug` are different variables),
+    /// so a matcher that folded case could satisfy a claim with the wrong
+    /// variable and never say so.
+    #[test]
+    fn must_contain_env_vars_names_the_variables_that_are_missing() {
+        let contract = ContractMeta {
+            must_contain_env_vars: vec!["NODE_DEBUG".into(), "NO_COLOR".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("node", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_env_vars: missing NODE_DEBUG, NO_COLOR"]
+        );
+
+        root.entities.push(Entity::env_var_item(
+            "NODE_DEBUG",
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_env_vars: missing NO_COLOR"]
+        );
+
+        // The lowercase twin does not satisfy the uppercase claim.
+        root.entities.push(Entity::env_var_item(
+            "no_color",
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_env_vars: missing NO_COLOR"]
+        );
+
+        root.entities.push(Entity::env_var_item(
+            "NO_COLOR",
+            Provenance::single(Source::HelpText),
+        ));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // A flag spelled with the same word is a different item and never
+        // satisfies an env-var claim.
+        let flag_only = ContractMeta {
+            must_contain_env_vars: vec!["DEBUG".into()],
+            ..ContractMeta::default()
+        };
+        let mut flagged = CommandNode::new("node", Provenance::single(Source::HelpText));
+        flagged.entities.push(Entity::flag_long(
+            "DEBUG",
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&flag_only, Some(&flagged))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_env_vars: missing DEBUG"]
+        );
+
+        // No root at all is a failure of the same field, never a silent pass.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_env_vars: no root produced"]
+        );
+    }
+
     /// `must_not_contain_flags` in both directions, plus the two things it
     /// deliberately does not claim. The motivating instance is a phantom
     /// long name (`corpus/mariadb-check/2.7.4`'s header ruler), so a
@@ -2983,6 +3118,64 @@ must_contain_modifiers = [{list}]
         // Adding one is a tightening, never flagged.
         let tightened = setup();
         modifier_contract_fixture(&tightened.root, &["a", "U", "v", "D"]);
+        let tightened_fixtures = discover_fixtures(&tightened.root).unwrap();
+        assert!(contract_weakened_lines(&tightened_fixtures, &base_fixtures).is_empty());
+    }
+
+    fn env_var_contract_fixture(root: &Path, must_contain_env_vars: &[&str]) {
+        let list = must_contain_env_vars
+            .iter()
+            .map(|v| format!("{v:?}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write(
+            &root.join("fulltool/1.0/meta.toml"),
+            &format!(
+                r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_contain_env_vars = [{list}]
+"#
+            ),
+        );
+        write(&root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+    }
+
+    /// Dropping a variable from `must_contain_env_vars` is a weakening and
+    /// must be reported by name, the same way dropping a modifier letter is
+    /// — without this arm the new field would be the one contract field a
+    /// `--baseline-dir` run could not see shrink.
+    #[test]
+    fn dropping_a_required_env_var_is_reported_as_weakening() {
+        let baseline = setup();
+        let current = setup();
+        env_var_contract_fixture(&baseline.root, &["NODE_DEBUG", "NO_COLOR", "FORCE_COLOR"]);
+        env_var_contract_fixture(&current.root, &["NODE_DEBUG", "FORCE_COLOR"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(
+            lines[0].contains("must_contain_env_vars (dropped: NO_COLOR)"),
+            "{lines:?}"
+        );
+
+        // Adding one is a tightening, never flagged.
+        let tightened = setup();
+        env_var_contract_fixture(
+            &tightened.root,
+            &["NODE_DEBUG", "NO_COLOR", "FORCE_COLOR", "NODE_OPTIONS"],
+        );
         let tightened_fixtures = discover_fixtures(&tightened.root).unwrap();
         assert!(contract_weakened_lines(&tightened_fixtures, &base_fixtures).is_empty());
     }

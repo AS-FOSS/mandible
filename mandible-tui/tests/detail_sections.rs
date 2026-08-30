@@ -7,11 +7,15 @@
 //! A section that builds correctly and is then clipped by the border, or a
 //! rule that stops two cells short, is invisible to a line-level test.
 //!
-//! `MODIFIERS` and `ENVIRONMENT` have no producer yet — no extraction tier
-//! emits `EntityKind::Modifier` or `EntityKind::EnvVar`. They are rendered
-//! by the same kind-keyed loop as the two kinds that do have producers, and
-//! the entities here are constructed directly to prove it: the day a parser
-//! emits one, the section is already on screen.
+//! All four list-section kinds now have a producer (`Flag`/`Positional`
+//! from the relocation stages, `Modifier`/`EnvVar` from the two emission
+//! stages — spec §4.5). They are rendered by one kind-keyed loop with no
+//! branch of its own, which is exactly what let both emission stages land
+//! with no change to this pane: `Modifier`'s and `EnvVar`'s entities below
+//! are still constructed directly (rather than parsed from real text) so
+//! this file stays a layout test — sections, order, headers, dividers —
+//! independent of either parser's own row grammar, which each has its own
+//! dedicated tests for.
 
 use mandible_core::{
     CommandNode, Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
@@ -129,8 +133,9 @@ fn sections_render_in_the_specified_order() {
     );
 }
 
-/// The two kinds no parser emits yet reach the screen with their content,
-/// not just their headers — driven purely by `EntityKind`.
+/// `Modifier` and `EnvVar` entities reach the screen with their content,
+/// not just their section headers — driven purely by `EntityKind`, with no
+/// branch of the pane's own naming either kind.
 #[test]
 fn modifiers_and_environment_render_from_constructed_entities() {
     let rows = detail_rows(&app_for(node_with_every_section()), 90, 30);
@@ -924,4 +929,87 @@ fn section_prose_wraps_and_never_scrolls_horizontally() {
         before,
         "a section is mandible's own layout and never scrolls horizontally"
     );
+}
+
+/// End to end through the real extraction path: `bpftrace`'s real captured
+/// `--help` text (`corpus/bpftrace/0.20.2/help.stderr.txt`, the same bytes
+/// the corpus fixture pins), replayed with zero subprocesses through the
+/// `Transcript` probe (the pattern `mandible-extract/tests/corpus_snapshot_format.rs`
+/// uses), parsed by the real `HelpTextTier`, and rendered by this pane —
+/// not a synthetic node built by hand. Proves the whole path, not just the
+/// pane's own kind-keyed loop: the parser actually emits `EntityKind::EnvVar`
+/// from this real document, and the pane actually renders what the parser
+/// emitted, in spec §9.3's order.
+#[test]
+fn a_real_environment_section_reaches_the_screen_through_the_real_pipeline() {
+    let raw = std::fs::read_to_string(format!(
+        "{}/../corpus/bpftrace/0.20.2/help.stderr.txt",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("reading the bpftrace corpus fixture's captured stderr");
+
+    let transcript = mandible_extract::exec::Transcript::new([(
+        vec!["--help".to_string()],
+        mandible_extract::exec::ExecOutput {
+            stdout: Vec::new(),
+            stderr: raw.into_bytes(),
+            exit_code: Some(0),
+            timed_out: false,
+        },
+    )]);
+    let tier = mandible_extract::help_text::HelpTextTier::new(std::sync::Arc::new(transcript));
+    let tool = mandible_extract::ResolvedTool {
+        name: "bpftrace".to_string(),
+        path: Some(std::path::PathBuf::from("/replayed/bpftrace")),
+        version: None,
+    };
+    const ATTESTED: mandible_extract::NodeHints = mandible_extract::NodeHints {
+        heading_attested: true,
+    };
+    let node = mandible_extract::ExtractionTier::extract_node(
+        &tier,
+        &tool,
+        &["bpftrace".to_string()],
+        ATTESTED,
+    )
+    .expect("the transcript covers the exact argv extract_node sends");
+
+    // Sanity: this really did recover an environment section, not the
+    // verbatim fallback with nothing to render (AGENTS §3.1: a green test
+    // that proves nothing is worse than a red one).
+    assert!(
+        node.env_vars().count() >= 17,
+        "expected bpftrace's real ENVIRONMENT table, got: {:?}",
+        node.env_vars()
+            .map(|e| e.primary_name())
+            .collect::<Vec<_>>()
+    );
+
+    let rows = detail_rows(&app_for(node), 90, 200);
+    let joined = rows.join("\n");
+    let flags_header = rows
+        .iter()
+        .position(|r| r.starts_with("FLAGS ("))
+        .unwrap_or_else(|| panic!("no FLAGS header:\n{joined}"));
+    let env_header = rows
+        .iter()
+        .position(|r| r.starts_with("ENVIRONMENT ("))
+        .unwrap_or_else(|| panic!("no ENVIRONMENT header:\n{joined}"));
+    assert!(
+        flags_header < env_header,
+        "ENVIRONMENT must follow FLAGS:\n{joined}"
+    );
+
+    let flat = rows
+        .join(" ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    for name in [
+        "BPFTRACE_BTF",
+        "BPFTRACE_CACHE_USER_SYMBOLS",
+        "BPFTRACE_VMLINUX",
+    ] {
+        assert!(flat.contains(name), "missing {name}:\n{joined}");
+    }
 }

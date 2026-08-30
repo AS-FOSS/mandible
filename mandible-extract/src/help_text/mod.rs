@@ -575,6 +575,7 @@ fn looks_like_help_output(text: &str) -> bool {
     !parsed.flags.is_empty()
         || !parsed.subcommands.is_empty()
         || !parsed.modifiers.is_empty()
+        || !parsed.env_vars.is_empty()
         || !parsed.usage.is_empty()
 }
 
@@ -1023,13 +1024,14 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     let parsed = sections::parse_with_profile(raw, fw_profile.as_ref(), Some(tool_name));
     let detected_framework = framework.map(|f| f.name().to_string());
 
-    // A modifier table counts alongside the other three: it is a real
-    // recovered structure, and a document whose only structure is one would
-    // otherwise be thrown away for the verbatim fallback with the
-    // modifiers it did recover discarded.
+    // A modifier table or an environment section counts alongside the
+    // other three: each is a real recovered structure, and a document
+    // whose only structure is one would otherwise be thrown away for the
+    // verbatim fallback with what it did recover discarded.
     let structurally_plausible = !parsed.flags.is_empty()
         || !parsed.subcommands.is_empty()
         || !parsed.modifiers.is_empty()
+        || !parsed.env_vars.is_empty()
         || !parsed.usage.is_empty();
 
     if !structurally_plausible {
@@ -1066,6 +1068,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     node.set_flags(parsed.flags);
     node.set_positionals(parsed.positionals);
     node.set_modifiers(parsed.modifiers);
+    node.set_env_vars(parsed.env_vars);
     node.subcommands = parsed.subcommands;
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct

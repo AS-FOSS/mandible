@@ -116,6 +116,11 @@ pub struct ParsedHelp {
     /// Modifier letters recovered from a modifier table — `ar`'s `[a]`,
     /// `[D]`, `[l <text> ]` rows (spec §7 Tier B, "Modifier tables").
     pub modifiers: Vec<Entity>,
+    /// Environment variables recovered from a row under an explicitly
+    /// labeled environment heading — `bpftrace`'s `BPFTRACE_BTF`, `node`'s
+    /// `NODE_DEBUG` (spec §7 Tier B, "Environment sections"). Never
+    /// scavenged from `ALL_CAPS` prose or usage placeholders.
+    pub env_vars: Vec<Entity>,
     /// Subcommand stubs recovered from bare-word blocks under a
     /// recognized command heading (not yet extracted themselves —
     /// `children_filled: false`).
@@ -1242,6 +1247,36 @@ fn parse_body(
             i += 1;
         }
         if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+            // An environment section flush with its own heading — no
+            // indent step at all between "Environment variables:" and its
+            // first row. `node`'s real `--help` writes exactly this shape
+            // (both at column 0), the same flush-left convention `dnf`'s
+            // command table below uses, and without this check here the
+            // heading-keyed recognizer below (which only ever runs once
+            // content strictly deeper than the heading has been
+            // established) never gets a chance to see rows that never
+            // step in from their own heading at all.
+            //
+            // Gated on the row sitting at exactly `heading_indent`, the
+            // same evidence bar the same-indent command table below
+            // requires, so a row that dedents past its own heading (the
+            // section has genuinely ended) is never swept in.
+            if i < lines.len()
+                && leading_whitespace(lines[i]) == heading_indent
+                && is_environment_heading(&heading)
+                && !is_ignorable_heading(&heading)
+            {
+                if let Some((end, rows)) = scan_env_var_table(&lines, i) {
+                    i = end;
+                    in_ignorable_section = false;
+                    command_mode = false;
+                    let (seen, clean) =
+                        emit_env_vars(meaningful_flag_group(heading.clone()), rows, &mut result);
+                    total_entries += seen;
+                    clean_entries += clean;
+                    continue;
+                }
+            }
             // Nothing more-indented follows. Some tools (openssl's
             // `--help`, and BSD-style listings generally) present a
             // command list as a same-indent word grid instead: a heading
@@ -1512,6 +1547,39 @@ fn parse_body(
             }
             if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
                 continue;
+            }
+        }
+
+        // An environment section — `bpftrace`'s `ENVIRONMENT:`, `node`'s
+        // `Environment variables:`, `mksquashfs`'s `Environment:` — spec
+        // §4.5's "strict-sections-only" rule made structural: unlike the
+        // modifier table above, this is gated on the **heading itself**
+        // first (`is_environment_heading`), never on row shape alone. A
+        // bare identifier followed by a column gap and a description is
+        // not, by itself, distinguishable from an ordinary bare-word block
+        // or a flush-left config-variable table — [M-10]'s `mysqlslap`
+        // specimen is exactly a table shaped like this that documents
+        // settings, not environment variables — so here the heading is the
+        // only reliable signal and the row grammar only has to clear an
+        // ordinary bar once that signal has already fired.
+        //
+        // Falls through rather than `continue`ing, mirroring the modifier
+        // branch, for the same reason: nothing in the measured fleet needs
+        // it today, but a labeled environment heading whose block runs on
+        // past its rows into ordinary flags should not lose those flags'
+        // group any more than `ar`'s modifiers do.
+        if is_environment_heading(&heading) && !is_ignorable_heading(&heading) {
+            if let Some((end, rows)) = scan_env_var_table(&lines, i) {
+                i = end;
+                in_ignorable_section = false;
+                command_mode = false;
+                let (seen, clean) =
+                    emit_env_vars(meaningful_flag_group(heading.clone()), rows, &mut result);
+                total_entries += seen;
+                clean_entries += clean;
+                if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+                    continue;
+                }
             }
         }
 

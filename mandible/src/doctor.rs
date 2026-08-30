@@ -1,9 +1,10 @@
 //! `mandible --doctor <tool>`: a non-TUI diagnostic (spec §5.3).
 //!
 //! Prints the detected framework (spec §7 Tier A′), tier statuses,
-//! node/flag counts (plus modifiers, for the few tools that document any),
-//! and the fraction of *describable* flags that carry a description — the
-//! primary way to verify extraction behavior without a terminal.
+//! node/flag counts (plus modifiers and environment variables, for the few
+//! tools that document any), and the fraction of *describable* flags that
+//! carry a description — the primary way to verify extraction behavior
+//! without a terminal.
 //!
 //! The percentage here is deliberately the **same instrument** as the
 //! `cargo xtask coverage` scoreboard (spec §13.1/§13.1b), computed via the
@@ -79,6 +80,13 @@ pub fn build_report(loaded: &LoadedTool) -> String {
             let modifiers = loaded.modifier_count();
             if modifiers > 0 {
                 writeln!(out, "modifiers:  {modifiers}").unwrap();
+            }
+            // Same rule as modifiers, for the other emission-stage kind
+            // (spec §7 Tier B, "Environment sections"): an environment
+            // section is rare, so the row appears only when there is one.
+            let env_vars = loaded.env_var_count();
+            if env_vars > 0 {
+                writeln!(out, "env vars:   {env_vars}").unwrap();
             }
         }
         None => {
@@ -228,6 +236,46 @@ mod tests {
         };
         let report = build_report(&with_modifiers);
         assert!(report.contains("modifiers:  2"), "{report}");
+        // ...and they did not inflate the flag count or its ratio.
+        assert!(
+            report.contains("flags:      1 (100.0% flags with text)"),
+            "{report}"
+        );
+    }
+
+    /// Environment variables are counted and reported separately from
+    /// flags, the same way modifiers are, and only when there are any.
+    #[test]
+    fn env_vars_are_counted_separately_and_only_shown_when_present() {
+        let mut root = CommandNode::new("node", Provenance::single(Source::HelpText));
+        let mut f = Entity::flag_long("version", Provenance::single(Source::HelpText));
+        f.description = Some(mandible_core::Text::sanitize("print node's version"));
+        root.entities.push(f);
+        let flags_only = ExtractionResult {
+            tool: "node".to_string(),
+            root: Some(root.clone()),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        assert!(
+            !build_report(&flags_only).contains("env vars:"),
+            "a tool with no environment section must not grow a row for it"
+        );
+
+        for name in ["NODE_DEBUG", "NO_COLOR"] {
+            root.entities.push(Entity::env_var_item(
+                name,
+                Provenance::single(Source::HelpText),
+            ));
+        }
+        let with_env_vars = ExtractionResult {
+            tool: "node".to_string(),
+            root: Some(root),
+            tier_statuses: Vec::new(),
+            elapsed: std::time::Duration::default(),
+        };
+        let report = build_report(&with_env_vars);
+        assert!(report.contains("env vars:   2"), "{report}");
         // ...and they did not inflate the flag count or its ratio.
         assert!(
             report.contains("flags:      1 (100.0% flags with text)"),

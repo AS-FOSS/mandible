@@ -155,6 +155,34 @@ pub(super) fn emit_modifiers(
     (seen, seen)
 }
 
+/// Emit an environment section's rows as
+/// [`mandible_core::EntityKind::EnvVar`] entities (spec §7 Tier B,
+/// "Environment sections").
+///
+/// Like [`emit_modifiers`] — and for the same reason — every row
+/// [`scan_env_var_table`] returns already carries a valid name and a
+/// non-empty description, so there is no second shape check to fail here:
+/// a row either was an environment row or never reached this function, and
+/// both counts this returns are the same number.
+pub(super) fn emit_env_vars(
+    group: Option<String>,
+    rows: Vec<EnvVarRow>,
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let mut seen = 0usize;
+    for row in rows {
+        if out.env_vars.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        seen += 1;
+        let mut env_var = Entity::env_var_item(row.name, Provenance::single(Source::HelpText));
+        env_var.group = group.clone();
+        env_var.description = non_empty_text(&row.description);
+        out.env_vars.push(env_var);
+    }
+    (seen, seen)
+}
+
 /// Emit a recognized bare-word block's entries as subcommand stubs (spec
 /// §7 Tier B rules 1 and 3). Entries failing the name-shape test are
 /// dropped, not emitted — never fabricated.
