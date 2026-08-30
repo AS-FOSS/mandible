@@ -38,6 +38,8 @@ once it reaches a published 0.1.0 release.
 
 - `dpkg --help`'s cross-reference sentence about `dpkg-deb` no longer becomes a section divider and a `-f, --field` option `dpkg` does not have (issue #80): a sentence that hard-wraps onto a hanging-indented line reads to the indentation-alone heading rule as a heading over a block, and when the wrap lands on a dash-led word that block parses as an options table, so the parser now recognizes the unfinished line by its own trailing comma and contains the whole wrapped region — bounded by the first blank line, dedent, or aligned column, so a genuine table beneath such a line is still parsed in full, with no tool-name-keyed logic.
 
+- The obscured-`Examples:` fence (issue #77, a follow-up to issue #71's `jar` fix) no longer loses a well-formed flag section indented deeper than the marker or written with no heading at all, no longer cancels a suppression a genuine earlier `EXAMPLES:` heading had already established when the fence itself closes, and no longer opens at all on an ordinary sentence like `Report bugs to <address>.` that merely happens to share vocabulary with a real `Examples:`/`Report bugs:` heading — the fence now reopens only on independently attested flag evidence, restores rather than clears the suppression state that preceded it, and triggers only on a heading-shaped, colon-terminated marker.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added
