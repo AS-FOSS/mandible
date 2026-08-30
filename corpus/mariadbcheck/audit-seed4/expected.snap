@@ -371,10 +371,6 @@ flags:
   provenance:
     sources:
     - help-text
-- long: '-------------------------------'
-  provenance:
-    sources:
-    - help-text
 provenance:
   sources:
   - help-text

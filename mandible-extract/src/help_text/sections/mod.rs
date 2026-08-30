@@ -42,7 +42,7 @@
 //!    block is dropped rather than guessed at.
 
 use super::grammar::{
-    bracket_flag_row_content, is_bare_flag_spelling, is_bare_flag_token,
+    bracket_flag_row_content, is_bare_flag_spelling, is_bare_flag_token, is_dash_underline_token,
     looks_like_bracket_flag_row, looks_like_flag_start, looks_like_paren_alternation_open,
     looks_like_stanza_head_flag, paren_alternation_member_content, paren_depth_delta,
     parse_bundled_shorts, parse_flag_alternation, parse_flag_spec, split_alternatives, FlagSpec,
@@ -811,6 +811,16 @@ fn parse_body(
                 if is_section_heading_line(trimmed_start) {
                     break;
                 }
+                // A decorative dash-bracketed divider (`tree --help`'s own
+                // `------- Listing options -------`, no trailing colon) is
+                // never a usage continuation either — see
+                // `looks_like_dash_bracketed_heading`'s own doc comment for
+                // why this call site specifically needed it once the
+                // dash-underline guard stopped `looks_like_flag_start` from
+                // accidentally catching this shape.
+                if looks_like_dash_bracketed_heading(trimmed_start) {
+                    break;
+                }
                 // A line more indented than the base is not *always* a
                 // continuation — only when it still reads as usage grammar.
                 // `sg_emc_trespass` opens `Usage:  sg_emc_trespass [-d]
@@ -1166,7 +1176,11 @@ fn parse_body(
             i = end;
             if packed {
                 let seen = entries.len();
-                emit_packed_flags(None, entries, &mut result);
+                emit_packed_flags(
+                    None,
+                    entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
+                    &mut result,
+                );
                 total_entries += seen;
                 clean_entries += seen;
             } else {
@@ -1614,7 +1628,11 @@ fn parse_body(
                 .or_else(|| meaningful_flag_group(heading));
             if packed {
                 let seen = entries.len();
-                emit_packed_flags(group, entries, &mut result);
+                emit_packed_flags(
+                    group,
+                    entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
+                    &mut result,
+                );
                 total_entries += seen;
                 clean_entries += seen;
             } else {

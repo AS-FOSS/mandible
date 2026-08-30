@@ -377,7 +377,74 @@ pub(super) fn is_line_continuation_fragment(heading: &str) -> bool {
 /// something that is positively not a heading, or it is left exactly as it
 /// was before.
 pub(super) fn heading_can_name_a_group(heading: &str) -> bool {
-    !is_prose_sentence(heading) && !is_line_continuation_fragment(heading)
+    !is_prose_sentence(heading)
+        && !is_line_continuation_fragment(heading)
+        && !is_dash_underline_row(heading)
+}
+
+/// True when `line`, trimmed, is nothing but dash characters and
+/// whitespace — a table's own column-underline decoration (jmod's own
+/// `Option`/`Description` header row: `------  -----------`) rather than a
+/// real heading. [`super::grammar::is_dash_underline_token`] already keeps
+/// this shape from opening a flag entry; this is the same rule applied to
+/// every whitespace-delimited run in the line, since a two-column
+/// underline row is two such runs, not one — and it exists here because
+/// the row can still reach [`meaningful_flag_group`]/[`process_word_grid`]
+/// as an ordinary heading candidate once it stops being read as a flag,
+/// carrying its own literal dashes into `Flag::group`/`CommandNode::group`
+/// otherwise.
+pub(super) fn is_dash_underline_row(line: &str) -> bool {
+    let trimmed = line.trim();
+    !trimmed.is_empty() && trimmed.split_whitespace().all(is_dash_underline_token)
+}
+
+/// True when `line`, trimmed, is a decorative section-divider heading with
+/// no trailing colon: a dash run, then a plain-word label, then another
+/// dash run — `tree --help`'s own `------- Listing options -------`,
+/// `------- File options -------`, and five siblings.
+///
+/// [`is_section_heading_line`] requires a trailing colon and cannot see
+/// this shape at all, and before the [`super::grammar::is_dash_underline_token`]
+/// guard existed, `looks_like_flag_start` happened to end the usage block
+/// on this row anyway — for the wrong reason (it looked like a flag
+/// spelling), but it still ended the block. Once that accidental stop
+/// disappeared, this row started folding into the usage synopsis's own
+/// continuation instead (nothing else in [`super::parse_body`]'s usage-
+/// block loop recognized it as a heading), and the usage-derived flag miner
+/// then read the embedded `-------` token out of the folded text as a
+/// fabricated flag with an invented value name — a different wrong answer
+/// than before, not a fix. This closes that gap at the same call site
+/// [`is_section_heading_line`] already gates the usage block on, without
+/// attempting the larger (and out of scope here) job of turning the row
+/// into a real `group` label — it is dropped, honestly, the same way
+/// every other unlabelled row this scanner cannot place already is.
+///
+/// The label between the two dash runs must be non-empty and read as plain
+/// words — the same character class [`is_section_heading_line`]'s own
+/// label already requires — so a genuine synopsis fragment that merely
+/// starts and ends with a dash for unrelated reasons is never mistaken for
+/// this decorative shape.
+pub(super) fn looks_like_dash_bracketed_heading(line: &str) -> bool {
+    let trimmed = line.trim();
+    let Some(rest) = trimmed
+        .split_once(char::is_whitespace)
+        .map(|(head, tail)| (head, tail.trim()))
+        .filter(|(head, _)| is_dash_underline_token(head))
+    else {
+        return false;
+    };
+    let (_, tail) = rest;
+    let Some(label) = tail
+        .rsplit_once(char::is_whitespace)
+        .filter(|(_, last)| is_dash_underline_token(last))
+        .map(|(head, _)| head.trim())
+    else {
+        return false;
+    };
+    !label.is_empty()
+        && label
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '-' || c == '_')
 }
 
 /// Index just past a hard-wrapped prose sentence opening at `head`, or
@@ -884,6 +951,27 @@ pub(super) fn meaningful_flag_group(heading: String) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `tree --help`'s own `------- Listing options -------` (and six
+    /// siblings) — found via a full-`PATH` sweep run against
+    /// fix/row-grammar-jmod-llvm, not a corpus fixture. Must be recognized
+    /// as a decorative heading, never mistaken for ordinary usage-synopsis
+    /// text or a flag row.
+    #[test]
+    fn a_dash_bracketed_heading_is_recognized() {
+        assert!(looks_like_dash_bracketed_heading(
+            "------- Listing options -------"
+        ));
+        assert!(looks_like_dash_bracketed_heading(
+            "  ------- File options -------  "
+        ));
+        // No label at all: two dash runs glued together with nothing
+        // between them is not this shape (and is `is_dash_underline_row`'s
+        // job instead).
+        assert!(!looks_like_dash_bracketed_heading("----------"));
+        // Only one dash run: an ordinary flag-shaped line, not a divider.
+        assert!(!looks_like_dash_bracketed_heading("--target-platform"));
+    }
 
     // --- hard-wrapped prose sentences (issue #80) ---
 

@@ -1,0 +1,16 @@
+Usage: size [option(s)] [file(s)]
+ Displays the sizes of sections inside binary files
+ If no input file(s) are specified, a.out is assumed
+ The options are:
+  -A|-B|-G  --format={sysv|berkeley|gnu}  Select output style (default is berkeley)
+  -o|-d|-x  --radix={8|10|16}         Display numbers in octal, decimal or hex
+  -t        --totals                  Display the total sizes (Berkeley only)
+  -f                                  Ignored.
+            --common                  Display total size for *COM* syms
+            --target=<bfdname>        Set the binary file format
+            @<file>                   Read options from <file>
+  -h|-H|-?  --help                    Display this information
+  -v|-V     --version                 Display the program's version
+
+size: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin
+Report bugs to <https://sourceware.org/bugzilla/>
