@@ -1,0 +1,82 @@
+Usage: dpkg [<option>...] <command>
+
+Commands:
+  -i|--install       <.deb file name>... | -R|--recursive <directory>...
+  --unpack           <.deb file name>... | -R|--recursive <directory>...
+  -A|--record-avail  <.deb file name>... | -R|--recursive <directory>...
+  --configure        <package>... | -a|--pending
+  --triggers-only    <package>... | -a|--pending
+  -r|--remove        <package>... | -a|--pending
+  -P|--purge         <package>... | -a|--pending
+  -V|--verify [<package>...]       Verify the integrity of package(s).
+  --get-selections [<pattern>...]  Get list of selections to stdout.
+  --set-selections                 Set package selections from stdin.
+  --clear-selections               Deselect every non-essential package.
+  --update-avail [<Packages-file>] Replace available packages info.
+  --merge-avail [<Packages-file>]  Merge with info from file.
+  --clear-avail                    Erase existing available info.
+  --forget-old-unavail             Forget uninstalled unavailable pkgs.
+  -s|--status [<package>...]       Display package status details.
+  -p|--print-avail [<package>...]  Display available version details.
+  -L|--listfiles <package>...      List files 'owned' by package(s).
+  -l|--list [<pattern>...]         List packages concisely.
+  -S|--search <pattern>...         Find package(s) owning file(s).
+  -C|--audit [<package>...]        Check for broken package(s).
+  --yet-to-unpack                  Print packages selected for installation.
+  --predep-package                 Print pre-dependencies to unpack.
+  --add-architecture <arch>        Add <arch> to the list of architectures.
+  --remove-architecture <arch>     Remove <arch> from the list of architectures.
+  --print-architecture             Print dpkg architecture.
+  --print-foreign-architectures    Print allowed foreign architectures.
+  --assert-help                    Show help on assertions.
+  --assert-<feature>               Assert support for the specified feature.
+  --validate-<thing> <string>      Validate a <thing>'s <string>.
+  --compare-versions <a> <op> <b>  Compare version numbers - see below.
+  --force-help                     Show help on forcing.
+  -Dh|--debug=help                 Show help on debugging.
+
+  -?, --help                       Show this help message.
+      --version                    Show the version.
+
+Validatable things: pkgname, archname, trigname, version.
+
+Use dpkg with -b, --build, -c, --contents, -e, --control, -I, --info,
+  -f, --field, -x, --extract, -X, --vextract, --ctrl-tarfile, --fsys-tarfile
+on archives (type dpkg-deb --help).
+
+Options:
+  --admindir=<directory>     Use <directory> instead of /var/lib/dpkg.
+  --root=<directory>         Install on a different root directory.
+  --instdir=<directory>      Change installation dir without changing admin dir.
+  --pre-invoke=<command>     Set a pre-invoke hook.
+  --post-invoke=<command>    Set a post-invoke hook.
+  --path-exclude=<pattern>   Do not install paths which match a shell pattern.
+  --path-include=<pattern>   Re-include a pattern after a previous exclusion.
+  -O|--selected-only         Skip packages not selected for install/upgrade.
+  -E|--skip-same-version     Skip packages with same installed version/arch.
+  -G|--refuse-downgrade      Skip packages with earlier version than installed.
+  -B|--auto-deconfigure      Install even if it would break some other package.
+  --[no-]triggers            Skip or force consequential trigger processing.
+  --verify-format=<format>   Verify output format (supported: 'rpm').
+  --no-pager                 Disables the use of any pager.
+  --no-debsig                Do not try to verify package signatures.
+  --no-act|--dry-run|--simulate
+                             Just say what we would do - don't do it.
+  -D|--debug=<octal>         Enable debugging (see -Dhelp or --debug=help).
+  --status-fd <n>            Send status change updates to file descriptor <n>.
+  --status-logger=<command>  Send status change updates to <command>'s stdin.
+  --log=<filename>           Log status changes and actions to <filename>.
+  --ignore-depends=<package>[,...]
+                             Ignore dependencies involving <package>.
+  --force-<thing>[,...]      Override problems (see --force-help).
+  --no-force-<thing>[,...]   Stop when problems encountered.
+  --refuse-<thing>[,...]     Ditto.
+  --abort-after <n>          Abort after encountering <n> errors.
+  --robot                    Use machine-readable output on some commands.
+
+Comparison operators for --compare-versions are:
+  lt le eq ne ge gt       (treat empty version as earlier than any version);
+  lt-nl le-nl ge-nl gt-nl (treat empty version as later than any version);
+  < << <= = >= >> >       (only for compatibility with control file syntax).
+
+Use 'apt' or 'aptitude' for user-friendly package management.

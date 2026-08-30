@@ -1,0 +1,53 @@
+# An agent generated this fixture; only a human may change the value
+# below (corpus/README.md's `[bless]` section).
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dpkg"
+version = "1.22.6"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.5.0"
+
+[[capture]]
+argv = ["dpkg", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+# The real options table, so containment of the cross-reference sentence
+# can never be bought by losing the block that follows it.
+must_contain_flags = [
+    "--admindir",
+    "--force-help",
+    "--no-pager",
+    "--robot",
+    "--root",
+    "--version",
+]
+# The cross-reference sentence at lines 43-45 wraps across three physical
+# lines:
+#
+#     Use dpkg with -b, --build, -c, --contents, -e, --control, -I, --info,
+#       -f, --field, -x, --extract, -X, --vextract, --ctrl-tarfile, --fsys-tarfile
+#     on archives (type dpkg-deb --help).
+#
+# That is running prose, not an options table, and it is not this
+# document's statement of dpkg's own options — it points the reader at
+# `dpkg-deb --help` for them. Mining it produced exactly one row,
+# `-f, --field`, undescribed, under a section divider made from the
+# sentence's first half: the shape of the source line decided which of
+# the seven spellings survived, which is what makes it fabrication
+# rather than recovery. Containment refuses the whole sentence; these
+# entries assert the parsed tree carries none of it (a claim about the
+# tree, never about the raw capture — corpus/README.md).
+must_not_contain_flags = [
+    "--ctrl-tarfile",
+    "--extract",
+    "--field",
+    "--fsys-tarfile",
+    "--vextract",
+]
