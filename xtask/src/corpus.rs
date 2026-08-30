@@ -2264,6 +2264,85 @@ run = ["--source", "--staged"]
         );
     }
 
+    /// `must_contain_modifiers` in both directions, the same way
+    /// `must_contain_positionals` is exercised above and for the same
+    /// reason: a contract field that cannot be seen to fail asserts
+    /// nothing.
+    ///
+    /// Case is asserted explicitly. `ar` and `llvm-ar` both document `[u]`
+    /// and `[U]` as different modifiers, so a matcher that folded case
+    /// would satisfy half of a real fixture's list twice over while the
+    /// other half went missing — and it would do it silently, since every
+    /// letter it was asked for would appear to be present.
+    #[test]
+    fn must_contain_modifiers_names_the_letters_that_are_missing() {
+        let contract = ContractMeta {
+            must_contain_modifiers: vec!["a".into(), "U".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_modifiers: missing a, U"]
+        );
+
+        root.entities
+            .push(Entity::modifier('a', Provenance::single(Source::HelpText)));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_modifiers: missing U"]
+        );
+
+        // The lowercase twin does not satisfy the uppercase claim.
+        root.entities
+            .push(Entity::modifier('u', Provenance::single(Source::HelpText)));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_modifiers: missing U"]
+        );
+
+        root.entities
+            .push(Entity::modifier('U', Provenance::single(Source::HelpText)));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // A flag spelled with the same letter is a different item and
+        // never satisfies a modifier claim.
+        let flag_only = ContractMeta {
+            must_contain_modifiers: vec!["v".into()],
+            ..ContractMeta::default()
+        };
+        let mut flagged = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        flagged.entities.push(Entity::flag_short(
+            'v',
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&flag_only, Some(&flagged))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_modifiers: missing v"]
+        );
+
+        // No root at all is a failure of the same field, never a silent pass.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_modifiers: no root produced"]
+        );
+    }
+
     /// `must_not_contain_flags` in both directions, plus the two things it
     /// deliberately does not claim. The motivating instance is a phantom
     /// long name (`corpus/mariadb-check/2.7.4`'s header ruler), so a
@@ -2847,6 +2926,65 @@ sub = ["--deep", "--nonexistent"]
         let base_fixtures = discover_fixtures(&baseline.root).unwrap();
         let cur_fixtures = discover_fixtures(&current.root).unwrap();
         assert!(contract_weakened_lines(&cur_fixtures, &base_fixtures).is_empty());
+    }
+
+    /// A fixture whose `[contract]` pins a modifier list, for the
+    /// weakening test below. Separate from [`full_contract_fixture`]
+    /// rather than a fourth parameter on it: every existing caller of that
+    /// helper would have to grow an argument it does not care about.
+    fn modifier_contract_fixture(root: &Path, must_contain_modifiers: &[&str]) {
+        let list = must_contain_modifiers
+            .iter()
+            .map(|m| format!("{m:?}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write(
+            &root.join("fulltool/1.0/meta.toml"),
+            &format!(
+                r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fulltool"
+version = "1.0"
+
+[[capture]]
+argv = ["fulltool", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_contain_modifiers = [{list}]
+"#
+            ),
+        );
+        write(&root.join("fulltool/1.0/help.txt"), MYTOOL_HELP);
+    }
+
+    /// Dropping a letter from `must_contain_modifiers` is a weakening and
+    /// must be reported by name, exactly as dropping a flag or an operand
+    /// is. Without this arm the new field would be the one contract field
+    /// a `--baseline-dir` run could not see shrink.
+    #[test]
+    fn dropping_a_required_modifier_is_reported_as_weakening() {
+        let baseline = setup();
+        let current = setup();
+        modifier_contract_fixture(&baseline.root, &["a", "U", "v"]);
+        modifier_contract_fixture(&current.root, &["a", "v"]);
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(
+            lines[0].contains("must_contain_modifiers (dropped: U)"),
+            "{lines:?}"
+        );
+
+        // Adding one is a tightening, never flagged.
+        let tightened = setup();
+        modifier_contract_fixture(&tightened.root, &["a", "U", "v", "D"]);
+        let tightened_fixtures = discover_fixtures(&tightened.root).unwrap();
+        assert!(contract_weakened_lines(&tightened_fixtures, &base_fixtures).is_empty());
     }
 
     /// A fixture whose `[contract]` sets only `min_subcommands`, matched
