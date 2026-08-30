@@ -164,7 +164,7 @@ surprising against the tool's own `--help`.
 <summary><h2>Configuration</h2></summary>
 
 Settings live in `~/.config/mandible/config.toml`. The file doesn't need to
-exist — everything has a default.
+exist; everything has a default.
 
 ### Settings
 
@@ -180,9 +180,9 @@ marker sits beside each line that continues past the pane edge. Set
 horizontal_scroll = true  # the default
 ```
 
-Getting a tool's *documentation* right is mandible's job, not yours — if
-something parses wrong, `mandible --report <tool>` and an issue is the fix that
-helps everyone. (Local per-tool corrections do exist for the impatient:
+Getting a tool's *documentation* right is mandible's job, not yours. If
+something parses wrong, `mandible --report <tool>` plus an issue fixes it for
+everyone. (Local per-tool corrections do exist for the impatient:
 `~/.config/mandible/overrides/<tool>.toml`.)
 
 ### Environment variables
@@ -208,12 +208,13 @@ the first, pressing it again switches to the second.
 ### Completions
 
 The packages install shell completions for you. For a hand-built binary,
-`mandible --completions <shell>` prints the script (bash, zsh, fish, and more)
-— drop it wherever your shell looks for completions.
+`mandible --completions <shell>` prints the script (bash, zsh, fish, and
+more); drop it wherever your shell looks for completions.
 
-They cover more than flags: the tool argument completes to the commands on
-your `PATH`, so `mandible gi<TAB>` offers `git`, not the files in the current
-directory. (zsh and fish today; bash's script format can't express this yet.)
+The tool argument completes too, to the command names on your `PATH`:
+`mandible gi<TAB>` suggests `git` rather than whatever files sit in the
+current directory. zsh and fish do this today; bash's script format can't
+express it yet.
 
 ### Onto the prompt
 
@@ -225,8 +226,8 @@ $ eval "$(mandible --shell-init bash)"   # or: zsh — in your ~/.bashrc, ~/.zsh
 ```
 
 Now type a tool name, press `Ctrl-X m`, browse, and press `Enter`: the command
-you selected — `git commit --amend`, say — replaces the line, ready to edit.
-Quit with `q` and the line is left exactly as it was.
+you selected (`git commit --amend`, say) replaces the line, ready to edit.
+Quit with `q` and the line stays exactly as it was.
 
 The binding is a few lines of shell around `mandible --print-selection <tool>`,
 which browses as usual but makes `Enter` print the selection instead of
@@ -243,9 +244,10 @@ nodes: 29
 flags: 2 (100.0% described)
 ```
 
-`--doctor` reports which framework was identified, which sources contributed, and how
-much of the tool was understood. It turns "mandible is wrong about tool X" into "the
-cobra grammar mishandles Y", which is a bug someone can actually fix.
+`--doctor` reports which framework mandible identified, which sources
+contributed, and how much of the tool it understood. It turns "mandible is
+wrong about tool X" into "the cobra grammar mishandles Y", which is a bug
+someone can actually fix.
 
 </details>
 
