@@ -568,14 +568,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container: fedora:41
+    defaults:
+      run:
+        shell: bash
     steps:
+      # Before the checkout, not after. actions/checkout uses git when it
+      # can find one and otherwise silently falls back to downloading a
+      # source tarball through the REST API — which leaves no .git, and
+      # the `git archive` below then fails with "not a git repository".
+      # The fedora image ships no git, so this ordering is what makes the
+      # checkout an actual clone.
+      - name: Install the rpm and copr tooling
+        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools copr-cli git tar
+
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: mandible-vendor
-
-      - name: Install the rpm and copr tooling
-        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools copr-cli git tar
 
       - name: Build the SRPM
         run: |
