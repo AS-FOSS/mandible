@@ -180,4 +180,22 @@ mod tests {
         }
         assert!(root.subcommands[0].children_filled);
     }
+
+    /// `resolve_flag` must find a dashless entity (a `Name` key), not just
+    /// a `Flag` — it searches every entity on the resolved node, not only
+    /// `node.flags()`. Regression coverage for the bug this migration
+    /// would otherwise leave behind: `Entity::key()` now hands out `Name`
+    /// keys for positionals/modifiers/env-vars, but a lookup still scoped
+    /// to `node.flags()` would never find what it addresses.
+    #[test]
+    fn resolve_flag_finds_a_dashless_entity() {
+        use crate::entity::Entity;
+        let mut root = leaf("ar");
+        root.entities
+            .push(Entity::modifier('d', Provenance::single(Source::HelpText)));
+        let key = FlagKey::Name("d".to_string());
+        let found = resolve_flag(&root, &["ar".to_string()], &key)
+            .expect("the modifier should resolve via its Name key");
+        assert_eq!(found.kind, crate::entity::EntityKind::Modifier);
+    }
 }

@@ -537,8 +537,10 @@ pub enum NodeRef {
 ```
 
 Paths are name-based, which is fine for commands but insufficient for search
-results, which must be able to point at a *flag* (§10). `NodeRef` is the single
-addressing type used by search, the clipboard, and the cache.
+results, which must be able to point at any entity a node carries — a flag,
+or a dashless positional/modifier/env-var addressed by `FlagKey::Name` (§10).
+`NodeRef` is the single addressing type used by search, the clipboard, and
+the cache.
 
 Resolution walks `subcommands` by exact name match at each level. It must not
 contain a "skip any segment equal to the current node's name" shortcut — that
@@ -2836,12 +2838,22 @@ Rules:
 correct on Unicode graphemes, and designed to match on a background thread pool
 so typing never blocks.
 
-**Index entries are `NodeRef`s, and flags get their own entries.** Revision 1
-folded flag names into the parent command's haystack, so searching `--squash`
-selected `git rebase` rather than the flag. Since finding a flag is the product's
-core job (§1), each `Flag` is its own index entry, with a haystack of
-`short + long + value_name + description` and a `NodeRef::Flag` payload.
-Selecting one selects the parent command and scrolls the detail pane to that flag.
+**Index entries are `NodeRef`s, and every entity gets its own entry.**
+Revision 1 folded flag names into the parent command's haystack, so searching
+`--squash` selected `git rebase` rather than the flag. Since finding what a
+tool documents is the product's core job (§1), and a tool documents more than
+flags — `ar`'s modifier letters, `bpftrace`'s environment variables, a
+command's positionals — every entity of every kind is its own index entry,
+addressed by `NodeRef::Flag`, whose `key: FlagKey` now covers both shapes an
+entity's name can take: `Long`/`Short` for a flag's dashed spelling, and
+`Name` for a dashless entity's bare `primary_name()` (a positional's
+placeholder, a modifier's letter, an environment variable's name — §4.5's
+three dashless `EntityKind`s). Each entry's haystack is every documented
+spelling's bare name, `value_name`, and description — the same shape for
+every kind, dashless spellings indexed with no dash prefix. Selecting a
+result selects the parent command and scrolls the detail pane to that
+entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
+section documents it (§9.3), exactly as a flag result always has.
 
 **Two match modes, name-only by default.** Matching one combined haystack
 (name + summary + description + flag value) is correct and *looks* arbitrary:

@@ -1741,6 +1741,36 @@ mod tests {
         );
     }
 
+    /// Spec §10 extended to dashless kinds: searching a *modifier*'s
+    /// description in wide mode must surface its parent command and
+    /// remember the modifier as the scroll target, exactly as a flag
+    /// match does — the same mechanism, generalized by `FlagKey::Name`
+    /// rather than a per-kind branch.
+    #[test]
+    fn searching_a_modifier_description_selects_its_parent_command() {
+        let mut root = sample_tree();
+        let mut d = mandible_core::Entity::modifier('d', Provenance::single(Source::HelpText));
+        d.description = Some(mandible_core::Text::sanitize(
+            "delete a member from the archive",
+        ));
+        root.subcommands[1].entities.push(d); // rebase, standing in for the node
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        app.cycle_search_mode(); // Name -> Wide
+        for c in "delete a member".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+
+        assert_eq!(app.rows()[app.selected].name, "rebase");
+        assert_eq!(
+            app.selected_flag,
+            Some(mandible_core::FlagKey::Name("d".to_string()))
+        );
+    }
+
     /// Manually moving the tree selection away from a flag search match
     /// must drop the flag scroll target — otherwise the detail pane would
     /// keep snapping back to a flag on a command the user has since
