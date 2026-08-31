@@ -1,0 +1,19 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.5.0"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--flags", "--flags2", "-L", "-h", "-?", "help"]

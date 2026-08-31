@@ -1,0 +1,16 @@
+name: bzless
+description: '------> --help <------'
+flags:
+- spellings:
+  - '------'
+  value_name: '>'
+  value_kind: Required
+  description: --help <------
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,20 @@
+name: bashbug
+description: GNU bashbug, version 5.2.21-release
+usage:
+- 'Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]'
+flags:
+- spellings:
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

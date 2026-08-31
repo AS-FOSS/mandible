@@ -21,13 +21,23 @@ pub enum NodeRef {
     },
 }
 
-/// Identifies a flag within a node's flag list.
+/// Identifies an entity within a node's entity list — a flag by its dashed
+/// spelling, or a dashless entity (positional, modifier, environment
+/// variable) by its bare name.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FlagKey {
-    /// By long spelling, without the leading `--`.
+    /// By long spelling, without the leading `--`. Never matches a
+    /// dashless entity — only [`crate::entity::EntityKind::Flag`] carries a
+    /// long-like spelling at all.
     Long(String),
-    /// By short spelling, without the leading `-`.
+    /// By short spelling, without the leading `-`. Never matches a
+    /// dashless entity, for the same reason as `Long`.
     Short(char),
+    /// By bare `primary_name()`, for a dashless entity: a positional's
+    /// placeholder (`pathspec`), a modifier's letter (`d`), or an
+    /// environment variable's name (`NODE_DEBUG`). Never matches a `Flag`
+    /// entity — a flag's spellings always carry at least one dash.
+    Name(String),
 }
 
 /// Resolve a name path to the [`CommandNode`] it addresses, starting from
@@ -73,14 +83,17 @@ fn names_match(node: &CommandNode, segment: &str) -> bool {
     node.name == segment || node.aliases.iter().any(|a| a == segment)
 }
 
-/// Resolve a [`NodeRef`] to the flag entity it addresses, if any.
+/// Resolve a [`NodeRef::Flag`] to the entity it addresses, if any — a flag
+/// for a `Long`/`Short` key, or a positional/modifier/env-var for a `Name`
+/// key. Searches every entity on the node, not just its flags, since
+/// [`FlagKey::Name`] addresses a dashless kind.
 pub fn resolve_flag<'a>(
     root: &'a CommandNode,
     path: &[String],
     key: &FlagKey,
 ) -> Option<&'a crate::entity::Entity> {
     let node = resolve(root, path)?;
-    node.flags().find(|f| f.matches_key(key))
+    node.entities.iter().find(|e| e.matches_key(key))
 }
 
 #[cfg(test)]
@@ -166,5 +179,23 @@ mod tests {
             node.children_filled = true;
         }
         assert!(root.subcommands[0].children_filled);
+    }
+
+    /// `resolve_flag` must find a dashless entity (a `Name` key), not just
+    /// a `Flag` — it searches every entity on the resolved node, not only
+    /// `node.flags()`. Regression coverage for the bug this migration
+    /// would otherwise leave behind: `Entity::key()` now hands out `Name`
+    /// keys for positionals/modifiers/env-vars, but a lookup still scoped
+    /// to `node.flags()` would never find what it addresses.
+    #[test]
+    fn resolve_flag_finds_a_dashless_entity() {
+        use crate::entity::Entity;
+        let mut root = leaf("ar");
+        root.entities
+            .push(Entity::modifier('d', Provenance::single(Source::HelpText)));
+        let key = FlagKey::Name("d".to_string());
+        let found = resolve_flag(&root, &["ar".to_string()], &key)
+            .expect("the modifier should resolve via its Name key");
+        assert_eq!(found.kind, crate::entity::EntityKind::Modifier);
     }
 }

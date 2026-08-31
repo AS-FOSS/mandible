@@ -291,7 +291,7 @@ pub struct Entity {
     pub spellings: Vec<Spelling>,
     pub value_name: Option<String>,
     pub value_kind: ValueKind,
-    pub choices: Vec<Text>,
+    pub choices: Vec<Choice>,
     pub description: Option<Text>,
     pub group: Option<String>,
     pub see_also: Vec<Text>,
@@ -307,6 +307,15 @@ pub struct Entity {
 }
 
 pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
+
+/// One enumerated value an entity may take. `name` is a bare identifier —
+/// searched and compared, the same convention `Spelling::name` follows —
+/// and never carries the tool's scope-flag decoration. `description` is
+/// `Text`, sanitized through the same §4.1 boundary as every other string
+/// the IR carries from tool output; it is `None` for the common bare-list
+/// case (`tar --quoting-style`'s `literal`/`shell`/`c`/...) and `Some` when
+/// the tool documents one per value (ffmpeg/ffplay's AVOption constants).
+pub struct Choice { pub name: String, pub description: Option<Text> }
 ```
 
 `short()`, `long()`, `negatable()` and `single_dash()` are **derived from
@@ -491,7 +500,11 @@ Each of the three is handed one already-line-split string at a time: a
 raw-help line, one logical usage entry (whose wrapped continuations Tier
 B's parser has already joined), or one line of the unparsed document.
 Everything else that feeds the IR — descriptions above all — goes through
-`Text::sanitize`. The rule that decides between them is ownership of the
+`Text::sanitize`. This includes a `Choice`'s own `description` (§4.5): a
+per-value explanation is exactly as external as the entity's own
+description, and passes the same boundary — there is no second, laxer path
+for text that happens to arrive nested one level deeper in the document.
+The rule that decides between them is ownership of the
 layout, never the field: mandible sets prose, the author sets everything
 shown as drawn. The two constructors are verified apart: diffing the raw
 pane against independently captured `--help` output for `du` (column
@@ -572,8 +585,10 @@ pub enum NodeRef {
 ```
 
 Paths are name-based, which is fine for commands but insufficient for search
-results, which must be able to point at a *flag* (§10). `NodeRef` is the single
-addressing type used by search, the clipboard, and the cache.
+results, which must be able to point at any entity a node carries — a flag,
+or a dashless positional/modifier/env-var addressed by `FlagKey::Name` (§10).
+`NodeRef` is the single addressing type used by search, the clipboard, and
+the cache.
 
 Resolution walks `subcommands` by exact name match at each level. It must not
 contain a "skip any segment equal to the current node's name" shortcut — that
@@ -1895,7 +1910,39 @@ The generic fallback parser (step 2) is built with `winnow`:
      whitespace. *"treat them as errors"* fails; `commit` passes.
   4. An indented list nested under a flag is that flag's **`choices`**, not
      subcommands — `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum
-     values, and the IR already has a field for them.
+     values, and the IR already has a field for them. A per-value
+     description, when the source documents one, is kept rather than
+     dropped: `tar`'s own `FORMAT is one of the following:` and
+     `VERSION_CONTROL` enums name each value's meaning
+     (`gnu   GNU tar 1.13.x format`), and that text belongs on the value it
+     describes, never discarded.
+  5. **A row strictly deeper-indented than a flag row directly under it,
+     whose name column is a bare, dashless word** (`is_command_name_shaped`
+     — internal `-`/`_`/digits allowed, no leading dash, no leading digit),
+     **separated from the rest of the row by a genuine aligned column gap**
+     (two or more spaces, or a tab — never a single space, which is
+     ordinary prose wrapping, not a table), attaches to that flag's
+     `choices` as one **described** value: the name becomes `Choice::name`,
+     everything from the gap to the end of the line becomes
+     `Choice::description`, verbatim. ffmpeg/ffplay's AVOption sub-table is
+     the source of this rule:
+
+     ```text
+     -flags             <flags>      ED.VAS..... (default 0)
+          unaligned                    .D.V....... allow decoders to produce unaligned output
+          gray                         ED.V....... only decode/encode grayscale
+     ```
+
+     The scope-flag columns (`ED.VAS.....`) and any numeric value column
+     (`-strict`'s `very  2  ED.VA...... ...`) are the tool's own text and
+     stay inside the description unparsed — mandible does not model what
+     the columns mean. Distinct from rule 4's plain bare-word block (no
+     gap, no per-row description — the whole block is one flat name list)
+     and from an ordinary wrapped-description continuation line (single-
+     spaced prose, no aligned column): both keep folding into the owning
+     entity's own `description` exactly as before. A flag whose choices are
+     already populated by other means, and whose immediately-following
+     block also looks like this shape, is not resolved by this recognizer.
 - **Confidence must fall when the grammar is guessing.** The same bug was
   reported as `ok` at `100% described`, because invented nodes inflate the
   metric rather than depressing it. Any block that yields names failing rule 3,
@@ -2809,6 +2856,24 @@ Rules:
   width (§9.1a); it never takes an aligned column of its own, so a row's
   placeholder cannot push that row's own description onto a second line
   while its first sits empty. Style, not position, keeps the two apart.
+- **A flag's `choices` render as their own `values:` line under the
+  description, indented two columns past the shared description column,
+  in the section's derived-metadata style** — never folded into the
+  description text or the spelling column, both of which stay verbatim
+  (`tar --format` carries a `FORMAT` placeholder and `choices` together).
+  **A choice's own description, when the tool documents one per value**
+  (ffmpeg/ffplay's AVOption constants — `-flags`' `unaligned`, `gray`, ...,
+  each with its own scope-flags-and-explanation text), renders one further
+  indent past the `values:` line, one `name  description` row per choice,
+  in the same derived-metadata style as the bare case — never the single
+  comma-joined line, which would just relocate the smear rather than fix
+  it. A flag whose choices all lack a per-value description keeps the
+  single-line `values: a, b, c` summary; the two shapes are decided per
+  flag, by whether any choice carries a description, and a flag may mix
+  described and undescribed choices in the same list (`-bug`'s `autodetect`
+  has none of the others' text). ffmpeg's own scope-flag columns
+  (`ED.VAS.....`) are the tool's text, kept verbatim inside the
+  description — mandible parses no meaning out of them.
 - **Capped shared column, per section.** Every list section (POSITIONALS,
   FLAGS, MODIFIERS, ENVIRONMENT) computes its own column, fitted to
   roughly the p90 row width — the majority, not the outliers — measured
@@ -2958,24 +3023,46 @@ Rules:
 correct on Unicode graphemes, and designed to match on a background thread pool
 so typing never blocks.
 
-**Index entries are `NodeRef`s, and flags get their own entries.** Revision 1
-folded flag names into the parent command's haystack, so searching `--squash`
-selected `git rebase` rather than the flag. Since finding a flag is the product's
-core job (§1), each `Flag` is its own index entry, with a haystack of
-`short + long + value_name + description` and a `NodeRef::Flag` payload.
-Selecting one selects the parent command and scrolls the detail pane to that flag.
+**Index entries are `NodeRef`s, and every entity gets its own entry.**
+Revision 1 folded flag names into the parent command's haystack, so searching
+`--squash` selected `git rebase` rather than the flag. Since finding what a
+tool documents is the product's core job (§1), and a tool documents more than
+flags — `ar`'s modifier letters, `bpftrace`'s environment variables, a
+command's positionals — every entity of every kind is its own index entry,
+addressed by `NodeRef::Flag`, whose `key: FlagKey` now covers both shapes an
+entity's name can take: `Long`/`Short` for a flag's dashed spelling, and
+`Name` for a dashless entity's bare `primary_name()` (a positional's
+placeholder, a modifier's letter, an environment variable's name — §4.5's
+three dashless `EntityKind`s). Each entry's haystack is every documented
+spelling's bare name, `value_name`, and description — the same shape for
+every kind, dashless spellings indexed with no dash prefix. Selecting a
+result selects the parent command and scrolls the detail pane to that
+entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
+section documents it (§9.3), exactly as a flag result always has.
 
 **Two match modes, name-only by default.** Matching one combined haystack
-(name + summary + description + flag value) is correct and *looks* arbitrary:
-searching `branch` in `git` returns `switch` via "Switch branches", and since
-only name matches are underlined, nothing on screen explains why that row is
-there. `/` opens the box in **name mode** — command names and flag spellings
-only — and pressing `/` again toggles **wide mode**, the combined haystack. The
-search bar's title shows which is active. Name mode is the default because its
-results explain themselves; wide mode finds more and is one keystroke away.
-Name mode filters the index's own result set rather than maintaining a second
-index, using a subsequence test so it can never reject something the fuzzy
-ranking accepted for the same reason (`gco` → `checkout` still works).
+(name + summary + description + entity value) is correct and *looks*
+arbitrary: searching `branch` in `git` returns `switch` via "Switch branches",
+and since only name matches are underlined, nothing on screen explains why
+that row is there. `/` opens the box in **name mode** and pressing `/` again
+toggles **wide mode**, the combined haystack. The search bar's title shows
+which is active. Name mode is the default because its results explain
+themselves; wide mode finds more and is one keystroke away. Name mode filters
+the index's own result set rather than maintaining a second index: a command
+matches by a literal, case-insensitive substring of its own name; every
+entity (flag, positional, modifier, env var alike, with no per-kind branch)
+matches by a case-insensitive **prefix of a `-`/`_`-separated word** of any of
+its spellings — the whole name counts as its own first word, so `NODE_D`
+matches `NODE_DEBUG` from the start and `debug` matches it from after the
+`_`. The word-prefix rule, not a looser subsequence one, is what keeps name
+mode's results self-explanatory for entities the same way substring does for
+commands: a subsequence test is what originally made the mode feel broken —
+searching `run` in `docker` surfaced `--no-trunc`'s parent command, because
+`--no-trunc` contains r…u…n in order — and the word-prefix rule refuses that
+case (`run` is a prefix of neither `no` nor `trunc`) while still admitting
+`no`, `trunc`, a bare modifier letter, or either half of an underscored env
+var name. Wide mode's ranking is unaffected by any of this — it stays the
+fuzzy index, where `gco` still finds `checkout`.
 
 **Filtering preserves hierarchy.** A flat result list rendered with
 `depth = path.len() - 1` produces indentation pointing at ancestors that aren't

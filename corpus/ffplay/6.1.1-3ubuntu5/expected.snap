@@ -489,22 +489,57 @@ flags:
     - help-text
 - spellings:
   - -flags
+  choices:
+  - name: unaligned
+    description: .D.V....... allow decoders to produce unaligned output
+  - name: gray
+    description: ED.V....... only decode/encode grayscale
+  - name: low_delay
+    description: ED.V....... force low delay
+  - name: bitexact
+    description: ED.VAS..... use only bitexact functions (except (I)DCT)
+  - name: output_corrupt
+    description: .D.V....... Output even potentially corrupted frames
+  - name: drop_changed
+    description: .D.VA.....P Drop frames whose parameters differ from first decoded frame
   group: 'AVCodecContext AVOptions:'
-  description: <flags> ED.VAS..... (default 0) unaligned .D.V....... allow decoders to produce unaligned output gray ED.V....... only decode/encode grayscale low_delay ED.V....... force low delay bitexact ED.VAS..... use only bitexact functions (except (I)DCT) output_corrupt .D.V....... Output even potentially corrupted frames drop_changed .D.VA.....P Drop frames whose parameters differ from first decoded frame
+  description: <flags> ED.VAS..... (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -flags2
+  choices:
+  - name: ignorecrop
+    description: .D.V....... ignore cropping information from sps
+  - name: chunks
+    description: .D.V....... Frame data might be split into multiple chunks
+  - name: showall
+    description: .D.V....... Show all frames before the first keyframe
+  - name: export_mvs
+    description: .D.V....... export motion vectors through frame side data
+  - name: skip_manual
+    description: .D..A...... do not skip samples and export skip information as frame side data
+  - name: ass_ro_flush_noop
+    description: .D...S..... do not reset ASS ReadOrder field on flush
+  - name: icc_profiles
+    description: .D...S..... generate/parse embedded ICC profiles from/to colorimetry tags
   group: 'AVCodecContext AVOptions:'
-  description: <flags> ED.VAS..... (default 0) ignorecrop .D.V....... ignore cropping information from sps chunks .D.V....... Frame data might be split into multiple chunks showall .D.V....... Show all frames before the first keyframe export_mvs .D.V....... export motion vectors through frame side data skip_manual .D..A...... do not skip samples and export skip information as frame side data ass_ro_flush_noop .D...S..... do not reset ASS ReadOrder field on flush icc_profiles .D...S..... generate/parse embedded ICC profiles from/to colorimetry tags
+  description: <flags> ED.VAS..... (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -export_side_data
+  choices:
+  - name: mvs
+    description: .D.V....... export motion vectors through frame side data
+  - name: venc_params
+    description: .D.V....... export video encoding parameters through frame side data
+  - name: film_grain
+    description: .D.V....... export film grain parameters through frame side data
   group: 'AVCodecContext AVOptions:'
-  description: <flags> ED.VAS..... Export metadata as side data (default 0) mvs .D.V....... export motion vectors through frame side data venc_params .D.V....... export video encoding parameters through frame side data film_grain .D.V....... export film grain parameters through frame side data
+  description: <flags> ED.VAS..... Export metadata as side data (default 0)
   provenance:
     sources:
     - help-text
@@ -528,29 +563,117 @@ flags:
     - help-text
 - spellings:
   - -bug
+  choices:
+  - name: autodetect
+    description: .D.V.......
+  - name: xvid_ilace
+    description: .D.V....... Xvid interlacing bug (autodetected if FOURCC == XVIX)
+  - name: ump4
+    description: .D.V....... (autodetected if FOURCC == UMP4)
+  - name: no_padding
+    description: .D.V....... padding bug (autodetected)
+  - name: amv
+    description: .D.V.......
+  - name: qpel_chroma
+    description: .D.V.......
+  - name: std_qpel
+    description: .D.V....... old standard qpel (autodetected per FOURCC/version)
+  - name: qpel_chroma2
+    description: .D.V.......
+  - name: direct_blocksize
+    description: .D.V....... direct-qpel-blocksize bug (autodetected per FOURCC/version)
+  - name: edge
+    description: .D.V....... edge padding bug (autodetected per FOURCC/version)
+  - name: hpel_chroma
+    description: .D.V.......
+  - name: dc_clip
+    description: .D.V.......
+  - name: ms
+    description: .D.V....... work around various bugs in Microsoft's broken decoders
+  - name: trunc
+    description: .D.V....... truncated frames
+  - name: iedge
+    description: .D.V.......
   group: 'AVCodecContext AVOptions:'
-  description: <flags> .D.V....... work around not autodetected encoder bugs (default autodetect) autodetect .D.V....... xvid_ilace .D.V....... Xvid interlacing bug (autodetected if FOURCC == XVIX) ump4 .D.V....... (autodetected if FOURCC == UMP4) no_padding .D.V....... padding bug (autodetected) amv .D.V....... qpel_chroma .D.V....... std_qpel .D.V....... old standard qpel (autodetected per FOURCC/version) qpel_chroma2 .D.V....... direct_blocksize .D.V....... direct-qpel-blocksize bug (autodetected per FOURCC/version) edge .D.V....... edge padding bug (autodetected per FOURCC/version) hpel_chroma .D.V....... dc_clip .D.V....... ms .D.V....... work around various bugs in Microsoft's broken decoders trunc .D.V....... truncated frames iedge .D.V.......
+  description: <flags> .D.V....... work around not autodetected encoder bugs (default autodetect)
   provenance:
     sources:
     - help-text
 - spellings:
   - -strict
+  choices:
+  - name: very
+    description: 2 ED.VA...... strictly conform to a older more strict version of the spec or reference software
+  - name: strict
+    description: 1 ED.VA...... strictly conform to all the things in the spec no matter what the consequences
+  - name: normal
+    description: 0 ED.VA......
+  - name: unofficial
+    description: -1 ED.VA...... allow unofficial extensions
+  - name: experimental
+    description: -2 ED.VA...... allow non-standardized experimental things
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.VA...... how strictly to follow the standards (from INT_MIN to INT_MAX) (default normal) very 2 ED.VA...... strictly conform to a older more strict version of the spec or reference software strict 1 ED.VA...... strictly conform to all the things in the spec no matter what the consequences normal 0 ED.VA...... unofficial -1 ED.VA...... allow unofficial extensions experimental -2 ED.VA...... allow non-standardized experimental things
+  description: <int> ED.VA...... how strictly to follow the standards (from INT_MIN to INT_MAX) (default normal)
   provenance:
     sources:
     - help-text
 - spellings:
   - -err_detect
+  choices:
+  - name: crccheck
+    description: ED.VAS..... verify embedded CRCs
+  - name: bitstream
+    description: ED.VAS..... detect bitstream specification deviations
+  - name: buffer
+    description: ED.VAS..... detect improper bitstream length
+  - name: explode
+    description: ED.VAS..... abort decoding on minor error detection
+  - name: ignore_err
+    description: ED.VAS..... ignore errors
+  - name: careful
+    description: ED.VAS..... consider things that violate the spec, are fast to check and have not been seen in the wild as errors
+  - name: compliant
+    description: ED.VAS..... consider all spec non compliancies as errors
+  - name: aggressive
+    description: ED.VAS..... consider things that a sane encoder should not do as an error
   group: 'AVCodecContext AVOptions:'
-  description: <flags> ED.VAS..... set error detection flags (default 0) crccheck ED.VAS..... verify embedded CRCs bitstream ED.VAS..... detect bitstream specification deviations buffer ED.VAS..... detect improper bitstream length explode ED.VAS..... abort decoding on minor error detection ignore_err ED.VAS..... ignore errors careful ED.VAS..... consider things that violate the spec, are fast to check and have not been seen in the wild as errors compliant ED.VAS..... consider all spec non compliancies as errors aggressive ED.VAS..... consider things that a sane encoder should not do as an error
+  description: <flags> ED.VAS..... set error detection flags (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -idct
+  choices:
+  - name: auto
+    description: 0 ED.V.......
+  - name: int
+    description: 1 ED.V.......
+  - name: simple
+    description: 2 ED.V.......
+  - name: simplemmx
+    description: 3 ED.V.......
+  - name: arm
+    description: 7 ED.V.......
+  - name: altivec
+    description: 8 ED.V.......
+  - name: simplearm
+    description: 10 ED.V.......
+  - name: simplearmv5te
+    description: 16 ED.V.......
+  - name: simplearmv6
+    description: 17 ED.V.......
+  - name: simpleneon
+    description: 22 ED.V.......
+  - name: xvid
+    description: 14 ED.V.......
+  - name: xvidmmx
+    description: 14 ED.V....... deprecated, for compatibility only
+  - name: faani
+    description: 20 ED.V....... floating point AAN IDCT
+  - name: simpleauto
+    description: 128 ED.V.......
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.V....... select IDCT implementation (from 0 to INT_MAX) (default auto) auto 0 ED.V....... int 1 ED.V....... simple 2 ED.V....... simplemmx 3 ED.V....... arm 7 ED.V....... altivec 8 ED.V....... simplearm 10 ED.V....... simplearmv5te 16 ED.V....... simplearmv6 17 ED.V....... simpleneon 22 ED.V....... xvid 14 ED.V....... xvidmmx 14 ED.V....... deprecated, for compatibility only faani 20 ED.V....... floating point AAN IDCT simpleauto 128 ED.V.......
+  description: <int> ED.V....... select IDCT implementation (from 0 to INT_MAX) (default auto)
   provenance:
     sources:
     - help-text
@@ -558,22 +681,61 @@ flags:
   - -e
   value_name: c
   value_kind: Required
+  choices:
+  - name: guess_mvs
+    description: .D.V....... iterative motion vector (MV) search (slow)
+  - name: deblock
+    description: .D.V....... use strong deblock filter for damaged MBs
+  - name: favor_inter
+    description: .D.V....... favor predicting from the previous frame
   group: 'AVCodecContext AVOptions:'
-  description: <flags> .D.V....... set error concealment strategy (default guess_mvs+deblock) guess_mvs .D.V....... iterative motion vector (MV) search (slow) deblock .D.V....... use strong deblock filter for damaged MBs favor_inter .D.V....... favor predicting from the previous frame
+  description: <flags> .D.V....... set error concealment strategy (default guess_mvs+deblock)
   provenance:
     sources:
     - help-text
 - spellings:
   - -debug
+  choices:
+  - name: pict
+    description: .D.V....... picture info
+  - name: bitstream
+    description: .D.V.......
+  - name: mb_type
+    description: .D.V....... macroblock (MB) type
+  - name: qp
+    description: .D.V....... per-block quantization parameter (QP)
+  - name: dct_coeff
+    description: .D.V.......
+  - name: green_metadata
+    description: .D.V.......
+  - name: skip
+    description: .D.V.......
+  - name: startcode
+    description: .D.V.......
+  - name: er
+    description: .D.V....... error recognition
+  - name: mmco
+    description: .D.V....... memory management control operations (H.264)
+  - name: bugs
+    description: .D.V.......
+  - name: buffers
+    description: .D.V....... picture buffer allocations
+  - name: thread_ops
+    description: .D.VA...... threading operations
+  - name: nomc
+    description: .D.VA...... skip motion compensation
   group: 'AVCodecContext AVOptions:'
-  description: <flags> ED.VAS..... print specific debug info (default 0) pict .D.V....... picture info bitstream .D.V....... mb_type .D.V....... macroblock (MB) type qp .D.V....... per-block quantization parameter (QP) dct_coeff .D.V....... green_metadata .D.V....... skip .D.V....... startcode .D.V....... er .D.V....... error recognition mmco .D.V....... memory management control operations (H.264) bugs .D.V....... buffers .D.V....... picture buffer allocations thread_ops .D.VA...... threading operations nomc .D.VA...... skip motion compensation
+  description: <flags> ED.VAS..... print specific debug info (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -threads
+  choices:
+  - name: auto
+    description: 0 ED.V....... autodetect a suitable number of threads to use
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.VA...... set the number of threads (from 0 to INT_MAX) (default 1) auto 0 ED.V....... autodetect a suitable number of threads to use
+  description: <int> ED.VA...... set the number of threads (from 0 to INT_MAX) (default 1)
   provenance:
     sources:
     - help-text
@@ -600,22 +762,67 @@ flags:
     - help-text
 - spellings:
   - -skip_loop_filter
+  choices:
+  - name: none
+    description: -16 .D.V....... discard no frame
+  - name: default
+    description: 0 .D.V....... discard useless frames
+  - name: noref
+    description: 8 .D.V....... discard all non-reference frames
+  - name: bidir
+    description: 16 .D.V....... discard all bidirectional frames
+  - name: nointra
+    description: 24 .D.V....... discard all frames except I frames
+  - name: nokey
+    description: 32 .D.V....... discard all frames except keyframes
+  - name: all
+    description: 48 .D.V....... discard all frames
   group: 'AVCodecContext AVOptions:'
-  description: <int> .D.V....... skip loop filtering process for the selected frames (from INT_MIN to INT_MAX) (default default) none -16 .D.V....... discard no frame default 0 .D.V....... discard useless frames noref 8 .D.V....... discard all non-reference frames bidir 16 .D.V....... discard all bidirectional frames nointra 24 .D.V....... discard all frames except I frames nokey 32 .D.V....... discard all frames except keyframes all 48 .D.V....... discard all frames
+  description: <int> .D.V....... skip loop filtering process for the selected frames (from INT_MIN to INT_MAX) (default default)
   provenance:
     sources:
     - help-text
 - spellings:
   - -skip_idct
+  choices:
+  - name: none
+    description: -16 .D.V....... discard no frame
+  - name: default
+    description: 0 .D.V....... discard useless frames
+  - name: noref
+    description: 8 .D.V....... discard all non-reference frames
+  - name: bidir
+    description: 16 .D.V....... discard all bidirectional frames
+  - name: nointra
+    description: 24 .D.V....... discard all frames except I frames
+  - name: nokey
+    description: 32 .D.V....... discard all frames except keyframes
+  - name: all
+    description: 48 .D.V....... discard all frames
   group: 'AVCodecContext AVOptions:'
-  description: <int> .D.V....... skip IDCT/dequantization for the selected frames (from INT_MIN to INT_MAX) (default default) none -16 .D.V....... discard no frame default 0 .D.V....... discard useless frames noref 8 .D.V....... discard all non-reference frames bidir 16 .D.V....... discard all bidirectional frames nointra 24 .D.V....... discard all frames except I frames nokey 32 .D.V....... discard all frames except keyframes all 48 .D.V....... discard all frames
+  description: <int> .D.V....... skip IDCT/dequantization for the selected frames (from INT_MIN to INT_MAX) (default default)
   provenance:
     sources:
     - help-text
 - spellings:
   - -skip_frame
+  choices:
+  - name: none
+    description: -16 .D.V....... discard no frame
+  - name: default
+    description: 0 .D.V....... discard useless frames
+  - name: noref
+    description: 8 .D.V....... discard all non-reference frames
+  - name: bidir
+    description: 16 .D.V....... discard all bidirectional frames
+  - name: nointra
+    description: 24 .D.V....... discard all frames except I frames
+  - name: nokey
+    description: 32 .D.V....... discard all frames except keyframes
+  - name: all
+    description: 48 .D.V....... discard all frames
   group: 'AVCodecContext AVOptions:'
-  description: <int> .D.V....... skip decoding for the selected frames (from INT_MIN to INT_MAX) (default default) none -16 .D.V....... discard no frame default 0 .D.V....... discard useless frames noref 8 .D.V....... discard all non-reference frames bidir 16 .D.V....... discard all bidirectional frames nointra 24 .D.V....... discard all frames except I frames nokey 32 .D.V....... discard all frames except keyframes all 48 .D.V....... discard all frames
+  description: <int> .D.V....... skip decoding for the selected frames (from INT_MIN to INT_MAX) (default default)
   provenance:
     sources:
     - help-text
@@ -649,43 +856,199 @@ flags:
     - help-text
 - spellings:
   - -color_primaries
+  choices:
+  - name: bt709
+    description: 1 ED.V....... BT.709
+  - name: unknown
+    description: 2 ED.V....... Unspecified
+  - name: bt470m
+    description: 4 ED.V....... BT.470 M
+  - name: bt470bg
+    description: 5 ED.V....... BT.470 BG
+  - name: smpte170m
+    description: 6 ED.V....... SMPTE 170 M
+  - name: smpte240m
+    description: 7 ED.V....... SMPTE 240 M
+  - name: film
+    description: 8 ED.V....... Film
+  - name: bt2020
+    description: 9 ED.V....... BT.2020
+  - name: smpte428
+    description: 10 ED.V....... SMPTE 428-1
+  - name: smpte428_1
+    description: 10 ED.V....... SMPTE 428-1
+  - name: smpte431
+    description: 11 ED.V....... SMPTE 431-2
+  - name: smpte432
+    description: 12 ED.V....... SMPTE 422-1
+  - name: jedec-p22
+    description: 22 ED.V....... JEDEC P22
+  - name: ebu3213
+    description: 22 ED.V....... EBU 3213-E
+  - name: unspecified
+    description: 2 ED.V....... Unspecified
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.V....... color primaries (from 1 to INT_MAX) (default unknown) bt709 1 ED.V....... BT.709 unknown 2 ED.V....... Unspecified bt470m 4 ED.V....... BT.470 M bt470bg 5 ED.V....... BT.470 BG smpte170m 6 ED.V....... SMPTE 170 M smpte240m 7 ED.V....... SMPTE 240 M film 8 ED.V....... Film bt2020 9 ED.V....... BT.2020 smpte428 10 ED.V....... SMPTE 428-1 smpte428_1 10 ED.V....... SMPTE 428-1 smpte431 11 ED.V....... SMPTE 431-2 smpte432 12 ED.V....... SMPTE 422-1 jedec-p22 22 ED.V....... JEDEC P22 ebu3213 22 ED.V....... EBU 3213-E unspecified 2 ED.V....... Unspecified
+  description: <int> ED.V....... color primaries (from 1 to INT_MAX) (default unknown)
   provenance:
     sources:
     - help-text
 - spellings:
   - -color_trc
+  choices:
+  - name: bt709
+    description: 1 ED.V....... BT.709
+  - name: unknown
+    description: 2 ED.V....... Unspecified
+  - name: gamma22
+    description: 4 ED.V....... BT.470 M
+  - name: gamma28
+    description: 5 ED.V....... BT.470 BG
+  - name: smpte170m
+    description: 6 ED.V....... SMPTE 170 M
+  - name: smpte240m
+    description: 7 ED.V....... SMPTE 240 M
+  - name: linear
+    description: 8 ED.V....... Linear
+  - name: log100
+    description: 9 ED.V....... Log
+  - name: log316
+    description: 10 ED.V....... Log square root
+  - name: iec61966-2-4
+    description: 11 ED.V....... IEC 61966-2-4
+  - name: bt1361e
+    description: 12 ED.V....... BT.1361
+  - name: iec61966-2-1
+    description: 13 ED.V....... IEC 61966-2-1
+  - name: bt2020-10
+    description: 14 ED.V....... BT.2020 - 10 bit
+  - name: bt2020-12
+    description: 15 ED.V....... BT.2020 - 12 bit
+  - name: smpte2084
+    description: 16 ED.V....... SMPTE 2084
+  - name: smpte428
+    description: 17 ED.V....... SMPTE 428-1
+  - name: arib-std-b67
+    description: 18 ED.V....... ARIB STD-B67
+  - name: unspecified
+    description: 2 ED.V....... Unspecified
+  - name: log
+    description: 9 ED.V....... Log
+  - name: log_sqrt
+    description: 10 ED.V....... Log square root
+  - name: iec61966_2_4
+    description: 11 ED.V....... IEC 61966-2-4
+  - name: bt1361
+    description: 12 ED.V....... BT.1361
+  - name: iec61966_2_1
+    description: 13 ED.V....... IEC 61966-2-1
+  - name: bt2020_10bit
+    description: 14 ED.V....... BT.2020 - 10 bit
+  - name: bt2020_12bit
+    description: 15 ED.V....... BT.2020 - 12 bit
+  - name: smpte428_1
+    description: 17 ED.V....... SMPTE 428-1
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.V....... color transfer characteristics (from 1 to INT_MAX) (default unknown) bt709 1 ED.V....... BT.709 unknown 2 ED.V....... Unspecified gamma22 4 ED.V....... BT.470 M gamma28 5 ED.V....... BT.470 BG smpte170m 6 ED.V....... SMPTE 170 M smpte240m 7 ED.V....... SMPTE 240 M linear 8 ED.V....... Linear log100 9 ED.V....... Log log316 10 ED.V....... Log square root iec61966-2-4 11 ED.V....... IEC 61966-2-4 bt1361e 12 ED.V....... BT.1361 iec61966-2-1 13 ED.V....... IEC 61966-2-1 bt2020-10 14 ED.V....... BT.2020 - 10 bit bt2020-12 15 ED.V....... BT.2020 - 12 bit smpte2084 16 ED.V....... SMPTE 2084 smpte428 17 ED.V....... SMPTE 428-1 arib-std-b67 18 ED.V....... ARIB STD-B67 unspecified 2 ED.V....... Unspecified log 9 ED.V....... Log log_sqrt 10 ED.V....... Log square root iec61966_2_4 11 ED.V....... IEC 61966-2-4 bt1361 12 ED.V....... BT.1361 iec61966_2_1 13 ED.V....... IEC 61966-2-1 bt2020_10bit 14 ED.V....... BT.2020 - 10 bit bt2020_12bit 15 ED.V....... BT.2020 - 12 bit smpte428_1 17 ED.V....... SMPTE 428-1
+  description: <int> ED.V....... color transfer characteristics (from 1 to INT_MAX) (default unknown)
   provenance:
     sources:
     - help-text
 - spellings:
   - -colorspace
+  choices:
+  - name: rgb
+    description: 0 ED.V....... RGB
+  - name: bt709
+    description: 1 ED.V....... BT.709
+  - name: unknown
+    description: 2 ED.V....... Unspecified
+  - name: fcc
+    description: 4 ED.V....... FCC
+  - name: bt470bg
+    description: 5 ED.V....... BT.470 BG
+  - name: smpte170m
+    description: 6 ED.V....... SMPTE 170 M
+  - name: smpte240m
+    description: 7 ED.V....... SMPTE 240 M
+  - name: ycgco
+    description: 8 ED.V....... YCGCO
+  - name: bt2020nc
+    description: 9 ED.V....... BT.2020 NCL
+  - name: bt2020c
+    description: 10 ED.V....... BT.2020 CL
+  - name: smpte2085
+    description: 11 ED.V....... SMPTE 2085
+  - name: ictcp
+    description: 14 ED.V....... ICtCp
+  - name: unspecified
+    description: 2 ED.V....... Unspecified
+  - name: ycocg
+    description: 8 ED.V....... YCGCO
+  - name: bt2020_ncl
+    description: 9 ED.V....... BT.2020 NCL
+  - name: bt2020_cl
+    description: 10 ED.V....... BT.2020 CL
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.V....... color space (from 0 to INT_MAX) (default unknown) rgb 0 ED.V....... RGB bt709 1 ED.V....... BT.709 unknown 2 ED.V....... Unspecified fcc 4 ED.V....... FCC bt470bg 5 ED.V....... BT.470 BG smpte170m 6 ED.V....... SMPTE 170 M smpte240m 7 ED.V....... SMPTE 240 M ycgco 8 ED.V....... YCGCO bt2020nc 9 ED.V....... BT.2020 NCL bt2020c 10 ED.V....... BT.2020 CL smpte2085 11 ED.V....... SMPTE 2085 chroma-derived-nc 12 ED.V....... Chroma-derived NCL chroma-derived-c 13 ED.V....... Chroma-derived CL ictcp 14 ED.V....... ICtCp unspecified 2 ED.V....... Unspecified ycocg 8 ED.V....... YCGCO bt2020_ncl 9 ED.V....... BT.2020 NCL bt2020_cl 10 ED.V....... BT.2020 CL
+  description: <int> ED.V....... color space (from 0 to INT_MAX) (default unknown) chroma-derived-nc 12 ED.V....... Chroma-derived NCL chroma-derived-c 13 ED.V....... Chroma-derived CL
   provenance:
     sources:
     - help-text
 - spellings:
   - -color_range
+  choices:
+  - name: unknown
+    description: 0 ED.V....... Unspecified
+  - name: tv
+    description: 1 ED.V....... MPEG (219*2^(n-8))
+  - name: pc
+    description: 2 ED.V....... JPEG (2^n-1)
+  - name: unspecified
+    description: 0 ED.V....... Unspecified
+  - name: mpeg
+    description: 1 ED.V....... MPEG (219*2^(n-8))
+  - name: jpeg
+    description: 2 ED.V....... JPEG (2^n-1)
+  - name: limited
+    description: 1 ED.V....... MPEG (219*2^(n-8))
+  - name: full
+    description: 2 ED.V....... JPEG (2^n-1)
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.V....... color range (from 0 to INT_MAX) (default unknown) unknown 0 ED.V....... Unspecified tv 1 ED.V....... MPEG (219*2^(n-8)) pc 2 ED.V....... JPEG (2^n-1) unspecified 0 ED.V....... Unspecified mpeg 1 ED.V....... MPEG (219*2^(n-8)) jpeg 2 ED.V....... JPEG (2^n-1) limited 1 ED.V....... MPEG (219*2^(n-8)) full 2 ED.V....... JPEG (2^n-1)
+  description: <int> ED.V....... color range (from 0 to INT_MAX) (default unknown)
   provenance:
     sources:
     - help-text
 - spellings:
   - -chroma_sample_location
+  choices:
+  - name: unknown
+    description: 0 ED.V....... Unspecified
+  - name: left
+    description: 1 ED.V....... Left
+  - name: center
+    description: 2 ED.V....... Center
+  - name: topleft
+    description: 3 ED.V....... Top-left
+  - name: top
+    description: 4 ED.V....... Top
+  - name: bottomleft
+    description: 5 ED.V....... Bottom-left
+  - name: bottom
+    description: 6 ED.V....... Bottom
+  - name: unspecified
+    description: 0 ED.V....... Unspecified
   group: 'AVCodecContext AVOptions:'
-  description: ED.V....... chroma sample location (from 0 to INT_MAX) (default unknown) unknown 0 ED.V....... Unspecified left 1 ED.V....... Left center 2 ED.V....... Center topleft 3 ED.V....... Top-left top 4 ED.V....... Top bottomleft 5 ED.V....... Bottom-left bottom 6 ED.V....... Bottom unspecified 0 ED.V....... Unspecified
+  description: ED.V....... chroma sample location (from 0 to INT_MAX) (default unknown)
   provenance:
     sources:
     - help-text
 - spellings:
   - -thread_type
+  choices:
+  - name: slice
+    description: ED.V.......
+  - name: frame
+    description: ED.V.......
   group: 'AVCodecContext AVOptions:'
-  description: <flags> ED.VA...... select multithreading type (default slice+frame) slice ED.V....... frame ED.V.......
+  description: <flags> ED.VA...... select multithreading type (default slice+frame)
   provenance:
     sources:
     - help-text
@@ -705,8 +1068,17 @@ flags:
     - help-text
 - spellings:
   - -sub_charenc_mode
+  choices:
+  - name: do_nothing
+    description: .D...S.....
+  - name: auto
+    description: .D...S.....
+  - name: pre_decoder
+    description: .D...S.....
+  - name: ignore
+    description: .D...S.....
   group: 'AVCodecContext AVOptions:'
-  description: <flags> .D...S..... set input text subtitles character encoding mode (default 0) do_nothing .D...S..... auto .D...S..... pre_decoder .D...S..... ignore .D...S.....
+  description: <flags> .D...S..... set input text subtitles character encoding mode (default 0)
   provenance:
     sources:
     - help-text
@@ -726,8 +1098,19 @@ flags:
     - help-text
 - spellings:
   - -field_order
+  choices:
+  - name: progressive
+    description: 1 ED.V.......
+  - name: tt
+    description: 2 ED.V.......
+  - name: bb
+    description: 3 ED.V.......
+  - name: tb
+    description: 4 ED.V.......
+  - name: bt
+    description: 5 ED.V.......
   group: 'AVCodecContext AVOptions:'
-  description: <int> ED.V....... Field order (from 0 to 5) (default 0) progressive 1 ED.V....... tt 2 ED.V....... bb 3 ED.V....... tb 4 ED.V....... bt 5 ED.V.......
+  description: <int> ED.V....... Field order (from 0 to 5) (default 0)
   provenance:
     sources:
     - help-text
@@ -761,8 +1144,17 @@ flags:
     - help-text
 - spellings:
   - -hwaccel_flags
+  choices:
+  - name: ignore_level
+    description: .D.V....... ignore level even if the codec level used is unknown or higher than the maximum supported level reported by the hardware driver
+  - name: allow_high_depth
+    description: .D.V....... allow to output YUV pixel formats with a different chroma sampling than 4:2:0 and/or other than 8 bits per component
+  - name: allow_profile_mismatch
+    description: .D.V....... attempt to decode anyway if HW accelerated decoder's supported profiles do not exactly match the stream
+  - name: unsafe_output
+    description: .D.V....... allow potentially unsafe hwaccel frame output that might require special care to process successfully
   group: 'AVCodecContext AVOptions:'
-  description: <flags> .D.V....... (default ignore_level) ignore_level .D.V....... ignore level even if the codec level used is unknown or higher than the maximum supported level reported by the hardware driver allow_high_depth .D.V....... allow to output YUV pixel formats with a different chroma sampling than 4:2:0 and/or other than 8 bits per component allow_profile_mismatch .D.V....... attempt to decode anyway if HW accelerated decoder's supported profiles do not exactly match the stream unsafe_output .D.V....... allow potentially unsafe hwaccel frame output that might require special care to process successfully
+  description: <flags> .D.V....... (default ignore_level)
   provenance:
     sources:
     - help-text
@@ -803,8 +1195,41 @@ flags:
     - help-text
 - spellings:
   - -apply_trc
+  choices:
+  - name: bt709
+    description: 1 .D.V....... BT.709
+  - name: gamma
+    description: 2 .D.V....... gamma
+  - name: gamma22
+    description: 4 .D.V....... BT.470 M
+  - name: gamma28
+    description: 5 .D.V....... BT.470 BG
+  - name: smpte170m
+    description: 6 .D.V....... SMPTE 170 M
+  - name: smpte240m
+    description: 7 .D.V....... SMPTE 240 M
+  - name: linear
+    description: 8 .D.V....... Linear
+  - name: log
+    description: 9 .D.V....... Log
+  - name: log_sqrt
+    description: 10 .D.V....... Log square root
+  - name: iec61966_2_4
+    description: 11 .D.V....... IEC 61966-2-4
+  - name: bt1361
+    description: 12 .D.V....... BT.1361
+  - name: iec61966_2_1
+    description: 13 .D.V....... IEC 61966-2-1
+  - name: bt2020_10bit
+    description: 14 .D.V....... BT.2020 - 10 bit
+  - name: bt2020_12bit
+    description: 15 .D.V....... BT.2020 - 12 bit
+  - name: smpte2084
+    description: 16 .D.V....... SMPTE ST 2084
+  - name: smpte428_1
+    description: 17 .D.V....... SMPTE ST 428-1
   group: 'EXR AVOptions:'
-  description: <int> .D.V....... color transfer characteristics to apply to EXR linear input (from 1 to 18) (default gamma) bt709 1 .D.V....... BT.709 gamma 2 .D.V....... gamma gamma22 4 .D.V....... BT.470 M gamma28 5 .D.V....... BT.470 BG smpte170m 6 .D.V....... SMPTE 170 M smpte240m 7 .D.V....... SMPTE 240 M linear 8 .D.V....... Linear log 9 .D.V....... Log log_sqrt 10 .D.V....... Log square root iec61966_2_4 11 .D.V....... IEC 61966-2-4 bt1361 12 .D.V....... BT.1361 iec61966_2_1 13 .D.V....... IEC 61966-2-1 bt2020_10bit 14 .D.V....... BT.2020 - 10 bit bt2020_12bit 15 .D.V....... BT.2020 - 12 bit smpte2084 16 .D.V....... SMPTE ST 2084 smpte428_1 17 .D.V....... SMPTE ST 428-1
+  description: <int> .D.V....... color transfer characteristics to apply to EXR linear input (from 1 to 18) (default gamma)
   provenance:
     sources:
     - help-text
@@ -999,8 +1424,17 @@ flags:
     - help-text
 - spellings:
   - -non_pcm_mode
+  choices:
+  - name: copy
+    description: 0 .D..A...... Pass NON-PCM through unchanged
+  - name: drop
+    description: 1 .D..A...... Drop NON-PCM
+  - name: decode_copy
+    description: 2 .D..A...... Decode if possible else passthrough
+  - name: decode_drop
+    description: 3 .D..A...... Decode if possible else drop
   group: 'SMPTE 302M Decoder AVOptions:'
-  description: <int> .D..A...... Chooses what to do with NON-PCM (from 0 to 3) (default decode_drop) copy 0 .D..A...... Pass NON-PCM through unchanged drop 1 .D..A...... Drop NON-PCM decode_copy 2 .D..A...... Decode if possible else passthrough decode_drop 3 .D..A...... Decode if possible else drop
+  description: <int> .D..A...... Chooses what to do with NON-PCM (from 0 to 3) (default decode_drop)
   provenance:
     sources:
     - help-text
@@ -1076,29 +1510,57 @@ flags:
     - help-text
 - spellings:
   - -dual_mono_mode
+  choices:
+  - name: auto
+    description: -1 .D..A...... autoselection
+  - name: main
+    description: 1 .D..A...... Select Main/Left channel
+  - name: sub
+    description: 2 .D..A...... Select Sub/Right channel
+  - name: both
+    description: 0 .D..A...... Select both channels
   group: 'AAC decoder AVOptions:'
-  description: <int> .D..A...... Select the channel to decode for dual mono (from -1 to 2) (default auto) auto -1 .D..A...... autoselection main 1 .D..A...... Select Main/Left channel sub 2 .D..A...... Select Sub/Right channel both 0 .D..A...... Select both channels
+  description: <int> .D..A...... Select the channel to decode for dual mono (from -1 to 2) (default auto)
   provenance:
     sources:
     - help-text
 - spellings:
   - -channel_order
+  choices:
+  - name: default
+    description: 0 .D..A...... normal libavcodec channel order
+  - name: coded
+    description: 1 .D..A...... order in which the channels are coded in the bitstream
   group: 'AAC decoder AVOptions:'
-  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default) default 0 .D..A...... normal libavcodec channel order coded 1 .D..A...... order in which the channels are coded in the bitstream
+  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default)
   provenance:
     sources:
     - help-text
 - spellings:
   - -dual_mono_mode
+  choices:
+  - name: auto
+    description: -1 .D..A...... autoselection
+  - name: main
+    description: 1 .D..A...... Select Main/Left channel
+  - name: sub
+    description: 2 .D..A...... Select Sub/Right channel
+  - name: both
+    description: 0 .D..A...... Select both channels
   group: 'AAC decoder AVOptions:'
-  description: <int> .D..A...... Select the channel to decode for dual mono (from -1 to 2) (default auto) auto -1 .D..A...... autoselection main 1 .D..A...... Select Main/Left channel sub 2 .D..A...... Select Sub/Right channel both 0 .D..A...... Select both channels
+  description: <int> .D..A...... Select the channel to decode for dual mono (from -1 to 2) (default auto)
   provenance:
     sources:
     - help-text
 - spellings:
   - -channel_order
+  choices:
+  - name: default
+    description: 0 .D..A...... normal libavcodec channel order
+  - name: coded
+    description: 1 .D..A...... order in which the channels are coded in the bitstream
   group: 'AAC decoder AVOptions:'
-  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default) default 0 .D..A...... normal libavcodec channel order coded 1 .D..A...... order in which the channels are coded in the bitstream
+  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default)
   provenance:
     sources:
     - help-text
@@ -1174,8 +1636,11 @@ flags:
     - help-text
 - spellings:
   - -max_samples
+  choices:
+  - name: all
+    description: 2147483647 .D..A...... no maximum. decode all samples for each packet at once
   group: 'APE decoder AVOptions:'
-  description: <int> .D..A...... maximum number of samples decoded per call (from 1 to INT_MAX) (default 4608) all 2147483647 .D..A...... no maximum. decode all samples for each packet at once
+  description: <int> .D..A...... maximum number of samples decoded per call (from 1 to INT_MAX) (default 4608)
   provenance:
     sources:
     - help-text
@@ -1188,8 +1653,13 @@ flags:
     - help-text
 - spellings:
   - -channel_order
+  choices:
+  - name: default
+    description: 0 .D..A...... normal libavcodec channel order
+  - name: coded
+    description: 1 .D..A...... order in which the channels are coded in the bitstream
   group: 'DCA decoder AVOptions:'
-  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default) default 0 .D..A...... normal libavcodec channel order coded 1 .D..A...... order in which the channels are coded in the bitstream
+  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default)
   provenance:
     sources:
     - help-text
@@ -1202,8 +1672,13 @@ flags:
     - help-text
 - spellings:
   - -channel_order
+  choices:
+  - name: default
+    description: 0 .D..A...... normal libavcodec channel order
+  - name: coded
+    description: 1 .D..A...... order in which the channels are coded in the bitstream
   group: 'Dolby E decoder AVOptions:'
-  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default) default 0 .D..A...... normal libavcodec channel order coded 1 .D..A...... order in which the channels are coded in the bitstream
+  description: <int> .D..A...... Order in which the channels are to be exported (from 0 to 1) (default default)
   provenance:
     sources:
     - help-text
@@ -1314,8 +1789,15 @@ flags:
     - help-text
 - spellings:
   - -data_field
+  choices:
+  - name: auto
+    description: -1 .D...S..... pick first one that appears
+  - name: first
+    description: 0 .D...S.....
+  - name: second
+    description: 1 .D...S.....
   group: 'Closed caption Decoder AVOptions:'
-  description: <int> .D...S..... select data field (from -1 to 1) (default auto) auto -1 .D...S..... pick first one that appears first 0 .D...S..... second 1 .D...S.....
+  description: <int> .D...S..... select data field (from -1 to 1) (default auto)
   provenance:
     sources:
     - help-text
@@ -1510,8 +1992,15 @@ flags:
     - help-text
 - spellings:
   - -txt_format
+  choices:
+  - name: bitmap
+    description: 0 .D...S.....
+  - name: text
+    description: 1 .D...S.....
+  - name: ass
+    description: 2 .D...S.....
   group: 'libzvbi_teletextdec AVOptions:'
-  description: <int> .D...S..... format of the subtitles (bitmap or text or ass) (from 0 to 2) (default bitmap) bitmap 0 .D...S..... text 1 .D...S..... ass 2 .D...S.....
+  description: <int> .D...S..... format of the subtitles (bitmap or text or ass) (from 0 to 2) (default bitmap)
   provenance:
     sources:
     - help-text
@@ -1566,8 +2055,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'av1_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1608,8 +2104,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'h264_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1650,8 +2153,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'hevc_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1692,8 +2202,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'mjpeg_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1734,8 +2251,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'mpeg1_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1776,8 +2300,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'mpeg2_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1818,8 +2349,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'mpeg4_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1860,8 +2398,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'vc1_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1902,8 +2447,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'vp8_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1944,8 +2496,15 @@ flags:
     - help-text
 - spellings:
   - -deint
+  choices:
+  - name: weave
+    description: 0 .D.V....... Weave deinterlacing (do nothing)
+  - name: bob
+    description: 1 .D.V....... Bob deinterlacing
+  - name: adaptive
+    description: 2 .D.V....... Adaptive deinterlacing
   group: 'vp9_cuvid AVOptions:'
-  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave) weave 0 .D.V....... Weave deinterlacing (do nothing) bob 1 .D.V....... Bob deinterlacing adaptive 2 .D.V....... Adaptive deinterlacing
+  description: <int> .D.V....... Set deinterlacing mode (from 0 to 2) (default weave)
   provenance:
     sources:
     - help-text
@@ -1986,8 +2545,11 @@ flags:
     - help-text
 - spellings:
   - -avioflags
+  choices:
+  - name: direct
+    description: ED......... reduce buffering
   group: 'AVFormatContext AVOptions:'
-  description: <flags> ED......... (default 0) direct ED......... reduce buffering
+  description: <flags> ED......... (default 0)
   provenance:
     sources:
     - help-text
@@ -2007,8 +2569,27 @@ flags:
     - help-text
 - spellings:
   - -fflags
+  choices:
+  - name: ignidx
+    description: .D......... ignore index
+  - name: genpts
+    description: .D......... generate pts
+  - name: nofillin
+    description: .D......... do not fill in missing values that can be exactly calculated
+  - name: noparse
+    description: .D......... disable AVParsers, this needs nofillin too
+  - name: igndts
+    description: .D......... ignore dts
+  - name: discardcorrupt
+    description: .D......... discard corrupted frames
+  - name: sortdts
+    description: .D......... try to interleave outputted packets by dts
+  - name: fastseek
+    description: .D......... fast but inaccurate seeks
+  - name: nobuffer
+    description: .D......... reduce the latency introduced by optional buffering
   group: 'AVFormatContext AVOptions:'
-  description: <flags> ED......... (default autobsf) ignidx .D......... ignore index genpts .D......... generate pts nofillin .D......... do not fill in missing values that can be exactly calculated noparse .D......... disable AVParsers, this needs nofillin too igndts .D......... ignore dts discardcorrupt .D......... discard corrupted frames sortdts .D......... try to interleave outputted packets by dts fastseek .D......... fast but inaccurate seeks nobuffer .D......... reduce the latency introduced by optional buffering
+  description: <flags> ED......... (default autobsf)
   provenance:
     sources:
     - help-text
@@ -2049,8 +2630,11 @@ flags:
     - help-text
 - spellings:
   - -fdebug
+  choices:
+  - name: ts
+    description: ED.........
   group: 'AVFormatContext AVOptions:'
-  description: <flags> ED......... print specific debug info (default 0) ts ED.........
+  description: <flags> ED......... print specific debug info (default 0)
   provenance:
     sources:
     - help-text
@@ -2070,15 +2654,49 @@ flags:
     - help-text
 - spellings:
   - -f_err_detect
+  choices:
+  - name: crccheck
+    description: .D......... verify embedded CRCs
+  - name: bitstream
+    description: .D......... detect bitstream specification deviations
+  - name: buffer
+    description: .D......... detect improper bitstream length
+  - name: explode
+    description: .D......... abort decoding on minor error detection
+  - name: ignore_err
+    description: .D......... ignore errors
+  - name: careful
+    description: .D......... consider things that violate the spec, are fast to check and have not been seen in the wild as errors
+  - name: compliant
+    description: .D......... consider all spec non compliancies as errors
+  - name: aggressive
+    description: .D......... consider things that a sane encoder shouldn't do as an error
   group: 'AVFormatContext AVOptions:'
-  description: <flags> .D......... set error detection flags (deprecated; use err_detect, save via avconv) (default crccheck) crccheck .D......... verify embedded CRCs bitstream .D......... detect bitstream specification deviations buffer .D......... detect improper bitstream length explode .D......... abort decoding on minor error detection ignore_err .D......... ignore errors careful .D......... consider things that violate the spec, are fast to check and have not been seen in the wild as errors compliant .D......... consider all spec non compliancies as errors aggressive .D......... consider things that a sane encoder shouldn't do as an error
+  description: <flags> .D......... set error detection flags (deprecated; use err_detect, save via avconv) (default crccheck)
   provenance:
     sources:
     - help-text
 - spellings:
   - -err_detect
+  choices:
+  - name: crccheck
+    description: .D......... verify embedded CRCs
+  - name: bitstream
+    description: .D......... detect bitstream specification deviations
+  - name: buffer
+    description: .D......... detect improper bitstream length
+  - name: explode
+    description: .D......... abort decoding on minor error detection
+  - name: ignore_err
+    description: .D......... ignore errors
+  - name: careful
+    description: .D......... consider things that violate the spec, are fast to check and have not been seen in the wild as errors
+  - name: compliant
+    description: .D......... consider all spec non compliancies as errors
+  - name: aggressive
+    description: .D......... consider things that a sane encoder shouldn't do as an error
   group: 'AVFormatContext AVOptions:'
-  description: <flags> .D......... set error detection flags (default crccheck) crccheck .D......... verify embedded CRCs bitstream .D......... detect bitstream specification deviations buffer .D......... detect improper bitstream length explode .D......... abort decoding on minor error detection ignore_err .D......... ignore errors careful .D......... consider things that violate the spec, are fast to check and have not been seen in the wild as errors compliant .D......... consider all spec non compliancies as errors aggressive .D......... consider things that a sane encoder shouldn't do as an error
+  description: <flags> .D......... set error detection flags (default crccheck)
   provenance:
     sources:
     - help-text
@@ -2105,15 +2723,37 @@ flags:
     - help-text
 - spellings:
   - -f_strict
+  choices:
+  - name: very
+    description: 2 ED......... strictly conform to a older more strict version of the spec or reference software
+  - name: strict
+    description: 1 ED......... strictly conform to all the things in the spec no matter what the consequences
+  - name: normal
+    description: 0 ED.........
+  - name: unofficial
+    description: -1 ED......... allow unofficial extensions
+  - name: experimental
+    description: -2 ED......... allow non-standardized experimental variants
   group: 'AVFormatContext AVOptions:'
-  description: <int> ED......... how strictly to follow the standards (deprecated; use strict, save via avconv) (from INT_MIN to INT_MAX) (default normal) very 2 ED......... strictly conform to a older more strict version of the spec or reference software strict 1 ED......... strictly conform to all the things in the spec no matter what the consequences normal 0 ED......... unofficial -1 ED......... allow unofficial extensions experimental -2 ED......... allow non-standardized experimental variants
+  description: <int> ED......... how strictly to follow the standards (deprecated; use strict, save via avconv) (from INT_MIN to INT_MAX) (default normal)
   provenance:
     sources:
     - help-text
 - spellings:
   - -strict
+  choices:
+  - name: very
+    description: 2 ED......... strictly conform to a older more strict version of the spec or reference software
+  - name: strict
+    description: 1 ED......... strictly conform to all the things in the spec no matter what the consequences
+  - name: normal
+    description: 0 ED.........
+  - name: unofficial
+    description: -1 ED......... allow unofficial extensions
+  - name: experimental
+    description: -2 ED......... allow non-standardized experimental variants
   group: 'AVFormatContext AVOptions:'
-  description: <int> ED......... how strictly to follow the standards (from INT_MIN to INT_MAX) (default normal) very 2 ED......... strictly conform to a older more strict version of the spec or reference software strict 1 ED......... strictly conform to all the things in the spec no matter what the consequences normal 0 ED......... unofficial -1 ED......... allow unofficial extensions experimental -2 ED......... allow non-standardized experimental variants
+  description: <int> ED......... how strictly to follow the standards (from INT_MIN to INT_MAX) (default normal)
   provenance:
     sources:
     - help-text
@@ -2387,8 +3027,13 @@ flags:
     - help-text
 - spellings:
   - -auth_type
+  choices:
+  - name: none
+    description: 0 ED......... No auth method set, autodetect
+  - name: basic
+    description: 1 ED......... HTTP basic authentication
   group: 'http AVOptions:'
-  description: <int> ED......... HTTP authentication type (from 0 to 1) (default none) none 0 ED......... No auth method set, autodetect basic 1 ED......... HTTP basic authentication
+  description: <int> ED......... HTTP authentication type (from 0 to 1) (default none)
   provenance:
     sources:
     - help-text
@@ -2548,8 +3193,13 @@ flags:
     - help-text
 - spellings:
   - -auth_type
+  choices:
+  - name: none
+    description: 0 ED......... No auth method set, autodetect
+  - name: basic
+    description: 1 ED......... HTTP basic authentication
   group: 'https AVOptions:'
-  description: <int> ED......... HTTP authentication type (from 0 to 1) (default none) none 0 ED......... No auth method set, autodetect basic 1 ED......... HTTP basic authentication
+  description: <int> ED......... HTTP authentication type (from 0 to 1) (default none)
   provenance:
     sources:
     - help-text
@@ -2667,8 +3317,15 @@ flags:
     - help-text
 - spellings:
   - -rtmp_live
+  choices:
+  - name: any
+    description: -2 .D......... both
+  - name: live
+    description: -1 .D......... live stream
+  - name: recorded
+    description: 0 .D......... recorded stream
   group: 'rtmp AVOptions:'
-  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any) any -2 .D......... both live -1 .D......... live stream recorded 0 .D......... recorded stream
+  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any)
   provenance:
     sources:
     - help-text
@@ -2786,8 +3443,15 @@ flags:
     - help-text
 - spellings:
   - -rtmp_live
+  choices:
+  - name: any
+    description: -2 .D......... both
+  - name: live
+    description: -1 .D......... live stream
+  - name: recorded
+    description: 0 .D......... recorded stream
   group: 'rtmps AVOptions:'
-  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any) any -2 .D......... both live -1 .D......... live stream recorded 0 .D......... recorded stream
+  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any)
   provenance:
     sources:
     - help-text
@@ -2905,8 +3569,15 @@ flags:
     - help-text
 - spellings:
   - -rtmp_live
+  choices:
+  - name: any
+    description: -2 .D......... both
+  - name: live
+    description: -1 .D......... live stream
+  - name: recorded
+    description: 0 .D......... recorded stream
   group: 'rtmpt AVOptions:'
-  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any) any -2 .D......... both live -1 .D......... live stream recorded 0 .D......... recorded stream
+  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any)
   provenance:
     sources:
     - help-text
@@ -3024,8 +3695,15 @@ flags:
     - help-text
 - spellings:
   - -rtmp_live
+  choices:
+  - name: any
+    description: -2 .D......... both
+  - name: live
+    description: -1 .D......... live stream
+  - name: recorded
+    description: 0 .D......... recorded stream
   group: 'rtmpts AVOptions:'
-  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any) any -2 .D......... both live -1 .D......... live stream recorded 0 .D......... recorded stream
+  description: <int> .D......... Specify that the media is a live stream. (from INT_MIN to INT_MAX) (default any)
   provenance:
     sources:
     - help-text
@@ -3591,8 +4269,15 @@ flags:
     - help-text
 - spellings:
   - -type
+  choices:
+  - name: stream
+    description: 1 ED......... Stream (reliable stream-oriented)
+  - name: datagram
+    description: 2 ED......... Datagram (unreliable packet-oriented)
+  - name: seqpacket
+    description: 5 ED......... Seqpacket (reliable packet-oriented
   group: 'unix AVOptions:'
-  description: <int> ED......... Socket type (from INT_MIN to INT_MAX) (default stream) stream 1 ED......... Stream (reliable stream-oriented) datagram 2 ED......... Datagram (unreliable packet-oriented) seqpacket 5 ED......... Seqpacket (reliable packet-oriented
+  description: <int> ED......... Socket type (from INT_MIN to INT_MAX) (default stream)
   provenance:
     sources:
     - help-text
@@ -3626,8 +4311,15 @@ flags:
     - help-text
 - spellings:
   - -rist_profile
+  choices:
+  - name: simple
+    description: 0 ED.........
+  - name: main
+    description: 1 ED.........
+  - name: advanced
+    description: 2 ED.........
   group: 'librist AVOptions:'
-  description: <int> ED......... set profile (from 0 to 2) (default main) simple 0 ED......... main 1 ED......... advanced 2 ED.........
+  description: <int> ED......... set profile (from 0 to 2) (default main)
   provenance:
     sources:
     - help-text
@@ -3710,15 +4402,25 @@ flags:
     - help-text
 - spellings:
   - -pkt_size
+  choices:
+  - name: ts_size
+    description: 1316 ED.........
+  - name: max_size
+    description: 1456 ED.........
   group: 'libsrt AVOptions:'
-  description: <int> ED......... Maximum SRT packet size (from -1 to 1456) (default -1) ts_size 1316 ED......... max_size 1456 ED.........
+  description: <int> ED......... Maximum SRT packet size (from -1 to 1456) (default -1)
   provenance:
     sources:
     - help-text
 - spellings:
   - -payload_size
+  choices:
+  - name: ts_size
+    description: 1316 ED.........
+  - name: max_size
+    description: 1456 ED.........
   group: 'libsrt AVOptions:'
-  description: <int> ED......... Maximum SRT packet size (from -1 to 1456) (default -1) ts_size 1316 ED......... max_size 1456 ED.........
+  description: <int> ED......... Maximum SRT packet size (from -1 to 1456) (default -1)
   provenance:
     sources:
     - help-text
@@ -3864,8 +4566,15 @@ flags:
     - help-text
 - spellings:
   - -mode
+  choices:
+  - name: caller
+    description: 0 ED.........
+  - name: listener
+    description: 1 ED.........
+  - name: rendezvous
+    description: 2 ED.........
   group: 'libsrt AVOptions:'
-  description: <int> ED......... Connection mode (caller, listener, rendezvous) (from 0 to 2) (default caller) caller 0 ED......... listener 1 ED......... rendezvous 2 ED.........
+  description: <int> ED......... Connection mode (caller, listener, rendezvous) (from 0 to 2) (default caller)
   provenance:
     sources:
     - help-text
@@ -3927,8 +4636,13 @@ flags:
     - help-text
 - spellings:
   - -transtype
+  choices:
+  - name: live
+    description: 0 ED.........
+  - name: file
+    description: 1 ED.........
   group: 'libsrt AVOptions:'
-  description: <int> ED......... The transmission type for the socket (from 0 to 2) (default 2) live 0 ED......... file 1 ED.........
+  description: <int> ED......... The transmission type for the socket (from 0 to 2) (default 2)
   provenance:
     sources:
     - help-text
@@ -3990,22 +4704,51 @@ flags:
     - help-text
 - spellings:
   - -rtsp_transport
+  choices:
+  - name: udp
+    description: ED......... UDP
+  - name: tcp
+    description: ED......... TCP
+  - name: udp_multicast
+    description: .D......... UDP multicast
+  - name: http
+    description: .D......... HTTP tunneling
+  - name: https
+    description: .D......... HTTPS tunneling
   group: 'RTSP muxer AVOptions:'
-  description: <flags> ED......... set RTSP transport protocols (default 0) udp ED......... UDP tcp ED......... TCP udp_multicast .D......... UDP multicast http .D......... HTTP tunneling https .D......... HTTPS tunneling
+  description: <flags> ED......... set RTSP transport protocols (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -rtsp_flags
+  choices:
+  - name: filter_src
+    description: .D......... only receive packets from the negotiated peer IP
+  - name: listen
+    description: .D......... wait for incoming connections
+  - name: prefer_tcp
+    description: ED......... try RTP via TCP first, if available
+  - name: satip_raw
+    description: .D......... export raw MPEG-TS stream instead of demuxing
   group: 'RTSP muxer AVOptions:'
-  description: <flags> .D......... set RTSP flags (default 0) filter_src .D......... only receive packets from the negotiated peer IP listen .D......... wait for incoming connections prefer_tcp ED......... try RTP via TCP first, if available satip_raw .D......... export raw MPEG-TS stream instead of demuxing
+  description: <flags> .D......... set RTSP flags (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -allowed_media_types
+  choices:
+  - name: video
+    description: .D......... Video
+  - name: audio
+    description: .D......... Audio
+  - name: data
+    description: .D......... Data
+  - name: subtitle
+    description: .D......... Subtitle
   group: 'RTSP muxer AVOptions:'
-  description: .D......... set media types to accept from the server (default video+audio+data+subtitle) video .D......... Video audio .D......... Audio data .D......... Data subtitle .D......... Subtitle
+  description: .D......... set media types to accept from the server (default video+audio+data+subtitle)
   provenance:
     sources:
     - help-text
@@ -4774,8 +5517,17 @@ flags:
     - help-text
 - spellings:
   - -pattern_type
+  choices:
+  - name: glob_sequence
+    description: 0 .D......... select glob/sequence pattern type
+  - name: glob
+    description: 1 .D......... select glob pattern type
+  - name: sequence
+    description: 2 .D......... select sequence pattern type
+  - name: none
+    description: 3 .D......... disable pattern matching
   group: 'image2 demuxer AVOptions:'
-  description: <int> .D......... set pattern type (from 0 to INT_MAX) (default 4) glob_sequence 0 .D......... select glob/sequence pattern type glob 1 .D......... select glob pattern type sequence 2 .D......... select sequence pattern type none 3 .D......... disable pattern matching
+  description: <int> .D......... set pattern type (from 0 to INT_MAX) (default 4)
   provenance:
     sources:
     - help-text
@@ -4795,8 +5547,15 @@ flags:
     - help-text
 - spellings:
   - -ts_from_file
+  choices:
+  - name: none
+    description: 0 .D......... none
+  - name: sec
+    description: 1 .D......... second precision
+  - name: ns
+    description: 2 .D......... nano second precision
   group: 'image2 demuxer AVOptions:'
-  description: <int> .D......... set frame timestamp from file's one (from 0 to 2) (default none) none 0 .D......... none sec 1 .D......... second precision ns 2 .D......... nano second precision
+  description: <int> .D......... set frame timestamp from file's one (from 0 to 2) (default none)
   provenance:
     sources:
     - help-text
@@ -4872,8 +5631,17 @@ flags:
     - help-text
 - spellings:
   - -pattern_type
+  choices:
+  - name: glob_sequence
+    description: 0 .D......... select glob/sequence pattern type
+  - name: glob
+    description: 1 .D......... select glob pattern type
+  - name: sequence
+    description: 2 .D......... select sequence pattern type
+  - name: none
+    description: 3 .D......... disable pattern matching
   group: 'alias_pix demuxer AVOptions:'
-  description: <int> .D......... set pattern type (from 0 to INT_MAX) (default 4) glob_sequence 0 .D......... select glob/sequence pattern type glob 1 .D......... select glob pattern type sequence 2 .D......... select sequence pattern type none 3 .D......... disable pattern matching
+  description: <int> .D......... set pattern type (from 0 to INT_MAX) (default 4)
   provenance:
     sources:
     - help-text
@@ -4893,8 +5661,15 @@ flags:
     - help-text
 - spellings:
   - -ts_from_file
+  choices:
+  - name: none
+    description: 0 .D......... none
+  - name: sec
+    description: 1 .D......... second precision
+  - name: ns
+    description: 2 .D......... nano second precision
   group: 'alias_pix demuxer AVOptions:'
-  description: <int> .D......... set frame timestamp from file's one (from 0 to 2) (default none) none 0 .D......... none sec 1 .D......... second precision ns 2 .D......... nano second precision
+  description: <int> .D......... set frame timestamp from file's one (from 0 to 2) (default none)
   provenance:
     sources:
     - help-text
@@ -4935,8 +5710,17 @@ flags:
     - help-text
 - spellings:
   - -pattern_type
+  choices:
+  - name: glob_sequence
+    description: 0 .D......... select glob/sequence pattern type
+  - name: glob
+    description: 1 .D......... select glob pattern type
+  - name: sequence
+    description: 2 .D......... select sequence pattern type
+  - name: none
+    description: 3 .D......... disable pattern matching
   group: 'brender_pix demuxer AVOptions:'
-  description: <int> .D......... set pattern type (from 0 to INT_MAX) (default 4) glob_sequence 0 .D......... select glob/sequence pattern type glob 1 .D......... select glob pattern type sequence 2 .D......... select sequence pattern type none 3 .D......... disable pattern matching
+  description: <int> .D......... set pattern type (from 0 to INT_MAX) (default 4)
   provenance:
     sources:
     - help-text
@@ -4956,8 +5740,15 @@ flags:
     - help-text
 - spellings:
   - -ts_from_file
+  choices:
+  - name: none
+    description: 0 .D......... none
+  - name: sec
+    description: 1 .D......... second precision
+  - name: ns
+    description: 2 .D......... nano second precision
   group: 'brender_pix demuxer AVOptions:'
-  description: <int> .D......... set frame timestamp from file's one (from 0 to 2) (default none) none 0 .D......... none sec 1 .D......... second precision ns 2 .D......... nano second precision
+  description: <int> .D......... set frame timestamp from file's one (from 0 to 2) (default none)
   provenance:
     sources:
     - help-text
@@ -5152,8 +5943,15 @@ flags:
     - help-text
 - spellings:
   - -use_mfra_for
+  choices:
+  - name: auto
+    description: -1 .D.V....... auto
+  - name: dts
+    description: 1 .D.V....... dts
+  - name: pts
+    description: 2 .D.V....... pts
   group: 'mov,mp4,m4a,3gp,3g2,mj2 AVOptions:'
-  description: <int> .D.V....... use mfra for fragment timestamps (from -1 to 2) (default auto) auto -1 .D.V....... auto dts 1 .D.V....... dts pts 2 .D.V....... pts
+  description: <int> .D.V....... use mfra for fragment timestamps (from -1 to 2) (default auto)
   provenance:
     sources:
     - help-text
@@ -5817,8 +6615,11 @@ flags:
     - help-text
 - spellings:
   - -rtp_flags
+  choices:
+  - name: filter_src
+    description: .D......... only receive packets from the negotiated peer IP
   group: 'RTP demuxer AVOptions:'
-  description: <flags> .D......... set RTP flags (default 0) filter_src .D......... only receive packets from the negotiated peer IP
+  description: <flags> .D......... set RTP flags (default 0)
   provenance:
     sources:
     - help-text
@@ -5838,8 +6639,17 @@ flags:
     - help-text
 - spellings:
   - -allowed_media_types
+  choices:
+  - name: video
+    description: .D......... Video
+  - name: audio
+    description: .D......... Audio
+  - name: data
+    description: .D......... Data
+  - name: subtitle
+    description: .D......... Subtitle
   group: 'RTP demuxer AVOptions:'
-  description: .D......... set media types to accept from the server (default video+audio+data+subtitle) video .D......... Video audio .D......... Audio data .D......... Data subtitle .D......... Subtitle
+  description: .D......... set media types to accept from the server (default video+audio+data+subtitle)
   provenance:
     sources:
     - help-text
@@ -5866,22 +6676,51 @@ flags:
     - help-text
 - spellings:
   - -rtsp_transport
+  choices:
+  - name: udp
+    description: ED......... UDP
+  - name: tcp
+    description: ED......... TCP
+  - name: udp_multicast
+    description: .D......... UDP multicast
+  - name: http
+    description: .D......... HTTP tunneling
+  - name: https
+    description: .D......... HTTPS tunneling
   group: 'RTSP demuxer AVOptions:'
-  description: <flags> ED......... set RTSP transport protocols (default 0) udp ED......... UDP tcp ED......... TCP udp_multicast .D......... UDP multicast http .D......... HTTP tunneling https .D......... HTTPS tunneling
+  description: <flags> ED......... set RTSP transport protocols (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -rtsp_flags
+  choices:
+  - name: filter_src
+    description: .D......... only receive packets from the negotiated peer IP
+  - name: listen
+    description: .D......... wait for incoming connections
+  - name: prefer_tcp
+    description: ED......... try RTP via TCP first, if available
+  - name: satip_raw
+    description: .D......... export raw MPEG-TS stream instead of demuxing
   group: 'RTSP demuxer AVOptions:'
-  description: <flags> .D......... set RTSP flags (default 0) filter_src .D......... only receive packets from the negotiated peer IP listen .D......... wait for incoming connections prefer_tcp ED......... try RTP via TCP first, if available satip_raw .D......... export raw MPEG-TS stream instead of demuxing
+  description: <flags> .D......... set RTSP flags (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -allowed_media_types
+  choices:
+  - name: video
+    description: .D......... Video
+  - name: audio
+    description: .D......... Audio
+  - name: data
+    description: .D......... Data
+  - name: subtitle
+    description: .D......... Subtitle
   group: 'RTSP demuxer AVOptions:'
-  description: .D......... set media types to accept from the server (default video+audio+data+subtitle) video .D......... Video audio .D......... Audio data .D......... Data subtitle .D......... Subtitle
+  description: .D......... set media types to accept from the server (default video+audio+data+subtitle)
   provenance:
     sources:
     - help-text
@@ -5964,8 +6803,15 @@ flags:
     - help-text
 - spellings:
   - -sdp_flags
+  choices:
+  - name: filter_src
+    description: .D......... only receive packets from the negotiated peer IP
+  - name: custom_io
+    description: .D......... use custom I/O
+  - name: rtcp_to_source
+    description: .D......... send RTCP packets to the source address of received packets
   group: 'SDP demuxer AVOptions:'
-  description: <flags> .D......... SDP flags (default 0) filter_src .D......... only receive packets from the negotiated peer IP custom_io .D......... use custom I/O rtcp_to_source .D......... send RTCP packets to the source address of received packets
+  description: <flags> .D......... SDP flags (default 0)
   provenance:
     sources:
     - help-text
@@ -5985,8 +6831,17 @@ flags:
     - help-text
 - spellings:
   - -allowed_media_types
+  choices:
+  - name: video
+    description: .D......... Video
+  - name: audio
+    description: .D......... Audio
+  - name: data
+    description: .D......... Data
+  - name: subtitle
+    description: .D......... Subtitle
   group: 'SDP demuxer AVOptions:'
-  description: .D......... set media types to accept from the server (default video+audio+data+subtitle) video .D......... Video audio .D......... Audio data .D......... Data subtitle .D......... Subtitle
+  description: .D......... set media types to accept from the server (default video+audio+data+subtitle)
   provenance:
     sources:
     - help-text
@@ -6181,8 +7036,17 @@ flags:
     - help-text
 - spellings:
   - -kind
+  choices:
+  - name: subtitles
+    description: 0 .D...S..... WebVTT subtitles kind
+  - name: captions
+    description: 65536 .D...S..... WebVTT captions kind
+  - name: descriptions
+    description: 131072 .D...S..... WebVTT descriptions kind
+  - name: metadata
+    description: 262144 .D...S..... WebVTT metadata kind
   group: 'WebVTT demuxer AVOptions:'
-  description: <int> .D...S..... Set kind of WebVTT track (from 0 to INT_MAX) (default subtitles) subtitles 0 .D...S..... WebVTT subtitles kind captions 65536 .D...S..... WebVTT captions kind descriptions 131072 .D...S..... WebVTT descriptions kind metadata 262144 .D...S..... WebVTT metadata kind
+  description: <int> .D...S..... Set kind of WebVTT track (from 0 to INT_MAX) (default subtitles)
   provenance:
     sources:
     - help-text
@@ -7511,8 +8375,13 @@ flags:
     - help-text
 - spellings:
   - -subsong
+  choices:
+  - name: all
+    description: -1 .D..A...... all
+  - name: auto
+    description: -2 .D..A...... auto
   group: 'libopenmpt AVOptions:'
-  description: <int> .D..A...... set subsong (from -2 to INT_MAX) (default auto) all -1 .D..A...... all auto -2 .D..A...... auto
+  description: <int> .D..A...... set subsong (from -2 to INT_MAX) (default auto)
   provenance:
     sources:
     - help-text
@@ -7539,8 +8408,15 @@ flags:
     - help-text
 - spellings:
   - -dvtype
+  choices:
+  - name: auto
+    description: 0 .D......... auto detect DV/HDV
+  - name: dv
+    description: 1 .D......... force device being treated as DV device
+  - name: hdv
+    description: 2 .D......... force device being treated as HDV device
   group: 'iec61883 indev AVOptions:'
-  description: <int> .D......... override autodetection of DV/HDV (from 0 to 2) (default auto) auto 0 .D......... auto detect DV/HDV dv 1 .D......... force device being treated as DV device hdv 2 .D......... force device being treated as HDV device
+  description: <int> .D......... override autodetection of DV/HDV (from 0 to 2) (default auto)
   provenance:
     sources:
     - help-text
@@ -7651,8 +8527,13 @@ flags:
     - help-text
 - spellings:
   - -list_devices
+  choices:
+  - name: 'true'
+    description: 1 .D.........
+  - name: 'false'
+    description: 0 .D.........
   group: 'openal indev AVOptions:'
-  description: <int> .D......... list available devices (from 0 to 1) (default false) true 1 .D......... false 0 .D.........
+  description: <int> .D......... list available devices (from 0 to 1) (default false)
   provenance:
     sources:
     - help-text
@@ -7770,22 +8651,39 @@ flags:
     - help-text
 - spellings:
   - -list_formats
+  choices:
+  - name: all
+    description: 3 .D......... show all available formats
+  - name: raw
+    description: 1 .D......... show only non-compressed formats
+  - name: compressed
+    description: 2 .D......... show only compressed formats
   group: 'V4L2 indev AVOptions:'
-  description: <int> .D......... list available formats and exit (from 0 to INT_MAX) (default 0) all 3 .D......... show all available formats raw 1 .D......... show only non-compressed formats compressed 2 .D......... show only compressed formats
+  description: <int> .D......... list available formats and exit (from 0 to INT_MAX) (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -list_standards
+  choices:
+  - name: all
+    description: 1 .D......... show all supported standards
   group: 'V4L2 indev AVOptions:'
-  description: <int> .D......... list supported standards and exit (from 0 to 1) (default 0) all 1 .D......... show all supported standards
+  description: <int> .D......... list supported standards and exit (from 0 to 1) (default 0)
   provenance:
     sources:
     - help-text
 - spellings:
   - -timestamps
+  choices:
+  - name: default
+    description: 0 .D......... use timestamps from the kernel
+  - name: abs
+    description: 1 .D......... use absolute timestamps (wall clock)
+  - name: mono2abs
+    description: 2 .D......... force conversion from monotonic to absolute timestamps
   group: 'V4L2 indev AVOptions:'
-  description: <int> .D......... set type of timestamps for grabbed frames (from 0 to 2) (default default) default 0 .D......... use timestamps from the kernel abs 1 .D......... use absolute timestamps (wall clock) mono2abs 2 .D......... force conversion from monotonic to absolute timestamps
+  description: <int> .D......... set type of timestamps for grabbed frames (from 0 to 2) (default default)
   provenance:
     sources:
     - help-text
@@ -7793,8 +8691,15 @@ flags:
   - -t
   value_name: s
   value_kind: Required
+  choices:
+  - name: default
+    description: 0 .D......... use timestamps from the kernel
+  - name: abs
+    description: 1 .D......... use absolute timestamps (wall clock)
+  - name: mono2abs
+    description: 2 .D......... force conversion from monotonic to absolute timestamps
   group: 'V4L2 indev AVOptions:'
-  description: <int> .D......... set type of timestamps for grabbed frames (from 0 to 2) (default default) default 0 .D......... use timestamps from the kernel abs 1 .D......... use absolute timestamps (wall clock) mono2abs 2 .D......... force conversion from monotonic to absolute timestamps
+  description: <int> .D......... set type of timestamps for grabbed frames (from 0 to 2) (default default)
   provenance:
     sources:
     - help-text
@@ -7863,8 +8768,11 @@ flags:
     - help-text
 - spellings:
   - -follow_mouse
+  choices:
+  - name: centered
+    description: -1 .D......... Keep the mouse pointer at the center of grabbing region when following.
   group: 'xcbgrab indev AVOptions:'
-  description: <int> .D......... Move the grabbing region when the mouse pointer reaches within specified amount of pixels to the edge of region. (from -1 to INT_MAX) (default 0) centered -1 .D......... Keep the mouse pointer at the center of grabbing region when following.
+  description: <int> .D......... Move the grabbing region when the mouse pointer reaches within specified amount of pixels to the edge of region. (from -1 to INT_MAX) (default 0)
   provenance:
     sources:
     - help-text
@@ -7898,8 +8806,19 @@ flags:
     - help-text
 - spellings:
   - -paranoia_mode
+  choices:
+  - name: disable
+    description: .D......... apply no fixups
+  - name: verify
+    description: .D......... verify data integrity in overlap area
+  - name: overlap
+    description: .D......... perform overlapped reads
+  - name: neverskip
+    description: .D......... do not skip failed reads
+  - name: full
+    description: .D......... apply all recovery modes
   group: 'libcdio indev AVOptions:'
-  description: <flags> .D......... set error recovery mode (default 0) disable .D......... apply no fixups verify .D......... verify data integrity in overlap area overlap .D......... perform overlapped reads neverskip .D......... do not skip failed reads full .D......... apply all recovery modes
+  description: <flags> .D......... set error recovery mode (default 0)
   provenance:
     sources:
     - help-text

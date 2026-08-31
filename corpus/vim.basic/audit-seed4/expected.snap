@@ -1,0 +1,345 @@
+name: vim.basic
+description: VIM - Vi IMproved 9.1 (2024 Jan 02, compiled Jul 13 2026 17:17:48)
+usage:
+- 'Usage: vim [arguments] [file ..]       edit specified file(s)'
+- '   or: vim [arguments] -               read text from stdin'
+- '   or: vim [arguments] -t tag          edit file where tag is defined'
+- '   or: vim [arguments] -q [errorfile]  edit file with first error'
+flags:
+- spellings:
+  - -v
+  group: 'Arguments:'
+  description: Vi mode (like "vi")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  group: 'Arguments:'
+  description: Ex mode (like "ex")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  group: 'Arguments:'
+  description: Improved Ex mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  group: 'Arguments:'
+  description: Silent (batch) mode (only for "ex")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  group: 'Arguments:'
+  description: Diff mode (like "vimdiff")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  group: 'Arguments:'
+  description: Easy mode (like "evim", modeless)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  group: 'Arguments:'
+  description: Readonly mode (like "view")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  group: 'Arguments:'
+  description: Restricted mode (like "rvim")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  group: 'Arguments:'
+  description: Modifications (writing files) not allowed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  group: 'Arguments:'
+  description: Modifications in text not allowed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  group: 'Arguments:'
+  description: Binary mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  group: 'Arguments:'
+  description: Lisp mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  group: 'Arguments:'
+  description: 'Compatible with Vi: ''compatible'''
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  group: 'Arguments:'
+  description: 'Not fully Vi compatible: ''nocompatible'''
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  value_name: N
+  value_kind: Optional
+  group: 'Arguments:'
+  description: Be verbose [level N] [log messages to fname]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  group: 'Arguments:'
+  description: Debugging mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  group: 'Arguments:'
+  description: No swap file, use memory only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  group: 'Arguments:'
+  description: List swap files and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  value_name: (with
+  value_kind: Required
+  group: 'Arguments:'
+  description: Recover crashed session
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  group: 'Arguments:'
+  description: Same as -r
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  group: 'Arguments:'
+  description: Start in Arabic mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  group: 'Arguments:'
+  description: Start in Hebrew mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  value_name: <terminal>
+  value_kind: Required
+  group: 'Arguments:'
+  description: Set terminal type to <terminal>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --not-a-term
+  group: 'Arguments:'
+  description: Skip warning for input/output not being a terminal
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ttyfail
+  group: 'Arguments:'
+  description: Exit if input or output is not a terminal
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  value_name: <vimrc>
+  value_kind: Required
+  group: 'Arguments:'
+  description: Use <vimrc> instead of any .vimrc
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --noplugin
+  group: 'Arguments:'
+  description: Don't load plugin scripts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: N
+  value_kind: Optional
+  group: 'Arguments:'
+  description: 'Open N tab pages (default: one for each file)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: N
+  value_kind: Optional
+  group: 'Arguments:'
+  description: 'Open N windows (default: one for each file)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  value_name: N
+  value_kind: Optional
+  group: 'Arguments:'
+  description: Like -o but split vertically
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cmd
+  value_name: <command>
+  value_kind: Required
+  description: Execute <command> before loading any vimrc file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  value_name: <command>
+  value_kind: Required
+  description: Execute <command> after loading the first file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  value_name: <session>
+  value_kind: Required
+  description: Source file <session> after loading the first file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  value_name: <scriptin>
+  value_kind: Required
+  description: Read Normal mode commands from file <scriptin>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  value_name: <scriptout>
+  value_kind: Required
+  description: Append all typed commands to file <scriptout>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  value_name: <scriptout>
+  value_kind: Required
+  description: Write all typed commands to file <scriptout>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  description: Edit encrypted files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --startuptime
+  value_name: <file>
+  value_kind: Required
+  description: Write startup timing messages to <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --log
+  value_name: <file>
+  value_kind: Required
+  description: Start logging to <file> early
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  value_name: <viminfo>
+  value_kind: Required
+  description: Use <viminfo> instead of .viminfo
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --clean
+  description: '''nocompatible'', Vim defaults, no plugins, no viminfo'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  description: or --help Print Help (this message) and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Print version information and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: tag
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -q
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

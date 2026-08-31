@@ -1860,39 +1860,46 @@ fn entity_line(
 
     let mut description_text = flag.description.as_ref().map(|d| d.single_line());
 
-    // The IR carries a flag's permitted values (spec §7 Tier B rule 4:
-    // `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum values,
-    // which is why they are *not* subcommands) and the pane was extracting
-    // them and then dropping them on the floor. Knowing that `--format`
-    // takes exactly six spellings is precisely the sort of thing you open a
-    // reference to find out.
-    if !flag.choices.is_empty() {
-        let joined = flag
-            .choices
-            .iter()
-            .map(|c| c.as_str().to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let rendered = format!("[{joined}]");
-        description_text = Some(match description_text {
-            Some(d) if !d.is_empty() => format!("{d} {rendered}"),
-            _ => rendered,
-        });
-    }
-
     if let Some(tag) = &deprecated_tag {
         description_text = Some(match description_text {
             Some(d) => format!("{d}{tag}"),
             None => tag.trim_start().to_string(),
         });
     }
+    let description_text = description_text.filter(|d| !d.is_empty());
 
-    let Some(description_text) = description_text.filter(|d| !d.is_empty()) else {
+    // The IR carries a flag's permitted values (spec §7 Tier B rule 4:
+    // `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum values,
+    // which is why they are *not* subcommands). This does not join into
+    // `description_text`: description text must stay the tool's own prose,
+    // and the spelling column must stay verbatim — `tar --format` carries
+    // both a `FORMAT` placeholder and `choices`, and folding an enumeration
+    // into either would corrupt it. A derived enumeration gets its own
+    // labeled line instead, indented two columns past the description
+    // column, in the section's derived-metadata style.
+    // A flag whose choices carry no per-value description (the common
+    // case — `tar --quoting-style`'s bare `literal`/`shell`/`c`/...) still
+    // gets the round-6 single summary line. A flag whose choices carry
+    // their own text (ffmpeg/ffplay's AVOption constants, spec §7
+    // recognition rule) render one indented `name  description` line per
+    // choice instead — see `choice_detail_lines` below.
+    let has_choice_descriptions = flag.choices.iter().any(|c| c.description.is_some());
+    let values_line = (!flag.choices.is_empty() && !has_choice_descriptions).then(|| {
+        let joined = flag
+            .choices
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("values: {joined}")
+    });
+
+    if description_text.is_none() && values_line.is_none() && !has_choice_descriptions {
         if !head.is_empty() {
             return head;
         }
         return vec![Line::from(first_line_spans)];
-    };
+    }
 
     // One description column for the entire section, not one per entity.
     // That is what makes a parameter list read as a table — the defining
@@ -1915,19 +1922,23 @@ fn entity_line(
     let rest_width = width.saturating_sub(column).max(1);
 
     let mut lines = Vec::new();
-    let mut remainder = description_text.clone();
+    let mut remainder = description_text.clone().unwrap_or_default();
     if head.is_empty() {
-        // One space past the head, or the column — whichever is further
-        // right. They coincide for every row whose head fits.
-        let start = column.max(prefix_width + 1);
-        let first = width
-            .checked_sub(start)
-            .and_then(|room| leading_words(&remainder, room));
-        if let Some((first_chunk, rest)) = first {
-            first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
-            first_line_spans.push(Span::styled(first_chunk, desc_style));
-            remainder = rest;
+        if description_text.is_some() {
+            // One space past the head, or the column — whichever is
+            // further right. They coincide for every row whose head fits.
+            let start = column.max(prefix_width + 1);
+            let first = width
+                .checked_sub(start)
+                .and_then(|room| leading_words(&remainder, room));
+            if let Some((first_chunk, rest)) = first {
+                first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
+                first_line_spans.push(Span::styled(first_chunk, desc_style));
+                remainder = rest;
+            }
         }
+        // No description: the head is the whole first line, and a
+        // choices-only flag's values line still lands on the next one.
         lines.push(Line::from(first_line_spans));
     } else {
         // A head broken across lines has taken the pane's whole width for
@@ -1945,6 +1956,123 @@ fn entity_line(
             )));
         }
     }
+
+    // The values line sits two columns past the description column (spec
+    // §9.3): a further indent, not a fresh column, is what marks it as
+    // subordinate to the description rather than a second row of the same
+    // kind. It wraps at the pane's own width like any other pane line, and
+    // renders even when the flag carries no description at all.
+    if let Some(values_line) = values_line {
+        let values_column = column + 2;
+        let values_width = width.saturating_sub(values_column).max(1);
+        let values_indent = " ".repeat(values_column);
+        let values_style = style::muted(color_enabled);
+        for chunk in wrap_words(&values_line, values_width) {
+            lines.push(Line::from(Span::styled(
+                format!("{values_indent}{chunk}"),
+                values_style,
+            )));
+        }
+    } else if has_choice_descriptions {
+        lines.extend(choice_detail_lines(flag, column, width, color_enabled));
+    }
+
+    lines
+}
+
+/// Render a flag's choices as a `values:` header followed by one indented
+/// `name  description` row per choice (spec §9.3/§4.1's render note),
+/// dim/derived style matching the bare `values:` line this replaces.
+///
+/// Only called when at least one choice carries a description — the mixed
+/// case (some choices described, some bare, e.g. ffmpeg's `-bug`, whose
+/// `autodetect` value has no text of its own) still renders every choice
+/// through this path so the list stays one table rather than splitting
+/// into two.
+fn choice_detail_lines(
+    flag: &Entity,
+    column: usize,
+    width: usize,
+    color_enabled: bool,
+) -> Vec<Line<'static>> {
+    let values_column = column + 2;
+    let values_indent = " ".repeat(values_column);
+    let values_style = style::muted(color_enabled);
+
+    let choice_column = values_column + 2;
+    let choice_indent = " ".repeat(choice_column);
+    let choice_width = width.saturating_sub(choice_column).max(1);
+    let name_width = flag
+        .choices
+        .iter()
+        .map(|c| display_width(&c.name))
+        .max()
+        .unwrap_or(0);
+
+    let mut lines = vec![Line::from(Span::styled(
+        format!("{values_indent}values:"),
+        values_style,
+    ))];
+
+    for choice in &flag.choices {
+        let desc = choice
+            .description
+            .as_ref()
+            .map(|d| d.single_line())
+            .filter(|d| !d.is_empty());
+        let Some(desc) = desc else {
+            lines.push(Line::from(Span::styled(
+                format!("{choice_indent}{}", choice.name),
+                values_style,
+            )));
+            continue;
+        };
+        let head = format!("{:<name_width$}  ", choice.name);
+        let head_width = display_width(&head);
+        let first_room = choice_width.saturating_sub(head_width);
+        match leading_words(&desc, first_room) {
+            Some((first_chunk, rest)) => {
+                lines.push(Line::from(Span::styled(
+                    format!("{choice_indent}{head}{first_chunk}"),
+                    values_style,
+                )));
+                // `leading_words` returns `rest == ""` when the whole
+                // description fit on the first line — `wrap_words` always
+                // returns at least one (possibly empty) chunk for callers
+                // that need one, which is exactly wrong here: an empty
+                // `rest` means there is no continuation to render, not one
+                // blank line's worth. Skipping the call entirely (rather
+                // than filtering its output) is what keeps a choice whose
+                // description merely happens to be blank-after-wrapping
+                // indistinguishable from one that never had a remainder —
+                // there is no such case, `rest` is only ever the literal
+                // empty string when nothing is left.
+                if !rest.is_empty() {
+                    let cont_indent = " ".repeat(choice_column + head_width);
+                    let cont_width = width.saturating_sub(choice_column + head_width).max(1);
+                    for chunk in wrap_words(&rest, cont_width) {
+                        lines.push(Line::from(Span::styled(
+                            format!("{cont_indent}{chunk}"),
+                            values_style,
+                        )));
+                    }
+                }
+            }
+            None => {
+                lines.push(Line::from(Span::styled(
+                    format!("{choice_indent}{}", choice.name),
+                    values_style,
+                )));
+                for chunk in wrap_words(&desc, choice_width) {
+                    lines.push(Line::from(Span::styled(
+                        format!("{choice_indent}{chunk}"),
+                        values_style,
+                    )));
+                }
+            }
+        }
+    }
+
     lines
 }
 
@@ -2104,7 +2232,7 @@ pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Provenance, Source, Text};
+    use mandible_core::{Choice, Provenance, Source, Text};
 
     fn node_with_flags() -> CommandNode {
         let mut n = CommandNode::new(
@@ -2827,6 +2955,269 @@ mod tests {
         );
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
+    }
+
+    /// Spec §9.3: a flag's `choices` render as their own line under the
+    /// description, not folded into it — the description stays the tool's
+    /// own prose, and the enumeration gets a `values:` line indented two
+    /// columns past the shared description column.
+    #[test]
+    fn choices_render_on_their_own_line_below_the_description() {
+        let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("archive format to create"));
+        flag.choices = vec![
+            Choice::bare("default"),
+            Choice::bare("gnu"),
+            Choice::bare("darwin"),
+            Choice::bare("bsd"),
+            Choice::bare("bigarchive"),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        let lines = entity_line(&flag, false, 80, true, layout);
+
+        let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
+        assert!(
+            joined.contains("archive format to create"),
+            "the description must stay the tool's own prose: {joined:?}"
+        );
+        assert!(
+            !joined.contains('['),
+            "choices must not be bracketed into the description any more: {joined:?}"
+        );
+        assert!(
+            joined.contains("values: default, gnu, darwin, bsd, bigarchive"),
+            "choices must render as a labeled values line: {joined:?}"
+        );
+
+        let values_line = lines
+            .iter()
+            .find(|l| text_of(l).contains("values:"))
+            .expect("a values line");
+        let text = text_of(values_line);
+        let indent_len = text.len() - text.trim_start().len();
+        assert_eq!(
+            indent_len,
+            layout.description + 2,
+            "the values line must sit two columns past the description column: {text:?}"
+        );
+        assert_eq!(
+            values_line.spans[0].style,
+            style::muted(true),
+            "the values line must use the pane's derived-metadata style"
+        );
+    }
+
+    /// A flag can carry `choices` with no description at all (an
+    /// undocumented enum flag). The values line must still render, right
+    /// under the head, rather than being dropped because there was no
+    /// description to attach it to.
+    #[test]
+    fn choices_render_even_when_the_flag_has_no_description() {
+        let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
+        flag.choices = vec![Choice::bare("posix"), Choice::bare("windows")];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        let lines = entity_line(&flag, false, 80, true, layout);
+
+        assert_eq!(
+            lines.len(),
+            2,
+            "one head line and one values line: {lines:?}"
+        );
+        assert!(
+            !text_of(&lines[0]).contains("values:"),
+            "the head line must not carry the values line: {:?}",
+            text_of(&lines[0])
+        );
+        let text = text_of(&lines[1]);
+        assert!(text.contains("values: posix, windows"), "{text:?}");
+        let indent_len = text.len() - text.trim_start().len();
+        assert_eq!(indent_len, layout.description + 2, "{text:?}");
+    }
+
+    /// A flag whose choices carry their own text — ffplay/ffmpeg's AVOption
+    /// constants (spec §7 recognition rule) — render `values:` alone as a
+    /// header, then one indented `name  description` row per choice,
+    /// instead of the single comma-joined summary line a bare-choices flag
+    /// gets. Folding the constants back into one line would just relocate
+    /// the smear this round's recognizer exists to fix.
+    #[test]
+    fn described_choices_render_as_a_name_description_list() {
+        let mut flag = Entity::flag_long("flags", Provenance::single(Source::HelpText));
+        flag.value_name = Some("<flags>".to_string());
+        flag.description = Some(Text::sanitize("ED.VAS..... (default 0)"));
+        flag.choices = vec![
+            Choice::described(
+                "unaligned",
+                Text::sanitize(".D.V....... allow decoders to produce unaligned output"),
+            ),
+            Choice::described(
+                "gray",
+                Text::sanitize("ED.V....... only decode/encode grayscale"),
+            ),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        // A wide pane, deliberately: this test is about the choice list's
+        // *shape* (a header line, then one row per choice), not about
+        // word-wrap, which `a_narrow_pane_clamps_the_column_rather_than_shredding_prose`
+        // and friends already cover for the description column this
+        // section reuses.
+        let lines = entity_line(&flag, false, 200, true, layout);
+        let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
+
+        assert!(
+            joined.contains("ED.VAS..... (default 0)"),
+            "the flag's own description must stay put: {joined:?}"
+        );
+        assert!(
+            !joined.contains("unaligned, gray"),
+            "described choices must never fall back to the comma-joined line: {joined:?}"
+        );
+
+        let header = lines
+            .iter()
+            .find(|l| text_of(l).trim() == "values:")
+            .expect("a bare 'values:' header line");
+        let header_indent = {
+            let t = text_of(header);
+            t.len() - t.trim_start().len()
+        };
+        assert_eq!(
+            header_indent,
+            layout.description + 2,
+            "the header sits two columns past the description column, exactly like the bare case"
+        );
+        assert_eq!(
+            header.spans[0].style,
+            style::muted(true),
+            "the header must use the pane's derived-metadata style"
+        );
+
+        let unaligned = lines
+            .iter()
+            .find(|l| text_of(l).contains("unaligned"))
+            .expect("the unaligned choice row");
+        let unaligned_text = text_of(unaligned);
+        assert!(
+            unaligned_text.contains("allow decoders to produce unaligned output"),
+            "{unaligned_text:?}"
+        );
+        let unaligned_indent = unaligned_text.len() - unaligned_text.trim_start().len();
+        assert!(
+            unaligned_indent > header_indent,
+            "each choice row sits deeper than the 'values:' header: {unaligned_indent} vs {header_indent}"
+        );
+
+        let gray = lines
+            .iter()
+            .find(|l| text_of(l).contains("gray"))
+            .expect("the gray choice row");
+        assert!(
+            text_of(gray).contains("only decode/encode grayscale"),
+            "{:?}",
+            text_of(gray)
+        );
+    }
+
+    /// A choice whose description fits on the row's first line must never
+    /// be followed by a blank line. `wrap_words` always returns at least
+    /// one (possibly empty) chunk — a documented guarantee useful to most
+    /// of its callers, wrong for a continuation that may legitimately not
+    /// exist — so calling it unconditionally on `leading_words`'s `rest`
+    /// rendered one spurious blank `Line` per choice whose text fit
+    /// entirely on its own row. At a width where `-flags`' real `unaligned`
+    /// wraps and its real `gray` does not, this pins both shapes at once:
+    /// the render must show exactly six lines (the header, one wrapped
+    /// choice across two rows, one single-line choice), never eight.
+    #[test]
+    fn a_choice_that_fits_on_one_line_is_never_followed_by_a_blank_line() {
+        let mut flag = Entity::flag_long("flags", Provenance::single(Source::HelpText));
+        flag.value_name = Some("<flags>".to_string());
+        flag.description = Some(Text::sanitize("ED.VAS..... (default 0)"));
+        flag.choices = vec![
+            Choice::described(
+                "unaligned",
+                Text::sanitize(".D.V....... allow decoders to produce unaligned output"),
+            ),
+            Choice::described(
+                "gray",
+                Text::sanitize("ED.V....... only decode/encode grayscale"),
+            ),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        // Narrow enough that "unaligned"'s longer description wraps, wide
+        // enough that "gray"'s shorter one fits on a single line — the
+        // exact split the real ffplay pane showed the defect on.
+        let lines = entity_line(&flag, false, 82, true, layout);
+        let texts: Vec<String> = lines.iter().map(text_of).collect();
+
+        assert!(
+            texts.iter().all(|t| !t.trim().is_empty()),
+            "no rendered line may be blank: {texts:?}"
+        );
+        assert_eq!(
+            texts,
+            vec![
+                "    --flags         ED.VAS..... (default 0)".to_string(),
+                "                      values:".to_string(),
+                "                        unaligned  .D.V....... allow decoders to produce unaligned"
+                    .to_string(),
+                "                                   output".to_string(),
+                "                        gray       ED.V....... only decode/encode grayscale"
+                    .to_string(),
+            ],
+            "{texts:#?}"
+        );
+    }
+
+    /// `tar --format` carries both a `FORMAT` placeholder in the spelling
+    /// column and `choices` (spec §7 Tier B rule 4). The placeholder must
+    /// render verbatim, on the head line, exactly as before — the values
+    /// line is additional, never a replacement or a rewrite of the head.
+    #[test]
+    fn a_placeholder_and_choices_together_leave_the_spelling_column_untouched() {
+        let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
+        flag.value_name = Some("FORMAT".to_string());
+        flag.value_kind = ValueKind::Required;
+        flag.description = Some(Text::sanitize("archive format to create"));
+        flag.choices = vec![
+            Choice::bare("gnu"),
+            Choice::bare("oldgnu"),
+            Choice::bare("pax"),
+            Choice::bare("posix"),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        let lines = entity_line(&flag, false, 80, true, layout);
+
+        let head = text_of(&lines[0]);
+        assert!(
+            head.contains("--format") && head.contains("FORMAT"),
+            "the spelling and its placeholder must render verbatim, together: {head:?}"
+        );
+        assert!(
+            !head.contains("values:") && !head.contains('['),
+            "the head line must carry no trace of choices: {head:?}"
+        );
+
+        let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
+        assert!(
+            joined.contains("values: gnu, oldgnu, pax, posix"),
+            "choices still render, just off the head line: {joined:?}"
+        );
     }
 
     /// The coordinator's second reported defect: a group heading must not
@@ -3756,6 +4147,174 @@ mod tests {
             &test_app(),
         );
         assert_eq!(built.target_flag_line, None);
+    }
+
+    /// A node carrying all four entity kinds — flag, positional, modifier,
+    /// environment variable — used to prove the search-target scroll works
+    /// identically across kinds rather than being flag-specific.
+    fn node_with_all_entity_kinds() -> CommandNode {
+        let mut n = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        n.summary = Some(Text::sanitize("create, modify, and extract archives"));
+
+        let mut positional = Entity::positional("archive", Provenance::single(Source::HelpText));
+        positional.description = Some(Text::sanitize("the archive file"));
+        n.entities.push(positional);
+
+        let mut flag = Entity::flag_long("help", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("Show help"));
+        n.entities.push(flag);
+
+        let mut modifier = Entity::modifier('d', Provenance::single(Source::HelpText));
+        modifier.description = Some(Text::sanitize("delete a member from the archive"));
+        n.entities.push(modifier);
+
+        let mut env_var =
+            Entity::env_var_item("AR_TIMESTAMP", Provenance::single(Source::HelpText));
+        env_var.description = Some(Text::sanitize("override the archive's timestamp"));
+        n.entities.push(env_var);
+
+        n
+    }
+
+    /// Closing spec §10's open item for the dashless kinds: selecting a
+    /// *modifier* search result must scroll the detail pane to that exact
+    /// modifier's own row in its MODIFIERS section, exactly as a flag
+    /// search result does for FLAGS.
+    #[test]
+    fn selected_modifier_reports_its_own_line_index() {
+        let node = node_with_all_entity_kinds();
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Name("d".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("modifier should be found");
+        let line_text = text_of(&built.lines[idx]);
+        assert!(line_text.contains('d'), "{line_text:?}");
+        // The targeted row must actually be the MODIFIERS row, not the
+        // FLAGS or POSITIONALS row that happens to render first — proven
+        // by checking the row lands after the MODIFIERS heading and before
+        // the ENVIRONMENT heading.
+        let modifiers_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("MODIFIERS"))
+            .expect("MODIFIERS heading should render");
+        let environment_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("ENVIRONMENT"))
+            .expect("ENVIRONMENT heading should render");
+        assert!(
+            idx > modifiers_heading && idx < environment_heading,
+            "modifier target line {idx} should land within MODIFIERS ({modifiers_heading}..{environment_heading})"
+        );
+    }
+
+    /// Same as above, for an environment variable landing in its own
+    /// ENVIRONMENT section.
+    #[test]
+    fn selected_env_var_reports_its_own_line_index() {
+        let node = node_with_all_entity_kinds();
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Name("AR_TIMESTAMP".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("env var should be found");
+        let line_text = text_of(&built.lines[idx]);
+        assert!(line_text.contains("AR_TIMESTAMP"), "{line_text:?}");
+        let environment_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("ENVIRONMENT"))
+            .expect("ENVIRONMENT heading should render");
+        assert!(
+            idx > environment_heading,
+            "env var target line {idx} should land after the ENVIRONMENT heading ({environment_heading})"
+        );
+    }
+
+    /// Same as above, for a positional landing in its own
+    /// POSITIONALS section.
+    #[test]
+    fn selected_positional_reports_its_own_line_index() {
+        let node = node_with_all_entity_kinds();
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Name("archive".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("positional should be found");
+        let line_text = text_of(&built.lines[idx]);
+        assert!(line_text.contains("archive"), "{line_text:?}");
+        let positionals_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("POSITIONALS"))
+            .expect("POSITIONALS heading should render");
+        let flags_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("FLAGS"))
+            .expect("FLAGS heading should render");
+        assert!(
+            idx > positionals_heading && idx < flags_heading,
+            "positional target line {idx} should land within POSITIONALS ({positionals_heading}..{flags_heading})"
+        );
+    }
+
+    /// A `Long`/`Short` flag key must never accidentally land on a
+    /// dashless row, even one whose bare name happens to equal the flag
+    /// spelling being searched — e.g. a modifier named `help` would
+    /// otherwise be indistinguishable from the `--help` flag by name
+    /// alone. Regression coverage for the `matches_key` isolation rule
+    /// (spec §10; `mandible-core`'s `entity.rs`).
+    #[test]
+    fn a_flag_key_does_not_land_on_a_dashless_row_of_the_same_name() {
+        let mut node = node_with_all_entity_kinds();
+        // Add a positional that happens to share its bare name with the
+        // node's flag.
+        let mut decoy = Entity::positional("help", Provenance::single(Source::HelpText));
+        decoy.description = Some(Text::sanitize("a decoy positional named help"));
+        node.entities.push(decoy);
+
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Long("help".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("flag should be found");
+        let flags_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("FLAGS"))
+            .expect("FLAGS heading should render");
+        let modifiers_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("MODIFIERS"))
+            .expect("MODIFIERS heading should render");
+        assert!(
+            idx > flags_heading && idx < modifiers_heading,
+            "the --help flag, not the decoy positional, should be targeted: {idx}"
+        );
     }
 
     /// Render the whole frame in each of the verbatim view's three states.

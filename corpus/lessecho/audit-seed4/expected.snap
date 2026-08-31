@@ -1,0 +1,71 @@
+name: lessecho
+usage:
+- 'usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-fn] [-a] file ...'
+flags:
+- spellings:
+  - -o
+  value_name: x
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  value_name: x
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -d
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -m
+  value_name: x
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -n
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -e
+  value_name: x
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -f
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -a
+  provenance:
+    sources:
+    - help-text-synopsis
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

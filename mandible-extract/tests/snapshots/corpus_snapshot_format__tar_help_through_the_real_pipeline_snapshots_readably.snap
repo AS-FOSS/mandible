@@ -1,5 +1,6 @@
 ---
 source: mandible-extract/tests/corpus_snapshot_format.rs
+assertion_line: 127
 expression: "mandible_core::to_snapshot(&node)"
 ---
 name: tar
@@ -874,12 +875,18 @@ flags:
     value_name: FORMAT
     value_kind: Required
     choices:
-      - gnu
-      - oldgnu
-      - pax
-      - posix
-      - ustar
-      - v7
+      - name: gnu
+        description: GNU tar 1.13.x format
+      - name: oldgnu
+        description: GNU format as per tar <= 1.12
+      - name: pax
+        description: POSIX 1003.1-2001 (pax) format
+      - name: posix
+        description: same as pax
+      - name: ustar
+        description: POSIX 1003.1-1988 (ustar) format
+      - name: v7
+        description: old V7 tar format
     group: "Archive format selection:"
     description: create archive of the given format
     provenance:
@@ -1008,14 +1015,22 @@ flags:
     value_name: CONTROL
     value_kind: Optional
     choices:
-      - none
-      - "off"
-      - t
-      - numbered
-      - nil
-      - existing
-      - never
-      - simple
+      - name: none
+        description: never make backups
+      - name: "off"
+        description: never make backups
+      - name: t
+        description: make numbered backups
+      - name: numbered
+        description: make numbered backups
+      - name: nil
+        description: "numbered if numbered backups exist, simple otherwise"
+      - name: existing
+        description: "numbered if numbered backups exist, simple otherwise"
+      - name: never
+        description: always make simple backups
+      - name: simple
+        description: always make simple backups
     group: "Local file selection:"
     description: "backup before removal, choose version CONTROL"
     provenance:

@@ -1,0 +1,288 @@
+name: ssh-keygen
+usage:
+- 'usage: ssh-keygen [-q] [-a rounds] [-b bits] [-C comment] [-f output_keyfile] [-m format] [-N new_passphrase] [-O option] [-t dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa] [-w provider] [-Z cipher]'
+- '       ssh-keygen -p [-a rounds] [-f keyfile] [-m format] [-N new_passphrase] [-P old_passphrase] [-Z cipher]'
+- '       ssh-keygen -i [-f input_keyfile] [-m key_format]'
+- '       ssh-keygen -e [-f input_keyfile] [-m key_format]'
+- '       ssh-keygen -y [-f input_keyfile]'
+- '       ssh-keygen -c [-a rounds] [-C comment] [-f keyfile] [-P passphrase]'
+- '       ssh-keygen -l [-v] [-E fingerprint_hash] [-f input_keyfile]'
+- '       ssh-keygen -B [-f input_keyfile]'
+- '       ssh-keygen -D pkcs11'
+- '       ssh-keygen -F hostname [-lv] [-f known_hosts_file]'
+- '       ssh-keygen -H [-f known_hosts_file]'
+- '       ssh-keygen -K [-a rounds] [-w provider]'
+- '       ssh-keygen -R hostname [-f known_hosts_file]'
+- '       ssh-keygen -r hostname [-g] [-f input_keyfile]'
+- '       ssh-keygen -M generate [-O option] output_file'
+- '       ssh-keygen -M screen [-f input_file] [-O option] output_file'
+- '       ssh-keygen -I certificate_identity -s ca_key [-hU] [-D pkcs11_provider] [-n principals] [-O option] [-V validity_interval] [-z serial_number] file ...'
+- '       ssh-keygen -L [-f input_keyfile]'
+- '       ssh-keygen -A [-a rounds] [-f prefix_path]'
+- '       ssh-keygen -k -f krl_file [-u] [-s ca_public] [-z version_number] file ...'
+- '       ssh-keygen -Q [-l] -f krl_file [file ...]'
+- '       ssh-keygen -Y find-principals -s signature_file -f allowed_signers_file'
+- '       ssh-keygen -Y match-principals -I signer_identity -f allowed_signers_file'
+- '       ssh-keygen -Y check-novalidate -n namespace -s signature_file'
+- '       ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...'
+- '       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity'
+flags:
+- spellings:
+  - -n
+  value_name: namespace
+  value_kind: Required
+  description: '[-O option]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -a
+  value_name: rounds
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -b
+  value_name: bits
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  value_name: comment
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -f
+  value_name: output_keyfile
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -m
+  value_name: format
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -N
+  value_name: new_passphrase
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -O
+  value_name: option
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -t
+  value_name: dsa
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -w
+  value_name: provider
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Z
+  value_name: cipher
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  value_name: old_passphrase
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -i
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -e
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -y
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -l
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -v
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -E
+  value_name: fingerprint_hash
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -B
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -D
+  value_name: pkcs11
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -F
+  value_name: hostname
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -H
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -K
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -R
+  value_name: hostname
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -r
+  value_name: hostname
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -g
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -M
+  value_name: generate
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -I
+  value_name: certificate_identity
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -s
+  value_name: ca_key
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
+  value_name: U
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -V
+  value_name: validity_interval
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -z
+  value_name: serial_number
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -L
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -A
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -k
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -u
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Q
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Y
+  value_name: find-principals
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -336,6 +336,17 @@ update Appendix A in the same commit, with the method.
   wait behind a caveat; a wrong value nobody is told about cannot. When a fix
   is genuinely out of scope, file an issue naming what it would take — never
   leave a caveat in prose that reads as a decision nobody made.
+- **No fix may reduce the information rendered.** When a change removes text
+  from the wrong place — a row smeared into a neighbour's description, a
+  spelling folded into an alias row, a value name dropped by a merge — the
+  same change must render that text in its right place, and every alias fold
+  or merge touched is checked against the raw help text for dropped rows and
+  dropped values. A filed issue is not a home; a diff that only deletes the
+  misplaced text is an unfinished fix. The failure this prevents cleared
+  every gate twice in one round: ar's `@<file>` row was "contained" into
+  rendering nowhere, and ffplay's `--help topic` row vanished into an alias
+  fold while tests, corpus, and sweeps all stayed green — a user of the
+  release simply lost documented spellings. (Maintainer rule, 2026-08-31.)
 - **A result that exists only on one machine is not a result.** `audit/queue.toml`
   is called *tracked* by `xtask::queue`'s module doc and again by spec §16's
   storage note — and was never committed by any commit on any branch, because
