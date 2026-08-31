@@ -1756,13 +1756,16 @@ fn entity_value_text(flag: &Entity) -> Option<String> {
 ///
 /// Decided by shape, not by the literal spelling `"@"`, so any future
 /// sigil-shaped entity this fleet turns up gets the same treatment for
-/// free: a single spelling whose first character is not alphanumeric.
-/// Every ordinary flag — `-i`, `--interactive`, even the punctuation-heavy
-/// `-?`/`-<` this fleet has seen (which take no value) — has an
-/// alphanumeric spelling, so this is a no-op for every row but the sigil
-/// one.
+/// free: a single **dashless** spelling whose first character is not
+/// alphanumeric. Both halves of that gate are load-bearing: `-?` is
+/// punctuation too, but it is a dashed short option — and since the
+/// value-recovery work it *does* take a value (`ffplay`'s `-? topic`),
+/// so a first-character test alone glued it into `-?topic`. A sigil is a
+/// spelling that carries no dashes of its own (`Dashes::None`), which no
+/// short or long flag has and the argfile `@` does.
 fn spelling_is_sigil(flag: &Entity) -> bool {
     flag.spellings.len() == 1
+        && matches!(flag.spellings[0].dashes, Dashes::None)
         && flag.spellings[0]
             .name
             .chars()
@@ -2964,6 +2967,39 @@ mod tests {
         assert_ne!(
             value.style, spans[0].style,
             "value must not read as a spelling"
+        );
+    }
+
+    /// `-?` is punctuation but not a sigil: it is a dashed short option,
+    /// and since the value recovery landed it carries a real value
+    /// (`ffplay`'s `-? topic`) — the first-character-only gate glued them
+    /// into `-?topic` on the first merged build that had both changes.
+    /// The gap between a dashed spelling and its value is one space,
+    /// always. §3.4 plant: drop the `Dashes::None` arm from
+    /// `spelling_is_sigil` and this goes red on `-?topic`.
+    #[test]
+    fn a_dashed_punctuation_short_keeps_its_value_gap() {
+        let mut flag = Entity::flag_short('?', Provenance::single(Source::HelpText));
+        flag.value_name = Some("topic".into());
+        flag.value_kind = ValueKind::Required;
+        let lines = entity_line(
+            &flag,
+            false,
+            80,
+            true,
+            SectionLayout {
+                description: 20,
+                indent: 0,
+            },
+        );
+        let first = text_of(&lines[0]);
+        assert!(
+            first.contains("-? topic"),
+            "a dashed short keeps the one-space value gap: {first:?}"
+        );
+        assert!(
+            !first.contains("-?topic"),
+            "must never glue a dashed spelling to its value: {first:?}"
         );
     }
 
