@@ -410,6 +410,8 @@ flags:
     - help-text
 - spellings:
   - --no-act
+  - --dry-run
+  - --simulate
   description: Just say what we would do - don't do it.
   provenance:
     sources:

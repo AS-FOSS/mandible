@@ -24,6 +24,7 @@ flags:
     - help-text
 - spellings:
   - -?
+  - -h
   - --help
   description: The --help (-? -h) option prints out a full help message.
   provenance:

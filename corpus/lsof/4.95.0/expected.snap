@@ -5,6 +5,7 @@ usage:
 flags:
 - spellings:
   - -?
+  - -h
   description: list help
   provenance:
     sources:

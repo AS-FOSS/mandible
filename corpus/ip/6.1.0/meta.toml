@@ -60,27 +60,28 @@
 # (`where OBJECT := { address | ... }`) no longer becomes the node's
 # `description` either — a BNF production is grammar, not prose.
 #
-# Honest residual, not fixed by this round: `ip` now carries **two**
-# `short: 'r'` flags — a clean boolean (`-r[esolve]`, correctly split from
-# the block's first physical line) and the original mangled one
-# (`value_name: "c[vbuf]"`, from `-rc[vbuf] [size] | ...`, this fixture's
-# own pre-existing two-letter-abbreviation defect, noted below). That row
-# still refuses to split as a whole — one of its segments
-# (`-rc[vbuf] [size]`) does not fully consume on its own, which is the same
-# false-positive guard that keeps this reader from fabricating elsewhere —
-# so the row falls back unchanged to the old single-column read, and the
-# two independently-sourced `-r` entries now coexist rather than one
-# replacing the other. Flagged for the maintainer rather than silently
-# resolved: deduplicating same-spelling flags within one node is a
-# different, unmeasured change this fixture does not attempt.
+# Third update (multi-spelling emission, `Spelling::abbrev` and the
+# generalized `try_short`/`try_long`, closes issue #49): the duplicate
+# `short: 'r'` residual noted above is gone. `-rc[vbuf] [size]` used to
+# fail its fully-consumed guard because the grammar could only strip a
+# *one-letter* abbreviation prefix — `-r[esolve]` matched, `-rc[vbuf]`
+# didn't — so the whole nine-alternative row (`-o[neline] | -t[imestamp] |
+# -ts[hort] | -b[atch] [filename] | -rc[vbuf] [size] | -n[etns] name |
+# -N[umeric] | -a[ll] | -c[olor]`) fell back to the old single-column read
+# that produced the mangled second `-r`. With a multi-letter prefix
+# recognized, every alternative in that row now fully consumes and the row
+# splits cleanly into nine correct flags: `-o[neline]`, `-t[imestamp]`,
+# `-ts[hort]`, `-b[atch] [filename]`, `-rc[vbuf] [size]`, `-n[etns] name`,
+# `-N[umeric]`, `-a[ll]`, `-c[olor]` — no dedup rule needed, because there
+# was never a real collision once each row is read correctly: `-r[esolve]`
+# and `-rc[vbuf]` are different flags with different keys
+# (`Long("resolve")` and `Long("rcvbuf")`), not two readings of one `-r`.
 #
-# The rest of this fixture's original note still applies unchanged: the
-# surviving mangled `-r` still carries a mangled `value_name` from an
-# unrelated defect (a two-letter abbreviation prefix,
-# `-rc[vbuf]`/`-br[ief]`/`-ts[hort]`) — out of this fixture's scope. `-o`
-# and `-l` also remain unsplit for the identical reason: `-ts[hort]` and
-# `-br[ief]` share the same glued, bracket-less multi-letter shape, so
-# their whole rows are refused rather than partially split.
+# Abbreviated spellings are long-like by the unchanged `key()`/`short()`/
+# `long()` shape rule (single dash, name longer than one character), so
+# `must_contain_flags` below addresses them by their full name
+# (`"Version"`, not `"-V"`) rather than the short-flag `"-x"` form, which
+# only matches a spelling whose *entire* name is one character.
 
 [bless]
 provenance = "agent"
@@ -100,4 +101,4 @@ exit_code = 255
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["-V", "-h", "-f", "-4", "-l", "-o", "-c"]
+must_contain_flags = ["Version", "human-readable", "family", "-4", "loops", "oneline", "color", "rcvbuf"]

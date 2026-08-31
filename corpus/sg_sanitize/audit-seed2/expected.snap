@@ -9,24 +9,24 @@ positionals:
     - help-text
 flags:
 - spellings:
-  - -A
   - --ause
+  - -A
   group: 'where:'
   description: set AUSE bit in cdb
   provenance:
     sources:
     - help-text
 - spellings:
-  - -B
   - --block
+  - -B
   group: 'where:'
   description: do BLOCK ERASE sanitize
   provenance:
     sources:
     - help-text
 - spellings:
-  - -c
   - --count
+  - -c
   value_name: OC
   value_kind: Required
   group: 'where:'
@@ -35,64 +35,64 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -C
   - --crypto
+  - -C
   group: 'where:'
   description: do CRYPTOGRAPHIC ERASE sanitize
   provenance:
     sources:
     - help-text
 - spellings:
-  - -d
   - --desc
+  - -d
   group: 'where:'
   description: 'polling request sense sets ''desc'' field (def: clear ''desc'' field)'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -D
   - --dry-run
+  - -D
   group: 'where:'
   description: to preparation but bypass SANITIZE commnd
   provenance:
     sources:
     - help-text
 - spellings:
-  - -e
   - --early
+  - -e
   group: 'where:'
   description: exit once sanitize started (IMMED set in cdb) user can monitor progress with REQUEST SENSE
   provenance:
     sources:
     - help-text
 - spellings:
-  - -F
   - --fail
+  - -F
   group: 'where:'
   description: do EXIT FAILURE MODE sanitize
   provenance:
     sources:
     - help-text
 - spellings:
-  - -h
   - --help
+  - -h
   group: 'where:'
   description: print out usage message
   provenance:
     sources:
     - help-text
 - spellings:
-  - -I
   - --invert
+  - -I
   group: 'where:'
   description: set INVERT bit in OVERWRITE parameter list
   provenance:
     sources:
     - help-text
 - spellings:
-  - -i
   - --ipl
+  - -i
   value_name: LEN
   value_kind: Required
   group: 'where:'
@@ -101,16 +101,16 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -O
   - --overwrite
+  - -O
   group: 'where:'
   description: do OVERWRITE sanitize
   provenance:
     sources:
     - help-text
 - spellings:
-  - -p
   - --pattern
+  - -p
   value_name: PF
   value_kind: Required
   group: 'where:'
@@ -119,16 +119,16 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -Q
   - --quick
+  - -Q
   group: 'where:'
   description: start sanitize without pause for user intervention (i.e. no time to reconsider)
   provenance:
     sources:
     - help-text
 - spellings:
-  - -T
   - --test
+  - -T
   value_name: TE
   value_kind: Required
   group: 'where:'
@@ -137,8 +137,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -t
   - --timeout
+  - -t
   value_name: SECS
   value_kind: Required
   group: 'where:'
@@ -147,40 +147,40 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -v
   - --verbose
+  - -v
   group: 'where:'
   description: increase verbosity
   provenance:
     sources:
     - help-text
 - spellings:
-  - -V
   - --version
+  - -V
   group: 'where:'
   description: print version string then exit
   provenance:
     sources:
     - help-text
 - spellings:
-  - -w
   - --wait
+  - -w
   group: 'where:'
   description: wait for command to finish (could take hours)
   provenance:
     sources:
     - help-text
 - spellings:
-  - -z
   - --zero
+  - -z
   group: 'where:'
   description: use pattern of zeros for OVERWRITE
   provenance:
     sources:
     - help-text
 - spellings:
-  - -Z
   - --znr
+  - -Z
   group: 'where:'
   description: set ZNR (zone no reset) bit in cdb
   provenance:

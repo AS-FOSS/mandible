@@ -861,10 +861,25 @@ pub(super) fn shared_operand(rest: &str) -> Option<String> {
 /// function exists to provide: an existing flag, right or wrong, is never
 /// altered by anything found here — only ever left alone or joined by a
 /// new one.
+///
+/// A one-letter abbreviation bracket also counts as a short-letter match:
+/// `ip`'s usage line writes a bare `[ -force ]`, which the ordinary short
+/// path reads as `-f` glued to a value `"orce"`; the *table* documents the
+/// same flag as `-f[amily]`, which the abbreviation model correctly reads
+/// as long-like (`long() == Some("family")`, `short() == None`) — without
+/// this arm the table entity's `short()` no longer agrees with the
+/// synopsis candidate's `-f`, and the glued-value noise leaks into the
+/// tree as a second, spurious flag.
 pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
         (candidate.long().is_some() && f.long() == candidate.long())
             || (candidate.short().is_some() && f.short() == candidate.short())
+            || (candidate.short().is_some()
+                && f.spellings.iter().any(|s| {
+                    matches!(s.dashes, Dashes::Single)
+                        && s.abbrev == Some(1)
+                        && s.name.chars().next() == candidate.short()
+                }))
     })
 }
 

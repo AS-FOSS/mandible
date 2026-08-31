@@ -14,22 +14,22 @@ positionals:
     - help-text
 flags:
 - spellings:
-  - -V
+  - -V[ersion]
   provenance:
     sources:
     - help-text
 - spellings:
-  - -n
+  - -n[o-nice-names]
   provenance:
     sources:
     - help-text
 - spellings:
-  - -j
+  - -j[son]
   provenance:
     sources:
     - help-text
 - spellings:
-  - -p
+  - -p[retty]
   provenance:
     sources:
     - help-text

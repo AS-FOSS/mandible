@@ -16,36 +16,36 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -b
   - --basename
+  - -b
   description: ignore directory paths from archive
   provenance:
     sources:
     - help-text
 - spellings:
-  - -i
   - --ignore-case
+  - -i
   description: do case-insensitive pattern matching
   provenance:
     sources:
     - help-text
 - spellings:
-  - -l
   - --list-only
+  - -l
   description: list matching filenames rather than extracting matches
   provenance:
     sources:
     - help-text
 - spellings:
-  - -v
   - --verbose
+  - -v
   description: write debugging message to STDERR
   provenance:
     sources:
     - help-text
 - spellings:
-  - -?
   - --help
+  - -?
   description: detailed help message
   provenance:
     sources:

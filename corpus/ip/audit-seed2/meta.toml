@@ -40,4 +40,11 @@ expected_framework = "generic"
 # (`split_bnf_alternation_row`, `mandible-extract/src/help_text/sections.rs`).
 # Every flag this contract names is now present, so the fixture is
 # promoted out of `[xfail]` per corpus/README.md's lifecycle rule.
-must_contain_flags = ["-V", "-s", "-d"]
+#
+# Third update (multi-spelling emission, `Spelling::abbrev`): `-V`, `-s`
+# and `-d` are abbreviation-bracket spellings (`-V[ersion]`,
+# `-s[tatistics]`, `-d[etails]`), long-like by the unchanged `key()` shape
+# rule (single dash, name longer than one character) — the contract now
+# addresses them by their full name rather than the short-flag `"-x"` form,
+# which only matches a spelling whose entire name is one character.
+must_contain_flags = ["Version", "statistics", "details"]

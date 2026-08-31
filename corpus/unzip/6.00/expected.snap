@@ -180,6 +180,11 @@ flags:
   provenance:
     sources:
     - help-text-synopsis
+- spellings:
+  - -opts[modifiers]
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

@@ -10,6 +10,7 @@ positionals:
 flags:
 - spellings:
   - -?
+  - -h
   - --help
   description: Print this help message
   provenance:

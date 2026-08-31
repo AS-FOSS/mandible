@@ -15,38 +15,38 @@ positionals:
     - help-text
 flags:
 - spellings:
-  - -V
+  - -V[ersion]
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -s
+  - -s[tatistics]
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -d
+  - -d[etails]
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -r
+  - -r[esolve]
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -h
+  - -h[uman-readable]
   group: 'OPTIONS :'
   description: '| -iec | -j[son] | -p[retty] |'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -f
+  - -f[amily]
   group: 'OPTIONS :'
   description: '{ inet | inet6 | mpls | bridge | link } |'
   provenance:
@@ -83,41 +83,72 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -l
+  - -l[oops]
   group: 'OPTIONS :'
   description: '{ maximum-addr-flush-attempts } | -br[ief] |'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -o
+  - -o[neline]
   group: 'OPTIONS :'
-  description: '| -t[imestamp] | -ts[hort] | -b[atch] [filename] |'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -r
-  value_name: c[vbuf]
+  - -t[imestamp]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ts[hort]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b[atch]
+  value_name: filename
+  value_kind: Optional
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -rc[vbuf]
+  value_name: size
+  value_kind: Optional
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[etns]
+  value_name: name
   value_kind: Required
   group: 'OPTIONS :'
-  description: '[size] | -n[etns] name | -N[umeric] | -a[ll] |'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -c
+  - -N[umeric]
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -b
-  value_name: atch
-  value_kind: Required
+  - -a[ll]
+  group: 'OPTIONS :'
   provenance:
     sources:
-    - help-text-synopsis
+    - help-text
+- spellings:
+  - -c[olor]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text
