@@ -24,9 +24,15 @@ once it reaches a published 0.1.0 release.
 
 - `xtask coverage`'s `#fp` fingerprint footer now covers every `EntityKind` (flags, positionals, modifiers, and env-var items) instead of flags alone, keyed generically off the kind enum so a future entity kind needs no edit to the fingerprint writer or reader — `ar`'s 17 modifiers and `bpftrace`'s env vars, previously invisible to `xtask sweep-diff`, now register as field-level gains or losses; the wire format is versioned (`#fp2`, the old `#fp` lines still read as `V1`) because the two use differently-shaped entity identities, and `sweep-diff` now refuses outright, naming the mismatch, rather than silently misjoin a `V1` scoreboard against a `V2` one.
 
+- `mandible`'s `--help` parser now keeps every alias a flag row documents instead of only the first short and first long spelling it recognized (issue #30's emission half): `tar --help`'s `-A, --catenate, --concatenate` keeps all three; `jdeprscan`/`jmod`/`lsof`'s `-?, -h, --help` keep all three; `dpkg`'s `--no-act, --dry-run, --simulate` keeps all three. A tool's own `-r[esolve]`-style abbreviation bracket (a prefix a user may type, glued to the rest of the word it abbreviates — one letter or more, short or long dashes: `ip`'s `-r[esolve]`/`-rc[vbuf]`, `--br[ief]`) is now read as one spelling naming the full word, rendered back exactly as documented, rather than either discarding the bracket or misreading it as a fabricated value.
+
 ### Changed
 
 - Corpus fixture format: `expected.snap`'s per-flag `short`/`long`/`negatable`/`single_dash` keys are replaced by one `spellings` key holding every documented spelling, rendered and in document order (e.g. `["-h", "--help"]`, `["--[no-]color"]`) — the fixture-visible half of the `Entity`/`Spelling` migration landing its snapshot format; every committed fixture was reblessed in the same change, with the mapping (short first, then the long-like form with its dashes/`[no-]` notation) verified fixture-by-fixture against the pre-change snapshots.
+
+### Fixed
+
+- `mandible ip` no longer carries two `-r` rows (issue #49): `-r[esolve]` (boolean) and the mangled `-rc[vbuf] [size]` row used to collide on the short letter `r` because the grammar could only recognize a one-letter abbreviation-bracket prefix, so the two-letter `-rc[vbuf]` fell back to a single-column read that produced a second, mangled `-r`. With any prefix length recognized, `-rc[vbuf]` reads as its own flag, `Long("rcvbuf")` — a different key from `-r[esolve]`'s `Long("resolve")` — which dissolves the duplicate with no dedup rule; the row it sits in (nine `|`-separated alternatives) now fully consumes and splits cleanly, also recovering `-o[neline]`, `-t[imestamp]`, `-ts[hort]`, `-b[atch]`, `-n[etns]`, `-N[umeric]`, `-a[ll]` and `-c[olor]` as their own flags instead of leaking as raw BNF text into `-h[uman-readable]`'s and `-f[amily]`'s descriptions.
 
 ### Fixed
 

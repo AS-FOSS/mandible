@@ -323,11 +323,40 @@ than once* — a flag the tool accepts repeatedly, and a positional written
 with an ellipsis (`<pathspec>...`) — so the ellipsis needs no field of
 its own.
 
-`Spelling`'s exact shape is finalized in the schema PR, under one
-constraint carried over from `Flag::negatable` and `Flag::single_dash`:
-the searched/copied name never smuggles punctuation (`-h`, `-?`, `-help`,
-`--help`, and `--[no-]foo` must all be representable as name + rendering
-metadata, never as a name containing dashes or brackets).
+`Spelling`'s shape:
+
+```rust
+pub struct Spelling {
+    pub name: String,
+    pub dashes: Dashes,   // None | Single | Double
+    pub negatable: bool,
+    /// `Some(n)` when the tool documents an abbreviation bracket — the
+    /// minimum accepted prefix length: `-r[esolve]` is `name: "resolve"`,
+    /// `abbrev: Some(1)`; `-rc[vbuf]` is `name: "rcvbuf"`, `abbrev:
+    /// Some(2)`; `--br[ief]` is `name: "brief"`, `abbrev: Some(2)`. `None`
+    /// for every other spelling.
+    pub abbrev: Option<usize>,
+}
+```
+
+Under one constraint carried over from `Flag::negatable` and
+`Flag::single_dash`: the searched/copied name never smuggles punctuation
+(`-h`, `-?`, `-help`, `--help`, and `--[no-]foo` must all be representable
+as name + rendering metadata, never as a name containing dashes or
+brackets) — `abbrev` extends the same rule to abbreviation brackets:
+`name` is always the *full* word (`"resolve"`, never `"r[esolve]"` or the
+bare prefix `"r"`). `Spelling::render` reproduces the bracket form a tool
+actually printed (`-r[esolve]`); `Spelling::typed` and the `key()`/
+`short()`/`long()` shape rule address the full name, unaffected by how
+much of it a particular row happened to abbreviate — `ip`'s `-r[esolve]`
+and `-rc[vbuf]` key as `Long("resolve")` and `Long("rcvbuf")`, two
+different flags, which is what dissolves a duplicate `-r` row without any
+dedup rule (issue #49): before `abbrev` existed, the grammar could only
+strip a *one-letter* abbreviation prefix, so a two-letter one
+(`-rc[vbuf]`) fell back to reading `-r` as a short flag carrying a mangled
+`value_name`, alongside the correctly-read `-r[esolve]` from elsewhere in
+the same document — two entities colliding on one short letter, not two
+readings of one flag.
 
 Rules that govern the migration:
 
@@ -1608,6 +1637,30 @@ The generic fallback parser (step 2) is built with `winnow`:
   `low-confidence` rather than `ok` once their real, correctly-spelled
   flags are counted against that fact — a change in what the status ladder
   can see, not a parsing regression.
+- **Abbreviation brackets.** `ip --help`'s `OPTIONS := { -V[ersion] |
+  -s[tatistics] | ... }` writes a spelling as a prefix a user may type
+  glued directly to the rest of the word it abbreviates, in a trailing
+  bracket — `-r[esolve]`, `-rc[vbuf]` (a two-letter prefix, `-ts[hort]`,
+  `-br[ief]` likewise), `--br[ief]` (the same convention with a long
+  option). `grammar::try_short`/`try_long` recognize a bracket
+  immediately glued onto a run of one or more leading letters (never
+  onto a genuine value placeholder — `-o[FILE]`'s upper/mixed-case
+  content and `-x[=WHEN]`'s leading `=` both fall through untouched to
+  the ordinary value-spec grammar, per the same narrow, structural
+  discriminator: bracket content must open with an ASCII lowercase
+  letter and contain nothing but lowercase letters and hyphens) and read
+  the whole thing as one `Spelling { name: "resolve", dashes: Single,
+  abbrev: Some(1) }` — the full word, never the bracket notation itself,
+  with `abbrev` recording how many leading characters of `name` the row
+  displayed standalone. `Spelling::render` reproduces the bracket form
+  a tool actually printed; `key()`/`short()`/`long()` address the full
+  name by the unchanged shape rule (single dash, more than one
+  character is long-like), which is what makes `-r[esolve]` and
+  `-rc[vbuf]` two different keys (`Long("resolve")`, `Long("rcvbuf")`)
+  rather than two readings of one short `-r` — closing issue #49's
+  duplicate-`-r` row with no dedup rule, once the one-letter-only model
+  that could recognize `-r[esolve]` but not the two-letter `-rc[vbuf]`
+  was generalized to any prefix length.
 - **The existence oracle learned the three synopsis-entry shapes the three
   fixes above taught the parser** (fix/oracle-unlabeled-synopsis). A
   measurement fix, not a parser fix: `xtask/src/existence.rs`'s
