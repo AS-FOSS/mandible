@@ -2856,16 +2856,28 @@ entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
 section documents it (§9.3), exactly as a flag result always has.
 
 **Two match modes, name-only by default.** Matching one combined haystack
-(name + summary + description + flag value) is correct and *looks* arbitrary:
-searching `branch` in `git` returns `switch` via "Switch branches", and since
-only name matches are underlined, nothing on screen explains why that row is
-there. `/` opens the box in **name mode** — command names and flag spellings
-only — and pressing `/` again toggles **wide mode**, the combined haystack. The
-search bar's title shows which is active. Name mode is the default because its
-results explain themselves; wide mode finds more and is one keystroke away.
-Name mode filters the index's own result set rather than maintaining a second
-index, using a subsequence test so it can never reject something the fuzzy
-ranking accepted for the same reason (`gco` → `checkout` still works).
+(name + summary + description + entity value) is correct and *looks*
+arbitrary: searching `branch` in `git` returns `switch` via "Switch branches",
+and since only name matches are underlined, nothing on screen explains why
+that row is there. `/` opens the box in **name mode** and pressing `/` again
+toggles **wide mode**, the combined haystack. The search bar's title shows
+which is active. Name mode is the default because its results explain
+themselves; wide mode finds more and is one keystroke away. Name mode filters
+the index's own result set rather than maintaining a second index: a command
+matches by a literal, case-insensitive substring of its own name; every
+entity (flag, positional, modifier, env var alike, with no per-kind branch)
+matches by a case-insensitive **prefix of a `-`/`_`-separated word** of any of
+its spellings — the whole name counts as its own first word, so `NODE_D`
+matches `NODE_DEBUG` from the start and `debug` matches it from after the
+`_`. The word-prefix rule, not a looser subsequence one, is what keeps name
+mode's results self-explanatory for entities the same way substring does for
+commands: a subsequence test is what originally made the mode feel broken —
+searching `run` in `docker` surfaced `--no-trunc`'s parent command, because
+`--no-trunc` contains r…u…n in order — and the word-prefix rule refuses that
+case (`run` is a prefix of neither `no` nor `trunc`) while still admitting
+`no`, `trunc`, a bare modifier letter, or either half of an underscored env
+var name. Wide mode's ranking is unaffected by any of this — it stays the
+fuzzy index, where `gco` still finds `checkout`.
 
 **Filtering preserves hierarchy.** A flat result list rendered with
 `depth = path.len() - 1` produces indentation pointing at ancestors that aren't

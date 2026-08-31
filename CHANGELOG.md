@@ -24,7 +24,7 @@ once it reaches a published 0.1.0 release.
 
 - `xtask coverage`'s `#fp` fingerprint footer now covers every `EntityKind` (flags, positionals, modifiers, and env-var items) instead of flags alone, keyed generically off the kind enum so a future entity kind needs no edit to the fingerprint writer or reader — `ar`'s 17 modifiers and `bpftrace`'s env vars, previously invisible to `xtask sweep-diff`, now register as field-level gains or losses; the wire format is versioned (`#fp2`, the old `#fp` lines still read as `V1`) because the two use differently-shaped entity identities, and `sweep-diff` now refuses outright, naming the mismatch, rather than silently misjoin a `V1` scoreboard against a `V2` one.
 
-- Search now finds positionals, modifiers, and environment variables, not just flags: typing `ar`'s modifier description or `bpftrace`'s `BPFTRACE_BTF` in the search box selects the tool and scrolls the detail pane to that entity's own row in its `POSITIONALS`/`MODIFIERS`/`ENVIRONMENT` section, exactly as a flag match already scrolled to `FLAGS`.
+- Search now finds positionals, modifiers, and environment variables, not just flags: typing `ar`'s modifier description or `bpftrace`'s `BPFTRACE_BTF` in the search box selects the tool and scrolls the detail pane to that entity's own row in its `POSITIONALS`/`MODIFIERS`/`ENVIRONMENT` section, exactly as a flag match already scrolled to `FLAGS`; the default name-search mode now finds any of these by a word-prefix match on its spelling (`d` finds a modifier named `d`, `debug` finds `NODE_DEBUG`) rather than admitting entities only in the wider, everything-matches mode.
 
 ### Fixed
 

@@ -3,7 +3,7 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::tree::{flatten, TreeRow};
-use mandible_core::{resolve, CommandNode, NodeRef, Text};
+use mandible_core::{resolve, resolve_flag, CommandNode, NodeRef, Text};
 use mandible_search::SearchIndex;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
@@ -11,9 +11,12 @@ use std::time::{Duration, Instant};
 /// What the search box matches against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchMode {
-    /// Command names only, matched as a literal substring. The default,
+    /// Command names, matched as a literal substring, and every entity's
+    /// spellings (flag, positional, modifier, env var alike), matched as a
+    /// case-insensitive prefix of a `-`/`_`-separated word. The default,
     /// and the mode whose results need no explanation: every row shown has
-    /// the query visible in its own name, and the rows around it are gone.
+    /// the query visibly related to its own name, and the rows around it
+    /// are gone.
     Name,
     /// Everything: command names, flag spellings, summaries, descriptions
     /// and flag values, matched fuzzily. This is where you find a flag by
@@ -357,7 +360,8 @@ const REBUILD_MIN_INTERVAL: Duration = Duration::from_millis(250);
 /// take many presses to reveal anything.
 const DETAIL_HSCROLL_STEP: usize = 8;
 
-/// Case-insensitive **substring** match of `query` against `name`.
+/// Case-insensitive **substring** match of `query` against a command's own
+/// `name`.
 ///
 /// Deliberately literal, not a subsequence, because that is the whole
 /// point of `SearchMode::Name` existing as a separate mode. Subsequence
@@ -369,14 +373,38 @@ const DETAIL_HSCROLL_STEP: usize = 8;
 /// So the two modes are now genuinely different kinds of search rather
 /// than the same search over different fields:
 ///
-/// - [`SearchMode::Name`] — literal substring, over names and flag
-///   spellings. Every row shown contains what you typed.
+/// - [`SearchMode::Name`] — commands match by literal substring
+///   ([`name_matches`]); every entity (flag, positional, modifier, env
+///   var) matches by word-prefix ([`word_prefix_matches`]). Every row
+///   shown visibly relates to what you typed.
 /// - [`SearchMode::Wide`] — the fuzzy index over names, summaries,
-///   descriptions and flag values, where `gco` still finds `checkout`.
+///   descriptions and entity values, where `gco` still finds `checkout`.
 ///
 /// One keystroke apart, and the search bar says which is active.
 fn name_matches(name: &str, query: &str) -> bool {
     name.to_lowercase().contains(&query.to_lowercase())
+}
+
+/// True if `query` is a case-insensitive prefix of `name` starting at any
+/// `-`/`_`-separated word boundary (including the start of `name` itself).
+///
+/// This is the constraint that keeps [`SearchMode::Name`] admitting entity
+/// results (spec §10) without reopening the defect `name_matches`' own doc
+/// comment describes: `run` must never match `--no-trunc`. A prefix test
+/// anchored only at word boundaries refuses that — `no-trunc`'s boundaries
+/// are `no-trunc` (the whole name) and `trunc` (after the `-`), and `run`
+/// is a prefix of neither — while `no` and `trunc` both still match, each
+/// from its own boundary, and `NODE_D` matches `NODE_DEBUG` from the start
+/// of the whole name in the same pass that lets `debug` match it from
+/// after the `_`. Byte offsets from `match_indices` are safe to slice at
+/// unadjusted here: `-`/`_` are single ASCII bytes, so the position right
+/// after one is always a char boundary.
+fn word_prefix_matches(name: &str, query: &str) -> bool {
+    let name_lower = name.to_lowercase();
+    let query_lower = query.to_lowercase();
+    std::iter::once(0)
+        .chain(name_lower.match_indices(['-', '_']).map(|(i, _)| i + 1))
+        .any(|start| name_lower[start..].starts_with(&query_lower))
 }
 
 impl App {
@@ -511,9 +539,9 @@ impl App {
             return None;
         }
         // The index matches one combined haystack per item (name plus
-        // summary, description and flag value), which is what
+        // summary, description and entity value), which is what
         // `SearchMode::Wide` wants. `SearchMode::Name` narrows that same
-        // result set down to items whose *name* actually matches, rather
+        // result set down to items that actually match by name, rather
         // than maintaining a second index: nucleo has already done the
         // expensive part, and this filter runs over matches only.
         let mut paths = HashSet::new();
@@ -527,16 +555,27 @@ impl App {
                     }
                     paths.insert(path);
                 }
-                NodeRef::Flag { path, .. } => {
-                    // A flag match surfaces its *parent command*, which in
-                    // name mode means rows whose own names don't contain
-                    // the query: searching `run` in `docker` returned `ps`,
-                    // because `--no-trunc` contains "run". Correct, and
-                    // indistinguishable from a broken filter. Name mode is
-                    // now exactly what its label says — command names — and
-                    // flags are found in `Wide`, one keystroke away.
+                NodeRef::Flag { path, key } => {
+                    // An entity match surfaces its *parent command* (spec
+                    // §10), whatever kind the entity is — flag, positional,
+                    // modifier, or env var; there is no per-kind branch
+                    // here or below. In name mode, every spelling is
+                    // checked against `word_prefix_matches`, which is what
+                    // keeps `run` from admitting `docker`'s `--no-trunc`
+                    // (its words are `no` and `trunc`, and `run` is a
+                    // prefix of neither) while still letting `trunc`, `no`,
+                    // a bare modifier letter, or an env var's own word
+                    // (`NODE_D`, `debug`) through.
                     if self.search_mode == SearchMode::Name {
-                        continue;
+                        let matches = resolve_flag(&self.root, &path, &key).is_some_and(|entity| {
+                            entity
+                                .spellings
+                                .iter()
+                                .any(|s| word_prefix_matches(&s.name, filter))
+                        });
+                        if !matches {
+                            continue;
+                        }
                     }
                     paths.insert(path);
                 }
@@ -1765,6 +1804,165 @@ mod tests {
         app.ensure_rows_fresh();
 
         assert_eq!(app.rows()[app.selected].name, "rebase");
+        assert_eq!(
+            app.selected_flag,
+            Some(mandible_core::FlagKey::Name("d".to_string()))
+        );
+    }
+
+    /// The exact docker guard `word_prefix_matches` exists to preserve:
+    /// `run` must never match `--no-trunc`, because `run` is a prefix of
+    /// neither of its `-`-separated words (`no`, `trunc`) nor of the whole
+    /// name.
+    #[test]
+    fn word_prefix_matches_refuses_the_docker_run_no_trunc_case() {
+        assert!(!word_prefix_matches("no-trunc", "run"));
+    }
+
+    /// The two `-`-separated words of `--no-trunc` each match their own
+    /// prefix.
+    #[test]
+    fn word_prefix_matches_finds_either_word_of_a_dashed_name() {
+        assert!(word_prefix_matches("no-trunc", "trunc"));
+        assert!(word_prefix_matches("no-trunc", "no"));
+    }
+
+    /// A one-letter dashless name (a modifier letter) matches itself.
+    #[test]
+    fn word_prefix_matches_finds_a_bare_modifier_letter() {
+        assert!(word_prefix_matches("d", "d"));
+    }
+
+    /// An underscore-separated env var name matches both from the start of
+    /// the whole name and from after the separator.
+    #[test]
+    fn word_prefix_matches_finds_either_half_of_an_underscored_name() {
+        assert!(word_prefix_matches("NODE_DEBUG", "NODE_D"));
+        assert!(word_prefix_matches("NODE_DEBUG", "debug"));
+    }
+
+    /// Case-insensitive, both sides.
+    #[test]
+    fn word_prefix_matches_is_case_insensitive() {
+        assert!(word_prefix_matches("NODE_DEBUG", "node_d"));
+        assert!(word_prefix_matches("node_debug", "DEBUG"));
+    }
+
+    /// A query longer than the word it's being compared against is not a
+    /// prefix of it — `word_prefix_matches` must not panic on a slice
+    /// that runs past the word's own end.
+    #[test]
+    fn word_prefix_matches_refuses_a_query_longer_than_the_word() {
+        assert!(!word_prefix_matches("no-trunc", "truncated"));
+    }
+
+    /// Spec §10, name mode: an entity match (any kind) is admitted only
+    /// when the query is a word-prefix of one of its spellings — the same
+    /// guard `word_prefix_matches` is unit-tested against, now proven
+    /// through the real filtering path. `--no-trunc`-shaped flag: `run`
+    /// (a docker-guard-style non-prefix query) must not surface its parent
+    /// command in name mode, even though `run` is a fuzzy subsequence
+    /// match the wide-mode index would happily return.
+    #[test]
+    fn name_mode_refuses_a_non_word_prefix_flag_match() {
+        let mut root = sample_tree();
+        let mut no_trunc =
+            mandible_core::Entity::flag_long("no-trunc", Provenance::single(Source::HelpText));
+        no_trunc.description = Some(mandible_core::Text::sanitize("don't truncate output"));
+        root.subcommands[1].entities.push(no_trunc); // rebase, standing in for the node
+
+        // A sibling whose *name* legitimately contains "run" as a
+        // substring, so the matching set is non-empty and the tree
+        // renders the real filter rather than falling back to the
+        // unfiltered tree on an empty result set — which would make
+        // "rebase" appear regardless of whether the flag guard works.
+        root.subcommands.push(CommandNode::new(
+            "prune",
+            Provenance::single(Source::HelpText),
+        ));
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        // Name mode is the default; no toggle needed.
+        for c in "run".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+
+        let names: Vec<&str> = app.rows().iter().map(|r| r.name.as_str()).collect();
+        assert!(
+            names.contains(&"prune"),
+            "precondition: 'prune' should match 'run' by substring: {names:?}"
+        );
+        assert!(
+            !names.contains(&"rebase"),
+            "'run' must not admit '--no-trunc' in name mode: {names:?}"
+        );
+    }
+
+    /// The word-prefix half of the same case: `trunc` (a real word of
+    /// `--no-trunc`) does surface the parent command in name mode, and the
+    /// detail pane remembers the flag as the scroll target.
+    #[test]
+    fn name_mode_admits_a_word_prefix_flag_match() {
+        let mut root = sample_tree();
+        let mut no_trunc =
+            mandible_core::Entity::flag_long("no-trunc", Provenance::single(Source::HelpText));
+        no_trunc.description = Some(mandible_core::Text::sanitize("don't truncate output"));
+        root.subcommands[1].entities.push(no_trunc); // rebase
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        for c in "trunc".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+
+        let names: Vec<&str> = app.rows().iter().map(|r| r.name.as_str()).collect();
+        assert!(
+            names.contains(&"rebase"),
+            "'trunc' should admit '--no-trunc' in name mode: {names:?}"
+        );
+        assert_eq!(
+            app.selected_flag,
+            Some(mandible_core::FlagKey::Long("no-trunc".to_string()))
+        );
+    }
+
+    /// Name mode also admits a dashless entity by its bare-letter query —
+    /// closing spec §10's "any spelling's bare name" requirement for the
+    /// modifier kind specifically, with a real (non-fallback) tree filter:
+    /// the tree narrows to just `ar`, not every row.
+    #[test]
+    fn name_mode_admits_a_bare_modifier_letter_match() {
+        let mut root = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        let mut d = mandible_core::Entity::modifier('d', Provenance::single(Source::HelpText));
+        d.description = Some(mandible_core::Text::sanitize(
+            "delete a member from the archive",
+        ));
+        root.entities.push(d);
+        root.subcommands
+            .push(CommandNode::new("m", Provenance::single(Source::HelpText)));
+
+        let mut app = App::new("ar".to_string(), root);
+        app.focus_search();
+        for c in "d".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+
+        // A real filter, not the empty-set fallback to the unfiltered
+        // tree: only "ar" itself is a visible row (its "m" subcommand,
+        // which the query doesn't match, is filtered out).
+        let names: Vec<&str> = app.rows().iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["ar"],
+            "expected the tree filtered to just 'ar': {names:?}"
+        );
         assert_eq!(
             app.selected_flag,
             Some(mandible_core::FlagKey::Name("d".to_string()))
