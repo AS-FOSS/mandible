@@ -436,22 +436,6 @@ pub(super) fn split_heading_inline_row(line: &str) -> Option<(&str, &str)> {
 /// a fix may move text to its right place, never delete it). A row with no
 /// separate description (`tar --quoting-style`'s bare `literal`/`shell`/…
 /// list) still produces a bare [`Choice`] with `description: None`.
-/// **Still open, pending the maintainer's ruling on unproven blocks**: does
-/// an unproven block (no name match, no value_name word match —
-/// `find_owning_flag_index` returns `None`) attach bare names to the
-/// fallback flag exactly as base (988170a) did, or attach nothing at all?
-/// `true` reproduces base's own behavior byte-for-byte (bare names attach
-/// to the last-emitted flag, descriptions never do — base's `emit_choices`
-/// always discarded `_desc_text`); `false` attaches nothing, so an
-/// unproven block never touches any flag's `choices`. Deliberately one
-/// line so the two readings differ by flipping this constant, not by
-/// re-deriving the logic below — see the round's PR discussion for the
-/// two readings and why they diverge (byte-for-byte-base still lets a
-/// wrong flag carry bare-but-real names, e.g. `cp`'s `--version`;
-/// attach-nothing loses that pre-existing, already-wrong data instead of
-/// preserving it).
-const UNPROVEN_BLOCKS_ATTACH_BARE_NAMES: bool = true;
-
 pub(super) fn emit_choices(
     heading: &str,
     entries: Vec<(&str, String)>,
@@ -500,14 +484,17 @@ pub(super) fn emit_choices(
                 });
             }
         }
-        None if UNPROVEN_BLOCKS_ATTACH_BARE_NAMES && !out.flags.is_empty() => {
+        None if !out.flags.is_empty() => {
             // Unproven: no name match, no value_name match. Base
             // (988170a) attached a bare name to the last-emitted flag
-            // regardless — see `UNPROVEN_BLOCKS_ATTACH_BARE_NAMES`'s own
-            // doc comment for why that byte-for-byte reproduction is still
-            // here pending the maintainer's ruling. Descriptions never
-            // attach here even when the toggle is on: an unproven owner
-            // gets no new information riding along with it, proven or not.
+            // regardless, and that byte-for-byte behavior stays —
+            // dropping it would lose the pre-existing (already-imperfect)
+            // data rather than improve it. What changed is descriptions:
+            // they never attach here. An unproven owner gets no new
+            // information riding along with it, only the same bare name
+            // base always gave it. Attaching bare names more broadly once
+            // ownership can be proven for more shapes is a follow-up, not
+            // a runtime toggle — see the round's PR body.
             let idx = out.flags.len() - 1;
             out.saw_unattributable_content = true;
             for (name, _desc) in candidates {
@@ -1052,9 +1039,8 @@ mod tests {
     /// therefore unproven, and `-f, --force-missing` (the actual last flag
     /// before the block) must never receive a description for text that
     /// is not its own — the regression this pins is "a confident wrong
-    /// answer never ships." `UNPROVEN_BLOCKS_ATTACH_BARE_NAMES` still
-    /// attaches the bare names to it (base's own byte-for-byte behavior,
-    /// pending the maintainer's ruling), but never a description.
+    /// answer never ships." The bare names still attach to it (base's own
+    /// byte-for-byte behavior), but never a description.
     #[test]
     fn automake_style_unproven_block_never_attaches_a_description() {
         let raw = "Usage: widget [OPTION]... [FILE]...\n\nOperation modes:\n  \
