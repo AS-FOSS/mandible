@@ -853,14 +853,53 @@ pub(super) fn command_mode_seed(text: &str, profile: Option<&FrameworkProfile>) 
     mentions_commands_word(text)
 }
 
-/// Find the index of the flag in `flags` that `heading` is most plausibly
-/// "nested under" (spec §7 Tier B rule 4): first, a flag whose long or
-/// short spelling is literally mentioned in the heading text (`"Valid
-/// arguments for the --quoting-style option are:"` names `--quoting-style`
-/// directly); failing that, the most recently emitted flag, since an
-/// unlabeled enum list in `--help` output conventionally follows the flag
-/// it enumerates with no other heading in between (tar's `--format=FORMAT`
-/// immediately followed by `"FORMAT is one of the following:"`).
+/// Find the index of the flag in `flags` that `heading` is **provably**
+/// "nested under" (spec §7 Tier B rule 4) — two literal proofs, nothing
+/// else. `None` means ownership is unproven, and the caller attaches
+/// **nothing**: no names, no descriptions.
+///
+/// **This function used to guess.** A third branch fell back to
+/// `flags.len() - 1` — "the most recently emitted flag" — whenever neither
+/// proof fired, on the theory that an unlabeled enum list conventionally
+/// follows the flag it enumerates with nothing else in between (tar's
+/// `--format=FORMAT` immediately followed by `"FORMAT is one of the
+/// following:"`). Measured directly, twice, that theory does not hold:
+///
+/// - `cp`'s trailing `VERSION_CONTROL` enum (which documents `--backup`)
+///   attached to `--version` instead, because several unrelated prose
+///   paragraphs sit between the flags table ending and the block — the
+///   "most recently emitted flag" was simply whatever printed last, not
+///   the block's owner. A proximity check (was this block the very next
+///   thing scanned after a flags block ended) fixes this specific case.
+/// - `automake`'s `"Warning categories include:"` block documents its own
+///   `-W, --warnings=CATEGORY`, ten lines earlier — but attached to
+///   `-f, --force-missing`, the *actual* last flag before the block, with
+///   only a blank line between them. That is the same tight adjacency
+///   shape as tar's correct case, so a proximity check approves it too —
+///   confidently, and wrongly. Proximity cannot tell these two shapes
+///   apart, because the true axis isn't distance, it's whether the
+///   fallback's candidate is the real owner at all.
+///
+/// No adjacency signal separates "confidently right" (tar) from
+/// "confidently wrong" (automake), so the fallback is gone. Ownership is
+/// proven exactly two ways:
+///
+/// 1. The heading names the flag's long spelling literally
+///    (`"Valid arguments for the --quoting-style option are:"` names
+///    `--quoting-style` directly).
+/// 2. The heading contains one candidate flag's `value_name`, verbatim, as
+///    a whole word (case-insensitive) — tar's `FORMAT is one of the
+///    following:` names `--format=FORMAT`'s own placeholder. This is
+///    deliberately a literal word match, not a stem/plural/morphological
+///    one: `automake`'s heading says "categories" against a `CATEGORY`
+///    value_name, and admitting that match is exactly the false positive
+///    that would reproduce the `-f`/`-W` misattribution one level up the
+///    stack (see the follow-up issue for what a real fix needs).
+///
+/// Neither proof favors a "most recent" or "closest" candidate over
+/// another that also matches — both scan every flag in `flags`, in order,
+/// and take the first hit, same as the original name-match branch always
+/// did.
 pub(super) fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<usize> {
     let lower = heading.to_lowercase();
     if let Some(idx) = flags.iter().position(|f| {
@@ -869,11 +908,42 @@ pub(super) fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<
     }) {
         return Some(idx);
     }
-    if flags.is_empty() {
-        None
-    } else {
-        Some(flags.len() - 1)
-    }
+    flags.iter().position(|f| {
+        f.value_name.as_ref().is_some_and(|vn| {
+            // A one-character value_name is never a real placeholder — no
+            // tool author writes a single-letter metavar, since it would
+            // be indistinguishable from a short flag on the same row. It
+            // is always the signature of an unrelated parser artifact:
+            // ffplay's own `-fs` (force full screen) misreads as short
+            // `-f` plus value_name `"s"` (a pre-existing, separate
+            // single-dash-multi-character defect, spec Appendix A's
+            // `as`/`-fdump-*` family — see AGENTS.md's "GCC's single-dash
+            // multi-character convention" entry), and across an
+            // 1100-flag document a bare one-letter token like `"s"`
+            // coincidentally appears as its own word in unrelated
+            // headings dozens of times. Measured directly: without this
+            // guard, `ffplay`'s corpus fixture moved a described choices
+            // block onto `-fs` from a heading that has nothing to do with
+            // it. Excluding length-1 value_names costs nothing real —
+            // every genuine GNU-style placeholder (`FORMAT`, `CATEGORY`,
+            // `CONTROL`, `MODE`) is a whole word already.
+            vn.chars().count() > 1 && heading_contains_word(&lower, vn)
+        })
+    })
+}
+
+/// True when `word` (any case) appears in `lower_haystack` (already
+/// lowercased) as a whole token — split on any non-alphanumeric byte, so
+/// `FORMAT` matches `" FORMAT is one of the following:"` but does not
+/// match inside `FORMATS` or `REFORMAT`. Case-insensitive because a
+/// heading's own capitalization of a placeholder word is not guaranteed to
+/// match the value_name's (both are typically all-caps in practice, but
+/// nothing enforces it).
+fn heading_contains_word(lower_haystack: &str, word: &str) -> bool {
+    let word_lower = word.to_lowercase();
+    lower_haystack
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|token| token == word_lower)
 }
 
 /// Turn a word-grid block into subcommand stubs (if `treat_as_commands`)

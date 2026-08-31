@@ -534,11 +534,15 @@ pub(super) enum FlagsBlockRow<'a> {
 }
 
 /// One recovered flag-table row: its spec text, its description, and any
-/// enumerated values nested directly under it (`llvm-ar`'s own `=default`/
-/// `=gnu`/… sub-rows under `--format` — see [`choices_sub_row_value`]).
-/// Kept as a named alias rather than a bare tuple purely so the three
-/// positions don't have to be remembered at every call site.
-pub(super) type FlagRowEntry = (String, String, Vec<String>);
+/// enumerated values nested directly under it — `llvm-ar`'s own `=default`/
+/// `=gnu`/… sub-rows under `--format` (see [`choices_sub_row_value`]), or
+/// ffmpeg/ffplay's AVOption sub-table rows, each carrying its own
+/// description (see [`choice_description_sub_row`]). A choice entry's
+/// second element is `None` for the bare-name shape, `Some(description)`
+/// for the described one. Kept as a named alias rather than a bare tuple
+/// purely so the three positions don't have to be remembered at every call
+/// site.
+pub(super) type FlagRowEntry = (String, String, Vec<(String, Option<String>)>);
 
 /// The value placeholder when `trimmed` opens an "argfile" row — `jmod`'s
 /// and `jlink`'s `@<filename>`, `ar`'s/`llvm-ar`'s `@<file>`,
@@ -660,6 +664,54 @@ pub(super) fn choices_sub_row_value(trimmed: &str) -> Option<&str> {
     }
     find_description_gap(trimmed)?;
     Some(&rest[..end])
+}
+
+/// True when `trimmed` is ffmpeg/ffplay's own AVOption sub-table shape — a
+/// bare constant name, a real column gap, then that value's scope flags and
+/// explanation, kept together and verbatim as the choice's own description
+/// (spec §7 recognition rule):
+///
+/// ```text
+///   -flags             <flags>      ED.VAS..... (default 0)
+///      unaligned                    .D.V....... allow decoders to produce unaligned output
+///      gray                         ED.V....... only decode/encode grayscale
+/// ```
+///
+/// Returns `(name, description)` when the row matches, `None` otherwise.
+/// Two conditions, both required, so an ordinary wrapped-prose continuation
+/// line is never misread as a described choice: the row opens with a bare,
+/// [`is_command_name_shaped`] token (no `=` prefix — that shape belongs to
+/// [`choices_sub_row_value`] instead, and this function is only ever tried
+/// after that one has already refused), and a genuine aligned column gap
+/// ([`find_multi_space_gap`] — deliberately not the full
+/// [`find_description_gap`] fallback chain, whose colon/equals/sentence
+/// heuristics exist for *flag* rows and would happily fire on an ordinary
+/// sentence that merely contains a colon) separates it from the rest of the
+/// row. Ordinary prose almost never opens with one identifier-shaped word
+/// immediately followed by two or more spaces — that shape is what a
+/// column-aligned table draws, not what a wrapped sentence does — which is
+/// what keeps this from firing on the `--strip`/`--guesswork`-style
+/// colon- or single-space-separated continuation prose
+/// [`nested_entry_table_starts_at`]'s own tests pin.
+///
+/// The scope columns (`ED.VAS.....`) and any numeric value column
+/// (`-strict`'s `very            2            ED.VA...... ...`) are the
+/// tool's own text and stay verbatim inside the returned description — no
+/// parser for them, exactly as the round brief requires.
+pub(super) fn choice_description_sub_row(trimmed: &str) -> Option<(&str, &str)> {
+    if trimmed.starts_with('=') {
+        return None;
+    }
+    let gap = find_multi_space_gap(trimmed)?;
+    let name = &trimmed[..gap];
+    if !is_command_name_shaped(name) {
+        return None;
+    }
+    let desc = trimmed[gap..].trim();
+    if desc.is_empty() {
+        return None;
+    }
+    Some((name, desc))
 }
 
 pub(super) fn scan_flags_block<'a>(
@@ -906,16 +958,27 @@ pub(super) fn scan_flags_block<'a>(
                     // actually observed.
                     if placeholder_left_open(&last.0) {
                         last.0.push_str(text);
+                    } else if let Some((name, desc)) = choice_description_sub_row(text) {
+                        // ffmpeg/ffplay's AVOption sub-table rows: the
+                        // flag's enumerated values, each with its own
+                        // description — see `choice_description_sub_row`'s
+                        // own doc comment. Tried before the bare `=name`
+                        // shape below since that one only ever matches an
+                        // `=`-prefixed row this one already refuses.
+                        let name = name.to_string();
+                        if !last.2.iter().any(|(n, _)| n == &name) {
+                            last.2.push((name, Some(desc.to_string())));
+                        }
                     } else if let Some(choice) = choices_sub_row_value(text) {
                         // llvm-ar's own `=default`/`=gnu`/… sub-rows: the
                         // flag's enumerated values, not more description —
                         // see `choices_sub_row_value`'s own doc comment.
-                        // Per-value descriptions have no home in the IR and
-                        // are intentionally dropped here (recorded as a
-                        // known limitation, not solved by inventing one).
+                        // llvm-ar never documents a per-value explanation on
+                        // this shape (measured against the full corpus), so
+                        // there is nothing to attach here.
                         let choice = choice.to_string();
-                        if !last.2.contains(&choice) {
-                            last.2.push(choice);
+                        if !last.2.iter().any(|(n, _)| n == &choice) {
+                            last.2.push((choice, None));
                         }
                     } else {
                         last.1.push(' ');
@@ -1797,7 +1860,7 @@ Options:
     fn llvm_ar_format_sub_rows_become_choices_not_description_text() {
         let parsed = parse_named(LLVM_AR_HELP, "llvm-ar-18");
         let format = flag_named(&parsed, "format");
-        let choice_strs: Vec<&str> = format.choices.iter().map(|t| t.as_str()).collect();
+        let choice_strs: Vec<&str> = format.choices.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(
             choice_strs,
             vec!["default", "gnu", "darwin", "bsd", "bigarchive"]
@@ -1807,6 +1870,171 @@ Options:
             Some("- archive format to create"),
             "the =value sub-rows must not remain in the description: {:?}",
             format.description
+        );
+    }
+
+    /// `ffplay -help`'s real `-flags` row (`corpus/ffplay/6.1.1-3ubuntu5/help.txt`,
+    /// lines 85-90): six AVOption constants, each with its own scope-flags-
+    /// plus-explanation text, nested one indent deeper than the flag row
+    /// itself. Byte-exact from the real capture. Before this recognizer,
+    /// every one of these six lines fell through to the default
+    /// continuation rule and was appended, space-joined, into `-flags`'s
+    /// own `description` — this is the smear the round brief names.
+    #[test]
+    fn ffplay_flags_sub_rows_become_described_choices() {
+        let raw = "AVCodecContext AVOptions:\n\
+                    \x20 -flags             <flags>      ED.VAS..... (default 0)\n\
+                    \x20    unaligned                    .D.V....... allow decoders to produce unaligned output\n\
+                    \x20    gray                         ED.V....... only decode/encode grayscale\n\
+                    \x20    low_delay                    ED.V....... force low delay\n\
+                    \x20    bitexact                     ED.VAS..... use only bitexact functions (except (I)DCT)\n\
+                    \x20    output_corrupt               .D.V....... Output even potentially corrupted frames\n\
+                    \x20    drop_changed                 .D.VA.....P Drop frames whose parameters differ from first decoded frame\n\
+                    \x20 -ar                <int>        ED..A...... set audio sampling rate (in Hz) (from 0 to INT_MAX) (default 0)\n";
+        let parsed = parse(raw);
+        let flags = flag_named(&parsed, "flags");
+
+        let want: Vec<(&str, &str)> = vec![
+            (
+                "unaligned",
+                ".D.V....... allow decoders to produce unaligned output",
+            ),
+            ("gray", "ED.V....... only decode/encode grayscale"),
+            ("low_delay", "ED.V....... force low delay"),
+            (
+                "bitexact",
+                "ED.VAS..... use only bitexact functions (except (I)DCT)",
+            ),
+            (
+                "output_corrupt",
+                ".D.V....... Output even potentially corrupted frames",
+            ),
+            (
+                "drop_changed",
+                ".D.VA.....P Drop frames whose parameters differ from first decoded frame",
+            ),
+        ];
+        let got: Vec<(&str, &str)> = flags
+            .choices
+            .iter()
+            .map(|c| {
+                (
+                    c.name.as_str(),
+                    c.description.as_ref().map_or("", |d| d.as_str()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            got, want,
+            "every constant name and description byte must survive, verbatim, in order"
+        );
+
+        // The flag's own description shrinks to what actually belongs to
+        // it — the constants are gone, not merely duplicated.
+        let desc = flags.description.as_ref().map_or("", |t| t.as_str());
+        assert!(
+            desc.contains("ED.VAS....."),
+            "the flag's own scope/default text must survive: {desc:?}"
+        );
+        for (name, text) in &want {
+            assert!(
+                !desc.contains(name) && !desc.contains(text),
+                "choice {name:?}'s text must leave the flag's own description, not just be duplicated into choices: {desc:?}"
+            );
+        }
+
+        // The flag row directly after the sub-table must survive untouched
+        // — a wrong break here would re-route it into `-flags`'s choices or
+        // drop it outright. (Its own spelling is a pre-existing, unrelated
+        // parser gap — GNU-style two-letter single-dash options like `-ar`
+        // read as short `-a` plus a value named `r` — so this checks the
+        // row's *content* landed somewhere rather than pinning that name.)
+        assert!(
+            parsed.flags.iter().any(|f| f
+                .description
+                .as_ref()
+                .is_some_and(|d| d.as_str().contains("set audio sampling rate"))),
+            "the row after the choices sub-table must not be dropped or absorbed: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.description.as_ref().map(|d| d.as_str()))
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            !flags.choices.iter().any(|c| c.name == "ar"
+                || c.description
+                    .as_ref()
+                    .is_some_and(|d| d.as_str().contains("sampling rate"))),
+            "the next flag row must never be absorbed into -flags's own choices: {:?}",
+            flags.choices
+        );
+    }
+
+    /// The same recognizer against the real, full `ffplay --help` capture
+    /// (`corpus/ffplay/6.1.1-3ubuntu5/help.txt`) rather than a hand-typed
+    /// excerpt — pins the shape against the tool's actual byte stream, not
+    /// just a minimal reproduction of it.
+    #[test]
+    fn ffplay_help_real_capture_describes_flags_choices() {
+        let parsed = parse_named(FFPLAY_HELP, "ffplay");
+        let flags = flag_named(&parsed, "flags");
+        let names: Vec<&str> = flags.choices.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "unaligned",
+                "gray",
+                "low_delay",
+                "bitexact",
+                "output_corrupt",
+                "drop_changed"
+            ]
+        );
+        for choice in &flags.choices {
+            assert!(
+                choice.description.is_some(),
+                "every -flags constant in the real capture documents itself: {:?}",
+                choice.name
+            );
+        }
+        let unaligned = flags
+            .choices
+            .iter()
+            .find(|c| c.name == "unaligned")
+            .unwrap();
+        assert_eq!(
+            unaligned.description.as_ref().map(|d| d.as_str()),
+            Some(".D.V....... allow decoders to produce unaligned output")
+        );
+    }
+
+    /// A wrapped-description continuation that merely *starts* with a
+    /// lowercase word must never be misread as a described choice: real
+    /// prose reflows at a single space, it does not draw a genuine 2+-space
+    /// aligned column the way ffmpeg's AVOption table does. This is the
+    /// negative case `choice_description_sub_row` exists to refuse —
+    /// distinct from `guesswork_style_keyword_list_is_not_read_as_a_nested_table`
+    /// above (a bare-word-only continuation with its explanation on a
+    /// still-deeper line), this one puts the explanation on the *same*
+    /// line, single-spaced, which is the shape a described choice must not
+    /// be confused with.
+    #[test]
+    fn a_single_spaced_prose_continuation_is_never_read_as_a_described_choice() {
+        let raw = "Usage: widget [options]\n\nOptions:\n    \
+                   --relaxed  a somewhat informal mode that widget falls back to\n        \
+                   when strict parsing fails and the input still looks plausible enough to run\n";
+        let parsed = parse(raw);
+        let relaxed = flag_named(&parsed, "relaxed");
+        assert!(
+            relaxed.choices.is_empty(),
+            "single-spaced prose must never become a choice: {:?}",
+            relaxed.choices
+        );
+        let desc = relaxed.description.as_ref().map_or("", |t| t.as_str());
+        assert!(
+            desc.contains("strict parsing fails"),
+            "the wrapped continuation must still land in the description: {desc:?}"
         );
     }
 }

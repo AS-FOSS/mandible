@@ -34,6 +34,8 @@ pub(super) const ZOXIDE_HELP: &str = include_str!("../../../../corpus/zoxide/0.9
 pub(super) const JMOD_HELP: &str = include_str!("../../../../corpus/jmod/17.0.20/help.txt");
 pub(super) const LLVM_AR_HELP: &str = include_str!("../../../../corpus/llvm-ar-18/18.1.3/help.txt");
 pub(super) const AR_HELP: &str = include_str!("../../../../corpus/ar/audit-seed2/help.txt");
+pub(super) const FFPLAY_HELP: &str =
+    include_str!("../../../../corpus/ffplay/6.1.1-3ubuntu5/help.txt");
 
 pub(super) const OPENSSL_HELP: &str =
     include_str!("../../../tests/fixtures/help_text/openssl_help.stderr");
