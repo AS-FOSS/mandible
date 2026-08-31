@@ -14,6 +14,7 @@ flags:
   value_name: BFDNAME
   value_kind: Required
   group: 'generic modifiers:'
+  description: specify the target object format as BFDNAME
   provenance:
     sources:
     - help-text
@@ -21,6 +22,7 @@ flags:
   value_name: DIRNAME
   value_kind: Required
   group: 'generic modifiers:'
+  description: specify the output directory for extraction operations
   provenance:
     sources:
     - help-text

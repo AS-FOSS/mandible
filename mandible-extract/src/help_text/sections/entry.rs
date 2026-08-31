@@ -568,6 +568,96 @@ pub(super) fn strip_equals_separator(desc: &str) -> &str {
     }
 }
 
+/// Fallback for a flag row with no aligned column, no `=`/`:` separator
+/// token, no bracketed placeholder, and no capitalized sentence-starting
+/// description word: an isolated `-` token standing in for a column gap,
+/// found the identical way [`find_equals_separator_gap`] finds a lone `=`
+/// — walk whitespace-delimited tokens, requiring every one before the
+/// separator to be spec-shaped ([`is_value_spec_token`]).
+///
+/// `ar`'s own `--target=BFDNAME - specify the target object format as
+/// BFDNAME` is the specimen: the value is glued on with `=`, so no
+/// bracket exists for [`find_placeholder_boundary_gap`] to anchor on, and
+/// the description starts with a lowercase word ("specify"), so
+/// [`find_sentence_start_gap`]'s capitalized-sentence check never fires
+/// either — before this fallback, the entire line (spec and description
+/// both) fell through as one ungapped spec to
+/// [`super::super::grammar::parse_flag_spec`], which still recovered the
+/// right `value_name` from the leading `--target=BFDNAME` token but threw
+/// the rest of the sentence away with nowhere to land it, and `ar`
+/// reported `--target`/`--output` as flags with no description at all
+/// despite documenting one.
+///
+/// The same [`is_value_spec_token`] gate [`find_sentence_start_gap`]
+/// already uses is what keeps this from reaching a row shaped `--flag
+/// WORD rest of a sentence`, where `WORD` is the first word of prose
+/// rather than a value: a bare lowercase word fails `is_value_spec_token`
+/// and the walk gives up before ever reaching a `-` token, exactly as it
+/// already does for [`find_equals_separator_gap`]/
+/// [`find_sentence_start_gap`] today.
+///
+/// **Deliberately not folded into [`find_description_gap`]'s own chain.**
+/// That chain's column is used unconditionally by every caller, and this
+/// fallback's own [`strip_dash_token_separator`] must run only when *this*
+/// finder is the one that supplied the gap — never when
+/// [`find_multi_space_gap`] already found a real column and the
+/// description on the far side of it simply begins with a literal `-` as
+/// the tool's own text (`ar`'s own `@<file>      - read options from
+/// <file>` is exactly that: the multi-space gap lands before the `-`,
+/// which stays part of the description verbatim, spec §4.5 and §7).
+/// Conflating the two stripped that literal dash from an unrelated,
+/// already-correct row the first time this was tried — see
+/// [`super::spelling::split_single_column_entry`]'s own call site, which
+/// tries this only after [`find_description_gap`] itself returns `None`.
+pub(super) fn find_dash_token_separator_gap(line: &str) -> Option<usize> {
+    if !line.trim_start().starts_with('-') {
+        return None;
+    }
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    let mut token_count = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b' ' || bytes[i] == b'\t' {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && bytes[i] != b' ' && bytes[i] != b'\t' {
+            i += 1;
+        }
+        // `start` and `i` only ever land on ASCII space/tab boundaries or
+        // the ends of the string, so neither can fall inside a multi-byte
+        // character — `get` rather than `[..]` regardless (AGENTS.md §2).
+        let token = line.get(start..i)?;
+        if token == "-" && token_count > 0 {
+            let tail_has_content = line.get(i..).is_some_and(|rest| !rest.trim().is_empty());
+            return if tail_has_content { Some(start) } else { None };
+        }
+        if !is_value_spec_token(token) {
+            return None;
+        }
+        token_count += 1;
+    }
+    None
+}
+
+/// Strip a flag row description's leading `- ` separator token, the
+/// [`find_dash_token_separator_gap`] counterpart of
+/// [`strip_equals_separator`]/[`strip_colon_separator`]: that gap finder
+/// deliberately returns the `-` character's own offset, so
+/// [`split_at_column`] keeps it attached to the description side.
+///
+/// Only the separator token is removed. A dash elsewhere in the
+/// description — an em-dash-style aside, a hyphenated word — is text, not
+/// punctuation, and is untouched: `strip_dash_token_separator` only ever
+/// matches a leading `-` immediately followed by whitespace.
+pub(super) fn strip_dash_token_separator(desc: &str) -> &str {
+    match desc.strip_prefix('-') {
+        Some(rest) if rest.starts_with(|c: char| c.is_ascii_whitespace()) => rest.trim_start(),
+        _ => desc,
+    }
+}
+
 /// Fallback for a flag row with no aligned column at all, that separates
 /// spec from description with a **colon** instead of whitespace, `=`, or a
 /// dash: `sg_emc_trespass`'s real `-d : output debug` (spaced) and
@@ -1371,6 +1461,93 @@ mod tests {
         // `=` not followed by whitespace is not the separator shape.
         assert_eq!(strip_equals_separator("=bar"), "=bar");
         assert_eq!(strip_equals_separator("="), "=");
+    }
+
+    /// `ar`'s own real rows, byte-exact from its own capture
+    /// (`corpus/ar/audit-seed2/help.txt`): the value is glued on with `=`
+    /// (no bracket for `find_placeholder_boundary_gap` to anchor on) and
+    /// the description starts lowercase (so `find_sentence_start_gap`'s
+    /// capitalized-sentence check never fires either) — exactly the shape
+    /// none of the other four fallbacks reach.
+    #[test]
+    fn find_dash_token_separator_gap_unit_cases() {
+        assert_eq!(
+            find_dash_token_separator_gap(
+                "  --target=BFDNAME - specify the target object format as BFDNAME"
+            ),
+            Some("  --target=BFDNAME ".len())
+        );
+        assert_eq!(
+            find_dash_token_separator_gap(
+                "  --output=DIRNAME - specify the output directory for extraction operations"
+            ),
+            Some("  --output=DIRNAME ".len())
+        );
+        // A multi-alias row: every token before the isolated `-` must be
+        // spec-shaped, exactly as `find_equals_separator_gap` already
+        // requires of its own lone `=` token.
+        assert_eq!(
+            find_dash_token_separator_gap("-o, --output - the output file"),
+            Some("-o, --output ".len())
+        );
+        // No content after the separator: unchanged behaviour, the same
+        // requirement `find_equals_separator_gap` makes of `=`.
+        assert_eq!(find_dash_token_separator_gap("  --flag -"), None);
+        // Not a flag row at all (no leading `-`): never matched here.
+        assert_eq!(
+            find_dash_token_separator_gap("nl80211 - Linux nl80211/cfg80211"),
+            None
+        );
+        // `-` glued to another character is not a lone separator token.
+        assert_eq!(find_dash_token_separator_gap("  --foo -bar"), None);
+        // THE HAZARD (maintainer, round 7): a row shaped `--flag WORD rest
+        // of a sentence`, where `WORD` might be read as part of the spec
+        // rather than the first word of prose. A bare lowercase word
+        // fails `is_value_spec_token` and the walk gives up before ever
+        // reaching the `-`, so this never matches — the same gate
+        // `find_equals_separator_gap`/`find_sentence_start_gap` already
+        // rely on for the identical reason.
+        assert_eq!(
+            find_dash_token_separator_gap("--mode auto - selects mode automatically"),
+            None
+        );
+        // The boundary of that gate, noted rather than fixed here: an
+        // ALL-UPPERCASE prose word *does* pass `is_value_spec_token`
+        // (`token.chars().all(|c| c.is_ascii_uppercase())`), so a
+        // hypothetical `--flag NOTE this does X - a real dash-description`
+        // would still let the walk continue past `NOTE` as if it were a
+        // value. This is pre-existing behaviour `is_value_spec_token`
+        // already had before this fallback (`find_equals_separator_gap`
+        // and `find_sentence_start_gap` share the exact same exposure),
+        // not something this change introduces or fixes — see this
+        // function's own doc comment.
+        assert!(is_value_spec_token("NOTE"));
+    }
+
+    #[test]
+    fn strip_dash_token_separator_unit_cases() {
+        assert_eq!(
+            strip_dash_token_separator("- specify the target object format as BFDNAME"),
+            "specify the target object format as BFDNAME"
+        );
+        assert_eq!(
+            strip_dash_token_separator("-\tspecify with a tab"),
+            "specify with a tab"
+        );
+        // No leading `-`: unchanged.
+        assert_eq!(
+            strip_dash_token_separator("no separator here"),
+            "no separator here"
+        );
+        // `-` not followed by whitespace is not the separator shape.
+        assert_eq!(strip_dash_token_separator("-bar"), "-bar");
+        assert_eq!(strip_dash_token_separator("-"), "-");
+        // A dash elsewhere in the description — a hyphenated word or an
+        // em-dash-style aside — is text, not punctuation, and untouched.
+        assert_eq!(
+            strip_dash_token_separator("well-formed input only"),
+            "well-formed input only"
+        );
     }
 
     /// `sg_emc_trespass`'s real rows, byte-exact from its own capture: a

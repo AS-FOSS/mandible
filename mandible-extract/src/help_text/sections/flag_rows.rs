@@ -1671,6 +1671,70 @@ Options:
         );
     }
 
+    /// `ar --help`'s real `--target=BFDNAME - specify the target object
+    /// format as BFDNAME` and `--output=DIRNAME - specify the output
+    /// directory for extraction operations` rows
+    /// (`corpus/ar/audit-seed2/help.txt`) recover their descriptions
+    /// through the full pipeline, not just `find_dash_token_separator_gap`
+    /// in isolation. Before the dash-token-separator fallback, neither row
+    /// had any aligned column, any `=`/`:` token, any bracketed
+    /// placeholder, or a capitalized sentence-starting word — the whole
+    /// line fell through ungapped, `parse_flag_spec` still recovered the
+    /// right `value_name` from the leading `--target=BFDNAME`/
+    /// `--output=DIRNAME` token, and the rest of the sentence had nowhere
+    /// to land, so `ar` reported both flags with no description at all
+    /// despite documenting one.
+    #[test]
+    fn ar_glued_equals_flags_recover_their_lowercase_descriptions() {
+        let parsed = parse_named(AR_HELP, "ar");
+        let target = flag_named(&parsed, "target");
+        assert_eq!(target.value_name.as_deref(), Some("BFDNAME"));
+        assert_eq!(
+            target.description.as_ref().map(|t| t.as_str()),
+            Some("specify the target object format as BFDNAME")
+        );
+        let output = flag_named(&parsed, "output");
+        assert_eq!(output.value_name.as_deref(), Some("DIRNAME"));
+        assert_eq!(
+            output.description.as_ref().map(|t| t.as_str()),
+            Some("specify the output directory for extraction operations")
+        );
+        // Neighbouring rows in the same block (`--record-libdeps`, which
+        // already worked via `find_placeholder_boundary_gap`'s `<text>`
+        // bracket) must be untouched — that fallback's own convention
+        // keeps the tool's leading `- ` verbatim (unlike this fallback's
+        // `strip_dash_token_separator`), exactly as the `@<file>` row's
+        // own description does.
+        let record_libdeps = flag_named(&parsed, "record-libdeps");
+        assert_eq!(
+            record_libdeps.description.as_ref().map(|t| t.as_str()),
+            Some("- specify the dependencies of this library")
+        );
+    }
+
+    /// THE HAZARD (maintainer, round 7), end to end rather than at the
+    /// gap-finder alone: a row shaped `--flag WORD rest of a sentence`,
+    /// where `WORD` might be mistaken for part of the spec. A bare
+    /// lowercase word is never spec-shaped
+    /// ([`is_value_spec_token`]), so the dash-token-separator fallback
+    /// never opens on this row and `parse_flag_spec` reads the whole
+    /// unsplit line exactly as it did before this change — `auto` becomes
+    /// the (fabricated, pre-existing) value and the tail is dropped, the
+    /// same outcome an equivalent row with no dash in it at all would
+    /// already have. This fix does not change that outcome either way; it
+    /// only closes the narrower `--flag=VALUE - description` gap.
+    #[test]
+    fn a_prose_word_after_the_spec_never_opens_the_dash_token_fallback() {
+        let raw = "Usage: widget [OPTIONS]\n\nOptions:\n  --mode auto - selects mode automatically\n  -h, --help  show this help message and exit\n";
+        let parsed = parse(raw);
+        let mode = flag_named(&parsed, "mode");
+        assert_ne!(
+            mode.description.as_ref().map(|t| t.as_str()),
+            Some("selects mode automatically"),
+            "a bare lowercase prose word must never be read as closing the spec"
+        );
+    }
+
     /// The GNU-binutils `@FILE` spelling (`nm`/`ld`/`as`'s own copy of the
     /// convention — measured directly off this machine's real binaries,
     /// spec §4.5's fleet measurement) recovers identically to the

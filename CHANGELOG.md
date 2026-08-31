@@ -50,6 +50,8 @@ once it reaches a published 0.1.0 release.
 
 - The `@<file>`/`@FILE` "read options from a file" row now has a home instead of ending a flags block silently unrendered (issue #93, completing the containment fix above): recognized by shape as `@` glued to a placeholder (`<file>`, `<filename>`, or an all-uppercase word like `FILE`), it becomes a flag of its own — `mandible ar`/`mandible jmod`/`mandible llvm-ar`/`mandible nm`/`mandible objdump`/`mandible readelf`/`mandible size`/`mandible addr2line`/`mandible as`/`mandible ld`/`mandible ranlib`/`mandible jlink` now show it under FLAGS, spelled `@` with its value glued on with no space (`@<file>`) rather than the usual gap, and carrying the row's own description verbatim.
 
+- `mandible ar --target`/`mandible ar --output` now show the description `ar --help` documents for them instead of none at all: neither row has an aligned column, a lone `=`/`:` token, a bracketed placeholder, or a capitalized sentence-starting description word, so nothing recognized where the spec ended and the description began, and the whole line — including the sentence describing it — fell into the value-name parser with nowhere for the tail to land; an isolated `-` token is now read as the column gap too, the same way a lone `=`/`:` token already was.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added
