@@ -1860,39 +1860,39 @@ fn entity_line(
 
     let mut description_text = flag.description.as_ref().map(|d| d.single_line());
 
-    // The IR carries a flag's permitted values (spec §7 Tier B rule 4:
-    // `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum values,
-    // which is why they are *not* subcommands) and the pane was extracting
-    // them and then dropping them on the floor. Knowing that `--format`
-    // takes exactly six spellings is precisely the sort of thing you open a
-    // reference to find out.
-    if !flag.choices.is_empty() {
-        let joined = flag
-            .choices
-            .iter()
-            .map(|c| c.as_str().to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let rendered = format!("[{joined}]");
-        description_text = Some(match description_text {
-            Some(d) if !d.is_empty() => format!("{d} {rendered}"),
-            _ => rendered,
-        });
-    }
-
     if let Some(tag) = &deprecated_tag {
         description_text = Some(match description_text {
             Some(d) => format!("{d}{tag}"),
             None => tag.trim_start().to_string(),
         });
     }
+    let description_text = description_text.filter(|d| !d.is_empty());
 
-    let Some(description_text) = description_text.filter(|d| !d.is_empty()) else {
+    // The IR carries a flag's permitted values (spec §7 Tier B rule 4:
+    // `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum values,
+    // which is why they are *not* subcommands). This does not join into
+    // `description_text`: description text must stay the tool's own prose,
+    // and the spelling column must stay verbatim — `tar --format` carries
+    // both a `FORMAT` placeholder and `choices`, and folding an enumeration
+    // into either would corrupt it. A derived enumeration gets its own
+    // labeled line instead, indented two columns past the description
+    // column, in the section's derived-metadata style.
+    let values_line = (!flag.choices.is_empty()).then(|| {
+        let joined = flag
+            .choices
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("values: {joined}")
+    });
+
+    if description_text.is_none() && values_line.is_none() {
         if !head.is_empty() {
             return head;
         }
         return vec![Line::from(first_line_spans)];
-    };
+    }
 
     // One description column for the entire section, not one per entity.
     // That is what makes a parameter list read as a table — the defining
@@ -1915,19 +1915,23 @@ fn entity_line(
     let rest_width = width.saturating_sub(column).max(1);
 
     let mut lines = Vec::new();
-    let mut remainder = description_text.clone();
+    let mut remainder = description_text.clone().unwrap_or_default();
     if head.is_empty() {
-        // One space past the head, or the column — whichever is further
-        // right. They coincide for every row whose head fits.
-        let start = column.max(prefix_width + 1);
-        let first = width
-            .checked_sub(start)
-            .and_then(|room| leading_words(&remainder, room));
-        if let Some((first_chunk, rest)) = first {
-            first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
-            first_line_spans.push(Span::styled(first_chunk, desc_style));
-            remainder = rest;
+        if description_text.is_some() {
+            // One space past the head, or the column — whichever is
+            // further right. They coincide for every row whose head fits.
+            let start = column.max(prefix_width + 1);
+            let first = width
+                .checked_sub(start)
+                .and_then(|room| leading_words(&remainder, room));
+            if let Some((first_chunk, rest)) = first {
+                first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
+                first_line_spans.push(Span::styled(first_chunk, desc_style));
+                remainder = rest;
+            }
         }
+        // No description: the head is the whole first line, and a
+        // choices-only flag's values line still lands on the next one.
         lines.push(Line::from(first_line_spans));
     } else {
         // A head broken across lines has taken the pane's whole width for
@@ -1945,6 +1949,25 @@ fn entity_line(
             )));
         }
     }
+
+    // The values line sits two columns past the description column (spec
+    // §9.3): a further indent, not a fresh column, is what marks it as
+    // subordinate to the description rather than a second row of the same
+    // kind. It wraps at the pane's own width like any other pane line, and
+    // renders even when the flag carries no description at all.
+    if let Some(values_line) = values_line {
+        let values_column = column + 2;
+        let values_width = width.saturating_sub(values_column).max(1);
+        let values_indent = " ".repeat(values_column);
+        let values_style = style::muted(color_enabled);
+        for chunk in wrap_words(&values_line, values_width) {
+            lines.push(Line::from(Span::styled(
+                format!("{values_indent}{chunk}"),
+                values_style,
+            )));
+        }
+    }
+
     lines
 }
 
@@ -2827,6 +2850,128 @@ mod tests {
         );
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
+    }
+
+    /// Spec §9.3: a flag's `choices` render as their own line under the
+    /// description, not folded into it — the description stays the tool's
+    /// own prose, and the enumeration gets a `values:` line indented two
+    /// columns past the shared description column.
+    #[test]
+    fn choices_render_on_their_own_line_below_the_description() {
+        let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("archive format to create"));
+        flag.choices = vec![
+            Text::sanitize("default"),
+            Text::sanitize("gnu"),
+            Text::sanitize("darwin"),
+            Text::sanitize("bsd"),
+            Text::sanitize("bigarchive"),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        let lines = entity_line(&flag, false, 80, true, layout);
+
+        let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
+        assert!(
+            joined.contains("archive format to create"),
+            "the description must stay the tool's own prose: {joined:?}"
+        );
+        assert!(
+            !joined.contains('['),
+            "choices must not be bracketed into the description any more: {joined:?}"
+        );
+        assert!(
+            joined.contains("values: default, gnu, darwin, bsd, bigarchive"),
+            "choices must render as a labeled values line: {joined:?}"
+        );
+
+        let values_line = lines
+            .iter()
+            .find(|l| text_of(l).contains("values:"))
+            .expect("a values line");
+        let text = text_of(values_line);
+        let indent_len = text.len() - text.trim_start().len();
+        assert_eq!(
+            indent_len,
+            layout.description + 2,
+            "the values line must sit two columns past the description column: {text:?}"
+        );
+        assert_eq!(
+            values_line.spans[0].style,
+            style::muted(true),
+            "the values line must use the pane's derived-metadata style"
+        );
+    }
+
+    /// A flag can carry `choices` with no description at all (an
+    /// undocumented enum flag). The values line must still render, right
+    /// under the head, rather than being dropped because there was no
+    /// description to attach it to.
+    #[test]
+    fn choices_render_even_when_the_flag_has_no_description() {
+        let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
+        flag.choices = vec![Text::sanitize("posix"), Text::sanitize("windows")];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        let lines = entity_line(&flag, false, 80, true, layout);
+
+        assert_eq!(
+            lines.len(),
+            2,
+            "one head line and one values line: {lines:?}"
+        );
+        assert!(
+            !text_of(&lines[0]).contains("values:"),
+            "the head line must not carry the values line: {:?}",
+            text_of(&lines[0])
+        );
+        let text = text_of(&lines[1]);
+        assert!(text.contains("values: posix, windows"), "{text:?}");
+        let indent_len = text.len() - text.trim_start().len();
+        assert_eq!(indent_len, layout.description + 2, "{text:?}");
+    }
+
+    /// `tar --format` carries both a `FORMAT` placeholder in the spelling
+    /// column and `choices` (spec §7 Tier B rule 4). The placeholder must
+    /// render verbatim, on the head line, exactly as before — the values
+    /// line is additional, never a replacement or a rewrite of the head.
+    #[test]
+    fn a_placeholder_and_choices_together_leave_the_spelling_column_untouched() {
+        let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
+        flag.value_name = Some("FORMAT".to_string());
+        flag.value_kind = ValueKind::Required;
+        flag.description = Some(Text::sanitize("archive format to create"));
+        flag.choices = vec![
+            Text::sanitize("gnu"),
+            Text::sanitize("oldgnu"),
+            Text::sanitize("pax"),
+            Text::sanitize("posix"),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        let lines = entity_line(&flag, false, 80, true, layout);
+
+        let head = text_of(&lines[0]);
+        assert!(
+            head.contains("--format") && head.contains("FORMAT"),
+            "the spelling and its placeholder must render verbatim, together: {head:?}"
+        );
+        assert!(
+            !head.contains("values:") && !head.contains('['),
+            "the head line must carry no trace of choices: {head:?}"
+        );
+
+        let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
+        assert!(
+            joined.contains("values: gnu, oldgnu, pax, posix"),
+            "choices still render, just off the head line: {joined:?}"
+        );
     }
 
     /// The coordinator's second reported defect: a group heading must not
