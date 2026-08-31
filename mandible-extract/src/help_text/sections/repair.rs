@@ -1637,6 +1637,64 @@ mod tests {
         assert_eq!(parsed.flags.len(), 2);
     }
 
+    /// The negative case for `fold_run`'s anchored-value recovery: a
+    /// single-dash entity missing a value stays bare when the raw document
+    /// never actually writes its own spelling immediately followed by the
+    /// value a run-mate established — even though that run-mate shares the
+    /// exact same description. Recovery requires *both* halves of the
+    /// anchor (a run-mate's value **and** the literal `<spelling> <value>`
+    /// phrase in the document); a description match alone must never be
+    /// enough, or this would be the same kind of invention
+    /// `repair_single_dash_long_options`'s own doc comment refuses for
+    /// `qemu-arm64-static`'s `-cpu model`.
+    #[test]
+    fn a_value_is_never_recovered_without_its_own_literal_phrase_in_the_document() {
+        let raw = concat!(
+            "options:\n",
+            "-h val               show help\n",
+            "-help                show help\n",
+            "--help val           show help\n",
+        );
+        let parsed = parse(raw);
+        // `-help` never wrote "val" glued to its own row (only the bare
+        // word "show" follows it, part of the description column), so its
+        // value is never recovered and it stays bare — and, sitting
+        // between `-h` and `--help` in the run with a `value_name` that no
+        // longer matches either, it also breaks the maximal-adjacent-
+        // subrun rule for both of them: nothing here reorders rows or
+        // skips over a non-matching one to reach a match further along, so
+        // `-h` and `--help` are left as their own entities too, three in
+        // total, rather than the fold guessing which pair "really"
+        // belongs together.
+        let bare_help = parsed
+            .flags
+            .iter()
+            .find(|f| f.spellings.len() == 1 && f.spellings[0].name == "help")
+            .unwrap_or_else(|| {
+                panic!(
+                    "no bare single-spelling -help entity in {:?}",
+                    parsed
+                        .flags
+                        .iter()
+                        .map(|f| f.spelling())
+                        .collect::<Vec<_>>()
+                )
+            });
+        assert!(bare_help.single_dash());
+        assert_eq!(bare_help.value_name, None);
+        assert_eq!(bare_help.value_kind, ValueKind::None);
+        assert_eq!(
+            parsed.flags.len(),
+            3,
+            "no pair folds past the unrecovered row in the middle: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+    }
+
     /// A run may repeat one spelling verbatim (`ffplay --help`'s AVOptions
     /// dump documents `-raw_packet_size` under more than one demuxer with
     /// byte-identical text) without the fold gluing the duplicate onto an
