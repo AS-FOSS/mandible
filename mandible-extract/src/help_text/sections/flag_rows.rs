@@ -544,37 +544,62 @@ pub(super) enum FlagsBlockRow<'a> {
 /// site.
 pub(super) type FlagRowEntry = (String, String, Vec<(String, Option<String>)>);
 
-/// True when `trimmed` is an "argfile" row — `jmod`'s `@<filename>`,
-/// `llvm-ar`'s and `ar`'s `@<file>` — the GNU-family convention for "read
-/// more options from this file", spelled as an `@` immediately followed by
-/// a bracketed placeholder and nothing else in that same token.
+/// The value placeholder when `trimmed` opens an "argfile" row — `jmod`'s
+/// and `jlink`'s `@<filename>`, `ar`'s/`llvm-ar`'s `@<file>`,
+/// `nm`'s/`ld`'s/`as`'s `@FILE` — the GNU-binutils/LLVM/JDK convention for
+/// "splice this file's contents into argv in place of this token" (spec
+/// §4.5). The shape: the row's first whitespace-split token (never a token
+/// appearing later, which is how `user@host` in a description column, or
+/// `jar`'s own prose example `"...@classes.list"`, is refused) is `@`
+/// immediately followed by a placeholder-shaped fragment and nothing else
+/// in that same token — either a bracketed placeholder (`<file>`,
+/// `<filename>`) or an all-uppercase word (`FILE`). Returns the
+/// placeholder text verbatim (the sigil flag's `value_name`, spec §4.5),
+/// or `None` if `trimmed` does not open this way.
 ///
 /// This is neither a flag (no `-` prefix — [`looks_like_flag_start`]
 /// already refuses it) nor prose continuing the entry above it, and
-/// [`scan_flags_block`] must never fold it into either. Before this guard,
-/// jmod's own copy of this row corrupted `--version`'s description
-/// (`"Version information @<filename> Read options from the specified
-/// file"`) whenever an earlier row in the same block (jmod's own
-/// `Option`/`Description` header-underline row — see
+/// [`scan_flags_block`] must never fold it into either. Before the shape
+/// was even recognized, jmod's own copy of this row corrupted
+/// `--version`'s description (`"Version information @<filename> Read
+/// options from the specified file"`) whenever an earlier row in the same
+/// block (jmod's own `Option`/`Description` header-underline row — see
 /// [`super::super::grammar::looks_like_flag_start`]'s dash-run guard) had
 /// pulled the block's minimum entry indent down far enough that an
 /// ordinary same-indent flag row started reading as "indented past the
 /// block's own entries" and therefore as a continuation.
 ///
 /// Recognized structurally, never by tool name — any tool documenting a
-/// response-file convention this way hits the same guard. `ar`'s and
-/// `llvm-ar`'s own `@<file>` rows already happen not to corrupt anything
-/// today (the block ends at that row for unrelated reasons — see
-/// `flags_block_start`'s own doc comment for `ar`'s case), so this guard is
-/// a no-op for them and a real fix for jmod's.
-pub(super) fn looks_like_argfile_row(trimmed: &str) -> bool {
-    let Some(first) = trimmed.split_whitespace().next() else {
-        return false;
+/// response-file convention this way hits the same guard. Measured across
+/// this fleet: GNU binutils' `ar`/`nm`/`objdump`/`readelf`/`size`/
+/// `addr2line`/`as`/`ld`/`ranlib` family (both the `<file>` and `FILE`
+/// spellings), LLVM's `llvm-ar`, and the JDK's `jmod`/`jlink`.
+pub(super) fn argfile_row_value_name(trimmed: &str) -> Option<&str> {
+    let first = trimmed.split_whitespace().next()?;
+    let rest = first.strip_prefix('@')?;
+    if rest.len() > 2 && rest.starts_with('<') && rest.ends_with('>') {
+        return Some(rest);
+    }
+    if !rest.is_empty() && rest.chars().all(|c| c.is_ascii_uppercase()) {
+        return Some(rest);
+    }
+    None
+}
+
+/// Build the argfile row's own [`FlagRowEntry`] once
+/// [`argfile_row_value_name`] has matched: the placeholder text as the
+/// "spec" slot (never fed to [`super::super::grammar::parse_flag_spec`] —
+/// [`super::emit::emit_argfile_flag`] builds the sigil [`mandible_core::Entity`]
+/// directly instead) and whatever the row's own column gap (or lack of
+/// one) supplies as the description, kept verbatim — `ar`'s own leading
+/// `"- "` (`"- read options from <file>"`) is the tool's own text, not
+/// punctuation this function strips.
+pub(super) fn argfile_flag_entry(line: &str, value_name: &str) -> FlagRowEntry {
+    let desc = match find_description_gap(line) {
+        Some(col) if col < line.len() => line[col..].trim_start().to_string(),
+        _ => String::new(),
     };
-    let Some(rest) = first.strip_prefix('@') else {
-        return false;
-    };
-    rest.len() > 2 && rest.starts_with('<') && rest.ends_with('>')
+    (value_name.to_string(), desc, Vec::new())
 }
 
 /// True when `spec`'s own text still carries an unclosed `<...>`
@@ -693,12 +718,19 @@ pub(super) fn scan_flags_block<'a>(
     lines: &[&'a str],
     start: usize,
     heading_is_bnf: bool,
-) -> (usize, Vec<FlagRowEntry>, bool) {
+) -> (usize, Vec<FlagRowEntry>, bool, Option<FlagRowEntry>) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
     let mut min_entry_indent: Option<usize> = None;
     let mut current_entry_line: Option<&'a str> = None;
+    // The argfile row (`@<file>`/`@FILE`), captured separately from `rows`
+    // rather than folded in — see the `break` just below for why the block
+    // still ends at this row, and [`argfile_row_value_name`]'s doc comment
+    // for the shape. At most one per block: a block documents this
+    // convention once, and a second `@`-row would be either a duplicate or
+    // an unrelated shape this recognizer correctly refuses to guess about.
+    let mut argfile_entry: Option<FlagRowEntry> = None;
 
     while i < lines.len() {
         let line = lines[i];
@@ -709,15 +741,18 @@ pub(super) fn scan_flags_block<'a>(
         let indent = leading_whitespace(line);
         let trimmed = line.trim_start();
 
-        // An "argfile" row (`@<filename>`/`@<file>`) is neither a flag
-        // entry nor a continuation of the one above it — see
-        // `looks_like_argfile_row`'s own doc comment. Ending the block here
+        // An "argfile" row (`@<filename>`/`@<file>`/`@FILE`) is neither a
+        // flag entry nor a continuation of the one above it — see
+        // `argfile_row_value_name`'s own doc comment. Ending the block here
         // re-routes rather than drops: the same contract
         // `nested_entry_table_starts_at`'s break already uses, so the
-        // caller resumes its own scan at exactly this line and the row is
-        // left for whatever comes after to read (or, finding nothing,
-        // leave unemitted) rather than corrupting the entry above it.
-        if looks_like_argfile_row(trimmed) {
+        // caller resumes its own scan at exactly this line. The row itself
+        // is not lost — it is captured into `argfile_entry` right here,
+        // outside `rows`, so it can never be misread as a continuation of
+        // the entry above it or feed the block's own packed/multi-column
+        // shape decisions below, both of which are read from `rows` alone.
+        if let Some(value_name) = argfile_row_value_name(trimmed) {
+            argfile_entry = Some(argfile_flag_entry(line, value_name));
             break;
         }
 
@@ -953,7 +988,7 @@ pub(super) fn scan_flags_block<'a>(
             }
         }
     }
-    (i, entries, packed)
+    (i, entries, packed, argfile_entry)
 }
 
 /// The fewest name/description pairs a deeper-indented run must show before
@@ -1612,8 +1647,14 @@ Options:
 
     /// `jmod --help`'s trailing `@<filename>  Read options from the
     /// specified file` row (`corpus/jmod/17.0.20/help.txt`) must never
-    /// corrupt the row above it (`--version`), and must never itself
-    /// become a flag.
+    /// corrupt the row above it (`--version`), and — the argfile sigil
+    /// flag, spec §4.5 — must become its own flag rather than vanish: a
+    /// dashless `Flag` entity spelled `@`, `value_name` verbatim `<filename>`,
+    /// `value_kind` required, carrying the row's own description. No
+    /// `long`/`short` spelling exists (the shape is deliberately never fed
+    /// through [`super::super::grammar::parse_flag_spec`]), which is also
+    /// what keeps the old assertion — no flag's *long* spelling ever
+    /// contains "filename" — true for a different reason now.
     #[test]
     fn an_argfile_row_never_corrupts_the_entry_above_it() {
         let parsed = parse_named(JMOD_HELP, "jmod");
@@ -1629,7 +1670,20 @@ Options:
                 .flags
                 .iter()
                 .any(|f| f.long().is_some_and(|l| l.contains("filename"))),
-            "@<filename> must never become a flag of its own"
+            "@<filename> must never become a *long-spelled* flag"
+        );
+        let argfile = parsed
+            .flags
+            .iter()
+            .find(|f| f.primary_name() == "@")
+            .expect("the @<filename> row must be recovered as the argfile sigil flag");
+        assert_eq!(argfile.kind, mandible_core::EntityKind::Flag);
+        assert!(argfile.long().is_none() && argfile.short().is_none());
+        assert_eq!(argfile.value_name.as_deref(), Some("<filename>"));
+        assert_eq!(argfile.value_kind, ValueKind::Required);
+        assert_eq!(
+            argfile.description.as_ref().map(|t| t.as_str()),
+            Some("Read options from the specified file")
         );
     }
 
@@ -1661,7 +1715,141 @@ Options:
                 .flags
                 .iter()
                 .any(|f| f.long().is_some_and(|l| l.contains("file>"))),
-            "@<file> must never become a flag of its own"
+            "@<file> must never become a *long-spelled* flag"
+        );
+        // The other half of the ar-shaped fleet measurement (spec §4.5):
+        // `size --help`'s own `@<file>   Read options from <file>` row
+        // recovers exactly like jmod's, confirming the shape generalizes
+        // beyond the one tool the corruption bug was found on.
+        let argfile = parsed
+            .flags
+            .iter()
+            .find(|f| f.primary_name() == "@")
+            .expect("size's @<file> row must be recovered as the argfile sigil flag");
+        assert_eq!(argfile.value_name.as_deref(), Some("<file>"));
+        assert_eq!(argfile.value_kind, ValueKind::Required);
+        assert_eq!(
+            argfile.description.as_ref().map(|t| t.as_str()),
+            Some("Read options from <file>")
+        );
+    }
+
+    /// `ar --help`'s real `--target=BFDNAME - specify the target object
+    /// format as BFDNAME` and `--output=DIRNAME - specify the output
+    /// directory for extraction operations` rows
+    /// (`corpus/ar/audit-seed2/help.txt`) recover their descriptions
+    /// through the full pipeline, not just `find_dash_token_separator_gap`
+    /// in isolation. Before the dash-token-separator fallback, neither row
+    /// had any aligned column, any `=`/`:` token, any bracketed
+    /// placeholder, or a capitalized sentence-starting word — the whole
+    /// line fell through ungapped, `parse_flag_spec` still recovered the
+    /// right `value_name` from the leading `--target=BFDNAME`/
+    /// `--output=DIRNAME` token, and the rest of the sentence had nowhere
+    /// to land, so `ar` reported both flags with no description at all
+    /// despite documenting one.
+    #[test]
+    fn ar_glued_equals_flags_recover_their_lowercase_descriptions() {
+        let parsed = parse_named(AR_HELP, "ar");
+        let target = flag_named(&parsed, "target");
+        assert_eq!(target.value_name.as_deref(), Some("BFDNAME"));
+        assert_eq!(
+            target.description.as_ref().map(|t| t.as_str()),
+            Some("specify the target object format as BFDNAME")
+        );
+        let output = flag_named(&parsed, "output");
+        assert_eq!(output.value_name.as_deref(), Some("DIRNAME"));
+        assert_eq!(
+            output.description.as_ref().map(|t| t.as_str()),
+            Some("specify the output directory for extraction operations")
+        );
+        // Neighbouring rows in the same block (`--record-libdeps`, which
+        // already worked via `find_placeholder_boundary_gap`'s `<text>`
+        // bracket) must be untouched — that fallback's own convention
+        // keeps the tool's leading `- ` verbatim (unlike this fallback's
+        // `strip_dash_token_separator`), exactly as the `@<file>` row's
+        // own description does.
+        let record_libdeps = flag_named(&parsed, "record-libdeps");
+        assert_eq!(
+            record_libdeps.description.as_ref().map(|t| t.as_str()),
+            Some("- specify the dependencies of this library")
+        );
+    }
+
+    /// THE HAZARD (maintainer, round 7), end to end rather than at the
+    /// gap-finder alone: a row shaped `--flag WORD rest of a sentence`,
+    /// where `WORD` might be mistaken for part of the spec. A bare
+    /// lowercase word is never spec-shaped
+    /// ([`is_value_spec_token`]), so the dash-token-separator fallback
+    /// never opens on this row and `parse_flag_spec` reads the whole
+    /// unsplit line exactly as it did before this change — `auto` becomes
+    /// the (fabricated, pre-existing) value and the tail is dropped, the
+    /// same outcome an equivalent row with no dash in it at all would
+    /// already have. This fix does not change that outcome either way; it
+    /// only closes the narrower `--flag=VALUE - description` gap.
+    #[test]
+    fn a_prose_word_after_the_spec_never_opens_the_dash_token_fallback() {
+        let raw = "Usage: widget [OPTIONS]\n\nOptions:\n  --mode auto - selects mode automatically\n  -h, --help  show this help message and exit\n";
+        let parsed = parse(raw);
+        let mode = flag_named(&parsed, "mode");
+        assert_ne!(
+            mode.description.as_ref().map(|t| t.as_str()),
+            Some("selects mode automatically"),
+            "a bare lowercase prose word must never be read as closing the spec"
+        );
+    }
+
+    /// The GNU-binutils `@FILE` spelling (`nm`/`ld`/`as`'s own copy of the
+    /// convention — measured directly off this machine's real binaries,
+    /// spec §4.5's fleet measurement) recovers identically to the
+    /// bracketed `<file>`/`<filename>` spelling above: same sigil flag,
+    /// `value_name` the bare uppercase word verbatim.
+    #[test]
+    fn the_uppercase_argfile_spelling_recovers_the_same_sigil_flag() {
+        let raw = "Usage: nm [OPTION...] [file...]\n\nOptions:\n  -a, --debug-syms       Display debugger-only symbols\n  @FILE                  Read options from FILE\n  -h, --help             Display this information\n";
+        let parsed = parse(raw);
+        let argfile = parsed
+            .flags
+            .iter()
+            .find(|f| f.primary_name() == "@")
+            .expect("@FILE must be recovered as the argfile sigil flag");
+        assert_eq!(argfile.value_name.as_deref(), Some("FILE"));
+        assert_eq!(
+            argfile.description.as_ref().map(|t| t.as_str()),
+            Some("Read options from FILE")
+        );
+        // Its neighbours must be untouched — the sigil row must not have
+        // swallowed `--debug-syms` above it or `--help` below it.
+        assert!(parsed.flags.iter().any(|f| f.long() == Some("debug-syms")));
+        assert!(parsed.flags.iter().any(|f| f.long() == Some("help")));
+    }
+
+    /// The false-positive guard (spec §4.5's STOP fork): `@` glued to
+    /// something that is *not* placeholder-shaped — an ordinary word with
+    /// a dot in it, the shape a stray `user@host`/e-mail mention would
+    /// take if it ever opened a row's own name column — must never be
+    /// read as the argfile sigil. Neither must `jar --help`'s own real
+    /// prose example, `"...pass it to the jar command with the at sign
+    /// (@) as a prefix"` followed by `jar --create --file my.jar
+    /// @classes.list` (`@classes.list` is lowercase and dotted, not
+    /// `<...>`-bracketed or all-uppercase, so it fails the placeholder-
+    /// shape test the same way).
+    #[test]
+    fn a_row_opening_with_at_but_not_placeholder_shaped_is_never_the_argfile_flag() {
+        assert_eq!(
+            argfile_row_value_name("@example.com    contact address"),
+            None
+        );
+        assert_eq!(argfile_row_value_name("@classes.list"), None);
+        // Sanity check the two real shapes still pass, so this test would
+        // actually fail if the placeholder check were ever loosened away
+        // rather than merely not extended.
+        assert_eq!(
+            argfile_row_value_name("@<file>  read options"),
+            Some("<file>")
+        );
+        assert_eq!(
+            argfile_row_value_name("@FILE  Read options from FILE"),
+            Some("FILE")
         );
     }
 

@@ -4,10 +4,20 @@ usage:
 - 'Usage: /usr/bin/ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file... /usr/bin/ar -M [<mri-script]'
 flags:
 - spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  group: 'generic modifiers:'
+  description: '- read options from <file>'
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - --target
   value_name: BFDNAME
   value_kind: Required
   group: 'generic modifiers:'
+  description: specify the target object format as BFDNAME
   provenance:
     sources:
     - help-text
@@ -16,6 +26,7 @@ flags:
   value_name: DIRNAME
   value_kind: Required
   group: 'generic modifiers:'
+  description: specify the output directory for extraction operations
   provenance:
     sources:
     - help-text

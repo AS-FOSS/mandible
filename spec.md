@@ -408,6 +408,22 @@ Rules that govern the migration:
 - **Display contract** for each kind is §9.3's; the two sections change
   together.
 
+**The argfile sigil flag.** The GNU-binutils/LLVM/JDK response-file
+convention — `@<file>`, `@<filename>`, `@FILE` — is a `Flag`
+(`EntityKind::Flag`), never a positional and never its own entity kind: an
+option parser splices the named file's contents into `argv` in place of
+this token, before any operation runs, and the row is position-independent
+and repeatable, which is exactly what a flag is for. It is modeled as one
+`Spelling { name: "@", dashes: Dashes::None }` with `value_name` the row's
+own placeholder kept verbatim (`<file>`, `<filename>`, `FILE`, whatever the
+tool prints) and `value_kind: Required` — every documented instance of this
+row requires the filename argument. Its `Spelling` carries no dash, which
+every other `Flag`'s spelling does; this is the one deliberate exception
+(`Entity::key`, `Entity::matches_key`, and `FlagKey::Name`'s own doc
+comment each note it), addressed by `FlagKey::Name("@")` — the same key a
+dashless *kind* uses — so search and `--print-selection` reach it exactly
+as they reach any other flag.
+
 ### 4.1 `Text`: the sanitization invariant
 
 **Every string that originates outside this process is a `Text`, never a
@@ -2153,6 +2169,24 @@ four ordinary long options, and those four take their `group` from the
 heading they sit under. A recognizer that consumed the whole block, or that
 restarted section scanning after the run, would strip that group from four
 flags that carry it correctly today.
+
+**The argfile row.** `@<file>` is recognized by **shape**, never by tool
+name (§1): a table row whose first token, at the row's own name column
+(never a token appearing mid-sentence, which is how `user@host` in a
+description or `jar --help`'s own prose example `@classes.list` are
+refused), is `@` immediately followed — glued, no space — by a
+placeholder-shaped fragment and nothing else in that token: either a
+bracketed placeholder (`<file>`, `<filename>`) or an all-uppercase word
+(`FILE`). Measured across this fleet: GNU binutils' `ar`/`nm`/`objdump`/
+`readelf`/`size`/`addr2line`/`as`/`ld`/`ranlib` family (both spellings),
+LLVM's `llvm-ar`, and the JDK's `jmod`/`jlink`. It becomes the argfile
+sigil flag (§4.5's own paragraph) rather than being left unemitted — the
+row previously ended a flags block cleanly (avoiding the corruption its
+own presence used to cause) but produced no entity at all — containment
+without rendering is an unfinished fix, not a solved one. The row's
+own description survives verbatim, including a leading `"- "` some tools
+print (`ar`'s `"- read options from <file>"`) — that punctuation is the
+tool's own text, not separator syntax this recognizer strips.
 
 **The "operations" heading.** `llvm-ar --help` documents its single-letter
 operations under an `OPERATIONS:` heading — the same shape as its own

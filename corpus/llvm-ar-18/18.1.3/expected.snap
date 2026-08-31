@@ -73,6 +73,14 @@ flags:
     sources:
     - help-text
 - spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  description: '- read options from <file>'
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - -M
   provenance:
     sources:

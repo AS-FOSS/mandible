@@ -1,0 +1,45 @@
+name: split-file-18
+description: 'OVERVIEW: Split input into multiple parts separated by regex ''^(.|//)--- '' and extract the part specified by ''^(.|//)--- <part>'''
+usage:
+- 'USAGE: split-file-18 [options] filename directory'
+flags:
+- spellings:
+  - --help
+  group: 'Generic Options:'
+  description: '- Display available options (--help-hidden for more)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-list
+  group: 'Generic Options:'
+  description: '- Display list of available options (--help-list-hidden for more)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Generic Options:'
+  description: '- Display the version of this program'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --leading-lines
+  group: 'split-file Options:'
+  description: '- Preserve line numbers'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-leading-lines
+  group: 'split-file Options:'
+  description: Don't preserve line numbers (default)
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

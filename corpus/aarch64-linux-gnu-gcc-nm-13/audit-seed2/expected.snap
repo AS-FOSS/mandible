@@ -276,6 +276,15 @@ flags:
     sources:
     - help-text
 - spellings:
+  - '@'
+  value_name: FILE
+  value_kind: Required
+  group: 'The options are:'
+  description: Read options from FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - -h
   - --help
   description: Display this information
