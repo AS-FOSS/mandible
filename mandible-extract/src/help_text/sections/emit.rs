@@ -436,6 +436,22 @@ pub(super) fn split_heading_inline_row(line: &str) -> Option<(&str, &str)> {
 /// a fix may move text to its right place, never delete it). A row with no
 /// separate description (`tar --quoting-style`'s bare `literal`/`shell`/…
 /// list) still produces a bare [`Choice`] with `description: None`.
+/// **Still open, pending the maintainer's ruling on unproven blocks**: does
+/// an unproven block (no name match, no value_name word match —
+/// `find_owning_flag_index` returns `None`) attach bare names to the
+/// fallback flag exactly as base (988170a) did, or attach nothing at all?
+/// `true` reproduces base's own behavior byte-for-byte (bare names attach
+/// to the last-emitted flag, descriptions never do — base's `emit_choices`
+/// always discarded `_desc_text`); `false` attaches nothing, so an
+/// unproven block never touches any flag's `choices`. Deliberately one
+/// line so the two readings differ by flipping this constant, not by
+/// re-deriving the logic below — see the round's PR discussion for the
+/// two readings and why they diverge (byte-for-byte-base still lets a
+/// wrong flag carry bare-but-real names, e.g. `cp`'s `--version`;
+/// attach-nothing loses that pre-existing, already-wrong data instead of
+/// preserving it).
+const UNPROVEN_BLOCKS_ATTACH_BARE_NAMES: bool = true;
+
 pub(super) fn emit_choices(
     heading: &str,
     entries: Vec<(&str, String)>,
@@ -472,6 +488,8 @@ pub(super) fn emit_choices(
     }
     match find_owning_flag_index(heading, &out.flags) {
         Some(idx) => {
+            // Proven ownership (a literal `--name` match or a value_name
+            // word match) — full names and descriptions, both trustworthy.
             for (name, desc) in candidates {
                 if out.flags[idx].choices.iter().any(|c| c.name == name) {
                     continue;
@@ -480,6 +498,23 @@ pub(super) fn emit_choices(
                     name,
                     description: desc.map(|d| Text::sanitize(&d)),
                 });
+            }
+        }
+        None if UNPROVEN_BLOCKS_ATTACH_BARE_NAMES && !out.flags.is_empty() => {
+            // Unproven: no name match, no value_name match. Base
+            // (988170a) attached a bare name to the last-emitted flag
+            // regardless — see `UNPROVEN_BLOCKS_ATTACH_BARE_NAMES`'s own
+            // doc comment for why that byte-for-byte reproduction is still
+            // here pending the maintainer's ruling. Descriptions never
+            // attach here even when the toggle is on: an unproven owner
+            // gets no new information riding along with it, proven or not.
+            let idx = out.flags.len() - 1;
+            out.saw_unattributable_content = true;
+            for (name, _desc) in candidates {
+                if out.flags[idx].choices.iter().any(|c| c.name == name) {
+                    continue;
+                }
+                out.flags[idx].choices.push(Choice::bare(name));
             }
         }
         None => {
@@ -969,5 +1004,170 @@ mod tests {
                 node.summary
             );
         }
+    }
+
+    /// `--format`'s own value_name is `FORMAT`, and the enum heading
+    /// (`"FORMAT is one of the following:"`) contains that exact word —
+    /// `find_owning_flag_index`'s second proof, not the deleted proximity
+    /// fallback. This is the "proven" pin: full names *and* descriptions
+    /// attach, byte-exact against the real capture.
+    #[test]
+    fn tar_format_choices_carry_descriptions_via_the_value_name_proof() {
+        let parsed = parse(TAR_HELP);
+        let format = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("format"))
+            .expect("--format flag recovered");
+        let got: Vec<(&str, &str)> = format
+            .choices
+            .iter()
+            .map(|c| {
+                (
+                    c.name.as_str(),
+                    c.description.as_ref().map_or("", |d| d.as_str()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("gnu", "GNU tar 1.13.x format"),
+                ("oldgnu", "GNU format as per tar <= 1.12"),
+                ("pax", "POSIX 1003.1-2001 (pax) format"),
+                ("posix", "same as pax"),
+                ("ustar", "POSIX 1003.1-1988 (ustar) format"),
+                ("v7", "old V7 tar format"),
+            ],
+            "proven ownership must carry every description, verbatim: {got:?}"
+        );
+    }
+
+    /// `automake --help`'s real shape (the STOP-worthy find): the
+    /// `"Warning categories include:"` block documents `-W,
+    /// --warnings=CATEGORY`, several rows earlier — but the heading names
+    /// no flag literally, and `"categories"` is not an exact word match
+    /// for the value_name `CATEGORY` (plural vs. singular — deliberately
+    /// refused, see `heading_contains_word`'s doc comment). Ownership is
+    /// therefore unproven, and `-f, --force-missing` (the actual last flag
+    /// before the block) must never receive a description for text that
+    /// is not its own — the regression this pins is "a confident wrong
+    /// answer never ships." `UNPROVEN_BLOCKS_ATTACH_BARE_NAMES` still
+    /// attaches the bare names to it (base's own byte-for-byte behavior,
+    /// pending the maintainer's ruling), but never a description.
+    #[test]
+    fn automake_style_unproven_block_never_attaches_a_description() {
+        let raw = "Usage: widget [OPTION]... [FILE]...\n\nOperation modes:\n  \
+                   -W, --warnings=CATEGORY  report the warnings falling in CATEGORY\n  \
+                   -f, --force-missing    force update of standard files\n\n\
+                   Warning categories include:\n  \
+                   cross                  cross compilation issues\n  \
+                   gnu                    GNU coding standards\n  \
+                   obsolete               obsolete features or constructions\n";
+        let parsed = parse(raw);
+        let warnings = flag_named(&parsed, "warnings");
+        assert!(
+            warnings.choices.is_empty(),
+            "the true owner must never receive a fuzzy/stem-matched attachment: {:?}",
+            warnings.choices
+        );
+        let force_missing = flag_named(&parsed, "force-missing");
+        let names: Vec<&str> = force_missing
+            .choices
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["cross", "gnu", "obsolete"],
+            "base's own byte-for-byte behavior: bare names still attach to the fallback flag"
+        );
+        assert!(
+            force_missing
+                .choices
+                .iter()
+                .all(|c| c.description.is_none()),
+            "an unproven owner must never carry a description, right or wrong: {:?}",
+            force_missing.choices
+        );
+    }
+
+    /// `cp --help`'s real shape: the trailing `VERSION_CONTROL` enum
+    /// documents `--backup`, but several unrelated prose paragraphs sit
+    /// between the flags table ending and this block, so `--version` (the
+    /// actual last flag) is not provably the owner either — same
+    /// unproven-fallback pin as the automake case, different failure
+    /// shape (distance rather than a competing named flag).
+    #[test]
+    fn cp_style_trailing_prose_block_never_attaches_a_description() {
+        let raw = "Usage: widget [OPTION]... SOURCE DEST\n\nOptions:\n  \
+                   --backup[=CONTROL]     make a backup of each existing destination file\n  \
+                   --version              output version information and exit\n\n\
+                   Some unrelated prose paragraph about attributes that has nothing to\n\
+                   do with any flag above it, spanning a couple of sentences so it reads\n\
+                   like real documentation rather than a table.\n\n\
+                   The version control method may be selected via the VERSION_CONTROL\n\
+                   environment variable.  Here are the values:\n\n  \
+                   none, off       never make backups\n  \
+                   numbered, t     make numbered backups\n";
+        let parsed = parse(raw);
+        let backup = flag_named(&parsed, "backup");
+        assert!(
+            backup.choices.is_empty(),
+            "the true owner must never receive an unproven attachment: {:?}",
+            backup.choices
+        );
+        let version = flag_named(&parsed, "version");
+        let names: Vec<&str> = version.choices.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["none", "off", "numbered", "t"],
+            "base's own byte-for-byte behavior: bare names still attach to the fallback flag"
+        );
+        assert!(
+            version.choices.iter().all(|c| c.description.is_none()),
+            "an unproven owner must never carry a description: {:?}",
+            version.choices
+        );
+    }
+
+    /// ffplay's own AVOption sub-table (`-flags`, the round's motivating
+    /// case) never reaches `find_owning_flag_index`/`emit_choices` at all
+    /// — it is recognized entirely inside `scan_flags_block`'s own
+    /// continuation handling (`choice_description_sub_row`), one indent
+    /// level under the flag's own row, with no heading of any kind
+    /// governing it. Proven by construction: strip every heading from the
+    /// input (just the flag row and its sub-rows, nothing else) and the
+    /// descriptions still attach, which the heading-block matcher could
+    /// never do since it has no heading text to match against.
+    #[test]
+    fn ffplay_choices_never_route_through_the_heading_block_matcher() {
+        let raw = "-flags             <flags>      ED.VAS..... (default 0)\n\
+                   \x20    unaligned                    .D.V....... allow decoders to produce unaligned output\n\
+                   \x20    gray                         ED.V....... only decode/encode grayscale\n";
+        let parsed = parse(raw);
+        let flags = flag_named(&parsed, "flags");
+        let got: Vec<(&str, &str)> = flags
+            .choices
+            .iter()
+            .map(|c| {
+                (
+                    c.name.as_str(),
+                    c.description.as_ref().map_or("", |d| d.as_str()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                (
+                    "unaligned",
+                    ".D.V....... allow decoders to produce unaligned output"
+                ),
+                ("gray", "ED.V....... only decode/encode grayscale"),
+            ],
+            "no heading governs this input at all, so this can only have come from \
+             scan_flags_block's own continuation handling: {got:?}"
+        );
     }
 }
