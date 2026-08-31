@@ -1,9 +1,14 @@
-//! `mandible-search`: fuzzy search over commands and flags (spec §10).
+//! `mandible-search`: fuzzy search over commands and every entity a node
+//! carries — flags, positionals, modifiers, and environment variables
+//! (spec §10).
 //!
 //! Backed by `nucleo` (the matcher behind Helix). Index entries are
-//! [`NodeRef`]s — including [`NodeRef::Flag`], so a flag is a first-class,
-//! independently addressable search result rather than something folded
-//! into its parent command's haystack. Matching runs on `nucleo`'s own
+//! [`NodeRef`]s — including [`NodeRef::Flag`], whose `key` addresses any
+//! entity kind (a dashed flag, or a dashless positional/modifier/env-var
+//! by its bare name — see [`mandible_core::FlagKey::Name`]), so every
+//! entity is a first-class, independently addressable search result
+//! rather than something folded into its parent command's haystack.
+//! Matching runs on `nucleo`'s own
 //! background thread pool; [`SearchIndex::tick`] must be driven from the
 //! caller's event-loop poll timeout, never a blocking spin inside a
 //! keystroke handler, so typing never blocks (spec §10 "Threading").
@@ -16,13 +21,14 @@ use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::{Config, Matcher, Nucleo, Utf32Str};
 use std::sync::Arc;
 
-/// One indexed item: a command or a flag, addressable via its [`NodeRef`].
+/// One indexed item: a command or an entity (flag, positional, modifier, or
+/// environment variable), addressable via its [`NodeRef`].
 #[derive(Debug, Clone)]
 struct Entry {
     node_ref: NodeRef,
     /// The name used for the exact-prefix ranking boost (spec §10
-    /// "Ranking"): a command's own name, or a flag's long spelling (short,
-    /// if there's no long one).
+    /// "Ranking"): a command's own name, or an entity's first documented
+    /// spelling's bare name ([`mandible_core::Entity::primary_name`]).
     primary_name: String,
 }
 
@@ -223,8 +229,14 @@ fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<S
         cols[0] = haystack.as_str().into();
     });
 
-    for flag in node.flags() {
-        push_flag(injector, flag, &path);
+    // Every documented item on the node — flags, positionals, modifiers,
+    // and environment variables alike — gets its own index entry (spec
+    // §10: "Index entries are `NodeRef`s, and every entity gets its own
+    // entry"). `Entity::key` now returns `Some` for every kind that has at
+    // least one spelling, so this one loop covers them all with no
+    // per-kind branch.
+    for entity in &node.entities {
+        push_entity(injector, entity, &path);
     }
 
     for child in &node.subcommands {
@@ -234,15 +246,21 @@ fn push_node(injector: &nucleo::Injector<Entry>, node: &CommandNode, path: Vec<S
     }
 }
 
-fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Entity, path: &[String]) {
-    let Some(key) = flag.key() else {
-        return; // a flag with no addressable spelling can't be indexed
+fn push_entity(
+    injector: &nucleo::Injector<Entry>,
+    entity: &mandible_core::Entity,
+    path: &[String],
+) {
+    let Some(key) = entity.key() else {
+        return; // an entity with no addressable spelling can't be indexed
     };
     let mut haystack = String::new();
-    for spelling in &flag.spellings {
+    for spelling in &entity.spellings {
         // Search on the spelling the user would actually type: a
         // single-dash long option (`-help`, `-vv`) is never `--help`, and
-        // indexing it that way would make it unfindable by its own name.
+        // indexing it that way would make it unfindable by its own name. A
+        // dashless spelling (a modifier letter, an env var name) indexes
+        // with no dash prefix, for the same reason.
         //
         // Built from the dashes and the bare name rather than through
         // `Spelling::render`, deliberately: `render` reconstructs the
@@ -258,24 +276,19 @@ fn push_flag(injector: &nucleo::Injector<Entry>, flag: &mandible_core::Entity, p
         haystack.push_str(&spelling.name);
         haystack.push(' ');
     }
-    if let Some(v) = &flag.value_name {
+    if let Some(v) = &entity.value_name {
         haystack.push_str(v);
         haystack.push(' ');
     }
-    if let Some(d) = &flag.description {
+    if let Some(d) = &entity.description {
         haystack.push_str(d.as_str());
     }
-    let primary_name = flag
-        .long()
-        .map(str::to_string)
-        .or_else(|| flag.short().map(|c| c.to_string()))
-        .unwrap_or_default();
     let entry = Entry {
         node_ref: NodeRef::Flag {
             path: path.to_vec(),
             key,
         },
-        primary_name,
+        primary_name: entity.primary_name().to_string(),
     };
     injector.push(entry, |_entry, cols| {
         cols[0] = haystack.as_str().into();
@@ -324,6 +337,30 @@ mod tests {
 
         root.subcommands.push(rebase);
         root.subcommands.push(add);
+        root
+    }
+
+    /// An `ar`-shaped root: one node whose modifier table carries the `d`
+    /// letter (delete a member from the archive), the shape real `ar`
+    /// documents under its own un-dashed modifier table.
+    fn ar_shaped_tree() -> CommandNode {
+        let mut root = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        root.summary = Some(Text::sanitize("create, modify, and extract archives"));
+        let mut d = Entity::modifier('d', Provenance::single(Source::HelpText));
+        d.description = Some(Text::sanitize("delete a member from the archive"));
+        root.entities.push(d);
+        root
+    }
+
+    /// A `bpftrace`-shaped root: one node whose environment section
+    /// documents `BPFTRACE_BTF`, the shape real `bpftrace` documents under
+    /// an explicit `ENVIRONMENT` heading.
+    fn bpftrace_shaped_tree() -> CommandNode {
+        let mut root = CommandNode::new("bpftrace", Provenance::single(Source::HelpText));
+        root.summary = Some(Text::sanitize("high-level tracing language"));
+        let mut btf = Entity::env_var_item("BPFTRACE_BTF", Provenance::single(Source::HelpText));
+        btf.description = Some(Text::sanitize("BTF file location"));
+        root.entities.push(btf);
         root
     }
 
@@ -377,6 +414,50 @@ mod tests {
         assert!(
             has_flag_match,
             "expected --patch flag among results: {results:?}"
+        );
+    }
+
+    /// A dashless modifier is its own index entry, addressable by its bare
+    /// letter — the `ar`-shaped fixture's `d`, keyed by [`FlagKey::Name`]
+    /// rather than folded into the root command's haystack.
+    #[test]
+    fn searching_a_modifier_letter_returns_the_modifier() {
+        let mut index = SearchIndex::new();
+        index.populate(&ar_shaped_tree());
+        index.set_query("delete a member");
+        settle(&mut index);
+
+        let results = index.results();
+        let has_modifier_match = results.iter().any(|r| {
+            matches!(r, NodeRef::Flag { path, key }
+                if path == &vec!["ar".to_string()]
+                && key == &mandible_core::FlagKey::Name("d".to_string()))
+        });
+        assert!(
+            has_modifier_match,
+            "expected the 'd' modifier among results: {results:?}"
+        );
+    }
+
+    /// A dashless environment variable is its own index entry, addressable
+    /// by its bare name — the `bpftrace`-shaped fixture's `BPFTRACE_BTF`,
+    /// keyed by [`FlagKey::Name`].
+    #[test]
+    fn searching_an_env_var_name_returns_the_env_var() {
+        let mut index = SearchIndex::new();
+        index.populate(&bpftrace_shaped_tree());
+        index.set_query("BPFTRACE_BTF");
+        settle(&mut index);
+
+        let results = index.results();
+        let has_env_var_match = results.iter().any(|r| {
+            matches!(r, NodeRef::Flag { path, key }
+                if path == &vec!["bpftrace".to_string()]
+                && key == &mandible_core::FlagKey::Name("BPFTRACE_BTF".to_string()))
+        });
+        assert!(
+            has_env_var_match,
+            "expected BPFTRACE_BTF among results: {results:?}"
         );
     }
 
