@@ -2341,6 +2341,29 @@ mod tests {
         );
     }
 
+    /// Rule (ii) and rule (iii) above are each independently necessary —
+    /// this specimen is the case where rule (iii) alone would miss it.
+    /// `try_short`'s own run-length scan does not exclude `|` (only
+    /// [`try_alias_position_single_dash_long`] needs to, and does — see
+    /// its own doc comment), so `-R|--foo` computes a two-character run
+    /// (`R|`) even though the fallback only ever consumes `-R`, leaving
+    /// `|--foo` as the leftover. Rule (iii)'s own value check reads a
+    /// leading `|` as "another alias continuing," not a value, so it stays
+    /// silent here — only rule (ii)'s raw-run-length check (2, not a
+    /// genuine one-letter short) refuses the continuation. Without rule
+    /// (ii), this constructed input would wrongly merge `-D`, `-R` and
+    /// `--foo` into one three-alias entity.
+    #[test]
+    fn rule_ii_independently_refuses_what_rule_iii_alone_would_miss() {
+        let spec = parse_flag_spec("-D -R|--foo");
+        assert_eq!(spec.spellings.len(), 1, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-D");
+        assert!(
+            !spec.fully_consumed,
+            "the unabsorbed `-R|--foo` must be left honestly unconsumed"
+        );
+    }
+
     /// `xxd --help`'s real usage-example row, byte-exact: `-r -s off`.
     /// `-r` and `-s` are both genuine one-letter shorts, each separately
     /// documented on its own row elsewhere — this row merely shows them
