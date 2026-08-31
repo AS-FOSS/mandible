@@ -11,9 +11,23 @@ flags:
     - help-text
 - spellings:
   - -h
-  - -?
-  - -help
   - --help
+  value_name: topic
+  value_kind: Required
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  value_name: topic
+  value_kind: Required
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -help
   value_name: topic
   value_kind: Required
   description: show help
@@ -124,6 +138,13 @@ flags:
     - help-text
 - spellings:
   - -loglevel
+  value_name: loglevel
+  value_kind: Required
+  description: set logging level
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - -v
   value_name: loglevel
   value_kind: Required

@@ -1661,32 +1661,69 @@ The generic fallback parser (step 2) is built with `winnow`:
   duplicate-`-r` row with no dedup rule, once the one-letter-only model
   that could recognize `-r[esolve]` but not the two-letter `-rc[vbuf]`
   was generalized to any prefix length.
-- **The adjacency fold.** issue #30's own primary example, `ffplay --help`'s
-  `Main options:` table, documents help under four separate physical rows
+- **The anchored value recovery, and why it stops short of a row-adjacency
+  fold.** issue #30's own primary example, `ffplay --help`'s `Main
+  options:` table, documents help under four separate physical rows
   (`-h topic`, `-? topic`, `-help topic`, `--help topic`, one spelling per
-  row) rather than one row naming all four — the emission-side fix above
-  only recovers every alias a *single* row already lists, and nothing read
-  several adjacent rows as one entity. `fold_adjacent_alias_rows`
-  (`mandible-extract/src/help_text/sections/repair.rs`) now folds a run of
-  such rows into one multi-spelling entity, gated strictly: every row in
-  the run must be option-table-sourced, name exactly one spelling, share
-  the same `group` (table) and, after an anchored recovery pass restores a
-  swallowed single-dash-long value from its run-mates' own agreement (see
-  the function's doc comment — never invented, only recovered from a value
-  another row in the same run already established and the raw document
-  still names glued to this row's own spelling), description, `value_name`
-  and `value_kind` must be identical, word for word. A run may also claim
-  at most one distinct long-*like* name: a short letter is cheap enough
-  that a tool may offer more than one mnemonic for one flag (`-h`/`-?`),
-  but two different long *words* sharing a description are never assumed
-  to be the same option merely because their rows repeat boilerplate text
-  — `dbiprof`'s own `-match=K=V`/`-exclude=K=V` and `dpkg`'s own
-  `--configure`/`--triggers-only` are two real, separate options each,
-  caught as regressions during this fold's own development and now pinned
-  as tests. `du`'s bare `--time` beside its valued `--time=WORD`, and vim
-  `ex`'s two differently-described `-r` rows, fail the `value_kind`/
-  description conditions respectively and stay unfolded, exactly as
-  before.
+  row): `try_short` reads `-help` as `-h` plus the glued value `"elp"`,
+  `repair_single_dash_long_options` (correctly) rewrites that into the
+  single-dash spelling `-help`, and — a deliberate, measured limitation,
+  documented on that repair — clears the value entirely rather than
+  inventing one, because by the time it runs the row's real, separately
+  spaced value (`"topic"`) is already gone. `recover_anchored_values`
+  (`mandible-extract/src/help_text/sections/repair.rs`) restores it: when
+  an adjacent run of option-table rows shares a description and table
+  (`group`), and a run-mate (`-h`, `-?`, or `--help`) already carries the
+  value cleanly, `-help`'s own value is recovered *only if* the raw
+  document still contains `-help topic` as a literal delimited phrase —
+  never invented from whitespace or a shared description alone.
+  A first version of this change also *folded* every row in such a run
+  into one multi-spelling entity once their values matched. That was
+  reverted: a full-`PATH` sweep found the same "identical description"
+  evidence also fires on real, unrelated flag pairs that merely share
+  boilerplate commentary (`as`'s `-w`/`-X`, both "ignored" — a description
+  repeated 6 times, case-insensitively, in that one document; `sysctl`'s
+  `-A`/`-X`, both "alias of -a", two *independent* legacy shims for a
+  third flag, not aliases of each other; `mkfs.bfs`'s `-c`/`-l`;
+  `llvm-size-18`'s `-A`/`-B`; `lto-dump`'s `-C`/`-CC` and
+  `-p`/`-pedantic-errors`, both "[disabled]" — a description repeated 505
+  times in that one document, a new instance of the false-positive
+  mechanism the `lto-dump` incident already named for a different code
+  path, `pair_aliases`'s own `complementary` exclusion of single-dash-long
+  options). A repeat-count mitigation ("refuse when the description
+  occurs elsewhere too") does not discriminate either — `mkfs.bfs`'s and
+  `sysctl`'s own false positives occur exactly twice in their documents,
+  the same count several genuine aliases sit at. Description equality is
+  not, on its own, sufficient evidence that two different spellings name
+  the same option; recovering a value already independently verified
+  against the raw document's own literal text is a narrower, safe claim
+  that none of the six false positives can reach (each is a complete,
+  valueless boolean already — there is no missing value for the recovery
+  step to act on). Merging rows into one entity is left to `ffplay`,
+  `ffmpeg` and `ffprobe`'s own `-h`/`--help` pairing, which
+  `pair_aliases`'s existing short/long convention (spec §4.4) already
+  produces correctly; `-?` and the recovered `-help` are acceptable as
+  their own, separate one-spelling entities.
+- **`entity_identity`'s long-name key now carries dash count**
+  (`mandible-core/src/merge.rs`). `-help` (single-dash long) and `--help`
+  (double-dash long) are genuinely different spellings of the same word,
+  but [`Entity::long`] reports both as the bare name `"help"` — correct
+  for "what's the long-like name", wrong for cross-source identity, where
+  the two collided into one bucket and `merge_entity_bucket`'s short/long
+  reconstruction (a two-slot model pre-dating `Entity::spellings`) kept
+  only one of the two dash counts, silently discarding the other. This
+  was ffplay's own `--help` disappearing entirely in the live TUI (`-h,
+  -help topic` + `-? topic`, no `--help` anywhere) even though the
+  captured-fixture replay showed all three entities correctly — not a
+  stdout/stderr divergence as first suspected, but `Runner::fill_node`'s
+  own contract ("`existing` is always included as a merge candidate")
+  taking `merge_nodes` through its cross-source `merge_entity_lists` path
+  on a tool's very first load, not only on a genuine second source;
+  `merge_nodes`'s single-candidate short-circuit (`pair_aliases` only) was
+  the only thing that had ever avoided it. The key now distinguishes
+  `-help` (`L:1:help`) from `--help` (`L:2:help`), so the two are never
+  bucketed together unless a source genuinely repeats the identical
+  spelling.
 - **The existence oracle learned the three synopsis-entry shapes the three
   fixes above taught the parser** (fix/oracle-unlabeled-synopsis). A
   measurement fix, not a parser fix: `xtask/src/existence.rs`'s
