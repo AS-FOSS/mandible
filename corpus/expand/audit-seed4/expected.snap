@@ -9,34 +9,39 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'i'
-  long: initial
+- spellings:
+  - -i
+  - --initial
   description: do not convert tabs after non blanks
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: tabs
+- spellings:
+  - -t
+  - --tabs
   value_name: N
   value_kind: Required
   description: have tabs N characters apart, not 8
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: tabs
+- spellings:
+  - -t
+  - --tabs
   value_name: LIST
   value_kind: Required
   description: use comma separated list of tab positions. The last specified position can be prefixed with '/' to specify a tab size to use after the last explicitly specified tab stop. Also a prefix of '+' can be used to align remaining tab stops relative to the last specified tab stop instead of the first column
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   description: display this help and exit
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: output version information and exit
   provenance:
     sources:

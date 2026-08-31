@@ -74,7 +74,7 @@
 //! strip — elapsed time lives on `mandible-extract::ExtractionResult`, one
 //! layer above the IR this module snapshots, so it never reaches here.
 
-use crate::entity::{Choice, Entity};
+use crate::entity::{Choice, Entity, Spelling};
 use crate::node::{CommandNode, Example, ValueKind};
 use crate::provenance::{Provenance, Source};
 use serde::Serialize;
@@ -179,12 +179,14 @@ impl From<&Choice> for ChoiceSnapshot {
 /// empty, every `bool` field is omitted when `false`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FlagSnapshot {
-    /// Short spelling, e.g. `'i'` for `-i`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub short: Option<char>,
-    /// Long spelling, e.g. `"interactive"` for `--interactive`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub long: Option<String>,
+    /// Every documented spelling, rendered and in document order —
+    /// exactly what [`Spelling::render`](crate::Spelling::render) produces
+    /// for each one: `"-i"`, `"--interactive"`, `"--[no-]color"`, `"-help"`,
+    /// `"-vv"`. Rendered strings are lossless under the render grammar and
+    /// human-reviewable in `expected.snap`, which is why this key holds
+    /// them rather than a structured `Spelling` list.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub spellings: Vec<String>,
     /// The value placeholder, e.g. `"FILE"` in `--output FILE`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value_name: Option<String>,
@@ -201,14 +203,6 @@ pub struct FlagSnapshot {
     /// True if this flag is required.
     #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
-    /// True if the tool documents this boolean's negation inline
-    /// (`--[no-]foo`). `long` holds the base name either way.
-    #[serde(skip_serializing_if = "is_false")]
-    pub negatable: bool,
-    /// True when `long` is spelled with one dash rather than two (`-help`,
-    /// `-vv`). `long` holds the bare name either way.
-    #[serde(skip_serializing_if = "is_false")]
-    pub single_dash: bool,
     /// True if this flag should be hidden by default.
     #[serde(skip_serializing_if = "is_false")]
     pub hidden: bool,
@@ -235,31 +229,20 @@ pub struct FlagSnapshot {
 }
 
 impl From<&Entity> for FlagSnapshot {
-    /// **The field layout is frozen, deliberately.** This struct's shape,
-    /// field order and `skip_serializing_if` rules are what 105 committed
-    /// `expected.snap` fixtures are written in, so it stays the pre-0.5.0
-    /// `Flag`'s shape even though the IR behind it is now [`Entity`]: the
-    /// four spelling keys are recovered through `Entity`'s accessors
-    /// (`short`/`long`/`negatable`/`single_dash`, pinned against the old
-    /// `Flag` fields by `entity.rs`'s parity tests) rather than read from
-    /// stored fields.
-    ///
-    /// Rendering `spellings` as a list here would be the honest 0.5.0
-    /// shape and would move every fixture at once, which is exactly what
-    /// the migration's success condition forbids — a snapshot diff must
-    /// mean a *parse* changed. The reshape belongs with the stage that
-    /// actually emits multi-spelling entities.
+    /// The migration from the pre-0.5.0 `short`/`long`/`negatable`/
+    /// `single_dash` key layout is complete: this struct now writes the
+    /// honest 0.5.0 shape, one `spellings` key holding every rendered
+    /// spelling in document order. Every committed `expected.snap` fixture
+    /// was reblessed in the same change that made this switch, so the
+    /// four old keys never coexist with the new one in any fixture.
     fn from(e: &Entity) -> Self {
         FlagSnapshot {
-            short: e.short(),
-            long: e.long().map(str::to_string),
+            spellings: e.spellings.iter().map(Spelling::render).collect(),
             value_name: e.value_name.clone(),
             value_kind: e.value_kind,
             choices: e.choices.iter().map(ChoiceSnapshot::from).collect(),
             repeatable: e.repeatable,
             required: e.required,
-            negatable: e.negatable(),
-            single_dash: e.single_dash(),
             hidden: e.hidden,
             deprecated: e.deprecated.as_ref().map(|t| t.as_str().to_string()),
             inherited: e.inherited,
@@ -292,12 +275,13 @@ pub struct PositionalSnapshot {
 }
 
 impl From<&Entity> for PositionalSnapshot {
-    /// **The field layout is frozen, deliberately** — the same rule
-    /// [`FlagSnapshot`]'s own conversion states, for the same reason. The
-    /// `name` key is the entity's single dashless spelling and `variadic`
-    /// is [`Entity::repeatable`], both pinned against the pre-0.5.0
-    /// `Positional`'s fields by `entity.rs`'s parity tests — including one
-    /// that rebuilds this very struct from that type and compares.
+    /// **The field layout stays frozen** — unlike [`FlagSnapshot`], nothing
+    /// about the multi-spelling migration touches positionals: a
+    /// positional carries exactly one dashless spelling, so there was
+    /// never a slot contest for `spellings: Vec<Spelling>` to dissolve.
+    /// `name` is that one spelling, read through [`Entity::primary_name`],
+    /// and `variadic` is [`Entity::repeatable`] — both pinned by direct
+    /// `entity.rs` tests against literal expected values.
     fn from(e: &Entity) -> Self {
         PositionalSnapshot {
             name: e.primary_name().to_string(),

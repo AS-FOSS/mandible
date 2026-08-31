@@ -1,46 +1,51 @@
 name: ptargrep
 description: '#!/usr/bin/perl #!/usr/bin/perl ############################################################################## # Tool for using regular expressions against the contents of files in a tar # archive. See ''ptargrep --help'' for more documentation. #'
 flags:
-- long: message
-  single_dash: true
+- spellings:
+  - -message
   group: pod2usage(-exitval => 1,  -verbose => 0,
   description: '"No pattern specified",'
   provenance:
     sources:
     - help-text
-- long: message
-  single_dash: true
+- spellings:
+  - -message
   group: pod2usage(-exitval => 1,  -verbose => 0,
   description: '"No tar files specified",'
   provenance:
     sources:
     - help-text
-- short: 'b'
-  long: basename
+- spellings:
+  - --basename
+  - -b
   description: ignore directory paths from archive
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: ignore-case
+- spellings:
+  - --ignore-case
+  - -i
   description: do case-insensitive pattern matching
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: list-only
+- spellings:
+  - --list-only
+  - -l
   description: list matching filenames rather than extracting matches
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - --verbose
+  - -v
   description: write debugging message to STDERR
   provenance:
     sources:
     - help-text
-- short: '?'
-  long: help
+- spellings:
+  - --help
+  - -?
   description: detailed help message
   provenance:
     sources:

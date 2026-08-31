@@ -16,4 +16,4 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 min_status = "ok"
-must_contain_flags = ["--flags", "--flags2"]
+must_contain_flags = ["--flags", "--flags2", "-L", "-h", "-?", "help"]

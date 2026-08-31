@@ -3,57 +3,66 @@ description: This utility formats all bin and lib files of the current crate usi
 usage:
 - 'Usage: cargo fmt [OPTIONS] [-- <rustfmt_options>...]'
 flags:
-- short: 'q'
-  long: quiet
+- spellings:
+  - -q
+  - --quiet
   description: No output printed to stdout
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: Use verbose output
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: Print rustfmt version and exit
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: package
+- spellings:
+  - -p
+  - --package
   value_name: <package>
   value_kind: Required
   description: Specify package to format
   provenance:
     sources:
     - help-text
-- long: manifest-path
+- spellings:
+  - --manifest-path
   value_name: <manifest-path>
   value_kind: Required
   description: Specify path to Cargo.toml
   provenance:
     sources:
     - help-text
-- long: message-format
+- spellings:
+  - --message-format
   value_name: <message-format>
   value_kind: Required
   description: 'Specify message-format: short|json|human'
   provenance:
     sources:
     - help-text
-- long: all
+- spellings:
+  - --all
   description: Format all packages, and also their local path-based dependencies
   provenance:
     sources:
     - help-text
-- long: check
+- spellings:
+  - --check
   description: Run rustfmt in check mode
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: Print help
   provenance:
     sources:

@@ -16,27 +16,21 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-# Lines with 3 alternate spellings ("-? -h --help") only keep 2 of 3 —
-# verified: the current tree has short='?' long='help' but no separate
-# '-h' anywhere. `mandible_core::Flag` has one `short: Option<char>` and
-# no field to hold the second, so this half is a data-model limit, not a
-# splitter one, and it is what keeps this fixture [xfail].
+# Lines with 3 alternate spellings ("-? -h --help") kept only 2 of 3 —
+# not because the grammar dropped `-h` (it never did; `expected.snap` has
+# always carried all three spellings on this entity), but because
+# `xtask::corpus::flag_present` checked presence through
+# `Entity::short`/`Entity::long`, which each return only the *first*
+# short-shaped or long-shaped spelling on an entity. With spellings
+# `[-?,  -h, --help]`, `Entity::short()` returned `'?'` and `-h` read as
+# absent no matter how many times the check ran. Promoted once
+# `flag_present` was fixed to search every spelling (round 7, the ffplay
+# `-h, -?, -help, --help` adjacency fold) — the same accessor-only-
+# returns-one gap that fold's own contract check hit.
 #
-# The other half is FIXED as of the aligned-spelling-column split: lines
+# The other half was FIXED as of the aligned-spelling-column split: lines
 # with 2 alternates ("-l    --list", "-v    --verbose") used to drop the
 # long form entirely, keeping only the short. They now carry
 # short='l'/long='list' and short='v'/long='verbose', so "--list" and
-# "--verbose" below pass and only "-h" still fails.
+# "--verbose" below pass too.
 must_contain_flags = ["-h", "--list", "--verbose"]
-
-[xfail]
-broken = true
-# Still broken, and for the reason above only: the alias columns.
-# The *descriptions* this fixture also lacked are fixed — jdeprscan writes
-# every option's prose as its own flush-left paragraph ("The --for-removal
-# option limits ...") rather than in a description column, and
-# `backfill_prose_paragraph_descriptions` now associates the two. All 8
-# flags carry their own text in `expected.snap`, which is committed while
-# `[xfail]` precisely so that gain cannot silently regress before the alias
-# bug is fixed and this fixture is promoted.
-reason = "flags are not properly matched together, or missing"

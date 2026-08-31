@@ -3,31 +3,36 @@ description: 'OVERVIEW: Split input into multiple parts separated by regex ''^(.
 usage:
 - 'USAGE: split-file-18 [options] filename directory'
 flags:
-- long: help
+- spellings:
+  - --help
   group: 'Generic Options:'
   description: '- Display available options (--help-hidden for more)'
   provenance:
     sources:
     - help-text
-- long: help-list
+- spellings:
+  - --help-list
   group: 'Generic Options:'
   description: '- Display list of available options (--help-list-hidden for more)'
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Generic Options:'
   description: '- Display the version of this program'
   provenance:
     sources:
     - help-text
-- long: leading-lines
+- spellings:
+  - --leading-lines
   group: 'split-file Options:'
   description: '- Preserve line numbers'
   provenance:
     sources:
     - help-text
-- long: no-leading-lines
+- spellings:
+  - --no-leading-lines
   group: 'split-file Options:'
   description: Don't preserve line numbers (default)
   provenance:

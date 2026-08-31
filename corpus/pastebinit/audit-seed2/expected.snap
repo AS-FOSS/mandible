@@ -70,7 +70,7 @@ flags:
   value_name: <author>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
-  description: (default is 'ubuntu')
+  description: (default is 'None')
   provenance:
     sources:
     - help-text

@@ -63,4 +63,9 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["-V"]
+# `-V[ersion]` is an abbreviation-bracket spelling, long-like by the
+# unchanged `key()` shape rule (single dash, name longer than one
+# character) since the multi-spelling emission fix (`Spelling::abbrev`) —
+# addressed by its full name rather than the short-flag `"-x"` form, which
+# only matches a spelling whose entire name is one character.
+must_contain_flags = ["Version"]

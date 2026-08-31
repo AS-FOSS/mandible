@@ -2,531 +2,538 @@ name: find
 usage:
 - 'Usage: /usr/bin/find [-H] [-L] [-P] [-Olevel] [-D debugopts] [path...] [expression]'
 flags:
-- long: daystart
-  single_dash: true
+- spellings:
+  - -daystart
   group: 'Positional options (always true):'
   provenance:
     sources:
     - help-text
-- long: follow
-  single_dash: true
+- spellings:
+  - -follow
   group: 'Positional options (always true):'
   provenance:
     sources:
     - help-text
-- long: nowarn
-  single_dash: true
+- spellings:
+  - -nowarn
   group: 'Positional options (always true):'
   provenance:
     sources:
     - help-text
-- long: regextype
-  single_dash: true
+- spellings:
+  - -regextype
   group: 'Positional options (always true):'
   provenance:
     sources:
     - help-text
-- long: warn
-  single_dash: true
+- spellings:
+  - -warn
   group: 'Positional options (always true):'
   provenance:
     sources:
     - help-text
-- long: depth
-  single_dash: true
+- spellings:
+  - -depth
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: files0-from
+- spellings:
+  - -files0-from
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: maxdepth
+- spellings:
+  - -maxdepth
   value_name: LEVELS
   value_kind: Required
-  single_dash: true
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: mindepth
+- spellings:
+  - -mindepth
   value_name: LEVELS
   value_kind: Required
-  single_dash: true
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: mount
-  single_dash: true
+- spellings:
+  - -mount
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: noleaf
-  single_dash: true
+- spellings:
+  - -noleaf
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: xdev
-  single_dash: true
+- spellings:
+  - -xdev
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: ignore_readdir_race
-  single_dash: true
+- spellings:
+  - -ignore_readdir_race
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: noignore_readdir_race
-  single_dash: true
+- spellings:
+  - -noignore_readdir_race
   group: 'Normal options (always true, specified before other expressions):'
   provenance:
     sources:
     - help-text
-- long: amin
+- spellings:
+  - -amin
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: anewer
+- spellings:
+  - -anewer
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: atime
+- spellings:
+  - -atime
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: cmin
+- spellings:
+  - -cmin
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: cnewer
+- spellings:
+  - -cnewer
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: context
+- spellings:
+  - -context
   value_name: CONTEXT
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: ctime
+- spellings:
+  - -ctime
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: empty
-  single_dash: true
+- spellings:
+  - -empty
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: 'false'
-  single_dash: true
+- spellings:
+  - -false
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: fstype
+- spellings:
+  - -fstype
   value_name: TYPE
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: gid
+- spellings:
+  - -gid
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: group
+- spellings:
+  - -group
   value_name: NAME
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: ilname
+- spellings:
+  - -ilname
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: iname
+- spellings:
+  - -iname
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: inum
+- spellings:
+  - -inum
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: iwholename
+- spellings:
+  - -iwholename
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: iregex
+- spellings:
+  - -iregex
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: links
+- spellings:
+  - -links
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: lname
+- spellings:
+  - -lname
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: mmin
+- spellings:
+  - -mmin
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: mtime
+- spellings:
+  - -mtime
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: name
+- spellings:
+  - -name
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: newer
+- spellings:
+  - -newer
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: nouser
-  single_dash: true
+- spellings:
+  - -nouser
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: nogroup
-  single_dash: true
+- spellings:
+  - -nogroup
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: path
+- spellings:
+  - -path
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: perm
+- spellings:
+  - -perm
   value_name: '[-/]MODE'
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: regex
+- spellings:
+  - -regex
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: readable
-  single_dash: true
+- spellings:
+  - -readable
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: writable
-  single_dash: true
+- spellings:
+  - -writable
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: executable
-  single_dash: true
+- spellings:
+  - -executable
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: wholename
+- spellings:
+  - -wholename
   value_name: PATTERN
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: size
+- spellings:
+  - -size
   value_name: N[bcwkMG]
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: 'true'
-  single_dash: true
+- spellings:
+  - -true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: type
+- spellings:
+  - -type
   value_name: '[bcdpflsD]'
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: uid
+- spellings:
+  - -uid
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: used
+- spellings:
+  - -used
   value_name: N
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: user
+- spellings:
+  - -user
   value_name: NAME
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: xtype
+- spellings:
+  - -xtype
   value_name: '[bcdpfls]'
   value_kind: Required
-  single_dash: true
   group: 'Tests (N can be +N or -N or N):'
   provenance:
     sources:
     - help-text
-- long: delete
-  single_dash: true
+- spellings:
+  - -delete
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: print0
-  single_dash: true
+- spellings:
+  - -print0
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: printf
+- spellings:
+  - -printf
   value_name: FORMAT
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: fprintf
+- spellings:
+  - -fprintf
   value_name: FILE FORMAT
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: print
-  single_dash: true
+- spellings:
+  - -print
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: fprint0
+- spellings:
+  - -fprint0
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: fprint
+- spellings:
+  - -fprint
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: ls
-  single_dash: true
+- spellings:
+  - -ls
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: fls
+- spellings:
+  - -fls
   value_name: FILE
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: prune
-  single_dash: true
+- spellings:
+  - -prune
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: quit
-  single_dash: true
+- spellings:
+  - -quit
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: exec
+- spellings:
+  - -exec
   value_name: COMMAND ; | COMMAND {} +
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: ok
+- spellings:
+  - -ok
   value_name: COMMAND ;
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: execdir
+- spellings:
+  - -execdir
   value_name: COMMAND ; | COMMAND {} +
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: okdir
+- spellings:
+  - -okdir
   value_name: COMMAND ;
   value_kind: Required
-  single_dash: true
   group: 'Actions:'
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   group: 'Other common options:'
   description: display this help and exit
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Other common options:'
   description: output version information and exit
   provenance:
     sources:
     - help-text
-- short: 'H'
+- spellings:
+  - -H
   provenance:
     sources:
     - help-text-synopsis
-- short: 'L'
+- spellings:
+  - -L
   provenance:
     sources:
     - help-text-synopsis
-- short: 'P'
+- spellings:
+  - -P
   provenance:
     sources:
     - help-text-synopsis
-- short: 'O'
+- spellings:
+  - -O
   value_name: level
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'D'
+- spellings:
+  - -D
   value_name: debugopts
   value_kind: Required
   provenance:

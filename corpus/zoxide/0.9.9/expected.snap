@@ -10,14 +10,16 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: Print help
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: Print version
   provenance:
     sources:

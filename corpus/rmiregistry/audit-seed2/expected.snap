@@ -9,7 +9,8 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'J'
+- spellings:
+  - -J
   value_name: <runtime flag>
   value_kind: Required
   group: 'where <options> includes:'

@@ -9,38 +9,43 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: show this help message and exit
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: language
+- spellings:
+  - -l
+  - --language
   value_name: '{java,perl,php,python,ruby,tcl}'
   value_kind: Required
   description: language to trace
   provenance:
     sources:
     - help-text
-- short: 'M'
-  long: method
+- spellings:
+  - -M
+  - --method
   value_name: METHOD
   value_kind: Required
   description: trace only calls to methods starting with this prefix
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: class
+- spellings:
+  - -C
+  - --class
   value_name: CLAZZ
   value_kind: Required
   description: trace only calls to classes starting with this prefix
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: 'verbose mode: print the BPF program (for debugging purposes)'
   provenance:
     sources:

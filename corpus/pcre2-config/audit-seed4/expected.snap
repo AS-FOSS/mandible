@@ -2,39 +2,48 @@ name: pcre2-config
 usage:
 - 'Usage: pcre2-config [--prefix] [--exec-prefix] [--version] [--libs8] [--libs-posix] [--libs32] [--libs16]  [--cflags] [--cflags-posix]'
 flags:
-- long: prefix
+- spellings:
+  - --prefix
   provenance:
     sources:
     - help-text-synopsis
-- long: exec-prefix
+- spellings:
+  - --exec-prefix
   provenance:
     sources:
     - help-text-synopsis
-- long: version
+- spellings:
+  - --version
   provenance:
     sources:
     - help-text-synopsis
-- long: libs8
+- spellings:
+  - --libs8
   provenance:
     sources:
     - help-text-synopsis
-- long: libs-posix
+- spellings:
+  - --libs-posix
   provenance:
     sources:
     - help-text-synopsis
-- long: libs32
+- spellings:
+  - --libs32
   provenance:
     sources:
     - help-text-synopsis
-- long: libs16
+- spellings:
+  - --libs16
   provenance:
     sources:
     - help-text-synopsis
-- long: cflags
+- spellings:
+  - --cflags
   provenance:
     sources:
     - help-text-synopsis
-- long: cflags-posix
+- spellings:
+  - --cflags-posix
   provenance:
     sources:
     - help-text-synopsis

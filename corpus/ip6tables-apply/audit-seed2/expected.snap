@@ -4,38 +4,43 @@ usage:
 - 'Usage:'
 - '  ip6tables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}'
 flags:
-- short: 't'
-  long: timeout
+- spellings:
+  - -t
+  - --timeout
   value_name: seconds
   value_kind: Required
   description: 'Specify the timeout in seconds (default: 10).'
   provenance:
     sources:
     - help-text
-- short: 'w'
-  long: write
+- spellings:
+  - -w
+  - --write
   value_name: savefile
   value_kind: Required
   description: 'Specify the savefile where successfully applied rules will be written to (default if empty string is given: /etc/network/ip6tables.up.rules).'
   provenance:
     sources:
     - help-text
-- short: 'c'
-  long: command
+- spellings:
+  - -c
+  - --command
   value_name: runcmd
   value_kind: Required
   description: 'Run command runcmd to configure iptables instead of applying a rulesfile (default: /etc/network/ip6tables.up.run).'
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: Display this help text.
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: Display version information.
   provenance:
     sources:

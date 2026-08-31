@@ -8,71 +8,82 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: this message
   provenance:
     sources:
     - help-text
-- short: 'a'
-  long: ignore
+- spellings:
+  - -a
+  - --ignore
   description: ignore history
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: scan
+- spellings:
+  - -d
+  - --scan
   value_name: SECS
   value_kind: Required
   description: sample every statistics every SECS
   provenance:
     sources:
     - help-text
-- short: 'j'
-  long: json
+- spellings:
+  - -j
+  - --json
   description: format output in JSON
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: nooutput
+- spellings:
+  - -n
+  - --nooutput
   description: do history only
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: pretty
+- spellings:
+  - -p
+  - --pretty
   description: pretty print
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: reset
+- spellings:
+  - -r
+  - --reset
   description: reset history
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: noupdate
+- spellings:
+  - -s
+  - --noupdate
   description: don't update history
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: interval
+- spellings:
+  - -t
+  - --interval
   value_name: SECS
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: output version information
   provenance:
     sources:
     - help-text
-- short: 'z'
-  long: zeros
+- spellings:
+  - -z
+  - --zeros
   description: show entries with zero activity
   provenance:
     sources:

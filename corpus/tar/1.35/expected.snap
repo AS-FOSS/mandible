@@ -9,75 +9,89 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'A'
-  long: catenate
+- spellings:
+  - -A
+  - --catenate
+  - --concatenate
   group: 'Main operation mode:'
   description: append tar files to an archive
   provenance:
     sources:
     - help-text
-- short: 'c'
-  long: create
+- spellings:
+  - -c
+  - --create
   group: 'Main operation mode:'
   description: create a new archive
   provenance:
     sources:
     - help-text
-- long: delete
+- spellings:
+  - --delete
   group: 'Main operation mode:'
   description: delete from the archive (not on mag tapes!)
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: diff
+- spellings:
+  - -d
+  - --diff
+  - --compare
   group: 'Main operation mode:'
   description: find differences between archive and file system
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: append
+- spellings:
+  - -r
+  - --append
   group: 'Main operation mode:'
   description: append files to the end of an archive
   provenance:
     sources:
     - help-text
-- long: test-label
+- spellings:
+  - --test-label
   group: 'Main operation mode:'
   description: test the archive volume label and exit
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: list
+- spellings:
+  - -t
+  - --list
   group: 'Main operation mode:'
   description: list the contents of an archive
   provenance:
     sources:
     - help-text
-- short: 'u'
-  long: update
+- spellings:
+  - -u
+  - --update
   group: 'Main operation mode:'
   description: only append files newer than copy in archive
   provenance:
     sources:
     - help-text
-- short: 'x'
-  long: extract
+- spellings:
+  - -x
+  - --extract
+  - --get
   group: 'Main operation mode:'
   description: extract files from an archive
   provenance:
     sources:
     - help-text
-- long: check-device
+- spellings:
+  - --check-device
   group: 'Operation modifiers:'
   description: check device numbers when creating incremental archives (default)
   provenance:
     sources:
     - help-text
-- short: 'g'
-  long: listed-incremental
+- spellings:
+  - -g
+  - --listed-incremental
   value_name: FILE
   value_kind: Required
   group: 'Operation modifiers:'
@@ -85,14 +99,16 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'G'
-  long: incremental
+- spellings:
+  - -G
+  - --incremental
   group: 'Operation modifiers:'
   description: handle old GNU-format incremental backup
   provenance:
     sources:
     - help-text
-- long: hole-detection
+- spellings:
+  - --hole-detection
   value_name: TYPE
   value_kind: Required
   group: 'Operation modifiers:'
@@ -100,13 +116,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: ignore-failed-read
+- spellings:
+  - --ignore-failed-read
   group: 'Operation modifiers:'
   description: do not exit with nonzero on unreadable files
   provenance:
     sources:
     - help-text
-- long: level
+- spellings:
+  - --level
   value_name: NUMBER
   value_kind: Required
   group: 'Operation modifiers:'
@@ -114,26 +132,30 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-check-device
+- spellings:
+  - --no-check-device
   group: 'Operation modifiers:'
   description: do not check device numbers when creating incremental archives
   provenance:
     sources:
     - help-text
-- long: no-seek
+- spellings:
+  - --no-seek
   group: 'Operation modifiers:'
   description: archive is not seekable
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: seek
+- spellings:
+  - -n
+  - --seek
   group: 'Operation modifiers:'
   description: archive is seekable
   provenance:
     sources:
     - help-text
-- long: occurrence
+- spellings:
+  - --occurrence
   value_name: NUMBER
   value_kind: Optional
   group: 'Operation modifiers:'
@@ -141,7 +163,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: sparse-version
+- spellings:
+  - --sparse-version
   value_name: MAJOR[.MINOR]
   value_kind: Required
   group: 'Operation modifiers:'
@@ -149,14 +172,16 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: sparse
+- spellings:
+  - -S
+  - --sparse
   group: 'Operation modifiers:'
   description: handle sparse files efficiently
   provenance:
     sources:
     - help-text
-- long: add-file
+- spellings:
+  - --add-file
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -164,8 +189,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: directory
+- spellings:
+  - -C
+  - --directory
   value_name: DIR
   value_kind: Required
   group: 'Local file name selection:'
@@ -173,7 +199,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude
+- spellings:
+  - --exclude
   value_name: PATTERN
   value_kind: Required
   group: 'Local file name selection:'
@@ -181,25 +208,29 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude-backups
+- spellings:
+  - --exclude-backups
   group: 'Local file name selection:'
   description: exclude backup and lock files
   provenance:
     sources:
     - help-text
-- long: exclude-caches
+- spellings:
+  - --exclude-caches
   group: 'Local file name selection:'
   description: exclude contents of directories containing CACHEDIR.TAG, except for the tag file itself
   provenance:
     sources:
     - help-text
-- long: exclude-caches-all
+- spellings:
+  - --exclude-caches-all
   group: 'Local file name selection:'
   description: exclude directories containing CACHEDIR.TAG
   provenance:
     sources:
     - help-text
-- long: exclude-caches-under
+- spellings:
+  - --exclude-caches-under
   value_name: exclude
   value_kind: Required
   group: 'Local file name selection:'
@@ -207,7 +238,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude-ignore
+- spellings:
+  - --exclude-ignore
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -215,7 +247,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude-ignore-recursive
+- spellings:
+  - --exclude-ignore-recursive
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -223,7 +256,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude-tag
+- spellings:
+  - --exclude-tag
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -231,14 +265,16 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude-tag-all
+- spellings:
+  - --exclude-tag-all
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
   provenance:
     sources:
     - help-text
-- long: exclude-tag-under
+- spellings:
+  - --exclude-tag-under
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -246,56 +282,65 @@ flags:
   provenance:
     sources:
     - help-text
-- long: exclude-vcs
+- spellings:
+  - --exclude-vcs
   group: 'Local file name selection:'
   description: exclude version control system directories
   provenance:
     sources:
     - help-text
-- long: exclude-vcs-ignores
+- spellings:
+  - --exclude-vcs-ignores
   group: 'Local file name selection:'
   description: read exclude patterns from the VCS ignore files
   provenance:
     sources:
     - help-text
-- long: no-null
+- spellings:
+  - --no-null
   group: 'Local file name selection:'
   description: disable the effect of the previous --null option
   provenance:
     sources:
     - help-text
-- long: no-recursion
+- spellings:
+  - --no-recursion
   group: 'Local file name selection:'
   description: avoid descending automatically in directories
   provenance:
     sources:
     - help-text
-- long: no-unquote
+- spellings:
+  - --no-unquote
   group: 'Local file name selection:'
   description: do not unquote input file or member names
   provenance:
     sources:
     - help-text
-- long: no-verbatim-files-from
+- spellings:
+  - --no-verbatim-files-from
   group: 'Local file name selection:'
   description: -T treats file names starting with dash as options (default)
   provenance:
     sources:
     - help-text
-- long: 'null'
+- spellings:
+  - --null
   group: 'Local file name selection:'
   description: -T reads null-terminated names; implies --verbatim-files-from
   provenance:
     sources:
     - help-text
-- long: recursion
+- spellings:
+  - --recursion
   group: 'Local file name selection:'
   description: recurse into directories (default)
   provenance:
     sources:
     - help-text
-- short: 'T'
-  long: files-from
+- spellings:
+  - -T
+  - --files-from
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -303,20 +348,23 @@ flags:
   provenance:
     sources:
     - help-text
-- long: unquote
+- spellings:
+  - --unquote
   group: 'Local file name selection:'
   description: unquote input file or member names (default)
   provenance:
     sources:
     - help-text
-- long: verbatim-files-from
+- spellings:
+  - --verbatim-files-from
   group: 'Local file name selection:'
   description: -T reads file names verbatim (no escape or option handling)
   provenance:
     sources:
     - help-text
-- short: 'X'
-  long: exclude-from
+- spellings:
+  - -X
+  - --exclude-from
   value_name: FILE
   value_kind: Required
   group: 'Local file name selection:'
@@ -324,80 +372,93 @@ flags:
   provenance:
     sources:
     - help-text
-- long: anchored
+- spellings:
+  - --anchored
   group: 'File name matching options (affect both exclude and include patterns):'
   description: patterns match file name start
   provenance:
     sources:
     - help-text
-- long: ignore-case
+- spellings:
+  - --ignore-case
   group: 'File name matching options (affect both exclude and include patterns):'
   description: ignore case
   provenance:
     sources:
     - help-text
-- long: no-anchored
+- spellings:
+  - --no-anchored
   group: 'File name matching options (affect both exclude and include patterns):'
   description: patterns match after any '/' (default for exclusion)
   provenance:
     sources:
     - help-text
-- long: no-ignore-case
+- spellings:
+  - --no-ignore-case
   group: 'File name matching options (affect both exclude and include patterns):'
   description: case sensitive matching (default)
   provenance:
     sources:
     - help-text
-- long: no-wildcards
+- spellings:
+  - --no-wildcards
   group: 'File name matching options (affect both exclude and include patterns):'
   description: verbatim string matching
   provenance:
     sources:
     - help-text
-- long: no-wildcards-match-slash
+- spellings:
+  - --no-wildcards-match-slash
   group: 'File name matching options (affect both exclude and include patterns):'
   description: wildcards do not match '/'
   provenance:
     sources:
     - help-text
-- long: wildcards
+- spellings:
+  - --wildcards
   group: 'File name matching options (affect both exclude and include patterns):'
   description: use wildcards (default for exclusion)
   provenance:
     sources:
     - help-text
-- long: wildcards-match-slash
+- spellings:
+  - --wildcards-match-slash
   group: 'File name matching options (affect both exclude and include patterns):'
   description: wildcards match '/' (default for exclusion)
   provenance:
     sources:
     - help-text
-- long: keep-directory-symlink
+- spellings:
+  - --keep-directory-symlink
   group: 'Overwrite control:'
   description: preserve existing symlinks to directories when extracting
   provenance:
     sources:
     - help-text
-- long: keep-newer-files
+- spellings:
+  - --keep-newer-files
   group: 'Overwrite control:'
   description: don't replace existing files that are newer than their archive copies
   provenance:
     sources:
     - help-text
-- short: 'k'
-  long: keep-old-files
+- spellings:
+  - -k
+  - --keep-old-files
   group: 'Overwrite control:'
   description: don't replace existing files when extracting, treat them as errors
   provenance:
     sources:
     - help-text
-- long: no-overwrite-dir
+- spellings:
+  - --no-overwrite-dir
   group: 'Overwrite control:'
   description: preserve metadata of existing directories
   provenance:
     sources:
     - help-text
-- long: one-top-level
+- spellings:
+  - --one-top-level
   value_name: DIR
   value_kind: Optional
   group: 'Overwrite control:'
@@ -405,71 +466,82 @@ flags:
   provenance:
     sources:
     - help-text
-- long: overwrite
+- spellings:
+  - --overwrite
   group: 'Overwrite control:'
   description: overwrite existing files when extracting
   provenance:
     sources:
     - help-text
-- long: overwrite-dir
+- spellings:
+  - --overwrite-dir
   group: 'Overwrite control:'
   description: overwrite metadata of existing directories when extracting (default)
   provenance:
     sources:
     - help-text
-- long: recursive-unlink
+- spellings:
+  - --recursive-unlink
   group: 'Overwrite control:'
   description: empty hierarchies prior to extracting directory
   provenance:
     sources:
     - help-text
-- long: remove-files
+- spellings:
+  - --remove-files
   group: 'Overwrite control:'
   description: remove files after adding them to the archive
   provenance:
     sources:
     - help-text
-- long: skip-old-files
+- spellings:
+  - --skip-old-files
   group: 'Overwrite control:'
   description: don't replace existing files when extracting, silently skip over them
   provenance:
     sources:
     - help-text
-- short: 'U'
-  long: unlink-first
+- spellings:
+  - -U
+  - --unlink-first
   group: 'Overwrite control:'
   description: remove each file prior to extracting over it
   provenance:
     sources:
     - help-text
-- short: 'W'
-  long: verify
+- spellings:
+  - -W
+  - --verify
   group: 'Overwrite control:'
   description: attempt to verify the archive after writing it
   provenance:
     sources:
     - help-text
-- long: ignore-command-error
+- spellings:
+  - --ignore-command-error
   value_name: ignore
   value_kind: Required
   group: 'Select output stream:'
   provenance:
     sources:
     - help-text
-- long: no-ignore-command-error
+- spellings:
+  - --no-ignore-command-error
   group: 'Select output stream:'
   description: treat non-zero exit codes of children as error
   provenance:
     sources:
     - help-text
-- short: 'O'
-  long: to-stdout
+- spellings:
+  - -O
+  - --to-stdout
   group: 'Select output stream:'
   description: extract files to standard output
   provenance:
     sources:
     - help-text
-- long: to-command
+- spellings:
+  - --to-command
   value_name: COMMAND
   value_kind: Required
   group: 'Select output stream:'
@@ -477,7 +549,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: atime-preserve
+- spellings:
+  - --atime-preserve
   value_name: METHOD
   value_kind: Optional
   group: 'Handling of file attributes:'
@@ -485,19 +558,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: clamp-mtime
+- spellings:
+  - --clamp-mtime
   group: 'Handling of file attributes:'
   description: only set time when the file is more recent than what was given with --mtime
   provenance:
     sources:
     - help-text
-- long: delay-directory-restore
+- spellings:
+  - --delay-directory-restore
   group: 'Handling of file attributes:'
   description: delay setting modification times and permissions of extracted directories until the end of extraction
   provenance:
     sources:
     - help-text
-- long: group
+- spellings:
+  - --group
   value_name: NAME
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -505,7 +581,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: group-map
+- spellings:
+  - --group-map
   value_name: FILE
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -513,7 +590,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: mode
+- spellings:
+  - --mode
   value_name: CHANGES
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -521,7 +599,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: mtime
+- spellings:
+  - --mtime
   value_name: DATE-OR-FILE
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -529,38 +608,44 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'm'
-  long: touch
+- spellings:
+  - -m
+  - --touch
   group: 'Handling of file attributes:'
   description: don't extract file modified time
   provenance:
     sources:
     - help-text
-- long: no-delay-directory-restore
+- spellings:
+  - --no-delay-directory-restore
   group: 'Handling of file attributes:'
   description: cancel the effect of --delay-directory-restore option
   provenance:
     sources:
     - help-text
-- long: no-same-owner
+- spellings:
+  - --no-same-owner
   group: 'Handling of file attributes:'
   description: extract files as yourself (default for ordinary users)
   provenance:
     sources:
     - help-text
-- long: no-same-permissions
+- spellings:
+  - --no-same-permissions
   group: 'Handling of file attributes:'
   description: apply the user's umask when extracting permissions from the archive (default for ordinary users)
   provenance:
     sources:
     - help-text
-- long: numeric-owner
+- spellings:
+  - --numeric-owner
   group: 'Handling of file attributes:'
   description: always use numbers for user/group names
   provenance:
     sources:
     - help-text
-- long: owner
+- spellings:
+  - --owner
   value_name: NAME
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -568,7 +653,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: owner-map
+- spellings:
+  - --owner-map
   value_name: FILE
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -576,20 +662,24 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: preserve-permissions
+- spellings:
+  - -p
+  - --preserve-permissions
+  - --same-permissions
   group: 'Handling of file attributes:'
   description: extract information about file permissions (default for superuser)
   provenance:
     sources:
     - help-text
-- long: same-owner
+- spellings:
+  - --same-owner
   group: 'Handling of file attributes:'
   description: try extracting files with the same ownership as exists in the archive (default for superuser)
   provenance:
     sources:
     - help-text
-- long: sort
+- spellings:
+  - --sort
   value_name: ORDER
   value_kind: Required
   group: 'Handling of file attributes:'
@@ -597,50 +687,59 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: preserve-order
+- spellings:
+  - -s
+  - --preserve-order
+  - --same-order
   group: 'Handling of file attributes:'
   description: member arguments are listed in the same order as the files in the archive
   provenance:
     sources:
     - help-text
-- long: acls
+- spellings:
+  - --acls
   group: 'Handling of extended file attributes:'
   description: Enable the POSIX ACLs support
   provenance:
     sources:
     - help-text
-- long: no-acls
+- spellings:
+  - --no-acls
   group: 'Handling of extended file attributes:'
   description: Disable the POSIX ACLs support
   provenance:
     sources:
     - help-text
-- long: no-selinux
+- spellings:
+  - --no-selinux
   group: 'Handling of extended file attributes:'
   description: Disable the SELinux context support
   provenance:
     sources:
     - help-text
-- long: no-xattrs
+- spellings:
+  - --no-xattrs
   group: 'Handling of extended file attributes:'
   description: Disable extended attributes support
   provenance:
     sources:
     - help-text
-- long: selinux
+- spellings:
+  - --selinux
   group: 'Handling of extended file attributes:'
   description: Enable the SELinux context support
   provenance:
     sources:
     - help-text
-- long: xattrs
+- spellings:
+  - --xattrs
   group: 'Handling of extended file attributes:'
   description: Enable extended attributes support
   provenance:
     sources:
     - help-text
-- long: xattrs-exclude
+- spellings:
+  - --xattrs-exclude
   value_name: MASK
   value_kind: Required
   group: 'Handling of extended file attributes:'
@@ -648,7 +747,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: xattrs-include
+- spellings:
+  - --xattrs-include
   value_name: MASK
   value_kind: Required
   group: 'Handling of extended file attributes:'
@@ -656,14 +756,16 @@ flags:
   provenance:
     sources:
     - help-text
-- long: force-local
+- spellings:
+  - --force-local
   group: 'Device selection and switching:'
   description: archive file is local even if it has a colon
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: file
+- spellings:
+  - -f
+  - --file
   value_name: ARCHIVE
   value_kind: Required
   group: 'Device selection and switching:'
@@ -671,8 +773,10 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'F'
-  long: info-script
+- spellings:
+  - -F
+  - --info-script
+  - --new-volume-script
   value_name: NAME
   value_kind: Required
   group: 'Device selection and switching:'
@@ -680,8 +784,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'L'
-  long: tape-length
+- spellings:
+  - -L
+  - --tape-length
   value_name: NUMBER
   value_kind: Required
   group: 'Device selection and switching:'
@@ -689,14 +794,16 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'M'
-  long: multi-volume
+- spellings:
+  - -M
+  - --multi-volume
   group: 'Device selection and switching:'
   description: create/list/extract multi-volume archive
   provenance:
     sources:
     - help-text
-- long: rmt-command
+- spellings:
+  - --rmt-command
   value_name: COMMAND
   value_kind: Required
   group: 'Device selection and switching:'
@@ -704,7 +811,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: rsh-command
+- spellings:
+  - --rsh-command
   value_name: COMMAND
   value_kind: Required
   group: 'Device selection and switching:'
@@ -712,7 +820,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: volno-file
+- spellings:
+  - --volno-file
   value_name: FILE
   value_kind: Required
   group: 'Device selection and switching:'
@@ -720,8 +829,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'b'
-  long: blocking-factor
+- spellings:
+  - -b
+  - --blocking-factor
   value_name: BLOCKS
   value_kind: Required
   group: 'Device blocking:'
@@ -729,21 +839,24 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'B'
-  long: read-full-records
+- spellings:
+  - -B
+  - --read-full-records
   group: 'Device blocking:'
   description: reblock as we read (for 4.2BSD pipes)
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: ignore-zeros
+- spellings:
+  - -i
+  - --ignore-zeros
   group: 'Device blocking:'
   description: ignore zeroed blocks in archive (means EOF)
   provenance:
     sources:
     - help-text
-- long: record-size
+- spellings:
+  - --record-size
   value_name: NUMBER
   value_kind: Required
   group: 'Device blocking:'
@@ -751,8 +864,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'H'
-  long: format
+- spellings:
+  - -H
+  - --format
   value_name: FORMAT
   value_kind: Required
   choices:
@@ -773,40 +887,47 @@ flags:
   provenance:
     sources:
     - help-text
-- long: old-archive
+- spellings:
+  - --old-archive
+  - --portability
   description: same as --format=v7
   provenance:
     sources:
     - help-text
-- long: pax-option
+- spellings:
+  - --pax-option
   value_name: keyword[[:]=value][,keyword[[:]=value]]...
   value_kind: Required
   description: control pax keywords
   provenance:
     sources:
     - help-text
-- long: posix
+- spellings:
+  - --posix
   description: same as --format=posix
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: label
+- spellings:
+  - -V
+  - --label
   value_name: TEXT
   value_kind: Required
   description: create archive with volume name TEXT; at list/extract time, use TEXT as a globbing pattern for volume name
   provenance:
     sources:
     - help-text
-- short: 'a'
-  long: auto-compress
+- spellings:
+  - -a
+  - --auto-compress
   group: 'Compression options:'
   description: use archive suffix to determine the compression program
   provenance:
     sources:
     - help-text
-- short: 'I'
-  long: use-compress-program
+- spellings:
+  - -I
+  - --use-compress-program
   value_name: PROG
   value_kind: Required
   group: 'Compression options:'
@@ -814,65 +935,78 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'j'
-  long: bzip2
+- spellings:
+  - -j
+  - --bzip2
   group: 'Compression options:'
   description: filter the archive through bzip2
   provenance:
     sources:
     - help-text
-- short: 'J'
-  long: xz
+- spellings:
+  - -J
+  - --xz
   group: 'Compression options:'
   description: filter the archive through xz
   provenance:
     sources:
     - help-text
-- long: lzip
+- spellings:
+  - --lzip
   group: 'Compression options:'
   description: filter the archive through lzip
   provenance:
     sources:
     - help-text
-- long: lzma
+- spellings:
+  - --lzma
   group: 'Compression options:'
   description: filter the archive through xz
   provenance:
     sources:
     - help-text
-- long: lzop
+- spellings:
+  - --lzop
   group: 'Compression options:'
   description: filter the archive through lzop
   provenance:
     sources:
     - help-text
-- long: no-auto-compress
+- spellings:
+  - --no-auto-compress
   group: 'Compression options:'
   description: do not use archive suffix to determine the compression program
   provenance:
     sources:
     - help-text
-- long: zstd
+- spellings:
+  - --zstd
   group: 'Compression options:'
   description: filter the archive through zstd
   provenance:
     sources:
     - help-text
-- short: 'z'
-  long: gzip
+- spellings:
+  - -z
+  - --gzip
+  - --gunzip
+  - --ungzip
   group: 'Compression options:'
   description: filter the archive through gzip
   provenance:
     sources:
     - help-text
-- short: 'Z'
-  long: compress
+- spellings:
+  - -Z
+  - --compress
+  - --uncompress
   group: 'Compression options:'
   description: filter the archive through compress
   provenance:
     sources:
     - help-text
-- long: backup
+- spellings:
+  - --backup
   value_name: CONTROL
   value_kind: Optional
   choices:
@@ -897,21 +1031,24 @@ flags:
   provenance:
     sources:
     - help-text
-- long: hard-dereference
+- spellings:
+  - --hard-dereference
   group: 'Local file selection:'
   description: follow hard links; archive and dump the files they refer to
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: dereference
+- spellings:
+  - -h
+  - --dereference
   group: 'Local file selection:'
   description: follow symlinks; archive and dump the files they point to
   provenance:
     sources:
     - help-text
-- short: 'K'
-  long: starting-file
+- spellings:
+  - -K
+  - --starting-file
   value_name: MEMBER-NAME
   value_kind: Required
   group: 'Local file selection:'
@@ -919,7 +1056,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: newer-mtime
+- spellings:
+  - --newer-mtime
   value_name: DATE
   value_kind: Required
   group: 'Local file selection:'
@@ -927,8 +1065,10 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'N'
-  long: newer
+- spellings:
+  - -N
+  - --newer
+  - --after-date
   value_name: DATE-OR-FILE
   value_kind: Required
   group: 'Local file selection:'
@@ -936,20 +1076,23 @@ flags:
   provenance:
     sources:
     - help-text
-- long: one-file-system
+- spellings:
+  - --one-file-system
   group: 'Local file selection:'
   description: stay in local file system when creating archive
   provenance:
     sources:
     - help-text
-- short: 'P'
-  long: absolute-names
+- spellings:
+  - -P
+  - --absolute-names
   group: 'Local file selection:'
   description: don't strip leading '/'s from file names
   provenance:
     sources:
     - help-text
-- long: suffix
+- spellings:
+  - --suffix
   value_name: STRING
   value_kind: Required
   group: 'Local file selection:'
@@ -957,7 +1100,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: strip-components
+- spellings:
+  - --strip-components
   value_name: NUMBER
   value_kind: Required
   group: 'File name transformations:'
@@ -965,7 +1109,9 @@ flags:
   provenance:
     sources:
     - help-text
-- long: transform
+- spellings:
+  - --transform
+  - --xform
   value_name: EXPRESSION
   value_kind: Required
   group: 'File name transformations:'
@@ -973,7 +1119,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: checkpoint
+- spellings:
+  - --checkpoint
   value_name: NUMBER
   value_kind: Optional
   group: 'Informative output:'
@@ -981,7 +1128,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: checkpoint-action
+- spellings:
+  - --checkpoint-action
   value_name: ACTION
   value_kind: Required
   group: 'Informative output:'
@@ -989,13 +1137,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: full-time
+- spellings:
+  - --full-time
   group: 'Informative output:'
   description: print file time to its full resolution
   provenance:
     sources:
     - help-text
-- long: index-file
+- spellings:
+  - --index-file
   value_name: FILE
   value_kind: Required
   group: 'Informative output:'
@@ -1003,14 +1153,16 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: check-links
+- spellings:
+  - -l
+  - --check-links
   group: 'Informative output:'
   description: print a message if not all links are dumped
   provenance:
     sources:
     - help-text
-- long: no-quote-chars
+- spellings:
+  - --no-quote-chars
   value_name: STRING
   value_kind: Required
   group: 'Informative output:'
@@ -1018,7 +1170,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: quote-chars
+- spellings:
+  - --quote-chars
   value_name: STRING
   value_kind: Required
   group: 'Informative output:'
@@ -1026,7 +1179,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: quoting-style
+- spellings:
+  - --quoting-style
   value_name: STYLE
   value_kind: Required
   choices:
@@ -1045,38 +1199,45 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'R'
-  long: block-number
+- spellings:
+  - -R
+  - --block-number
   group: 'Informative output:'
   description: show block number within archive with each message
   provenance:
     sources:
     - help-text
-- long: show-defaults
+- spellings:
+  - --show-defaults
   group: 'Informative output:'
   description: show tar defaults
   provenance:
     sources:
     - help-text
-- long: show-omitted-dirs
+- spellings:
+  - --show-omitted-dirs
   group: 'Informative output:'
   description: when listing or extracting, list each directory that does not match search criteria
   provenance:
     sources:
     - help-text
-- long: show-snapshot-field-ranges
+- spellings:
+  - --show-snapshot-field-ranges
   group: 'Informative output:'
   description: show valid ranges for snapshot-file fields
   provenance:
     sources:
     - help-text
-- long: show-transformed-names
+- spellings:
+  - --show-transformed-names
+  - --show-stored-names
   group: 'Informative output:'
   description: show file or archive names after transformation
   provenance:
     sources:
     - help-text
-- long: totals
+- spellings:
+  - --totals
   value_name: SIGNAL
   value_kind: Optional
   group: 'Informative output:'
@@ -1084,20 +1245,23 @@ flags:
   provenance:
     sources:
     - help-text
-- long: utc
+- spellings:
+  - --utc
   group: 'Informative output:'
   description: print file modification times in UTC
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   group: 'Informative output:'
   description: verbosely list files processed
   provenance:
     sources:
     - help-text
-- long: warning
+- spellings:
+  - --warning
   value_name: KEYWORD
   value_kind: Required
   group: 'Informative output:'
@@ -1105,51 +1269,60 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'w'
-  long: interactive
+- spellings:
+  - -w
+  - --interactive
+  - --confirmation
   group: 'Informative output:'
   description: ask for confirmation for every action
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   group: 'Compatibility options:'
   description: when creating, same as --old-archive; when extracting, same as --no-same-owner
   provenance:
     sources:
     - help-text
-- short: '?'
-  long: help
+- spellings:
+  - -?
+  - --help
   group: 'Other options:'
   description: give this help list
   provenance:
     sources:
     - help-text
-- long: restrict
+- spellings:
+  - --restrict
   group: 'Other options:'
   description: disable use of some potentially harmful options
   provenance:
     sources:
     - help-text
-- long: usage
+- spellings:
+  - --usage
   group: 'Other options:'
   description: give a short usage message
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Other options:'
   description: print program version
   provenance:
     sources:
     - help-text
-- long: format
+- spellings:
+  - --format
   value_name: gnu
   value_kind: Required
   provenance:
     sources:
     - help-text
-- long: rsh-command
+- spellings:
+  - --rsh-command
   value_name: /usr/bin/rsh
   value_kind: Required
   provenance:

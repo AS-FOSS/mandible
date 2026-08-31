@@ -20,18 +20,13 @@ pub(super) fn emit_flags(
         if spec.fully_consumed {
             clean += 1;
         }
-        if spec.short.is_none() && spec.long.is_none() {
+        if spec.spellings.is_empty() {
             // Nothing recognizable as a flag at all; skip rather than
             // emit a garbage entry.
             continue;
         }
-        let mut flag = Entity::flag_spelled(
-            spec.short,
-            spec.long,
-            false,
-            spec.negatable,
-            Provenance::single(Source::HelpText),
-        );
+        let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+        flag.spellings = spec.spellings;
         flag.value_name = spec.value_name;
         flag.value_kind = spec.value_kind;
         flag.group = group.clone();

@@ -49,8 +49,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, Choice, CommandNode, Entity, Provenance, Source,
-    Spelling, Text, ValueKind,
+    is_command_name_shaped, strip_escapes, Choice, CommandNode, Dashes, Entity, EntityKind,
+    Provenance, Source, Spelling, Text, ValueKind,
 };
 
 mod backfill;
@@ -1965,6 +1965,15 @@ fn parse_body(
     // the two above have finished naming: descriptions that the document
     // wrote as free prose paragraphs instead of as option-table columns.
     backfill_prose_paragraph_descriptions(&mut result.flags, &lines);
+    // Last of all: restore a value the single-dash long-option repair
+    // cleared, anchored against a run-mate's own already-correct value
+    // (spec §7's row grammar). Run after every repair above so it sees
+    // each row's *final* value/description — in particular, `-help`'s row
+    // only qualifies once `repair_single_dash_long_options` has already
+    // turned it into a single-dash spelling this pass can anchor a value
+    // onto. See `recover_anchored_values`'s own doc comment for the rule,
+    // and for why it stops at recovery rather than also merging rows.
+    result.flags = recover_anchored_values(std::mem::take(&mut result.flags), raw);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result

@@ -2,41 +2,50 @@ name: filefrag
 usage:
 - 'Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...'
 flags:
-- short: 'b'
+- spellings:
+  - -b
   value_name: '{blocksize}[KMG]'
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'B'
+- spellings:
+  - -B
   provenance:
     sources:
     - help-text-synopsis
-- short: 'e'
+- spellings:
+  - -e
   provenance:
     sources:
     - help-text-synopsis
-- short: 'E'
+- spellings:
+  - -E
   provenance:
     sources:
     - help-text-synopsis
-- short: 'k'
+- spellings:
+  - -k
   provenance:
     sources:
     - help-text-synopsis
-- short: 's'
+- spellings:
+  - -s
   provenance:
     sources:
     - help-text-synopsis
-- short: 'v'
+- spellings:
+  - -v
   provenance:
     sources:
     - help-text-synopsis
-- short: 'x'
+- spellings:
+  - -x
   provenance:
     sources:
     - help-text-synopsis
-- short: 'X'
+- spellings:
+  - -X
   provenance:
     sources:
     - help-text-synopsis

@@ -17,53 +17,61 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'n'
+- spellings:
+  - -n
   value_name: <num>
   value_kind: Required
   description: specify the nice value If POSIXLY_CORRECT flag is set in environment then the priority is 'relative' to current process priority. Otherwise it is 'absolute'.
   provenance:
     sources:
     - help-text
-- long: priority
+- spellings:
+  - --priority
   value_name: <num>
   value_kind: Required
   description: specify the 'absolute' nice value
   provenance:
     sources:
     - help-text
-- long: relative
+- spellings:
+  - --relative
   value_name: <num>
   value_kind: Required
   description: specify the 'relative' nice value
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: pid
+- spellings:
+  - -p
+  - --pid
   description: interpret arguments as process ID (default)
   provenance:
     sources:
     - help-text
-- short: 'g'
-  long: pgrp
+- spellings:
+  - -g
+  - --pgrp
   description: interpret arguments as process group ID
   provenance:
     sources:
     - help-text
-- short: 'u'
-  long: user
+- spellings:
+  - -u
+  - --user
   description: interpret arguments as username or user ID
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: display this help
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: display version
   provenance:
     sources:

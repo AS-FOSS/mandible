@@ -9,24 +9,28 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'd'
+- spellings:
+  - -d
   description: output debug
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   value_name: r
   value_kind: Required
   description: Set Honor Reservation bit
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   description: 'Send Short Trespass Command page (default: long) (for FC series)'
   provenance:
     sources:
     - help-text
-- short: 'V'
+- spellings:
+  - -V
   description: 'print version string then exit DEVICE sg or block device (latter in lk 2.6 or lk 3 series) Example: sg_emc_trespass /dev/sda'
   provenance:
     sources:

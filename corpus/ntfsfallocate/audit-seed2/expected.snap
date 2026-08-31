@@ -3,47 +3,54 @@ description: '/usr/bin/ntfsfallocate v2022.10.3 (libntfs-3g) Copyright (c) 2013-
 usage:
 - 'Usage: /usr/bin/ntfsfallocate [options] -l length device file [attr-type [attr-name]]'
 flags:
-- short: 'f'
+- spellings:
+  - -f
   description: Force execution despite errors
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   description: Do not change the apparent size of file
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   value_name: length
   value_kind: Required
   description: Allocate length bytes
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   value_name: offset
   value_kind: Required
   description: Start allocating at offset
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: Verbose execution
   provenance:
     sources:
     - help-text
-- long: vv
-  single_dash: true
+- spellings:
+  - -vv
   description: Very verbose execution
   provenance:
     sources:
     - help-text
-- short: 'V'
+- spellings:
+  - -V
   description: Display version information
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   description: Display this help
   provenance:
     sources:

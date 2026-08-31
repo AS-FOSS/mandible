@@ -2,69 +2,84 @@ name: xfs_io
 usage:
 - 'Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file'
 flags:
-- short: 'a'
+- spellings:
+  - -a
   provenance:
     sources:
     - help-text-synopsis
-- short: 'd'
+- spellings:
+  - -d
   provenance:
     sources:
     - help-text-synopsis
-- short: 'f'
+- spellings:
+  - -f
   provenance:
     sources:
     - help-text-synopsis
-- short: 'i'
+- spellings:
+  - -i
   provenance:
     sources:
     - help-text-synopsis
-- short: 'n'
+- spellings:
+  - -n
   provenance:
     sources:
     - help-text-synopsis
-- short: 'r'
+- spellings:
+  - -r
   provenance:
     sources:
     - help-text-synopsis
-- short: 'R'
+- spellings:
+  - -R
   provenance:
     sources:
     - help-text-synopsis
-- short: 's'
+- spellings:
+  - -s
   provenance:
     sources:
     - help-text-synopsis
-- short: 't'
+- spellings:
+  - -t
   provenance:
     sources:
     - help-text-synopsis
-- short: 'V'
+- spellings:
+  - -V
   provenance:
     sources:
     - help-text-synopsis
-- short: 'x'
+- spellings:
+  - -x
   provenance:
     sources:
     - help-text-synopsis
-- short: 'm'
+- spellings:
+  - -m
   value_name: mode
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'p'
+- spellings:
+  - -p
   value_name: prog
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'c'
+- spellings:
+  - -c
   value_name: cmd
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'C'
+- spellings:
+  - -C
   value_name: cmd
   value_kind: Required
   provenance:

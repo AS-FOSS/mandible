@@ -13,19 +13,23 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'V'
+- spellings:
+  - -V[ersion]
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n[o-nice-names]
   provenance:
     sources:
     - help-text
-- short: 'j'
+- spellings:
+  - -j[son]
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p[retty]
   provenance:
     sources:
     - help-text

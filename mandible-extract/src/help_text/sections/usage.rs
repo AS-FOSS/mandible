@@ -290,16 +290,11 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
         return None;
     }
     let spec = parse_flag_spec(rest);
-    if spec.short.is_none() && spec.long.is_none() {
+    if spec.spellings.is_empty() {
         return None;
     }
-    let mut flag = Entity::flag_spelled(
-        spec.short,
-        spec.long,
-        false,
-        spec.negatable,
-        Provenance::single(Source::HelpText),
-    );
+    let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+    flag.spellings = spec.spellings;
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
     flag.group = meaningful_flag_group(heading.to_string());
@@ -866,10 +861,25 @@ pub(super) fn shared_operand(rest: &str) -> Option<String> {
 /// function exists to provide: an existing flag, right or wrong, is never
 /// altered by anything found here — only ever left alone or joined by a
 /// new one.
+///
+/// A one-letter abbreviation bracket also counts as a short-letter match:
+/// `ip`'s usage line writes a bare `[ -force ]`, which the ordinary short
+/// path reads as `-f` glued to a value `"orce"`; the *table* documents the
+/// same flag as `-f[amily]`, which the abbreviation model correctly reads
+/// as long-like (`long() == Some("family")`, `short() == None`) — without
+/// this arm the table entity's `short()` no longer agrees with the
+/// synopsis candidate's `-f`, and the glued-value noise leaks into the
+/// tree as a second, spurious flag.
 pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
         (candidate.long().is_some() && f.long() == candidate.long())
             || (candidate.short().is_some() && f.short() == candidate.short())
+            || (candidate.short().is_some()
+                && f.spellings.iter().any(|s| {
+                    matches!(s.dashes, Dashes::Single)
+                        && s.abbrev == Some(1)
+                        && s.name.chars().next() == candidate.short()
+                }))
     })
 }
 
@@ -901,7 +911,7 @@ pub(super) fn push_usage_token(out: &mut Vec<Entity>, token: &str) {
             push_usage_flag(
                 out,
                 FlagSpec {
-                    short: Some(member),
+                    spellings: vec![Spelling::short(member)],
                     fully_consumed: true,
                     ..FlagSpec::default()
                 },
@@ -923,19 +933,30 @@ pub(super) fn push_usage_token(out: &mut Vec<Entity>, token: &str) {
 /// `pct_flags_with_text` can tell a structurally-undescribable flag apart from
 /// one that merely wasn't described.
 pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
-    if spec.short.is_none() && spec.long.is_none() {
+    if spec.spellings.is_empty() {
         return;
     }
-    let mut flag = Entity::flag_spelled(
-        spec.short,
-        spec.long,
-        false,
-        spec.negatable,
+    let mut flag = Entity::new(
+        EntityKind::Flag,
         Provenance::single(Source::HelpTextSynopsis),
     );
+    flag.spellings = spec.spellings;
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
     out.push(flag);
+}
+
+/// True when `spec`'s `long()`-shaped spelling is a genuine double-dash
+/// long option, as opposed to the single-dash abbreviation-bracket shape
+/// (`-p[d]`, name `"pd"`) that [`FlagSpec::long`] reads as long-like by
+/// the same rule every other consumer of `FlagSpec` shares.
+///
+/// [`pair_short_and_long`] restricts its "long" side to this — see that
+/// function's doc comment for why.
+fn long_is_double_dash(spec: &FlagSpec) -> bool {
+    spec.spellings
+        .iter()
+        .any(|s| matches!(s.dashes, Dashes::Double))
 }
 
 /// Pair a short-only and a long-only [`FlagSpec`] into one, or refuse
@@ -943,25 +964,47 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
 /// conservative pairing rule, applied by the caller to a bracket group
 /// already known to have exactly one flaggy member of each kind).
 ///
-/// Shape-similar to [`mandible_core::merge::pair_aliases`], but that
-/// function pairs rows from the *same block* by matching description text
-/// (two rows that happen to describe the same flag identically); nothing
-/// here has a description to compare against, so the evidence is the
-/// bracket group's own `|`-alternation instead, per spec's stated rule.
+/// The "long" side must be a genuine double-dash spelling
+/// ([`long_is_double_dash`]). M-15's rule was measured and validated only
+/// against that shape (`[-v | --version]`, one flag's two spellings); the
+/// single-dash abbreviation-bracket convention (`-p[d]`, [`FlagSpec::long`]
+/// treats it as long-like too) came later and was never part of that
+/// evidence. `pppdump`'s own `[-h | -p[d]]` is the counter-example: `-h`
+/// prints the dump in hex and `-p[d]` prints it as printable characters
+/// (`p`) or both (`pd`) — two semantically distinct flags the tool
+/// happened to write as a usage-synopsis alternation, not one flag's two
+/// spellings, and pairing them fabricated a merge across distinct flags
+/// exactly like `pod2html`'s `--quiet`/`--noquiet`/`--verbose`/`--noverbose`
+/// row (the alias-loop defect this same pairing rule was never at risk of
+/// on its own, until the abbreviation model widened what `long()` accepts).
+/// Refusing here costs no recall: the caller still emits each alternative
+/// as its own flag when pairing is refused, so the two real spellings
+/// (`-h`, `-p[d]`) reach the tree correctly named, just not merged.
 pub(super) fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> {
-    let (short_spec, long_spec) =
-        if a.short.is_some() && a.long.is_none() && b.short.is_none() && b.long.is_some() {
-            (a, b)
-        } else if b.short.is_some() && b.long.is_none() && a.short.is_none() && a.long.is_some() {
-            (b, a)
-        } else {
-            return None;
-        };
+    let (short_spec, long_spec) = if a.short().is_some()
+        && a.long().is_none()
+        && b.short().is_none()
+        && b.long().is_some()
+        && long_is_double_dash(&b)
+    {
+        (a, b)
+    } else if b.short().is_some()
+        && b.long().is_none()
+        && a.short().is_none()
+        && a.long().is_some()
+        && long_is_double_dash(&a)
+    {
+        (b, a)
+    } else {
+        return None;
+    };
     let long_had_value = long_spec.value_name.is_some();
+    // Short first, then long — the display order every other spelling
+    // list in this crate keeps (`-i, --interactive`).
+    let mut spellings = short_spec.spellings;
+    spellings.extend(long_spec.spellings);
     Some(FlagSpec {
-        short: short_spec.short,
-        long: long_spec.long,
-        negatable: long_spec.negatable,
+        spellings,
         value_kind: if long_had_value {
             long_spec.value_kind
         } else {
@@ -2263,6 +2306,44 @@ mod tests {
         // None of these carry a description — a synopsis has spellings and
         // value shapes only, never prose (spec §7 Tier B: never fabricate).
         assert!(parsed.flags.iter().all(|f| f.description.is_none()));
+    }
+
+    /// `pppdump`'s own usage line, byte-exact, is the counter-example to
+    /// the conservative-pairing rule's usual `[-v | --version]` reading:
+    /// `-h` prints the dump in hexadecimal and `-p[d]` prints it as
+    /// printable characters (`p`) or both (`pd`) — two distinct flags the
+    /// tool happened to write as a `|`-alternation, not one flag's two
+    /// spellings. [`pair_short_and_long`] must refuse to pair a short
+    /// spelling with a single-dash abbreviation-bracket "long-like" one
+    /// ([`long_is_double_dash`]); pairing here would fabricate a merge
+    /// across distinct flags, the same defect class as `pod2html`'s
+    /// `--quiet`/`--noquiet`/`--verbose`/`--noverbose` row.
+    #[test]
+    fn pppdumps_short_and_abbrev_bracket_alternation_is_never_paired() {
+        let raw = "Usage: /usr/sbin/pppdump [-h | -p[d]] [-r] [-m mru] [-a] [file ...]\n";
+        let parsed = parse(raw);
+
+        let h = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('h'))
+            .expect("-h recovered as its own flag");
+        assert_eq!(
+            h.long(),
+            None,
+            "-h must never gain -p[d]'s name through a fabricated pairing"
+        );
+
+        let pd = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("pd"))
+            .expect("-p[d] recovered as its own flag, named from its bracket");
+        assert_eq!(
+            pd.short(),
+            None,
+            "-p[d] must never gain -h's spelling through a fabricated pairing"
+        );
     }
 
     /// spec §13's metric redefinition rests on this: a usage-synopsis-

@@ -12,7 +12,8 @@ subcommands:
   - name: commit
     summary: Record changes to the repository
     flags:
-      - long: amend
+      - spellings:
+          - "--amend"
         description: amend the previous commit
         provenance:
           sources:

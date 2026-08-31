@@ -3,572 +3,608 @@ description: Hyper fast Audio and Video encoder
 usage:
 - 'usage: ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...'
 flags:
-- short: 'h'
+- spellings:
+  - -h
   group: 'Getting help:'
   description: -- print basic options
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   value_name: long
   value_kind: Required
   group: 'Getting help:'
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   value_name: full
   value_kind: Required
   group: 'Getting help:'
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   value_name: type=name
   value_kind: Required
   group: 'Getting help:'
   provenance:
     sources:
     - help-text
-- short: 'L'
+- spellings:
+  - -L
   description: show license
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   value_name: topic
   value_kind: Required
   description: show help
   provenance:
     sources:
     - help-text
-- short: '?'
+- spellings:
+  - -?
   value_name: topic
   value_kind: Required
   description: show help
   provenance:
     sources:
     - help-text
-- long: help
-  single_dash: true
+- spellings:
+  - -help
+  value_name: topic
+  value_kind: Required
   description: show help
   provenance:
     sources:
     - help-text
-- long: version
-  single_dash: true
+- spellings:
+  - -version
   description: show version
   provenance:
     sources:
     - help-text
-- long: buildconf
-  single_dash: true
+- spellings:
+  - -buildconf
   description: show build configuration
   provenance:
     sources:
     - help-text
-- long: formats
-  single_dash: true
+- spellings:
+  - -formats
   description: show available formats
   provenance:
     sources:
     - help-text
-- long: muxers
-  single_dash: true
+- spellings:
+  - -muxers
   description: show available muxers
   provenance:
     sources:
     - help-text
-- long: demuxers
-  single_dash: true
+- spellings:
+  - -demuxers
   description: show available demuxers
   provenance:
     sources:
     - help-text
-- long: devices
-  single_dash: true
+- spellings:
+  - -devices
   description: show available devices
   provenance:
     sources:
     - help-text
-- long: codecs
-  single_dash: true
+- spellings:
+  - -codecs
   description: show available codecs
   provenance:
     sources:
     - help-text
-- long: decoders
-  single_dash: true
+- spellings:
+  - -decoders
   description: show available decoders
   provenance:
     sources:
     - help-text
-- long: encoders
-  single_dash: true
+- spellings:
+  - -encoders
   description: show available encoders
   provenance:
     sources:
     - help-text
-- long: bsfs
-  single_dash: true
+- spellings:
+  - -bsfs
   description: show available bit stream filters
   provenance:
     sources:
     - help-text
-- long: protocols
-  single_dash: true
+- spellings:
+  - -protocols
   description: show available protocols
   provenance:
     sources:
     - help-text
-- long: filters
-  single_dash: true
+- spellings:
+  - -filters
   description: show available filters
   provenance:
     sources:
     - help-text
-- long: pix_fmts
-  single_dash: true
+- spellings:
+  - -pix_fmts
   description: show available pixel formats
   provenance:
     sources:
     - help-text
-- long: layouts
-  single_dash: true
+- spellings:
+  - -layouts
   description: show standard channel layouts
   provenance:
     sources:
     - help-text
-- long: sample_fmts
-  single_dash: true
+- spellings:
+  - -sample_fmts
   description: show available audio sample formats
   provenance:
     sources:
     - help-text
-- long: dispositions
-  single_dash: true
+- spellings:
+  - -dispositions
   description: show available stream dispositions
   provenance:
     sources:
     - help-text
-- long: colors
-  single_dash: true
+- spellings:
+  - -colors
   description: show available color names
   provenance:
     sources:
     - help-text
-- long: sources
-  single_dash: true
+- spellings:
+  - -sources
   description: list sources of the input device
   provenance:
     sources:
     - help-text
-- long: sinks
-  single_dash: true
+- spellings:
+  - -sinks
   description: list sinks of the output device
   provenance:
     sources:
     - help-text
-- long: hwaccels
-  single_dash: true
+- spellings:
+  - -hwaccels
   description: show available HW acceleration methods
   provenance:
     sources:
     - help-text
-- long: loglevel
-  single_dash: true
-  description: set logging level
-  provenance:
-    sources:
-    - help-text
-- short: 'v'
+- spellings:
+  - -loglevel
   value_name: loglevel
   value_kind: Required
   description: set logging level
   provenance:
     sources:
     - help-text
-- long: report
-  single_dash: true
+- spellings:
+  - -v
+  value_name: loglevel
+  value_kind: Required
+  description: set logging level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -report
   description: generate a report
   provenance:
     sources:
     - help-text
-- long: max_alloc
-  single_dash: true
+- spellings:
+  - -max_alloc
   description: set maximum size of a single allocated block
   provenance:
     sources:
     - help-text
-- short: 'y'
+- spellings:
+  - -y
   description: overwrite output files
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   description: never overwrite output files
   provenance:
     sources:
     - help-text
-- long: ignore_unknown
-  single_dash: true
+- spellings:
+  - -ignore_unknown
   description: Ignore unknown stream types
   provenance:
     sources:
     - help-text
-- long: filter_threads
-  single_dash: true
+- spellings:
+  - -filter_threads
   description: number of non-complex filter threads
   provenance:
     sources:
     - help-text
-- long: filter_complex_threads
-  single_dash: true
+- spellings:
+  - -filter_complex_threads
   description: number of threads for -filter_complex
   provenance:
     sources:
     - help-text
-- long: stats
-  single_dash: true
+- spellings:
+  - -stats
   description: print progress report during encoding
   provenance:
     sources:
     - help-text
-- long: max_error_rate
-  single_dash: true
+- spellings:
+  - -max_error_rate
   description: 'ratio of decoding errors (0.0: no errors, 1.0: 100% errors) above which ffmpeg returns an error instead of success.'
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   value_name: fmt
   value_kind: Required
   description: force format
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   value_name: codec
   value_kind: Required
   description: codec name
   provenance:
     sources:
     - help-text
-- long: codec
-  single_dash: true
+- spellings:
+  - -codec
+  value_name: codec
+  value_kind: Required
   description: codec name
   provenance:
     sources:
     - help-text
-- long: pre
-  single_dash: true
+- spellings:
+  - -pre
   description: preset name
   provenance:
     sources:
     - help-text
-- long: map_metadata
-  single_dash: true
+- spellings:
+  - -map_metadata
   description: set metadata information of outfile from infile
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   value_name: duration
   value_kind: Required
   description: record or transcode "duration" seconds of audio/video
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   value_name: o
   value_kind: Required
   description: record or transcode stop time
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   value_name: s
   value_kind: Required
   description: set the limit file size in bytes
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: s
   value_kind: Required
   description: set the start time offset
   provenance:
     sources:
     - help-text
-- long: sseof
-  single_dash: true
+- spellings:
+  - -sseof
   description: set the start time offset relative to EOF
   provenance:
     sources:
     - help-text
-- long: seek_timestamp
-  single_dash: true
+- spellings:
+  - -seek_timestamp
   description: enable/disable seeking by timestamp with -ss
   provenance:
     sources:
     - help-text
-- long: timestamp
-  single_dash: true
+- spellings:
+  - -timestamp
   description: set the recording timestamp ('now' to set the current time)
   provenance:
     sources:
     - help-text
-- long: metadata
-  single_dash: true
+- spellings:
+  - -metadata
   description: add metadata
   provenance:
     sources:
     - help-text
-- long: program
-  single_dash: true
+- spellings:
+  - -program
   description: add program with specified streams
   provenance:
     sources:
     - help-text
-- long: target
-  single_dash: true
+- spellings:
+  - -target
   description: specify target file type ("vcd", "svcd", "dvd", "dv" or "dv50" with optional prefixes "pal-", "ntsc-" or "film-")
   provenance:
     sources:
     - help-text
-- long: apad
-  single_dash: true
+- spellings:
+  - -apad
   description: audio pad
   provenance:
     sources:
     - help-text
-- long: frames
-  single_dash: true
+- spellings:
+  - -frames
   description: set the number of frames to output
   provenance:
     sources:
     - help-text
-- long: filter
-  single_dash: true
+- spellings:
+  - -filter
   description: set stream filtergraph
   provenance:
     sources:
     - help-text
-- long: filter_script
-  single_dash: true
+- spellings:
+  - -filter_script
   description: read stream filtergraph description from a file
   provenance:
     sources:
     - help-text
-- long: reinit_filter
-  single_dash: true
+- spellings:
+  - -reinit_filter
   description: reinit filtergraph on input parameter changes
   provenance:
     sources:
     - help-text
-- long: discard
-  single_dash: true
+- spellings:
+  - -discard
   description: discard
   provenance:
     sources:
     - help-text
-- long: disposition
-  single_dash: true
+- spellings:
+  - -disposition
   description: disposition
   provenance:
     sources:
     - help-text
-- long: vframes
-  single_dash: true
+- spellings:
+  - -vframes
   description: set the number of video frames to output
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   value_name: rate
   value_kind: Required
   description: set frame rate (Hz value, fraction or abbreviation)
   provenance:
     sources:
     - help-text
-- long: fpsmax
-  single_dash: true
+- spellings:
+  - -fpsmax
   description: set max frame rate (Hz value, fraction or abbreviation)
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: size
   value_kind: Required
   description: set frame size (WxH or abbreviation)
   provenance:
     sources:
     - help-text
-- long: aspect
-  single_dash: true
+- spellings:
+  - -aspect
   description: set aspect ratio (4:3, 16:9 or 1.3333, 1.7777)
   provenance:
     sources:
     - help-text
-- long: display_rotation
-  single_dash: true
+- spellings:
+  - -display_rotation
   description: set pure counter-clockwise rotation in degrees for stream(s)
   provenance:
     sources:
     - help-text
-- long: display_hflip
-  single_dash: true
+- spellings:
+  - -display_hflip
   description: set display horizontal flip for stream(s) (overrides any display rotation if it is not set)
   provenance:
     sources:
     - help-text
-- long: display_vflip
-  single_dash: true
+- spellings:
+  - -display_vflip
   description: set display vertical flip for stream(s) (overrides any display rotation if it is not set)
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   value_name: n
   value_kind: Required
   description: disable video
   provenance:
     sources:
     - help-text
-- long: vcodec
-  single_dash: true
+- spellings:
+  - -vcodec
   description: force video codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
-- long: timecode
-  single_dash: true
+- spellings:
+  - -timecode
   description: set initial TimeCode value.
   provenance:
     sources:
     - help-text
-- long: pass
-  single_dash: true
+- spellings:
+  - -pass
   description: select the pass number (1 to 3)
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   value_name: f
   value_kind: Required
   description: set video filters
   provenance:
     sources:
     - help-text
-- short: 'b'
+- spellings:
+  - -b
   value_name: bitrate
   value_kind: Required
   description: video bitrate (please use -b:v)
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   value_name: n
   value_kind: Required
   description: disable data
   provenance:
     sources:
     - help-text
-- long: aframes
-  single_dash: true
+- spellings:
+  - -aframes
   description: set the number of audio frames to output
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: q
   value_kind: Required
   description: set audio quality (codec-specific)
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: r
   value_kind: Required
   description: set audio sampling rate (in Hz)
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: c
   value_kind: Required
   description: set number of audio channels
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: n
   value_kind: Required
   description: disable audio
   provenance:
     sources:
     - help-text
-- long: acodec
-  single_dash: true
+- spellings:
+  - -acodec
   description: force audio codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: b
   value_kind: Required
   description: audio bitrate (please use -b:a)
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: f
   value_kind: Required
   description: set audio filters
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: size
   value_kind: Required
   description: set frame size (WxH or abbreviation)
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: n
   value_kind: Required
   description: disable subtitle
   provenance:
     sources:
     - help-text
-- long: scodec
-  single_dash: true
+- spellings:
+  - -scodec
   description: force subtitle codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
-- long: stag
-  single_dash: true
+- spellings:
+  - -stag
   description: force subtitle tag/fourcc
   provenance:
     sources:
     - help-text
-- long: fix_sub_duration
-  single_dash: true
+- spellings:
+  - -fix_sub_duration
   description: fix subtitles duration
   provenance:
     sources:
     - help-text
-- long: canvas_size
-  single_dash: true
+- spellings:
+  - -canvas_size
   description: set canvas size (WxH or abbreviation)
   provenance:
     sources:
     - help-text
-- long: spre
-  single_dash: true
+- spellings:
+  - -spre
   description: set the subtitle options to the indicated preset
   provenance:
     sources:

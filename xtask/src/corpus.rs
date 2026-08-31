@@ -56,7 +56,7 @@
 //! shared runner having a bad afternoon.
 
 use crate::coverage::ScoreFormat;
-use mandible_core::{CommandNode, Entity, Provenance, Source, Text};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source, Spelling, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
@@ -1164,23 +1164,51 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 /// `must_contain_flags_by_path`/`must_not_contain_flags` spec (the last
 /// one negated by its caller, so that a positive and a negative claim can
 /// never disagree about what a spelling *means*): `--long-name` matches
-/// [`mandible_core::Entity::long`], `-x` matches [`mandible_core::Entity::short`],
-/// anything else is matched against `long` verbatim. Only ever checks the
-/// one node it's given, never recursing into its subcommands itself —
+/// any [`mandible_core::Spelling`] with two dashes and that name, `-x`
+/// matches any single-dash, single-character spelling, anything else is
+/// matched against every spelling's bare name verbatim. Only ever checks
+/// the one node it's given, never recursing into its subcommands itself —
 /// `must_contain_flags` calls this with the fixture's root (what a tool
 /// *publishes at its root*, spec's git example: `--paginate`, `--git-dir`);
 /// `must_contain_flags_by_path` calls it with whatever node
 /// [`find_node_by_path`] resolved.
+///
+/// **Every spelling, not just `Entity::short`/`Entity::long`.** Those two
+/// accessors return one canonical short and one canonical long-like
+/// spelling each — correct for rendering a shell-typed form, wrong here:
+/// `fold_adjacent_alias_rows` (spec §7's adjacency fold) can put more than
+/// one short spelling on a single entity (`ffplay`'s own `-h, -?, -help,
+/// --help`), and `Entity::short` only ever returns the first of them. A
+/// contract asserting `-?` is present must still find it once `-h` has
+/// claimed that slot.
 fn flag_present(node: &CommandNode, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
-        node.flags().any(|f| f.long() == Some(long))
+        // Long-*like*, matching `Entity::long`'s own shape rule exactly
+        // (never narrowed to `Dashes::Double` alone): two dashes, or one
+        // dash with more than one character — a single-dash long option
+        // (`ptargrep`'s own `-message`, `Dashes::Single`, four letters)
+        // must still satisfy a `--message` contract entry the way
+        // `Entity::long()` always considered it to.
+        node.flags().any(|f| {
+            f.spellings.iter().any(|s| {
+                (matches!(s.dashes, Dashes::Double)
+                    || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1))
+                    && s.name == long
+            })
+        })
     } else if let Some(short) = spec.strip_prefix('-') {
-        short
-            .chars()
-            .next()
-            .is_some_and(|c| node.flags().any(|f| f.short() == Some(c)))
+        short.chars().next().is_some_and(|c| {
+            node.flags().any(|f| {
+                f.spellings.iter().any(|s| {
+                    matches!(s.dashes, Dashes::Single)
+                        && s.name.chars().count() == 1
+                        && s.name.starts_with(c)
+                })
+            })
+        })
     } else {
-        node.flags().any(|f| f.long() == Some(spec))
+        node.flags()
+            .any(|f| f.spellings.iter().any(|s| s.name == spec))
     }
 }
 
@@ -1600,10 +1628,13 @@ fn collect_subcommand_paths(node: &CommandNode, prefix: &str, out: &mut BTreeSet
 /// error.
 #[derive(Debug, Clone, Default, Deserialize)]
 struct SnapFlag {
+    /// Every rendered spelling, in document order — `expected.snap`'s
+    /// `spellings` key, exactly as [`mandible_core::FlagSnapshot`] writes
+    /// it. Parsed back into [`Spelling`]s by [`parse_rendered_spelling`]
+    /// so [`collect_flag_names`] can read `short()`/`long()` off the
+    /// reconstructed entity the same way it reads them off a fresh one.
     #[serde(default)]
-    short: Option<char>,
-    #[serde(default)]
-    long: Option<String>,
+    spellings: Vec<String>,
     /// Needed for nothing this module names directly, but
     /// [`crate::status::compute`]'s `pct_flags_with_text` (and therefore the
     /// `low-confidence` vs `ok` status boundary) reads it — omitting it
@@ -1651,13 +1682,12 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
         n.flags
             .iter()
             .map(|f| {
-                let mut flag = Entity::flag_spelled(
-                    f.short,
-                    f.long.clone(),
-                    false,
-                    false,
-                    Provenance::single(Source::HelpText),
-                );
+                let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+                flag.spellings = f
+                    .spellings
+                    .iter()
+                    .map(|s| parse_rendered_spelling(s))
+                    .collect();
                 flag.description = f.description.as_deref().map(Text::sanitize);
                 flag
             })
@@ -1665,6 +1695,52 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
     );
     node.subcommands = n.subcommands.iter().map(snap_to_command_node).collect();
     node
+}
+
+/// Parse one of [`FlagSnapshot`](mandible_core::FlagSnapshot)'s rendered
+/// `spellings` entries (`"-i"`, `"--interactive"`, `"--[no-]color"`,
+/// `"-help"`, `"-r[esolve]"`) back into a [`Spelling`], the inverse of
+/// [`Spelling::render`]. Good enough for [`snap_to_command_node`]'s
+/// purpose — reconstructing an entity whose `short()`/`long()` accessors
+/// agree with what a fresh extraction would produce — not a general
+/// parser: a name that itself began with a literal `-` would round-trip
+/// wrong, and no real flag spelling does.
+fn parse_rendered_spelling(rendered: &str) -> Spelling {
+    let (dashes, rest) = if let Some(r) = rendered.strip_prefix("--") {
+        (Dashes::Double, r)
+    } else if let Some(r) = rendered.strip_prefix('-') {
+        (Dashes::Single, r)
+    } else {
+        (Dashes::None, rendered)
+    };
+    if let Some(base) = rest.strip_prefix("[no-]") {
+        return Spelling {
+            name: base.to_string(),
+            dashes,
+            negatable: true,
+            abbrev: None,
+        };
+    }
+    // An abbreviation bracket: "r[esolve]" -> name "resolve", abbrev
+    // Some(1) — the prefix's character count.
+    if let Some(open) = rest.find('[') {
+        if let Some(rest_after) = rest.strip_suffix(']') {
+            let (prefix, bracketed) = rest_after.split_at(open);
+            let bracketed = &bracketed[1..]; // drop the '['
+            return Spelling {
+                name: format!("{prefix}{bracketed}"),
+                dashes,
+                negatable: false,
+                abbrev: Some(prefix.chars().count()),
+            };
+        }
+    }
+    Spelling {
+        name: rest.to_string(),
+        dashes,
+        negatable: false,
+        abbrev: None,
+    }
 }
 
 /// Read and convert a fixture's `expected.snap` into a [`TreeSummary`],

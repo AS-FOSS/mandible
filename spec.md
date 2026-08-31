@@ -332,11 +332,40 @@ than once* — a flag the tool accepts repeatedly, and a positional written
 with an ellipsis (`<pathspec>...`) — so the ellipsis needs no field of
 its own.
 
-`Spelling`'s exact shape is finalized in the schema PR, under one
-constraint carried over from `Flag::negatable` and `Flag::single_dash`:
-the searched/copied name never smuggles punctuation (`-h`, `-?`, `-help`,
-`--help`, and `--[no-]foo` must all be representable as name + rendering
-metadata, never as a name containing dashes or brackets).
+`Spelling`'s shape:
+
+```rust
+pub struct Spelling {
+    pub name: String,
+    pub dashes: Dashes,   // None | Single | Double
+    pub negatable: bool,
+    /// `Some(n)` when the tool documents an abbreviation bracket — the
+    /// minimum accepted prefix length: `-r[esolve]` is `name: "resolve"`,
+    /// `abbrev: Some(1)`; `-rc[vbuf]` is `name: "rcvbuf"`, `abbrev:
+    /// Some(2)`; `--br[ief]` is `name: "brief"`, `abbrev: Some(2)`. `None`
+    /// for every other spelling.
+    pub abbrev: Option<usize>,
+}
+```
+
+Under one constraint carried over from `Flag::negatable` and
+`Flag::single_dash`: the searched/copied name never smuggles punctuation
+(`-h`, `-?`, `-help`, `--help`, and `--[no-]foo` must all be representable
+as name + rendering metadata, never as a name containing dashes or
+brackets) — `abbrev` extends the same rule to abbreviation brackets:
+`name` is always the *full* word (`"resolve"`, never `"r[esolve]"` or the
+bare prefix `"r"`). `Spelling::render` reproduces the bracket form a tool
+actually printed (`-r[esolve]`); `Spelling::typed` and the `key()`/
+`short()`/`long()` shape rule address the full name, unaffected by how
+much of it a particular row happened to abbreviate — `ip`'s `-r[esolve]`
+and `-rc[vbuf]` key as `Long("resolve")` and `Long("rcvbuf")`, two
+different flags, which is what dissolves a duplicate `-r` row without any
+dedup rule (issue #49): before `abbrev` existed, the grammar could only
+strip a *one-letter* abbreviation prefix, so a two-letter one
+(`-rc[vbuf]`) fell back to reading `-r` as a short flag carrying a mangled
+`value_name`, alongside the correctly-read `-r[esolve]` from elsewhere in
+the same document — two entities colliding on one short letter, not two
+readings of one flag.
 
 Rules that govern the migration:
 
@@ -345,13 +374,19 @@ Rules that govern the migration:
   migration rewrites those same sites anyway. One rewrite, not two.
 - **Sequence:** one kind at a time — flags, then positionals, then
   modifiers, then env vars.
-  - The two **relocation** stages, flags and positionals, move existing
-    data into the one vector and must leave every corpus snapshot
-    **byte-identical**. A snapshot diff there means the code is wrong,
-    never the fixture, which is why the frozen
-    `FlagSnapshot`/`PositionalSnapshot` layouts are partitioned out of the
-    one vector by kind rather than reshaped around `spellings`. Reshaping
-    them belongs with the stage that first emits multi-spelling entities.
+  - The two **relocation** stages, flags and positionals, moved existing
+    data into the one vector and left every corpus snapshot
+    **byte-identical**: a snapshot diff there would have meant the code
+    was wrong, never the fixture, which is why the `FlagSnapshot`/
+    `PositionalSnapshot` layouts stayed frozen in their pre-0.5.0
+    `short`/`long`/`negatable`/`single_dash` shape through that stage.
+    `FlagSnapshot` has since thawed: it now writes one `spellings` key
+    holding every rendered [`Spelling`] in document order (`"-i"`,
+    `"--interactive"`, `"--[no-]color"`, `"-help"`), which is what a
+    fixture is written in from the multi-spelling emission stage onward.
+    `PositionalSnapshot` stays in its original shape — a positional
+    carries exactly one dashless spelling, so there was never a slot
+    contest for it to dissolve.
   - The two **emission** stages, modifiers and env vars, recover items no
     tier produced before, so a snapshot that gains one is the stage
     working. The bound is on *where*: a fixture may move only when its own
@@ -1633,6 +1668,93 @@ The generic fallback parser (step 2) is built with `winnow`:
   `low-confidence` rather than `ok` once their real, correctly-spelled
   flags are counted against that fact — a change in what the status ladder
   can see, not a parsing regression.
+- **Abbreviation brackets.** `ip --help`'s `OPTIONS := { -V[ersion] |
+  -s[tatistics] | ... }` writes a spelling as a prefix a user may type
+  glued directly to the rest of the word it abbreviates, in a trailing
+  bracket — `-r[esolve]`, `-rc[vbuf]` (a two-letter prefix, `-ts[hort]`,
+  `-br[ief]` likewise), `--br[ief]` (the same convention with a long
+  option). `grammar::try_short`/`try_long` recognize a bracket
+  immediately glued onto a run of one or more leading letters (never
+  onto a genuine value placeholder — `-o[FILE]`'s upper/mixed-case
+  content and `-x[=WHEN]`'s leading `=` both fall through untouched to
+  the ordinary value-spec grammar, per the same narrow, structural
+  discriminator: bracket content must open with an ASCII lowercase
+  letter and contain nothing but lowercase letters and hyphens) and read
+  the whole thing as one `Spelling { name: "resolve", dashes: Single,
+  abbrev: Some(1) }` — the full word, never the bracket notation itself,
+  with `abbrev` recording how many leading characters of `name` the row
+  displayed standalone. `Spelling::render` reproduces the bracket form
+  a tool actually printed; `key()`/`short()`/`long()` address the full
+  name by the unchanged shape rule (single dash, more than one
+  character is long-like), which is what makes `-r[esolve]` and
+  `-rc[vbuf]` two different keys (`Long("resolve")`, `Long("rcvbuf")`)
+  rather than two readings of one short `-r` — closing issue #49's
+  duplicate-`-r` row with no dedup rule, once the one-letter-only model
+  that could recognize `-r[esolve]` but not the two-letter `-rc[vbuf]`
+  was generalized to any prefix length.
+- **The anchored value recovery, and why it stops short of a row-adjacency
+  fold.** issue #30's own primary example, `ffplay --help`'s `Main
+  options:` table, documents help under four separate physical rows
+  (`-h topic`, `-? topic`, `-help topic`, `--help topic`, one spelling per
+  row): `try_short` reads `-help` as `-h` plus the glued value `"elp"`,
+  `repair_single_dash_long_options` (correctly) rewrites that into the
+  single-dash spelling `-help`, and — a deliberate, measured limitation,
+  documented on that repair — clears the value entirely rather than
+  inventing one, because by the time it runs the row's real, separately
+  spaced value (`"topic"`) is already gone. `recover_anchored_values`
+  (`mandible-extract/src/help_text/sections/repair.rs`) restores it: when
+  an adjacent run of option-table rows shares a description and table
+  (`group`), and a run-mate (`-h`, `-?`, or `--help`) already carries the
+  value cleanly, `-help`'s own value is recovered *only if* the raw
+  document still contains `-help topic` as a literal delimited phrase —
+  never invented from whitespace or a shared description alone.
+  A first version of this change also *folded* every row in such a run
+  into one multi-spelling entity once their values matched. That was
+  reverted: a full-`PATH` sweep found the same "identical description"
+  evidence also fires on real, unrelated flag pairs that merely share
+  boilerplate commentary (`as`'s `-w`/`-X`, both "ignored" — a description
+  repeated 6 times, case-insensitively, in that one document; `sysctl`'s
+  `-A`/`-X`, both "alias of -a", two *independent* legacy shims for a
+  third flag, not aliases of each other; `mkfs.bfs`'s `-c`/`-l`;
+  `llvm-size-18`'s `-A`/`-B`; `lto-dump`'s `-C`/`-CC` and
+  `-p`/`-pedantic-errors`, both "[disabled]" — a description repeated 505
+  times in that one document, a new instance of the false-positive
+  mechanism the `lto-dump` incident already named for a different code
+  path, `pair_aliases`'s own `complementary` exclusion of single-dash-long
+  options). A repeat-count mitigation ("refuse when the description
+  occurs elsewhere too") does not discriminate either — `mkfs.bfs`'s and
+  `sysctl`'s own false positives occur exactly twice in their documents,
+  the same count several genuine aliases sit at. Description equality is
+  not, on its own, sufficient evidence that two different spellings name
+  the same option; recovering a value already independently verified
+  against the raw document's own literal text is a narrower, safe claim
+  that none of the six false positives can reach (each is a complete,
+  valueless boolean already — there is no missing value for the recovery
+  step to act on). Merging rows into one entity is left to `ffplay`,
+  `ffmpeg` and `ffprobe`'s own `-h`/`--help` pairing, which
+  `pair_aliases`'s existing short/long convention (spec §4.4) already
+  produces correctly; `-?` and the recovered `-help` are acceptable as
+  their own, separate one-spelling entities.
+- **`entity_identity`'s long-name key now carries dash count**
+  (`mandible-core/src/merge.rs`). `-help` (single-dash long) and `--help`
+  (double-dash long) are genuinely different spellings of the same word,
+  but [`Entity::long`] reports both as the bare name `"help"` — correct
+  for "what's the long-like name", wrong for cross-source identity, where
+  the two collided into one bucket and `merge_entity_bucket`'s short/long
+  reconstruction (a two-slot model pre-dating `Entity::spellings`) kept
+  only one of the two dash counts, silently discarding the other. This
+  was ffplay's own `--help` disappearing entirely in the live TUI (`-h,
+  -help topic` + `-? topic`, no `--help` anywhere) even though the
+  captured-fixture replay showed all three entities correctly — not a
+  stdout/stderr divergence as first suspected, but `Runner::fill_node`'s
+  own contract ("`existing` is always included as a merge candidate")
+  taking `merge_nodes` through its cross-source `merge_entity_lists` path
+  on a tool's very first load, not only on a genuine second source;
+  `merge_nodes`'s single-candidate short-circuit (`pair_aliases` only) was
+  the only thing that had ever avoided it. The key now distinguishes
+  `-help` (`L:1:help`) from `--help` (`L:2:help`), so the two are never
+  bucketed together unless a source genuinely repeats the identical
+  spelling.
 - **The existence oracle learned the three synopsis-entry shapes the three
   fixes above taught the parser** (fix/oracle-unlabeled-synopsis). A
   measurement fix, not a parser fix: `xtask/src/existence.rs`'s

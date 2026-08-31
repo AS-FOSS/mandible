@@ -7,142 +7,170 @@ usage:
 - 'usage:'
 - '  wpa_supplicant [-BddhKLqqstuvW] [-P<pid file>] [-g<global ctrl>] [-G<group>] -i<ifname> -c<config file> [-C<ctrl>] [-D<driver>] [-p<driver_param>] [-b<br_ifname>] [-e<entropy file>] [-f<debug file>] [-o<override driver>] [-O<override ctrl>] [-N -i<ifname> -c<conf> [-C<ctrl>] [-D<driver>] [-m<P2P Device config file>] [-p<driver_param>] [-b<br_ifname>] [-I<config file>] ...]'
 flags:
-- short: 'b'
+- spellings:
+  - -b
   description: optional bridge interface name
   provenance:
     sources:
     - help-text
-- short: 'B'
+- spellings:
+  - -B
   description: run daemon in the background
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   description: Configuration file
   provenance:
     sources:
     - help-text
-- short: 'C'
+- spellings:
+  - -C
   description: ctrl_interface parameter (only used if -c is not)
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   description: increase debugging verbosity (-dd even more)
   provenance:
     sources:
     - help-text
-- short: 'D'
+- spellings:
+  - -D
   description: 'driver name (can be multiple drivers: nl80211,wext)'
   provenance:
     sources:
     - help-text
-- short: 'e'
+- spellings:
+  - -e
   description: entropy file
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   description: log output to debug file instead of stdout
   provenance:
     sources:
     - help-text
-- short: 'g'
+- spellings:
+  - -g
   description: global ctrl_interface
   provenance:
     sources:
     - help-text
-- short: 'G'
+- spellings:
+  - -G
   description: global ctrl_interface group
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   description: show this help text
   provenance:
     sources:
     - help-text
-- short: 'i'
+- spellings:
+  - -i
   description: interface name
   provenance:
     sources:
     - help-text
-- short: 'I'
+- spellings:
+  - -I
   description: additional configuration file
   provenance:
     sources:
     - help-text
-- short: 'K'
+- spellings:
+  - -K
   description: include keys (passwords, etc.) in debug output
   provenance:
     sources:
     - help-text
-- short: 'L'
+- spellings:
+  - -L
   description: show license (BSD)
   provenance:
     sources:
     - help-text
-- short: 'm'
+- spellings:
+  - -m
   description: Configuration file for the P2P Device interface
   provenance:
     sources:
     - help-text
-- short: 'N'
+- spellings:
+  - -N
   description: start describing new interface
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   description: override driver parameter for new interfaces
   provenance:
     sources:
     - help-text
-- short: 'O'
+- spellings:
+  - -O
   description: override ctrl_interface parameter for new interfaces
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p
   description: driver parameters
   provenance:
     sources:
     - help-text
-- short: 'P'
+- spellings:
+  - -P
   description: PID file
   provenance:
     sources:
     - help-text
-- short: 'q'
+- spellings:
+  - -q
   description: decrease debugging verbosity (-qq even less)
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   description: log output to syslog instead of stdout
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   description: include timestamp in debug messages
   provenance:
     sources:
     - help-text
-- short: 'T'
+- spellings:
+  - -T
   description: record to Linux tracing in addition to logging (records all messages regardless of debug verbosity)
   provenance:
     sources:
     - help-text
-- short: 'u'
+- spellings:
+  - -u
   description: enable DBus control interface
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: show version
   provenance:
     sources:
     - help-text
-- short: 'W'
+- spellings:
+  - -W
   description: wait for a control interface monitor before starting
   provenance:
     sources:

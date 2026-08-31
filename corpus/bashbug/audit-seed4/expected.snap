@@ -1,18 +1,15 @@
-name: dbus-uuidgen
+name: bashbug
+description: GNU bashbug, version 5.2.21-release
 usage:
-- 'Usage: /usr/bin/dbus-uuidgen [--ensure[=FILENAME]] [--get[=FILENAME]]'
+- 'Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]'
 flags:
 - spellings:
-  - --ensure
-  value_name: FILENAME
-  value_kind: Optional
+  - --help
   provenance:
     sources:
     - help-text-synopsis
 - spellings:
-  - --get
-  value_name: FILENAME
-  value_kind: Optional
+  - --version
   provenance:
     sources:
     - help-text-synopsis

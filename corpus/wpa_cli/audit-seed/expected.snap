@@ -3,62 +3,73 @@ description: 'wpa_cli: invalid option -- ''-'' commands:'
 usage:
 - wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] [-a<action file>] [-P<pid file>] [-g<global ctrl>] [-G<ping interval>] [-s<wpa_client_socket_file_path>] [command..]
 flags:
-- short: 'h'
+- spellings:
+  - -h
   description: help (show this usage text)
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: shown version information
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   description: run in daemon mode executing the action file based on events from wpa_supplicant
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   description: try to reconnect when client socket is disconnected. This is useful only when used with -a.
   provenance:
     sources:
     - help-text
-- short: 'B'
+- spellings:
+  - -B
   description: run a daemon in the background
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p
   value_name: <path to ctrl sockets>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'i'
+- spellings:
+  - -i
   value_name: <ifname>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'P'
+- spellings:
+  - -P
   value_name: <pid file>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'g'
+- spellings:
+  - -g
   value_name: <global ctrl>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'G'
+- spellings:
+  - -G
   value_name: <ping interval>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 's'
+- spellings:
+  - -s
   value_name: <wpa_client_socket_file_path>
   value_kind: Required
   provenance:

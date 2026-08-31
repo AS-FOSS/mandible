@@ -1,79 +1,65 @@
-name: tmux
+name: lessecho
 usage:
-- 'usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name] [-S socket-path] [-T features] [command [flags]]'
+- 'usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-fn] [-a] file ...'
 flags:
 - spellings:
-  - '-2'
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -C
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -D
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -l
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -N
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -u
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -V
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -v
+  - -o
+  value_name: x
+  value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
 - spellings:
   - -c
-  value_name: shell-command
+  value_name: x
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -d
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -m
+  value_name: x
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -n
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -e
+  value_name: x
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
 - spellings:
   - -f
-  value_name: file
+  value_name: n
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
 - spellings:
-  - -L
-  value_name: socket-name
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -S
-  value_name: socket-path
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -T
-  value_name: features
-  value_kind: Required
+  - -a
   provenance:
     sources:
     - help-text-synopsis

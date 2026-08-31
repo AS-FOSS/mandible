@@ -9,32 +9,37 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'c'
-  long: ctty
+- spellings:
+  - -c
+  - --ctty
   description: set the controlling terminal to the current one
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: fork
+- spellings:
+  - -f
+  - --fork
   description: always fork
   provenance:
     sources:
     - help-text
-- short: 'w'
-  long: wait
+- spellings:
+  - -w
+  - --wait
   description: wait program to exit, and use the same return
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: display this help
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: display version
   provenance:
     sources:

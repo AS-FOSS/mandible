@@ -621,6 +621,157 @@ pub(super) fn token_is_uniformly_lowercase(token: &str) -> bool {
     !token.chars().any(|c| c.is_ascii_uppercase())
 }
 
+/// Restore a value the single-dash long-option repair cleared, anchored
+/// against a *run-mate's* already-correct value and the raw document's own
+/// literal phrase — never invented, never merging spellings, never
+/// touching a row this evidence doesn't reach.
+///
+/// # The defect
+///
+/// `ffplay --help`'s `Main options:` table documents help under four
+/// separate physical rows, one spelling per row:
+///
+/// ```text
+/// -h topic            show help
+/// -? topic            show help
+/// -help topic         show help
+/// --help topic        show help
+/// ```
+///
+/// [`try_short`] reads `-help` as `-h` plus the glued value `"elp"`,
+/// [`repair_single_dash_long_options`] (correctly) rewrites that into the
+/// single-dash spelling `-help`, and — documented there as a deliberate,
+/// measured limitation — clears the value entirely rather than inventing
+/// one, because by the time that repair runs the row's real, *separately
+/// spaced* value (`"topic"`) was already dropped by the grammar. That
+/// limitation is correct and stays untouched here: changing it would
+/// reopen a decision measured across 132 tools and 8,784 flags
+/// (`qemu-arm64-static`'s own `-cpu model` is the same shape, and *its*
+/// `"model"` truly has no anchor — nothing else in that table documents
+/// `"model"` as a value).
+///
+/// `-help`'s row is different only in that the document **already
+/// contains the answer** elsewhere: `-h`, `-?` and `--help` all recovered
+/// `value_name: "topic"`, `value_kind: Required` cleanly, from rows
+/// sharing the identical description, table (`group`) and source
+/// (option-table, never synopsis-mined). This function restores `-help`'s
+/// value from that evidence, and only that evidence — never by merging
+/// `-help`'s own entity with any other row's.
+///
+/// # The rule
+///
+/// A single-dash entity with no value is corrected only when **all** of
+/// these hold:
+///
+/// 1. it is option-table-sourced ([`Source::HelpText`], never
+///    [`Source::HelpTextSynopsis`]) and names exactly one spelling;
+/// 2. an *adjacent* run of such rows — same description, same
+///    [`mandible_core::Entity::group`] — contains another entity that
+///    already carries a real `value_name`/`value_kind` (the anchor); and
+/// 3. the raw document literally contains `<this row's own spelling> "
+///    "<that value>` as a delimited phrase — the exact column shape `-h
+///    topic`/`-? topic`/`--help topic` already establish. A row with no
+///    such literal phrase in the document (or whose run-mates disagree on
+///    the value) is left exactly as [`repair_single_dash_long_options`]
+///    made it.
+///
+/// **What this deliberately does not do.** An earlier version of this
+/// change also *merged* every row in such a run into one multi-spelling
+/// entity once their `value_name`/`value_kind` matched. That was reverted:
+/// a full-`PATH` sweep found the same "identical description" evidence
+/// this recovery step uses safely also fires on six real, unrelated pairs
+/// that merely share boilerplate commentary — `as`'s `-w`/`-X` (both
+/// "ignored"; "ignored" occurs 6 times, case-insensitively, in that one
+/// document), `sysctl`'s `-A`/`-X` (both "alias of -a", two *independent*
+/// legacy shims for a third flag, not aliases of each other) and `-o`/`-x`
+/// (both "does nothing"), `mkfs.bfs`'s `-c`/`-l` (both "this option is
+/// silently ignored"), `llvm-size-18`'s `-A`/`-B` (both "Alias for
+/// --format", to *different* values), and `lto-dump`'s `-C`/`-CC` and
+/// `-p`/`-pedantic-errors` (all "[disabled]", a description repeated 505
+/// times in that one document — a new instance of the same false-positive
+/// *mechanism* the `lto-dump` incident already named for a different
+/// code path, [`crate::merge::pair_aliases`]'s own `complementary`
+/// exclusion of single-dash-long options). A repeat-count mitigation
+/// ("refuse when the description occurs elsewhere too") does not
+/// discriminate either: `mkfs.bfs`'s and `sysctl`'s `-o`/`-x` false
+/// positives occur exactly twice in their own documents — the same count
+/// as `gold`'s genuine `-R`/`-rpath`, `docker-proxy`'s genuine `-v`/
+/// `-version`, and three other genuine aliases the sweep also found.
+/// Description equality alone — even reinforced by a long-name-count
+/// guard — is not sufficient evidence that two *different* spellings name
+/// the *same* option; recovering a value already independently verified
+/// against the raw document's own literal text is a narrower, safe claim
+/// that this defect does not touch, since none of the six false positives
+/// have a missing value to recover in the first place (each row in every
+/// false-positive pair already parses as a complete, valueless boolean —
+/// `.find` on `value_kind != ValueKind::None` returns `None` for all of
+/// them, so the recovery loop below never fires there at all).
+pub(super) fn recover_anchored_values(mut flags: Vec<Entity>, raw: &str) -> Vec<Entity> {
+    fn eligible(f: &Entity) -> bool {
+        f.spellings.len() == 1
+            && f.description.is_some()
+            && f.provenance.sources.contains(&Source::HelpText)
+            && !f.provenance.sources.contains(&Source::HelpTextSynopsis)
+    }
+
+    // Chain adjacent, eligible rows that share a description and a table
+    // (`group`) into runs — the same evidence boundary a genuine alias run
+    // must respect, so a table boundary (ffplay's own `AVCodecContext
+    // AVOptions:` block starting right after `Main options:` ends) can
+    // never be crossed even if two unrelated rows happen to repeat the
+    // same description.
+    let mut run_start = 0;
+    while run_start < flags.len() {
+        let mut run_end = run_start + 1;
+        while run_end < flags.len()
+            && eligible(&flags[run_end])
+            && eligible(&flags[run_end - 1])
+            && flags[run_end].description == flags[run_start].description
+            && flags[run_end].group == flags[run_start].group
+        {
+            run_end += 1;
+        }
+        if run_end - run_start >= 2 {
+            recover_run(&mut flags[run_start..run_end], raw);
+        }
+        run_start = run_end;
+    }
+    flags
+}
+
+/// One [`recover_anchored_values`] run: same description, same table, each
+/// row one spelling. Finds the value this run's own well-parsed rows
+/// already agree the shared description takes (if any), then restores it
+/// — in place, never reordering or merging — onto any run-mate whose own
+/// row literally documents that exact value glued to its own spelling.
+fn recover_run(run: &mut [Entity], raw: &str) {
+    let anchor = run
+        .iter()
+        .find(|f| f.value_kind != ValueKind::None && f.value_name.is_some())
+        .map(|f| {
+            (
+                f.value_name.clone().expect("checked Some above"),
+                f.value_kind,
+            )
+        });
+    let Some((value, kind)) = anchor else {
+        return;
+    };
+    for f in run.iter_mut() {
+        if f.value_kind == ValueKind::None
+            && f.value_name.is_none()
+            && f.single_dash()
+            && f.spellings.len() == 1
+        {
+            let phrase = format!("{} {value}", f.spellings[0].typed());
+            if token_occurs_glued(raw, &phrase) {
+                f.value_name = Some(value.clone());
+                f.value_kind = kind;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1159,9 +1310,20 @@ mod tests {
         }
     }
 
-    /// The two declared out-of-scope misses, asserted rather than
-    /// described — a miss that is only written down in prose stops being
-    /// checked the day the prose goes stale.
+    /// The declared out-of-scope misses, asserted rather than described —
+    /// a miss that is only written down in prose stops being checked the
+    /// day the prose goes stale.
+    ///
+    /// `ip`'s bracketed abbreviation (`-V[ersion]`, `-h[uman-readable]`,
+    /// `-j[son]`) used to be a third miss here: this repair pass's
+    /// Required-only fingerprint could never see it, and nothing else
+    /// resolved it either, so the bracket was silently discarded and the
+    /// row lost its long name. It is not a miss any more — the grammar's
+    /// abbreviation model (`grammar::try_short`) now reads the bracket
+    /// directly and produces `long: "human-readable"` on its own, before
+    /// this repair pass ever runs. See
+    /// `grammar::tests::short_flag_abbreviation_bracket_is_not_an_invented_value`
+    /// for that positive case.
     #[test]
     fn the_declared_out_of_scope_misses_stay_missed() {
         // A tail that ends at the `=` with nothing after it: refused
@@ -1170,16 +1332,6 @@ mod tests {
         assert!(
             parsed.flags.iter().all(|f| f.long() != Some("foo")),
             "an empty value spec has no measured reading"
-        );
-        // `ip` writes a bracketed tail, so the grammar records
-        // `ValueKind::Optional` — a value spec a human deliberately typed.
-        let parsed = parse("OPTIONS := { -V[ersion] | -h[uman-readable] | -j[son] }\n");
-        assert!(
-            parsed
-                .flags
-                .iter()
-                .all(|f| f.long() != Some("human-readable")),
-            "ip's bracketed abbreviation is outside a Required-only fingerprint by construction"
         );
         // `sg_emc_trespass` glues the layout's own colon onto the flag, so
         // the tail is `"r:"` and is not an option name.
@@ -1282,5 +1434,127 @@ mod tests {
         // The case the whole-token rule exists for: a lowercase flag
         // letter with a shouting argument glued on.
         assert!(!token_is_uniformly_lowercase("-oOUTFILE"));
+    }
+
+    // --- the anchored value recovery --------------------------------------
+
+    /// `ffplay --help`'s own `Main options:` table, byte-exact from
+    /// `corpus/ffplay/6.1.1/help.txt` — issue #30's primary example. The
+    /// regression this pins: `-help`'s own `topic` value is restored (it
+    /// is swallowed by `try_short` and then cleared by
+    /// `repair_single_dash_long_options`, exactly as that repair's own doc
+    /// comment records), anchored against `-h`/`-?`/`--help`'s already-
+    /// correct `topic`/`Required` and the literal phrase `-help topic` in
+    /// the document. All four rows stay their own entities — recovery
+    /// fixes a value, it does not merge spellings.
+    const FFPLAY_MAIN_OPTIONS: &str = concat!(
+        "Main options:\n",
+        "-L                  show license\n",
+        "-h topic            show help\n",
+        "-? topic            show help\n",
+        "-help topic         show help\n",
+        "--help topic        show help\n",
+        "-version            show version\n",
+    );
+
+    #[test]
+    fn ffplays_help_row_recovers_its_topic_value_without_merging() {
+        let parsed = parse(FFPLAY_MAIN_OPTIONS);
+        // Every one of `-h`, `-?`, `-help`, `--help` is its own entity —
+        // this pass only ever writes a `value_name`/`value_kind` in
+        // place, so the row count `scan_flags_block`/`emit_flags` already
+        // produced (four, one per row) is unchanged.
+        for (name, dashes) in [
+            ("h", Dashes::Single),
+            ("?", Dashes::Single),
+            ("help", Dashes::Single),
+            ("help", Dashes::Double),
+        ] {
+            let flag = parsed
+                .flags
+                .iter()
+                .find(|f| {
+                    f.spellings
+                        == [Spelling {
+                            name: name.to_string(),
+                            dashes,
+                            negatable: false,
+                            abbrev: None,
+                        }]
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "no entity spelled exactly {dashes:?}{name} among {:?}",
+                        parsed
+                            .flags
+                            .iter()
+                            .map(|f| f.spelling())
+                            .collect::<Vec<_>>()
+                    )
+                });
+            assert_eq!(
+                flag.value_name.as_deref(),
+                Some("topic"),
+                "{dashes:?}{name} should carry the recovered value"
+            );
+            assert_eq!(flag.value_kind, ValueKind::Required);
+            assert_eq!(
+                flag.description.as_ref().map(Text::as_str),
+                Some("show help")
+            );
+        }
+        // `-L` and `-version` (different descriptions) must never be
+        // touched — the whole node still reads as six flags.
+        assert_eq!(parsed.flags.len(), 6);
+    }
+
+    /// The negative case: a single-dash entity missing a value stays bare
+    /// when the raw document never actually writes its own spelling
+    /// immediately followed by the value a run-mate established — even
+    /// though that run-mate shares the exact same description. Recovery
+    /// requires *both* halves of the anchor (a run-mate's value **and**
+    /// the literal `<spelling> <value>` phrase in the document); a
+    /// description match alone must never be enough, or this would be the
+    /// same kind of invention `repair_single_dash_long_options`'s own doc
+    /// comment refuses for `qemu-arm64-static`'s `-cpu model`.
+    #[test]
+    fn a_value_is_never_recovered_without_its_own_literal_phrase_in_the_document() {
+        let raw = concat!(
+            "options:\n",
+            "-h val               show help\n",
+            "-help                show help\n",
+            "--help val           show help\n",
+        );
+        let parsed = parse(raw);
+        // `-help` never wrote "val" glued to its own row (only the bare
+        // word "show" follows it, part of the description column), so its
+        // value is never recovered and it stays bare.
+        let bare_help = parsed
+            .flags
+            .iter()
+            .find(|f| f.spellings.len() == 1 && f.spellings[0].name == "help")
+            .unwrap_or_else(|| {
+                panic!(
+                    "no bare single-spelling -help entity in {:?}",
+                    parsed
+                        .flags
+                        .iter()
+                        .map(|f| f.spelling())
+                        .collect::<Vec<_>>()
+                )
+            });
+        assert!(bare_help.single_dash());
+        assert_eq!(bare_help.value_name, None);
+        assert_eq!(bare_help.value_kind, ValueKind::None);
+        assert_eq!(
+            parsed.flags.len(),
+            3,
+            "each row is (and stays) its own entity: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
     }
 }

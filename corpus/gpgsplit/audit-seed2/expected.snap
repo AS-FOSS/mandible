@@ -1,31 +1,36 @@
 name: gpgsplit
 description: 'gpgsplit (GnuPG) 2.4.4 Copyright (C) 2024 g10 Code GmbH License GNU GPL-3.0-or-later <https://gnu.org/licenses/gpl.html> This is free software: you are free to change and redistribute it. There is NO WARRANTY, to the extent permitted by law.'
 flags:
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: verbose
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: prefix
+- spellings:
+  - -p
+  - --prefix
   value_name: STRING
   value_kind: Required
   description: Prepend filenames with STRING
   provenance:
     sources:
     - help-text
-- long: uncompress
+- spellings:
+  - --uncompress
   description: uncompress a packet
   provenance:
     sources:
     - help-text
-- long: secret-to-public
+- spellings:
+  - --secret-to-public
   description: convert secret keys to public keys
   provenance:
     sources:
     - help-text
-- long: no-split
+- spellings:
+  - --no-split
   description: write to stdout and don't actually split
   provenance:
     sources:

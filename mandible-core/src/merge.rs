@@ -232,9 +232,34 @@ pub fn merge_entity_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
 /// (a positional's `pathspec`, a modifier letter, a variable name), that
 /// bare name, which is what the pre-0.5.0 `Positional` merged on. The
 /// description is the last resort for a flag with no spelling at all.
+///
+/// **The long-name key carries the dash count.** `ffplay --help` documents
+/// both `-help` (single-dash long) and `--help` (double-dash long) as
+/// genuinely different spellings of the same word — [`Entity::long`]
+/// reports either one as bare `"help"` (by design: it exists to answer
+/// "what's the long-like name", not "which dashes"), but this key needs
+/// the second question too, or the two collide into one bucket and
+/// [`merge_entity_bucket`]'s short/long reconstruction (still a two-slot
+/// model, pre-dating [`Entity::spellings`]) keeps only whichever dash
+/// count [`Vec::iter`]'s `.any` happens to see last, silently discarding
+/// the other spelling. This is reachable on *every* tool's very first
+/// load, not just a rare cross-tier collision: `Runner::fill_node`'s own
+/// contract ("`existing` is always included as a merge candidate") means
+/// even a single-tier extraction goes through this cross-source path,
+/// pooling `-help` and `--help` from the *same* source into the *same*
+/// call — `Runner::merge_nodes`'s single-candidate short-circuit is the
+/// only thing that ever avoided it, and nothing this deep depends on
+/// candidate count being exactly one.
 fn entity_identity(e: &Entity) -> (EntityKind, String) {
-    let key = match (e.long(), e.short()) {
-        (Some(l), _) => format!("L:{l}"),
+    let key = match (e.long_spelling(), e.short()) {
+        (Some(l), _) => {
+            let dashes = if matches!(l.dashes, Dashes::Double) {
+                "2"
+            } else {
+                "1"
+            };
+            format!("L:{dashes}:{}", l.name)
+        }
         (None, Some(s)) => format!("S:{s}"),
         (None, None) if !e.spellings.is_empty() => format!("N:{}", e.primary_name()),
         (None, None) => format!(
@@ -342,6 +367,7 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
                 Dashes::Double
             },
             negatable,
+            abbrev: None,
         });
     }
     // A dashless spelling — a positional's name, a modifier letter, a
@@ -986,6 +1012,84 @@ mod tests {
         assert_eq!(flags.len(), 1);
         assert_eq!(flags[0].description.as_ref().unwrap().as_str(), "rich");
         assert_eq!(flags[0].short(), Some('i'));
+    }
+
+    /// `entity_identity`'s own regression: `-help` (single-dash long) and
+    /// `--help` (double-dash long) must never collide into one bucket
+    /// merely because [`Entity::long`] reports the bare name `"help"` for
+    /// both.
+    ///
+    /// This is reachable without a second *source* at all — the shape that
+    /// actually dropped `ffplay`'s own `--help` in production. A node's
+    /// flags already contain `-h, --help` (`pair_aliases` folded these
+    /// two, spec §4.4's short+long convention) and a separate `-help`
+    /// (never paired — [`complementary`] refuses a single-dash long as
+    /// either half of a pair). `Runner::fill_node`'s own contract passes
+    /// `existing` as a candidate on *every* call, so this two-candidate
+    /// path runs on a tool's very first load, not only on a genuine
+    /// second source — `merge_nodes`'s single-candidate short-circuit
+    /// (`pair_aliases` only, no cross-source `merge_entity_lists` at all)
+    /// is the only thing that ever avoided it.
+    #[test]
+    fn dash_count_keeps_single_and_double_dash_long_spellings_from_colliding() {
+        fn ffplay_shaped_node() -> CommandNode {
+            let mut n = node_from(Source::HelpText, "ffplay");
+            let mut h_help = Entity::new(
+                crate::entity::EntityKind::Flag,
+                Provenance::single(Source::HelpText),
+            );
+            h_help.spellings = vec![Spelling::short('h'), Spelling::long("help")];
+            h_help.value_name = Some("topic".to_string());
+            h_help.value_kind = ValueKind::Required;
+            h_help.description = Some(Text::sanitize("show help"));
+            n.entities.push(h_help);
+
+            let mut question = Entity::new(
+                crate::entity::EntityKind::Flag,
+                Provenance::single(Source::HelpText),
+            );
+            question.spellings = vec![Spelling::short('?')];
+            question.value_name = Some("topic".to_string());
+            question.value_kind = ValueKind::Required;
+            question.description = Some(Text::sanitize("show help"));
+            n.entities.push(question);
+
+            let mut dash_help = Entity::new(
+                crate::entity::EntityKind::Flag,
+                Provenance::single(Source::HelpText),
+            );
+            dash_help.spellings = vec![Spelling::single_dash("help")];
+            dash_help.value_name = Some("topic".to_string());
+            dash_help.value_kind = ValueKind::Required;
+            dash_help.description = Some(Text::sanitize("show help"));
+            n.entities.push(dash_help);
+            n
+        }
+
+        // Two candidates from the *same* source, the exact shape
+        // `fill_node(tool, path, existing)` produces every time it runs —
+        // `existing` (already correctly built) plus a fresh re-probe.
+        let merged = merge_nodes(vec![ffplay_shaped_node(), ffplay_shaped_node()]).unwrap();
+        let flags: Vec<&Entity> = merged.flags().collect();
+
+        let all_spellings: Vec<String> = flags
+            .iter()
+            .flat_map(|f| f.spellings.iter().map(Spelling::render))
+            .collect();
+        for want in ["-h", "--help", "-?", "-help"] {
+            assert!(
+                all_spellings.iter().any(|s| s == want),
+                "{want} missing from the merged flags: {all_spellings:?}"
+            );
+        }
+        // `-h`/`--help` stay paired; `-?` and `-help` each stay their own
+        // entity — three flags total, none of them missing a spelling.
+        assert_eq!(flags.len(), 3, "{all_spellings:?}");
+        let dash_help = flags
+            .iter()
+            .find(|f| f.spellings == [Spelling::single_dash("help")])
+            .unwrap_or_else(|| panic!("no standalone -help entity: {all_spellings:?}"));
+        assert_eq!(dash_help.value_name.as_deref(), Some("topic"));
     }
 
     /// A positional merges on its name across sources, taking `required`

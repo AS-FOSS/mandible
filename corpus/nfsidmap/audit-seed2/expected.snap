@@ -2,21 +2,25 @@ name: nfsidmap
 usage:
 - 'nfsidmap: Usage: nfsidmap [-vh] [-c || [-u|-g|-r key] || -d || -l || [-t timeout] key desc]'
 flags:
-- short: 'v'
+- spellings:
+  - -v
   value_name: h
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'c'
+- spellings:
+  - -c
   provenance:
     sources:
     - help-text-synopsis
-- short: 'd'
+- spellings:
+  - -d
   provenance:
     sources:
     - help-text-synopsis
-- short: 'l'
+- spellings:
+  - -l
   provenance:
     sources:
     - help-text-synopsis
