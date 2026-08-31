@@ -6,35 +6,35 @@ flags:
 - spellings:
   - --color
   group: 'Color Options:'
-  description: '- Use colors in output (default=autodetect)'
+  description: Use colors in output (default=autodetect)
   provenance:
     sources:
     - help-text
 - spellings:
   - --help
   group: 'Generic Options:'
-  description: '- Display available options (--help-hidden for more)'
+  description: Display available options (--help-hidden for more)
   provenance:
     sources:
     - help-text
 - spellings:
   - --help-list
   group: 'Generic Options:'
-  description: '- Display list of available options (--help-list-hidden for more)'
+  description: Display list of available options (--help-list-hidden for more)
   provenance:
     sources:
     - help-text
 - spellings:
   - --version
   group: 'Generic Options:'
-  description: '- Display the version of this program'
+  description: Display the version of this program
   provenance:
     sources:
     - help-text
 - spellings:
   - -b
   group: 'Modextract Options:'
-  description: '- Whether to perform binary extraction'
+  description: Whether to perform binary extraction
   provenance:
     sources:
     - help-text
@@ -43,7 +43,7 @@ flags:
   value_name: <index>
   value_kind: Required
   group: 'Modextract Options:'
-  description: '- Index of module to extract'
+  description: Index of module to extract
   provenance:
     sources:
     - help-text
@@ -52,7 +52,7 @@ flags:
   value_name: <filename>
   value_kind: Required
   group: 'Modextract Options:'
-  description: '- Output filename'
+  description: Output filename
   provenance:
     sources:
     - help-text

@@ -591,14 +591,13 @@ pub(super) fn argfile_row_value_name(trimmed: &str) -> Option<&str> {
 /// "spec" slot (never fed to [`super::super::grammar::parse_flag_spec`] —
 /// [`super::emit::emit_argfile_flag`] builds the sigil [`mandible_core::Entity`]
 /// directly instead) and whatever the row's own column gap (or lack of
-/// one) supplies as the description, kept verbatim — `ar`'s own leading
-/// `"- "` (`"- read options from <file>"`) is the tool's own text, not
-/// punctuation this function strips.
+/// one) supplies as the description, through the same
+/// [`super::entry::split_at_column`] every other row uses — so `ar`'s
+/// ` - ` column separator (`@<file>      - read options from <file>`) is
+/// stripped here exactly as it is from `--thin` and `--target` in the
+/// same table, never left on one row and removed from the next.
 pub(super) fn argfile_flag_entry(line: &str, value_name: &str) -> FlagRowEntry {
-    let desc = match find_description_gap(line) {
-        Some(col) if col < line.len() => line[col..].trim_start().to_string(),
-        _ => String::new(),
-    };
+    let (_, desc) = super::entry::split_at_column(line, find_description_gap(line));
     (value_name.to_string(), desc, Vec::new())
 }
 
@@ -1762,16 +1761,17 @@ Options:
             output.description.as_ref().map(|t| t.as_str()),
             Some("specify the output directory for extraction operations")
         );
-        // Neighbouring rows in the same block (`--record-libdeps`, which
-        // already worked via `find_placeholder_boundary_gap`'s `<text>`
-        // bracket) must be untouched — that fallback's own convention
-        // keeps the tool's leading `- ` verbatim (unlike this fallback's
-        // `strip_dash_token_separator`), exactly as the `@<file>` row's
-        // own description does.
+        // A neighbouring row in the same block whose column was found
+        // another way (`--record-libdeps`, via `find_placeholder_boundary_gap`'s
+        // `<text>` bracket) reads the same: `ar` writes ` - ` on every row
+        // of this table, and the separator is stripped whichever finder
+        // located the column — never left on one row and removed from the
+        // next. (§3.4 plant: gate the strip in `split_at_column` back to
+        // the dash-token path alone and this goes red on the leading `- `.)
         let record_libdeps = flag_named(&parsed, "record-libdeps");
         assert_eq!(
             record_libdeps.description.as_ref().map(|t| t.as_str()),
-            Some("- specify the dependencies of this library")
+            Some("specify the dependencies of this library")
         );
     }
 
@@ -1867,7 +1867,7 @@ Options:
         );
         assert_eq!(
             format.description.as_ref().map(|t| t.as_str()),
-            Some("- archive format to create"),
+            Some("archive format to create"),
             "the =value sub-rows must not remain in the description: {:?}",
             format.description
         );

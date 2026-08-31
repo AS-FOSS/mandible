@@ -2184,9 +2184,11 @@ sigil flag (§4.5's own paragraph) rather than being left unemitted — the
 row previously ended a flags block cleanly (avoiding the corruption its
 own presence used to cause) but produced no entity at all — containment
 without rendering is an unfinished fix, not a solved one. The row's
-own description survives verbatim, including a leading `"- "` some tools
-print (`ar`'s `"- read options from <file>"`) — that punctuation is the
-tool's own text, not separator syntax this recognizer strips.
+description is split from its spec by the same column rule as every
+other row in its table, so a lone `-` token opening the description side
+(`ar`'s ` - ` column separator, written on every row of its tables) is
+stripped here as it is from `--thin` and `--target=BFDNAME` beside it —
+one table renders one way, whichever finder located each row's column.
 
 **The "operations" heading.** `llvm-ar --help` documents its single-letter
 operations under an `OPERATIONS:` heading — the same shape as its own

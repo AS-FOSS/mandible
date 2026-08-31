@@ -8,7 +8,7 @@ flags:
   value_name: <file>
   value_kind: Required
   group: 'generic modifiers:'
-  description: '- read options from <file>'
+  description: read options from <file>
   provenance:
     sources:
     - help-text
@@ -35,14 +35,14 @@ flags:
   value_name: <text>
   value_kind: Required
   group: 'generic modifiers:'
-  description: '- specify the dependencies of this library'
+  description: specify the dependencies of this library
   provenance:
     sources:
     - help-text
 - spellings:
   - --thin
   group: 'generic modifiers:'
-  description: '- make a thin archive'
+  description: make a thin archive
   provenance:
     sources:
     - help-text
@@ -51,7 +51,7 @@ flags:
   value_name: <p>
   value_kind: Required
   group: 'optional:'
-  description: '- load the specified plugin'
+  description: load the specified plugin
   provenance:
     sources:
     - help-text
@@ -172,56 +172,56 @@ provenance:
 children_filled: true
 subcommands:
 - name: d
-  summary: '- delete file(s) from the archive'
+  summary: delete file(s) from the archive
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: m
-  summary: '- move file(s) in the archive'
+  summary: move file(s) in the archive
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: p
-  summary: '- print file(s) found in the archive'
+  summary: print file(s) found in the archive
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: q
-  summary: '- quick append file(s) to the archive'
+  summary: quick append file(s) to the archive
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: r
-  summary: '- replace existing or insert new file(s) into the archive'
+  summary: replace existing or insert new file(s) into the archive
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: s
-  summary: '- act as ranlib'
+  summary: act as ranlib
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: t
-  summary: '- display contents of the archive'
+  summary: display contents of the archive
   group: 'commands:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: x
-  summary: '- extract file(s) from the archive'
+  summary: extract file(s) from the archive
   group: 'commands:'
   provenance:
     sources:

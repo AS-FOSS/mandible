@@ -597,18 +597,15 @@ pub(super) fn strip_equals_separator(desc: &str) -> &str {
 /// [`find_sentence_start_gap`] today.
 ///
 /// **Deliberately not folded into [`find_description_gap`]'s own chain.**
-/// That chain's column is used unconditionally by every caller, and this
-/// fallback's own [`strip_dash_token_separator`] must run only when *this*
-/// finder is the one that supplied the gap — never when
-/// [`find_multi_space_gap`] already found a real column and the
-/// description on the far side of it simply begins with a literal `-` as
-/// the tool's own text (`ar`'s own `@<file>      - read options from
-/// <file>` is exactly that: the multi-space gap lands before the `-`,
-/// which stays part of the description verbatim, spec §4.5 and §7).
-/// Conflating the two stripped that literal dash from an unrelated,
-/// already-correct row the first time this was tried — see
-/// [`super::spelling::split_single_column_entry`]'s own call site, which
-/// tries this only after [`find_description_gap`] itself returns `None`.
+/// That chain is consulted by callers that must not admit a `-` token as
+/// a column at all (a bare-word block's `-` is data), so this finder is
+/// tried out of band, only once [`find_description_gap`] has found nothing
+/// — see [`super::spelling::split_single_column_entry`]'s call site. The
+/// separator it leaves attached to the description is stripped by
+/// [`split_at_column`] itself, the same way for every finder: `ar`'s
+/// aligned `--thin       - make a thin archive` and its overrun
+/// `--target=BFDNAME - specify …` are rows of one table and render the
+/// same, dash gone from both.
 pub(super) fn find_dash_token_separator_gap(line: &str) -> Option<usize> {
     if !line.trim_start().starts_with('-') {
         return None;
@@ -837,7 +834,17 @@ pub(super) fn split_at_column(line: &str, col: Option<usize>) -> (&str, String) 
     match col {
         Some(col) if col < line.len() => {
             let spec = line[..col].trim_end();
-            let desc = line[col..].trim_start().to_string();
+            // A lone `-` token opening the description side is the table's
+            // own column separator, whichever finder located the column:
+            // `ar` writes ` - ` on every row of its tables, and the rows
+            // whose names overrun the column (`--target=BFDNAME - specify
+            // …`) reach the same `- ` through `find_dash_token_separator_gap`
+            // while the aligned ones (`--thin       - make a thin archive`)
+            // reach it through `find_multi_space_gap`. One table, one rule —
+            // stripping it only on the fallback path rendered `--target`
+            // without the dash and `--thin` with it, side by side. See
+            // `strip_dash_token_separator` for what does and does not count.
+            let desc = strip_dash_token_separator(line[col..].trim_start()).to_string();
             (spec, desc)
         }
         _ => (line.trim(), String::new()),
@@ -1315,7 +1322,9 @@ mod tests {
     /// `--enable-gvn-hoist ... - Enable the GVN hoisting pass (default =
     /// off)`. A huge aligned gap, then a ` - ` dash separator; the `=`
     /// inside `(default = off)` is deep in the description and must not
-    /// move the cut.
+    /// move the cut. The ` - ` itself is LLVM's column separator, written
+    /// on every row of its tables, and is stripped by `split_at_column`
+    /// like `ar`'s — the description is the sentence, not the furniture.
     #[test]
     fn equals_signs_after_a_dash_separator_are_left_in_the_description() {
         let help = "Options:\n  \
@@ -1324,7 +1333,7 @@ mod tests {
         let flag = flag_named(&parsed, "enable-gvn-hoist");
         assert_eq!(
             flag.description.as_ref().map(|d| d.as_str()),
-            Some("- Enable the GVN hoisting pass (default = off)")
+            Some("Enable the GVN hoisting pass (default = off)")
         );
     }
 

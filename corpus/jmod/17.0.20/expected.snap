@@ -170,35 +170,35 @@ provenance:
 children_filled: true
 subcommands:
 - name: create
-  summary: '- Creates a new jmod archive'
+  summary: Creates a new jmod archive
   group: 'Main operation modes:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: extract
-  summary: '- Extracts all the files from the archive'
+  summary: Extracts all the files from the archive
   group: 'Main operation modes:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: list
-  summary: '- Prints the names of all the entries'
+  summary: Prints the names of all the entries
   group: 'Main operation modes:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: describe
-  summary: '- Prints the module details'
+  summary: Prints the module details
   group: 'Main operation modes:'
   provenance:
     sources:
     - help-text
   heading_attested: true
 - name: hash
-  summary: '- Records hashes of tied modules.'
+  summary: Records hashes of tied modules.
   group: 'Main operation modes:'
   provenance:
     sources:
