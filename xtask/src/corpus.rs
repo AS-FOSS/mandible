@@ -1164,23 +1164,51 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 /// `must_contain_flags_by_path`/`must_not_contain_flags` spec (the last
 /// one negated by its caller, so that a positive and a negative claim can
 /// never disagree about what a spelling *means*): `--long-name` matches
-/// [`mandible_core::Entity::long`], `-x` matches [`mandible_core::Entity::short`],
-/// anything else is matched against `long` verbatim. Only ever checks the
-/// one node it's given, never recursing into its subcommands itself —
+/// any [`mandible_core::Spelling`] with two dashes and that name, `-x`
+/// matches any single-dash, single-character spelling, anything else is
+/// matched against every spelling's bare name verbatim. Only ever checks
+/// the one node it's given, never recursing into its subcommands itself —
 /// `must_contain_flags` calls this with the fixture's root (what a tool
 /// *publishes at its root*, spec's git example: `--paginate`, `--git-dir`);
 /// `must_contain_flags_by_path` calls it with whatever node
 /// [`find_node_by_path`] resolved.
+///
+/// **Every spelling, not just `Entity::short`/`Entity::long`.** Those two
+/// accessors return one canonical short and one canonical long-like
+/// spelling each — correct for rendering a shell-typed form, wrong here:
+/// `fold_adjacent_alias_rows` (spec §7's adjacency fold) can put more than
+/// one short spelling on a single entity (`ffplay`'s own `-h, -?, -help,
+/// --help`), and `Entity::short` only ever returns the first of them. A
+/// contract asserting `-?` is present must still find it once `-h` has
+/// claimed that slot.
 fn flag_present(node: &CommandNode, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
-        node.flags().any(|f| f.long() == Some(long))
+        // Long-*like*, matching `Entity::long`'s own shape rule exactly
+        // (never narrowed to `Dashes::Double` alone): two dashes, or one
+        // dash with more than one character — a single-dash long option
+        // (`ptargrep`'s own `-message`, `Dashes::Single`, four letters)
+        // must still satisfy a `--message` contract entry the way
+        // `Entity::long()` always considered it to.
+        node.flags().any(|f| {
+            f.spellings.iter().any(|s| {
+                (matches!(s.dashes, Dashes::Double)
+                    || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1))
+                    && s.name == long
+            })
+        })
     } else if let Some(short) = spec.strip_prefix('-') {
-        short
-            .chars()
-            .next()
-            .is_some_and(|c| node.flags().any(|f| f.short() == Some(c)))
+        short.chars().next().is_some_and(|c| {
+            node.flags().any(|f| {
+                f.spellings.iter().any(|s| {
+                    matches!(s.dashes, Dashes::Single)
+                        && s.name.chars().count() == 1
+                        && s.name.starts_with(c)
+                })
+            })
+        })
     } else {
-        node.flags().any(|f| f.long() == Some(spec))
+        node.flags()
+            .any(|f| f.spellings.iter().any(|s| s.name == spec))
     }
 }
 

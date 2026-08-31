@@ -621,6 +621,282 @@ pub(super) fn token_is_uniformly_lowercase(token: &str) -> bool {
     !token.chars().any(|c| c.is_ascii_uppercase())
 }
 
+/// Fold a run of *adjacent* option-table rows into one multi-spelling
+/// entity when each row names exactly one spelling and the rows document,
+/// word for word, the same thing under different names — spec §7's row
+/// grammar gains this as the adjacency fold.
+///
+/// # The defect
+///
+/// `ffplay --help`'s `Main options:` table writes help itself under four
+/// separate physical rows:
+///
+/// ```text
+/// -h topic            show help
+/// -? topic            show help
+/// -help topic         show help
+/// --help topic        show help
+/// ```
+///
+/// Before [`mandible_core::Entity::spellings`] could hold more than two
+/// spellings, nothing could recover all four under one entity; even now,
+/// nothing folds them at all — [`fields_in_line`]'s alias fold only
+/// widens *one physical line* carrying several bare cells under a shared
+/// description, and [`crate::merge::pair_aliases`] (a different module,
+/// a different job — cross-*source* short/long pairing, spec §4.4)
+/// refuses a single-dash long option as either half of its two-way pair on
+/// purpose (the `lto-dump` incident its own doc comment records). None of
+/// that machinery is wrong to refuse this shape; nothing existed to *do*
+/// it.
+///
+/// # The rule
+///
+/// Two adjacent rows fold into one entity only when **all** of these hold:
+///
+/// 1. both are option-table rows (never a synopsis-mined flag,
+///    [`Source::HelpTextSynopsis`] never [`Source::HelpText`] alone);
+/// 2. both name **exactly one** spelling apiece — an entity a row already
+///    spelled with several aliases (`-A, --catenate`) is complete on its
+///    own and never a fold *input*;
+/// 3. both carry the same [`mandible_core::Entity::group`] (so a table
+///    boundary — ffplay's own `AVCodecContext AVOptions:` block starting
+///    right after `Main options:` ends — can never be crossed even if two
+///    unrelated rows happen to repeat the same description); and
+/// 4. description **and** `value_name` **and** `value_kind` are identical,
+///    word for word; and
+/// 5. a run may claim **at most one distinct long-like name** —
+///    [`long_like_name`]'s own doc comment has the regression this
+///    condition exists to refuse (`dbiprof`'s `-match`/`-exclude`,
+///    `dpkg`'s `--configure`/`--triggers-only`: two different long
+///    options, one boilerplate description, no relation to each other).
+///
+/// Condition 4 is deliberately strict and *never* relaxed to "close
+/// enough" — `xxd`'s two `-r` rows and `du`'s bare `--time` beside its
+/// valued `--time=WORD` share a description each but disagree on shape,
+/// and folding either pair would be exactly the false merge spec §7's row
+/// grammar exists to refuse (see the block comment above
+/// `extract_usage_flags`'s caller in this module's parent for `du`'s and
+/// `ex`'s own regression history).
+///
+/// # Restoring `-help`'s own value first
+///
+/// Condition 4 would never admit `-help` on its own: [`try_short`] reads
+/// it as `-h` plus the glued value `"elp"`, [`repair_single_dash_long_options`]
+/// (correctly) rewrites that into the single-dash spelling `-help`, and —
+/// documented there as a deliberate, measured limitation — clears the
+/// value entirely rather than inventing one, because by the time that
+/// repair runs the row's real, *separately spaced* value (`"topic"`) was
+/// already dropped by the grammar. That limitation is correct and stays:
+/// changing it would reopen a decision measured across 132 tools and
+/// 8,784 flags (`qemu-arm64-static`'s own `-cpu model` is the same shape,
+/// and *its* `"model"` truly has no anchor — nothing else in that table
+/// documents `"model"` as a value).
+///
+/// `-help`'s row is different only in that this run **already contains
+/// the answer**: `-h`, `-?` and `--help` all recovered `value_name:
+/// "topic"`, `value_kind: Required` cleanly, from the *same* description.
+/// So before the strict fold runs, each single-dash entity in the run
+/// still missing a value is checked against its run-mates' shared value:
+/// if the raw document literally contains `<this row's own spelling> "
+/// "<that value>` as a delimited phrase — the exact column shape `-h
+/// topic`/`-? topic`/`--help topic` already establish — the value is
+/// restored from that anchor, never invented from whitespace alone. A row
+/// with no such anchor (or whose run-mates disagree on the value) is left
+/// exactly as [`repair_single_dash_long_options`] made it, and condition 4
+/// then correctly refuses to fold it.
+pub(super) fn fold_adjacent_alias_rows(flags: Vec<Entity>, raw: &str) -> Vec<Entity> {
+    fn eligible(f: &Entity) -> bool {
+        f.spellings.len() == 1
+            && f.description.is_some()
+            && f.provenance.sources.contains(&Source::HelpText)
+            && !f.provenance.sources.contains(&Source::HelpTextSynopsis)
+    }
+
+    // Step 1: chain adjacent, eligible rows that share a description and a
+    // table (`group`) into runs. Every run is non-empty; a row that broke
+    // the chain (ineligible, or a new description/group) always starts a
+    // fresh one, so no row is ever dropped here — only regrouped.
+    let mut runs: Vec<Vec<Entity>> = Vec::new();
+    for flag in flags {
+        let joins_previous = eligible(&flag)
+            && runs.last().and_then(|run| run.last()).is_some_and(|last| {
+                eligible(last) && last.description == flag.description && last.group == flag.group
+            });
+        if joins_previous {
+            runs.last_mut().expect("just checked non-empty").push(flag);
+        } else {
+            runs.push(vec![flag]);
+        }
+    }
+
+    // Step 2: fold each run (restoring an anchored value first), and
+    // flatten the result back into one list in document order.
+    let mut result = Vec::new();
+    for run in runs {
+        result.extend(fold_run(run, raw));
+    }
+    result
+}
+
+/// One [`fold_adjacent_alias_rows`] run: same description, same table,
+/// each row one spelling. Recovers an anchored value (see that function's
+/// doc comment), then folds the maximal adjacent sub-runs that now truly
+/// agree on `value_name` and `value_kind` — never the whole run blindly,
+/// so a row the recovery step could not anchor stays its own entity
+/// exactly as it already was.
+fn fold_run(mut run: Vec<Entity>, raw: &str) -> Vec<Entity> {
+    if run.len() < 2 {
+        return run;
+    }
+
+    // The value this run's own well-parsed rows already agree the shared
+    // description takes, if any — the anchor every recovery below is
+    // checked against, never a value invented from the candidate row
+    // alone.
+    let anchor = run
+        .iter()
+        .find(|f| f.value_kind != ValueKind::None && f.value_name.is_some())
+        .map(|f| {
+            (
+                f.value_name.clone().expect("checked Some above"),
+                f.value_kind,
+            )
+        });
+
+    if let Some((value, kind)) = anchor {
+        for f in run.iter_mut() {
+            if f.value_kind == ValueKind::None
+                && f.value_name.is_none()
+                && f.single_dash()
+                && f.spellings.len() == 1
+            {
+                let phrase = format!("{} {value}", f.spellings[0].typed());
+                if token_occurs_glued(raw, &phrase) {
+                    f.value_name = Some(value.clone());
+                    f.value_kind = kind;
+                }
+            }
+        }
+    }
+
+    let mut out = Vec::with_capacity(run.len());
+    let mut i = 0;
+    while i < run.len() {
+        let mut j = i + 1;
+        // The one long-like name (if any) already claimed by the subrun
+        // growing from `i` — see `long_like_name`'s doc comment for why a
+        // second, *different* long-like name ends the subrun even when
+        // `value_name`/`value_kind` still agree.
+        let mut long_name = long_like_name(&run[i]);
+        // Every spelling already claimed by the subrun — `ffplay --help`'s
+        // own AVOptions dump repeats several options (`-raw_packet_size`,
+        // `-gateway`, `-keep_ass_markup`) verbatim across more than one
+        // demuxer/decoder's identical block, so an *exact* duplicate row
+        // can otherwise satisfy every condition above. That is not a
+        // second spelling of the option — it is the same spelling
+        // documented twice — and folding it in would produce an entity
+        // whose own `spellings` repeats one name, which is worse than the
+        // pre-existing duplicate rows this fold must leave untouched
+        // (out of scope for this fix; not an information loss either way).
+        let mut seen: Vec<(&str, Dashes)> = vec![(
+            run[i].spellings[0].name.as_str(),
+            run[i].spellings[0].dashes,
+        )];
+        while j < run.len()
+            && run[j].value_name == run[i].value_name
+            && run[j].value_kind == run[i].value_kind
+        {
+            let candidate_spelling = (
+                run[j].spellings[0].name.as_str(),
+                run[j].spellings[0].dashes,
+            );
+            if seen.contains(&candidate_spelling) {
+                break;
+            }
+            match (long_name, long_like_name(&run[j])) {
+                (Some(a), Some(b)) if a != b => break,
+                (None, Some(b)) => long_name = Some(b),
+                _ => {}
+            }
+            seen.push(candidate_spelling);
+            j += 1;
+        }
+        if j - i >= 2 {
+            out.push(merge_alias_run(&run[i..j]));
+        } else {
+            out.push(run[i].clone());
+        }
+        i = j;
+    }
+    out
+}
+
+/// The bare name of `e`'s one spelling, but only when that spelling is
+/// long-*like* (two dashes, or one dash with more than one character —
+/// the same shape [`mandible_core::Entity::long`] recognizes): `Some("help")`
+/// for both `-help` and `--help`, `None` for `-h` or `-?`.
+///
+/// # Why [`fold_run`] refuses two different long-like names in one run
+///
+/// `description`/`value_name`/`value_kind` agreeing is not, on its own,
+/// evidence that two rows spell the *same* option — a short letter is
+/// cheap enough that tools genuinely offer more than one mnemonic for one
+/// flag (`-h`/`-?` both meaning "help" is the specimen this fold exists
+/// for), but a long *word* is a real name, and two different words never
+/// name the same option merely because their rows happen to share
+/// boilerplate. `dbiprof --help`'s own `-match=K=V`/`-exclude=K=V`
+/// (`corpus/dbiprof/1.643`) share the description `"for filtering, see
+/// docs"` and the identical `K=V`/`Required` value shape and are two
+/// completely different flags; `dpkg --help`'s own `--configure`/
+/// `--triggers-only` (`corpus/dpkg/1.22.6`) share `"<package>... |
+/// -a|--pending"` the same way. Both regressed this fold on first
+/// implementation before this check existed. Requiring at most one
+/// distinct long-like name per fold is exactly [`crate::merge::
+/// pair_aliases`]'s own `complementary` rule read the other way round:
+/// that function refuses to pair two long-like spellings *at all*; this
+/// one admits it, but only when they are the same word under a different
+/// dash count (`-help`/`--help`) — never two different words.
+fn long_like_name(e: &Entity) -> Option<&str> {
+    e.spellings.first().and_then(|s| {
+        (matches!(s.dashes, Dashes::Double)
+            || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1))
+            .then_some(s.name.as_str())
+    })
+}
+
+/// Merge a run already proven to satisfy [`fold_adjacent_alias_rows`]'s
+/// strict gate into one entity: every spelling, in document order, on the
+/// first row's other fields — mirroring [`crate::merge::pair_aliases`]'s
+/// own `absorb_pair` field-by-field policy (union where a field can
+/// legitimately carry more than one value, first-wins where it can't).
+fn merge_alias_run(run: &[Entity]) -> Entity {
+    let mut merged = run[0].clone();
+    merged.spellings = run
+        .iter()
+        .flat_map(|e| e.spellings.iter().cloned())
+        .collect();
+    for other in &run[1..] {
+        for choice in &other.choices {
+            if !merged.choices.contains(choice) {
+                merged.choices.push(choice.clone());
+            }
+        }
+        merged.repeatable |= other.repeatable;
+        merged.required |= other.required;
+        merged.hidden &= other.hidden;
+        merged.inherited |= other.inherited;
+        merged.default = merged.default.clone().or_else(|| other.default.clone());
+        merged.env_var = merged.env_var.clone().or_else(|| other.env_var.clone());
+        for reference in &other.see_also {
+            if !merged.see_also.contains(reference) {
+                merged.see_also.push(reference.clone());
+            }
+        }
+        merged.provenance.absorb(&other.provenance);
+    }
+    merged
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1283,5 +1559,99 @@ mod tests {
         // The case the whole-token rule exists for: a lowercase flag
         // letter with a shouting argument glued on.
         assert!(!token_is_uniformly_lowercase("-oOUTFILE"));
+    }
+
+    // --- the adjacency fold ----------------------------------------------
+
+    /// `ffplay --help`'s own `Main options:` table, byte-exact from
+    /// `corpus/ffplay/6.1.1/help.txt` — issue #30's primary example. The
+    /// regression this pins: all four rows must land on one entity, in
+    /// document order, with `-help`'s own `topic` value restored (it is
+    /// swallowed by `try_short` and then cleared by
+    /// `repair_single_dash_long_options`, exactly as that repair's own doc
+    /// comment records — see `fold_run`'s anchored-recovery step).
+    const FFPLAY_MAIN_OPTIONS: &str = concat!(
+        "Main options:\n",
+        "-L                  show license\n",
+        "-h topic            show help\n",
+        "-? topic            show help\n",
+        "-help topic         show help\n",
+        "--help topic        show help\n",
+        "-version            show version\n",
+    );
+
+    #[test]
+    fn ffplays_four_help_rows_fold_into_one_entity_in_document_order() {
+        let parsed = parse(FFPLAY_MAIN_OPTIONS);
+        let help = flag_named(&parsed, "help");
+        assert_eq!(
+            help.spellings
+                .iter()
+                .map(Spelling::render)
+                .collect::<Vec<_>>(),
+            vec!["-h", "-?", "-help", "--help"],
+            "all four spellings, in the document's own order"
+        );
+        assert_eq!(help.value_name.as_deref(), Some("topic"));
+        assert_eq!(help.value_kind, ValueKind::Required);
+        assert_eq!(
+            help.description.as_ref().map(Text::as_str),
+            Some("show help")
+        );
+        // `-L` and `-version` (different descriptions) must never be
+        // swept into the fold — the whole node still reads as three
+        // flags, not one.
+        assert_eq!(parsed.flags.len(), 3);
+    }
+
+    /// `dbiprof`'s own `-match=K=V`/`-exclude=K=V` (`corpus/dbiprof/
+    /// 1.643/help.txt`): two different long options sharing a boilerplate
+    /// description and an identical value shape. The strict gate's
+    /// description/value match alone would fold them; `long_like_name`'s
+    /// distinct-long-name check is what refuses to.
+    #[test]
+    fn two_different_long_options_sharing_a_description_never_fold() {
+        let raw = concat!(
+            "options:\n",
+            "    -match=K=V       for filtering, see docs\n",
+            "    -exclude=K=V     for filtering, see docs\n",
+        );
+        let parsed = parse(raw);
+        assert_eq!(parsed.flags.len(), 2, "-match and -exclude stay separate");
+        assert!(flag_named(&parsed, "match").spellings.len() == 1);
+        assert!(flag_named(&parsed, "exclude").spellings.len() == 1);
+    }
+
+    /// `dpkg`'s own `--configure`/`--triggers-only` (`corpus/dpkg/
+    /// 1.22.6/help.txt`): the same false-merge shape as `dbiprof`, but
+    /// with both dashes and a bare (no-value) row, pinned separately
+    /// because it is the specimen that first caught the regression.
+    #[test]
+    fn dpkgs_configure_and_triggers_only_never_fold() {
+        let raw = concat!(
+            "Commands:\n",
+            "  --configure       <package>... | -a|--pending\n",
+            "  --triggers-only   <package>... | -a|--pending\n",
+        );
+        let parsed = parse(raw);
+        assert_eq!(parsed.flags.len(), 2);
+    }
+
+    /// A run may repeat one spelling verbatim (`ffplay --help`'s AVOptions
+    /// dump documents `-raw_packet_size` under more than one demuxer with
+    /// byte-identical text) without the fold gluing the duplicate onto an
+    /// entity's own `spellings` list — see `fold_run`'s `seen` guard.
+    #[test]
+    fn an_exact_duplicate_row_is_never_folded_into_a_repeated_spelling() {
+        let raw = concat!(
+            "options:\n",
+            "  -raw_packet_size  (from 1 to INT_MAX) (default 1024)\n",
+            "  -raw_packet_size  (from 1 to INT_MAX) (default 1024)\n",
+        );
+        let parsed = parse(raw);
+        assert_eq!(parsed.flags.len(), 2, "the duplicate rows stay separate");
+        for flag in &parsed.flags {
+            assert_eq!(flag.spellings.len(), 1);
+        }
     }
 }

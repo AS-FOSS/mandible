@@ -1661,6 +1661,32 @@ The generic fallback parser (step 2) is built with `winnow`:
   duplicate-`-r` row with no dedup rule, once the one-letter-only model
   that could recognize `-r[esolve]` but not the two-letter `-rc[vbuf]`
   was generalized to any prefix length.
+- **The adjacency fold.** issue #30's own primary example, `ffplay --help`'s
+  `Main options:` table, documents help under four separate physical rows
+  (`-h topic`, `-? topic`, `-help topic`, `--help topic`, one spelling per
+  row) rather than one row naming all four — the emission-side fix above
+  only recovers every alias a *single* row already lists, and nothing read
+  several adjacent rows as one entity. `fold_adjacent_alias_rows`
+  (`mandible-extract/src/help_text/sections/repair.rs`) now folds a run of
+  such rows into one multi-spelling entity, gated strictly: every row in
+  the run must be option-table-sourced, name exactly one spelling, share
+  the same `group` (table) and, after an anchored recovery pass restores a
+  swallowed single-dash-long value from its run-mates' own agreement (see
+  the function's doc comment — never invented, only recovered from a value
+  another row in the same run already established and the raw document
+  still names glued to this row's own spelling), description, `value_name`
+  and `value_kind` must be identical, word for word. A run may also claim
+  at most one distinct long-*like* name: a short letter is cheap enough
+  that a tool may offer more than one mnemonic for one flag (`-h`/`-?`),
+  but two different long *words* sharing a description are never assumed
+  to be the same option merely because their rows repeat boilerplate text
+  — `dbiprof`'s own `-match=K=V`/`-exclude=K=V` and `dpkg`'s own
+  `--configure`/`--triggers-only` are two real, separate options each,
+  caught as regressions during this fold's own development and now pinned
+  as tests. `du`'s bare `--time` beside its valued `--time=WORD`, and vim
+  `ex`'s two differently-described `-r` rows, fail the `value_kind`/
+  description conditions respectively and stay unfolded, exactly as
+  before.
 - **The existence oracle learned the three synopsis-entry shapes the three
   fixes above taught the parser** (fix/oracle-unlabeled-synopsis). A
   measurement fix, not a parser fix: `xtask/src/existence.rs`'s
