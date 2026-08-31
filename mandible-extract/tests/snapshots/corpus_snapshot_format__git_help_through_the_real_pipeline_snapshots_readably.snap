@@ -16,89 +16,107 @@ positionals:
       sources:
         - help-text
 flags:
-  - short: v
-    long: version
+  - spellings:
+      - "-v"
+      - "--version"
     provenance:
       sources:
         - help-text-synopsis
-  - short: h
-    long: help
+  - spellings:
+      - "-h"
+      - "--help"
     provenance:
       sources:
         - help-text-synopsis
-  - short: C
+  - spellings:
+      - "-C"
     value_name: "<path>"
     value_kind: Required
     provenance:
       sources:
         - help-text-synopsis
-  - short: c
+  - spellings:
+      - "-c"
     value_name: "<name>"
     value_kind: Required
     provenance:
       sources:
         - help-text-synopsis
-  - long: exec-path
+  - spellings:
+      - "--exec-path"
     value_name: "<path>"
     value_kind: Optional
     provenance:
       sources:
         - help-text-synopsis
-  - long: html-path
+  - spellings:
+      - "--html-path"
     provenance:
       sources:
         - help-text-synopsis
-  - long: man-path
+  - spellings:
+      - "--man-path"
     provenance:
       sources:
         - help-text-synopsis
-  - long: info-path
+  - spellings:
+      - "--info-path"
     provenance:
       sources:
         - help-text-synopsis
-  - short: p
+  - spellings:
+      - "-p"
     provenance:
       sources:
         - help-text-synopsis
-  - long: paginate
+  - spellings:
+      - "--paginate"
     provenance:
       sources:
         - help-text-synopsis
-  - short: P
+  - spellings:
+      - "-P"
     provenance:
       sources:
         - help-text-synopsis
-  - long: no-pager
+  - spellings:
+      - "--no-pager"
     provenance:
       sources:
         - help-text-synopsis
-  - long: no-replace-objects
+  - spellings:
+      - "--no-replace-objects"
     provenance:
       sources:
         - help-text-synopsis
-  - long: bare
+  - spellings:
+      - "--bare"
     provenance:
       sources:
         - help-text-synopsis
-  - long: git-dir
+  - spellings:
+      - "--git-dir"
     value_name: "<path>"
     value_kind: Required
     provenance:
       sources:
         - help-text-synopsis
-  - long: work-tree
+  - spellings:
+      - "--work-tree"
     value_name: "<path>"
     value_kind: Required
     provenance:
       sources:
         - help-text-synopsis
-  - long: namespace
+  - spellings:
+      - "--namespace"
     value_name: "<name>"
     value_kind: Required
     provenance:
       sources:
         - help-text-synopsis
-  - long: config-env
+  - spellings:
+      - "--config-env"
     value_name: "<name>"
     value_kind: Required
     provenance:

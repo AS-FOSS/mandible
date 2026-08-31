@@ -56,7 +56,7 @@
 //! shared runner having a bad afternoon.
 
 use crate::coverage::ScoreFormat;
-use mandible_core::{CommandNode, Entity, Provenance, Source, Text};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source, Spelling, Text};
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
@@ -1600,10 +1600,13 @@ fn collect_subcommand_paths(node: &CommandNode, prefix: &str, out: &mut BTreeSet
 /// error.
 #[derive(Debug, Clone, Default, Deserialize)]
 struct SnapFlag {
+    /// Every rendered spelling, in document order — `expected.snap`'s
+    /// `spellings` key, exactly as [`mandible_core::FlagSnapshot`] writes
+    /// it. Parsed back into [`Spelling`]s by [`parse_rendered_spelling`]
+    /// so [`collect_flag_names`] can read `short()`/`long()` off the
+    /// reconstructed entity the same way it reads them off a fresh one.
     #[serde(default)]
-    short: Option<char>,
-    #[serde(default)]
-    long: Option<String>,
+    spellings: Vec<String>,
     /// Needed for nothing this module names directly, but
     /// [`crate::status::compute`]'s `pct_flags_with_text` (and therefore the
     /// `low-confidence` vs `ok` status boundary) reads it — omitting it
@@ -1651,13 +1654,8 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
         n.flags
             .iter()
             .map(|f| {
-                let mut flag = Entity::flag_spelled(
-                    f.short,
-                    f.long.clone(),
-                    false,
-                    false,
-                    Provenance::single(Source::HelpText),
-                );
+                let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+                flag.spellings = f.spellings.iter().map(|s| parse_rendered_spelling(s)).collect();
                 flag.description = f.description.as_deref().map(Text::sanitize);
                 flag
             })
@@ -1665,6 +1663,33 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
     );
     node.subcommands = n.subcommands.iter().map(snap_to_command_node).collect();
     node
+}
+
+/// Parse one of [`FlagSnapshot`](mandible_core::FlagSnapshot)'s rendered
+/// `spellings` entries (`"-i"`, `"--interactive"`, `"--[no-]color"`,
+/// `"-help"`) back into a [`Spelling`], the inverse of
+/// [`Spelling::render`]. Good enough for [`snap_to_command_node`]'s
+/// purpose — reconstructing an entity whose `short()`/`long()` accessors
+/// agree with what a fresh extraction would produce — not a general
+/// parser: a name that itself began with a literal `-` would round-trip
+/// wrong, and no real flag spelling does.
+fn parse_rendered_spelling(rendered: &str) -> Spelling {
+    let (dashes, rest) = if let Some(r) = rendered.strip_prefix("--") {
+        (Dashes::Double, r)
+    } else if let Some(r) = rendered.strip_prefix('-') {
+        (Dashes::Single, r)
+    } else {
+        (Dashes::None, rendered)
+    };
+    let (negatable, name) = match rest.strip_prefix("[no-]") {
+        Some(base) => (true, base),
+        None => (false, rest),
+    };
+    Spelling {
+        name: name.to_string(),
+        dashes,
+        negatable,
+    }
 }
 
 /// Read and convert a fixture's `expected.snap` into a [`TreeSummary`],

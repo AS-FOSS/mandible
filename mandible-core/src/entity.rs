@@ -13,12 +13,14 @@
 //! Migration is staged (spec §4.5). All four stages are complete: a node
 //! carries one [`CommandNode::entities`] vector (`CommandNode::flags()`,
 //! `CommandNode::positionals()`, `CommandNode::modifiers()` and
-//! `CommandNode::env_vars()` filter it by kind), and the pre-0.5.0 `Flag`
-//! and `Positional` survive only as this
-//! module's test-local parity references, against which
-//! [`Entity::spelling`], [`Entity::key`], [`Entity::primary_name`] and the
-//! `short`/`long`/`negatable`/`single_dash` accessors are pinned — corpus
-//! snapshots stay byte-identical across the migration.
+//! `CommandNode::env_vars()` filter it by kind). The pre-0.5.0 `Flag` and
+//! `Positional` types are gone entirely — including from this module's
+//! tests — now that [`crate::FlagSnapshot`] itself writes the honest
+//! 0.5.0 shape, one `spellings` key holding every rendered [`Spelling`] in
+//! document order, in place of the old frozen `short`/`long`/`negatable`/
+//! `single_dash` keys. [`Entity::spelling`], [`Entity::key`] and the
+//! spelling accessors are pinned by direct tests against literal expected
+//! strings/keys instead.
 //!
 //! [`CommandNode::entities`]: crate::CommandNode::entities
 
@@ -451,301 +453,229 @@ impl Entity {
     }
 }
 
-/// The pre-0.5.0 `Flag`, kept **only** as this module's parity reference.
-///
-/// It is not the IR any more — `CommandNode::flags` is `Vec<Entity>` and no
-/// crate outside these tests can name this type. It survives because the
-/// migration's success condition is behavioural, not structural: every
-/// corpus snapshot stays byte-identical, which is a claim about
-/// [`Entity::spelling`], [`Entity::key`] and the `short`/`long`/`negatable`/
-/// `single_dash` accessors reproducing what this struct's methods produced.
-/// Deleting it would delete the only independent statement of what they are
-/// supposed to agree with, leaving the tests asserting `Entity` equals
-/// itself.
-#[cfg(test)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Flag {
-    pub short: Option<char>,
-    pub long: Option<String>,
-    pub value_name: Option<String>,
-    pub value_kind: ValueKind,
-    pub choices: Vec<Text>,
-    pub repeatable: bool,
-    pub required: bool,
-    pub negatable: bool,
-    pub single_dash: bool,
-    pub hidden: bool,
-    pub deprecated: Option<Text>,
-    pub inherited: bool,
-    pub group: Option<String>,
-    pub description: Option<Text>,
-    pub default: Option<Text>,
-    pub env_var: Option<String>,
-    pub provenance: Provenance,
-}
-
-#[cfg(test)]
-impl Flag {
-    /// A minimal flag with only a long spelling.
-    pub fn long(name: impl Into<String>, provenance: Provenance) -> Flag {
-        Flag {
-            short: None,
-            long: Some(name.into()),
-            value_name: None,
-            value_kind: ValueKind::None,
-            choices: Vec::new(),
-            repeatable: false,
-            required: false,
-            negatable: false,
-            single_dash: false,
-            hidden: false,
-            deprecated: None,
-            inherited: false,
-            group: None,
-            description: None,
-            default: None,
-            env_var: None,
-            provenance,
-        }
-    }
-
-    /// The pre-0.5.0 identity key: prefer the long name, fall back to the
-    /// short letter.
-    pub fn key(&self) -> Option<crate::noderef::FlagKey> {
-        if let Some(long) = &self.long {
-            Some(crate::noderef::FlagKey::Long(long.clone()))
-        } else {
-            self.short.map(crate::noderef::FlagKey::Short)
-        }
-    }
-
-    /// The pre-0.5.0 display spelling, e.g. `"-i, --interactive"`.
-    pub fn spelling(&self) -> String {
-        let mut parts = Vec::new();
-        if let Some(s) = self.short {
-            parts.push(format!("-{s}"));
-        }
-        if let Some(l) = &self.long {
-            let dashes = if self.single_dash { "-" } else { "--" };
-            if self.negatable {
-                parts.push(format!("{dashes}[no-]{l}"));
-            } else {
-                parts.push(format!("{dashes}{l}"));
-            }
-        }
-        let mut spelling = parts.join(", ");
-        if let Some(name) = &self.value_name {
-            match self.value_kind {
-                ValueKind::Required => spelling.push_str(&format!(" {name}")),
-                ValueKind::Optional => spelling.push_str(&format!("[={name}]")),
-                ValueKind::None => {}
-            }
-        }
-        spelling
-    }
-}
-
-#[cfg(test)]
-impl From<Flag> for Entity {
-    /// Lossless conversion from the pre-0.5.0 `Flag`, preserving the
-    /// short-then-long spelling order `Flag::spelling` rendered.
-    fn from(f: Flag) -> Entity {
-        let mut spellings = Vec::new();
-        if let Some(c) = f.short {
-            spellings.push(Spelling::short(c));
-        }
-        if let Some(l) = f.long {
-            spellings.push(Spelling {
-                name: l,
-                dashes: if f.single_dash {
-                    Dashes::Single
-                } else {
-                    Dashes::Double
-                },
-                negatable: f.negatable,
-            });
-        }
-        Entity {
-            kind: EntityKind::Flag,
-            spellings,
-            value_name: f.value_name,
-            value_kind: f.value_kind,
-            choices: f.choices,
-            repeatable: f.repeatable,
-            required: f.required,
-            hidden: f.hidden,
-            deprecated: f.deprecated,
-            inherited: f.inherited,
-            group: f.group,
-            description: f.description,
-            default: f.default,
-            see_also: Vec::new(),
-            env_var: f.env_var,
-            provenance: f.provenance,
-        }
-    }
-}
-
-/// The pre-0.5.0 `Positional`, kept **only** as this module's parity
-/// reference, for the same reason as [`Flag`] above: it is the independent
-/// statement of what an `EntityKind::Positional` entity has to reproduce.
-/// Its four data fields are exactly the four keys
-/// [`crate::PositionalSnapshot`] writes, and the migration's success
-/// condition is that they keep coming out the same.
-#[cfg(test)]
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Positional {
-    pub name: String,
-    pub required: bool,
-    pub variadic: bool,
-    pub description: Option<Text>,
-    pub provenance: Provenance,
-}
-
-#[cfg(test)]
-impl Positional {
-    /// A minimal positional: named, optional, not variadic, undescribed.
-    pub fn new(name: impl Into<String>, provenance: Provenance) -> Positional {
-        Positional {
-            name: name.into(),
-            required: false,
-            variadic: false,
-            description: None,
-            provenance,
-        }
-    }
-}
-
-#[cfg(test)]
-impl From<Positional> for Entity {
-    /// Lossless conversion from the pre-0.5.0 `Positional`. The name
-    /// becomes the one dashless spelling, and `variadic` becomes
-    /// [`Entity::repeatable`] — the two notations (`<file>...` and a flag
-    /// given twice) for one fact.
-    fn from(p: Positional) -> Entity {
-        let mut e = Entity::positional(p.name, p.provenance);
-        e.required = p.required;
-        e.repeatable = p.variadic;
-        e.description = p.description;
-        e
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::noderef::FlagKey;
     use crate::provenance::Provenance;
 
-    fn flag(short: Option<char>, long: Option<&str>) -> Flag {
-        let mut f = Flag::long("x", Provenance::default());
-        f.short = short;
-        f.long = long.map(str::to_string);
-        f
+    /// One documented flag shape and the literal strings/values it must
+    /// produce — the same shape matrix the pre-0.5.0 `Flag` parity tests
+    /// covered, restated as direct `Entity` construction against literal
+    /// expected output rather than a second type built to agree with the
+    /// first. Nothing here is self-referential: every `expected*` field is
+    /// a literal, never another `Entity` method's return value.
+    struct Case {
+        spellings: Vec<Spelling>,
+        expected_spelling: &'static str,
+        expected_key: Option<FlagKey>,
+        expected_short: Option<char>,
+        expected_long: Option<&'static str>,
+        expected_negatable: bool,
+        expected_single_dash: bool,
     }
 
-    #[test]
-    fn conversion_preserves_display_spelling() {
-        for f in parity_cases() {
-            let expected = f.spelling();
-            let entity = Entity::from(f);
-            assert_eq!(entity.spelling(), expected);
-        }
-    }
-
-    #[test]
-    fn conversion_preserves_identity_key() {
-        for f in parity_cases() {
-            let expected = f.key();
-            let entity = Entity::from(f);
-            assert_eq!(entity.key(), expected);
-        }
+    fn entity_flag(spellings: Vec<Spelling>) -> Entity {
+        let mut e = Entity::new(EntityKind::Flag, Provenance::default());
+        e.spellings = spellings;
+        e
     }
 
     /// Every flag shape the corpus actually contains, plus the degenerate
-    /// and single-dash cases it does not, as one shared matrix. The
-    /// accessor-parity test below is the load-bearing one: `snapshot.rs`,
-    /// `merge.rs` and every xtask detector now read `short()`/`long()`/
-    /// `negatable()`/`single_dash()` where they used to read `Flag`'s
-    /// fields, so those four functions are precisely what stands between
-    /// the migration and a moved snapshot.
-    fn parity_cases() -> Vec<Flag> {
-        let mut cases = vec![
-            flag(Some('i'), Some("interactive")),
-            flag(None, Some("color")),
-            flag(Some('?'), None),
-            flag(None, None),
-        ];
-
-        let mut negatable = flag(None, Some("staged"));
-        negatable.negatable = true;
-        cases.push(negatable);
-
-        let mut negatable_pair = flag(Some('S'), Some("staged"));
-        negatable_pair.negatable = true;
-        cases.push(negatable_pair);
-
-        let mut vv = flag(None, Some("vv"));
-        vv.single_dash = true;
-        cases.push(vv);
-
-        let mut help = flag(None, Some("help"));
-        help.single_dash = true;
-        cases.push(help);
-
-        let mut valued = flag(Some('o'), Some("output"));
-        valued.value_name = Some("FILE".into());
-        valued.value_kind = ValueKind::Required;
-        cases.push(valued);
-
-        let mut optional = flag(None, Some("color"));
-        optional.value_name = Some("WHEN".into());
-        optional.value_kind = ValueKind::Optional;
-        cases.push(optional);
-
-        cases
+    /// and single-dash cases it does not, as one shared matrix.
+    fn cases() -> Vec<Case> {
+        vec![
+            Case {
+                spellings: vec![Spelling::short('i'), Spelling::long("interactive")],
+                expected_spelling: "-i, --interactive",
+                expected_key: Some(FlagKey::Long("interactive".into())),
+                expected_short: Some('i'),
+                expected_long: Some("interactive"),
+                expected_negatable: false,
+                expected_single_dash: false,
+            },
+            Case {
+                spellings: vec![Spelling::long("color")],
+                expected_spelling: "--color",
+                expected_key: Some(FlagKey::Long("color".into())),
+                expected_short: None,
+                expected_long: Some("color"),
+                expected_negatable: false,
+                expected_single_dash: false,
+            },
+            Case {
+                spellings: vec![Spelling::short('?')],
+                expected_spelling: "-?",
+                expected_key: Some(FlagKey::Short('?')),
+                expected_short: Some('?'),
+                expected_long: None,
+                expected_negatable: false,
+                expected_single_dash: false,
+            },
+            Case {
+                spellings: vec![],
+                expected_spelling: "",
+                expected_key: None,
+                expected_short: None,
+                expected_long: None,
+                expected_negatable: false,
+                expected_single_dash: false,
+            },
+            Case {
+                spellings: vec![Spelling {
+                    name: "staged".into(),
+                    dashes: Dashes::Double,
+                    negatable: true,
+                }],
+                expected_spelling: "--[no-]staged",
+                expected_key: Some(FlagKey::Long("staged".into())),
+                expected_short: None,
+                expected_long: Some("staged"),
+                expected_negatable: true,
+                expected_single_dash: false,
+            },
+            Case {
+                spellings: vec![
+                    Spelling::short('S'),
+                    Spelling {
+                        name: "staged".into(),
+                        dashes: Dashes::Double,
+                        negatable: true,
+                    },
+                ],
+                expected_spelling: "-S, --[no-]staged",
+                expected_key: Some(FlagKey::Long("staged".into())),
+                expected_short: Some('S'),
+                expected_long: Some("staged"),
+                expected_negatable: true,
+                expected_single_dash: false,
+            },
+            Case {
+                spellings: vec![Spelling::single_dash("vv")],
+                expected_spelling: "-vv",
+                expected_key: Some(FlagKey::Long("vv".into())),
+                expected_short: None,
+                expected_long: Some("vv"),
+                expected_negatable: false,
+                expected_single_dash: true,
+            },
+            Case {
+                spellings: vec![Spelling::single_dash("help")],
+                expected_spelling: "-help",
+                expected_key: Some(FlagKey::Long("help".into())),
+                expected_short: None,
+                expected_long: Some("help"),
+                expected_negatable: false,
+                expected_single_dash: true,
+            },
+        ]
     }
 
-    /// The four spelling accessors reproduce the `Flag` fields they
-    /// replaced, for every shape in the matrix.
-    ///
-    /// This is what makes `FlagSnapshot`'s `short`/`long`/`negatable`/
-    /// `single_dash` keys serialize byte-identically after the migration:
-    /// the snapshot no longer has stored fields to copy, it asks the
-    /// entity, so a disagreement here is a moved corpus fixture.
     #[test]
-    fn accessors_reproduce_the_flag_fields_they_replaced() {
-        for f in parity_cases() {
-            let expected = (f.short, f.long.clone(), f.negatable, f.single_dash);
-            let e = Entity::from(f.clone());
+    fn spelling_matches_the_literal_expected_string() {
+        for c in cases() {
+            let e = entity_flag(c.spellings.clone());
+            assert_eq!(e.spelling(), c.expected_spelling);
+        }
+    }
+
+    #[test]
+    fn key_matches_the_literal_expected_key() {
+        for c in cases() {
+            let e = entity_flag(c.spellings.clone());
+            assert_eq!(e.key(), c.expected_key);
+        }
+    }
+
+    /// The four spelling accessors match their literal expected values for
+    /// every shape in the matrix. This is what makes `FlagSnapshot`'s
+    /// `spellings` key serialize correctly: the snapshot renders each
+    /// [`Spelling`] directly, and a disagreement here is a moved corpus
+    /// fixture.
+    #[test]
+    fn accessors_match_the_literal_expected_fields() {
+        for c in cases() {
+            let e = entity_flag(c.spellings.clone());
             assert_eq!(
-                (
-                    e.short(),
-                    e.long().map(str::to_string),
-                    e.negatable(),
-                    e.single_dash()
-                ),
-                expected,
-                "accessor parity failed for {}",
-                f.spelling()
+                e.short(),
+                c.expected_short,
+                "short() for {}",
+                c.expected_spelling
+            );
+            assert_eq!(
+                e.long(),
+                c.expected_long,
+                "long() for {}",
+                c.expected_spelling
+            );
+            assert_eq!(
+                e.negatable(),
+                c.expected_negatable,
+                "negatable() for {}",
+                c.expected_spelling
+            );
+            assert_eq!(
+                e.single_dash(),
+                c.expected_single_dash,
+                "single_dash() for {}",
+                c.expected_spelling
             );
         }
     }
 
-    /// `matches_key` addresses the same entities `Flag::matches_key` did —
-    /// both spellings, whichever one `key()` considers canonical.
+    /// `flag_spelled` — the two-slot adapter every non-multi-spelling tier
+    /// emits through — reproduces the same literal shapes.
+    #[test]
+    fn flag_spelled_matches_literal_shapes() {
+        let e = Entity::flag_spelled(
+            Some('i'),
+            Some("interactive".into()),
+            false,
+            false,
+            Provenance::default(),
+        );
+        assert_eq!(e.spelling(), "-i, --interactive");
+        assert_eq!(e.key(), Some(FlagKey::Long("interactive".into())));
+
+        let e = Entity::flag_spelled(
+            None,
+            Some("help".into()),
+            true,
+            false,
+            Provenance::default(),
+        );
+        assert_eq!(e.spelling(), "-help");
+        assert!(e.single_dash());
+
+        let e = Entity::flag_spelled(
+            Some('S'),
+            Some("staged".into()),
+            false,
+            true,
+            Provenance::default(),
+        );
+        assert_eq!(e.spelling(), "-S, --[no-]staged");
+    }
+
+    #[test]
+    fn env_var_is_stored_verbatim_on_the_flag() {
+        let mut e = Entity::flag_long("color", Provenance::default());
+        e.env_var = Some("CLICOLOR".into());
+        assert_eq!(e.env_var.as_deref(), Some("CLICOLOR"));
+    }
+
+    /// `matches_key` addresses an entity by either spelling, whichever one
+    /// `key()` considers canonical.
     #[test]
     fn matches_key_addresses_both_spellings() {
-        let e = Entity::from(flag(Some('i'), Some("interactive")));
+        let e = entity_flag(vec![Spelling::short('i'), Spelling::long("interactive")]);
         assert!(e.matches_key(&FlagKey::Short('i')));
         assert!(e.matches_key(&FlagKey::Long("interactive".into())));
         assert!(!e.matches_key(&FlagKey::Short('x')));
         assert!(!e.matches_key(&FlagKey::Long("other".into())));
 
         // A single-dash long is addressed by its long key, not as a short.
-        let mut vv = flag(None, Some("vv"));
-        vv.single_dash = true;
-        let e = Entity::from(vv);
+        let e = entity_flag(vec![Spelling::single_dash("vv")]);
         assert!(e.matches_key(&FlagKey::Long("vv".into())));
         assert!(!e.matches_key(&FlagKey::Short('v')));
     }
@@ -780,38 +710,6 @@ mod tests {
         assert_eq!(e.long(), Some("vv"));
         assert!(e.single_dash());
         assert_eq!(e.spelling(), "-v, -vv");
-    }
-
-    /// `flag_spelled` is the adapter every tier now emits through, so it
-    /// has to agree with the conversion the parity tests measure against
-    /// for every shape in the matrix.
-    #[test]
-    fn flag_spelled_agrees_with_the_flag_conversion() {
-        for f in parity_cases() {
-            let mut built = Entity::flag_spelled(
-                f.short,
-                f.long.clone(),
-                f.single_dash,
-                f.negatable,
-                f.provenance.clone(),
-            );
-            // `flag_spelled` decides spellings only; the value fields are
-            // the caller's, so carry them over before comparing the
-            // rendered form.
-            built.value_name = f.value_name.clone();
-            built.value_kind = f.value_kind;
-            let converted = Entity::from(f);
-            assert_eq!(built.spellings, converted.spellings);
-            assert_eq!(built.spelling(), converted.spelling());
-            assert_eq!(built.key(), converted.key());
-        }
-    }
-
-    #[test]
-    fn env_var_survives_conversion() {
-        let mut f = flag(None, Some("color"));
-        f.env_var = Some("CLICOLOR".into());
-        assert_eq!(Entity::from(f).env_var.as_deref(), Some("CLICOLOR"));
     }
 
     #[test]
@@ -906,82 +804,62 @@ mod tests {
     }
 
     /// Every positional shape the corpus contains: plain, required,
-    /// variadic, described, and the combinations.
-    pub(super) fn positional_parity_cases() -> Vec<Positional> {
-        let mut cases = vec![Positional::new("pathspec", Provenance::default())];
+    /// variadic, described, and the combinations — built directly as
+    /// `Entity`, asserted against literal expected values rather than a
+    /// second type built to agree with `Entity`.
+    #[test]
+    fn positional_accessors_match_the_literal_expected_fields() {
+        let plain = Entity::positional("pathspec", Provenance::default());
+        assert_eq!(plain.primary_name(), "pathspec");
+        assert!(!plain.required);
+        assert!(!plain.repeatable);
+        assert_eq!(plain.description, None);
 
-        let mut required = Positional::new("FILE", Provenance::default());
+        let mut required = Entity::positional("FILE", Provenance::default());
         required.required = true;
-        cases.push(required);
+        assert_eq!(required.primary_name(), "FILE");
+        assert!(required.required);
+        assert!(!required.repeatable);
 
-        let mut variadic = Positional::new("args", Provenance::default());
-        variadic.variadic = true;
-        cases.push(variadic);
+        let mut variadic = Entity::positional("args", Provenance::default());
+        variadic.repeatable = true;
+        assert_eq!(variadic.primary_name(), "args");
+        assert!(!variadic.required);
+        assert!(variadic.repeatable);
 
-        let mut both = Positional::new("path", Provenance::default());
+        let mut both = Entity::positional("path", Provenance::default());
         both.required = true;
-        both.variadic = true;
+        both.repeatable = true;
         both.description = Some(Text::sanitize("one or more paths to add"));
-        cases.push(both);
-
-        cases
+        assert_eq!(both.primary_name(), "path");
+        assert!(both.required);
+        assert!(both.repeatable);
+        assert_eq!(
+            both.description.as_ref().map(Text::as_str),
+            Some("one or more paths to add")
+        );
     }
 
-    /// The four fields `PositionalSnapshot` writes come back off the
-    /// entity: the name off `primary_name()`, `variadic` off
-    /// `repeatable`, and `required`/`description` unchanged.
-    ///
-    /// This is the positional half of what keeps the corpus fixtures
-    /// byte-identical — the snapshot no longer has a `Positional` to copy
-    /// from, it asks the entity, so a disagreement here is a moved
-    /// fixture.
+    /// `PositionalSnapshot::from` reads the four keys a corpus fixture is
+    /// written in straight off the entity, against literal expected
+    /// values.
     #[test]
-    fn positional_accessors_reproduce_the_fields_they_replaced() {
-        for p in positional_parity_cases() {
-            let expected = (
-                p.name.clone(),
-                p.required,
-                p.variadic,
-                p.description.clone(),
-            );
-            let e = Entity::from(p.clone());
-            assert_eq!(
-                (
-                    e.primary_name().to_string(),
-                    e.required,
-                    e.repeatable,
-                    e.description.clone()
-                ),
-                expected,
-                "positional parity failed for {}",
-                p.name
-            );
-        }
-    }
+    fn positional_snapshot_matches_literal_expected_fields() {
+        use crate::snapshot::PositionalSnapshot;
 
-    /// The frozen `PositionalSnapshot` a corpus fixture is written in comes
-    /// out of the entity exactly as it came out of the pre-0.5.0
-    /// `Positional`. The expected value is that type's own conversion,
-    /// written out here rather than derived from the entity, so the two
-    /// paths stay independent statements of the same layout.
-    #[test]
-    fn positional_snapshot_matches_the_pre_0_5_0_type() {
-        use crate::snapshot::{PositionalSnapshot, ProvenanceSnapshot};
-        for p in positional_parity_cases() {
-            let expected = PositionalSnapshot {
-                name: p.name.clone(),
-                required: p.required,
-                variadic: p.variadic,
-                description: p.description.as_ref().map(|t| t.as_str().to_string()),
-                provenance: ProvenanceSnapshot::from(&p.provenance),
-            };
-            assert_eq!(
-                PositionalSnapshot::from(&Entity::from(p.clone())),
-                expected,
-                "snapshot parity failed for {}",
-                p.name
-            );
-        }
+        let mut both = Entity::positional("path", Provenance::default());
+        both.required = true;
+        both.repeatable = true;
+        both.description = Some(Text::sanitize("one or more paths to add"));
+
+        let snap = PositionalSnapshot::from(&both);
+        assert_eq!(snap.name, "path");
+        assert!(snap.required);
+        assert!(snap.variadic);
+        assert_eq!(
+            snap.description.as_deref(),
+            Some("one or more paths to add")
+        );
     }
 
     /// A modifier is one dashless *letter*: it renders bare, carries no
