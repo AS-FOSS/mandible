@@ -126,6 +126,52 @@ impl Spelling {
     }
 }
 
+/// One enumerated value an [`Entity`] may take, e.g. one row of ffmpeg's
+/// AVOption sub-table under `-flags`:
+///
+/// ```text
+/// -flags             <flags>      ED.VAS..... (default 0)
+///      unaligned                    .D.V....... allow decoders to produce unaligned output
+/// ```
+///
+/// Most tools document choices as a bare list of names with no per-value
+/// explanation (`tar --quoting-style`'s `literal`/`shell`/`c`/...) — those
+/// carry `description: None`. A tool whose choice rows carry their own text
+/// (ffmpeg's AVOption constants, `tar --format`'s `FORMAT is one of the
+/// following:` enum) keeps it here rather than smeared into the owning
+/// entity's own `description` (spec §7 Tier B rule 4, §9.3's `values:`
+/// line). `description` is `Text` because it originates in the tool's own
+/// help output and must pass through the same sanitization boundary as any
+/// other prose the IR carries (spec §4.1) — `name` stays a bare `String`,
+/// the same choice `Spelling::name` makes for an identifier that is
+/// searched and compared rather than displayed as prose.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Choice {
+    /// The enumerated value's own name, e.g. `"unaligned"`, `"gnu"`.
+    pub name: String,
+    /// The value's own documentation, when the tool writes one per choice.
+    /// `None` for the common bare-list case.
+    pub description: Option<Text>,
+}
+
+impl Choice {
+    /// A choice with no documented description — the common case.
+    pub fn bare(name: impl Into<String>) -> Choice {
+        Choice {
+            name: name.into(),
+            description: None,
+        }
+    }
+
+    /// A choice whose own row carries a description.
+    pub fn described(name: impl Into<String>, description: Text) -> Choice {
+        Choice {
+            name: name.into(),
+            description: Some(description),
+        }
+    }
+}
+
 /// Which kind of documented item an [`Entity`] is. Decides which detail
 /// pane section it renders under (spec §9.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -161,8 +207,10 @@ pub struct Entity {
     /// Whether this entity takes no value, a required one, or an optional
     /// one.
     pub value_kind: ValueKind,
-    /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`.
-    pub choices: Vec<Text>,
+    /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`. Each
+    /// [`Choice`] carries its own description when the tool documents one
+    /// per value (spec §7 Tier B rule 4, §9.3).
+    pub choices: Vec<Choice>,
     /// True if this entity may be given more than once: a flag the tool
     /// accepts repeatedly (`-v -v -v`), and a positional written with an
     /// ellipsis (`<pathspec>...`) — the pre-0.5.0 `Positional::variadic`.
@@ -570,7 +618,14 @@ impl From<Flag> for Entity {
             spellings,
             value_name: f.value_name,
             value_kind: f.value_kind,
-            choices: f.choices,
+            // The pre-0.5.0 `Flag` never had per-choice descriptions, so
+            // every converted choice is bare — the lossless direction for
+            // this one-way parity conversion.
+            choices: f
+                .choices
+                .into_iter()
+                .map(|t| Choice::bare(t.as_str()))
+                .collect(),
             repeatable: f.repeatable,
             required: f.required,
             hidden: f.hidden,

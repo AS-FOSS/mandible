@@ -20,7 +20,7 @@ mod provenance;
 mod snapshot;
 mod text;
 
-pub use entity::{Dashes, Entity, EntityKind, Spelling};
+pub use entity::{Choice, Dashes, Entity, EntityKind, Spelling};
 pub use merge::{
     merge_entity_lists, merge_nodes, merge_subcommand_lists, pair_aliases, MergeError,
 };
@@ -28,7 +28,7 @@ pub use node::{is_command_name_shaped, CommandNode, Confession, Example, ValueKi
 pub use noderef::{resolve, resolve_flag, resolve_mut, FlagKey, NodeRef};
 pub use provenance::{Authority, Axis, ManFormat, Provenance, Source};
 pub use snapshot::{
-    to_snapshot, ConfessionSnapshot, EnvVarSnapshot, ExampleSnapshot, FlagSnapshot,
+    to_snapshot, ChoiceSnapshot, ConfessionSnapshot, EnvVarSnapshot, ExampleSnapshot, FlagSnapshot,
     ModifierSnapshot, NodeSnapshot, PositionalSnapshot, ProvenanceSnapshot,
 };
 pub use text::{strip_escapes, Text, MAX_TEXT_CHARS};

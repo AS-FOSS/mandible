@@ -434,7 +434,7 @@ impl Vocabulary {
             // *consumed* — counting those rows as residue would report
             // the rule working as if it had failed.
             for choice in &entity.choices {
-                self.names.insert(choice.as_str().to_string());
+                self.names.insert(choice.name.clone());
             }
         }
         for child in &node.subcommands {
@@ -1059,7 +1059,7 @@ mod tests {
         let mut f = flag(None, Some("quoting-style"));
         f.choices = ["literal", "shell", "c"]
             .iter()
-            .map(|c| mandible_core::Text::sanitize(c))
+            .map(|c| mandible_core::Choice::bare(*c))
             .collect();
         root.entities.push(f);
         assert_eq!(analyze(raw, &root).unaccounted, 0);

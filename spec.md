@@ -291,7 +291,7 @@ pub struct Entity {
     pub spellings: Vec<Spelling>,
     pub value_name: Option<String>,
     pub value_kind: ValueKind,
-    pub choices: Vec<Text>,
+    pub choices: Vec<Choice>,
     pub description: Option<Text>,
     pub group: Option<String>,
     pub see_also: Vec<Text>,
@@ -307,6 +307,15 @@ pub struct Entity {
 }
 
 pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
+
+/// One enumerated value an entity may take. `name` is a bare identifier —
+/// searched and compared, the same convention `Spelling::name` follows —
+/// and never carries the tool's scope-flag decoration. `description` is
+/// `Text`, sanitized through the same §4.1 boundary as every other string
+/// the IR carries from tool output; it is `None` for the common bare-list
+/// case (`tar --quoting-style`'s `literal`/`shell`/`c`/...) and `Some` when
+/// the tool documents one per value (ffmpeg/ffplay's AVOption constants).
+pub struct Choice { pub name: String, pub description: Option<Text> }
 ```
 
 `short()`, `long()`, `negatable()` and `single_dash()` are **derived from
@@ -456,7 +465,11 @@ Each of the three is handed one already-line-split string at a time: a
 raw-help line, one logical usage entry (whose wrapped continuations Tier
 B's parser has already joined), or one line of the unparsed document.
 Everything else that feeds the IR — descriptions above all — goes through
-`Text::sanitize`. The rule that decides between them is ownership of the
+`Text::sanitize`. This includes a `Choice`'s own `description` (§4.5): a
+per-value explanation is exactly as external as the entity's own
+description, and passes the same boundary — there is no second, laxer path
+for text that happens to arrive nested one level deeper in the document.
+The rule that decides between them is ownership of the
 layout, never the field: mandible sets prose, the author sets everything
 shown as drawn. The two constructors are verified apart: diffing the raw
 pane against independently captured `--help` output for `du` (column
@@ -1773,7 +1786,39 @@ The generic fallback parser (step 2) is built with `winnow`:
      whitespace. *"treat them as errors"* fails; `commit` passes.
   4. An indented list nested under a flag is that flag's **`choices`**, not
      subcommands — `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum
-     values, and the IR already has a field for them.
+     values, and the IR already has a field for them. A per-value
+     description, when the source documents one, is kept rather than
+     dropped: `tar`'s own `FORMAT is one of the following:` and
+     `VERSION_CONTROL` enums name each value's meaning
+     (`gnu   GNU tar 1.13.x format`), and that text belongs on the value it
+     describes, never discarded.
+  5. **A row strictly deeper-indented than a flag row directly under it,
+     whose name column is a bare, dashless word** (`is_command_name_shaped`
+     — internal `-`/`_`/digits allowed, no leading dash, no leading digit),
+     **separated from the rest of the row by a genuine aligned column gap**
+     (two or more spaces, or a tab — never a single space, which is
+     ordinary prose wrapping, not a table), attaches to that flag's
+     `choices` as one **described** value: the name becomes `Choice::name`,
+     everything from the gap to the end of the line becomes
+     `Choice::description`, verbatim. ffmpeg/ffplay's AVOption sub-table is
+     the source of this rule:
+
+     ```text
+     -flags             <flags>      ED.VAS..... (default 0)
+          unaligned                    .D.V....... allow decoders to produce unaligned output
+          gray                         ED.V....... only decode/encode grayscale
+     ```
+
+     The scope-flag columns (`ED.VAS.....`) and any numeric value column
+     (`-strict`'s `very  2  ED.VA...... ...`) are the tool's own text and
+     stay inside the description unparsed — mandible does not model what
+     the columns mean. Distinct from rule 4's plain bare-word block (no
+     gap, no per-row description — the whole block is one flat name list)
+     and from an ordinary wrapped-description continuation line (single-
+     spaced prose, no aligned column): both keep folding into the owning
+     entity's own `description` exactly as before. A flag whose choices are
+     already populated by other means, and whose immediately-following
+     block also looks like this shape, is not resolved by this recognizer.
 - **Confidence must fall when the grammar is guessing.** The same bug was
   reported as `ok` at `100% described`, because invented nodes inflate the
   metric rather than depressing it. Any block that yields names failing rule 3,
@@ -2692,6 +2737,19 @@ Rules:
   in the section's derived-metadata style** — never folded into the
   description text or the spelling column, both of which stay verbatim
   (`tar --format` carries a `FORMAT` placeholder and `choices` together).
+  **A choice's own description, when the tool documents one per value**
+  (ffmpeg/ffplay's AVOption constants — `-flags`' `unaligned`, `gray`, ...,
+  each with its own scope-flags-and-explanation text), renders one further
+  indent past the `values:` line, one `name  description` row per choice,
+  in the same derived-metadata style as the bare case — never the single
+  comma-joined line, which would just relocate the smear rather than fix
+  it. A flag whose choices all lack a per-value description keeps the
+  single-line `values: a, b, c` summary; the two shapes are decided per
+  flag, by whether any choice carries a description, and a flag may mix
+  described and undescribed choices in the same list (`-bug`'s `autodetect`
+  has none of the others' text). ffmpeg's own scope-flag columns
+  (`ED.VAS.....`) are the tool's text, kept verbatim inside the
+  description — mandible parses no meaning out of them.
 - **Capped shared column, per section.** Every list section (POSITIONALS,
   FLAGS, MODIFIERS, ENVIRONMENT) computes its own column, fitted to
   roughly the p90 row width — the majority, not the outliers — measured

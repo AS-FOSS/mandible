@@ -74,7 +74,7 @@
 //! strip — elapsed time lives on `mandible-extract::ExtractionResult`, one
 //! layer above the IR this module snapshots, so it never reaches here.
 
-use crate::entity::Entity;
+use crate::entity::{Choice, Entity};
 use crate::node::{CommandNode, Example, ValueKind};
 use crate::provenance::{Provenance, Source};
 use serde::Serialize;
@@ -140,6 +140,39 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
+/// Snapshot form of one [`Choice`] — `#[serde(untagged)]` so the near-
+/// universal bare case (no per-value description) writes as a plain YAML
+/// string, exactly as the pre-choice-description `Vec<String>` shape did,
+/// and only a tool that documents per-choice text (ffmpeg's AVOption
+/// constants) pays for the `name`/`description` mapping shape. Keeps 105
+/// fixtures' bare `choices: [a, b, c]` lists byte-identical while still
+/// letting a described list read cleanly.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum ChoiceSnapshot {
+    /// A choice with no documented description — the common case.
+    Bare(String),
+    /// A choice whose own row carries a description.
+    Described {
+        /// The choice's own name.
+        name: String,
+        /// The choice's own documentation.
+        description: String,
+    },
+}
+
+impl From<&Choice> for ChoiceSnapshot {
+    fn from(c: &Choice) -> Self {
+        match &c.description {
+            Some(d) => ChoiceSnapshot::Described {
+                name: c.name.clone(),
+                description: d.as_str().to_string(),
+            },
+            None => ChoiceSnapshot::Bare(c.name.clone()),
+        }
+    }
+}
+
 /// Snapshot form of a flag [`Entity`]. Field order matches the pre-0.5.0
 /// `Flag`'s own declaration, and must keep matching it —
 /// see the `From` impl below. Every `Option`/`Vec` field is omitted when
@@ -161,7 +194,7 @@ pub struct FlagSnapshot {
     pub value_kind: ValueKind,
     /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub choices: Vec<String>,
+    pub choices: Vec<ChoiceSnapshot>,
     /// True if this flag may be given more than once.
     #[serde(skip_serializing_if = "is_false")]
     pub repeatable: bool,
@@ -222,7 +255,7 @@ impl From<&Entity> for FlagSnapshot {
             long: e.long().map(str::to_string),
             value_name: e.value_name.clone(),
             value_kind: e.value_kind,
-            choices: e.choices.iter().map(|t| t.as_str().to_string()).collect(),
+            choices: e.choices.iter().map(ChoiceSnapshot::from).collect(),
             repeatable: e.repeatable,
             required: e.required,
             negatable: e.negatable(),
