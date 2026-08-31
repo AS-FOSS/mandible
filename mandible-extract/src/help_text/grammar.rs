@@ -82,17 +82,41 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
 
     loop {
         // One run of alias spellings: `-p`, `--pid`, `-A, --catenate`.
+        //
+        // Once a **long-like** spelling (`--foo`, or a single-dash long
+        // like `-help`) has been read, anything further in the run needs
+        // an *explicit* `,`/`|` before it — never bare whitespace alone.
+        // Two short spellings may still run together on bare whitespace
+        // (`jdeprscan`'s real `-? -h` table cell, one flag's two aliases,
+        // `corpus/jdeprscan/audit-seed2`), which is why the gate is keyed
+        // on what was *just read*, not on position. Without the gate on
+        // the long-like case, a run of several genuinely distinct
+        // long options simply space-separated on one line — `pod2html`'s
+        // real `--quiet --noquiet --verbose --noverbose` usage-synopsis
+        // row, four independently negatable flags, no comma anywhere —
+        // reads as one flag's ever-growing alias list. Now that every
+        // spelling found here is *kept* (not just the first of each
+        // shape), that false read stops being silently dropped and starts
+        // being an actively fabricated multi-spelling entity — worse than
+        // the defect this loop existed to avoid.
+        let mut last_was_long_like = false;
         loop {
+            let before = rest;
             rest = skip_separators(rest);
             if rest.is_empty() {
                 break;
             }
+            if last_was_long_like && !saw_explicit_separator(before, rest) {
+                break;
+            }
             if let Some((spelling, tail)) = try_short(rest) {
+                last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
                 continue;
             }
             if let Some((spelling, tail)) = try_long(rest) {
+                last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
                 continue;
@@ -103,6 +127,20 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
         rest = skip_separators(rest);
         if rest.is_empty() {
             spec.fully_consumed = true;
+            return spec;
+        }
+
+        // Whatever is left never becomes a value if it itself parses as
+        // another flag spelling: a real value placeholder is never
+        // flag-shaped, and the one case that reaches here — the alias
+        // loop above refusing a further long-like spelling with no
+        // explicit separator (`pod2html`'s real `--quiet --noquiet
+        // --verbose --noverbose`) — must not fall back to reading the
+        // next flag's own name as this flag's *value*. Honest
+        // incompleteness (`fully_consumed: false`, no invented
+        // `value_name`) over a guess.
+        if try_short(rest).is_some() || try_long(rest).is_some() {
+            spec.fully_consumed = false;
             return spec;
         }
 
@@ -268,6 +306,26 @@ fn skip_separators(input: &str) -> &str {
     }
 }
 
+/// True when the text consumed going from `before` to `after` (both the
+/// result of trimming leading separator characters) contained an explicit
+/// `,` or `|`, not whitespace alone. Used by [`parse_flag_spec`]'s alias
+/// loop to require a real separator between the first spelling and every
+/// one after it — see that loop's own doc comment for why bare whitespace
+/// must never be enough on its own.
+fn saw_explicit_separator(before: &str, after: &str) -> bool {
+    let consumed_len = before.len() - after.len();
+    before[..consumed_len].contains([',', '|'])
+}
+
+/// The same "long-like" shape rule [`mandible_core::Entity::long_spelling`]
+/// uses: two dashes always, or one dash when the name is longer than a
+/// single character — which an abbreviation-bracket spelling (`-r[esolve]`)
+/// is, even though [`try_short`] is the function that read it.
+fn is_long_like(spelling: &Spelling) -> bool {
+    matches!(spelling.dashes, Dashes::Double)
+        || (matches!(spelling.dashes, Dashes::Single) && spelling.name.chars().count() > 1)
+}
+
 fn short_dash(input: &mut &str) -> Res<char> {
     '-'.parse_next(input)
 }
@@ -303,15 +361,17 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     let after_run = &s[run_end..];
     if let Some((content, rest)) = parse_abbrev_bracket(after_run) {
         let prefix_len = run.chars().count();
-        return Some((
-            Spelling {
-                name: format!("{run}{content}"),
-                dashes: Dashes::Single,
-                negatable: false,
-                abbrev: Some(prefix_len),
-            },
-            rest,
-        ));
+        if prefix_len <= MAX_ABBREV_PREFIX_LEN {
+            return Some((
+                Spelling {
+                    name: format!("{run}{content}"),
+                    dashes: Dashes::Single,
+                    negatable: false,
+                    abbrev: Some(prefix_len),
+                },
+                rest,
+            ));
+        }
     }
     // No abbreviation bracket (or its content didn't validate): an
     // ordinary short flag, one character, exactly as `short_char` always
@@ -324,6 +384,23 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
 fn is_short_char(c: char) -> bool {
     c != ' ' && c != ',' && c != '=' && c != '[' && c != '-'
 }
+
+/// The longest prefix [`try_short`]/[`try_long`] will read as an
+/// abbreviation before a bracket, in characters.
+///
+/// Every measured real convention (`ip`'s `-r[esolve]`, `-rc[vbuf]`,
+/// `-ts[hort]`, `-br[ief]`; `-V[ersion]`) is one or two letters, so three
+/// is generous headroom, not a tight fit. It exists to keep the
+/// abbreviation model from swallowing a usage-synopsis *placeholder*
+/// written in the identical shape: `unzip`'s own `[-opts[modifiers]]`
+/// means "any of the single-letter options below, optionally followed by
+/// any of the modifier letters below" — `opts` and `modifiers` are plain
+/// English words, not a real flag's name and its abbreviation, and
+/// `"opts" + "modifiers"` is not one coherent word the way `"r" +
+/// "esolve"` is. A per-tool exception list could never generalize (spec
+/// §1); a length bound generalizes from the shape every real specimen
+/// measured so far actually has.
+const MAX_ABBREV_PREFIX_LEN: usize = 3;
 
 /// Parses (and validates) an abbreviation-continuation bracket glued
 /// directly onto a flag spelling, e.g. `ip --help`'s own `-V[ersion]`,
@@ -396,7 +473,7 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
         true
     });
     let name = long_name(&mut s).ok()?;
-    if !negatable {
+    if !negatable && name.chars().count() <= MAX_ABBREV_PREFIX_LEN {
         if let Some((content, rest)) = parse_abbrev_bracket(s) {
             return Some((
                 Spelling {
@@ -1871,6 +1948,60 @@ mod tests {
         assert_eq!(spec.spellings[1].render(), "-h");
         assert_eq!(spec.spellings[2].render(), "--help");
         assert!(spec.fully_consumed);
+    }
+
+    /// `jdeprscan`'s real two-column table cell, `-? -h` — two short
+    /// spellings of one flag, separated by nothing but a bare space, no
+    /// comma. Bare whitespace must still be allowed to continue an alias
+    /// run when nothing long-like has been read yet — this is the
+    /// counter-example that keeps the pod2html-shaped gate below from
+    /// over-tightening (`corpus/jdeprscan/audit-seed2`).
+    #[test]
+    fn bare_whitespace_still_continues_a_run_of_two_shorts() {
+        let spec = parse_flag_spec("-? -h");
+        assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-?");
+        assert_eq!(spec.spellings[1].render(), "-h");
+    }
+
+    /// `pod2html --help`'s real usage-synopsis row: four independently
+    /// negatable long options, space-separated, no comma anywhere —
+    /// `--quiet --noquiet --verbose --noverbose`. Once a long-like
+    /// spelling has been read, a further spelling needs an *explicit*
+    /// `,`/`|` before it; bare whitespace no longer resumes the run, and
+    /// the leftover text is honestly unconsumed rather than glued on as a
+    /// fabricated value. Before this gate, every alias found here was
+    /// *kept* (the alias-loop fix this test module also pins), so the
+    /// four distinct flags read as one entity's ever-growing alias list —
+    /// worse than the pre-existing defect of silently dropping the extra
+    /// three.
+    #[test]
+    fn a_run_of_distinct_long_options_never_merges_on_bare_whitespace() {
+        let spec = parse_flag_spec("--quiet --noquiet --verbose --noverbose");
+        assert_eq!(spec.spellings.len(), 1, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "--quiet");
+        assert_eq!(
+            spec.value_name, None,
+            "the next flag's own name must never become this flag's value"
+        );
+        assert!(!spec.fully_consumed);
+    }
+
+    /// `unzip --help`'s real usage-synopsis placeholder,
+    /// `[-opts[modifiers]]` — "any of the single-letter options below,
+    /// optionally followed by any of the modifier letters below", not a
+    /// real flag named `-opts`. `"opts"` is a four-letter prefix, past
+    /// [`MAX_ABBREV_PREFIX_LEN`], so this reads as the ordinary one-letter
+    /// short flag `-o` (with the rest left for the grammar to interpret as
+    /// a value, exactly as it did before the abbreviation model existed)
+    /// rather than fabricating a `-opts[modifiers]` entity that answers to
+    /// no real flag `unzip` documents.
+    #[test]
+    fn an_over_long_bracket_prefix_is_not_read_as_an_abbreviation() {
+        let spec = parse_flag_spec("-opts[modifiers]");
+        assert_eq!(spec.spellings.len(), 1, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-o");
+        assert_eq!(spec.spellings[0].abbrev, None);
     }
 
     /// The discriminator is narrow on purpose: a real optional-value
