@@ -135,6 +135,12 @@ flags:
   provenance:
     sources:
     - help-text
+- value_name: <filename>
+  value_kind: Required
+  description: Read options from the specified file
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

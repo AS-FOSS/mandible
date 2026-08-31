@@ -241,6 +241,13 @@ flags:
   provenance:
     sources:
     - help-text
+- value_name: FILE
+  value_kind: Required
+  group: 'The options are:'
+  description: Read options from FILE
+  provenance:
+    sources:
+    - help-text
 - short: 'h'
   long: help
   description: Display this information

@@ -64,6 +64,12 @@ flags:
   provenance:
     sources:
     - help-text
+- value_name: <file>
+  value_kind: Required
+  description: '- read options from <file>'
+  provenance:
+    sources:
+    - help-text
 - short: 'M'
   provenance:
     sources:

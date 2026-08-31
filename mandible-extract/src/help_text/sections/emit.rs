@@ -54,6 +54,24 @@ pub(super) fn emit_flags(
     (seen, clean)
 }
 
+/// Emit the argfile sigil flag [`super::flag_rows::argfile_row_value_name`]
+/// recovered (spec §4.5): the GNU-binutils/LLVM/JDK `@<file>`/`@FILE`
+/// response-file convention, built directly through
+/// [`mandible_core::Entity::argfile_sigil`] rather than through
+/// [`parse_flag_spec`] — that grammar looks for a leading `-`, which this
+/// row never has by construction ([`super::flag_rows::argfile_row_value_name`]
+/// only ever matches an `@`-led token).
+pub(super) fn emit_argfile_flag(group: Option<String>, entry: FlagRowEntry, out: &mut ParsedHelp) {
+    if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+        return;
+    }
+    let (value_name, desc_text, _choices) = entry;
+    let mut flag = Entity::argfile_sigil(value_name, Provenance::single(Source::HelpText));
+    flag.group = group;
+    flag.description = non_empty_text(&desc_text);
+    out.flags.push(flag);
+}
+
 /// Emit a [`block_is_packed_flag_rows`]-shaped block's entries directly,
 /// never through [`parse_flag_spec`]/[`emit_flags`]: that grammar's alias
 /// loop reads `-wholename` as the *short* flag `-w` plus a required value

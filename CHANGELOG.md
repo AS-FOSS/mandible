@@ -54,6 +54,10 @@ once it reaches a published 0.1.0 release.
 
 - The obscured-`Examples:` fence (issue #77, a follow-up to issue #71's `jar` fix) no longer loses a well-formed flag section indented deeper than the marker or written with no heading at all, no longer cancels a suppression a genuine earlier `EXAMPLES:` heading had already established when the fence itself closes, and no longer opens at all on an ordinary sentence like `Report bugs to <address>.` that merely happens to share vocabulary with a real `Examples:`/`Report bugs:` heading — the fence now reopens only on independently attested flag evidence, restores rather than clears the suppression state that preceded it, and triggers only on a heading-shaped, colon-terminated marker.
 
+- The `@<file>`/`@FILE` "read options from a file" row now has a home instead of ending a flags block silently unrendered (issue #93, completing the containment fix above): recognized by shape as `@` glued to a placeholder (`<file>`, `<filename>`, or an all-uppercase word like `FILE`), it becomes a flag of its own — `mandible ar`/`mandible jmod`/`mandible llvm-ar`/`mandible nm`/`mandible objdump`/`mandible readelf`/`mandible size`/`mandible addr2line`/`mandible as`/`mandible ld`/`mandible ranlib`/`mandible jlink` now show it under FLAGS, spelled `@` with its value glued on with no space (`@<file>`) rather than the usual gap, and carrying the row's own description verbatim.
+
+- `mandible ar --target`/`mandible ar --output` now show the description `ar --help` documents for them instead of none at all: neither row has an aligned column, a lone `=`/`:` token, a bracketed placeholder, or a capitalized sentence-starting description word, so nothing recognized where the spec ended and the description began, and the whole line — including the sentence describing it — fell into the value-name parser with nowhere for the tail to land; an isolated `-` token is now read as the column gap too, the same way a lone `=`/`:` token already was.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added
