@@ -313,15 +313,29 @@ fn skip_separators(input: &str) -> &str {
     }
 }
 
-/// True when the text consumed going from `before` to `after` (both the
-/// result of trimming leading separator characters) contained an explicit
-/// `,` or `|`, not whitespace alone. Used by [`parse_flag_spec`]'s alias
-/// loop to require a real separator between the first spelling and every
-/// one after it — see that loop's own doc comment for why bare whitespace
-/// must never be enough on its own.
+/// True when the text consumed going from `before` to `after` contained an
+/// explicit `,` or `|`, not whitespace alone. Used by [`parse_flag_spec`]'s
+/// alias loop to require a real separator between the first spelling and
+/// every one after it — see that loop's own doc comment for why bare
+/// whitespace must never be enough on its own.
+///
+/// **Does not assume `after` is a suffix of `before`.** The one call site
+/// happens to always pass a `before`/`after` pair where it is (`before` is
+/// `rest` from the previous iteration, `after` is the same binding after
+/// only `skip_separators` advanced it), but that is a caller-side
+/// invariant this function's own two independent `&str` parameters do not
+/// express — exactly the shape AGENTS.md's raw-byte-offset row warns
+/// about (a box-drawing glyph elsewhere in a real `--help` capture landing
+/// mid-character is what shipped that crash). `str::get` returns `None`
+/// instead of panicking both when the byte count lands off a char
+/// boundary and when `after` is longer than `before` (an out-of-order
+/// call, or unrelated strings), so a future caller that gets the
+/// invariant wrong degrades to "no separator" rather than aborting.
 fn saw_explicit_separator(before: &str, after: &str) -> bool {
-    let consumed_len = before.len() - after.len();
-    before[..consumed_len].contains([',', '|'])
+    let consumed_len = before.len().saturating_sub(after.len());
+    before
+        .get(..consumed_len)
+        .is_some_and(|consumed| consumed.contains([',', '|']))
 }
 
 /// The same "long-like" shape rule [`mandible_core::Entity::long_spelling`]
