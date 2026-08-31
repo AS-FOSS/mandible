@@ -2689,6 +2689,11 @@ Rules:
   width (§9.1a); it never takes an aligned column of its own, so a row's
   placeholder cannot push that row's own description onto a second line
   while its first sits empty. Style, not position, keeps the two apart.
+- **A flag's `choices` render as their own `values:` line under the
+  description, indented two columns past the shared description column,
+  in the section's derived-metadata style** — never folded into the
+  description text or the spelling column, both of which stay verbatim
+  (`tar --format` carries a `FORMAT` placeholder and `choices` together).
 - **Capped shared column, per section.** Every list section (POSITIONALS,
   FLAGS, MODIFIERS, ENVIRONMENT) computes its own column, fitted to
   roughly the p90 row width — the majority, not the outliers — measured

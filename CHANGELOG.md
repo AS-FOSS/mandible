@@ -26,6 +26,10 @@ once it reaches a published 0.1.0 release.
 
 - Search now finds positionals, modifiers, and environment variables, not just flags: typing `ar`'s modifier description or `bpftrace`'s `BPFTRACE_BTF` in the search box selects the tool and scrolls the detail pane to that entity's own row in its `POSITIONALS`/`MODIFIERS`/`ENVIRONMENT` section, exactly as a flag match already scrolled to `FLAGS`; the default name-search mode now finds any of these by a word-prefix match on its spelling (`d` finds a modifier named `d`, `debug` finds `NODE_DEBUG`) rather than admitting entities only in the wider, everything-matches mode.
 
+### Changed
+
+- The detail pane no longer appends a flag's `choices` to its description as `[a, b, c]`; they now render as their own `values: a, b, c` line under the description, indented two columns past the shared description column in the pane's derived-metadata style, so the description stays the tool's own prose and a placeholder like `tar --format`'s `FORMAT` keeps the spelling column verbatim.
+
 ### Fixed
 
 - A tool that documents each invocation form as a stanza — LVM's `vgchange`, `lvchange` and the rest of the family — now labels each stanza's flags with the description the tool wrote above it, so the dividers read `Activate or deactivate LVs` and `Start the lockspace of a shared VG in lvmlockd` instead of repeating the `Vgchange --lockstart` spelling already printed on the row beneath, and the stanza's head line is kept as a USAGE form rather than lost with the label it used to be; a stanza with no description above it keeps its head line as the label exactly as before (issue #11).
