@@ -36,14 +36,18 @@ pub(super) fn emit_flags(
         flag.value_kind = spec.value_kind;
         flag.group = group.clone();
         flag.description = non_empty_text(&desc_text);
-        // `llvm-ar`'s own `=default`/`=gnu`/… sub-rows, nested directly
-        // under this flag's own row — see `choices_sub_row_value`'s doc
-        // comment. Per-value descriptions have no home in the IR and are
-        // dropped; only the bare value names survive, into the same
+        // Sub-rows nested directly under this flag's own row: llvm-ar's
+        // bare `=default`/`=gnu`/… shape (no per-value text) and ffmpeg/
+        // ffplay's AVOption shape (each carrying its own description) both
+        // land here — see `choices_sub_row_value`'s and
+        // `choice_description_sub_row`'s own doc comments. The same
         // `choices` field clap's `[possible values: …]` already fills.
         flag.choices = choice_names
             .into_iter()
-            .map(|c| Text::sanitize(&c))
+            .map(|(name, desc)| Choice {
+                name,
+                description: desc.map(|d| Text::sanitize(&d)),
+            })
             .collect();
         out.flags.push(flag);
     }
@@ -424,6 +428,14 @@ pub(super) fn split_heading_inline_row(line: &str) -> Option<(&str, &str)> {
 /// plausible owning flag exists — fabricated structure is worse than
 /// missing structure either way, so an unattributable block is simply
 /// discarded rather than becoming subcommands by default.
+///
+/// **Per-value descriptions are kept, not dropped.** `tar`'s own
+/// `FORMAT is one of the following:` enum documents each value
+/// (`gnu   GNU tar 1.13.x format`) — earlier this function kept only the
+/// bare name and threw the description away (the no-information-loss rule:
+/// a fix may move text to its right place, never delete it). A row with no
+/// separate description (`tar --quoting-style`'s bare `literal`/`shell`/…
+/// list) still produces a bare [`Choice`] with `description: None`.
 pub(super) fn emit_choices(
     heading: &str,
     entries: Vec<(&str, String)>,
@@ -431,14 +443,16 @@ pub(super) fn emit_choices(
 ) -> (usize, usize) {
     let mut seen = 0usize;
     let mut clean = 0usize;
-    let mut candidates: Vec<String> = Vec::new();
-    for (spec_text, _desc_text) in &entries {
+    let mut candidates: Vec<(String, Option<String>)> = Vec::new();
+    for (spec_text, desc_text) in &entries {
         if candidates.len() >= MAX_RECOVERED_ENTRIES {
             break;
         }
+        let desc = non_empty_string(desc_text);
         // Real listings sometimes alias several values on one line
         // (`"none, off       never make backups"`); each comma-separated
-        // fragment is its own candidate choice.
+        // fragment is its own candidate choice, and the row's one
+        // description belongs to every alias on it.
         for fragment in spec_text.split(',') {
             let name = fragment.trim();
             if name.is_empty() {
@@ -450,7 +464,7 @@ pub(super) fn emit_choices(
                 continue;
             }
             clean += 1;
-            candidates.push(name.to_string());
+            candidates.push((name.to_string(), desc.clone()));
         }
     }
     if candidates.is_empty() {
@@ -458,11 +472,14 @@ pub(super) fn emit_choices(
     }
     match find_owning_flag_index(heading, &out.flags) {
         Some(idx) => {
-            for name in candidates {
-                let text = Text::sanitize(&name);
-                if !out.flags[idx].choices.contains(&text) {
-                    out.flags[idx].choices.push(text);
+            for (name, desc) in candidates {
+                if out.flags[idx].choices.iter().any(|c| c.name == name) {
+                    continue;
                 }
+                out.flags[idx].choices.push(Choice {
+                    name,
+                    description: desc.map(|d| Text::sanitize(&d)),
+                });
             }
         }
         None => {
@@ -473,6 +490,13 @@ pub(super) fn emit_choices(
         }
     }
     (seen, clean)
+}
+
+/// `desc_text.trim()`, as `None` when empty — the shared "is there really a
+/// description here" check [`emit_choices`] uses before sanitizing one.
+fn non_empty_string(desc_text: &str) -> Option<String> {
+    let trimmed = desc_text.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 /// The bare name a positional-block row or a usage-synopsis token carries,
@@ -613,7 +637,7 @@ mod tests {
             .iter()
             .find(|f| f.long() == Some("format"))
             .expect("--format flag recovered");
-        let choice_strs: Vec<&str> = format.choices.iter().map(|t| t.as_str()).collect();
+        let choice_strs: Vec<&str> = format.choices.iter().map(|c| c.name.as_str()).collect();
         for want in ["gnu", "oldgnu", "pax", "posix", "ustar", "v7"] {
             assert!(choice_strs.contains(&want), "{choice_strs:?}");
         }
@@ -676,7 +700,11 @@ mod tests {
             .iter()
             .find(|f| f.long() == Some("quoting-style"))
             .expect("--quoting-style flag recovered");
-        let choice_strs: Vec<&str> = quoting_style.choices.iter().map(|t| t.as_str()).collect();
+        let choice_strs: Vec<&str> = quoting_style
+            .choices
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
         assert!(choice_strs.contains(&"literal"), "{choice_strs:?}");
         assert!(
             choice_strs.contains(&"shell-escape-always"),

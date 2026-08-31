@@ -1877,17 +1877,24 @@ fn entity_line(
     // into either would corrupt it. A derived enumeration gets its own
     // labeled line instead, indented two columns past the description
     // column, in the section's derived-metadata style.
-    let values_line = (!flag.choices.is_empty()).then(|| {
+    // A flag whose choices carry no per-value description (the common
+    // case — `tar --quoting-style`'s bare `literal`/`shell`/`c`/...) still
+    // gets the round-6 single summary line. A flag whose choices carry
+    // their own text (ffmpeg/ffplay's AVOption constants, spec §7
+    // recognition rule) render one indented `name  description` line per
+    // choice instead — see `choice_detail_lines` below.
+    let has_choice_descriptions = flag.choices.iter().any(|c| c.description.is_some());
+    let values_line = (!flag.choices.is_empty() && !has_choice_descriptions).then(|| {
         let joined = flag
             .choices
             .iter()
-            .map(|c| c.as_str().to_string())
+            .map(|c| c.name.as_str())
             .collect::<Vec<_>>()
             .join(", ");
         format!("values: {joined}")
     });
 
-    if description_text.is_none() && values_line.is_none() {
+    if description_text.is_none() && values_line.is_none() && !has_choice_descriptions {
         if !head.is_empty() {
             return head;
         }
@@ -1965,6 +1972,91 @@ fn entity_line(
                 format!("{values_indent}{chunk}"),
                 values_style,
             )));
+        }
+    } else if has_choice_descriptions {
+        lines.extend(choice_detail_lines(flag, column, width, color_enabled));
+    }
+
+    lines
+}
+
+/// Render a flag's choices as a `values:` header followed by one indented
+/// `name  description` row per choice (spec §9.3/§4.1's render note),
+/// dim/derived style matching the bare `values:` line this replaces.
+///
+/// Only called when at least one choice carries a description — the mixed
+/// case (some choices described, some bare, e.g. ffmpeg's `-bug`, whose
+/// `autodetect` value has no text of its own) still renders every choice
+/// through this path so the list stays one table rather than splitting
+/// into two.
+fn choice_detail_lines(
+    flag: &Entity,
+    column: usize,
+    width: usize,
+    color_enabled: bool,
+) -> Vec<Line<'static>> {
+    let values_column = column + 2;
+    let values_indent = " ".repeat(values_column);
+    let values_style = style::muted(color_enabled);
+
+    let choice_column = values_column + 2;
+    let choice_indent = " ".repeat(choice_column);
+    let choice_width = width.saturating_sub(choice_column).max(1);
+    let name_width = flag
+        .choices
+        .iter()
+        .map(|c| display_width(&c.name))
+        .max()
+        .unwrap_or(0);
+
+    let mut lines = vec![Line::from(Span::styled(
+        format!("{values_indent}values:"),
+        values_style,
+    ))];
+
+    for choice in &flag.choices {
+        let desc = choice
+            .description
+            .as_ref()
+            .map(|d| d.single_line())
+            .filter(|d| !d.is_empty());
+        let Some(desc) = desc else {
+            lines.push(Line::from(Span::styled(
+                format!("{choice_indent}{}", choice.name),
+                values_style,
+            )));
+            continue;
+        };
+        let head = format!("{:<name_width$}  ", choice.name);
+        let head_width = display_width(&head);
+        let first_room = choice_width.saturating_sub(head_width);
+        match leading_words(&desc, first_room) {
+            Some((first_chunk, rest)) => {
+                lines.push(Line::from(Span::styled(
+                    format!("{choice_indent}{head}{first_chunk}"),
+                    values_style,
+                )));
+                let cont_indent = " ".repeat(choice_column + head_width);
+                let cont_width = width.saturating_sub(choice_column + head_width).max(1);
+                for chunk in wrap_words(&rest, cont_width) {
+                    lines.push(Line::from(Span::styled(
+                        format!("{cont_indent}{chunk}"),
+                        values_style,
+                    )));
+                }
+            }
+            None => {
+                lines.push(Line::from(Span::styled(
+                    format!("{choice_indent}{}", choice.name),
+                    values_style,
+                )));
+                for chunk in wrap_words(&desc, choice_width) {
+                    lines.push(Line::from(Span::styled(
+                        format!("{choice_indent}{chunk}"),
+                        values_style,
+                    )));
+                }
+            }
         }
     }
 
@@ -2127,7 +2219,7 @@ pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Provenance, Source, Text};
+    use mandible_core::{Choice, Provenance, Source, Text};
 
     fn node_with_flags() -> CommandNode {
         let mut n = CommandNode::new(
@@ -2861,11 +2953,11 @@ mod tests {
         let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
         flag.description = Some(Text::sanitize("archive format to create"));
         flag.choices = vec![
-            Text::sanitize("default"),
-            Text::sanitize("gnu"),
-            Text::sanitize("darwin"),
-            Text::sanitize("bsd"),
-            Text::sanitize("bigarchive"),
+            Choice::bare("default"),
+            Choice::bare("gnu"),
+            Choice::bare("darwin"),
+            Choice::bare("bsd"),
+            Choice::bare("bigarchive"),
         ];
         let layout = SectionLayout {
             description: 20,
@@ -2912,7 +3004,7 @@ mod tests {
     #[test]
     fn choices_render_even_when_the_flag_has_no_description() {
         let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
-        flag.choices = vec![Text::sanitize("posix"), Text::sanitize("windows")];
+        flag.choices = vec![Choice::bare("posix"), Choice::bare("windows")];
         let layout = SectionLayout {
             description: 20,
             indent: 0,
@@ -2935,6 +3027,93 @@ mod tests {
         assert_eq!(indent_len, layout.description + 2, "{text:?}");
     }
 
+    /// A flag whose choices carry their own text — ffplay/ffmpeg's AVOption
+    /// constants (spec §7 recognition rule) — render `values:` alone as a
+    /// header, then one indented `name  description` row per choice,
+    /// instead of the single comma-joined summary line a bare-choices flag
+    /// gets. Folding the constants back into one line would just relocate
+    /// the smear this round's recognizer exists to fix.
+    #[test]
+    fn described_choices_render_as_a_name_description_list() {
+        let mut flag = Entity::flag_long("flags", Provenance::single(Source::HelpText));
+        flag.value_name = Some("<flags>".to_string());
+        flag.description = Some(Text::sanitize("ED.VAS..... (default 0)"));
+        flag.choices = vec![
+            Choice::described(
+                "unaligned",
+                Text::sanitize(".D.V....... allow decoders to produce unaligned output"),
+            ),
+            Choice::described(
+                "gray",
+                Text::sanitize("ED.V....... only decode/encode grayscale"),
+            ),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        // A wide pane, deliberately: this test is about the choice list's
+        // *shape* (a header line, then one row per choice), not about
+        // word-wrap, which `a_narrow_pane_clamps_the_column_rather_than_shredding_prose`
+        // and friends already cover for the description column this
+        // section reuses.
+        let lines = entity_line(&flag, false, 200, true, layout);
+        let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
+
+        assert!(
+            joined.contains("ED.VAS..... (default 0)"),
+            "the flag's own description must stay put: {joined:?}"
+        );
+        assert!(
+            !joined.contains("unaligned, gray"),
+            "described choices must never fall back to the comma-joined line: {joined:?}"
+        );
+
+        let header = lines
+            .iter()
+            .find(|l| text_of(l).trim() == "values:")
+            .expect("a bare 'values:' header line");
+        let header_indent = {
+            let t = text_of(header);
+            t.len() - t.trim_start().len()
+        };
+        assert_eq!(
+            header_indent,
+            layout.description + 2,
+            "the header sits two columns past the description column, exactly like the bare case"
+        );
+        assert_eq!(
+            header.spans[0].style,
+            style::muted(true),
+            "the header must use the pane's derived-metadata style"
+        );
+
+        let unaligned = lines
+            .iter()
+            .find(|l| text_of(l).contains("unaligned"))
+            .expect("the unaligned choice row");
+        let unaligned_text = text_of(unaligned);
+        assert!(
+            unaligned_text.contains("allow decoders to produce unaligned output"),
+            "{unaligned_text:?}"
+        );
+        let unaligned_indent = unaligned_text.len() - unaligned_text.trim_start().len();
+        assert!(
+            unaligned_indent > header_indent,
+            "each choice row sits deeper than the 'values:' header: {unaligned_indent} vs {header_indent}"
+        );
+
+        let gray = lines
+            .iter()
+            .find(|l| text_of(l).contains("gray"))
+            .expect("the gray choice row");
+        assert!(
+            text_of(gray).contains("only decode/encode grayscale"),
+            "{:?}",
+            text_of(gray)
+        );
+    }
+
     /// `tar --format` carries both a `FORMAT` placeholder in the spelling
     /// column and `choices` (spec §7 Tier B rule 4). The placeholder must
     /// render verbatim, on the head line, exactly as before — the values
@@ -2946,10 +3125,10 @@ mod tests {
         flag.value_kind = ValueKind::Required;
         flag.description = Some(Text::sanitize("archive format to create"));
         flag.choices = vec![
-            Text::sanitize("gnu"),
-            Text::sanitize("oldgnu"),
-            Text::sanitize("pax"),
-            Text::sanitize("posix"),
+            Choice::bare("gnu"),
+            Choice::bare("oldgnu"),
+            Choice::bare("pax"),
+            Choice::bare("posix"),
         ];
         let layout = SectionLayout {
             description: 20,

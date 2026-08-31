@@ -375,10 +375,18 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
             let choices_hash = if entity.choices.is_empty() {
                 None
             } else {
+                // Name and description (when the tool documents one per
+                // choice — ffmpeg's AVOption constants) both feed the hash,
+                // separated by a distinct control character from the outer
+                // per-choice join, so a description-only edit still moves
+                // the fingerprint the same way a name-only one always did.
                 let joined = entity
                     .choices
                     .iter()
-                    .map(mandible_core::Text::as_str)
+                    .map(|c| match &c.description {
+                        Some(d) => format!("{}\u{1e}{}", c.name, d.as_str()),
+                        None => c.name.clone(),
+                    })
                     .collect::<Vec<_>>()
                     .join("\u{1f}");
                 Some(fnv1a(joined.as_bytes()))
@@ -2792,7 +2800,7 @@ mod tests {
     /// with no process spawned at all.
     #[test]
     fn fingerprint_footer_round_trips_a_synthetic_tree() {
-        use mandible_core::{CommandNode, Entity, Provenance, Source, Text, ValueKind};
+        use mandible_core::{Choice, CommandNode, Entity, Provenance, Source, Text, ValueKind};
 
         let mut root = CommandNode::new("demo", Provenance::single(Source::HelpText));
         let mut flag = Entity::flag_spelled(
@@ -2803,7 +2811,7 @@ mod tests {
             Provenance::single(Source::HelpText),
         );
         flag.description = Some(Text::sanitize("increase verbosity"));
-        flag.choices = vec![Text::sanitize("low"), Text::sanitize("high")];
+        flag.choices = vec![Choice::bare("low"), Choice::bare("high")];
         flag.value_name = Some("LEVEL".to_string());
         flag.value_kind = ValueKind::Required;
         root.entities.push(flag);
