@@ -3,37 +3,43 @@ description: 'OVERVIEW: Module extractor'
 usage:
 - 'USAGE: llvm-modextract-18 [options] <input bitcode>'
 flags:
-- long: color
+- spellings:
+  - --color
   group: 'Color Options:'
   description: '- Use colors in output (default=autodetect)'
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   group: 'Generic Options:'
   description: '- Display available options (--help-hidden for more)'
   provenance:
     sources:
     - help-text
-- long: help-list
+- spellings:
+  - --help-list
   group: 'Generic Options:'
   description: '- Display list of available options (--help-list-hidden for more)'
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Generic Options:'
   description: '- Display the version of this program'
   provenance:
     sources:
     - help-text
-- short: 'b'
+- spellings:
+  - -b
   group: 'Modextract Options:'
   description: '- Whether to perform binary extraction'
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   value_name: <index>
   value_kind: Required
   group: 'Modextract Options:'
@@ -41,7 +47,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   value_name: <filename>
   value_kind: Required
   group: 'Modextract Options:'

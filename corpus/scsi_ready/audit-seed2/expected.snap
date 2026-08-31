@@ -8,22 +8,25 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'b'
-  long: brief
+- spellings:
+  - -b
+  - --brief
   group: 'where:'
   description: print 'ready' or 'device not ready' only
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   group: 'where:'
   description: print usage message
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   group: 'where:'
   description: more verbose output
   provenance:

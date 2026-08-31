@@ -8,86 +8,98 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'd'
-  long: data
+- spellings:
+  - -d
+  - --data
   value_name: <data>
   value_kind: Required
   description: HTTP POST data
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: fail
+- spellings:
+  - -f
+  - --fail
   description: Fail fast with no output on HTTP errors
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   value_name: <category>
   value_kind: Required
   description: Get help for commands
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: include
+- spellings:
+  - -i
+  - --include
   description: Include protocol response headers in the output
   provenance:
     sources:
     - help-text
-- short: 'o'
-  long: output
+- spellings:
+  - -o
+  - --output
   value_name: <file>
   value_kind: Required
   description: Write to file instead of stdout
   provenance:
     sources:
     - help-text
-- short: 'O'
-  long: remote-name
+- spellings:
+  - -O
+  - --remote-name
   description: Write output to a file named as the remote file
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: silent
+- spellings:
+  - -s
+  - --silent
   description: Silent mode
   provenance:
     sources:
     - help-text
-- short: 'T'
-  long: upload-file
+- spellings:
+  - -T
+  - --upload-file
   value_name: <file>
   value_kind: Required
   description: Transfer local FILE to destination
   provenance:
     sources:
     - help-text
-- short: 'u'
-  long: user
+- spellings:
+  - -u
+  - --user
   value_name: <user:password>
   value_kind: Required
   description: Server user and password
   provenance:
     sources:
     - help-text
-- short: 'A'
-  long: user-agent
+- spellings:
+  - -A
+  - --user-agent
   value_name: <name>
   value_kind: Required
   description: Send User-Agent <name> to server
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: Make the operation more talkative
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: Show version number and quit
   provenance:
     sources:

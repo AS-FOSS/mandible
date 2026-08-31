@@ -2,143 +2,166 @@ name: uconv
 usage:
 - 'Usage: uconv [ -h, -?, --help ] [ -V, --version ] [ -s, --silent ] [ -v, --verbose ] [ -l, --list | --list-code code | --default-code | -L, --list-transliterators ] [ --canon ] [ -x transliteration ] [ --to-callback callback | -c ] [ --from-callback callback | -i ] [ --callback callback ] [ --fallback | --no-fallback ] [ -b, --block-size size ] [ -f, --from-code code ] [ -t, --to-code code ] [ --add-signature ] [ --remove-signature ] [ -o, --output file ] [ file ... ]'
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: print this message
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: print the program version
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: silent
+- spellings:
+  - -s
+  - --silent
   description: suppress messages
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: display progress information
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: list
+- spellings:
+  - -l
+  - --list
   description: list all available encodings
   provenance:
     sources:
     - help-text
-- long: list-code
+- spellings:
+  - --list-code
   value_name: code
   value_kind: Required
   description: list only the given encoding
   provenance:
     sources:
     - help-text
-- long: default-code
+- spellings:
+  - --default-code
   description: list only the default encoding
   provenance:
     sources:
     - help-text
-- short: 'L'
-  long: list-transliterators
+- spellings:
+  - -L
+  - --list-transliterators
   description: list all available transliterators
   provenance:
     sources:
     - help-text
-- long: canon
+- spellings:
+  - --canon
   description: print list in cnvrtrs.txt(5) format
   provenance:
     sources:
     - help-text
-- short: 'x'
+- spellings:
+  - -x
   value_name: transliteration
   value_kind: Required
   description: run everything through transliteration
   provenance:
     sources:
     - help-text
-- long: to-callback
+- spellings:
+  - --to-callback
   value_name: callback
   value_kind: Required
   description: use callback on destination encoding
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   description: omit invalid characters from the output
   provenance:
     sources:
     - help-text
-- long: from-callback
+- spellings:
+  - --from-callback
   value_name: callback
   value_kind: Required
   description: use callback on original encoding
   provenance:
     sources:
     - help-text
-- short: 'i'
+- spellings:
+  - -i
   description: ignore invalid sequences in the input
   provenance:
     sources:
     - help-text
-- long: callback
+- spellings:
+  - --callback
   value_name: callback
   value_kind: Required
   description: use callback on both encodings
   provenance:
     sources:
     - help-text
-- short: 'b'
-  long: block-size
+- spellings:
+  - -b
+  - --block-size
   value_name: size
   value_kind: Required
   description: 'read size bytes blocks (default: 4096)'
   provenance:
     sources:
     - help-text
-- long: fallback
+- spellings:
+  - --fallback
   description: use fallback mapping
   provenance:
     sources:
     - help-text
-- long: no-fallback
+- spellings:
+  - --no-fallback
   description: do not use fallback mapping
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: from-code
+- spellings:
+  - -f
+  - --from-code
   value_name: code
   value_kind: Required
   description: set the original encoding
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: to-code
+- spellings:
+  - -t
+  - --to-code
   value_name: code
   value_kind: Required
   description: set the destination encoding
   provenance:
     sources:
     - help-text
-- long: add-signature
+- spellings:
+  - --add-signature
   description: add a U+FEFF Unicode signature character (BOM)
   provenance:
     sources:
     - help-text
-- long: remove-signature
+- spellings:
+  - --remove-signature
   description: remove a U+FEFF Unicode signature character (BOM)
   provenance:
     sources:
     - help-text
-- short: 'o'
-  long: output
+- spellings:
+  - -o
+  - --output
   value_name: file
   value_kind: Required
   description: write output to file

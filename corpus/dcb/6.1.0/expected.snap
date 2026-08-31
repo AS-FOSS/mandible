@@ -14,53 +14,63 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'V'
-  long: Version
+- spellings:
+  - -V
+  - --Version
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: iec
+- spellings:
+  - -i
+  - --iec
   provenance:
     sources:
     - help-text
-- short: 'j'
-  long: json
+- spellings:
+  - -j
+  - --json
   provenance:
     sources:
     - help-text
-- short: 'N'
-  long: Numeric
+- spellings:
+  - -N
+  - --Numeric
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: pretty
+- spellings:
+  - -p
+  - --pretty
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: statistics
+- spellings:
+  - -s
+  - --statistics
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: force
+- spellings:
+  - -f
+  - --force
   provenance:
     sources:
     - help-text-synopsis
-- short: 'b'
-  long: batch
+- spellings:
+  - -b
+  - --batch
   provenance:
     sources:
     - help-text-synopsis
-- short: 'n'
-  long: netns
+- spellings:
+  - -n
+  - --netns
   provenance:
     sources:
     - help-text-synopsis

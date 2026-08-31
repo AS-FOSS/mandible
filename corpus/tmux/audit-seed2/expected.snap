@@ -2,63 +2,76 @@ name: tmux
 usage:
 - 'usage: tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name] [-S socket-path] [-T features] [command [flags]]'
 flags:
-- short: '2'
+- spellings:
+  - '-2'
   provenance:
     sources:
     - help-text-synopsis
-- short: 'C'
+- spellings:
+  - -C
   provenance:
     sources:
     - help-text-synopsis
-- short: 'D'
+- spellings:
+  - -D
   provenance:
     sources:
     - help-text-synopsis
-- short: 'l'
+- spellings:
+  - -l
   provenance:
     sources:
     - help-text-synopsis
-- short: 'N'
+- spellings:
+  - -N
   provenance:
     sources:
     - help-text-synopsis
-- short: 'u'
+- spellings:
+  - -u
   provenance:
     sources:
     - help-text-synopsis
-- short: 'V'
+- spellings:
+  - -V
   provenance:
     sources:
     - help-text-synopsis
-- short: 'v'
+- spellings:
+  - -v
   provenance:
     sources:
     - help-text-synopsis
-- short: 'c'
+- spellings:
+  - -c
   value_name: shell-command
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'f'
+- spellings:
+  - -f
   value_name: file
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'L'
+- spellings:
+  - -L
   value_name: socket-name
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'S'
+- spellings:
+  - -S
   value_name: socket-path
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'T'
+- spellings:
+  - -T
   value_name: features
   value_kind: Required
   provenance:

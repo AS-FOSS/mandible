@@ -3,21 +3,24 @@ description: '/usr/bin/aarch64-linux-gnu-ar: supported targets: elf64-littleaarc
 usage:
 - 'Usage: /usr/bin/aarch64-linux-gnu-ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file... /usr/bin/aarch64-linux-gnu-ar -M [<mri-script]'
 flags:
-- long: target
+- spellings:
+  - --target
   value_name: BFDNAME
   value_kind: Required
   group: 'generic modifiers:'
   provenance:
     sources:
     - help-text
-- long: output
+- spellings:
+  - --output
   value_name: DIRNAME
   value_kind: Required
   group: 'generic modifiers:'
   provenance:
     sources:
     - help-text
-- long: record-libdeps
+- spellings:
+  - --record-libdeps
   value_name: <text>
   value_kind: Required
   group: 'generic modifiers:'
@@ -25,13 +28,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: thin
+- spellings:
+  - --thin
   group: 'generic modifiers:'
   description: '- make a thin archive'
   provenance:
     sources:
     - help-text
-- long: plugin
+- spellings:
+  - --plugin
   value_name: <p>
   value_kind: Required
   group: 'optional:'
@@ -39,7 +44,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'M'
+- spellings:
+  - -M
   provenance:
     sources:
     - help-text-synopsis

@@ -9,19 +9,22 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: print this message and exit
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: print the version information and exit
   provenance:
     sources:
     - help-text
-- long: boot-directory
+- spellings:
+  - --boot-directory
   value_name: DIR
   value_kind: Required
   description: expect GRUB images under the directory DIR/grub instead of the /boot/grub directory

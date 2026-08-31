@@ -9,19 +9,22 @@ positionals:
     sources:
     - help-text
 flags:
-- long: cert
+- spellings:
+  - --cert
   value_name: <certfile>
   value_kind: Required
   description: certificate (x509 certificate)
   provenance:
     sources:
     - help-text
-- long: list
+- spellings:
+  - --list
   description: list all signatures (but don't verify)
   provenance:
     sources:
     - help-text
-- long: detached
+- spellings:
+  - --detached
   value_name: <file>
   value_kind: Required
   description: read signature from <file>, instead of looking for an embedded signature

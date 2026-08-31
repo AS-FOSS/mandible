@@ -3,215 +3,254 @@ description: 'lsof: illegal option character: - lsof: -e not followed by a file 
 usage:
 - 'usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]] [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s] [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]'
 flags:
-- short: '?'
+- spellings:
+  - -?
   description: list help
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   description: AND selections (OR)
   provenance:
     sources:
     - help-text
-- short: 'b'
+- spellings:
+  - -b
   description: avoid kernel blocks
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   description: c cmd c ^c /c/[bix]
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   description: s select by FD set
   provenance:
     sources:
     - help-text
-- short: 'i'
+- spellings:
+  - -i
   description: select IPv[46] files
   provenance:
     sources:
     - help-text
-- short: 'K'
+- spellings:
+  - -K
   description: '[i] list|(i)gn tasKs'
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   description: list UID numbers
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   description: no host names
   provenance:
     sources:
     - help-text
-- short: 'N'
+- spellings:
+  - -N
   description: select NFS files
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   description: list file offset
   provenance:
     sources:
     - help-text
-- short: 'O'
+- spellings:
+  - -O
   description: no overhead *RISKY*
   provenance:
     sources:
     - help-text
-- short: 'P'
+- spellings:
+  - -P
   description: no port names
   provenance:
     sources:
     - help-text
-- short: 'Q'
+- spellings:
+  - -Q
   description: allow failed search
   provenance:
     sources:
     - help-text
-- short: 'R'
+- spellings:
+  - -R
   description: list paRent PID
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   description: list file size
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   description: terse listing
   provenance:
     sources:
     - help-text
-- short: 'T'
+- spellings:
+  - -T
   description: disable TCP/TPI info
   provenance:
     sources:
     - help-text
-- short: 'U'
+- spellings:
+  - -U
   description: select Unix socket
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: list version info
   provenance:
     sources:
     - help-text
-- short: 'V'
+- spellings:
+  - -V
   description: verbose search
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   description: skip TCP&UDP* files
   provenance:
     sources:
     - help-text
-- short: 'Z'
+- spellings:
+  - -Z
   description: Z context [Z] -- end option scan
   provenance:
     sources:
     - help-text
-- short: 'E'
+- spellings:
+  - -E
   description: display endpoint info
   provenance:
     sources:
     - help-text
-- short: 'F'
+- spellings:
+  - -F
   value_name: f
   value_kind: Optional
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p
   value_name: s
   value_kind: Required
   description: exclude(^)|select PIDs -S [t] t second stat timeout (15)
   provenance:
     sources:
     - help-text
-- short: 'T'
+- spellings:
+  - -T
   value_name: fqs
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'g'
+- spellings:
+  - -g
   value_name: s
   value_kind: Optional
   description: exclude(^)|select and print process group IDs
   provenance:
     sources:
     - help-text
-- short: 'i'
+- spellings:
+  - -i
   value_name: i
   value_kind: Required
   description: 'select by IPv[46] address: [46][proto][@host|addr][:svc_list|port_list]'
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: p:s
   value_kind: Required
   description: exclude(^)|select protocol (p = TCP|UDP) states by name(s).
   provenance:
     sources:
     - help-text
-- short: 'u'
+- spellings:
+  - -u
   value_name: s
   value_kind: Required
   description: exclude(^)|select login|UID set s
   provenance:
     sources:
     - help-text
-- short: 'x'
+- spellings:
+  - -x
   value_name: fl
   value_kind: Optional
   description: cross over +d|+D File systems or symbolic Links
   provenance:
     sources:
     - help-text
-- short: 'e'
+- spellings:
+  - -e
   value_name: s
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'f'
+- spellings:
+  - -f
   value_name: gG
   value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis
-- short: 'L'
+- spellings:
+  - -L
   value_name: l
   value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis
-- short: 'M'
+- spellings:
+  - -M
   provenance:
     sources:
     - help-text-synopsis
-- short: 'r'
+- spellings:
+  - -r
   value_name: t
   value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis
-- short: 'S'
+- spellings:
+  - -S
   value_name: t
   value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis
-- short: 'w'
+- spellings:
+  - -w
   provenance:
     sources:
     - help-text-synopsis

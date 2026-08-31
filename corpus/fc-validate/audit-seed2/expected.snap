@@ -3,8 +3,9 @@ description: Validate font files and print result
 usage:
 - 'usage: /usr/bin/fc-validate [-Vhv] [-i index] [-l LANG] [--index index] [--lang LANG] [--verbose] [--version] [--help] font-file...'
 flags:
-- short: 'i'
-  long: index
+- spellings:
+  - -i
+  - --index
   value_name: INDEX
   value_kind: Required
   group: Validate font files and print result
@@ -12,8 +13,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: lang
+- spellings:
+  - -l
+  - --lang
   value_name: LANG
   value_kind: Required
   group: Validate font files and print result
@@ -21,22 +23,25 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   group: Validate font files and print result
   description: show more detailed information
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   group: Validate font files and print result
   description: display font config version and exit
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   group: Validate font files and print result
   description: display this help and exit
   provenance:

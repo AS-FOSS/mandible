@@ -8,7 +8,8 @@ positionals:
     sources:
     - help-text
 flags:
-- long: add
+- spellings:
+  - --add
   value_name: <owner>
   value_kind: Required
   group: 'Commands:'
@@ -16,7 +17,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: remove
+- spellings:
+  - --remove
   value_name: <path>
   value_kind: Required
   group: 'Commands:'
@@ -24,7 +26,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: list
+- spellings:
+  - --list
   value_name: <glob-pattern>
   value_kind: Optional
   group: 'Commands:'
@@ -32,69 +35,80 @@ flags:
   provenance:
     sources:
     - help-text
-- long: admindir
+- spellings:
+  - --admindir
   value_name: <directory>
   value_kind: Required
   description: set the directory with the statoverride file.
   provenance:
     sources:
     - help-text
-- long: instdir
+- spellings:
+  - --instdir
   value_name: <directory>
   value_kind: Required
   description: set the root directory, but not the admin dir.
   provenance:
     sources:
     - help-text
-- long: root
+- spellings:
+  - --root
   value_name: <directory>
   value_kind: Required
   description: set the directory of the root filesystem.
   provenance:
     sources:
     - help-text
-- long: update
+- spellings:
+  - --update
   description: immediately update <path> permissions.
   provenance:
     sources:
     - help-text
-- long: force
+- spellings:
+  - --force
   description: deprecated alias for --force-all.
   provenance:
     sources:
     - help-text
-- long: force-
+- spellings:
+  - --force-
   value_name: <thing>
   value_kind: Required
   description: override problems (see --force-help).
   provenance:
     sources:
     - help-text
-- long: no-force-
+- spellings:
+  - --no-force-
   value_name: <thing>
   value_kind: Required
   description: stop when problems encountered.
   provenance:
     sources:
     - help-text
-- long: refuse-
+- spellings:
+  - --refuse-
   value_name: <thing>
   value_kind: Required
   description: ditto.
   provenance:
     sources:
     - help-text
-- long: quiet
+- spellings:
+  - --quiet
   description: quiet operation, minimal output.
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   description: show this help message.
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: show the version.
   provenance:
     sources:

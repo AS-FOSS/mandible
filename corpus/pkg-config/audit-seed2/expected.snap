@@ -7,79 +7,92 @@ positionals:
     sources:
     - help-text
 flags:
-- long: help
+- spellings:
+  - --help
   group: 'basic options:'
   description: this message
   provenance:
     sources:
     - help-text
-- long: about
+- spellings:
+  - --about
   group: 'basic options:'
   description: print pkgconf version and license to stdout
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'basic options:'
   description: print supported pkg-config version to stdout
   provenance:
     sources:
     - help-text
-- long: atleast-pkgconfig-version
+- spellings:
+  - --atleast-pkgconfig-version
   group: 'basic options:'
   description: check whether or not pkgconf is compatible with a specified pkg-config version
   provenance:
     sources:
     - help-text
-- long: errors-to-stdout
+- spellings:
+  - --errors-to-stdout
   group: 'basic options:'
   description: print all errors on stdout instead of stderr
   provenance:
     sources:
     - help-text
-- long: print-errors
+- spellings:
+  - --print-errors
   group: 'basic options:'
   description: ensure all errors are printed
   provenance:
     sources:
     - help-text
-- long: short-errors
+- spellings:
+  - --short-errors
   group: 'basic options:'
   description: be less verbose about some errors
   provenance:
     sources:
     - help-text
-- long: silence-errors
+- spellings:
+  - --silence-errors
   group: 'basic options:'
   description: explicitly be silent about errors
   provenance:
     sources:
     - help-text
-- long: list-all
+- spellings:
+  - --list-all
   group: 'basic options:'
   description: list all known packages
   provenance:
     sources:
     - help-text
-- long: list-package-names
+- spellings:
+  - --list-package-names
   group: 'basic options:'
   description: list all known package names
   provenance:
     sources:
     - help-text
-- long: simulate
+- spellings:
+  - --simulate
   group: 'basic options:'
   description: simulate walking the calculated dependency graph
   provenance:
     sources:
     - help-text
-- long: no-cache
+- spellings:
+  - --no-cache
   group: 'basic options:'
   description: do not cache already seen packages when walking the dependency graph
   provenance:
     sources:
     - help-text
-- long: log-file
+- spellings:
+  - --log-file
   value_name: filename
   value_kind: Required
   group: 'basic options:'
@@ -87,7 +100,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: with-path
+- spellings:
+  - --with-path
   value_name: path
   value_kind: Required
   group: 'basic options:'
@@ -95,19 +109,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: define-prefix
+- spellings:
+  - --define-prefix
   group: 'basic options:'
   description: override the prefix variable with one that is guessed based on the location of the .pc file
   provenance:
     sources:
     - help-text
-- long: dont-define-prefix
+- spellings:
+  - --dont-define-prefix
   group: 'basic options:'
   description: do not override the prefix variable under any circumstances
   provenance:
     sources:
     - help-text
-- long: prefix-variable
+- spellings:
+  - --prefix-variable
   value_name: varname
   value_kind: Required
   group: 'basic options:'
@@ -115,7 +132,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: relocate
+- spellings:
+  - --relocate
   value_name: path
   value_kind: Required
   group: 'basic options:'
@@ -123,13 +141,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: dont-relocate-paths
+- spellings:
+  - --dont-relocate-paths
   group: 'basic options:'
   description: disables path relocation support
   provenance:
     sources:
     - help-text
-- long: personality
+- spellings:
+  - --personality
   value_name: triplet|filename
   value_kind: Required
   group: 'cross-compilation personality support:'
@@ -137,97 +157,113 @@ flags:
   provenance:
     sources:
     - help-text
-- long: dump-personality
+- spellings:
+  - --dump-personality
   group: 'cross-compilation personality support:'
   description: dumps details concerning selected personality
   provenance:
     sources:
     - help-text
-- long: atleast-version
+- spellings:
+  - --atleast-version
   group: 'checking specific pkg-config database entries:'
   description: require a specific version of a module
   provenance:
     sources:
     - help-text
-- long: exact-version
+- spellings:
+  - --exact-version
   group: 'checking specific pkg-config database entries:'
   description: require an exact version of a module
   provenance:
     sources:
     - help-text
-- long: max-version
+- spellings:
+  - --max-version
   group: 'checking specific pkg-config database entries:'
   description: require a maximum version of a module
   provenance:
     sources:
     - help-text
-- long: exists
+- spellings:
+  - --exists
   group: 'checking specific pkg-config database entries:'
   description: check whether or not a module exists
   provenance:
     sources:
     - help-text
-- long: uninstalled
+- spellings:
+  - --uninstalled
   group: 'checking specific pkg-config database entries:'
   description: check whether or not an uninstalled module will be used
   provenance:
     sources:
     - help-text
-- long: no-uninstalled
+- spellings:
+  - --no-uninstalled
   group: 'checking specific pkg-config database entries:'
   description: never use uninstalled modules when satisfying dependencies
   provenance:
     sources:
     - help-text
-- long: no-provides
+- spellings:
+  - --no-provides
   group: 'checking specific pkg-config database entries:'
   description: do not use 'provides' rules to resolve dependencies
   provenance:
     sources:
     - help-text
-- long: maximum-traverse-depth
+- spellings:
+  - --maximum-traverse-depth
   group: 'checking specific pkg-config database entries:'
   description: maximum allowed depth for dependency graph
   provenance:
     sources:
     - help-text
-- long: static
+- spellings:
+  - --static
   group: 'checking specific pkg-config database entries:'
   description: be more aggressive when computing dependency graph (for static linking)
   provenance:
     sources:
     - help-text
-- long: shared
+- spellings:
+  - --shared
   group: 'checking specific pkg-config database entries:'
   description: use a simplified dependency graph (usually default)
   provenance:
     sources:
     - help-text
-- long: pure
+- spellings:
+  - --pure
   group: 'checking specific pkg-config database entries:'
   description: optimize a static dependency graph as if it were a normal dependency graph
   provenance:
     sources:
     - help-text
-- long: env-only
+- spellings:
+  - --env-only
   group: 'checking specific pkg-config database entries:'
   description: look only for package entries in PKG_CONFIG_PATH
   provenance:
     sources:
     - help-text
-- long: ignore-conflicts
+- spellings:
+  - --ignore-conflicts
   group: 'checking specific pkg-config database entries:'
   description: ignore 'conflicts' rules in modules
   provenance:
     sources:
     - help-text
-- long: validate
+- spellings:
+  - --validate
   group: 'checking specific pkg-config database entries:'
   description: validate specific .pc files for correctness
   provenance:
     sources:
     - help-text
-- long: define-variable
+- spellings:
+  - --define-variable
   value_name: varname=value
   value_kind: Required
   group: 'querying specific pkg-config database fields:'
@@ -235,7 +271,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: variable
+- spellings:
+  - --variable
   value_name: varname
   value_kind: Required
   group: 'querying specific pkg-config database fields:'
@@ -243,115 +280,134 @@ flags:
   provenance:
     sources:
     - help-text
-- long: cflags
+- spellings:
+  - --cflags
   group: 'querying specific pkg-config database fields:'
   description: print required CFLAGS to stdout
   provenance:
     sources:
     - help-text
-- long: cflags-only-I
+- spellings:
+  - --cflags-only-I
   group: 'querying specific pkg-config database fields:'
   description: print required include-dir CFLAGS to stdout
   provenance:
     sources:
     - help-text
-- long: cflags-only-other
+- spellings:
+  - --cflags-only-other
   group: 'querying specific pkg-config database fields:'
   description: print required non-include-dir CFLAGS to stdout
   provenance:
     sources:
     - help-text
-- long: libs
+- spellings:
+  - --libs
   group: 'querying specific pkg-config database fields:'
   description: print required linker flags to stdout
   provenance:
     sources:
     - help-text
-- long: libs-only-L
+- spellings:
+  - --libs-only-L
   group: 'querying specific pkg-config database fields:'
   description: print required LDPATH linker flags to stdout
   provenance:
     sources:
     - help-text
-- long: libs-only-l
+- spellings:
+  - --libs-only-l
   group: 'querying specific pkg-config database fields:'
   description: print required LIBNAME linker flags to stdout
   provenance:
     sources:
     - help-text
-- long: libs-only-other
+- spellings:
+  - --libs-only-other
   group: 'querying specific pkg-config database fields:'
   description: print required other linker flags to stdout
   provenance:
     sources:
     - help-text
-- long: print-requires
+- spellings:
+  - --print-requires
   group: 'querying specific pkg-config database fields:'
   description: print required dependency frameworks to stdout
   provenance:
     sources:
     - help-text
-- long: print-requires-private
+- spellings:
+  - --print-requires-private
   group: 'querying specific pkg-config database fields:'
   description: print required dependency frameworks for static linking to stdout
   provenance:
     sources:
     - help-text
-- long: print-provides
+- spellings:
+  - --print-provides
   group: 'querying specific pkg-config database fields:'
   description: print provided dependencies to stdout
   provenance:
     sources:
     - help-text
-- long: print-variables
+- spellings:
+  - --print-variables
   group: 'querying specific pkg-config database fields:'
   description: print all known variables in module to stdout
   provenance:
     sources:
     - help-text
-- long: digraph
+- spellings:
+  - --digraph
   group: 'querying specific pkg-config database fields:'
   description: print entire dependency graph in graphviz 'dot' format
   provenance:
     sources:
     - help-text
-- long: keep-system-cflags
+- spellings:
+  - --keep-system-cflags
   group: 'querying specific pkg-config database fields:'
   description: keep -I/usr/include entries in cflags output
   provenance:
     sources:
     - help-text
-- long: keep-system-libs
+- spellings:
+  - --keep-system-libs
   group: 'querying specific pkg-config database fields:'
   description: keep -L/lib:/lib/aarch64-linux-gnu:/usr/lib:/usr/lib/aarch64-linux-gnu entries in libs output
   provenance:
     sources:
     - help-text
-- long: path
+- spellings:
+  - --path
   group: 'querying specific pkg-config database fields:'
   description: show the exact filenames for any matching .pc files
   provenance:
     sources:
     - help-text
-- long: modversion
+- spellings:
+  - --modversion
   group: 'querying specific pkg-config database fields:'
   description: print the specified module's version to stdout
   provenance:
     sources:
     - help-text
-- long: internal-cflags
+- spellings:
+  - --internal-cflags
   group: 'querying specific pkg-config database fields:'
   description: do not filter 'internal' cflags from output
   provenance:
     sources:
     - help-text
-- long: msvc-syntax
+- spellings:
+  - --msvc-syntax
   group: 'filtering output:'
   description: print translatable fragments in MSVC syntax
   provenance:
     sources:
     - help-text
-- long: fragment-filter
+- spellings:
+  - --fragment-filter
   value_name: types
   value_kind: Required
   group: 'filtering output:'

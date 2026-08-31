@@ -3,155 +3,180 @@ description: UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.
 usage:
 - 'Usage: unzip [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir] Default action is to extract files in list, except those in xlist, to exdir; file[.zip] may be a wildcard.  -Z => ZipInfo mode ("unzip -Z" for usage).'
 flags:
-- short: 'p'
+- spellings:
+  - -p
   description: extract files to pipe, no messages
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   description: list files (short format)
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   description: freshen existing files, create none
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   description: test compressed archive data
   provenance:
     sources:
     - help-text
-- short: 'u'
+- spellings:
+  - -u
   description: update files, create if necessary
   provenance:
     sources:
     - help-text
-- short: 'z'
+- spellings:
+  - -z
   description: display archive comment only
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: list verbosely/show version info
   provenance:
     sources:
     - help-text
-- short: 'T'
+- spellings:
+  - -T
   description: timestamp archive to latest
   provenance:
     sources:
     - help-text
-- short: 'x'
+- spellings:
+  - -x
   description: exclude files that follow (in xlist)
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   description: extract files into exdir
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   group: 'modifiers:'
   description: never overwrite existing files
   provenance:
     sources:
     - help-text
-- short: 'q'
+- spellings:
+  - -q
   group: 'modifiers:'
   description: quiet mode (-qq => quieter)
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   group: 'modifiers:'
   description: overwrite files WITHOUT prompting
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   group: 'modifiers:'
   description: auto-convert any text files
   provenance:
     sources:
     - help-text
-- short: 'j'
+- spellings:
+  - -j
   group: 'modifiers:'
   description: junk paths (do not make directories)
   provenance:
     sources:
     - help-text
-- long: aa
-  single_dash: true
+- spellings:
+  - -aa
   group: 'modifiers:'
   description: treat ALL files as text
   provenance:
     sources:
     - help-text
-- short: 'U'
+- spellings:
+  - -U
   group: 'modifiers:'
   description: use escapes for all non-ASCII Unicode
   provenance:
     sources:
     - help-text
-- long: UU
-  single_dash: true
+- spellings:
+  - -UU
   group: 'modifiers:'
   description: ignore any Unicode fields
   provenance:
     sources:
     - help-text
-- short: 'C'
+- spellings:
+  - -C
   group: 'modifiers:'
   description: match filenames case-insensitively
   provenance:
     sources:
     - help-text
-- short: 'L'
+- spellings:
+  - -L
   group: 'modifiers:'
   description: make (some) names lowercase
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   group: 'modifiers:'
   description: restore UID/GID info
   provenance:
     sources:
     - help-text
-- short: 'V'
+- spellings:
+  - -V
   group: 'modifiers:'
   description: retain VMS version numbers
   provenance:
     sources:
     - help-text
-- short: 'K'
+- spellings:
+  - -K
   group: 'modifiers:'
   description: keep setuid/setgid/tacky permissions
   provenance:
     sources:
     - help-text
-- short: 'M'
+- spellings:
+  - -M
   group: 'modifiers:'
   description: pipe through "more" pager
   provenance:
     sources:
     - help-text
-- short: 'O'
+- spellings:
+  - -O
   group: 'modifiers:'
   description: CHARSET specify a character encoding for DOS, Windows and OS/2 archives
   provenance:
     sources:
     - help-text
-- short: 'I'
+- spellings:
+  - -I
   group: 'modifiers:'
   description: CHARSET specify a character encoding for UNIX and other archives
   provenance:
     sources:
     - help-text
-- short: 'Z'
+- spellings:
+  - -Z
   provenance:
     sources:
     - help-text-synopsis

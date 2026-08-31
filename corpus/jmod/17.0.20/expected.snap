@@ -8,129 +8,148 @@ positionals:
     sources:
     - help-text
 flags:
-- short: '?'
-  long: help
+- spellings:
+  - -?
+  - --help
   description: Print this help message
   provenance:
     sources:
     - help-text
-- long: class-path
+- spellings:
+  - --class-path
   value_name: <path>
   value_kind: Required
   description: Application jar files|dir containing classes
   provenance:
     sources:
     - help-text
-- long: cmds
+- spellings:
+  - --cmds
   value_name: <path>
   value_kind: Required
   description: Location of native commands
   provenance:
     sources:
     - help-text
-- long: config
+- spellings:
+  - --config
   value_name: <path>
   value_kind: Required
   description: Location of user-editable config files
   provenance:
     sources:
     - help-text
-- long: date
+- spellings:
+  - --date
   value_name: <date>
   value_kind: Required
   description: Date and time for the timestamps of entries, specified in ISO-8601 extended offset date-time with optional time-zone format, e.g. "2022-02-12T12:30:00-05:00"
   provenance:
     sources:
     - help-text
-- long: dir
+- spellings:
+  - --dir
   value_name: <path>
   value_kind: Required
   description: Target directory for extract
   provenance:
     sources:
     - help-text
-- long: dry-run
+- spellings:
+  - --dry-run
   description: Dry run of hash mode
   provenance:
     sources:
     - help-text
-- long: exclude
+- spellings:
+  - --exclude
   value_name: <pattern-list>
   value_kind: Required
   description: 'Exclude files matching the supplied comma separated pattern list, each element using one the following forms: <glob-pattern>, glob:<glob- pattern> or regex:<regex-pattern>'
   provenance:
     sources:
     - help-text
-- long: hash-modules
+- spellings:
+  - --hash-modules
   value_name: <regex-pattern>
   value_kind: Required
   description: Compute and record hashes to tie a packaged module with modules matching the given <regex-pattern> and depending upon it directly or indirectly. The hashes are recorded in the JMOD file being created, or a JMOD file or modular JAR on the module path specified the jmod hash command.
   provenance:
     sources:
     - help-text
-- long: header-files
+- spellings:
+  - --header-files
   value_name: <path>
   value_kind: Required
   description: Location of header files
   provenance:
     sources:
     - help-text
-- long: help-extra
+- spellings:
+  - --help-extra
   description: Print help on extra options
   provenance:
     sources:
     - help-text
-- long: legal-notices
+- spellings:
+  - --legal-notices
   value_name: <path>
   value_kind: Required
   description: Location of legal notices
   provenance:
     sources:
     - help-text
-- long: libs
+- spellings:
+  - --libs
   value_name: <path>
   value_kind: Required
   description: Location of native libraries
   provenance:
     sources:
     - help-text
-- long: main-class
+- spellings:
+  - --main-class
   value_name: '<String: class-name>'
   value_kind: Required
   description: Main class
   provenance:
     sources:
     - help-text
-- long: man-pages
+- spellings:
+  - --man-pages
   value_name: <path>
   value_kind: Required
   description: Location of man pages
   provenance:
     sources:
     - help-text
-- long: module-version
+- spellings:
+  - --module-version
   value_name: <module-version>
   value_kind: Required
   description: Module version
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: module-path
+- spellings:
+  - -p
+  - --module-path
   value_name: <path>
   value_kind: Required
   description: Module path
   provenance:
     sources:
     - help-text
-- long: target-platform
+- spellings:
+  - --target-platform
   value_name: '<String: target-platform>'
   value_kind: Required
   description: Target platform
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: Version information
   provenance:
     sources:

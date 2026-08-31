@@ -8,79 +8,93 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'A'
+- spellings:
+  - -A
   description: check all filesystems
   provenance:
     sources:
     - help-text
-- short: 'C'
+- spellings:
+  - -C
   value_name: <fd>
   value_kind: Optional
   description: display progress bar; file descriptor is for GUIs
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   description: lock the device to guarantee exclusive access
   provenance:
     sources:
     - help-text
-- short: 'M'
+- spellings:
+  - -M
   description: do not check mounted filesystems
   provenance:
     sources:
     - help-text
-- short: 'N'
+- spellings:
+  - -N
   description: do not execute, just show what would be done
   provenance:
     sources:
     - help-text
-- short: 'P'
+- spellings:
+  - -P
   description: check filesystems in parallel, including root
   provenance:
     sources:
     - help-text
-- short: 'R'
+- spellings:
+  - -R
   description: skip root filesystem; useful only with '-A'
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   value_name: <fd>
   value_kind: Optional
   description: report statistics for each device checked; file descriptor is for GUIs
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   description: serialize the checking operations
   provenance:
     sources:
     - help-text
-- short: 'T'
+- spellings:
+  - -T
   description: do not show the title on startup
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   value_name: <type>
   value_kind: Required
   description: specify filesystem types to be checked; <type> is allowed to be a comma-separated list
   provenance:
     sources:
     - help-text
-- short: 'V'
+- spellings:
+  - -V
   description: explain what is being done
   provenance:
     sources:
     - help-text
-- short: '?'
-  long: help
+- spellings:
+  - -?
+  - --help
   description: display this help
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: display version
   provenance:
     sources:

@@ -2,57 +2,66 @@ name: man-recode
 usage:
 - 'Usage: man-recode [OPTION...]'
 flags:
-- short: 't'
+- spellings:
+  - -t
   value_name: CODE
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: debug
+- spellings:
+  - -d
+  - --debug
   description: emit debugging messages
   provenance:
     sources:
     - help-text
-- long: in-place
+- spellings:
+  - --in-place
   description: overwrite input files in place
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: quiet
+- spellings:
+  - -q
+  - --quiet
   description: produce fewer warnings
   provenance:
     sources:
     - help-text
-- long: suffix
+- spellings:
+  - --suffix
   value_name: SUFFIX
   value_kind: Required
   description: suffix to append to output file name
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: to-code
+- spellings:
+  - -t
+  - --to-code
   value_name: CODE
   value_kind: Required
   description: encoding for output
   provenance:
     sources:
     - help-text
-- short: '?'
-  long: help
+- spellings:
+  - -?
+  - --help
   description: give this help list
   provenance:
     sources:
     - help-text
-- long: usage
+- spellings:
+  - --usage
   description: give a short usage message
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: print program version
   provenance:
     sources:

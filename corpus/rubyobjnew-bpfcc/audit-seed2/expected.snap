@@ -14,38 +14,43 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: show this help message and exit
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: language
+- spellings:
+  - -l
+  - --language
   value_name: '{c,java,ruby,tcl}'
   value_kind: Required
   description: language to trace
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: top-count
+- spellings:
+  - -C
+  - --top-count
   value_name: TOP_COUNT
   value_kind: Required
   description: number of most frequently allocated types to print
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: top-size
+- spellings:
+  - -S
+  - --top-size
   value_name: TOP_SIZE
   value_kind: Required
   description: number of largest types by allocated bytes to print
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: 'verbose mode: print the BPF program (for debugging purposes)'
   provenance:
     sources:

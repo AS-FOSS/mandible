@@ -13,19 +13,23 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'V'
+- spellings:
+  - -V
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   provenance:
     sources:
     - help-text
-- short: 'j'
+- spellings:
+  - -j
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p
   provenance:
     sources:
     - help-text

@@ -2,13 +2,15 @@ name: dbus-uuidgen
 usage:
 - 'Usage: /usr/bin/dbus-uuidgen [--ensure[=FILENAME]] [--get[=FILENAME]]'
 flags:
-- long: ensure
+- spellings:
+  - --ensure
   value_name: FILENAME
   value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis
-- long: get
+- spellings:
+  - --get
   value_name: FILENAME
   value_kind: Optional
   provenance:

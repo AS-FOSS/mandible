@@ -3,53 +3,62 @@ description: 'apt 2.8.3 (arm64) Commands: packages binarypath [overridefile [pat
 usage:
 - 'Usage: apt-ftparchive [options] command'
 flags:
-- short: 'h'
+- spellings:
+  - -h
   description: This help text
   provenance:
     sources:
     - help-text
-- long: md5
+- spellings:
+  - --md5
   description: Control MD5 generation
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: '?'
   value_kind: Required
   description: Source override file
   provenance:
     sources:
     - help-text
-- short: 'q'
+- spellings:
+  - -q
   description: Quiet
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   value_name: '?'
   value_kind: Required
   description: Select the optional caching database
   provenance:
     sources:
     - help-text
-- long: no-delink
+- spellings:
+  - --no-delink
   description: Enable delinking debug mode
   provenance:
     sources:
     - help-text
-- long: contents
+- spellings:
+  - --contents
   description: Control contents file generation
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   value_name: '?'
   value_kind: Required
   description: Read this configuration file
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   value_name: '?'
   value_kind: Required
   description: Set an arbitrary configuration option

@@ -12,89 +12,107 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'v'
-  long: version
+- spellings:
+  - -v
+  - --version
   provenance:
     sources:
     - help-text-synopsis
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   provenance:
     sources:
     - help-text-synopsis
-- short: 'C'
+- spellings:
+  - -C
   value_name: <path>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'c'
+- spellings:
+  - -c
   value_name: <name>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- long: exec-path
+- spellings:
+  - --exec-path
   value_name: <path>
   value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis
-- long: html-path
+- spellings:
+  - --html-path
   provenance:
     sources:
     - help-text-synopsis
-- long: man-path
+- spellings:
+  - --man-path
   provenance:
     sources:
     - help-text-synopsis
-- long: info-path
+- spellings:
+  - --info-path
   provenance:
     sources:
     - help-text-synopsis
-- short: 'p'
+- spellings:
+  - -p
   provenance:
     sources:
     - help-text-synopsis
-- long: paginate
+- spellings:
+  - --paginate
   provenance:
     sources:
     - help-text-synopsis
-- short: 'P'
+- spellings:
+  - -P
   provenance:
     sources:
     - help-text-synopsis
-- long: no-pager
+- spellings:
+  - --no-pager
   provenance:
     sources:
     - help-text-synopsis
-- long: no-replace-objects
+- spellings:
+  - --no-replace-objects
   provenance:
     sources:
     - help-text-synopsis
-- long: bare
+- spellings:
+  - --bare
   provenance:
     sources:
     - help-text-synopsis
-- long: git-dir
+- spellings:
+  - --git-dir
   value_name: <path>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- long: work-tree
+- spellings:
+  - --work-tree
   value_name: <path>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- long: namespace
+- spellings:
+  - --namespace
   value_name: <name>
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- long: config-env
+- spellings:
+  - --config-env
   value_name: <name>
   value_kind: Required
   provenance:
@@ -146,112 +164,114 @@ subcommands:
       sources:
       - help-text
   flags:
-  - short: 's'
-    long: source
+  - spellings:
+    - -s
+    - --[no-]source
     value_name: <tree-ish>
     value_kind: Required
-    negatable: true
     description: which tree-ish to checkout from
     provenance:
       sources:
       - help-text
-  - short: 'S'
-    long: staged
-    negatable: true
+  - spellings:
+    - -S
+    - --[no-]staged
     description: restore the index
     provenance:
       sources:
       - help-text
-  - short: 'W'
-    long: worktree
-    negatable: true
+  - spellings:
+    - -W
+    - --[no-]worktree
     description: restore the working tree (default)
     provenance:
       sources:
       - help-text
-  - long: ignore-unmerged
-    negatable: true
+  - spellings:
+    - --[no-]ignore-unmerged
     description: ignore unmerged entries
     provenance:
       sources:
       - help-text
-  - long: overlay
-    negatable: true
+  - spellings:
+    - --[no-]overlay
     description: use overlay mode
     provenance:
       sources:
       - help-text
-  - short: 'q'
-    long: quiet
-    negatable: true
+  - spellings:
+    - -q
+    - --[no-]quiet
     description: suppress progress reporting
     provenance:
       sources:
       - help-text
-  - long: recurse-submodules
+  - spellings:
+    - --[no-]recurse-submodules
     value_name: <checkout>
     value_kind: Optional
-    negatable: true
     description: control recursive updating of submodules
     provenance:
       sources:
       - help-text
-  - long: progress
-    negatable: true
+  - spellings:
+    - --[no-]progress
     description: force progress reporting
     provenance:
       sources:
       - help-text
-  - short: 'm'
-    long: merge
-    negatable: true
+  - spellings:
+    - -m
+    - --[no-]merge
     description: perform a 3-way merge with the new branch
     provenance:
       sources:
       - help-text
-  - long: conflict
+  - spellings:
+    - --[no-]conflict
     value_name: <style>
     value_kind: Required
-    negatable: true
     description: conflict style (merge, diff3, or zdiff3)
     provenance:
       sources:
       - help-text
-  - short: '2'
-    long: ours
+  - spellings:
+    - '-2'
+    - --ours
     description: checkout our version for unmerged files
     provenance:
       sources:
       - help-text
-  - short: '3'
-    long: theirs
+  - spellings:
+    - '-3'
+    - --theirs
     description: checkout their version for unmerged files
     provenance:
       sources:
       - help-text
-  - short: 'p'
-    long: patch
-    negatable: true
+  - spellings:
+    - -p
+    - --[no-]patch
     description: select hunks interactively
     provenance:
       sources:
       - help-text
-  - long: ignore-skip-worktree-bits
-    negatable: true
+  - spellings:
+    - --[no-]ignore-skip-worktree-bits
     description: do not limit pathspecs to sparse entries only
     provenance:
       sources:
       - help-text
-  - long: pathspec-from-file
+  - spellings:
+    - --[no-]pathspec-from-file
     value_name: <file>
     value_kind: Required
-    negatable: true
     description: read pathspec from file
     provenance:
       sources:
       - help-text
-  - long: pathspec-file-nul
-    negatable: true
+  - spellings:
+    - --[no-]pathspec-file-nul
     description: with --pathspec-from-file, pathspec elements are separated with NUL character
     provenance:
       sources:

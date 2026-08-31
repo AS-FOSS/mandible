@@ -8,365 +8,423 @@ description: |-
 usage:
 - 'Usage: /usr/bin/mariadb-check [OPTIONS] database [tables]'
 flags:
-- long: print-defaults
+- spellings:
+  - --print-defaults
   description: Print the program argument list and exit.
   provenance:
     sources:
     - help-text
-- long: no-defaults
+- spellings:
+  - --no-defaults
   description: Don't read default options from any option file.
   provenance:
     sources:
     - help-text
-- long: defaults-file
+- spellings:
+  - --defaults-file
   value_name: '#'
   value_kind: Required
   description: 'Only read default options from the given file #.'
   provenance:
     sources:
     - help-text
-- long: defaults-extra-file
+- spellings:
+  - --defaults-extra-file
   value_name: '#'
   value_kind: Required
   description: Read this file after the global files are read.
   provenance:
     sources:
     - help-text
-- long: defaults-group-suffix
+- spellings:
+  - --defaults-group-suffix
   value_name: '#'
   value_kind: Required
   description: 'Additionally read default groups with # appended as a suffix.'
   provenance:
     sources:
     - help-text
-- short: 'A'
-  long: all-databases
+- spellings:
+  - -A
+  - --all-databases
   description: Check all the databases. This is the same as --databases with all databases selected.
   provenance:
     sources:
     - help-text
-- short: 'a'
-  long: analyze
+- spellings:
+  - -a
+  - --analyze
   description: Analyze given tables.
   provenance:
     sources:
     - help-text
-- short: '1'
-  long: all-in-1
+- spellings:
+  - '-1'
+  - --all-in-1
   description: Instead of issuing one query for each table, use one query per database, naming all tables in the database in a comma-separated list.
   provenance:
     sources:
     - help-text
-- long: auto-repair
+- spellings:
+  - --auto-repair
   description: If a checked table is corrupted, automatically fix it. Repairing will be done after all tables have been checked, if corrupted ones were found.
   provenance:
     sources:
     - help-text
-- long: character-sets-dir
+- spellings:
+  - --character-sets-dir
   value_name: name
   value_kind: Required
   description: Directory for character set files.
   provenance:
     sources:
     - help-text
-- short: 'c'
-  long: check
+- spellings:
+  - -c
+  - --check
   description: Check table for errors.
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: check-only-changed
+- spellings:
+  - -C
+  - --check-only-changed
   description: Check only tables that have changed since last check or haven't been closed properly.
   provenance:
     sources:
     - help-text
-- short: 'g'
-  long: check-upgrade
+- spellings:
+  - -g
+  - --check-upgrade
   description: Check tables for version-dependent changes. May be used with --auto-repair to correct tables requiring version-dependent updates.
   provenance:
     sources:
     - help-text
-- long: compress
+- spellings:
+  - --compress
   description: Use compression in server/client protocol.
   provenance:
     sources:
     - help-text
-- short: 'B'
-  long: databases
+- spellings:
+  - -B
+  - --databases
   description: Check several databases. Note the difference in usage; in this case no tables are given. All name arguments are regarded as database names.
   provenance:
     sources:
     - help-text
-- short: '#'
-  long: debug
+- spellings:
+  - -#
+  - --debug
   value_name: '#'
   value_kind: Optional
   description: This is a non-debug version. Catch this and exit.
   provenance:
     sources:
     - help-text
-- long: debug-check
+- spellings:
+  - --debug-check
   description: Check memory and open file usage at exit.
   provenance:
     sources:
     - help-text
-- long: debug-info
+- spellings:
+  - --debug-info
   description: Print some debug info at exit.
   provenance:
     sources:
     - help-text
-- long: default-character-set
+- spellings:
+  - --default-character-set
   value_name: name
   value_kind: Required
   description: Set the default character set.
   provenance:
     sources:
     - help-text
-- long: default-auth
+- spellings:
+  - --default-auth
   value_name: name
   value_kind: Required
   description: Default authentication client-side plugin to use.
   provenance:
     sources:
     - help-text
-- short: 'F'
-  long: fast
+- spellings:
+  - -F
+  - --fast
   description: Check only tables that haven't been closed properly.
   provenance:
     sources:
     - help-text
-- long: fix-db-names
+- spellings:
+  - --fix-db-names
   description: Fix database names.
   provenance:
     sources:
     - help-text
-- long: fix-table-names
+- spellings:
+  - --fix-table-names
   description: Fix table names.
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: force
+- spellings:
+  - -f
+  - --force
   description: Continue even if we get an SQL error.
   provenance:
     sources:
     - help-text
-- short: 'e'
-  long: extended
+- spellings:
+  - -e
+  - --extended
   description: If you are using this option with CHECK TABLE, it will ensure that the table is 100 percent consistent, but will take a long time. If you are using this option with REPAIR TABLE, it will force using old slow repair with keycache method, instead of much faster repair by sorting.
   provenance:
     sources:
     - help-text
-- long: flush
+- spellings:
+  - --flush
   description: Flush each table after check. This is useful if you don't want to have the checked tables take up space in the caches after the check
   provenance:
     sources:
     - help-text
-- short: '?'
-  long: help
+- spellings:
+  - -?
+  - --help
   description: Display this help message and exit.
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: host
+- spellings:
+  - -h
+  - --host
   value_name: name
   value_kind: Required
   description: Connect to host.
   provenance:
     sources:
     - help-text
-- short: 'm'
-  long: medium-check
+- spellings:
+  - -m
+  - --medium-check
   description: Faster than extended-check, but only finds 99.99 percent of all errors. Should be good enough for most cases.
   provenance:
     sources:
     - help-text
-- long: write-binlog
+- spellings:
+  - --write-binlog
   description: Log ANALYZE, OPTIMIZE and REPAIR TABLE commands. Use --skip-write-binlog when commands should not be sent to replication slaves. (Defaults to on; use --skip-write-binlog to disable.)
   provenance:
     sources:
     - help-text
-- short: 'o'
-  long: optimize
+- spellings:
+  - -o
+  - --optimize
   description: Optimize table.
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: password
+- spellings:
+  - -p
+  - --password
   value_name: name
   value_kind: Optional
   description: Password to use when connecting to server. If password is not given, it's solicited on the tty.
   provenance:
     sources:
     - help-text
-- short: 'Z'
-  long: persistent
+- spellings:
+  - -Z
+  - --persistent
   description: When using ANALYZE TABLE use the PERSISTENT FOR ALL option.
   provenance:
     sources:
     - help-text
-- long: plugin-dir
+- spellings:
+  - --plugin-dir
   value_name: name
   value_kind: Required
   description: Directory for client-side plugins.
   provenance:
     sources:
     - help-text
-- short: 'P'
-  long: port
+- spellings:
+  - -P
+  - --port
   value_name: '#'
   value_kind: Required
   description: Port number to use for connection or 0 for default to, in order of preference, my.cnf, $MYSQL_TCP_PORT, /etc/services, built-in default (3306).
   provenance:
     sources:
     - help-text
-- long: protocol
+- spellings:
+  - --protocol
   value_name: name
   value_kind: Required
   description: The protocol to use for connection (tcp, socket, pipe).
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: quick
+- spellings:
+  - -q
+  - --quick
   description: If you are using this option with CHECK TABLE, it prevents the check from scanning the rows to check for wrong links. This is the fastest check. If you are using this option with REPAIR TABLE, it will try to repair only the index tree. This is the fastest repair method for a table.
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: repair
+- spellings:
+  - -r
+  - --repair
   description: Can fix almost anything except unique keys that aren't unique.
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: silent
+- spellings:
+  - -s
+  - --silent
   description: Print only error messages.
   provenance:
     sources:
     - help-text
-- long: skip-database
+- spellings:
+  - --skip-database
   value_name: name
   value_kind: Required
   description: Don't process the database specified as argument
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: socket
+- spellings:
+  - -S
+  - --socket
   value_name: name
   value_kind: Required
   description: The socket file to use for connection.
   provenance:
     sources:
     - help-text
-- long: ssl
+- spellings:
+  - --ssl
   description: Enable SSL for connection (automatically enabled with other flags). (Defaults to on; use --skip-ssl to disable.)
   provenance:
     sources:
     - help-text
-- long: ssl-ca
+- spellings:
+  - --ssl-ca
   value_name: name
   value_kind: Required
   description: CA file in PEM format (check OpenSSL docs, implies --ssl).
   provenance:
     sources:
     - help-text
-- long: ssl-capath
+- spellings:
+  - --ssl-capath
   value_name: name
   value_kind: Required
   description: CA directory (check OpenSSL docs, implies --ssl).
   provenance:
     sources:
     - help-text
-- long: ssl-cert
+- spellings:
+  - --ssl-cert
   value_name: name
   value_kind: Required
   description: X509 cert in PEM format (implies --ssl).
   provenance:
     sources:
     - help-text
-- long: ssl-cipher
+- spellings:
+  - --ssl-cipher
   value_name: name
   value_kind: Required
   description: SSL cipher to use (implies --ssl).
   provenance:
     sources:
     - help-text
-- long: ssl-key
+- spellings:
+  - --ssl-key
   value_name: name
   value_kind: Required
   description: X509 key in PEM format (implies --ssl).
   provenance:
     sources:
     - help-text
-- long: ssl-crl
+- spellings:
+  - --ssl-crl
   value_name: name
   value_kind: Required
   description: Certificate revocation list (implies --ssl).
   provenance:
     sources:
     - help-text
-- long: ssl-crlpath
+- spellings:
+  - --ssl-crlpath
   value_name: name
   value_kind: Required
   description: Certificate revocation list path (implies --ssl).
   provenance:
     sources:
     - help-text
-- long: tls-version
+- spellings:
+  - --tls-version
   value_name: name
   value_kind: Required
   description: TLS protocol version for secure connection.
   provenance:
     sources:
     - help-text
-- long: ssl-verify-server-cert
+- spellings:
+  - --ssl-verify-server-cert
   description: Verify server's certificate to prevent man-in-the-middle attacks
   provenance:
     sources:
     - help-text
-- long: tables
+- spellings:
+  - --tables
   description: Overrides option --databases (-B).
   provenance:
     sources:
     - help-text
-- long: use-frm
+- spellings:
+  - --use-frm
   description: When used with REPAIR, get table structure from .frm file, so the table can be repaired even if .MYI header is corrupted.
   provenance:
     sources:
     - help-text
-- short: 'u'
-  long: user
+- spellings:
+  - -u
+  - --user
   value_name: name
   value_kind: Required
   description: User for login if not current user.
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   description: Print info about the various stages; Using it 3 times will print out all CHECK, RENAME and ALTER TABLE during the check phase.
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: Output version information and exit.
   provenance:
     sources:
     - help-text
-- long: process-views
+- spellings:
+  - --process-views
   value_name: name
   value_kind: Optional
   description: 'Perform the requested operation (check or repair) on views. One of: NO, YES (correct the checksum, if necessary, add the mariadb-version field), UPGRADE (run from mariadb-upgrade), UPGRADE_FROM_MYSQL (same as YES and toggle the algorithm MERGE<->TEMPTABLE.'
   provenance:
     sources:
     - help-text
-- long: process-tables
+- spellings:
+  - --process-tables
   description: Perform the requested operation on tables. (Defaults to on; use --skip-process-tables to disable.)
   provenance:
     sources:

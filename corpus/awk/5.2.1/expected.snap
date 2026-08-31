@@ -14,194 +14,222 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'f'
-  long: file
+- spellings:
+  - -f
+  - --file
   value_name: progfile
   value_kind: Required
   group: "POSIX options:\t\tGNU long options: (standard)"
   provenance:
     sources:
     - help-text
-- short: 'F'
-  long: field-separator
+- spellings:
+  - -F
+  - --field-separator
   value_name: fs
   value_kind: Required
   group: "POSIX options:\t\tGNU long options: (standard)"
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: assign
+- spellings:
+  - -v
+  - --assign
   value_name: var=val
   value_kind: Required
   group: "POSIX options:\t\tGNU long options: (standard)"
   provenance:
     sources:
     - help-text
-- short: 'b'
-  long: characters-as-bytes
+- spellings:
+  - -b
+  - --characters-as-bytes
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'c'
-  long: traditional
+- spellings:
+  - -c
+  - --traditional
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: copyright
+- spellings:
+  - -C
+  - --copyright
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: dump-variables
+- spellings:
+  - -d
+  - --dump-variables
   value_name: file
   value_kind: Optional
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'D'
-  long: debug
+- spellings:
+  - -D
+  - --debug
   value_name: file
   value_kind: Optional
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'e'
-  long: source
+- spellings:
+  - -e
+  - --source
   value_name: '''program-text'''
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'E'
-  long: exec
+- spellings:
+  - -E
+  - --exec
   value_name: file
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'g'
-  long: gen-pot
+- spellings:
+  - -g
+  - --gen-pot
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: include
+- spellings:
+  - -i
+  - --include
   value_name: includefile
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'I'
-  long: trace
+- spellings:
+  - -I
+  - --trace
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: load
+- spellings:
+  - -l
+  - --load
   value_name: library
   value_kind: Required
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'L'
-  long: lint
+- spellings:
+  - -L
+  - --lint
   value_name: fatal|invalid|no-ext
   value_kind: Optional
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'M'
-  long: bignum
+- spellings:
+  - -M
+  - --bignum
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'N'
-  long: use-lc-numeric
+- spellings:
+  - -N
+  - --use-lc-numeric
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: non-decimal-data
+- spellings:
+  - -n
+  - --non-decimal-data
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'o'
-  long: pretty-print
+- spellings:
+  - -o
+  - --pretty-print
   value_name: file
   value_kind: Optional
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'O'
-  long: optimize
+- spellings:
+  - -O
+  - --optimize
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: profile
+- spellings:
+  - -p
+  - --profile
   value_name: file
   value_kind: Optional
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'P'
-  long: posix
+- spellings:
+  - -P
+  - --posix
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: re-interval
+- spellings:
+  - -r
+  - --re-interval
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: no-optimize
+- spellings:
+  - -s
+  - --no-optimize
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: sandbox
+- spellings:
+  - -S
+  - --sandbox
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: lint-old
+- spellings:
+  - -t
+  - --lint-old
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:

@@ -8,54 +8,62 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'i'
-  long: install
+- spellings:
+  - -i
+  - --install
   group: 'Commands:'
   description: <.deb file name>... | -R|--recursive <directory>...
   provenance:
     sources:
     - help-text
-- long: unpack
+- spellings:
+  - --unpack
   group: 'Commands:'
   description: <.deb file name>... | -R|--recursive <directory>...
   provenance:
     sources:
     - help-text
-- short: 'A'
-  long: record-avail
+- spellings:
+  - -A
+  - --record-avail
   group: 'Commands:'
   description: <.deb file name>... | -R|--recursive <directory>...
   provenance:
     sources:
     - help-text
-- long: configure
+- spellings:
+  - --configure
   group: 'Commands:'
   description: <package>... | -a|--pending
   provenance:
     sources:
     - help-text
-- long: triggers-only
+- spellings:
+  - --triggers-only
   group: 'Commands:'
   description: <package>... | -a|--pending
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: remove
+- spellings:
+  - -r
+  - --remove
   group: 'Commands:'
   description: <package>... | -a|--pending
   provenance:
     sources:
     - help-text
-- short: 'P'
-  long: purge
+- spellings:
+  - -P
+  - --purge
   group: 'Commands:'
   description: <package>... | -a|--pending
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: verify
+- spellings:
+  - -V
+  - --verify
   value_name: <package>...
   value_kind: Optional
   group: 'Commands:'
@@ -63,7 +71,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: get-selections
+- spellings:
+  - --get-selections
   value_name: <pattern>...
   value_kind: Optional
   group: 'Commands:'
@@ -71,19 +80,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: set-selections
+- spellings:
+  - --set-selections
   group: 'Commands:'
   description: Set package selections from stdin.
   provenance:
     sources:
     - help-text
-- long: clear-selections
+- spellings:
+  - --clear-selections
   group: 'Commands:'
   description: Deselect every non-essential package.
   provenance:
     sources:
     - help-text
-- long: update-avail
+- spellings:
+  - --update-avail
   value_name: <Packages-file>
   value_kind: Optional
   group: 'Commands:'
@@ -91,7 +103,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: merge-avail
+- spellings:
+  - --merge-avail
   value_name: <Packages-file>
   value_kind: Optional
   group: 'Commands:'
@@ -99,20 +112,23 @@ flags:
   provenance:
     sources:
     - help-text
-- long: clear-avail
+- spellings:
+  - --clear-avail
   group: 'Commands:'
   description: Erase existing available info.
   provenance:
     sources:
     - help-text
-- long: forget-old-unavail
+- spellings:
+  - --forget-old-unavail
   group: 'Commands:'
   description: Forget uninstalled unavailable pkgs.
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: status
+- spellings:
+  - -s
+  - --status
   value_name: <package>...
   value_kind: Optional
   group: 'Commands:'
@@ -120,8 +136,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: print-avail
+- spellings:
+  - -p
+  - --print-avail
   value_name: <package>...
   value_kind: Optional
   group: 'Commands:'
@@ -129,8 +146,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'L'
-  long: listfiles
+- spellings:
+  - -L
+  - --listfiles
   value_name: <package>
   value_kind: Required
   group: 'Commands:'
@@ -138,8 +156,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: list
+- spellings:
+  - -l
+  - --list
   value_name: <pattern>...
   value_kind: Optional
   group: 'Commands:'
@@ -147,8 +166,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: search
+- spellings:
+  - -S
+  - --search
   value_name: <pattern>
   value_kind: Required
   group: 'Commands:'
@@ -156,8 +176,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: audit
+- spellings:
+  - -C
+  - --audit
   value_name: <package>...
   value_kind: Optional
   group: 'Commands:'
@@ -165,19 +186,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: yet-to-unpack
+- spellings:
+  - --yet-to-unpack
   group: 'Commands:'
   description: Print packages selected for installation.
   provenance:
     sources:
     - help-text
-- long: predep-package
+- spellings:
+  - --predep-package
   group: 'Commands:'
   description: Print pre-dependencies to unpack.
   provenance:
     sources:
     - help-text
-- long: add-architecture
+- spellings:
+  - --add-architecture
   value_name: <arch>
   value_kind: Required
   group: 'Commands:'
@@ -185,7 +209,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: remove-architecture
+- spellings:
+  - --remove-architecture
   value_name: <arch>
   value_kind: Required
   group: 'Commands:'
@@ -193,25 +218,29 @@ flags:
   provenance:
     sources:
     - help-text
-- long: print-architecture
+- spellings:
+  - --print-architecture
   group: 'Commands:'
   description: Print dpkg architecture.
   provenance:
     sources:
     - help-text
-- long: print-foreign-architectures
+- spellings:
+  - --print-foreign-architectures
   group: 'Commands:'
   description: Print allowed foreign architectures.
   provenance:
     sources:
     - help-text
-- long: assert-help
+- spellings:
+  - --assert-help
   group: 'Commands:'
   description: Show help on assertions.
   provenance:
     sources:
     - help-text
-- long: assert-
+- spellings:
+  - --assert-
   value_name: <feature>
   value_kind: Required
   group: 'Commands:'
@@ -219,7 +248,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: validate-
+- spellings:
+  - --validate-
   value_name: <thing>
   value_kind: Required
   group: 'Commands:'
@@ -227,7 +257,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: compare-versions
+- spellings:
+  - --compare-versions
   value_name: <a>
   value_kind: Required
   group: 'Commands:'
@@ -235,14 +266,16 @@ flags:
   provenance:
     sources:
     - help-text
-- long: force-help
+- spellings:
+  - --force-help
   group: 'Commands:'
   description: Show help on forcing.
   provenance:
     sources:
     - help-text
-- short: 'D'
-  long: debug
+- spellings:
+  - -D
+  - --debug
   value_name: h
   value_kind: Required
   group: 'Commands:'
@@ -250,185 +283,212 @@ flags:
   provenance:
     sources:
     - help-text
-- short: '?'
-  long: help
+- spellings:
+  - -?
+  - --help
   group: 'Commands:'
   description: Show this help message.
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Commands:'
   description: Show the version.
   provenance:
     sources:
     - help-text
-- long: admindir
+- spellings:
+  - --admindir
   value_name: <directory>
   value_kind: Required
   description: Use <directory> instead of /var/lib/dpkg.
   provenance:
     sources:
     - help-text
-- long: root
+- spellings:
+  - --root
   value_name: <directory>
   value_kind: Required
   description: Install on a different root directory.
   provenance:
     sources:
     - help-text
-- long: instdir
+- spellings:
+  - --instdir
   value_name: <directory>
   value_kind: Required
   description: Change installation dir without changing admin dir.
   provenance:
     sources:
     - help-text
-- long: pre-invoke
+- spellings:
+  - --pre-invoke
   value_name: <command>
   value_kind: Required
   description: Set a pre-invoke hook.
   provenance:
     sources:
     - help-text
-- long: post-invoke
+- spellings:
+  - --post-invoke
   value_name: <command>
   value_kind: Required
   description: Set a post-invoke hook.
   provenance:
     sources:
     - help-text
-- long: path-exclude
+- spellings:
+  - --path-exclude
   value_name: <pattern>
   value_kind: Required
   description: Do not install paths which match a shell pattern.
   provenance:
     sources:
     - help-text
-- long: path-include
+- spellings:
+  - --path-include
   value_name: <pattern>
   value_kind: Required
   description: Re-include a pattern after a previous exclusion.
   provenance:
     sources:
     - help-text
-- short: 'O'
-  long: selected-only
+- spellings:
+  - -O
+  - --selected-only
   description: Skip packages not selected for install/upgrade.
   provenance:
     sources:
     - help-text
-- short: 'E'
-  long: skip-same-version
+- spellings:
+  - -E
+  - --skip-same-version
   description: Skip packages with same installed version/arch.
   provenance:
     sources:
     - help-text
-- short: 'G'
-  long: refuse-downgrade
+- spellings:
+  - -G
+  - --refuse-downgrade
   description: Skip packages with earlier version than installed.
   provenance:
     sources:
     - help-text
-- short: 'B'
-  long: auto-deconfigure
+- spellings:
+  - -B
+  - --auto-deconfigure
   description: Install even if it would break some other package.
   provenance:
     sources:
     - help-text
-- long: triggers
-  negatable: true
+- spellings:
+  - --[no-]triggers
   description: Skip or force consequential trigger processing.
   provenance:
     sources:
     - help-text
-- long: verify-format
+- spellings:
+  - --verify-format
   value_name: <format>
   value_kind: Required
   description: 'Verify output format (supported: ''rpm'').'
   provenance:
     sources:
     - help-text
-- long: no-pager
+- spellings:
+  - --no-pager
   description: Disables the use of any pager.
   provenance:
     sources:
     - help-text
-- long: no-debsig
+- spellings:
+  - --no-debsig
   description: Do not try to verify package signatures.
   provenance:
     sources:
     - help-text
-- long: no-act
+- spellings:
+  - --no-act
   description: Just say what we would do - don't do it.
   provenance:
     sources:
     - help-text
-- short: 'D'
-  long: debug
+- spellings:
+  - -D
+  - --debug
   value_name: <octal>
   value_kind: Required
   description: Enable debugging (see -Dhelp or --debug=help).
   provenance:
     sources:
     - help-text
-- long: status-fd
+- spellings:
+  - --status-fd
   value_name: <n>
   value_kind: Required
   description: Send status change updates to file descriptor <n>.
   provenance:
     sources:
     - help-text
-- long: status-logger
+- spellings:
+  - --status-logger
   value_name: <command>
   value_kind: Required
   description: Send status change updates to <command>'s stdin.
   provenance:
     sources:
     - help-text
-- long: log
+- spellings:
+  - --log
   value_name: <filename>
   value_kind: Required
   description: Log status changes and actions to <filename>.
   provenance:
     sources:
     - help-text
-- long: ignore-depends
+- spellings:
+  - --ignore-depends
   value_name: <package>
   value_kind: Required
   description: Ignore dependencies involving <package>.
   provenance:
     sources:
     - help-text
-- long: force-
+- spellings:
+  - --force-
   value_name: <thing>
   value_kind: Required
   description: Override problems (see --force-help).
   provenance:
     sources:
     - help-text
-- long: no-force-
+- spellings:
+  - --no-force-
   value_name: <thing>
   value_kind: Required
   description: Stop when problems encountered.
   provenance:
     sources:
     - help-text
-- long: refuse-
+- spellings:
+  - --refuse-
   value_name: <thing>
   value_kind: Required
   description: Ditto.
   provenance:
     sources:
     - help-text
-- long: abort-after
+- spellings:
+  - --abort-after
   value_name: <n>
   value_kind: Required
   description: Abort after encountering <n> errors.
   provenance:
     sources:
     - help-text
-- long: robot
+- spellings:
+  - --robot
   description: Use machine-readable output on some commands.
   provenance:
     sources:

@@ -14,7 +14,8 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'e'
+- spellings:
+  - -e
   provenance:
     sources:
     - help-text-synopsis

@@ -9,344 +9,398 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'A'
-  long: smarthome
+- spellings:
+  - -A
+  - --smarthome
   description: Enable smart home key
   provenance:
     sources:
     - help-text
-- short: 'B'
-  long: backup
+- spellings:
+  - -B
+  - --backup
   description: Save backups of existing files
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: backupdir
+- spellings:
+  - -C
+  - --backupdir
   value_name: <dir>
   value_kind: Required
   description: Directory for saving unique backup files
   provenance:
     sources:
     - help-text
-- short: 'D'
-  long: boldtext
+- spellings:
+  - -D
+  - --boldtext
   description: Use bold instead of reverse video text
   provenance:
     sources:
     - help-text
-- short: 'E'
-  long: tabstospaces
+- spellings:
+  - -E
+  - --tabstospaces
   description: Convert typed tabs to spaces
   provenance:
     sources:
     - help-text
-- short: 'F'
-  long: multibuffer
+- spellings:
+  - -F
+  - --multibuffer
   description: Read a file into a new buffer by default
   provenance:
     sources:
     - help-text
-- short: 'G'
-  long: locking
+- spellings:
+  - -G
+  - --locking
   description: Use (vim-style) lock files
   provenance:
     sources:
     - help-text
-- short: 'H'
-  long: historylog
+- spellings:
+  - -H
+  - --historylog
   description: Save & reload old search/replace strings
   provenance:
     sources:
     - help-text
-- short: 'I'
-  long: ignorercfiles
+- spellings:
+  - -I
+  - --ignorercfiles
   description: Don't look at nanorc files
   provenance:
     sources:
     - help-text
-- short: 'J'
-  long: guidestripe
+- spellings:
+  - -J
+  - --guidestripe
   value_name: <number>
   value_kind: Required
   description: Show a guiding bar at this column
   provenance:
     sources:
     - help-text
-- short: 'K'
-  long: rawsequences
+- spellings:
+  - -K
+  - --rawsequences
   description: Fix numeric keypad key confusion problem
   provenance:
     sources:
     - help-text
-- short: 'L'
-  long: nonewlines
+- spellings:
+  - -L
+  - --nonewlines
   description: Don't add an automatic newline
   provenance:
     sources:
     - help-text
-- short: 'M'
-  long: trimblanks
+- spellings:
+  - -M
+  - --trimblanks
   description: Trim tail spaces when hard-wrapping
   provenance:
     sources:
     - help-text
-- short: 'N'
-  long: noconvert
+- spellings:
+  - -N
+  - --noconvert
   description: Don't convert files from DOS/Mac format
   provenance:
     sources:
     - help-text
-- short: 'O'
-  long: bookstyle
+- spellings:
+  - -O
+  - --bookstyle
   description: Leading whitespace means new paragraph
   provenance:
     sources:
     - help-text
-- short: 'P'
-  long: positionlog
+- spellings:
+  - -P
+  - --positionlog
   description: Save & restore position of the cursor
   provenance:
     sources:
     - help-text
-- short: 'Q'
-  long: quotestr
+- spellings:
+  - -Q
+  - --quotestr
   value_name: <regex>
   value_kind: Required
   description: Regular expression to match quoting
   provenance:
     sources:
     - help-text
-- short: 'R'
-  long: restricted
+- spellings:
+  - -R
+  - --restricted
   description: Restrict access to the filesystem
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: softwrap
+- spellings:
+  - -S
+  - --softwrap
   description: Display overlong lines on multiple rows
   provenance:
     sources:
     - help-text
-- short: 'T'
-  long: tabsize
+- spellings:
+  - -T
+  - --tabsize
   value_name: <number>
   value_kind: Required
   description: Make a tab this number of columns wide
   provenance:
     sources:
     - help-text
-- short: 'U'
-  long: quickblank
+- spellings:
+  - -U
+  - --quickblank
   description: Wipe status bar upon next keystroke
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: Print version information and exit
   provenance:
     sources:
     - help-text
-- short: 'W'
-  long: wordbounds
+- spellings:
+  - -W
+  - --wordbounds
   description: Detect word boundaries more accurately
   provenance:
     sources:
     - help-text
-- short: 'X'
-  long: wordchars
+- spellings:
+  - -X
+  - --wordchars
   value_name: <string>
   value_kind: Required
   description: Which other characters are word parts
   provenance:
     sources:
     - help-text
-- short: 'Y'
-  long: syntax
+- spellings:
+  - -Y
+  - --syntax
   value_name: <name>
   value_kind: Required
   description: Syntax definition to use for coloring
   provenance:
     sources:
     - help-text
-- short: 'Z'
-  long: zap
+- spellings:
+  - -Z
+  - --zap
   description: Let Bsp and Del erase a marked region
   provenance:
     sources:
     - help-text
-- short: 'a'
-  long: atblanks
+- spellings:
+  - -a
+  - --atblanks
   description: When soft-wrapping, do it at whitespace
   provenance:
     sources:
     - help-text
-- short: 'b'
-  long: breaklonglines
+- spellings:
+  - -b
+  - --breaklonglines
   description: Automatically hard-wrap overlong lines
   provenance:
     sources:
     - help-text
-- short: 'c'
-  long: constantshow
+- spellings:
+  - -c
+  - --constantshow
   description: Constantly show cursor position
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: rebinddelete
+- spellings:
+  - -d
+  - --rebinddelete
   description: Fix Backspace/Delete confusion problem
   provenance:
     sources:
     - help-text
-- short: 'e'
-  long: emptyline
+- spellings:
+  - -e
+  - --emptyline
   description: Keep the line below the title bar empty
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: rcfile
+- spellings:
+  - -f
+  - --rcfile
   value_name: <file>
   value_kind: Required
   description: Use only this file for configuring nano
   provenance:
     sources:
     - help-text
-- short: 'g'
-  long: showcursor
+- spellings:
+  - -g
+  - --showcursor
   description: Show cursor in file browser & help text
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: Show this help text and exit
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: autoindent
+- spellings:
+  - -i
+  - --autoindent
   description: Automatically indent new lines
   provenance:
     sources:
     - help-text
-- short: 'j'
-  long: jumpyscrolling
+- spellings:
+  - -j
+  - --jumpyscrolling
   description: Scroll per half-screen, not per line
   provenance:
     sources:
     - help-text
-- short: 'k'
-  long: cutfromcursor
+- spellings:
+  - -k
+  - --cutfromcursor
   description: Cut from cursor to end of line
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: linenumbers
+- spellings:
+  - -l
+  - --linenumbers
   description: Show line numbers in front of the text
   provenance:
     sources:
     - help-text
-- short: 'm'
-  long: mouse
+- spellings:
+  - -m
+  - --mouse
   description: Enable the use of the mouse
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: noread
+- spellings:
+  - -n
+  - --noread
   description: Do not read the file (only write it)
   provenance:
     sources:
     - help-text
-- short: 'o'
-  long: operatingdir
+- spellings:
+  - -o
+  - --operatingdir
   value_name: <dir>
   value_kind: Required
   description: Set operating directory
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: preserve
+- spellings:
+  - -p
+  - --preserve
   description: Preserve XON (^Q) and XOFF (^S) keys
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: indicator
+- spellings:
+  - -q
+  - --indicator
   description: Show a position+portion indicator
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: fill
+- spellings:
+  - -r
+  - --fill
   value_name: <number>
   value_kind: Required
   description: Set width for hard-wrap and justify
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: speller
+- spellings:
+  - -s
+  - --speller
   value_name: <program>
   value_kind: Required
   description: Use this alternative spell checker
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: saveonexit
+- spellings:
+  - -t
+  - --saveonexit
   description: Save changes on exit, don't prompt
   provenance:
     sources:
     - help-text
-- short: 'u'
-  long: unix
+- spellings:
+  - -u
+  - --unix
   description: Save a file by default in Unix format
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: view
+- spellings:
+  - -v
+  - --view
   description: View mode (read-only)
   provenance:
     sources:
     - help-text
-- short: 'w'
-  long: nowrap
+- spellings:
+  - -w
+  - --nowrap
   description: Don't hard-wrap long lines [default]
   provenance:
     sources:
     - help-text
-- short: 'x'
-  long: nohelp
+- spellings:
+  - -x
+  - --nohelp
   description: Don't show the two help lines
   provenance:
     sources:
     - help-text
-- short: 'y'
-  long: afterends
+- spellings:
+  - -y
+  - --afterends
   description: Make Ctrl+Right stop at word ends
   provenance:
     sources:
     - help-text
-- short: '%'
+- spellings:
+  - -%
   description: --stateflags Show some states on the title bar
   provenance:
     sources:
     - help-text
-- short: '_'
+- spellings:
+  - -_
   description: --minibar Show a feedback bar at the bottom
   provenance:
     sources:
     - help-text
-- short: '0'
-  long: zero
+- spellings:
+  - '-0'
+  - --zero
   description: Hide all bars, use whole terminal
   provenance:
     sources:

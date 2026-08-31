@@ -16,7 +16,8 @@ positionals:
     sources:
     - help-text
 flags:
-- long: format
+- spellings:
+  - --format
   value_name: <format>
   value_kind: Required
   group: 'Global options:'
@@ -24,21 +25,24 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   group: 'Global options:'
   description: increase verbosity of the subcommand
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: quiet
+- spellings:
+  - -q
+  - --quiet
   group: 'Global options:'
   description: print only errors
   provenance:
     sources:
     - help-text
-- long: log
+- spellings:
+  - --log
   value_name: <level>
   value_kind: Required
   group: 'Global options:'
@@ -46,19 +50,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: dry-run
+- spellings:
+  - --dry-run
   group: 'Global options:'
   description: if supported, do not do any active/changing actions
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   group: 'Options for the main command only:'
   description: print condensed help for all subcommands
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Options for the main command only:'
   description: print version string
   provenance:

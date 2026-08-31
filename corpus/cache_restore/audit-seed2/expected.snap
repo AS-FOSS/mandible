@@ -3,48 +3,56 @@ description: 'Options:'
 usage:
 - 'Usage: cache_restore [options]'
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   provenance:
     sources:
     - help-text
-- short: 'i'
-  long: input
+- spellings:
+  - -i
+  - --input
   value_name: <input xml file>
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'o'
-  long: output
+- spellings:
+  - -o
+  - --output
   value_name: <output device or file>
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: quiet
+- spellings:
+  - -q
+  - --quiet
   provenance:
     sources:
     - help-text
-- long: metadata-version
+- spellings:
+  - --metadata-version
   value_name: <1 or 2>
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   provenance:
     sources:
     - help-text
-- long: debug-override-metadata-version
+- spellings:
+  - --debug-override-metadata-version
   value_name: <integer>
   value_kind: Required
   provenance:
     sources:
     - help-text
-- long: omit-clean-shutdown
+- spellings:
+  - --omit-clean-shutdown
   provenance:
     sources:
     - help-text

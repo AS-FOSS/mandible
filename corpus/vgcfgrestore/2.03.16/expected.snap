@@ -3,141 +3,163 @@ usage:
 - vgcfgrestore -f|--file String VG
 - vgcfgrestore -l|--list VG
 flags:
-- short: 'f'
-  long: file
+- spellings:
+  - -f
+  - --file
   value_name: String
   value_kind: Required
   group: Restore VG metadata from specified file.
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: list
+- spellings:
+  - -l
+  - --list
   value_name: VG
   value_kind: Required
   group: List all VG metadata backups.
   provenance:
     sources:
     - help-text
-- short: 'M'
-  long: metadatatype
+- spellings:
+  - -M
+  - --metadatatype
   value_name: lvm2
   value_kind: Required
   group: 'Common options for command:'
   provenance:
     sources:
     - help-text
-- long: force
+- spellings:
+  - --force
   group: 'Common options for command:'
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: debug
+- spellings:
+  - -d
+  - --debug
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: quiet
+- spellings:
+  - -q
+  - --quiet
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- short: 'v'
-  long: verbose
+- spellings:
+  - -v
+  - --verbose
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- short: 'y'
-  long: yes
+- spellings:
+  - -y
+  - --yes
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: test
+- spellings:
+  - -t
+  - --test
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: commandprofile
+- spellings:
+  - --commandprofile
   value_name: String
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: config
+- spellings:
+  - --config
   value_name: String
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: driverloaded
+- spellings:
+  - --driverloaded
   value_name: y|n
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: nolocking
+- spellings:
+  - --nolocking
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: lockopt
+- spellings:
+  - --lockopt
   value_name: String
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: longhelp
+- spellings:
+  - --longhelp
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: profile
+- spellings:
+  - --profile
   value_name: String
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: devicesfile
+- spellings:
+  - --devicesfile
   value_name: String
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: devices
+- spellings:
+  - --devices
   value_name: PV
   value_kind: Required
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: nohints
+- spellings:
+  - --nohints
   group: 'Common options for lvm:'
   provenance:
     sources:
     - help-text
-- long: journal
+- spellings:
+  - --journal
   value_name: String
   value_kind: Required
   group: 'Common options for lvm:'

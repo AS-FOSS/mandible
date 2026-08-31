@@ -2,14 +2,16 @@ name: dcsnoop-bpfcc
 usage:
 - 'usage: dcsnoop-bpfcc [-h] [-a]'
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: show this help message and exit
   provenance:
     sources:
     - help-text
-- short: 'a'
-  long: all
+- spellings:
+  - -a
+  - --all
   description: trace all lookups (default is fails only)
   provenance:
     sources:

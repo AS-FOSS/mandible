@@ -2,64 +2,64 @@ name: dbiprof
 usage:
 - dbiprof [options] [files]
 flags:
-- long: number
+- spellings:
+  - -number
   value_name: N
   value_kind: Required
-  single_dash: true
   description: show top N, defaults to 10
   provenance:
     sources:
     - help-text
-- long: sort
+- spellings:
+  - -sort
   value_name: S
   value_kind: Required
-  single_dash: true
   description: sort by S, defaults to total
   provenance:
     sources:
     - help-text
-- long: reverse
-  single_dash: true
+- spellings:
+  - -reverse
   description: reverse the sort
   provenance:
     sources:
     - help-text
-- long: match
+- spellings:
+  - -match
   value_name: K=V
   value_kind: Required
-  single_dash: true
   description: for filtering, see docs
   provenance:
     sources:
     - help-text
-- long: exclude
+- spellings:
+  - -exclude
   value_name: K=V
   value_kind: Required
-  single_dash: true
   description: for filtering, see docs
   provenance:
     sources:
     - help-text
-- long: case_sensitive
-  single_dash: true
+- spellings:
+  - -case_sensitive
   description: for -match and -exclude
   provenance:
     sources:
     - help-text
-- long: delete
-  single_dash: true
+- spellings:
+  - -delete
   description: rename files before reading then delete afterwards
   provenance:
     sources:
     - help-text
-- long: version
-  single_dash: true
+- spellings:
+  - -version
   description: print version number and exit
   provenance:
     sources:
     - help-text
-- long: help
-  single_dash: true
+- spellings:
+  - -help
   description: print this help
   provenance:
     sources:

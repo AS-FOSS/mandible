@@ -2,85 +2,98 @@ name: fzf
 usage:
 - 'usage: fzf [options]'
 flags:
-- short: 'x'
-  long: extended
+- spellings:
+  - -x
+  - --extended
   group: Search
   description: Extended-search mode (enabled by default; +x or --no-extended to disable)
   provenance:
     sources:
     - help-text
-- short: 'e'
-  long: exact
+- spellings:
+  - -e
+  - --exact
   group: Search
   description: Enable Exact-match
   provenance:
     sources:
     - help-text
-- short: 'i'
+- spellings:
+  - -i
   group: Search
   description: 'Case-insensitive match (default: smart-case match)'
   provenance:
     sources:
     - help-text
-- long: scheme
+- spellings:
+  - --scheme
   value_name: SCHEME
   value_kind: Required
   description: Scoring scheme [default|path|history]
   provenance:
     sources:
     - help-text
-- long: literal
+- spellings:
+  - --literal
   description: Do not normalize latin script letters before matching
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: nth
+- spellings:
+  - -n
+  - --nth
   value_name: N[,..]
   value_kind: Required
   description: Comma-separated list of field index expressions for limiting search scope. Each can be a non-zero integer or a range expression ([BEGIN]..[END]).
   provenance:
     sources:
     - help-text
-- long: with-nth
+- spellings:
+  - --with-nth
   value_name: N[,..]
   value_kind: Required
   description: Transform the presentation of each line using field index expressions
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: delimiter
+- spellings:
+  - -d
+  - --delimiter
   value_name: STR
   value_kind: Required
   description: 'Field delimiter regex (default: AWK-style)'
   provenance:
     sources:
     - help-text
-- long: track
+- spellings:
+  - --track
   description: Track the current selection when the result is updated
   provenance:
     sources:
     - help-text
-- long: tac
+- spellings:
+  - --tac
   description: Reverse the order of the input
   provenance:
     sources:
     - help-text
-- long: disabled
+- spellings:
+  - --disabled
   description: Do not perform search
   provenance:
     sources:
     - help-text
-- long: tiebreak
+- spellings:
+  - --tiebreak
   value_name: CRI[,..]
   value_kind: Required
   description: 'Comma-separated list of sort criteria to apply when the scores are tied [length|chunk|begin|end|index] (default: length)'
   provenance:
     sources:
     - help-text
-- short: 'm'
-  long: multi
+- spellings:
+  - -m
+  - --multi
   value_name: MAX
   value_kind: Optional
   group: Interface
@@ -88,13 +101,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-mouse
+- spellings:
+  - --no-mouse
   group: Interface
   description: Disable mouse
   provenance:
     sources:
     - help-text
-- long: bind
+- spellings:
+  - --bind
   value_name: KEYBINDS
   value_kind: Required
   group: Interface
@@ -102,19 +117,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: cycle
+- spellings:
+  - --cycle
   group: Interface
   description: Enable cyclic scroll
   provenance:
     sources:
     - help-text
-- long: keep-right
+- spellings:
+  - --keep-right
   group: Interface
   description: Keep the right end of the line visible on overflow
   provenance:
     sources:
     - help-text
-- long: scroll-off
+- spellings:
+  - --scroll-off
   value_name: LINES
   value_kind: Required
   group: Interface
@@ -122,13 +140,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-hscroll
+- spellings:
+  - --no-hscroll
   group: Interface
   description: Disable horizontal scroll
   provenance:
     sources:
     - help-text
-- long: hscroll-off
+- spellings:
+  - --hscroll-off
   value_name: COLS
   value_kind: Required
   group: Interface
@@ -136,13 +156,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: filepath-word
+- spellings:
+  - --filepath-word
   group: Interface
   description: Make word-wise movements respect path separators
   provenance:
     sources:
     - help-text
-- long: jump-labels
+- spellings:
+  - --jump-labels
   value_name: CHARS
   value_kind: Required
   group: Interface
@@ -150,7 +172,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: height
+- spellings:
+  - --height
   value_name: '[~]HEIGHT[%]'
   value_kind: Required
   group: Layout
@@ -158,7 +181,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: min-height
+- spellings:
+  - --min-height
   value_name: HEIGHT
   value_kind: Required
   group: Layout
@@ -166,7 +190,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: layout
+- spellings:
+  - --layout
   value_name: LAYOUT
   value_kind: Required
   group: Layout
@@ -174,7 +199,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: border
+- spellings:
+  - --border
   value_name: STYLE
   value_kind: Optional
   group: Layout
@@ -182,7 +208,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: border-label
+- spellings:
+  - --border-label
   value_name: LABEL
   value_kind: Required
   group: Layout
@@ -190,7 +217,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: border-label-pos
+- spellings:
+  - --border-label-pos
   value_name: COL
   value_kind: Required
   group: Layout
@@ -198,7 +226,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: margin
+- spellings:
+  - --margin
   value_name: MARGIN
   value_kind: Required
   group: Layout
@@ -206,7 +235,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: padding
+- spellings:
+  - --padding
   value_name: PADDING
   value_kind: Required
   group: Layout
@@ -214,7 +244,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: info
+- spellings:
+  - --info
   value_name: STYLE
   value_kind: Required
   group: Layout
@@ -222,7 +253,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: separator
+- spellings:
+  - --separator
   value_name: STR
   value_kind: Required
   group: Layout
@@ -230,13 +262,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-separator
+- spellings:
+  - --no-separator
   group: Layout
   description: Hide info line separator
   provenance:
     sources:
     - help-text
-- long: scrollbar
+- spellings:
+  - --scrollbar
   value_name: C1[C2
   value_kind: Optional
   group: Layout
@@ -244,13 +278,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-scrollbar
+- spellings:
+  - --no-scrollbar
   group: Layout
   description: Hide scrollbar
   provenance:
     sources:
     - help-text
-- long: prompt
+- spellings:
+  - --prompt
   value_name: STR
   value_kind: Required
   group: Layout
@@ -258,7 +294,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: pointer
+- spellings:
+  - --pointer
   value_name: STR
   value_kind: Required
   group: Layout
@@ -266,7 +303,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: marker
+- spellings:
+  - --marker
   value_name: STR
   value_kind: Required
   group: Layout
@@ -274,7 +312,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: header
+- spellings:
+  - --header
   value_name: STR
   value_kind: Required
   group: Layout
@@ -282,7 +321,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: header-lines
+- spellings:
+  - --header-lines
   value_name: N
   value_kind: Required
   group: Layout
@@ -290,13 +330,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: header-first
+- spellings:
+  - --header-first
   group: Layout
   description: Print header before the prompt line
   provenance:
     sources:
     - help-text
-- long: ellipsis
+- spellings:
+  - --ellipsis
   value_name: STR
   value_kind: Required
   group: Layout
@@ -304,13 +346,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: ansi
+- spellings:
+  - --ansi
   group: Display
   description: Enable processing of ANSI color codes
   provenance:
     sources:
     - help-text
-- long: tabstop
+- spellings:
+  - --tabstop
   value_name: SPACES
   value_kind: Required
   group: Display
@@ -318,7 +362,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: color
+- spellings:
+  - --color
   value_name: COLSPEC
   value_kind: Required
   group: Display
@@ -326,13 +371,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-bold
+- spellings:
+  - --no-bold
   group: Display
   description: Do not use bold text
   provenance:
     sources:
     - help-text
-- long: history
+- spellings:
+  - --history
   value_name: FILE
   value_kind: Required
   group: History
@@ -340,7 +387,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: history-size
+- spellings:
+  - --history-size
   value_name: N
   value_kind: Required
   group: History
@@ -348,7 +396,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: preview
+- spellings:
+  - --preview
   value_name: COMMAND
   value_kind: Required
   group: Preview
@@ -356,7 +405,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: preview-window
+- spellings:
+  - --preview-window
   value_name: OPT
   value_kind: Required
   group: Preview
@@ -364,14 +414,16 @@ flags:
   provenance:
     sources:
     - help-text
-- long: preview-label
+- spellings:
+  - --preview-label
   value_name: LABEL
   value_kind: Required
   group: Preview
   provenance:
     sources:
     - help-text
-- long: preview-label-pos
+- spellings:
+  - --preview-label-pos
   value_name: N
   value_kind: Required
   group: Preview
@@ -379,8 +431,9 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: query
+- spellings:
+  - -q
+  - --query
   value_name: STR
   value_kind: Required
   group: Scripting
@@ -388,22 +441,25 @@ flags:
   provenance:
     sources:
     - help-text
-- short: '1'
-  long: select-1
+- spellings:
+  - '-1'
+  - --select-1
   group: Scripting
   description: Automatically select the only match
   provenance:
     sources:
     - help-text
-- short: '0'
-  long: exit-0
+- spellings:
+  - '-0'
+  - --exit-0
   group: Scripting
   description: Exit immediately when there's no match
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: filter
+- spellings:
+  - -f
+  - --filter
   value_name: STR
   value_kind: Required
   group: Scripting
@@ -411,13 +467,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: print-query
+- spellings:
+  - --print-query
   group: Scripting
   description: Print query as the first line
   provenance:
     sources:
     - help-text
-- long: expect
+- spellings:
+  - --expect
   value_name: KEYS
   value_kind: Required
   group: Scripting
@@ -425,25 +483,29 @@ flags:
   provenance:
     sources:
     - help-text
-- long: read0
+- spellings:
+  - --read0
   group: Scripting
   description: Read input delimited by ASCII NUL characters
   provenance:
     sources:
     - help-text
-- long: print0
+- spellings:
+  - --print0
   group: Scripting
   description: Print output delimited by ASCII NUL characters
   provenance:
     sources:
     - help-text
-- long: sync
+- spellings:
+  - --sync
   group: Scripting
   description: Synchronous search for multi-staged filtering
   provenance:
     sources:
     - help-text
-- long: listen
+- spellings:
+  - --listen
   value_name: '[ADDR:'
   value_kind: Optional
   group: Scripting
@@ -451,7 +513,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   group: Scripting
   description: Display version information and exit
   provenance:

@@ -10,7 +10,8 @@ positionals:
     sources:
     - help-text
 flags:
-- long: format
+- spellings:
+  - --format
   choices:
   - default
   - gnu
@@ -21,25 +22,29 @@ flags:
   provenance:
     sources:
     - help-text
-- long: plugin
+- spellings:
+  - --plugin
   value_name: <string>
   value_kind: Required
   description: '- ignored for compatibility'
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: '- display this help and exit'
   provenance:
     sources:
     - help-text
-- long: output
+- spellings:
+  - --output
   description: '- the directory to extract archive members to'
   provenance:
     sources:
     - help-text
-- long: rsp-quoting
+- spellings:
+  - --rsp-quoting
   choices:
   - posix
   - windows
@@ -47,24 +52,28 @@ flags:
   provenance:
     sources:
     - help-text
-- long: thin
+- spellings:
+  - --thin
   description: '- create a thin archive'
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: '- print the version and exit'
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   value_name: '{32|64|32_64|any}'
   value_kind: Required
   description: '- object mode (only for AIX OS)'
   provenance:
     sources:
     - help-text
-- short: 'M'
+- spellings:
+  - -M
   provenance:
     sources:
     - help-text-synopsis

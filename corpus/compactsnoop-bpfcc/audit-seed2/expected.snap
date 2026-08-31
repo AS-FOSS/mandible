@@ -2,42 +2,48 @@ name: compactsnoop-bpfcc
 usage:
 - 'usage: compactsnoop-bpfcc [-h] [-T] [-p PID] [-d DURATION] [-K] [-e]'
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: show this help message and exit
   provenance:
     sources:
     - help-text
-- short: 'T'
-  long: timestamp
+- spellings:
+  - -T
+  - --timestamp
   description: include timestamp on output
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: pid
+- spellings:
+  - -p
+  - --pid
   value_name: PID
   value_kind: Required
   description: trace this PID only
   provenance:
     sources:
     - help-text
-- short: 'd'
-  long: duration
+- spellings:
+  - -d
+  - --duration
   value_name: DURATION
   value_kind: Required
   description: total duration of trace in seconds
   provenance:
     sources:
     - help-text
-- short: 'K'
-  long: kernel-stack
+- spellings:
+  - -K
+  - --kernel-stack
   description: output kernel stack trace
   provenance:
     sources:
     - help-text
-- short: 'e'
-  long: extended
+- spellings:
+  - -e
+  - --extended
   value_name: _fields
   value_kind: Required
   description: show system memory state

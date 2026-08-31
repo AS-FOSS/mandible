@@ -2,143 +2,163 @@ name: naptime.bt
 usage:
 - 'USAGE: bpftrace [options] filename bpftrace [options] - <stdin input> bpftrace [options] -e ''program'''
 flags:
-- short: 'B'
+- spellings:
+  - -B
   value_name: MODE
   value_kind: Required
   description: output buffering mode ('full', 'none')
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   value_name: FORMAT
   value_kind: Required
   description: output format ('text', 'json')
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   value_name: file
   value_kind: Required
   description: redirect bpftrace output to file
   provenance:
     sources:
     - help-text
-- short: 'e'
+- spellings:
+  - -e
   value_name: '''program'''
   value_kind: Required
   description: execute this program
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: show this help message
   provenance:
     sources:
     - help-text
-- short: 'I'
+- spellings:
+  - -I
   value_name: DIR
   value_kind: Required
   description: add the directory to the include search path
   provenance:
     sources:
     - help-text
-- long: include
+- spellings:
+  - --include
   value_name: FILE
   value_kind: Required
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   value_name: search
   value_kind: Optional
   description: list probes
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p
   value_name: PID
   value_kind: Required
   description: enable USDT probes on PID
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   value_name: '''CMD'''
   value_kind: Required
   description: run CMD and enable USDT probes on resulting process
   provenance:
     sources:
     - help-text
-- long: usdt-file-activation
+- spellings:
+  - --usdt-file-activation
   description: activate usdt semaphores based on file path
   provenance:
     sources:
     - help-text
-- long: unsafe
+- spellings:
+  - --unsafe
   description: allow unsafe builtin functions
   provenance:
     sources:
     - help-text
-- short: 'q'
+- spellings:
+  - -q
   description: keep messages quiet
   provenance:
     sources:
     - help-text
-- long: info
+- spellings:
+  - --info
   description: Print information about kernel BPF support
   provenance:
     sources:
     - help-text
-- short: 'k'
+- spellings:
+  - -k
   description: emit a warning when a bpf helper returns an error (except read functions)
   provenance:
     sources:
     - help-text
-- long: kk
-  single_dash: true
+- spellings:
+  - -kk
   description: check all bpf helper functions
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: bpftrace version
   provenance:
     sources:
     - help-text
-- long: no-warnings
+- spellings:
+  - --no-warnings
   description: disable all warning messages
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   group: 'TROUBLESHOOTING OPTIONS:'
   description: verbose messages
   provenance:
     sources:
     - help-text
-- long: vv
-  single_dash: true
+- spellings:
+  - -vv
   group: 'TROUBLESHOOTING OPTIONS:'
   description: more verbose messages (max 2)
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   group: 'TROUBLESHOOTING OPTIONS:'
   description: (dry run) debug info
   provenance:
     sources:
     - help-text
-- long: dd
-  single_dash: true
+- spellings:
+  - -dd
   group: 'TROUBLESHOOTING OPTIONS:'
   description: (dry run) verbose debug info
   provenance:
     sources:
     - help-text
-- long: emit-elf
+- spellings:
+  - --emit-elf
   value_name: FILE
   value_kind: Required
   group: 'TROUBLESHOOTING OPTIONS:'
@@ -146,7 +166,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: emit-llvm
+- spellings:
+  - --emit-llvm
   value_name: FILE
   value_kind: Required
   group: 'TROUBLESHOOTING OPTIONS:'

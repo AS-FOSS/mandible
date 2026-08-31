@@ -8,134 +8,155 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: Show this help
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: Show package version
   provenance:
     sources:
     - help-text
-- long: no-pager
+- spellings:
+  - --no-pager
   description: Do not pipe output into a pager
   provenance:
     sources:
     - help-text
-- long: no-legend
+- spellings:
+  - --no-legend
   description: Do not show the headers and footers
   provenance:
     sources:
     - help-text
-- long: json
+- spellings:
+  - --json
   value_name: pretty|short|off
   value_kind: Required
   description: Generate JSON output
   provenance:
     sources:
     - help-text
-- long: system
+- spellings:
+  - --system
   description: Show credentials passed to system
   provenance:
     sources:
     - help-text
-- long: transcode
+- spellings:
+  - --transcode
   value_name: base64|unbase64|hex|unhex
   value_kind: Required
   description: Transcode credential data
   provenance:
     sources:
     - help-text
-- long: newline
+- spellings:
+  - --newline
   value_name: auto|yes|no
   value_kind: Required
   description: Suffix output with newline
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: pretty
+- spellings:
+  - -p
+  - --pretty
   description: Output as SetCredentialEncrypted= line
   provenance:
     sources:
     - help-text
-- long: name
+- spellings:
+  - --name
   value_name: NAME
   value_kind: Required
   description: Override filename included in encrypted credential
   provenance:
     sources:
     - help-text
-- long: timestamp
+- spellings:
+  - --timestamp
   value_name: TIME
   value_kind: Required
   description: Include specified timestamp in encrypted credential
   provenance:
     sources:
     - help-text
-- long: not-after
+- spellings:
+  - --not-after
   value_name: TIME
   value_kind: Required
   description: Include specified invalidation time in encrypted credential
   provenance:
     sources:
     - help-text
-- long: with-key
+- spellings:
+  - --with-key
   value_name: host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd
   value_kind: Required
   description: Which keys to encrypt with
   provenance:
     sources:
     - help-text
-- short: 'H'
+- spellings:
+  - -H
   description: Shortcut for --with-key=host
   provenance:
     sources:
     - help-text
-- short: 'T'
+- spellings:
+  - -T
   description: Shortcut for --with-key=tpm2
   provenance:
     sources:
     - help-text
-- long: tpm2-device
+- spellings:
+  - --tpm2-device
   value_name: PATH
   value_kind: Required
   description: Pick TPM2 device
   provenance:
     sources:
     - help-text
-- long: tpm2-pcrs
+- spellings:
+  - --tpm2-pcrs
   value_name: PCR1+PCR2+PCR3+…
   value_kind: Required
   description: Specify TPM2 PCRs to seal against (fixed hash)
   provenance:
     sources:
     - help-text
-- long: tpm2-public-key
+- spellings:
+  - --tpm2-public-key
   value_name: PATH
   value_kind: Required
   description: Specify PEM certificate to seal against
   provenance:
     sources:
     - help-text
-- long: tpm2-public-key-pcrs
+- spellings:
+  - --tpm2-public-key-pcrs
   value_name: PCR1+PCR2+PCR3+…
   value_kind: Required
   description: Specify TPM2 PCRs to seal against (public key)
   provenance:
     sources:
     - help-text
-- long: tpm2-signature
+- spellings:
+  - --tpm2-signature
   value_name: PATH
   value_kind: Required
   description: Specify signature for public key PCR policy
   provenance:
     sources:
     - help-text
-- short: 'q'
-  long: quiet
+- spellings:
+  - -q
+  - --quiet
   description: Suppress output for 'has-tpm2' verb
   provenance:
     sources:

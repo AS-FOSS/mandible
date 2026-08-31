@@ -10,96 +10,112 @@ description: |-
 usage:
 - 'Usage: mysqld_multi [OPTIONS] {start|reload|stop|report} [GNR,GNR,GNR...]'
 flags:
-- long: no-defaults
+- spellings:
+  - --no-defaults
   description: Do not read any defaults file
   provenance:
     sources:
     - help-text
-- long: defaults-file
+- spellings:
+  - --defaults-file
   value_name: '...'
   value_kind: Required
   description: Read only this configuration file, do not read the standard system-wide and user-specific files
   provenance:
     sources:
     - help-text
-- long: defaults-extra-file
+- spellings:
+  - --defaults-extra-file
   value_name: '...'
   value_kind: Required
   description: Read this configuration file in addition to the standard system-wide and user-specific files
   provenance:
     sources:
     - help-text
-- long: example
+- spellings:
+  - --example
   description: Give an example of a config file with extra information.
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   description: Print this help and exit.
   provenance:
     sources:
     - help-text
-- long: log
+- spellings:
+  - --log
   value_name: '...'
   value_kind: Required
   description: 'Log file. Full path to and the name for the log file. NOTE: If the file exists, everything will be appended. Using:'
   provenance:
     sources:
     - help-text
-- long: mysqladmin
+- spellings:
+  - --mysqladmin
   value_name: '...'
   value_kind: Required
   description: 'mysqladmin binary to be used for a server shutdown. Since version 2.10 this can be given within groups [mysqld#] Using:'
   provenance:
     sources:
     - help-text
-- long: mysqld
+- spellings:
+  - --mysqld
   value_name: '...'
   value_kind: Required
   description: 'mariadbd binary to be used. Note that you can give mariadbd-safe to this option also. The options are passed to mysqld. Just make sure you have mariadbd in your PATH or fix mariadbd-safe. Using: Please note: Since mysqld_multi version 2.3 you can also give this option inside groups [mysqld#] in ~/.my.cnf, where ''#'' stands for an integer (number) of the group in question. This will be recognised as a special option and will not be passed to the mysqld. This will allow one to start different mysqld versions with mysqld_multi.'
   provenance:
     sources:
     - help-text
-- long: no-log
+- spellings:
+  - --no-log
   description: Print to stdout instead of the log file. By default the log file is turned on.
   provenance:
     sources:
     - help-text
-- long: password
+- spellings:
+  - --password
   value_name: '...'
   value_kind: Required
   description: Password for mysqladmin user.
   provenance:
     sources:
     - help-text
-- long: silent
+- spellings:
+  - --silent
   description: Disable warnings.
   provenance:
     sources:
     - help-text
-- long: tcp-ip
+- spellings:
+  - --tcp-ip
   description: Connect to the MariaDB server(s) via the TCP/IP port instead of the UNIX socket. This affects stopping and reporting. If a socket file is missing, the server may still be running, but can be accessed only via the TCP/IP port. By default connecting is done via the UNIX socket.
   provenance:
     sources:
     - help-text
-- long: user
+- spellings:
+  - --user
   value_name: '...'
   value_kind: Required
   description: 'mysqladmin user. Using: root'
   provenance:
     sources:
     - help-text
-- long: verbose
+- spellings:
+  - --verbose
   description: Be more verbose.
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: Print the version number and exit.
   provenance:
     sources:
     - help-text
-- long: wsrep-new-cluster
+- spellings:
+  - --wsrep-new-cluster
   description: Bootstrap a cluster.
   provenance:
     sources:

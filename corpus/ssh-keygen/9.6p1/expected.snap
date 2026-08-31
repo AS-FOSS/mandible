@@ -27,214 +27,255 @@ usage:
 - '       ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...'
 - '       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity'
 flags:
-- short: 'n'
+- spellings:
+  - -n
   value_name: namespace
   value_kind: Required
   description: '[-O option]'
   provenance:
     sources:
     - help-text
-- short: 'q'
+- spellings:
+  - -q
   provenance:
     sources:
     - help-text-synopsis
-- short: 'a'
+- spellings:
+  - -a
   value_name: rounds
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'b'
+- spellings:
+  - -b
   value_name: bits
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'C'
+- spellings:
+  - -C
   value_name: comment
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'f'
+- spellings:
+  - -f
   value_name: output_keyfile
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'm'
+- spellings:
+  - -m
   value_name: format
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'N'
+- spellings:
+  - -N
   value_name: new_passphrase
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'O'
+- spellings:
+  - -O
   value_name: option
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 't'
+- spellings:
+  - -t
   value_name: dsa
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'w'
+- spellings:
+  - -w
   value_name: provider
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'Z'
+- spellings:
+  - -Z
   value_name: cipher
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'p'
+- spellings:
+  - -p
   provenance:
     sources:
     - help-text-synopsis
-- short: 'P'
+- spellings:
+  - -P
   value_name: old_passphrase
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'i'
+- spellings:
+  - -i
   provenance:
     sources:
     - help-text-synopsis
-- short: 'e'
+- spellings:
+  - -e
   provenance:
     sources:
     - help-text-synopsis
-- short: 'y'
+- spellings:
+  - -y
   provenance:
     sources:
     - help-text-synopsis
-- short: 'c'
+- spellings:
+  - -c
   provenance:
     sources:
     - help-text-synopsis
-- short: 'l'
+- spellings:
+  - -l
   provenance:
     sources:
     - help-text-synopsis
-- short: 'v'
+- spellings:
+  - -v
   provenance:
     sources:
     - help-text-synopsis
-- short: 'E'
+- spellings:
+  - -E
   value_name: fingerprint_hash
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'B'
+- spellings:
+  - -B
   provenance:
     sources:
     - help-text-synopsis
-- short: 'D'
+- spellings:
+  - -D
   value_name: pkcs11
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'F'
+- spellings:
+  - -F
   value_name: hostname
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'H'
+- spellings:
+  - -H
   provenance:
     sources:
     - help-text-synopsis
-- short: 'K'
+- spellings:
+  - -K
   provenance:
     sources:
     - help-text-synopsis
-- short: 'R'
+- spellings:
+  - -R
   value_name: hostname
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'r'
+- spellings:
+  - -r
   value_name: hostname
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'g'
+- spellings:
+  - -g
   provenance:
     sources:
     - help-text-synopsis
-- short: 'M'
+- spellings:
+  - -M
   value_name: generate
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'I'
+- spellings:
+  - -I
   value_name: certificate_identity
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 's'
+- spellings:
+  - -s
   value_name: ca_key
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'h'
+- spellings:
+  - -h
   value_name: U
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'V'
+- spellings:
+  - -V
   value_name: validity_interval
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'z'
+- spellings:
+  - -z
   value_name: serial_number
   value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
-- short: 'L'
+- spellings:
+  - -L
   provenance:
     sources:
     - help-text-synopsis
-- short: 'A'
+- spellings:
+  - -A
   provenance:
     sources:
     - help-text-synopsis
-- short: 'k'
+- spellings:
+  - -k
   provenance:
     sources:
     - help-text-synopsis
-- short: 'u'
+- spellings:
+  - -u
   provenance:
     sources:
     - help-text-synopsis
-- short: 'Q'
+- spellings:
+  - -Q
   provenance:
     sources:
     - help-text-synopsis
-- short: 'Y'
+- spellings:
+  - -Y
   value_name: find-principals
   value_kind: Required
   provenance:

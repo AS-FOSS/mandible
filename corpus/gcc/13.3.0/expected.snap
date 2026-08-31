@@ -3,275 +3,294 @@ description: 'Options:'
 usage:
 - 'Usage: gcc [options] file...'
 flags:
-- long: pass-exit-codes
-  single_dash: true
+- spellings:
+  - -pass-exit-codes
   description: Exit with highest error code from a phase.
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   description: Display this information.
   provenance:
     sources:
     - help-text
-- long: target-help
+- spellings:
+  - --target-help
   description: Display target specific command line options (including assembler and linker options).
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   value_name: '{common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].'
   value_kind: Required
   description: Display specific types of command line options.
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: Display compiler version information.
   provenance:
     sources:
     - help-text
-- long: dumpspecs
-  single_dash: true
+- spellings:
+  - -dumpspecs
   description: Display all of the built in spec strings.
   provenance:
     sources:
     - help-text
-- long: dumpversion
-  single_dash: true
+- spellings:
+  - -dumpversion
   description: Display the version of the compiler.
   provenance:
     sources:
     - help-text
-- long: dumpmachine
-  single_dash: true
+- spellings:
+  - -dumpmachine
   description: Display the compiler's target processor.
   provenance:
     sources:
     - help-text
-- long: foffload
+- spellings:
+  - -foffload
   value_name: <targets>
   value_kind: Required
-  single_dash: true
   description: Specify offloading targets.
   provenance:
     sources:
     - help-text
-- long: print-search-dirs
-  single_dash: true
+- spellings:
+  - -print-search-dirs
   description: Display the directories in the compiler's search path.
   provenance:
     sources:
     - help-text
-- long: print-libgcc-file-name
-  single_dash: true
+- spellings:
+  - -print-libgcc-file-name
   description: Display the name of the compiler's companion library.
   provenance:
     sources:
     - help-text
-- long: print-file-name
+- spellings:
+  - -print-file-name
   value_name: <lib>
   value_kind: Required
-  single_dash: true
   description: Display the full path to library <lib>.
   provenance:
     sources:
     - help-text
-- long: print-prog-name
+- spellings:
+  - -print-prog-name
   value_name: <prog>
   value_kind: Required
-  single_dash: true
   description: Display the full path to compiler component <prog>.
   provenance:
     sources:
     - help-text
-- long: print-multiarch
-  single_dash: true
+- spellings:
+  - -print-multiarch
   description: Display the target's normalized GNU triplet, used as a component in the library path.
   provenance:
     sources:
     - help-text
-- long: print-multi-directory
-  single_dash: true
+- spellings:
+  - -print-multi-directory
   description: Display the root directory for versions of libgcc.
   provenance:
     sources:
     - help-text
-- long: print-multi-lib
-  single_dash: true
+- spellings:
+  - -print-multi-lib
   description: Display the mapping between command line options and multiple library search directories.
   provenance:
     sources:
     - help-text
-- long: print-multi-os-directory
-  single_dash: true
+- spellings:
+  - -print-multi-os-directory
   description: Display the relative path to OS libraries.
   provenance:
     sources:
     - help-text
-- long: print-sysroot
-  single_dash: true
+- spellings:
+  - -print-sysroot
   description: Display the target libraries directory.
   provenance:
     sources:
     - help-text
-- long: print-sysroot-headers-suffix
-  single_dash: true
+- spellings:
+  - -print-sysroot-headers-suffix
   description: Display the sysroot suffix used to find headers.
   provenance:
     sources:
     - help-text
-- short: 'W'
+- spellings:
+  - -W
   value_name: a,<options>
   value_kind: Required
   description: Pass comma-separated <options> on to the assembler.
   provenance:
     sources:
     - help-text
-- short: 'W'
+- spellings:
+  - -W
   value_name: p,<options>
   value_kind: Required
   description: Pass comma-separated <options> on to the preprocessor.
   provenance:
     sources:
     - help-text
-- short: 'W'
+- spellings:
+  - -W
   value_name: l,<options>
   value_kind: Required
   description: Pass comma-separated <options> on to the linker.
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   value_name: assembler
   value_kind: Required
   description: Pass <arg> on to the assembler.
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   value_name: preprocessor
   value_kind: Required
   description: Pass <arg> on to the preprocessor.
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   value_name: linker
   value_kind: Required
   description: Pass <arg> on to the linker.
   provenance:
     sources:
     - help-text
-- long: save-temps
-  single_dash: true
+- spellings:
+  - -save-temps
   description: Do not delete intermediate files.
   provenance:
     sources:
     - help-text
-- long: save-temps
+- spellings:
+  - -save-temps
   value_name: <arg>
   value_kind: Required
-  single_dash: true
   description: Do not delete intermediate files.
   provenance:
     sources:
     - help-text
-- long: no-canonical-prefixes
-  single_dash: true
+- spellings:
+  - -no-canonical-prefixes
   description: Do not canonicalize paths when building relative prefixes to other gcc components.
   provenance:
     sources:
     - help-text
-- long: pipe
-  single_dash: true
+- spellings:
+  - -pipe
   description: Use pipes rather than intermediate files.
   provenance:
     sources:
     - help-text
-- long: time
-  single_dash: true
+- spellings:
+  - -time
   description: Time the execution of each subprocess.
   provenance:
     sources:
     - help-text
-- long: specs
+- spellings:
+  - -specs
   value_name: <file>
   value_kind: Required
-  single_dash: true
   description: Override built-in specs with the contents of <file>.
   provenance:
     sources:
     - help-text
-- long: std
+- spellings:
+  - -std
   value_name: <standard>
   value_kind: Required
-  single_dash: true
   description: Assume that the input sources are for <standard>.
   provenance:
     sources:
     - help-text
-- long: sysroot
+- spellings:
+  - --sysroot
   value_name: <directory>
   value_kind: Required
   description: Use <directory> as the root directory for headers and libraries.
   provenance:
     sources:
     - help-text
-- short: 'B'
+- spellings:
+  - -B
   value_name: <directory>
   value_kind: Required
   description: Add <directory> to the compiler's search paths.
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: Display the programs invoked by the compiler.
   provenance:
     sources:
     - help-text
-- short: '#'
+- spellings:
+  - -#
   value_name: '##'
   value_kind: Required
   description: Like -v but options quoted and commands not executed.
   provenance:
     sources:
     - help-text
-- short: 'E'
+- spellings:
+  - -E
   description: Preprocess only; do not compile, assemble or link.
   provenance:
     sources:
     - help-text
-- short: 'S'
+- spellings:
+  - -S
   description: Compile only; do not assemble or link.
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   description: Compile and assemble, but do not link.
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   value_name: <file>
   value_kind: Required
   description: Place the output into <file>.
   provenance:
     sources:
     - help-text
-- long: pie
-  single_dash: true
+- spellings:
+  - -pie
   description: Create a dynamically linked position independent executable.
   provenance:
     sources:
     - help-text
-- long: shared
-  single_dash: true
+- spellings:
+  - -shared
   description: Create a shared library.
   provenance:
     sources:
     - help-text
-- short: 'x'
+- spellings:
+  - -x
   value_name: <language>
   value_kind: Required
   description: 'Specify the language of the following input files. Permissible languages include: c c++ assembler none ''none'' means revert to the default behavior of guessing the language based on the file''s extension.'

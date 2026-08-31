@@ -13,36 +13,41 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'g'
-  long: group
+- spellings:
+  - -g
+  - --group
   value_name: <group>
   value_kind: Required
   description: only send message to group
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: nobanner
+- spellings:
+  - -n
+  - --nobanner
   description: do not print banner, works only for root
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: timeout
+- spellings:
+  - -t
+  - --timeout
   value_name: <timeout>
   value_kind: Required
   description: write timeout in seconds
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: display this help
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: display version
   provenance:
     sources:

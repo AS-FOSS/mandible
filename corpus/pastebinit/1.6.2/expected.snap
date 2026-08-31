@@ -13,7 +13,8 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'b'
+- spellings:
+  - -b
   value_name: <pastebin>
   value_kind: Required
   group: 'General arguments:'
@@ -21,44 +22,51 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'i'
+- spellings:
+  - -i
   value_name: <input file>
   value_kind: Required
   group: 'General arguments:'
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   group: 'General arguments:'
   description: List all supported pastebins
   provenance:
     sources:
     - help-text
-- short: 'E'
+- spellings:
+  - -E
   group: 'General arguments:'
   description: Print the content to stdout too
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   group: 'General arguments:'
   description: Print this help screen
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   group: 'General arguments:'
   description: Print the version number
   provenance:
     sources:
     - help-text
-- short: 'V'
+- spellings:
+  - -V
   group: 'General arguments:'
   description: Print verbose output to stderr
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: <author>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
@@ -66,7 +74,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 't'
+- spellings:
+  - -t
   value_name: <title of paste>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
@@ -74,7 +83,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   value_name: <format of paste>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
@@ -82,7 +92,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'j'
+- spellings:
+  - -j
   value_name: <jabberid>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
@@ -90,7 +101,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'm'
+- spellings:
+  - -m
   value_name: <permatag>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
@@ -98,7 +110,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'P'
+- spellings:
+  - -P
   value_name: <private level>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
@@ -106,7 +119,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'u'
+- spellings:
+  - -u
   value_name: <username>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'

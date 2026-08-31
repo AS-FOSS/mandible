@@ -3,7 +3,8 @@ description: 'OVERVIEW: LLDB'
 usage:
 - 'USAGE: lldb [options]'
 flags:
-- long: attach-name
+- spellings:
+  - --attach-name
   value_name: <name>
   value_kind: Required
   group: 'ATTACHING:'
@@ -11,7 +12,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: attach-pid
+- spellings:
+  - --attach-pid
   value_name: <pid>
   value_kind: Required
   group: 'ATTACHING:'
@@ -19,7 +21,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'n'
+- spellings:
+  - -n
   value_name: <value>
   value_kind: Required
   group: 'ATTACHING:'
@@ -27,7 +30,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'p'
+- spellings:
+  - -p
   value_name: <value>
   value_kind: Required
   group: 'ATTACHING:'
@@ -35,31 +39,36 @@ flags:
   provenance:
     sources:
     - help-text
-- long: wait-for
+- spellings:
+  - --wait-for
   group: 'ATTACHING:'
   description: Tells the debugger to wait for a process with the given pid or name to launch before attaching.
   provenance:
     sources:
     - help-text
-- short: 'w'
+- spellings:
+  - -w
   group: 'ATTACHING:'
   description: Alias for --wait-for
   provenance:
     sources:
     - help-text
-- long: batch
+- spellings:
+  - --batch
   group: 'COMMANDS:'
   description: Tells the debugger to run the commands from -s, -S, -o & -O, and then quit.
   provenance:
     sources:
     - help-text
-- short: 'b'
+- spellings:
+  - -b
   group: 'COMMANDS:'
   description: Alias for --batch
   provenance:
     sources:
     - help-text
-- short: 'K'
+- spellings:
+  - -K
   value_name: <value>
   value_kind: Required
   group: 'COMMANDS:'
@@ -67,7 +76,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'k'
+- spellings:
+  - -k
   value_name: <value>
   value_kind: Required
   group: 'COMMANDS:'
@@ -75,19 +85,22 @@ flags:
   provenance:
     sources:
     - help-text
-- long: local-lldbinit
+- spellings:
+  - --local-lldbinit
   group: 'COMMANDS:'
   description: Allow the debugger to parse the .lldbinit files in the current working directory, unless --no-lldbinit is passed.
   provenance:
     sources:
     - help-text
-- long: no-lldbinit
+- spellings:
+  - --no-lldbinit
   group: 'COMMANDS:'
   description: Do not automatically parse any '.lldbinit' files.
   provenance:
     sources:
     - help-text
-- long: one-line-before-file
+- spellings:
+  - --one-line-before-file
   value_name: <command>
   value_kind: Required
   group: 'COMMANDS:'
@@ -95,7 +108,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: one-line-on-crash
+- spellings:
+  - --one-line-on-crash
   value_name: <command>
   value_kind: Required
   group: 'COMMANDS:'
@@ -103,7 +117,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: one-line
+- spellings:
+  - --one-line
   value_name: <command>
   value_kind: Required
   group: 'COMMANDS:'
@@ -111,7 +126,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'O'
+- spellings:
+  - -O
   value_name: <value>
   value_kind: Required
   group: 'COMMANDS:'
@@ -119,7 +135,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   value_name: <value>
   value_kind: Required
   group: 'COMMANDS:'
@@ -127,13 +144,15 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'Q'
+- spellings:
+  - -Q
   group: 'COMMANDS:'
   description: Alias for --source-quietly
   provenance:
     sources:
     - help-text
-- long: source-before-file
+- spellings:
+  - --source-before-file
   value_name: <file>
   value_kind: Required
   group: 'COMMANDS:'
@@ -141,7 +160,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: source-on-crash
+- spellings:
+  - --source-on-crash
   value_name: <file>
   value_kind: Required
   group: 'COMMANDS:'
@@ -149,13 +169,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: source-quietly
+- spellings:
+  - --source-quietly
   group: 'COMMANDS:'
   description: Tells the debugger not to echo commands while sourcing files or one-line commands provided on the command line.
   provenance:
     sources:
     - help-text
-- long: source
+- spellings:
+  - --source
   value_name: <file>
   value_kind: Required
   group: 'COMMANDS:'
@@ -163,7 +185,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'S'
+- spellings:
+  - -S
   value_name: <value>
   value_kind: Required
   group: 'COMMANDS:'
@@ -171,7 +194,8 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   value_name: <value>
   value_kind: Required
   group: 'COMMANDS:'
@@ -179,105 +203,123 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'x'
+- spellings:
+  - -x
   group: 'COMMANDS:'
   description: Alias for --no-lldbinit
   provenance:
     sources:
     - help-text
-- long: arch
+- spellings:
+  - --arch
   value_name: <architecture>
   value_kind: Required
   description: Tells the debugger to use the specified architecture when starting and running the program.
   provenance:
     sources:
     - help-text
-- short: 'a'
+- spellings:
+  - -a
   value_name: <value>
   value_kind: Required
   description: Alias for --arch
   provenance:
     sources:
     - help-text
-- long: core
+- spellings:
+  - --core
   value_name: <filename>
   value_kind: Required
   description: Tells the debugger to use the full path to <filename> as the core file.
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   value_name: <value>
   value_kind: Required
   description: Alias for --core
   provenance:
     sources:
     - help-text
-- long: debug
+- spellings:
+  - --debug
   description: Tells the debugger to print out extra information for debugging itself.
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   description: Alias for --debug
   provenance:
     sources:
     - help-text
-- long: editor
+- spellings:
+  - --editor
   description: Tells the debugger to open source files using the host's "external editor" mechanism.
   provenance:
     sources:
     - help-text
-- short: 'e'
+- spellings:
+  - -e
   description: Alias for --editor
   provenance:
     sources:
     - help-text
-- long: file
+- spellings:
+  - --file
   value_name: <filename>
   value_kind: Required
   description: Tells the debugger to use the file <filename> as the program to be debugged.
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   value_name: <value>
   value_kind: Required
   description: Alias for --file
   provenance:
     sources:
     - help-text
-- long: help
+- spellings:
+  - --help
   description: Prints out the usage information for the LLDB debugger.
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   description: Alias for --help
   provenance:
     sources:
     - help-text
-- long: no-use-colors
+- spellings:
+  - --no-use-colors
   description: Do not use colors.
   provenance:
     sources:
     - help-text
-- long: version
+- spellings:
+  - --version
   description: Prints out the current version number of the LLDB debugger.
   provenance:
     sources:
     - help-text
-- short: 'v'
+- spellings:
+  - -v
   description: Alias for --version
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   description: Alias for --no-use-color
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   value_name: <flags>
   value_kind: Required
   group: 'REPL:'
@@ -285,7 +327,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: repl-language
+- spellings:
+  - --repl-language
   value_name: <language>
   value_kind: Required
   group: 'REPL:'
@@ -293,7 +336,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: repl
+- spellings:
+  - --repl
   value_name: <flags>
   value_kind: Required
   group: 'REPL:'
@@ -301,13 +345,15 @@ flags:
   provenance:
     sources:
     - help-text
-- long: repl
+- spellings:
+  - --repl
   group: 'REPL:'
   description: Runs lldb in REPL mode with a stub process.
   provenance:
     sources:
     - help-text
-- short: 'R'
+- spellings:
+  - -R
   value_name: <value>
   value_kind: Required
   group: 'REPL:'
@@ -315,13 +361,15 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   group: 'REPL:'
   description: Alias for --repl
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   value_name: <value>
   value_kind: Required
   group: 'SCRIPTING:'
@@ -329,25 +377,29 @@ flags:
   provenance:
     sources:
     - help-text
-- long: print-script-interpreter-info
+- spellings:
+  - --print-script-interpreter-info
   group: 'SCRIPTING:'
   description: Prints out a json dictionary with information about the scripting language interpreter.
   provenance:
     sources:
     - help-text
-- long: python-path
+- spellings:
+  - --python-path
   group: 'SCRIPTING:'
   description: Prints out the path to the lldb.py file for this version of lldb.
   provenance:
     sources:
     - help-text
-- short: 'P'
+- spellings:
+  - -P
   group: 'SCRIPTING:'
   description: Alias for --python-path
   provenance:
     sources:
     - help-text
-- long: script-language
+- spellings:
+  - --script-language
   value_name: <language>
   value_kind: Required
   group: 'SCRIPTING:'

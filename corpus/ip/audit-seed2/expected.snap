@@ -14,76 +14,90 @@ positionals:
     sources:
     - help-text
 flags:
-- short: 'V'
+- spellings:
+  - -V
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 's'
+- spellings:
+  - -s
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'd'
+- spellings:
+  - -d
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'h'
+- spellings:
+  - -h
   group: 'OPTIONS :'
   description: '| -iec | -j[son] | -p[retty] |'
   provenance:
     sources:
     - help-text
-- short: 'f'
+- spellings:
+  - -f
   group: 'OPTIONS :'
   description: '{ inet | inet6 | mpls | bridge | link } |'
   provenance:
     sources:
     - help-text
-- short: '4'
+- spellings:
+  - '-4'
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: '6'
+- spellings:
+  - '-6'
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'M'
+- spellings:
+  - -M
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'B'
+- spellings:
+  - -B
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: '0'
+- spellings:
+  - '-0'
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'l'
+- spellings:
+  - -l
   group: 'OPTIONS :'
   description: '{ maximum-addr-flush-attempts } | -br[ief] |'
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   group: 'OPTIONS :'
   description: '| -t[imestamp] | -ts[hort] | -b[atch] [filename] |'
   provenance:
     sources:
     - help-text
-- short: 'r'
+- spellings:
+  - -r
   value_name: c[vbuf]
   value_kind: Required
   group: 'OPTIONS :'
@@ -91,12 +105,14 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'c'
+- spellings:
+  - -c
   group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
-- short: 'b'
+- spellings:
+  - -b
   value_name: atch
   value_kind: Required
   provenance:

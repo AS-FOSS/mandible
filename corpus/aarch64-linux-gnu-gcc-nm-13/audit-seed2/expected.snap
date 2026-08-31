@@ -3,28 +3,32 @@ description: '/usr/bin/nm: supported targets: elf64-littleaarch64 elf64-bigaarch
 usage:
 - 'Usage: /usr/bin/nm [option(s)] [file(s)]'
 flags:
-- short: 'a'
-  long: debug-syms
+- spellings:
+  - -a
+  - --debug-syms
   group: 'The options are:'
   description: Display debugger-only symbols
   provenance:
     sources:
     - help-text
-- short: 'A'
-  long: print-file-name
+- spellings:
+  - -A
+  - --print-file-name
   group: 'The options are:'
   description: Print name of the input file before every symbol
   provenance:
     sources:
     - help-text
-- short: 'B'
+- spellings:
+  - -B
   group: 'The options are:'
   description: Same as --format=bsd
   provenance:
     sources:
     - help-text
-- short: 'C'
-  long: demangle
+- spellings:
+  - -C
+  - --demangle
   value_name: STYLE
   value_kind: Optional
   group: 'The options are:'
@@ -32,39 +36,45 @@ flags:
   provenance:
     sources:
     - help-text
-- long: no-demangle
+- spellings:
+  - --no-demangle
   group: 'The options are:'
   description: Do not demangle low-level symbol names
   provenance:
     sources:
     - help-text
-- long: recurse-limit
+- spellings:
+  - --recurse-limit
   group: 'The options are:'
   description: Enable a demangling recursion limit. (default)
   provenance:
     sources:
     - help-text
-- long: no-recurse-limit
+- spellings:
+  - --no-recurse-limit
   group: 'The options are:'
   description: Disable a demangling recursion limit.
   provenance:
     sources:
     - help-text
-- short: 'D'
-  long: dynamic
+- spellings:
+  - -D
+  - --dynamic
   group: 'The options are:'
   description: Display dynamic symbols instead of normal symbols
   provenance:
     sources:
     - help-text
-- short: 'e'
+- spellings:
+  - -e
   group: 'The options are:'
   description: (ignored)
   provenance:
     sources:
     - help-text
-- short: 'f'
-  long: format
+- spellings:
+  - -f
+  - --format
   value_name: FORMAT
   value_kind: Required
   group: 'The options are:'
@@ -72,14 +82,16 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'g'
-  long: extern-only
+- spellings:
+  - -g
+  - --extern-only
   group: 'The options are:'
   description: Display only external symbols
   provenance:
     sources:
     - help-text
-- long: ifunc-chars
+- spellings:
+  - --ifunc-chars
   value_name: CHARS
   value_kind: Required
   group: 'The options are:'
@@ -87,55 +99,63 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'j'
-  long: just-symbols
+- spellings:
+  - -j
+  - --just-symbols
   group: 'The options are:'
   description: Same as --format=just-symbols
   provenance:
     sources:
     - help-text
-- short: 'l'
-  long: line-numbers
+- spellings:
+  - -l
+  - --line-numbers
   group: 'The options are:'
   description: Use debugging information to find a filename and line number for each symbol
   provenance:
     sources:
     - help-text
-- short: 'n'
-  long: numeric-sort
+- spellings:
+  - -n
+  - --numeric-sort
   group: 'The options are:'
   description: Sort symbols numerically by address
   provenance:
     sources:
     - help-text
-- short: 'o'
+- spellings:
+  - -o
   group: 'The options are:'
   description: Same as -A
   provenance:
     sources:
     - help-text
-- short: 'p'
-  long: no-sort
+- spellings:
+  - -p
+  - --no-sort
   group: 'The options are:'
   description: Do not sort the symbols
   provenance:
     sources:
     - help-text
-- short: 'P'
-  long: portability
+- spellings:
+  - -P
+  - --portability
   group: 'The options are:'
   description: Same as --format=posix
   provenance:
     sources:
     - help-text
-- short: 'r'
-  long: reverse-sort
+- spellings:
+  - -r
+  - --reverse-sort
   group: 'The options are:'
   description: Reverse the sense of the sort
   provenance:
     sources:
     - help-text
-- long: plugin
+- spellings:
+  - --plugin
   value_name: NAME
   value_kind: Required
   group: 'The options are:'
@@ -143,46 +163,53 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'S'
-  long: print-size
+- spellings:
+  - -S
+  - --print-size
   group: 'The options are:'
   description: Print size of defined symbols
   provenance:
     sources:
     - help-text
-- short: 's'
-  long: print-armap
+- spellings:
+  - -s
+  - --print-armap
   group: 'The options are:'
   description: Include index for symbols from archive members
   provenance:
     sources:
     - help-text
-- long: quiet
+- spellings:
+  - --quiet
   group: 'The options are:'
   description: Suppress "no symbols" diagnostic
   provenance:
     sources:
     - help-text
-- long: size-sort
+- spellings:
+  - --size-sort
   group: 'The options are:'
   description: Sort symbols by size
   provenance:
     sources:
     - help-text
-- long: special-syms
+- spellings:
+  - --special-syms
   group: 'The options are:'
   description: Include special symbols in the output
   provenance:
     sources:
     - help-text
-- long: synthetic
+- spellings:
+  - --synthetic
   group: 'The options are:'
   description: Display synthetic symbols as well
   provenance:
     sources:
     - help-text
-- short: 't'
-  long: radix
+- spellings:
+  - -t
+  - --radix
   value_name: RADIX
   value_kind: Required
   group: 'The options are:'
@@ -190,7 +217,8 @@ flags:
   provenance:
     sources:
     - help-text
-- long: target
+- spellings:
+  - --target
   value_name: BFDNAME
   value_kind: Required
   group: 'The options are:'
@@ -198,21 +226,24 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'u'
-  long: undefined-only
+- spellings:
+  - -u
+  - --undefined-only
   group: 'The options are:'
   description: Display only undefined symbols
   provenance:
     sources:
     - help-text
-- short: 'U'
-  long: defined-only
+- spellings:
+  - -U
+  - --defined-only
   group: 'The options are:'
   description: Display only defined symbols
   provenance:
     sources:
     - help-text
-- long: unicode
+- spellings:
+  - --unicode
   value_name: '{default|show|invalid|hex|escape|highlight}'
   value_kind: Required
   group: 'The options are:'
@@ -220,20 +251,23 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'W'
-  long: no-weak
+- spellings:
+  - -W
+  - --no-weak
   group: 'The options are:'
   description: Ignore weak symbols
   provenance:
     sources:
     - help-text
-- long: without-symbol-versions
+- spellings:
+  - --without-symbol-versions
   group: 'The options are:'
   description: Do not display version strings after symbol names
   provenance:
     sources:
     - help-text
-- short: 'X'
+- spellings:
+  - -X
   value_name: 32_64
   value_kind: Required
   group: 'The options are:'
@@ -241,14 +275,16 @@ flags:
   provenance:
     sources:
     - help-text
-- short: 'h'
-  long: help
+- spellings:
+  - -h
+  - --help
   description: Display this information
   provenance:
     sources:
     - help-text
-- short: 'V'
-  long: version
+- spellings:
+  - -V
+  - --version
   description: Display this program's version number
   provenance:
     sources:
