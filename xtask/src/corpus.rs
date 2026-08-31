@@ -1655,7 +1655,11 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
             .iter()
             .map(|f| {
                 let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
-                flag.spellings = f.spellings.iter().map(|s| parse_rendered_spelling(s)).collect();
+                flag.spellings = f
+                    .spellings
+                    .iter()
+                    .map(|s| parse_rendered_spelling(s))
+                    .collect();
                 flag.description = f.description.as_deref().map(Text::sanitize);
                 flag
             })

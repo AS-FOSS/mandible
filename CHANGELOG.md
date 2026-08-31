@@ -24,6 +24,10 @@ once it reaches a published 0.1.0 release.
 
 - `xtask coverage`'s `#fp` fingerprint footer now covers every `EntityKind` (flags, positionals, modifiers, and env-var items) instead of flags alone, keyed generically off the kind enum so a future entity kind needs no edit to the fingerprint writer or reader — `ar`'s 17 modifiers and `bpftrace`'s env vars, previously invisible to `xtask sweep-diff`, now register as field-level gains or losses; the wire format is versioned (`#fp2`, the old `#fp` lines still read as `V1`) because the two use differently-shaped entity identities, and `sweep-diff` now refuses outright, naming the mismatch, rather than silently misjoin a `V1` scoreboard against a `V2` one.
 
+### Changed
+
+- Corpus fixture format: `expected.snap`'s per-flag `short`/`long`/`negatable`/`single_dash` keys are replaced by one `spellings` key holding every documented spelling, rendered and in document order (e.g. `["-h", "--help"]`, `["--[no-]color"]`) — the fixture-visible half of the `Entity`/`Spelling` migration landing its snapshot format; every committed fixture was reblessed in the same change, with the mapping (short first, then the long-like form with its dashes/`[no-]` notation) verified fixture-by-fixture against the pre-change snapshots.
+
 ### Fixed
 
 - A tool that documents each invocation form as a stanza — LVM's `vgchange`, `lvchange` and the rest of the family — now labels each stanza's flags with the description the tool wrote above it, so the dividers read `Activate or deactivate LVs` and `Start the lockspace of a shared VG in lvmlockd` instead of repeating the `Vgchange --lockstart` spelling already printed on the row beneath, and the stanza's head line is kept as a USAGE form rather than lost with the label it used to be; a stanza with no description above it keeps its head line as the label exactly as before (issue #11).

@@ -336,13 +336,19 @@ Rules that govern the migration:
   migration rewrites those same sites anyway. One rewrite, not two.
 - **Sequence:** one kind at a time — flags, then positionals, then
   modifiers, then env vars.
-  - The two **relocation** stages, flags and positionals, move existing
-    data into the one vector and must leave every corpus snapshot
-    **byte-identical**. A snapshot diff there means the code is wrong,
-    never the fixture, which is why the frozen
-    `FlagSnapshot`/`PositionalSnapshot` layouts are partitioned out of the
-    one vector by kind rather than reshaped around `spellings`. Reshaping
-    them belongs with the stage that first emits multi-spelling entities.
+  - The two **relocation** stages, flags and positionals, moved existing
+    data into the one vector and left every corpus snapshot
+    **byte-identical**: a snapshot diff there would have meant the code
+    was wrong, never the fixture, which is why the `FlagSnapshot`/
+    `PositionalSnapshot` layouts stayed frozen in their pre-0.5.0
+    `short`/`long`/`negatable`/`single_dash` shape through that stage.
+    `FlagSnapshot` has since thawed: it now writes one `spellings` key
+    holding every rendered [`Spelling`] in document order (`"-i"`,
+    `"--interactive"`, `"--[no-]color"`, `"-help"`), which is what a
+    fixture is written in from the multi-spelling emission stage onward.
+    `PositionalSnapshot` stays in its original shape — a positional
+    carries exactly one dashless spelling, so there was never a slot
+    contest for it to dissolve.
   - The two **emission** stages, modifiers and env vars, recover items no
     tier produced before, so a snapshot that gains one is the stage
     working. The bound is on *where*: a fixture may move only when its own
