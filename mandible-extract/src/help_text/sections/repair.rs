@@ -1159,9 +1159,20 @@ mod tests {
         }
     }
 
-    /// The two declared out-of-scope misses, asserted rather than
-    /// described — a miss that is only written down in prose stops being
-    /// checked the day the prose goes stale.
+    /// The declared out-of-scope misses, asserted rather than described —
+    /// a miss that is only written down in prose stops being checked the
+    /// day the prose goes stale.
+    ///
+    /// `ip`'s bracketed abbreviation (`-V[ersion]`, `-h[uman-readable]`,
+    /// `-j[son]`) used to be a third miss here: this repair pass's
+    /// Required-only fingerprint could never see it, and nothing else
+    /// resolved it either, so the bracket was silently discarded and the
+    /// row lost its long name. It is not a miss any more — the grammar's
+    /// abbreviation model (`grammar::try_short`) now reads the bracket
+    /// directly and produces `long: "human-readable"` on its own, before
+    /// this repair pass ever runs. See
+    /// `grammar::tests::short_flag_abbreviation_bracket_is_not_an_invented_value`
+    /// for that positive case.
     #[test]
     fn the_declared_out_of_scope_misses_stay_missed() {
         // A tail that ends at the `=` with nothing after it: refused
@@ -1170,16 +1181,6 @@ mod tests {
         assert!(
             parsed.flags.iter().all(|f| f.long() != Some("foo")),
             "an empty value spec has no measured reading"
-        );
-        // `ip` writes a bracketed tail, so the grammar records
-        // `ValueKind::Optional` — a value spec a human deliberately typed.
-        let parsed = parse("OPTIONS := { -V[ersion] | -h[uman-readable] | -j[son] }\n");
-        assert!(
-            parsed
-                .flags
-                .iter()
-                .all(|f| f.long() != Some("human-readable")),
-            "ip's bracketed abbreviation is outside a Required-only fingerprint by construction"
         );
         // `sg_emc_trespass` glues the layout's own colon onto the flag, so
         // the tail is `"r:"` and is not an option name.

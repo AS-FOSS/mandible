@@ -49,8 +49,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, CommandNode, Entity, Provenance, Source, Spelling, Text,
-    ValueKind,
+    is_command_name_shaped, strip_escapes, CommandNode, Entity, EntityKind, Provenance, Source,
+    Spelling, Text, ValueKind,
 };
 
 mod backfill;

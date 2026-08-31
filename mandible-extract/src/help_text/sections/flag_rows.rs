@@ -1265,8 +1265,8 @@ Options:
             .expect("row splits");
         assert_eq!(entries.len(), 3);
         let short = parse_flag_spec(&entries[0].0);
-        assert_eq!(short.short, Some('V'));
-        assert_eq!(short.long, Some("Version".to_string()));
+        assert_eq!(short.short(), Some('V'));
+        assert_eq!(short.long(), Some("Version"));
     }
 
     /// `sg_sanitize`'s real `--count=OC|-c OC` (from `corpus/sg_sanitize`):

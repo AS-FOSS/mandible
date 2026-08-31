@@ -16,6 +16,7 @@ flags:
   - spellings:
       - "-A"
       - "--catenate"
+      - "--concatenate"
     group: "Main operation mode:"
     description: append tar files to an archive
     provenance:
@@ -39,6 +40,7 @@ flags:
   - spellings:
       - "-d"
       - "--diff"
+      - "--compare"
     group: "Main operation mode:"
     description: find differences between archive and file system
     provenance:
@@ -78,6 +80,7 @@ flags:
   - spellings:
       - "-x"
       - "--extract"
+      - "--get"
     group: "Main operation mode:"
     description: extract files from an archive
     provenance:
@@ -666,6 +669,7 @@ flags:
   - spellings:
       - "-p"
       - "--preserve-permissions"
+      - "--same-permissions"
     group: "Handling of file attributes:"
     description: extract information about file permissions (default for superuser)
     provenance:
@@ -690,6 +694,7 @@ flags:
   - spellings:
       - "-s"
       - "--preserve-order"
+      - "--same-order"
     group: "Handling of file attributes:"
     description: member arguments are listed in the same order as the files in the archive
     provenance:
@@ -775,6 +780,7 @@ flags:
   - spellings:
       - "-F"
       - "--info-script"
+      - "--new-volume-script"
     value_name: NAME
     value_kind: Required
     group: "Device selection and switching:"
@@ -881,6 +887,7 @@ flags:
         - help-text
   - spellings:
       - "--old-archive"
+      - "--portability"
     description: same as --format=v7
     provenance:
       sources:
@@ -980,6 +987,8 @@ flags:
   - spellings:
       - "-z"
       - "--gzip"
+      - "--gunzip"
+      - "--ungzip"
     group: "Compression options:"
     description: filter the archive through gzip
     provenance:
@@ -988,6 +997,7 @@ flags:
   - spellings:
       - "-Z"
       - "--compress"
+      - "--uncompress"
     group: "Compression options:"
     description: filter the archive through compress
     provenance:
@@ -1048,6 +1058,7 @@ flags:
   - spellings:
       - "-N"
       - "--newer"
+      - "--after-date"
     value_name: DATE-OR-FILE
     value_kind: Required
     group: "Local file selection:"
@@ -1090,6 +1101,7 @@ flags:
         - help-text
   - spellings:
       - "--transform"
+      - "--xform"
     value_name: EXPRESSION
     value_kind: Required
     group: "File name transformations:"
@@ -1208,6 +1220,7 @@ flags:
         - help-text
   - spellings:
       - "--show-transformed-names"
+      - "--show-stored-names"
     group: "Informative output:"
     description: show file or archive names after transformation
     provenance:
@@ -1249,6 +1262,7 @@ flags:
   - spellings:
       - "-w"
       - "--interactive"
+      - "--confirmation"
     group: "Informative output:"
     description: ask for confirmation for every action
     provenance:

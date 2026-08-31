@@ -290,16 +290,11 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
         return None;
     }
     let spec = parse_flag_spec(rest);
-    if spec.short.is_none() && spec.long.is_none() {
+    if spec.spellings.is_empty() {
         return None;
     }
-    let mut flag = Entity::flag_spelled(
-        spec.short,
-        spec.long,
-        false,
-        spec.negatable,
-        Provenance::single(Source::HelpText),
-    );
+    let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+    flag.spellings = spec.spellings;
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
     flag.group = meaningful_flag_group(heading.to_string());
@@ -901,7 +896,7 @@ pub(super) fn push_usage_token(out: &mut Vec<Entity>, token: &str) {
             push_usage_flag(
                 out,
                 FlagSpec {
-                    short: Some(member),
+                    spellings: vec![Spelling::short(member)],
                     fully_consumed: true,
                     ..FlagSpec::default()
                 },
@@ -923,16 +918,14 @@ pub(super) fn push_usage_token(out: &mut Vec<Entity>, token: &str) {
 /// `pct_flags_with_text` can tell a structurally-undescribable flag apart from
 /// one that merely wasn't described.
 pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
-    if spec.short.is_none() && spec.long.is_none() {
+    if spec.spellings.is_empty() {
         return;
     }
-    let mut flag = Entity::flag_spelled(
-        spec.short,
-        spec.long,
-        false,
-        spec.negatable,
+    let mut flag = Entity::new(
+        EntityKind::Flag,
         Provenance::single(Source::HelpTextSynopsis),
     );
+    flag.spellings = spec.spellings;
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
     out.push(flag);
@@ -949,19 +942,25 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
 /// here has a description to compare against, so the evidence is the
 /// bracket group's own `|`-alternation instead, per spec's stated rule.
 pub(super) fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> {
-    let (short_spec, long_spec) =
-        if a.short.is_some() && a.long.is_none() && b.short.is_none() && b.long.is_some() {
-            (a, b)
-        } else if b.short.is_some() && b.long.is_none() && a.short.is_none() && a.long.is_some() {
-            (b, a)
-        } else {
-            return None;
-        };
+    let (short_spec, long_spec) = if a.short().is_some()
+        && a.long().is_none()
+        && b.short().is_none()
+        && b.long().is_some()
+    {
+        (a, b)
+    } else if b.short().is_some() && b.long().is_none() && a.short().is_none() && a.long().is_some()
+    {
+        (b, a)
+    } else {
+        return None;
+    };
     let long_had_value = long_spec.value_name.is_some();
+    // Short first, then long — the display order every other spelling
+    // list in this crate keeps (`-i, --interactive`).
+    let mut spellings = short_spec.spellings;
+    spellings.extend(long_spec.spellings);
     Some(FlagSpec {
-        short: short_spec.short,
-        long: long_spec.long,
-        negatable: long_spec.negatable,
+        spellings,
         value_kind: if long_had_value {
             long_spec.value_kind
         } else {

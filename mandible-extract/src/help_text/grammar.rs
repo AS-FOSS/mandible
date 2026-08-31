@@ -10,12 +10,12 @@
 //! reports whether it fully consumed the input, which
 //! `help_text::sections` uses to compute this tier's confidence score.
 
-use mandible_core::ValueKind;
+use mandible_core::{Dashes, Spelling, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
 use winnow::error::ContextError;
 use winnow::prelude::*;
-use winnow::token::{one_of, take_while};
+use winnow::token::take_while;
 
 /// This grammar never needs winnow's richer error-context machinery — a
 /// flag-spec fragment either matches the recognized shape or it doesn't,
@@ -24,23 +24,12 @@ use winnow::token::{one_of, take_while};
 type Res<T> = ModalResult<T, ContextError>;
 
 /// The result of parsing one flag-spec fragment.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct FlagSpec {
-    /// The short spelling, if any (only the first one found; some tools
-    /// list `-A, -a` style duplicate shorts, which is rare enough to not
-    /// warrant a `Vec`).
-    pub short: Option<char>,
-    /// The first long spelling found (tar-style multi-alias specs like
-    /// `--catenate, --concatenate` only keep the first), always the *base*
-    /// name — never containing `[` or `]` even when the source spelled it
-    /// `--[no-]foo` (see `negatable`).
-    pub long: Option<String>,
-    /// True if the long spelling was written as GNU getopt_long's
-    /// negatable-boolean convention, `--[no-]foo` (git's `--help`
-    /// formatter renders every negatable boolean this way — a shape, not a
-    /// tool name; any framework using the same convention gets the same
-    /// treatment). `long` is always `"foo"`, never `"[no-]foo"`.
-    pub negatable: bool,
+    /// Every recognized spelling, in document order: `-A, --catenate,
+    /// --concatenate` keeps all three, not just the first of each shape —
+    /// the fix that dissolves the multi-spelling bug (#30) at its source.
+    pub spellings: Vec<Spelling>,
     /// The value placeholder text, if a value spec was recognized.
     pub value_name: Option<String>,
     /// Whether the value (if any) is required or optional.
@@ -48,6 +37,40 @@ pub struct FlagSpec {
     /// True if the grammar consumed the entire fragment cleanly (no
     /// leftover text it didn't understand). Used for confidence scoring.
     pub fully_consumed: bool,
+}
+
+impl FlagSpec {
+    /// The short letter, if this spec has a short-flag-shaped spelling —
+    /// same shape rule as [`mandible_core::Entity::short`]: one dash, one
+    /// character, no abbreviation bracket.
+    pub fn short(&self) -> Option<char> {
+        self.spellings
+            .iter()
+            .find(|s| matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1)
+            .and_then(|s| s.name.chars().next())
+    }
+
+    /// The long-like spelling's bare name, if any — same shape rule as
+    /// [`mandible_core::Entity::long`]: two dashes always, or one dash when
+    /// the name is more than a single character.
+    pub fn long(&self) -> Option<&str> {
+        self.spellings
+            .iter()
+            .find(|s| {
+                matches!(s.dashes, Dashes::Double)
+                    || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1)
+            })
+            .map(|s| s.name.as_str())
+    }
+
+    /// True when any spelling documents the `--[no-]name` negation
+    /// convention. Test-only: production code reads `negatable` straight
+    /// off each `Spelling` once `spellings` moves onto the `Entity`, with
+    /// no need to ask the whole spec first.
+    #[cfg(test)]
+    pub fn negatable(&self) -> bool {
+        self.spellings.iter().any(|s| s.negatable)
+    }
 }
 
 /// Parse a flag-spec fragment (the part of a `--help` entry line before
@@ -64,18 +87,13 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             if rest.is_empty() {
                 break;
             }
-            if let Some((c, tail)) = try_short(rest) {
-                if spec.short.is_none() {
-                    spec.short = Some(c);
-                }
+            if let Some((spelling, tail)) = try_short(rest) {
+                spec.spellings.push(spelling);
                 rest = tail;
                 continue;
             }
-            if let Some((name, negatable, tail)) = try_long(rest) {
-                if spec.long.is_none() {
-                    spec.long = Some(name);
-                    spec.negatable = negatable;
-                }
+            if let Some((spelling, tail)) = try_long(rest) {
+                spec.spellings.push(spelling);
                 rest = tail;
                 continue;
             }
@@ -171,7 +189,7 @@ fn is_alias_separator(c: char) -> bool {
 fn alias_follows(after_separator: &str) -> bool {
     let after = after_separator.trim_start_matches(' ');
     let Some(tail) = try_long(after)
-        .map(|(_, _, t)| t)
+        .map(|(_, t)| t)
         .or_else(|| try_short(after).map(|(_, t)| t))
     else {
         return false;
@@ -254,10 +272,6 @@ fn short_dash(input: &mut &str) -> Res<char> {
     '-'.parse_next(input)
 }
 
-fn short_char(input: &mut &str) -> Res<char> {
-    one_of(|c: char| c != ' ' && c != ',' && c != '=' && c != '[' && c != '-').parse_next(input)
-}
-
 fn long_dashes<'s>(input: &mut &'s str) -> Res<&'s str> {
     "--".parse_next(input)
 }
@@ -266,24 +280,56 @@ fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
     take_while(1.., |c: char| c.is_alphanumeric() || c == '-').parse_next(input)
 }
 
-/// `-x` where `x` is any non-separator, non-bracket character, with an
-/// optional trailing abbreviation-continuation bracket stripped and
-/// discarded (see [`strip_short_abbrev_suffix`]).
-fn try_short(input: &str) -> Option<(char, &str)> {
+/// `-x` where `x` is any non-separator, non-bracket character, or
+/// `-xy...[rest]` where an abbreviation-continuation bracket (see
+/// [`parse_abbrev_bracket`]) immediately follows a run of one or more such
+/// characters: `ip --help`'s own `-V[ersion]` (a one-letter prefix) and
+/// `-rc[vbuf]` (a two-letter prefix, issue #49's duplicate-`-r` row) are
+/// the same shape at different prefix lengths, and this reads both with
+/// the same rule. With no bracket, only the run's first character is ever
+/// consumed — a plain short flag, exactly the pre-abbreviation-model
+/// behavior — so a genuinely glued value (`-2CDlNuVv`) is untouched.
+fn try_short(input: &str) -> Option<(Spelling, &str)> {
     let mut s = input;
     short_dash(&mut s).ok()?;
-    let c = short_char(&mut s).ok()?;
-    if let Some(rest) = strip_short_abbrev_suffix(s) {
-        s = rest;
+    let run_end = s
+        .char_indices()
+        .find(|(_, c)| !is_short_char(*c))
+        .map_or(s.len(), |(i, _)| i);
+    if run_end == 0 {
+        return None;
     }
-    Some((c, s))
+    let run = &s[..run_end];
+    let after_run = &s[run_end..];
+    if let Some((content, rest)) = parse_abbrev_bracket(after_run) {
+        let prefix_len = run.chars().count();
+        return Some((
+            Spelling {
+                name: format!("{run}{content}"),
+                dashes: Dashes::Single,
+                negatable: false,
+                abbrev: Some(prefix_len),
+            },
+            rest,
+        ));
+    }
+    // No abbreviation bracket (or its content didn't validate): an
+    // ordinary short flag, one character, exactly as `short_char` always
+    // read it — anything past that first character is left for the rest
+    // of the grammar (a glued value, or its own token) to interpret.
+    let c = run.chars().next()?;
+    Some((Spelling::short(c), &s[c.len_utf8()..]))
 }
 
-/// Strips a trailing abbreviation-continuation bracket glued directly onto
-/// a short flag character, e.g. `ip --help`'s own `-V[ersion]`,
-/// `-s[tatistics]`, `-f[amily]`, `-h[uman-readable]`: the short letter
-/// already *is* the flag, and the bracket merely spells out the rest of
-/// the word it abbreviates. Mirrors [`crate::help_text::sections::
+fn is_short_char(c: char) -> bool {
+    c != ' ' && c != ',' && c != '=' && c != '[' && c != '-'
+}
+
+/// Parses (and validates) an abbreviation-continuation bracket glued
+/// directly onto a flag spelling, e.g. `ip --help`'s own `-V[ersion]`,
+/// `-rc[vbuf]`, `--br[ief]`: the prefix before the bracket already *is*
+/// the flag as far as identity goes, and the bracket merely spells out the
+/// rest of the word it abbreviates. Mirrors [`crate::help_text::sections::
 /// strip_optional_modifier_suffix`]'s command-name convention (`m[ab]`
 /// names the command `m`) on the flag side, per spec's own note that the
 /// two are the same shape in different documents.
@@ -300,10 +346,11 @@ fn try_short(input: &str) -> Option<(char, &str)> {
 /// project's fleet has actually measured is one of upper/mixed-case
 /// (`[FILE]`, `--occurrence[=NUMBER]`), angle-delimited (`<value>`), or
 /// carries a leading `=` (`[=WHEN]`) — never a bare, all-lowercase word
-/// glued straight onto a short letter with no `=` at all. A bracket
-/// containing `=`, digits, uppercase letters, or anything else therefore
-/// falls through untouched to the ordinary value-spec grammar below.
-fn strip_short_abbrev_suffix(input: &str) -> Option<&str> {
+/// glued straight onto a spelling with no `=` at all. A bracket containing
+/// `=`, digits, uppercase letters, or anything else therefore falls
+/// through untouched to the ordinary value-spec grammar below. Returns the
+/// bracket's content and the text following it.
+fn parse_abbrev_bracket(input: &str) -> Option<(&str, &str)> {
     let rest = input.strip_prefix('[')?;
     let close = rest.find(']')?;
     let content = &rest[..close];
@@ -331,14 +378,17 @@ fn strip_short_abbrev_suffix(input: &str) -> Option<&str> {
     while matches!(after.chars().next(), Some('}' | ')' | ']')) {
         after = &after[1..];
     }
-    Some(after)
+    Some((content, after))
 }
 
 /// `--long-name` (letters, digits, `-`), optionally prefixed with GNU
 /// getopt_long's negatable-boolean bracket, `--[no-]long-name` or
-/// `--[no]long-name`. Returns `(base_name, negatable, rest)` — `base_name`
-/// never contains `[`/`]` either way.
-fn try_long(input: &str) -> Option<(String, bool, &str)> {
+/// `--[no]long-name`, and optionally suffixed with an abbreviation
+/// bracket, `--br[ief]` (see [`parse_abbrev_bracket`]) — the two never
+/// coexist on one spelling in the measured fleet, and if they did,
+/// negatable wins (checked first, so an abbreviation bracket is only ever
+/// looked for once the `[no-]` prefix — if any — is already consumed).
+fn try_long(input: &str) -> Option<(Spelling, &str)> {
     let mut s = input;
     long_dashes(&mut s).ok()?;
     let negatable = strip_negatable_prefix(s).is_some_and(|rest| {
@@ -346,7 +396,28 @@ fn try_long(input: &str) -> Option<(String, bool, &str)> {
         true
     });
     let name = long_name(&mut s).ok()?;
-    Some((name.to_string(), negatable, s))
+    if !negatable {
+        if let Some((content, rest)) = parse_abbrev_bracket(s) {
+            return Some((
+                Spelling {
+                    name: format!("{name}{content}"),
+                    dashes: Dashes::Double,
+                    negatable: false,
+                    abbrev: Some(name.chars().count()),
+                },
+                rest,
+            ));
+        }
+    }
+    Some((
+        Spelling {
+            name: name.to_string(),
+            dashes: Dashes::Double,
+            negatable,
+            abbrev: None,
+        },
+        s,
+    ))
 }
 
 /// Strips a leading `[no-]` or `[no]` from `input`, if present — the
@@ -1207,23 +1278,23 @@ mod tests {
     #[test]
     fn parses_short_and_long() {
         let spec = parse_flag_spec("-i, --interactive");
-        assert_eq!(spec.short, Some('i'));
-        assert_eq!(spec.long.as_deref(), Some("interactive"));
+        assert_eq!(spec.short(), Some('i'));
+        assert_eq!(spec.long(), Some("interactive"));
         assert!(spec.fully_consumed);
     }
 
     #[test]
     fn parses_long_only() {
         let spec = parse_flag_spec("--autosquash");
-        assert_eq!(spec.short, None);
-        assert_eq!(spec.long.as_deref(), Some("autosquash"));
+        assert_eq!(spec.short(), None);
+        assert_eq!(spec.long(), Some("autosquash"));
         assert!(spec.fully_consumed);
     }
 
     #[test]
     fn parses_required_value_with_equals() {
         let spec = parse_flag_spec("--format=FORMAT");
-        assert_eq!(spec.long.as_deref(), Some("format"));
+        assert_eq!(spec.long(), Some("format"));
         assert_eq!(spec.value_name.as_deref(), Some("FORMAT"));
         assert_eq!(spec.value_kind, ValueKind::Required);
     }
@@ -1231,8 +1302,8 @@ mod tests {
     #[test]
     fn parses_required_value_with_space_and_angle_brackets() {
         let spec = parse_flag_spec("-o, --output <FILE>");
-        assert_eq!(spec.short, Some('o'));
-        assert_eq!(spec.long.as_deref(), Some("output"));
+        assert_eq!(spec.short(), Some('o'));
+        assert_eq!(spec.long(), Some("output"));
         assert_eq!(spec.value_name.as_deref(), Some("<FILE>"));
         assert_eq!(spec.value_kind, ValueKind::Required);
     }
@@ -1240,7 +1311,7 @@ mod tests {
     #[test]
     fn parses_optional_bracketed_value() {
         let spec = parse_flag_spec("--occurrence[=NUMBER]");
-        assert_eq!(spec.long.as_deref(), Some("occurrence"));
+        assert_eq!(spec.long(), Some("occurrence"));
         assert_eq!(spec.value_name.as_deref(), Some("NUMBER"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
@@ -1248,16 +1319,16 @@ mod tests {
     #[test]
     fn parses_multiple_long_aliases_keeping_first() {
         let spec = parse_flag_spec("-A, --catenate, --concatenate");
-        assert_eq!(spec.short, Some('A'));
-        assert_eq!(spec.long.as_deref(), Some("catenate"));
+        assert_eq!(spec.short(), Some('A'));
+        assert_eq!(spec.long(), Some("catenate"));
         assert!(spec.fully_consumed);
     }
 
     #[test]
     fn parses_gpg_sign_style_optional_short_value() {
         let spec = parse_flag_spec("-S, --gpg-sign[=<keyid>]");
-        assert_eq!(spec.short, Some('S'));
-        assert_eq!(spec.long.as_deref(), Some("gpg-sign"));
+        assert_eq!(spec.short(), Some('S'));
+        assert_eq!(spec.long(), Some("gpg-sign"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
 
@@ -1270,18 +1341,18 @@ mod tests {
     #[test]
     fn parses_negatable_long_with_short() {
         let spec = parse_flag_spec("-S, --[no-]staged");
-        assert_eq!(spec.short, Some('S'));
-        assert_eq!(spec.long.as_deref(), Some("staged"));
-        assert!(spec.negatable);
+        assert_eq!(spec.short(), Some('S'));
+        assert_eq!(spec.long(), Some("staged"));
+        assert!(spec.negatable());
         assert!(spec.fully_consumed);
     }
 
     #[test]
     fn parses_negatable_long_only() {
         let spec = parse_flag_spec("--[no-]ignore-unmerged");
-        assert_eq!(spec.short, None);
-        assert_eq!(spec.long.as_deref(), Some("ignore-unmerged"));
-        assert!(spec.negatable);
+        assert_eq!(spec.short(), None);
+        assert_eq!(spec.long(), Some("ignore-unmerged"));
+        assert!(spec.negatable());
     }
 
     /// `--[no-]source <tree-ish>`: the negatable prefix and a required
@@ -1289,9 +1360,9 @@ mod tests {
     #[test]
     fn parses_negatable_long_with_value_spec() {
         let spec = parse_flag_spec("-s, --[no-]source <tree-ish>");
-        assert_eq!(spec.short, Some('s'));
-        assert_eq!(spec.long.as_deref(), Some("source"));
-        assert!(spec.negatable);
+        assert_eq!(spec.short(), Some('s'));
+        assert_eq!(spec.long(), Some("source"));
+        assert!(spec.negatable());
         assert_eq!(spec.value_name.as_deref(), Some("<tree-ish>"));
         assert_eq!(spec.value_kind, ValueKind::Required);
     }
@@ -1301,8 +1372,8 @@ mod tests {
     #[test]
     fn non_negatable_flag_is_unaffected() {
         let spec = parse_flag_spec("-2, --ours");
-        assert_eq!(spec.long.as_deref(), Some("ours"));
-        assert!(!spec.negatable);
+        assert_eq!(spec.long(), Some("ours"));
+        assert!(!spec.negatable());
     }
 
     #[test]
@@ -1310,7 +1381,7 @@ mod tests {
         // A value spec winnow's simple grammar doesn't fully understand
         // (nested brackets) should still recover the flag identity.
         let spec = parse_flag_spec("--sparse-version=MAJOR[.MINOR]");
-        assert_eq!(spec.long.as_deref(), Some("sparse-version"));
+        assert_eq!(spec.long(), Some("sparse-version"));
         assert!(spec.value_name.is_some());
     }
 
@@ -1341,8 +1412,8 @@ mod tests {
             ("-t seconds, --timeout seconds", 't', "timeout", "seconds"),
         ] {
             let spec = parse_flag_spec(fragment);
-            assert_eq!(spec.short, Some(short), "{fragment}");
-            assert_eq!(spec.long.as_deref(), Some(long), "{fragment}");
+            assert_eq!(spec.short(), Some(short), "{fragment}");
+            assert_eq!(spec.long(), Some(long), "{fragment}");
             assert_eq!(spec.value_name.as_deref(), Some(value), "{fragment}");
             assert_eq!(spec.value_kind, ValueKind::Required, "{fragment}");
             assert!(spec.fully_consumed, "{fragment}");
@@ -1362,8 +1433,8 @@ mod tests {
             ("--timeout=SECS|-t SECS", 't', "timeout", "SECS"),
         ] {
             let spec = parse_flag_spec(fragment);
-            assert_eq!(spec.short, Some(short), "{fragment}");
-            assert_eq!(spec.long.as_deref(), Some(long), "{fragment}");
+            assert_eq!(spec.short(), Some(short), "{fragment}");
+            assert_eq!(spec.long(), Some(long), "{fragment}");
             assert_eq!(spec.value_name.as_deref(), Some(value), "{fragment}");
         }
     }
@@ -1376,8 +1447,8 @@ mod tests {
         let spec = parse_flag_spec(
             "-l {java,perl,php,python,ruby,tcl}, --language {java,perl,php,python,ruby,tcl}",
         );
-        assert_eq!(spec.short, Some('l'));
-        assert_eq!(spec.long.as_deref(), Some("language"));
+        assert_eq!(spec.short(), Some('l'));
+        assert_eq!(spec.long(), Some("language"));
         assert_eq!(
             spec.value_name.as_deref(),
             Some("{java,perl,php,python,ruby,tcl}")
@@ -1404,7 +1475,7 @@ mod tests {
         ] {
             let spec = parse_flag_spec(fragment);
             assert_eq!(spec.value_name.as_deref(), Some(value), "{fragment}");
-            assert_eq!(spec.short, None, "{fragment} must not gain a short");
+            assert_eq!(spec.short(), None, "{fragment} must not gain a short");
         }
     }
 
@@ -1414,7 +1485,7 @@ mod tests {
     #[test]
     fn whitespace_alone_never_resumes_an_alias_run() {
         let spec = parse_flag_spec("--output FILE --other");
-        assert_eq!(spec.long.as_deref(), Some("output"));
+        assert_eq!(spec.long(), Some("output"));
         assert_eq!(spec.value_name.as_deref(), Some("FILE"));
         assert!(
             !spec.fully_consumed,
@@ -1431,8 +1502,8 @@ mod tests {
     fn lsofs_plus_or_minus_token_is_left_alone() {
         assert!(!separator_has_a_left_operand("+"));
         let spec = parse_flag_spec("+|-e s");
-        assert_eq!(spec.short, None);
-        assert_eq!(spec.long, None);
+        assert_eq!(spec.short(), None);
+        assert_eq!(spec.long(), None);
     }
 
     /// The alias run still stops where it always did when nothing follows
@@ -1442,15 +1513,15 @@ mod tests {
         for fragment in ["--format FMT,", "--format FMT|", "-o, --output FILE"] {
             let spec = parse_flag_spec(fragment);
             assert!(
-                spec.value_name.is_some() || spec.long.is_some(),
+                spec.value_name.is_some() || spec.long().is_some(),
                 "{fragment}"
             );
         }
         // `-o, --output FILE` is the shape that always worked; it must be
         // untouched by any of this.
         let spec = parse_flag_spec("-o, --output FILE");
-        assert_eq!(spec.short, Some('o'));
-        assert_eq!(spec.long.as_deref(), Some("output"));
+        assert_eq!(spec.short(), Some('o'));
+        assert_eq!(spec.long(), Some("output"));
         assert_eq!(spec.value_name.as_deref(), Some("FILE"));
         assert!(spec.fully_consumed);
     }
@@ -1460,8 +1531,8 @@ mod tests {
     #[test]
     fn tars_repeated_long_alias_row_keeps_one_clean_value() {
         let spec = parse_flag_spec("-F, --info-script=NAME, --new-volume-script=NAME");
-        assert_eq!(spec.short, Some('F'));
-        assert_eq!(spec.long.as_deref(), Some("info-script"));
+        assert_eq!(spec.short(), Some('F'));
+        assert_eq!(spec.long(), Some("info-script"));
         assert_eq!(spec.value_name.as_deref(), Some("NAME"));
     }
 
@@ -1532,18 +1603,18 @@ mod tests {
     #[test]
     fn bracket_flag_row_content_feeds_parse_flag_spec_correctly() {
         let spec = parse_flag_spec(bracket_flag_row_content("[ -A|--autobackup y|n ]").unwrap());
-        assert_eq!(spec.short, Some('A'));
-        assert_eq!(spec.long.as_deref(), Some("autobackup"));
+        assert_eq!(spec.short(), Some('A'));
+        assert_eq!(spec.long(), Some("autobackup"));
         assert_eq!(spec.value_name.as_deref(), Some("y|n"));
 
         let spec =
             parse_flag_spec(bracket_flag_row_content("[ --metadatasize Size[m|UNIT] ]").unwrap());
-        assert_eq!(spec.long.as_deref(), Some("metadatasize"));
+        assert_eq!(spec.long(), Some("metadatasize"));
         assert_eq!(spec.value_name.as_deref(), Some("Size[m|UNIT]"));
 
         let spec = parse_flag_spec(bracket_flag_row_content("[ -d|--debug ]").unwrap());
-        assert_eq!(spec.short, Some('d'));
-        assert_eq!(spec.long.as_deref(), Some("debug"));
+        assert_eq!(spec.short(), Some('d'));
+        assert_eq!(spec.long(), Some("debug"));
         assert_eq!(spec.value_name, None);
     }
 
@@ -1708,30 +1779,38 @@ mod tests {
     #[test]
     fn parse_flag_spec_still_reads_a_cluster_as_one_valued_flag() {
         let spec = parse_flag_spec("-2CDlNuVv");
-        assert_eq!(spec.short, Some('2'));
+        assert_eq!(spec.short(), Some('2'));
         assert_eq!(spec.value_name.as_deref(), Some("CDlNuVv"));
         assert_eq!(spec.value_kind, ValueKind::Required);
     }
 
     /// `ip --help`'s own abbreviation convention: `-V[ersion]` names the
-    /// flag `-V`, with the bracket spelling out the rest of the word it
-    /// abbreviates. Before `strip_short_abbrev_suffix` existed, this parsed
-    /// as `-V` taking an optional value literally named `"ersion"` — a
-    /// value `ip` does not document at all, on a flag that takes none.
+    /// flag with the full word the bracket spells out (`"Version"`,
+    /// `abbrev: Some(1)`), not a short flag `-V` with an invented value —
+    /// the shape is single-dash-long, exactly the rule that also makes
+    /// `-rc[vbuf]` (a two-letter prefix) long-like and dissolves issue
+    /// #49's duplicate `-r` row. Before this abbreviation model existed,
+    /// `-V[ersion]` parsed as `-V` taking an optional value literally
+    /// named `"ersion"` — a value `ip` does not document at all, on a flag
+    /// that takes none.
     #[test]
     fn short_flag_abbreviation_bracket_is_not_an_invented_value() {
-        for (input, letter) in [
-            ("-V[ersion]", 'V'),
-            ("-s[tatistics]", 's'),
-            ("-d[etails]", 'd'),
-            ("-f[amily]", 'f'),
-            ("-h[uman-readable]", 'h'),
-            ("-l[oops]", 'l'),
-            ("-a[ll]", 'a'),
-            ("-c[olor]", 'c'),
+        for (input, prefix_len, full_name) in [
+            ("-V[ersion]", 1, "Version"),
+            ("-s[tatistics]", 1, "statistics"),
+            ("-d[etails]", 1, "details"),
+            ("-f[amily]", 1, "family"),
+            ("-h[uman-readable]", 1, "human-readable"),
+            ("-l[oops]", 1, "loops"),
+            ("-a[ll]", 1, "all"),
+            ("-c[olor]", 1, "color"),
         ] {
             let spec = parse_flag_spec(input);
-            assert_eq!(spec.short, Some(letter), "input: {input}");
+            assert_eq!(spec.short(), None, "input: {input} is long-like, not short");
+            assert_eq!(spec.long(), Some(full_name), "input: {input}");
+            assert_eq!(spec.spellings.len(), 1, "input: {input}");
+            assert_eq!(spec.spellings[0].abbrev, Some(prefix_len), "input: {input}");
+            assert_eq!(spec.spellings[0].render(), input, "input: {input}");
             assert_eq!(spec.value_name, None, "input: {input} must carry no value");
             assert!(spec.fully_consumed, "input: {input}");
         }
@@ -1740,12 +1819,13 @@ mod tests {
     /// `ip --help`'s own `OPTIONS := { -V[ersion] | ... | -c[olor]}` cuts
     /// its last row with the alternation group's own closing `}` still
     /// glued on. The stray brace is leftover punctuation from the
-    /// enclosing group, never a value — `-c` must come out exactly as
-    /// boolean as `-a[ll]` does one line earlier in the same document.
+    /// enclosing group, never a value — `-c[olor]` must come out exactly
+    /// as clean as `-a[ll]` does one line earlier in the same document.
     #[test]
     fn a_stray_closing_brace_after_an_abbreviation_bracket_is_not_a_value() {
         let spec = parse_flag_spec("-c[olor]}");
-        assert_eq!(spec.short, Some('c'));
+        assert_eq!(spec.long(), Some("color"));
+        assert_eq!(spec.spellings[0].abbrev, Some(1));
         assert_eq!(
             spec.value_name, None,
             "the stray `}}` must not become a value"
@@ -1760,12 +1840,12 @@ mod tests {
     #[test]
     fn short_flag_real_optional_value_is_unaffected_by_abbrev_stripping() {
         let spec = parse_flag_spec("-o[FILE]");
-        assert_eq!(spec.short, Some('o'));
+        assert_eq!(spec.short(), Some('o'));
         assert_eq!(spec.value_name.as_deref(), Some("FILE"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
 
         let spec = parse_flag_spec("-x[=WHEN]");
-        assert_eq!(spec.short, Some('x'));
+        assert_eq!(spec.short(), Some('x'));
         assert_eq!(spec.value_name.as_deref(), Some("WHEN"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
@@ -1839,8 +1919,8 @@ mod tests {
     fn paren_alternation_member_content_feeds_parse_flag_spec_correctly() {
         let content = paren_alternation_member_content("-x|--resizeable y|n,").unwrap();
         let spec = parse_flag_spec(content);
-        assert_eq!(spec.short, Some('x'));
-        assert_eq!(spec.long.as_deref(), Some("resizeable"));
+        assert_eq!(spec.short(), Some('x'));
+        assert_eq!(spec.long(), Some("resizeable"));
         assert_eq!(spec.value_name.as_deref(), Some("y|n"));
     }
 
