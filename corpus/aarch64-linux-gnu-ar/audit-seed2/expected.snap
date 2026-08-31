@@ -3,6 +3,13 @@ description: '/usr/bin/aarch64-linux-gnu-ar: supported targets: elf64-littleaarc
 usage:
 - 'Usage: /usr/bin/aarch64-linux-gnu-ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file... /usr/bin/aarch64-linux-gnu-ar -M [<mri-script]'
 flags:
+- value_name: <file>
+  value_kind: Required
+  group: 'generic modifiers:'
+  description: '- read options from <file>'
+  provenance:
+    sources:
+    - help-text
 - long: target
   value_name: BFDNAME
   value_kind: Required

@@ -87,8 +87,9 @@ impl Spelling {
         }
     }
 
-    /// A dashless spelling: an `ar`-style modifier letter or an
-    /// environment variable name.
+    /// A dashless spelling: an `ar`-style modifier letter, an environment
+    /// variable name, or the argfile sigil flag's own spelling (`"@"`,
+    /// spec §4.5 — the one `Flag` deliberately built this way).
     pub fn bare(name: impl Into<String>) -> Spelling {
         Spelling {
             name: name.into(),
@@ -289,6 +290,24 @@ impl Entity {
         e
     }
 
+    /// The argfile sigil flag: the GNU-binutils/JDK response-file
+    /// convention documented as `@<file>`/`@FILE` (spec §4.5) — an option
+    /// parser splices the named file's contents into argv in place of this
+    /// token, so it is a `Flag` (parser food, position-independent,
+    /// repeatable), never a positional and never a new entity kind, even
+    /// though its one spelling carries no dash. `value_name` is the row's
+    /// own placeholder, kept verbatim (`<file>`, `<filename>`, `FILE`) —
+    /// never normalized to one spelling — and `value_kind` is always
+    /// `Required`: every documented instance of this row requires the
+    /// filename argument.
+    pub fn argfile_sigil(value_name: impl Into<String>, provenance: Provenance) -> Entity {
+        let mut e = Entity::new(EntityKind::Flag, provenance);
+        e.spellings.push(Spelling::bare("@"));
+        e.value_name = Some(value_name.into());
+        e.value_kind = ValueKind::Required;
+        e
+    }
+
     /// A flag entity from the short/long spelling pair the extraction
     /// tiers' scratch types still work in (`help_text`'s `FlagSpec`,
     /// `completion_script`'s `ParsedArgSpec`, an override file's row).
@@ -390,11 +409,13 @@ impl Entity {
     ///
     /// `Long`/`Short` are answered by [`Entity::long`]/[`Entity::short`],
     /// which only ever return `Some` for a dashed spelling — so a dashless
-    /// entity (positional, modifier, env var) can never match either,
-    /// with no extra kind check needed. `Name` is answered by checking
-    /// every [`Dashes::None`] spelling, which a `Flag` entity never has
-    /// (its spellings always carry at least one dash), so `Name` can
-    /// never match a `Flag` entity either.
+    /// entity (positional, modifier, env var) can never match either, with
+    /// no extra kind check needed. `Name` is answered by checking every
+    /// [`Dashes::None`] spelling: ordinarily that means a dashless entity,
+    /// but the argfile sigil flag (spec §4.5) is the one deliberate
+    /// exception — its sole spelling, `"@"`, carries no dash either, so a
+    /// `Flag` entity built that way matches `Name("@")` by the same check,
+    /// with no extra kind branch needed here either.
     pub fn matches_key(&self, key: &crate::noderef::FlagKey) -> bool {
         match key {
             crate::noderef::FlagKey::Long(l) => self.long() == Some(l.as_str()),
@@ -454,8 +475,12 @@ impl Entity {
     /// matching.
     ///
     /// For a `Flag`, the same preference order as the pre-0.5.0
-    /// `Flag::key`: the long-like spelling wins, a lone short letter is the
-    /// fallback, and a flag with no spellings at all has no key. For a
+    /// `Flag::key`, plus one deliberate addition: the long-like spelling
+    /// wins, a lone short letter is the fallback, and — added for the
+    /// argfile sigil flag (spec §4.5), whose only spelling carries no dash
+    /// at all — a `Dashes::None` spelling is the last fallback, wrapped in
+    /// [`crate::noderef::FlagKey::Name`] exactly as a dashless *kind* is
+    /// below. A flag with no spellings at all still has no key. For a
     /// dashless kind (`Positional`, `Modifier`, `EnvVar`), the bare
     /// [`Entity::primary_name`] wrapped in [`crate::noderef::FlagKey::Name`]
     /// — `None` only when the entity has no spellings to name it by.
@@ -466,7 +491,13 @@ impl Entity {
                 if let Some(l) = self.long_spelling() {
                     return Some(FlagKey::Long(l.name.clone()));
                 }
-                self.short().map(FlagKey::Short)
+                if let Some(s) = self.short() {
+                    return Some(FlagKey::Short(s));
+                }
+                self.spellings
+                    .iter()
+                    .find(|s| matches!(s.dashes, Dashes::None))
+                    .map(|s| FlagKey::Name(s.name.clone()))
             }
             EntityKind::Positional | EntityKind::Modifier | EntityKind::EnvVar => self
                 .spellings

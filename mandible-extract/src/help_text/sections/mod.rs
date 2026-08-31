@@ -246,7 +246,7 @@ fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
     // with the explicit heading vocabulary above, is the minimum evidence
     // that may reopen a same-indent section.  A physical dedent remains the
     // lossless exit for genuine one-row sections.
-    let (_, entries, _) = scan_flags_block(lines, flags_start, false);
+    let (_, entries, _, _) = scan_flags_block(lines, flags_start, false);
     entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
@@ -1172,7 +1172,7 @@ fn parse_body(
             // production is misread as an ordinary heading whose
             // "content" is the next, unrelated line.
             let heading_is_bnf = bnf_row_lines.contains(&i);
-            let (end, entries, packed) = scan_flags_block(&lines, i, heading_is_bnf);
+            let (end, entries, packed, argfile_entry) = scan_flags_block(&lines, i, heading_is_bnf);
             i = end;
             if packed {
                 let seen = entries.len();
@@ -1187,6 +1187,11 @@ fn parse_body(
                 let (seen, clean) = emit_flags(None, entries, &mut result);
                 total_entries += seen;
                 clean_entries += clean;
+            }
+            if let Some(entry) = argfile_entry {
+                total_entries += 1;
+                clean_entries += 1;
+                emit_argfile_flag(None, entry, &mut result);
             }
             command_mode = false;
             continue;
@@ -1564,6 +1569,32 @@ fn parse_body(
             }
         }
 
+        // The argfile sigil row (spec §4.5) sometimes sits directly where
+        // a modifier table's own rows just ended — `ar`'s ` generic
+        // modifiers:` is seven bracket rows, then `@<file>`, then
+        // `--target`/`--output`/`--record-libdeps`/`--thin` — and
+        // `flags_block_start` below never sees it there: its own first-line
+        // check only recognizes a flag-shaped or bracket-shaped row, and
+        // its skip loop starts one line *after* the position it is asked
+        // to start from, so a row sitting exactly at `lines[i]` here would
+        // be skipped over silently by neither function rather than counted
+        // by either. Captured here instead, exactly where
+        // `scan_modifier_table` left off, mirroring that block's own
+        // "falls through rather than continuing" shape so the group it
+        // carries and the flags still to come are unaffected.
+        if !is_ignorable_heading(&heading) && i < lines.len() {
+            if let Some(value_name) = argfile_row_value_name(lines[i].trim_start()) {
+                let entry = argfile_flag_entry(lines[i], value_name);
+                emit_argfile_flag(meaningful_flag_group(heading.clone()), entry, &mut result);
+                total_entries += 1;
+                clean_entries += 1;
+                i += 1;
+                if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+                    continue;
+                }
+            }
+        }
+
         // An environment section — `bpftrace`'s `ENVIRONMENT:`, `node`'s
         // `Environment variables:`, `mksquashfs`'s `Environment:` — spec
         // §4.5's "strict-sections-only" rule made structural: unlike the
@@ -1606,7 +1637,8 @@ fn parse_body(
             // `split_shared_heading_rows`'s doc comment for why the BNF
             // fact is keyed on the row rather than the heading beside it.
             let heading_is_bnf = bnf_row_lines.contains(&flags_start);
-            let (end, entries, packed) = scan_flags_block(&lines, flags_start, heading_is_bnf);
+            let (end, entries, packed, argfile_entry) =
+                scan_flags_block(&lines, flags_start, heading_is_bnf);
             i = end;
             if is_ignorable_heading(&heading) {
                 command_mode = false;
@@ -1629,16 +1661,21 @@ fn parse_body(
             if packed {
                 let seen = entries.len();
                 emit_packed_flags(
-                    group,
+                    group.clone(),
                     entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
                     &mut result,
                 );
                 total_entries += seen;
                 clean_entries += seen;
             } else {
-                let (seen, clean) = emit_flags(group, entries, &mut result);
+                let (seen, clean) = emit_flags(group.clone(), entries, &mut result);
                 total_entries += seen;
                 clean_entries += clean;
+            }
+            if let Some(entry) = argfile_entry {
+                total_entries += 1;
+                clean_entries += 1;
+                emit_argfile_flag(group, entry, &mut result);
             }
             command_mode = false;
             continue;

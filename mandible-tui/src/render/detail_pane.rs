@@ -1730,7 +1730,8 @@ fn entity_name_spec(flag: &Entity) -> String {
 fn entity_head_width(entity: &Entity, indent: usize) -> usize {
     let mut width = spelling_column(entity, indent) + display_width(&entity_name_spec(entity));
     if let Some(v) = entity_value_text(entity) {
-        width += 1 + display_width(&v);
+        let gap = if spelling_is_sigil(entity) { 0 } else { 1 };
+        width += gap + display_width(&v);
     }
     width
 }
@@ -1745,6 +1746,28 @@ fn entity_value_text(flag: &Entity) -> Option<String> {
             ValueKind::Optional => Some(format!("[{name}]")),
             ValueKind::None => None,
         })
+}
+
+/// True when this entity's spelling column ends in a sigil rather than a
+/// name, so its value placeholder glues directly onto it with **no**
+/// space — the argfile sigil flag's own row-verbatim shape, `@<file>`
+/// (spec §4.5), rather than the ordinary `--output FILE` gap every other
+/// valued flag renders with (spec §9.3).
+///
+/// Decided by shape, not by the literal spelling `"@"`, so any future
+/// sigil-shaped entity this fleet turns up gets the same treatment for
+/// free: a single spelling whose first character is not alphanumeric.
+/// Every ordinary flag — `-i`, `--interactive`, even the punctuation-heavy
+/// `-?`/`-<` this fleet has seen (which take no value) — has an
+/// alphanumeric spelling, so this is a no-op for every row but the sigil
+/// one.
+fn spelling_is_sigil(flag: &Entity) -> bool {
+    flag.spellings.len() == 1
+        && flag.spellings[0]
+            .name
+            .chars()
+            .next()
+            .is_some_and(|c| !c.is_alphanumeric())
 }
 
 /// One entity's spellings, value placeholder, and description — each
@@ -1805,15 +1828,21 @@ fn entity_line(
     let mut prefix_width = display_width(leading) + display_width(&name_spec);
     if let Some(v) = &value_text {
         // One space after the spelling, never a pad to a slot of its own
-        // (spec §9.3). The placeholder is part of what the reader types,
-        // and a slot for it is width every row in the section pays so that
-        // the widest placeholder can line up — which is how a row whose
-        // first line was mostly empty ended up hanging its description.
-        // The distinction between name and placeholder is carried by the
-        // style, which costs nothing.
-        first_line_spans.push(Span::raw(" "));
+        // (spec §9.3) — except the argfile sigil flag (spec §4.5), whose
+        // row-verbatim shape is `@<file>` with no space at all between the
+        // sigil and its placeholder. `spelling_is_sigil` decides this by
+        // shape (a lone non-alphanumeric-led spelling), not by checking for
+        // `"@"` literally, so it never touches any other flag's rendering.
+        // The placeholder is part of what the reader types, and a slot for
+        // it is width every row in the section pays so that the widest
+        // placeholder can line up — which is how a row whose first line was
+        // mostly empty ended up hanging its description. The distinction
+        // between name and placeholder is carried by the style, which
+        // costs nothing.
+        let gap = if spelling_is_sigil(flag) { "" } else { " " };
+        first_line_spans.push(Span::raw(gap));
         first_line_spans.push(Span::styled(v.clone(), value_style));
-        prefix_width += 1 + display_width(v);
+        prefix_width += display_width(gap) + display_width(v);
     }
 
     // A head wider than the pane is broken across lines here, rather than
@@ -2807,6 +2836,56 @@ mod tests {
         assert_ne!(
             value.style, spans[0].style,
             "value must not read as a spelling"
+        );
+    }
+
+    /// The argfile sigil flag (spec §4.5) renders row-verbatim-shaped:
+    /// `@<file>` with **no** space between the sigil and its placeholder,
+    /// unlike every ordinary valued flag's `--output FILE` gap. `§3.4`
+    /// plant: comment out the `spelling_is_sigil` check in `entity_line`
+    /// (make the `gap` always `" "`) and this test goes red on the
+    /// `"@ <file>"` it then renders instead.
+    #[test]
+    fn argfile_sigil_flag_glues_its_value_with_no_space() {
+        let flag = Entity::argfile_sigil("<file>", Provenance::single(Source::HelpText));
+        let lines = entity_line(
+            &flag,
+            false,
+            80,
+            true,
+            SectionLayout {
+                description: 20,
+                indent: 0,
+            },
+        );
+        let first = text_of(&lines[0]);
+        assert!(
+            first.trim_start().starts_with("@<file>"),
+            "the sigil and its placeholder must glue with no space: {first:?}"
+        );
+        assert!(
+            !first.contains("@ <"),
+            "must never render a space between @ and its placeholder: {first:?}"
+        );
+        // Every ordinary valued flag keeps its one-space gap — the sigil
+        // case must not have loosened the general rule.
+        let mut ordinary = Entity::flag_long("output", Provenance::single(Source::HelpText));
+        ordinary.value_name = Some("FILE".to_string());
+        ordinary.value_kind = ValueKind::Required;
+        let ordinary_lines = entity_line(
+            &ordinary,
+            false,
+            80,
+            true,
+            SectionLayout {
+                description: 20,
+                indent: 0,
+            },
+        );
+        let ordinary_first = text_of(&ordinary_lines[0]);
+        assert!(
+            ordinary_first.contains("--output FILE"),
+            "an ordinary flag must keep its one-space gap: {ordinary_first:?}"
         );
     }
 

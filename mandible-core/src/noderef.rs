@@ -35,8 +35,13 @@ pub enum FlagKey {
     Short(char),
     /// By bare `primary_name()`, for a dashless entity: a positional's
     /// placeholder (`pathspec`), a modifier's letter (`d`), or an
-    /// environment variable's name (`NODE_DEBUG`). Never matches a `Flag`
-    /// entity — a flag's spellings always carry at least one dash.
+    /// environment variable's name (`NODE_DEBUG`) — and, since the argfile
+    /// sigil flag (spec §4.5), the one deliberate exception among `Flag`
+    /// entities: `@`, the GNU/JDK response-file convention (`@<file>`),
+    /// whose sole spelling carries no dash either and is addressed by
+    /// `Name("@")` for exactly that reason. Every other flag's spellings
+    /// still carry at least one dash and are addressed by `Long`/`Short`
+    /// instead.
     Name(String),
 }
 

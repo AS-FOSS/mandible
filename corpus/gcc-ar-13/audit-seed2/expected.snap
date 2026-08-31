@@ -3,6 +3,13 @@ description: '/usr/bin/ar: supported targets: elf64-littleaarch64 elf64-bigaarch
 usage:
 - 'Usage: /usr/bin/ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file... /usr/bin/ar -M [<mri-script]'
 flags:
+- value_name: <file>
+  value_kind: Required
+  group: 'generic modifiers:'
+  description: '- read options from <file>'
+  provenance:
+    sources:
+    - help-text
 - long: target
   value_name: BFDNAME
   value_kind: Required
