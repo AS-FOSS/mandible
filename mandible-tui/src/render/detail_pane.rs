@@ -2036,13 +2036,26 @@ fn choice_detail_lines(
                     format!("{choice_indent}{head}{first_chunk}"),
                     values_style,
                 )));
-                let cont_indent = " ".repeat(choice_column + head_width);
-                let cont_width = width.saturating_sub(choice_column + head_width).max(1);
-                for chunk in wrap_words(&rest, cont_width) {
-                    lines.push(Line::from(Span::styled(
-                        format!("{cont_indent}{chunk}"),
-                        values_style,
-                    )));
+                // `leading_words` returns `rest == ""` when the whole
+                // description fit on the first line — `wrap_words` always
+                // returns at least one (possibly empty) chunk for callers
+                // that need one, which is exactly wrong here: an empty
+                // `rest` means there is no continuation to render, not one
+                // blank line's worth. Skipping the call entirely (rather
+                // than filtering its output) is what keeps a choice whose
+                // description merely happens to be blank-after-wrapping
+                // indistinguishable from one that never had a remainder —
+                // there is no such case, `rest` is only ever the literal
+                // empty string when nothing is left.
+                if !rest.is_empty() {
+                    let cont_indent = " ".repeat(choice_column + head_width);
+                    let cont_width = width.saturating_sub(choice_column + head_width).max(1);
+                    for chunk in wrap_words(&rest, cont_width) {
+                        lines.push(Line::from(Span::styled(
+                            format!("{cont_indent}{chunk}"),
+                            values_style,
+                        )));
+                    }
                 }
             }
             None => {
@@ -3111,6 +3124,60 @@ mod tests {
             text_of(gray).contains("only decode/encode grayscale"),
             "{:?}",
             text_of(gray)
+        );
+    }
+
+    /// A choice whose description fits on the row's first line must never
+    /// be followed by a blank line. `wrap_words` always returns at least
+    /// one (possibly empty) chunk — a documented guarantee useful to most
+    /// of its callers, wrong for a continuation that may legitimately not
+    /// exist — so calling it unconditionally on `leading_words`'s `rest`
+    /// rendered one spurious blank `Line` per choice whose text fit
+    /// entirely on its own row. At a width where `-flags`' real `unaligned`
+    /// wraps and its real `gray` does not, this pins both shapes at once:
+    /// the render must show exactly six lines (the header, one wrapped
+    /// choice across two rows, one single-line choice), never eight.
+    #[test]
+    fn a_choice_that_fits_on_one_line_is_never_followed_by_a_blank_line() {
+        let mut flag = Entity::flag_long("flags", Provenance::single(Source::HelpText));
+        flag.value_name = Some("<flags>".to_string());
+        flag.description = Some(Text::sanitize("ED.VAS..... (default 0)"));
+        flag.choices = vec![
+            Choice::described(
+                "unaligned",
+                Text::sanitize(".D.V....... allow decoders to produce unaligned output"),
+            ),
+            Choice::described(
+                "gray",
+                Text::sanitize("ED.V....... only decode/encode grayscale"),
+            ),
+        ];
+        let layout = SectionLayout {
+            description: 20,
+            indent: 0,
+        };
+        // Narrow enough that "unaligned"'s longer description wraps, wide
+        // enough that "gray"'s shorter one fits on a single line — the
+        // exact split the real ffplay pane showed the defect on.
+        let lines = entity_line(&flag, false, 82, true, layout);
+        let texts: Vec<String> = lines.iter().map(text_of).collect();
+
+        assert!(
+            texts.iter().all(|t| !t.trim().is_empty()),
+            "no rendered line may be blank: {texts:?}"
+        );
+        assert_eq!(
+            texts,
+            vec![
+                "    --flags         ED.VAS..... (default 0)".to_string(),
+                "                      values:".to_string(),
+                "                        unaligned  .D.V....... allow decoders to produce unaligned"
+                    .to_string(),
+                "                                   output".to_string(),
+                "                        gray       ED.V....... only decode/encode grayscale"
+                    .to_string(),
+            ],
+            "{texts:#?}"
         );
     }
 

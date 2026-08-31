@@ -1790,9 +1790,8 @@ The generic fallback parser (step 2) is built with `winnow`:
      description, when the source documents one, is kept rather than
      dropped: `tar`'s own `FORMAT is one of the following:` and
      `VERSION_CONTROL` enums name each value's meaning
-     (`gnu   GNU tar 1.13.x format`), and an earlier version of this rule
-     kept only the bare name — exactly the information-loss the recognizer
-     below exists to stop happening a second time.
+     (`gnu   GNU tar 1.13.x format`), and that text belongs on the value it
+     describes, never discarded.
   5. **A row strictly deeper-indented than a flag row directly under it,
      whose name column is a bare, dashless word** (`is_command_name_shaped`
      — internal `-`/`_`/digits allowed, no leading dash, no leading digit),
@@ -1819,9 +1818,7 @@ The generic fallback parser (step 2) is built with `winnow`:
      spaced prose, no aligned column): both keep folding into the owning
      entity's own `description` exactly as before. A flag whose choices are
      already populated by other means, and whose immediately-following
-     block also looks like this shape, is not resolved by this rule — that
-     ambiguity belongs to the still-unscheduled structure-aware description
-     work, not to shape-based recognition.
+     block also looks like this shape, is not resolved by this recognizer.
 - **Confidence must fall when the grammar is guessing.** The same bug was
   reported as `ok` at `100% described`, because invented nodes inflate the
   metric rather than depressing it. Any block that yields names failing rule 3,
