@@ -52,13 +52,25 @@ pub enum Dashes {
 /// [`Spelling::render`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Spelling {
-    /// The bare name: `"i"`, `"interactive"`, `"?"`, `"help"`, `"FFREPORT"`.
+    /// The bare, full name — never the abbreviated prefix: `"i"`,
+    /// `"interactive"`, `"?"`, `"help"`, `"FFREPORT"`, `"resolve"` (for
+    /// `-r[esolve]`).
     pub name: String,
     /// How many dashes [`Spelling::render`] puts in front of `name`.
     pub dashes: Dashes,
     /// True when the tool documents the `--[no-]name` negation convention
     /// for this spelling (the pre-0.5.0 `Flag::negatable`).
     pub negatable: bool,
+    /// `Some(n)` when the tool documents an abbreviation bracket — the
+    /// minimum accepted prefix length: `-r[esolve]` is `name: "resolve"`,
+    /// `abbrev: Some(1)`; `-rc[vbuf]` is `name: "rcvbuf"`, `abbrev:
+    /// Some(2)`; `--br[ief]` is `name: "brief"`, `abbrev: Some(2)`.
+    /// `None` for every other spelling. [`Spelling::render`] reproduces
+    /// the bracket form; [`Spelling::typed`] and [`Entity::key`] address
+    /// the full name — a shell doesn't need the tool's documentation
+    /// shorthand, and identity should not depend on how much of a name a
+    /// particular row happened to abbreviate.
+    pub abbrev: Option<usize>,
 }
 
 impl Spelling {
@@ -68,6 +80,7 @@ impl Spelling {
             name: c.to_string(),
             dashes: Dashes::Single,
             negatable: false,
+            abbrev: None,
         }
     }
 
@@ -77,6 +90,7 @@ impl Spelling {
             name: name.into(),
             dashes: Dashes::Double,
             negatable: false,
+            abbrev: None,
         }
     }
 
@@ -86,6 +100,7 @@ impl Spelling {
             name: name.into(),
             dashes: Dashes::Single,
             negatable: false,
+            abbrev: None,
         }
     }
 
@@ -96,14 +111,30 @@ impl Spelling {
             name: name.into(),
             dashes: Dashes::None,
             negatable: false,
+            abbrev: None,
         }
     }
 
     /// The user-visible form: dashes, then `[no-]` if negatable, then the
-    /// name — exactly the reconstruction the pre-0.5.0 `Flag::spelling` performed.
+    /// name (or the abbreviation bracket, `pre[fix]`, when this spelling
+    /// carries one) — exactly the reconstruction the pre-0.5.0
+    /// `Flag::spelling` performed, extended for abbreviation brackets.
+    /// `negatable` and `abbrev` are not observed together by any producer,
+    /// and `negatable` wins if they ever were: `--[no-]name` is a rendering
+    /// convention with nothing analogous to abbreviate.
     pub fn render(&self) -> String {
-        let no = if self.negatable { "[no-]" } else { "" };
-        format!("{}{no}{}", self.dash_prefix(), self.name)
+        if self.negatable {
+            return format!("{}[no-]{}", self.dash_prefix(), self.name);
+        }
+        match self.abbrev {
+            Some(n) if n < self.name.chars().count() => {
+                let chars: Vec<char> = self.name.chars().collect();
+                let prefix: String = chars[..n].iter().collect();
+                let rest: String = chars[n..].iter().collect();
+                format!("{}{prefix}[{rest}]", self.dash_prefix())
+            }
+            _ => format!("{}{}", self.dash_prefix(), self.name),
+        }
     }
 
     /// The form a user types: dashes and the name, with no `[no-]`
@@ -324,6 +355,7 @@ impl Entity {
                     Dashes::Double
                 },
                 negatable,
+                abbrev: None,
             });
         }
         e
@@ -526,6 +558,7 @@ mod tests {
                     name: "staged".into(),
                     dashes: Dashes::Double,
                     negatable: true,
+                    abbrev: None,
                 }],
                 expected_spelling: "--[no-]staged",
                 expected_key: Some(FlagKey::Long("staged".into())),
@@ -541,6 +574,7 @@ mod tests {
                         name: "staged".into(),
                         dashes: Dashes::Double,
                         negatable: true,
+                        abbrev: None,
                     },
                 ],
                 expected_spelling: "-S, --[no-]staged",
@@ -725,6 +759,49 @@ mod tests {
         assert_eq!(e.spelling(), "-h, -?, -help, --help");
         // The long-like spelling wins the identity key.
         assert_eq!(e.key(), Some(FlagKey::Long("help".into())));
+    }
+
+    /// `render()` reproduces the abbreviation-bracket form the tool
+    /// documented; `typed()` and `key()` address the full name, ignoring
+    /// the bracket — a shell doesn't need the tool's documentation
+    /// shorthand, and identity should not depend on how much of a name a
+    /// particular row happened to abbreviate.
+    #[test]
+    fn abbrev_renders_the_bracket_but_types_and_keys_the_full_name() {
+        let ip_resolve = Spelling {
+            name: "resolve".into(),
+            dashes: Dashes::Single,
+            negatable: false,
+            abbrev: Some(1),
+        };
+        assert_eq!(ip_resolve.render(), "-r[esolve]");
+        assert_eq!(ip_resolve.typed(), "-resolve");
+
+        let ip_rcvbuf = Spelling {
+            name: "rcvbuf".into(),
+            dashes: Dashes::Single,
+            negatable: false,
+            abbrev: Some(2),
+        };
+        assert_eq!(ip_rcvbuf.render(), "-rc[vbuf]");
+        assert_eq!(ip_rcvbuf.typed(), "-rcvbuf");
+
+        let brief = Spelling {
+            name: "brief".into(),
+            dashes: Dashes::Double,
+            negatable: false,
+            abbrev: Some(2),
+        };
+        assert_eq!(brief.render(), "--br[ief]");
+        assert_eq!(brief.typed(), "--brief");
+
+        let mut e = Entity::new(EntityKind::Flag, Provenance::default());
+        e.spellings = vec![ip_rcvbuf];
+        // Abbreviation doesn't change the key rule: a single-dash spelling
+        // longer than one character is still long-like.
+        assert_eq!(e.key(), Some(FlagKey::Long("rcvbuf".into())));
+        assert_eq!(e.long(), Some("rcvbuf"));
+        assert_eq!(e.short(), None);
     }
 
     /// `shell_spelling` prefers the long-like spelling, falls back to the

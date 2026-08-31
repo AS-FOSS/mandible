@@ -1671,7 +1671,7 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
 
 /// Parse one of [`FlagSnapshot`](mandible_core::FlagSnapshot)'s rendered
 /// `spellings` entries (`"-i"`, `"--interactive"`, `"--[no-]color"`,
-/// `"-help"`) back into a [`Spelling`], the inverse of
+/// `"-help"`, `"-r[esolve]"`) back into a [`Spelling`], the inverse of
 /// [`Spelling::render`]. Good enough for [`snap_to_command_node`]'s
 /// purpose — reconstructing an entity whose `short()`/`long()` accessors
 /// agree with what a fresh extraction would produce — not a general
@@ -1685,14 +1685,33 @@ fn parse_rendered_spelling(rendered: &str) -> Spelling {
     } else {
         (Dashes::None, rendered)
     };
-    let (negatable, name) = match rest.strip_prefix("[no-]") {
-        Some(base) => (true, base),
-        None => (false, rest),
-    };
+    if let Some(base) = rest.strip_prefix("[no-]") {
+        return Spelling {
+            name: base.to_string(),
+            dashes,
+            negatable: true,
+            abbrev: None,
+        };
+    }
+    // An abbreviation bracket: "r[esolve]" -> name "resolve", abbrev
+    // Some(1) — the prefix's character count.
+    if let Some(open) = rest.find('[') {
+        if let Some(rest_after) = rest.strip_suffix(']') {
+            let (prefix, bracketed) = rest_after.split_at(open);
+            let bracketed = &bracketed[1..]; // drop the '['
+            return Spelling {
+                name: format!("{prefix}{bracketed}"),
+                dashes,
+                negatable: false,
+                abbrev: Some(prefix.chars().count()),
+            };
+        }
+    }
     Spelling {
-        name: name.to_string(),
+        name: rest.to_string(),
         dashes,
-        negatable,
+        negatable: false,
+        abbrev: None,
     }
 }
 

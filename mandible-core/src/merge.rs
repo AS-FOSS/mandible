@@ -342,6 +342,7 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
                 Dashes::Double
             },
             negatable,
+            abbrev: None,
         });
     }
     // A dashless spelling — a positional's name, a modifier letter, a
