@@ -1094,7 +1094,7 @@ fn long_candidates(flag: &Entity, long: &str) -> Vec<String> {
     // repeated-character repair moved `lto-dump` from 10 fabrications to 12
     // until this was fixed, and both were `-CC`/`-MM`.
     let dashes = if flag.single_dash() { "-" } else { "--" };
-    let bases = if flag.negatable() {
+    let mut bases = if flag.negatable() {
         vec![
             format!("{dashes}[no-]{long}"),
             format!("{dashes}[no]{long}"),
@@ -1103,6 +1103,19 @@ fn long_candidates(flag: &Entity, long: &str) -> Vec<String> {
     } else {
         vec![format!("{dashes}{long}")]
     };
+    // An abbreviation-bracket spelling (`-r[esolve]`, `-rc[vbuf]`,
+    // `--br[ief]`) never occurs in the raw text as its own full name —
+    // only the bracket form does. Without this, `long_candidates` would
+    // report every abbreviation-reconstructed name as fabricated, the same
+    // class of false positive this function's other candidates already
+    // exist to prevent for the negatable and glued-value conventions.
+    // `Spelling::render` reproduces exactly the bracket form the tool
+    // printed, so it is the candidate, verbatim.
+    if let Some(spelling) = flag.long_spelling() {
+        if spelling.abbrev.is_some() {
+            bases.push(spelling.render());
+        }
+    }
     let Some(value) = &flag.value_name else {
         return bases;
     };
@@ -1362,6 +1375,34 @@ mod tests {
         let flag = help_text_flag(None, Some("source"), false);
         let candidates = long_candidates(&flag, "source");
         assert!(!candidates.iter().any(|c| spelling_occurs(raw, c)));
+    }
+
+    // --- abbreviation-bracket candidates ---------------------------------
+
+    /// `ip --help`'s real `-r[esolve]` row: the entity's `long()` is
+    /// `"resolve"`, the full word — which never occurs in the raw text on
+    /// its own, only the bracket form `-r[esolve]` does. Before
+    /// `long_candidates` learned to reconstruct it, this exact shape
+    /// reported every abbreviation-bracket spelling in the fleet as
+    /// fabricated (measured: `existence_fabrication_tools` jumped from 52
+    /// to 75 on a full sweep the moment multi-spelling emission started
+    /// producing `abbrev` spellings).
+    #[test]
+    fn long_candidates_reconstructs_an_abbreviation_bracket_spelling() {
+        use mandible_core::{Dashes, Spelling};
+        let mut flag = Entity::new(mandible_core::EntityKind::Flag, Provenance::default());
+        flag.spellings = vec![Spelling {
+            name: "resolve".to_string(),
+            dashes: Dashes::Single,
+            negatable: false,
+            abbrev: Some(1),
+        }];
+        let raw = "OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n";
+        let candidates = long_candidates(&flag, "resolve");
+        assert!(
+            candidates.iter().any(|c| spelling_occurs(raw, c)),
+            "{candidates:?}"
+        );
     }
 
     // --- short-flag reconstruction (GCC/Clang single-dash flags) ---------
