@@ -114,6 +114,9 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 if last_was_long_like && is_long_like(&spelling) && !explicit {
                     break;
                 }
+                if already_collected(&spec, &spelling) {
+                    break;
+                }
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
@@ -121,6 +124,9 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             }
             if let Some((spelling, tail)) = try_long(rest) {
                 if last_was_long_like && is_long_like(&spelling) && !explicit {
+                    break;
+                }
+                if already_collected(&spec, &spelling) {
                     break;
                 }
                 last_was_long_like = is_long_like(&spelling);
@@ -345,6 +351,37 @@ fn saw_explicit_separator(before: &str, after: &str) -> bool {
 fn is_long_like(spelling: &Spelling) -> bool {
     matches!(spelling.dashes, Dashes::Double)
         || (matches!(spelling.dashes, Dashes::Single) && spelling.name.chars().count() > 1)
+}
+
+/// True when `spec` already carries a spelling with the same rendered
+/// identity (dashes + name) as `candidate`.
+///
+/// A duplicate spelling within one entity is never a correct parse of
+/// anything the tool actually documents (measured: zero occurrences
+/// anywhere in the fleet before this grammar existed), so the alias loop
+/// refuses to record one a second time — it `break`s instead of pushing,
+/// the same way the long-long gate above refuses a further alias, leaving
+/// `rest` unconsumed so the caller's own "honest incompleteness over a
+/// guess" fallback (`fully_consumed: false`, no invented `value_name`)
+/// takes over rather than fabricating a second reading of a name already
+/// read once. Two real shapes hit this: GNU `sort --help`'s own
+/// `-c, --check, --check=diagnose-first` writes the identical name twice
+/// (the second occurrence is a value-bearing restatement of the first,
+/// not a new alias), and a single-dash multi-letter spelling with no
+/// abbreviation bracket (`jdb`'s own `-? -h --help -help`) currently
+/// truncates to its first character in [`try_short`], which can
+/// coincidentally collide with an already-collected short spelling
+/// (`-help` truncating to `-h`, already read moments earlier). This guard
+/// stops the *visible* symptom — a spelling list that repeats itself — in
+/// both cases; it does not teach the grammar to read `-help` as its own
+/// four-letter spelling, which would need [`try_short`] to stop assuming
+/// a bracket-less multi-character run is a short flag glued to a value
+/// (`-ofile`) and nothing here can tell those two shapes apart from the
+/// text alone.
+fn already_collected(spec: &FlagSpec, candidate: &Spelling) -> bool {
+    spec.spellings
+        .iter()
+        .any(|s| s.dashes == candidate.dashes && s.name == candidate.name)
 }
 
 fn short_dash(input: &mut &str) -> Res<char> {
@@ -1983,6 +2020,41 @@ mod tests {
         assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
         assert_eq!(spec.spellings[0].render(), "-?");
         assert_eq!(spec.spellings[1].render(), "-h");
+    }
+
+    /// A spelling identical to one already collected in this run must
+    /// never be recorded a second time — measured at zero occurrences
+    /// anywhere in the fleet before the multi-spelling emission fix
+    /// existed, so any duplicate is a defect by construction, never a real
+    /// convention. GNU `sort --help`'s own real row, byte-exact:
+    /// `-c, --check, --check=diagnose-first` writes `--check` twice — the
+    /// second occurrence supplies an example value for the same spelling,
+    /// not a second alias — and the alias loop used to read both,
+    /// producing `-c, --check, --check` with a garbled `value_name`.
+    #[test]
+    fn a_spelling_repeated_in_the_same_row_is_never_recorded_twice() {
+        let spec = parse_flag_spec("-c, --check, --check=diagnose-first");
+        assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-c");
+        assert_eq!(spec.spellings[1].render(), "--check");
+    }
+
+    /// The same guard closes the duplicate from the other direction:
+    /// `try_short`'s no-bracket fallback reads only the first character of
+    /// a multi-letter run with no abbreviation bracket (`-help` truncates
+    /// to `-h`), which can coincidentally collide with a short spelling
+    /// already read moments earlier. `jdb --help`'s real row, byte-exact:
+    /// `-? -h --help -help` used to produce `-?, -h, --help, -h` — a
+    /// spelling list that repeats itself. The duplicate `-h` is refused
+    /// (this test), while correctly reading the truncated run as its own
+    /// four-letter `-help` spelling is a separate, unresolved gap this
+    /// guard does not attempt (see [`already_collected`]'s doc comment).
+    #[test]
+    fn jdbs_truncated_help_never_duplicates_the_short_h_already_read() {
+        let spec = parse_flag_spec("-? -h --help -help");
+        let names: Vec<&str> = spec.spellings.iter().map(|s| s.name.as_str()).collect();
+        let h_count = names.iter().filter(|n| **n == "h").count();
+        assert_eq!(h_count, 1, "no spelling may be recorded twice: {names:?}");
     }
 
     /// `pod2html --help`'s real usage-synopsis row: four independently
