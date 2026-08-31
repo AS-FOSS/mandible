@@ -83,22 +83,25 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
     loop {
         // One run of alias spellings: `-p`, `--pid`, `-A, --catenate`.
         //
-        // Once a **long-like** spelling (`--foo`, or a single-dash long
-        // like `-help`) has been read, anything further in the run needs
-        // an *explicit* `,`/`|` before it — never bare whitespace alone.
-        // Two short spellings may still run together on bare whitespace
-        // (`jdeprscan`'s real `-? -h` table cell, one flag's two aliases,
-        // `corpus/jdeprscan/audit-seed2`), which is why the gate is keyed
-        // on what was *just read*, not on position. Without the gate on
-        // the long-like case, a run of several genuinely distinct
-        // long options simply space-separated on one line — `pod2html`'s
-        // real `--quiet --noquiet --verbose --noverbose` usage-synopsis
-        // row, four independently negatable flags, no comma anywhere —
-        // reads as one flag's ever-growing alias list. Now that every
-        // spelling found here is *kept* (not just the first of each
-        // shape), that false read stops being silently dropped and starts
-        // being an actively fabricated multi-spelling entity — worse than
-        // the defect this loop existed to avoid.
+        // Once **two** long-like spellings (`--foo`, or a single-dash long
+        // like `-help`) in a row would meet on nothing but bare
+        // whitespace, the second one needs an *explicit* `,`/`|` before
+        // it instead. A short spelling may still run into a long one (or
+        // vice versa) on bare whitespace — `iptables --help`'s real
+        // `--replace -R chain rulenum` row (long-then-short, one flag,
+        // documented in that order) and `jdeprscan`'s real `-? -h` table
+        // cell (short-then-short) both need this — which is why the gate
+        // triggers only when *both* the spelling just read and the one
+        // about to be read are long-like, not merely on position. Without
+        // it, a run of several genuinely distinct long options simply
+        // space-separated on one line — `pod2html`'s real `--quiet
+        // --noquiet --verbose --noverbose` usage-synopsis row, four
+        // independently negatable flags, no comma anywhere — reads as one
+        // flag's ever-growing alias list. Now that every spelling found
+        // here is *kept* (not just the first of each shape), that false
+        // read stops being silently dropped and starts being an actively
+        // fabricated multi-spelling entity — worse than the defect this
+        // loop existed to avoid.
         let mut last_was_long_like = false;
         loop {
             let before = rest;
@@ -106,16 +109,20 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             if rest.is_empty() {
                 break;
             }
-            if last_was_long_like && !saw_explicit_separator(before, rest) {
-                break;
-            }
+            let explicit = saw_explicit_separator(before, rest);
             if let Some((spelling, tail)) = try_short(rest) {
+                if last_was_long_like && is_long_like(&spelling) && !explicit {
+                    break;
+                }
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
                 continue;
             }
             if let Some((spelling, tail)) = try_long(rest) {
+                if last_was_long_like && is_long_like(&spelling) && !explicit {
+                    break;
+                }
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
@@ -1985,6 +1992,22 @@ mod tests {
             "the next flag's own name must never become this flag's value"
         );
         assert!(!spec.fully_consumed);
+    }
+
+    /// `iptables --help`'s real `--replace -R chain rulenum` row: one flag,
+    /// long spelling first, short spelling second, separated by nothing
+    /// but a bare space. The long-then-long gate above must not also
+    /// catch long-then-*short* — it is keyed on both neighbors being
+    /// long-like, not merely on "a long-like spelling was read", or this
+    /// legitimate pair (and its five siblings in the same real document:
+    /// `--list-rules -S`, `--set-counters -c`, `--ipv4 -4`, `--ipv6 -6`)
+    /// would wrongly split in two.
+    #[test]
+    fn a_long_then_short_pair_still_runs_together_on_bare_whitespace() {
+        let spec = parse_flag_spec("--replace -R chain rulenum");
+        assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "--replace");
+        assert_eq!(spec.spellings[1].render(), "-R");
     }
 
     /// `unzip --help`'s real usage-synopsis placeholder,
