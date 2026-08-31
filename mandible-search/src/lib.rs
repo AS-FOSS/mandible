@@ -489,6 +489,55 @@ mod tests {
         }
     }
 
+    /// The prefix-boost `primary_name` is the first spelling's bare name for
+    /// *every* entity kind (spec §10), including a flag whose first
+    /// documented spelling is its short one — `-r, --replace` boosts on
+    /// `"r"`, not `"replace"`. Proven with a modifier, since a modifier's
+    /// one spelling is unambiguous: a query on the modifier's own letter
+    /// must rank it above an entity that only matches via its description,
+    /// which is exactly what a wrong (or empty) `primary_name` would lose.
+    #[test]
+    fn prefix_boost_uses_the_first_spellings_bare_name() {
+        let mut index = SearchIndex::new();
+        let mut root = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        root.summary = Some(Text::sanitize("create, modify, and extract archives"));
+
+        let mut modifier =
+            mandible_core::Entity::modifier('r', Provenance::single(Source::HelpText));
+        modifier.description = Some(Text::sanitize(
+            "replace existing or insert new file(s) into the archive",
+        ));
+        root.entities.push(modifier);
+
+        // A decoy flag whose *name* does not start with "r" but whose
+        // description contains a word starting with "r" — findable only via
+        // the description, never via a name-prefix boost.
+        let mut decoy = flag(None, Some("verbose"), "run with extra reporting output");
+        decoy.spellings = vec![mandible_core::Spelling::bare("verbose")];
+        decoy.kind = mandible_core::EntityKind::Modifier;
+        root.entities.push(decoy);
+
+        index.populate(&root);
+        index.set_query("r");
+        settle(&mut index);
+
+        let results = index.results();
+        let modifier_pos = results.iter().position(|r| {
+            matches!(r, NodeRef::Flag { key, .. } if key == &mandible_core::FlagKey::Name("r".to_string()))
+        });
+        let decoy_pos = results.iter().position(|r| {
+            matches!(r, NodeRef::Flag { key, .. } if key == &mandible_core::FlagKey::Name("verbose".to_string()))
+        });
+        let (mp, dp) = (
+            modifier_pos.expect("modifier 'r' should be among results"),
+            decoy_pos.expect("decoy 'verbose' should be among results (description match)"),
+        );
+        assert!(
+            mp < dp,
+            "the 'r' modifier's own-letter prefix match should rank above the decoy's description-only match: {results:?}"
+        );
+    }
+
     #[test]
     fn empty_query_matches_are_stable_and_do_not_panic() {
         let mut index = SearchIndex::new();
