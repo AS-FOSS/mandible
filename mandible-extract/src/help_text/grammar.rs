@@ -103,6 +103,9 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
         // fabricated multi-spelling entity — worse than the defect this
         // loop existed to avoid.
         let mut last_was_long_like = false;
+        // Whether an explicit `,`/`|` has appeared anywhere earlier in
+        // *this* alias run — see the whitespace-continuation rules below.
+        let mut saw_explicit_anywhere = false;
         loop {
             let before = rest;
             rest = skip_separators(rest);
@@ -110,6 +113,53 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 break;
             }
             let explicit = saw_explicit_separator(before, rest);
+
+            // Whitespace-continuation rule (i): a row's separator style is
+            // fixed by its *first* separator. Once an explicit `,`/`|` has
+            // been used anywhere earlier in this run, a later spelling
+            // reached only by bare whitespace is no longer a continuation
+            // of the same alias list — it is the next thing on the line.
+            // `dpkg-split`'s real `-a|--auto -o <complete> <part>` is the
+            // specimen: `-a`/`--auto` are one flag's two spellings (joined
+            // by the explicit `|`), and `-o` is a *different*, separately
+            // documented flag (`-o, --output <file>`) that merely appears
+            // in the same usage example. Without this rule the bare space
+            // before `-o` reads as one more alias, because nothing else
+            // here distinguishes "usage example naming two flags" from
+            // "one flag's spellings continuing past a value" (the
+            // `--replace -R chain rulenum` shape this loop must still
+            // accept — see below). Real specimens never mix separator
+            // styles within one flag's own alias list, so this costs
+            // nothing there.
+            if !explicit && saw_explicit_anywhere {
+                break;
+            }
+
+            // In alias position — right after an explicit separator — a
+            // multi-letter single-dash run with no abbreviation bracket is
+            // a spelling of its own, not `try_short`'s truncate-to-first-
+            // character fallback (which exists to read a short flag with a
+            // value glued on, `-2CDlNuVv`, and has no business claiming a
+            // whole second word off the far side of a `,`/`|`). `gold`'s
+            // real `-G, -shared` is the specimen: without this,
+            // `-shared` truncates to `-s` and collides with the tool's
+            // genuinely different `-s, --strip-all`. First-position
+            // behavior (`jdb`'s own `-help`, reached by bare whitespace
+            // only) is untouched — see [`already_collected`]'s doc comment
+            // for why that shortcut stays as it is.
+            if explicit {
+                if let Some((spelling, tail)) = try_alias_position_single_dash_long(rest) {
+                    if already_collected(&spec, &spelling) {
+                        break;
+                    }
+                    saw_explicit_anywhere = true;
+                    last_was_long_like = true;
+                    spec.spellings.push(spelling);
+                    rest = tail;
+                    continue;
+                }
+            }
+
             if let Some((spelling, tail)) = try_short(rest) {
                 if last_was_long_like && is_long_like(&spelling) && !explicit {
                     break;
@@ -117,6 +167,34 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 if already_collected(&spec, &spelling) {
                     break;
                 }
+                // Whitespace-continuation rules (ii) and (iii), both
+                // scoped to "the previous spelling was a genuine short":
+                // `iptables`'s real `--replace -R chain rulenum` and
+                // `--append  -A chain` (long-then-short, value after) and
+                // `jdeprscan`'s real `-? -h --help` (short-then-short-
+                // then-long, no value) must both stay accepted, so neither
+                // rule fires when the previous spelling was long, and rule
+                // (iii) never fires when what follows is itself another
+                // flag spelling rather than a bare value.
+                if !explicit && spec.spellings.last().is_some_and(is_genuine_short) {
+                    // (ii) `screen`'s real `-D -RR` — the previous
+                    // spelling was a genuine one-letter short, so this
+                    // continuation must be one too, not a longer
+                    // unbracketed run that merely truncates down to one
+                    // (`-RR` truncating to `-R`).
+                    if short_run_char_count(rest) != Some(1) {
+                        break;
+                    }
+                    // (iii) `xxd`'s real `-r -s off ...` — `-s` itself is
+                    // a genuine short, but a bare value (`off`) trails it
+                    // on the row, which means `-r -s` is two flags shown
+                    // together in a worked example, not one flag's two
+                    // spellings.
+                    if trailing_token_is_a_value(tail) {
+                        break;
+                    }
+                }
+                saw_explicit_anywhere |= explicit;
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
@@ -129,6 +207,7 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 if already_collected(&spec, &spelling) {
                     break;
                 }
+                saw_explicit_anywhere |= explicit;
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
                 rest = tail;
@@ -382,6 +461,100 @@ fn already_collected(spec: &FlagSpec, candidate: &Spelling) -> bool {
     spec.spellings
         .iter()
         .any(|s| s.dashes == candidate.dashes && s.name == candidate.name)
+}
+
+/// True when `spelling` is a genuine one-letter short — the same shape
+/// [`FlagSpec::short`] and [`mandible_core::Entity::short`] use — as
+/// opposed to a long-like spelling or a value. Used only to decide whether
+/// the *previous* spelling in an alias run was short, for the
+/// whitespace-continuation rules in [`parse_flag_spec`]'s alias loop.
+fn is_genuine_short(spelling: &Spelling) -> bool {
+    matches!(spelling.dashes, Dashes::Single) && spelling.name.chars().count() == 1
+}
+
+/// The character count of the short-flag run at the front of `input`
+/// (after its leading `-`, before any abbreviation bracket or terminator),
+/// or `None` if `input` is not short-flag-shaped at all.
+///
+/// Mirrors the run [`try_short`] itself computes, exposed separately so a
+/// caller can tell "this really is a one-letter short" apart from "this is
+/// a longer, unbracketed run that [`try_short`]'s first-character fallback
+/// merely *truncates* down to one letter" — the distinction
+/// [`parse_flag_spec`]'s whitespace-continuation rule (ii) needs.
+fn short_run_char_count(input: &str) -> Option<usize> {
+    let rest = input.strip_prefix('-')?;
+    let run_end = rest
+        .char_indices()
+        .find(|(_, c)| !is_short_char(*c))
+        .map_or(rest.len(), |(i, _)| i);
+    if run_end == 0 {
+        return None;
+    }
+    Some(rest[..run_end].chars().count())
+}
+
+/// True when the text immediately following a whitespace-continued
+/// spelling (`tail`, as [`try_short`]/[`try_long`] left it) is a bare
+/// value token rather than nothing, another explicit-separator-led alias,
+/// or another flag spelling in its own right.
+///
+/// Used only by [`parse_flag_spec`]'s whitespace-continuation rule (iii):
+/// a value trailing a short-then-short (or short-then-long) whitespace
+/// continuation means the row is a worked usage example naming two
+/// different flags (`xxd`'s real `-r -s off ...`), not one flag's two
+/// spellings — real aliases never carry a bare value after a whitespace-
+/// joined name, and `jdeprscan`'s real `-? -h --help` (nothing, or another
+/// flag, following each continuation) must keep parsing as one flag.
+fn trailing_token_is_a_value(tail: &str) -> bool {
+    let t = tail.trim_start_matches(' ');
+    if t.is_empty() || t.starts_with([',', '|']) {
+        return false;
+    }
+    try_short(t).is_none() && try_long(t).is_none()
+}
+
+/// In alias position — the text immediately after an explicit `,`/`|`
+/// separator — a multi-letter single-dash run with no abbreviation
+/// bracket is a spelling in its own right (`gold`'s real `-G, -shared`),
+/// never [`try_short`]'s truncate-to-first-character fallback, which
+/// exists to read a short flag with a value glued on (`-2CDlNuVv`) and has
+/// no business claiming a whole second word off the far side of an
+/// explicit separator. Returns `None` (falling through to the ordinary
+/// [`try_short`]/[`try_long`] attempts) for a genuine one-letter run or
+/// one a valid abbreviation bracket already claims, so `-A, --catenate`
+/// and `-r[esolve], -rc[vbuf]`-style alias runs are unaffected.
+fn try_alias_position_single_dash_long(input: &str) -> Option<(Spelling, &str)> {
+    let mut s = input;
+    short_dash(&mut s).ok()?;
+    // Unlike `try_short`'s own `is_short_char`-based run (whose no-bracket
+    // fallback only ever keeps the run's first character, so a stray `|`
+    // riding along inside it is harmless), this function returns the
+    // *whole* run as the spelling's name — so the run must also stop at
+    // `|`, or a pipe-alternation row (`socat-mux.sh`'s real
+    // `-b|-S|-t|-T|-l <arg>`) reads its second member's name as `"S|"`,
+    // swallowing the separator that was supposed to start the next
+    // spelling.
+    let run_end = s
+        .char_indices()
+        .find(|(_, c)| !is_short_char(*c) || *c == '|')
+        .map_or(s.len(), |(i, _)| i);
+    if run_end < 2 {
+        return None;
+    }
+    let run = &s[..run_end];
+    let after_run = &s[run_end..];
+    if parse_abbrev_bracket(after_run).is_some() {
+        return None;
+    }
+    Some((
+        Spelling {
+            name: run.to_string(),
+            dashes: Dashes::Single,
+            negatable: false,
+            abbrev: None,
+        },
+        after_run,
+    ))
 }
 
 fn short_dash(input: &mut &str) -> Res<char> {
@@ -2094,6 +2267,155 @@ mod tests {
         assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
         assert_eq!(spec.spellings[0].render(), "--replace");
         assert_eq!(spec.spellings[1].render(), "-R");
+    }
+
+    /// `iptables --help`'s other real long-then-short row, byte-exact:
+    /// `--append  -A chain` (two spaces between them in the real text).
+    /// Whitespace-continuation rule (i) — refuse a bare-whitespace
+    /// continuation once an explicit separator has appeared earlier in
+    /// this run — must not fire here: no explicit separator has appeared
+    /// at all, so the rule stays silent and this pair keeps merging.
+    #[test]
+    fn a_long_then_short_pair_with_no_earlier_explicit_separator_still_merges() {
+        let spec = parse_flag_spec("--append  -A chain");
+        assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "--append");
+        assert_eq!(spec.spellings[1].render(), "-A");
+    }
+
+    /// `jdeprscan --help`'s real `-? -h --help` — short, short, long, all
+    /// bare whitespace, no comma anywhere. The three whitespace-
+    /// continuation rules added for `dpkg-split`/`screen`/`xxd` below must
+    /// leave this alone: no explicit separator ever appears (rule i is
+    /// silent), `-h`'s own continuation is a genuine one-letter short
+    /// (rule ii is silent), and nothing that follows either short is a
+    /// bare value — `--help` is itself a flag spelling (rule iii is
+    /// silent).
+    #[test]
+    fn short_short_long_with_no_values_still_merges_on_bare_whitespace() {
+        let spec = parse_flag_spec("-? -h --help");
+        assert_eq!(spec.spellings.len(), 3, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-?");
+        assert_eq!(spec.spellings[1].render(), "-h");
+        assert_eq!(spec.spellings[2].render(), "--help");
+        assert!(spec.fully_consumed);
+    }
+
+    /// `dpkg-split --help`'s real usage-example row, byte-exact:
+    /// `-a|--auto -o <complete> <part>`. `-a`/`--auto` are one flag's two
+    /// spellings, joined by the row's own explicit `|`; `-o` is a
+    /// different, separately documented flag (`-o, --output <file>`) that
+    /// merely appears alongside it in this worked example. Whitespace-
+    /// continuation rule (i): once this run has used an explicit
+    /// separator, a later bare-whitespace continuation is refused, so `-o`
+    /// is never absorbed.
+    #[test]
+    fn a_usage_example_naming_a_second_flag_after_an_explicit_run_is_not_absorbed() {
+        let spec = parse_flag_spec("-a|--auto -o <complete> <part>");
+        assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-a");
+        assert_eq!(spec.spellings[1].render(), "--auto");
+        assert!(
+            !spec.fully_consumed,
+            "the unabsorbed `-o ...` must be left honestly unconsumed"
+        );
+    }
+
+    /// `screen --help`'s real usage-example row, byte-exact: `-D -RR`.
+    /// `-D` is a genuine one-letter short; `-RR` is not a second spelling
+    /// of the same flag but `screen`'s own `-R`/`-R` doubled-up usage
+    /// notation for "reattach, forcing if necessary" — a different real
+    /// flag (`-R`, documented on its own row) appearing in a worked
+    /// example. Whitespace-continuation rule (ii): after a genuine short,
+    /// a whitespace-continued candidate must itself be a genuine
+    /// one-letter short, not a longer unbracketed run that merely
+    /// truncates down to one letter.
+    #[test]
+    fn a_doubled_short_flag_usage_note_is_not_read_as_a_second_spelling() {
+        let spec = parse_flag_spec("-D -RR");
+        assert_eq!(spec.spellings.len(), 1, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-D");
+        assert!(
+            !spec.fully_consumed,
+            "the unabsorbed `-RR` must be left honestly unconsumed"
+        );
+    }
+
+    /// `xxd --help`'s real usage-example row, byte-exact: `-r -s off`.
+    /// `-r` and `-s` are both genuine one-letter shorts, each separately
+    /// documented on its own row elsewhere — this row merely shows them
+    /// used together, with a bare value (`off`) trailing the second one.
+    /// Whitespace-continuation rule (iii): after a genuine short, a bare
+    /// value trailing the next whitespace-continued candidate means the
+    /// row is a worked example naming two flags, not one flag's two
+    /// spellings, even though the candidate itself (`-s`) is short-shaped.
+    #[test]
+    fn a_short_pair_usage_example_with_a_trailing_value_is_not_merged() {
+        let spec = parse_flag_spec("-r -s off");
+        assert_eq!(spec.spellings.len(), 1, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-r");
+        assert!(
+            !spec.fully_consumed,
+            "the unabsorbed `-s off` must be left honestly unconsumed"
+        );
+    }
+
+    /// `gold --help`'s real row, byte-exact: `-G, -shared`. `-shared` is a
+    /// genuine single-dash long spelling of the same flag as `-G`, not
+    /// `try_short`'s truncate-to-first-character fallback misreading it as
+    /// `-s` — which would collide with `gold`'s genuinely different
+    /// `-s, --strip-all`. In alias position (right after the explicit
+    /// `,`), a multi-letter unbracketed single-dash run is read as a
+    /// spelling in its own right.
+    #[test]
+    fn an_explicit_alias_separator_reads_an_unbracketed_single_dash_run_as_a_long_spelling() {
+        let spec = parse_flag_spec("-G, -shared");
+        assert_eq!(spec.spellings.len(), 2, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-G");
+        assert_eq!(spec.spellings[1].render(), "-shared");
+        assert!(spec.fully_consumed);
+    }
+
+    /// `socat-mux.sh --help`'s real row, byte-exact: `-b|-S|-t|-T|-l
+    /// <arg>` — five one-letter shorts, pipe-separated, all in alias
+    /// position. [`try_alias_position_single_dash_long`]'s run must stop
+    /// at the `|` between spellings, not swallow it into the next
+    /// spelling's name (`"S|"`) the way a naive reuse of `try_short`'s
+    /// abbreviation-lookahead run would.
+    #[test]
+    fn a_pipe_separated_row_of_one_letter_shorts_is_unaffected_by_the_alias_position_reading() {
+        let spec = parse_flag_spec("-b|-S|-t|-T|-l <arg>");
+        assert_eq!(spec.spellings.len(), 5, "{:?}", spec.spellings);
+        for (i, expected) in ["-b", "-S", "-t", "-T", "-l"].iter().enumerate() {
+            assert_eq!(
+                spec.spellings[i].render(),
+                *expected,
+                "{:?}",
+                spec.spellings
+            );
+        }
+        assert_eq!(spec.value_name.as_deref(), Some("<arg>"));
+    }
+
+    /// `jdb --help`'s real row, byte-exact: `-? -h --help -help`. The
+    /// trailing `-help` is reached only by bare whitespace (never an
+    /// explicit separator), so [`try_alias_position_single_dash_long`]
+    /// must not apply here — this stays exactly the existing, unresolved
+    /// truncate-to-`-h`-then-refuse-the-duplicate behavior
+    /// ([`jdbs_truncated_help_never_duplicates_the_short_h_already_read`]),
+    /// not a fourth spelling. Widening the alias-position reading to bare
+    /// whitespace is explicitly out of scope for this fix.
+    #[test]
+    fn bare_whitespace_position_still_truncates_rather_than_reading_a_long_spelling() {
+        let spec = parse_flag_spec("-? -h --help -help");
+        assert!(
+            !spec
+                .spellings
+                .iter()
+                .any(|s| matches!(s.dashes, Dashes::Single) && s.name == "help"),
+            "no bare-whitespace-reached spelling reads `-help` as a whole single-dash word: {:?}",
+            spec.spellings
+        );
     }
 
     /// `unzip --help`'s real usage-synopsis placeholder,
