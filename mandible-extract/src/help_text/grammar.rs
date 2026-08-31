@@ -1833,6 +1833,46 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
+    /// `ip --help`'s real issue #49 defect: `-rc[vbuf] [size]`, a
+    /// **two**-letter abbreviation prefix. The one-letter-only model
+    /// (`try_short` reading exactly one character before ever looking for
+    /// a bracket) could not recognize this shape at all — `-rc[vbuf]`
+    /// failed to fully consume, which refused the whole nine-alternative
+    /// BNF row it sat in and fell back to the single-column read that
+    /// produced ip's mangled second `-r` (a `short: 'r'` carrying
+    /// `value_name: "c[vbuf]"`). With a multi-letter prefix recognized,
+    /// `-rc[vbuf]` reads as its own clean flag, `Long("rcvbuf")` — a
+    /// different key from `-r[esolve]`'s `Long("resolve")`, which is what
+    /// dissolves the duplicate without any dedup rule.
+    #[test]
+    fn a_two_letter_abbreviation_prefix_is_recognized() {
+        let spec = parse_flag_spec("-rc[vbuf] [size]");
+        assert_eq!(spec.short(), None, "long-like, not short");
+        assert_eq!(spec.long(), Some("rcvbuf"));
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].abbrev, Some(2));
+        assert_eq!(spec.spellings[0].render(), "-rc[vbuf]");
+        assert_eq!(spec.value_name.as_deref(), Some("size"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+        assert!(spec.fully_consumed);
+    }
+
+    /// The alias loop keeps every recognized spelling, not just the first
+    /// short and first long — the fix that dissolves issue #30's
+    /// multi-spelling bug at its source. `jdeprscan --help` writes exactly
+    /// this row (`-?, -h, --help`, one physical line, all three aliases
+    /// comma-separated) — before this fix the loop kept only the first
+    /// short (`-?`) and the long (`--help`), silently dropping `-h`.
+    #[test]
+    fn the_alias_loop_keeps_every_spelling_jdeprscan_style() {
+        let spec = parse_flag_spec("-?, -h, --help");
+        assert_eq!(spec.spellings.len(), 3, "{:?}", spec.spellings);
+        assert_eq!(spec.spellings[0].render(), "-?");
+        assert_eq!(spec.spellings[1].render(), "-h");
+        assert_eq!(spec.spellings[2].render(), "--help");
+        assert!(spec.fully_consumed);
+    }
+
     /// The discriminator is narrow on purpose: a real optional-value
     /// placeholder (upper/mixed case, or carrying its own `=`) must still
     /// parse as a value exactly as before — this change must never widen
