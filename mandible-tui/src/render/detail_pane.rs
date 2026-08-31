@@ -4149,6 +4149,174 @@ mod tests {
         assert_eq!(built.target_flag_line, None);
     }
 
+    /// A node carrying all four entity kinds — flag, positional, modifier,
+    /// environment variable — used to prove the search-target scroll works
+    /// identically across kinds rather than being flag-specific.
+    fn node_with_all_entity_kinds() -> CommandNode {
+        let mut n = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        n.summary = Some(Text::sanitize("create, modify, and extract archives"));
+
+        let mut positional = Entity::positional("archive", Provenance::single(Source::HelpText));
+        positional.description = Some(Text::sanitize("the archive file"));
+        n.entities.push(positional);
+
+        let mut flag = Entity::flag_long("help", Provenance::single(Source::HelpText));
+        flag.description = Some(Text::sanitize("Show help"));
+        n.entities.push(flag);
+
+        let mut modifier = Entity::modifier('d', Provenance::single(Source::HelpText));
+        modifier.description = Some(Text::sanitize("delete a member from the archive"));
+        n.entities.push(modifier);
+
+        let mut env_var =
+            Entity::env_var_item("AR_TIMESTAMP", Provenance::single(Source::HelpText));
+        env_var.description = Some(Text::sanitize("override the archive's timestamp"));
+        n.entities.push(env_var);
+
+        n
+    }
+
+    /// Closing spec §10's open item for the dashless kinds: selecting a
+    /// *modifier* search result must scroll the detail pane to that exact
+    /// modifier's own row in its MODIFIERS section, exactly as a flag
+    /// search result does for FLAGS.
+    #[test]
+    fn selected_modifier_reports_its_own_line_index() {
+        let node = node_with_all_entity_kinds();
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Name("d".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("modifier should be found");
+        let line_text = text_of(&built.lines[idx]);
+        assert!(line_text.contains('d'), "{line_text:?}");
+        // The targeted row must actually be the MODIFIERS row, not the
+        // FLAGS or POSITIONALS row that happens to render first — proven
+        // by checking the row lands after the MODIFIERS heading and before
+        // the ENVIRONMENT heading.
+        let modifiers_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("MODIFIERS"))
+            .expect("MODIFIERS heading should render");
+        let environment_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("ENVIRONMENT"))
+            .expect("ENVIRONMENT heading should render");
+        assert!(
+            idx > modifiers_heading && idx < environment_heading,
+            "modifier target line {idx} should land within MODIFIERS ({modifiers_heading}..{environment_heading})"
+        );
+    }
+
+    /// Same as above, for an environment variable landing in its own
+    /// ENVIRONMENT section.
+    #[test]
+    fn selected_env_var_reports_its_own_line_index() {
+        let node = node_with_all_entity_kinds();
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Name("AR_TIMESTAMP".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("env var should be found");
+        let line_text = text_of(&built.lines[idx]);
+        assert!(line_text.contains("AR_TIMESTAMP"), "{line_text:?}");
+        let environment_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("ENVIRONMENT"))
+            .expect("ENVIRONMENT heading should render");
+        assert!(
+            idx > environment_heading,
+            "env var target line {idx} should land after the ENVIRONMENT heading ({environment_heading})"
+        );
+    }
+
+    /// Same as above, for a positional landing in its own
+    /// POSITIONALS section.
+    #[test]
+    fn selected_positional_reports_its_own_line_index() {
+        let node = node_with_all_entity_kinds();
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Name("archive".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("positional should be found");
+        let line_text = text_of(&built.lines[idx]);
+        assert!(line_text.contains("archive"), "{line_text:?}");
+        let positionals_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("POSITIONALS"))
+            .expect("POSITIONALS heading should render");
+        let flags_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("FLAGS"))
+            .expect("FLAGS heading should render");
+        assert!(
+            idx > positionals_heading && idx < flags_heading,
+            "positional target line {idx} should land within POSITIONALS ({positionals_heading}..{flags_heading})"
+        );
+    }
+
+    /// A `Long`/`Short` flag key must never accidentally land on a
+    /// dashless row, even one whose bare name happens to equal the flag
+    /// spelling being searched — e.g. a modifier named `help` would
+    /// otherwise be indistinguishable from the `--help` flag by name
+    /// alone. Regression coverage for the `matches_key` isolation rule
+    /// (spec §10; `mandible-core`'s `entity.rs`).
+    #[test]
+    fn a_flag_key_does_not_land_on_a_dashless_row_of_the_same_name() {
+        let mut node = node_with_all_entity_kinds();
+        // Add a positional that happens to share its bare name with the
+        // node's flag.
+        let mut decoy = Entity::positional("help", Provenance::single(Source::HelpText));
+        decoy.description = Some(Text::sanitize("a decoy positional named help"));
+        node.entities.push(decoy);
+
+        let built = build_lines(
+            &node,
+            false,
+            80,
+            style::Palette::extended(),
+            Some(&FlagKey::Long("help".to_string())),
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let idx = built.target_flag_line.expect("flag should be found");
+        let flags_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("FLAGS"))
+            .expect("FLAGS heading should render");
+        let modifiers_heading = built
+            .lines
+            .iter()
+            .position(|l| text_of(l).contains("MODIFIERS"))
+            .expect("MODIFIERS heading should render");
+        assert!(
+            idx > flags_heading && idx < modifiers_heading,
+            "the --help flag, not the decoy positional, should be targeted: {idx}"
+        );
+    }
+
     /// Render the whole frame in each of the verbatim view's three states.
     ///
     /// The state machine for `t` is unit-tested in `app`, but that proves

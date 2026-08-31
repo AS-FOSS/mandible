@@ -550,8 +550,10 @@ pub enum NodeRef {
 ```
 
 Paths are name-based, which is fine for commands but insufficient for search
-results, which must be able to point at a *flag* (§10). `NodeRef` is the single
-addressing type used by search, the clipboard, and the cache.
+results, which must be able to point at any entity a node carries — a flag,
+or a dashless positional/modifier/env-var addressed by `FlagKey::Name` (§10).
+`NodeRef` is the single addressing type used by search, the clipboard, and
+the cache.
 
 Resolution walks `subcommands` by exact name match at each level. It must not
 contain a "skip any segment equal to the current node's name" shortcut — that
@@ -2899,24 +2901,46 @@ Rules:
 correct on Unicode graphemes, and designed to match on a background thread pool
 so typing never blocks.
 
-**Index entries are `NodeRef`s, and flags get their own entries.** Revision 1
-folded flag names into the parent command's haystack, so searching `--squash`
-selected `git rebase` rather than the flag. Since finding a flag is the product's
-core job (§1), each `Flag` is its own index entry, with a haystack of
-`short + long + value_name + description` and a `NodeRef::Flag` payload.
-Selecting one selects the parent command and scrolls the detail pane to that flag.
+**Index entries are `NodeRef`s, and every entity gets its own entry.**
+Revision 1 folded flag names into the parent command's haystack, so searching
+`--squash` selected `git rebase` rather than the flag. Since finding what a
+tool documents is the product's core job (§1), and a tool documents more than
+flags — `ar`'s modifier letters, `bpftrace`'s environment variables, a
+command's positionals — every entity of every kind is its own index entry,
+addressed by `NodeRef::Flag`, whose `key: FlagKey` now covers both shapes an
+entity's name can take: `Long`/`Short` for a flag's dashed spelling, and
+`Name` for a dashless entity's bare `primary_name()` (a positional's
+placeholder, a modifier's letter, an environment variable's name — §4.5's
+three dashless `EntityKind`s). Each entry's haystack is every documented
+spelling's bare name, `value_name`, and description — the same shape for
+every kind, dashless spellings indexed with no dash prefix. Selecting a
+result selects the parent command and scrolls the detail pane to that
+entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
+section documents it (§9.3), exactly as a flag result always has.
 
 **Two match modes, name-only by default.** Matching one combined haystack
-(name + summary + description + flag value) is correct and *looks* arbitrary:
-searching `branch` in `git` returns `switch` via "Switch branches", and since
-only name matches are underlined, nothing on screen explains why that row is
-there. `/` opens the box in **name mode** — command names and flag spellings
-only — and pressing `/` again toggles **wide mode**, the combined haystack. The
-search bar's title shows which is active. Name mode is the default because its
-results explain themselves; wide mode finds more and is one keystroke away.
-Name mode filters the index's own result set rather than maintaining a second
-index, using a subsequence test so it can never reject something the fuzzy
-ranking accepted for the same reason (`gco` → `checkout` still works).
+(name + summary + description + entity value) is correct and *looks*
+arbitrary: searching `branch` in `git` returns `switch` via "Switch branches",
+and since only name matches are underlined, nothing on screen explains why
+that row is there. `/` opens the box in **name mode** and pressing `/` again
+toggles **wide mode**, the combined haystack. The search bar's title shows
+which is active. Name mode is the default because its results explain
+themselves; wide mode finds more and is one keystroke away. Name mode filters
+the index's own result set rather than maintaining a second index: a command
+matches by a literal, case-insensitive substring of its own name; every
+entity (flag, positional, modifier, env var alike, with no per-kind branch)
+matches by a case-insensitive **prefix of a `-`/`_`-separated word** of any of
+its spellings — the whole name counts as its own first word, so `NODE_D`
+matches `NODE_DEBUG` from the start and `debug` matches it from after the
+`_`. The word-prefix rule, not a looser subsequence one, is what keeps name
+mode's results self-explanatory for entities the same way substring does for
+commands: a subsequence test is what originally made the mode feel broken —
+searching `run` in `docker` surfaced `--no-trunc`'s parent command, because
+`--no-trunc` contains r…u…n in order — and the word-prefix rule refuses that
+case (`run` is a prefix of neither `no` nor `trunc`) while still admitting
+`no`, `trunc`, a bare modifier letter, or either half of an underscored env
+var name. Wide mode's ranking is unaffected by any of this — it stays the
+fuzzy index, where `gco` still finds `checkout`.
 
 **Filtering preserves hierarchy.** A flat result list rendered with
 `depth = path.len() - 1` produces indentation pointing at ancestors that aren't

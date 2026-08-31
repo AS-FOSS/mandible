@@ -435,10 +435,22 @@ impl Entity {
 
     /// True if `key` addresses this entity, checking every spelling
     /// regardless of which one is considered canonical.
+    ///
+    /// `Long`/`Short` are answered by [`Entity::long`]/[`Entity::short`],
+    /// which only ever return `Some` for a dashed spelling — so a dashless
+    /// entity (positional, modifier, env var) can never match either,
+    /// with no extra kind check needed. `Name` is answered by checking
+    /// every [`Dashes::None`] spelling, which a `Flag` entity never has
+    /// (its spellings always carry at least one dash), so `Name` can
+    /// never match a `Flag` entity either.
     pub fn matches_key(&self, key: &crate::noderef::FlagKey) -> bool {
         match key {
             crate::noderef::FlagKey::Long(l) => self.long() == Some(l.as_str()),
             crate::noderef::FlagKey::Short(s) => self.short() == Some(*s),
+            crate::noderef::FlagKey::Name(n) => self
+                .spellings
+                .iter()
+                .any(|s| matches!(s.dashes, Dashes::None) && s.name == *n),
         }
     }
 
@@ -486,16 +498,29 @@ impl Entity {
             .map(Spelling::typed)
     }
 
-    /// The canonical identity key for cross-source matching, with the same
-    /// preference order as the pre-0.5.0 `Flag::key`: the long-like spelling wins, a
-    /// lone short letter is the fallback, and an entity with no spellings
-    /// (or a dashless kind) has no key.
+    /// The canonical addressing key, for search indexing and cross-source
+    /// matching.
+    ///
+    /// For a `Flag`, the same preference order as the pre-0.5.0
+    /// `Flag::key`: the long-like spelling wins, a lone short letter is the
+    /// fallback, and a flag with no spellings at all has no key. For a
+    /// dashless kind (`Positional`, `Modifier`, `EnvVar`), the bare
+    /// [`Entity::primary_name`] wrapped in [`crate::noderef::FlagKey::Name`]
+    /// — `None` only when the entity has no spellings to name it by.
     pub fn key(&self) -> Option<crate::noderef::FlagKey> {
         use crate::noderef::FlagKey;
-        if let Some(l) = self.long_spelling() {
-            return Some(FlagKey::Long(l.name.clone()));
+        match self.kind {
+            EntityKind::Flag => {
+                if let Some(l) = self.long_spelling() {
+                    return Some(FlagKey::Long(l.name.clone()));
+                }
+                self.short().map(FlagKey::Short)
+            }
+            EntityKind::Positional | EntityKind::Modifier | EntityKind::EnvVar => self
+                .spellings
+                .first()
+                .map(|s| FlagKey::Name(s.name.clone())),
         }
-        self.short().map(FlagKey::Short)
     }
 }
 
@@ -805,6 +830,53 @@ mod tests {
         assert!(!e.matches_key(&FlagKey::Short('v')));
     }
 
+    /// `FlagKey::Name` never matches a `Flag` entity, even one whose long
+    /// spelling happens to equal the name being searched for — `Name` and
+    /// `Long`/`Short` are disjoint key spaces, not two notations for the
+    /// same identity. A `Flag`'s spellings always carry a dash, so no
+    /// `Dashes::None` spelling is ever there to match against.
+    #[test]
+    fn name_key_never_matches_a_flag_entity() {
+        let e = Entity::flag_long("pathspec", Provenance::default());
+        assert!(!e.matches_key(&FlagKey::Name("pathspec".into())));
+        assert_ne!(e.key(), Some(FlagKey::Name("pathspec".into())));
+    }
+
+    /// `Long`/`Short` never match a dashless entity, even one whose bare
+    /// name is a single character that could be mistaken for a short
+    /// flag's letter.
+    #[test]
+    fn long_and_short_keys_never_match_a_dashless_entity() {
+        let modifier = Entity::modifier('i', Provenance::default());
+        assert!(!modifier.matches_key(&FlagKey::Short('i')));
+        assert!(!modifier.matches_key(&FlagKey::Long("i".into())));
+
+        let positional = Entity::positional("interactive", Provenance::default());
+        assert!(!positional.matches_key(&FlagKey::Long("interactive".into())));
+
+        let env_var = Entity::env_var_item("i", Provenance::default());
+        assert!(!env_var.matches_key(&FlagKey::Short('i')));
+    }
+
+    /// Each dashless kind is addressed by `Name` and only by `Name`, and a
+    /// `Name` key for one entity's spelling does not leak into matching a
+    /// different entity with a different bare name.
+    #[test]
+    fn name_key_addresses_exactly_the_dashless_entity_it_names() {
+        let modifier = Entity::modifier('d', Provenance::default());
+        let positional = Entity::positional("pathspec", Provenance::default());
+        let env_var = Entity::env_var_item("NODE_DEBUG", Provenance::default());
+
+        assert!(modifier.matches_key(&FlagKey::Name("d".into())));
+        assert!(!modifier.matches_key(&FlagKey::Name("pathspec".into())));
+
+        assert!(positional.matches_key(&FlagKey::Name("pathspec".into())));
+        assert!(!positional.matches_key(&FlagKey::Name("d".into())));
+
+        assert!(env_var.matches_key(&FlagKey::Name("NODE_DEBUG".into())));
+        assert!(!env_var.matches_key(&FlagKey::Name("pathspec".into())));
+    }
+
     /// A lone single-dash *character* is a short flag, not a one-character
     /// single-dash long — the one place the entity model decides by shape
     /// what `Flag` decided by which slot a producer happened to fill.
@@ -953,11 +1025,11 @@ mod tests {
     }
 
     #[test]
-    fn bare_spellings_have_no_flag_key() {
+    fn bare_spellings_key_by_name_not_flag_key() {
         let mut e = Entity::new(EntityKind::Modifier, Provenance::default());
         e.spellings = vec![Spelling::bare("d")];
         assert_eq!(e.spelling(), "d");
-        assert_eq!(e.key(), None);
+        assert_eq!(e.key(), Some(FlagKey::Name("d".into())));
     }
 
     /// Every positional shape the corpus contains: plain, required,
@@ -1039,10 +1111,11 @@ mod tests {
         }
     }
 
-    /// A modifier is one dashless *letter*: it renders bare, carries no
-    /// flag key, and is not addressed as a short flag even though its
-    /// spelling is a single character — the dash is what makes `-a` a
-    /// short flag, and a modifier has none.
+    /// A modifier is one dashless *letter*: it renders bare, is keyed by
+    /// name rather than by [`FlagKey::Short`]/[`FlagKey::Long`], and is not
+    /// addressed as a short flag even though its spelling is a single
+    /// character — the dash is what makes `-a` a short flag, and a
+    /// modifier has none.
     #[test]
     fn a_modifier_is_one_dashless_letter() {
         let e = Entity::modifier('a', Provenance::default());
@@ -1051,10 +1124,11 @@ mod tests {
         assert_eq!(e.spellings[0].dashes, Dashes::None);
         assert_eq!(e.spelling(), "a");
         assert_eq!(e.primary_name(), "a");
-        assert_eq!(e.key(), None);
+        assert_eq!(e.key(), Some(FlagKey::Name("a".into())));
         assert_eq!(e.short(), None);
         assert_eq!(e.long(), None);
         assert!(!e.matches_key(&FlagKey::Short('a')));
+        assert!(e.matches_key(&FlagKey::Name("a".into())));
     }
 
     /// `ar`'s `[l <text> ]`: a modifier that takes an operand renders it
@@ -1068,7 +1142,7 @@ mod tests {
     }
 
     /// A positional is one dashless spelling, so it renders as the bare
-    /// name and has no flag key to be addressed by.
+    /// name and is keyed by that name rather than a `Long`/`Short` flag key.
     #[test]
     fn a_positional_is_one_dashless_spelling() {
         let e = Entity::positional("pathspec", Provenance::default());
@@ -1077,14 +1151,14 @@ mod tests {
         assert_eq!(e.spellings[0].dashes, Dashes::None);
         assert_eq!(e.spelling(), "pathspec");
         assert_eq!(e.primary_name(), "pathspec");
-        assert_eq!(e.key(), None);
+        assert_eq!(e.key(), Some(FlagKey::Name("pathspec".into())));
         assert_eq!(e.short(), None);
         assert_eq!(e.long(), None);
     }
 
-    /// An env-var item is one dashless *name*: it renders bare, carries no
-    /// flag key, and is not addressed as a short flag — the same shape as a
-    /// modifier or a positional, just with a word instead of a letter.
+    /// An env-var item is one dashless *name*: it renders bare, is keyed by
+    /// that name, and is not addressed as a short flag — the same shape as
+    /// a modifier or a positional, just with a word instead of a letter.
     #[test]
     fn an_env_var_is_one_dashless_name() {
         let e = Entity::env_var_item("NODE_DEBUG", Provenance::default());
@@ -1093,7 +1167,7 @@ mod tests {
         assert_eq!(e.spellings[0].dashes, Dashes::None);
         assert_eq!(e.spelling(), "NODE_DEBUG");
         assert_eq!(e.primary_name(), "NODE_DEBUG");
-        assert_eq!(e.key(), None);
+        assert_eq!(e.key(), Some(FlagKey::Name("NODE_DEBUG".into())));
         assert_eq!(e.short(), None);
         assert_eq!(e.long(), None);
         assert!(!e.matches_key(&FlagKey::Short('N')));
