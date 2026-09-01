@@ -8,9 +8,13 @@
 //! cursor is. bash does it through `READLINE_LINE`/`READLINE_POINT` in a
 //! `bind -x` function; zsh through `BUFFER`/`CURSOR` in a zle widget.
 //!
-//! The snippets are files in `packaging/shell/`, compiled in with
-//! `include_str!` and printed by the binary rather than installed to a
-//! path. That is spec §15's completions rule applied to the same problem:
+//! The snippets are files in this crate's own `shell/` directory, compiled
+//! in with `include_str!` and printed by the binary rather than installed
+//! to a path. They live *inside* the crate, not under the repo's
+//! `packaging/`, because `cargo publish` verifies the build from the
+//! packaged tarball and a tarball can only ever contain files under the
+//! crate root — 0.6.0's binary crate failed to publish with the snippets
+//! one directory up, while every library crate went through. That is spec §15's completions rule applied to the same problem:
 //! one generator, so no packaging channel can ship a snippet that
 //! disagrees with the flags the installed binary actually has, and
 //! `cargo install` users get it without any packaging at all.
@@ -35,8 +39,8 @@ impl ShellInit {
     /// The snippet to print, verbatim.
     pub fn snippet(self) -> &'static str {
         match self {
-            ShellInit::Bash => include_str!("../../packaging/shell/mandible.bash"),
-            ShellInit::Zsh => include_str!("../../packaging/shell/mandible.zsh"),
+            ShellInit::Bash => include_str!("../shell/mandible.bash"),
+            ShellInit::Zsh => include_str!("../shell/mandible.zsh"),
         }
     }
 }

@@ -4565,7 +4565,9 @@ the relationship clear.
   this way.
 - The shell integration (§2's `--print-selection` binding) ships the same way
   and is installed to no path at all: `mandible --shell-init <shell>` prints it,
-  from a snippet in `packaging/shell/` compiled into the binary, and the user
+  from a snippet in the binary crate's own `mandible/shell/` compiled into
+  the binary (inside the crate root, so the published package carries it —
+  `cargo publish` verifies the build from the packaged tarball), and the user
   opts in with `eval "$(mandible --shell-init bash)"` in their rc file. The
   one-generator rule applies for the same reason it does to completions — a
   snippet that names flags the installed binary does not have is worse than no
