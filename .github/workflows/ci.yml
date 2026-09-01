@@ -190,6 +190,25 @@ jobs:
           --out coverage-scoreboard.ci.txt
           --tools git,curl,tar,ip,openssl,sed,find,less,dd,gzip,docker,gh
 
+  # Publishability: package every workspace crate and verify each one builds
+  # from its own tarball, exactly as `cargo publish` does at the registry.
+  # A crate's tarball can only carry files under the crate root, so an
+  # `include_str!` reaching outside it compiles fine from a checkout and
+  # fails only at publish time — which is how 0.6.0's binary crate failed to
+  # publish after every other gate was green, with the four library crates
+  # already on crates.io. `--workspace` verifies against the locally packaged
+  # dependencies (cargo ≥ 1.90), so this passes on a PR whose crates are not
+  # yet published; the stable toolchain is what the release job publishes
+  # with, so this job runs the same one, not the MSRV.
+  package:
+    name: package (every crate builds from its own tarball)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo package --workspace --locked
+
   # WS2 part 2: `coverage-scoreboard.ci.txt` is stale against the redefined
   # `pct_flags_with_text` metric (spec §13.1b — the `describable` denominator
   # change), so the `coverage` job right above is red *by design* until it's

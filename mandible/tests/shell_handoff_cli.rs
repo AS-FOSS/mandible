@@ -17,13 +17,6 @@ fn mandible() -> Command {
     Command::new(env!("CARGO_BIN_EXE_mandible"))
 }
 
-fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("the mandible crate has a parent workspace dir")
-        .to_path_buf()
-}
-
 /// Refusing is fine; refusing *onto stdout* is not. Whatever the mode has
 /// to say about a missing terminal goes to stderr, because a shell binding
 /// puts stdout on the user's prompt and running it.
@@ -157,11 +150,21 @@ fn each_snippet_is_the_packaged_file_verbatim() {
         // Compared as text, not as bytes: a mismatch here is read by a
         // human, and two 1 KB byte vectors in an assertion message are not.
         let printed = String::from_utf8(out.stdout).expect("the snippet is UTF-8");
-        let packaged = std::fs::read_to_string(repo_root().join("packaging/shell").join(file))
-            .unwrap_or_else(|e| panic!("reading packaging/shell/{file}: {e}"));
+        // The snippet lives inside this crate (`mandible/shell/`), never
+        // under the repo's `packaging/`: a published crate's tarball holds
+        // only files under the crate root, and `cargo publish` verifies the
+        // build from that tarball — the 0.6.0 binary crate failed exactly
+        // there. Resolved from the manifest dir, so this test would fail
+        // the same way the registry did if the file ever moved back out.
+        let packaged = std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("shell")
+                .join(file),
+        )
+        .unwrap_or_else(|e| panic!("reading mandible/shell/{file}: {e}"));
         assert_eq!(
             printed, packaged,
-            "`--shell-init {shell}` must print packaging/shell/{file} verbatim"
+            "`--shell-init {shell}` must print mandible/shell/{file} verbatim"
         );
     }
 }

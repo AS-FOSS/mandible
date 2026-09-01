@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- `cargo install mandible` can reach 0.6.x again: the `mandible` binary crate failed to publish at 0.6.0 (the four library crates went through) because its `--shell-init` snippets lived under the repo's `packaging/shell/`, outside the crate root, and `cargo publish` verifies the build from the packaged tarball, which can only carry files under the crate — the snippets now live in `mandible/shell/` inside the crate, and CI packages the whole workspace on every PR so a file referenced from outside its crate fails there rather than at the registry.
+
 ## [0.6.0] - 2026-09-01
 
 ### Added
