@@ -182,6 +182,77 @@ case_a_toml_that_fails_report_fails() {
     return "$ok"
 }
 
+case_sadigaxunds_legacy_seed5_shape_passes_for_sadigaxund() {
+    local tmp bindir base ok
+    tmp="$(mktemp -d)"
+    new_repo "$tmp/repo"
+    bindir="$tmp/bin"
+    setup_fake_cargo "$bindir"
+    if (
+        cd "$tmp/repo"
+        base="$(git rev-parse HEAD)"
+        mkdir -p audit/submissions/sadigaxund/5
+        echo 'help text' >audit/submissions/sadigaxund/5/ar.txt
+        git add audit/submissions
+        git commit -q -m legacy-capture
+        PATH="$bindir:$PATH" "$script" "$base" sadigaxund
+    ); then
+        ok=0
+    else
+        ok=1
+    fi
+    rm -rf "$tmp"
+    return "$ok"
+}
+
+case_same_seed5_shape_under_another_login_still_fails() {
+    local tmp bindir base ok
+    tmp="$(mktemp -d)"
+    new_repo "$tmp/repo"
+    bindir="$tmp/bin"
+    setup_fake_cargo "$bindir"
+    if (
+        cd "$tmp/repo"
+        base="$(git rev-parse HEAD)"
+        mkdir -p audit/submissions/alice/5
+        echo 'help text' >audit/submissions/alice/5/ar.txt
+        git add audit/submissions
+        git commit -q -m legacy-capture
+        PATH="$bindir:$PATH" "$script" "$base" alice
+    ); then
+        ok=1
+    else
+        ok=0
+    fi
+    rm -rf "$tmp"
+    return "$ok"
+}
+
+# The skip is keyed on the author, not the folder alone: a non-maintainer
+# author cannot dodge the checks just by writing into sadigaxund's folder.
+case_sadigaxund_folder_still_fails_for_a_different_author() {
+    local tmp bindir base ok
+    tmp="$(mktemp -d)"
+    new_repo "$tmp/repo"
+    bindir="$tmp/bin"
+    setup_fake_cargo "$bindir"
+    if (
+        cd "$tmp/repo"
+        base="$(git rev-parse HEAD)"
+        mkdir -p audit/submissions/sadigaxund/5
+        echo 'help text' >audit/submissions/sadigaxund/5/ar.txt
+        git add audit/submissions
+        git commit -q -m legacy-capture
+        PATH="$bindir:$PATH" "$script" "$base" alice
+    ); then
+        ok=1
+    else
+        ok=0
+    fi
+    rm -rf "$tmp"
+    return "$ok"
+}
+
 case_no_changes_under_submissions_passes() {
     local tmp bindir base ok
     tmp="$(mktemp -d)"
@@ -209,6 +280,9 @@ run_case "a folder that does not match the PR author's login fails" case_wrong_l
 run_case "the maintainer login bypasses the folder/login match" case_maintainer_login_bypasses_folder_check
 run_case "a .toml that fails cargo xtask audit report fails" case_a_toml_that_fails_report_fails
 run_case "a PR with no changes under audit/submissions passes trivially" case_no_changes_under_submissions_passes
+run_case "sadigaxund's legacy seed-5 capture shape passes for sadigaxund" case_sadigaxunds_legacy_seed5_shape_passes_for_sadigaxund
+run_case "the same seed-5 shape under another login still fails" case_same_seed5_shape_under_another_login_still_fails
+run_case "the sadigaxund folder still fails for a different author" case_sadigaxund_folder_still_fails_for_a_different_author
 
 if [ "$failures" -ne 0 ]; then
     echo "$failures case(s) failed"

@@ -15,6 +15,15 @@
 #      maintainer, who may commit or repair a submission under any login as
 #      part of maintenance).
 #
+# One exception on top of all three: a file under audit/submissions/sadigaxund/
+# is skipped entirely — path shape included — when the pull request author is
+# sadigaxund. That folder still carries the pre-contribute seed 2/4/5 layout
+# (audit/submissions/sadigaxund/5/<tool>.txt), which rule 1's shape predates
+# and will never match; the maintainer's own submissions are exempt from
+# these rules the way rule 3 already exempts them from the login match. Keyed
+# on the author, not the folder alone, so nobody else can commit under that
+# folder to dodge the checks.
+#
 # Usage: scripts/check_submissions.sh <base-rev> <pr-author-login>
 #
 # Diffs the *currently checked-out working tree* against <base-rev> — same
@@ -49,6 +58,10 @@ status=0
 
 while IFS= read -r path; do
     [ -z "$path" ] && continue
+
+    if [ "$pr_author" = "sadigaxund" ] && [[ "$path" == audit/submissions/sadigaxund/* ]]; then
+        continue
+    fi
 
     if ! [[ "$path" =~ $path_re ]]; then
         echo "error: $path — does not match audit/submissions/<login>/<seed>.toml or -report.txt" >&2
