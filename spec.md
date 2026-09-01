@@ -851,546 +851,234 @@ would be the same move as inventing structure.
 
 ## 6. Execution safety policy
 
-mandible runs other people's binaries. This is the part of the design that can
-damage a user's machine, and it gets its own section and its own tests.
+mandible runs other people's binaries. This is the part of the design that
+can damage a user's machine, and it gets its own section and its own tests.
+
+All ten rules below are enforced at the `exec::run_inert` chokepoint, the
+single place every tier spawns a process through, so no tier can bypass one
+by another route. A test runs the full pipeline against a shim binary that
+logs its own argv and environment, and fails on any invocation outside the
+allowlist below.
 
 **Rules, binding on every tier:**
 
-1. **Never invoke a bare binary.** Revision 1's clap probe ran `<tool>` with no
-   arguments to see whether it honored `COMPLETE=`. Running an arbitrary binary
-   bare is how you launch a REPL, block on stdin, start a daemon, or trigger a
-   tool whose no-arg default is an action. (That probe has since been removed
-   entirely — §7 Tier E — but the rule stands for every tier: an argv is never
-   empty.) Note that rule 2a is the necessary companion: counting arguments is
-   not enough, because an *empty* argument satisfies this rule while being the
-   opposite of inert.
+0. **Programs that signal processes or change machine state are invoked
+   only as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`,
+   `skill`, `xkill`, `fuser`, `halt`, `poweroff`, `reboot`, `shutdown`,
+   `telinit`, `init` may run with exactly that one argv. Every other shape
+   is refused before anything is spawned.
 
-   **1a. A framework protocol's words are a bare invocation to a tool that
-   does not speak it.** `__complete`, `completion <shell>` and `-- <partial>`
-   are subcommand invocations *only* in the framework that defines them.
-   Fired speculatively at an arbitrary binary they are ordinary positionals,
+   This began as a total ban after `mandible pkill` froze a machine badly
+   enough to need a reset. The mechanism was rule 2a's empty argument, not
+   argument permutation as first assumed — measured directly: `pkill
+   --help`, `pkill victim --help`, `killall victim --help` all killed
+   nothing on this box. What the ban was actually protecting against, never
+   written down until it was measured: `-h` is not a help flag on these
+   tools. `halt -h`, `poweroff -h`, `reboot -h`, `shutdown -h` each attempt
+   the real operation, and mandible falls back to `-h` whenever `--help`
+   fails. [M-17] and [M-18] have the full measurement. `--help` itself is
+   safe and yields real flag lists for all thirteen, so the rule keeps what
+   is measured harmless and refuses what is measured dangerous.
+
+   This is a safety rule about what may be *executed*, closed and short,
+   and is deliberately not the per-tool knowledge §1 forbids: §1 governs
+   extraction, where a per-tool list would grow without bound. Every entry
+   here shares one fact about the program itself — it signals processes or
+   changes machine state — independent of its output format.
+
+   A second, narrower gate closes the general form of the same hazard for
+   every tool, not just these thirteen: Tier B's `<word> --help`/`-h`
+   probe (§7 Tier B) fires only when a node's `heading_attested` bit is
+   true, meaning the word came from a recognized command heading, never
+   from layout alone. A non-attested node is declined, never probed under a
+   fabricated word. The root is exempt by construction, since it is the
+   name the user typed. This gate and rule 0's list are deliberately
+   independent: the gate governs when a word is trusted enough to become
+   argv at all, the list governs what these thirteen programs may be asked
+   to do even with a trusted word, since for them even a genuine,
+   correctly-attested subcommand name is itself a target. A second,
+   separate attestation bit, `invocation_attested`, marks a name found by
+   layout evidence strong enough for the coverage harness to trust as real
+   (§7 Tier B's headingless-invocation-table recognizer) without being
+   heading evidence strong enough to probe — the two bits are never
+   conflated, and this gate reads only `heading_attested`.
+
+1. **Never invoke a bare binary.** An argv is never empty. Running an
+   arbitrary binary with no arguments is how you launch a REPL, block on
+   stdin, start a daemon, or trigger a tool whose no-argument default is an
+   action.
+
+   **1a. A framework protocol's own words are a bare invocation to a tool
+   that does not speak the protocol.** `__complete`, `completion <shell>`,
+   and `-- <partial>` are subcommand invocations only in the framework that
+   defines them; fired at an arbitrary binary they are ordinary positionals,
    and rule 1's prohibition applies in substance even though the argv is
-   non-empty and sits on rule 2's list. The list is not wrong; its premise is
-   narrower than it reads. **Every shape on it was validated against tools
-   that parse argv** — the measurement was "does a getopt program act on
-   this?", and the answer was no. A program that *ignores* argv and starts
-   anyway is outside that premise entirely, and there is nothing about a
-   shape that can tell you which kind of program is on the other end.
+   non-empty. `wall __complete` broadcast that word to every logged-in
+   terminal on a reporter's machine, because `wall` treats an unrecognized
+   first positional as the message to send; `completion zsh`/`bash` sent
+   speculatively left hundreds of daemons running (rule 4). Neither was a
+   bad shape; both were a right shape sent to the wrong program. So a
+   protocol word requires prior evidence that the tool speaks the protocol,
+   read from the tool itself, never from its name: Tier E gates
+   `__complete` on the `spf13/cobra` marker in the compiled binary, Tier C
+   gates `completion <shell>` on that same marker or the tool's own
+   `--help` naming the command (§7). A per-tool list of who may be probed
+   would be §1's forbidden knowledge wearing a safety label; this evidence
+   requirement replaces the need for one.
 
-   Both incidents this section records are that same failure, twice: `wall
-   __complete` broadcast a word to every terminal on a machine, and
-   `<tool> completion zsh`/`bash` left 437 daemons running (rule 4's
-   measurement). Neither was a bad *shape*; both were a right shape sent to
-   the wrong program.
-
-   **So a protocol word requires prior evidence that the tool speaks the
-   protocol, from the tool itself, before any argv is constructed.** Tier E
-   gates `__complete` on the `spf13/cobra` marker read out of the compiled
-   binary (§7 Tier E). Tier C gates `completion <shell>` on either that same
-   cobra marker — cobra registers the command itself, possibly hidden, so
-   bytes are the only evidence available — or the tool's own root `--help`
-   naming `completion`/`completions` as a command (§7 Tier C). Evidence is
-   read from the artifact or from the tool's own output, **never from its
-   name**: a per-tool list of who may be probed is §1's forbidden knowledge
-   with a safety label on it, and the never-probe list (rule 0) stays what it
-   is — closed, small, and about programs that act on machine state — rather
-   than becoming the dumping ground for every tool that misbehaves.
-
-   This is also where the leverage is. Framework detection identifies a
-   minority of tools, which reads as a coverage gap until you notice what it
-   implies here: the overwhelming majority of ~2,300 speculative protocol
-   probes per sweep were fired at tools that could never have answered them.
-   That majority is the daemon leak, the PTY-canary abort, and two thirds of
-   sweep time — one defect with three symptoms, not three defects.
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
-   `__complete <words...>`, `completion <shell>`, `--help`, `-h`, `help
-   [<words...>]`, `<words...> --help`/`-h` (a subcommand path's own probe,
-   `HelpLongForPath`/`HelpShortForPath`), `<words...> --help <word>` (rule
-   2b, below), or `-- <partial>` under `COMPLETE=`. Any other shape requires a
-   spec amendment. The `COMPLETE=` shape is currently **unused** — no tier
-   constructs it since Tier E's clap probe was removed — and it is retained on
-   the type only so removing a public enum variant is not forced into a patch
-   release.
+   `__complete <words...>`, `completion <shell>`, `--help`, `-h`,
+   `help [<words...>]`, `<words...> --help`/`-h` (a subcommand path's own
+   probe), `<words...> --help <word>` (rule 2b), or `-- <partial>` under
+   `COMPLETE=` (currently unused — no tier constructs it since Tier E's
+   clap probe was removed, kept on the type only so removing it is not a
+   breaking change). Any other shape needs a spec amendment.
 
-   2a. **No empty argument the tool could read as its first positional.** Rule 1
-   only counts arguments, and an empty string satisfies it while being the
-   opposite of inert. `--` is the option terminator essentially every getopt
-   program discards, so `<tool> -- ""` delivers an empty string as the tool's
-   first positional — and a program whose first positional is a pattern reads
-   that as *match everything*. Measured: `pkill -- ""` terminated every process
-   in a private PID namespace, pkill included. This was the actual mechanism
-   behind the machine reset that motivated rule 0, which masked it for thirteen
-   named tools while the same argv still went to the rest of PATH.
+   **2a. No empty argument the tool could read as its first positional.**
+   `--` is the option terminator essentially every getopt program discards,
+   so `<tool> -- ""` delivers an empty string as the tool's first
+   positional, and a program whose first positional is a pattern reads that
+   as *match everything*: `pkill -- ""` was measured terminating every
+   process in a private PID namespace. Exactly one empty argument is
+   permitted, cobra's completion word, which is protocol-required and never
+   the first positional — the `__complete` sentinel always precedes it.
 
-   Enforced at the `run_inert` chokepoint, not at call sites, so no tier can
-   reintroduce it. Exactly one empty argument is permitted: cobra's completion
-   word, which is protocol-required (`docker __complete` without it fails with
-   "requires at least 1 arg(s)") and is never the first positional — the
-   `__complete` sentinel precedes it, and a non-cobra tool rejects that word
-   rather than acting on it. So the rule is checkable: an empty element is
-   allowed only behind a guard word, never straight after `--`.
+   **2b. `InertArgv::HelpExpand` — the truncation-confession follow-up.**
+   Some tools state, in their own printed text, that `--help` is not the
+   full document and name the word that gets the rest. See `docs/shapes.md`
+   S-080. `word` is copied verbatim from a closed, content-keyed grammar
+   matched against the tool's own output, never guessed and never keyed on
+   the tool's name; `--help` always precedes `word` in the rendered argv,
+   so a getopt that stops at the first non-option still reaches `--help`
+   first; and expansion is followed at most once, structurally, with no
+   recursive call back into detection. Rule 0's list still wins
+   unconditionally, since `HelpExpand`'s argv is never exactly `["--help"]`.
+   A confession's `word` needs no separate attestation, since it is copied
+   from a probe that was itself already attested. Scope is deliberately
+   narrow: only the single-word "expand to one complete document" shape is
+   followed; a confession detected but not followed (an unrecognized word,
+   a failed probe, or a rule 0 refusal) caps the node's status at
+   `incomplete` rather than reporting a confident `ok` over a document the
+   tool's own text called incomplete. Two further confession shapes are
+   detected but deliberately not followed, each needing its own future rule
+   2 amendment: an unquoted flag-table row and a flag-value class
+   enumeration (S-080 again). Detecting without following changes only what
+   gets recorded on the node, never what argv gets constructed, so neither
+   needs an amendment on its own.
 
-   2b. **`InertArgv::HelpExpand` — the truncation-confession follow-up
-   (WS5, approved amendment).** `curl --help` ends its own output:
-
-   ```text
-   This is not the full help, this menu is stripped into categories.
-   Use "--help category" to get an overview of all categories.
-   For all options use the manual or "--help all".
-   ```
-
-   That is a **truncation confession** — the tool telling the reader, in its
-   own words, that what was just printed is not the complete document.
-   Measured: `curl --help` recovers 12 flags; `curl --help all` recovers
-   258, and mandible was reporting the 12-flag document as `ok` at full
-   confidence. It is a convention, not a curl quirk (`ffmpeg -h long`/`-h
-   full`, `git help -a`, `gcc --help=<class>` are the same genus), so this is
-   a new, general argv shape rather than a curl special case — which is
-   exactly why rule 2's closed list needs a new member, not a `mandible-
-   extract` patch that quietly bypasses it.
-
-   A new shape needs an amendment because it is new *argv the crate can
-   construct*, not because it is dangerous by any measure this section
-   already tracks: it is refused by rule 0 exactly like every other non-
-   `["--help"]` shape (`run_inert`'s own `argv.args() != ["--help"]` check
-   needs no change to cover it), it cannot produce an empty argument (rule
-   2a — `word` is checked non-empty before this shape is even constructed,
-   see below), and it is bounded by the same timeout, output cap, and
-   scratch-directory redirect as every other probe. What rule 2 exists to
-   police is the *shape*, and this is a shape nothing on the closed list
-   already covers: `--help` followed by a second, tool-supplied word.
-
-   **`InertArgv::HelpExpand { words, word }`** renders as `[..words,
-   "--help", word]` (`mandible-extract/src/exec/policy.rs`). Three
-   constraints, all enforced in `help_text::confession` and
-   `HelpTextTier`, not left to caller discipline:
-
-   - **`word` comes from the tool's own printed directive, never a prose
-     heuristic and never a fabricated word.** `help_text::confession::
-     detect_directives` recognizes a closed, content-keyed grammar — a
-     quoted `"--help <word>"`/`"-h <word>"` shape, the word bare and the
-     quote immediately closing right after it (curl's own `"--help all"`)
-     — never keyed on the tool's name, so it fires identically for any
-     tool that happens to print the same convention. `word` is copied
-     verbatim from what matched; nothing about the word is invented,
-     guessed, or derived from the tool's identity.
-   - **`--help` precedes `word`.** So a getopt that stops at the first
-     non-option (BSD/busybox-style, unlike glibc's permuting one) still
-     reaches `--help` before ever considering `word` as a positional —
-     this can never degrade into a bare positional some other getopt
-     routes elsewhere, the exact hazard rule 2a exists to close for a
-     *different* shape (`-- ""`). Putting `word` first was never on the
-     table for this reason alone.
-   - **Expansion is followed at most once, never chained.** A confession
-     detected inside an *expanded* document is not looked at: the probe
-     that fetches the expanded text returns it as-is, with no second call
-     back into `detect_directives` on that result. This is structural, not
-     a depth counter that could be miscalibrated — the function that
-     issues the one follow-up probe simply never recurses into itself.
-
-   **Interaction with rule 0 (the never-probe list) and the attestation
-   gate (`heading_attested`, this section's closing paragraph on
-   `HelpTextTier`).** Neither conflicts with this amendment, and both are
-   worth saying explicitly rather than leaving a reader to wonder:
-
-   - **Rule 0 wins unconditionally.** `HelpExpand`'s rendered argv is never
-     exactly `["--help"]` (it is always `[..words, "--help", word]`, `word`
-     non-empty), so `run_inert`'s existing check refuses it for every
-     tool on the never-probe list with no code change and no special
-     case — a `pkill`-named tool that confesses is refused the expansion
-     exactly as it is refused every other non-`--help` shape.
-   - **A directive-sourced word is structurally attested by construction.**
-     The attestation gate exists to stop a *fabricated* word — one a
-     grammar guessed at from layout — from becoming argv (this section's
-     closing paragraph). A confession's `word` is not fabricated and is
-     not a subcommand name any grammar inferred: it is copied verbatim
-     from text the tool itself already printed, in response to a probe
-     that was itself already attested (the root by construction, or a
-     subcommand path that already passed the gate to be probed at all).
-     So `word` needs no *separate* attestation check — it inherits the
-     attestation of the probe that produced it, the same way the root's
-     own `--help` probe is exempt from the gate because it is the name
-     the user typed, not a word any parser invented.
-
-   **Scope, deliberately narrow.** Only the single-word "expand to one
-   complete document" shape ships (`help_text::confession`'s closed
-   `FOLLOWABLE_WORDS` vocabulary, `all` only for now). curl's *other*
-   directive, `--help category`, is detected (so `incomplete` still fires
-   honestly) but not followed: following it returns a menu of category
-   *names*, not flags, and turning that into real recovery needs
-   enumerating each category as its own probe — a materially bigger
-   feature (`--help category` → N probes) this amendment does not cover
-   and does not partially build.
-
-   A confession that is detected but not followed — an unrecognised
-   word/shape, a failed follow-up probe, or a rule 0 refusal — caps the
-   node's status at `incomplete` (§13.1's status ladder: `ok > incomplete >
-   low-confidence > verbatim > no-tier`) rather than reporting a confident
-   `ok` on a document the tool's own text already said was truncated.
-
-   **Detection-only extension: two more shapes (WS5's own genus list,
-   finally recognized).** curl was the specimen this rule was built from,
-   but it was never the only one named — this rule's own genus list, above,
-   already cited `ffmpeg -h long`/`-h full` and `gcc --help=<class>`.
-   Neither is curl's *quoted* `"--help <word>"` shape, so
-   `help_text::confession::detect_directives` did not see either one, and
-   both tools were measured reporting a confident `ok` over a document
-   their own text already said was incomplete — ffmpeg 91 flags at 97%
-   described, gcc 43 flags at 95% described. Two grammar additions close
-   that, **detection only**:
-
-   - **ffmpeg's shape** is unquoted, inside a flag-table row rather than
-     prose: `-h long -- print more options`. `help_text::confession::
-     match_unquoted_table_row` recognizes `<flag> <word> -- <description>`,
-     anchored to the trimmed line's start exactly as the quoted form is
-     anchored to the character right after an opening quote — a bare `--`
-     token must sit directly between the captured word and a non-empty
-     description, which is what keeps it off an ordinary flag row (`-h,
-     --help  show this help message and exit`: a comma sits where this
-     grammar requires a space) and off a distinct, longer flag name
-     (`--help-all`: no space between `--help` and `-all`).
-   - **gcc's shape** is a flag *definition*, not an invocation example:
-     `--help={common|optimizers|...}[,...].` lists `--help` itself as
-     taking a value. `help_text::confession::match_flag_value_row`
-     recognizes `<flag>=<opener>...`, requiring the character right after
-     `=` to be one of `{`, `[`, `<`, `(` — the punctuation a
-     class/placeholder enumeration opens with, never a bare word — so a
-     hypothetical literal-valued row (`--help=yes`) or an optional-value
-     row (`--help[=FMT]`, where `[` sits before `=`, not after it) is never
-     mistaken for it. The word recorded is the first class name
-     (`"common"`), taken verbatim.
-
-   Both are safe to add **without** a rule 2 amendment, for the same reason
-   detecting curl's shape was: detection only changes what gets *recorded*
-   on the node (a `Confession`), never what argv gets *constructed*. Rule
-   0's `argv.args() != ["--help"]` check, the attestation gate, and every
-   other execution-safety mechanism in this section are untouched, because
-   nothing new is ever run.
-
-   **Following either is explicitly deferred, not shipped.** Neither
-   shape's word is added to `FOLLOWABLE_WORDS`, and no new `InertArgv`
-   variant exists to construct the argv either would need: ffmpeg's own
-   invocation is `-h long` (bare `-h`, no `--help` prefix at all — not
-   `HelpExpand`'s `[..words, "--help", word]` shape), and gcc's is
-   `--help=common` (one joined token, not `--help` and `all` as two
-   separate ones — also not `HelpExpand`'s shape). Each is *new argv this
-   crate does not yet construct*, so each needs its own rule 2 amendment
-   and its own §6 deliberation before it can ship, exactly as this
-   amendment itself was required for curl's `--help all` — that is
-   deferred work (WS5b), not a gap in this change. Until then, both
-   directives are recorded with `followed: false` and cap status at
-   `incomplete` via the ladder above — the same honest-but-incomplete
-   outcome curl's own `--help category` already gets. An undetected
-   confession is a false `ok`; a detected-but-unfollowed one is honest,
-   which is what this extension buys on its own.
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
-4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On expiry
-   kill the **process group**, not just the child — completion scripts spawn
-   helpers, and killing only the direct child leaks them.
 
-   **And no probe is complete while its descendants are alive.** The process
-   group is necessary and not sufficient, for a reason the rule as written
-   above missed: a program that daemonises leaves the group *and* the session
-   on its own — `fork`, parent exits, child `setsid`s — after which nothing
-   about the survivor's group, session, or parent points back at the probe.
-   Measured: **622 processes** left behind on a developer box, the oldest five
-   days old — `blkmapd` ×148, `rpc.idmapd` ×144, `rpc.gssd` ×144, plus
-   `sudo_logsrvd` listening on `0.0.0.0:30343` and `[::]:30343`, `guacd` on
-   `127.0.0.1:4822`, and `pam-auth-update` burning a full core for three days.
-   **Not a hang**, which is why no timeout change could have helped: all 2,302
-   `probe-start` lines in a traced sweep had a matching `probe-done`, so every
-   probe involved returned normally and its child was already gone.
+4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On
+   expiry, kill the process group, not just the child, since a completion
+   script can spawn helpers a direct-child kill would leak.
 
-   `run_inert` therefore reaps before returning, in two halves
-   (`mandible-extract/src/exec/reap.rs`). The process marks itself a **child
-   subreaper** (`prctl(PR_SET_CHILD_SUBREAPER)`), so an orphaned descendant is
-   reparented to mandible rather than to init however many times it forked or
-   `setsid`ed — the kernel walks up to the nearest subreaper ancestor and
-   neither session nor process group takes part in that walk. That reduces the
-   candidate set to "our own children". A **per-invocation token** in the
-   probe's environment, checked against `/proc/<pid>/environ`, is what then
-   attributes a survivor to *this* probe: adoption alone cannot distinguish a
-   leaked daemon from a child a concurrent probe legitimately owns, and a
-   blunt "kill anything adopted" would be a new hazard rather than a fix.
-   Killing is by pid, never by process group — an escapee's pgid is usually
-   the direct child's pid, already waited on and free to have been recycled.
-   Rounds and a wall-clock budget bound the work, so a process wedged in
-   uninterruptible sleep costs milliseconds instead of turning this into a new
-   way for extraction to hang. Linux only (`/proc` +
-   `PR_SET_CHILD_SUBREAPER`); elsewhere the leak stands as the residual risk
-   rule 8 already documents.
+   The process group is not sufficient on its own: a program that
+   daemonises (`fork`, parent exits, child `setsid`s) leaves the group and
+   the session, after which nothing about the survivor points back at the
+   probe. This is not a hang — every probe that leaked one still returned
+   normally within its own timeout — so no timeout change could have
+   caught it. [M-24] has the measured count and the tools involved.
 
-   **This is the second layer, not the fix.** The root cause is a probe that
-   should never have been sent — see rule 1 and §7 Tier C's gate. Reaping
-   contains what runs anyway, exactly as `exec::containment` does for a sweep,
-   and must never become a reason to send a riskier argv.
-   `mandible-extract/tests/exec_policy.rs`'s `double_fork_escape` module is
-   the regression net: its shim starts a `setsid`ed daemon and exits 0, so the
-   probe never reaches a timeout; the test asserts the daemon really did lead
-   its own session (otherwise it would be proving the pre-existing group kill)
-   and that `/proc/<pid>` is gone rather than holding a zombie. It fails
-   without the reap.
-5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation; a tool
-   that streams forever must not exhaust memory. Reader threads (or a poll loop)
-   are mandatory to avoid pipe deadlock on large output.
-6. **Sanitized environment, and a new session.** Clear `LESS`; **set**
-   `PAGER`, `MANPAGER`, `GIT_PAGER`, and `SYSTEMD_PAGER` to `cat` (not merely
-   clear them — absence is the weaker property, since several ecosystems read
-   an unset pager variable as "go find one yourself" rather than "don't
-   page"); set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`, `LC_ALL=C.UTF-8`.
-   Spawn the probe as the leader of a **brand-new session**, not merely a new
-   process group: `process_group(0)` alone leaves the child in the same
-   session as mandible, so the session's controlling terminal is still
-   reachable, and a descendant can `open("/dev/tty")` to read and write it
-   directly regardless of what stdin/stdout/stderr were redirected to.
+   `run_inert` reaps before returning. The process marks itself a child
+   subreaper (`prctl(PR_SET_CHILD_SUBREAPER)`), so an orphaned descendant is
+   reparented to mandible regardless of how many times it forked or
+   `setsid`ed. A per-invocation token in the probe's environment,
+   cross-checked against `/proc/<pid>/environ`, attributes a survivor to
+   *this* probe, since adoption alone cannot distinguish a leaked daemon
+   from a concurrent probe's legitimate child. Killing is by pid, never by
+   process group, since an escapee's pgid is usually its already-recycled
+   direct-child pid. Linux only; elsewhere the leak stands as the residual
+   risk rule 8 documents. This is containment for a probe that should never
+   have been sent, never a reason to send a riskier one — the fix is rule
+   1a and §7 Tier C's evidence gate.
 
-   A user reported `mandible systemctl` freezing their entire TUI, with a
-   pager observed. `env_clear()` used to leave `PAGER` merely *absent*
-   rather than set, and `process_group(0)` alone does not sever the
-   controlling terminal — together, the working theory was that an absent
-   `PAGER` let a tool go find `less` itself, which then opened `/dev/tty`
-   directly for keyboard input (bypassing piped stdout entirely) and left
-   termios changes on the tty device that a process-group kill cannot
-   undo (termios state lives on the device, not the process).
-   [M-17] measured that this specific theory does not hold for
-   `systemctl`: systemd's own pager gate checks `isatty` on its *own*
-   stdout/stderr, which `run_inert` always makes pipes, so no argv this
-   crate constructs against `systemctl` ever reaches the pager at all — a
-   74-verb sweep plus direct `strace` confirmation that `less` itself never
-   attempts `/dev/tty` once its own stdout is non-tty, even with a real
-   controlling terminal available via the session. But [M-17] also
-   confirmed, with a shim that does nothing but attempt
-   `open("/dev/tty")`, that the underlying mechanism the report pointed at
-   is real and general, independent of `systemctl` or pagers specifically:
-   under `process_group(0)` alone, a descendant *can* reach a real
-   controlling terminal; spawning the probe in its own session (via
-   `pre_exec` + `setsid()`, this crate's one audited `unsafe` — see
-   `mandible-extract/src/exec/spawn.rs`) makes that same `open` fail with
-   `ENXIO`. `tests/exec_policy.rs`'s `dev_tty_hazard` shim test is the
-   regression net: it fails without the session fix and passes with it.
-   The pager variables are kept set to `cat` anyway as defense-in-depth
-   against a tool whose own pager gate is weaker than systemd's.
-0. **Programs that signal processes or change machine state are invoked only
-   as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`, `skill`,
-   `xkill`, `fuser`, and the system-state commands `halt`, `poweroff`,
-   `reboot`, `shutdown`, `telinit`, `init` may be run with exactly that one
-   argument vector. Every other shape — `-h`, `help <word>`, `<word> --help`,
-   `completion <shell>`, `__complete` — is refused before anything is spawned.
+5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation,
+   since a tool that streams forever must not exhaust memory. Reader
+   threads or a poll loop are mandatory to avoid pipe deadlock on large
+   output.
 
-   This began as a total ban, after a user reported `mandible pkill` freezing
-   their machine badly enough to require a reset. Two later measurements
-   reshaped it.
+6. **Sanitized environment, and a new session.** Clear `LESS`; set (not
+   merely clear) `PAGER`, `MANPAGER`, `GIT_PAGER`, `SYSTEMD_PAGER` to `cat`,
+   since several ecosystems read an *unset* pager variable as "go find one
+   yourself"; set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`,
+   `LC_ALL=C.UTF-8`. Spawn the probe as the leader of a brand-new session,
+   not merely a new process group: `process_group(0)` alone leaves the
+   child in mandible's own session, so its controlling terminal stays
+   reachable, and a descendant can `open("/dev/tty")` directly regardless
+   of what its own stdio was redirected to. [M-17] measured the mechanism
+   directly with a shim that only attempts that open: under
+   `process_group(0)` alone it succeeds; spawning the probe in its own
+   session (`pre_exec` + `setsid()`, this crate's one audited `unsafe`)
+   makes the same call fail with `ENXIO`. The pager variables stay set to
+   `cat` regardless, as defense in depth against a pager gate weaker than
+   the one [M-17] measured.
 
-   **The reason originally given was false.** It held that rule 2's
-   `<tool> <word> --help` shape makes `killall foo --help` kill everything
-   named `foo`. On glibc, GNU getopt permutes arguments, so `--help` is
-   processed wherever it sits: `pkill --help`, `pkill victim --help` and
-   `killall victim --help` were all measured killing nothing. The reset's real
-   mechanism was rule 2a's empty argument.
+7. **Never write.** No tier may pass an argument that could name a file the
+   tool would create or modify.
 
-   **What the ban was silently protecting against is real, and was never
-   written down: `-h` is not a help flag on these tools.** Measured against
-   systemd's multi-call binary, saved only by polkit because the probe ran
-   unprivileged — `halt -h`, `poweroff -h`, `reboot -h` and `shutdown -h` each
-   *attempted the real operation* (`-h` is the halt in `shutdown -h now`).
-   mandible falls back to `-h` whenever `--help` fails, so that fallback alone
-   would have rebooted a machine running as root.
-
-   So the rule keeps what is measured harmless and refuses what is measured
-   dangerous, instead of trading one for the other. `--help` yields real flag
-   lists — `pkill` 27 flags, `killall` and `fuser` 16 each, all fully
-   described; twelve of the thirteen went from `no-tier` to `ok` on the PATH
-   sweep. Positional shapes stay refused because argument permutation is a
-   glibc behaviour rather than a guarantee (BSD and busybox getopt stop at the
-   first non-option), and because the background tree warmer would reach any
-   subcommand a future parser change starts emitting, unasked.
-
-   The general form of that last hazard — a *fabricated* word becoming argv
-   for any tool, not just these — is now closed for the one place in this
-   crate that constructs a positional `--help` probe: Tier B's
-   `<word> --help`/`-h` (`HelpTextTier`, `mandible-extract/src/help_text/mod.rs`)
-   fires only when `NodeHints::heading_attested` is true — the word came
-   from a recognized command heading (or the chain a heading started), never
-   from layout alone. A non-attested node is not probed in any shape; the
-   tier declines and records a per-node, per-tier failure (§5.3) rather than
-   fabricating a probe or letting the tree silently gain an
-   empty-but-successful node in its place. The root is exempt by construction
-   (`Runner::extract_full_for` passes `heading_attested: true` for it, since
-   it is the name the user typed, not a word any parser invented), so the
-   ordinary `<tool> --help` root probe is unaffected. `mandible-extract/tests/exec_policy.rs`'s
-   shim suite proves both halves: an attested word is still probed and its
-   real flags recovered; a non-attested one reaches the tool's binary not at
-   all — verified by running the same assertion against the pre-gate code
-   path and watching it fail.
-
-   This list stays anyway, and is not made redundant by that gate. The two
-   close different gaps: the gate above governs *when a word is trusted
-   enough to become argv at all*, while this list governs *what these
-   thirteen specific programs may be asked to do even with a trusted word*
-   — `--help` remains their only permitted shape regardless of provenance,
-   because for them even a genuine, correctly-attested subcommand name is
-   still a target (`killall foo --help` looks safe by attestation and is
-   refused anyway, since `foo` naming a real process is exactly the risk).
-   The gate also inherits whatever a grammar's own heading-recognition gets
-   wrong — `heading_attested` is only as trustworthy as the rules in
-   `help_text/sections/` that set it, and those have needed several fixes
-   (AGENTS.md §2's invariant table records more than one) — while this list
-   is closed on a fact about the program itself, independent of any parser.
-   Belt and suspenders, on two different axes.
-
-   **This is a safety rule, and is deliberately not the per-tool knowledge §1
-   forbids.** §1 governs *extraction* — "if a tool renders badly, fix the
-   general parser" — because such lists grow without bound and rot. This list is
-   about what may be *executed at all*, is closed, and every entry shares one
-   property that is a fact about the program rather than about its output
-   format. The check lives in `exec::run_inert`, which every tier goes through,
-   so no tier can reach one of these by another route; a test asserts a shim
-   named `pkill` is never executed under any argv but `--help`, and *is*
-   executed for that one — both halves matter, since silently refusing the
-   permitted shape would quietly undo the coverage this rule now allows.
-
-   **A second attestation bit exists now, and this gate deliberately does not
-   read it.** `heading_attested` was doing double duty — "is this word safe
-   to probe" (this gate) *and* "is this name real evidence, not a fabricated
-   phantom subcommand" (the coverage harness's structure-sanity check, spec
-   §13.1). §7 Tier B's headingless-invocation-table recognizer (below, and
-   its own subsection under §7 Tier B) needed a name to answer "yes" to the
-   second question and "no" to the first — a table row is layout evidence
-   about a *document* the tool printed, existence-checked against the raw
-   text, but it is not a heading declaring "here is the command list", which
-   is the specific evidence this gate exists to demand before a word becomes
-   argv. Splitting the bit rather than reusing it is the decision recorded
-   here: `mandible_core::CommandNode::invocation_attested` is a second,
-   independent field, set only by that recognizer. This gate (and
-   `probe_help_text_reporting_flag`/`raw_probe_streams`, its two call sites)
-   reads `heading_attested` only and must never be widened to also accept
-   `invocation_attested` — existence in the text is not the same claim as a
-   heading declaring a command list, and the whole point of keeping the bit
-   separate is that a table-row name never becomes probe argv. The coverage
-   harness's detectors (`xtask::status::count_suspicious`,
-   `xtask::audit::is_attestation_gated_stub`) accept *either* bit as evidence
-   a node names a real command, so a headingless-table node is never
-   mis-flagged as [M-10]'s fabricated-phantom-subcommand shape merely for
-   being correctly withheld from probing.
-
-7. **Never write.** No tier may pass an argument that could name a file the tool
-   would create or modify.
 8. **Redirect every writable location a probe might reach.** Rule 7 is not
-   sufficient, because some tools write *unprompted* on `--help`. Measured: a
-   coverage run over `PATH` caused font-cache builders to write into mandible's
-   working directory, and `mysql_secure_installation` to write a `.my.cnf`
-   containing an empty root password [M-11]. Every probe therefore runs with
-   `CWD`, `HOME`, `TMPDIR`, `XDG_*`, and `XDG_RUNTIME_DIR` pointed at a
-   per-invocation scratch directory that is deleted afterwards. This is a
-   general policy — never a per-tool exclusion list, which would violate §1.
-   Full containment needs OS-level sandboxing (namespaces/seccomp); until then,
-   document the residual risk rather than claiming the probe is inert.
+   sufficient, since some tools write unprompted on `--help` — [M-11] found
+   a coverage run causing font-cache writes and a `mysql_secure_installation`
+   config with an empty root password. Every probe runs with `CWD`, `HOME`,
+   `TMPDIR`, `XDG_*`, and `XDG_RUNTIME_DIR` pointed at a per-invocation
+   scratch directory, deleted afterward, one subdirectory per variable
+   rather than one shared directory (a shared directory is a filesystem
+   shape no real machine has, and let a tool see one file under two
+   different variables). The redirect is all-or-nothing: if the scratch
+   directory cannot be built, the probe is refused with a named error,
+   never run against the inherited environment.
 
-   **One subdirectory per variable, never one shared directory.** They pointed
-   at a single path once, which is a filesystem shape no real machine has — a
-   tool writing `$XDG_CACHE_HOME/x` and reading `$HOME/x` saw one file — so
-   every probe ran against an environment that cannot occur.
+   Full containment needs OS-level sandboxing; until then this is a
+   documented limit, not a closed one. The timeout kills the probe's
+   process group, which a `setsid`ing child leaves, so anything that
+   daemonises can survive it — a CI sweep measured this directly, naming
+   the tools that started and never finished (a browser-driver server, an
+   editor, a REPL, a kernel-probe attacher). The common property is not the
+   tool but the behavior: `--help` is not what these programs do when they
+   do not recognize it, and what they do instead outlives the process
+   group mandible can reach. Exposure differs sharply by use: interactive
+   use probes one tool and its subcommands, while the coverage harness runs
+   thousands of arbitrary binaries in one process and is the only place
+   orphans accumulate.
 
-   **The redirect is all-or-nothing: if the scratch directory cannot be built,
-   the probe is refused with a named error, never run against the inherited
-   environment.** The first implementation fell back silently when tempdir
-   creation failed, and skipped any single subdirectory that failed — a probe
-   could run with this rule partially or wholly absent and nothing recorded
-   it. The likely causes (`$TMPDIR` missing, unwritable, or full) are machine
-   problems that a loud refusal surfaces and a silent downgrade converts into
-   exactly the unprompted writes this rule exists to stop.
+   One deliberate exception: toolchain-resolution variables
+   (`RUSTUP_HOME`, `CARGO_HOME`, `PYENV_ROOT`, `NVM_DIR`, `RBENV_ROOT`,
+   `ASDF_DIR`, `SDKMAN_DIR`, `VOLTA_HOME`) pass through, since redirecting
+   `HOME` breaks every version-manager shim that resolves the program it
+   stands in for through it. `HOME` itself stays redirected. This is a
+   closed list of ecosystems, not of tools, which keeps it on the right
+   side of §1: the knowledge is how version managers locate toolchains, not
+   how any one tool works. Where a manager falls back to a documented path
+   under the real `$HOME` when its own variable is unset, that default is
+   materialized from the real home before the redirect, since almost nobody
+   sets these variables by hand.
 
-   **The residual risk is now measured, not hypothetical.** The timeout kills the
-   probe's *process group*, which a child that calls `setsid` leaves — so
-   anything that daemonises survives it. A full-`PATH` sweep in CI loses roughly
-   three shards in sixteen to the runner being reclaimed, and instrumenting each
-   probe on both sides named the tools that started and never finished:
-   `chromedriver` (starts a browser-driver server), `vimtutor` (launches vim),
-   `ghci` (opens a REPL), `syscount.bt` (attaches kernel probes). The common
-   property is not the tool but the behaviour: **`--help` is not what these
-   programs do when they don't recognise it**, and what they do instead outlives
-   the process group we can reach.
-   
-   Exposure differs sharply by use, which is why this is a documented limit
-   rather than a blocker: interactive use probes one tool and its subcommands,
-   while the coverage harness runs ~1,500 arbitrary binaries in one process and
-   is the only place the orphans accumulate.
+9. **Mask the redirect back out of the output.** A tool printing a
+   `$HOME`-derived default prints the sandbox's, not the reader's — measured
+   producing `docker --help` output naming a scratch directory deleted
+   moments later, with nothing marking it as anything but docker's own
+   documentation. Each scratch path is replaced with the variable that
+   stood in for it, at the same boundary the redirect applied, never with
+   the reader's real home directory, which the tool never actually stated.
+   Every path is registered under both its logical and its canonicalized
+   spelling, since a probe that resolves its own working directory prints
+   the physical one and a symlinked `TMPDIR` would otherwise leave a
+   mangled hybrid path on screen. Matching is on this invocation's exact
+   path, never a pattern, so a temp path a tool legitimately prints is
+   untouched. Residual: a path a tool wraps across two lines at the
+   `COLUMNS` this policy sets cannot be matched; the scratch prefix is kept
+   short to make that rare.
 
-   **One deliberate exception: toolchain-resolution variables.** Redirecting
-   `HOME` breaks every version-manager shim, because they resolve the program
-   they stand in for *through* it — `mandible cargo` reported "rustup could not
-   choose a version of cargo to run" instead of cargo's help, and the same
-   applied to pyenv, nvm, rbenv, asdf, sdkman and volta. A whole class of
-   developer tooling was unusable, which is a poor trade for a containment
-   boundary that these variables do not weaken much: each names a *toolchain*
-   directory, not the user's home, so a misbehaving probe has a far narrower
-   blast radius than `$HOME`.
+**A convention-discovered node (§5.4's `<parent>-<sub>` children, named by a
+file on `PATH`) adds no argv shape and no exemption.** It is probed as its
+own binary's root `--help`, never as a subcommand word, so it needs no
+attestation, exactly as the root the user typed does not. Every rule above
+still applies to that binary on its own terms — rule 0 matches the file
+name it was discovered under, rule 8's redirect and rule 4's reap are the
+same probe machinery. Discovery itself spawns nothing; it is a directory
+read.
 
-   So `RUSTUP_HOME`, `CARGO_HOME`, `PYENV_ROOT`, `NVM_DIR`, `RBENV_ROOT`,
-   `ASDF_DIR`, `SDKMAN_DIR` and `VOLTA_HOME` are passed through, while `HOME`
-   itself stays redirected. Passing them through is not enough on its own:
-   almost nobody sets them by hand, so the manager falls back to a documented
-   path under the real `$HOME` — exactly what the sandbox replaces. The default
-   is therefore materialised from the real home before the redirect, and only
-   when that directory exists.
-
-   This is a **closed list of ecosystems, not of tools**, which is what keeps it
-   on the right side of §1: the knowledge is "how version managers locate
-   toolchains", not "how cargo works". Adding an ecosystem is one entry; it
-   never grows per tool.
-
-9. **Mask the redirect back out of the output.** Rule 8 has a cost the other
-   rules don't: it changes what tools *say*. A tool printing a `$HOME`-derived
-   default prints *ours* — `docker --help` reported its config location as
-   `/tmp/mandible-exec-L3saJ8/.docker`, a directory deleted moments later that
-   never existed for the reader, with nothing on screen marking it as anything
-   but docker's own documentation. The safety mechanism had become a source of
-   confidently false documentation, which is the failure §7's whole degradation
-   ladder exists to prevent when a *parser* causes it.
-
-   Each scratch path is replaced with **the variable that stood in for it**
-   (`$HOME/.docker`), at the same boundary that applied the redirect, so every
-   tier, `--doctor` and the verbatim view get it without knowing. Deliberately
-   *not* the reader's real home directory: the tool never told us that, and
-   filling in a blank is the same move as inventing structure, only smaller. It
-   is how man pages write such defaults anyway, and it is identical on every
-   machine, so a fixture captured from a real tool cannot bake in the capturing
-   machine's paths.
-
-   This is what rule 8's one-subdirectory-per-variable requirement buys. With a
-   single shared directory there is no correct answer to write back, because
-   `/tmp/…/.docker` could have come from any of seven variables.
-
-   Matching is on this invocation's exact path, never a `/tmp/mnd-*` pattern, so
-   a temp path a tool legitimately prints is untouched. Every path is registered
-   under **both its logical and its canonicalized spelling**, because a probe
-   that resolves its own working directory prints the physical one: on macOS
-   `$TMPDIR` sits under `/var`, a symlink to `/private/var`, so registering one
-   form left the output reading `cwd=/private$PWD` — a mangled hybrid harder to
-   spot than an unmasked path.
-
-   **Residual:** a tool wraps its own help text at the `COLUMNS` we set, so a
-   path split across two lines cannot be matched. The scratch prefix is kept
-   short to make that rarer; it does not eliminate it.
-
-**A convention-discovered node adds no argv shape, and no exemption.** §5.4's
-`<parent>-<sub>` children are named by a file on `PATH`, not by anything the
-parent's help attested — exactly the kind of word rule 0's closing paragraph
-keeps out of argv — and no such word ever enters one. The node is probed as
-its *own binary's root* `--help`, which is not a subcommand word at all and
-so needs no attestation, precisely as the root the user typed does not. Every
-gate then applies to that binary on its own terms: rule 0 matches the file
-name it was discovered under (a `pkill`-named sibling is refused every shape
-but `--help`, like any other `pkill`), rule 8's scratch redirect and rule 4's
-reap are the same probe machinery, and a *deeper* word under such a node is
-attested by that binary's own help in the ordinary way. Discovery itself
-spawns nothing: it is a `readdir`, in the same filesystem-only module that
-already resolves a tool name.
-
-A test asserts rules 1, 2, and 3 by running the full pipeline against a shim
-binary that logs its argv and environment, and failing on any invocation outside
-the allowlist.
-
+---
 ---
 
 ## 7. Extraction tiers, in detail
@@ -3532,6 +3220,24 @@ any of these as current.
   `git-lfs`, `ollama`) — the speculative form was contributing nothing to
   extraction while carrying the whole risk of a bare invocation reaching an
   unrelated tool.
+
+- **[M-24] Process-containment residuals.** A developer box accumulated 622
+  orphaned processes from probes whose descendant daemonised and left the
+  process group: `blkmapd` ×148, `rpc.idmapd` ×144, `rpc.gssd` ×144, plus
+  `sudo_logsrvd` listening on `0.0.0.0:30343` and `[::]:30343`, `guacd` on
+  `127.0.0.1:4822`, and `pam-auth-update` burning a full core for three
+  days, the oldest five days old. Not a hang: all 2,302 `probe-start` lines
+  in a traced sweep had a matching `probe-done`, so every probe returned
+  normally. The child-subreaper reap (§6 rule 4) closed this.
+
+  Separately, the scratch-directory redirect (§6 rule 8) does not stop a
+  probe that daemonises from surviving past the timeout, since the timeout
+  only kills the process group. A CI sweep loses roughly three shards in
+  sixteen to the runner being reclaimed; instrumenting both sides named the
+  tools that start and never finish: `chromedriver` (starts a
+  browser-driver server), `vimtutor` (launches vim), `ghci` (opens a REPL),
+  `syscount.bt` (attaches kernel probes). This residual is documented, not
+  closed, and needs OS-level sandboxing to close fully.
 
 ---
 
