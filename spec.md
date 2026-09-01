@@ -1077,7 +1077,12 @@ argument block. A profile carries no grammar of its own — no value-spec
 syntax, no continuation-folding rule — because the shared low-level grammar
 already handles `--opt=VALUE` / `--opt VALUE` / `--opt <value>` /
 `--opt[=VALUE]` and indent-relative continuation folding uniformly across
-every framework tested. Adding a framework is one `match` arm in `profile()`
+every framework tested. Two profile fields are gates rather than vocabulary,
+`argparse_subparser_quirk` and `comma_separated_command_list`. Each admits one
+framework to a dedicated scan for a shape the shared engine cannot express at
+all, argparse's `{choice,choice}` pseudo-entry and busybox's comma-separated
+applet run. A gate is still not a grammar, and it never loosens a rule the
+other frameworks rely on. Adding a framework is one `match` arm in `profile()`
 plus one fingerprint in Tier A′, nothing more. If a framework is ever found
 whose shape the shared engine genuinely cannot express, the fix is to widen
 the engine, which improves every framework at once, never to add a
