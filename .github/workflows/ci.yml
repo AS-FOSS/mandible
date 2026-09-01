@@ -18,6 +18,7 @@ on:
       - "LICENSE-*"
       - "NOTICE"
       - ".gitignore"
+      - ".github/workflows/ci.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/install-matrix.yml"
       - ".github/workflows/nix.yml"

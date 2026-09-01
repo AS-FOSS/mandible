@@ -44,6 +44,7 @@ on:
       - "LICENSE-*"
       - "NOTICE"
       - ".gitignore"
+      - ".github/workflows/frameworks.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/install-matrix.yml"
       - ".github/workflows/nix.yml"
