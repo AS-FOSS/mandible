@@ -1,0 +1,10 @@
+Usage: /usr/bin/zgrep [OPTION]... [-e] PATTERN [FILE]...
+Look for instances of PATTERN in the input FILEs, using their
+uncompressed contents if they are compressed.
+
+OPTIONs are the same as for 'grep', except that the following 'grep'
+options are not supported: --dereference-recursive (-R), --directories (-d),
+--exclude, --exclude-from, --exclude-dir, --include, --null (-Z),
+--null-data (-z), and --recursive (-r).
+
+Report bugs to <bug-gzip@gnu.org>.

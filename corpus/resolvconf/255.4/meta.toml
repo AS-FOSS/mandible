@@ -1,0 +1,30 @@
+# From issue 102 item 4 (wrapped-prose row boundary). The unsupported-
+# options sentence wraps onto a line starting with "-I, -i, -l, -R, -r,
+# -v, -V, --enable-updates, ...", a dash-led word, so the wrap is read as
+# a new row instead of a continuation of the previous line.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "resolvconf"
+version = "255.4"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["resolvconf", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+# resolvconf explicitly says these cause the invocation to fail, i.e. it
+# does not support them. Both are fabricated because the sentence naming
+# them wraps mid-list onto a line starting with a dash-led word, and that
+# wrap is read as a new flag row.
+must_not_contain_flags = ["-I", "--enable-updates"]
+
+[xfail]
+broken = true
+reason = "the sentence 'Various options ... will cause the invocation to fail:' wraps onto a line starting with '-I, -i, -l, -R, -r, -v, -V, --enable-updates, ...', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating -I and --enable-updates as real resolvconf flags. The C3 whitespace-continuation rules do not reach this shape."

@@ -1,0 +1,29 @@
+# From issue 102 item 4 (wrapped-prose row boundary). The excluded-options
+# sentence wraps mid-list onto a line starting with "--null-data (-z), and
+# --recursive (-r).", a dash-led word, so the wrap is read as a new row
+# rather than a continuation of the previous line.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "zgrep"
+version = "1.12"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["zgrep", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+# zgrep has neither flag. Both are fabricated because the sentence listing
+# unsupported grep options wraps mid-list onto a line starting with a
+# dash-led word, and that wrap is read as a new flag row.
+must_not_contain_flags = ["--exclude", "--null-data"]
+
+[xfail]
+broken = true
+reason = "the sentence listing unsupported grep options wraps onto a line starting with '--null-data (-z), and --recursive (-r).', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating --exclude and --null-data as real zgrep flags. The C3 whitespace-continuation rules do not reach this shape."
