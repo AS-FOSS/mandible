@@ -1869,7 +1869,9 @@ Five rules follow, each keyed to one of those incidents:
 4. **A name is part of a metric's design, not decoration.** A name a reader
    could mistake for a stronger claim than the metric makes is a defect.
    `pct_described` was renamed `pct_flags_with_text` for this reason alone;
-   the computation did not change.
+   the computation did not change. `xtask::coverage::parse_aggregate_footer`
+   still reads a scoreboard's old `pct_described=` key for backward
+   compatibility and never writes one; see Appendix B for both renames.
 5. **A mass status promotion must carry its own spot-audit stratum, drawn
    at random, never asserted from the aggregate that produced it.** A clean
    corpus and a clean sweep-diff prove nothing regressed; neither looks at a
