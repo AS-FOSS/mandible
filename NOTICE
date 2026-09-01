@@ -8,8 +8,18 @@ repository, per spec.md §14/§15 — vendored data is a distinct legal
 question from crate dependency licensing, and the more likely real exposure
 for this project.
 
-No vendored data (as of revision 3)
-------------------------------------
+Vendored data
+--------------
+
+**humanizer**, MIT, from https://github.com/blader/humanizer, vendored as
+`docs/vendor/humanizer-SKILL.md`. It is the writing guide this repository's
+prose is edited through, based on Wikipedia's "Signs of AI writing" as
+maintained by WikiProject AI Cleanup. The file is copied verbatim and keeps
+its own `license: MIT` front-matter field, which is the attribution MIT
+requires. Nothing in it is executed and nothing ships in a released binary.
+
+Formerly vendored
+------------------
 
 Revision 3 of spec.md removed the only third-party data this repository
 ever vendored: a snapshot of the carapace-spec catalog
@@ -24,8 +34,8 @@ how a *generator* formats its output, not per-tool knowledge about any one
 tool. See spec.md §7's "Tier A — REMOVED" for the full reasoning, preserved
 so it is not re-proposed.
 
-mandible currently ships with no vendored third-party data at all, so this
-file has no attribution obligation to record today.
+No third-party data ships in a released binary. The one vendored file is the
+writing guide recorded above, which lives in the repository only.
 
 Not currently vendored
 -----------------------

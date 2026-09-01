@@ -2,6 +2,10 @@
 //! harness (spec §13.1).
 
 #![forbid(unsafe_code)]
+// Size ceilings. Both lints are opt-in; the thresholds live in the
+// workspace `clippy.toml`, and CI's `-D warnings` makes them gates.
+#![warn(clippy::too_many_lines)]
+#![warn(clippy::cognitive_complexity)]
 
 mod alternation;
 mod audit;
@@ -974,6 +978,8 @@ pub(crate) fn finish_sweep_guard(
     );
 }
 
+// Ratchet: argument plumbing for the sweep, one branch per flag. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
 fn run_coverage(
     check: bool,
     out: &PathBuf,

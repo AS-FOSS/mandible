@@ -47,8 +47,9 @@ What the command does, in order:
    your work under someone else.
 2. Scans your `PATH` once and freezes what it finds under
    `audit/submissions/<login>/`. This takes a few minutes and shows its
-   progress. The frozen queue and the captured help texts stay out of git;
-   they describe your machine, not the project.
+   progress. The frozen queue and its bulk captures stay out of git, under
+   `queue-captures/`; they describe your machine, not the project. Evidence
+   files saved beside a verdict are small and they are tracked.
 3. Draws twenty tools with a random seed and prints the seed. The seed names
    the file (`<seed>.toml`) and is recorded inside it, so we always know which
    draw a submission came from. `--seed N` and `--sample N` override both.

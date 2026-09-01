@@ -1227,6 +1227,8 @@ fn skipped_lines(file: &AuditFile) -> Vec<String> {
 /// can both use exactly the same rendering rather than one re-deriving it or
 /// scraping the other's stdout (AGENTS.md §3.3: never parse human-format
 /// output, including your own).
+// Ratchet: one report template rendered in a single pass. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn render_report(dir: &Path, seed: u64) -> anyhow::Result<String> {
     let path = verdict_path(dir, seed);
     let file = load(&path)?;

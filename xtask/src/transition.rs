@@ -1069,6 +1069,9 @@ fn escape_md(s: &str) -> String {
 /// Render [`Transition`] as GitHub-flavored markdown for
 /// `$GITHUB_STEP_SUMMARY` — the format this whole module's doc comment
 /// insists on over a raw scoreboard-file diff.
+// Ratchet: one long report template; every branch emits a different section. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity)]
 pub fn render_markdown(t: &Transition) -> String {
     let mut out = String::new();
     out.push_str("## Sweep transition report\n\n");
@@ -1356,6 +1359,8 @@ fn capped_join(names: &[&str]) -> String {
 /// Plain-text rendering of [`Transition`], for a terminal or a plain log —
 /// same content as [`render_markdown`], no GFM syntax. Mirrors
 /// `coverage::render_text`/`render_markdown`'s own dual-format convention.
+// Ratchet: the plain-text twin of render_markdown, same shape. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
 pub fn render_text(t: &Transition) -> String {
     let mut out = String::new();
     out.push_str(&format!(

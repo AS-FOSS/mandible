@@ -1,0 +1,27 @@
+name: shape
+
+# File size, comment shape and narrative prose. Two scripts, no build, a few
+# seconds.
+#
+# This is a workflow of its own rather than a job in `ci.yml` for one reason:
+# `ci.yml` carries `paths-ignore: "**/*.md"`, so a change to `spec.md`,
+# `AGENTS.md` or `docs/shapes.md` skips it entirely. Prose is most of what the
+# narrative lint exists to check, and a lint that cannot see the files it
+# guards is decorative. Nothing here compiles anything, so running it on every
+# push and every pull request costs nothing worth filtering.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  shape:
+    name: shape (size, comments, narrative, ratchet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/ratchet_check.sh
+      - run: ./scripts/shape_guard.sh

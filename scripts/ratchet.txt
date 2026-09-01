@@ -1,0 +1,17 @@
+# Every scoped `#[allow(clippy::too_many_lines)]` and
+# `#[allow(clippy::cognitive_complexity)]` in the tree, one per line.
+# `scripts/ratchet_check.sh` fails when the tree carries more allows than
+# this file lists. Removing a line is the only edit it should receive.
+#
+# lint	file	function
+clippy::cognitive_complexity	mandible-extract/src/help_text/sections/mod.rs	parse_body
+clippy::cognitive_complexity	mandible-extract/src/help_text/sections/scan.rs	scan_headingless_invocation_table
+clippy::cognitive_complexity	xtask/src/transition.rs	render_markdown
+clippy::too_many_lines	mandible-extract/src/help_text/sections/mod.rs	parse_body
+clippy::too_many_lines	xtask/src/audit.rs	render_report
+clippy::too_many_lines	xtask/src/corpus.rs	check_contract
+clippy::too_many_lines	xtask/src/corpus.rs	run_with_ceiling
+clippy::too_many_lines	xtask/src/main.rs	run_coverage
+clippy::too_many_lines	xtask/src/single_dash_long.rs	self_checks
+clippy::too_many_lines	xtask/src/transition.rs	render_markdown
+clippy::too_many_lines	xtask/src/transition.rs	render_text

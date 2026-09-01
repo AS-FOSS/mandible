@@ -387,6 +387,8 @@ pub(crate) const SG_EMC_TRESPASS_TOKEN: &str = "-hr:";
 /// The hand-built cases this detector is willing to be judged on when the
 /// labelled set has nothing left to say. Both directions, for the reason
 /// [`crate::detector::Calibration::self_checks_are_conclusive`] states.
+// Ratchet: a literal table of hand-built cases, not logic. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn self_checks() -> Vec<crate::detector::SelfCheck> {
     use crate::detector::{Expect, SelfCheck};
 

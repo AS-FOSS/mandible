@@ -379,6 +379,9 @@ pub fn parse_with_profile(
 /// [`split_shared_heading_rows`]'s doc comment for why this is the only
 /// place that fact can still be read from, and why it is keyed on the row
 /// rather than the heading beside it.
+// Ratchet: the seventeen-flag body scanner; split into typed passes is tracked work. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity)]
 fn parse_body(
     raw: &str,
     profile: Option<&FrameworkProfile>,

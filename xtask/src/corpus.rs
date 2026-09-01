@@ -951,6 +951,8 @@ struct ContractFailure(String);
 /// [`ContractFailure`] per violated field (empty = every check that was
 /// actually specified passed). A field left unset in `meta.toml` asserts
 /// nothing and is silently skipped.
+// Ratchet: one check per contract field, flat and deliberately unfactored. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
 fn check_contract(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<ContractFailure> {
     let mut failures = Vec::new();
     let Some(root) = root else {
@@ -1274,6 +1276,8 @@ pub fn run_with_baseline(
 /// property could only be checked by editing the constant by hand — which
 /// is how it was verified originally, and exactly the kind of unguarded
 /// behaviour a later refactor silently reverses.
+// Ratchet: the fixture runner's main loop; split into load and compare is tracked work. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
 fn run_with_ceiling(
     corpus_root: &Path,
     bless: bool,

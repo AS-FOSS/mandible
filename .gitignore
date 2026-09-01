@@ -65,7 +65,10 @@ audit/queue-captures/
 # `audit/queue.toml`'s own captures above, just rooted one level deeper —
 # regenerate locally, never commit. `audit/submissions/<login>/<seed>.toml`
 # and `<seed>-report.txt` (not matched by either glob below) ARE tracked,
-# same as `audit/<seed>.toml` always has been.
+# same as `audit/<seed>.toml` always has been. So is per-seed evidence saved
+# beside a verdict under `audit/submissions/<login>/<seed>/`: those files are
+# small, and a verdict whose evidence lives on one machine is a claim without
+# evidence, which is the thing this whole tree exists to rule out.
 audit/submissions/*/queue.toml
 audit/submissions/*/queue-captures/
 .venv/

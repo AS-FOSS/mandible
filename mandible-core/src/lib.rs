@@ -7,6 +7,10 @@
 //! rules that keep that data model trustworthy.
 
 #![forbid(unsafe_code)]
+// Size ceilings. Both lints are opt-in; the thresholds live in the
+// workspace `clippy.toml`, and CI's `-D warnings` makes them gates.
+#![warn(clippy::too_many_lines)]
+#![warn(clippy::cognitive_complexity)]
 #![warn(missing_docs)]
 
 pub mod audit;

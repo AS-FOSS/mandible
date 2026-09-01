@@ -1,0 +1,11 @@
+# Size ceilings for functions, enforced workspace-wide.
+#
+# `too_many_lines` and `cognitive_complexity` are opt-in lints; each crate root
+# carries `#![warn(...)]` for both, and CI's `-D warnings` turns them into
+# gates. Existing offenders carry a scoped `#[allow]` with a one-line reason
+# and are counted in `scripts/ratchet.txt`, which may only shrink.
+#
+# The numbers are a starting ceiling, not a law of nature. Raising either one
+# is a decision that belongs in spec.md section 16.
+too-many-lines-threshold = 150
+cognitive-complexity-threshold = 30

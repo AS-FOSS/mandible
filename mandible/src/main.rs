@@ -2,6 +2,10 @@
 //! TUI together; also hosts the non-interactive `--doctor` diagnostic.
 
 #![forbid(unsafe_code)]
+// Size ceilings. Both lints are opt-in; the thresholds live in the
+// workspace `clippy.toml`, and CI's `-D warnings` makes them gates.
+#![warn(clippy::too_many_lines)]
+#![warn(clippy::cognitive_complexity)]
 
 mod about;
 mod app_runner;

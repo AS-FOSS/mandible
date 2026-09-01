@@ -275,6 +275,8 @@ pub(super) const MIN_INVOCATION_TABLE_ROWS: usize = 2;
 /// though they are existence-attested) — a parent gains
 /// `children_filled: true` only when the table itself supplied at least
 /// one of its children.
+// Ratchet: one table walk with interleaved lookahead; splitting it needs the pass split first. Listed in scripts/ratchet.txt.
+#[allow(clippy::cognitive_complexity)]
 pub(super) fn scan_headingless_invocation_table<'a>(
     lines: &[&'a str],
     start: usize,
