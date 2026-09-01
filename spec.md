@@ -3442,7 +3442,7 @@ a verdict, never a draw.
 **First promotion event, backfilled**: 942890d's synopsis short-flag-cluster
 fix changed 5 of the 94 seed-2-audited tools (tcpdump, xfs_io, filefrag,
 tmux, eqn — all gaining flags, none losing any), all already present in
-`audit/2.toml` with pre-fix verdicts (`wrong`/`incomplete`, all four
+`audit/submissions/sadigaxund/2.toml` with pre-fix verdicts (`wrong`/`incomplete`, all four
 non-tmux entries carrying the `bundled-short-flag` defect family the fix
 addressed). `xtask audit spot-audit --event bundled-short-flag-942890d
 --promoted tcpdump,xfs_io,filefrag,tmux,eqn --sample 8 --draw-seed 942890`
@@ -3522,7 +3522,7 @@ verdict line or note:
   flag (`bpftrace`'s `-vv` → `-v` + value `v`, measured on all five `.bt`
   tools in the seed-2 sample — the reviewer read these as "missing", since
   the TUI shows two `-v` rows and no `-vv`). All three sit under `k1 = true`
-  in `audit/2.toml`. The families are distinguished by what the value text
+  in `audit/submissions/sadigaxund/2.toml`. The families are distinguished by what the value text
   *is*: a long-option word, a run of distinct single-character flag letters,
   or a repeat of the flag's own letter. A detector for any one of them will
   fire on the other two unless it makes that distinction, which is precisely

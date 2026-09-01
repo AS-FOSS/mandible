@@ -10,7 +10,7 @@
 //! and `try_value` glues every remaining character onto it as a required
 //! value — so the tree gains `-A` with `value_name:
 //! "bdDefhHIJKlLnNOpqStuUvxX#"` and loses the other 25 flags entirely.
-//! Five real examples, all from `audit/2.toml`'s seed-2 human review, four
+//! Five real examples, all from `audit/submissions/sadigaxund/2.toml`'s seed-2 human review, four
 //! of them judged `wrong` explicitly for this:
 //!
 //! | tool | raw synopsis token | parsed as | real flags destroyed |
@@ -99,7 +99,7 @@
 //! # Three defect families share this structural fingerprint
 //!
 //! `short && !long && value_name` — a bare short flag carrying a value —
-//! is not one bug. The calibration work against `audit/2.toml` found
+//! is not one bug. The calibration work against `audit/submissions/sadigaxund/2.toml` found
 //! **three** distinct families producing it, all filed under the same
 //! `k1` label, and only the first is this module's:
 //!

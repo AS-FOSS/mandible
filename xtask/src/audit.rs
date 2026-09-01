@@ -477,7 +477,7 @@ pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> 
 /// frequently overlaps the ordinary stratified draw that a prior audit
 /// already sampled — the motivating case here (spec §13.1b's backfill) is
 /// exactly this: all 5 bundled-short-flag-promoted tools were already
-/// present in `audit/2.toml`, reviewed **against the pre-fix parse**, and
+/// present in `audit/submissions/sadigaxund/2.toml`, reviewed **against the pre-fix parse**, and
 /// three were judged `wrong`/one `incomplete` *for that same
 /// bundled-short-flag defect* — the tool a promotion event just fixed.
 /// Silently skipping an already-present tool (this function's first

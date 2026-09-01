@@ -27,7 +27,7 @@
 //!
 //! # The labelled family, and what survived reading all of it
 //!
-//! `audit/2.toml` labels seven tools `dropped-alias`. **Six, after `eqn`:**
+//! `audit/submissions/sadigaxund/2.toml` labels seven tools `dropped-alias`. **Six, after `eqn`:**
 //! `eqn`'s `{-v | --version}` is a brace alternation, not an interrupted
 //! alias list — the spelling is lost because the synopsis tokenizer never
 //! opens the group, and the same alternation rule that recovers it also
