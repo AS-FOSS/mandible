@@ -13,7 +13,9 @@ $ mandible --report git
 ```
 
 That prints a ready-to-paste block with your mandible version, the tool's
-output, and what mandible made of it. Open an issue, paste it in, done.
+output, and what mandible made of it. Open an issue, paste it in, done. The
+form also asks for your OS and what you expected; a screenshot helps when the
+problem is how something looks.
 
 The reason this is worth your time: your tool's version and its exact `--help`
 text disappear the moment you upgrade. Nobody else can recover them. Everything
@@ -22,35 +24,58 @@ including us. So the report really is the whole contribution.
 
 You will not be asked to go read anything else first.
 
-## 2. Test mandible against your own tools
+## 2. Audit mandible against your own tools
 
 Every accuracy number this project publishes comes from a single Ubuntu machine
 on ARM. That is the biggest blind spot we have. If you run macOS, or Fedora, or
 Alpine, or you simply have different software installed, the tools on your
 `PATH` are ones we have never seen.
 
-The built-in audit tool draws a random sample of your installed commands, shows
-you what mandible extracted next to what the tool actually printed, and records
-your verdict on each one.
+An issue is still the fastest way to report one tool (section 1). This is for
+when you would rather spend half an hour and hand us twenty:
 
 ```console
-$ cargo run -p xtask -- audit sample --seed 42 --sample 20
-$ ./target/release/mandible --review 42
-$ cargo run -p xtask -- audit report --seed 42
+$ git clone https://github.com/AS-FOSS/mandible && cd mandible
+$ cargo xtask audit contribute
 ```
 
-The first command scans your `PATH` and takes several minutes, so start it and
-go do something else. The second opens each sampled tool in the normal
-interface. Press `t` to see the raw help text, then `c`, `i`, `w`, or `s` for
-correct, incomplete, wrong, or skip. It saves after every verdict, so you can
-quit with `Ctrl-C` and pick up where you left off.
+What the command does, in order:
 
-When you are done, open an issue and attach `audit/42.toml`. That file holds
-the sample, your verdicts, and your notes. Twenty tools is plenty. Even five is
-useful.
+1. Asks for your GitHub login. It suggests the one `gh` is signed in with, if
+   any. The folder your audit lands in is named after it, and a check on the
+   pull request refuses a folder that does not match the account opening it,
+   so a typo here fails loudly rather than filing your work under someone
+   else.
+2. Scans your `PATH` once and freezes what it finds under
+   `audit/submissions/<login>/`. This takes a few minutes and shows its
+   progress. The frozen queue and the captured help texts stay out of git;
+   they describe your machine, not the project.
+3. Draws twenty tools with a random seed and prints the seed. The seed names
+   the file (`<seed>.toml`) and is recorded inside it, so we always know which
+   draw a submission came from. `--seed N` and `--sample N` override both.
+   Tools that already have a verdict from anyone, or a fixture under
+   `corpus/`, are left out of the draw; `--include-audited` puts them back.
+4. Opens each tool in the normal interface next to its real help text. Press
+   `t` to see the raw text, then `c`, `i`, `w` or `s` for correct, incomplete,
+   wrong or skip. A note is required for wrong and incomplete. It saves after
+   every verdict, so `Ctrl-C` and rerun the command to pick up where you left
+   off.
+5. Writes `audit/submissions/<login>/<seed>.toml` and, beside it,
+   `<seed>-report.txt`, the same summary `audit report` prints. Commits both on
+   a branch named `audit/<login>-<seed>`.
+6. Asks whether to open the pull request. Yes runs `gh pr create`, which forks
+   the repository for you if you cannot push to it. No, or no `gh` installed,
+   prints the commands to run yourself.
 
 Judge the flags and the subcommands. Descriptions and layout are known to be
-rough and we are not measuring them yet.
+rough and we are not measuring them yet. Twenty tools is plenty. Even five is
+useful.
+
+What happens next: the report file in your pull request is what gets read.
+Once merged, your folder is the record. When a verdict turns into work, the
+corpus fixture or the issue that comes out of it names your file
+(`audit/submissions/<login>/<seed>.toml`), so you can see which of your
+verdicts became a guarded test or an open bug.
 
 ## 3. Turn a report into a test
 
