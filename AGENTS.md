@@ -265,8 +265,9 @@ Load the humanizer skill before editing any document. It is vendored at
 
 Run `scripts/pr_class.sh`. It prints `code` or `direct`.
 
-`direct` means the diff touches nothing under `mandible*/`, `xtask/src`,
-`corpus/` or the Cargo manifests, so it goes straight to main. A docs-only push
+`direct` means the diff touches nothing under `mandible*/`, `xtask/src` or the
+Cargo manifests, so it goes straight to main. A corpus fixture is captured
+bytes plus a contract, so it is data and it goes direct too. A docs-only push
 skips CI entirely, so a self-opened self-merged pull request for a paragraph
 adds a merge commit and a dead branch while gating nothing.
 `scripts/pr_class_hook.sh` is the same check wired to `gh pr create`, and its

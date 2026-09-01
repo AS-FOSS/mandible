@@ -8,8 +8,14 @@
 # request for prose adds a merge commit and a dead branch while gating
 # nothing, because a docs-only push skips CI entirely (`paths-ignore`).
 #
-# Code paths are `mandible*/`, `xtask/src`, `corpus/` and the Cargo manifests.
-# Everything else is prose or process.
+# Code paths are `mandible*/`, `xtask/src` and the Cargo manifests. Everything
+# else is prose, data or process.
+#
+# `corpus/` is deliberately NOT a code path. A fixture is captured bytes plus a
+# contract, so it is data, and the maintainer's standing rule reserves pull
+# requests for parser logic and releases. What guards a fixture is `xtask
+# corpus` on push, and the `git status` check for an invented xfail snapshot
+# (AGENTS §3.4), not a reviewer.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -18,7 +24,7 @@ base="${1:-main}"
 merge_base=$(git merge-base "$base" HEAD)
 changed=$(git diff --name-only "$merge_base"...HEAD)
 
-if printf '%s\n' "$changed" | grep -qE '^(mandible[^/]*/|xtask/src/|corpus/|Cargo\.(toml|lock)$)'; then
+if printf '%s\n' "$changed" | grep -qE '^(mandible[^/]*/|xtask/src/|Cargo\.(toml|lock)$)'; then
     echo code
 else
     echo direct
