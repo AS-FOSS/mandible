@@ -393,17 +393,12 @@ pub(super) fn split_aligned_spelling_entry(line: &str) -> (String, String) {
 pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     // `find_dash_token_separator_gap` is deliberately *not* part of
     // `find_description_gap`'s own chain (see that function's own doc
-    // comment): its `strip_dash_token_separator` must run only when it is
-    // the one that supplied the gap, never when `find_multi_space_gap`
-    // already found a real column and the description on the far side of
-    // it simply begins with a literal `-` as the tool's own text (`ar`'s
-    // own `@<file>      - read options from <file>`, where that dash must
-    // survive verbatim). So it is tried here, out of band, only once
-    // `find_description_gap` itself has already found nothing at all.
-    let (gap, from_dash_token) = match find_description_gap(line) {
-        Some(col) => (Some(col), false),
-        None => (find_dash_token_separator_gap(line), true),
-    };
+    // comment): it is tried here, out of band, only once
+    // `find_description_gap` itself has found nothing at all. Whichever
+    // finder supplies the column, `split_at_column` strips a leading lone
+    // `-` separator from the description side — `ar`'s tables put ` - ` on
+    // every row, aligned or overrun, and the two must read the same.
+    let gap = find_description_gap(line).or_else(|| find_dash_token_separator_gap(line));
     let (spec, desc) = split_at_column(line, gap);
     // `find_equals_separator_gap`/`find_multi_space_gap` may have cut at or
     // before a lone `=` separator token, leaving it attached to the front
@@ -413,14 +408,6 @@ pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     // `find_colon_separator_gap` leaves its own separator attached the
     // same way — see `strip_colon_separator`.
     let desc = strip_colon_separator(&desc).to_string();
-    // `find_dash_token_separator_gap` leaves its own separator attached
-    // the same way — see `strip_dash_token_separator`. Scoped to exactly
-    // the row that fallback itself matched, per the comment above.
-    let desc = if from_dash_token {
-        strip_dash_token_separator(&desc).to_string()
-    } else {
-        desc
-    };
     // A second column of *option spellings* is not a description (`awk
     // --help` prints POSIX short options beside their GNU long
     // equivalents) — see `is_synonym_not_description`. Blanked rather than

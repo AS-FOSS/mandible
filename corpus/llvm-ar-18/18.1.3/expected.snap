@@ -18,7 +18,7 @@ flags:
   - darwin
   - bsd
   - bigarchive
-  description: '- archive format to create'
+  description: archive format to create
   provenance:
     sources:
     - help-text
@@ -26,20 +26,20 @@ flags:
   - --plugin
   value_name: <string>
   value_kind: Required
-  description: '- ignored for compatibility'
+  description: ignored for compatibility
   provenance:
     sources:
     - help-text
 - spellings:
   - -h
   - --help
-  description: '- display this help and exit'
+  description: display this help and exit
   provenance:
     sources:
     - help-text
 - spellings:
   - --output
-  description: '- the directory to extract archive members to'
+  description: the directory to extract archive members to
   provenance:
     sources:
     - help-text
@@ -48,19 +48,19 @@ flags:
   choices:
   - posix
   - windows
-  description: '- quoting style for response files'
+  description: quoting style for response files
   provenance:
     sources:
     - help-text
 - spellings:
   - --thin
-  description: '- create a thin archive'
+  description: create a thin archive
   provenance:
     sources:
     - help-text
 - spellings:
   - --version
-  description: '- print the version and exit'
+  description: print the version and exit
   provenance:
     sources:
     - help-text
@@ -68,7 +68,7 @@ flags:
   - -X
   value_name: '{32|64|32_64|any}'
   value_kind: Required
-  description: '- object mode (only for AIX OS)'
+  description: object mode (only for AIX OS)
   provenance:
     sources:
     - help-text
@@ -76,7 +76,7 @@ flags:
   - '@'
   value_name: <file>
   value_kind: Required
-  description: '- read options from <file>'
+  description: read options from <file>
   provenance:
     sources:
     - help-text
