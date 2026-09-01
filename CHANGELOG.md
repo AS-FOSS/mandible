@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-01
+
 ### Added
 
 - `mandible llvm-ar` now shows its `OPERATIONS:` table (`d`, `m`, `p`, `q`, `r`, `s`, `t`, `x`) as subcommands instead of dropping it: the heading says "operations" rather than "commands", which spec §7 Tier B rule 1's recognized-heading vocabulary is extended to accept as the same kind of evidence, since an operation letter is an invocation verb exactly the way a subcommand name is — `ar`'s own equivalent table was unaffected because its heading already says "commands".
