@@ -192,7 +192,7 @@ fn load_queue(path: &Path) -> anyhow::Result<Queue> {
     toml::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {}: {e}", path.display()))
 }
 
-fn save_queue(path: &Path, queue: &Queue) -> anyhow::Result<()> {
+pub(crate) fn save_queue(path: &Path, queue: &Queue) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)
@@ -234,7 +234,7 @@ pub fn population_hash(tools: &[String]) -> String {
 /// days-since-epoch civil-calendar conversion (Howard Hinnant's
 /// `civil_from_days`, public domain), which is exact for every date this
 /// project will ever produce and needs no leap-second table.
-fn today_iso8601() -> String {
+pub(crate) fn today_iso8601() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -355,7 +355,7 @@ struct CaptureEntry {
 /// order) purely so a re-run of `freeze` against unchanged bytes produces a
 /// stable diff, never because numbering is read back — [`load_captures_for_tool`]
 /// only ever reads `index.toml`'s own filenames.
-fn write_captures_for_tool(
+pub(crate) fn write_captures_for_tool(
     captures_dir: &Path,
     tool: &str,
     recordings: &HashMap<Vec<String>, ExecOutput>,
@@ -576,7 +576,7 @@ pub fn cmd_sample(
     sample_size: usize,
     dir: &Path,
     force_include: &[(String, String)],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<usize> {
     let qpath = queue_path(dir);
     let mut queue = load_queue(&qpath)?;
 
@@ -671,7 +671,7 @@ pub fn cmd_sample(
         force_include.len(),
         s = if added == 1 { "y" } else { "ies" },
     );
-    Ok(())
+    Ok(drawn.len())
 }
 
 /// Reclassify one entry from its cached captures, with **zero subprocess

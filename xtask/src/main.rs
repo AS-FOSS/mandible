@@ -5,6 +5,7 @@
 
 mod alternation;
 mod audit;
+mod audit_contribute;
 mod bundling;
 mod commandtable;
 mod corpus;
@@ -545,6 +546,45 @@ enum AuditAction {
         #[arg(long)]
         draw_seed: u64,
     },
+    /// The one-command audit submission flow (CONTRIBUTING.md §2 / README's
+    /// "Contributing" section): prompts for a GitHub login, freezes a
+    /// personal queue under `<dir>/<login>/` excluding already-audited
+    /// tools, draws a random sample, and — once every drawn tool has a
+    /// verdict — writes `<seed>-report.txt` and prints how to finish the
+    /// submission. See `crate::audit_contribute`'s own doc comment for what
+    /// is and is not implemented yet.
+    Contribute {
+        /// Draw this seed instead of one derived from the clock, and reuse
+        /// it (rather than resuming whatever unfinished draw is on disk) if
+        /// a verdict file for it already exists. Also names the verdict
+        /// file (`<dir>/<login>/<seed>.toml`).
+        #[arg(long)]
+        seed: Option<u64>,
+        /// How many tools to draw.
+        #[arg(long, default_value_t = 20)]
+        sample: usize,
+        /// Include tools that already carry a verdict somewhere under
+        /// `--dir`, or have a `corpus/<tool>/` fixture, instead of
+        /// excluding them from the population.
+        #[arg(long)]
+        include_audited: bool,
+        /// Never suggest opening a pull request — just print the commands.
+        /// For scripts, and for exercising this command without ever
+        /// reaching `gh pr create`.
+        #[arg(long)]
+        no_pr: bool,
+        /// Root that each contributor's own folder is created under.
+        #[arg(long, default_value = "audit/submissions")]
+        dir: PathBuf,
+        /// The corpus root consulted by the population filter.
+        #[arg(long, default_value = "corpus")]
+        corpus_dir: PathBuf,
+        /// Same escape hatch as `freeze --allow-uncontained`: only
+        /// consulted the first time a given login's queue is frozen (a
+        /// full-`PATH` sweep).
+        #[arg(long)]
+        allow_uncontained: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -644,7 +684,7 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 Some(path) => audit::load_force_include(&path)?,
                 None => Vec::new(),
             };
-            queue::cmd_sample(seed, sample, &dir, &force_include)
+            queue::cmd_sample(seed, sample, &dir, &force_include).map(|_drawn| ())
         }
         AuditAction::Reclassify { dir, update } => queue::cmd_reclassify(&dir, update),
         AuditAction::Review { seed, dir } => {
@@ -692,6 +732,30 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             sample,
             draw_seed,
         } => audit::cmd_spot_audit(&dir, seed, &event, &promoted, sample, draw_seed),
+        AuditAction::Contribute {
+            seed,
+            sample,
+            include_audited,
+            no_pr,
+            dir,
+            corpus_dir,
+            allow_uncontained,
+        } => {
+            let stdin = std::io::stdin();
+            let mut input = stdin.lock();
+            let mut output = std::io::stdout();
+            audit_contribute::cmd_contribute(
+                &dir,
+                &corpus_dir,
+                seed,
+                sample,
+                include_audited,
+                no_pr,
+                allow_uncontained,
+                &mut input,
+                &mut output,
+            )
+        }
     }
 }
 
@@ -825,7 +889,7 @@ fn parse_shard(spec: &str) -> anyhow::Result<(usize, usize)> {
 /// via `exec` and never returns; control lands back here a second time, in
 /// a freshly re-exec'd process, with the sentinel now set, and this
 /// function's first branch fires instead.
-fn sweep_guard(
+pub(crate) fn sweep_guard(
     is_full_path_sweep: bool,
     allow_uncontained: bool,
     secure_out: Option<&std::path::Path>,
@@ -887,7 +951,7 @@ fn sweep_guard(
 /// A no-op — correctly — when `canaries` is `None`: either this was not a
 /// full-`PATH` sweep, or the operator explicitly passed
 /// `--allow-uncontained`, and either way there was nothing to check.
-fn finish_sweep_guard(
+pub(crate) fn finish_sweep_guard(
     canaries: Option<mandible_extract::exec::canary::CanarySet>,
 ) -> anyhow::Result<()> {
     let Some(mut set) = canaries else {
