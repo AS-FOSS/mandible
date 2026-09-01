@@ -8,10 +8,6 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
-### Changed
-
-- Release bodies follow the 0.5.0 layout: a `# Release Notes - Version X.Y.Z` title, an Install block with short parenthesized labels, an italic "download a binary below" line, then the CHANGELOG section verbatim; `scripts/release_notes.sh <version>` renders the exact body locally.
-
 ## [0.6.1] - 2026-09-01
 
 ### Fixed

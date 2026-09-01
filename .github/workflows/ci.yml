@@ -4,11 +4,13 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      # Prose changes cannot break the build, so they do not run it. Note
-      # this is `paths-ignore`, not `paths`: a run is skipped only when
-      # *every* changed file matches, so touching a workflow, a manifest or
-      # any source file still triggers everything. That also answers the
-      # obvious worry about editing a workflow and having nothing verify it.
+      # Prose, packaging, release-only scripts and workflow files cannot break
+      # the build, so they do not run it. `paths-ignore`, not `paths`: a run
+      # is skipped only when *every* changed file matches, so a source or
+      # manifest change still triggers everything. A workflow edit pushed to
+      # main runs nothing — verify one on a PR (`pull_request` keeps the
+      # file) or by dispatch; before this, a one-line release-script edit
+      # on main cost a full CI run plus an hour-long PATH sweep (2026-09-01).
       #
       # Path filters apply to `push` and `pull_request` only. A release
       # reaches these same jobs through `workflow_call`, which ignores them,
