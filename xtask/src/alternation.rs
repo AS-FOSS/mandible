@@ -2,7 +2,7 @@
 //! [`crate::misattribution`], [`crate::existence`] and [`crate::bundling`].
 //!
 //! **Its victim is a delimited alternation of flag spellings.** Three tools
-//! in `audit/2.toml`'s seed-2 human review write their flags as an
+//! in `audit/submissions/sadigaxund/2.toml`'s seed-2 human review write their flags as an
 //! alternation group, in three different renderings, and all three lost real
 //! flags to it:
 //!

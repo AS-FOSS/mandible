@@ -51,7 +51,7 @@
 //! It is explicitly:
 //!
 //! - **not an accuracy metric.** The one instrument in this project that
-//!   touches ground truth is the 94 human verdicts in `audit/2.toml`
+//!   touches ground truth is the 94 human verdicts in `audit/submissions/sadigaxund/2.toml`
 //!   (spec §13.1c). A residue count has never been validated against
 //!   anything and has a large, unmeasured, shape-dependent false-positive
 //!   rate — a glossary table, a `See also:` list and an enum-value grid

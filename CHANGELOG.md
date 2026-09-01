@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- `cargo xtask audit contribute` walks a contributor through auditing mandible against their own installed tools — login, a random 20-tool draw excluding anything already audited, review, and a verdict file ready to submit (CONTRIBUTING.md §2).
+
 ## [0.6.1] - 2026-09-01
 
 ### Fixed

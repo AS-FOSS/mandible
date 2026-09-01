@@ -58,4 +58,14 @@ audit/*/fixtures/
 # Regenerate locally with `xtask audit freeze`; `xtask audit reclassify`
 # needs this directory present to avoid a full PATH re-sweep.
 audit/queue-captures/
+
+# `xtask audit contribute` (CONTRIBUTING.md §2): each contributor's own
+# `audit/submissions/<login>/queue.toml` and `queue-captures/` are the same
+# machine-generated, describes-your-PATH-not-the-project data as
+# `audit/queue.toml`'s own captures above, just rooted one level deeper —
+# regenerate locally, never commit. `audit/submissions/<login>/<seed>.toml`
+# and `<seed>-report.txt` (not matched by either glob below) ARE tracked,
+# same as `audit/<seed>.toml` always has been.
+audit/submissions/*/queue.toml
+audit/submissions/*/queue-captures/
 .venv/

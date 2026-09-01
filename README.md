@@ -265,23 +265,32 @@ someone can actually fix.
 
 ## Contributing
 
-If a tool renders wrong, that is worth reporting even if you never look at the
-code. Run `mandible --report <tool>` and paste the output into an issue. Your
-tool's version and its exact help text vanish when you upgrade, and nobody else
-can recover them. Everything after that can be done later by anyone.
+> [!NOTE]
+> <!-- maintainer's note goes here -->
 
-There is a second thing you can do that is hard for us to do ourselves. Every
-accuracy figure here comes from one Ubuntu machine on ARM, so whatever is
-installed on your `PATH` is probably software this project has never seen. The
-built-in audit tool samples your own commands, shows you the parse next to the
-real help text, and records what you think of each one:
+If a tool renders wrong, an issue is the fastest way to tell us. Run
+`mandible --report <tool>` and paste the output into the issue form; it asks
+for the rest (your OS, what you expected, a screenshot if you have one). Your
+tool's version and its exact help text vanish when you upgrade, and nobody
+else can recover them, so the report is a complete contribution on its own.
+
+If you want to go further, audit mandible against the tools on your own
+machine. Every accuracy figure here comes from one Ubuntu machine on ARM, so
+whatever you have installed is probably software this project has never seen.
 
 ```console
-$ cargo run -p xtask -- audit sample --seed 42 --sample 20
-$ mandible --review 42
+$ git clone https://github.com/AS-FOSS/mandible && cd mandible
+$ cargo xtask audit contribute
 ```
 
-Attach the resulting `audit/42.toml` to an issue. Twenty tools is plenty.
+The command asks for your GitHub login, scans your `PATH`, draws twenty tools
+and opens each one in the normal interface next to its real help text. Press
+`t` to see the raw text, then `c`, `i`, `w` or `s` for correct, incomplete,
+wrong or skip. It saves after every verdict, so you can `Ctrl-C` and come back
+later. When you finish, it writes your verdicts under
+`audit/submissions/<your-login>/` and prints the commands to commit them and
+open the pull request. Merged audits sit under your name in the tree and are
+credited in the release notes.
 
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) covers both, plus writing tests and
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) has the details, plus writing tests and
 changing the parser.
