@@ -1395,1181 +1395,313 @@ the allowlist.
 
 ## 7. Extraction tiers, in detail
 
-Tiers are listed by the order they are *attempted*, which is now purely a cost
-ordering — cheapest first. **Conflict resolution is by `Authority` (§4.4), not by
-attempt order.** These are two different things and conflating them was
-revision 1's central error.
+Tiers are listed in the order they are attempted, which is a cost ordering,
+cheapest first. Conflict resolution is by `Authority` (§4.4), never by
+attempt order; conflating the two was revision 1's central error.
 
 ### Tier A — REMOVED (was: vendored spec catalog)
 
-Revision 2 ranked a vendored 739-tool carapace-spec snapshot first. **Revision 3
-deletes it**, along with the vendoring script, the 11 MB payload, and the
+Revision 2 ranked a vendored 739-tool carapace-spec snapshot first. Revision 3
+deletes it, along with the vendoring script, the 11 MB payload, and the
 third-party data attribution it carried.
 
-The reasoning, recorded so it is not re-proposed:
-
-- **It violated §1.** A per-tool catalog is per-tool knowledge — the thing this
-  project forbids — merely relocated from code into data. That it was somebody
-  else's data did not make it not-per-tool.
-- **It could not be current.** A snapshot is a point-in-time copy; the tool on
-  the user's machine is not.
-- **It cost more than it bought.** 11 MB of a 16 MB binary — the data outweighed
-  all the code 4× — to raise flag-description coverage from a measured 87% (live
-  parsing, 904 tools) to 99.5% on the 251 tools it happened to contain [M-12].
-
-The replacement is not "lose those descriptions." It is **parse by the framework
-that generated the help text**, below.
+A per-tool catalog is per-tool knowledge, the thing §1 forbids, merely
+relocated from code into data belonging to someone else. It also could not
+stay current: a snapshot is a point-in-time copy, and the tool on a user's
+machine is not. [M-12] has the coverage numbers it bought against what it
+cost. The replacement is parsing by the framework that generated the help
+text, below, never a return to a per-tool catalog.
 
 ### Tier A′ — framework identification
 
-The load-bearing insight of revision 3: **help text is not written by hand, it is
-*generated*, and only a small closed set of generators exists.** Per-tool
-knowledge is unbounded and forbidden; per-*framework* knowledge is bounded at
-~15 entries and is the correct unit of parsing. A grammar fix for argparse
-improves every Python CLI ever written; a catalog entry improved exactly one tool
-until it went stale.
+Help text is not written by hand, it is generated, and only a small closed
+set of generators exists. Per-tool knowledge is unbounded and forbidden;
+per-framework knowledge is bounded at 18 entries (`mandible-extract/src/
+help_text/profile.rs`) and is the correct unit of parsing. A grammar fix for
+argparse improves every Python CLI ever written; a catalog entry improved
+exactly one tool until it went stale.
 
-Measured on 1,563 executables with usable `--help`: three fingerprints cover 71%,
-about a dozen cover ~80%, even with deliberately crude patterns [M-12].
+Identification proceeds in this order, most reliable first:
 
-**What was implemented instead, and why the numbers disagree.** [M-12] measured
-*recall* — how much of a real machine crude patterns could plausibly reach. The
-implementation went the other way and uses narrow, high-precision markers
-(`clap_builder` in the binary, `spf13/cobra`, the literal GNU argp footer), which
-identify **~17%** of a real machine's tools rather than 71%.
-
-That gap is deliberate, not a shortfall. A *wrong* framework silently applies the
-wrong grammar, and the tool has no way to tell you it did; an unidentified one
-falls back to the general engine and is honestly marked low-confidence. Given
-those two failure modes, precision is worth far more than recall.
-
-It also cannot be closed by fingerprinting alone. The unidentified bulk is C
-tools — LLVM, binutils, util-linux, iptables, gpg — and most do expose
-`getopt_long` in their dynamic symbol table, so they *are* detectable. But a
-`getopt_long` profile would be the general engine under another name: it would
-parse nothing better, while lifting those tools out of the "unidentified"
-confidence cap and raising both the detection rate and their confidence scores
-for free. That is precisely the failure §13.1 warns about — a metric improved by
-the thing it exists to detect. **Widening a fingerprint is only worth doing
-alongside a grammar that earns it**, never to move the number.
-
-Detection rate is therefore not a target. Coverage is: unidentified tools still
-parse, and aggregate `%flags_text` sits around 96%.
-
-Identify the framework in this order, most reliable first:
-
-1. **From the artifact.** For compiled binaries, scan embedded strings —
-   `spf13/cobra` appears 583× in `docker` and 283× in `gh`, unambiguously [M-13].
-   For scripts, read the shebang plus the import line (`import argparse`,
-   `require('commander')`, `use clap`). This is ground truth, not inference.
-2. **From the help-text signature.** Distinctive marker strings — argparse's
+1. **From the artifact.** For a compiled binary, scan embedded strings — a Go
+   binary linking `spf13/cobra` says so directly in its own bytes,
+   independent of which headings that cobra version's `--help` happens to
+   render this week [M-13]. For a script, read the shebang plus the import
+   line. This is ground truth, not inference.
+2. **From the help-text signature.** Distinctive marker strings: argparse's
    `show this help message and exit`, click's `Show this message and exit.`,
-   cobra's `Available Commands:`, GNU argp's `Mandatory arguments to long options`.
-3. **Unidentified** — fall through to the generic layout parser.
+   cobra's `Available Commands:`, GNU argp's `Mandatory arguments to long
+   options`. Weaker, and must never be the only method: it missed `docker`
+   entirely, because docker prints `Common Commands:` rather than cobra's
+   own default [M-13]. That gap is why step 1 leads.
+3. **Unidentified** — fall through to the generic layout parser, Tier B.
 
-Signature matching alone is fragile and must never be the only method: it missed
-`docker` entirely, because docker prints `Common Commands:` rather than cobra's
-usual `Available Commands:` [M-13]. That failure is exactly why artifact
-fingerprinting leads.
+The implementation deliberately trades recall for precision: narrow,
+high-confidence markers identify a minority of a real machine's tools rather
+than the majority a looser fingerprint could reach [M-12]. A wrong framework
+silently applies the wrong grammar with no way to signal it did; an
+unidentified tool falls back to the general engine and is honestly marked
+low-confidence. Widening a fingerprint is worth doing only alongside a
+grammar that earns it, never to move the detection number on its own — a
+metric improved by the thing it exists to detect is the same failure §13.1
+warns about, one tier up.
 
-`--doctor` reports the detected framework. This converts "mandible is wrong about
-tool X" into "the argparse grammar mishandles Y" — a general, fixable bug report
-instead of a per-tool complaint.
+Detection rate is therefore not a target; coverage is. `--doctor` reports
+the detected framework, which turns "mandible is wrong about tool X" into
+"the argparse grammar mishandles Y" — a general, fixable bug report instead
+of a per-tool complaint.
 
 ### Tier B — `--help` parsing, per framework
 
-**The primary tier.** `--help` is the only source every tool has, everywhere, and
-it is always current because it comes from the installed binary.
+The primary tier. `--help` is the only source every tool has, everywhere,
+and it is always current because it comes from the installed binary.
 
-Parsing is dispatched on the framework identified in Tier A′. There is one
-grammar per framework, not one grammar for everything:
-
-| | frameworks |
-|---|---|
-| Python | argparse, click, docopt |
-| Rust | clap v2, clap v3/v4 |
-| Go | cobra, urfave/cli, stdlib `flag` |
-| Node | commander, yargs, oclif |
-| JVM / .NET | picocli, System.CommandLine |
-| C / POSIX | GNU argp & `getopt_long`, BSD-terse, busybox |
-| PHP / Ruby | Symfony Console, OptionParser / Thor |
-
-Each grammar knows its framework's exact section headings, row layout, value
-syntax, and continuation rules — so it parses precisely rather than guessing.
-This is the "one well-engineered parser, built once" principle applied at the
-right granularity: **once per generator, not once per tool, and not once for the
-whole world.**
+**One shared engine, not eighteen grammars.** A single `winnow`-based layout
+parser (`mandible-extract/src/help_text/sections/`) reads section headings,
+column-aligned tables, usage synopses, and continuation folding by shape
+alone. A `FrameworkProfile` (`help_text/profile.rs`) is consulted by that one
+engine and is deliberately narrow: which extra heading vocabulary a
+framework's own templates use for a command block, whether the framework has
+a subcommand concept at all, and which heading introduces a positional-
+argument block. A profile carries no grammar of its own — no value-spec
+syntax, no continuation-folding rule — because the shared low-level grammar
+already handles `--opt=VALUE` / `--opt VALUE` / `--opt <value>` /
+`--opt[=VALUE]` and indent-relative continuation folding uniformly across
+every framework tested. Adding a framework is one `match` arm in `profile()`
+plus one fingerprint in Tier A′, nothing more. If a framework is ever found
+whose shape the shared engine genuinely cannot express, the fix is to widen
+the engine, which improves every framework at once, never to add a
+per-framework knob only one arm sets.
 
 **Degradation is staged, and never fabricates:**
 
-1. Framework identified → its grammar, high confidence.
-2. Unidentified → the generic layout parser below, marked low-confidence.
-3. Generic parse yields nothing structurally plausible → **render the raw help
-   text verbatim**, labelled `unparsed`, with the framework shown as unknown.
+1. Framework identified → the shared engine with that framework's profile,
+   high confidence.
+2. Unidentified → the same engine with the generic heading vocabulary only,
+   marked low-confidence.
+3. The parse yields nothing structurally plausible → render the raw help
+   text verbatim, labelled `unparsed`, framework shown as unknown.
 
-Step 3 is a feature, not a failure. A tool that conforms to no convention is
-displaying its help the way its author intended; showing that text untouched is
-honest and useful. It is also strictly better than the alternative already
-shipped and fixed once here: inventing 39 subcommands for `tar` out of wrapped
-description lines [M-10]. **Never fabricate structure. Degrade to verbatim.**
+Step 3 is a feature, not a failure: a tool that conforms to no convention is
+displaying its help the way its author intended, and showing that text
+untouched is honest. It is also strictly better than the alternative already
+shipped and fixed once: inventing 39 phantom subcommands for `tar` out of
+wrapped description lines [M-10]. Never fabricate structure; degrade to
+verbatim.
 
-The generic fallback parser (step 2) is built with `winnow`:
+**A command block requires a recognized heading.** Layout alone is never
+sufficient evidence that a block of text names subcommands.
+`Commands:`/`Subcommands:`/`Available Commands:`/`SUBCOMMANDS`, a git-style
+group heading, and headings mentioning "operation(s)" all qualify; a bare
+word list under no heading does not. A candidate name must match
+`^[a-z][a-z0-9_.-]*$` with no whitespace, and every emitted name is checked
+to occur literally in the tool's own raw text (the existence oracle, §13.1).
+Two evidence classes short of a heading are structurally distinguished and
+tracked separately, `invocation_attested` versus `heading_attested`: a row
+that repeats the tool's own name, or a table whose row shape is unambiguous
+even without a heading, is real but weaker evidence than an explicit
+heading, and the difference governs which nodes are eligible for further
+probing (§6 rule 0). A block yielding names that fail the shape test, or a
+node with no flags, no children, and no summary, drops confidence and marks
+the tool `suspicious` in the coverage scoreboard (§13.1) rather than
+inflating it. See `docs/shapes.md` S-013 (never invent subcommands from
+wrapped description lines), S-016 (headingless invocation table naming the
+tool), S-017 (headed command table with a non-standard separator), S-018
+(heading sharing a line with its first row), S-019 (pseudo-heading rewind
+inside a sticky chain), S-022 (an "operations" heading), S-092 (a settings
+table misread as subcommands), and S-094 (a non-command "help topics"
+heading that breaks a sticky chain).
 
-- **A `Usage:` line grammar.** Usage lines have a learnable grammar — this is
-  what `docopt` formalized: `[OPTIONS]`, `<required>`, `[optional]`, `...` for
-  repetition, `|` for alternatives, `{a|b|c}` for choices.
-  The block is entered at any of three shapes (`help_text::sections`,
-  fix/usage-synopsis): an ordinary `usage:`/`Usage:` line anywhere in the
-  document; the C `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom — the
-  tool's own name, `": "`, then `usage:` (`starts_with_name_prefixed_usage`;
-  `nfsidmap`'s `nfsidmap: Usage: nfsidmap [-vh] ...`); and, only when
-  neither of those appears anywhere in the document and only in the lines
-  before the document's real body starts, an **unlabelled** synopsis — the
-  tool's own name at a word boundary, plus positive usage-grammar notation
-  (one of the three group delimiters above) in the remainder, and not read
-  as an English sentence (`looks_like_unlabeled_synopsis_line`; `wpa_cli
-  --help` opens `wpa_cli [-p<path to ctrl sockets>] ...` with no label at
-  all). The third shape is the risky one — a name match alone is not
-  evidence of a synopsis (`"tar is an archiving program..."` also starts
-  with `tar`) — so it requires both signals together, and is bounded to
-  where a synopsis actually belongs rather than searched for anywhere in
-  the document.
+**An indented list nested under a flag is that flag's `choices`, never
+subcommands.** A per-value description, when the source documents one, is
+kept on the value it describes rather than dropped. See S-014 (bare-word
+choices block), S-015 (described choice values in a scope-flag sub-table).
 
-  A related, general fix landed alongside this (fix/usage-synopsis):
-  `mandible_core::strip_escapes` — previously private, invoked only per
-  field inside `Text::sanitize` at final display time — is now also run
-  once over the *whole* raw document in `help_text::sections`, before any
-  heading, indentation or column gap is computed. An escape sequence
-  surviving into that layout analysis corrupts it in ways that have
-  nothing to do with display: `systemd-creds --help` writes its own
-  `Commands:` heading as `[0mCommands:` (a colorizing library's reset
-  code glued directly onto the heading text), and left in place the
-  escape and the heading's first two characters fuse into one
-  alphanumeric run, `0mCommands`, which `mentions_commands_word` (rule
-  1's literal heading test, above) never recognizes — the tool's real
-  six-command `Commands:` block silently failed to become subcommands at
-  all. Measured on a full-`PATH` sweep isolating this change alone: it
-  moves exactly two tools (`systemd-creds`, `varlinkctl`, both recovering
-  a `Commands:`/command list previously lost to this exact corruption)
-  and nothing else — 0 other status transitions, 0 other flag or
-  subcommand changes fleet-wide, so escape bytes were not otherwise
-  distorting `leading_whitespace`/`find_multi_space_gap` byte offsets for
-  any other tool on the measured machine's `PATH`. `systemd-sysext` and
-  `systemd-confext` remain unfixed by this: their command rows sit
-  directly under the description prose with no heading at all, which
-  rule 1 above forbids recognizing without a new, separately-measured
-  recognizer this change does not attempt.
-- **A colon as the spec/description separator, and a usage-block
-  continuation that is prose, not more grammar** (fix/colon-separator).
-  `sg_emc_trespass --help` writes its usage line as `[-d] [-hr] [-s] [-V]
-  DEVICE` followed immediately by two indented English sentences, then
-  option rows separated by a colon instead of a column gap or `=`:
-  `-d : output debug` (spaced), `-hr: Set Honor Reservation bit` / `-V:
-  print version string then exit` (glued). Two independent defects, both
-  fixed here:
-  - `help_text::sections::find_colon_separator_gap`, a new fallback in
-    `find_description_gap`'s chain (only ever consulted after both the
-    2+-space and `=`-token fallbacks find nothing), modelled on
-    `find_equals_separator_gap` but tighter — a colon is far more common
-    in ordinary prose than a bare `=` — recognizing a lone `:` token
-    (spaced) or a token whose own trailing character is `:` with the rest
-    of that token still spec-shaped (glued: `-hr:`, `-V:`, never a
-    heading-shaped word like `Options:`, which ends the scan instead).
-  - The usage-block loop's "more indented than base indent" branch used to
-    treat *any* such continuation as more synopsis with no content check
-    at all; it now ends that one line (not the whole block — `mdadm
-    --help` interleaves a one-line description under each of seven
-    `mdadm --mode ...` forms) when it reads as `is_prose_sentence`, which
-    itself gained a `...`-is-not-a-period clause after a fleet sweep
-    showed the new call site misreading `numactl`'s and `mkfontscale`'s
-    real ellipsis-terminated usage fragments as prose and losing 19 and 3
-    flags respectively.
+**Read stdout and stderr, and do not require exit 0.** `openssl --help`
+writes 0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255 with
+output only on stderr [M-8]. Each stream is judged independently by a
+help-shape check, never by "stdout if non-empty":
 
-  A companion fix to `extract_positionals` stopped a token right after a
-  **self-closed** bracket group (`[-V]`) from being read as that flag's
-  argument — recovering `sg_emc_trespass`'s `DEVICE`, `scsi_ready`'s
-  `sg3-utils` family's `<device>+`, `lzgrep`/`xzgrep`'s `PATTERN`, and
-  `renice`'s `priority`/`pid` — deliberately scoped to a tool's one
-  primary, labelled invocation line rather than fleet-wide, because the
-  unscoped version recovered real operands `xtask`'s existence oracle
-  cannot yet attest (a same-name-repeated alternate form under
-  `jps`/`jstat`; the unlabelled-synopsis convention
-  `dbus-cleanup-sockets`/`dbus-run-session`/`lvreduce` use). The oracle's
-  own `clean_usage_token` (`xtask/src/existence.rs`) separately gained a
-  `+` to its trim set, on the same footing as the `.` in `...` it already
-  trimmed, so `<device>+` matches the tier's own correctly-recovered
-  `device` instead of reporting it invented. Fleet existence-fabrication
-  count on a full-`PATH` sweep of this machine: 130 → 124 tools, zero
-  flags or subcommands lost anywhere.
-- **A docopt bracket-group flag row** (fix/lvm-bracket-rows). LVM's own help
-  emitter (`vgck`, `vgextend`, `vgrename`, and the whole `lv*`/`vg*`/`pv*`
-  family) writes one flag per physical line as a whole `[...]` group —
-  `[ -d|--debug ]`, `[    --commandprofile String ]`, `[ -A|--autobackup
-  y|n ]`, `[ --metadatasize Size[m|UNIT] ]` — never a `-`-prefixed row and
-  never a `{...}` alternation, with a bare, unlabelled synopsis head (`vgck`
-  alone, or `vgextend VG PV ...`) carrying no bracket notation of its own;
-  every bit of notation evidence lives on the rows that continue it. Three
-  gaps combined to leave the whole family `verbatim`:
-  - The unlabelled-synopsis entry point (previous bullet) requires notation
-    evidence on the invocation line itself, which a bare `vgck` line never
-    has. `looks_like_unlabeled_synopsis_line`'s check is now supplemented,
-    only at this one call site, by a lookahead: a bare own-name line
-    followed immediately by a `[ -x|--long ... ]`-shaped row also starts
-    the block.
-  - `grammar::looks_like_flag_start` deliberately never accepts a leading
-    `[` — widening it would end `lsof`'s usage-block continuation
-    (`[-F [f]]`) one line early and lose the six flags documented only
-    there, since that same predicate doubles as the usage block's own
-    terminator. A new, narrower, row-level predicate,
-    `grammar::looks_like_bracket_flag_row` /
-    `bracket_flag_row_content` — a whole physical line that is exactly one
-    `[...]` group whose content starts with `-` — is consulted only where
-    a flag-table row or a synopsis-continuation row is recognized
-    (`flags_block_start`, `scan_flags_block`, `extract_usage_flags`),
-    never at the usage-block-continuation call site. The recovered content
-    is handed to the existing `parse_flag_spec` unchanged: `|` is already
-    an alias separator, and its own alias-vs-value hazard guard
-    (`take_rest_value_token`'s `alias_follows` check, built for
-    `sg_sanitize`'s `--count=OC|-c OC`) already reads `-A|--autobackup
-    y|n`'s value as the whole choice list `y|n`, not three fabricated
-    alternatives.
-  - `sections::leading_whitespace` counted raw characters, so a single
-    leading tab (LVM's own indentation convention for these rows) measured
-    narrower than a heading written with two leading spaces — the
-    "content indented more than its heading" gate failed independently of
-    the point above. Now expands a leading tab to the next multiple of 8
-    columns (the ordinary terminal tab-stop convention), unchanged for the
-    fleet's dominant space-only-indentation case.
+| stdout empty? | stderr empty? | picks |
+|---|---|---|
+| yes | yes | stdout (nothing to pick) |
+| yes | no | stderr, the only stream available |
+| no | yes | stdout, the only stream available |
+| no | no, stdout help-shaped | stdout, regardless of stderr |
+| no | no, stdout not help-shaped, stderr help-shaped | stderr |
+| no | no, neither help-shaped | stdout, the default |
 
-  A fourth guard closes a hazard measured during review: not every
-  `[...]` row naming two flags is LVM's shape. `ethtool --help` writes
-  `[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]` — an
-  alternation between two *different* flags, only one of which carries its
-  own operands, not one flag with an alias list and a shared value.
-  `bracket_flag_row_content` refuses any row whose apparent alias run does
-  not actually end at its first whitespace gap (a bare `|` reappearing
-  there means the row is this shape), rather than fabricate
-  `--all-groups`'s value from `--groups`'s bracketed operands while
-  dropping `--groups` outright.
+Ties break toward stdout. The two streams are never concatenated for the
+parser: merging a diagnostic preamble into the document is how banner text
+becomes a fabricated flag (S-091, S-029). This is the parsing path only; the
+raw pane (key `t`) always shows both streams, labelled, independent of which
+one the parser chose, so a reviewer can see what was correctly discarded
+(§4.1).
 
-  Recovers 19 flags for `vgck`, 30 for `vgextend`, 21 for `vgrename`, and
-  ~1,400 fleet-wide across the `lv*`/`vg*`/`pv*` family on a full-`PATH`
-  sweep, purely from the shape above — no tool name is ever consulted. The
-  tab-stop correction is general rather than LVM-specific and, measured on
-  the same sweep, also repaired a pre-existing, unrelated defect in three
-  `squashfs-tools` binaries and `sotruss`: a deeply-tab-indented
-  description-continuation line that happened to start with a dash after
-  trimming (`sotruss`'s `-o, --output` continuation literally reads `-f is
-  also used`) fell inside `scan_flags_block::ENTRY_INDENT_TOLERANCE` under
-  raw character counting and was misread as a new, fabricated flag entry;
-  the real terminal-column count does not. LVM's own help text never
-  describes an individual flag inline (only `--longhelp`/the man page
-  does), so every one of these tools' status honestly reads
-  `low-confidence` rather than `ok` once their real, correctly-spelled
-  flags are counted against that fact — a change in what the status ladder
-  can see, not a parsing regression.
-- **Abbreviation brackets.** `ip --help`'s `OPTIONS := { -V[ersion] |
-  -s[tatistics] | ... }` writes a spelling as a prefix a user may type
-  glued directly to the rest of the word it abbreviates, in a trailing
-  bracket — `-r[esolve]`, `-rc[vbuf]` (a two-letter prefix, `-ts[hort]`,
-  `-br[ief]` likewise), `--br[ief]` (the same convention with a long
-  option). `grammar::try_short`/`try_long` recognize a bracket
-  immediately glued onto a run of one or more leading letters (never
-  onto a genuine value placeholder — `-o[FILE]`'s upper/mixed-case
-  content and `-x[=WHEN]`'s leading `=` both fall through untouched to
-  the ordinary value-spec grammar, per the same narrow, structural
-  discriminator: bracket content must open with an ASCII lowercase
-  letter and contain nothing but lowercase letters and hyphens) and read
-  the whole thing as one `Spelling { name: "resolve", dashes: Single,
-  abbrev: Some(1) }` — the full word, never the bracket notation itself,
-  with `abbrev` recording how many leading characters of `name` the row
-  displayed standalone. `Spelling::render` reproduces the bracket form
-  a tool actually printed; `key()`/`short()`/`long()` address the full
-  name by the unchanged shape rule (single dash, more than one
-  character is long-like), which is what makes `-r[esolve]` and
-  `-rc[vbuf]` two different keys (`Long("resolve")`, `Long("rcvbuf")`)
-  rather than two readings of one short `-r` — closing issue #49's
-  duplicate-`-r` row with no dedup rule, once the one-letter-only model
-  that could recognize `-r[esolve]` but not the two-letter `-rc[vbuf]`
-  was generalized to any prefix length.
-- **The anchored value recovery, and why it stops short of a row-adjacency
-  fold.** issue #30's own primary example, `ffplay --help`'s `Main
-  options:` table, documents help under four separate physical rows
-  (`-h topic`, `-? topic`, `-help topic`, `--help topic`, one spelling per
-  row): `try_short` reads `-help` as `-h` plus the glued value `"elp"`,
-  `repair_single_dash_long_options` (correctly) rewrites that into the
-  single-dash spelling `-help`, and — a deliberate, measured limitation,
-  documented on that repair — clears the value entirely rather than
-  inventing one, because by the time it runs the row's real, separately
-  spaced value (`"topic"`) is already gone. `recover_anchored_values`
-  (`mandible-extract/src/help_text/sections/repair.rs`) restores it: when
-  an adjacent run of option-table rows shares a description and table
-  (`group`), and a run-mate (`-h`, `-?`, or `--help`) already carries the
-  value cleanly, `-help`'s own value is recovered *only if* the raw
-  document still contains `-help topic` as a literal delimited phrase —
-  never invented from whitespace or a shared description alone.
-  A first version of this change also *folded* every row in such a run
-  into one multi-spelling entity once their values matched. That was
-  reverted: a full-`PATH` sweep found the same "identical description"
-  evidence also fires on real, unrelated flag pairs that merely share
-  boilerplate commentary (`as`'s `-w`/`-X`, both "ignored" — a description
-  repeated 6 times, case-insensitively, in that one document; `sysctl`'s
-  `-A`/`-X`, both "alias of -a", two *independent* legacy shims for a
-  third flag, not aliases of each other; `mkfs.bfs`'s `-c`/`-l`;
-  `llvm-size-18`'s `-A`/`-B`; `lto-dump`'s `-C`/`-CC` and
-  `-p`/`-pedantic-errors`, both "[disabled]" — a description repeated 505
-  times in that one document, a new instance of the false-positive
-  mechanism the `lto-dump` incident already named for a different code
-  path, `pair_aliases`'s own `complementary` exclusion of single-dash-long
-  options). A repeat-count mitigation ("refuse when the description
-  occurs elsewhere too") does not discriminate either — `mkfs.bfs`'s and
-  `sysctl`'s own false positives occur exactly twice in their documents,
-  the same count several genuine aliases sit at. Description equality is
-  not, on its own, sufficient evidence that two different spellings name
-  the same option; recovering a value already independently verified
-  against the raw document's own literal text is a narrower, safe claim
-  that none of the six false positives can reach (each is a complete,
-  valueless boolean already — there is no missing value for the recovery
-  step to act on). Merging rows into one entity is left to `ffplay`,
-  `ffmpeg` and `ffprobe`'s own `-h`/`--help` pairing, which
-  `pair_aliases`'s existing short/long convention (spec §4.4) already
-  produces correctly; `-?` and the recovered `-help` are acceptable as
-  their own, separate one-spelling entities.
-- **`entity_identity`'s long-name key now carries dash count**
-  (`mandible-core/src/merge.rs`). `-help` (single-dash long) and `--help`
-  (double-dash long) are genuinely different spellings of the same word,
-  but [`Entity::long`] reports both as the bare name `"help"` — correct
-  for "what's the long-like name", wrong for cross-source identity, where
-  the two collided into one bucket and `merge_entity_bucket`'s short/long
-  reconstruction (a two-slot model pre-dating `Entity::spellings`) kept
-  only one of the two dash counts, silently discarding the other. This
-  was ffplay's own `--help` disappearing entirely in the live TUI (`-h,
-  -help topic` + `-? topic`, no `--help` anywhere) even though the
-  captured-fixture replay showed all three entities correctly — not a
-  stdout/stderr divergence as first suspected, but `Runner::fill_node`'s
-  own contract ("`existing` is always included as a merge candidate")
-  taking `merge_nodes` through its cross-source `merge_entity_lists` path
-  on a tool's very first load, not only on a genuine second source;
-  `merge_nodes`'s single-candidate short-circuit (`pair_aliases` only) was
-  the only thing that had ever avoided it. The key now distinguishes
-  `-help` (`L:1:help`) from `--help` (`L:2:help`), so the two are never
-  bucketed together unless a source genuinely repeats the identical
-  spelling.
-- **The existence oracle learned the three synopsis-entry shapes the three
-  fixes above taught the parser** (fix/oracle-unlabeled-synopsis). A
-  measurement fix, not a parser fix: `xtask/src/existence.rs`'s
-  `synopsis_lines` scanned for only an ordinary `usage:`/`or:` marker, so
-  every operand the parser now correctly recovers from a line without one
-  — the C `"%s: Usage: ..."` idiom, an unlabelled synopsis opening with the
-  tool's own name, and LVM's bare own-name line whose notation sits on the
-  next physical line — was reported as invented, exactly the gap the
-  `fix/colon-separator` bullet above named by hand
-  (`dbus-cleanup-sockets`/`dbus-run-session`/`lvreduce`, "the oracle cannot
-  yet attest"). The oracle now re-exports and reuses the parser's own three
-  predicates (`starts_with_name_prefixed_usage`,
-  `looks_like_unlabeled_synopsis_line`, `starts_with_tool_name` +
-  `looks_like_bracket_flag_row`) rather than a second, drifting copy of
-  each — `mandible-extract/src/help_text/mod.rs`'s re-export block carries
-  the rationale each time, the same discipline this project has already
-  paid once for skipping (spec §13.1c's K2 table).
+**Section headings are preserved as `Flag::group`.** A heading is recognized
+by relative indentation, since real headings sit at no fixed column. Running
+prose whose hard wrap places an indented line beneath an ordinary sentence
+is the one systematic false positive, handled by three binding rules
+depending on whether the sentence ends on the promoted line, is marked with
+a continuation backslash, or continues onto the indented line: see S-011
+(hanging-indent prose misread as a heading). A usage stanza can also be
+labelled by its own preceding description sentence rather than by its own
+head line: see S-012.
 
-  A second, independent bug surfaced only once these lines became visible:
-  `option_list_slot`'s placeholder rule looked only at a synopsis's *first*
-  slot, which is where every previously-measured tool's flag-list stand-in
-  happened to sit. `gh`'s unlabelled `<command> <subcommand> [flags]` puts
-  its stand-in *last* — the rule would have excluded the genuine leading
-  operand `command` as a *second*, wrong placeholder had it fired
-  unconditionally alongside the correct exclusion of `flags`. Fixed by
-  trying the parser's own five-word vocabulary
-  (`sections::OPTION_LIST_PLACEHOLDERS`, reused via a new
-  `is_option_list_placeholder` re-export) first, regardless of position,
-  and falling back to the positional rule only when nothing on the line
-  already matched it — never both at once.
+**A confidence score is attached**, derived from how much of the output the
+grammar actually consumed, and surfaced in the UI. Being honest about a best
+guess is better UX than presenting heuristic output with man-page
+confidence.
 
-  Measured on a full-`PATH` sweep: 154 → 52 existence-fabrication tools,
-  below the round's own 66-tool starting point (14 tools flagged even
-  before `fix/usage-synopsis`/`fix/colon-separator`/`fix/lvm-bracket-rows`
-  landed turned out to be the identical instrument gap), with the tool set
-  newly fabricating relative to that starting point empty — every
-  fabrication this round's parser work appeared to add was this gap, not a
-  real invention. Zero flag, subcommand, or status movement on the same
-  sweep, as expected of a change confined to `xtask`. This detector has no
-  labelled member in the audit (spec §13.1e: "not one reviewer reported a
-  fabricated subcommand or flag spelling"), so its 9 hand-built self-check
-  cases (`xtask detector self-check --detector existence`) are its only
-  calibration evidence, not a fleet-wide confusion matrix.
-- **A layout-driven section parser** for `Options:`/`Flags:`/`Commands:` blocks.
-  Group lines by leading-whitespace runs and indentation depth, so
-  `-v, --verbose    Enable verbose output` tokenizes structurally as
-  (short, long, description) regardless of the exact spacing — which varies
-  between tools but is consistent *within* a tool. Detect the description column
-  once per block and apply it to the block.
-- **Preserve section headings as `Flag::group`.** `tar --help` groups 171 flags
-  under headings like "Main operation mode"; `git --help` groups commands under
-  "work on the current change". Discarding that grouping is the difference
-  between a scannable pane and an undifferentiated wall.
+**Recursion.** Revision 1 parsed only the root; subcommand flags need a
+probe per node. Recursion is lazy, per-node, under §5.2: `<tool> <sub>
+--help` runs only when that node is expanded.
 
-  A heading is recognized by **relative indentation** — any line whose next
-  non-blank neighbour is indented further introduces that neighbour's block —
-  because real headings sit at no fixed column (`tar` indents its own by one
-  space, its entries by two). That rule has one systematic false positive:
-  **running prose whose hard wrap puts a hanging-indented line beneath an
-  ordinary sentence.** The sentence is promoted to a heading and the rest of
-  the sentence becomes its block. Three shapes of it, and the binding rule
-  for each:
+**Entities beyond flags and subcommands** — modifiers (a letter glued to an
+operation letter, `ar rv`), the argfile sigil (`@<file>`), and environment
+variables documented under an explicit heading — are recognized by shape and
+become their own `EntityKind` (§4.5), rendered in their own panel section
+(§9.3). None is inferred from prose that merely mentions the word: an
+ALL_CAPS word in a usage placeholder is not an environment variable, and a
+heading that only mentions "operation" without one-word invocation verbs
+beneath it is not a modifier table. See S-020 (modifier table), S-021
+(argfile row), S-023 (environment section).
 
-  1. The sentence **ends** on the promoted line (`nano`'s "When a filename is
-     '-', nano reads data from standard input."; GNU argp's "Mandatory
-     arguments to long options are mandatory for short options too.", 56
-     tools). The block below it is a real option table, so only the `group`
-     is wrong: the heading is **suppressed**, the block parses unchanged
-     (`is_prose_sentence`).
-  2. The author marked the wrap with a backslash (`update-xmlcatalog`'s
-     synopsis, 7 tools). Same remedy — suppress the `group`
-     (`is_line_continuation_fragment`).
-  3. The sentence **continues** onto the indented line, so that line is not
-     a block at all but more of the sentence. Suppressing the `group` is not
-     enough here, because the continuation is still mined: when the wrap
-     lands on a dash-led word the parser reads an options table out of a
-     paragraph. `dpkg --help` (issue #80) wraps one cross-reference sentence
-     — "Use dpkg with -b, --build, … -f, --field, … on archives (type
-     dpkg-deb --help)." — across three lines, and acquired from it both a
-     section divider and a `-f, --field` option that belongs to a different
-     program. **The whole wrapped region is contained**: neither heading nor
-     entries are recovered from any of its lines
-     (`wrapped_prose_region_end`), the same remedy the obscured-`Examples:`
-     marker gets.
+Every recognizer above is admitted only after being checked against the
+full frozen `PATH` capture set, never assumed from one tool alone; a recorded
+miss is preferred to a recognizer that invents a section (§13.1e). The
+atlas (`docs/shapes.md`) is the record of what was found and what fired on
+it; this section states the rule each recognizer enforces, not its
+history.
 
-  Shape 3 is recognized by the author's own unfinished-line marker, a
-  trailing comma, on a line that is a single field (no aligned column) of at
-  least five words, immediately followed — no blank line, since a wrapped
-  sentence contains none — by a more-indented line that is itself a single
-  field. The region then runs while both conditions hold, so it ends at the
-  first blank line, the first dedent, or the first line carrying an aligned
-  column. That last bound is what keeps the fence off real structure: an
-  option table's rows have a column gap, so a genuine block beneath a
-  comma-terminated line is still parsed in full. Colon- and
-  period-terminated lines are excluded by construction, so this neither
-  overlaps nor widens shapes 1 and 2 or `is_section_heading_line`.
-- **A usage stanza is labelled by its own description, not by its head
-  line.** A multi-variant tool documents each invocation form as a
-  *stanza*: a description sentence, then the form's head line, then that
-  form's option rows. LVM's whole `lv*`/`vg*`/`pv*` family writes every
-  mode this way —
+### Tier D — man page enrichment
 
-  ```text
-    Start the lockspace of a shared VG in lvmlockd.
-    vgchange --lockstart
-  \t[ -S|--select String ]
-  \t[ COMMON_OPTIONS ]
-  ```
+Two sub-cases of very different quality. `mdoc(7)` pages use semantic macros
+(`.Fl` for a flag, `.Ar` for an argument), so the AST genuinely distinguishes
+a flag from prose. `man(7)` pages are typeset prose with weak semantic
+tagging: section boundaries extract reliably, but individual flag/
+description pairs need the same heuristics as Tier B.
 
-  — and where the usage block itself does not reach the stanza (it ends
-  at the first description too short for `is_prose_sentence`), the section
-  scanner reads the head line as the heading governing the rows beneath
-  it. Every flag in the stanza then takes the head line as its `group`,
-  and the sentence above is consumed by nothing. Both halves of that are
-  wrong: a divider reading `Vgchange --lockstart ────` names the group
-  with a spelling already printed on the row beneath it, while the one
-  human-meaningful thing the tool says about the mode is not in the tree
-  at all.
+Never regex the rendered output of `man <tool>`, and never parse `mandoc -T
+tree` — the OpenBSD manual documents that format as unstable and says not to
+write parsers against it; there is no `-T json`.
 
-  **The sentence becomes the group's label, and the head line becomes a
-  `usage` entry.** Nothing is traded away in either direction: the label
-  says what the mode does, and the head line is a verbatim invocation
-  form, which is what §4.5's `usage` holds — the same section the stanzas
-  the usage block *did* reach already occupy.
+**Implementation is a pure-Rust subset parser, never `libmandoc` FFI.**
+`libmandoc` is not a shipped library on Linux [M-6], so using it would mean
+vendoring and building mandoc's C source, and `#![forbid(unsafe_code)]`
+rules out the FFI regardless. The parser targets man(7) `.TP`/`.IP` + `.B`,
+with `.It Fl` for mdoc — most relevant pages are man, not mdoc [M-14]. It
+gates on the tag line beginning with a flag, never on an `OPTIONS` section
+heading, since several real tools document options under `DESCRIPTION`
+instead [M-14].
 
-  The rule is anchored on the head, not on the prose
-  (`sections::stanza_description_above`). The head must already be a
-  recognized stanza head — the tool's own name at a word boundary
-  followed by exactly one bare flag token, `recover_stanza_head_flag`'s
-  own test — so the question is never asked about an ordinary heading.
-  The line above it must then be a lone sentence: at the head's exact
-  column, with a blank line or nothing above it, terminated by a full
-  stop that is not an ellipsis, a single field with no aligned column, at
-  least three words, and neither the tool's own name nor flag or bracket
-  notation. **With no such line the head-line label stands unchanged**,
-  which is also what a stanza whose description hard-wraps across two
-  physical lines gets: the anti-paragraph clause refuses the whole shape
-  rather than label a group with the tail of a sentence.
+**Man pages are generated too, the same insight as Tier A′ one tier down.**
+help2man, asciidoc/docbook-to-man, mdoc, and hand-written roff partition
+this space the way clap/cobra/argparse partition help text. The first step
+is a generator survey with a go/no-go per generator, not a parser: git's own
+184 `git-*.1` pages are asciidoc-generated and contain zero `.TP` macros, so
+a `.TP`-targeting parser recovers nothing from git regardless of how well it
+is built [M-16]. git's flags are reachable far more cheaply through `-h`
+(§7 Tier B, [M-16]).
 
-  The three-word floor is deliberately not `MIN_PROSE_SENTENCE_WORDS`'s
-  five, and the two are not interchangeable. Five answers "is this
-  indentation-promoted line prose rather than a section heading?", asked
-  of any line anywhere, where a short *heading* is the thing that must
-  never be claimed. This one is asked in a single fully-bracketed slot
-  where a heading and a description both name the block below and either
-  beats the invocation line; what remains to keep out is a one- or
-  two-word fragment. `vgchange`'s own `Activate or deactivate LVs.` is
-  four words, and a five-word floor would leave that one stanza — the
-  tool's most-used mode — labelled by its head line while its five
-  siblings carried their sentences.
+Multi-page discovery, for the tools this tier does help, walks
+`<tool>-<sub>.N` siblings via `MANPATH` and `man -k`.
 
-  A group label is displayed with its source's terminator stripped, the
-  full stop of a sentence exactly as the colon of a heading (§9.3).
-- **Never invent subcommands.** This tier shipped a bug where wrapped
-  description continuation lines and enum value lists were parsed as commands:
-  `tar` gained 39 phantom subcommands named *"treat them as errors"* and
-  *"extracting (default)"*, `dd` 40, `less` 65 [M-10]. Fabricated structure is
-  strictly worse than missing structure — a user cannot tell it is wrong. Four
-  binding rules:
-  1. A command block **must** be introduced by a recognized heading
-     (`Commands:`, `Subcommands:`, `Available Commands:`, `SUBCOMMANDS`, a
-     git-style group heading, or — the narrower extension below — a heading
-     mentioning "operation(s)"). Layout alone is never sufficient evidence.
-     `tar --help` has no such heading, so the correct answer is **zero
-     subcommands**.
-  2. A line sitting at the description column with nothing at the name column is
-     a **continuation** of the previous row, never a new row.
-  3. A candidate command name must look like one: `^[a-z][a-z0-9_.-]*$`, no
-     whitespace. *"treat them as errors"* fails; `commit` passes.
-  4. An indented list nested under a flag is that flag's **`choices`**, not
-     subcommands — `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum
-     values, and the IR already has a field for them. A per-value
-     description, when the source documents one, is kept rather than
-     dropped: `tar`'s own `FORMAT is one of the following:` and
-     `VERSION_CONTROL` enums name each value's meaning
-     (`gnu   GNU tar 1.13.x format`), and that text belongs on the value it
-     describes, never discarded.
-  5. **A row strictly deeper-indented than a flag row directly under it,
-     whose name column is a bare, dashless word** (`is_command_name_shaped`
-     — internal `-`/`_`/digits allowed, no leading dash, no leading digit),
-     **separated from the rest of the row by a genuine aligned column gap**
-     (two or more spaces, or a tab — never a single space, which is
-     ordinary prose wrapping, not a table), attaches to that flag's
-     `choices` as one **described** value: the name becomes `Choice::name`,
-     everything from the gap to the end of the line becomes
-     `Choice::description`, verbatim. ffmpeg/ffplay's AVOption sub-table is
-     the source of this rule:
-
-     ```text
-     -flags             <flags>      ED.VAS..... (default 0)
-          unaligned                    .D.V....... allow decoders to produce unaligned output
-          gray                         ED.V....... only decode/encode grayscale
-     ```
-
-     The scope-flag columns (`ED.VAS.....`) and any numeric value column
-     (`-strict`'s `very  2  ED.VA...... ...`) are the tool's own text and
-     stay inside the description unparsed — mandible does not model what
-     the columns mean. Distinct from rule 4's plain bare-word block (no
-     gap, no per-row description — the whole block is one flat name list)
-     and from an ordinary wrapped-description continuation line (single-
-     spaced prose, no aligned column): both keep folding into the owning
-     entity's own `description` exactly as before. A flag whose choices are
-     already populated by other means, and whose immediately-following
-     block also looks like this shape, is not resolved by this recognizer.
-- **Confidence must fall when the grammar is guessing.** The same bug was
-  reported as `ok` at `100% described`, because invented nodes inflate the
-  metric rather than depressing it. Any block that yields names failing rule 3,
-  or a node with no flags, no children, and a non-identifier name, must reduce
-  confidence and mark the tool `suspicious` in the coverage scoreboard (§13.1).
-- **Recurse for subcommands.** Revision 1 parsed only the root, which for `git`
-  yields subcommand names and zero subcommand flags. Recursion is per-node under
-  §5.2 laziness: `<tool> <sub> --help` runs when that node is expanded.
-- **Read stdout *and* stderr, and do not require exit 0.** Measured: `openssl
-  --help` writes 0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255
-  with output only on stderr [M-8]. Both are exactly the "older Unix utility"
-  this tier exists for. The rule for which of the two the *parser* reads is
-  not "stdout if non-empty, else stderr": that rule shipped first and was
-  wrong. `openssl cmp --help` prints two `CMP info: ...` diagnostic lines to
-  stdout and its entire ~60-line help to stderr, so it handed the parser the
-  banner and threw the document away, reachable by roughly 150 openssl
-  subcommands in the same shape. The rule now judges each stream on its own
-  with a help-shaped-output check (`looks_like_help_output`, D1.3.1) and
-  parses whichever stream looks like help:
-
-  | stdout empty? | stderr empty? | picks |
-  |---|---|---|
-  | yes | yes | stdout (empty; nothing to pick) |
-  | yes | no | stderr, the only stream available |
-  | no | yes | stdout, the only stream available |
-  | no | no, stdout help-shaped | stdout, regardless of stderr |
-  | no | no, stdout not help-shaped, stderr help-shaped | stderr |
-  | no | no, neither help-shaped | stdout, the default when there is nothing to prefer |
-
-  Ties (both streams help-shaped) break toward stdout, the conventional
-  stream for a well-behaved tool's `--help`. The streams are never
-  concatenated for the parser: merging a diagnostic preamble into the
-  document is how banner text becomes fabricated flags. `pick_stream` in
-  `mandible-extract/src/help_text/mod.rs` carries the full truth table and
-  reasoning above its definition.
-
-  This is the *parsing* path only. The verbatim/raw pane (key `t`, §2) shows **both**
-  streams, labelled, independent of what the parser chose to read. A
-  reviewer checking the parser's work needs to see the diagnostic lines the
-  parser correctly discarded, not just the document it kept. See §4.1 for
-  the raw pane's own sanitization rule, which is deliberately different from
-  the IR's.
-
-  Measured, full PATH, 2,240 tools joined, before and after the fix: 0
-  flag-count losses across any tool, 169 flags gained across 11 tools (every
-  one from zero), 13 tools moving `verbatim` → `ok`, `verbatim_count` 321 →
-  308.
-- **Attach `confidence: f32`** derived from how much of the output the grammar
-  actually consumed, and surface it. Being honest about a best guess is better UX
-  than presenting heuristic output with man-page confidence.
-
-**Headingless invocation tables.** Rule 1 above requires a recognized
-heading before a bare-word block becomes subcommands. `btrfs --help` has a
-real command table with no heading at all — a blank line, then dozens of
-`btrfs balance start [options] <path>` / one-indent-deeper-description rows
-running to the end of the document (`corpus/btrfs/audit-seed2`). Layout
-alone is still never sufficient evidence (rule 1's own reasoning), but a row
-that repeats the *tool's own name* is a different kind of evidence than bare
-layout: it is the tool describing its own invocation forms, in its own
-voice, which is exactly what a heading would otherwise be vouching for.
-
-The recognizer (`help_text::sections::scan_headingless_invocation_table`,
-tried in `parse_with_profile`'s main section loop immediately after a
-headingless flags block is ruled out, before the line is read as a
-candidate heading) admits a run of rows only when **all** of:
-
-1. **Repetition** — at least two name-row/deeper-description-row pairs (the
-   same shape test `nested_entry_table_starts_at` already uses to end a
-   flags block early). One row is as likely to be a stray example as a
-   table.
-2. **Every row starts with the tool's own name** at a word boundary. This
-   is the substitute for rule 1's heading requirement, and it is also what
-   supplies the nesting: `btrfs device add ...` reads as child `device`,
-   grandchild `add`, from the tokens after the tool's name.
-3. **Existence attestation** — every emitted name is checked to occur
-   literally, as a whole token, in the raw text (spec [M-10]'s lesson,
-   checked explicitly rather than assumed true by construction).
-4. **Name shape** — only the leading run of `is_command_name_shaped` tokens
-   after the tool's name contributes anything; the first flag-shaped,
-   bracketed, or placeholder-shaped token ends the run. This is what
-   refuses pngfix's `--strip=[none|crc|...]:` and pod2man's
-   `--guesswork=rule[,rule...]` value lists (already kept out of this path
-   entirely — neither line starts with the tool's own name) and an
-   `Examples:`-style block of `tar -cf archive.tar files` rows (`-cf` is
-   flag-shaped, so the run is empty).
-
-Emission is two levels deep, matching the row's own leading run capped at
-two tokens: the first token is a direct child, the second (if present) a
-child of that child — grandchildren go no deeper. A row's description
-belongs to the deepest name in its run, and a run of consecutive sibling
-rows sharing one following description block (btrfs's `device delete` /
-`device remove` pair) all take that shared description. Every recovered
-node's name is deduplicated by identity, same as `emit_subcommands`.
-
-Every node this recognizer produces is `invocation_attested: true`,
-`heading_attested: false` — see rule 0's closing paragraph above (§6) for
-why the two are kept separate and what each one governs.
-
-**Headed command tables with no column-gap or dash separator.** Rule 1
-requires a recognized heading; the two shapes above additionally require a
-column gap or a ` - ` separator to split a row into name and description.
-Two real tools' command tables have a recognized heading but neither: `wpa_cli
---help`'s `commands:` block separates name and description with ` = `
-instead (`status [verbose] = get current WPA/EAPOL/EAP status`, and a
-handful of rows — a real inconsistency in the tool's own text — with no
-separator at all), and `apt-ftparchive --help`'s `Commands:` table has no
-description per row at all, just the command name followed by its own
-positional operands (`sources srcpath [overridefile [pathprefix]]`), with
-its first row sharing the heading's own physical line
-(`corpus/apt-ftparchive/audit-seed2`, promoted from `[xfail]`).
-
-`help_text::sections::scan_bare_command_table` reads a row's name as only
-its **leading name-shaped token**, never a run of them (unlike the
-headingless recognizer's two-token run above): `apt-ftparchive`'s `sources
-srcpath` names one command, `sources`, with `srcpath` — itself
-name-shaped — as its own operand, never a second command or a
-grandchild. A ` = ` separator (found the same way `find_dash_separator`
-finds ` - `) gives the description; its absence leaves the node honestly
-undescribed rather than guessing where the name ends and prose begins.
-`split_heading_inline_row` recovers the special case of a heading sharing
-its own line with the table's first row, using
-`is_section_heading_line` to tell a real (if unconventional) heading
-label from an ordinary sentence that merely ends in a colon.
-
-Three admission guards, each added after a real fabrication surfaced
-during development against the live fleet, not written down in advance:
-
-1. **The bail-out.** Refuses (`None`) the whole block outright if any row
-   has a real column gap or a ` - ` separator — both already-working
-   shapes this recognizer must never compete with, let alone win against
-   by running first. This is also what keeps a bare-word block that
-   legitimately uses `name = value` for something that is not a command
-   list (`wpa_supplicant`'s own `drivers:` block, `nl80211 = Linux
-   nl80211/cfg80211` — see `find_equals_separator_gap`'s own doc comment)
-   safe on the rare tool where that heading would otherwise qualify.
-2. **`recognized`, never `command_mode`.** Gated on the *current* heading
-   itself mentioning "command(s)", not on inheriting a `command_mode`
-   chain the way `allow_dash_separator` (issue #3) deliberately does.
-   `fail2ban-client --help`'s real `Command:` table nests column-aligned
-   rows whose descriptions wrap onto their own more-indented lines; the
-   engine's "not actually a heading, rewind" path re-examines each such
-   row as a fresh pseudo-heading once `command_mode` is stuck on from the
-   real heading many rows earlier, and a wrapped continuation block that
-   ends up reachable on its own passes every other guard here purely
-   because ordinary English is indistinguishable from a command name by
-   shape alone — `of`, `the`, `restarting`, `option` all became
-   "subcommands" of `fail2ban-client` this way before this guard was
-   added. None of those pseudo-headings themselves mention "command", so
-   requiring `recognized` directly closes it while still admitting both
-   real fixtures (each literally recognized at the point this is tried).
-3. **The floor counts distinct names, not qualifying rows.** `trash-put
-   --help` closes with an ordinary sentence, "...use one of these
-   commands:", that satisfies the generic `mentions_commands_word` test
-   exactly as written (the word "commands" does appear), followed by a
-   two-line worked example of invoking a *different* program twice
-   (`trash -- -foo`, `trash ./-foo`). Both lines pass every guard above,
-   but they name the same thing, and a real command table's whole
-   evidentiary claim is that it lists several *different* commands — so
-   the floor is distinct qualifying names, not raw qualifying rows.
-
-Every node this recognizer produces is `invocation_attested: true,
-heading_attested: false`, for the same reason as the headingless table
-above — with an extra note specific to this shape: these tables belong to
-C daemons and daemon-control clients whose "commands" are runtime control
-verbs (`wpa_cli terminate`, `wpa_cli quit`) rather than argv subcommands in
-the clap/cobra sense, and such programs commonly ignore a trailing
-`--help` and just execute the verb, so even a correctly-attested name here
-is a `heading_attested`-shaped risk rule 0's gate exists to withhold.
-
-**Modifier tables.** A few tools document a class of item that is neither a
-flag nor a subcommand: a **modifier**, a single letter typed glued to an
-operation letter rather than given as its own dashed argument. binutils `ar`
-is the type specimen — `ar rv libfoo.a` is the operation `r` carrying the
-modifier `v` — and it prints them as their own tables, one for the modifiers
-particular commands accept and one for the modifiers any command accepts.
-`llvm-ar` prints the same class under a single `MODIFIERS:` heading. They
-become `EntityKind::Modifier` entities (§4.5), rendered by §9.3's MODIFIERS
-section.
-
-The recognizer is keyed on the **row**, never on the heading, which is what
-makes it general: `ar`'s own tables sit under headings that say
-"modifiers", but its first one also contains the word "command" and is
-therefore a *recognized command heading* under rule 1 — which is precisely
-how those rows used to be lost, sent to the subcommand path and dropped one
-by one for failing the command-name shape test. A row is a modifier row
-when it opens with `[`, closes that bracket on the same line, holds
-**exactly one ASCII letter** inside it, optionally followed by an operand
-(`ar`'s `[l <text> ]`), and follows the bracket with an **explicit
-separator** — a ` - ` run or a column gap — and then a description. Two
-such rows in succession are a table; one is not.
-
-Both halves of the letter rule are load-bearing, and both were measured
-rather than assumed. Across the 2,301 frozen captures in the audit queue
-the only document outside the `ar`/`llvm-ar` family that the grammar looks
-at twice is `pygettext3`, whose reference footnotes read `[1] https://…` /
-`[2] https://…`: two consecutive rows, bracketed, structurally
-indistinguishable from a modifier table except that a footnote marker is a
-digit and a lone space is not a column. A digit is therefore refused, and
-so is a single space — a strict rule with a recorded miss (a tool that
-documents a *numeric* modifier, if one exists, is not read) in preference
-to a permissive one that invents a section, per §13.1e's posture.
-
-The scan is offered a heading's first content line and **stops at the first
-row that is not a modifier row**, leaving the remainder of the block to the
-flag scanner under that same heading. This is not an optimization: `ar`'s
-` generic modifiers:` section runs seven bracket rows, then `@<file>`, then
-four ordinary long options, and those four take their `group` from the
-heading they sit under. A recognizer that consumed the whole block, or that
-restarted section scanning after the run, would strip that group from four
-flags that carry it correctly today.
-
-**The argfile row.** `@<file>` is recognized by **shape**, never by tool
-name (§1): a table row whose first token, at the row's own name column
-(never a token appearing mid-sentence, which is how `user@host` in a
-description or `jar --help`'s own prose example `@classes.list` are
-refused), is `@` immediately followed — glued, no space — by a
-placeholder-shaped fragment and nothing else in that token: either a
-bracketed placeholder (`<file>`, `<filename>`) or an all-uppercase word
-(`FILE`). Measured across this fleet: GNU binutils' `ar`/`nm`/`objdump`/
-`readelf`/`size`/`addr2line`/`as`/`ld`/`ranlib` family (both spellings),
-LLVM's `llvm-ar`, and the JDK's `jmod`/`jlink`. It becomes the argfile
-sigil flag (§4.5's own paragraph) rather than being left unemitted — the
-row previously ended a flags block cleanly (avoiding the corruption its
-own presence used to cause) but produced no entity at all — containment
-without rendering is an unfinished fix, not a solved one. The row's
-description is split from its spec by the same column rule as every
-other row in its table, so a lone `-` token opening the description side
-(`ar`'s ` - ` column separator, written on every row of its tables) is
-stripped here as it is from `--thin` and `--target=BFDNAME` beside it —
-one table renders one way, whichever finder located each row's column.
-
-**The "operations" heading.** `llvm-ar --help` documents its single-letter
-operations under an `OPERATIONS:` heading — the same shape as its own
-`MODIFIERS:` table and as binutils `ar`'s command table, just with a
-different word over it. Rule 1's vocabulary is extended to recognize a
-heading mentioning "operation" or "operations" as a whole word, on the same
-footing as "command(s)"/"subcommand(s)": an operation letter *is* an
-invocation verb — `llvm-ar d archive.a file.o` — exactly the way a
-subcommand name is, so a heading naming a table of them is the same class
-of evidence rule 1 already accepts. `ar`'s own equivalent table sits under
-a heading that already says "commands" and needed no change.
-
-The extension applies to **heading recognition only** — the test a heading
-must pass to introduce a command block — and does not reach the
-prose-seeded `command_mode` chain a tool's own description sentence can
-start. The two are deliberately different vocabularies. Measured over the
-2,301 frozen captures in `audit/queue-captures/`: 22 tools carry a heading
-whose text mentions "operation"/"operations". Of those, 20 (`autoconf`,
-`autom4te`, `automake`, `autoreconf`, `autoupdate`, `btrfsck`, `cpio`,
-`envsubst`, `jar`, `m4`, `man`, `mount`, `msgcmp`, `msgfmt`, `msgmerge`,
-`msgunfmt`, `pygmentize`, `tar`, `xgettext`) head an ordinary *flags* table
-(`Operation modes:`, `Main operation mode:`, `mount`'s own `Operations:`)
-— every row is flag-shaped, so the flags-block scan claims the block
-before heading recognition is ever consulted, structurally identical to
-how a flags table under a `Commands:`-worded heading was already safe.
-The remaining 2 (`llvm-ar`'s `OPERATIONS:`, `corpus/llvm-ar-18/18.1.3`, and
-`jmod`'s `Main operation modes:`) are genuine tables of one-word
-invocation verbs with a ` - `-separated description each — exactly the
-shape this extension exists to recover, and the only shape it does. A
-tool's own description prose mentioning "operation"/"operations" is far
-more common — 141 of the same 2,301 captures — which is why seeding a
-sticky command-list chain from that word, fleet-wide, stays out of scope:
-the extension widens what counts as a heading, never what counts as an
-introduction to one.
-
-A recovered operation is `heading_attested: true`, the same as any other
-entry under a recognized command heading (rule 0's closing paragraph,
-above), and so becomes eligible for `<word> --help` probe argv under
-§6 rule 2 exactly as a subcommand name would. Measured against the real
-`llvm-ar` and `jmod` binaries: every recovered word answers `--help`
-with its help text and exit 0, no archive or module file created or
-touched, because both tools' own argument parsers (LLVM's `cl::opt` and
-`jmod`'s launcher) process `--help` before acting on the preceding word
-regardless of its position — the same permutation behaviour rule 0's own
-measurement already relies on for GNU getopt.
-
-**Environment sections.** A tool's own environment variables — `bpftrace`'s
-`BPFTRACE_BTF`, `node`'s `NODE_DEBUG` — become `EntityKind::EnvVar`
-entities (§4.5), rendered by §9.3's ENVIRONMENT section, but only when
-documented under an **explicitly labeled environment heading**: `PATH`,
-`FILE`, `TERM` and every other ALL_CAPS word in prose or a usage
-placeholder is exactly the fabrication class §13.1e's family detectors
-exist to catch, and a tool that documents its env vars only in a man page
-gets no ENVIRONMENT section here — mandible renders the author's
-documented surface, it does not claim completeness (§1).
-
-The recognizer is **heading-keyed, never row-keyed** — the opposite choice
-from the modifier-table recognizer above, and for the opposite reason. The
-modifier recognizer has no reliable heading to stand on (`ar`'s own
-headings are unreliable, as the modifier-table subsection describes), so it
-has to prove itself entirely from row shape. An environment section has the
-reverse problem: a bare identifier, a separator, and a description is not
-by itself distinguishable from an ordinary bare-word block or a flush-left
-config-variable table — `mysqlslap`'s settings listing is exactly a table
-shaped like this that documents defaults, not environment variables, and is
-the specimen [M-10] was found through. Here the heading is the only
-reliable signal, so the heading carries the whole weight: the row grammar
-only has to clear an ordinary separator-and-identifier bar once the heading
-has already matched.
-
-Measured over the 2,301 frozen captures under `audit/queue-captures/`: 57
-tool directories carry a heading that reduces (trimming, and dropping one
-optional trailing colon — never other trailing punctuation) to one of
-three exact words: `environment`, `environment variable`, `environment
-variables`. The largest family by far is `bpftrace` and roughly sixteen
-near-identical `.bt` trace scripts sharing its boilerplate `--help`, all
-under `ENVIRONMENT:`. Two labeled sections in the fleet (`ebtables`,
-`ebtables-nft`) document nothing beneath the heading and correctly produce
-no section — an empty label is not evidence of anything to recover. The
-near-misses excluded by the exact-word rule: a bare `env` heading (a
-subcommand list, not an environment section — none found in this fleet,
-but structurally excluded regardless), and every prose sentence that merely
-*mentions* "environment"/"environment variable" without being the heading
-itself (`clang`'s "Specify the target environment", `wget`'s "environment
-variable is used.", `rg`'s wrapped sentence ending "...the environment
-variable."). The row grammar reuses the same separator rule
-(`split_modifier_table_row`'s column-gap-or-dash-run) with the modifier
-table's bracket parsing dropped, since an environment row has no bracket to
-open.
-
-The row floor is **one**, not two: since the heading is already the
-positive evidence, a single row does not need a second row to corroborate
-it the way a headingless bracket row does. The scan skips at most one
-leading line that fails the row grammar before its run has to open —
-`gprofng`'s own `Environment:` heading is followed by an introductory
-sentence ("The following environment variables are supported:") before its
-real rows — which costs nothing when the skip guesses wrong, since the row
-scan that follows still has to find a real row or the whole result is
-`None` regardless. A recorded miss, on the same convention the modifier
-scanner already accepts: the run stops at the first blank line, so
-`gprofng`'s own two variables — printed as two blank-line-separated
-paragraphs rather than adjacent rows — yield only the first.
+**Trigger: zero-confidence fallback only, off by default.** This tier fires
+only where the help-text tiers produced nothing usable; it never enriches a
+parse that already succeeded, and shipping it at all is opt-in. §16 records
+the ruling and why. Where it does fire, per-field provenance labels the
+prose `man`, so a reader can see a description came from a page rather than
+from the binary.
 
 ### Tier C — completion script structural parsing
 
-For tools not in a catalog that support `<tool> completion bash|zsh|fish`
-(clap, cobra, click, oclif, and many hand-rolled CLIs): generate the script, then
-**parse it with a real shell grammar, not regex.** Parsing never executes it,
+For a tool that supports `<tool> completion bash|zsh|fish` (clap, cobra,
+click, oclif, and many hand-rolled CLIs): generate the script, then parse it
+with a real shell grammar, never regex. Parsing never executes the script,
 which is the safety property that matters when processing untrusted output.
 
-- **Crate choice: `brush-parser`.** Revision 1 selected `conch-parser`, which is
-  unmaintained and today emits *"contains code that will be rejected by a future
-  version of Rust"* on build [M-9]. Maintenance, not licensing, is the risk here.
-  Avoid `yash-syntax` (GPLv3 — statically linking it would oblige the whole
-  binary under GPL).
-- **Prioritize zsh `_arguments` over bash.** `_arguments` blocks carry
-  `'-v[enable verbose output]'` — spelling *and* description in one structure.
-  Bash completion functions carry only spellings, and typically compute candidates
-  at runtime (`$(git ls-files)`, `_get_comp_words_by_ref`), so static parsing
-  recovers substantially less than revision 1 implied. Request zsh first, bash as
-  fallback.
-- Walk `complete -F`/`compgen -W` registrations and `case "$prev" in` branches as
-  typed AST nodes.
+**Crate: `brush-parser`.** Revision 1 selected `conch-parser`, unmaintained
+and rejected by a future Rust version at build time [M-9]. `yash-syntax` is
+avoided as GPLv3, which would oblige the whole binary under GPL if statically
+linked.
 
-**Measured cost on a full-screen program with no `completion` subcommand**
-(task #14, 2026-08-13): `vim.basic` extracts in **~21.25s**, a ~200x outlier
-against the fleet, even though its 45 flags all parse correctly and Tier B's
-own probe/parse together cost single-digit milliseconds. Isolated with
-`CompletionScriptTier::detect()` called directly against the real binary:
-**20.03s**, which is the whole story. `vim.basic` has no `completion`
-subcommand, so `probe_and_extract_flags`'s two sequential probes — argv
-`["completion", "zsh"]`, then `["completion", "bash"]` (spec's own request-
-zsh-first-bash-fallback order above) — each land on vim's ordinary "open
-these two file names" behavior: it enters its normal full-screen editor
-session (confirmed by the alternate-screen-buffer escape sequence,
-`\x1b[?1049h`, appearing in the captured stdout) instead of erroring out on
-an unrecognized subcommand. Given no controlling terminal (`run_inert`'s
-sandboxing gives every probe its own session, spec §6 rule 6), it neither
-produces the completion output Tier C wants nor exits — it just sits until
-each probe's own `PROBE_TIMEOUT` (10s) kills it. Two probes × 10s ≈ the
-entire measured 21.25s; parse time is not involved at all, and there is no
-superlinear behaviour in `help_text::sections`'s parser to fix here — this
-is pure probe time, correctly bounded by the existing timeout rather than
-hanging forever.
+**zsh before bash.** zsh's `_arguments` blocks carry a spelling and a
+description in one structure; bash completion functions carry only
+spellings and typically compute candidates at runtime. Static parsing
+recovers far less from bash. Walk `complete -F`/`compgen -W` registrations
+and `case "$prev" in` branches as typed AST nodes.
 
-This is a shape, not a `vim` special case: any interactive full-screen
-program that (a) has no `completion` subcommand and (b) does not validate
-an unrecognized positional before entering its main loop pays the same
-2×`PROBE_TIMEOUT` tax from this tier's detection probe alone.
-
-**Gated on evidence, and that is the fix.** The two changes considered when
-the paragraph above was written — shortening `PROBE_TIMEOUT`, or an
-alt-screen-escape early exit — were both rejected as unmeasured changes to
-`exec/`, and both are still rejected. Neither was the right question. The
-cost is not that the probe waits too long; it is that **the probe should
-never have been sent**: `completion zsh` is a framework protocol's words,
-and sending them to a program that does not speak the protocol is §6 rule
-1a's bare invocation. The same probe was independently measured leaving
-437 daemons running (§6 rule 4) and tripping the sweep's PTY canary via
-`docker-proxy` binding `0.0.0.0:-1`. One defect, three symptoms.
-
-`CompletionScriptTier` therefore constructs a `completion <shell>` argv only
-given prior evidence, from the tool itself, that the subcommand exists:
-
-- **Tier A′'s artifact scan already found the `spf13/cobra` marker.** cobra
-  registers a `completion` command itself from v1.2 on, whether or not the
-  author mentions it, and it may be marked hidden — so for a cobra binary
-  the compiled bytes are the only evidence there is. Free: a memoized file
-  read, no subprocess.
-- **or the tool's own root `--help` names `completion`/`completions` as the
-  first token of a line** — the shape of a command-table row, which is how
-  every framework that ships the command advertises it. `--help` is the argv
-  Tier B already sends to every tool unconditionally, so this adds no shape
-  and no new exposure, and it is capped at rule 4's own 2 s `detect` cap.
-  Anchoring on the first token is the whole grammar, and it is what keeps a
-  flag row (`--completion <shell>`), prose ("generate the shell completion
-  script") and a usage synopsis (`Usage: tool completion <shell>`) from
-  counting as evidence.
-
-The answer is memoized per binary, exactly as framework identity is; the
-script itself is not, so a refresh (`r`) re-fetches the payload as before.
-
-Measured on one box with `coverage --tools`, before → after, every other
-column of the scoreboard byte-identical:
-
-| tool | before | after |
-|---|---|---|
-| `vim.basic` | 20 304 ms | 287 ms |
-| `bashbug` | 20 657 ms | 49 ms |
-| `jconsole` | 40 081 ms | 22 065 ms |
-| `docker-proxy` | 239 ms | 221 ms |
-
-`jconsole`'s remainder is Tier B's own `--help` + `-h` pair, not this tier;
-the ~2 s it gains is the evidence probe on a tool whose `--help` never
-returns, which is the worst case this gate has and is paid once per binary.
-
-**The honest cost.** A tool with a real `completion` subcommand that is
-hidden from `--help` *and* is not cobra loses this tier. No such tool was
-found: across 19 hand-picked real tools — `gh`, `docker`, `rustup`,
-`zoxide`, `cargo`, `rg`, `starship`, `npm`, `pip3`, `curl`, `tar`, `git`,
-`ls`, `sh`, `blkmapd` and the four above — `--doctor` output is
-byte-for-byte identical before and after, and Tier C contributed to **none**
-of them either way (cobra's own zsh script uses `_describe`/`compadd`, not
-`_arguments`, so even `docker`, whose script does contain `_arguments`,
-recovers nothing today). That is a sample, not a fleet measurement: a
-full-`PATH` recall comparison is the orchestrator's, and if it finds a tool
-this gate costs, the finding belongs here rather than in a workaround.
-
-**Not built.** Measured before building ([M-14]), re-scoped after a second
-measurement contradicted its headline case ([M-16]), and deliberately
-**off by default** — see "Trigger and default" below. This section records
-what a correct implementation would be, so the next attempt does not
-re-derive it.
-
-Two sub-cases of very different quality:
-
-- **`mdoc(7)` pages** use *semantic* macros — `.Fl` for a flag, `.Ar` for an
-  argument, `.Nm`/`.Cm` for command names — so the AST genuinely distinguishes
-  "this is a flag" from "this is prose." Real structure, not inference.
-- **`man(7)` pages** are typeset prose with weak semantic tagging. Section
-  boundaries (`NAME`, `SYNOPSIS`, `OPTIONS`, `EXAMPLES`) extract reliably;
-  individual flag/description pairs need the same heuristics as Tier B.
-
-**Do not** regex the rendered output of `man <tool>`, and do not parse `mandoc -T
-tree` — the OpenBSD manual documents that format as unstable and explicitly says
-not to write parsers against it. There is no `-T json`.
-
-**Implementation: a pure-Rust subset parser, not `libmandoc` FFI.** Revision 2
-specified `libmandoc` via `bindgen`, and that is superseded. `libmandoc` is not
-a shipped library on Linux [M-6], so it would mean vendoring mandoc's source and
-building it with `cc` — and `#![forbid(unsafe_code)]` rules out the FFI
-regardless. [M-14] measured what a subset parser would actually need: target
-man(7) `.TP`/`.IP` + `.B`, with `.It Fl` for mdoc (only ~20 of the relevant
-pages are mdoc, so an mdoc-first plan aims at the wrong majority). **Do not gate
-on an `OPTIONS` section** — `bash`, `ps` and `tmux` document options under
-`DESCRIPTION`, and that gate alone cost 28 tools; gate on the *tag line*
-beginning with a flag, which is also what excludes examples (`ps` tags its
-examples with `.TP`).
-
-**Man pages are generated too, and that decides the design.** help2man,
-asciidoc/docbook→man, mdoc and hand-written roff partition this space the same
-way clap/cobra/argparse partition help text — the Tier A′ insight, one tier
-down. So the first step is a generator survey with a go/no-go per generator,
-not a parser. [M-16] is why this is not optional: **git's 184 `git-*.1` pages
-contain zero `.TP` macros** — asciidoc emits bold-run paragraphs instead — so a
-`.TP`-targeting parser recovers nothing from the tool revision 2 named as this
-tier's motivating case. git is therefore **not** the headline case; its flags
-are reachable far more cheaply through `-h` ([M-16]) and, at the root, through
-a usage-synopsis grammar. The honest remaining value is [M-14]'s measured
-`.TP` set: `ssh` (52 entries against 0 today), `bash` (162 against 18), `ps`,
-`tcpdump`, `mdadm`.
-
-Multi-page discovery is still required for the tools that do benefit: a tool's
-structure is spread across `<tool>-<sub>.N` siblings, found via `MANPATH`/`man -k`.
-
-**Trigger and default — this reconciles a contradiction this spec used to
-carry.** Revision 2 positioned this tier as a **prose backfill** merged by
-authority (structural 60 / prose 180, §4.4), i.e. enriching parses that
-already succeeded. [M-14]'s own conclusion says the opposite: *fire only as a
-zero-confidence fallback*, which "keeps staleness away from the ~1,500 tools
-that already parse and avoids authority-merge questions entirely." Those are
-different tiers, and the disagreement sat unresolved in this document.
-
-**Resolved in [M-14]'s favour** (maintainer decision, 2026-08-11):
-
-1. **Zero-confidence fallback only.** This tier fires only where the help-text
-   tiers produced nothing usable. It never enriches a parse that already
-   succeeded — so a tool like `git restore`, which yields 16 flags from `-h`,
-   is never touched by it.
-2. **Off by default, opt-in if built.** Enrichment-by-merge is the more
-   invasive reading and is not the default behaviour.
-3. Rationale, and it is a UX judgement as much as a technical one: a man page
-   is a *different document* from the tool's own help, written at a different
-   time, and silently blending the two makes a pane that no longer corresponds
-   to anything the tool actually prints. That is the cleanliness cost, and it
-   is the same objection [M-14] recorded as "avoids authority-merge questions
-   entirely."
-
-Where it does fire, per-field provenance labels the prose `man`, so a reader
-can always see that a description came from a page rather than from the
-binary.
+**Gated on prior evidence that the subcommand exists, never sent
+speculatively.** `completion <shell>` is a framework protocol's own words,
+and sending them to a program that does not speak the protocol is a bare
+invocation under §6 rule 1a. `CompletionScriptTier` constructs that argv
+only when Tier A′'s artifact scan already found the `spf13/cobra` marker (a
+cobra binary registers `completion` itself, whether or not the author
+mentions it, and it may be hidden), or when the tool's own root `--help`
+names `completion`/`completions` as the first token of a line — the shape
+of a command-table row, which adds no new probe since `--help` is already
+sent to every tool. [M-23] has the cost this gate removed and the honest
+limit that remains: a tool with a real, hidden `completion` subcommand that
+is not cobra loses this tier.
 
 ### Tier E — native, self-describing binaries
 
-Highest structural authority, lowest cost-efficiency. Attempted last for *cost*
-reasons — it is the only tier that spawns a process per node — but it wins
-structural conflicts (§4.4) because it reflects the version actually installed.
+Highest structural authority, lowest cost-efficiency. Attempted last because
+it is the only tier that spawns a process per node, but it wins structural
+conflicts (§4.4) because it reflects the version actually installed.
 
-**Gated on prior evidence, never speculative (2026-08-12).** This tier only
-constructs a `__complete` argv for a tool whose *own compiled bytes* already
-identify it as cobra, via Tier A′'s `identify_from_artifact`. It used to ask
-every tool on `PATH`, because asking was the only way to find out who answered.
+**Gated on prior evidence, never speculative.** This tier only constructs a
+`__complete` argv for a tool whose own compiled bytes already identify it as
+cobra, via Tier A′. Probing every tool on `PATH` to find out who would
+answer was the previous design: probing `wall` that way broadcast the
+literal text `__complete` to every logged-in terminal on the reporter's
+machine, because `wall` treats an unrecognized first positional as the
+message to send — the same shape as `pkill -- ""` under §6 rule 2a, an argv
+that is inert for nearly every tool and an action for one family. [M-23] has
+the fleet-wide measurement showing the gate costs nothing extraction can
+see.
 
-Reported from real use: probing `wall` that way broadcast the literal text
-`__complete` to every logged-in terminal on the reporter's machine, because
-`wall` treats an unrecognized first positional as the message to send. That is
-the same shape as `pkill -- ""` under §6 rule 2a, an argv that is inert for
-nearly every tool and an action for one family, and it is the second time that
-shape has caused a real-world side effect. A containment list
-(`exec::spawn::HELP_ONLY_PROBE`) closes the measured cases. It cannot close the
-general one, because it can only ever name tools somebody has already been
-bitten by. The gate closes the general one.
-
-Measured, full PATH, before and after, 2,248 tools joined: **no status
-transitions, no flag-count gains, no flag-count losses**, and an identical
-aggregate (`pct_flags_with_text` 94.83 both sides). Tools eligible for a
-`__complete` probe fell from every tool swept, 2,302, to **5**: `docker`,
-`dockerd`, `gh`, `git-lfs`, `ollama`. So the speculative form was contributing
-nothing to extraction while carrying the whole risk.
-
-The cost of the gate is that a genuine cobra tool whose artifact check fails,
-a stripped binary being the realistic case, loses this tier rather than being
-probed anyway. Nothing on this machine's PATH was in that position. The
-`HELP_ONLY_PROBE` entries stay in place regardless: an artifact fingerprint is
-a heuristic, and defence in depth costs nothing here.
-
-- **cobra `__complete`** (kubectl, docker, gh, helm, and much of modern infra):
-  **the protocol requires two probes per node.** Flags require `__complete
-  <path> "-"` [M-2]; revision 1 documented only the empty-word probe, and an
-  implementation following it produced zero flags. Parse the trailing `:N`
-  directive line; candidate lines are `value\tdescription`, with a `=` suffix
-  marking value-taking flags.
-  - **`__complete <path> ""` does *not* return subcommands only.** Earlier
-    revisions of this section said it did; that is wrong, and was only ever
-    measured at nodes that have subcommands. cobra emits the node's real
-    subcommands and then **appends the command's own `ValidArgsFunction`
-    output**, which is application code reading live state — so at a leaf the
-    whole response is argument data. `docker __complete stop ""` returns the
-    machine's running container names; `docker __complete run ""` returns image
-    names [M-2].
-  - **A candidate list becomes subcommands only if every candidate in it carries
-    a non-empty description.** cobra writes real subcommand rows as
-    `name\tShort` from its own formatter, while a `ValidArgsFunction` returning a
-    plain `[]string` produces bare rows — the only distinction the wire format
-    offers. One undescribed candidate condemns the entire list, described entries
-    included, because cobra marks no boundary between the two blocks. Measured
-    across 631 real command paths on `docker` and `gh`: every real subcommand
-    admitted, every argument value refused [M-2a]. The deliberate cost is a real
-    subcommand with an empty `Short` sharing a list with argument values; Tier B
-    still finds it, and per AGENTS.md §1 this is never relaxed for recall.
-  - **Depth cap** (default 6) and a **visited set** keyed by the candidate list's
-    hash: some tools echo root completions for unrecognized paths, which
-    recurses forever.
-  - **Alias detection**: `gh co` is "Alias for \"pr checkout\"" — recursing it
-    duplicates an entire subtree. Detect the `Alias for` convention and the case
-    where a child's candidate set equals a sibling's, and record it in
-    `CommandNode::aliases` instead of recursing.
-- **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> -- <partial>`): **probed once,
-  now removed.** It was always marginal — measured opt-in and rare, with `ripgrep`
-  erroring and `cargo` printing ordinary help [M-4] — but it was removed for two
-  concrete reasons rather than for rarity.
-
-  It could not be spelled safely. With an empty partial it rendered as
-  `<tool> -- ""`, and `--` is the option terminator essentially every getopt
-  program discards, so the empty string arrived as the tool's first positional:
-  `pkill -- ""` was measured terminating every process in a PID namespace (see
-  §6 rule 2a). Spelled `<tool> --` instead it is harmless but wrong, because `--`
-  is a no-op for most tools, which then print ordinary output that the shape
-  heuristic reads as candidates — measured at 16 tools spuriously acquiring this
-  tier, 8 of them flagged suspicious.
-
-  And it never worked. Unlike cobra's `:N` directive, clap's protocol has no
-  self-identifying trailer, so detection was only ever a shape heuristic; on the
-  PATH sweep it matched ten tools and **none** were clap (`echo -- ""` prints
-  `--`, which starts with a dash and so "looked like" a flag). Re-adding it needs
-  a way to confirm the protocol before trusting the response — gating on Tier A′
-  framework identification would supply one — and a spelling that never passes an
-  empty first positional.
-- **argcomplete** (Python): the `_ARGCOMPLETE` env-var convention. Same shape,
-  lowest priority within this tier.
+- **cobra `__complete`** requires two probes per node: flags need
+  `__complete <path> "-"` [M-2], not only the empty-word probe revision 1
+  documented. The trailing `:N` directive line is parsed and discarded;
+  candidate lines are `value\tdescription`, a `=` suffix marking a
+  value-taking flag. `__complete <path> ""` does not return subcommands
+  only: cobra appends the command's own `ValidArgsFunction` output, which is
+  application code reading live state, so a leaf's response is entirely
+  argument data [M-2]. A candidate list becomes subcommands only when every
+  candidate in it carries a non-empty description, since that is the only
+  distinction cobra's own wire format offers between a subcommand row and a
+  `ValidArgsFunction` row [M-2a]. A depth cap (default 6) and a visited set
+  keyed by the candidate list's hash stop a tool that echoes root
+  completions for unrecognized paths from recursing forever. The `Alias for
+  "..."` convention, and a child whose candidate set equals a sibling's, are
+  detected and recorded in `CommandNode::aliases` instead of being
+  recursed into, which would otherwise duplicate a whole subtree.
+- **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> -- <partial>`) was probed
+  once and removed. It could not be spelled safely: an empty partial sent
+  `--` as the tool's first positional, which `pkill -- ""` demonstrated
+  terminating every process in a PID namespace (§6 rule 2a). Spelled `<tool>
+  --` instead it is harmless but wrong, since `--` is a no-op for most tools
+  and their ordinary output then gets misread as candidates. And it never
+  reliably worked: unlike cobra's self-identifying `:N` trailer, detection
+  was only ever a shape heuristic, and on a full sweep it matched ten tools,
+  none of them clap [M-4]. Re-adding it needs confirmation of the protocol
+  before trusting a response, and a spelling that never passes an empty
+  first positional.
+- **argcomplete** (Python): the `_ARGCOMPLETE` env-var convention. Same
+  shape, lowest priority in this tier.
 
 ### Tier F — user override
 
-`~/.config/mandible/overrides/<tool>.toml`, merged with `Authority { 255, 255 }`.
-This exists so the rare bad case has a clean exit; the pipeline never depends on
-one existing.
+`~/.config/mandible/overrides/<tool>.toml`, merged with `Authority { 255,
+255 }`. This exists so the rare bad case has a clean exit; the pipeline
+never depends on one existing.
 
-**Policy, binding:** overrides are user-local and **never vendored into this
-repository**. This single rule is what actually enforces the §1 invariant —
-without it, the first hard tool gets an override committed to git and the
-per-tool patch pile begins.
+**Policy, binding:** overrides are user-local and never vendored into this
+repository. This rule is what actually enforces the §1 invariant — without
+it, the first hard tool gets an override committed to git and the per-tool
+patch pile begins.
 
 ---
 
@@ -4380,6 +3512,26 @@ any of these as current.
   versions, `du`, `gcc`, `ffmpeg`, `lsof`, `unzip`, `zoxide`,
   `mariadb-check`); the other 71 are `audit-seed2` fixtures staged from the
   seed-2 human audit via `xtask audit fixtures`.
+
+- **[M-23] Evidence-gating cost and benefit, Tiers C and E.** Tier C's
+  completion-script probe, sent unconditionally before its evidence gate
+  existed, cost a full-screen program with no `completion` subcommand two
+  `PROBE_TIMEOUT` waits: `vim.basic` measured 20,304 ms before the gate,
+  287 ms after; `bashbug` 20,657 ms → 49 ms; `jconsole` 40,081 ms →
+  22,065 ms (the remainder is Tier B's own `--help`/`-h` pair, not this
+  tier); `docker-proxy` 239 ms → 221 ms. Across 19 hand-picked real tools
+  including those four, `--doctor` output was byte-for-byte identical
+  before and after, and Tier C contributed to none of them either way in
+  this sample — a sample, not a fleet measurement.
+
+  Tier E's `__complete` probe, gated to cobra-identified binaries only:
+  measured full-`PATH`, 2,248 tools joined, before and after, zero status
+  transitions, zero flag-count changes, identical aggregate
+  `pct_flags_with_text` (94.83% both sides). Tools eligible for the probe
+  fell from every tool swept (2,302) to 5 (`docker`, `dockerd`, `gh`,
+  `git-lfs`, `ollama`) — the speculative form was contributing nothing to
+  extraction while carrying the whole risk of a bare invocation reaching an
+  unrelated tool.
 
 ---
 
