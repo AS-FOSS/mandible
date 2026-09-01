@@ -151,7 +151,15 @@ def collect():
         for number, name in narrative_hits(path, lines):
             add("narrative", path, f"line {number}: {name}")
 
-    for path in ("spec.md", "docs/shapes.md"):
+    prose = ["spec.md", "AGENTS.md", "CONTRIBUTING.md"]
+    prose += [
+        p
+        for p in subprocess.run(
+            ["git", "ls-files", "docs/*.md"], capture_output=True, text=True, check=True
+        ).stdout.split()
+        if not p.startswith("docs/vendor/")
+    ]
+    for path in prose:
         if os.path.exists(path):
             lines = read(path)
             for number, name in narrative_hits(path, lines):
