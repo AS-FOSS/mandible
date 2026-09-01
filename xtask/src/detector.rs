@@ -2957,8 +2957,11 @@ mod tests {
         let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("xtask/ has a parent");
-        let file = audit::load(&audit::verdict_path(&repo.join("audit"), 2))
-            .expect("the tracked seed-2 manifest loads");
+        let file = audit::load(&audit::verdict_path(
+            &repo.join("audit/submissions/sadigaxund"),
+            2,
+        ))
+        .expect("the tracked seed-2 manifest loads");
         file.validate_families()
             .expect("its family labels validate");
         for entry in &file.entries {

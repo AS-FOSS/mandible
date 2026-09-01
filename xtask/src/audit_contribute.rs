@@ -59,6 +59,22 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+/// Carries the already-prompted-for login across the containment re-exec a
+/// full-`PATH` freeze goes through (`mandible_extract::exec::containment`'s
+/// `enter_or_refuse`: `unshare` re-execs this same binary with the same
+/// argv, inheriting this process's environment). That re-exec restarts
+/// `main()` from scratch, which would otherwise call [`prompt_login`] a
+/// second time against a `stdin` that has already been fully consumed by
+/// the first prompt — read once as a real bug (`ci-test-login` piped in
+/// once produced two "GitHub login:" prompts and a "no GitHub login given
+/// and stdin closed" error): the process image is genuinely a fresh
+/// process by the time it runs again, and cannot remember what it already
+/// read from a pipe or file. Set right before [`crate::sweep_guard`] is
+/// called and checked at the top of [`cmd_contribute`], the same pattern
+/// `containment`'s own `SCOREBOARD_FD_ENV_VAR` already uses to survive the
+/// same re-exec.
+const CONTRIBUTE_LOGIN_ENV_VAR: &str = "XTASK_CONTRIBUTE_LOGIN";
+
 /// A GitHub login is validated against this shape everywhere it is read —
 /// typed at the prompt here, or read back out of a folder name by
 /// `scripts/check_submissions.sh` in CI.
@@ -124,13 +140,17 @@ fn seed_from_clock() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    fnv1a64(&nanos.to_le_bytes())
+    // Masked to the non-negative i64 range for the same reason
+    // `freeze_for_contribute`'s own seed is: this becomes `AuditMeta::seed`,
+    // which round-trips through TOML's signed-64-bit integer type, and an
+    // unmasked FNV-1a hash is out of range about half the time.
+    fnv1a64(&nanos.to_le_bytes()) & 0x7fff_ffff_ffff_ffff
 }
 
 /// A verdict file's name is always `<digits>.toml` — `queue.toml` and
 /// anything else in a submission folder is not one. Shared by the
 /// population filter (reading every submission's verdicts) and by
-/// [`find_incomplete_seed`] (finding this login's own unfinished draw).
+/// [`find_unfinished_seed`] (finding this login's own unfinished draw).
 fn verdict_file_seed(path: &Path) -> Option<u64> {
     let name = path.file_name()?.to_str()?;
     let stem = name.strip_suffix(".toml")?;
@@ -322,7 +342,12 @@ fn freeze_for_contribute(
     // The shuffle-stratification seed only decides queue order, never which
     // tools are in it; deriving it from the login keeps a re-freeze of the
     // same folder stable rather than picking a fresh order every time.
-    let freeze_seed = fnv1a64(login.as_bytes());
+    // Masked to the non-negative i64 range: `QueueMeta::seed` round-trips
+    // through TOML, whose only integer type is a signed 64-bit — an
+    // unmasked FNV-1a hash exceeds `i64::MAX` about half the time and
+    // failed exactly that way the first time this ran for real
+    // ("out-of-range value for u64 type" from the `toml` crate).
+    let freeze_seed = fnv1a64(login.as_bytes()) & 0x7fff_ffff_ffff_ffff;
     let entries = shuffle_stratify(&pairs, freeze_seed);
 
     let qpath = queue_path(dir);
@@ -346,12 +371,18 @@ fn freeze_for_contribute(
 }
 
 /// This login's own unfinished draw, if it has one: the smallest seed among
-/// `<dir>/<seed>.toml` files with at least one pending entry. Lets a bare
-/// rerun of `contribute` (no `--seed`) resume exactly the draw an earlier
-/// run left mid-review, rather than drawing a fresh, unrelated sample —
-/// `xtask audit sample`'s own cursor always advances on every call, so
-/// resuming has to mean "reuse the existing file", never "draw again".
-fn find_incomplete_seed(dir: &Path) -> anyhow::Result<Option<u64>> {
+/// `<dir>/<seed>.toml` files whose `<dir>/<seed>-report.txt` does not exist
+/// yet. Lets a bare rerun of `contribute` (no `--seed`) resume exactly the
+/// draw an earlier run left off at, rather than drawing a fresh, unrelated
+/// sample — `xtask audit sample`'s own cursor always advances on every
+/// call, so resuming has to mean "reuse the existing file", never "draw
+/// again". A missing report, not "has a pending entry", is the right test:
+/// a seed whose review finished but was interrupted before the report got
+/// written (a crash, a killed process) has zero pending entries and must
+/// still be resumed — otherwise a bare rerun would draw an entirely new
+/// sample and leave the first one's verdicts stranded, unreported and
+/// uncommitted, forever.
+fn find_unfinished_seed(dir: &Path) -> anyhow::Result<Option<u64>> {
     if !dir.is_dir() {
         return Ok(None);
     }
@@ -366,12 +397,18 @@ fn find_incomplete_seed(dir: &Path) -> anyhow::Result<Option<u64>> {
     }
     seeds.sort_unstable();
     for seed in seeds {
-        let file = load(&verdict_path(dir, seed))?;
-        if file.pending().count() > 0 {
+        if !report_path(dir, seed).is_file() {
             return Ok(Some(seed));
         }
     }
     Ok(None)
+}
+
+/// `<dir>/<seed>-report.txt` — the counterpart to
+/// [`mandible_core::audit::verdict_path`], which this module has no
+/// equivalent of upstream since only `contribute` writes this file.
+fn report_path(dir: &Path, seed: u64) -> PathBuf {
+    dir.join(format!("{seed}-report.txt"))
 }
 
 /// Steps 5-6 of CONTRIBUTING.md §2. See this module's own doc comment for
@@ -420,7 +457,14 @@ pub fn cmd_contribute(
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> anyhow::Result<()> {
-    let login = prompt_login(input, output)?;
+    // A contained freeze re-execs this whole binary from `main()` (see
+    // `CONTRIBUTE_LOGIN_ENV_VAR`'s doc comment) — the second time through,
+    // the login is already resolved and must not be re-prompted for
+    // against a `stdin` that was already drained by the first prompt.
+    let login = match std::env::var(CONTRIBUTE_LOGIN_ENV_VAR) {
+        Ok(login) if is_valid_login(&login) => login,
+        _ => prompt_login(input, output)?,
+    };
     let dir: PathBuf = submissions_root.join(&login);
 
     let qpath = queue_path(&dir);
@@ -434,7 +478,10 @@ pub fn cmd_contribute(
         // Freezing (no `--tools`) is an unbounded PATH sweep, so it gets
         // the same namespace containment + canary guard every other
         // full-PATH sweep in this crate goes through (`xtask audit
-        // freeze`, `xtask coverage`).
+        // freeze`, `xtask coverage`) — which, on a host where namespaces
+        // are available, means this whole process is about to be replaced
+        // by a re-exec'd copy of itself (see `CONTRIBUTE_LOGIN_ENV_VAR`).
+        std::env::set_var(CONTRIBUTE_LOGIN_ENV_VAR, &login);
         let canaries = sweep_guard(true, allow_uncontained, None)?;
         let freeze_result = freeze_for_contribute(
             &dir,
@@ -450,7 +497,7 @@ pub fn cmd_contribute(
 
     let seed = match seed {
         Some(s) => s,
-        None => match find_incomplete_seed(&dir)? {
+        None => match find_unfinished_seed(&dir)? {
             Some(s) => {
                 writeln!(
                     output,
@@ -482,7 +529,7 @@ pub fn cmd_contribute(
     }
 
     let report_text = render_report(&dir, seed)?;
-    let report_path = dir.join(format!("{seed}-report.txt"));
+    let report_path = report_path(&dir, seed);
     std::fs::write(&report_path, &report_text)
         .map_err(|e| anyhow::anyhow!("writing {}: {e}", report_path.display()))?;
     writeln!(output, "wrote {}", report_path.display())?;
@@ -609,21 +656,28 @@ mod tests {
     }
 
     #[test]
-    fn find_incomplete_seed_finds_a_file_with_a_pending_entry() {
+    fn find_unfinished_seed_finds_a_file_with_a_pending_entry() {
         let tmp = tempfile::tempdir().unwrap();
         write_verdict_file(
             tmp.path(),
             9,
             &[("zoxide", Some("correct")), ("curl", None)],
         );
-        assert_eq!(find_incomplete_seed(tmp.path()).unwrap(), Some(9));
+        assert_eq!(find_unfinished_seed(tmp.path()).unwrap(), Some(9));
     }
 
+    /// A seed with zero pending entries is still unfinished until its
+    /// report exists — this is what makes a crash between "review done"
+    /// and "report written" resumable instead of silently abandoning the
+    /// finished verdicts for a brand-new draw.
     #[test]
-    fn find_incomplete_seed_is_none_once_every_entry_is_verdicted() {
+    fn find_unfinished_seed_stays_some_with_zero_pending_until_the_report_exists() {
         let tmp = tempfile::tempdir().unwrap();
         write_verdict_file(tmp.path(), 9, &[("zoxide", Some("correct"))]);
-        assert_eq!(find_incomplete_seed(tmp.path()).unwrap(), None);
+        assert_eq!(find_unfinished_seed(tmp.path()).unwrap(), Some(9));
+
+        std::fs::write(report_path(tmp.path(), 9), "report text").unwrap();
+        assert_eq!(find_unfinished_seed(tmp.path()).unwrap(), None);
     }
 
     #[test]
