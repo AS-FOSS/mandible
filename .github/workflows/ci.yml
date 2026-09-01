@@ -386,3 +386,34 @@ jobs:
           # check would pass vacuously.
           fetch-depth: 0
       - run: ./scripts/changelog_guard.sh
+
+  # `xtask audit contribute` (CONTRIBUTING.md §2) writes exactly two files
+  # per submission and opens a pull request. This checks what actually
+  # landed in the diff rather than trusting the tool that wrote it: every
+  # changed path under audit/submissions/ must match
+  # audit/submissions/<login>/<seed>.toml or -report.txt, every changed
+  # .toml must load and render (`cargo xtask audit report`), and <login>
+  # must equal the PR author's own GitHub login — a typo here would file
+  # someone's audit under the wrong account — unless the author is
+  # `sadigaxund` (the maintainer, who may commit or repair a submission
+  # under any login).
+  #
+  # `pull_request`-only, same as `changelog` above: this reads a diff
+  # against the PR's own base, which only exists for that event.
+  submissions:
+    name: audit submissions (path, verdict, login checks)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Diffed against the PR's base sha below, so history back to it
+          # has to be present — same reasoning as `corpus`'s `--baseline-dir`
+          # population step just above.
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: >-
+          ./scripts/check_submissions.sh
+          ${{ github.event.pull_request.base.sha }}
+          ${{ github.event.pull_request.user.login }}
