@@ -113,12 +113,17 @@ def narrative_hits(path, lines):
         candidates = [(n, l) for n, l in enumerate(lines, 1) if COMMENT.match(l)]
     elif path == "docs/shapes.md":
         # The `fleet` field is defined as a count and the date it was taken, so
-        # the date is data there. Every other line in the atlas is prose.
-        candidates = [
-            (n, l)
-            for n, l in enumerate(lines, 1)
-            if not re.match(r"^\s*-?\s*fleet:", l)
-        ]
+        # the date is data there. The exemption covers the field's wrapped
+        # continuation lines too, which are indented and carry no key.
+        candidates = []
+        in_fleet = False
+        for n, l in enumerate(lines, 1):
+            if re.match(r"^\s*-\s*\w[\w ]*:", l):
+                in_fleet = bool(re.match(r"^\s*-\s*fleet:", l))
+            elif in_fleet and not l.startswith("  "):
+                in_fleet = False
+            if not in_fleet:
+                candidates.append((n, l))
     elif path == "spec.md":
         exempt = spec_exempt_ranges(lines)
         candidates = [(n, l) for n, l in enumerate(lines, 1) if n not in exempt]
