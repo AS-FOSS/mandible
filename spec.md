@@ -100,33 +100,34 @@ opens a full-screen TUI:
 
 **Layout.** Vertical: search bar (3 rows) / body (fill) / status bar (1 row).
 Body horizontal: tree pane / detail pane. The tree pane is
-`Constraint::Min(24)` and the detail pane fills the remainder — **not a
-percentage split**. At 80 columns a 35% tree pane leaves ~20 usable cells after
-borders and depth indentation, which is not enough for a name plus a summary
-[M-7]. Below 60 columns total, drop summaries from tree rows entirely; below 50,
-the panes stack vertically and the detail pane is toggled with `Tab`.
+`Constraint::Min(24)` and the detail pane fills the remainder, never a
+percentage split: at 80 columns a 35% tree pane leaves too few usable cells
+for a name plus a summary after borders and depth indentation [M-7]. Below
+60 columns total, drop summaries from tree rows; below 50, stack the panes
+and toggle the detail pane with `Tab`.
 
 **Design principles.**
 
-- **One accent color, used sparingly** — the selected row, and flag names in the
-  detail pane. Everything else neutral: dim gray for hints and summaries, default
-  foreground for names. No color as decoration.
-- **Consistent indentation** — each tree depth is exactly 2 cells. Expanding
-  changes only the chevron glyph (`▸`/`▾`), never the row's horizontal layout.
-  This matters for mouse hit-testing (§9) and for not making the eye re-track.
+- **One accent color, used sparingly**: the selected row, and flag names in
+  the detail pane. Everything else neutral — dim gray for hints and
+  summaries, default foreground for names. No color as decoration.
+- **Consistent indentation.** Each tree depth is exactly 2 cells; expanding
+  changes only the chevron glyph (`▸`/`▾`), never the row's horizontal
+  layout, which matters for mouse hit-testing (§9) and for not making the
+  eye re-track.
 - **Breadcrumbs in the detail pane header**, always showing the full path
   (`git › rebase`), so context survives scrolling.
-- **Provenance is legible, not decorative.** The footer of the detail pane names
-  the contributing sources and whether structure and prose each came from a
-  trusted source. This is a trust calibration device, and it must be *accurate*
-  (see §4's per-field provenance) or it is worse than nothing.
+- **Provenance is legible, not decorative.** The footer names the
+  contributing sources and whether structure and prose each came from a
+  trusted source, and it must be accurate (§4.2) or it is worse than
+  nothing.
 - **Rounded borders** (`BorderType::Rounded`), consistent 1-cell padding, no
   nested boxes.
 
-**Flags are not tree rows.** `git` alone carries 2,999 flags [M-1]; putting them
-in the tree makes the tree useless. Flags live in the detail pane. They are still
-independently *searchable* and *addressable* (§4 `NodeRef`, §10), which is what
-users actually need — the tree is for structure, search is for flags.
+**Flags are not tree rows.** `git` alone carries 2,999 flags [M-1]; putting
+them in the tree makes the tree useless. Flags live in the detail pane and
+stay independently searchable and addressable (§4.3, §10): the tree is for
+structure, search is for flags.
 
 **Interaction model.**
 
@@ -136,7 +137,7 @@ users actually need — the tree is for structure, search is for flags.
 | `→`/`Enter`/`l` | Expand (triggers lazy extraction if the subtree is unfilled). `Enter` accepts instead under `--print-selection`, below |
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
 | `/` | Focus search |
-| `Esc` | Leave search, **keeping** the filter pinned; `Esc` again clears it |
+| `Esc` | Leave search, keeping the filter pinned; `Esc` again clears it |
 | `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`) |
 | `t` | Verbatim view: re-probe this node and show the tool's own `--help` output instead of the parse |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
@@ -145,71 +146,66 @@ users actually need — the tree is for structure, search is for flags.
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
-`y` is not a nice-to-have. Looking up a flag in order to type it is the terminal
-step of the core journey, and a reference tool that can't hand you the string
-makes you retype it.
+`y` is not a nice-to-have: looking up a flag in order to type it is the
+terminal step of the core journey, and a reference tool that cannot hand
+you the string makes you retype it.
 
-`t` is the escape hatch for the one failure mode the rest of this document's
-honesty machinery cannot signal. §7 Tier B's staged degradation labels a node it
-could not parse, and the confidence cap marks a thin parse as a guess, but a
-grammar that misreads a layout and produces a *plausible* tree is
-indistinguishable from one that read it correctly — that is exactly what the
-fabricated-subcommand regressions ([M-8], apt-get, git bisect) looked like from
-the inside, and each was caught by a human reading the tool's real output beside
-ours. Rather than reserve that check for whoever runs the coverage harness, `t`
-puts it one key away for every user, on every node.
+`t` is the escape hatch for the one failure mode the rest of this
+document's honesty machinery cannot signal: a grammar that misreads a
+layout and produces a plausible tree is indistinguishable from one that
+read it correctly, until a human reads the tool's real output beside ours
+[M-10]. Rather than reserve that check for the coverage harness, `t` puts
+it one key away for every user, on every node. It re-probes rather than
+retaining raw text, since retention costs megabytes across a warmed tree
+and would show what the tool said at startup rather than now, the same
+staleness argument that removed the cache (§11). §6 rule 0 applies
+unchanged here: `pkill --help` is shown, since that shape is measured
+harmless, but an interactive request does not widen what may be run —
+`pkill something --help` stays refused exactly as in the extraction
+pipeline.
 
-It re-probes rather than retaining raw text on every node: retention costs
-megabytes across a warmed tree to serve one node at a time, and a retained copy
-would show what the tool said at startup rather than what it says now — the same
-staleness argument that removed the cache (§11). Rule 0 of §6 applies unchanged:
-`pkill --help` is shown, because that shape is measured harmless, but an
-interactive request does not widen what may be run — `pkill something --help`
-stays refused here exactly as it is in the extraction pipeline.
+**Handing the command over: `--print-selection`.** The journey `y` serves
+ends at the prompt, and the clipboard is one paste short of it. `mandible
+--print-selection <tool>` browses identically, except that `Enter`
+accepts: it prints the selected node's full command path, plus the
+selected flag's spelling when search landed on one, to stdout and exits.
+`→`/`l` still expand, so nothing becomes unreachable; `q`/`Ctrl-C` still
+quit, printing nothing, which leaves a shell binding's line untouched.
+Without the flag, `Enter` is one of the three expand keys, unchanged.
 
-**Handing the command over: `--print-selection`.** The journey `y` serves ends
-at the prompt, and the clipboard is one paste short of it. `mandible
---print-selection <tool>` browses identically, except that `Enter` **accepts**:
-it prints the selected node's full command path — plus the selected flag's
-spelling, when search landed on one — to stdout, and exits. `→`/`l` still
-expand, so nothing becomes unreachable; `q`/`Ctrl-C` still quit, printing
-nothing at all, which is what leaves a shell binding's line untouched. Without
-the flag `Enter` is one of the three expand keys, unchanged.
+**Accepting is bound to the focus, not to the key.** `Enter` accepts only
+from browse focus, the tree or the detail pane. While the search box has
+focus it does exactly what it does without the flag: commits the query,
+moves focus to the tree, keeps the filter — a key that is a search box's
+only commit key cannot be reassigned, since that would leave `Esc` as the
+sole way out of the box. The flag journey therefore ends one `Enter` later
+than the tree selection it made: the first closes the search, the second
+accepts what search landed on.
 
-**Accepting is bound to the focus, not to the key.** `Enter` accepts only from
-browse focus — the tree or the detail pane. While the **search box** has focus
-it does exactly what it does without the flag: commits the query, moves focus
-to the tree, keeps the filter. The mode changes what accepting does; it never
-changes how searching works, and a key that is a search box's only commit key
-cannot be spent on something else — reassigning it would leave `Esc`, which
-clears the filter on a second press, as the sole way out of the box. The flag
-journey therefore ends one `Enter` later than the tree selection it made: the
-first closes the search, the second accepts what search landed on, flag
-spelling and all.
+A TUI cannot type into the shell that launched it, so the shell reads the
+line back through a command substitution and puts it on its own prompt.
+That requires stdout to carry the composed line and nothing else, a
+property of the whole program rather than the renderer: the UI draws on
+stderr in this mode, and everything else that touches the terminal — the
+OSC-52 clipboard fallback, and the color-support check — is asked of that
+same stream (`mandible-tui`'s `terminal::Sink`). A stray escape sequence on
+stdout here is not cosmetic; it is a corrupted command on someone's
+prompt.
 
-A TUI cannot type into the shell that launched it, so the shell reads the line
-back through a command substitution and puts it on its own prompt. That is what
-requires stdout to carry the composed line **and nothing else**, which in turn
-is a property of the whole program rather than of the renderer: the UI draws on
-**stderr** in this mode, and everything else that touches the terminal — the
-OSC-52 clipboard fallback, and the "is anything a terminal at the other end"
-half of the color check — is asked of the same stream the UI is drawn on
-(`mandible-tui`'s `terminal::Sink`). A stray escape sequence on stdout here is
-not a cosmetic defect; it is a corrupted command on someone's prompt.
+The spelling composed is the long one where the tool documents one, else
+the short letter, always the affirmative form (`--color`, never the
+un-runnable `--[no-]color`). No value placeholder is appended: the line is
+handed over to be edited, and a literal `FILE` in it is worse than a flag
+left unfinished.
 
-The spelling composed is the long one where the tool documents one, else the
-short letter, and always the affirmative form — `--color`, never the
-un-runnable `--[no-]color`, which documents two spellings rather than being one.
-No value placeholder is appended: the line is handed over to be *edited*, and a
-literal `FILE` in it is worse than a flag left unfinished.
+`mandible --shell-init bash|zsh` prints the binding that closes the loop:
+for bash a `bind -x` function assigning `READLINE_LINE`/`READLINE_POINT`,
+for zsh a zle widget assigning `BUFFER`/`CURSOR`, both on `Ctrl-X m`,
+readline's own extension prefix, unbound in either shell by default. It
+reads the first word already on the line as the tool to open, and replaces
+the line with what comes back.
 
-`mandible --shell-init bash|zsh` prints the binding that closes the loop: for
-bash a `bind -x` function assigning `READLINE_LINE`/`READLINE_POINT`, for zsh a
-zle widget assigning `BUFFER`/`CURSOR`, both on `Ctrl-X m` — readline's own
-extension prefix, which takes no key either shell had already bound. It reads
-the first word already on the line as the tool to open, and replaces the line
-with what comes back.
-
+---
 ---
 
 ## 3. The core challenge: universal CLI introspection
