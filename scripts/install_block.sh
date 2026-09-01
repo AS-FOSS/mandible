@@ -26,20 +26,21 @@ block() { # label, command...
   echo
 }
 
+# Labels are short, with the qualifier in parentheses and no explanatory
+# clause — the shape the maintainer settled on by hand-editing the 0.5.0
+# release notes, which this script reproduces from now on.
 echo "## Install"
 echo
-block "Homebrew — macOS or Linux" \
+block "Homebrew (macOS or Linux)" \
   'brew install as-foss/mandible/mandible'
-block "Fedora / EPEL — COPR repository" \
+block "Fedora / EPEL (COPR repository)" \
   'sudo dnf copr enable as-foss/mandible' \
   'sudo dnf install mandible'
 block "Nix" \
   'nix run github:AS-FOSS/mandible'
-block "Cargo — binstall fetches the prebuilt binary, install builds from source" \
+block "Cargo" \
   'cargo binstall mandible' \
   'cargo install mandible'
-echo "Debian and Ubuntu: the signed [apt repository](https://as-foss.github.io/mandible-apt)"
-echo "carries every released version for amd64 and arm64, with setup instructions."
+echo "Debian and Ubuntu: the signed [apt repository](https://as-foss.github.io/mandible-apt) carries every released version for amd64 and arm64, with setup instructions."
 echo
-echo "Binaries, \`.deb\` and \`.rpm\` packages, each with a matching \`.sha256\`, are"
-echo "attached below."
+echo "*Or download a binary below. Verify with the accompanying \`.sha256\`.*"
