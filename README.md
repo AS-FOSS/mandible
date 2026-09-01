@@ -265,9 +265,6 @@ someone can actually fix.
 
 ## Contributing
 
-> [!NOTE]
-> <!-- maintainer's note goes here -->
-
 If a tool renders wrong, an issue is the fastest way to tell us. Run
 `mandible --report <tool>` and paste the output into the issue form; it asks
 for the rest (your OS, what you expected, a screenshot if you have one). Your
@@ -291,6 +288,13 @@ later. When you finish, it writes your verdicts under
 `audit/submissions/<your-login>/` and prints the commands to commit them and
 open the pull request. Merged audits sit under your name in the tree and are
 credited in the release notes.
+
+> [!NOTE]
+> When auditing, verify by hand and by eye only. mandible does have automated
+> checks (pty renders of the TUI, and `cargo xtask audit emit`), which prints a
+> tool's raw help text beside the tree mandible built from it, however none of
+> them can tell you what was missed or which flags are wrong. That judgement
+> is the whole point of an audit. So: no AI, no CI, nothing non-manual.
 
 [`CONTRIBUTING.md`](./CONTRIBUTING.md) has the details, plus writing tests and
 changing the parser.
