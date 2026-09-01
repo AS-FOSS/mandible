@@ -551,8 +551,8 @@ enum AuditAction {
     /// personal queue under `<dir>/<login>/` excluding already-audited
     /// tools, draws a random sample, and — once every drawn tool has a
     /// verdict — writes `<seed>-report.txt` and prints how to finish the
-    /// submission. See `crate::audit_contribute`'s own doc comment for what
-    /// is and is not implemented yet.
+    /// submission. See `crate::audit_contribute`'s own doc comment for why
+    /// it prints those last commands instead of running them.
     Contribute {
         /// Draw this seed instead of one derived from the clock, and reuse
         /// it (rather than resuming whatever unfinished draw is on disk) if
@@ -568,9 +568,9 @@ enum AuditAction {
         /// excluding them from the population.
         #[arg(long)]
         include_audited: bool,
-        /// Never suggest opening a pull request — just print the commands.
-        /// For scripts, and for exercising this command without ever
-        /// reaching `gh pr create`.
+        /// Omit the `gh pr create` line from the printed commands. For
+        /// scripts, and for exercising this command without a pull request
+        /// command in the output.
         #[arg(long)]
         no_pr: bool,
         /// Root that each contributor's own folder is created under.

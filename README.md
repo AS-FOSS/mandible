@@ -288,7 +288,7 @@ and opens each one in the normal interface next to its real help text. Press
 `t` to see the raw text, then `c`, `i`, `w` or `s` for correct, incomplete,
 wrong or skip. It saves after every verdict, so you can `Ctrl-C` and come back
 later. When you finish, it writes your verdicts under
-`audit/submissions/<your-login>/`, commits them on a branch and asks whether to
+`audit/submissions/<your-login>/` and prints the commands to commit them and
 open the pull request. Merged audits sit under your name in the tree and are
 credited in the release notes.
 

@@ -1,46 +1,40 @@
 //! `xtask audit contribute`: the one-command audit submission flow described
 //! in `CONTRIBUTING.md` §2 ("Audit mandible against your own tools") and
-//! mirrored in the README's own "Contributing" section. Both describe six
-//! steps; this module implements the first four in full plus the pieces of
-//! 5-6 that need no subprocess, and prints the rest as commands to run by
-//! hand.
+//! mirrored in the README's own "Contributing" section.
 //!
-//! # What's parked, and why
+//! # Why this hands you commands instead of running them
 //!
-//! Two things this flow needs — suggesting a GitHub login from `gh api user
-//! -q .login`/`git config github.user`, and running `git switch`/`git
-//! add`/`git commit`/`gh pr create` to finish a submission — need
-//! `std::process::Command`. `xtask/src` cannot use it:
-//! `mandible-extract/tests/no_process_outside_exec.rs` greps the entire
-//! workspace, `xtask/src` included, and fails the build on any
-//! `std::process`/`Command::new` outside `mandible-extract/src/exec/`
-//! (spec §6/§8's execution-safety boundary). There is no `git`/`gh` library
-//! dependency in this workspace either. Two other places in this crate have
-//! already ruled the same way on purpose (`xtask/src/corpus.rs`'s "this
-//! module has no git access, on purpose, and cannot gain any" and this
-//! module's own sibling `xtask/src/queue.rs`), which is why extending that
-//! boundary is the maintainer's call, not something decided here.
+//! `xtask/src` cannot spawn a subprocess: `mandible-extract/tests/
+//! no_process_outside_exec.rs` greps the entire workspace, `xtask/src`
+//! included, and fails the build on any `std::process`/`Command::new`
+//! outside `mandible-extract/src/exec/` (spec §6/§8's execution-safety
+//! boundary), and there is no `git`/`gh` library dependency in this
+//! workspace either. Two other places in this crate already carry the same
+//! rule on purpose (`xtask/src/corpus.rs`'s "this module has no git access,
+//! on purpose, and cannot gain any" and this module's own sibling
+//! `xtask/src/queue.rs`).
 //!
-//! Both gaps are parked behind small, named functions — [`suggest_login`]
-//! and [`finish_submission`] — so whichever way the maintainer rules, only
-//! those functions change. [`suggest_login`] always returns `None` for now
-//! (the login prompt has no prefill). [`finish_submission`] does exactly
-//! what the brief's own documented fallback for "no `gh` on PATH" already
-//! specifies: it prints the `git`/`gh` commands for the contributor to run
-//! themselves, rather than running them.
+//! So this command does everything that is plain file I/O — the freeze, the
+//! draw, the review resumability, writing `<seed>.toml` and
+//! `<seed>-report.txt` — and for the two steps that are actually git/gh
+//! operations, [`suggest_login`] and [`finish_submission`], it prints what
+//! it cannot run: [`suggest_login`] never prefills the login prompt (there
+//! is no `gh api user -q .login`/`git config github.user` call to read it
+//! from), and [`finish_submission`] prints the `git switch`/`git add`/`git
+//! commit`/`gh pr create` commands for the contributor to run themselves —
+//! which also means they get a chance to look them over before anything is
+//! pushed.
 //!
-//! The same problem reaches a third step that the brief did not call out
-//! explicitly: step 4, opening `mandible --review <seed> --audit-dir <dir>`,
-//! is also spawning a subprocess (and one that needs a real controlling
-//! terminal at that — spec/AGENTS §3.2 already establishes there is no tty
-//! in an agent sandbox to run it from anyway). [`cmd_contribute`] does not
-//! invoke it either: when a draw still has pending entries it prints the
-//! exact command to run and returns, relying on the same resumability
-//! CONTRIBUTING.md §2 step 4 already promises ("Ctrl-C and rerun the
-//! command to pick up where you left off") — a bare rerun finds the
-//! unfinished seed and continues from wherever the review actually left
-//! it, whether that review was driven by a person at `mandible --review` or
-//! by `xtask audit ingest`.
+//! The same reasoning covers step 4, opening `mandible --review <seed>
+//! --audit-dir <dir>`: that is also a subprocess, and one that needs a real
+//! controlling terminal (spec/AGENTS §3.2: there is no tty in an agent
+//! sandbox to run it from anyway). [`cmd_contribute`] does not invoke it
+//! either; when a draw still has pending entries it prints the command to
+//! run and returns, relying on the same resumability CONTRIBUTING.md §2
+//! step 4 already promises ("Ctrl-C and rerun the command to pick up where
+//! you left off") — a bare rerun finds the unfinished seed and continues
+//! from wherever the review actually left it, whether that review was
+//! driven by a person at `mandible --review` or by `xtask audit ingest`.
 
 use crate::audit::{classify_one_with_recordings, render_report, Classified};
 use crate::queue::{
@@ -82,10 +76,10 @@ pub(crate) fn is_valid_login(login: &str) -> bool {
     !login.is_empty() && login.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
-/// Where a real prefill (`gh api user -q .login`, then `git config
-/// github.user`) would go. Always `None` for now — see this module's own
-/// doc comment on why: both sources need a subprocess this crate cannot
-/// spawn until the maintainer rules on the boundary.
+/// The login prompt has no prefill. A real one would come from `gh api
+/// user -q .login`, then `git config github.user` — both need a subprocess
+/// this crate cannot spawn (see this module's own doc comment), so this
+/// always returns `None`.
 fn suggest_login() -> Option<String> {
     None
 }
@@ -411,12 +405,10 @@ fn report_path(dir: &Path, seed: u64) -> PathBuf {
     dir.join(format!("{seed}-report.txt"))
 }
 
-/// Steps 5-6 of CONTRIBUTING.md §2. See this module's own doc comment for
-/// why these are not implemented as real `git`/`gh` invocations: prints the
-/// exact commands instead, the same fallback the brief specifies for "no
-/// `gh` on PATH". `--no-pr` drops the `gh pr create` suggestion — there is
-/// no interactive question to suppress here, since this never calls `gh`
-/// itself either way.
+/// Steps 5-6 of CONTRIBUTING.md §2: prints the `git`/`gh` commands that
+/// commit the two files and open the pull request, rather than running them
+/// (see this module's own doc comment for why). `--no-pr` drops the `gh pr
+/// create` line.
 fn finish_submission(
     login: &str,
     seed: u64,
@@ -435,7 +427,7 @@ fn finish_submission(
         verdict_path.display(),
         report_path.display(),
     )?;
-    writeln!(output, "  git commit -m \"audit: {login} seed {seed}\"")?;
+    writeln!(output, "  git commit -S -m \"audit: {login} seed {seed}\"")?;
     if !no_pr {
         writeln!(output, "  gh pr create --fill")?;
     }
@@ -695,7 +687,7 @@ mod tests {
         let printed = String::from_utf8(output).unwrap();
         assert!(printed.contains("git switch -c audit/alice-42"));
         assert!(printed.contains("git add audit/submissions/alice/42.toml"));
-        assert!(printed.contains("audit: alice seed 42"));
+        assert!(printed.contains("git commit -S -m \"audit: alice seed 42\""));
         assert!(printed.contains("gh pr create --fill"));
     }
 

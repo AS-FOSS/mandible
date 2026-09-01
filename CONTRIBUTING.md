@@ -41,11 +41,10 @@ $ cargo xtask audit contribute
 
 What the command does, in order:
 
-1. Asks for your GitHub login. It suggests the one `gh` is signed in with, if
-   any. The folder your audit lands in is named after it, and a check on the
-   pull request refuses a folder that does not match the account opening it,
-   so a typo here fails loudly rather than filing your work under someone
-   else.
+1. Asks for your GitHub login. The folder your audit lands in is named after
+   it, and a check on the pull request refuses a folder that does not match
+   the account opening it, so a typo here fails loudly rather than filing
+   your work under someone else.
 2. Scans your `PATH` once and freezes what it finds under
    `audit/submissions/<login>/`. This takes a few minutes and shows its
    progress. The frozen queue and the captured help texts stay out of git;
@@ -61,11 +60,11 @@ What the command does, in order:
    every verdict, so `Ctrl-C` and rerun the command to pick up where you left
    off.
 5. Writes `audit/submissions/<login>/<seed>.toml` and, beside it,
-   `<seed>-report.txt`, the same summary `audit report` prints. Commits both on
-   a branch named `audit/<login>-<seed>`.
-6. Asks whether to open the pull request. Yes runs `gh pr create`, which forks
-   the repository for you if you cannot push to it. No, or no `gh` installed,
-   prints the commands to run yourself.
+   `<seed>-report.txt`, the same summary `audit report` prints.
+6. Prints the commands to commit both files on a branch named
+   `audit/<login>-<seed>` and open the pull request. Run them yourself: `git
+   switch`, `git add`, a signed `git commit`, then `gh pr create`, which
+   forks the repository for you if you cannot push to it.
 
 Judge the flags and the subcommands. Descriptions and layout are known to be
 rough and we are not measuring them yet. Twenty tools is plenty. Even five is
