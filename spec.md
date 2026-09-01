@@ -1689,28 +1689,24 @@ entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
 section documents it (§9.3), exactly as a flag result always has.
 
 **Two match modes, name-only by default.** Matching one combined haystack
-(name + summary + description + entity value) is correct and *looks*
-arbitrary: searching `branch` in `git` returns `switch` via "Switch branches",
-and since only name matches are underlined, nothing on screen explains why
-that row is there. `/` opens the box in **name mode** and pressing `/` again
-toggles **wide mode**, the combined haystack. The search bar's title shows
-which is active. Name mode is the default because its results explain
-themselves; wide mode finds more and is one keystroke away. Name mode filters
-the index's own result set rather than maintaining a second index: a command
+(name + summary + description + entity value) is correct and looks
+arbitrary: searching `branch` in `git` returns `switch` via "Switch
+branches", and since only name matches are underlined, nothing on screen
+explains why that row is there. `/` opens the box in name mode; pressing
+`/` again toggles wide mode, the combined haystack, shown in the search
+bar's title. Name mode is the default because its results explain
+themselves. Name mode filters the index's own result set: a command
 matches by a literal, case-insensitive substring of its own name; every
-entity (flag, positional, modifier, env var alike, with no per-kind branch)
-matches by a case-insensitive **prefix of a `-`/`_`-separated word** of any of
-its spellings — the whole name counts as its own first word, so `NODE_D`
-matches `NODE_DEBUG` from the start and `debug` matches it from after the
-`_`. The word-prefix rule, not a looser subsequence one, is what keeps name
-mode's results self-explanatory for entities the same way substring does for
-commands: a subsequence test is what originally made the mode feel broken —
-searching `run` in `docker` surfaced `--no-trunc`'s parent command, because
-`--no-trunc` contains r…u…n in order — and the word-prefix rule refuses that
-case (`run` is a prefix of neither `no` nor `trunc`) while still admitting
+entity matches, with no per-kind branch, by a case-insensitive prefix of a
+`-`/`_`-separated word of any of its spellings, the whole name counting as
+its own first word, so `NODE_D` matches `NODE_DEBUG` from the start and
+`debug` matches it from after the `_`. A looser subsequence test was tried
+first and made the mode feel broken — searching `run` in `docker` surfaced
+`--no-trunc`'s parent command, since `--no-trunc` contains r…u…n in
+order — and the word-prefix rule refuses that case while still admitting
 `no`, `trunc`, a bare modifier letter, or either half of an underscored env
-var name. Wide mode's ranking is unaffected by any of this — it stays the
-fuzzy index, where `gco` still finds `checkout`.
+var name. Wide mode's ranking is unaffected, and stays the fuzzy index,
+where `gco` still finds `checkout`.
 
 **Filtering preserves hierarchy.** A flat result list rendered with
 `depth = path.len() - 1` produces indentation pointing at ancestors that aren't
@@ -2307,35 +2303,27 @@ the relationship clear.
   distro maintainers will ask where the 11 MB came from.
 - Default features must build with no network and no C toolchain. That is why
   Tier D is opt-in.
-- Ship completions for mandible itself and `packaging/mandible.1`, installed to the
-  standard paths: `/usr/share/bash-completion/completions/mandible` and
-  `/usr/share/fish/vendor_completions.d/mandible.fish` everywhere, and for zsh the
-  directory that distribution's zsh actually carries on its default `fpath` —
-  `/usr/share/zsh/vendor-completions/_mandible` on Debian, where
-  `site-functions` is absent, and `/usr/share/zsh/site-functions/_mandible` on
-  Fedora, where `vendor-completions` is. Every channel generates them from the
-  built binary's own `--completions <shell>`, so there is one generator and no
-  packaging path that can install a file the shell will not find.
-- Every argument that names a tool — the `TOOL` positional, `--doctor`'s value
-  and `--report`'s value — completes to the command names on `$PATH`. Each one
-  is a program mandible is about to run `--help` on, so the shell's own command
-  table is the candidate set; the filename completion a shell otherwise
-  defaults to offers the contents of the current directory, which is never what
-  `mandible gi<TAB>` is asking for. The `SUBCOMMAND` words after `TOOL` are
-  names inside one tool's tree, not commands on `$PATH`, and are not completed
-  this way.
-- The shell integration (§2's `--print-selection` binding) ships the same way
-  and is installed to no path at all: `mandible --shell-init <shell>` prints it,
-  from a snippet in the binary crate's own `mandible/shell/` compiled into
-  the binary (inside the crate root, so the published package carries it —
-  `cargo publish` verifies the build from the packaged tarball), and the user
-  opts in with `eval "$(mandible --shell-init bash)"` in their rc file. The
-  one-generator rule applies for the same reason it does to completions — a
-  snippet that names flags the installed binary does not have is worse than no
-  snippet — but the *install* half does not: no shell auto-loads a key binding
-  the way it auto-loads completions, and a package that bound `Ctrl-X m` for
-  every user of a machine would be taking a key nobody asked it to. So every
-  channel is consistent by construction, because none of them install a file.
+- Ship completions for mandible itself and `packaging/mandible.1`, installed
+  to the standard paths per shell (zsh's path differs by distro: Debian
+  carries `vendor-completions`, Fedora `site-functions`). Every channel
+  generates them from the built binary's own `--completions <shell>`, so
+  there is one generator and no packaging path that can install a file the
+  shell will not find.
+- Every argument that names a tool (the `TOOL` positional, `--doctor`'s
+  value, `--report`'s value) completes to the command names on `$PATH`,
+  never to filenames, since each one is a program mandible is about to run
+  `--help` on. `SUBCOMMAND` words after `TOOL` are names inside one tool's
+  tree and are not completed this way.
+- The shell integration (§2's `--print-selection` binding) ships the same
+  way and installs to no path at all: `mandible --shell-init <shell>`
+  prints it, from a snippet compiled into the binary
+  (`mandible/shell/`, inside the crate root so the published package
+  carries it), and the user opts in with `eval "$(mandible --shell-init
+  bash)"` in their rc file. The one-generator rule applies for the same
+  reason it does to completions, but the install half does not: no shell
+  auto-loads a key binding the way it auto-loads completions, and a
+  package binding `Ctrl-X m` for every user of a machine would be taking a
+  key nobody asked it to.
 - `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
 
