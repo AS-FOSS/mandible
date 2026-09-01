@@ -2389,19 +2389,21 @@ tests enforce them and the rows record why, though each is worth checking:
 where the shim test's own comment carries the reasoning, the row can go too.
 
 1. **Cold-start cost is the top UX risk.** 10–25 s for cobra-heavy tools if
-   extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2) and
-   caching (§11) — both of which must exist early, not in a polish phase.
+   extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2),
+   which must exist early, not in a polish phase; there is no cache (§11).
 2. **Running other people's binaries can damage a machine.** Mitigated by §6, and
    §6 is only real because `exec/` is the sole module allowed to spawn processes
    and a test enforces it.
-3. **Description coverage is the actual product value, and only Tiers A and D
-   supply it well.** A tool absent from the catalog with no man page — which is
-   *every internal company CLI*, precisely the case "universal" is for — renders
-   as names with sparse prose. This is the honest limit of the design and the UI
+3. **Description coverage is the actual product value, and only per-framework
+   grammars (§7 Tier B) and man-page enrichment (§7 Tier D, opt-in) supply it
+   well.** A tool with no man page and an undetected framework — every
+   internal company CLI, precisely the case "universal" is for — renders as
+   names with sparse prose. This is the honest limit of the design and the UI
    must show it rather than hide it.
-4. **Vendored catalog staleness and weight.** 11 MB, a point-in-time snapshot,
-   with no automatic refresh. Mitigated by preferring a live `carapace` binary,
-   showing the vendoring date, and an `xtask` refresh path.
+4. **Framework-profile drift across tool updates.** A framework's own
+   `--help` template can change between versions; a profile has no
+   automatic refresh beyond the fingerprint and grammar staying general
+   (§7 Tier A′, Tier B).
 5. **Tier B/C fragility across tool updates.** A `--help` layout can change
    between minor versions and silently degrade extraction. The confidence score
    and provenance footer exist so this fails *visibly*; the coverage harness
