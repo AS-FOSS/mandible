@@ -125,7 +125,7 @@ narrative	1	mandible-tui/tests/border_integrity.rs
 narrative	1	mandible-tui/tests/detail_pane_rewrap.rs
 narrative	1	mandible/src/discovery.rs
 narrative	1	mandible/src/report.rs
-narrative	23	spec.md
+narrative	5	spec.md
 narrative	1	xtask/src/bundling.rs
 narrative	1	xtask/src/corpus.rs
 narrative	6	xtask/src/coverage.rs
