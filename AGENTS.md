@@ -218,9 +218,14 @@ These cost real time when rediscovered.
   it. A long-lived branch can accumulate dozens of commits with nothing gating
   them, and the `CONTRACT WEAKENED` detector in particular is pull-request-only,
   so it does not run at all until a PR exists.
-- **All three workflows carry `paths-ignore` for `**/*.md`, `docs/**`,
-  `LICENSE-*`, `NOTICE` and `.gitignore`.** A documentation-only push skips CI
-  entirely, which is correct but surprising the first time.
+- **CI and the framework matrix carry `paths-ignore` for `**/*.md`, `docs/**`,
+  `LICENSE-*`, `NOTICE`, `.gitignore`, `packaging/**`, the release-only
+  scripts and the release/install-matrix/nix/sweep workflow files; the PATH
+  sweep runs on push only for `mandible-core/**`, `mandible-extract/**`,
+  `xtask/**` and the Cargo manifests (`paths`, an allowlist).** A docs,
+  packaging or workflow-only push skips everything; a scripts push skips the
+  hour-long sweep. Before that allowlist a one-line release-script edit on
+  main triggered a full PATH sweep (2026-09-01).
 - **`xtask corpus --bless` invents an `expected.snap` for xfail fixtures that
   intentionally have none.** After any bless, check `git status` for new
   untracked snapshots and delete them — committing one silently converts an

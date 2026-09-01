@@ -43,21 +43,15 @@ name: PATH sweep
 on:
   push:
     branches: [main]
-    paths-ignore:
-      # Prose changes cannot break the build, so they do not run it. Note
-      # this is `paths-ignore`, not `paths`: a run is skipped only when
-      # *every* changed file matches, so touching a workflow, a manifest or
-      # any source file still triggers everything. That also answers the
-      # obvious worry about editing a workflow and having nothing verify it.
-      #
-      # Path filters apply to `push` and `pull_request` only. A release
-      # reaches these same jobs through `workflow_call`, which ignores them,
-      # so a tag always runs the full suite regardless of what it touched.
-      - "**/*.md"
-      - "docs/**"
-      - "LICENSE-*"
-      - "NOTICE"
-      - ".gitignore"
+    # Only when extraction itself can change: an hour of runner time is not
+    # owed to a script, packaging, or workflow edit. Anything else reaches
+    # the sweep through the weekly schedule or a manual dispatch.
+    paths:
+      - "mandible-core/**"
+      - "mandible-extract/**"
+      - "xtask/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
