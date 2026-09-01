@@ -1062,21 +1062,21 @@ fn accuracy_over<'a>(entries: impl Iterator<Item = &'a Entry>) -> (usize, usize)
 
 /// Print one `label`, count, accuracy and 95% CI line, in the shared format
 /// every accuracy line in this report uses — never a bare percentage.
-fn print_accuracy_line(label: &str, correct: usize, judged: usize) {
+fn accuracy_line(label: &str, correct: usize, judged: usize) -> String {
     let (lo, hi) = wilson_interval(correct, judged);
     let acc = if judged == 0 {
         "  n/a".to_string()
     } else {
         format!("{:>4.1}%", correct as f64 / judged as f64 * 100.0)
     };
-    println!(
+    format!(
         "{label:<24}  {correct:>5}/{judged:<6}  {acc}   [{:>5.1}%, {:>5.1}%]",
         lo * 100.0,
         hi * 100.0,
-    );
+    )
 }
 
-/// How favorable a verdict word is to the parser, for [`print_wilson_caveat`]'s
+/// How favorable a verdict word is to the parser, for [`wilson_caveat_lines`]'s
 /// amendment-direction tally: `correct` is the best outcome, `wrong` the
 /// worst, `incomplete` between the two. `skip` has no comparable
 /// favorability (there is nothing to judge), so it is deliberately absent —
@@ -1108,7 +1108,7 @@ fn verdict_favorability(verdict: &str) -> Option<i32> {
 /// kind of thing that changes as more amendments are recorded, and a
 /// caveat that stopped being true the day after it was written would be
 /// worse than no caveat at all.
-fn print_wilson_caveat(file: &AuditFile) {
+fn wilson_caveat_lines(file: &AuditFile) -> Vec<String> {
     let mut amended_count = 0usize;
     let mut toward_more_favorable = 0usize;
     let mut toward_less_favorable = 0usize;
@@ -1129,20 +1129,23 @@ fn print_wilson_caveat(file: &AuditFile) {
             }
         }
     }
-    println!(
-        "\nnote: the 95% CI above bounds sampling error only — how much this sample's accuracy \
+    let mut lines = vec![
+        String::new(),
+        "note: the 95% CI above bounds sampling error only — how much this sample's accuracy \
          could plausibly vary on a fresh draw of the same size — never reviewer error. Read the \
          accuracy figure as \"accuracy of the parser as judged by this reviewer,\" not an \
          absolute truth."
-    );
+            .to_string(),
+    ];
     if amended_count == 0 {
-        println!(
+        lines.push(
             "note: no verdict in this file has been amended yet (`xtask audit amend`) — this \
              says nothing about whether the recorded verdicts are all correct, only that none \
              has been corrected so far."
+                .to_string(),
         );
     } else {
-        println!(
+        lines.push(format!(
             "note: {amended_count} verdict(s) carry a recorded amendment; of the corrections \
              with a comparable direction, {toward_less_favorable} made the verdict less \
              favorable to the parser (an originally too-generous read) and \
@@ -1156,8 +1159,9 @@ fn print_wilson_caveat(file: &AuditFile) {
             } else {
                 " The corrections so far do not lean toward either direction."
             }
-        );
+        ));
     }
+    lines
 }
 
 /// `xtask audit report`: per-stratum and overall accuracy, each stated as a
@@ -1218,7 +1222,12 @@ fn skipped_lines(file: &AuditFile) -> Vec<String> {
     lines
 }
 
-pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
+/// Build `xtask audit report`'s full text without printing it, so a caller
+/// (`cmd_report` itself, and `xtask audit contribute`'s `<seed>-report.txt`)
+/// can both use exactly the same rendering rather than one re-deriving it or
+/// scraping the other's stdout (AGENTS.md §3.3: never parse human-format
+/// output, including your own).
+pub(crate) fn render_report(dir: &Path, seed: u64) -> anyhow::Result<String> {
     let path = verdict_path(dir, seed);
     let file = load(&path)?;
 
@@ -1251,15 +1260,17 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         }
     }
 
-    println!(
+    let mut lines: Vec<String> = Vec::new();
+    lines.push(format!(
         "audit seed={seed} sample_size={} ({} entries total)",
         file.meta.sample_size,
         file.entries.len()
-    );
-    println!();
-    println!(
+    ));
+    lines.push(String::new());
+    lines.push(
         "stratum             correct/judged   accuracy   95% CI            skipped   pending   \
          out-of-scope"
+            .to_string(),
     );
     let mut overall_correct = 0usize;
     let mut overall_judged = 0usize;
@@ -1273,7 +1284,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         } else {
             format!("{:>4.1}%", t.correct as f64 / t.judged as f64 * 100.0)
         };
-        println!(
+        lines.push(format!(
             "{stratum:<18}  {:>5}/{:<6}  {acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}   {:>12}",
             t.correct,
             t.judged,
@@ -1282,7 +1293,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             t.skipped,
             t.pending,
             t.out_of_scope,
-        );
+        ));
         overall_correct += t.correct;
         overall_judged += t.judged;
         overall_skipped += t.skipped;
@@ -1298,7 +1309,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             overall_correct as f64 / overall_judged as f64 * 100.0
         )
     };
-    println!(
+    lines.push(format!(
         "{:<18}  {:>5}/{:<6}  {overall_acc}   [{:>5.1}%, {:>5.1}%]   {:>7}   {:>7}   {:>12}",
         "OVERALL",
         overall_correct,
@@ -1308,12 +1319,12 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         overall_skipped,
         overall_pending,
         overall_out_of_scope,
-    );
+    ));
     if overall_judged > 0 && overall_judged < 30 {
-        println!(
+        lines.push(format!(
             "\nnote: n={overall_judged} judged so far — the interval above is wide at this size; \
              keep reviewing for a number worth acting on (spec's own target is ~60-100)."
-        );
+        ));
     }
     if overall_out_of_scope > 0 {
         let mut names: Vec<&str> = file
@@ -1323,43 +1334,43 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             .map(|e| e.tool.as_str())
             .collect();
         names.sort_unstable();
-        println!(
+        lines.push(format!(
             "\nnote: {overall_out_of_scope} finding(s) are display-only and are excluded from \
              every accuracy figure above, not dropped — the maintainer's ruling (task #28) is \
              that a display/rendering defect is a real finding but not an accuracy one: {}. See \
              the 'display-only findings (kept, out of scope)' section below for each one's note \
              in full.",
             names.join(", "),
-        );
+        ));
     }
-    print_wilson_caveat(&file);
+    lines.extend(wilson_caveat_lines(&file));
 
     let k1_tagged = file.entries.iter().filter(|e| e.k1 == Some(true)).count();
     let k2_tagged = file.entries.iter().filter(|e| e.k2 == Some(true)).count();
     let k3_tagged = file.entries.iter().filter(|e| e.k3 == Some(true)).count();
-    println!(
+    lines.push(format!(
         "\nK1/K2/K3 sensitivity ({k1_tagged} entr{k1_s} tagged K1, {k2_tagged} entr{k2_s} \
          tagged K2, {k3_tagged} entr{k3_s} tagged K3 — see mandible_core::audit's \
          Entry::k1/k2/k3 doc comments and this module's *_signature functions):",
         k1_s = if k1_tagged == 1 { "y" } else { "ies" },
         k2_s = if k2_tagged == 1 { "y" } else { "ies" },
         k3_s = if k3_tagged == 1 { "y" } else { "ies" },
-    );
-    println!("view                      correct/judged   accuracy   95% CI");
+    ));
+    lines.push("view                      correct/judged   accuracy   95% CI".to_string());
     let (c, j) = accuracy_over(file.entries.iter());
-    print_accuracy_line("all-inclusive", c, j);
+    lines.push(accuracy_line("all-inclusive", c, j));
     let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k1 != Some(true)));
-    print_accuracy_line("K1-excluded", c, j);
+    lines.push(accuracy_line("K1-excluded", c, j));
     let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k2 != Some(true)));
-    print_accuracy_line("K2-excluded", c, j);
+    lines.push(accuracy_line("K2-excluded", c, j));
     let (c, j) = accuracy_over(file.entries.iter().filter(|e| e.k3 != Some(true)));
-    print_accuracy_line("K3-excluded", c, j);
+    lines.push(accuracy_line("K3-excluded", c, j));
     let (c, j) = accuracy_over(
         file.entries
             .iter()
             .filter(|e| e.k1 != Some(true) && e.k2 != Some(true) && e.k3 != Some(true)),
     );
-    print_accuracy_line("K1+K2+K3-excluded", c, j);
+    lines.push(accuracy_line("K1+K2+K3-excluded", c, j));
 
     let mut flagged: Vec<&Entry> = file
         .entries
@@ -1368,7 +1379,7 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         .collect();
     flagged.sort_by(|a, b| a.tool.cmp(&b.tool));
     if !flagged.is_empty() {
-        println!("\ntools judged wrong or incomplete (the next bugs):");
+        lines.push("\ntools judged wrong or incomplete (the next bugs):".to_string());
         for entry in flagged {
             let amended_tag = if entry.amendments.is_empty() {
                 ""
@@ -1387,18 +1398,16 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
             } else {
                 ""
             };
-            println!(
+            lines.push(format!(
                 "  {:<24} {:<11} {}{amended_tag}{scope_tag}",
                 entry.tool,
                 entry.effective_verdict().unwrap_or(""),
                 entry.effective_note(),
-            );
+            ));
         }
     }
 
-    for line in skipped_lines(&file) {
-        println!("{line}");
-    }
+    lines.extend(skipped_lines(&file));
 
     let mut out_of_scope: Vec<&Entry> = file
         .entries
@@ -1407,20 +1416,26 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
         .collect();
     out_of_scope.sort_by(|a, b| a.tool.cmp(&b.tool));
     if !out_of_scope.is_empty() {
-        println!(
+        lines.push(format!(
             "\ndisplay-only findings (kept, out of scope — real UI bugs, excluded from accuracy \
              per the maintainer's task #28 ruling; family meaning: {}):",
             family_meaning("display-only").unwrap_or("?"),
-        );
+        ));
         for entry in out_of_scope {
-            println!(
+            lines.push(format!(
                 "  {:<24} {:<11} {}",
                 entry.tool,
                 entry.effective_verdict().unwrap_or(""),
                 entry.effective_note(),
-            );
+            ));
         }
     }
+    lines.push(String::new());
+    Ok(lines.join("\n"))
+}
+
+pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
+    print!("{}", render_report(dir, seed)?);
     Ok(())
 }
 
@@ -2676,7 +2691,7 @@ mod tests {
     }
 
     /// A manifest with no amended entries at all still reports cleanly —
-    /// `print_wilson_caveat`'s zero-amendment branch, exercised through the
+    /// `wilson_caveat_lines`'s zero-amendment branch, exercised through the
     /// same `cmd_report` entry point real usage goes through.
     #[test]
     fn cmd_report_runs_cleanly_with_zero_amendments() {
@@ -2690,7 +2705,7 @@ mod tests {
 
     /// `cmd_report` (and therefore its printed accuracy figures) run
     /// cleanly over a manifest containing an amendment, exercising
-    /// `print_wilson_caveat`'s non-zero branch end to end.
+    /// `wilson_caveat_lines`'s non-zero branch end to end.
     #[test]
     fn cmd_report_runs_cleanly_with_an_amended_entry() {
         let tmp = tempfile::tempdir().unwrap();
