@@ -604,21 +604,16 @@ Merge rules:
 
 ### 5.1 The cost problem, measured
 
-Building a cobra tool's tree by recursive probing is not cheap:
-
-```
-docker   255 nodes,  232 subprocess spawns,  10.5 s   (depth-capped at 3; docker is deeper)
-gh       196 nodes,  182 spawns,             11.6 s
-         ~40–65 ms per spawn                                                    [M-3]
-```
-
-That is with **one** probe per node. A correct cobra implementation needs two
-(subcommands, then flags [M-2]), so ~20–25 s, and uncapped depth is worse. This
-is the single largest UX risk in the project and revision 1 did not mention it.
+Building a cobra tool's tree by recursive probing is not cheap: `docker`
+takes 255 nodes, 232 subprocess spawns, 10.5 s; `gh` takes 196 nodes, 182
+spawns, 11.6 s; both depth-capped at 3, roughly 40–65 ms per spawn [M-3].
+That is with one probe per node. A correct cobra implementation needs two,
+subcommands then flags [M-2], so uncapped depth and full recursion cost far
+more. This is the single largest UX risk in the project.
 
 ### 5.2 The trait: one node at a time
 
-A whole-tree `extract()` forecloses the only real fix. The trait is therefore
+A whole-tree `extract()` forecloses the only real fix, so the trait is
 node-scoped:
 
 ```rust
@@ -643,158 +638,141 @@ pub trait ExtractionTier: Send + Sync {
 
 The runner:
 
-1. Renders immediately, from a **stub root carrying only the tool's name**. The
-   TUI does no extraction before its first frame — resolving the name on `PATH`
-   is a filesystem lookup with no spawn. (Revision 3 extracted the root
-   synchronously here; that cost ~1.1s for `gh` and ~0.7s for `docker` before
-   anything was drawn.)
-2. Queues the root for a background fill, then **cascades**: every completed
-   fill queues the children it just discovered, walking the whole reachable tree
-   on a bounded pool, cancelled on quit and capped at 4096 nodes.
+1. Renders immediately, from a stub root carrying only the tool's name.
+   Resolving the name on `PATH` is a filesystem lookup with no spawn, so the
+   TUI does no extraction before its first frame.
+2. Queues the root for a background fill, then cascades: every completed
+   fill queues the children it just discovered, walking the whole reachable
+   tree on a bounded pool, cancelled on quit and capped at 4096 nodes.
 3. On expand, a node not yet filled is queued at the front of that same
    mechanism; nodes still in flight render as `⋯ loading` rows.
 
-**Warming covers the whole tree, not one level ahead.** Revision 3 warmed only
-one depth past whatever the user had expanded. That kept the spawn count minimal
-but had two costs that outweighed it: an unexpanded node is **invisible to
-search** (the index can only hold what has been extracted), and a node that
-renders empty with nothing explaining that it needs a keypress reads as a bug
-rather than as laziness. Filling everything in the background is the same total
-work spread over idle time, and it is what makes a search over the whole tree
-honest.
+**Warming covers the whole tree, not one level ahead.** Warming only one
+depth past what the user had expanded kept the spawn count minimal but cost
+more than it saved: an unexpanded node is invisible to search, since the
+index can only hold what has been extracted, and a node that renders empty
+with nothing explaining that it needs a keypress reads as a bug rather than
+laziness. Filling everything in the background is the same total work
+spread over idle time, and it is what makes a search over the whole tree
+honest. This is not a return to §5.1's eager extraction: nothing blocks
+startup or a keystroke, the pool is bounded, and what changed is not how
+much gets extracted but what the user waits for, which is nothing.
 
-This is **not** a return to §5.1's eager extraction: nothing blocks startup or a
-keystroke, and the pool is bounded. The distinction that matters is not *how
-much* gets extracted but *what the user waits for* — and the answer is nothing.
-
-**Background fills never expand the node they fill.** Expansion is user intent.
-When every node is warmed, auto-expanding on arrival unfolds the entire tree and
-buries the user in rows they never asked for.
+**Background fills never expand the node they fill.** Expansion is user
+intent; auto-expanding on arrival, once every node is warmed, would unfold
+the entire tree and bury the user in rows they never asked for.
 
 **Pool sizing is one worker per core, clamped to `[2, 8]`.** An earlier
-revision deliberately oversubscribed (`available_parallelism * 4`, clamped
-`[4, 32]`) on the theory that a warming job spawns a child and then blocks on
-it, costing no CPU of its own. The theory holds for the typical small C tool
-and was measured false exactly where warming is heaviest: a `docker`
-invocation burns 70–100ms of real CPU per spawn (Go runtime startup plus a
-daemon round trip), so 16 concurrent probes on a 4-core machine pegged every
-core for the duration of the warm — reported by a real user as the tool
-maximizing their CPU for minutes. One probe per core keeps the machine
-responsive; the cost is a slower warm on cheap-probe trees, paid in
-background time nobody is waiting on, and the expand path still jumps the
-queue so the visible tree fills as fast as before.
+design oversubscribed on the theory that a warming job spawns a child and
+blocks on it, costing no CPU of its own. That held for a typical small C
+tool and was measured false where warming is heaviest: a `docker`
+invocation burns 70–100 ms of real CPU per spawn (Go runtime startup plus a
+daemon round trip), so many concurrent probes on a 4-core machine pegged
+every core for the duration of the warm, reported by a real user as the
+tool maximizing their CPU for minutes. One probe per core keeps the machine
+responsive; the cost is a slower background warm, paid in time nobody is
+waiting on, since the expand path still jumps the queue.
 
-Non-incremental sources (carapace) return their full subtree at step 1; they cost
-nothing, so there is no reason to defer them.
+Non-incremental sources (carapace) return their full subtree at step 1;
+they cost nothing, so there is no reason to defer them.
 
 ### 5.3 Partial failure is normal
 
-A tier that fails on one node must not invalidate the tier. The runner records
-per-node, per-tier status and keeps whatever merged. `TierStatus` is surfaced in
-the `?` overlay and in `mandible --doctor <tool>`, so "why is this flag missing"
-is answerable without a debugger.
+A tier that fails on one node must not invalidate the tier. The runner
+records per-node, per-tier status and keeps whatever merged. `TierStatus`
+is surfaced in the `?` overlay and in `mandible --doctor <tool>`, so "why is
+this flag missing" is answerable without a debugger. The runner errors only
+when no tier produced a root node.
 
-The runner errors only when *no* tier produced a root node.
-
-**`mandible --report <TOOL>`** assembles a paste-ready bug report: mandible's
-own version, the target tool's version when recoverable, the `--doctor`
-diagnostic (reusing its report-building code rather than re-deriving it), and
-a raw `--help` capture, followed by the repository's issues URL. It goes
-through the same sanctioned probe chokepoint every other tier uses and adds
-no new argv shape. The honest limitation: a tool's version is scraped
-best-effort from the same `--help` banner already captured (clap's own
-template opens with `"<name> <version>"`, which this recognizes), but most
-tools never print a version in `--help` at all, so the report usually asks
-the person filing it to paste `<tool> --version` themselves. Recovering it
-automatically would mean issuing a `--version` probe, which is a new argv
-shape against §6 rule 2's closed list and has deliberately not been taken.
+**`mandible --report <TOOL>`** assembles a paste-ready bug report:
+mandible's own version, the target tool's version when recoverable, the
+`--doctor` diagnostic, and a raw `--help` capture, followed by the
+repository's issues URL. It goes through the same sanctioned probe
+chokepoint every other tier uses and adds no new argv shape. A tool's
+version is scraped best-effort from the `--help` banner already captured,
+but most tools never print one there, so the report usually asks the
+person filing it to paste `<tool> --version` themselves rather than
+issuing a new probe shape against §6 rule 2's closed list.
 
 **`mandible --review <SEED>`** (with `--audit-dir`, default `audit`) opens
 the audit review loop (§13.1c) inside the real TUI: it walks
 `audit/<SEED>.toml`'s pending entries in file order, opening each tool
-exactly as `mandible <tool>` would (same tree, same lazy fill, same raw
-pane), and saves a verdict to the manifest immediately after every
-confirmation, never batched, so a killed session resumes at the next pending
-entry with everything answered so far intact.
+exactly as `mandible <tool>` would, and saves a verdict to the manifest
+immediately after every confirmation, never batched, so a killed session
+resumes at the next pending entry with everything answered so far intact.
 
 ### 5.4 Subcommand paths, and children the parent never documented
 
-**`mandible <tool> <sub> [<sub>...]`** opens the tool at that node — the same
-place browsing there lands: the ancestors are expanded, the node is selected,
-and nothing else is expanded, because expansion is user intent (§5.2). The
-path is an *intent held across frames*, not an action taken at startup: the
-tree is a bare stub until the background root fill arrives, so the node is
-selected in whichever frame it first exists. A path the tree turns out not to
-have is reported in the status line — once the parent that would hold it is
-known-complete and not still filling, never before — rather than refused at
-the command line, because the tree beside the message is where the real name
-is. `--doctor` and `--report` describe a whole tool and take a tool name
-alone; extra words there are refused rather than dropped.
+**`mandible <tool> <sub> [<sub>...]`** opens the tool at that node, the same
+place browsing there lands: ancestors expanded, the node selected, nothing
+else expanded, since expansion is user intent (§5.2). The path is an intent
+held across frames, not an action taken at startup, since the tree is a
+bare stub until the background root fill arrives. A path the tree turns out
+not to have is reported in the status line once the parent that would hold
+it is known-complete, never before, rather than refused at the command
+line, since the tree beside the message is where the real name is.
+`--doctor` and `--report` take a tool name alone; extra words there are
+refused rather than dropped.
 
 **A `<parent>-<sub>` executable on `PATH` is a child discovered by
 convention.** `cargo --help` never lists `clippy`; `cargo-clippy` sits on
-`PATH`, and `cargo clippy` works because cargo dispatches to it. git does the
-same for `git-lfs`, and the rule is keyed on the naming convention alone —
-never on a tool's name (§1).
+`PATH`, and `cargo clippy` works because cargo dispatches to it. git does
+the same for `git-lfs`. The rule is keyed on the naming convention alone,
+never on a tool's name (§1):
 
 - **The parent's own documentation wins.** A sibling whose name the tool
-  already documents (as a command or an alias) is dropped: the attested node
-  already reaches the same command, and a guess must not overwrite what the
-  tool said. The rest are appended after the documented children.
+  already documents is dropped, since the attested node already reaches
+  the same command and a guess must not overwrite what the tool said. The
+  rest are appended after the documented children.
 - **A parent that documents no command at all gets none of these.**
   Dispatching on a first argument is a thing a tool says it does by listing
-  at least one command of its own; where there is no such list, a
-  `<parent>-<sub>` file is far more likely a sibling *tool* sharing a name
-  prefix. `dpkg --help` lists no commands — its operations are flags — and
-  the 27 `dpkg-*` programs beside it (`dpkg-deb`, `dpkg-architecture`,
-  `dpkg-buildpackage`) are separate tools that `dpkg deb` does not reach;
-  without this rule `mandible dpkg` opened on 27 rows of guesses and nothing
-  else. It is keyed on what the parent's own text said, never on its name
-  (§1), and cannot suppress the case this section exists for: `cargo --help`
-  and `git --help` both document plenty. It does not make the convention
-  reliable where a list exists — `apt --help` lists commands, so `apt-get`
-  and `apt-cache` are shown, marked, and are not `apt get` — which is what
-  the marker below is for.
-- **Root level only.** The convention is a tool dispatching on its *first*
-  argument. Nothing dispatches `cargo clippy fix` to `cargo-clippy-fix`, so
-  nothing looks for one; a discovered node's own children come from its
+  at least one command of its own. `dpkg --help` lists no commands, and the
+  27 `dpkg-*` programs beside it are separate tools `dpkg deb` does not
+  reach; without this rule `mandible dpkg` opened on 27 rows of guesses and
+  nothing else. Keyed on what the parent's own text said, never on its
+  name, and it does not suppress the case this section exists for
+  (`cargo`/`git` both document plenty) or make the convention reliable
+  where a real list exists (`apt --help` lists commands, so `apt-get` and
+  `apt-cache` are shown, marked, and are not `apt get`).
+- **Root level only.** The convention is a tool dispatching on its first
+  argument; nothing dispatches `cargo clippy fix` to `cargo-clippy-fix`, so
+  nothing looks for one, and a discovered node's own children come from its
   binary's help in the ordinary way.
-- **Name-shape checked, first `PATH` entry wins, alphabetical, capped.** The
-  same "is this a command name" rule every tier applies to a bare word (§7
-  Tier B rule 3) keeps a versioned or capitalized helper out; a shadowed
-  sibling is reported once, under the binary that would actually run;
-  alphabetical because there is no document order to preserve and `readdir`
-  order differs between filesystems; capped at 64 per parent, so a `libexec`
-  directory on `PATH` cannot hand the warmer hundreds of extra probes.
+- **Name-shape checked, first `PATH` entry wins, alphabetical, capped.**
+  The same command-name-shape rule every tier applies (§7 Tier B) keeps a
+  versioned or capitalized helper out; a shadowed sibling is reported once,
+  under the binary that would actually run; ordering is alphabetical since
+  there is no document order to preserve; capped at 64 per parent so a
+  `libexec` directory on `PATH` cannot hand the warmer hundreds of extra
+  probes.
 - **It is tree assembly, not an extraction tier.** Discovery reads the
   running machine's `PATH`. A tier that did it would make every corpus
-  fixture (§13.2 — frozen bytes, zero subprocesses, a synthetic replay path)
-  depend on what happens to be installed beside the tool, and would put a
-  machine-local fact into `--doctor`'s account of what the *tool* said.
+  fixture (§13.2, frozen bytes, zero subprocesses) depend on what happens
+  to be installed beside the tool, and would put a machine-local fact into
+  `--doctor`'s account of what the tool said.
 
 **Probing follows the binary, not the guess.** A discovered node's probe
-target is its own binary with the path rebased onto it: `["cargo", "clippy"]`
-is probed as `cargo-clippy` at `["clippy"]` — a root `--help`, byte for byte
-what `mandible cargo-clippy` already runs — and `["cargo", "clippy", "fix"]`
-as `cargo-clippy` at `["clippy", "fix"]`. The expand path and the raw view
-(`t`) use the same redirect, so the pane shows the document the tree was
-built from and names the argv that produced it. `CommandNode::
-discovered_binary` carries this on the node (`None` for everything a tier
-produces); merge keeps any contributor that has one — a merge can only add
-evidence, and the tier candidate a fill merges against is silent about this
-rather than in competition with it — and the snapshot format omits it when
+target is its own binary with the path rebased onto it: `["cargo",
+"clippy"]` is probed as `cargo-clippy` at `["clippy"]`, a root `--help`
+byte for byte what `mandible cargo-clippy` already runs. The expand path
+and the raw view (`t`) use the same redirect, so the pane shows the
+document the tree was built from and names the argv that produced it.
+`CommandNode::discovered_binary` carries this on the node (`None` for
+everything a tier produces); merge keeps any contributor that has one,
+since a merge can only add evidence, and the snapshot format omits it when
 absent, so no fixture moves.
 
 **The node is marked unverified, and stays marked.** A filename is evidence
-about the filesystem and a guess about the tool: cargo really does dispatch
-`cargo clippy`, and nothing dispatches `dpkg query` to `dpkg-query`. So the
-tree row carries an `unverified` marker and the detail pane names the binary
-the guess came from, ahead of every other caveat — how well that binary's own
-help parsed says nothing about whether the parent dispatches to it (§9.2).
-Showing the row is right, because the command is usually real and is
-otherwise unreachable from the tool the user opened; showing it unmarked
-would be the same move as inventing structure.
+about the filesystem and a guess about the tool: cargo really does
+dispatch `cargo clippy`, and nothing dispatches `dpkg query` to
+`dpkg-query`. The tree row carries an `unverified` marker and the detail
+pane names the binary the guess came from, ahead of every other caveat, since
+how well that binary's own help parsed says nothing about whether the
+parent dispatches to it (§9.2). Showing the row is right, since the command
+is usually real and otherwise unreachable from the tool the user opened;
+showing it unmarked would be the same move as inventing structure.
 
+---
 ---
 
 ## 6. Execution safety policy
