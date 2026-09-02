@@ -32,3 +32,9 @@ min_subcommands = 5
 # regression this fixture also guards against, same as llvm-ar-18's own
 # `OPTIONS:` claim.
 must_contain_flags = ["--class-path", "--module-path", "--version", "--help-extra"]
+
+# Issue 102 item 5: the value-spec recovery that gave this flag its
+# description was guarded only by the snapshot, so a description regression
+# would read as an ordinary snapshot diff rather than as the named defect.
+[contract.must_describe]
+"--target-platform" = "Target platform"
