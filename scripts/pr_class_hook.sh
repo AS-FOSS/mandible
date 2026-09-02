@@ -30,16 +30,31 @@ payload=$(cat)
 
 command_line=$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))' 2>/dev/null || echo "")
 
-case "$command_line" in
-    *"gh pr create"*) ;;
-    *) exit 0 ;;
-esac
+# Match only a command that actually runs the thing, not one that merely
+# mentions it inside a quoted string or a heredoc.
+if ! printf '%s' "$command_line" \
+    | grep -qE '(^|[;&|]|&&)[[:space:]]*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'; then
+    exit 0
+fi
 
 cd "$(git rev-parse --show-toplevel)"
 
-if [ "$(./scripts/pr_class.sh main)" = "direct" ]; then
+# The hook runs in the session's working directory, which is not always the
+# worktree holding the branch. When the command names its own refs, classify
+# that pair rather than whatever branch is checked out here.
+head=$(printf '%s' "$command_line" | sed -n 's/.*--head[= ]\([^ ]*\).*/\1/p')
+base=$(printf '%s' "$command_line" | sed -n 's/.*--base[= ]\([^ ]*\).*/\1/p')
+: "${base:=main}"
+
+if [ -n "$head" ]; then
+    changed=$(git diff --name-only "$(git merge-base "$base" "$head")...$head")
+else
+    changed=$(git diff --name-only "$(git merge-base "$base" HEAD)...HEAD")
+fi
+
+if ! printf '%s\n' "$changed" | grep -qE '^(mandible[^/]*/|xtask/src/|Cargo\.(toml|lock)$)'; then
     echo "direct to main: this diff touches no code" >&2
-    echo "Nothing under mandible*/, xtask/src, corpus/ or Cargo.* changed." >&2
+    echo "Nothing under mandible*/, xtask/src or Cargo.* changed." >&2
     echo "Commit it to main. See AGENTS.md, the pull-request class rule." >&2
     exit 2
 fi
