@@ -554,115 +554,15 @@ fn scan_usage_section(
     }
 }
 
-/// [`parse_with_profile`]'s engine, over text whose shared heading rows
-/// have already been split out. `bnf_row_lines` records which row lines
-/// came from a `:=` BNF production rather than an ordinary column-gap
-/// heading, keyed on the row rather than the heading beside it.
-// Ratchet: the seventeen-flag body scanner; split into typed passes is tracked work. Listed in scripts/ratchet.txt.
-#[allow(clippy::too_many_lines)]
-#[allow(clippy::cognitive_complexity)]
-fn parse_body(
-    raw: &str,
-    profile: Option<&FrameworkProfile>,
-    tool_name: Option<&str>,
-    bnf_row_lines: &std::collections::HashSet<usize>,
-) -> ParsedHelp {
-    let lines: Vec<&str> = raw.lines().collect();
-    let mut result = ParsedHelp::default();
-
-    // Some tools answer `--help` with their man page rather than a help
-    // summary — git bisect renders GIT-BISECT(1) in full, and feeding
-    // that to this grammar fabricates subcommands from DESCRIPTION prose.
-    // Man pages are Tier D's job (not yet implemented), so the honest
-    // outcome here is no structure at all, rendered verbatim by the
-    // caller (spec §7 Tier B step 3). See S-066.
-    if looks_like_man_page(&lines) {
-        return result;
-    }
-
-    let mut i = 0;
-    // Physical usage lines (one string per source line, pre-join), kept
-    // alive past the block below so the deferred `extract_usage_flags`
-    // call can read the same per-line shape `extract_positionals` does.
-    let mut usage_lines: Vec<String> = Vec::new();
-    // 1. Usage block: one or more logical entries — each a `usage:`/
-    // `or:`/own-name line plus whatever continues it. `usage_lines` stays
-    // one string per physical line (feeds the [M-15] synopsis flag
-    // grammar); `usage_entries` is the joined display/verbatim form
-    // (`result.usage`).
-    //
-    // A line starts a new entry, regardless of indentation, when it is
-    // itself a `usage:`/`Usage:` line, starts with the `or:` marker, or
-    // begins with the tool's own name at a word boundary. Anything else
-    // is a continuation, unless it ends the block.
-    //
-    // Indentation alone cannot decide "continuation vs. block end": git's
-    // wrap sits more indented than `usage:`, lsof's sits at the same
-    // indent as its marker, and du's trailing prose sentence sits there
-    // too, yet must still end the block. Only content shape tells these
-    // apart: more indented is always a continuation; at or below base
-    // indent, a line continues only if it reads as usage grammar (a
-    // docopt delimiter `[`, `<`, `{`). See S-037. Joined fragments are
-    // separated by a single space, not re-flowed (spec §7).
-    //
-    // Entry point, tried in this order: (1) an ordinary `usage:`/`Usage:`
-    // line anywhere; (2) the C fprintf idiom, nfsidmap's `nfsidmap:
-    // Usage: nfsidmap [-vh] ...` (S-001); (3) only when neither appears,
-    // an unlabelled synopsis bounded to the lines before the document's
-    // real body starts.
-    let labelled_usage_start = lines.iter().position(|l| {
-        let t = l.trim_start();
-        starts_with_usage_prefix(t)
-            || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
-    });
-    let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
-        tool_name.and_then(|name| {
-            let body_start = lines
-                .iter()
-                .position(|l| {
-                    let t = l.trim_start();
-                    !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
-                })
-                .unwrap_or(lines.len());
-            lines[..body_start].iter().enumerate().position(|(idx, l)| {
-                let t = l.trim_start();
-                looks_like_unlabeled_synopsis_line(t, name)
-                    // LVM's own emitter writes a bare invocation line
-                    // (`vgck` alone) with all docopt notation on the rows
-                    // that continue it, invisible to
-                    // `looks_like_unlabeled_synopsis_line` alone. A bare
-                    // own-name line is accepted too, but only when the
-                    // next physical line is unambiguous flag-row
-                    // evidence. See S-005.
-                    || looks_like_bare_synopsis_head(&lines, idx, name)
-            })
-        })
-    } else {
-        None
-    };
-    let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
-    if let Some(start) = usage_start {
-        let scan = scan_usage_section(
-            &lines,
-            start,
-            labelled_usage_start,
-            tool_name,
-            &mut usage_lines,
-        );
-        i = scan.next_index;
-        result.positionals = scan.positionals;
-        result.usage = scan.entries;
-    }
-
-    // 2. Leading prose before the usage block (or before the first
-    // section, if there's no usage block) becomes the description.
-    //
-    // `leading_prose_bound` is O(lines.len()) and must be computed once
-    // here, not inside the loop condition below — re-running it per
-    // iteration made this function quadratic, found via the coverage
-    // harness (spec §13.1) parsing a degenerate input in minutes instead
-    // of milliseconds.
-    let description_bound = i.max(leading_prose_bound(&lines));
+/// The leading prose before the usage block, as the node description.
+/// Paragraph-aware so a version or author banner can be dropped.
+/// See docs/shapes.md S-001.
+fn extract_description(
+    lines: &[&str],
+    description_bound: usize,
+    usage_start: Option<usize>,
+    i: usize,
+) -> Option<String> {
     // A column-0 line inside the recovered usage block's own line range is
     // never description prose, whichever of the three entry shapes found
     // it — checking the range rather than re-testing
@@ -728,10 +628,27 @@ fn parse_body(
         .filter(|paragraph| !paragraph.trim().is_empty())
         .collect::<Vec<_>>()
         .join("\n\n");
-    if !description.is_empty() {
-        result.description = Some(description);
+    if description.is_empty() {
+        None
+    } else {
+        Some(description)
     }
+}
 
+/// Walk the document body after the description, emitting flags,
+/// subcommands, modifiers, positionals and environment variables as
+/// each recognized section shape is met. Returns the entry counts
+/// `compute_confidence` scores. See docs/shapes.md S-013 and S-019.
+fn scan_entries(
+    raw: &str,
+    lines: &[&str],
+    usage_lines: &[String],
+    mut i: usize,
+    mut result: &mut ParsedHelp,
+    profile: Option<&FrameworkProfile>,
+    tool_name: Option<&str>,
+    bnf_row_lines: &std::collections::HashSet<usize>,
+) -> (usize, usize) {
     // A run of command-group headings is recognized either by its own
     // wording or by being contiguous with an earlier signal — git's own
     // group headings never say "command" themselves, but the leading
@@ -1338,6 +1255,132 @@ fn parse_body(
             clean_entries += clean;
         }
     }
+    (total_entries, clean_entries)
+}
+
+/// [`parse_with_profile`]'s engine, over text whose shared heading rows
+/// have already been split out. `bnf_row_lines` records which row lines
+/// came from a `:=` BNF production rather than an ordinary column-gap
+/// heading, keyed on the row rather than the heading beside it.
+// Ratchet: the seventeen-flag body scanner; split into typed passes is tracked work. Listed in scripts/ratchet.txt.
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity)]
+fn parse_body(
+    raw: &str,
+    profile: Option<&FrameworkProfile>,
+    tool_name: Option<&str>,
+    bnf_row_lines: &std::collections::HashSet<usize>,
+) -> ParsedHelp {
+    let lines: Vec<&str> = raw.lines().collect();
+    let mut result = ParsedHelp::default();
+
+    // Some tools answer `--help` with their man page rather than a help
+    // summary — git bisect renders GIT-BISECT(1) in full, and feeding
+    // that to this grammar fabricates subcommands from DESCRIPTION prose.
+    // Man pages are Tier D's job (not yet implemented), so the honest
+    // outcome here is no structure at all, rendered verbatim by the
+    // caller (spec §7 Tier B step 3). See S-066.
+    if looks_like_man_page(&lines) {
+        return result;
+    }
+
+    let mut i = 0;
+    // Physical usage lines (one string per source line, pre-join), kept
+    // alive past the block below so the deferred `extract_usage_flags`
+    // call can read the same per-line shape `extract_positionals` does.
+    let mut usage_lines: Vec<String> = Vec::new();
+    // 1. Usage block: one or more logical entries — each a `usage:`/
+    // `or:`/own-name line plus whatever continues it. `usage_lines` stays
+    // one string per physical line (feeds the [M-15] synopsis flag
+    // grammar); `usage_entries` is the joined display/verbatim form
+    // (`result.usage`).
+    //
+    // A line starts a new entry, regardless of indentation, when it is
+    // itself a `usage:`/`Usage:` line, starts with the `or:` marker, or
+    // begins with the tool's own name at a word boundary. Anything else
+    // is a continuation, unless it ends the block.
+    //
+    // Indentation alone cannot decide "continuation vs. block end": git's
+    // wrap sits more indented than `usage:`, lsof's sits at the same
+    // indent as its marker, and du's trailing prose sentence sits there
+    // too, yet must still end the block. Only content shape tells these
+    // apart: more indented is always a continuation; at or below base
+    // indent, a line continues only if it reads as usage grammar (a
+    // docopt delimiter `[`, `<`, `{`). See S-037. Joined fragments are
+    // separated by a single space, not re-flowed (spec §7).
+    //
+    // Entry point, tried in this order: (1) an ordinary `usage:`/`Usage:`
+    // line anywhere; (2) the C fprintf idiom, nfsidmap's `nfsidmap:
+    // Usage: nfsidmap [-vh] ...` (S-001); (3) only when neither appears,
+    // an unlabelled synopsis bounded to the lines before the document's
+    // real body starts.
+    let labelled_usage_start = lines.iter().position(|l| {
+        let t = l.trim_start();
+        starts_with_usage_prefix(t)
+            || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+    });
+    let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
+        tool_name.and_then(|name| {
+            let body_start = lines
+                .iter()
+                .position(|l| {
+                    let t = l.trim_start();
+                    !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
+                })
+                .unwrap_or(lines.len());
+            lines[..body_start].iter().enumerate().position(|(idx, l)| {
+                let t = l.trim_start();
+                looks_like_unlabeled_synopsis_line(t, name)
+                    // LVM's own emitter writes a bare invocation line
+                    // (`vgck` alone) with all docopt notation on the rows
+                    // that continue it, invisible to
+                    // `looks_like_unlabeled_synopsis_line` alone. A bare
+                    // own-name line is accepted too, but only when the
+                    // next physical line is unambiguous flag-row
+                    // evidence. See S-005.
+                    || looks_like_bare_synopsis_head(&lines, idx, name)
+            })
+        })
+    } else {
+        None
+    };
+    let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
+    if let Some(start) = usage_start {
+        let scan = scan_usage_section(
+            &lines,
+            start,
+            labelled_usage_start,
+            tool_name,
+            &mut usage_lines,
+        );
+        i = scan.next_index;
+        result.positionals = scan.positionals;
+        result.usage = scan.entries;
+    }
+
+    // 2. Leading prose before the usage block (or before the first
+    // section, if there's no usage block) becomes the description.
+    //
+    // `leading_prose_bound` is O(lines.len()) and must be computed once
+    // here, not inside the loop condition below — re-running it per
+    // iteration made this function quadratic, found via the coverage
+    // harness (spec §13.1) parsing a degenerate input in minutes instead
+    // of milliseconds.
+    let description_bound = i.max(leading_prose_bound(&lines));
+    if let Some(description) = extract_description(&lines, description_bound, usage_start, i) {
+        result.description = Some(description);
+    }
+
+    let (total_entries, clean_entries) = scan_entries(
+        raw,
+        &lines,
+        &usage_lines,
+        i,
+        &mut result,
+        profile,
+        tool_name,
+        bnf_row_lines,
+    );
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
