@@ -150,6 +150,7 @@ ratio	1	mandible-tui/src/app_review.rs
 ratio	1	mandible-tui/src/clipboard.rs
 ratio	1	mandible-tui/src/glyphs.rs
 ratio	1	mandible-tui/src/lib.rs
+ratio	1	mandible-tui/src/render/detail_pane/layout.rs
 ratio	1	mandible-tui/src/sanitize.rs
 ratio	1	mandible-tui/src/style.rs
 ratio	1	mandible-tui/src/terminal.rs
@@ -173,7 +174,6 @@ ratio	1	xtask/src/repeated_char.rs
 ratio	1	xtask/src/rng.rs
 ratio	1	xtask/src/status.rs
 size	1	mandible-extract/tests/exec_policy.rs
-size	1	mandible-tui/src/render/detail_pane.rs
 size	1	xtask/src/audit.rs
 size	1	xtask/src/corpus.rs
 size	1	xtask/src/coverage.rs
