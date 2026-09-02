@@ -252,15 +252,16 @@ pub(super) fn wrapped_prose_region_end(lines: &[&str], head: usize) -> Option<us
     (end > head + 1).then_some(end)
 }
 
-/// True when `lines[idx]` is a dash-led line continuing the prose above it
-/// rather than opening a new flag row (atlas S-027,
-/// `corpus/zgrep/1.12`, `corpus/resolvconf/255.4`). Same-indent counterpart
-/// of [`wrapped_prose_region_end`]. Gates: prev line non-blank, not
-/// sentence-final, prose (cascades — a predecessor this rule already
-/// accepted counts as prose too) and at least [`MIN_PROSE_SENTENCE_WORDS`]
-/// long when not itself dash-led (tar's four-word `*This* tar defaults to:`
-/// introduces real flag rows, not a wrap), cur has no description column,
-/// cur's indent equals prev's.
+/// True when `lines[idx]` is a dash-led line continuing the prose above it,
+/// not opening a new flag row (atlas S-027). Same-indent counterpart of
+/// [`wrapped_prose_region_end`]. Gates: prev non-blank, not sentence-final,
+/// prose (cascades: an already-accepted predecessor counts as prose too)
+/// and past [`MIN_PROSE_SENTENCE_WORDS`] when not itself dash-led (tar's
+/// four-word `*This* tar defaults to:` opens real rows, not a wrap), prev
+/// and cur both carry no description column (jinfo's, nvim's real rows),
+/// same indent, and cur is not itself a self-described row — see
+/// [`super::flag_rows::entry_row_carries_own_description`] (e2scrub's
+/// colon-separated `-n: Show ...`).
 pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool {
     if idx == 0 {
         return false;
@@ -277,10 +278,16 @@ pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool 
     if prev.trim_end().ends_with(['.', '!', '?']) {
         return false;
     }
+    if find_multi_space_gap(prev).is_some() {
+        return false;
+    }
     if find_multi_space_gap(cur).is_some() {
         return false;
     }
     if leading_whitespace(cur) != leading_whitespace(prev) {
+        return false;
+    }
+    if super::flag_rows::entry_row_carries_own_description(cur) {
         return false;
     }
     if prev.trim_start().starts_with('-') {
