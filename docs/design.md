@@ -1553,70 +1553,90 @@ parser; the flag stays for users who still want to opt it out.
 
 ## 9. TUI design
 
-`ratatui` with the `crossterm` backend. Mouse support comes free, so
-click-to-expand is a real affordance, not a keyboard-only one.
+**Decides.** The rendering framework, the layering rule between sanitized
+text and widgets, and the general rendering rules that apply across every
+pane.
 
-**Widgets are permitted to assume text is clean.** All sanitization happens
-at the IR boundary (§4.1); this is a hard layering rule. Untrusted text
-containing newlines, tabs, ANSI, or backspace-overstrike reaching a `Span`
-caused border corruption while scrolling in a prior implementation, and two
-widget-level fixes failed and were reverted, because a widget-level fix can
-only ever patch one of several consumers. The tree row builder still
-truncates to the pane's inner width using display width (`unicode-width`),
-not byte or `char` count, since CJK and emoji are double-width and a
-`char`-count truncation overflows the border by one cell per wide
-character.
+**Rules.**
 
-**Rendering rules.**
+1. `ratatui` with the `crossterm` backend. Mouse support comes free, so
+   click-to-expand is a real affordance, not a keyboard-only one.
+2. Widgets are permitted to assume text is clean. All sanitization happens
+   at the IR boundary (§4.1); this is a hard layering rule.
+3. The tree row builder truncates to the pane's inner width using display
+   width (`unicode-width`), not byte or `char` count.
+4. Tree rows are built at fixed column offsets:
+   `[indent 2·depth][chevron 1][space][name][space][summary dim]`.
+5. The flattened row list is cached and invalidated on expand/collapse,
+   search change, or lazy fill, never rebuilt per keypress.
+6. The detail pane groups flags by `Flag::group`, with inherited flags in a
+   final dimmed "Inherited" group, and hidden/deprecated flags suppressed
+   unless toggled with `.`.
+7. Scroll state is per-pane; the wheel scrolls the pane under the cursor.
+8. The parsed view and the raw view each keep their own scroll position,
+   vertical and horizontal. `t` restores the exact position the view being
+   entered was last left at. Movement in one never moves the other, and
+   nothing is mapped or scaled between them. An unscrolled node opens at
+   top-left; a remembered position clamps to the extent the view has when
+   restored; changing the selected node clears both views' memory.
+9. Preformatted content scrolls horizontally instead of wrapping; prose
+   does not. The raw `--help` view (`t`) and a node's USAGE synopsis lines
+   are the tool author's own layout. `h`/`l`/`←`/`→` scroll that content
+   when the detail pane has focus, clamped to the widest line, with a
+   marker in the border when more content sits off that edge. The summary,
+   description, and flag list keep wrapping to pane width as everywhere
+   else. Governed by `[ui] horizontal_scroll` in
+   `~/.config/mandible/config.toml`, default `true`.
+10. `horizontal_scroll = false` wraps every view; it never clips. A
+    preformatted line wider than the pane continues onto the next row
+    instead of ending at the border, in the raw view and the `unparsed`
+    fallback included, without being reflowed: a fitting line arrives byte
+    for byte, a row keeps its internal spacing, the cut prefers a
+    whitespace boundary and falls back to a character boundary only when a
+    token has none, and a continuation row carries the line's own leading
+    indent.
+11. Empty and degraded states are designed, not incidental. A node whose
+    children are still being extracted shows a subtle spinner row; a tool
+    where only Tier B fired shows the confidence in the footer; a tool no
+    tier resolved shows the per-tier status list with a suggestion to try
+    `--doctor`.
 
-- Tree rows are built at fixed column offsets:
-  `[indent 2·depth][chevron 1][space][name][space][summary dim]`. Fixed
-  offsets make mouse hit-testing arithmetic: the chevron is hit when
-  `col == 2·depth`.
-- The flattened row list is cached and invalidated on expand/collapse,
-  search change, or lazy fill, never rebuilt per keypress.
-- The detail pane groups flags by `Flag::group`, with inherited flags in a
-  final dimmed "Inherited" group, and hidden/deprecated flags suppressed
-  unless toggled with `.`.
-- Scroll state is per-pane; the wheel scrolls the pane under the cursor.
-- **The parsed view and the raw view each keep their own scroll position**,
-  vertical and horizontal. `t` restores the exact position the view being
-  entered was last left at; movement in one never moves the other, and
-  nothing is mapped or scaled between them, since mandible's own layout and
-  the tool's own raw text place the same flag at unrelated coordinates. An
-  unscrolled node opens at top-left; a remembered position clamps to the
-  extent the view has when restored; changing the selected node clears both
-  views' memory.
-- **Preformatted content scrolls horizontally instead of wrapping; prose
-  does not.** The raw `--help` view (`t`) and a node's USAGE synopsis lines
-  are the tool author's own layout, and wrapping them reflows spacing that
-  was part of their meaning. `h`/`l`/`←`/`→` scroll that content when the
-  detail pane has focus, clamped to the widest line, with a marker in the
-  border when more content sits off that edge. The summary, description,
-  and flag list keep wrapping to pane width as everywhere else. Governed by
-  `[ui] horizontal_scroll` in `~/.config/mandible/config.toml`, default
-  `true`.
-- **`horizontal_scroll = false` wraps every view; it never clips.** A
-  preformatted line wider than the pane continues onto the next row instead
-  of ending at the border, in the raw view and the `unparsed` fallback
-  included, without being reflowed: a fitting line arrives byte for byte, a
-  row keeps its internal spacing, the cut prefers a whitespace boundary and
-  falls back to a character boundary only when a token has none, and a
-  continuation row carries the line's own leading indent.
+**Why.** Untrusted text containing newlines, tabs, ANSI, or
+backspace-overstrike reaching a `Span` caused border corruption while
+scrolling in a prior implementation, and two widget-level fixes failed and
+were reverted, because a widget-level fix can only ever patch one of
+several consumers. Fixed column offsets make mouse hit-testing arithmetic:
+the chevron is hit when `col == 2·depth`. CJK and emoji are double-width,
+so a `char`-count truncation overflows the border by one cell per wide
+character. Mandible's own layout and the tool's own raw text place the
+same flag at unrelated coordinates, which is why the parsed and raw views
+never share scroll state. Wrapping preformatted content reflows spacing
+that was part of its meaning, since the raw view and USAGE lines are the
+tool author's own layout.
 
-**Empty and degraded states are designed, not incidental:** a node whose
-children are still being extracted shows a subtle spinner row; a tool where
-only Tier B fired shows the confidence in the footer; a tool no tier
-resolved shows the per-tier status list with a suggestion to try
-`--doctor`.
+**Implemented in.** `mandible-tui/src/render/mod.rs`,
+`mandible-tui/src/sanitize.rs`, `mandible-tui/src/tree.rs`.
 
 ### 9.1 Tree rows: one node, one row
 
-**No wrapping in the tree pane, ever.** Row index ↔ node stays a bijection,
-which keeps selection, scrolling, mouse hit-testing, and filtering
-arithmetic rather than bookkeeping. Truncation costs nothing here, since the
-detail pane shows the full text on selection and a tree summary only has to
-disambiguate `push` from `http-push`.
+**Decides.** How one tree row is laid out and truncated.
+
+**Rules.**
+
+1. No wrapping in the tree pane, ever. Row index and node stay a
+   bijection.
+2. Summaries align to a computed column, `min(longest indent+name over the
+   whole flattened row set, 40% of pane width)`, computed over all rows
+   rather than the viewport. Stable until expand or collapse.
+3. Truncate at a word boundary with `…`.
+4. The name column never yields to the summary. A long name truncates the
+   summary to nothing before truncating itself.
+5. Width ladder: full layout above 60 columns; names only below it (drop
+   summaries rather than showing a few useless characters); stacked panes
+   below 50.
+6. An `unverified` marker (§5.4) takes the summary's column ahead of the
+   summary, and the width ladder does not drop it. A plain word, not a
+   glyph, so it survives a terminal with no color and no Unicode (§9.2).
 
 ```
 ╭ git ───────────────────────────────────────────╮
@@ -1628,54 +1648,68 @@ disambiguate `push` from `http-push`.
 ╰────────────────────────────────────────────────╯
 ```
 
-- **Summaries align to a computed column**, `min(longest indent+name over
-  the whole flattened row set, 40% of pane width)`, computed over all rows
-  rather than the viewport, since a viewport-derived column jumps as you
-  scroll. Stable until expand or collapse.
-- **Truncate at a word boundary with `…`**, a real signal that the detail
-  pane has more, since a mid-word cut just looks broken.
-- **The name column never yields to the summary.** A long name truncates
-  the summary to nothing before truncating itself: navigation without a
-  summary is possible, without a name it is not.
-- Width ladder: full layout above 60 columns; names only below it (drop
-  summaries rather than showing a few useless characters); stacked panes
-  below 50.
-- **An `unverified` marker (§5.4) takes the summary's column ahead of the
-  summary**, and the width ladder does not drop it, since a summary is a
-  convenience and this is the row's claim about whether the command exists
-  at all. A plain word, not a glyph, so it survives a terminal with no
-  color and no Unicode (§9.2).
+**Why.** A row index that stays a bijection with its node keeps selection,
+scrolling, mouse hit-testing, and filtering arithmetic rather than
+bookkeeping. Truncation costs nothing in the tree pane, since the detail
+pane shows the full text on selection and a tree summary only has to
+disambiguate `push` from `http-push`. A viewport-derived summary column
+jumps as you scroll, which is why the column is computed over the whole
+flattened row set instead. A mid-word cut looks broken, so truncation
+lands on a word boundary. Navigation without a summary is possible;
+without a name it is not, which is why the name column never yields. An
+`unverified` marker is the row's claim about whether the command exists at
+all, not a convenience like the summary, so the width ladder never drops
+it.
+
+**Implemented in.** `mandible-tui/src/render/tree_pane.rs`,
+`mandible-tui/src/tree.rs`.
 
 ### 9.1a Flag rows: one table, one column
 
-The detail pane's flag list is a two-column table: spelling, description. A
-value placeholder belongs to the spelling it follows, measured with it one
-space behind (`--env list`), never given its own aligned column, since such
-a column has to be as wide as the section's widest placeholder and every
-row pays that width whether or not it takes a value. Spelling and
-placeholder are told apart by style (§9.2), not position.
+**Decides.** How a flag's spelling and description align inside the detail
+pane's flag list.
 
-- **The description column is one number for the whole list**, not a target
-  some rows are allowed to miss. A column most rows share and some don't is
-  noise that looks like alignment.
-- **A row too wide for the column starts its own first description line one
-  space past its head**, and returns to the column on every later line. It
-  never pushes the column right for itself, and the spelling is never
-  truncated to force alignment (§9.1: names win).
-- **An outlier row is excluded from the measurement, not clamped to it.**
-  A row wider than 45% of the pane, spelling and placeholder together, does
-  not get a vote; excluding it lets it run past the column while every
-  other row stays aligned.
-- **A pane too narrow for the column brings the column down, never the
-  layout.** The column is clamped until the description has 28 columns to
-  wrap in — measured, not picked: at 20 columns a real six-word flag
-  description breaks across six lines, one mid-word; at 28 it reads as
-  prose. A layout that changed shape at some threshold width would make one
-  list read as two different products either side of it.
+**Rules.**
+
+1. The detail pane's flag list is a two-column table: spelling,
+   description. A value placeholder belongs to the spelling it follows,
+   measured with it one space behind (`--env list`), never given its own
+   aligned column.
+2. The description column is one number for the whole list, not a target
+   some rows are allowed to miss.
+3. A row too wide for the column starts its own first description line one
+   space past its head, and returns to the column on every later line. It
+   never pushes the column right for itself, and the spelling is never
+   truncated to force alignment (§9.1: names win).
+4. An outlier row is excluded from the measurement, not clamped to it. A
+   row wider than 45% of the pane, spelling and placeholder together, does
+   not get a vote; excluding it lets it run past the column while every
+   other row stays aligned.
+5. A pane too narrow for the column brings the column down, never the
+   layout. The column is clamped until the description has 28 columns to
+   wrap in.
+
+**Why.** A placeholder column has to be as wide as the section's widest
+placeholder, and every row would pay that width whether or not it takes a
+value, so the placeholder rides behind its own spelling instead. Spelling
+and placeholder are told apart by style (§9.2), not position. A column
+most rows share and some don't is noise that looks like alignment, which
+is why the description column is one number, not a target. The 28-column
+wrap floor is measured, not picked: at 20 columns a real six-word flag
+description breaks across six lines, one mid-word; at 28 it reads as
+prose. A layout that changed shape at some threshold width would make one
+list read as two different products either side of it.
+
+**Implemented in.** `mandible-tui/src/render/detail_pane.rs`.
 
 ### 9.2 The styling contract
 
-One accent, spent only on information. Everything else is neutral.
+**Decides.** The color and glyph budget for the whole UI, and what may be
+drawn given a terminal that cannot be trusted to support any of it.
+
+**Rules.**
+
+1. One accent, spent only on information. Everything else is neutral:
 
 | Element | Style |
 |---|---|
@@ -1686,7 +1720,7 @@ One accent, spent only on information. Everything else is neutral.
 | Breadcrumb | Ancestors muted, leaf bold |
 | Section heading (`DESCRIPTION`, `FLAGS`) | Its own rule's shade exactly, never bolder (§9.3) |
 | Group divider | One step below the section heading, label and rule alike (§9.3) |
-| **Flag spelling** | **Accent** — the payload the user came for |
+| **Flag spelling** | **Accent**, the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
 | Flag description | Default foreground |
 | Inherited flag group | Entire group muted |
@@ -1695,33 +1729,21 @@ One accent, spent only on information. Everything else is neutral.
 | Provenance footer | Muted |
 | Low confidence, and an `unverified` node (§5.4) | Warning color, the one sanctioned exception to single-accent |
 
-Four implementation rules that matter more than the palette:
-
-- **ANSI indexed colors, not RGB.** Indexed colors resolve through the
-  user's own terminal theme, so mandible looks native in Solarized,
-  Gruvbox, or a light terminal with no detection logic; hardcoded RGB looks
-  wrong in half of them. The accent stays configurable.
-- **Prefer `DarkGray` over `Modifier::DIM` for muted text.** Several
-  terminals ignore `DIM` outright or render it nearly invisible, a
-  portability trap that only manifests on someone else's machine.
-- **Respect `NO_COLOR` and `TERM=dumb`**, degrading to bold/reverse/
-  underline only. There is no truecolor tier and no RGB anywhere: named
-  ANSI colors work at every depth that has color at all. Depth is consulted
-  in exactly one place, the detail pane's two rule shades (§9.3), which need
-  two steps below the terminal's default foreground; those read the
-  xterm-256 gray ramp where available and fall back to `DarkGray` where not.
-  Depth is read from `COLORTERM`/`TERM`, never queried, since a query needs
-  the tty in raw mode before the TUI has set it up and hangs on a terminal
-  that does not answer; an unrecognized terminal takes the fallback rather
-  than a guess.
-- **Highlight search matches.** `nucleo` returns match indices for free;
-  underlining matched characters is the difference between "the list
-  changed" and "here is why this matched."
-
+2. ANSI indexed colors, not RGB. The accent stays configurable.
+3. `DarkGray` is used for muted text, never `Modifier::DIM`.
+4. `NO_COLOR` and `TERM=dumb` are respected, degrading to bold/reverse/
+   underline only. There is no truecolor tier and no RGB anywhere: named
+   ANSI colors work at every depth that has color at all. Depth is
+   consulted in exactly one place, the detail pane's two rule shades
+   (§9.3), which need two steps below the terminal's default foreground:
+   those read the xterm-256 gray ramp where available and fall back to
+   `DarkGray` where not. Depth is read from `COLORTERM`/`TERM`, never
+   queried.
+5. Search matches are highlighted: `nucleo` returns match indices for
+   free, and matched characters are underlined.
 #### What may be drawn, and what may not
 
-The rule: a glyph may only be used if there is something legible to fall
-back to. This is about how each technique fails, not aesthetics.
+6. A glyph may only be used if there is something legible to fall back to:
 
 | Technique | Fails on | Failure mode |
 |---|---|---|
@@ -1732,135 +1754,138 @@ back to. This is about how each technique fails, not aesthetics.
 | Sixel / Kitty graphics | most terminals, most tmux, many SSH sessions | raw bytes on screen |
 | Nerd Font icons | any machine without the patched font | `□`, meaning nothing |
 
-Two properties decide it: **detectability** — `NO_COLOR`, `TERM`, and the
-locale can be inspected; a terminal can never be asked what font it is
-using, which rules Nerd Fonts out permanently — and **how it degrades**:
-losing color loses emphasis and the text remains, losing the font loses the
-meaning and leaves a box.
+7. Two glyph sets are chosen at startup from `LC_ALL`/`LC_CTYPE`/`LANG`,
+   with `MANDIBLE_ASCII=1` as an override for a terminal that claims UTF-8
+   and renders it badly anyway. A test renders a full frame over
+   ASCII-only content and asserts no cell contains a non-ASCII symbol;
+   content from the tool itself is exempt.
+8. Markup handling is staged: prose is flattened to plain text today
+   (`Text::sanitize_markdown`).
 
+**Why.** Indexed colors resolve through the user's own terminal theme, so
+mandible looks native in Solarized, Gruvbox, or a light terminal with no
+detection logic; hardcoded RGB looks wrong in half of them. Several
+terminals ignore `Modifier::DIM` outright or render it nearly invisible, a
+portability trap that only manifests on someone else's machine. A
+`COLORTERM`/`TERM` query needs the tty in raw mode before the TUI has set
+it up and hangs on a terminal that does not answer, so depth is read, not
+queried; an unrecognized terminal takes the fallback rather than a guess.
+Underlining matched characters is the difference between "the list
+changed" and "here is why this matched." Two properties decide what may be
+drawn: detectability (`NO_COLOR`, `TERM`, and the locale can be inspected;
+a terminal can never be asked what font it is using, which rules Nerd
+Fonts out permanently) and how it degrades (losing color loses emphasis
+and the text remains, losing the font loses the meaning and leaves a box).
 This matters more here than for most TUIs because of where mandible gets
 used: SSH'd into an unfamiliar machine, or inside a minimal container with
 `LANG` unset, trying to work out a CLI you do not know. Polish that
-evaporates exactly where the tool is most needed is not polish.
+evaporates exactly where the tool is most needed is not polish. The
+better end state for markup keeps parsed spans in the IR so inline code
+and link labels can be styled rather than stripped, once the plain-text
+path is stable.
 
-Implemented in `mandible-tui/src/glyphs.rs`: two glyph sets chosen at
-startup from `LC_ALL`/`LC_CTYPE`/`LANG`, with `MANDIBLE_ASCII=1` as an
-override for a terminal that claims UTF-8 and renders it badly anyway.
-Enforced by a test that renders a full frame over ASCII-only content and
-asserts no cell contains a non-ASCII symbol; content from the tool itself is
-exempt, since reproducing a tool's own text exactly matters more than this.
-
-Markup handling is staged: prose is flattened to plain text today
-(`Text::sanitize_markdown`). The better end state keeps parsed spans in the
-IR so inline code and link labels can be styled rather than stripped, once
-the plain-text path is stable.
+**Implemented in.** `mandible-tui/src/style.rs`, `mandible-tui/src/glyphs.rs`.
 
 ### 9.3 The detail pane is sections, not tabs
 
-The right pane is one scrollable document of sections, rendered in this
-order and only when non-empty:
+**Decides.** The order, spacing, and column rules for the detail pane's
+sections.
 
-1. `DESCRIPTION`
-2. `USAGE`
-3. `POSITIONALS`
-4. `FLAGS`
-5. `MODIFIERS`
-6. `ENVIRONMENT`
+**Rules.**
 
-Rules:
+1. The right pane is one scrollable document of sections, rendered in this
+   order and only when non-empty: `DESCRIPTION`, `USAGE`, `POSITIONALS`,
+   `FLAGS`, `MODIFIERS`, `ENVIRONMENT`.
+2. Empty sections do not render, and list-section headers carry a count:
+   `FLAGS (41)`, `MODIFIERS (17)`.
+3. Spellings collapse to one row: `-h, -?, -help, --help` is a single
+   entry (§4.5).
+4. Two spelling columns, set by the row's own shape. A short (one dash,
+   one character) starts at the content area's true left edge; every long
+   starts one short-prefix in, at the width of `-X, `. A row with only
+   long spellings is preindented to that same place. A dashless spelling
+   (a positional, a modifier letter, a variable name), and any row with
+   more than two spellings, sits at the short column.
+5. A repeatable positional renders `name...`. Only POSITIONALS uses it
+   this way: a flag says the same thing by being accepted again
+   (`-v -v -v`), never by an ellipsis on its spelling.
+6. The value placeholder is part of the spelling, one space behind and
+   measured with it (§9.1a), never its own aligned column.
+7. A flag's `choices` render as their own `values:` line under the
+   description, indented two columns past the shared description column,
+   never folded into the description text or the spelling column. A
+   choice's own per-value description, when the tool documents one,
+   renders one further indent past `values:`, one `name  description` row
+   per choice, in the same style; a flag whose choices all lack one keeps
+   the single-line `values: a, b, c` summary, and the two forms may mix
+   within one flag's list. A tool's own scope-flag columns (ffmpeg's
+   `ED.VAS.....`) stay verbatim inside the description; mandible parses no
+   meaning out of them.
+8. Capped shared column, per section. Every list section computes its own
+   column, fitted to roughly the p90 row width, measured from the pane's
+   left edge through the placeholder's end. Every description line in the
+   section, first line and continuation alike, begins at that column.
+   Never a per-row column, never a global uncapped one. A wrapped entry is
+   one logical row for selection and scroll math.
+9. A head that reaches the column pushes its own first line, and only
+   that, never truncated and never moving the column for the section. A
+   head too wide for the pane wraps within the head area, each line at
+   its own spelling's column, description beginning on the line beneath
+   at the shared column.
+10. A narrow pane moves the column, not the layout (§9.1a): clamped down
+    until the description has its 28 columns, never below two past the
+    long column. A 90-column terminal's 41-column detail pane clamps the
+    column to 13, still holding a short-and-long pair.
+11. POSITIONALS is inset by two columns; the flag-shaped sections are not.
+12. The vertical gaps are the container hierarchy: two blank rows above a
+    section header, one above a ruled group divider, none below either,
+    none above the first header on the page. Each count is exact, not a
+    minimum, and belongs to the block that opens, never to the one that
+    closes.
+13. ENVIRONMENT is display-only: documented vars under an explicit heading
+    only, no probing, no inferred cross-references (§4.5).
+14. Group dividers are label-first, like the headers above them. A `group`
+    renders once as its label at column 0 followed by a rule to the
+    pane's edge, mixed case; rows beneath sit at the section's normal
+    margin. Section headers are CAPS with a count, group dividers
+    mixed-case without one.
+    - A label drops the terminator its source gave it (a heading's colon,
+      or the full stop of a label that is a whole sentence).
+    - Three neutral steps, brightest first: pane borders, section header,
+      group divider. Borders keep the terminal's own default foreground;
+      the header's rule is a clear step below, the divider's a clear step
+      below that.
+    - The two rule shades come from the xterm-256 gray ramp, indices 246
+      and 240. Without the extended palette both levels collapse to
+      `DarkGray`, and §9.2's shape rule (CAPS-plus-count versus
+      mixed-case) carries the distinction between the two inner levels on
+      its own.
+    - A label is drawn in exactly its own rule's style at both levels,
+      same color, never bold.
+    - A divider that opens its section drops its rule and its blank row,
+      rendering its label alone at column 0 directly beneath the header.
+      A divider later in the same section keeps both.
+15. Descriptions always wrap. Sections are mandible's own layout, so
+    nothing in them is ever clipped or horizontally scrolled; `[ui]
+    horizontal_scroll` governs only content whose layout is not ours (the
+    raw view, verbatim USAGE synopsis lines, the `unparsed` fallback,
+    which reaches the pane by the same path as the raw view). A
+    description's preserved line breaks (§4.1) wrap too, each logical
+    line wrapped on its own at its own indent.
 
-- **Empty sections do not render**, and list-section headers carry a count:
-  `FLAGS (41)`, `MODIFIERS (17)`.
-- **Spellings collapse to one row**: `-h, -?, -help, --help` is a single
-  entry (§4.5).
-- **Two spelling columns, set by the row's own shape.** A short (one dash,
-  one character) starts at the content area's true left edge; every long
-  starts one short-prefix in, at the width of `-X, `. A row with only long
-  spellings is preindented to that same place, so longs run down one column
-  whether or not a short precedes them. A dashless spelling (a positional,
-  a modifier letter, a variable name), and any row with more than two
-  spellings, sits at the short column.
-- **A repeatable positional renders `name...`**, the POSIX synopsis
-  ellipsis that says "one or more", the same signal `repeatable` was parsed
-  from. Only POSITIONALS uses it this way: a flag says the same thing by
-  being accepted again (`-v -v -v`), never by an ellipsis on its spelling.
-- **The value placeholder is part of the spelling**, one space behind and
-  measured with it (§9.1a), never its own aligned column.
-- **A flag's `choices` render as their own `values:` line under the
-  description**, indented two columns past the shared description column,
-  never folded into the description text or the spelling column. A
-  choice's own per-value description, when the tool documents one, renders
-  one further indent past `values:`, one `name  description` row per
-  choice, in the same style; a flag whose choices all lack one keeps the
-  single-line `values: a, b, c` summary, and the two forms may mix within
-  one flag's list. A tool's own scope-flag columns (ffmpeg's `ED.VAS.....`)
-  stay verbatim inside the description; mandible parses no meaning out of
-  them.
-- **Capped shared column, per section.** Every list section computes its
-  own column, fitted to roughly the p90 row width (the majority, not the
-  outliers), measured from the pane's left edge through the placeholder's
-  end. Every description line in the section, first line and continuation
-  alike, begins at that column. Never a per-row column, never a global
-  uncapped one. A wrapped entry is one logical row for selection and scroll
-  math.
-- **A head that reaches the column pushes its own first line, and only
-  that**, never truncated and never moving the column for the section. A
-  head too wide for the pane wraps within the head area, each line at its
-  own spelling's column, description beginning on the line beneath at the
-  shared column.
-- **A narrow pane moves the column, not the layout** (§9.1a): clamped down
-  until the description has its 28 columns, never below two past the long
-  column. A 90-column terminal's 41-column detail pane clamps the column to
-  13, still holding a short-and-long pair.
-- **POSITIONALS is inset by two columns; the flag-shaped sections are
-  not.** A positional's bare name carries no dashes to set it off from the
-  pane's border; FLAGS, MODIFIERS, and ENVIRONMENT keep the edge, since
-  their short and long columns are already structure the eye follows down
-  the section.
-- **The vertical gaps are the container hierarchy**: two blank rows above a
-  section header, one above a ruled group divider, none below either, none
-  above the first header on the page. A section is a chapter and a group a
-  paragraph within it, so the wider gap marks the wider boundary. Each
-  count is exact, not a minimum, and belongs to the block that opens, never
-  to the one that closes, so a boundary never varies with how much content
-  the block above it held.
-- **ENVIRONMENT is display-only**: documented vars under an explicit
-  heading only, no probing, no inferred cross-references (§4.5).
-- **Group dividers are label-first, like the headers above them.** A
-  `group` renders once as its label at column 0 followed by a rule to the
-  pane's edge, mixed case; rows beneath sit at the section's normal margin.
-  Section headers are CAPS with a count, group dividers mixed-case without
-  one, a shape distinction that survives a terminal that ignores dimming
-  (§9.2).
-  - A label drops the terminator its source gave it (a heading's colon, or
-    the full stop of a label that is a whole sentence), so the label runs
-    straight into the rule beside it.
-  - **Three neutral steps, brightest first: pane borders, section header,
-    group divider.** Borders keep the terminal's own default foreground;
-    the header's rule is a clear step below, the divider's a clear step
-    below that.
-  - The two rule shades come from the xterm-256 gray ramp, indices 246 and
-    240, since the sixteen named colors cannot express this: `Gray` is
-    ANSI 7, the default foreground in most themes, and below it there is
-    only `DarkGray`, one step for two levels. Without the extended palette
-    both levels collapse to `DarkGray`; the step below the borders
-    survives, and §9.2's shape rule (CAPS-plus-count versus mixed-case)
-    carries the distinction between the two inner levels on its own.
-  - A label is drawn in exactly its own rule's style at both levels, same
-    color, never bold, since a label in a different shade or weight from
-    the line running out of it reads as two unrelated marks sharing a row.
-  - A divider that opens its section drops its rule and its blank row,
-    rendering its label alone at column 0 directly beneath the header,
-    since a second rule immediately beneath the header's own would read as
-    one doubled line. A divider later in the same section keeps both, since
-    it genuinely ends one run of rows and starts another.
-- **Descriptions always wrap.** Sections are mandible's own layout, so
-  nothing in them is ever clipped or horizontally scrolled; `[ui]
-  horizontal_scroll` governs only content whose layout is not ours (the raw
-  view, verbatim USAGE synopsis lines, the `unparsed` fallback, which
-  reaches the pane by the same path as the raw view). A description's
-  preserved line breaks (§4.1) wrap too, each logical line wrapped on its
-  own at its own indent.
+**Why.** A label in a different shade or weight from the line running out
+of it reads as two unrelated marks sharing a row, which is why a group
+label is drawn in exactly its own rule's style. A second rule immediately
+beneath the header's own would read as one doubled line, which is why an
+opening divider drops its rule and blank row while a later one keeps both.
+A section is a chapter and a group a paragraph within it, so the wider gap
+before a section header marks the wider boundary. `Gray` is ANSI 7, the
+default foreground in most themes, and below it there is only `DarkGray`,
+one step for two levels; the sixteen named colors cannot express the two
+inner shades this section needs, which is why the xterm-256 gray ramp is
+read where available.
+
+**Implemented in.** `mandible-tui/src/render/detail_pane.rs`.
 
 ---
 ---
