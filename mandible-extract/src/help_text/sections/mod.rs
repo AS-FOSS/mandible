@@ -295,6 +295,265 @@ pub fn parse_with_profile(
     }
 }
 
+/// The recovered usage block: where scanning stopped, the synopsis
+/// entries, and the operands read out of them.
+struct UsageScan {
+    next_index: usize,
+    entries: Vec<String>,
+    positionals: Vec<Entity>,
+}
+
+/// Walk the usage block starting at `start`, folding wrapped continuation
+/// lines into one entry each. See docs/shapes.md S-001 and S-037.
+fn scan_usage_section(
+    lines: &[&str],
+    start: usize,
+    labelled_usage_start: Option<usize>,
+    tool_name: Option<&str>,
+    usage_lines: &mut Vec<String>,
+) -> UsageScan {
+    let mut i = start;
+    let base_indent = leading_whitespace(lines[i]);
+    usage_lines.push(lines[i].trim().to_string());
+    let mut usage_entries = vec![lines[i].trim().to_string()];
+    // Parallel to `usage_lines`: which `usage_entries` index each
+    // physical line was folded into — a wrapped entry (sg_sanitize's
+    // five-line synopsis) spans several lines but is one entry, and
+    // [`primary_synopsis_lines`] needs every one of them.
+    let mut line_entry_index = vec![0usize];
+    // Running depth of an open parenthesized alternation group (LVM's
+    // "any one is required" convention), tracked only for an
+    // unlabelled synopsis: a member row routinely opens with `-`
+    // itself, which the "a continuation line that reads as a flag
+    // entry ends the block" check just below would otherwise
+    // misread as ending the block. See S-088.
+    let mut paren_group_depth: i32 = 0;
+    // True for exactly the one loop iteration right after
+    // `paren_group_depth` returns to zero — tells "a blank line right
+    // after the group's own closing `)`" (still the same stanza's
+    // trailing bracket-row flags) apart from an ordinary between-
+    // stanza blank line. Reset unconditionally elsewhere.
+    let mut just_closed_paren_group = false;
+    i += 1;
+    while i < lines.len() {
+        let l = lines[i];
+        if l.trim().is_empty() {
+            if paren_group_depth > 0 {
+                // A blank line inside an unclosed group is not a shape
+                // any real specimen produces; refuse to guess at what it
+                // means rather than fabricate a continuation across it.
+                paren_group_depth = 0;
+                just_closed_paren_group = false;
+            }
+            if just_closed_paren_group {
+                just_closed_paren_group = false;
+                if let Some(next) = lines.get(i + 1) {
+                    let t = next.trim_start();
+                    if !t.is_empty() && looks_like_bracket_flag_row(t) {
+                        // The group's trailing bracket-row flags
+                        // continue after exactly one blank line —
+                        // vgchange's `( ... )` then a blank line then
+                        // `[ -A|--autobackup y|n ]`, still the same
+                        // stanza. See S-088.
+                        i += 1;
+                        continue;
+                    }
+                }
+            }
+            // Some tools write their unlabelled synopsis as one stanza
+            // per operation mode: a description line, an own-name
+            // head, continuation rows, with a blank line between
+            // stanzas. LVM's own emitter is the specimen; adduser and
+            // pydoc3 hit the identical shape with unrelated
+            // formatters, so the predicates below key on structure,
+            // never a tool's name. A blank line ended the usage block
+            // unconditionally before this fix, so only vgck's first
+            // stanza was ever read (`vgck --updatemetadata`, a flag,
+            // was absent; lvconvert hides 26 more stanzas this way).
+            //
+            // Deliberately not "any blank line continues the block"
+            // ([M-10]): it fires only for the unlabelled-synopsis
+            // entry point, and only when the next non-consumed line is
+            // itself unambiguous synopsis-head evidence. At most one
+            // line in between may be skipped, and only when it reads
+            // as a full sentence — the stanza's own description,
+            // consumed here so it lands in neither the synopsis nor
+            // the tool's description. See S-005.
+            if labelled_usage_start.is_none() {
+                if let Some(name) = tool_name {
+                    let mut j = i + 1;
+                    // Deliberately not `looks_like_unlabeled_synopsis_line`
+                    // here: that test alone would also admit corepack's
+                    // headingless invocation-table rows (`corepack
+                    // enable [--install-directory #0] ...`), demoting a
+                    // real subcommand into fabricated usage text. See
+                    // S-016.
+                    let is_head = |lines: &[&str], j: usize| {
+                        j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
+                    };
+                    if !is_head(&lines, j) {
+                        if let Some(next) = lines.get(j) {
+                            let t = next.trim_start();
+                            if !t.is_empty() && is_prose_sentence(t) {
+                                j += 1;
+                            }
+                        }
+                    }
+                    if is_head(&lines, j) {
+                        let trimmed = lines[j].trim().to_string();
+                        usage_lines.push(trimmed.clone());
+                        usage_entries.push(trimmed);
+                        line_entry_index.push(usage_entries.len() - 1);
+                        i = j + 1;
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        let trimmed_start = l.trim_start();
+        if labelled_usage_start.is_none() && paren_group_depth > 0 {
+            // Already inside an open parenthesized alternation group:
+            // every line up to the matching close is a member,
+            // regardless of shape. A member row routinely opens with
+            // `-` itself, which the flag-entry-ends-the-block check
+            // below would otherwise misread — depth, not content, is
+            // what says this line still belongs. See S-088.
+            paren_group_depth += paren_depth_delta(trimmed_start);
+            if paren_group_depth <= 0 {
+                paren_group_depth = 0;
+                just_closed_paren_group = true;
+            } else {
+                just_closed_paren_group = false;
+            }
+            let trimmed = l.trim().to_string();
+            usage_lines.push(trimmed.clone());
+            if let Some(last) = usage_entries.last_mut() {
+                last.push(' ');
+                last.push_str(&trimmed);
+            }
+            line_entry_index.push(usage_entries.len() - 1);
+            i += 1;
+            continue;
+        }
+        if labelled_usage_start.is_none()
+            && paren_group_depth == 0
+            && looks_like_paren_alternation_open(trimmed_start)
+        {
+            // Opens the group: hand off to the depth-tracking branch
+            // above for every later line, but this opening row itself
+            // still falls through to the ordinary flow just below,
+            // which already appends it correctly (it is more indented
+            // than the stanza head and, starting with `(` rather than
+            // `-`, trips none of the content checks that would end the
+            // block).
+            paren_group_depth = paren_depth_delta(trimmed_start);
+        }
+        just_closed_paren_group = false;
+        let is_marker =
+            starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
+        let is_own_name = tool_name.is_some_and(|name| starts_with_tool_name(trimmed_start, name));
+        let starts_new_entry = is_marker || is_own_name;
+
+        // A line the one above it ended with a backslash is a
+        // continuation by the tool's own explicit statement, and no
+        // content test may overrule that. update-xmlcatalog's
+        // backslash-wrapped synopsis tail begins with `--id`, which
+        // the flag-start guard below would otherwise end the block
+        // on, dropping `--del`/`--root`/`--type`. See S-011.
+        let continues_previous_line = i > 0 && lines[i - 1].trim_end().ends_with('\\');
+        if !starts_new_entry && !continues_previous_line {
+            // A continuation line that itself reads as a flag entry
+            // ends the usage block, even indented with no blank
+            // separator: a usage continuation is an alternative
+            // invocation form and never begins with a dash. curl's 13
+            // flag rows sit one space under `Usage:` with no `Options:`
+            // heading, and all 13 used to land in `usage` with zero
+            // flags parsed. See S-074.
+            if looks_like_flag_start(trimmed_start) {
+                break;
+            }
+            // A section heading ends the usage block no matter how
+            // far it is indented. Binutils ar indents its whole body,
+            // including its heading, under the synopsis; indentation
+            // alone would join the heading and all eight command rows
+            // into one usage string and yield zero subcommands. See
+            // S-075.
+            if is_section_heading_line(trimmed_start) {
+                break;
+            }
+            // A decorative dash-bracketed divider (tree's own
+            // `------- Listing options -------`) is never a usage
+            // continuation either. See S-064.
+            if looks_like_dash_bracketed_heading(trimmed_start) {
+                break;
+            }
+            // A line more indented than the base is not always a
+            // continuation — only when it still reads as usage
+            // grammar. sg_emc_trespass follows its usage line with two
+            // ordinary sentences indented under it; the old rule
+            // joined them onto the synopsis, and `extract_positionals`
+            // mined their bare uppercase words as fabricated operands.
+            // Drops the one prose line rather than ending the block:
+            // mdadm interleaves a description under each of several
+            // alternative `mdadm --mode ...` forms, so breaking on the
+            // first would drop every later one. Guarded to lines
+            // strictly more indented than the base — du's own
+            // trailing sentence sits at the base indent and must keep
+            // taking the base-indent fallback below. See S-003.
+            if leading_whitespace(l) > base_indent && is_prose_sentence(trimmed_start) {
+                i += 1;
+                continue;
+            }
+            // Below the base indent (never above it: `leading_whitespace`
+            // is unsigned, so this also covers "equal to"), indentation
+            // alone can't distinguish a genuine continuation (lsof) from
+            // the block having ended (du) — fall back to content shape.
+            if leading_whitespace(l) <= base_indent && !looks_like_usage_fragment(trimmed_start) {
+                break;
+            }
+        }
+        let trimmed = l.trim().to_string();
+        usage_lines.push(trimmed.clone());
+        if starts_new_entry {
+            // A form keeps the indentation its author gave it (spec
+            // §4.1): ip lines its second form up under the first. Only
+            // the display form carries it; `usage_lines` stays trimmed
+            // since it reads tokens, never columns.
+            usage_entries.push(l.trim_end().to_string());
+        } else if let Some(last) = usage_entries.last_mut() {
+            // The backslash is the join, the same way a single space
+            // is elsewhere: without dropping it, the displayed
+            // synopsis reads `--type <type> \ --id <id>`, a
+            // continuation marker stranded mid-line.
+            if last.ends_with('\\') {
+                last.pop();
+                let trimmed_tail = last.trim_end().len();
+                last.truncate(trimmed_tail);
+            }
+            last.push(' ');
+            last.push_str(&trimmed);
+        }
+        line_entry_index.push(usage_entries.len() - 1);
+        i += 1;
+    }
+    // Scoped to a labelled block, never an unlabelled synopsis
+    // (`dbus-cleanup-sockets`, `lvreduce`): the existence oracle's own
+    // synopsis scanner has no unlabelled-synopsis support yet, so any
+    // operand recovered from one reports as invented today. See
+    // S-001.
+    let primary_lines = if labelled_usage_start.is_some() {
+        primary_synopsis_lines(&usage_entries, &line_entry_index, usage_lines.len())
+    } else {
+        std::collections::HashSet::new()
+    };
+    UsageScan {
+        next_index: i,
+        positionals: extract_positionals(usage_lines, primary_lines),
+        entries: usage_entries,
+    }
+}
+
 /// [`parse_with_profile`]'s engine, over text whose shared heading rows
 /// have already been split out. `bnf_row_lines` records which row lines
 /// came from a `:=` BNF production rather than an ordinary column-gap
@@ -383,245 +642,16 @@ fn parse_body(
     };
     let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
     if let Some(start) = usage_start {
-        i = start;
-        let base_indent = leading_whitespace(lines[i]);
-        usage_lines.push(lines[i].trim().to_string());
-        let mut usage_entries = vec![lines[i].trim().to_string()];
-        // Parallel to `usage_lines`: which `usage_entries` index each
-        // physical line was folded into — a wrapped entry (sg_sanitize's
-        // five-line synopsis) spans several lines but is one entry, and
-        // [`primary_synopsis_lines`] needs every one of them.
-        let mut line_entry_index = vec![0usize];
-        // Running depth of an open parenthesized alternation group (LVM's
-        // "any one is required" convention), tracked only for an
-        // unlabelled synopsis: a member row routinely opens with `-`
-        // itself, which the "a continuation line that reads as a flag
-        // entry ends the block" check just below would otherwise
-        // misread as ending the block. See S-088.
-        let mut paren_group_depth: i32 = 0;
-        // True for exactly the one loop iteration right after
-        // `paren_group_depth` returns to zero — tells "a blank line right
-        // after the group's own closing `)`" (still the same stanza's
-        // trailing bracket-row flags) apart from an ordinary between-
-        // stanza blank line. Reset unconditionally elsewhere.
-        let mut just_closed_paren_group = false;
-        i += 1;
-        while i < lines.len() {
-            let l = lines[i];
-            if l.trim().is_empty() {
-                if paren_group_depth > 0 {
-                    // A blank line inside an unclosed group is not a shape
-                    // any real specimen produces; refuse to guess at what it
-                    // means rather than fabricate a continuation across it.
-                    paren_group_depth = 0;
-                    just_closed_paren_group = false;
-                }
-                if just_closed_paren_group {
-                    just_closed_paren_group = false;
-                    if let Some(next) = lines.get(i + 1) {
-                        let t = next.trim_start();
-                        if !t.is_empty() && looks_like_bracket_flag_row(t) {
-                            // The group's trailing bracket-row flags
-                            // continue after exactly one blank line —
-                            // vgchange's `( ... )` then a blank line then
-                            // `[ -A|--autobackup y|n ]`, still the same
-                            // stanza. See S-088.
-                            i += 1;
-                            continue;
-                        }
-                    }
-                }
-                // Some tools write their unlabelled synopsis as one stanza
-                // per operation mode: a description line, an own-name
-                // head, continuation rows, with a blank line between
-                // stanzas. LVM's own emitter is the specimen; adduser and
-                // pydoc3 hit the identical shape with unrelated
-                // formatters, so the predicates below key on structure,
-                // never a tool's name. A blank line ended the usage block
-                // unconditionally before this fix, so only vgck's first
-                // stanza was ever read (`vgck --updatemetadata`, a flag,
-                // was absent; lvconvert hides 26 more stanzas this way).
-                //
-                // Deliberately not "any blank line continues the block"
-                // ([M-10]): it fires only for the unlabelled-synopsis
-                // entry point, and only when the next non-consumed line is
-                // itself unambiguous synopsis-head evidence. At most one
-                // line in between may be skipped, and only when it reads
-                // as a full sentence — the stanza's own description,
-                // consumed here so it lands in neither the synopsis nor
-                // the tool's description. See S-005.
-                if labelled_usage_start.is_none() {
-                    if let Some(name) = tool_name {
-                        let mut j = i + 1;
-                        // Deliberately not `looks_like_unlabeled_synopsis_line`
-                        // here: that test alone would also admit corepack's
-                        // headingless invocation-table rows (`corepack
-                        // enable [--install-directory #0] ...`), demoting a
-                        // real subcommand into fabricated usage text. See
-                        // S-016.
-                        let is_head = |lines: &[&str], j: usize| {
-                            j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
-                        };
-                        if !is_head(&lines, j) {
-                            if let Some(next) = lines.get(j) {
-                                let t = next.trim_start();
-                                if !t.is_empty() && is_prose_sentence(t) {
-                                    j += 1;
-                                }
-                            }
-                        }
-                        if is_head(&lines, j) {
-                            let trimmed = lines[j].trim().to_string();
-                            usage_lines.push(trimmed.clone());
-                            usage_entries.push(trimmed);
-                            line_entry_index.push(usage_entries.len() - 1);
-                            i = j + 1;
-                            continue;
-                        }
-                    }
-                }
-                break;
-            }
-            let trimmed_start = l.trim_start();
-            if labelled_usage_start.is_none() && paren_group_depth > 0 {
-                // Already inside an open parenthesized alternation group:
-                // every line up to the matching close is a member,
-                // regardless of shape. A member row routinely opens with
-                // `-` itself, which the flag-entry-ends-the-block check
-                // below would otherwise misread — depth, not content, is
-                // what says this line still belongs. See S-088.
-                paren_group_depth += paren_depth_delta(trimmed_start);
-                if paren_group_depth <= 0 {
-                    paren_group_depth = 0;
-                    just_closed_paren_group = true;
-                } else {
-                    just_closed_paren_group = false;
-                }
-                let trimmed = l.trim().to_string();
-                usage_lines.push(trimmed.clone());
-                if let Some(last) = usage_entries.last_mut() {
-                    last.push(' ');
-                    last.push_str(&trimmed);
-                }
-                line_entry_index.push(usage_entries.len() - 1);
-                i += 1;
-                continue;
-            }
-            if labelled_usage_start.is_none()
-                && paren_group_depth == 0
-                && looks_like_paren_alternation_open(trimmed_start)
-            {
-                // Opens the group: hand off to the depth-tracking branch
-                // above for every later line, but this opening row itself
-                // still falls through to the ordinary flow just below,
-                // which already appends it correctly (it is more indented
-                // than the stanza head and, starting with `(` rather than
-                // `-`, trips none of the content checks that would end the
-                // block).
-                paren_group_depth = paren_depth_delta(trimmed_start);
-            }
-            just_closed_paren_group = false;
-            let is_marker =
-                starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
-            let is_own_name =
-                tool_name.is_some_and(|name| starts_with_tool_name(trimmed_start, name));
-            let starts_new_entry = is_marker || is_own_name;
-
-            // A line the one above it ended with a backslash is a
-            // continuation by the tool's own explicit statement, and no
-            // content test may overrule that. update-xmlcatalog's
-            // backslash-wrapped synopsis tail begins with `--id`, which
-            // the flag-start guard below would otherwise end the block
-            // on, dropping `--del`/`--root`/`--type`. See S-011.
-            let continues_previous_line = i > 0 && lines[i - 1].trim_end().ends_with('\\');
-            if !starts_new_entry && !continues_previous_line {
-                // A continuation line that itself reads as a flag entry
-                // ends the usage block, even indented with no blank
-                // separator: a usage continuation is an alternative
-                // invocation form and never begins with a dash. curl's 13
-                // flag rows sit one space under `Usage:` with no `Options:`
-                // heading, and all 13 used to land in `usage` with zero
-                // flags parsed. See S-074.
-                if looks_like_flag_start(trimmed_start) {
-                    break;
-                }
-                // A section heading ends the usage block no matter how
-                // far it is indented. Binutils ar indents its whole body,
-                // including its heading, under the synopsis; indentation
-                // alone would join the heading and all eight command rows
-                // into one usage string and yield zero subcommands. See
-                // S-075.
-                if is_section_heading_line(trimmed_start) {
-                    break;
-                }
-                // A decorative dash-bracketed divider (tree's own
-                // `------- Listing options -------`) is never a usage
-                // continuation either. See S-064.
-                if looks_like_dash_bracketed_heading(trimmed_start) {
-                    break;
-                }
-                // A line more indented than the base is not always a
-                // continuation — only when it still reads as usage
-                // grammar. sg_emc_trespass follows its usage line with two
-                // ordinary sentences indented under it; the old rule
-                // joined them onto the synopsis, and `extract_positionals`
-                // mined their bare uppercase words as fabricated operands.
-                // Drops the one prose line rather than ending the block:
-                // mdadm interleaves a description under each of several
-                // alternative `mdadm --mode ...` forms, so breaking on the
-                // first would drop every later one. Guarded to lines
-                // strictly more indented than the base — du's own
-                // trailing sentence sits at the base indent and must keep
-                // taking the base-indent fallback below. See S-003.
-                if leading_whitespace(l) > base_indent && is_prose_sentence(trimmed_start) {
-                    i += 1;
-                    continue;
-                }
-                // Below the base indent (never above it: `leading_whitespace`
-                // is unsigned, so this also covers "equal to"), indentation
-                // alone can't distinguish a genuine continuation (lsof) from
-                // the block having ended (du) — fall back to content shape.
-                if leading_whitespace(l) <= base_indent && !looks_like_usage_fragment(trimmed_start)
-                {
-                    break;
-                }
-            }
-            let trimmed = l.trim().to_string();
-            usage_lines.push(trimmed.clone());
-            if starts_new_entry {
-                // A form keeps the indentation its author gave it (spec
-                // §4.1): ip lines its second form up under the first. Only
-                // the display form carries it; `usage_lines` stays trimmed
-                // since it reads tokens, never columns.
-                usage_entries.push(l.trim_end().to_string());
-            } else if let Some(last) = usage_entries.last_mut() {
-                // The backslash is the join, the same way a single space
-                // is elsewhere: without dropping it, the displayed
-                // synopsis reads `--type <type> \ --id <id>`, a
-                // continuation marker stranded mid-line.
-                if last.ends_with('\\') {
-                    last.pop();
-                    let trimmed_tail = last.trim_end().len();
-                    last.truncate(trimmed_tail);
-                }
-                last.push(' ');
-                last.push_str(&trimmed);
-            }
-            line_entry_index.push(usage_entries.len() - 1);
-            i += 1;
-        }
-        // Scoped to a labelled block, never an unlabelled synopsis
-        // (`dbus-cleanup-sockets`, `lvreduce`): the existence oracle's own
-        // synopsis scanner has no unlabelled-synopsis support yet, so any
-        // operand recovered from one reports as invented today. See
-        // S-001.
-        let primary_lines = if labelled_usage_start.is_some() {
-            primary_synopsis_lines(&usage_entries, &line_entry_index, usage_lines.len())
-        } else {
-            std::collections::HashSet::new()
-        };
-        result.positionals = extract_positionals(&usage_lines, primary_lines);
-        result.usage = usage_entries;
+        let scan = scan_usage_section(
+            &lines,
+            start,
+            labelled_usage_start,
+            tool_name,
+            &mut usage_lines,
+        );
+        i = scan.next_index;
+        result.positionals = scan.positionals;
+        result.usage = scan.entries;
     }
 
     // 2. Leading prose before the usage block (or before the first
