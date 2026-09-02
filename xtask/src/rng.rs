@@ -1,17 +1,13 @@
 //! Deterministic, dependency-free randomness for the audit instrument
-//! (`xtask::audit`, `xtask::queue`): a seeded shuffle used both by the
-//! frozen queue's shuffle-stratification (`queue::shuffle_stratify`, batch:
-//! frozen sampling queue) and, historically, by the live stratified draw it
-//! replaced. Extracted to its own module because both `audit.rs` and
-//! `queue.rs` need the exact same seeded-shuffle behavior and must never
-//! silently drift into two slightly different PRNGs.
+//! (`xtask::audit`, `xtask::queue`): a seeded shuffle used by the frozen
+//! queue's shuffle-stratification (`queue::shuffle_stratify`). Extracted
+//! to its own module so `audit.rs` and `queue.rs` share one PRNG rather
+//! than risk two slightly different ones.
 //!
 //! The workspace carries no `rand` dependency, and none of this needs
-//! cryptographic quality — only that the same seed always produces the same
-//! output and different seeds produce (with overwhelming probability)
-//! different output. SplitMix64 is the standard, well-analyzed choice for
-//! exactly that: one multiply-xor-shift step per call, no external state
-//! beyond a single u64.
+//! cryptographic quality — only that the same seed always reproduces the
+//! same output. SplitMix64: one multiply-xor-shift step per call, no
+//! external state beyond a single u64.
 
 pub(crate) struct SplitMix64(u64);
 
