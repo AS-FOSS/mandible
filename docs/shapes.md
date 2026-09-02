@@ -487,11 +487,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -e, --control, -x, --extract, -f, --field,
       ... on archives (type dpkg-deb --help).
 - tools: zgrep, resolvconf, jpackage, dpkg
-- handling: A description that wraps onto a line starting with a dash-led word is read
-  as the next flag row. The C3 whitespace-continuation rules do not reach this
-  case. dpkg's own cross-reference sentence is contained by the
-  wrapped-prose-region remedy (S-011); zgrep, resolvconf and jpackage remain
-  open.
+- handling: A dash-led line at its paragraph's own indent now reads as prose, not a
+  flag row, when the previous physical line is non-blank, not sentence-final,
+  and prose, and the candidate carries no description column. The rule
+  cascades, so a comma list wrapping across several dash-led lines reads as
+  one continuation. dpkg's hanging-indent wrap stays on the separate S-011
+  remedy. The recovered paragraph is appended to the node description so the
+  sentence still reaches the tree.
 - fleet: detector fires on 21 tools, 26 flags, over a 2318-tool sweep,
   2026-09-03. Quotable as calibrated: zgrep and resolvconf now carry human
   verdicts, the detector fires on both, and it stays silent on all 39

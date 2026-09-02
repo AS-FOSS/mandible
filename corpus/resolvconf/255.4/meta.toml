@@ -20,14 +20,14 @@ stdout = "help.txt"
 expected_framework = "generic"
 
 # resolvconf explicitly says these cause the invocation to fail, i.e. it
-# does not support them. Both are fabricated because the sentence naming
-# them wraps mid-list onto a line starting with a dash-led word, and that
-# wrap is read as a new flag row.
+# does not support them. Both were fabricated because the sentence naming
+# them wrapped mid-list onto a line starting with a dash-led word, read as
+# a new flag row until docs/shapes.md S-027 fixed it.
 must_not_contain_flags = ["-I", "--enable-updates"]
 
-[xfail]
-broken = true
-reason = "the sentence 'Various options ... will cause the invocation to fail:' wraps onto a line starting with '-I, -i, -l, -R, -r, -v, -V, --enable-updates, ...', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating -I and --enable-updates as real resolvconf flags. The C3 whitespace-continuation rules do not reach this shape."
+# The real option table, so containment of the wrapped-prose paragraph can
+# never be bought by losing the rows above it.
+must_contain_flags = ["--help", "--version", "-a", "-d", "-f", "-x"]
 
 # Maintainer, checking this build by hand: "similar single line flags
 # getting detected as aliases", verdict wrong. Machine classification:

@@ -1,4 +1,5 @@
 name: resolvconf
+description: 'This is a compatibility alias for the resolvectl(1) tool, providing native command line compatibility with the resolvconf(8) tool of various Linux distributions and BSD systems. Some options supported by other implementations are not supported and are ignored: -m, -p, -u. Various options supported by other implementations are not supported and will cause the invocation to fail: -I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates, --updates-are-enabled.'
 usage:
 - resolvconf -a INTERFACE < FILE
 - resolvconf -d INTERFACE
@@ -43,26 +44,6 @@ flags:
 - spellings:
   - -x
   description: Send DNS traffic preferably over this interface
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - -I
-  - -i
-  - -l
-  - -R
-  - -r
-  - -v
-  - -V
-  - --enable-updates
-  - --disable-updates
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - --updates-are-enabled
-  value_name: .
-  value_kind: Required
   provenance:
     sources:
     - help-text

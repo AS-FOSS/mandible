@@ -252,6 +252,72 @@ pub(super) fn wrapped_prose_region_end(lines: &[&str], head: usize) -> Option<us
     (end > head + 1).then_some(end)
 }
 
+/// True when `lines[idx]` is a dash-led line continuing the prose above it
+/// rather than opening a new flag row (atlas S-027,
+/// `corpus/zgrep/1.12`, `corpus/resolvconf/255.4`). Same-indent counterpart
+/// of [`wrapped_prose_region_end`]. Gates: prev line non-blank, not
+/// sentence-final, prose (cascades — a predecessor this rule already
+/// accepted counts as prose too) and at least [`MIN_PROSE_SENTENCE_WORDS`]
+/// long when not itself dash-led (tar's four-word `*This* tar defaults to:`
+/// introduces real flag rows, not a wrap), cur has no description column,
+/// cur's indent equals prev's.
+pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool {
+    if idx == 0 {
+        return false;
+    }
+    let cur = lines[idx];
+    let prev = lines[idx - 1];
+    if prev.trim().is_empty() {
+        return false;
+    }
+    if prev.trim_end().ends_with(['.', '!', '?']) {
+        return false;
+    }
+    if prev.trim_start().starts_with('-') {
+        if !is_wrapped_prose_continuation(lines, idx - 1) {
+            return false;
+        }
+    } else if prev.split_whitespace().count() < MIN_PROSE_SENTENCE_WORDS {
+        return false;
+    }
+    if find_multi_space_gap(cur).is_some() {
+        return false;
+    }
+    leading_whitespace(cur) == leading_whitespace(prev)
+}
+
+/// The full prose paragraph a rescued wrapped-prose continuation at
+/// `flag_line_idx` belongs to (S-027): back to the blank line above it (or
+/// the document start), forward through every line
+/// [`is_wrapped_prose_continuation`] still accepts, up to the next blank
+/// line. Returns the index just past the paragraph and its text, physical
+/// lines trimmed and joined by single spaces — so the sentence the
+/// fabricated flags were mined from still reaches the description instead
+/// of vanishing with them (AGENTS.md §3.9).
+pub(super) fn wrapped_prose_paragraph(lines: &[&str], flag_line_idx: usize) -> (usize, String) {
+    let mut start = flag_line_idx;
+    while start > 0 && !lines[start - 1].trim().is_empty() {
+        start -= 1;
+    }
+    let mut end = flag_line_idx + 1;
+    while end < lines.len() {
+        let line = lines[end];
+        if line.trim().is_empty() {
+            break;
+        }
+        if looks_like_flag_start(line.trim_start()) && !is_wrapped_prose_continuation(lines, end) {
+            break;
+        }
+        end += 1;
+    }
+    let text = lines[start..end]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    (end, text)
+}
+
 /// True when `heading` may open the obscured-marker whole-region fence
 /// (`obscured_ignorable_indent`). [`is_ignorable_heading`] alone is too
 /// loose for a whole-region trigger: a mid-document `Report bugs to

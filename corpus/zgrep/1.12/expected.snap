@@ -1,5 +1,5 @@
 name: zgrep
-description: Look for instances of PATTERN in the input FILEs, using their uncompressed contents if they are compressed.
+description: 'Look for instances of PATTERN in the input FILEs, using their uncompressed contents if they are compressed. OPTIONs are the same as for ''grep'', except that the following ''grep'' options are not supported: --dereference-recursive (-R), --directories (-d), --exclude, --exclude-from, --exclude-dir, --include, --null (-Z), --null-data (-z), and --recursive (-r).'
 usage:
 - 'Usage: /usr/bin/zgrep [OPTION]... [-e] PATTERN [FILE]...'
 positionals:
@@ -14,24 +14,6 @@ positionals:
     sources:
     - help-text
 flags:
-- spellings:
-  - --exclude
-  - --exclude-from
-  - --exclude-dir
-  - --include
-  - --null
-  value_name: (-Z),
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - --null-data
-  value_name: (-z),
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text
 - spellings:
   - -e
   provenance:
