@@ -1649,3 +1649,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/aarch64-linux-gnu-dwp/2.42`.
 - fleet: no detector. Five tools checked by hand and all five lose the marker,
   2026-09-03. The two control tools written with a space keep it.
+
+### S-102: one spelling documented on two rows, folded before display
+
+- id: S-102
+- looks like: |
+      -r			List swap files and exit
+      -r (with file name)	Recover crashed session
+- tools: vim.basic, ffplay, ffmpeg, curl, gcc, as, dpkg, tar, du, expand, lsof,
+  update-xmlcatalog, rust-lldb, qemu-arm64-static, ptargrep, pod2man,
+  mkfs.bfs, man-recode
+- handling: A tool may document one spelling on two rows for two forms, and the parser
+  extracts both. The interactive display then folds them into one entity,
+  keyed on spelling alone, and picks the value name and the description from
+  different members. One row's description reaches no rendered surface. The
+  extraction is correct and the loss happens after it. Open defect.
+- fleet: 18 of 133 corpus fixtures carry a spelling on two entities with
+  different descriptions, 2026-09-03. Measured loss between the extracted
+  count and the rendered count: ffplay 1136 to 465, gcc 43 to 37, curl 258
+  to 253, as 61 to 59, vim.basic 45 to 43, tar 159 to 157, du 29 to 28,
+  expand 5 to 4.
