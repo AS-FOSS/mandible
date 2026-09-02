@@ -793,7 +793,7 @@ mod tests {
     /// **This module must be reachable from no gate.** The hard constraint
     /// this whole instrument was built under (see the module doc comment
     /// and spec §13.1f) is that no pass/fail path may ever consult a
-    /// residue count. Prose cannot enforce that; this can. `coverage.rs`
+    /// residue count. Prose cannot enforce that; this can. `coverage/`
     /// owns `--check`, `corpus.rs` owns the fixture ratchet, and
     /// `status.rs` owns the per-tool label those two read — if any of them
     /// ever *calls into* this module, the build stops here rather than in
@@ -809,7 +809,24 @@ mod tests {
     #[test]
     fn residue_is_reachable_from_no_gate() {
         for (name, src) in [
-            ("coverage.rs", include_str!("coverage.rs")),
+            ("coverage/mod.rs", include_str!("coverage/mod.rs")),
+            (
+                "coverage/aggregate.rs",
+                include_str!("coverage/aggregate.rs"),
+            ),
+            (
+                "coverage/fingerprint.rs",
+                include_str!("coverage/fingerprint.rs"),
+            ),
+            ("coverage/score.rs", include_str!("coverage/score.rs")),
+            (
+                "coverage/render_text.rs",
+                include_str!("coverage/render_text.rs"),
+            ),
+            (
+                "coverage/render_markdown.rs",
+                include_str!("coverage/render_markdown.rs"),
+            ),
             ("corpus/mod.rs", include_str!("corpus/mod.rs")),
             ("corpus/contract.rs", include_str!("corpus/contract.rs")),
             ("corpus/markdown.rs", include_str!("corpus/markdown.rs")),
