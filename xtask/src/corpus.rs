@@ -1,59 +1,35 @@
 //! The corpus regression runner (spec §13.2, `corpus/README.md`): replays
 //! every fixture under `corpus/<tool>/<version>/` through the real tiered
-//! extraction pipeline with **zero subprocesses**, via the `Transcript`
-//! replay seam (`mandible_extract::exec::Transcript`), and fails loudly
-//! when a parse regresses.
+//! extraction pipeline with zero subprocesses, via the `Transcript` replay
+//! seam (`mandible_extract::exec::Transcript`), and fails loudly when a
+//! parse regresses.
 //!
-//! This module only ever *reads* `corpus/`; nothing here is reachable from
-//! the `mandible` binary (`corpus/README.md`: "the `mandible` binary never
-//! reads this directory"). It lives in `xtask` for exactly that reason.
+//! This module only reads `corpus/`; nothing here is reachable from the
+//! `mandible` binary (`corpus/README.md`).
 //!
-//! # What "replay every fixture" means
-//!
-//! Each fixture's `meta.toml` lists `[[capture]]` entries — real argv paired
-//! with the captured bytes a tier would have gotten back for it. This
-//! module turns that list into a [`Transcript`], builds a synthetic
-//! [`ResolvedTool`] (a fixture is never a real path on this machine — see
-//! [`resolved_tool`]), and drives [`mandible_extract::default_tiers_with_probe`]
-//! through [`Runner`] exactly as the real `mandible` binary would, root
-//! extraction plus a bounded recursive fill into every discovered
-//! subcommand (spec §5.2's cascade, mirrored here without the background
-//! pool since a replay has no I/O to overlap). A fixture that only
-//! captured its root `--help` (both fixtures shipped with this runner) is
-//! unaffected by the recursive step: every child `fill_node` call misses
-//! the transcript, is recorded as a per-tier error exactly as spec §5.3
-//! prescribes, and contributes nothing — so the tree comes out identical
-//! to a root-only extraction. A future fixture that captures a
-//! subcommand's own `--help` (or, for cobra, both its `""` and `"-"`
-//! probes) is picked up automatically the moment its `[[capture]]` entry
-//! exists, with no runner change required.
+//! Each fixture's `meta.toml` lists `[[capture]]` entries (argv paired with
+//! captured bytes). This module builds a [`Transcript`] and a synthetic
+//! [`ResolvedTool`] ([`resolved_tool`]) and drives
+//! [`mandible_extract::default_tiers_with_probe`] through [`Runner`] as
+//! the real binary would: root extraction plus a bounded recursive fill
+//! (spec §5.2's cascade).
 //!
 //! # Checks, per fixture
 //!
-//! - **(a) Snapshot match** against `expected.snap` — a plain byte
-//!   comparison against `mandible_core::to_snapshot` run through the same
-//!   `serde_yaml` serializer `--bless` writes with, never an `insta` run
-//!   (see [`render_snapshot`]'s doc comment on why).
-//! - **(b) `[contract]`**: `expected_framework`, `min_status`,
+//! - (a) Snapshot match against `expected.snap` — plain byte comparison,
+//!   never an `insta` run ([`render_snapshot`]).
+//! - (b) `[contract]`: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_modifiers`,
-//!   `must_not_contain_flags` (see [`check_contract`]).
-//! - **(c) Strict xfail**: a fixture marked `[xfail]` whose snapshot and
-//!   contract *both* pass fails the run — the bug got fixed and the
-//!   fixture must be promoted (`corpus/README.md`'s lifecycle rules).
-//! - **(d) Parse-time ceiling**: [`MAX_FIXTURE_PARSE_TIME`], applied to
-//!   every fixture regardless of xfail status — a slow parse is a bug
-//!   (AGENTS.md's "never call an O(n)-or-worse function from inside a
-//!   loop's own condition" entry, the 153-second incident) whether or not
-//!   the fixture's *content* is expected to be broken. **This one warns
-//!   rather than failing the run**; it is the only wall-clock-dependent
-//!   check here, and [`MAX_FIXTURE_PARSE_TIME`] explains why that
-//!   distinction is load-bearing rather than a softening.
+//!   `must_not_contain_flags` ([`check_contract`]).
+//! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
+//!   both pass fails the run — the bug is fixed, promote it
+//!   (`corpus/README.md`'s lifecycle rules).
+//! - (d) Parse-time ceiling ([`MAX_FIXTURE_PARSE_TIME`]), regardless of
+//!   xfail status. Warns rather than failing the run.
 //!
-//! Checks (a) through (c) block. Check (d) warns. That split is the whole
-//! reason this gate can be strict at all: everything that blocks is
-//! deterministic, so a red is always a real parser change and never the
-//! shared runner having a bad afternoon.
+//! (a)-(c) block; (d) warns — the only nondeterministic check here, so a
+//! red on (a)-(c) is always a real parser change.
 
 use crate::coverage::ScoreFormat;
 use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source, Spelling, Text};
@@ -65,32 +41,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-/// Spec's mechanical net for the O(n²)-in-a-loop class of bug (AGENTS.md:
-/// a genuinely degenerate input once took 153s instead of milliseconds).
-/// Deliberately coarse — 100ms is nowhere near what a single-fixture
-/// in-memory parse should ever cost, so this never fires on ordinary
-/// millisecond-scale variance and exists only to catch the next
-/// accidental quadratic loop before it ships.
+/// Mechanical net for the O(n²)-in-a-loop class of bug (AGENTS.md: a
+/// degenerate input once took 153s instead of milliseconds). Deliberately
+/// coarse — 100ms is nowhere near a single-fixture in-memory parse's real
+/// cost.
 ///
-/// **This check warns; it does not fail the run.** It is the one
-/// nondeterministic ingredient in an otherwise fully deterministic runner —
-/// every other check reads frozen bytes and spawns nothing, so a red is
-/// always a real parser change, which is what earns this gate the right to
-/// block where the live PATH sweep does not. Wall-clock on shared CI
-/// hardware is not that. Measured on this project's own runners:
-/// `waagent2.0` took 41.9s in one sweep and 21.4s in the next **with
-/// identical code**, roughly 40x contention — so the ~100x headroom this
-/// ceiling has over a real ~1ms fixture parse is a thinner margin than it
-/// looks.
-///
-/// The asymmetry decides it. A missed quadratic is caught by the next run,
-/// by the sweep's own `ms` column, or by a warning nobody could miss (the
-/// motivating incident was 153,000ms against a 100ms line — it does not
-/// arrive as a borderline reading). One false red on timing, by contrast,
-/// teaches people that a red corpus run can be ignored, and that habit
-/// costs the correctness checks their authority. Blocking on flaky
-/// wall-clock would reproduce, inside the one gate immune to it, the exact
-/// failure `path-sweep.yml` is deliberately non-gating to avoid.
+/// Warns, does not fail the run: the one nondeterministic check here (CI
+/// wall-clock contention measured up to ~40x on this project's runners),
+/// so blocking on it would let a flaky timing red teach people to ignore
+/// the corpus gate.
 const MAX_FIXTURE_PARSE_TIME: Duration = Duration::from_millis(100);
 
 /// Bound on the recursive per-fixture tree fill (see this module's doc
@@ -149,164 +108,62 @@ struct ContractMeta {
     min_subcommands: Option<usize>,
     #[serde(default)]
     must_contain_flags: Vec<String>,
-    /// Same spot-check as `must_contain_flags`, but for a subcommand's own
-    /// flags rather than the root's — keyed by the subcommand's path,
-    /// space-separated and *not* including the tool's own name (`"restore"`,
-    /// `"remote add"`). General on purpose: the key is a path any tool's
-    /// tree can have, never a tool name, so this generalizes the same way
-    /// `must_contain_flags` does rather than adding a git-specific check.
-    /// Exists because `must_contain_flags` alone can only ever assert what
-    /// a tool publishes at its *root* (`flag_present`'s doc comment) — most
-    /// of what a fix like [M-16]'s `-h` fallback or a flag-spec grammar fix
-    /// changes shows up on a subcommand instead.
+    /// Same spot-check as `must_contain_flags`, for a subcommand's own
+    /// flags — keyed by the subcommand's path, space-separated, no tool
+    /// name (`"restore"`, `"remote add"`). `must_contain_flags` alone can
+    /// only assert what a tool publishes at its root.
     #[serde(default)]
     must_contain_flags_by_path: std::collections::BTreeMap<String, Vec<String>>,
-    /// Root positional operands the tree must carry, by name — the
-    /// `unparsed-positional` family's falsifiable promise, and the one
-    /// dimension of a `CommandNode` that had no `[contract]` field at all.
-    ///
-    /// It is here because its absence was actively distorting fixtures.
-    /// `corpus/javaflow-bpfcc/audit-seed2/meta.toml` records a reviewer's
-    /// finding about a dropped `pid` operand and then asserts something
-    /// else entirely, with a comment explaining that the real defect had no
-    /// field to be written down in — so the fixture named the defect in
-    /// prose and tested a different one. A snapshot does freeze positionals,
-    /// but a snapshot freezes *everything*, which makes it a regression net
-    /// and not a statement of what a fixture is for; only a contract says
-    /// "this operand is the point" in a form that can be pointed at when it
-    /// stops holding.
-    ///
-    /// Matched on `Entity::primary_name` exactly, root only — the same scope
-    /// `must_contain_flags` has, and for the same reason: a name is what a
-    /// user types, and nothing else about the entry is asserted here.
+    /// Root positional operands the tree must carry, by name. Matched on
+    /// `Entity::primary_name` exactly, root only — same scope as
+    /// `must_contain_flags`.
     #[serde(default)]
     must_contain_positionals: Vec<String>,
-    /// Modifier letters the tree must carry — the same falsifiable promise
-    /// `must_contain_positionals` makes, for the kind 0.5.x added (spec
-    /// §4.5, §7 Tier B "Modifier tables").
-    ///
-    /// A modifier table is recovered by one narrow recognizer, and the only
-    /// other thing guarding it is `expected.snap` — which freezes
-    /// everything and therefore states nothing about what a fixture is
-    /// *for* (the distinction `must_contain_positionals`' own doc comment
-    /// draws, and the reason `corpus/lsof/4.95.0` is a cautionary tale).
-    /// Without this field, a future change that silently stopped
-    /// recognizing modifier tables would move five `ar`-family snapshots
-    /// and read, to a reviewer scanning a bless diff, exactly like a
-    /// deliberate reshape.
-    ///
-    /// Written as the bare letter (`"a"`, `"D"`), matched on
-    /// `Entity::primary_name` exactly, root only — the same scope and
-    /// matcher `must_contain_positionals` uses. Case is significant: `ar`
-    /// documents `[D]` and `[u]` as different modifiers from `[d]` and
-    /// `[U]`.
+    /// Modifier letters the tree must carry (spec §4.5, §7 Tier B
+    /// "Modifier tables"). Written as the bare letter (`"a"`, `"D"`),
+    /// matched on `Entity::primary_name`, root only. Case is significant:
+    /// `ar` documents `[D]`/`[u]` as distinct from `[d]`/`[U]`.
     #[serde(default)]
     must_contain_modifiers: Vec<String>,
-    /// Environment variable names the tree must carry — the same
-    /// falsifiable promise `must_contain_modifiers` makes, for the other
-    /// kind 0.5.x added (spec §4.5, §7 Tier B "Environment sections").
-    ///
-    /// An environment section is recovered by a heading-keyed recognizer,
-    /// and the only other thing guarding it is `expected.snap` — which
-    /// freezes everything and therefore states nothing about what a
-    /// fixture is *for*. Without this field, a future change that silently
-    /// stopped recognizing environment sections would move a handful of
-    /// snapshots and read, to a reviewer scanning a bless diff, exactly
-    /// like a deliberate reshape.
-    ///
-    /// Written as the variable's own spelling (`"NODE_DEBUG"`), matched on
-    /// `Entity::primary_name` exactly, root only — the same scope and
-    /// matcher `must_contain_modifiers` uses. Case is significant: an
-    /// environment variable's name is meaningfully cased (`NODE_DEBUG` and
-    /// `node_debug` are different variables to the shell), unlike a
-    /// modifier letter's case-significance, which comes from two distinct
-    /// documented options rather than shell semantics.
+    /// Environment variable names the tree must carry (spec §4.5, §7 Tier B
+    /// "Environment sections"). Written as the variable's own spelling
+    /// (`"NODE_DEBUG"`), matched on `Entity::primary_name`, root only. Case
+    /// is significant (shell semantics).
     #[serde(default)]
     must_contain_env_vars: Vec<String>,
-    /// Root flag spellings the tree must **not** carry — the first
-    /// *negative* claim in a `[contract]`, and the only way a fixture can
-    /// say "the parser invented this".
+    /// Root flag spellings the tree must **not** carry — the only negative
+    /// claim in a `[contract]` ("the parser invented this"), added because
+    /// `corpus/mariadb-check/2.7.4`'s defaults-table header ruler was read
+    /// as a 31-dash flag with no falsifiable way to say it shouldn't be
+    /// (spec §14).
     ///
-    /// Every other field here is positive: it names something a real tool
-    /// really has and fails when the parser drops it. That closes the
-    /// omission half of the problem and nothing of the invention half. The
-    /// motivating instance is `corpus/mariadb-check/2.7.4`, whose
-    /// `Variables (--variable-name=value)` defaults table opens with a
-    /// header ruler; the parser reads that ruler as a flag and emits one
-    /// whose long name is thirty-one `-` characters. The tool has no such
-    /// flag, and before this field there was no falsifiable way to say so
-    /// — so the defect could not announce its own repair through strict
-    /// xfail, which is the mechanism the whole corpus repair loop runs on
-    /// (spec §14's mariadb residue names exactly this missing field).
-    ///
-    /// **Matched by [`flag_present`], the same matcher `must_contain_flags`
-    /// uses, negated.** `--foo` asserts no root flag has the long name
-    /// `foo`; `-x` asserts none has the short name `x`; a bare word is
-    /// matched against `long` verbatim. A fixture author therefore writes
-    /// the spelling exactly as it would be typed, and the ruler above is
-    /// written as its full thirty-three-dash form.
-    ///
-    /// **What it deliberately does not claim**, all three of which would be
-    /// broader assertions a fixture author did not make:
-    ///
-    /// - *Nothing about the raw text.* This is a claim about the parsed
-    ///   tree only. The mariadb ruler occurs literally in the capture, and
-    ///   must go on occurring there — the capture is byte-exact. The
-    ///   existence oracle, whose contract is "does this spelling occur in
-    ///   the raw text", is correctly silent on this defect for exactly that
-    ///   reason, which is why the invention side needs its own field.
-    /// - *Nothing about the other spelling.* `--foo` says nothing about a
-    ///   flag with short `f`, and `-x` says nothing about a long name, in
-    ///   the same one-spelling-at-a-time way `flag_present` reads a
-    ///   positive spec. Asserting both from one entry would let a fixture
-    ///   forbid a spelling its author never looked at.
-    /// - *Nothing below the root.* Root flags only, the same scope
-    ///   `must_contain_flags` has. A subcommand inventing a flag is a real
-    ///   defect and would need the by-path analogue; this field does not
-    ///   quietly cover it.
-    ///
-    /// A tree with no root satisfies this vacuously and is *not* reported,
-    /// unlike every positive field above — see [`check_contract`]'s no-root
-    /// branch, where the asymmetry is argued.
+    /// Matched by [`flag_present`], negated: `--foo` asserts no root flag
+    /// has long name `foo`; `-x` asserts none has short name `x`. Claims
+    /// nothing about the raw text (the mariadb ruler still occurs there —
+    /// the existence oracle is correctly silent on this defect), nothing
+    /// about the flag's other spelling, and root only (no by-path
+    /// analogue). A tree with no root satisfies this vacuously and is not
+    /// reported, unlike every positive field above.
     #[serde(default)]
     must_not_contain_flags: Vec<String>,
     /// Which dimensions of this fixture's tree a human actually verified
-    /// before blessing it — the machine-readable replacement for the
-    /// "SCOPE OF REVIEW" prose comment 36 `audit-seed2` fixtures each
-    /// carried a copy of (`git show c9bfe76`). `check_contract` never
-    /// reads this: it is not itself a check, it is a record of which
-    /// checks a human *stood in for* by eye when they blessed the
-    /// snapshot — `expected.snap` freezes every field regardless
-    /// (`corpus/README.md`: "a full expected.snap freezes everything"),
-    /// so without this, a passing fixture cannot be told apart from one
-    /// whose flags were reviewed but whose descriptions never were. It
-    /// is carried into every report (`show_fixture`, the text and
-    /// markdown corpus reports) so that question is answered by reading
-    /// data, not by grepping `meta.toml` prose.
+    /// before blessing it — machine-readable replacement for the
+    /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a
+    /// check: `expected.snap` freezes every field regardless, so this is
+    /// what tells a fully-reviewed fixture apart from a partially-reviewed
+    /// one. Carried into every report.
     ///
-    /// **Absent means "no scope claimed", not "full scope".** A blessed
-    /// snapshot always freezes every field whether or not a human looked
-    /// at it, so treating silence as "everything verified" would let the
-    /// exact overclaim this field exists to prevent survive by omission
-    /// — the lsof cautionary tale (`corpus/README.md`) was precisely a
-    /// blessed tree nobody had actually read. An empty scope makes the
-    /// weakest possible claim (none at all), which is the only safe
-    /// default when the entire point is to never overclaim. See
-    /// `verdict_scope_defaults_to_empty_when_absent`.
+    /// Absent means "no scope claimed", not "full scope" — the lsof
+    /// cautionary tale (`corpus/README.md`) was a blessed tree nobody had
+    /// read. See `verdict_scope_defaults_to_empty_when_absent`.
     #[serde(default)]
     verdict_scope: Vec<VerdictScope>,
 }
 
 /// One dimension of a fixture's tree that a `verdict_scope` entry can
-/// claim was actually reviewed by a human before the fixture was
-/// blessed. `Flags` and `Subcommands` are the two the seed-2 audit
-/// workflow actually checks (`corpus/README.md`, `git show c9bfe76`);
-/// `Descriptions` and `Usage` exist so a fixture whose bless *did*
-/// include a prose read — `corpus/README.md`'s own full bless workflow
-/// asks a reviewer to check "every flag's description against the line
-/// it came from" — has somewhere to say so, rather than the schema
-/// hard-coding today's one audit's scope as the only kind of review that
-/// can ever be recorded.
+/// claim was reviewed by a human before blessing. `Flags`/`Subcommands`
+/// are what the seed-2 audit workflow checks; `Descriptions`/`Usage`
+/// cover a bless that included a full prose read (`corpus/README.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum VerdictScope {
@@ -359,36 +216,26 @@ struct XfailMeta {
 }
 
 /// `[bless]`: who blessed this fixture's `expected.snap` — the complement
-/// to `verdict_scope` (`ContractMeta::verdict_scope`'s doc comment).
-/// `verdict_scope` records what a HUMAN reviewed; nothing recorded the
-/// complement, which fixtures were blessed by an agent with no human eyes
-/// on them at all. **Required**, unlike every other `[contract]`/`[xfail]`
-/// field in this file: a fixture without it fails to load
-/// (`discover_fixtures`'s explicit guard), because an absent value here
-/// would silently read as "unknown" rather than the conservative "agent"
-/// default the schema demands an author actually assert.
+/// to `verdict_scope` (which records what a human reviewed). Required,
+/// unlike every other `[contract]`/`[xfail]` field: a fixture without it
+/// fails to load (`discover_fixtures`'s explicit guard), so the
+/// conservative "agent" default must always be an explicit assertion.
 #[derive(Debug, Clone, Deserialize)]
 struct BlessMeta {
     provenance: BlessProvenance,
 }
 
-/// Who blessed a fixture's current `expected.snap`, with no human review
-/// implied by default — the mirror of `verdict_scope`'s "absent means no
-/// scope claimed" rule, but for the bless act itself rather than which
-/// dimensions of the tree it covered.
+/// Who blessed a fixture's current `expected.snap`, no human review
+/// implied by default.
 ///
-/// - `Human` — a human blessed (or re-blessed) the current `expected.snap`.
+/// - `Human` — a human blessed (or re-blessed) the current snapshot.
 /// - `AgentThenHuman` — an agent blessed the tree; a human reviewed it
-///   later and recorded a `verdict_scope`, without re-blessing. The honest
-///   mixed case: the snapshot bytes are agent-authored, but a human has
-///   since looked and left a record of what they checked.
-/// - `Agent` — an agent blessed it and no human has reviewed the tree.
-///   The conservative default: never inferred as `Human` or
-///   `AgentThenHuman` without git evidence a human actually looked.
+///   later and recorded a `verdict_scope` without re-blessing.
+/// - `Agent` — an agent blessed it and no human has reviewed the tree
+///   (the conservative default).
 ///
-/// **An agent may only ever write `Agent` here.** Only a human may record
-/// `Human` or `AgentThenHuman` — the same rule `verdict_scope` already
-/// carries for its own claim, extended to the blessing act itself.
+/// An agent may only ever write `Agent` here; only a human may record
+/// `Human` or `AgentThenHuman`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum BlessProvenance {
@@ -648,39 +495,21 @@ pub(crate) fn discover_fixtures(corpus_root: &Path) -> anyhow::Result<Vec<Fixtur
     Ok(out)
 }
 
-/// Contract-weakening detection (this task's process fix #1): "Three
-/// separate subagent attempts have weakened a fixture contract to force a
-/// pass" — lowering `min_subcommands`, shrinking `must_contain_flags`, or
-/// marking a previously-enforced fixture `[xfail]` all make a real failure
-/// disappear without fixing anything, and `corpus/README.md` already
-/// permits this ("Weakening a contract... only via an explicit edit to
-/// `meta.toml`, justified in the PR description") — it must stay legal,
-/// it must stop being *quiet*.
+/// Contract-weakening detection: lowering `min_subcommands`, shrinking
+/// `must_contain_flags`, or marking a previously-enforced fixture
+/// `[xfail]` all make a real failure disappear silently.
+/// `corpus/README.md` permits weakening a contract via an explicit,
+/// justified edit — this makes sure a reviewer sees it happen.
 ///
-/// **This module has no git access, on purpose**, and cannot gain any: the
-/// workspace-wide `tests/no_process_outside_exec.rs` invariant forbids
-/// `std::process`/`Command::new` in `xtask/src` exactly as it does in every
-/// other crate but `mandible-extract/src/exec/`, so this runner could never
-/// legitimately shell out to `git diff` to see what the *previous* commit's
-/// `meta.toml` said. Faking that — inferring "committed" from whatever
-/// happens to be on disk right now — would be worse than not checking at
-/// all, since a fixture is always compared against itself. The honest
-/// alternative implemented here: this function takes a **second, plain
-/// corpus directory** (`baseline_root`) and diffs `[contract]` fields
-/// between it and the current one — no git anywhere in this process. `git`
-/// access belongs to whatever *invokes* this binary, which can
-/// legitimately populate that directory however it likes (a CI step
-/// running `git archive <base-ref> corpus | tar -x`, e.g.) and pass it via
-/// `--baseline-dir`. Nothing here assumes that wiring exists; with no
-/// `--baseline-dir`, this function is never called and nothing changes.
+/// This module has no git access (`tests/no_process_outside_exec.rs`
+/// forbids `std::process` in `xtask/src`), so it diffs `[contract]` fields
+/// between the current corpus and a second plain directory
+/// (`baseline_root`, populated by whatever invokes this binary via
+/// `--baseline-dir`, e.g. `git archive <base-ref> corpus | tar -x`). With
+/// no `--baseline-dir`, this function is never called.
 ///
 /// Returns one `"CONTRACT WEAKENED: <fixture> <field>"` line per weakened
-/// field, most-recognizable field first within a fixture, fixtures in
-/// their usual sorted order. Reported, not gated — see `run`'s doc comment
-/// on why this must not fail a build the moment it's introduced: a
-/// contract may legitimately weaken (the corpus's own documented lifecycle
-/// rule), and this exists to make sure a reviewer sees it, not to
-/// second-guess a deliberate, justified edit.
+/// field. Reported, not gated — a contract may legitimately weaken.
 fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture]) -> Vec<String> {
     let mut lines = Vec::new();
     for base in baseline {
@@ -1164,25 +993,17 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 
 /// Whether `node`'s own flags satisfy a `must_contain_flags`/
 /// `must_contain_flags_by_path`/`must_not_contain_flags` spec (the last
-/// one negated by its caller, so that a positive and a negative claim can
-/// never disagree about what a spelling *means*): `--long-name` matches
-/// any [`mandible_core::Spelling`] with two dashes and that name, `-x`
-/// matches any single-dash, single-character spelling, anything else is
-/// matched against every spelling's bare name verbatim. Only ever checks
-/// the one node it's given, never recursing into its subcommands itself —
-/// `must_contain_flags` calls this with the fixture's root (what a tool
-/// *publishes at its root*, spec's git example: `--paginate`, `--git-dir`);
-/// `must_contain_flags_by_path` calls it with whatever node
-/// [`find_node_by_path`] resolved.
+/// negated by its caller): `--long-name` matches any
+/// [`mandible_core::Spelling`] with two dashes and that name, `-x` matches
+/// any single-dash single-character spelling, anything else is matched
+/// against every spelling's bare name verbatim. Checks only the one node
+/// given, never recursing.
 ///
-/// **Every spelling, not just `Entity::short`/`Entity::long`.** Those two
-/// accessors return one canonical short and one canonical long-like
-/// spelling each — correct for rendering a shell-typed form, wrong here:
-/// `fold_adjacent_alias_rows` (spec §7's adjacency fold) can put more than
-/// one short spelling on a single entity (`ffplay`'s own `-h, -?, -help,
-/// --help`), and `Entity::short` only ever returns the first of them. A
-/// contract asserting `-?` is present must still find it once `-h` has
-/// claimed that slot.
+/// Checks every spelling, not just `Entity::short`/`Entity::long` (which
+/// return one canonical spelling each): `fold_adjacent_alias_rows` can put
+/// more than one short spelling on an entity (`ffplay`'s `-h, -?, -help,
+/// --help`), so a contract asserting `-?` must still find it once `-h`
+/// claims the canonical slot.
 fn flag_present(node: &CommandNode, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
         // Long-*like*, matching `Entity::long`'s own shape rule exactly
@@ -1228,19 +1049,15 @@ enum Outcome {
 }
 
 /// Run the corpus suite. `bless` rewrites every fixture's `expected.snap`
-/// to match its freshly-extracted tree instead of checking it — see this
-/// module's doc comment on why blessing an `[xfail]` fixture is legal
-/// (spec's documented promotion workflow blesses *before* removing
-/// `[xfail]`, and the strict-xfail check on the next plain run is what
-/// then reminds a contributor to remove it).
+/// to match its freshly-extracted tree instead of checking it — blessing
+/// an `[xfail]` fixture is legal (spec's promotion workflow blesses
+/// before removing `[xfail]`; the strict-xfail check on the next plain
+/// run reminds a contributor to remove it).
 ///
-/// `format` selects how a *checking* run (`bless: false`) renders its
-/// report: [`ScoreFormat::Text`] is the plain per-fixture lines this
-/// module has always produced (unchanged); [`ScoreFormat::Markdown`]
-/// additionally builds a semantic before/after transition table (see
-/// [`render_markdown_report`]) for `$GITHUB_STEP_SUMMARY`. `format` is
-/// ignored while blessing — bless has no "review artifact" to format,
-/// only a rewrite-and-report-what-was-written action.
+/// `format` selects a checking run's report: [`ScoreFormat::Text`] is the
+/// plain per-fixture lines; [`ScoreFormat::Markdown`] additionally builds
+/// a before/after transition table ([`render_markdown_report`]) for
+/// `$GITHUB_STEP_SUMMARY`. Ignored while blessing.
 pub fn run(corpus_root: &Path, bless: bool, format: ScoreFormat) -> anyhow::Result<CorpusReport> {
     run_with_baseline(corpus_root, bless, format, None)
 }
@@ -1821,31 +1638,20 @@ fn md_escape(s: &str) -> String {
     s.replace('|', "\\|")
 }
 
-/// Render the corpus run as a GitHub-flavored markdown **transition
-/// report** for `$GITHUB_STEP_SUMMARY` — never a text diff of
-/// `expected.snap`.
+/// Render the corpus run as a GitHub-flavored markdown transition report
+/// for `$GITHUB_STEP_SUMMARY` — never a text diff of `expected.snap`
+/// (a 1,000+ line YAML diff is unreviewable and teaches reviewers to
+/// approve unread). Reports what changed semantically instead: status,
+/// node/flag counts, and which named subcommands/flags appeared or
+/// disappeared.
 ///
-/// `corpus/README.md` calls a snapshot mismatch the review step itself:
-/// `expected.snap` is descriptive, "subject to snapshot review", and a red
-/// run that forces a human to look *is* that review. But a 1,000+ line
-/// YAML diff is unreviewable — a reviewer facing one either reads none of
-/// it, or worse, learns to approve it unread, which quietly deletes the
-/// ratchet this whole harness exists to build (the PATH sweep's flapping
-/// history, AGENTS.md, is what an ignored gate costs once trust in it is
-/// gone). So instead of lines, this reports **what changed semantically**:
-/// status, node/flag counts, and which *named* subcommands/flags appeared
-/// or disappeared — the level of detail a reviewer can act on without
-/// opening the YAML at all.
+/// Passing fixtures are included too, compactly ("no change") — an
+/// all-failures report gives no sense of what the ratchet protects.
 ///
-/// Passing fixtures are included too, compactly (one row, "no change") —
-/// a report that only shows failures gives no sense of what the ratchet
-/// is actually protecting.
-///
-/// The remedy named for a failing row depends on *which* check failed, and
-/// the two are never blurred: a snapshot mismatch names `--bless` (the
-/// descriptive half may be accepted after review); a `[contract]`
-/// violation names a deliberate `meta.toml` edit (the normative half may
-/// only weaken by an explicit, reviewable change — never by blessing).
+/// The remedy named for a failing row depends on which check failed: a
+/// snapshot mismatch names `--bless`; a `[contract]` violation names a
+/// deliberate `meta.toml` edit (the contract may only weaken by an
+/// explicit change, never by blessing).
 fn render_markdown_report(
     rows: &[FixtureRow],
     total: usize,
@@ -1855,13 +1661,9 @@ fn render_markdown_report(
     weakened: &[String],
 ) -> String {
     let mut out = String::new();
-    // Contract weakening, ahead of even the report's own heading — this is
-    // the one signal `corpus/README.md`'s own lifecycle rules say is
-    // *legal* but must never be *quiet* (three separate subagent attempts
-    // have weakened a fixture's `[contract]` to force a pass). A `>
-    // [!WARNING]` GFM alert renders with its own colored icon on GitHub,
-    // which a plain bullet or bold line does not — the point is that this
-    // cannot be skimmed past the way the rest of a green run can.
+    // Contract weakening, ahead of the report's own heading — legal per
+    // corpus/README.md but must never be quiet. `> [!WARNING]` renders
+    // with its own colored icon on GitHub, unlike a plain bullet.
     if !weakened.is_empty() {
         out.push_str("> [!WARNING]\n");
         for line in weakened {
@@ -2048,18 +1850,11 @@ impl CorpusReport {
 }
 
 /// Print one fixture's captured help text beside the tree the parser makes
-/// of it, then return.
+/// of it, then return. Renders the same side-by-side comparison `xtask
+/// audit emit` produces for a live tool, sourced from the frozen capture,
+/// so an `[xfail]` fixture's asserted defect can be seen directly.
 ///
-/// A fixture is otherwise only inspectable by opening a `meta.toml`, an
-/// `expected.snap` and one or more capture files separately and holding all
-/// three in your head, which makes "what does this fixture actually claim"
-/// a question answered by trusting a summary rather than by looking. This
-/// renders the same side-by-side comparison `xtask audit emit` produces for
-/// a live tool, sourced from the frozen capture instead, so an `[xfail]`
-/// fixture's asserted defect can be seen directly in the parse.
-///
-/// Deliberately read-only and separate from the checking run: it neither
-/// blesses nor fails, so it can be used freely while investigating.
+/// Read-only and separate from the checking run: neither blesses nor fails.
 /// One fixture replayed through the real pipeline: the raw help text the
 /// tiers built from, and the tree they produced.
 pub struct ReplayedFixture {
