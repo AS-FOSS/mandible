@@ -27,10 +27,6 @@ expected_framework = "generic"
 # fails today and passes once the operand is extracted.
 must_contain_positionals = ["bug-report-email-address"]
 
-[xfail]
-broken = true
-reason = "missing 'bug-report-email-address' flag. in my screen the usage line is missing one character that wraps that flag, the closing square character, might that be the cause?"
-
 # Fleet count: the unparsed-tail-operand detector fires on 194 tools
 # (194 flags) across a full-PATH sweep of 2318 tools, 2026-09-02. Calibrated
 # and passing: 3 of 3 labelled members detected, 0 false alarms on seed 4.
