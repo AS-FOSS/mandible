@@ -986,10 +986,22 @@ fn escape_md(s: &str) -> String {
 /// Render [`Transition`] as GitHub-flavored markdown for
 /// `$GITHUB_STEP_SUMMARY` — the format this whole module's doc comment
 /// insists on over a raw scoreboard-file diff.
-// Ratchet: one long report template; every branch emits a different section. Listed in scripts/ratchet.txt.
-#[allow(clippy::too_many_lines)]
-#[allow(clippy::cognitive_complexity)]
 pub fn render_markdown(t: &Transition) -> String {
+    let mut out = String::new();
+    out.push_str(&md_preamble(t));
+    out.push_str(&md_status_transitions_section(t));
+    out.push_str(&md_flag_losses_section(t));
+    out.push_str(&md_flag_gains_section(t));
+    out.push_str(&md_field_level_section(t));
+    out.push_str(&md_appeared_disappeared_section(t));
+    out.push_str(&md_near_cap_section(t));
+    out
+}
+
+/// The headline (identical/changed, tool counts) plus the truncated/
+/// unparseable-row notes — split out of [`render_markdown`] (ratchet:
+/// `clippy::too_many_lines`/`clippy::cognitive_complexity`).
+fn md_preamble(t: &Transition) -> String {
     let mut out = String::new();
     out.push_str("## Sweep transition report\n\n");
     out.push_str(
@@ -1038,7 +1050,13 @@ pub fn render_markdown(t: &Transition) -> String {
             after_bad = t.after.unparseable_dropped,
         ));
     }
+    out
+}
 
+/// The "### Status transitions" section — split out of [`render_markdown`]
+/// (ratchet: `clippy::too_many_lines`/`clippy::cognitive_complexity`).
+fn md_status_transitions_section(t: &Transition) -> String {
+    let mut out = String::new();
     out.push_str("### Status transitions\n\n");
     if t.status_transitions.is_empty() {
         out.push_str("No matched tool (outside the near-cap exclusion) changed status.\n\n");
@@ -1064,7 +1082,13 @@ pub fn render_markdown(t: &Transition) -> String {
         }
         out.push('\n');
     }
+    out
+}
 
+/// The "### Flag-count losses" section — split out of [`render_markdown`]
+/// (ratchet: `clippy::too_many_lines`/`clippy::cognitive_complexity`).
+fn md_flag_losses_section(t: &Transition) -> String {
+    let mut out = String::new();
     let total_lost: i64 = t.flag_losses.iter().map(|d| -d.delta()).sum();
     out.push_str("### Flag-count losses (the bar — never netted against gains)\n\n");
     if t.flag_losses.is_empty() {
@@ -1093,7 +1117,13 @@ pub fn render_markdown(t: &Transition) -> String {
         }
         out.push('\n');
     }
+    out
+}
 
+/// The "### Flag-count gains" section — split out of [`render_markdown`]
+/// (ratchet: `clippy::too_many_lines`/`clippy::cognitive_complexity`).
+fn md_flag_gains_section(t: &Transition) -> String {
+    let mut out = String::new();
     let total_gained: i64 = t.flag_gains.iter().map(|d| d.delta()).sum();
     out.push_str("### Flag-count gains\n\n");
     if t.flag_gains.is_empty() {
@@ -1121,7 +1151,13 @@ pub fn render_markdown(t: &Transition) -> String {
         }
         out.push('\n');
     }
+    out
+}
 
+/// The "### Field-level changes" section — split out of [`render_markdown`]
+/// (ratchet: `clippy::too_many_lines`/`clippy::cognitive_complexity`).
+fn md_field_level_section(t: &Transition) -> String {
+    let mut out = String::new();
     out.push_str("### Field-level changes\n\n");
     if t.field_diffs.is_empty() {
         out.push_str(
@@ -1199,7 +1235,14 @@ pub fn render_markdown(t: &Transition) -> String {
             t.field_diff_unmeasured,
         ));
     }
+    out
+}
 
+/// The "### Appeared / disappeared" section — split out of
+/// [`render_markdown`] (ratchet: `clippy::too_many_lines`/
+/// `clippy::cognitive_complexity`).
+fn md_appeared_disappeared_section(t: &Transition) -> String {
+    let mut out = String::new();
     if !t.appeared.is_empty() || !t.disappeared.is_empty() {
         out.push_str("### Appeared / disappeared\n\n");
         if !t.appeared.is_empty() {
@@ -1217,7 +1260,14 @@ pub fn render_markdown(t: &Transition) -> String {
             ));
         }
     }
+    out
+}
 
+/// The "### Excluded — near the timeout cap" section — split out of
+/// [`render_markdown`] (ratchet: `clippy::too_many_lines`/
+/// `clippy::cognitive_complexity`).
+fn md_near_cap_section(t: &Transition) -> String {
+    let mut out = String::new();
     if !t.near_cap.is_empty() {
         out.push_str(&format!(
             "### Excluded — near the {}s timeout cap\n\n",
@@ -1252,7 +1302,6 @@ pub fn render_markdown(t: &Transition) -> String {
         }
         out.push('\n');
     }
-
     out
 }
 
@@ -1276,9 +1325,21 @@ fn capped_join(names: &[&str]) -> String {
 /// Plain-text rendering of [`Transition`], for a terminal or a plain log —
 /// same content as [`render_markdown`], no GFM syntax. Mirrors
 /// `coverage::render_text`/`render_markdown`'s own dual-format convention.
-// Ratchet: the plain-text twin of render_markdown, same shape. Listed in scripts/ratchet.txt.
-#[allow(clippy::too_many_lines)]
 pub fn render_text(t: &Transition) -> String {
+    let mut out = String::new();
+    out.push_str(&text_preamble(t));
+    out.push_str(&text_status_transitions_section(t));
+    out.push_str(&text_flag_losses_section(t));
+    out.push_str(&text_flag_gains_section(t));
+    out.push_str(&text_field_level_section(t));
+    out.push_str(&text_appeared_disappeared_section(t));
+    out.push_str(&text_near_cap_section(t));
+    out
+}
+
+/// The headline plus the truncated/unparseable-row notes — split out of
+/// [`render_text`] (ratchet: `clippy::too_many_lines`).
+fn text_preamble(t: &Transition) -> String {
     let mut out = String::new();
     out.push_str(&format!(
         "overall: {}\n",
@@ -1311,7 +1372,13 @@ pub fn render_text(t: &Transition) -> String {
         ));
     }
     out.push('\n');
+    out
+}
 
+/// The `# status transitions` section — split out of [`render_text`]
+/// (ratchet: `clippy::too_many_lines`).
+fn text_status_transitions_section(t: &Transition) -> String {
+    let mut out = String::new();
     out.push_str("# status transitions\n");
     if t.status_transitions.is_empty() {
         out.push_str("(none)\n");
@@ -1324,7 +1391,13 @@ pub fn render_text(t: &Transition) -> String {
         }
     }
     out.push('\n');
+    out
+}
 
+/// The `# flag-count losses` section — split out of [`render_text`]
+/// (ratchet: `clippy::too_many_lines`).
+fn text_flag_losses_section(t: &Transition) -> String {
+    let mut out = String::new();
     let total_lost: i64 = t.flag_losses.iter().map(|d| -d.delta()).sum();
     out.push_str(&format!(
         "# flag-count losses (the bar — never netted): {total_lost} lost across {} tool(s)\n",
@@ -1340,7 +1413,13 @@ pub fn render_text(t: &Transition) -> String {
         ));
     }
     out.push('\n');
+    out
+}
 
+/// The `# flag-count gains` section — split out of [`render_text`]
+/// (ratchet: `clippy::too_many_lines`).
+fn text_flag_gains_section(t: &Transition) -> String {
+    let mut out = String::new();
     let total_gained: i64 = t.flag_gains.iter().map(|d| d.delta()).sum();
     out.push_str(&format!(
         "# flag-count gains: {total_gained} gained across {} tool(s)\n",
@@ -1356,7 +1435,13 @@ pub fn render_text(t: &Transition) -> String {
         ));
     }
     out.push('\n');
+    out
+}
 
+/// The `# field-level changes` section — split out of [`render_text`]
+/// (ratchet: `clippy::too_many_lines`).
+fn text_field_level_section(t: &Transition) -> String {
+    let mut out = String::new();
     out.push_str(&format!(
         "# field-level changes: {} tool(s) (adds/removes/changes, never just a count)\n",
         t.field_diffs.len()
@@ -1414,7 +1499,13 @@ pub fn render_text(t: &Transition) -> String {
         ));
     }
     out.push('\n');
+    out
+}
 
+/// The `# appeared`/`# disappeared` lines — split out of [`render_text`]
+/// (ratchet: `clippy::too_many_lines`).
+fn text_appeared_disappeared_section(t: &Transition) -> String {
+    let mut out = String::new();
     out.push_str(&format!(
         "# appeared ({}): {}\n",
         t.appeared.len(),
@@ -1426,7 +1517,13 @@ pub fn render_text(t: &Transition) -> String {
         t.disappeared.join(", ")
     ));
     out.push('\n');
+    out
+}
 
+/// The `# excluded, near ... timeout cap` section — split out of
+/// [`render_text`] (ratchet: `clippy::too_many_lines`).
+fn text_near_cap_section(t: &Transition) -> String {
+    let mut out = String::new();
     out.push_str(&format!(
         "# excluded, near {}s timeout cap ({})\n",
         EXTRACT_TIMEOUT_MS / 1000,
