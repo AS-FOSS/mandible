@@ -267,23 +267,26 @@ pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool 
     }
     let cur = lines[idx];
     let prev = lines[idx - 1];
+    // Cheap, non-recursive gates first: most candidates fail one of these
+    // (a real option row's own description column, most of all), so the
+    // recursive cascade below only ever runs on a line that already cleared
+    // every gate that doesn't need it. See AGENTS.md §3.11.
     if prev.trim().is_empty() {
         return false;
     }
     if prev.trim_end().ends_with(['.', '!', '?']) {
         return false;
     }
-    if prev.trim_start().starts_with('-') {
-        if !is_wrapped_prose_continuation(lines, idx - 1) {
-            return false;
-        }
-    } else if prev.split_whitespace().count() < MIN_PROSE_SENTENCE_WORDS {
-        return false;
-    }
     if find_multi_space_gap(cur).is_some() {
         return false;
     }
-    leading_whitespace(cur) == leading_whitespace(prev)
+    if leading_whitespace(cur) != leading_whitespace(prev) {
+        return false;
+    }
+    if prev.trim_start().starts_with('-') {
+        return is_wrapped_prose_continuation(lines, idx - 1);
+    }
+    prev.split_whitespace().count() >= MIN_PROSE_SENTENCE_WORDS
 }
 
 /// The full prose paragraph a rescued wrapped-prose continuation at
