@@ -1,0 +1,21 @@
+[meta]
+seed = 6
+sample_size = 0
+
+[[entry]]
+tool = "resolvconf"
+stratum = "ok"
+verdict = "wrong"
+note = "similar single line flags getting detected as aliases"
+families = ["wrapped-prose-row-boundary"]
+families_derived = true
+include_reason = "maintainer visual check of the fix/tail-operand build; wrapped-prose family had zero labelled members"
+
+[[entry]]
+tool = "zgrep"
+stratum = "low-confidence"
+verdict = "wrong"
+note = "positionals part is fine, but the same bad parse we encountered earlier where all flags are on the same line therefore got parsed as synonyms"
+families = ["wrapped-prose-row-boundary"]
+families_derived = true
+include_reason = "maintainer visual check of the fix/tail-operand build; wrapped-prose family had zero labelled members"
