@@ -1,0 +1,27 @@
+# From issue 102 item 2 (choices-block ownership beyond literal matches).
+# "Warning categories include:" belongs to `-W, --warnings=CATEGORY`, but
+# the heading says "categories" where the flag's value name is CATEGORY,
+# so the morphological variant goes unproven and the block attaches
+# elsewhere.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "automake"
+version = "1.16.5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["automake", "--help"]
+stdout = "help.txt"
+
+[contract]
+
+[contract.must_attach_choices]
+"--warnings" = ["cross", "gnu", "obsolete", "override", "portability", "syntax"]
+
+[xfail]
+broken = true
+reason = "the 'Warning categories include:' block does not attach to -W, --warnings=CATEGORY. The heading says 'categories' where the flag's value name is CATEGORY, and #99 attaches a choices block only when the heading literally names the flag or contains its value_name as a word. A stem or plural rule needs a fleet measurement of its false-positive cost before it can be admitted."

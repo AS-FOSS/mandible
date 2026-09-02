@@ -1,0 +1,145 @@
+name: sysctl
+usage:
+- 'Usage:'
+- ' sysctl [options] [variable[=value] ...]'
+flags:
+- spellings:
+  - -a
+  - --all
+  description: display all variables
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  description: alias of -a
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  description: alias of -a
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --deprecated
+  description: include deprecated parameters to listing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dry-run
+  description: Print the key and values but do not write
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --binary
+  description: print value without new line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --ignore
+  description: ignore unknown variables errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --names
+  description: print variable names without values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --values
+  description: print only values of the given variable(s)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --load
+  value_name: <file>
+  value_kind: Optional
+  description: read values from file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  description: alias of -p
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --system
+  description: read values from all system directories
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --pattern
+  value_name: <expression>
+  value_kind: Required
+  description: select setting that match expression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: do not echo variable set
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --write
+  description: enable writing a value to variable
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  description: does nothing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  description: does nothing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: alias of -h
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

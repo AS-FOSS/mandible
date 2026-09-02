@@ -1,0 +1,20 @@
+# From issue 102 item 1 (alias-run fold needs a real discriminator).
+# `-w` and `-X` are adjacent single-spelling rows sharing the description
+# "ignored". They must stay two entities: an earlier fold merged rows on
+# description equality and was withdrawn from #97 for fusing exactly these.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "as"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["as", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_keep_separate = [["-w", "-X"]]

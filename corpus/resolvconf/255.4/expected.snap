@@ -1,0 +1,73 @@
+name: resolvconf
+usage:
+- resolvconf -a INTERFACE < FILE
+- resolvconf -d INTERFACE
+positionals:
+- name: FILE
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: Show this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Show package version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  description: Register per-interface DNS server and domain data
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: Unregister per-interface DNS server and domain data
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  description: Ignore if specified interface does not exist
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  description: Send DNS traffic preferably over this interface
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - -i
+  - -l
+  - -R
+  - -r
+  - -v
+  - -V
+  - --enable-updates
+  - --disable-updates
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --updates-are-enabled
+  value_name: .
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

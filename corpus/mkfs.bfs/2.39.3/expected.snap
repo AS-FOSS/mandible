@@ -1,0 +1,77 @@
+name: mkfs.bfs
+usage:
+- 'Usage: mkfs.bfs [options] device [block-count]'
+flags:
+- spellings:
+  - -N
+  - --inodes
+  value_name: NUM
+  value_kind: Required
+  description: specify desired number of inodes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --vname
+  value_name: NAME
+  value_kind: Required
+  description: specify volume name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --fname
+  value_name: NAME
+  value_kind: Required
+  description: specify file system name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: explain what is being done
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  description: this option is silently ignored
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  description: this option is silently ignored
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lock
+  value_name: <mode>
+  value_kind: Optional
+  description: use exclusive device lock (yes, no or nonblock)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

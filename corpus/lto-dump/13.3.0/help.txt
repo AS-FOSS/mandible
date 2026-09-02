@@ -1,0 +1,1838 @@
+The following options are specific to just the language Ada:
+  -fdump-scos                 		[available in Ada]
+
+The following options are specific to just the language AdaSCIL:
+ None found.  Use --help=AdaSCIL to show *all* the options supported by the AdaSCIL front-end.
+
+The following options are specific to just the language AdaWhy:
+ None found.  Use --help=AdaWhy to show *all* the options supported by the AdaWhy front-end.
+
+The following options are specific to just the language C:
+  -fgimple                    		[available in C]
+
+The following options are specific to just the language C++:
+  --param=lazy-modules=       		[available in C++]
+  -Wplacement-new             		-Wplacement-new=1
+  -Wplacement-new=<0,2>       		[available in C++]
+  -fcontract-assumption-mode=[on|off] 	
+  -fcontract-build-level=[off|default|audit] 	
+  -fcontract-continuation-mode=[on|off] 	
+  -fcontract-mode=[on|off]    		[available in C++]
+  -fcontract-role=<name>:<semantics> 	
+  -fcontract-semantic=<level>:<semantic> 	
+  -fcontract-strict-declarations=[on|off] 	[available in C++]
+  -flang-info-include-translate 	[available in C++]
+  -flang-info-include-translate-not 	[available in C++]
+  -flang-info-include-translate= 	
+  -flang-info-module-cmi      		[available in C++]
+  -flang-info-module-cmi=     		
+
+The following options are specific to just the language D:
+  -Hd <dir>                   		
+  -Hf <file>                  		
+  -Wcast-result               		[available in D]
+  -Wmismatched-special-enum   		[available in D]
+  -Wspeculative               		[disabled]
+  -X                          		[disabled]
+  -Xf <file>                  		
+  -fall-instantiations        		[disabled]
+  -fassert                    		[available in D]
+  -fbounds-check              		[available in D]
+  -fbounds-check=[on|safeonly|off] 	[available in D]
+  -fcheckaction=[throw,halt,context] 	[available in D]
+  -fdebug                     		[disabled]
+  -fdebug=<ident>             		
+  -fdoc                       		[disabled]
+  -fdoc-dir=<dir>             		
+  -fdoc-file=<file>           		
+  -fdoc-inc=<file>            		
+  -fdruntime                  		[disabled]
+  -fdump-c++-spec-verbose     		[disabled]
+  -fdump-cxx-spec=<filename>  		
+  -fdump-d-original           		[disabled]
+  -fextern-std=<standard>     		[available in D]
+  -fignore-unknown-pragmas    		[disabled]
+  -finvariants                		[available in D]
+  -fmain                      		[disabled]
+  -fmodule-file=<package.module>=<filespec> 	
+  -fmoduleinfo                		[available in D]
+  -fonly=                     		
+  -fpostconditions            		[available in D]
+  -fpreconditions             		[available in D]
+  -fpreview=all               		[disabled]
+  -fpreview=bitfields         		[disabled]
+  -fpreview=dip1000           		[disabled]
+  -fpreview=dip1008           		[disabled]
+  -fpreview=dip1021           		[disabled]
+  -fpreview=dtorfields        		[disabled]
+  -fpreview=fieldwise         		[disabled]
+  -fpreview=fixaliasthis      		[disabled]
+  -fpreview=fiximmutableconv  		[disabled]
+  -fpreview=in                		[disabled]
+  -fpreview=inclusiveincontracts 	[disabled]
+  -fpreview=nosharedaccess    		[disabled]
+  -fpreview=rvaluerefparam    		[disabled]
+  -fpreview=systemvariables   		[disabled]
+  -frelease                   		[disabled]
+  -frevert=all                		[disabled]
+  -frevert=dip1000            		[disabled]
+  -frevert=dtorfields         		[disabled]
+  -frevert=intpromote         		[disabled]
+  -fsave-mixins=<filename>    		
+  -fswitch-errors             		[available in D]
+  -ftransition=all            		[disabled]
+  -ftransition=field          		[disabled]
+  -ftransition=in             		[disabled]
+  -ftransition=nogc           		[disabled]
+  -ftransition=templates      		[disabled]
+  -ftransition=tls            		[disabled]
+  -funittest                  		[disabled]
+  -fversion=<ident>           		
+  -fweak-templates            		[available in D]
+
+The following options are specific to just the language Fortran:
+  -Waliasing                  		[available in Fortran]
+  -Walign-commons             		[available in Fortran]
+  -Wampersand                 		[available in Fortran]
+  -Wargument-mismatch         		[disabled]
+  -Warray-temporaries         		[available in Fortran]
+  -Wc-binding-type            		[available in Fortran]
+  -Wcharacter-truncation      		[available in Fortran]
+  -Wcompare-reals             		[available in Fortran]
+  -Wconversion-extra          		[available in Fortran]
+  -Wdo-subscript              		[available in Fortran]
+  -Wfrontend-loop-interchange 		[available in Fortran]
+  -Wfunction-elimination      		[available in Fortran]
+  -Wimplicit-interface        		[available in Fortran]
+  -Wimplicit-procedure        		[available in Fortran]
+  -Winteger-division          		[available in Fortran]
+  -Wintrinsic-shadow          		[available in Fortran]
+  -Wintrinsics-std            		[available in Fortran]
+  -Wline-truncation           		[available in Fortran]
+  -Woverwrite-recursive       		[available in Fortran]
+  -Wreal-q-constant           		[available in Fortran]
+  -Wrealloc-lhs               		[available in Fortran]
+  -Wrealloc-lhs-all           		[available in Fortran]
+  -Wsurprising                		[available in Fortran]
+  -Wtabs                      		[available in Fortran]
+  -Wtarget-lifetime           		[available in Fortran]
+  -Wundefined-do-loop         		[available in Fortran]
+  -Wunderflow                 		[available in Fortran]
+  -Wunused-dummy-argument     		[available in Fortran]
+  -Wuse-without-only          		[available in Fortran]
+  -Wzerotrip                  		[available in Fortran]
+  -cpp                        		[disabled]
+  -faggressive-function-elimination 	[available in Fortran]
+  -falign-commons             		[available in Fortran]
+  -fall-intrinsics            		[available in Fortran]
+  -fallow-argument-mismatch   		[available in Fortran]
+  -fallow-invalid-boz         		[available in Fortran]
+  -fautomatic                 		[available in Fortran]
+  -fbackslash                 		[available in Fortran]
+  -fbacktrace                 		[available in Fortran]
+  -fblas-matmul-limit=<n>     		[available in Fortran]
+  -fc-prototypes              		[available in Fortran]
+  -fc-prototypes-external     		[available in Fortran]
+  -fcheck-array-temporaries   		[disabled]
+  -fcheck=[...]               		
+  -fcoarray=<none|single|lib> 		[available in Fortran]
+  -fconvert=<big-endian|little-endian|native|swap|r16_ieee|r16_ibm> 	[available
+                              in Fortran]
+  -fcray-pointer              		[available in Fortran]
+  -fd-lines-as-code           		[disabled]
+  -fd-lines-as-comments       		[disabled]
+  -fdebug-aux-vars            		[available in Fortran]
+  -fdec                       		[available in Fortran]
+  -fdec-blank-format-item     		[available in Fortran]
+  -fdec-char-conversions      		[available in Fortran]
+  -fdec-format-defaults       		[available in Fortran]
+  -fdec-include               		[available in Fortran]
+  -fdec-intrinsic-ints        		[available in Fortran]
+  -fdec-math                  		[available in Fortran]
+  -fdec-static                		[available in Fortran]
+  -fdec-structure             		[available in Fortran]
+  -fdefault-double-8          		[available in Fortran]
+  -fdefault-integer-8         		[available in Fortran]
+  -fdefault-real-10           		[available in Fortran]
+  -fdefault-real-16           		[available in Fortran]
+  -fdefault-real-8            		[available in Fortran]
+  -fdollar-ok                 		[available in Fortran]
+  -fdump-core                 		[ignored]
+  -fdump-fortran-global       		[available in Fortran]
+  -fdump-fortran-optimized    		[available in Fortran]
+  -fdump-fortran-original     		[available in Fortran]
+  -fdump-parse-tree           		-fdump-fortran-original
+  -fexternal-blas             		[available in Fortran]
+  -ff2c                       		[available in Fortran]
+  -ffixed-form                		[disabled]
+  -ffixed-line-length-<n>     		[available in Fortran]
+  -ffixed-line-length-none    		[available in Fortran]
+  -ffpe-summary=[...]         		
+  -ffpe-trap=[...]            		
+  -ffree-form                 		[disabled]
+  -ffree-line-length-<n>      		[available in Fortran]
+  -ffree-line-length-none     		[available in Fortran]
+  -ffrontend-loop-interchange 		[available in Fortran]
+  -ffrontend-optimize         		[available in Fortran]
+  -fimplicit-none             		[available in Fortran]
+  -finit-character=<n>        		
+  -finit-derived              		[available in Fortran]
+  -finit-integer=<n>          		
+  -finit-local-zero           		[disabled]
+  -finit-logical=<true|false> 		
+  -finit-real=<zero|snan|nan|inf|-inf> 	[available in Fortran]
+  -finline-arg-packing        		[available in Fortran]
+  -finline-matmul-limit=<n>   		[available in Fortran]
+  -finteger-4-integer-8       		[available in Fortran]
+  -fintrinsic-modules-path    		[disabled]
+  -fintrinsic-modules-path=   		
+  -fmax-array-constructor=<n> 		[available in Fortran]
+  -fmax-identifier-length=<n> 		
+  -fmax-stack-var-size=<n>    		[available in Fortran]
+  -fmax-subrecord-length=<n>  		[available in Fortran]
+  -fmodule-private            		[available in Fortran]
+  -fpack-derived              		[available in Fortran]
+  -fpad-source                		[available in Fortran]
+  -fprotect-parens            		[available in Fortran]
+  -frange-check               		[available in Fortran]
+  -freal-4-real-10            		[available in Fortran]
+  -freal-4-real-16            		[available in Fortran]
+  -freal-4-real-8             		[available in Fortran]
+  -freal-8-real-10            		[available in Fortran]
+  -freal-8-real-16            		[available in Fortran]
+  -freal-8-real-4             		[available in Fortran]
+  -frealloc-lhs               		[available in Fortran]
+  -frecord-marker=4           		[available in Fortran]
+  -frecord-marker=8           		[available in Fortran]
+  -frecursive                 		[available in Fortran]
+  -frepack-arrays             		[available in Fortran]
+  -fsecond-underscore         		[available in Fortran]
+  -fsign-zero                 		[available in Fortran]
+  -fstack-arrays              		[available in Fortran]
+  -ftail-call-workaround=<0,2> 		[available in Fortran]
+  -ftest-forall-temp          		[available in Fortran]
+  -funderscoring              		[available in Fortran]
+  -fwhole-file                		[ignored]
+  -nocpp                      		[disabled]
+  -std=f2003                  		[disabled]
+  -std=f2008                  		[disabled]
+  -std=f2008ts                		[disabled]
+  -std=f2018                  		[disabled]
+  -std=f95                    		[disabled]
+  -std=gnu                    		[disabled]
+  -std=legacy                 		[disabled]
+
+The following options are specific to just the language Go:
+  -fgo-c-header=<file>        		
+  -fgo-check-divide-overflow  		[available in Go]
+  -fgo-check-divide-zero      		[available in Go]
+  -fgo-compiling-runtime      		[available in Go]
+  -fgo-debug-escape           		[available in Go]
+  -fgo-debug-escape-hash=<string> 	[available in Go]
+  -fgo-debug-optimization     		[available in Go]
+  -fgo-dump-<type>            		
+  -fgo-embedcfg=<file>        		
+  -fgo-optimize-<type>        		
+  -fgo-pkgpath=<string>       		
+  -fgo-prefix=<string>        		
+  -fgo-relative-import-path=<path> 	
+  -frequire-return-statement  		[available in Go]
+
+The following options are specific to just the language LTO:
+  -flinker-output=            		[available in LTO]
+  -fltrans                    		[available in LTO]
+  -fltrans-output-list=       		[available in LTO]
+  -fresolution=               		
+  -fwpa                       		[disabled]
+  -fwpa=                      		[available in LTO]
+
+The following options are specific to just the language LTODump:
+  -callgraph                  		[disabled]
+  -defined-only               		[disabled]
+  -demangle                   		[disabled]
+  -gimple-stats               		[disabled]
+  -help                       		[disabled]
+  -list                       		[disabled]
+  -name-sort                  		[disabled]
+  -objects                    		[disabled]
+  -print-value                		[disabled]
+  -reverse-sort               		[disabled]
+  -size-sort                  		[disabled]
+  -tree-stats                 		[disabled]
+  -type-stats                 		[disabled]
+
+The following options are specific to just the language Modula-2:
+  -Wcase-enum                 		[disabled]
+  -Wpedantic-cast             		[disabled]
+  -Wpedantic-param-names      		[disabled]
+  -Wstyle                     		[disabled]
+  -Wuninit-variable-checking  		[disabled]
+  -Wuninit-variable-checking= 		
+  -Wunused-parameter          		[available in Modula-2]
+  -Wverbose-unbounded         		[disabled]
+  -fauto-init                 		[disabled]
+  -fbounds                    		[disabled]
+  -fcase                      		[disabled]
+  -fcpp                       		[disabled]
+  -fcpp-begin                 		[disabled]
+  -fcpp-end                   		[disabled]
+  -fd                         		[disabled]
+  -fdebug-builtins            		[disabled]
+  -fdebug-function-line-numbers 	[disabled]
+  -fdebug-trace-api           		[disabled]
+  -fdebug-trace-quad          		[disabled]
+  -fdef=                      		
+  -fdump-system-exports       		[disabled]
+  -fextended-opaque           		[disabled]
+  -ffloatvalue                		[disabled]
+  -fgen-module-list=          		
+  -findex                     		[disabled]
+  -fiso                       		[disabled]
+  -flibs=                     		
+  -flocation=                 		
+  -fm2-g                      		[disabled]
+  -fm2-lower-case             		[disabled]
+  -fm2-pathname=              		
+  -fm2-plugin                 		[disabled]
+  -fm2-prefix=                		
+  -fm2-statistics             		[disabled]
+  -fm2-strict-type            		[disabled]
+  -fm2-whole-program          		[disabled]
+  -fmod=                      		
+  -fnil                       		[disabled]
+  -fpim                       		[disabled]
+  -fpim2                      		[disabled]
+  -fpim3                      		[disabled]
+  -fpim4                      		[disabled]
+  -fpositive-mod-floor-div    		[disabled]
+  -fpthread                   		[disabled]
+  -fq                         		[disabled]
+  -frange                     		[disabled]
+  -freturn                    		[disabled]
+  -fruntime-modules=          		
+  -fscaffold-c                		[disabled]
+  -fscaffold-c++              		[disabled]
+  -fscaffold-dynamic          		[disabled]
+  -fscaffold-main             		[disabled]
+  -fscaffold-static           		[disabled]
+  -fshared                    		[disabled]
+  -fsoft-check-all            		[disabled]
+  -fsources                   		[disabled]
+  -fswig                      		[disabled]
+  -funbounded-by-reference    		[disabled]
+  -fuse-list=                 		
+  -fwholediv                  		[disabled]
+  -fwholevalue                		[disabled]
+  -save-temps                 		[disabled]
+  -save-temps=                		
+
+The following options are specific to just the language ObjC:
+ None found.  Use --help=ObjC to show *all* the options supported by the ObjC front-end.
+
+The following options are specific to just the language ObjC++:
+  -fobjc-call-cxx-cdtors      		[available in ObjC++]
+
+The following options are specific to just the language Rust:
+  -frust-cfg=                 		
+  -frust-compile-until=       		[available in Rust]
+  -frust-crate=               		
+  -frust-debug                		[available in Rust]
+  -frust-dump-<type>          		
+  -frust-edition=             		[available in Rust]
+  -frust-embed-metadata       		[available in Rust]
+  -frust-incomplete-and-experimental-compiler-do-not-use 	[available in Rust]
+  -frust-mangling=            		[available in Rust]
+  -frust-max-recursion-depth= 		[available in Rust]
+  -frust-metadata-output=     		
+
+The following options are language-related:
+  -A<question>=<answer>       		
+  -C                          		[disabled]
+  -CC                         		[disabled]
+  -D<macro>[=<val>]           		
+  -F <dir>                    		
+  -H                          		[disabled]
+  -I <dir>                    		
+  -J<directory>               		
+  -M                          		[disabled]
+  -MD                         		[disabled]
+  -MF <file>                  		
+  -MG                         		[disabled]
+  -MM                         		[disabled]
+  -MMD                        		[disabled]
+  -MP                         		[disabled]
+  -MQ <target>                		
+  -MT <target>                		
+  -Mmodules                   		[disabled]
+  -P                          		[disabled]
+  -U<macro>                   		
+  -WNSObject-attribute        		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wabi                       		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wabi-tag                   		[available in C++, ObjC++]
+  -Wabi=                      		
+  -Wabsolute-value            		[available in C, ObjC]
+  -Waddress                   		[available in C, C++, D, ObjC, ObjC++]
+  -Waddress-of-packed-member  		[available in C, C++, ObjC, ObjC++]
+  -Waligned-new               		-Waligned-new=global
+  -Waligned-new=[none|global|all] 	[available in C++, ObjC++]
+  -Wall                       		[disabled]
+  -Walloc-size-larger-than=<bytes> 	[available in C, C++, LTO, ObjC, ObjC++]
+  -Walloc-zero                		[available in C, C++, ObjC, ObjC++]
+  -Walloca                    		[available in C, C++, D, ObjC, ObjC++]
+  -Walloca-larger-than=<number> 	[available in C, C++, D, LTO, ObjC, ObjC++]
+  -Warith-conversion          		[available in C, C++, ObjC, ObjC++]
+  -Warray-compare             		[available in C, C++, ObjC, ObjC++]
+  -Warray-parameter           		-Warray-parameter=2
+  -Warray-parameter=<0,2>     		[available in C, C++, ObjC, ObjC++]
+  -Wassign-intercept          		[available in ObjC, ObjC++]
+  -Wbad-function-cast         		[available in C, ObjC]
+  -Wbidi-chars=               		[available in C, C++, ObjC, ObjC++]
+  -Wbool-compare              		[available in C, C++, ObjC, ObjC++]
+  -Wbool-operation            		[available in C, C++, ObjC, ObjC++]
+  -Wbuiltin-declaration-mismatch 	[available in C, C++, D, ObjC, ObjC++]
+  -Wbuiltin-macro-redefined   		[available in C, C++, ObjC, ObjC++]
+  -Wc++-compat                		[available in C, ObjC]
+  -Wc++11-compat              		[available in C++, ObjC++]
+  -Wc++11-extensions          		[available in C++, ObjC++]
+  -Wc++14-compat              		[available in C++, ObjC++]
+  -Wc++14-extensions          		[available in C++, ObjC++]
+  -Wc++17-compat              		[available in C++, ObjC++]
+  -Wc++17-extensions          		[available in C++, ObjC++]
+  -Wc++20-compat              		[available in C++, ObjC++]
+  -Wc++20-extensions          		[available in C++, ObjC++]
+  -Wc++23-extensions          		[available in C++, ObjC++]
+  -Wc11-c2x-compat            		[available in C, ObjC]
+  -Wc90-c99-compat            		[available in C, ObjC]
+  -Wc99-c11-compat            		[available in C, ObjC]
+  -Wcast-function-type        		[available in C, C++, ObjC, ObjC++]
+  -Wcast-qual                 		[available in C, C++, ObjC, ObjC++]
+  -Wcatch-value               		-Wcatch-value=1
+  -Wcatch-value=<0,3>         		[available in C++, ObjC++]
+  -Wchanges-meaning           		[available in C++, ObjC++]
+  -Wchar-subscripts           		[available in C, C++, ObjC, ObjC++]
+  -Wchkp                      		[disabled]
+  -Wclass-conversion          		[available in C++, ObjC++]
+  -Wclass-memaccess           		[available in C++, ObjC++]
+  -Wclobbered                 		[available in C, C++, ObjC, ObjC++]
+  -Wcomma-subscript           		[available in C++, ObjC++]
+  -Wcomment                   		[available in C, C++, ObjC, ObjC++]
+  -Wcomments                  		-Wcomment
+  -Wconditionally-supported   		[available in C++, ObjC++]
+  -Wconversion                		[available in C, C++, Fortran, ObjC, ObjC++]
+  -Wconversion-null           		[available in C++, ObjC++]
+  -Wcpp                       		[available in C, C++, ObjC, ObjC++]
+  -Wctad-maybe-unsupported    		[available in C++, ObjC++]
+  -Wctor-dtor-privacy         		[available in C++, ObjC++]
+  -Wdangling-else             		[available in C, C++, ObjC, ObjC++]
+  -Wdangling-pointer          		-Wdangling-pointer=2
+  -Wdangling-pointer=<0,2>    		[available in C, C++, ObjC, ObjC++]
+  -Wdangling-reference        		[available in C++, ObjC++]
+  -Wdate-time                 		[available in C, C++, Fortran, ObjC, ObjC++]
+  -Wdeclaration-after-statement 	[available in C, ObjC]
+  -Wdelete-incomplete         		[available in C++, ObjC++]
+  -Wdelete-non-virtual-dtor   		[available in C++, ObjC++]
+  -Wdeprecated                		[available in C, C++, D, ObjC, ObjC++]
+  -Wdeprecated-copy           		[available in C++, ObjC++]
+  -Wdeprecated-copy-dtor      		[available in C++, ObjC++]
+  -Wdeprecated-enum-enum-conversion 	[available in C++, ObjC++]
+  -Wdeprecated-enum-float-conversion 	[available in C++, ObjC++]
+  -Wdesignated-init           		[available in C, ObjC]
+  -Wdiscarded-array-qualifiers 		[available in C, ObjC]
+  -Wdiscarded-qualifiers      		[available in C, ObjC]
+  -Wdiv-by-zero               		[available in C, C++, ObjC, ObjC++]
+  -Wdouble-promotion          		[available in C, C++, ObjC, ObjC++]
+  -Wduplicate-decl-specifier  		[available in C, ObjC]
+  -Wduplicated-branches       		[available in C, C++, ObjC, ObjC++]
+  -Wduplicated-cond           		[available in C, C++, ObjC, ObjC++]
+  -Weffc++                    		[available in C++, ObjC++]
+  -Wempty-body                		[available in C, C++, ObjC, ObjC++]
+  -Wendif-labels              		[available in C, C++, ObjC, ObjC++]
+  -Wenum-compare              		[available in C, C++, ObjC, ObjC++]
+  -Wenum-conversion           		[available in C, C++, ObjC, ObjC++]
+  -Wenum-int-mismatch         		[available in C, ObjC]
+  -Werror                     		[available in C, C++, D, ObjC, ObjC++]
+  -Werror-implicit-function-declaration 	-Werror=implicit-function-declaration
+  -Wexceptions                		[available in C++, ObjC++]
+  -Wexpansion-to-defined      		[available in C, C++, ObjC, ObjC++]
+  -Wextra                     		[available in C, C++, D, Fortran, ObjC, ObjC++]
+  -Wextra-semi                		[available in C++, ObjC++]
+  -Wfloat-conversion          		[available in C, C++, ObjC, ObjC++]
+  -Wfloat-equal               		[available in C, C++, ObjC, ObjC++]
+  -Wformat                    		-Wformat=1
+  -Wformat-contains-nul       		[available in C, C++, ObjC, ObjC++]
+  -Wformat-diag               		[available in C, C++, ObjC, ObjC++]
+  -Wformat-extra-args         		[available in C, C++, ObjC, ObjC++]
+  -Wformat-nonliteral         		[available in C, C++, ObjC, ObjC++]
+  -Wformat-overflow<0,2>      		-Wformat-overflow=1
+  -Wformat-overflow=<0,2>     		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wformat-security           		[available in C, C++, ObjC, ObjC++]
+  -Wformat-signedness         		[available in C, C++, ObjC, ObjC++]
+  -Wformat-truncation         		-Wformat-truncation=1
+  -Wformat-truncation=<0,2>   		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wformat-y2k                		[available in C, C++, ObjC, ObjC++]
+  -Wformat-zero-length        		[available in C, C++, ObjC, ObjC++]
+  -Wformat=<0,2>              		[available in C, C++, ObjC, ObjC++]
+  -Wframe-address             		[available in C, C++, ObjC, ObjC++]
+  -Wif-not-aligned            		[available in C, C++, ObjC, ObjC++]
+  -Wignored-attributes        		[available in C, C++]
+  -Wignored-qualifiers        		[available in C, C++]
+  -Wimplicit                  		[available in C, ObjC]
+  -Wimplicit-function-declaration 	[available in C, ObjC]
+  -Wimplicit-int              		[available in C, ObjC]
+  -Winaccessible-base         		[available in C++, ObjC++]
+  -Wincompatible-pointer-types 		[available in C, ObjC]
+  -Winfinite-recursion        		[available in C, C++, LTO, ObjC, ObjC++]
+  -Winherited-variadic-ctor   		[available in C++, ObjC++]
+  -Winit-list-lifetime        		[available in C++, ObjC++]
+  -Winit-self                 		[available in C, C++, ObjC, ObjC++]
+  -Wint-conversion            		[available in C, ObjC]
+  -Wint-in-bool-context       		[available in C, C++, ObjC, ObjC++]
+  -Wint-to-pointer-cast       		[available in C, C++, ObjC, ObjC++]
+  -Winterference-size         		[available in C++, ObjC++]
+  -Winvalid-constexpr         		[available in C++, ObjC++]
+  -Winvalid-imported-macros   		[available in C++, ObjC++]
+  -Winvalid-offsetof          		[available in C++, ObjC++]
+  -Winvalid-pch               		[available in C, C++, ObjC, ObjC++]
+  -Winvalid-utf8              		[available in C, C++, ObjC, ObjC++]
+  -Wjump-misses-init          		[available in C, ObjC]
+  -Wliteral-suffix            		[available in C++, ObjC++]
+  -Wlogical-not-parentheses   		[available in C, C++, ObjC, ObjC++]
+  -Wlogical-op                		[available in C, C++, ObjC, ObjC++]
+  -Wlong-long                 		[available in C, C++, ObjC, ObjC++]
+  -Wmain                      		[available in C, C++, ObjC, ObjC++]
+  -Wmaybe-uninitialized       		[available in C, C++, Fortran, LTO, ObjC,
+                              ObjC++]
+  -Wmemset-elt-size           		[available in C, C++, ObjC, ObjC++]
+  -Wmemset-transposed-args    		[available in C, C++, ObjC, ObjC++]
+  -Wmisleading-indentation    		[available in C, C++]
+  -Wmismatched-dealloc        		[available in C, C++, ObjC, ObjC++]
+  -Wmismatched-new-delete     		[available in C++, ObjC++]
+  -Wmismatched-tags           		[available in C++, ObjC++]
+  -Wmissing-attributes        		[available in C, C++, ObjC, ObjC++]
+  -Wmissing-braces            		[available in C, C++, ObjC, ObjC++]
+  -Wmissing-declarations      		[available in C, C++, ObjC, ObjC++]
+  -Wmissing-field-initializers 		[available in C, C++, ObjC, ObjC++]
+  -Wmissing-include-dirs      		[available in C, C++, Fortran, ObjC, ObjC++]
+  -Wmissing-parameter-type    		[available in C, ObjC]
+  -Wmissing-prototypes        		[available in C, ObjC]
+  -Wmissing-requires          		[available in C++, ObjC++]
+  -Wmissing-template-keyword  		[available in C++, ObjC++]
+  -Wmultichar                 		[available in C, C++, ObjC, ObjC++]
+  -Wmultiple-inheritance      		[available in C++, ObjC++]
+  -Wmultistatement-macros     		[available in C, C++, ObjC, ObjC++]
+  -Wnamespaces                		[available in C++, ObjC++]
+  -Wnarrowing                 		[available in C, C++, ObjC, ObjC++]
+  -Wnested-externs            		[available in C, ObjC]
+  -Wno-alloc-size-larger-than 		-Walloc-size-larger-than=18446744073709551615EiB
+  -Wno-alloca-larger-than     		-Walloca-larger-than=18446744073709551615EiB
+  -Wno-vla-larger-than        		-Wvla-larger-than=18446744073709551615EiB
+  -Wnoexcept                  		[available in C++, ObjC++]
+  -Wnoexcept-type             		[available in C++, ObjC++]
+  -Wnon-template-friend       		[available in C++, ObjC++]
+  -Wnon-virtual-dtor          		[available in C++, ObjC++]
+  -Wnonnull                   		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wnonnull-compare           		[available in C, C++, ObjC, ObjC++]
+  -Wnormalized=[none|id|nfc|nfkc] 	[available in C, C++, ObjC, ObjC++]
+  -Wobjc-root-class           		[available in ObjC, ObjC++]
+  -Wold-style-cast            		[available in C++, ObjC++]
+  -Wold-style-declaration     		[available in C, ObjC]
+  -Wold-style-definition      		[available in C, ObjC]
+  -Wopenacc-parallelism       		[available in C, C++, Fortran]
+  -Wopenmp-simd               		[available in C, C++, Fortran]
+  -Woverlength-strings        		[available in C, C++, ObjC, ObjC++]
+  -Woverloaded-virtual        		-Woverloaded-virtual=2
+  -Woverloaded-virtual=<0,2>  		[available in C++, ObjC++]
+  -Woverride-init             		[available in C, ObjC]
+  -Woverride-init-side-effects 		[available in C, ObjC]
+  -Wpacked-bitfield-compat    		[available in C, C++, ObjC, ObjC++]
+  -Wpacked-not-aligned        		[available in C, C++, ObjC, ObjC++]
+  -Wparentheses               		[available in C, C++, ObjC, ObjC++]
+  -Wpedantic                  		[available in C, C++, Fortran, Modula-2, ObjC,
+                              ObjC++]
+  -Wpessimizing-move          		[available in C++, ObjC++]
+  -Wpmf-conversions           		[available in C++, ObjC++]
+  -Wpointer-arith             		[available in C, C++, ObjC, ObjC++]
+  -Wpointer-compare           		[available in C, C++, ObjC, ObjC++]
+  -Wpointer-sign              		[available in C, ObjC]
+  -Wpointer-to-int-cast       		[available in C, ObjC]
+  -Wpragmas                   		[available in C, C++, ObjC, ObjC++]
+  -Wprio-ctor-dtor            		[available in C, C++, ObjC, ObjC++]
+  -Wproperty-assign-default   		[available in ObjC, ObjC++]
+  -Wprotocol                  		[available in ObjC, ObjC++]
+  -Wrange-loop-construct      		[available in C++, ObjC++]
+  -Wredundant-decls           		[available in C, C++, ObjC, ObjC++]
+  -Wredundant-move            		[available in C++, ObjC++]
+  -Wredundant-tags            		[available in C++, ObjC++]
+  -Wregister                  		[available in C++, ObjC++]
+  -Wreorder                   		[available in C++, ObjC++]
+  -Wrestrict                  		[available in C, C++, ObjC, ObjC++]
+  -Wreturn-type               		[available in C, C++, Fortran, Modula-2, ObjC,
+                              ObjC++]
+  -Wscalar-storage-order      		[available in C, C++, ObjC, ObjC++]
+  -Wselector                  		[available in ObjC, ObjC++]
+  -Wself-move                 		[available in C++, ObjC++]
+  -Wsequence-point            		[available in C, C++, ObjC, ObjC++]
+  -Wshadow-ivar               		[available in ObjC, ObjC++]
+  -Wshift-count-negative      		[available in C, C++, ObjC, ObjC++]
+  -Wshift-count-overflow      		[available in C, C++, ObjC, ObjC++]
+  -Wshift-negative-value      		[available in C, C++, ObjC, ObjC++]
+  -Wshift-overflow            		-Wshift-overflow=1
+  -Wshift-overflow=<0,2>      		[available in C, C++, ObjC, ObjC++]
+  -Wsign-compare              		[available in C, C++, ObjC, ObjC++]
+  -Wsign-conversion           		[available in C, C++, ObjC, ObjC++]
+  -Wsign-promo                		[available in C++, ObjC++]
+  -Wsized-deallocation        		[available in C++, ObjC++]
+  -Wsizeof-array-argument     		[available in C, C++, ObjC, ObjC++]
+  -Wsizeof-array-div          		[available in C, C++, ObjC, ObjC++]
+  -Wsizeof-pointer-div        		[available in C, C++, ObjC, ObjC++]
+  -Wsizeof-pointer-memaccess  		[available in C, C++, ObjC, ObjC++]
+  -Wstrict-aliasing=<0,3>     		[available in C, C++, ObjC, ObjC++]
+  -Wstrict-flex-arrays        		[available in C, C++]
+  -Wstrict-null-sentinel      		[available in C++, ObjC++]
+  -Wstrict-overflow=<0,5>     		[available in C, C++, ObjC, ObjC++]
+  -Wstrict-prototypes         		[available in C, ObjC]
+  -Wstrict-selector-match     		[available in ObjC, ObjC++]
+  -Wstring-compare            		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wstringop-overflow         		-Wstringop-overflow=2
+  -Wstringop-overflow=<0,4>   		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wstringop-overread         		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wstringop-truncation       		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wsubobject-linkage         		[available in C++, ObjC++]
+  -Wsuggest-attribute=format  		[available in C, C++, ObjC, ObjC++]
+  -Wsuggest-override          		[available in C++, ObjC++]
+  -Wswitch                    		[available in C, C++, ObjC, ObjC++]
+  -Wswitch-bool               		[available in C, C++, ObjC, ObjC++]
+  -Wswitch-default            		[available in C, C++, ObjC, ObjC++]
+  -Wswitch-enum               		[available in C, C++, ObjC, ObjC++]
+  -Wswitch-outside-range      		[available in C, C++, ObjC, ObjC++]
+  -Wsync-nand                 		[available in C, C++]
+  -Wsynth                     		[available in C++, ObjC++]
+  -Wsystem-headers            		[available in C, C++, ObjC, ObjC++]
+  -Wtautological-compare      		[available in C, C++, ObjC, ObjC++]
+  -Wtemplates                 		[available in C++, ObjC++]
+  -Wterminate                 		[available in C++, ObjC++]
+  -Wtraditional               		[available in C, ObjC]
+  -Wtraditional-conversion    		[available in C, ObjC]
+  -Wtrigraphs                 		[available in C, C++, ObjC, ObjC++]
+  -Wundeclared-selector       		[available in ObjC, ObjC++]
+  -Wundef                     		[available in C, C++, ObjC, ObjC++]
+  -Wunicode                   		[available in C, C++, ObjC, ObjC++]
+  -Wuninitialized             		[available in C, C++, Fortran, LTO, ObjC,
+                              ObjC++]
+  -Wunknown-pragmas           		[available in C, C++, D, ObjC, ObjC++]
+  -Wunsuffixed-float-constants 		[available in C, ObjC]
+  -Wunused                    		[available in C, C++, ObjC, ObjC++]
+  -Wunused-const-variable     		-Wunused-const-variable=2
+  -Wunused-const-variable=<0,2> 		[available in C, C++, ObjC, ObjC++, Rust]
+  -Wunused-local-typedefs     		[available in C, C++, ObjC, ObjC++]
+  -Wunused-macros             		[available in C, C++, ObjC, ObjC++]
+  -Wunused-result             		[available in C, C++, ObjC, ObjC++, Rust]
+  -Wunused-variable           		[available in C, C++, Modula-2, ObjC, ObjC++,
+                              Rust]
+  -Wuseless-cast              		[available in C++, ObjC++]
+  -Wvarargs                   		[available in C, C++, D, ObjC, ObjC++]
+  -Wvariadic-macros           		[available in C, C++, ObjC, ObjC++]
+  -Wvexing-parse              		[available in C++, ObjC++]
+  -Wvirtual-inheritance       		[available in C++, ObjC++]
+  -Wvirtual-move-assign       		[available in C++, ObjC++]
+  -Wvla                       		[available in C, C++, ObjC, ObjC++]
+  -Wvla-larger-than=<number>  		[available in C, C++, LTO, ObjC, ObjC++]
+  -Wvla-parameter             		[available in C, C++, ObjC, ObjC++]
+  -Wvolatile                  		[available in C++, ObjC++]
+  -Wvolatile-register-var     		[available in C, C++, ObjC, ObjC++]
+  -Wwrite-strings             		[available in C, C++, ObjC, ObjC++]
+  -Wxor-used-as-pow           		[available in C, C++, ObjC, ObjC++]
+  -Wzero-as-null-pointer-constant 	[available in C++, ObjC++]
+  -Wzero-length-bounds        		[available in C, C++, ObjC, ObjC++]
+  -ansi                       		[disabled]
+  -d<letters>                 		
+  -fRTS=                      		
+  -fabi-compat-version=       		[available in C++, ObjC++]
+  -faccess-control            		[available in C++, ObjC++]
+  -fada-spec-parent=unit      		[available in C, C++, ObjC, ObjC++]
+  -faligned-new               		-faligned-new=1
+  -faligned-new=<N>           		[available in C++, ObjC++]
+  -fallow-parameterless-variadic-functions 	[ignored]
+  -falt-external-templates    		[disabled]
+  -fasm                       		[available in C, C++, ObjC, ObjC++]
+  -fbuiltin                   		[available in C, C++, D, ObjC, ObjC++]
+  -fcanonical-system-headers  		[disabled]
+  -fchar8_t                   		[available in C++, ObjC++]
+  -fcheck-pointer-bounds      		[disabled]
+  -fchkp-check-incomplete-type 		[disabled]
+  -fchkp-check-read           		[disabled]
+  -fchkp-check-write          		[disabled]
+  -fchkp-first-field-has-own-bounds 	[disabled]
+  -fchkp-flexible-struct-trailing-arrays 	[disabled]
+  -fchkp-instrument-calls     		[disabled]
+  -fchkp-instrument-marked-only 	[disabled]
+  -fchkp-narrow-bounds        		[disabled]
+  -fchkp-narrow-to-innermost-array 	[disabled]
+  -fchkp-store-bounds         		[disabled]
+  -fchkp-treat-zero-dynamic-size-as-infinite 	[disabled]
+  -fchkp-use-fast-string-functions 	[disabled]
+  -fchkp-use-nochk-string-functions 	[disabled]
+  -fchkp-use-static-bounds    		[disabled]
+  -fchkp-use-static-const-bounds 	[disabled]
+  -fchkp-use-wrappers         		[disabled]
+  -fchkp-zero-input-bounds-for-main 	[disabled]
+  -fconcepts                  		[available in C++, ObjC++]
+  -fconcepts-diagnostics-depth= 	[available in C++, ObjC++]
+  -fconcepts-ts               		[available in C++, ObjC++]
+  -fcond-mismatch             		[disabled]
+  -fconserve-space            		[ignored]
+  -fconst-string-class=<name> 		
+  -fconstexpr-cache-depth=<number> 	[available in C++, ObjC++]
+  -fconstexpr-depth=<number>  		[available in C++, ObjC++]
+  -fconstexpr-fp-except       		[available in C++, ObjC++]
+  -fconstexpr-loop-limit=<number> 	[available in C++, ObjC++]
+  -fconstexpr-ops-limit=<number> 	[available in C++, ObjC++]
+  -fcontracts                 		[available in C++, ObjC++]
+  -fcoroutines                		[available in C++, LTO]
+  -fdebug-cpp                 		[disabled]
+  -fdeclone-ctor-dtor         		[available in C++, ObjC++]
+  -fdeduce-init-list          		[ignored]
+  -fdefault-inline            		[ignored]
+  -fdiagnostics-show-template-tree 	[available in C++, ObjC++]
+  -fdirectives-only           		[disabled]
+  -fdollars-in-identifiers    		[disabled]
+  -fdump-ada-spec             		[available in C, C++, ObjC, ObjC++]
+  -fdump-ada-spec-slim        		[available in C, C++, ObjC, ObjC++]
+  -felide-type                		[available in C++, ObjC++]
+  -femit-struct-debug-baseonly 		[disabled]
+  -femit-struct-debug-detailed=<spec-list> 	
+  -femit-struct-debug-reduced 		[disabled]
+  -fenforce-eh-specs          		[available in C++, ObjC++]
+  -fexceptions                		[available in D, Modula-2]
+  -fexec-charset=<cset>       		
+  -fext-numeric-literals      		[available in C++, ObjC++]
+  -fextended-identifiers      		[disabled]
+  -fextern-tls-init           		[available in C++, ObjC++]
+  -ffold-simple-inlines       		[available in C++, ObjC++]
+  -ffreestanding              		[disabled]
+  -fgnu-keywords              		[available in C++, ObjC++]
+  -fgnu-runtime               		[available in LTO, ObjC, ObjC++]
+  -fgnu89-inline              		[available in C, ObjC]
+  -fhosted                    		[disabled]
+  -fhuge-objects              		[disabled]
+  -fimplement-inlines         		[available in C++, ObjC++]
+  -fimplicit-constexpr        		[available in C++, ObjC++]
+  -fimplicit-inline-templates 		[available in C++, ObjC++]
+  -fimplicit-templates        		[available in C++, ObjC++]
+  -finput-charset=<cset>      		
+  -fvisibility=[private|protected|public|package] 	[available in ObjC, ObjC++]
+  -flax-vector-conversions    		[available in C, C++, ObjC, ObjC++]
+  -flocal-ivars               		[available in ObjC, ObjC++]
+  -fmacro-prefix-map=<old>=<new> 	
+  -fmax-include-depth=        		
+  -fmodule-header             		[available in C++, ObjC]
+  -fmodule-implicit-inline    		[available in C++, ObjC++]
+  -fmodule-lazy               		[available in C++, ObjC++]
+  -fmodule-mapper=            		
+  -fmodule-only               		[available in C++, ObjC]
+  -fmodules-ts                		[available in C++, ObjC++]
+  -fms-extensions             		[available in C, C++, ObjC, ObjC++]
+  -fnew-inheriting-ctors      		[available in C++, ObjC++]
+  -fnew-ttp-matching          		[available in C++, ObjC++]
+  -fnext-runtime              		[available in LTO, ObjC, ObjC++]
+  -fnil-receivers             		[available in ObjC, ObjC++]
+  -fnothrow-opt               		[available in C++, ObjC++]
+  -fobjc-abi-version=         		[available in LTO, ObjC, ObjC++]
+  -fobjc-direct-dispatch      		[available in ObjC, ObjC++]
+  -fobjc-exceptions           		[available in ObjC, ObjC++]
+  -fobjc-gc                   		[available in LTO, ObjC, ObjC++]
+  -fobjc-nilcheck             		[available in ObjC, ObjC++]
+  -fobjc-sjlj-exceptions      		[available in ObjC, ObjC++]
+  -fobjc-std=objc1            		[available in Modula-2, ObjC, ObjC++]
+  -fopenacc                   		[available in C, C++, Fortran, LTO, ObjC,
+                              ObjC++]
+  -fopenacc-dim=              		[available in C, C++, Fortran, LTO, ObjC,
+                              ObjC++]
+  -fopenmp                    		[available in C, C++, Fortran, LTO, ObjC,
+                              ObjC++]
+  -fopenmp-simd               		[available in C, C++, Fortran, ObjC, ObjC++]
+  -foperator-names            		[disabled]
+  -foptional-diags            		[ignored]
+  -fpch-preprocess            		[disabled]
+  -fpermissive                		[available in C++, ObjC++]
+  -fplan9-extensions          		[available in C, ObjC]
+  -fpreprocessed              		[disabled]
+  -fpretty-templates          		[available in C++, ObjC++]
+  -fprintf-return-value       		[available in C, C++, LTO, ObjC, ObjC++]
+  -freplace-objc-classes      		[available in LTO, ObjC, ObjC++]
+  -frepo                      		[disabled]
+  -frtti                      		[available in C++, D, ObjC++]
+  -fshort-enums               		[available in Ada, AdaSCIL, AdaWhy, C, C++,
+                              Fortran, LTO, ObjC, ObjC++]
+  -fshort-wchar               		[available in C, C++, LTO, ObjC, ObjC++]
+  -fsigned-bitfields          		[available in C, C++, ObjC, ObjC++]
+  -fsigned-char               		[available in Ada, AdaSCIL, AdaWhy, C, C++,
+                              LTO, ObjC, ObjC++]
+  -fsized-deallocation        		[available in C++, ObjC++]
+  -fsso-struct=[big-endian|little-endian|native] 	[available in C, ObjC]
+  -fstats                     		[available in C++, ObjC++]
+  -fstrict-enums              		[available in C++, ObjC++]
+  -fstrict-flex-arrays=<0,3>  		[available in C, C++]
+  -fstrong-eval-order         		-fstrong-eval-order=all
+  -fstrong-eval-order=        		[available in C++, ObjC++]
+  -ftemplate-backtrace-limit= 		[available in C++, ObjC++]
+  -ftemplate-depth=<number>   		
+  -fno-threadsafe-statics     		[available in C++, ObjC++]
+  -ftrack-macro-expansion=<0|1|2> 	
+  -funsigned-bitfields        		[available in C, C++, ObjC, ObjC++]
+  -funsigned-char             		[available in Ada, AdaSCIL, AdaWhy, C, C++,
+                              LTO, ObjC, ObjC++]
+  -fuse-cxa-atexit            		[available in C++, ObjC++]
+  -fuse-cxa-get-exception-ptr 		[available in C++, ObjC++]
+  -fvisibility-inlines-hidden 		[disabled]
+  -fvisibility-ms-compat      		[available in C++, ObjC++]
+  -fvtable-gc                 		[disabled]
+  -fvtable-thunks             		[disabled]
+  -fweak                      		[available in C++, ObjC++]
+  -fwide-exec-charset=<cset>  		
+  -fworking-directory         		[available in C, C++, Fortran, Modula-2, ObjC,
+                              ObjC++]
+  -fxref                      		[disabled]
+  -fzero-link                 		[available in ObjC, ObjC++]
+  -gen-decls                  		[available in ObjC, ObjC++]
+  -gnat<options>              		
+  -gnatO                      		[disabled]
+  -idirafter <dir>            		
+  -imacros <file>             		
+  -imultilib <dir>            		
+  -include <file>             		
+  -iprefix <path>             		
+  -iquote <dir>               		
+  -isysroot <dir>             		
+  -isystem <dir>              		
+  -iwithprefix <dir>          		
+  -iwithprefixbefore <dir>    		
+  -nostdinc                   		[disabled]
+  -nostdinc++                 		[disabled]
+  -nostdlib                   		[disabled]
+  -o <file>                   		[available in C, C++, Fortran, Go, ObjC,
+                              ObjC++, Rust]
+  -print-objc-runtime-info    		[disabled]
+  -remap                      		[disabled]
+  -std=c++03                  		-std=c++98
+  -std=c++11                  		[disabled]
+  -std=c++14                  		[disabled]
+  -std=c++17                  		[disabled]
+  -std=c++20                  		[disabled]
+  -std=c++2b                  		-std=c++23
+  -std=c++98                  		[disabled]
+  -std=c11                    		[disabled]
+  -std=c17                    		[disabled]
+  -std=c18                    		-std=c17
+  -std=c1x                    		-std=c11
+  -std=c2x                    		[disabled]
+  -std=c89                    		-std=c90
+  -std=c90                    		[disabled]
+  -std=c99                    		[disabled]
+  -std=c9x                    		-std=c99
+  -std=gnu++03                		-std=gnu++98
+  -std=gnu++11                		[disabled]
+  -std=gnu++14                		[disabled]
+  -std=gnu++17                		[disabled]
+  -std=gnu++20                		[disabled]
+  -std=gnu++2b                		-std=gnu++23
+  -std=gnu++98                		[disabled]
+  -std=gnu11                  		[disabled]
+  -std=gnu17                  		[disabled]
+  -std=gnu18                  		-std=gnu17
+  -std=gnu1x                  		-std=gnu11
+  -std=gnu2x                  		[disabled]
+  -std=gnu89                  		-std=gnu90
+  -std=gnu90                  		[disabled]
+  -std=gnu99                  		[disabled]
+  -std=gnu9x                  		-std=gnu99
+  -std=iso9899:1990           		-std=c90
+  -std=iso9899:199409         		[disabled]
+  -std=iso9899:1999           		-std=c99
+  -std=iso9899:199x           		-std=c99
+  -std=iso9899:2011           		-std=c11
+  -std=iso9899:2017           		-std=c17
+  -std=iso9899:2018           		-std=c17
+  -traditional-cpp            		[disabled]
+  -trigraphs                  		[disabled]
+  -undef                      		[available in C, C++, Fortran, ObjC, ObjC++]
+  -v                          		[available in C, C++, D, Fortran, ObjC, ObjC++]
+  -w                          		[available in C, C++, ObjC, ObjC++]
+
+The following options control parameters:
+  --param=aarch64-double-recp-precision=<1,5> 	2
+  --param=aarch64-float-recp-precision=<1,5> 	1
+  --param=aarch64-mops-memcpy-size-threshold= 	256
+  --param=aarch64-mops-memmove-size-threshold= 	0
+  --param=aarch64-mops-memset-size-threshold= 	256
+  --param=aarch64-sve-compare-costs=<0,1> 	1
+  --param=aarch64-vect-unroll-limit= 	4
+  --param=align-loop-iterations= 	4
+  --param=align-threshold=<1,65536> 		100
+  --param=analyzer-bb-explosion-factor= 	5
+  --param=analyzer-max-constraints= 	20
+  --param=analyzer-max-enodes-for-full-dump= 	200
+  --param=analyzer-max-enodes-per-program-point= 	8
+  --param=analyzer-max-infeasible-edges= 	10
+  --param=analyzer-max-recursion-depth= 	2
+  --param=analyzer-max-svalue-depth= 	12
+  --param=analyzer-min-snodes-for-call-summary= 	10
+  --param=asan-globals=<0,1>  		1
+  --param=asan-instrument-allocas=<0,1> 	1
+  --param=asan-instrument-reads=<0,1> 	1
+  --param=asan-instrument-writes=<0,1> 	1
+  --param=asan-instrumentation-with-call-threshold= 	7000
+  --param=asan-kernel-mem-intrinsic-prefix=<0,1> 	0
+  --param=asan-memintrin=<0,1> 		1
+  --param=asan-stack=<0,1>    		1
+  --param=asan-use-after-return=<0,1> 	1
+  --param=avg-loop-niter=<1,65536> 		10
+  --param=avoid-fma-max-bits=<0,512> 		0
+  --param=builtin-expect-probability=<0,100> 	90
+  --param=builtin-string-cmp-inline-length=<0,100> 	3
+  --param=case-values-threshold= 	0
+  --param=comdat-sharing-probability= 	20
+  --param=constructive-interference-size= 	64
+  --param=cxx-max-namespaces-for-diagnostic-help= 	1000
+  --param=destructive-interference-size= 	256
+  --param=dse-max-alias-queries-per-store= 	256
+  --param=dse-max-object-size= 		256
+  --param=early-inlining-insns= 	6
+  --param=evrp-sparse-threshold= 	800
+  --param=evrp-switch-limit=  		50
+  --param=fsm-scale-path-stmts=<1,10> 	2
+  --param=gcse-after-reload-critical-fraction= 	10
+  --param=gcse-after-reload-partial-fraction= 	3
+  --param=gcse-cost-distance-ratio= 	10
+  --param=gcse-unrestricted-cost= 	3
+  --param=ggc-min-expand=     		100
+  --param=ggc-min-heapsize=   		131072
+  --param=gimple-fe-computed-hot-bb-threshold= 	0
+  --param=graphite-allow-codegen-errors=<0,1> 	0
+  --param=graphite-max-arrays-per-scop= 	100
+  --param=graphite-max-nb-scop-params= 	10
+  --param=hash-table-verification-limit= 	10
+  --param=hot-bb-count-fraction= 	10000
+  --param=hot-bb-count-ws-permille=<0,1000> 	990
+  --param=hot-bb-frequency-fraction= 	1000
+  --param=hwasan-instrument-allocas=<0,1> 	1
+  --param=hwasan-instrument-mem-intrinsics=<0,1> 	1
+  --param=hwasan-instrument-reads=<0,1> 	1
+  --param=hwasan-instrument-stack=<0,1> 	1
+  --param=hwasan-instrument-writes=<0,1> 	1
+  --param=hwasan-random-frame-tag=<0,1> 	1
+  --param=inline-heuristics-hint-percent=<100,1000000> 	200
+  --param=inline-min-speedup=<0,100> 		30
+  --param=inline-unit-growth= 		40
+  --param=integer-share-limit=<2,65536> 		251
+  --param=ipa-cp-eval-threshold= 	500
+  --param=ipa-cp-large-unit-insns= 	16000
+  --param=ipa-cp-loop-hint-bonus= 	64
+  --param=ipa-cp-max-recursive-depth= 	8
+  --param=ipa-cp-min-recursive-probability= 	2
+  --param=ipa-cp-profile-count-base=<0,100> 	10
+  --param=ipa-cp-recursion-penalty=<0,100> 	40
+  --param=ipa-cp-recursive-freq-factor= 	6
+  --param=ipa-cp-single-call-penalty=<0,100> 	15
+  --param=ipa-cp-unit-growth= 		10
+  --param=ipa-cp-value-list-size= 	8
+  --param=ipa-jump-function-lookups= 	8
+  --param=ipa-max-aa-steps=   		25000
+  --param=ipa-max-agg-items=  		16
+  --param=ipa-max-loop-predicates= 	16
+  --param=ipa-max-param-expr-ops= 	10
+  --param=ipa-max-switch-predicate-bounds= 	5
+  --param=ipa-sra-deref-prob-threshold=<0,100> 	50
+  --param=ipa-sra-max-replacements=<0,16> 	8
+  --param=ipa-sra-ptr-growth-factor= 	2
+  --param=ipa-sra-ptrwrap-growth-factor=<1,8> 	4
+  --param=ira-consider-dup-in-all-alts=<0,1> 	1
+  --param=ira-loop-reserved-regs= 	2
+  --param=ira-max-conflict-table-size= 	1000
+  --param=ira-max-loops-num=  		100
+  --param=ira-simple-lra-insn-threshold= 	1000
+  --param=iv-always-prune-cand-set-bound= 	10
+  --param=iv-consider-all-candidates-bound= 	40
+  --param=iv-max-considered-uses= 	250
+  --param=jump-table-max-growth-ratio-for-size=<0,10000> 	300
+  --param=jump-table-max-growth-ratio-for-speed=<0,10000> 	800
+  --param=l1-cache-line-size= 		32
+  --param=l1-cache-size=      		64
+  --param=l2-cache-size=      		512
+  --param=large-function-growth= 	100
+  --param=large-function-insns= 	2700
+  --param=large-stack-frame-growth= 	1000
+  --param=large-stack-frame=  		256
+  --param=large-unit-insns=   		10000
+  --param=lim-expensive=      		20
+  --param=logical-op-non-short-circuit=<0,1> 	-1
+  --param=loop-block-tile-size= 	51
+  --param=loop-interchange-max-num-stmts= 	64
+  --param=loop-interchange-stride-ratio= 	2
+  --param=loop-invariant-max-bbs-in-loop= 	10000
+  --param=loop-max-datarefs-for-datadeps= 	1000
+  --param=loop-versioning-max-inner-insns= 	200
+  --param=loop-versioning-max-outer-insns= 	100
+  --param=lra-inheritance-ebb-probability-cutoff=<0,100> 	40
+  --param=lra-max-considered-reload-pseudos= 	500
+  --param=lto-max-partition=  		1000000
+  --param=lto-max-streaming-parallelism=<1,65536> 	32
+  --param=lto-min-partition=  		10000
+  --param=lto-partitions=<1,65536> 		128
+  --param=max-average-unrolled-insns= 	80
+  --param=max-combine-insns=<2,4> 		4
+  --param=max-completely-peel-loop-nest-depth= 	8
+  --param=max-completely-peel-times= 	16
+  --param=max-completely-peeled-insns= 	200
+  --param=max-crossjump-edges= 		100
+  --param=max-cse-insns=      		1000
+  --param=max-cse-path-length=<1,65536> 		10
+  --param=max-cselib-memory-locations= 	500
+  --param=max-debug-marker-count= 	100000
+  --param=max-delay-slot-insn-search= 	100
+  --param=max-delay-slot-live-search= 	333
+  --param=max-dse-active-local-stores= 	5000
+  --param=max-early-inliner-iterations= 	1
+  --param=max-fields-for-field-sensitive= 	0
+  --param=max-find-base-term-values= 	200
+  --param=max-fsm-thread-path-insns=<1,999999> 	100
+  --param=max-gcse-insertion-ratio= 	20
+  --param=max-gcse-memory=    		131072
+  --param=max-goto-duplication-insns= 	8
+  --param=max-grow-copy-bb-insns= 	8
+  --param=max-hoist-depth=    		30
+  --param=max-inline-functions-called-once-insns= 	4000
+  --param=max-inline-functions-called-once-loop-depth= 	6
+  --param=max-inline-insns-auto= 	15
+  --param=max-inline-insns-recursive-auto= 	450
+  --param=max-inline-insns-recursive= 	450
+  --param=max-inline-insns-single= 	70
+  --param=max-inline-insns-size= 	0
+  --param=max-inline-insns-small= 	0
+  --param=max-inline-recursive-depth-auto= 	8
+  --param=max-inline-recursive-depth= 	8
+  --param=max-isl-operations= 		350000
+  --param=max-iterations-computation-cost= 	10
+  --param=max-iterations-to-track= 	1000
+  --param=max-jump-thread-duplication-stmts= 	15
+  --param=max-jump-thread-paths=<1,65536> 	64
+  --param=max-last-value-rtl= 		10000
+  --param=max-loop-header-insns= 	20
+  --param=max-modulo-backtrack-attempts= 	40
+  --param=max-partial-antic-length= 	100
+  --param=max-peel-branches=  		32
+  --param=max-peel-times=     		16
+  --param=max-peeled-insns=   		100
+  --param=max-pending-list-length= 	32
+  --param=max-pipeline-region-blocks= 	15
+  --param=max-pipeline-region-insns= 	200
+  --param=max-pow-sqrt-depth=<1,32> 		5
+  --param=max-predicted-iterations=<0,65536> 	100
+  --param=max-reload-search-insns= 	100
+  --param=max-rtl-if-conversion-insns=<0,99> 	10
+  --param=max-rtl-if-conversion-predictable-cost=<0,200> 	20
+  --param=max-rtl-if-conversion-unpredictable-cost=<0,200> 	40
+  --param=max-sched-extend-regions-iters= 	0
+  --param=max-sched-insn-conflict-delay=<1,10> 	3
+  --param=max-sched-ready-insns=<1,65536> 	100
+  --param=max-sched-region-blocks= 	10
+  --param=max-sched-region-insns= 	100
+  --param=max-slsr-cand-scan=<1,999999> 		50
+  --param=max-speculative-devirt-maydefs= 	50
+  --param=max-ssa-name-query-depth=<1,10> 	3
+  --param=max-store-chains-to-track=<1,65536> 	64
+  --param=max-stores-to-merge=<2,65536> 		64
+  --param=max-stores-to-sink= 		2
+  --param=max-stores-to-track=<2,1048576> 		1024
+  --param=max-tail-merge-comparisons= 	10
+  --param=max-tail-merge-iterations= 	2
+  --param=max-tracked-strlens= 		10000
+  --param=max-tree-if-conversion-phi-args=<2,65536> 	4
+  --param=max-unroll-times=   		8
+  --param=max-unrolled-insns= 		200
+  --param=max-unswitch-depth=<1,50> 		50
+  --param=max-unswitch-insns= 		50
+  --param=max-variable-expansions-in-unroller= 	1
+  --param=max-vartrack-expr-depth= 	12
+  --param=max-vartrack-reverse-op-size= 	50
+  --param=max-vartrack-size=  		50000000
+  --param=min-crossjump-insns=<1,65536> 		5
+  --param=min-inline-recursive-probability= 	10
+  --param=min-insn-to-prefetch-ratio= 	9
+  --param=min-loop-cond-split-prob=<0,100> 	30
+  --param=min-nondebug-insn-uid= 	0
+  --param=min-pagesize=       		4096
+  --param=min-size-for-stack-sharing= 	32
+  --param=min-spec-prob=      		40
+  --param=min-vect-loop-bound= 		0
+  --param=modref-max-accesses= 		16
+  --param=modref-max-adjustments=<0,254> 	8
+  --param=modref-max-bases=   		32
+  --param=modref-max-depth=<1,65536> 		256
+  --param=modref-max-escape-points= 	256
+  --param=modref-max-refs=    		16
+  --param=modref-max-tests=   		64
+  --param=openacc-kernels=[decompose|parloops] 	parloops
+  --param=openacc-privatization=[quiet|noisy] 	quiet
+  --param=parloops-chunk-size= 		0
+  --param=parloops-min-per-thread=<2,65536> 	100
+  --param=parloops-schedule=[static|dynamic|guided|auto|runtime] 	static
+  --param=partial-inlining-entry-probability=<0,100> 	70
+  --param=predictable-branch-outcome=<0,50> 	2
+  --param=prefetch-dynamic-strides=<0,1> 	1
+  --param=prefetch-latency=   		200
+  --param=prefetch-min-insn-to-mem-ratio= 	3
+  --param=prefetch-minimum-stride= 	-1
+  --param=profile-func-internal-id=<0,1> 	0
+  --param=ranger-debug=       		none
+  --param=ranger-logical-depth=<1,999> 	6
+  --param=ranger-recompute-depth=<1,100> 	5
+  --param=relation-block-limit=<0,9999> 	200
+  --param=rpo-vn-max-loop-depth=<2,65536> 	7
+  --param=sccvn-max-alias-queries-per-access= 	1000
+  --param=scev-max-expr-complexity= 	10
+  --param=scev-max-expr-size= 		100
+  --param=sched-autopref-queue-depth= 	0
+  --param=sched-mem-true-dep-cost= 	1
+  --param=sched-pressure-algorithm=<1,2> 	2
+  --param=sched-spec-prob-cutoff=<0,100> 	40
+  --param=sched-state-edge-prob-cutoff=<0,100> 	10
+  --param=selsched-insns-to-rename= 	2
+  --param=selsched-max-lookahead= 	50
+  --param=selsched-max-sched-times=<1,65536> 	2
+  --param=simultaneous-prefetches= 	3
+  --param=sink-frequency-threshold=<0,100> 	75
+  --param=sms-dfa-history=<0,16> 		0
+  --param=sms-loop-average-count-threshold= 	0
+  --param=sms-max-ii-factor=<1,16> 		2
+  --param=sms-min-sc=<1,2>    		2
+  --param=sra-max-propagations= 	32
+  --param=sra-max-scalarization-size-Osize= 	0
+  --param=sra-max-scalarization-size-Ospeed= 	0
+  --param=ssa-name-def-chain-limit= 	512
+  --param=ssp-buffer-size=<1,65536> 		8
+  --param=stack-clash-protection-guard-size=<12,30> 	16
+  --param=stack-clash-protection-probe-interval=<10,16> 	16
+  --param=store-merging-allow-unaligned=<0,1> 	1
+  --param=store-merging-max-size=<1,65536> 	65536
+  --param=switch-conversion-max-branch-ratio=<1,65536> 	8
+  --param=threader-debug=     		none
+  --param=tm-max-aggregate-size= 	9
+  --param=tracer-dynamic-coverage-feedback=<0,100> 	95
+  --param=tracer-dynamic-coverage=<0,100> 	75
+  --param=tracer-max-code-growth= 	100
+  --param=tracer-min-branch-probability-feedback=<0,100> 	80
+  --param=tracer-min-branch-probability=<0,100> 	50
+  --param=tracer-min-branch-ratio=<0,100> 	10
+  --param=tree-reassoc-width= 		0
+  --param=tsan-distinguish-volatile=<0,1> 	0
+  --param=tsan-instrument-func-entry-exit=<0,1> 	1
+  --param=uninit-control-dep-attempts=<1,65536> 	1000
+  --param=uninit-max-chain-len=<1,128> 	8
+  --param=uninit-max-num-chains=<1,128> 	8
+  --param=uninlined-function-insns=<0,1000000> 	2
+  --param=uninlined-function-time=<0,1000000> 	0
+  --param=uninlined-thunk-insns=<0,1000000> 	2
+  --param=uninlined-thunk-time=<0,1000000> 	2
+  --param=unlikely-bb-count-fraction= 	20
+  --param=unroll-jam-max-unroll= 	4
+  --param=unroll-jam-min-percent=<0,100> 	1
+  --param=use-after-scope-direct-emission-threshold= 	256
+  --param=use-canonical-types=<0,1> 		1
+  --param=vect-epilogues-nomask=<0,1> 	1
+  --param=vect-induction-float=<0,1> 	1
+  --param=vect-inner-loop-cost-factor=<1,10000> 	50
+  --param=vect-max-layout-candidates= 	32
+  --param=vect-max-peeling-for-alignment=<0,64> 	-1
+  --param=vect-max-version-for-alias-checks= 	10
+  --param=vect-max-version-for-alignment-checks= 	6
+  --param=vect-partial-vector-usage=<0,2> 	2
+
+The following options control compiler warning messages:
+  -W                          		-Wextra
+  -Waggregate-return          		[disabled]
+  -Waggressive-loop-optimizations 	[enabled]
+  -Wanalyzer-allocation-size  		[enabled]
+  -Wanalyzer-deref-before-check 	[enabled]
+  -Wanalyzer-double-fclose    		[enabled]
+  -Wanalyzer-double-free      		[enabled]
+  -Wanalyzer-exposure-through-output-file 	[enabled]
+  -Wanalyzer-exposure-through-uninit-copy 	[enabled]
+  -Wanalyzer-fd-access-mode-mismatch 	[enabled]
+  -Wanalyzer-fd-double-close  		[enabled]
+  -Wanalyzer-fd-leak          		[enabled]
+  -Wanalyzer-fd-phase-mismatch 		[enabled]
+  -Wanalyzer-fd-type-mismatch 		[enabled]
+  -Wanalyzer-fd-use-after-close 	[enabled]
+  -Wanalyzer-fd-use-without-check 	[enabled]
+  -Wanalyzer-file-leak        		[enabled]
+  -Wanalyzer-free-of-non-heap 		[enabled]
+  -Wanalyzer-imprecise-fp-arithmetic 	[enabled]
+  -Wanalyzer-infinite-recursion 	[enabled]
+  -Wanalyzer-jump-through-null 		[enabled]
+  -Wanalyzer-malloc-leak      		[enabled]
+  -Wanalyzer-mismatching-deallocation 	[enabled]
+  -Wanalyzer-null-argument    		[enabled]
+  -Wanalyzer-null-dereference 		[enabled]
+  -Wanalyzer-out-of-bounds    		[enabled]
+  -Wanalyzer-possible-null-argument 	[enabled]
+  -Wanalyzer-possible-null-dereference 	[enabled]
+  -Wanalyzer-putenv-of-auto-var 	[enabled]
+  -Wanalyzer-shift-count-negative 	[enabled]
+  -Wanalyzer-shift-count-overflow 	[enabled]
+  -Wanalyzer-stale-setjmp-buffer 	[enabled]
+  -Wanalyzer-tainted-allocation-size 	[enabled]
+  -Wanalyzer-tainted-array-index 	[enabled]
+  -Wanalyzer-tainted-assertion 		[enabled]
+  -Wanalyzer-tainted-divisor  		[enabled]
+  -Wanalyzer-tainted-offset   		[enabled]
+  -Wanalyzer-tainted-size     		[enabled]
+  -Wanalyzer-too-complex      		[disabled]
+  -Wanalyzer-unsafe-call-within-signal-handler 	[enabled]
+  -Wanalyzer-use-after-free   		[enabled]
+  -Wanalyzer-use-of-pointer-in-stale-stack-frame 	[enabled]
+  -Wanalyzer-use-of-uninitialized-value 	[enabled]
+  -Wanalyzer-va-arg-type-mismatch 	[enabled]
+  -Wanalyzer-va-list-exhausted 		[enabled]
+  -Wanalyzer-va-list-leak     		[enabled]
+  -Wanalyzer-va-list-use-after-va-end 	[enabled]
+  -Wanalyzer-write-to-const   		[enabled]
+  -Wanalyzer-write-to-string-literal 	[enabled]
+  -Warray-bounds=<0,2>        		0
+  -Wattribute-alias           		-Wattribute-alias=1
+  -Wattribute-alias=<0,2>     		1
+  -Wattribute-warning         		[enabled]
+  -Wattributes                		[enabled]
+  -Wcannot-profile            		[enabled]
+  -Wcast-align                		[disabled]
+  -Wcast-align=strict         		[disabled]
+  -Wcomplain-wrong-lang       		[enabled]
+  -Wcoverage-invalid-line-number 	[enabled]
+  -Wcoverage-mismatch         		[enabled]
+  -Wdeprecated-declarations   		[enabled]
+  -Wdisabled-optimization     		[disabled]
+  -Wframe-larger-than=<byte-size> 	9223372036854775807 bytes
+  -Wfree-nonheap-object       		[enabled]
+  -Whsa                       		[ignored]
+  -Wimplicit-fallthrough=<0,5> 		0
+  -Winline                    		[disabled]
+  -Winvalid-memory-model      		[enabled]
+  -Wlarger-than=<byte-size>   		9223372036854775807 bytes
+  -Wlto-type-mismatch         		[enabled]
+  -Wmissing-profile           		[enabled]
+  -Wno-frame-larger-than      		-Wframe-larger-than=18446744073709551615EiB
+  -Wno-larger-than            		-Wlarger-than=18446744073709551615EiB
+  -Wno-stack-usage            		-Wstack-usage=18446744073709551615EiB
+  -Wnull-dereference          		[disabled]
+  -Wodr                       		[enabled]
+  -Woverflow                  		[enabled]
+  -Wpacked                    		[disabled]
+  -Wpadded                    		[disabled]
+  -Wreturn-local-addr         		[enabled]
+  -Wshadow                    		[disabled]
+  -Wshadow=compatible-local   		[disabled]
+  -Wshadow=global             		-Wshadow
+  -Wshadow=local              		[disabled]
+  -Wstack-protector           		[disabled]
+  -Wstack-usage=<byte-size>   		9223372036854775807 bytes
+  -Wstrict-aliasing           		
+  -Wstrict-overflow           		
+  -Wsuggest-attribute=cold    		[disabled]
+  -Wsuggest-attribute=const   		[disabled]
+  -Wsuggest-attribute=malloc  		[disabled]
+  -Wsuggest-attribute=noreturn 		[disabled]
+  -Wsuggest-attribute=pure    		[disabled]
+  -Wsuggest-final-methods     		[disabled]
+  -Wsuggest-final-types       		[disabled]
+  -Wswitch-unreachable        		[enabled]
+  -Wtrampolines               		[disabled]
+  -Wtrivial-auto-var-init     		[disabled]
+  -Wtsan                      		[enabled]
+  -Wtype-limits               		[disabled]
+  -Wunreachable-code          		[ignored]
+  -Wunsafe-loop-optimizations 		[ignored]
+  -Wunused-but-set-parameter  		[disabled]
+  -Wunused-but-set-variable   		[disabled]
+  -Wunused-function           		[disabled]
+  -Wunused-label              		[disabled]
+  -Wunused-value              		[disabled]
+  -Wuse-after-free            		[disabled]
+  -Wuse-after-free=<0,3>      		0
+  -Wvector-operation-performance 	[disabled]
+
+The following options control optimizations:
+  -O<number>                  		
+  -Ofast                      		
+  -Og                         		
+  -Os                         		
+  -Oz                         		
+  -faggressive-loop-optimizations 	[enabled]
+  -falign-functions           		[disabled]
+  -falign-jumps               		[disabled]
+  -falign-labels              		[disabled]
+  -falign-loops               		[disabled]
+  -fallocation-dce            		[enabled]
+  -fallow-store-data-races    		[disabled]
+  -fassociative-math          		[disabled]
+  -fasynchronous-unwind-tables 		[enabled]
+  -fauto-inc-dec              		[enabled]
+  -fbit-tests                 		[enabled]
+  -fbranch-count-reg          		[disabled]
+  -fbranch-probabilities      		[disabled]
+  -fcaller-saves              		[disabled]
+  -fcode-hoisting             		[disabled]
+  -fcombine-stack-adjustments 		[disabled]
+  -fcompare-elim              		[disabled]
+  -fconserve-stack            		[disabled]
+  -fcprop-registers           		[disabled]
+  -fcrossjumping              		[disabled]
+  -fcse-follow-jumps          		[disabled]
+  -fcx-fortran-rules          		[disabled]
+  -fcx-limited-range          		[disabled]
+  -fdce                       		[enabled]
+  -fdefer-pop                 		[disabled]
+  -fdelayed-branch            		[disabled]
+  -fdelete-dead-exceptions    		[disabled]
+  -fdelete-null-pointer-checks 		
+  -fdevirtualize              		[disabled]
+  -fdevirtualize-speculatively 		[disabled]
+  -fdse                       		[disabled]
+  -fearly-inlining            		[enabled]
+  -fexcess-precision=[fast|standard|16] 	[default]
+  -fexpensive-optimizations   		[disabled]
+  -ffinite-loops              		[disabled]
+  -ffinite-math-only          		[disabled]
+  -ffloat-store               		[disabled]
+  -fforward-propagate         		[disabled]
+  -ffp-contract=[off|on|fast] 		fast
+  -ffp-int-builtin-inexact    		[enabled]
+  -ffunction-cse              		[enabled]
+  -fgcse                      		[disabled]
+  -fgcse-after-reload         		[disabled]
+  -fgcse-las                  		[disabled]
+  -fgcse-lm                   		[enabled]
+  -fgcse-sm                   		[disabled]
+  -fgraphite                  		[disabled]
+  -fgraphite-identity         		[disabled]
+  -fguess-branch-probability  		[disabled]
+  -fharden-compares           		[disabled]
+  -fharden-conditional-branches 	[disabled]
+  -fhoist-adjacent-loads      		[disabled]
+  -fif-conversion             		[disabled]
+  -fif-conversion2            		[disabled]
+  -findirect-inlining         		[disabled]
+  -finline                    		[enabled]
+  -finline-atomics            		[enabled]
+  -finline-functions          		[disabled]
+  -finline-functions-called-once 	[disabled]
+  -finline-small-functions    		[disabled]
+  -fipa-bit-cp                		[disabled]
+  -fipa-cp                    		[disabled]
+  -fipa-cp-clone              		[disabled]
+  -fipa-icf                   		[disabled]
+  -fipa-icf-functions         		[disabled]
+  -fipa-icf-variables         		[disabled]
+  -fipa-modref                		[disabled]
+  -fipa-profile               		[disabled]
+  -fipa-pta                   		[disabled]
+  -fipa-pure-const            		[disabled]
+  -fipa-ra                    		[disabled]
+  -fipa-reference             		[disabled]
+  -fipa-reference-addressable 		[disabled]
+  -fipa-sra                   		[disabled]
+  -fipa-stack-alignment       		[enabled]
+  -fipa-strict-aliasing       		[enabled]
+  -fipa-vrp                   		[disabled]
+  -fira-algorithm=[CB|priority] 	CB
+  -fira-hoist-pressure        		[enabled]
+  -fira-loop-pressure         		[disabled]
+  -fira-region=[one|all|mixed] 		one
+  -fira-share-save-slots      		[enabled]
+  -fira-share-spill-slots     		[enabled]
+  -fisolate-erroneous-paths-attribute 	[disabled]
+  -fisolate-erroneous-paths-dereference 	[disabled]
+  -fivopts                    		[enabled]
+  -fjump-tables               		[enabled]
+  -flifetime-dse              		[enabled]
+  -flive-patching=[inline-only-static|inline-clone] 	[default]
+  -flive-range-shrinkage      		[disabled]
+  -floop-interchange          		[disabled]
+  -floop-nest-optimize        		[disabled]
+  -floop-parallelize-all      		[disabled]
+  -floop-unroll-and-jam       		[disabled]
+  -flra-remat                 		[disabled]
+  -fmath-errno                		[enabled]
+  -fmodulo-sched              		[disabled]
+  -fmodulo-sched-allow-regmoves 	[disabled]
+  -fmove-loop-invariants      		[disabled]
+  -fmove-loop-stores          		[disabled]
+  -fnon-call-exceptions       		[disabled]
+  -fomit-frame-pointer        		[enabled]
+  -fopenmp-target-simd-clone= 		none
+  -fopt-info                  		[disabled]
+  -foptimize-sibling-calls    		[disabled]
+  -foptimize-strlen           		[disabled]
+  -fpack-struct               		[disabled]
+  -fpack-struct=<number>      		
+  -fpartial-inlining          		[disabled]
+  -fpatchable-function-entry= 		
+  -fpeel-loops                		[disabled]
+  -fpeephole                  		[enabled]
+  -fpeephole2                 		[disabled]
+  -fplt                       		[enabled]
+  -fpredictive-commoning      		[disabled]
+  -fprefetch-loop-arrays      		
+  -fprofile-partial-training  		[disabled]
+  -fprofile-reorder-functions 		[disabled]
+  -freciprocal-math           		[disabled]
+  -free                       		[disabled]
+  -freg-struct-return         		[enabled]
+  -frename-registers          		[disabled]
+  -freorder-blocks            		[disabled]
+  -freorder-blocks-algorithm=[simple|stc] 	simple
+  -freorder-blocks-and-partition 	[disabled]
+  -freorder-functions         		[disabled]
+  -frerun-cse-after-loop      		[disabled]
+  -freschedule-modulo-scheduled-loops 	[disabled]
+  -frounding-math             		[disabled]
+  -fsave-optimization-record  		[disabled]
+  -fsched-critical-path-heuristic 	[enabled]
+  -fsched-dep-count-heuristic 		[enabled]
+  -fsched-group-heuristic     		[enabled]
+  -fsched-interblock          		[enabled]
+  -fsched-last-insn-heuristic 		[enabled]
+  -fsched-pressure            		[disabled]
+  -fsched-rank-heuristic      		[enabled]
+  -fsched-spec                		[enabled]
+  -fsched-spec-insn-heuristic 		[enabled]
+  -fsched-spec-load           		[disabled]
+  -fsched-spec-load-dangerous 		[disabled]
+  -fsched-stalled-insns       		[disabled]
+  -fsched-stalled-insns-dep   		[enabled]
+  -fsched-stalled-insns-dep=<number> 	
+  -fsched-stalled-insns=<number> 	
+  -fsched2-use-superblocks    		[disabled]
+  -fschedule-fusion           		[enabled]
+  -fschedule-insns            		[disabled]
+  -fschedule-insns2           		[disabled]
+  -fsection-anchors           		[disabled]
+  -fsel-sched-pipelining      		[disabled]
+  -fsel-sched-pipelining-outer-loops 	[disabled]
+  -fsel-sched-reschedule-pipelined 	[disabled]
+  -fselective-scheduling      		[disabled]
+  -fselective-scheduling2     		[disabled]
+  -fsemantic-interposition    		[enabled]
+  -fshrink-wrap               		[disabled]
+  -fshrink-wrap-separate      		[enabled]
+  -fsignaling-nans            		[disabled]
+  -fsigned-zeros              		[enabled]
+  -fsimd-cost-model=[unlimited|dynamic|cheap|very-cheap] 	unlimited
+  -fsingle-precision-constant 		[disabled]
+  -fsplit-ivs-in-unroller     		[enabled]
+  -fsplit-loops               		[disabled]
+  -fsplit-paths               		[disabled]
+  -fsplit-wide-types          		[disabled]
+  -fsplit-wide-types-early    		[disabled]
+  -fssa-backprop              		[enabled]
+  -fssa-phiopt                		[disabled]
+  -fstack-check=[no|generic|specific] 	
+  -fstack-clash-protection    		[disabled]
+  -fstack-protector           		[disabled]
+  -fstack-protector-all       		[disabled]
+  -fstack-protector-explicit  		[disabled]
+  -fstack-protector-strong    		[disabled]
+  -fstack-reuse=[all|named_vars|none] 	all
+  -fstdarg-opt                		[enabled]
+  -fstore-merging             		[disabled]
+  -fstrict-aliasing           		[disabled]
+  -fstrict-volatile-bitfields 		[enabled]
+  -fthread-jumps              		[disabled]
+  -ftoplevel-reorder          		[enabled]
+  -ftracer                    		[disabled]
+  -ftrapping-math             		[enabled]
+  -ftrapv                     		[disabled]
+  -ftree-bit-ccp              		[disabled]
+  -ftree-builtin-call-dce     		[disabled]
+  -ftree-ccp                  		[disabled]
+  -ftree-ch                   		[disabled]
+  -ftree-coalesce-vars        		[disabled]
+  -ftree-copy-prop            		[disabled]
+  -ftree-cselim               		[disabled]
+  -ftree-dce                  		[disabled]
+  -ftree-dominator-opts       		[disabled]
+  -ftree-dse                  		[disabled]
+  -ftree-forwprop             		[enabled]
+  -ftree-fre                  		[disabled]
+  -ftree-loop-distribute-patterns 	[disabled]
+  -ftree-loop-distribution    		[disabled]
+  -ftree-loop-if-convert      		
+  -ftree-loop-im              		[enabled]
+  -ftree-loop-ivcanon         		[enabled]
+  -ftree-loop-optimize        		[enabled]
+  -ftree-loop-vectorize       		[disabled]
+  -ftree-lrs                  		[disabled]
+  -ftree-parallelize-loops=<number> 	1
+  -ftree-partial-pre          		[disabled]
+  -ftree-phiprop              		[enabled]
+  -ftree-pre                  		[disabled]
+  -ftree-pta                  		[disabled]
+  -ftree-reassoc              		[enabled]
+  -ftree-scev-cprop           		[enabled]
+  -ftree-sink                 		[disabled]
+  -ftree-slp-vectorize        		[disabled]
+  -ftree-slsr                 		[disabled]
+  -ftree-sra                  		[disabled]
+  -ftree-switch-conversion    		[disabled]
+  -ftree-tail-merge           		[disabled]
+  -ftree-ter                  		[disabled]
+  -ftree-vectorize            		[disabled]
+  -ftree-vrp                  		[disabled]
+  -ftrivial-auto-var-init=[uninitialized|pattern|zero] 	uninitialized
+  -funconstrained-commons     		[disabled]
+  -funreachable-traps         		[disabled]
+  -funroll-all-loops          		[disabled]
+  -funroll-loops              		[disabled]
+  -funsafe-math-optimizations 		[disabled]
+  -funswitch-loops            		[disabled]
+  -funwind-tables             		[enabled]
+  -fvar-tracking              		[disabled]
+  -fvar-tracking-assignments  		[disabled]
+  -fvar-tracking-assignments-toggle 	[disabled]
+  -fvar-tracking-uninit       		[disabled]
+  -fvariable-expansion-in-unroller 	[disabled]
+  -fvect-cost-model=[unlimited|dynamic|cheap|very-cheap] 	[default]
+  -fversion-loops-for-strides 		[disabled]
+  -fvpt                       		[disabled]
+  -fweb                       		[disabled]
+  -fwrapv                     		[disabled]
+  -fwrapv-pointer             		[disabled]
+  -gstatement-frontiers       		[disabled]
+  -mlow-precision-div         		[disabled]
+  -mlow-precision-recip-sqrt  		[disabled]
+  -mlow-precision-sqrt        		[disabled]
+
+The following options are target specific:
+  -mabi=                      		lp64
+  -march=                     		
+  -mbig-endian                		[disabled]
+  -mbionic                    		[disabled]
+  -mbranch-protection=        		
+  -mcmodel=                   		small
+  -mcpu=                      		
+  -mfix-cortex-a53-835769     		[enabled]
+  -mfix-cortex-a53-843419     		[enabled]
+  -mgeneral-regs-only         		[disabled]
+  -mglibc                     		[enabled]
+  -mharden-sls=               		
+  -mlittle-endian             		[enabled]
+  -mmusl                      		[disabled]
+  -momit-leaf-frame-pointer   		[enabled]
+  -moutline-atomics           		[enabled]
+  -moverride=<string>         		
+  -mpc-relative-literal-loads 		[enabled]
+  -msign-return-address=      		none
+  -mstack-protector-guard-offset= 	
+  -mstack-protector-guard-reg= 		
+  -mstack-protector-guard=    		global
+  -mstrict-align              		[disabled]
+  -msve-vector-bits=<number>  		scalable
+  -mtls-dialect=              		desc
+  -mtls-size=                 		24
+  -mtrack-speculation         		[disabled]
+  -mtune=                     		
+  -muclibc                    		[disabled]
+
+  Known AArch64 ABIs (for use with the -mabi= option):
+    ilp32 lp64
+
+  Supported AArch64 return address signing scope (for use with -msign-return-address= option):
+    all non-leaf none
+
+  The code model option names for -mcmodel:
+    large small tiny
+
+  Valid arguments to -mstack-protector-guard=:
+    global sysreg
+
+  The possible SVE vector lengths:
+    1024 128 2048 256 512 scalable
+
+  The possible TLS dialects:
+    desc trad
+
+The following options are language-independent:
+  --help                      		[enabled]
+  --help=<class>              		
+  --target-help               		
+  -Wattributes=               		
+  -Werror=                    		
+  -Wfatal-errors              		[disabled]
+  -aux-info <file>            		
+  -dumpbase <file>            		
+  -dumpbase-ext               		
+  -dumpdir <dir>              		
+  -fPIC                       		[disabled]
+  -fPIE                       		[disabled]
+  -fabi-version=              		0
+  -fanalyzer                  		[disabled]
+  -fanalyzer-call-summaries   		[disabled]
+  -fanalyzer-checker=         		
+  -fanalyzer-feasibility      		[enabled]
+  -fanalyzer-fine-grained     		[disabled]
+  -fanalyzer-show-duplicate-count 	[disabled]
+  -fanalyzer-state-merge      		[enabled]
+  -fanalyzer-state-purge      		[enabled]
+  -fanalyzer-suppress-followups 	[enabled]
+  -fanalyzer-transitivity     		[disabled]
+  -fanalyzer-undo-inlining    		[enabled]
+  -fanalyzer-verbose-edges    		[disabled]
+  -fanalyzer-verbose-state-changes 	[disabled]
+  -fanalyzer-verbosity=       		2
+  -fargument-alias            		[ignored]
+  -fargument-noalias          		[ignored]
+  -fargument-noalias-anything 		[ignored]
+  -fargument-noalias-global   		[ignored]
+  -fasan-shadow-offset=<number> 	
+  -fauto-profile              		[disabled]
+  -fauto-profile=             		
+  -fbranch-target-load-optimize 	[ignored]
+  -fbranch-target-load-optimize2 	[ignored]
+  -fbtr-bb-exclusive          		[ignored]
+  -fcall-saved-<register>     		
+  -fcall-used-<register>      		
+  -fcallgraph-info            		[disabled]
+  -fcallgraph-info=           		
+  -fcanon-prefix-map          		
+  -fcf-protection=[full|branch|return|none|check] 	none
+  -fcheck-data-deps           		[ignored]
+  -fcheck-new                 		[disabled]
+  -fchecking                  		[disabled]
+  -fchecking=                 		0
+  -fcommon                    		[disabled]
+  -fcompare-debug-second      		[disabled]
+  -fcompare-debug[=<opts>]    		
+  -fcse-skip-blocks           		[ignored]
+  -fdata-sections             		[disabled]
+  -fdbg-cnt-list              		[disabled]
+  -fdbg-cnt=<counter>[:<lower_limit1>-]<upper_limit1>[:<lower_limit2>-<upper_limit2>:...][,<counter>:...] 	
+  -fdebug-prefix-map=<old>=<new> 	
+  -fdebug-types-section       		[disabled]
+  -fdevirtualize-at-ltrans    		[disabled]
+  -fdiagnostics-color=[never|always|auto] 	never
+  -fdiagnostics-column-origin=<number> 	
+  -fdiagnostics-column-unit=[display|byte] 	
+  -fdiagnostics-escape-format=[unicode|bytes] 	
+  -fdiagnostics-format=[text|sarif-stderr|sarif-file|json|json-stderr|json-file] 	
+  -fdiagnostics-generate-patch 		[disabled]
+  -fdiagnostics-minimum-margin-width= 	6
+  -fdiagnostics-parseable-fixits 	[disabled]
+  -fdiagnostics-path-format=  		inline-events
+  -fdiagnostics-plain-output  		
+  -fdiagnostics-show-caret    		[enabled]
+  -fdiagnostics-show-cwe      		[enabled]
+  -fdiagnostics-show-labels   		[enabled]
+  -fdiagnostics-show-line-numbers 	[enabled]
+  -fdiagnostics-show-location=[once|every-line] 	
+  -fdiagnostics-show-option   		[enabled]
+  -fdiagnostics-show-path-depths 	[disabled]
+  -fdiagnostics-show-rules    		[enabled]
+  -fdiagnostics-urls=[never|always|auto] 	auto
+  -fdisable-[tree|rtl|ipa]-<pass>=range1+range2 	
+  -fdump-<type>               		
+  -fdump-analyzer             		[disabled]
+  -fdump-analyzer-callgraph   		[disabled]
+  -fdump-analyzer-exploded-graph 	[disabled]
+  -fdump-analyzer-exploded-nodes 	[disabled]
+  -fdump-analyzer-exploded-nodes-2 	[disabled]
+  -fdump-analyzer-exploded-nodes-3 	[disabled]
+  -fdump-analyzer-exploded-paths 	[disabled]
+  -fdump-analyzer-feasibility 		[disabled]
+  -fdump-analyzer-json        		[disabled]
+  -fdump-analyzer-state-purge 		[disabled]
+  -fdump-analyzer-stderr      		[disabled]
+  -fdump-analyzer-supergraph  		[disabled]
+  -fdump-analyzer-untracked   		[disabled]
+  -fdump-final-insns=filename 		
+  -fdump-go-spec=filename     		
+  -fdump-internal-locations   		[disabled]
+  -fdump-noaddr               		[disabled]
+  -fdump-passes               		[disabled]
+  -fdump-unnumbered           		[disabled]
+  -fdump-unnumbered-links     		[disabled]
+  -fdwarf2-cfi-asm            		[enabled]
+  -feliminate-dwarf2-dups     		[ignored]
+  -feliminate-unused-debug-symbols 	[enabled]
+  -feliminate-unused-debug-types 	[enabled]
+  -femit-class-debug-always   		[disabled]
+  -fenable-[tree|rtl|ipa]-<pass>=range1+range2 	
+  -ffat-lto-objects           		[disabled]
+  -ffile-prefix-map=<old>=<new> 	
+  -ffixed-<register>          		
+  -fforce-addr                		[ignored]
+  -ffunction-sections         		[disabled]
+  -fgnu-tm                    		[disabled]
+  -fgnu-unique                		[enabled]
+  -fident                     		[enabled]
+  -finhibit-size-directive    		[disabled]
+  -finline-limit=<number>     		
+  -finstrument-functions      		[disabled]
+  -finstrument-functions-exclude-file-list=filename,... 	
+  -finstrument-functions-exclude-function-list=name,... 	
+  -finstrument-functions-once 		[disabled]
+  -fipa-cp-alignment          		[ignored]
+  -fipa-matrix-reorg          		[ignored]
+  -fipa-struct-reorg          		[ignored]
+  -fira-verbose=<number>      		5
+  -fkeep-inline-functions     		[disabled]
+  -fkeep-static-consts        		[enabled]
+  -fkeep-static-functions     		[disabled]
+  -flarge-source-files        		[disabled]
+  -fleading-underscore        		
+  -floop-block                		-floop-nest-optimize
+  -floop-flatten              		[ignored]
+  -floop-optimize             		[ignored]
+  -floop-strip-mine           		-floop-nest-optimize
+  -flto                       		
+  -flto-compression-level=<0,19> 		-1
+  -flto-odr-type-merging      		[ignored]
+  -flto-partition=            		balanced
+  -flto-report                		[disabled]
+  -flto-report-wpa            		[disabled]
+  -flto=                      		
+  -fmax-errors=<number>       		0
+  -fmem-report                		[disabled]
+  -fmem-report-wpa            		[disabled]
+  -fmerge-all-constants       		[disabled]
+  -fmerge-constants           		[disabled]
+  -fmerge-debug-strings       		[enabled]
+  -fmessage-length=<number>   		
+  -fmultiflags                		
+  -foffload-abi=[lp64|ilp32]  		
+  -foffload-options=<targets>=<options> 	
+  -fopt-info[-<type>=filename] 		
+  -foptimize-register-move    		[ignored]
+  -fpcc-struct-return         		[disabled]
+  -fpermitted-flt-eval-methods=[c11|ts-18661] 	[default]
+  -fpic                       		[disabled]
+  -fpie                       		[disabled]
+  -fplugin-arg-<name>-<key>[=<value>] 	
+  -fplugin=                   		
+  -fpost-ipa-mem-report       		[disabled]
+  -fpre-ipa-mem-report        		[disabled]
+  -fprofile                   		[disabled]
+  -fprofile-abs-path          		[disabled]
+  -fprofile-arcs              		[disabled]
+  -fprofile-correction        		[disabled]
+  -fprofile-dir=              		
+  -fprofile-exclude-files=    		
+  -fprofile-filter-files=     		
+  -fprofile-generate          		
+  -fprofile-generate=         		
+  -fprofile-info-section      		
+  -fprofile-info-section=     		
+  -fprofile-note=             		
+  -fprofile-prefix-map=<old>=<new> 	
+  -fprofile-prefix-path=      		
+  -fprofile-report            		[disabled]
+  -fprofile-reproducible=[serial|parallel-runs|multithreaded] 	serial
+  -fprofile-update=[single|atomic|prefer-atomic] 	single
+  -fprofile-use               		[disabled]
+  -fprofile-use=              		
+  -fprofile-values            		[disabled]
+  -frandom-seed=<string>      		
+  -frecord-gcc-switches       		[disabled]
+  -fregmove                   		[ignored]
+  -freport-bug                		[disabled]
+  -frerun-loop-opt            		[ignored]
+  -fsanitize-coverage=        		[default]
+  -fsanitize-recover          		
+  -fsanitize-recover=         		
+  -fsanitize-sections=<sec1,sec2,...> 	
+  -fsanitize-trap=            		
+  -fsanitize-undefined-trap-on-error 	-fsanitize-trap
+  -fsanitize=                 		
+  -fsched-verbose=<number>    		1
+  -fsched2-use-traces         		[ignored]
+  -fsee                       		[ignored]
+  -fshow-column               		[enabled]
+  -fsplit-stack               		
+  -fstack-check               		-fstack-check=specific
+  -fstack-limit-register=<register> 	
+  -fstack-limit-symbol=<name> 		
+  -fstack-usage               		[disabled]
+  -fstrength-reduce           		[ignored]
+  -fstrict-overflow           		
+  -fsync-libcalls             		[enabled]
+  -fsyntax-only               		[disabled]
+  -ftabstop=                  		
+  -ftest-coverage             		[disabled]
+  -ftime-report               		[disabled]
+  -ftime-report-details       		[disabled]
+  -ftls-model=[global-dynamic|local-dynamic|initial-exec|local-exec] 	global-
+                              dynamic
+  -ftrampolines               		[disabled]
+  -ftree-coalesce-inlined-vars 		[ignored]
+  -ftree-copyrename           		[ignored]
+  -ftree-loop-if-convert-stores 	[ignored]
+  -ftree-loop-linear          		-floop-nest-optimize
+  -ftree-salias               		[ignored]
+  -ftree-store-ccp            		[ignored]
+  -ftree-store-copy-prop      		[ignored]
+  -ftree-vect-loop-version    		[ignored]
+  -ftree-vectorizer-verbose=  		
+  -funit-at-a-time            		[enabled]
+  -funsafe-loop-optimizations 		[ignored]
+  -fuse-ld=bfd                		
+  -fuse-ld=gold               		
+  -fuse-ld=lld                		
+  -fuse-ld=mold               		
+  -fvect-cost-model           		-fvect-cost-model=dynamic
+  -fverbose-asm               		[disabled]
+  -fvisibility=[default|internal|hidden|protected] 	default
+  -fvtable-verify=            		none
+  -fvtv-counts                		[disabled]
+  -fvtv-debug                 		[disabled]
+  -fwhole-program             		[disabled]
+  -fzee                       		[ignored]
+  -fzero-call-used-regs=      		
+  -fzero-initialized-in-bss   		[enabled]
+  -g                          		
+  -gas-loc-support            		[disabled]
+  -gas-locview-support        		[disabled]
+  -gbtf                       		
+  -gcoff                      		
+  -gcoff1                     		
+  -gcoff2                     		
+  -gcoff3                     		
+  -gcolumn-info               		[enabled]
+  -gctf                       		
+  -gdescribe-dies             		[disabled]
+  -gdwarf                     		
+  -gdwarf-                    		5
+  -gdwarf32                   		[enabled]
+  -gdwarf64                   		[disabled]
+  -ggdb                       		
+  -ggnu-pubnames              		[disabled]
+  -ginline-points             		[disabled]
+  -ginternal-reset-location-views 	[enabled]
+  -gno-pubnames               		[disabled]
+  -gpubnames                  		[disabled]
+  -grecord-gcc-switches       		[enabled]
+  -gsplit-dwarf               		[disabled]
+  -gstabs                     		
+  -gstabs+                    		
+  -gstrict-dwarf              		[disabled]
+  -gtoggle                    		[disabled]
+  -gvariable-location-views   		[disabled]
+  -gvms                       		
+  -gxcoff                     		
+  -gxcoff+                    		
+  -gz                         		
+  -gz=<format>                		
+  -imultiarch <dir>           		
+  -iplugindir=<dir>           		
+  -p                          		[disabled]
+  -pedantic-errors            		[disabled]
+  -quiet                      		[disabled]
+  -version                    		[disabled]
+

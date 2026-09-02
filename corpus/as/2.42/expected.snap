@@ -1,0 +1,451 @@
+name: as
+description: 'Options:'
+usage:
+- 'Usage: /usr/bin/as [option...] [asmfile...]'
+flags:
+- spellings:
+  - -a
+  value_name: sub-option...
+  value_kind: Optional
+  choices:
+  - name: c
+    description: omit false conditionals
+  - name: d
+    description: omit debugging directives
+  - name: g
+    description: include general info
+  - name: h
+    description: include high-level source
+  - name: i
+    description: include ginsn and synthesized CFI info
+  - name: l
+    description: include assembly
+  - name: m
+    description: include macro expansions
+  - name: n
+    description: omit forms processing
+  - name: s
+    description: include symbols
+  - FILE
+  description: 'turn on listings Sub-options [default hls]:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --alternate
+  description: initially turn on alternate macro syntax
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --compress-debug-sections
+  value_name: '{none|zlib|zlib-gnu|zlib-gabi|zstd}'
+  value_kind: Optional
+  description: 'compress DWARF debug sections Default: none'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nocompress-debug-sections
+  description: don't compress DWARF debug sections
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  description: produce assembler debugging messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dump-config
+  description: display how the assembler is configured and then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debug-prefix-map
+  value_name: OLD=NEW
+  value_kind: Required
+  description: map OLD to NEW in debug information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --defsym
+  value_name: SYM=VAL
+  value_kind: Required
+  description: define symbol SYM to given value
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --execstack
+  description: require executable stack for this object
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --noexecstack
+  description: don't require executable stack for this object
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --size-check
+  value_name: '[error|warning]'
+  value_kind: Required
+  description: ELF .size directive check (default --size-check=error)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --elf-stt-common
+  value_name: '[no|yes]'
+  value_kind: Required
+  description: no) generate ELF common symbols with STT_COMMON type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sectname-subst
+  description: enable section name substitution sequences
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --generate-missing-build-notes
+  value_name: '[no|yes]'
+  value_kind: Required
+  description: no) generate GNU Build notes if none are present in the input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gsframe
+  description: generate SFrame stack trace information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  description: skip whitespace and comment preprocessing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  - --gen-debug
+  description: generate debugging information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gstabs
+  description: generate STABS debugging information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gstabs
+  value_name: +
+  value_kind: Required
+  description: generate STABS debug info with GNU extensions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gdwarf-
+  value_name: <N>
+  value_kind: Required
+  description: generate DWARF<N> debugging information. 2 <= <N> <= 5
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gdwarf-cie-version
+  value_name: <N>
+  value_kind: Required
+  description: generate version 1, 3 or 4 DWARF CIEs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gdwarf-sections
+  description: generate per-function section names for DWARF line information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hash-size
+  value_name: <N>
+  value_kind: Required
+  description: ignored
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: show all assembler options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --target-help
+  description: show target specific options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  value_name: DIR
+  value_kind: Required
+  description: add DIR to search list for .include directives
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  description: don't warn about signed overflow
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  description: warn when differences altered for long displacements
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --keep-locals
+  description: keep local symbols (e.g. starting with `L')
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --mri
+  description: assemble in MRI compatibility mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --MD
+  value_name: FILE
+  value_kind: Required
+  description: write dependency information in FILE (default none)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --multibyte-handling
+  value_name: <method>
+  value_kind: Required
+  description: what to do with multibyte characters encountered in the input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nocpp
+  description: ignored
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-pad-sections
+  description: do not pad the end of sections to alignment boundaries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: OBJFILE
+  value_kind: Required
+  description: name the object-file output OBJFILE (default a.out)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  description: fold data section into text section
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reduce-memory-overheads
+  value_name: ignored
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --statistics
+  description: print various measured statistics from execution
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-local-absolute
+  description: strip local absolute symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --traditional-format
+  description: Use same format as native assembler when possible
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: print assembler version number and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  description: --no-warn suppress warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --warn
+  description: don't suppress warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fatal-warnings
+  description: treat warnings as errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  description: ignored
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  description: ignored
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  description: generate object file even after errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --listing-lhs-width
+  description: set the width in words of the output data column of the listing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --listing-lhs-width2
+  description: set the width in words of the continuation lines of the output data column; ignored if smaller than the width of the first line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --listing-rhs-width
+  description: set the max width in characters of the lines from the source file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --listing-cont-lines
+  description: set the maximum number of continuation lines used for the output data column of the listing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '@'
+  value_name: FILE
+  value_kind: Required
+  description: read options from FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mbig-endian
+  group: 'AArch64-specific assembler options:'
+  description: assemble for big-endian
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mlittle-endian
+  group: 'AArch64-specific assembler options:'
+  description: assemble for little-endian
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mverbose-error
+  group: 'AArch64-specific assembler options:'
+  description: output verbose error messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mno-verbose-error
+  group: 'AArch64-specific assembler options:'
+  description: do not output verbose error messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mabi
+  value_name: <abi
+  value_kind: Required
+  group: 'AArch64-specific assembler options:'
+  description: specify for ABI <abi name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mcpu
+  value_name: <cpu
+  value_kind: Required
+  group: 'AArch64-specific assembler options:'
+  description: assemble for CPU <cpu name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -march
+  value_name: <arch
+  value_kind: Required
+  group: 'AArch64-specific assembler options:'
+  description: assemble for architecture <arch name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  value_name: B
+  value_kind: Required
+  group: 'AArch64-specific assembler options:'
+  description: assemble code for a big-endian cpu
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  value_name: L
+  value_kind: Required
+  group: 'AArch64-specific assembler options:'
+  description: assemble code for a little-endian cpu
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
