@@ -27,3 +27,9 @@ must_not_contain_flags = ["--exclude", "--null-data"]
 [xfail]
 broken = true
 reason = "the sentence listing unsupported grep options wraps onto a line starting with '--null-data (-z), and --recursive (-r).', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating --exclude and --null-data as real zgrep flags. The C3 whitespace-continuation rules do not reach this shape."
+
+# Fleet count: the wrapped-prose-row-boundary detector fires on 21 tools
+# (26 flags) across a full-PATH sweep of 2318 tools, 2026-09-02. The number
+# is NOT quotable as calibrated: no tool carrying this family has a human
+# audit verdict, so recall is unevaluable and only the false-alarm half was
+# checked (0 of 30 labelled-correct fixtures).
