@@ -329,6 +329,11 @@ touching the UI.
 
 ## 4. The intermediate representation
 
+**Decides.** The schema every extraction tier must produce: the node and
+entity shapes, text sanitization, provenance, addressing, and merge.
+
+**Rules.**
+
 ```rust
 /// mandible-core: the shared schema every extraction tier must produce.
 /// Every public struct here is `#[non_exhaustive]`: downstream crates
@@ -501,11 +506,8 @@ impl Text {
 }
 ```
 
-This is an IR invariant, not a widget concern. A single `\n` inside a
-`ratatui` `Span` shifts cells and eats a pane border, and a prior
-implementation's two widget-level fixes both had to be reverted, since the
-IR has three consumers (tree, detail pane, clipboard) and a widget-level fix
-can only patch one. Widgets are permitted to assume `Text` is clean.
+This is an IR invariant, not a widget concern. Widgets are permitted to
+assume `Text` is clean.
 
 **Within the prose tier, reflowing is the rule and structure is the
 exception.** A description is hard-wrapped to whatever width its author
@@ -540,34 +542,21 @@ pane collapses all of it to one line at render time. The `\n`-free
 invariant a widget relies on is unchanged, since every newline in a `Text`
 is one `sanitize` put there deliberately.
 
-**Sanitization has two tiers, chosen by whose layout the text is.** Prose is
-mandible's to set, so its source line breaks are noise and
-`Text::sanitize` unwraps them. A synopsis and a raw `--help` dump are the
-author's own layout — the spacing of a usage line, the columns an options
-table is padded into — and collapsing them destroys information the reader
-came for. The second tier, `Text::sanitize_preserving_layout`, strips
-ANSI/OSC/DCS escapes, stray carriage returns, and other C0 controls (a raw
-escape or a lying `\r` could still scramble the reader's terminal) and
-expands tabs to spaces at 8-column stops, since `ratatui` gives a bare `\t`
-zero display width. It does not collapse whitespace, trim, or unwrap
+**Sanitization has two tiers, chosen by whose layout the text is.** The
+second tier, `Text::sanitize_preserving_layout`, strips ANSI/OSC/DCS
+escapes, stray carriage returns, and other C0 controls, and expands tabs to
+spaces at 8-column stops. It does not collapse whitespace, trim, or unwrap
 paragraphs, and is truncated to the same bound as `sanitize`.
 
 Three paths take the layout tier, and no others: the raw pane (key `t`),
-whose whole job is showing the tool's own bytes; `CommandNode::usage`,
-whose synopses §9.3 already treats as content whose layout is not
-mandible's; and `CommandNode::unparsed`, the verbatim fallback §7 Tier B
-step 3 degrades to. The third follows from the first: that fallback exists
-to show the author's document because mandible could not read it, so it is
-the raw pane under a different label, and text mandible has admitted it
-does not understand is the last text it may silently reformat. Each of the
-three is handed one already-line-split string at a time. Everything else
-that feeds the IR, descriptions above all, goes through `Text::sanitize`,
-including a `Choice`'s own `description` — there is no second, laxer path
-for text arriving nested one level deeper. The rule that decides between
-the two tiers is ownership of the layout, never the field: mandible sets
-prose, the author sets everything shown as drawn. Verified apart by
-diffing the raw pane against independently captured `--help` output for two
-real tools, byte-identical.
+`CommandNode::usage`, and `CommandNode::unparsed`, the verbatim fallback §7
+Tier B step 3 degrades to. Each of the three is handed one already-line-split
+string at a time. Everything else that feeds the IR, descriptions above
+all, goes through `Text::sanitize`, including a `Choice`'s own
+`description` — there is no second, laxer path for text arriving nested
+one level deeper. The rule that decides between the two tiers is ownership
+of the layout, never the field: mandible sets prose, the author sets
+everything shown as drawn.
 
 **A usage form keeps the indentation its author gave it, and the pane
 reproduces the alignment that indentation was drawn for.** A tool lines its
@@ -586,8 +575,7 @@ node.
 
 mandible probes tools by absolute resolved path, so a tool that echoes its
 own `argv[0]` prints `Usage: /usr/bin/du` in the pane against `Usage: du` in
-a shell that found it via `PATH` — correct in both cases, since it reflects
-what the tool actually received.
+a shell that found it via `PATH`.
 
 The raw pane displays stdout and stderr both, labelled, even though §7
 Tier B's parser reads only one of the two per its own rule (see that
@@ -614,13 +602,8 @@ pub enum Source {
 }
 ```
 
-Revision 1 attached one `Provenance` to a node while merging fields
-independently. After a three-tier merge the node's badge named whichever
-tier landed first, while the flag descriptions underneath could come from a
-different tier entirely — the badge lied, and since a badge exists
-specifically as a trust signal, an inaccurate one is worse than none.
-Provenance therefore lives on `CommandNode` and each `Entity`
-individually, and the detail pane's footer summarizes:
+Provenance lives on `CommandNode` and each `Entity` individually, and the
+detail pane's footer summarizes:
 `carapace + help-text · structure ✓ · prose ✓`.
 
 ### 4.3 Addressing: `NodeRef`
@@ -645,10 +628,7 @@ parent's name.
 
 ### 4.4 Merge: two axes of authority
 
-Revision 1 merged with "first tier in priority order wins," correct only if
-priority equals fidelity. It does not: the tier with the best structure is
-frequently not the tier with the best prose [M-1, M-2]. Each source
-therefore declares two authority levels, and merge resolves per field
+Each source declares two authority levels, and merge resolves per field
 against the relevant one:
 
 ```rust
@@ -682,6 +662,57 @@ Merge rules:
   are complementary unify into one `Flag`.
 - Subcommands merge recursively by name.
 - `children_filled` is the logical OR of contributors.
+
+**Why.** Every public `CommandNode` field is `#[non_exhaustive]`, which
+blocks cross-crate struct literals. The entity migration rewrote those same
+61 call sites anyway, so `#[non_exhaustive]` landed in the same pass.
+
+A single `\n` inside a `ratatui` `Span` shifts cells and eats a pane
+border. A prior implementation's two widget-level fixes both had to be
+reverted, since the IR has three consumers (tree, detail pane, clipboard)
+and a widget-level fix can only patch one. This is why sanitization is an
+IR invariant rather than a widget concern.
+
+Within the prose tier, a re-wrap of already-short lines against a source's
+own hard-wrapped breaks comes out ragged, which is why those breaks are
+treated as noise and joined. The example-invocation recognizer requires
+command-shaped text after an `Example:`/`e.g.` label, rather than any
+sentence, because without that test every prose sentence after such a
+label would qualify. The parser hands descriptions over with source breaks
+intact, rather than pre-joining them, because the decision belongs to the
+one place that can make it: text that still has the breaks.
+
+Prose is mandible's to set, so its source line breaks are noise and
+`Text::sanitize` unwraps them. A synopsis and a raw `--help` dump are the
+author's own layout, and collapsing them destroys information the reader
+came for. `Text::sanitize_preserving_layout` still strips escapes and
+stray carriage returns, since a raw escape or a lying `\r` could still
+scramble the reader's terminal, and it still expands tabs, since `ratatui`
+gives a bare `\t` zero display width. The layout tier's three paths follow
+the same principle: the raw pane's whole job is showing the tool's own
+bytes, `CommandNode::usage`'s synopses are content §9.3 already treats as
+not mandible's to lay out, and `CommandNode::unparsed` exists to show the
+author's document because mandible could not read it, so it is the raw
+pane under a different label — text mandible has admitted it does not
+understand is the last text it may silently reformat. This split was
+verified by diffing the raw pane against independently captured `--help`
+output for two real tools, byte-identical.
+
+An earlier revision attached one `Provenance` to a node while merging
+fields independently. After a three-tier merge the node's badge named
+whichever tier landed first, while the flag descriptions underneath could
+come from a different tier entirely. The badge lied, and since a badge
+exists specifically as a trust signal, an inaccurate one is worse than
+none.
+
+An earlier revision merged with "first tier in priority order wins,"
+correct only if priority equals fidelity. It does not: the tier with the
+best structure is frequently not the tier with the best prose [M-1, M-2].
+
+**Implemented in.** `mandible-core/src/node.rs`,
+`mandible-core/src/entity.rs`, `mandible-core/src/text.rs`,
+`mandible-core/src/provenance.rs`, `mandible-core/src/noderef.rs`,
+`mandible-core/src/merge.rs`.
 
 ---
 ---
