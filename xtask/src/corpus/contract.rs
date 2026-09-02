@@ -220,6 +220,31 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    // `must_value_name`: same rule as `must_describe` above, plus the
+    // repetition half of `must_contain_positionals` — dropping a `...`
+    // suffix retires the claim that the marker survived, which no
+    // string-equality drop check would see.
+    for flag in b.must_value_name.keys() {
+        if !n.must_value_name.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_value_name[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+    for spec in b.must_contain_positionals.iter() {
+        let Some(base) = spec.strip_suffix("...") else {
+            continue;
+        };
+        if n.must_contain_positionals.iter().any(|s| s == spec) {
+            continue;
+        }
+        if n.must_contain_positionals.iter().any(|s| s == base) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_contain_positionals[{base:?}] (repetition marker dropped)"
+            ));
+        }
+    }
+
     lines
 }
 
@@ -309,6 +334,9 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     }
     if !contract.must_describe.is_empty() {
         failures.push(ContractFailure("must_describe: no root produced".into()));
+    }
+    if !contract.must_value_name.is_empty() {
+        failures.push(ContractFailure("must_value_name: no root produced".into()));
     }
     failures
 }
@@ -423,11 +451,7 @@ fn check_contract_collection_fields(
     let missing_positionals: Vec<&str> = contract
         .must_contain_positionals
         .iter()
-        .filter(|name| {
-            !root
-                .positionals()
-                .any(|p| p.primary_name() == name.as_str())
-        })
+        .filter(|spec| !positional_present(root, spec))
         .map(|s| s.as_str())
         .collect();
     if !missing_positionals.is_empty() {
@@ -530,7 +554,57 @@ fn check_contract_collection_fields(
         }
     }
 
+    failures.extend(check_must_value_name(contract, root));
+
     failures
+}
+
+/// `must_value_name`: a flag's value placeholder must still carry the text
+/// the tool's own row shows. Scans EVERY matching entity, unlike
+/// `must_describe`'s first match, because one spelling can head two rows
+/// (`corpus/vim.basic/audit-seed4` documents `-r` twice).
+fn check_must_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (flag_spec, expected_text) in &contract.must_value_name {
+        let expected = collapse_whitespace(expected_text);
+        let mut seen = Vec::new();
+        let mut matched = false;
+        for entity in root
+            .flags()
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+        {
+            matched = true;
+            let actual = collapse_whitespace(entity.value_name.as_deref().unwrap_or(""));
+            if actual.contains(&expected) {
+                seen.clear();
+                break;
+            }
+            seen.push(actual);
+        }
+        if !matched {
+            failures.push(ContractFailure(format!(
+                "must_value_name[{flag_spec:?}]: flag not present"
+            )));
+        } else if !seen.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_value_name[{flag_spec:?}]: expected a value name containing {expected:?}, got {seen:?}"
+            )));
+        }
+    }
+    failures
+}
+
+/// Whether `root` carries the positional `spec` names. A trailing `...`
+/// additionally requires the operand to be repeatable, which is the only
+/// way a contract can state that a repetition marker survived
+/// (`corpus/aarch64-linux-gnu-dwp/2.42`, atlas S-042).
+fn positional_present(root: &CommandNode, spec: &str) -> bool {
+    let (name, must_repeat) = match spec.strip_suffix("...") {
+        Some(base) => (base, true),
+        None => (spec, false),
+    };
+    root.positionals()
+        .any(|p| p.primary_name() == name && (!must_repeat || p.repeatable))
 }
 
 /// Resolve a space-separated subcommand path (`"restore"`, `"remote add"`)
