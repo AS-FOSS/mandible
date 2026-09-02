@@ -707,7 +707,7 @@ none.
 
 An earlier revision merged with "first tier in priority order wins,"
 correct only if priority equals fidelity. It does not: the tier with the
-best structure is frequently not the tier with the best prose [M-1, M-2].
+best structure is frequently not the tier with the best prose [M-1] and [M-2].
 
 **Implemented in.** `mandible-core/src/node.rs`,
 `mandible-core/src/entity.rs`, `mandible-core/src/text.rs`,
@@ -1129,7 +1129,7 @@ argument permutation as first assumed — measured directly: `pkill --help`,
 box. What the ban was actually protecting against, never written down
 until it was measured: `-h` is not a help flag on these tools. `halt -h`,
 `poweroff -h`, `reboot -h`, `shutdown -h` each attempt the real operation,
-and mandible falls back to `-h` whenever `--help` fails [M-17, M-18].
+and mandible falls back to `-h` whenever `--help` fails [M-17] and [M-18].
 `--help` itself is safe and yields real flag lists for all thirteen, so
 the rule keeps what is measured harmless and refuses what is measured
 dangerous.
@@ -3184,8 +3184,8 @@ any of these as current.
 
 | Area | Revision 1 | Revision 2 | Why |
 |---|---|---|---|
-| Tier priority | One `priority: u8`; first tier wins | Two-axis `Authority` (structural/prose); attempt order is cost, conflict order is authority | The best-structure tier is usually not the best-prose tier [M-1, M-2] |
-| Tier ordering | Tier 0 (native) first | Tier A (catalog) first | Catalog is 740 tools / 48k descriptions for zero spawns; clap `CompleteEnv` is nearly absent [M-1, M-4] |
+| Tier priority | One `priority: u8`; first tier wins | Two-axis `Authority` (structural/prose); attempt order is cost, conflict order is authority | The best-structure tier is usually not the best-prose tier [M-1] and [M-2] |
+| Tier ordering | Tier 0 (native) first | Tier A (catalog) first | Catalog is 740 tools / 48k descriptions for zero spawns; clap `CompleteEnv` is nearly absent [M-1] and [M-4] |
 | Extraction trait | `extract() -> whole tree` | `extract_node(path)` + laziness | Eager extraction is 10–25 s for docker/gh [M-3] |
 | Cost model | Absent | §5.1, with measurements | Largest UX risk in the project |
 | Execution safety | Implicit; probe ran bare binaries | §6, binding rules + enforcement test; `exec/` is the only module allowed to spawn | Running an arbitrary binary bare is not a cheap operation |
