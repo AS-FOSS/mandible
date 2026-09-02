@@ -719,6 +719,11 @@ best structure is frequently not the tier with the best prose [M-1, M-2].
 
 ## 5. The extraction model: authority, laziness, cost
 
+**Decides.** How extraction is scoped, sequenced and paced, and how a
+partial failure and a filesystem-discovered child are handled.
+
+**Rules.**
+
 ### 5.1 The cost problem, measured
 
 Building a cobra tool's tree by recursive probing is not cheap: `docker`
@@ -726,12 +731,11 @@ takes 255 nodes, 232 subprocess spawns, 10.5 s; `gh` takes 196 nodes, 182
 spawns, 11.6 s; both depth-capped at 3, roughly 40–65 ms per spawn [M-3].
 That is with one probe per node. A correct cobra implementation needs two,
 subcommands then flags [M-2], so uncapped depth and full recursion cost far
-more. This is the single largest UX risk in the project.
+more.
 
 ### 5.2 The trait: one node at a time
 
-A whole-tree `extract()` forecloses the only real fix, so the trait is
-node-scoped:
+The trait is node-scoped:
 
 ```rust
 pub trait ExtractionTier: Send + Sync {
@@ -764,34 +768,15 @@ The runner:
 3. On expand, a node not yet filled is queued at the front of that same
    mechanism; nodes still in flight render as `⋯ loading` rows.
 
-**Warming covers the whole tree, not one level ahead.** Warming only one
-depth past what the user had expanded kept the spawn count minimal but cost
-more than it saved: an unexpanded node is invisible to search, since the
-index can only hold what has been extracted, and a node that renders empty
-with nothing explaining that it needs a keypress reads as a bug rather than
-laziness. Filling everything in the background is the same total work
-spread over idle time, and it is what makes a search over the whole tree
-honest. This is not a return to §5.1's eager extraction: nothing blocks
-startup or a keystroke, the pool is bounded, and what changed is not how
-much gets extracted but what the user waits for, which is nothing.
+**Warming covers the whole tree, not one level ahead.**
 
-**Background fills never expand the node they fill.** Expansion is user
-intent; auto-expanding on arrival, once every node is warmed, would unfold
-the entire tree and bury the user in rows they never asked for.
+**Background fills never expand the node they fill.**
 
-**Pool sizing is one worker per core, clamped to `[2, 8]`.** An earlier
-design oversubscribed on the theory that a warming job spawns a child and
-blocks on it, costing no CPU of its own. That held for a typical small C
-tool and was measured false where warming is heaviest: a `docker`
-invocation burns 70–100 ms of real CPU per spawn (Go runtime startup plus a
-daemon round trip), so many concurrent probes on a 4-core machine pegged
-every core for the duration of the warm, reported by a real user as the
-tool maximizing their CPU for minutes. One probe per core keeps the machine
-responsive; the cost is a slower background warm, paid in time nobody is
-waiting on, since the expand path still jumps the queue.
+**Pool sizing is one worker per core, clamped to `[2, 8]`.** The cost is a
+slower background warm, paid in time nobody is waiting on, since the
+expand path still jumps the queue.
 
-Non-incremental sources (carapace) return their full subtree at step 1;
-they cost nothing, so there is no reason to defer them.
+Non-incremental sources (carapace) return their full subtree at step 1.
 
 ### 5.3 Partial failure is normal
 
@@ -888,6 +873,43 @@ how well that binary's own help parsed says nothing about whether the
 parent dispatches to it (§9.2). Showing the row is right, since the command
 is usually real and otherwise unreachable from the tool the user opened;
 showing it unmarked would be the same move as inventing structure.
+
+**Why.** Recursive probing is the single largest UX risk in the project
+[M-3]. A whole-tree `extract()` forecloses the only real fix, which is why
+the trait is scoped to one node at a time.
+
+Warming only one depth past what the user had expanded kept the spawn
+count minimal but cost more than it saved: an unexpanded node is invisible
+to search, since the index can only hold what has been extracted, and a
+node that renders empty with nothing explaining that it needs a keypress
+reads as a bug rather than laziness. Filling everything in the background
+is the same total work spread over idle time, and it is what makes a
+search over the whole tree honest. This is not a return to §5.1's eager
+extraction: nothing blocks startup or a keystroke, the pool is bounded,
+and what changed is not how much gets extracted but what the user waits
+for, which is nothing.
+
+Expansion is user intent. Auto-expanding on arrival, once every node is
+warmed, would unfold the entire tree and bury the user in rows they never
+asked for, which is why a background fill never expands the node it
+fills.
+
+An earlier pool-sizing design oversubscribed on the theory that a warming
+job spawns a child and blocks on it, costing no CPU of its own. That held
+for a typical small C tool and was measured false where warming is
+heaviest: a `docker` invocation burns 70–100 ms of real CPU per spawn (Go
+runtime startup plus a daemon round trip), so many concurrent probes on a
+4-core machine pegged every core for the duration of the warm, reported by
+a real user as the tool maximizing their CPU for minutes. One probe per
+core keeps the machine responsive.
+
+Non-incremental sources cost nothing to return in full, so there is no
+reason to defer them.
+
+**Implemented in.** `mandible-extract/src/runner.rs`,
+`mandible-extract/src/tier.rs`, `mandible/src/discovery.rs`,
+`mandible/src/app_runner.rs`, `mandible/src/doctor.rs`,
+`mandible/src/report.rs`.
 
 ---
 ---
