@@ -642,6 +642,144 @@ fn extract_description(
 /// The mutable state the body scan threads through every branch.
 /// Bundled so a branch can be lifted into its own function without a
 /// ten-argument signature.
+/// One candidate heading line and where it sits.
+struct Heading<'a> {
+    line: &'a str,
+    heading: String,
+    heading_indent: usize,
+    heading_idx: usize,
+}
+
+/// A heading whose next non-blank line is not indented past it. The
+/// block is still emitted when the shape is unambiguous on its own,
+/// otherwise scanning rewinds past the heading. See docs/shapes.md S-016.
+fn emit_flush_heading(
+    lines: &[&str],
+    profile: Option<&FrameworkProfile>,
+    h: &Heading,
+    mut i: usize,
+    st: &mut BodyScan,
+) -> usize {
+    let line = h.line;
+    let heading = &h.heading;
+    let heading_indent = h.heading_indent;
+    let heading_idx = h.heading_idx;
+    // An environment section flush with its own heading — no
+    // indent step between "Environment variables:" and its first
+    // row. node's real `--help` writes exactly this shape (both
+    // at column 0). Gated on the row sitting at exactly
+    // `heading_indent`, the same bar the same-indent command
+    // table below requires. See S-023.
+    if i < lines.len()
+        && leading_whitespace(lines[i]) == heading_indent
+        && is_environment_heading(&heading)
+        && !is_ignorable_heading(&heading)
+    {
+        if let Some((end, rows)) = scan_env_var_table(&lines, i) {
+            i = end;
+            st.in_ignorable_section = false;
+            st.command_mode = false;
+            let (seen, clean) =
+                emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
+    // Nothing more-indented follows. openssl and BSD-style
+    // listings generally present a command list as a same-indent
+    // word grid: a heading followed by lines of several bare
+    // identifier-shaped tokens, no descriptions. Starting a grid
+    // requires >=3 name-shaped tokens on the trigger line (not
+    // the >=2 for continuation rows), so a genuine two-word
+    // heading (openssl's "Standard commands") is never itself
+    // swallowed as the first grid row — it rewinds and is
+    // re-examined as its own heading. See S-065.
+    if i < lines.len()
+        && leading_whitespace(lines[i]) == heading_indent
+        && looks_like_word_grid_start(lines[i])
+    {
+        let grid_start = i;
+        while i < lines.len() {
+            if lines[i].trim().is_empty() {
+                break;
+            }
+            if leading_whitespace(lines[i]) != heading_indent
+                || !looks_like_word_grid_line(lines[i])
+            {
+                break;
+            }
+            i += 1;
+        }
+        if !is_ignorable_heading(&heading) {
+            st.in_ignorable_section = false;
+            let recognized = is_recognized_command_heading(&heading, profile);
+            if recognized {
+                st.command_mode = true;
+            }
+            let (seen, clean) = process_word_grid(
+                &heading,
+                &lines[grid_start..i],
+                recognized || st.command_mode,
+                st.result,
+            );
+            st.total_entries += seen;
+            st.clean_entries += clean;
+        }
+        return i;
+    }
+    // A command table that sits at the same indent as its own
+    // heading rather than beneath it. dnf's flush command list is
+    // the specimen; the engine's "content indented more than its
+    // heading" rule cannot see it at all.
+    //
+    // Guarded much harder than the indented case, since this is
+    // the shape [M-10] came in through: apt-get's own prose
+    // paragraph fabricated the subcommands "and", "information",
+    // "about", "them". The heading must be a recognized command
+    // heading (never merely a line ending in a colon), every row
+    // must be column-aligned, and there must be at least two such
+    // rows. Prose is single-spaced, so it fails the second
+    // test on its first line. The heading must also not itself
+    // look like one of the rows: at a shared indent there is no
+    // structural difference otherwise, and mysqlslap's own
+    // `init-command    (No default value)` row was taken as a
+    // heading, fabricating 28 subcommands out of MySQL settings. A
+    // real heading is a single field; a row is two columns. See
+    // S-092.
+    let heading_is_itself_a_row = find_description_gap(lines[heading_idx]).is_some();
+
+    if i < lines.len()
+        && leading_whitespace(lines[i]) == heading_indent
+        && !heading_is_itself_a_row
+        && !is_ignorable_heading(&heading)
+        && is_recognized_command_heading(&heading, profile)
+    {
+        if let Some((end, entries)) = scan_same_indent_entry_table(&lines, i, heading_indent) {
+            i = end;
+            st.command_mode = true;
+            st.in_ignorable_section = false;
+            let (seen, clean) = emit_subcommands(&heading, entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
+
+    // Not actually a heading — but if it reads like an
+    // introduction to a command list (git's own leading blurb,
+    // whose group headings say nothing about "commands"
+    // themselves), remember that. See S-070.
+    if command_mode_seed(&heading, profile) {
+        st.command_mode = true;
+    }
+    // Rewind to just past the original line and continue scanning
+    // it as its own candidate.
+    i = heading_idx + 1;
+    return i;
+    i
+}
+
 struct BodyScan<'a> {
     result: &'a mut ParsedHelp,
     command_mode: bool,
@@ -819,120 +957,13 @@ fn scan_entries(
             i += 1;
         }
         if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
-            // An environment section flush with its own heading — no
-            // indent step between "Environment variables:" and its first
-            // row. node's real `--help` writes exactly this shape (both
-            // at column 0). Gated on the row sitting at exactly
-            // `heading_indent`, the same bar the same-indent command
-            // table below requires. See S-023.
-            if i < lines.len()
-                && leading_whitespace(lines[i]) == heading_indent
-                && is_environment_heading(&heading)
-                && !is_ignorable_heading(&heading)
-            {
-                if let Some((end, rows)) = scan_env_var_table(&lines, i) {
-                    i = end;
-                    st.in_ignorable_section = false;
-                    st.command_mode = false;
-                    let (seen, clean) =
-                        emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
-                    st.total_entries += seen;
-                    st.clean_entries += clean;
-                    continue;
-                }
-            }
-            // Nothing more-indented follows. openssl and BSD-style
-            // listings generally present a command list as a same-indent
-            // word grid: a heading followed by lines of several bare
-            // identifier-shaped tokens, no descriptions. Starting a grid
-            // requires >=3 name-shaped tokens on the trigger line (not
-            // the >=2 for continuation rows), so a genuine two-word
-            // heading (openssl's "Standard commands") is never itself
-            // swallowed as the first grid row — it rewinds and is
-            // re-examined as its own heading. See S-065.
-            if i < lines.len()
-                && leading_whitespace(lines[i]) == heading_indent
-                && looks_like_word_grid_start(lines[i])
-            {
-                let grid_start = i;
-                while i < lines.len() {
-                    if lines[i].trim().is_empty() {
-                        break;
-                    }
-                    if leading_whitespace(lines[i]) != heading_indent
-                        || !looks_like_word_grid_line(lines[i])
-                    {
-                        break;
-                    }
-                    i += 1;
-                }
-                if !is_ignorable_heading(&heading) {
-                    st.in_ignorable_section = false;
-                    let recognized = is_recognized_command_heading(&heading, profile);
-                    if recognized {
-                        st.command_mode = true;
-                    }
-                    let (seen, clean) = process_word_grid(
-                        &heading,
-                        &lines[grid_start..i],
-                        recognized || st.command_mode,
-                        st.result,
-                    );
-                    st.total_entries += seen;
-                    st.clean_entries += clean;
-                }
-                continue;
-            }
-            // A command table that sits at the same indent as its own
-            // heading rather than beneath it. dnf's flush command list is
-            // the specimen; the engine's "content indented more than its
-            // heading" rule cannot see it at all.
-            //
-            // Guarded much harder than the indented case, since this is
-            // the shape [M-10] came in through: apt-get's own prose
-            // paragraph fabricated the subcommands "and", "information",
-            // "about", "them". The heading must be a recognized command
-            // heading (never merely a line ending in a colon), every row
-            // must be column-aligned, and there must be at least two such
-            // rows. Prose is single-spaced, so it fails the second
-            // test on its first line. The heading must also not itself
-            // look like one of the rows: at a shared indent there is no
-            // structural difference otherwise, and mysqlslap's own
-            // `init-command    (No default value)` row was taken as a
-            // heading, fabricating 28 subcommands out of MySQL settings. A
-            // real heading is a single field; a row is two columns. See
-            // S-092.
-            let heading_is_itself_a_row = find_description_gap(lines[heading_idx]).is_some();
-
-            if i < lines.len()
-                && leading_whitespace(lines[i]) == heading_indent
-                && !heading_is_itself_a_row
-                && !is_ignorable_heading(&heading)
-                && is_recognized_command_heading(&heading, profile)
-            {
-                if let Some((end, entries)) =
-                    scan_same_indent_entry_table(&lines, i, heading_indent)
-                {
-                    i = end;
-                    st.command_mode = true;
-                    st.in_ignorable_section = false;
-                    let (seen, clean) = emit_subcommands(&heading, entries, st.result);
-                    st.total_entries += seen;
-                    st.clean_entries += clean;
-                    continue;
-                }
-            }
-
-            // Not actually a heading — but if it reads like an
-            // introduction to a command list (git's own leading blurb,
-            // whose group headings say nothing about "commands"
-            // themselves), remember that. See S-070.
-            if command_mode_seed(&heading, profile) {
-                st.command_mode = true;
-            }
-            // Rewind to just past the original line and continue scanning
-            // it as its own candidate.
-            i = heading_idx + 1;
+            let h = Heading {
+                line,
+                heading,
+                heading_indent,
+                heading_idx,
+            };
+            i = emit_flush_heading(lines, profile, &h, i, &mut st);
             continue;
         }
 
