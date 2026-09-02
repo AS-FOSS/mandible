@@ -130,6 +130,11 @@ job is to make the confidence level legible, not to hide it.
 
 ## 2. Vision & UX flow
 
+**Decides.** The screen layout, the keybindings, and how a selection leaves
+the TUI and lands on the user's shell prompt.
+
+**Rules.**
+
 ```
 $ mandible git
 ```
@@ -163,10 +168,8 @@ opens a full-screen TUI:
 **Layout.** Vertical: search bar (3 rows) / body (fill) / status bar (1 row).
 Body horizontal: tree pane / detail pane. The tree pane is
 `Constraint::Min(24)` and the detail pane fills the remainder, never a
-percentage split: at 80 columns a 35% tree pane leaves too few usable cells
-for a name plus a summary after borders and depth indentation [M-7]. Below
-60 columns total, drop summaries from tree rows; below 50, stack the panes
-and toggle the detail pane with `Tab`.
+percentage split. Below 60 columns total, drop summaries from tree rows;
+below 50, stack the panes and toggle the detail pane with `Tab`.
 
 **Design principles.**
 
@@ -175,20 +178,17 @@ and toggle the detail pane with `Tab`.
   summaries, default foreground for names. No color as decoration.
 - **Consistent indentation.** Each tree depth is exactly 2 cells; expanding
   changes only the chevron glyph (`▸`/`▾`), never the row's horizontal
-  layout, which matters for mouse hit-testing (§9) and for not making the
-  eye re-track.
+  layout.
 - **Breadcrumbs in the detail pane header**, always showing the full path
   (`git › rebase`), so context survives scrolling.
 - **Provenance is legible, not decorative.** The footer names the
   contributing sources and whether structure and prose each came from a
-  trusted source, and it must be accurate (§4.2) or it is worse than
-  nothing.
+  trusted source.
 - **Rounded borders** (`BorderType::Rounded`), consistent 1-cell padding, no
   nested boxes.
 
-**Flags are not tree rows.** `git` alone carries 2,999 flags [M-1]; putting
-them in the tree makes the tree useless. Flags live in the detail pane and
-stay independently searchable and addressable (§4.3, §10): the tree is for
+**Flags are not tree rows.** Flags live in the detail pane and stay
+independently searchable and addressable (§4.3, §10): the tree is for
 structure, search is for flags.
 
 **Interaction model.**
@@ -208,57 +208,30 @@ structure, search is for flags.
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
-`y` is not a nice-to-have: looking up a flag in order to type it is the
-terminal step of the core journey, and a reference tool that cannot hand
-you the string makes you retype it.
-
-`t` is the escape hatch for the one failure mode the rest of this
-document's honesty machinery cannot signal: a grammar that misreads a
-layout and produces a plausible tree is indistinguishable from one that
-read it correctly, until a human reads the tool's real output beside ours
-[M-10]. Rather than reserve that check for the coverage harness, `t` puts
-it one key away for every user, on every node. It re-probes rather than
-retaining raw text, since retention costs megabytes across a warmed tree
-and would show what the tool said at startup rather than now, the same
-staleness argument that removed the cache (§11). §6 rule 0 applies
-unchanged here: `pkill --help` is shown, since that shape is measured
-harmless, but an interactive request does not widen what may be run —
+`t` re-probes the node rather than retaining its raw text. §6 rule 0
+applies unchanged in this mode: `pkill --help` is shown, but
 `pkill something --help` stays refused exactly as in the extraction
 pipeline.
 
-**Handing the command over: `--print-selection`.** The journey `y` serves
-ends at the prompt, and the clipboard is one paste short of it. `mandible
+**Handing the command over: `--print-selection`.** `mandible
 --print-selection <tool>` browses identically, except that `Enter`
 accepts: it prints the selected node's full command path, plus the
 selected flag's spelling when search landed on one, to stdout and exits.
-`→`/`l` still expand, so nothing becomes unreachable; `q`/`Ctrl-C` still
-quit, printing nothing, which leaves a shell binding's line untouched.
-Without the flag, `Enter` is one of the three expand keys, unchanged.
+`→`/`l` still expand. `q`/`Ctrl-C` still quit, printing nothing. Without
+the flag, `Enter` is one of the three expand keys, unchanged.
 
 **Accepting is bound to the focus, not to the key.** `Enter` accepts only
 from browse focus, the tree or the detail pane. While the search box has
-focus it does exactly what it does without the flag: commits the query,
-moves focus to the tree, keeps the filter — a key that is a search box's
-only commit key cannot be reassigned, since that would leave `Esc` as the
-sole way out of the box. The flag journey therefore ends one `Enter` later
-than the tree selection it made: the first closes the search, the second
-accepts what search landed on.
+focus, `Enter` commits the query, moves focus to the tree, and keeps the
+filter.
 
-A TUI cannot type into the shell that launched it, so the shell reads the
-line back through a command substitution and puts it on its own prompt.
-That requires stdout to carry the composed line and nothing else, a
-property of the whole program rather than the renderer: the UI draws on
-stderr in this mode, and everything else that touches the terminal — the
-OSC-52 clipboard fallback, and the color-support check — is asked of that
-same stream (`mandible-tui`'s `terminal::Sink`). A stray escape sequence on
-stdout here is not cosmetic; it is a corrupted command on someone's
-prompt.
+Stdout carries the composed line and nothing else. The UI draws on stderr
+in this mode, and the OSC-52 clipboard fallback and the color-support
+check use that same stream (`mandible-tui`'s `terminal::Sink`).
 
-The spelling composed is the long one where the tool documents one, else
+The spelling composed is the long form where the tool documents one, else
 the short letter, always the affirmative form (`--color`, never the
-un-runnable `--[no-]color`). No value placeholder is appended: the line is
-handed over to be edited, and a literal `FILE` in it is worse than a flag
-left unfinished.
+un-runnable `--[no-]color`). No value placeholder is appended.
 
 `mandible --shell-init bash|zsh` prints the binding that closes the loop:
 for bash a `bind -x` function assigning `READLINE_LINE`/`READLINE_POINT`,
@@ -266,6 +239,50 @@ for zsh a zle widget assigning `BUFFER`/`CURSOR`, both on `Ctrl-X m`,
 readline's own extension prefix, unbound in either shell by default. It
 reads the first word already on the line as the tool to open, and replaces
 the line with what comes back.
+
+**Why.** `y` is not a nice-to-have. Looking up a flag in order to type it
+is the terminal step of the core journey, and a reference tool that cannot
+hand you the string makes you retype it.
+
+`t` is the escape hatch for the one failure mode the rest of this
+document's honesty machinery cannot signal: a grammar that misreads a
+layout and produces a plausible tree is indistinguishable from one that
+read it correctly, until a human reads the tool's real output beside ours
+[M-10]. Rather than reserve that check for the coverage harness, `t` puts
+it one key away for every user, on every node. It re-probes rather than
+retains raw text because retention costs megabytes across a warmed tree
+and would show what the tool said at startup rather than now, the same
+staleness argument that removed the cache (§11).
+
+The journey `y` serves ends at the prompt, and the clipboard is one paste
+short of it. `--print-selection` closes that gap.
+
+A key that is a search box's only commit key cannot be reassigned, since
+that would leave `Esc` as the sole way out of the box. The flag journey
+therefore ends one `Enter` later than the tree selection it made: the
+first closes the search, the second accepts what search landed on.
+
+A TUI cannot type into the shell that launched it, so the shell reads the
+line back through a command substitution and puts it on its own prompt.
+That requires stdout to carry the composed line and nothing else, a
+property of the whole program rather than the renderer. A stray escape
+sequence on stdout here is not cosmetic; it is a corrupted command on
+someone's prompt.
+
+`git` alone carries 2,999 flags [M-1]; putting them in the tree makes the
+tree useless.
+
+The tree pane holds `Constraint::Min(24)` rather than a percentage split
+because at 80 columns a 35% tree pane leaves too few usable cells for a
+name plus a summary after borders and depth indentation [M-7].
+
+The line is handed over to be edited, and a literal `FILE` in it is worse
+than a flag left unfinished.
+
+**Implemented in.** `mandible-tui/src/event.rs`,
+`mandible-tui/src/layout.rs`, `mandible-tui/src/clipboard.rs`,
+`mandible-tui/src/terminal.rs`, `mandible/src/app_runner.rs`,
+`mandible/src/shell_init.rs`.
 
 ---
 ---
