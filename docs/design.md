@@ -2441,8 +2441,11 @@ does not control.
 
 ## 15. Packaging & distribution
 
-The project should be shippable as an open-source repo, via `cargo install`, and
-through `apt`/`dnf`, without rework. That constrains layout from day one.
+**Decides.** This section is the authority on how mandible is laid out,
+built, and installed as an open-source repo, a `cargo install`, and a distro
+package, with no rework between the three.
+
+**Rules.**
 
 **Repository layout.**
 
@@ -2461,41 +2464,51 @@ packaging/         debian/, rpm/, shell/ (the --shell-init snippets),
                    mandible.1 (man page for mandible itself)
 ```
 
-**Cargo metadata.** Every crate carries `description`, `license`, `repository`,
-`readme`, `keywords`, `categories`, and `rust-version` (MSRV, tested in CI).
-Internal crates that are not independently useful are published anyway — a
-workspace cannot be `cargo install`ed otherwise — so their descriptions must make
-the relationship clear.
+Every crate carries `description`, `license`, `repository`, `readme`,
+`keywords`, `categories`, and `rust-version` (MSRV, tested in CI). Internal
+crates that are not independently useful are published anyway, since a
+workspace cannot be `cargo install`ed otherwise, so their descriptions must
+state the relationship to the rest of the workspace.
 
-**Distro packaging constraints, which shape earlier decisions:**
+**Distro packaging constraints:**
 
-- Vendored data must be reproducible from a script with a recorded source commit;
-  distro maintainers will ask where the 11 MB came from.
-- Default features must build with no network and no C toolchain. That is why
-  Tier D is opt-in.
+- Vendored data must be reproducible from a script with a recorded source
+  commit, so a distro maintainer can trace where the shipped bytes came from.
+- Default features must build with no network and no C toolchain. Tier D is
+  opt-in for this reason.
 - Ship completions for mandible itself and `packaging/mandible.1`, installed
-  to the standard paths per shell (zsh's path differs by distro: Debian
-  carries `vendor-completions`, Fedora `site-functions`). Every channel
+  to the standard paths per shell. zsh's path differs by distro: Debian
+  carries `vendor-completions`, Fedora `site-functions`. Every channel
   generates them from the built binary's own `--completions <shell>`, so
-  there is one generator and no packaging path that can install a file the
-  shell will not find.
-- Every argument that names a tool (the `TOOL` positional, `--doctor`'s
-  value, `--report`'s value) completes to the command names on `$PATH`,
+  there is one generator and no packaging path can install a file the shell
+  will not find.
+- Every argument that names a tool, the `TOOL` positional, `--doctor`'s
+  value, and `--report`'s value, completes to the command names on `$PATH`,
   never to filenames, since each one is a program mandible is about to run
   `--help` on. `SUBCOMMAND` words after `TOOL` are names inside one tool's
   tree and are not completed this way.
-- The shell integration (§2's `--print-selection` binding) ships the same
-  way and installs to no path at all: `mandible --shell-init <shell>`
-  prints it, from a snippet compiled into the binary
-  (`mandible/shell/`, inside the crate root so the published package
-  carries it), and the user opts in with `eval "$(mandible --shell-init
-  bash)"` in their rc file. The one-generator rule applies for the same
-  reason it does to completions, but the install half does not: no shell
-  auto-loads a key binding the way it auto-loads completions, and a
-  package binding `Ctrl-X m` for every user of a machine would be taking a
-  key nobody asked it to.
+- The shell integration for §2's `--print-selection` binding ships the same
+  way and installs to no path at all. `mandible --shell-init <shell>` prints
+  it, from a snippet compiled into the binary (`mandible/shell/`, inside the
+  crate root so the published package carries it), and the user opts in with
+  `eval "$(mandible --shell-init bash)"` in their rc file. The one-generator
+  rule applies for the same reason it does to completions, but the install
+  half does not, since no shell auto-loads a key binding the way it
+  auto-loads completions.
 - `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
+
+**Why.** A workspace with unpublishable internal crates cannot be `cargo
+install`ed, which is why every crate publishes with metadata even when
+nobody depends on it directly. A package installing `Ctrl-X m` for every
+user of a shared machine would take a key nobody asked it to give up, which
+is why the shell-init snippet is opt-in only and never auto-installed the
+way completions are.
+
+**Implemented in.** `packaging/mandible.1`; `.github/workflows/ci.yml`;
+`.github/workflows/release.yml`; `mandible/shell/mandible.bash`;
+`mandible/shell/mandible.zsh`; `mandible/Cargo.toml`; `mandible/src/cli.rs`;
+`mandible/src/shell_init.rs`; `mandible-core/src/config.rs`.
 
 ---
 
