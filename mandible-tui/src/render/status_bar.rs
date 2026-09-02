@@ -12,39 +12,19 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-/// One footer, true everywhere.
+/// One footer, true everywhere, never focus-conditional: `Ctrl-C` rather
+/// than `q` (the only key that quits from every focus, since `q` types
+/// the letter in the search box), `Esc` named explicitly, wide separators
+/// between hints. Built per-frame because the arrow glyphs depend on what
+/// the terminal can draw ([`crate::glyphs`]).
 ///
-/// It used to change with focus, which meant the controls moved under the
-/// user exactly when they were least sure of them. It also used to promise
-/// `q quit` while `q` typed the letter q in the search box — the one
-/// genuinely dangerous line, since someone who wants out, hammers `q`, and
-/// watches `qqqq` appear in the filter has been *told* that should work.
-///
-/// So: `Ctrl-C` rather than `q`, because it is the only key that quits from
-/// every focus; `Esc` named explicitly, because it is how you get out of
-/// the search box; and wide separators, since a run of hints crammed
-/// together reads as one long string rather than a list of keys.
-/// Built per-frame because the arrow glyphs depend on what the terminal
-/// can draw (see [`crate::glyphs`]).
-///
-/// `←→` already meant two things before the detail pane's horizontal
-/// scroll existed — `↑↓ move` names one hint for "move the tree selection"
-/// *and* "scroll the detail pane" depending on focus, and that ambiguity
-/// was accepted deliberately rather than switching the row. `←→` now covers
-/// a third meaning (collapse/expand vs. horizontal scroll) the same way:
-/// the label names both rather than picking one focus's meaning and
-/// leaving it wrong in the other, which a focus-conditional label would.
-///
-/// That label does still depend on one thing: `horizontal_scroll_enabled`.
-/// This is the config's state, not the focus state — `[ui]
-/// horizontal_scroll = false` turns sideways scrolling off outright
-/// (spec §9: everything wraps in that mode), and the footer is part of
-/// what a user sees, so `expand/scroll` would be
-/// advertising a behavior they explicitly turned off. `expand` alone is
-/// also shorter, which matters independently: at 80 columns the wider
-/// label pushed `Tab pane` off the row — the one hint that gets a user
-/// *to* the pane where the scroll half of the label would apply — so
-/// leaving the short label as the default-off case fixes both at once.
+/// `←→` names both of its meanings at once (tree collapse/expand vs.
+/// detail-pane horizontal scroll) rather than picking one focus's
+/// meaning, the same way `↑↓ move` already does for tree/detail scroll.
+/// The label depends on `horizontal_scroll_enabled` (the config, not
+/// focus): with `[ui] horizontal_scroll = false` the footer must not
+/// advertise a disabled behavior (spec §9), so it falls back to `expand`
+/// alone.
 fn hints(
     glyphs: crate::glyphs::Glyphs,
     horizontal_scroll_enabled: bool,
@@ -89,19 +69,10 @@ const PINNED_HINTS: usize = 2;
 /// hints don't start hard against the screen edge one row below a border.
 const LEFT_MARGIN: &str = "  ";
 
-/// Join as many hints as fit, **always keeping `? help` and `^C quit`**.
-///
-/// Plain truncation cut the row mid-word at narrow widths — an 88-column
-/// terminal showed `… ^C qu`, losing the one hint that matters most to
-/// someone who is stuck. Hints are dropped from the least important end
-/// instead, so what remains is always whole.
-///
-/// Two are pinned rather than one. `^C quit` is the escape hatch, and `?`
-/// is what makes everything dropped from the middle discoverable again: a
-/// narrow terminal that hides two thirds of the footer is exactly where a
-/// reader most needs to be told the full list exists. Pinning it also
-/// means adding a hint can no longer silently push it off the row, which
-/// is how `r` stayed invisible for five releases.
+/// Join as many hints as fit, always keeping `? help` and `^C quit`
+/// whole: hints are dropped from the least important end, never
+/// mid-word truncated. `^C quit` is the escape hatch; `?` is what makes
+/// everything dropped from the middle discoverable again.
 fn hints_for_width(
     width: usize,
     glyphs: crate::glyphs::Glyphs,
@@ -216,11 +187,6 @@ mod tests {
 
     /// Every key that changes what the tool does must be reachable without
     /// opening `?` first.
-    ///
-    /// `r` was bound and listed in the overlay from the first release but
-    /// never shown here, so the only way to discover it was to already know
-    /// it existed. Listing them explicitly means removing one fails a test
-    /// rather than quietly shrinking the footer.
     #[test]
     fn every_action_key_is_named_at_full_width() {
         let rendered = hints_for_width(140, crate::glyphs::UNICODE, true, false);
@@ -240,9 +206,8 @@ mod tests {
         assert!(rendered.contains("^C quit"));
     }
 
-    /// The escape hatch survives at any width. Plain truncation used to cut
-    /// this row mid-word (`^C qu` at 88 columns), removing the one hint a
-    /// stuck user needs.
+    /// The escape hatch survives at any width; regression fixture: an
+    /// 88-column terminal.
     #[test]
     fn quit_hint_survives_a_narrow_terminal() {
         for width in [20, 30, 40, 60, 88] {
@@ -258,13 +223,9 @@ mod tests {
         }
     }
 
-    /// The whole point of the review round that added this: `[ui]
-    /// horizontal_scroll = false` has to reach the footer too, not just
-    /// the pane content — a hint for a key that now does nothing is a
-    /// promise the mode does not keep. `expand/scroll` is also long
-    /// enough to push `Tab pane` off an 80-column row, so the off state
-    /// fixes both at once — proven by comparing directly against the
-    /// pre-feature label.
+    /// `[ui] horizontal_scroll = false` must reach the footer too, not
+    /// just the pane content, since a hint for a disabled key is a
+    /// promise the mode does not keep.
     #[test]
     fn horizontal_hint_matches_the_config_toggle() {
         for width in [40, 60, 80, 100, 120, 140] {
@@ -277,11 +238,7 @@ mod tests {
             );
 
             // `off`'s label is strictly shorter, so at any width it can
-            // only fit as many or more of the non-pinned hints than `on`
-            // does — never fewer. This is the structural version of the
-            // review-round finding: the wider `on` label pushed `Tab
-            // pane` off an 80-column row, and `off` restoring the short
-            // label must never lose a hint `on` still had room for.
+            // only fit as many or more of the non-pinned hints than `on`.
             for hint in ["t raw", "Esc back", "y copy", "r reload", "Tab pane"] {
                 if on.contains(hint) {
                     assert!(
@@ -297,16 +254,9 @@ mod tests {
         let off_wide = hints_for_width(120, crate::glyphs::UNICODE, false, false);
         assert!(off_wide.contains("expand"), "{off_wide:?}");
 
-        // The specific bug this test pins: `render()` subtracts the
-        // right-hand provenance text's width from an 80-column terminal
-        // before budgeting hints (see `render`'s `hints_budget`), which is
-        // what actually pushed `Tab pane` off the row in a real 80-column
-        // frame — the review round's finding used a full pty capture, not
-        // `hints_for_width` in isolation. Reproduced at the raw-width
-        // crossover: the enabled label is long enough to cost `Tab pane`
-        // — the one hint that reaches the pane the feature applies to —
-        // while the disabled label, exactly as wide as before this
-        // feature existed, keeps it.
+        // `render()` subtracts the right-hand provenance text's width
+        // from the terminal width before budgeting hints (`hints_budget`
+        // in `render`); reproduced here at the raw-width crossover.
         let crossover = 68;
         let on = hints_for_width(crossover, crate::glyphs::UNICODE, true, false);
         let off = hints_for_width(crossover, crate::glyphs::UNICODE, false, false);
