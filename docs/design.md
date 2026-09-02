@@ -3105,7 +3105,7 @@ any of these as current.
   pointed at, regardless of which tool or argv triggers it. **Spawning the
   probe as the leader of a new session** (`pre_exec` + `setsid()`, this
   crate's one audited `unsafe`) **makes the same call fail with `ENXIO`.**
-  This is `tests/exec_policy.rs`'s `dev_tty_hazard::
+  This is `mandible-extract/tests/exec_policy.rs`'s `dev_tty_hazard::
   probe_cannot_reopen_the_controlling_terminal` test, verified to fail
   against the pre-fix code and pass against the fix — the AGENTS.md §2
   discipline of a fixture that has actually been made to fail once, not
