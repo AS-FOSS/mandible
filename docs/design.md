@@ -95,30 +95,36 @@ sense anywhere in this repository.
 
 ## 1. Product definition & non-goals
 
-**mandible is a reference browser, not a command builder.** The user's journey is:
-*"I know roughly what I want; show me the flag and its exact spelling, then let me
-copy it."* Everything in this spec is subordinate to that.
+**Decides.** What mandible is, and what it will never become.
 
-**The invariant that defines the project:**
+**Rules.**
 
-> The mandible repository will never contain per-tool logic. No `if tool == "docker"`,
-> no vendored per-tool patch file, no tool-name-keyed special case in any tier.
-> Tool-specific knowledge lives in exactly two places: (a) third-party structured
-> catalogs we consume wholesale as *data*, and (b) user-local override files that
-> are never checked into this repo.
+1. mandible is a reference browser, not a command builder.
+2. The user already knows roughly what they want. mandible shows the exact
+   flag and its spelling, and lets the user copy it.
+3. The mandible repository never contains per-tool logic. No
+   `if tool == "docker"`, no vendored per-tool patch file, no tool-name-keyed
+   special case in any tier.
+4. Tool-specific knowledge lives in exactly two places: third-party
+   structured catalogs consumed wholesale as data, and user-local override
+   files that are never checked into this repository.
+5. A change that would violate rule 3 is fixed by improving a general
+   parser, adding a general extraction tier, or accepting the gap and
+   showing it honestly in the UI.
+6. mandible never executes the tool being documented.
+7. mandible is not a shell completion engine.
+8. mandible does not synthesize commands from natural language. See §17.
+9. mandible does not promise perfect fidelity.
 
-If a change would violate that invariant, the correct fix is to improve a general
-parser, add a general extraction tier, or accept the gap and show it honestly in
-the UI. This is the whole reason the tiered design exists; a single exception
-starts the erosion.
+**Why.** Everything in this document is subordinate to the user's journey in
+rule 2. The no-per-tool-logic invariant is the whole reason the tiered
+design exists; a single exception starts the erosion. Carapace and similar
+tools already cover shell completion, so mandible does not duplicate that
+work. The extraction pipeline is best-effort by construction, so the UI's
+job is to make the confidence level legible, not to hide it.
 
-**Non-goals** (stated so they don't quietly creep in):
-
-- Executing the tool being documented. mandible never runs a user's command for them.
-- Being a shell completion engine. Carapace and friends already do that.
-- Natural-language command synthesis. See §17 for why this is deferred, not planned.
-- Perfect fidelity. The pipeline is best-effort by construction; the UI's job is to
-  make the confidence level legible, not to hide it.
+**Implemented in.** `mandible-extract/src/tier.rs`,
+`mandible-extract/src/overrides/mod.rs`.
 
 ---
 
