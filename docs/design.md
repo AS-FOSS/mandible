@@ -1507,6 +1507,13 @@ git and the per-tool patch pile begins.
 
 ## 8. Crate & workspace architecture
 
+**Decides.** Which crate owns which stage of the pipeline, and which single
+module may spawn a process.
+
+**Rules.**
+
+1. The workspace is laid out as follows:
+
 ```
 mandible/                          (workspace root)
 ├── mandible-core/                 # IR, Text sanitization, Provenance, Authority, merge, NodeRef
@@ -1525,19 +1532,22 @@ mandible/                          (workspace root)
 └── xtask/                       # coverage harness, spec vendoring, packaging
 ```
 
-**`mandible-extract/src/exec/` is the only module permitted to use
-`std::process`.** A `#![deny]`-style test greps the workspace for `Command::new`
-outside that module and fails the build otherwise. Centralizing this is what makes
-§6 auditable rather than aspirational.
+2. `mandible-extract/src/exec/` is the only module permitted to use
+   `std::process`. A `#![deny]`-style test greps the workspace for
+   `Command::new` outside that module and fails the build otherwise.
+3. Per-tier modules sit behind feature flags. Default features:
+   `known-specs`, `help-text`, `completion-script`, `native`. Optional:
+   `manpage` (C toolchain), `withfig`.
 
-Per-tier modules sit behind feature flags so Tier D — which only makes sense
-where man pages exist, and which is off by default in any case (§7 Tier D) —
-is not a hard requirement for a Windows user who wants Tiers A/B/C/E. Note the
-original reason for gating it, a C toolchain for `libmandoc`, no longer
-applies: §7 Tier D is a pure-Rust subset parser.
+**Why.** Centralizing `std::process` in one module is what makes §6
+auditable rather than aspirational. Gating Tier D behind a feature means it
+is not a hard requirement for a Windows user who wants Tiers A/B/C/E, since
+it only makes sense where man pages exist and is off by default in any case
+(§7 Tier D). The original reason for gating it, a C toolchain for
+`libmandoc`, no longer applies, since §7 Tier D is a pure-Rust subset
+parser; the flag stays for users who still want to opt it out.
 
-**Default features:** `known-specs`, `help-text`, `completion-script`, `native`.
-**Optional:** `manpage` (C toolchain), `withfig`.
+**Implemented in.** `mandible-extract/src/exec/`.
 
 ---
 
