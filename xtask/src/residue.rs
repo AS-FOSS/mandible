@@ -810,7 +810,12 @@ mod tests {
     fn residue_is_reachable_from_no_gate() {
         for (name, src) in [
             ("coverage.rs", include_str!("coverage.rs")),
-            ("corpus.rs", include_str!("corpus.rs")),
+            ("corpus/mod.rs", include_str!("corpus/mod.rs")),
+            ("corpus/contract.rs", include_str!("corpus/contract.rs")),
+            ("corpus/markdown.rs", include_str!("corpus/markdown.rs")),
+            ("corpus/report.rs", include_str!("corpus/report.rs")),
+            ("corpus/runner.rs", include_str!("corpus/runner.rs")),
+            ("corpus/summary.rs", include_str!("corpus/summary.rs")),
             ("status.rs", include_str!("status.rs")),
         ] {
             assert!(
