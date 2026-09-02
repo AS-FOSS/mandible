@@ -39,6 +39,28 @@ standalone command once its check is wired into `coverage --check` as a
 hard gate after a burn-in period; a human would no longer need to run it
 by hand before and after a change.
 
+### Known defect: two same-spelling entities collide in the fingerprint
+
+`xtask/src/coverage/fingerprint.rs` builds an entity key as
+`path::kind::spelling` and inserts it into a map. Two entities on one node,
+of one kind, with one spelling therefore share a key. The later entity
+overwrites the earlier one and no diff records the loss. The function's doc
+comment claims the path and kind prefixes prevent collisions, which holds
+only for different subcommands and different kinds.
+
+The defect runs in two directions. The flag count undercounts a node that
+documents one spelling twice, so removing a fabricated duplicate produces no
+`flags removed` line. The surviving entry also carries the second entity's
+value name and description hash, so sweep-diff reports a changed value name
+on a real entity that never moved. `jshell`, `rst-buildhtml` and
+`rstpep2html` show the second direction.
+
+A fix needs a key that separates two entities on one node, such as the
+entity's position in the tree or a counter per repeated key. Until then, a
+fingerprint is evidence only where duplicate spellings are impossible.
+Check the parsed tree instead whenever a change can add or remove a
+duplicate spelling.
+
 ## Audit (`xtask audit`)
 
 Audit draws a bounded, random, human-reviewed sample of real tools and
