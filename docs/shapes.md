@@ -506,12 +506,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
       ffplay --help (11k lines)
 - tools: ffplay, ffmpeg, as
 - handling: ffplay's --help parses in about 3.3s in debug builds, over the corpus
-  runner's 100ms advisory ceiling, non-failing. The corpus contract schema has
-  no field asserting a flag's description text, so a description recovery is
-  guarded only by the snapshot. is_value_spec_token accepts an all-uppercase
+  runner's 100ms advisory ceiling, non-failing. The contract schema gap is
+  closed: must_describe asserts a flag's description text, and
+  corpus/jmod/17.0.20 uses it so that recovery is no longer guarded only by
+  the snapshot. is_value_spec_token accepts an all-uppercase
   prose word as a value name, documented in tests, unobserved in the fleet.
   as-style =WORD placeholder-word choices are still read as choices, not
-  alternative placeholders.
+  alternative placeholders. Both remaining items need a fleet measurement of
+  their false-positive cost before a rule can be admitted.
 - fleet: not measured, 2026-08-31
 
 ### S-029: stderr-only help behind a decorator banner
