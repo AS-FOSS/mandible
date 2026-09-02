@@ -2514,6 +2514,10 @@ way completions are.
 
 ## 16. Open risks & honest caveats
 
+**Decides.** This section is the authority on known open risks and on
+maintainer rulings that resolved a design tension, recorded here so neither
+is re-litigated.
+
 ### Maintainer decisions, recorded so they are not re-litigated
 
 **A tool that returns its root help for every subcommand is shown as-is
