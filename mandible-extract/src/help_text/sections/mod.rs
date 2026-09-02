@@ -639,12 +639,24 @@ fn extract_description(
 /// subcommands, modifiers, positionals and environment variables as
 /// each recognized section shape is met. Returns the entry counts
 /// `compute_confidence` scores. See docs/shapes.md S-013 and S-019.
+/// The mutable state the body scan threads through every branch.
+/// Bundled so a branch can be lifted into its own function without a
+/// ten-argument signature.
+struct BodyScan<'a> {
+    result: &'a mut ParsedHelp,
+    command_mode: bool,
+    in_ignorable_section: bool,
+    obscured_ignorable_indent: Option<(usize, bool)>,
+    total_entries: usize,
+    clean_entries: usize,
+}
+
 fn scan_entries(
     raw: &str,
     lines: &[&str],
     usage_lines: &[String],
     mut i: usize,
-    mut result: &mut ParsedHelp,
+    result: &mut ParsedHelp,
     profile: Option<&FrameworkProfile>,
     tool_name: Option<&str>,
     bnf_row_lines: &std::collections::HashSet<usize>,
@@ -656,11 +668,11 @@ fn scan_entries(
     // only, not the whole document, keeps this from lighting up on tar's
     // `--occurrence` description, which mentions "subcommands" in prose
     // describing something else. Deliberately not also seeded from
-    // `result.usage`: containerd and ctr both write a docopt-style
+    // `st.result.usage`: containerd and ctr both write a docopt-style
     // `USAGE: <tool> ... command ...` synopsis, and seeding from that
     // alone turned their unrelated `VERSION:` block into a fabricated
     // subcommand named their own version string. See S-070.
-    let mut command_mode = result
+    let command_mode = result
         .description
         .as_deref()
         .is_some_and(|d| command_mode_seed(d, profile));
@@ -673,17 +685,17 @@ fn scan_entries(
     // generic bare-block fallback the example lines actually take —
     // resetting there would clear the flag on the first example line and
     // reopen the fabrication on the second. See S-071.
-    let mut in_ignorable_section = false;
+    let in_ignorable_section = false;
     // Some hand-written help indents `Examples:` beneath the prose
     // sentence immediately before it, which would otherwise be promoted
     // to a heading and hide the marker from `is_ignorable_heading`
     // entirely. While this is `Some((indent, _))`, the whole region is
     // fenced before any emission path can see its rows; a physical
     // dedent, or an independently attested flag section at the marker's
-    // indent or deeper, closes it. Separate from `in_ignorable_section`
+    // indent or deeper, closes it. Separate from `st.in_ignorable_section`
     // so a fence opened inside an already-suppressed section restores
     // that suppression rather than clearing it. See S-071.
-    let mut obscured_ignorable_indent: Option<(usize, bool)> = None;
+    let obscured_ignorable_indent: Option<(usize, bool)> = None;
 
     // 3. Section blocks: scan the rest of the output for a heading line
     // followed by more-indented content — or, if the first content already
@@ -691,18 +703,24 @@ fn scan_entries(
     // "Heading" is relative, not "column 0": tar indents its own headings
     // by one space while entries sit at two, so a block is recognized
     // whenever a line is followed by content indented more than it.
-    let mut total_entries = 0usize;
-    let mut clean_entries = 0usize;
+    let mut st = BodyScan {
+        result,
+        command_mode,
+        in_ignorable_section,
+        obscured_ignorable_indent,
+        total_entries: 0usize,
+        clean_entries: 0usize,
+    };
     while i < lines.len() {
         let line = lines[i];
         if line.trim().is_empty() {
             i += 1;
             continue;
         }
-        if let Some((marker_indent, prior_ignorable)) = obscured_ignorable_indent {
+        if let Some((marker_indent, prior_ignorable)) = st.obscured_ignorable_indent {
             if obscured_fence_reopens(&lines, i, marker_indent) {
-                obscured_ignorable_indent = None;
-                in_ignorable_section = prior_ignorable;
+                st.obscured_ignorable_indent = None;
+                st.in_ignorable_section = prior_ignorable;
             } else {
                 i += 1;
                 continue;
@@ -724,21 +742,21 @@ fn scan_entries(
                 emit_packed_flags(
                     None,
                     entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
-                    &mut result,
+                    st.result,
                 );
-                total_entries += seen;
-                clean_entries += seen;
+                st.total_entries += seen;
+                st.clean_entries += seen;
             } else {
-                let (seen, clean) = emit_flags(None, entries, &mut result);
-                total_entries += seen;
-                clean_entries += clean;
+                let (seen, clean) = emit_flags(None, entries, st.result);
+                st.total_entries += seen;
+                st.clean_entries += clean;
             }
             if let Some(entry) = argfile_entry {
-                total_entries += 1;
-                clean_entries += 1;
-                emit_argfile_flag(None, entry, &mut result);
+                st.total_entries += 1;
+                st.clean_entries += 1;
+                emit_argfile_flag(None, entry, st.result);
             }
-            command_mode = false;
+            st.command_mode = false;
             continue;
         }
 
@@ -753,12 +771,12 @@ fn scan_entries(
                     scan_headingless_invocation_table(&lines, i, tool_name, raw)
                 {
                     i = end;
-                    total_entries += seen;
-                    clean_entries += clean;
+                    st.total_entries += seen;
+                    st.clean_entries += clean;
                     for node in nodes {
-                        result.try_push_subcommand(node);
+                        st.result.try_push_subcommand(node);
                     }
-                    command_mode = false;
+                    st.command_mode = false;
                     continue;
                 }
             }
@@ -776,16 +794,18 @@ fn scan_entries(
                 && leading_whitespace(lines[marker_idx]) > heading_indent
                 && is_obscured_fence_marker(lines[marker_idx].trim())
             {
-                obscured_ignorable_indent =
-                    Some((leading_whitespace(lines[marker_idx]), in_ignorable_section));
-                in_ignorable_section = true;
-                command_mode = false;
+                st.obscured_ignorable_indent = Some((
+                    leading_whitespace(lines[marker_idx]),
+                    st.in_ignorable_section,
+                ));
+                st.in_ignorable_section = true;
+                st.command_mode = false;
                 i = marker_idx + 1;
                 continue;
             }
         }
         if is_ignorable_heading(&heading) {
-            in_ignorable_section = true;
+            st.in_ignorable_section = true;
         }
         // A hard-wrapped prose sentence, whose second physical line the
         // indentation-alone heading rule would otherwise hand to the
@@ -812,12 +832,12 @@ fn scan_entries(
             {
                 if let Some((end, rows)) = scan_env_var_table(&lines, i) {
                     i = end;
-                    in_ignorable_section = false;
-                    command_mode = false;
+                    st.in_ignorable_section = false;
+                    st.command_mode = false;
                     let (seen, clean) =
-                        emit_env_vars(meaningful_flag_group(heading.clone()), rows, &mut result);
-                    total_entries += seen;
-                    clean_entries += clean;
+                        emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
+                    st.total_entries += seen;
+                    st.clean_entries += clean;
                     continue;
                 }
             }
@@ -847,19 +867,19 @@ fn scan_entries(
                     i += 1;
                 }
                 if !is_ignorable_heading(&heading) {
-                    in_ignorable_section = false;
+                    st.in_ignorable_section = false;
                     let recognized = is_recognized_command_heading(&heading, profile);
                     if recognized {
-                        command_mode = true;
+                        st.command_mode = true;
                     }
                     let (seen, clean) = process_word_grid(
                         &heading,
                         &lines[grid_start..i],
-                        recognized || command_mode,
-                        &mut result,
+                        recognized || st.command_mode,
+                        st.result,
                     );
-                    total_entries += seen;
-                    clean_entries += clean;
+                    st.total_entries += seen;
+                    st.clean_entries += clean;
                 }
                 continue;
             }
@@ -894,11 +914,11 @@ fn scan_entries(
                     scan_same_indent_entry_table(&lines, i, heading_indent)
                 {
                     i = end;
-                    command_mode = true;
-                    in_ignorable_section = false;
-                    let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
-                    total_entries += seen;
-                    clean_entries += clean;
+                    st.command_mode = true;
+                    st.in_ignorable_section = false;
+                    let (seen, clean) = emit_subcommands(&heading, entries, st.result);
+                    st.total_entries += seen;
+                    st.clean_entries += clean;
                     continue;
                 }
             }
@@ -908,7 +928,7 @@ fn scan_entries(
             // whose group headings say nothing about "commands"
             // themselves), remember that. See S-070.
             if command_mode_seed(&heading, profile) {
-                command_mode = true;
+                st.command_mode = true;
             }
             // Rewind to just past the original line and continue scanning
             // it as its own candidate.
@@ -923,7 +943,7 @@ fn scan_entries(
         // this runs once per heading rather than folded into any later
         // branch.
         //
-        // Gated on `!in_ignorable_section`: bpftrace's own `EXAMPLES:`
+        // Gated on `!st.in_ignorable_section`: bpftrace's own `EXAMPLES:`
         // block writes each example in the identical shape to a real
         // stanza head, and without this guard it fabricated `-e`/`-l`
         // rows that displaced the real, described ones. See S-071.
@@ -931,7 +951,7 @@ fn scan_entries(
         // A stanza with its own description sentence above its head line
         // labels its group with that sentence instead ([`stanza_description_above`]).
         // The head line is not lost: it becomes a usage form
-        // (`result.usage`, spec §4.5). Pushed here because this is the
+        // (`st.result.usage`, spec §4.5). Pushed here because this is the
         // one place that knows the head line is about to stop being the
         // group label; `extract_positionals` has already run, so nothing
         // is mined out of the added line. See S-012.
@@ -941,21 +961,21 @@ fn scan_entries(
         // mean the tool printed the stanza twice. A scan of `usage` per
         // heading would be the quadratic shape `MAX_RECOVERED_ENTRIES`
         // exists for (instmodsh's repeated banner, S-072).
-        let stanza_label = if in_ignorable_section {
+        let stanza_label = if st.in_ignorable_section {
             None
         } else {
             stanza_description_above(&lines, heading_idx, tool_name).map(str::to_string)
         };
-        if stanza_label.is_some() && result.usage.len() < MAX_RECOVERED_ENTRIES {
-            result.usage.push(heading.clone());
+        if stanza_label.is_some() && st.result.usage.len() < MAX_RECOVERED_ENTRIES {
+            st.result.usage.push(heading.clone());
         }
-        if !in_ignorable_section {
+        if !st.in_ignorable_section {
             if let Some(mut flag) = recover_stanza_head_flag(&heading, tool_name) {
                 if let Some(label) = stanza_label.clone() {
                     flag.group = Some(label);
                 }
-                if result.flags.len() < MAX_RECOVERED_ENTRIES {
-                    result.flags.push(flag);
+                if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
+                    st.result.flags.push(flag);
                 }
             }
         }
@@ -968,7 +988,7 @@ fn scan_entries(
         // S-018.
         //
         // Gated on `is_recognized_command_heading(label, ...)` for this
-        // heading directly, never a `command_mode` chain, since a sticky
+        // heading directly, never a `st.command_mode` chain, since a sticky
         // chain can reach an unrelated wrapped-prose block.
         if let Some((label, inline_row)) = split_heading_inline_row(line.trim()) {
             if !is_ignorable_heading(&heading)
@@ -981,13 +1001,13 @@ fn scan_entries(
                     if let Some((end, mut entries)) = scan_bare_command_table(&lines, i) {
                         entries.insert(0, (first_name, None));
                         i = end;
-                        command_mode = true;
-                        in_ignorable_section = false;
+                        st.command_mode = true;
+                        st.in_ignorable_section = false;
                         let raw_tokens = command_table_token_index(raw);
                         let (seen, clean) =
-                            emit_headed_command_table(entries, &raw_tokens, &mut result);
-                        total_entries += seen;
-                        clean_entries += clean;
+                            emit_headed_command_table(entries, &raw_tokens, st.result);
+                        st.total_entries += seen;
+                        st.clean_entries += clean;
                         continue;
                     }
                 }
@@ -1011,12 +1031,12 @@ fn scan_entries(
                 // Positively-recognized structure clears the examples flag
                 // and contradicts a command-mode sticky chain (ar's own
                 // heading contains "command").
-                in_ignorable_section = false;
-                command_mode = false;
+                st.in_ignorable_section = false;
+                st.command_mode = false;
                 let (seen, clean) =
-                    emit_modifiers(meaningful_flag_group(heading.clone()), rows, &mut result);
-                total_entries += seen;
-                clean_entries += clean;
+                    emit_modifiers(meaningful_flag_group(heading.clone()), rows, st.result);
+                st.total_entries += seen;
+                st.clean_entries += clean;
             }
             if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
                 continue;
@@ -1031,9 +1051,9 @@ fn scan_entries(
         if !is_ignorable_heading(&heading) && i < lines.len() {
             if let Some(value_name) = argfile_row_value_name(lines[i].trim_start()) {
                 let entry = argfile_flag_entry(lines[i], value_name);
-                emit_argfile_flag(meaningful_flag_group(heading.clone()), entry, &mut result);
-                total_entries += 1;
-                clean_entries += 1;
+                emit_argfile_flag(meaningful_flag_group(heading.clone()), entry, st.result);
+                st.total_entries += 1;
+                st.clean_entries += 1;
                 i += 1;
                 if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
                     continue;
@@ -1055,12 +1075,12 @@ fn scan_entries(
         if is_environment_heading(&heading) && !is_ignorable_heading(&heading) {
             if let Some((end, rows)) = scan_env_var_table(&lines, i) {
                 i = end;
-                in_ignorable_section = false;
-                command_mode = false;
+                st.in_ignorable_section = false;
+                st.command_mode = false;
                 let (seen, clean) =
-                    emit_env_vars(meaningful_flag_group(heading.clone()), rows, &mut result);
-                total_entries += seen;
-                clean_entries += clean;
+                    emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
+                st.total_entries += seen;
+                st.clean_entries += clean;
                 if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
                     continue;
                 }
@@ -1080,13 +1100,13 @@ fn scan_entries(
                 scan_flags_block(&lines, flags_start, heading_is_bnf);
             i = end;
             if is_ignorable_heading(&heading) {
-                command_mode = false;
+                st.command_mode = false;
                 continue;
             }
             // A real, non-ignorable flags block — structurally strong
             // evidence we are not (or no longer) inside an examples-shaped
-            // section. See `in_ignorable_section`'s own doc comment.
-            in_ignorable_section = false;
+            // section. See `st.in_ignorable_section`'s own doc comment.
+            st.in_ignorable_section = false;
             // A stanza's own description sentence outranks its head line
             // as the group's label, and only there — every other block
             // still takes `meaningful_flag_group`'s answer unchanged. See
@@ -1099,21 +1119,21 @@ fn scan_entries(
                 emit_packed_flags(
                     group.clone(),
                     entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
-                    &mut result,
+                    st.result,
                 );
-                total_entries += seen;
-                clean_entries += seen;
+                st.total_entries += seen;
+                st.clean_entries += seen;
             } else {
-                let (seen, clean) = emit_flags(group.clone(), entries, &mut result);
-                total_entries += seen;
-                clean_entries += clean;
+                let (seen, clean) = emit_flags(group.clone(), entries, st.result);
+                st.total_entries += seen;
+                st.clean_entries += clean;
             }
             if let Some(entry) = argfile_entry {
-                total_entries += 1;
-                clean_entries += 1;
-                emit_argfile_flag(group, entry, &mut result);
+                st.total_entries += 1;
+                st.clean_entries += 1;
+                emit_argfile_flag(group, entry, st.result);
             }
-            command_mode = false;
+            st.command_mode = false;
             continue;
         }
 
@@ -1129,11 +1149,11 @@ fn scan_entries(
         if profile.is_some_and(|p| p.argparse_subparser_quirk) {
             if let Some((end, entries)) = scan_argparse_subparsers(&lines, i, heading_indent) {
                 i = end;
-                command_mode = false;
-                in_ignorable_section = false;
-                let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
-                total_entries += seen;
-                clean_entries += clean;
+                st.command_mode = false;
+                st.in_ignorable_section = false;
+                let (seen, clean) = emit_subcommands(&heading, entries, st.result);
+                st.total_entries += seen;
+                st.clean_entries += clean;
                 continue;
             }
         }
@@ -1142,24 +1162,24 @@ fn scan_entries(
         // below the subparser scan since for argparse the two read the
         // same heading, and the subparser scan's `{...}`-with-entries
         // evidence is stronger than heading text alone. Also breaks the
-        // sticky `command_mode` chain. See S-078.
+        // sticky `st.command_mode` chain. See S-078.
         if profile.is_some_and(|p| {
             heading_matches_markers(&heading.to_lowercase(), p.positional_heading_markers)
         }) {
             let (end, entries) = scan_bare_block(&lines, i, heading_indent, false);
             i = end;
-            command_mode = false;
-            in_ignorable_section = false;
+            st.command_mode = false;
+            st.in_ignorable_section = false;
             let (block_seen, block_clean) =
-                emit_declared_positionals(entries, &usage_lines, &mut result);
-            total_entries += block_seen;
-            clean_entries += block_clean;
+                emit_declared_positionals(entries, &usage_lines, st.result);
+            st.total_entries += block_seen;
+            st.clean_entries += block_clean;
             continue;
         }
 
         // A framework-declared non-command heading both refuses this
         // block and breaks the engine's sticky same-indent chain, so
-        // nothing after it inherits a `command_mode` this heading
+        // nothing after it inherits a `st.command_mode` this heading
         // positively contradicts.
         let is_declared_non_command = profile.is_some_and(|p| {
             heading_matches_markers(&heading.to_lowercase(), p.non_command_heading_markers)
@@ -1171,30 +1191,30 @@ fn scan_entries(
         // is what keeps a bare ` - ` in ordinary prose from manufacturing
         // commands, the same failure class as apt-get's own description
         // paragraph, just via the column-gap rule instead.
-        let allow_dash_separator = (recognized || command_mode) && !is_declared_non_command;
+        let allow_dash_separator = (recognized || st.command_mode) && !is_declared_non_command;
 
         // A headed command table whose rows use ` = ` as a separator, or
         // no separator at all — wpa_cli's `=`-separated rows,
         // fail2ban-client's wrapped continuations. See S-019.
         //
         // Gated on `recognized` alone, deliberately narrower than
-        // `allow_dash_separator`, which also accepts a `command_mode`
+        // `allow_dash_separator`, which also accepts a `st.command_mode`
         // chain: fail2ban-client's `Command:` block nests rows whose
         // descriptions wrap across further lines, and the engine's own
         // pseudo-heading rewind re-examines each such row once
-        // `command_mode` is stuck on, satisfying every safeguard with
+        // `st.command_mode` is stuck on, satisfying every safeguard with
         // ordinary English words. `recognized` — true only when this
         // exact heading's own text names a command — is false for every
         // such pseudo-heading, so requiring it directly closes this off.
         if recognized && !is_declared_non_command {
             if let Some((end, entries)) = scan_bare_command_table(&lines, i) {
                 i = end;
-                command_mode = true;
-                in_ignorable_section = false;
+                st.command_mode = true;
+                st.in_ignorable_section = false;
                 let raw_tokens = command_table_token_index(raw);
-                let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, &mut result);
-                total_entries += seen;
-                clean_entries += clean;
+                let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, st.result);
+                st.total_entries += seen;
+                st.clean_entries += clean;
                 continue;
             }
         }
@@ -1203,18 +1223,18 @@ fn scan_entries(
         // under one heading, structurally distinct from every other
         // framework's per-line bare-word block, so it gets first refusal
         // here. Gated on the profile flag and this heading already being
-        // recognized or continuing a `command_mode` chain. See S-093.
+        // recognized or continuing a `st.command_mode` chain. See S-093.
         if profile.is_some_and(|p| p.comma_separated_command_list)
-            && (recognized || command_mode)
+            && (recognized || st.command_mode)
             && !is_declared_non_command
         {
             let (end, entries) = scan_comma_separated_commands(&lines, i);
             i = end;
-            command_mode = true;
-            in_ignorable_section = false;
-            let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
-            total_entries += seen;
-            clean_entries += clean;
+            st.command_mode = true;
+            st.in_ignorable_section = false;
+            let (seen, clean) = emit_subcommands(&heading, entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
             continue;
         }
 
@@ -1225,46 +1245,43 @@ fn scan_entries(
         }
 
         if is_declared_non_command {
-            command_mode = false;
-            let (seen, clean) = emit_choices(&heading, entries, &mut result);
-            total_entries += seen;
-            clean_entries += clean;
+            st.command_mode = false;
+            let (seen, clean) = emit_choices(&heading, entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
             continue;
         }
 
-        if recognized || command_mode {
-            command_mode = true;
+        if recognized || st.command_mode {
+            st.command_mode = true;
             // Only `recognized` (this exact heading's own text says
             // "commands") is strong enough to clear the flag here — the
-            // `command_mode` sticky-chain half of this condition is not:
+            // `st.command_mode` sticky-chain half of this condition is not:
             // it can still be true from an *inherited* chain rather than
             // this heading's own evidence, which is exactly the kind of
-            // indirect signal `in_ignorable_section` must not trust (see
+            // indirect signal `st.in_ignorable_section` must not trust (see
             // its own doc comment on why the generic bare-block fallback
             // is deliberately excluded from clearing it).
             if recognized {
-                in_ignorable_section = false;
+                st.in_ignorable_section = false;
             }
-            let (seen, clean) = emit_subcommands(&heading, entries, &mut result);
-            total_entries += seen;
-            clean_entries += clean;
+            let (seen, clean) = emit_subcommands(&heading, entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
         } else {
-            command_mode = false;
-            let (seen, clean) = emit_choices(&heading, entries, &mut result);
-            total_entries += seen;
-            clean_entries += clean;
+            st.command_mode = false;
+            let (seen, clean) = emit_choices(&heading, entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
         }
     }
-    (total_entries, clean_entries)
+    (st.total_entries, st.clean_entries)
 }
 
 /// [`parse_with_profile`]'s engine, over text whose shared heading rows
 /// have already been split out. `bnf_row_lines` records which row lines
 /// came from a `:=` BNF production rather than an ordinary column-gap
 /// heading, keyed on the row rather than the heading beside it.
-// Ratchet: the seventeen-flag body scanner; split into typed passes is tracked work. Listed in scripts/ratchet.txt.
-#[allow(clippy::too_many_lines)]
-#[allow(clippy::cognitive_complexity)]
 fn parse_body(
     raw: &str,
     profile: Option<&FrameworkProfile>,
