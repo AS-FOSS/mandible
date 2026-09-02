@@ -1698,7 +1698,7 @@ description breaks across six lines, one mid-word; at 28 it reads as
 prose. A layout that changed shape at some threshold width would make one
 list read as two different products either side of it.
 
-**Implemented in.** `mandible-tui/src/render/detail_pane.rs`.
+**Implemented in.** `mandible-tui/src/render/detail_pane/`.
 
 ### 9.2 The styling contract
 
@@ -1883,7 +1883,7 @@ one step for two levels; the sixteen named colors cannot express the two
 inner shades this section needs, which is why the xterm-256 gray ramp is
 read where available.
 
-**Implemented in.** `mandible-tui/src/render/detail_pane.rs`.
+**Implemented in.** `mandible-tui/src/render/detail_pane/`.
 
 ---
 ---
@@ -2069,7 +2069,7 @@ metric, because it converts a silent bug into a confidently reported
 success. §13.1b states this as five rules; [M-21] records the incidents
 that produced them.
 
-**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/misattribution.rs`,
+**Implemented in.** `xtask/src/coverage/`, `xtask/src/misattribution.rs`,
 `xtask/src/existence.rs`.
 
 ### 13.1a The framework-support workflow
@@ -2145,7 +2145,7 @@ corpus and a clean sweep-diff prove nothing regressed; neither looks at a
 single promoted tool with a human eye, which is why rule 5 requires a
 spot-audit.
 
-**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/audit.rs`.
+**Implemented in.** `xtask/src/coverage/`, `xtask/src/audit/`.
 
 ### 13.1c The audit instrument: comparing against truth
 
@@ -2236,7 +2236,7 @@ has not finished running. This section documents the instrument, not a
 result: no accuracy number is stated here. The result belongs in
 Appendix A as [M-20], once the audit completes.
 
-**Implemented in.** `xtask/src/audit.rs`, `mandible-core/src/audit.rs`.
+**Implemented in.** `xtask/src/audit/`, `mandible-core/src/audit.rs`.
 
 ### 13.1d The frozen sampling queue
 
@@ -2289,7 +2289,7 @@ staleness this design replaces. Reclassification still reads a tool's
 on-disk binary for framework fingerprinting, so it depends on the binary
 resolving on `PATH` at the same path, even though it spawns nothing.
 
-**Implemented in.** `xtask/src/audit.rs`, `xtask/src/queue.rs`.
+**Implemented in.** `xtask/src/audit/`, `xtask/src/queue.rs`.
 
 ### 13.1e Family detectors and the calibration precondition
 
@@ -2301,7 +2301,7 @@ quote, and what a family label means.
 1. A family detector generalizes one human audit finding across the
    fleet: the audit reads one tool at a time and is slow; a detector asks
    whether the same shape occurs on every `PATH` tool, in seconds.
-   `xtask detector` (`xtask/src/detector.rs`) is the harness they
+   `xtask detector` (`xtask/src/detector/`) is the harness they
    register in.
 2. A detector's fleet-wide number is not quotable until it has passed
    calibration against the human labels: it must fire on the known-bad
@@ -2315,7 +2315,7 @@ quote, and what a family label means.
    a label on a `correct` or `skip` verdict.
 4. A family name that turns out to cover more than one shape must be
    split, never detected. Per-family membership and disposition are
-   documented in `xtask/src/detector.rs`, not here.
+   documented in `xtask/src/detector/`, not here.
 5. The confusion matrix has five cells, not four: fires-on-bad, misses,
    silence-on-good, false alarms, and fires on a tool judged defective of
    a different family, neither a hit nor a false alarm, since the human
@@ -2372,7 +2372,7 @@ built for those two. A matrix computed over part of the labelled set and
 reported as complete is a worse claim than an incomplete one stated as
 such, which is why not-evaluable tools stay named rather than dropped.
 
-**Implemented in.** `xtask/src/detector.rs`, `mandible-core/src/audit.rs`.
+**Implemented in.** `xtask/src/detector/`, `mandible-core/src/audit.rs`.
 
 ### 13.1f Residue ranking: a discovery instrument, deliberately not a metric
 
@@ -2454,7 +2454,7 @@ that stops being broken means the bug looks fixed while the label still
 says otherwise, and the run demands the label be removed. Current scale
 and provenance are in [M-22].
 
-**Implemented in.** `xtask/src/corpus.rs`, `corpus/README.md`.
+**Implemented in.** `xtask/src/corpus/`, `corpus/README.md`.
 
 ### 13.3 Required test classes
 
@@ -2534,8 +2534,8 @@ motivated building sweep-diff in the first place, which is why the two
 totals are always reported separately. [M-21] has a worked example,
 start to finish.
 
-**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/audit.rs`,
-`xtask/src/detector.rs`, `xtask/src/corpus.rs`.
+**Implemented in.** `xtask/src/coverage/`, `xtask/src/audit/`,
+`xtask/src/detector/`, `xtask/src/corpus/`.
 
 ---
 
@@ -3443,7 +3443,7 @@ right-aligned style) and the `# aggregate:` footer gains
 `misattribution_column_aligned_tools=` and before `total=`. A scoreboard
 written before this change has neither key; `parse_aggregate_footer` defaults
 `existence_fabrication_tools` to `0` on such a scoreboard, so `--check`
-against an old baseline still works. `xtask/src/transition.rs`'s fixed-offset
+against an old baseline still works. `xtask/src/transition/`'s fixed-offset
 row parser (`row_offsets`) was updated in the same change to recognize the new
 column's width (`has_existence_column`, mirroring the existing
 `has_misattr_column`) — without it, `sweep-diff` would have silently misread
