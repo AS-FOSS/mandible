@@ -24,13 +24,5 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 
-# The name half already passes. The `...` suffix is the half that fails:
-# the operand reaches the tree as `file` and is not repeatable.
+# The operand reaches the tree named `file` and repeatable. See S-101.
 must_contain_positionals = ["file..."]
-
-[xfail]
-broken = true
-reason = "the usage line writes its operand as `[file...]`, with the repetition dots glued to the name and no space between them. The operand reaches the tree named `file` and not repeatable, so the marker the tool printed is rendered nowhere. The same line written `[file ...]` parses repeatable, which is what `bc` does."
-
-# Fleet count: none. No detector models this shape yet, so the count is
-# unmeasured rather than zero.
