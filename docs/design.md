@@ -1997,9 +1997,10 @@ a human then reads for seconds.
 
 ## 12. Implementation roadmap
 
-Reordered from revision 1 by measured payoff. Tier A is 740 tools and 48k
-descriptions for zero subprocesses [M-1]; it is the fastest path to a product
-that is actually useful, and it still exercises the merge against Tier B.
+**Decides.** The phase order the build followed, and each phase's exit
+criteria.
+
+**Rules.**
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
@@ -2008,10 +2009,15 @@ that is actually useful, and it still exercises the merge against Tier B.
 | **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mandible curl`, `mandible tar`, `mandible openssl`, `mandible ip` all produce useful trees; coverage harness reports its first scoreboard |
 | **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
 | **4 — Tier E + C** | cobra two-probe protocol with depth cap/visited set/alias detection; clap `CompleteEnv`; zsh `_arguments` then bash | A cobra tool absent from the catalog renders correctly; a `completion`-only tool renders correctly |
-| **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). **Not** `git` — its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
+| **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). Not `git`, its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
 | **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mandible itself, shell completions | `cargo install mandible` works; `.deb` and `.rpm` install cleanly |
 
-Deliberately **not** on the roadmap: local NL search (§17).
+Deliberately not on the roadmap: local NL search (§17).
+
+**Why.** Phases are reordered from revision 1 by measured payoff. Tier A
+is 740 tools and 48k descriptions for zero subprocesses [M-1], so it was
+the fastest path to a product that is actually useful, and it still
+exercised the merge against Tier B.
 
 ---
 
