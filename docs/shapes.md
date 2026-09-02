@@ -98,7 +98,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
       	[    --reportformat basic|json ]
       	[ COMMON_OPTIONS ]
       	[ VG|Tag ... ]
-- tools: vgck, vgextend, vgrename, lvreduce, and the wider lv*/vg*/pv* family
+- tools: vgck, vgextend, vgrename, lvreduce, and the wider lv*/vg*/pv*
+  family, lvextend
 - handling: A whole physical line that is exactly one bracket group starting with a dash
   is a flag row, recognized by grammar::looks_like_bracket_flag_row, never
   folded into the general flag-start test because that would end lsof's own
@@ -141,7 +142,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -? topic            show help
       -help topic         show help
       --help topic        show help
-- tools: ffplay, ffmpeg, ffprobe
+- tools: ffplay, ffmpeg, ffprobe, byobu-disable, byobu-enable, bzmore,
+  debconf-apt-progress, e4defrag, finalrd, iscsi_discovery, rust-gdbgui,
+  unix_chkpwd, validlocale, xdg-user-dir
 - handling: repair_single_dash_long_options rewrites -help's glued "elp" into the real
   spelling -help but clears its value, since the row's real value is already
   gone by then. recover_anchored_values restores it only when the raw document
@@ -404,7 +407,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       OPERATIONS:
         d - delete [files] from the archive
         m[abi] - move [files] in the archive
-- tools: llvm-ar, jmod, mount, ar
+- tools: llvm-ar, jmod, mount, ar, automake-1.16
 - handling: Rule 1's heading vocabulary is extended to recognize a heading mentioning
   operation or operations as a whole word, the same footing as
   command(s)/subcommand(s), for heading recognition only. Does not seed the
@@ -424,7 +427,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       ENVIRONMENT:
           BPFTRACE_STRLEN     [default: 64]
               bpftrace string size
-- tools: bpftrace, node
+- tools: bpftrace, node, nodejs, sqfstar
 - handling: Heading-keyed, never row-keyed, the opposite choice from the modifier table,
   because a bare identifier and description is not distinguishable from an
   ordinary settings table without the heading's own evidence. Recognized only
@@ -665,8 +668,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-039
 - looks like: |
       unknown option -- -
-- tools: ssh-keygen, c_rehash, myisamlog, ping, nginx, sshd, and all fifteen probed
-  xfs_* tools
+- tools: ssh-keygen, c_rehash, myisamlog, ping, nginx, sshd, and all fifteen
+  probed xfs_* tools, arptables-nft-save, arptables-save, byobu-quiet,
+  byobu-silent, cgi-fcgi, cpgr, cppw, debugfs, delv, dumpe2fs,
+  ebtables-nft-save, ebtables-save, filan, ip6tables-legacy-save,
+  ip6tables-nft-save, ip6tables-save, iptables-legacy-save, iptables-nft-save,
+  iptables-save, lvmdump, mkfs.xfs, mytop, nfsconf, nslookup, nsupdate,
+  ntfstruncate, pppoe-discovery, procan, prtstat, resize2fs, rsyslogd,
+  socat-broker.sh, socat-chain.sh, socat1, tnftp, xfs_rtcp, zipdetails,
+  debconf-copydb, mke2fs, ping4, ping6, sftp, slogin, ssh-copy-id, ssh-keyscan
 - handling: is_option_error_line/is_option_error_paragraph recognize the tool's own
   getopt complaint about the --help probe and drop it rather than surface it
   as the tool's description. When it was the only leading paragraph, the
@@ -684,7 +694,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       ssh-keygen -D pkcs11
       ssh-keygen -M generate
-- tools: ssh-keygen
+- tools: ssh-keygen, ip6tables
 - handling: extract_usage_flags's bare-token walk used to read a mandatory, unbracketed
   flag's own value word as an unrelated, silently-dropped bare token, so the
   flag looked like a boolean it is not. Fixed so -D, -F, -I, -M, -R, -r and -s
@@ -710,7 +720,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       where  OBJECT := { address | addrlabel | amt | fou | help | ila | ioam | l2tp |
              OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
-- tools: ip, vdpa, bridge, dcb, devlink, rdma
+- tools: ip, vdpa, bridge, dcb, devlink, rdma, delv, mariadb-admin,
+  swift-recon-cron, whiptail
 - handling: A column-0 line carrying a bare colon-equals is recognized as a grammar
   production rather than description prose. The iproute2 family also glues its
   heading to the first row with this same operator instead of a column gap, so
@@ -801,7 +812,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       --target-platform <String: target-
         platform>
-- tools: jmod, msgcat
+- tools: jmod, msgcat, msgcomm
 - handling: A flag's value placeholder can wrap mid-word onto the next physical line.
   The parser joins such a continuation into the value name rather than the
   description, detected by an unclosed angle bracket that opens only at a
@@ -999,7 +1010,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Options:  -h, --help                    print this message
                 -V, --version                 print the program version
-- tools: uconv, zipinfo
+- tools: uconv, zipinfo, delv, mariadb-admin, swift-recon-cron, whiptail
 - handling: A section heading and the first row of its table can share one physical
   line. Splitting recognizes a real column gap after the label with the
   remainder looking like a flag, replacing the earlier behaviour of promoting
@@ -1216,7 +1227,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 
       The --for-removal option limits scanning or listing to APIs that are
       deprecated for removal.
-- tools: jdeprscan
+- tools: jdeprscan, jdeps
 - handling: The options table is a bare list of spellings with no description column,
   and every option's prose lives in its own flush-left paragraph further down
   the document. A qualifying paragraph must sit at a shallow indent with no
@@ -1399,8 +1410,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       [-2CDlNuVv]
       [-AbdDefhHIJKlLnNOpqStuUvxX#]
-- tools: tmux, groff, tcpdump, od, pod2text, showmount, e2image, whereis, tree,
-  e2fsck, tic, mkfs.ext4, badblocks, zipinfo
+- tools: tmux, groff, tcpdump, od, pod2text, showmount, e2image, whereis,
+  tree, e2fsck, tic, mkfs.ext4, badblocks, zipinfo, fc-validate, psfxtable,
+  setfont, sg_map, umount.nfs
 - handling: A usage synopsis token like this names a set of bundled boolean switches,
   not one flag with a long glued-on value, but the ordinary flag grammar alone
   cannot tell the two apart. A synopsis-only check splits the cluster into one

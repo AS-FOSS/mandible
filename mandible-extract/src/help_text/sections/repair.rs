@@ -189,9 +189,9 @@ impl<'a> GluedTokenIndex<'a> {
 pub(super) const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 
 /// Re-read every `-help`-shaped option-table row as the single-dash long
-/// option it is, instead of its own first character carrying a
-/// required value. `qemu-arm64-static`'s `-help` otherwise becomes `-h`
-/// + value `"elp"`, alongside genuinely correct spaced-value rows like
+/// option it is, instead of its own first character carrying a required
+/// value. `qemu-arm64-static`'s `-help` otherwise becomes `-h` plus the
+/// value `"elp"`, alongside genuinely correct spaced-value rows such as
 /// `-g port` on adjacent lines. See docs/shapes.md S-035.
 ///
 /// Rewritten when all seven hold: option-table-sourced
