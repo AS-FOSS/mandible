@@ -50,6 +50,8 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- pnpm 11.22.0's `audit → signatures → signatures → …` tree no longer repeats until the warmer's node cap: the generic self-similar-help guard now compares exact selected output with every strict command-path ancestor for the same resolved binary and current root generation instead of the root alone, while identical siblings, different binaries, merely similar documents, and stale pre-refresh probes remain independent; its auxiliary history is bounded to 4,096 documents and 8 MiB of selected-text payload.
+
 - `mandible ar`'s descriptions no longer start with a stray `- ` on some rows and not others: `ar` writes ` - ` as the column separator on every row of its tables, and the parser stripped it only on rows whose name overran the column (`--target=BFDNAME - specify …`) while leaving it on aligned rows (`--thin       - make a thin archive`, `@<file>      - read options from <file>`), so one table rendered two ways; a lone `-` token opening the description side is now stripped whichever way the column was found, in every tool with that table style.
 
 - `mandible ffplay`'s `-? topic` row keeps the space between spelling and value again: the argfile sigil's glued rendering (`@<file>`) keyed on "first character is not alphanumeric", which also matches the dashed short `-?` — harmless while `-?` carried no value, wrong the moment the value recovery above gave it one — and the sigil test now requires a dashless spelling (`Dashes::None`), which no short or long flag has and the argfile `@` does.

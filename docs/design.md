@@ -3265,6 +3265,44 @@ any of these as current.
   it never fires for a genuinely distinct subcommand's genuinely distinct
   help text, corpus fixtures included.
 
+  **Extended on 2026-09-02 after issue #114 exposed the same mechanism
+  below the root.** pnpm 11.22.0 on Windows 11 returned one 2,251-byte,
+  LF-only stdout document (stderr empty, exit 0) for each of `pnpm audit
+  --help`, `pnpm audit signatures --help`, and `pnpm audit signatures
+  signatures --help`; that document contains a real `Commands:` row named
+  `signatures`. Its 2,305-byte root document is different. The original
+  root-only equality guard therefore stopped `systemctl`/`llvm-ar` root
+  echoes but could not stop `audit → signatures → signatures → …`: every
+  repeated descendant differed from the cached root while exactly matching
+  its nearest non-root ancestor.
+
+  The generalized invariant remains exact and local: selected help for a
+  command path is compared only with its strict path ancestors, only for the
+  same resolved binary, and only in the extraction generation established
+  by that binary's latest root probe. A match takes the existing M-19
+  verbatim/known-complete path. Siblings and unrelated paths are never
+  compared, similar-but-not-identical text still parses normally, and a
+  convention-discovered command rebased onto another executable has a
+  separate history. The history is mutex-protected because background and
+  UI fills share the tier; beginning a root probe clears that binary's
+  descendants and advances its generation before execution, so a failed
+  refresh cannot retain stale entries and an old in-flight probe cannot
+  reinsert one after `Warmer::reset`.
+
+  This comparison history is itself bounded rather than multiplying the
+  8 MiB combined probe-output allowance by the 4,096-node warmer ceiling.
+  Across all resolved binaries, one tier retains at most 4,096 selected
+  documents and 8 MiB of their UTF-8 payload, plus at most 4,096 per-binary
+  history records. Distinct leaf documents are retained because admission
+  occurs before parsing establishes whether they have children; an exact
+  ancestor repetition is not inserted again. Identical siblings remain two
+  path-local entries. A root probe removes only that resolved binary's
+  documents from both the per-binary map and global accounting before it
+  advances that binary's generation; other binaries remain valid. Dropping
+  the tier releases everything. If either admission budget is exhausted,
+  the current node follows the same conservative verbatim/known-complete
+  path, so bounded memory cannot reopen an untracked fan-out.
+
 - **[M-21] Metric-design incidents and the defect-family detector fixes**
   (2026-08 batch, seed-2 audit of 94 tools). Five incidents produced §13.1b's
   five rules: [M-10]'s fabricated `tar` nodes inflated `%described`; [M-16]'s

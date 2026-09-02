@@ -76,7 +76,7 @@ pub use grammar::looks_like_bracket_flag_row;
 pub use sections::is_option_list_placeholder;
 
 use crate::errors::ExtractError;
-use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
+use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe, MAX_OUTPUT_BYTES};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
@@ -98,6 +98,19 @@ const EXTRACT_TIMEOUT: Duration = Duration::from_secs(10);
 /// and scroll.
 const MAX_UNPARSED_LINES: usize = 4096;
 
+/// Maximum selected-help payload retained solely for ancestor comparison.
+/// One live probe already has this combined stdout/stderr ceiling; keeping
+/// no more than the same amount across the session prevents the auxiliary
+/// history from multiplying that per-probe allowance by the warmer's node
+/// budget. Parsed [`CommandNode`] data is not counted here.
+const MAX_RETAINED_HELP_BYTES: usize = MAX_OUTPUT_BYTES;
+
+/// Maximum number of selected documents — and, independently, resolved
+/// binary histories — held by one tier. Mirrors the background warmer's
+/// 4,096-node safety ceiling without coupling the extractor crate to the
+/// application crate. Bytes usually reach their tighter bound first.
+const MAX_RETAINED_HELP_DOCUMENTS: usize = 4096;
+
 /// Tier B: parses `<tool> [<path>...] --help` (falling back to `-h`) via a
 /// layout-driven section parser and a small `winnow` flag-spec grammar.
 pub struct HelpTextTier {
@@ -106,20 +119,76 @@ pub struct HelpTextTier {
     /// replay frozen bytes through this exact parsing pipeline with zero
     /// subprocesses (the corpus regression harness's seam).
     probe: Arc<dyn Probe>,
-    /// Each tool's root `--help` text, keyed by its resolved binary path,
-    /// remembered the first time [`Self::extract_node`] probes the root —
-    /// see that method's doc comment for why: it is the baseline a later
-    /// subcommand probe is checked against to catch the self-similar-
-    /// fan-out hazard.
+    /// Each tool's selected help text by command path, keyed first by its
+    /// resolved binary path and scoped to that binary's current extraction
+    /// generation. See [`Self::record_selected_text`] for the invariant:
+    /// only strict path ancestors are candidates for the self-similar-
+    /// fan-out guard.
     ///
     /// A `Mutex` because `fill_node` is called concurrently from the
     /// background warm pool (`mandible/src/background.rs`) as well as the
     /// UI thread; a plain `RefCell` would not be `Sync`. Lives for the
     /// tier's lifetime, which is the whole session — one `Runner` (and so
-    /// one set of tiers) is built once per `mandible` invocation and
-    /// targets exactly one tool for that invocation's lifetime, refresh
-    /// (`r`) included, so the cache never needs to be evicted.
-    root_text: Mutex<HashMap<PathBuf, Arc<str>>>,
+    /// one set of tiers) is built once per `mandible` invocation, refresh
+    /// (`r`) included. A fresh root probe advances the generation and
+    /// clears that binary's paths; the generation token also stops an
+    /// in-flight probe from the discarded tree re-inserting stale text.
+    selected_text: Mutex<SelectedTextHistory>,
+}
+
+/// All selected-help history owned by one tier. Payload accounting is
+/// global so many convention-discovered binaries cannot each claim a full
+/// byte allowance; generations and path maps remain per resolved binary.
+struct SelectedTextHistory {
+    by_tool: HashMap<PathBuf, ToolHelpHistory>,
+    retained_documents: usize,
+    retained_bytes: usize,
+    limits: HelpHistoryLimits,
+}
+
+/// Selected help documents observed for one resolved binary during one
+/// extraction generation. `by_path` is keyed by the words after argv[0];
+/// the empty path is therefore the binary's root document.
+#[derive(Default)]
+struct ToolHelpHistory {
+    generation: u64,
+    by_path: HashMap<Vec<String>, Arc<str>>,
+    retained_bytes: usize,
+}
+
+#[derive(Clone, Copy)]
+struct HelpHistoryLimits {
+    binaries: usize,
+    documents: usize,
+    bytes: usize,
+}
+
+impl Default for SelectedTextHistory {
+    fn default() -> Self {
+        Self {
+            by_tool: HashMap::new(),
+            retained_documents: 0,
+            retained_bytes: 0,
+            limits: HelpHistoryLimits {
+                binaries: MAX_RETAINED_HELP_DOCUMENTS,
+                documents: MAX_RETAINED_HELP_DOCUMENTS,
+                bytes: MAX_RETAINED_HELP_BYTES,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum HelpProbeGeneration {
+    Tracked(u64),
+    Untracked,
+    CapacityExhausted,
+}
+
+enum SelectedTextDecision {
+    Continue,
+    RepeatedAncestor,
+    CapacityExhausted,
 }
 
 impl Default for HelpTextTier {
@@ -135,8 +204,136 @@ impl HelpTextTier {
     pub fn new(probe: Arc<dyn Probe>) -> Self {
         Self {
             probe,
-            root_text: Mutex::new(HashMap::new()),
+            selected_text: Mutex::new(SelectedTextHistory::default()),
         }
+    }
+
+    /// Snapshot the binary's extraction generation immediately before a
+    /// probe. A root probe starts a new generation *before* executing so a
+    /// failed refresh cannot leave descendant text from the discarded tree
+    /// eligible for comparison.
+    fn begin_help_probe(&self, tool_path: &Path, words: &[String]) -> HelpProbeGeneration {
+        let Ok(mut cache) = self.selected_text.lock() else {
+            return HelpProbeGeneration::Untracked;
+        };
+        if words.is_empty() {
+            if !cache.by_tool.contains_key(tool_path) {
+                if cache.by_tool.len() >= cache.limits.binaries {
+                    return HelpProbeGeneration::CapacityExhausted;
+                }
+                cache
+                    .by_tool
+                    .insert(tool_path.to_path_buf(), ToolHelpHistory::default());
+            }
+
+            let (cleared_documents, cleared_bytes, generation) = {
+                let history = cache
+                    .by_tool
+                    .get_mut(tool_path)
+                    .expect("the binary history was found or inserted above");
+                let cleared_documents = history.by_path.len();
+                let cleared_bytes = history.retained_bytes;
+                history.generation = history.generation.wrapping_add(1);
+                history.by_path.clear();
+                history.retained_bytes = 0;
+                (cleared_documents, cleared_bytes, history.generation)
+            };
+            cache.retained_documents = cache.retained_documents.saturating_sub(cleared_documents);
+            cache.retained_bytes = cache.retained_bytes.saturating_sub(cleared_bytes);
+            HelpProbeGeneration::Tracked(generation)
+        } else {
+            cache
+                .by_tool
+                .get(tool_path)
+                .map(|history| HelpProbeGeneration::Tracked(history.generation))
+                .unwrap_or(HelpProbeGeneration::Untracked)
+        }
+    }
+
+    /// Record one selected document if its probe still belongs to the
+    /// current generation, reporting when it is byte-for-byte identical to
+    /// a strict path ancestor for the same resolved binary.
+    ///
+    /// The full path is deliberately excluded from the comparison: a
+    /// repeated probe of one node is not evidence of recursion. Unrelated
+    /// and sibling paths are excluded by construction, and a root probe's
+    /// generation reset prevents stale descendants from crossing refresh.
+    /// A repeated ancestor is never inserted again. Distinct documents are
+    /// admitted only while both the entry and byte budgets have room; on
+    /// exhaustion the caller degrades the current node to a complete
+    /// verbatim leaf, preserving bounded and deterministic behavior.
+    fn record_selected_text(
+        &self,
+        tool_path: &Path,
+        words: &[String],
+        generation: HelpProbeGeneration,
+        raw: &str,
+    ) -> SelectedTextDecision {
+        let generation = match generation {
+            HelpProbeGeneration::Tracked(generation) => generation,
+            HelpProbeGeneration::Untracked => return SelectedTextDecision::Continue,
+            HelpProbeGeneration::CapacityExhausted => {
+                return SelectedTextDecision::CapacityExhausted;
+            }
+        };
+        let Ok(mut cache) = self.selected_text.lock() else {
+            return SelectedTextDecision::Continue;
+        };
+        let Some(history) = cache.by_tool.get(tool_path) else {
+            return SelectedTextDecision::Continue;
+        };
+        if history.generation != generation {
+            return SelectedTextDecision::Continue;
+        }
+
+        // A same-generation re-probe replaces this path. Remove its old
+        // value before either matching or admission so a changed result can
+        // never remain eligible as stale ancestor text.
+        let removed_bytes = {
+            let history = cache
+                .by_tool
+                .get_mut(tool_path)
+                .expect("the generation check found this binary history");
+            let removed_bytes = history.by_path.remove(words).map(|document| document.len());
+            if let Some(removed_bytes) = removed_bytes {
+                history.retained_bytes = history.retained_bytes.saturating_sub(removed_bytes);
+            }
+            removed_bytes
+        };
+        if let Some(removed_bytes) = removed_bytes {
+            cache.retained_documents = cache.retained_documents.saturating_sub(1);
+            cache.retained_bytes = cache.retained_bytes.saturating_sub(removed_bytes);
+        }
+
+        let history = cache
+            .by_tool
+            .get(tool_path)
+            .expect("the generation check found this binary history");
+        let repeats_ancestor = (0..words.len()).any(|prefix_len| {
+            history
+                .by_path
+                .get(&words[..prefix_len])
+                .is_some_and(|ancestor| ancestor.as_ref() == raw)
+        });
+        if repeats_ancestor {
+            return SelectedTextDecision::RepeatedAncestor;
+        }
+
+        if cache.retained_documents >= cache.limits.documents
+            || raw.len() > cache.limits.bytes.saturating_sub(cache.retained_bytes)
+        {
+            return SelectedTextDecision::CapacityExhausted;
+        }
+
+        let history = cache
+            .by_tool
+            .get_mut(tool_path)
+            .expect("the generation check found this binary history");
+        history.by_path.insert(words.to_vec(), Arc::from(raw));
+        history.retained_bytes += raw.len();
+        cache.retained_documents += 1;
+        cache.retained_bytes += raw.len();
+        SelectedTextDecision::Continue
     }
 }
 
@@ -164,35 +361,27 @@ impl ExtractionTier for HelpTextTier {
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
+        let generation = self.begin_help_probe(tool_path, &words);
         let (raw, _argv_display, confession) =
             probe_help_text_confession_aware(self.probe.as_ref(), tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
-        if words.is_empty() {
-            // This probe is the root: cache its text as the baseline
-            // later subcommand probes compare against. Always
-            // overwritten so a refresh re-baselines.
-            if let Ok(mut cache) = self.root_text.lock() {
-                cache.insert(tool_path.clone(), Arc::from(raw.as_str()));
-            }
-        } else if let Ok(cache) = self.root_text.lock() {
-            // Self-similar fan-out (spec M-19): a subcommand probe that
-            // returns bytes identical to the cached root text degrades to
-            // verbatim with no children, rather than re-reading the
-            // root's own command table as this subcommand's own.
-            // Keyed on output equality, never on tool name (same
-            // discipline as M-16's man-page check). See docs/shapes.md
-            // S-079.
-            if let Some(root_raw) = cache.get(tool_path) {
-                if root_raw.as_ref() == raw.as_str() {
-                    let detected_framework = framework::identify_from_artifact(tool)
-                        .or_else(|| framework::identify_from_help_text(&raw))
-                        .map(|f| f.name().to_string());
-                    let mut node = verbatim_node(&node_name, &raw, detected_framework);
-                    node.confession = confession;
-                    return Ok(node);
-                }
-            }
+        // Self-similar fan-out (spec M-19, docs/shapes.md S-079): a node
+        // whose selected help is identical to any strict ancestor for the
+        // same resolved binary and extraction generation degrades to
+        // verbatim with no children. Exact equality is the authority;
+        // neither tool/command names nor unrelated paths participate.
+        let history_decision = self.record_selected_text(tool_path, &words, generation, &raw);
+        if matches!(
+            history_decision,
+            SelectedTextDecision::RepeatedAncestor | SelectedTextDecision::CapacityExhausted
+        ) {
+            let detected_framework = framework::identify_from_artifact(tool)
+                .or_else(|| framework::identify_from_help_text(&raw))
+                .map(|f| f.name().to_string());
+            let mut node = verbatim_node(&node_name, &raw, detected_framework);
+            node.confession = confession;
+            return Ok(node);
         }
 
         // Detection order per spec §7 Tier A′: free artifact scan first
@@ -1486,6 +1675,648 @@ mod tests {
             !child.unparsed.is_empty(),
             "the raw text must still be available to the verbatim ('t') \
              view even though nothing was promoted to structure"
+        );
+    }
+
+    /// Issue #114's measured pnpm shape extends M-19/S-079 by one level:
+    /// the root document is distinct, but `audit signatures --help`
+    /// repeats `audit --help` byte for byte.  The first real `signatures`
+    /// row stays visible under `audit`; only the repeated descendant must
+    /// stop, while retaining the exact selected document as verbatim text.
+    #[test]
+    fn a_descendant_probe_identical_to_its_non_root_ancestor_does_not_fan_out() {
+        let root_raw =
+            "Usage: pnpm [command] [flags]\n\nCommands:\n  audit   Check installed packages\n";
+        let audit_raw = "Usage: pnpm audit [options]\n       pnpm audit signatures [options]\n\nCommands:\n  signatures   Verify registry signatures\n\nOptions:\n  --json       Output JSON\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["audit".to_string(), "--help".to_string()],
+                exec_output(audit_raw),
+            ),
+            (
+                vec![
+                    "audit".to_string(),
+                    "signatures".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(audit_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "pnpm".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/pnpm")),
+            version: None,
+        };
+
+        let root = tier
+            .extract_node(&tool, &["pnpm".to_string()], ATTESTED)
+            .expect("the transcript covers the root argv");
+        assert_eq!(
+            root.subcommands
+                .iter()
+                .map(|node| node.name.as_str())
+                .collect::<Vec<_>>(),
+            ["audit"],
+            "the distinct root document must still expose audit"
+        );
+
+        let audit = tier
+            .extract_node(&tool, &["pnpm".to_string(), "audit".to_string()], ATTESTED)
+            .expect("the transcript covers audit --help");
+        assert_eq!(
+            audit
+                .subcommands
+                .iter()
+                .map(|node| node.name.as_str())
+                .collect::<Vec<_>>(),
+            ["signatures"],
+            "the first real signatures row must remain visible"
+        );
+
+        let repeated = tier
+            .extract_node(
+                &tool,
+                &[
+                    "pnpm".to_string(),
+                    "audit".to_string(),
+                    "signatures".to_string(),
+                ],
+                ATTESTED,
+            )
+            .expect("the transcript covers audit signatures --help");
+        assert!(
+            repeated.subcommands.is_empty(),
+            "a document identical to a strict non-root ancestor must not \
+             expose that ancestor's children again: {:?}",
+            repeated
+                .subcommands
+                .iter()
+                .map(|node| &node.name)
+                .collect::<Vec<_>>()
+        );
+        assert!(repeated.children_filled, "the repeated level is complete");
+        assert_eq!(
+            repeated
+                .unparsed
+                .iter()
+                .map(Text::as_str)
+                .collect::<Vec<_>>(),
+            audit_raw.lines().collect::<Vec<_>>(),
+            "the selected help must remain available verbatim"
+        );
+        let cache = tier
+            .selected_text
+            .lock()
+            .expect("the selected-help history lock is healthy");
+        assert_eq!(cache.retained_documents, 2);
+        assert_eq!(cache.retained_bytes, root_raw.len() + audit_raw.len());
+        assert_eq!(
+            cache
+                .by_tool
+                .get(Path::new("/replayed/pnpm"))
+                .expect("pnpm has one current history")
+                .by_path
+                .len(),
+            2,
+            "the repeated signatures leaf must not retain a duplicate"
+        );
+    }
+
+    /// Every strict prefix participates, not just the root and the nearest
+    /// parent: `gamma` repeats `alpha` while differing from both `beta` and
+    /// the root.
+    #[test]
+    fn a_descendant_matching_a_non_nearest_non_root_ancestor_does_not_fan_out() {
+        let root_raw = "Usage: widget COMMAND\n\nCommands:\n  alpha   Alpha branch\n";
+        let alpha_raw = "Usage: widget alpha COMMAND\n\nCommands:\n  beta   A real beta command\n";
+        let beta_raw =
+            "Usage: widget alpha beta COMMAND\n\nCommands:\n  gamma   A real gamma command\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["alpha".to_string(), "--help".to_string()],
+                exec_output(alpha_raw),
+            ),
+            (
+                vec![
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(beta_raw),
+            ),
+            (
+                vec![
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                    "gamma".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(alpha_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the root transcript is present");
+        tier.extract_node(
+            &tool,
+            &["widget".to_string(), "alpha".to_string()],
+            ATTESTED,
+        )
+        .expect("the alpha transcript is present");
+        tier.extract_node(
+            &tool,
+            &[
+                "widget".to_string(),
+                "alpha".to_string(),
+                "beta".to_string(),
+            ],
+            ATTESTED,
+        )
+        .expect("the beta transcript is present");
+
+        let gamma = tier
+            .extract_node(
+                &tool,
+                &[
+                    "widget".to_string(),
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                    "gamma".to_string(),
+                ],
+                ATTESTED,
+            )
+            .expect("the gamma transcript is present");
+        assert_ne!(alpha_raw, root_raw);
+        assert_ne!(alpha_raw, beta_raw);
+        assert!(gamma.children_filled);
+        assert!(gamma.subcommands.is_empty());
+        assert_eq!(
+            gamma.unparsed.iter().map(Text::as_str).collect::<Vec<_>>(),
+            alpha_raw.lines().collect::<Vec<_>>()
+        );
+    }
+
+    /// Equality is meaningful only along one command path. Two siblings
+    /// may legitimately share a generated help template; seeing the first
+    /// must not globally suppress the second.
+    #[test]
+    fn identical_sibling_help_is_parsed_normally_for_both_paths() {
+        let root_raw =
+            "Usage: widget COMMAND\n\nCommands:\n  left    Left branch\n  right   Right branch\n";
+        let sibling_raw =
+            "Usage: widget branch COMMAND\n\nCommands:\n  nested   A real nested command\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["left".to_string(), "--help".to_string()],
+                exec_output(sibling_raw),
+            ),
+            (
+                vec!["right".to_string(), "--help".to_string()],
+                exec_output(sibling_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the transcript covers the root argv");
+        for sibling in ["left", "right"] {
+            let node = tier
+                .extract_node(
+                    &tool,
+                    &["widget".to_string(), sibling.to_string()],
+                    ATTESTED,
+                )
+                .unwrap_or_else(|error| panic!("{sibling} probe failed: {error}"));
+            assert_eq!(
+                node.subcommands
+                    .iter()
+                    .map(|child| child.name.as_str())
+                    .collect::<Vec<_>>(),
+                ["nested"],
+                "sibling equality must not suppress {sibling}"
+            );
+        }
+    }
+
+    /// Path prefixes are scoped by the resolved executable, not merely by
+    /// their spelling. Convention-discovered commands can rebase onto a
+    /// different binary while retaining the same remaining words.
+    #[test]
+    fn identical_help_from_a_different_resolved_binary_is_not_an_ancestor_match() {
+        let root_raw = "Usage: widget COMMAND\n\nCommands:\n  branch   A real branch\n";
+        let branch_raw =
+            "Usage: widget branch COMMAND\n\nCommands:\n  nested   A real nested command\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["branch".to_string(), "--help".to_string()],
+                exec_output(branch_raw),
+            ),
+            (
+                vec![
+                    "branch".to_string(),
+                    "leaf".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(branch_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let first = crate::resolve::ResolvedTool {
+            name: "first".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/first")),
+            version: None,
+        };
+        let second = crate::resolve::ResolvedTool {
+            name: "second".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/second")),
+            version: None,
+        };
+
+        // Interleave the two binary histories: a cache lacking the outer
+        // binary key sees `first`'s `branch` as `second`'s path prefix.
+        tier.extract_node(&second, &["second".to_string()], ATTESTED)
+            .expect("the transcript covers second's root");
+        tier.extract_node(&first, &["first".to_string()], ATTESTED)
+            .expect("the transcript covers first's root");
+        tier.extract_node(
+            &first,
+            &["first".to_string(), "branch".to_string()],
+            ATTESTED,
+        )
+        .expect("the transcript covers first's branch");
+
+        let second_descendant = tier
+            .extract_node(
+                &second,
+                &[
+                    "second".to_string(),
+                    "branch".to_string(),
+                    "leaf".to_string(),
+                ],
+                ATTESTED,
+            )
+            .expect("the transcript covers second's descendant");
+        assert_eq!(
+            second_descendant
+                .subcommands
+                .iter()
+                .map(|node| node.name.as_str())
+                .collect::<Vec<_>>(),
+            ["nested"],
+            "text from another resolved binary must not suppress this path"
+        );
+    }
+
+    /// A convention-rebased binary starts its own root generation. Doing
+    /// so between an ancestor and descendant probe for another binary must
+    /// neither clear that ancestor nor invalidate its generation token.
+    #[test]
+    fn probing_another_binarys_root_does_not_reset_this_binarys_ancestors() {
+        let root_raw = "Usage: widget COMMAND\n\nCommands:\n  branch   A real branch\n";
+        let branch_raw = "Usage: widget branch COMMAND\n\nCommands:\n  leaf   A repeated child\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["branch".to_string(), "--help".to_string()],
+                exec_output(branch_raw),
+            ),
+            (
+                vec![
+                    "branch".to_string(),
+                    "leaf".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(branch_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(Arc::new(transcript));
+        let first = crate::resolve::ResolvedTool {
+            name: "first".to_string(),
+            path: Some(PathBuf::from("/replayed/first")),
+            version: None,
+        };
+        let second = crate::resolve::ResolvedTool {
+            name: "second".to_string(),
+            path: Some(PathBuf::from("/replayed/second")),
+            version: None,
+        };
+
+        tier.extract_node(&first, &["first".to_string()], ATTESTED)
+            .expect("first's root establishes its generation");
+        tier.extract_node(
+            &first,
+            &["first".to_string(), "branch".to_string()],
+            ATTESTED,
+        )
+        .expect("first's ancestor is retained");
+        tier.extract_node(&second, &["second".to_string()], ATTESTED)
+            .expect("second's rebased root establishes only its generation");
+
+        {
+            let cache = tier
+                .selected_text
+                .lock()
+                .expect("the selected-help history lock is healthy");
+            let first_history = cache
+                .by_tool
+                .get(Path::new("/replayed/first"))
+                .expect("first's history survives second's root");
+            let second_history = cache
+                .by_tool
+                .get(Path::new("/replayed/second"))
+                .expect("second has an independent history");
+            assert_eq!(first_history.generation, 1);
+            assert_eq!(second_history.generation, 1);
+            assert!(first_history
+                .by_path
+                .contains_key(&["branch".to_string()][..]));
+        }
+
+        let repeated = tier
+            .extract_node(
+                &first,
+                &[
+                    "first".to_string(),
+                    "branch".to_string(),
+                    "leaf".to_string(),
+                ],
+                ATTESTED,
+            )
+            .expect("first's descendant still sees first's ancestor");
+        assert!(repeated.children_filled);
+        assert!(repeated.subcommands.is_empty());
+        assert_eq!(
+            repeated
+                .unparsed
+                .iter()
+                .map(Text::as_str)
+                .collect::<Vec<_>>(),
+            branch_raw.lines().collect::<Vec<_>>()
+        );
+    }
+
+    /// If retaining another distinct document would exceed the bounded
+    /// history payload, extraction fails closed at that node: raw help is
+    /// kept on the node, but no untracked children are allowed to fan out.
+    #[test]
+    fn exhausted_help_history_budget_degrades_to_a_complete_verbatim_leaf() {
+        let root_raw = "Usage: widget COMMAND\n\nCommands:\n  child   A real child\n";
+        let child_raw =
+            "Usage: widget child COMMAND\n\nCommands:\n  nested   A real nested command\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["child".to_string(), "--help".to_string()],
+                exec_output(child_raw),
+            ),
+        ]);
+        let selected_text = SelectedTextHistory {
+            limits: HelpHistoryLimits {
+                binaries: 2,
+                documents: 2,
+                bytes: root_raw.len(),
+            },
+            ..SelectedTextHistory::default()
+        };
+        let tier = HelpTextTier {
+            probe: Arc::new(transcript),
+            selected_text: Mutex::new(selected_text),
+        };
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the root fills the configured byte budget exactly");
+        let child = tier
+            .extract_node(
+                &tool,
+                &["widget".to_string(), "child".to_string()],
+                ATTESTED,
+            )
+            .expect("budget exhaustion is a safe degradation, not an error");
+        assert!(child.children_filled);
+        assert!(child.subcommands.is_empty());
+        assert_eq!(
+            child.unparsed.iter().map(Text::as_str).collect::<Vec<_>>(),
+            child_raw.lines().collect::<Vec<_>>()
+        );
+
+        let cache = tier
+            .selected_text
+            .lock()
+            .expect("the selected-help history lock is healthy");
+        assert_eq!(cache.retained_documents, 1);
+        assert_eq!(cache.retained_bytes, root_raw.len());
+    }
+
+    /// Re-extracting a binary's root starts a new extraction generation.
+    /// A descendant recorded for the discarded tree must no longer count
+    /// as an ancestor until that path is probed again in the new tree.
+    #[test]
+    fn root_reextraction_discards_descendant_help_from_the_old_generation() {
+        let root_raw = "Usage: widget COMMAND\n\nCommands:\n  audit   Inspect things\n";
+        let audit_raw =
+            "Usage: widget audit COMMAND\n\nCommands:\n  signatures   Inspect signatures\n";
+        let transcript = crate::exec::Transcript::new([
+            (vec!["--help".to_string()], exec_output(root_raw)),
+            (
+                vec!["audit".to_string(), "--help".to_string()],
+                exec_output(audit_raw),
+            ),
+            (
+                vec![
+                    "audit".to_string(),
+                    "signatures".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(audit_raw),
+            ),
+        ]);
+        let tier = HelpTextTier::new(std::sync::Arc::new(transcript));
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the transcript covers the first root probe");
+        tier.extract_node(
+            &tool,
+            &["widget".to_string(), "audit".to_string()],
+            ATTESTED,
+        )
+        .expect("the old generation records audit");
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the transcript covers the refreshed root probe");
+
+        let descendant = tier
+            .extract_node(
+                &tool,
+                &[
+                    "widget".to_string(),
+                    "audit".to_string(),
+                    "signatures".to_string(),
+                ],
+                ATTESTED,
+            )
+            .expect("the transcript covers the descendant probe");
+        assert_eq!(
+            descendant
+                .subcommands
+                .iter()
+                .map(|node| node.name.as_str())
+                .collect::<Vec<_>>(),
+            ["signatures"],
+            "discarded-generation ancestor text must not suppress this node"
+        );
+        assert!(descendant.unparsed.is_empty());
+    }
+
+    /// A reset can land while an old background fill is blocked in its
+    /// subprocess. Clearing the map at the new root is insufficient if the
+    /// old fill can insert after that clear; its pre-probe generation token
+    /// must make the late result ineligible for both recording and matching.
+    #[test]
+    fn an_inflight_old_generation_probe_cannot_reinsert_stale_descendant_help() {
+        #[derive(Default)]
+        struct GateState {
+            child_started: bool,
+            release_child: bool,
+        }
+
+        struct BlockingProbe {
+            gate: Arc<(Mutex<GateState>, std::sync::Condvar)>,
+            root: crate::exec::ExecOutput,
+            child: crate::exec::ExecOutput,
+        }
+
+        impl Probe for BlockingProbe {
+            fn run(
+                &self,
+                tool_path: &Path,
+                argv: &InertArgv,
+                _timeout: Duration,
+            ) -> Result<crate::exec::ExecOutput, crate::exec::ExecError> {
+                let args = argv.args();
+                let words: Vec<&str> = args.iter().map(String::as_str).collect();
+                if words == ["audit", "--help"] {
+                    let (lock, wake) = &*self.gate;
+                    let mut state = lock.lock().unwrap_or_else(|error| error.into_inner());
+                    state.child_started = true;
+                    wake.notify_all();
+                    while !state.release_child {
+                        state = wake.wait(state).unwrap_or_else(|error| error.into_inner());
+                    }
+                }
+                match words.as_slice() {
+                    ["--help"] => Ok(self.root.clone()),
+                    ["audit", "--help"] | ["audit", "signatures", "--help"] => {
+                        Ok(self.child.clone())
+                    }
+                    _ => Err(crate::exec::ExecError::TranscriptMiss {
+                        tool: tool_path.display().to_string(),
+                        argv: args,
+                    }),
+                }
+            }
+        }
+
+        let root_raw = "Usage: widget COMMAND\n\nCommands:\n  audit   Inspect things\n";
+        let audit_raw =
+            "Usage: widget audit COMMAND\n\nCommands:\n  signatures   Inspect signatures\n";
+        let gate = Arc::new((Mutex::new(GateState::default()), std::sync::Condvar::new()));
+        let probe = BlockingProbe {
+            gate: Arc::clone(&gate),
+            root: exec_output(root_raw),
+            child: exec_output(audit_raw),
+        };
+        let tier = Arc::new(HelpTextTier::new(Arc::new(probe)));
+        let tool = crate::resolve::ResolvedTool {
+            name: "widget".to_string(),
+            path: Some(std::path::PathBuf::from("/replayed/widget")),
+            version: None,
+        };
+
+        tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+            .expect("the first root probe establishes a generation");
+        std::thread::scope(|scope| {
+            let old_tier = Arc::clone(&tier);
+            let old_tool = tool.clone();
+            let old_fill = scope.spawn(move || {
+                old_tier.extract_node(
+                    &old_tool,
+                    &["widget".to_string(), "audit".to_string()],
+                    ATTESTED,
+                )
+            });
+
+            let (lock, wake) = &*gate;
+            let state = lock.lock().unwrap_or_else(|error| error.into_inner());
+            let (mut state, timeout) = wake
+                .wait_timeout_while(state, Duration::from_secs(5), |state| !state.child_started)
+                .unwrap_or_else(|error| error.into_inner());
+            if timeout.timed_out() {
+                state.release_child = true;
+                wake.notify_all();
+                drop(state);
+                panic!("the old-generation child probe never reached its gate");
+            }
+            drop(state);
+
+            // This is `r`: the fresh root advances and clears the binary's
+            // history while the old child is still in flight.
+            tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
+                .expect("the refreshed root probe succeeds");
+
+            let mut state = lock.lock().unwrap_or_else(|error| error.into_inner());
+            state.release_child = true;
+            wake.notify_all();
+            drop(state);
+            old_fill
+                .join()
+                .expect("the old fill thread must not panic")
+                .expect("the old probe itself still returns normally");
+        });
+
+        let descendant = tier
+            .extract_node(
+                &tool,
+                &[
+                    "widget".to_string(),
+                    "audit".to_string(),
+                    "signatures".to_string(),
+                ],
+                ATTESTED,
+            )
+            .expect("the descendant probe is recorded in the new generation");
+        assert_eq!(
+            descendant
+                .subcommands
+                .iter()
+                .map(|node| node.name.as_str())
+                .collect::<Vec<_>>(),
+            ["signatures"],
+            "the late old-generation audit result must not suppress this node"
         );
     }
 
