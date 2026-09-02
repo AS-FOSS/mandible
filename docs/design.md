@@ -2610,45 +2610,55 @@ where the shim test's own comment carries the reasoning, the row can go too.
 
 ## 17. Investigated and deferred: local NL search
 
-A local tool-calling model (e.g. `cactus-compute/needle`, ~26–30M params, MIT
-weights with an MIT ONNX export) was investigated for queries that share no
-vocabulary with the target — *"squash my last 3 commits"* will never fuzzy-match
-`rebase --interactive`. **The conclusion is to defer it, and the reasoning is
-recorded here so it isn't re-litigated.**
+**Decides.** This section is the authority on why mandible does not depend
+on a local NL tool-calling model for search, recorded so the question is not
+re-litigated.
 
-**The license finding is worth keeping regardless.** The model weights and the
-ONNX export are MIT, but the **Cactus inference engine is a custom, non-OSI
-license**: free use is granted only to individuals for personal/educational/
-non-commercial use, organizations under *both* $2M funding and $2M revenue,
-educational institutions, and 501(c)(3) nonprofits — with the grant terminating
-automatically if a qualifying org crosses either threshold. If mandible depended on
-that engine, any downstream user past those thresholds would need a commercial
-license from Cactus Compute merely for using mandible. **Do not take that
-dependency.** If the model is ever revisited, load the MIT ONNX export via `ort`
-or `tract` (both MIT/Apache-2.0), or reimplement the small architecture in
-`candle`. Avoid the prebuilt `needle-cq4.zip` — it is a proprietary quantization
-format tied to Cactus's kernels.
+**Rules.**
 
-**Why deferred:**
+- Do not take a dependency on the Cactus inference engine.
+- If the model is ever revisited, load the MIT ONNX export via `ort` or
+  `tract` (both MIT/Apache-2.0), or reimplement the small architecture in
+  `candle`.
+- Avoid the prebuilt `needle-cq4.zip`. It is a proprietary quantization
+  format tied to Cactus's kernels.
 
-- **The "the CommandNode tree is almost exactly Needle's tool registry" claim does
-  not survive the data.** `git` alone is 279 nodes and 2,999 flags [M-1]. A 26M
-  model with an 8k BPE vocab cannot take that as a registry. You would need
-  retrieval to pre-narrow candidates first — at which point retrieval is doing the
-  work and the model is re-ranking, a materially different design.
-- **It needs a fine-tune to work on CLI phrasing.** Needle was trained on general
-  function-calling data (`get_weather(location)`), not on the terse jargon of
-  `git`/`ffmpeg`/`tar`. That is a data-generation project, not an integration.
-- **The cheap version probably captures most of the value.** The reason
-  "squash my last 3 commits" fails today is that matching runs over *names*.
-  Descriptions are already indexed for 2,979 git flags [M-1]; a BM25/tf-idf pass
-  over description and example text should be tried first, and the residual
-  failure set is what would justify a model.
-- **It inverts the product's identity** — a fast, local, instant reference becomes
-  a 61 MB ML dependency.
+**Why.** A local tool-calling model (`cactus-compute/needle`, ~26–30M
+params, MIT weights with an MIT ONNX export) was investigated for queries
+that share no vocabulary with the target: *"squash my last 3 commits"* will
+never fuzzy-match `rebase --interactive`. Four reasons argue against taking
+it now.
 
-Vendor-published figures in this section (parameter count, distillation source,
-throughput) are **unverified vendor claims**, not measurements.
+- The claim that the CommandNode tree is almost exactly Needle's tool
+  registry does not survive the data. `git` alone is 279 nodes and 2,999
+  flags [M-1]. A 26M model with an 8k BPE vocab cannot take that as a
+  registry. Retrieval would need to pre-narrow candidates first, and at that
+  point retrieval does the work while the model only re-ranks, a materially
+  different design.
+- It needs a fine-tune to work on CLI phrasing. Needle was trained on
+  general function-calling data (`get_weather(location)`), not the terse
+  jargon of `git`/`ffmpeg`/`tar`. That is a data-generation project, not an
+  integration.
+- A cheaper approach probably captures most of the value. "squash my last 3
+  commits" fails today because matching runs over names, not descriptions.
+  Descriptions are already indexed for 2,979 git flags [M-1]. A BM25/tf-idf
+  pass over description and example text should be tried first, and the
+  residual failure set is what would justify a model.
+- It inverts the product's identity: a fast, local, instant reference
+  becomes a 61 MB ML dependency.
+
+The model weights and the ONNX export are MIT. The Cactus inference engine
+carries a custom, non-OSI license instead: free use is granted only to
+individuals for personal, educational, or non-commercial use, to
+organizations under both $2M funding and $2M revenue, to educational
+institutions, and to 501(c)(3) nonprofits, with the grant terminating
+automatically once a qualifying organization crosses either threshold. A
+downstream user past those thresholds would need a commercial license from
+Cactus Compute merely for using mandible, if mandible depended on that
+engine.
+
+Vendor-published figures in this section, parameter count, distillation
+source, and throughput, are unverified vendor claims, not measurements.
 
 ---
 
