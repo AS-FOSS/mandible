@@ -21,7 +21,8 @@
 //! - (b) `[contract]`: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_modifiers`,
-//!   `must_not_contain_flags` ([`check_contract`]).
+//!   `must_not_contain_flags`, `must_keep_separate`, `must_attach_choices`,
+//!   `must_describe` ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
 //!   both pass fails the run — the bug is fixed, promote it
 //!   (`corpus/README.md`'s lifecycle rules).
@@ -158,6 +159,32 @@ pub(crate) struct ContractMeta {
     /// reported, unlike every positive field above.
     #[serde(default)]
     must_not_contain_flags: Vec<String>,
+    /// Spelling groups that must resolve to *distinct* root-flag entities
+    /// — the other shape a negative claim can take, guarding against the
+    /// alias-run fold merging unrelated flags onto one multi-spelling
+    /// entity (a reverted defect: an earlier fold merged rows on
+    /// description equality and fused unrelated flags, e.g. `-w` and
+    /// `-X`). Each inner list names spellings that must not all resolve
+    /// to the same entity; matched the way `must_contain_flags` matches,
+    /// root only. A tree with no root satisfies this vacuously, the same
+    /// reasoning as `must_not_contain_flags`.
+    #[serde(default)]
+    must_keep_separate: Vec<Vec<String>>,
+    /// A root flag's choice values it must carry, keyed by the flag's own
+    /// spelling (matched the way `must_contain_flags` matches). A positive
+    /// claim: the flag must exist and its `Entity::choices` must include
+    /// every named value, so a choices block that attached to the wrong
+    /// flag is checkable instead of only visible in a snapshot diff.
+    #[serde(default)]
+    must_attach_choices: std::collections::BTreeMap<String, Vec<String>>,
+    /// A root flag's rendered description must contain this text, keyed
+    /// by the flag's own spelling (matched the way `must_contain_flags`
+    /// matches). Substring match after collapsing runs of whitespace on
+    /// both sides to a single space (descriptions wrap); case-sensitive.
+    /// Issue #102 item 5: makes description recovery checkable instead of
+    /// guarded only by the snapshot.
+    #[serde(default)]
+    must_describe: std::collections::BTreeMap<String, String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a
@@ -991,6 +1018,186 @@ must_not_contain_flags = ["{forbidden}"]
                 );
             }
         }
+    }
+
+    /// `must_keep_separate` in both directions: two spellings that resolve
+    /// to two different entities pass; two spellings folded onto one
+    /// entity fail, naming the group and the spellings that collapsed.
+    /// Built by hand rather than through a real fold, since this is the
+    /// exact defect an earlier alias-run fold caused (`-w`/`-X` fused by a
+    /// description-equality merge) — the check must catch it regardless of
+    /// how the fold happens.
+    #[test]
+    fn must_keep_separate_names_the_group_and_spellings_that_collapsed() {
+        let contract = ContractMeta {
+            must_keep_separate: vec![
+                vec!["-w".into(), "-X".into()],
+                vec!["-C".into(), "-CC".into()],
+            ],
+            ..ContractMeta::default()
+        };
+
+        // Two entities, one spelling each: nothing collapsed.
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        root.entities.push(Entity::flag_short(
+            'w',
+            Provenance::single(Source::HelpText),
+        ));
+        root.entities.push(Entity::flag_short(
+            'X',
+            Provenance::single(Source::HelpText),
+        ));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // `-w` and `-X` folded onto one multi-spelling entity: reported,
+        // naming the group and the two spellings that share it. `-C`/`-CC`
+        // never even resolve here, so that group is silent.
+        let mut fused = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        let mut fused_entity = Entity::flag_short('w', Provenance::single(Source::HelpText));
+        fused_entity.spellings.push(Spelling::short('X'));
+        fused.entities.push(fused_entity);
+        assert_eq!(
+            check_contract(&contract, Some(&fused))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_keep_separate: [\"-w\", \"-X\"] collapsed onto one entity: -w, -X"]
+        );
+
+        // A spelling absent from the tree entirely never collapses with
+        // anything — the group is silent unless two of its spellings both
+        // resolved to the same entity.
+        let solo_only = ContractMeta {
+            must_keep_separate: vec![vec!["-w".into(), "-Z".into()]],
+            ..ContractMeta::default()
+        };
+        let mut solo = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        solo.entities.push(Entity::flag_short(
+            'w',
+            Provenance::single(Source::HelpText),
+        ));
+        assert!(check_contract(&solo_only, Some(&solo)).is_empty());
+
+        // No root at all is a negative claim, satisfied vacuously — same
+        // reasoning as `must_not_contain_flags`.
+        assert!(check_contract(&contract, None).is_empty());
+    }
+
+    /// `must_attach_choices` in both directions: the flag missing, the
+    /// flag present but missing a choice value, and the flag carrying
+    /// every named value.
+    #[test]
+    fn must_attach_choices_names_the_flag_or_the_missing_values() {
+        let mut choices = std::collections::BTreeMap::new();
+        choices.insert(
+            "--warnings".to_string(),
+            vec!["gnu".to_string(), "obsolete".to_string()],
+        );
+        let contract = ContractMeta {
+            must_attach_choices: choices,
+            ..ContractMeta::default()
+        };
+
+        // Flag absent entirely.
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_attach_choices[\"--warnings\"]: flag not present"]
+        );
+
+        // Flag present, but its choices don't carry either named value.
+        let mut warnings = Entity::flag_long("warnings", Provenance::single(Source::HelpText));
+        warnings.choices.push(mandible_core::Choice::bare("gnu"));
+        root.entities.push(warnings);
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_attach_choices[\"--warnings\"]: missing obsolete"]
+        );
+
+        // Both values attached: clean.
+        root.entities
+            .iter_mut()
+            .find(|e| e.spellings.iter().any(|s| s.name == "warnings"))
+            .unwrap()
+            .choices
+            .push(mandible_core::Choice::bare("obsolete"));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // No root at all fails this positive claim exactly as
+        // `must_contain_flags` fails.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_attach_choices: no root produced"]
+        );
+    }
+
+    /// `must_describe` in both directions, plus the whitespace-collapsing
+    /// rule (a wrapped description) and the truncated mismatch message.
+    #[test]
+    fn must_describe_names_the_flag_or_shows_expected_vs_actual() {
+        let mut describe = std::collections::BTreeMap::new();
+        describe.insert(
+            "--target".to_string(),
+            "the triple to build for".to_string(),
+        );
+        let contract = ContractMeta {
+            must_describe: describe,
+            ..ContractMeta::default()
+        };
+
+        // Flag absent entirely.
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_describe[\"--target\"]: flag not present"]
+        );
+
+        // Flag present, description doesn't contain the expected text.
+        let mut target = Entity::flag_long("target", Provenance::single(Source::HelpText));
+        target.description = Some(mandible_core::Text::sanitize("build for this host only"));
+        root.entities.push(target);
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "must_describe[\"--target\"]: expected description to contain \"the triple to build for\", got \"build for this host only\""
+            ]
+        );
+
+        // A wrapped description collapses to the same text a fixture
+        // author would have typed on one line.
+        root.entities
+            .iter_mut()
+            .find(|e| e.spellings.iter().any(|s| s.name == "target"))
+            .unwrap()
+            .description = Some(mandible_core::Text::sanitize(
+            "set   the triple\nto build for   and stop",
+        ));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // No root at all fails this positive claim exactly as
+        // `must_contain_flags` fails.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_describe: no root produced"]
+        );
     }
 
     #[test]

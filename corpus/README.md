@@ -127,6 +127,25 @@ must_contain_modifiers = ["a", "U"]  # same, for the single-letter modifiers
 # exist" below for exactly what it does and does not assert.
 must_not_contain_flags = ["--------------------------------"]
 
+# The other negative shape: spellings that really exist and must NOT
+# resolve to the same entity. Guards the alias-run fold specifically. See
+# "Stating that two flags did not fuse" below.
+must_keep_separate = [["-w", "-X"], ["-C", "-CC"]]
+
+# A flag must own the named choice values, so a choices block that
+# attached to the wrong flag is checkable instead of only visible in a
+# snapshot diff. Matched the way `must_contain_flags` matches; the flag
+# must exist and its choices must include every value listed.
+[contract.must_attach_choices]
+"--warnings" = ["gnu", "obsolete", "portability"]
+
+# A flag's rendered description must contain this text — substring match
+# after collapsing runs of whitespace on both sides to a single space
+# (descriptions wrap), case-sensitive. Makes description recovery
+# checkable instead of guarded only by the snapshot.
+[contract.must_describe]
+"--target" = "the triple to build for"
+
 # Same idea, for a subcommand's own flags — keyed by its path (space-
 # separated, tool's own name excluded), since `must_contain_flags` alone
 # can only ever assert what a tool publishes at its *root*. Requires a
@@ -181,6 +200,72 @@ A fixture that produces no root at all satisfies this vacuously and is not
 reported — the one asymmetry with the positive fields, which a missing tree
 trivially breaks. Dropping an entry is a weakening exactly as dropping a
 `must_contain_flags` entry is, and `--baseline-dir` reports it as one.
+
+### Stating that two flags did not fuse: `must_keep_separate`
+
+`must_not_contain_flags` catches invention. It says nothing about a
+different failure mode: two real, distinct flags read correctly on their
+own, then wrongly merged onto one multi-spelling entity. An earlier
+alias-run fold did exactly this — it merged rows on description equality
+and fused unrelated flags together — and had to be reverted, because
+nothing said the fold was not allowed to do that.
+
+`must_keep_separate` is that field: a list of spelling groups, each
+naming spellings that must resolve to distinct entities.
+
+```toml
+must_keep_separate = [["-w", "-X"], ["-C", "-CC"]]
+```
+
+Each inner list is checked independently. `cargo xtask corpus` fails,
+naming the group and which of its spellings collapsed together, when two
+or more spellings in one group resolve to the same entity. Matched
+**exactly the way `must_contain_flags` is**, root flags only — the same
+scope every other flag-shaped field has.
+
+This is a negative claim, the same shape as `must_not_contain_flags`, and
+follows it for the missing-root case: "these spellings never fused" holds
+vacuously of a tree with no flags at all, so a fixture that produces no
+root satisfies it and is not reported.
+
+### A flag must own its choices: `must_attach_choices`
+
+`--format`'s choice values belong to `--format`, not to whichever flag
+happens to sit next to it in the source. A choices block that attaches to
+the wrong flag produces a tree that looks complete — the values are
+somewhere — and only a snapshot diff, read carefully, would ever say so.
+
+```toml
+[contract.must_attach_choices]
+"--warnings" = ["gnu", "obsolete", "portability"]
+```
+
+The named flag, matched the way `must_contain_flags` matches, must exist
+and its `Entity::choices` must include every value listed. This is a
+**positive** claim: `cargo xtask corpus` fails when the flag is absent, or
+when any listed value is not among the choices attached to it, naming
+either the missing flag or the missing values. A fixture that produces no
+root fails this exactly as it fails `must_contain_flags`.
+
+### A flag's description says what it should: `must_describe`
+
+A flag can carry a description and still carry the wrong one — text
+recovered from the wrong line, or from a neighboring row. Nothing but a
+byte-exact snapshot diff caught that until now (issue #102 item 5).
+
+```toml
+[contract.must_describe]
+"--target" = "the triple to build for"
+```
+
+The named flag's rendered description must contain this text as a
+substring. Both sides are compared after collapsing runs of whitespace to
+a single space, because a real description wraps and a fixture author's
+TOML value may not wrap the same way; the match itself is case-sensitive.
+`cargo xtask corpus` fails when the flag is absent, or when the
+description does not contain the text, naming what was expected and what
+the description actually is (truncated to a readable length). A fixture
+that produces no root fails this exactly as it fails `must_contain_flags`.
 
 ### What `--bless` does and does not assert: `verdict_scope`
 
@@ -394,7 +479,8 @@ $ cargo run -p xtask -- corpus --baseline-dir /tmp/corpus-at-main   # also flag 
 corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
 a dropped `must_contain_flags`/`must_contain_flags_by_path`/
-`must_contain_positionals`/`must_not_contain_flags` entry, a fixture
+`must_contain_positionals`/`must_not_contain_flags`/`must_keep_separate`/
+`must_attach_choices` entry, a removed `must_describe` entry, a fixture
 newly marked `[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle
 rules above). This binary **has no git access and never will** — the

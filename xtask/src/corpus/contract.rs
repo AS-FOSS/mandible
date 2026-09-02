@@ -155,6 +155,8 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             }
         }
 
+        lines.extend(new_field_weakened_lines(&base.label, b, n));
+
         let base_xfail = base.meta.xfail.as_ref().is_some_and(|x| x.broken);
         let now_xfail = now.meta.xfail.as_ref().is_some_and(|x| x.broken);
         if !base_xfail && now_xfail {
@@ -164,6 +166,60 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             ));
         }
     }
+    lines
+}
+
+/// The weakening checks for the three fields added alongside
+/// `must_keep_separate`, `must_attach_choices` and `must_describe` — split
+/// out of [`contract_weakened_lines`] to keep that function under the
+/// workspace's line-count lint.
+fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> Vec<String> {
+    let mut lines = Vec::new();
+
+    // `must_keep_separate`: a dropped group retires the only statement
+    // that its spellings never fused, exactly the reasoning
+    // `must_not_contain_flags` above already carries for its own negative
+    // claim.
+    let dropped_groups: Vec<String> = b
+        .must_keep_separate
+        .iter()
+        .filter(|group| !n.must_keep_separate.iter().any(|g| g == *group))
+        .map(|group| format!("{group:?}"))
+        .collect();
+    if !dropped_groups.is_empty() {
+        lines.push(format!(
+            "CONTRACT WEAKENED: {label} must_keep_separate (dropped: {})",
+            dropped_groups.join(", ")
+        ));
+    }
+
+    for (flag, base_choices) in &b.must_attach_choices {
+        let now_choices = n.must_attach_choices.get(flag);
+        let missing: Vec<&str> = base_choices
+            .iter()
+            .filter(|c| !now_choices.is_some_and(|cs| cs.iter().any(|x| x == *c)))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_attach_choices[{flag:?}] (dropped: {})",
+                missing.join(", ")
+            ));
+        }
+    }
+
+    // `must_describe`: only flagged when the assertion disappears
+    // entirely, mirroring `expected_framework`'s own rule — a changed
+    // expected substring has no natural stronger/weaker ordering, so only
+    // its outright removal is reported.
+    for flag in b.must_describe.keys() {
+        if !n.must_describe.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_describe[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
     lines
 }
 
@@ -195,15 +251,19 @@ pub(crate) fn check_contract(
 /// report reads the same shape whether the failure is "wrong tree" or "no
 /// tree".
 ///
-/// `must_not_contain_flags` is deliberately absent from this list. Every
-/// field above is a positive claim, which a missing tree trivially breaks
-/// — "the tool has --paginate" cannot hold of no tree. A negative claim is
-/// the opposite: "no root flag is spelled X" is *satisfied* by a tree with
-/// no flags at all, so reporting it here would announce a violation of a
-/// promise that in fact holds, which is a false positive in the one place
-/// this runner's authority comes from. A fixture that produced no root
-/// still fails loudly — on its snapshot, and on every positive field it
-/// set.
+/// `must_not_contain_flags` and `must_keep_separate` are deliberately
+/// absent from this list. Every field above is a positive claim, which a
+/// missing tree trivially breaks — "the tool has --paginate" cannot hold
+/// of no tree. A negative claim is the opposite: "no root flag is spelled
+/// X" is *satisfied* by a tree with no flags at all, so reporting it here
+/// would announce a violation of a promise that in fact holds, which is a
+/// false positive in the one place this runner's authority comes from.
+/// `must_keep_separate` is negative the same way — "these spellings never
+/// fused" holds vacuously when none of them exist to fuse. `must_attach_choices`
+/// and `must_describe` are positive claims ("this flag exists and carries
+/// this"), so a missing root fails them exactly as it fails
+/// `must_contain_flags`. A fixture that produced no root still fails
+/// loudly — on its snapshot, and on every positive field it set.
 fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> {
     let mut failures = Vec::new();
     if contract.expected_framework.is_some() {
@@ -241,6 +301,14 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
         failures.push(ContractFailure(
             "must_contain_env_vars: no root produced".into(),
         ));
+    }
+    if !contract.must_attach_choices.is_empty() {
+        failures.push(ContractFailure(
+            "must_attach_choices: no root produced".into(),
+        ));
+    }
+    if !contract.must_describe.is_empty() {
+        failures.push(ContractFailure("must_describe: no root produced".into()));
     }
     failures
 }
@@ -311,6 +379,33 @@ fn check_contract_scalar_fields(
             "must_not_contain_flags: present {}",
             present_forbidden.join(", ")
         )));
+    }
+
+    // The other negative-claim shape: not "this spelling was invented",
+    // but "these spellings, which really exist, must not have been folded
+    // onto one entity" — the alias-run fold's own failure mode. Each group
+    // is checked independently; one `ContractFailure` per group that
+    // actually collapsed, naming the group and which of its spellings
+    // share an entity.
+    for group in &contract.must_keep_separate {
+        let mut by_entity: std::collections::BTreeMap<usize, Vec<&str>> =
+            std::collections::BTreeMap::new();
+        for spelling in group {
+            if let Some(idx) = resolve_flag_entity(root, spelling) {
+                by_entity.entry(idx).or_default().push(spelling.as_str());
+            }
+        }
+        let collapsed: Vec<String> = by_entity
+            .into_values()
+            .filter(|spellings| spellings.len() > 1)
+            .map(|spellings| spellings.join(", "))
+            .collect();
+        if !collapsed.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_keep_separate: {group:?} collapsed onto one entity: {}",
+                collapsed.join("; ")
+            )));
+        }
     }
 
     failures
@@ -388,6 +483,53 @@ fn check_contract_collection_fields(
         }
     }
 
+    for (flag_spec, wanted_choices) in &contract.must_attach_choices {
+        match root
+            .flags()
+            .find(|f| entity_matches_flag_spec(f, flag_spec))
+        {
+            None => failures.push(ContractFailure(format!(
+                "must_attach_choices[{flag_spec:?}]: flag not present"
+            ))),
+            Some(entity) => {
+                let missing: Vec<&str> = wanted_choices
+                    .iter()
+                    .filter(|c| !entity.choices.iter().any(|ch| &ch.name == *c))
+                    .map(|s| s.as_str())
+                    .collect();
+                if !missing.is_empty() {
+                    failures.push(ContractFailure(format!(
+                        "must_attach_choices[{flag_spec:?}]: missing {}",
+                        missing.join(", ")
+                    )));
+                }
+            }
+        }
+    }
+
+    for (flag_spec, expected_text) in &contract.must_describe {
+        match root
+            .flags()
+            .find(|f| entity_matches_flag_spec(f, flag_spec))
+        {
+            None => failures.push(ContractFailure(format!(
+                "must_describe[{flag_spec:?}]: flag not present"
+            ))),
+            Some(entity) => {
+                let actual = entity.description.as_ref().map_or("", |t| t.as_str());
+                let actual_collapsed = collapse_whitespace(actual);
+                let expected_collapsed = collapse_whitespace(expected_text);
+                if !actual_collapsed.contains(&expected_collapsed) {
+                    failures.push(ContractFailure(format!(
+                        "must_describe[{flag_spec:?}]: expected description to contain {:?}, got {:?}",
+                        expected_collapsed,
+                        truncate_for_display(&actual_collapsed, 120)
+                    )));
+                }
+            }
+        }
+    }
+
     failures
 }
 
@@ -433,6 +575,14 @@ fn extraction_result_stub(root: CommandNode) -> mandible_extract::ExtractionResu
 /// --help`), so a contract asserting `-?` must still find it once `-h`
 /// claims the canonical slot.
 fn flag_present(node: &CommandNode, spec: &str) -> bool {
+    node.flags().any(|f| entity_matches_flag_spec(f, spec))
+}
+
+/// The single-entity half of [`flag_present`]'s matching rule, split out
+/// so [`resolve_flag_entity`] can find *which* entity a spelling resolves
+/// to (for `must_keep_separate`) rather than only whether any entity
+/// matches.
+fn entity_matches_flag_spec(entity: &Entity, spec: &str) -> bool {
     if let Some(long) = spec.strip_prefix("--") {
         // Long-*like*, matching `Entity::long`'s own shape rule exactly
         // (never narrowed to `Dashes::Double` alone): two dashes, or one
@@ -440,25 +590,50 @@ fn flag_present(node: &CommandNode, spec: &str) -> bool {
         // (`ptargrep`'s own `-message`, `Dashes::Single`, four letters)
         // must still satisfy a `--message` contract entry the way
         // `Entity::long()` always considered it to.
-        node.flags().any(|f| {
-            f.spellings.iter().any(|s| {
-                (matches!(s.dashes, Dashes::Double)
-                    || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1))
-                    && s.name == long
-            })
+        entity.spellings.iter().any(|s| {
+            (matches!(s.dashes, Dashes::Double)
+                || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1))
+                && s.name == long
         })
     } else if let Some(short) = spec.strip_prefix('-') {
         short.chars().next().is_some_and(|c| {
-            node.flags().any(|f| {
-                f.spellings.iter().any(|s| {
-                    matches!(s.dashes, Dashes::Single)
-                        && s.name.chars().count() == 1
-                        && s.name.starts_with(c)
-                })
+            entity.spellings.iter().any(|s| {
+                matches!(s.dashes, Dashes::Single)
+                    && s.name.chars().count() == 1
+                    && s.name.starts_with(c)
             })
         })
     } else {
-        node.flags()
-            .any(|f| f.spellings.iter().any(|s| s.name == spec))
+        entity.spellings.iter().any(|s| s.name == spec)
     }
+}
+
+/// Which root flag entity (by index into `node.flags()`'s own iteration
+/// order) a spelling resolves to, or `None` if nothing matches — the
+/// building block `must_keep_separate` needs to tell "two spellings match
+/// two different entities" apart from "two spellings match the same
+/// entity", which mere presence (`flag_present`) cannot distinguish.
+fn resolve_flag_entity(node: &CommandNode, spec: &str) -> Option<usize> {
+    node.flags()
+        .enumerate()
+        .find(|(_, f)| entity_matches_flag_spec(f, spec))
+        .map(|(i, _)| i)
+}
+
+/// Truncate `s` to at most `max` chars for a readable failure message,
+/// appending `"..."` when truncated.
+fn truncate_for_display(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let truncated: String = s.chars().take(max).collect();
+        format!("{truncated}...")
+    }
+}
+
+/// Collapse runs of whitespace to a single space and trim the ends —
+/// `must_describe`'s comparison rule, applied to both sides, since a
+/// description wraps and a fixture author's TOML value may too.
+fn collapse_whitespace(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
