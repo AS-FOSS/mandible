@@ -58,6 +58,8 @@ tool = "bashbug"
 stratum = "ok"
 verdict = "incomplete"
 note = "missing 'bug-report-email-address' flag. in my screen the usage line is missing one character that wraps that flag, the closing square character, might that be the cause?"
+families = ["unparsed-positional"]
+families_derived = true
 
 [[entry]]
 tool = "btrfs"
@@ -236,6 +238,8 @@ tool = "lessecho"
 stratum = "ok"
 verdict = "incomplete"
 note = "is it missing positional 'file' argument?"
+families = ["unparsed-positional"]
+families_derived = true
 
 [[entry]]
 tool = "llvm-jitlink-executor-18"
@@ -485,6 +489,8 @@ tool = "vim.basic"
 stratum = "ok"
 verdict = "incomplete"
 note = "i believe it shows '--' as positional arg"
+families = ["unparsed-positional"]
+families_derived = true
 
 [[entry]]
 tool = "wall"

@@ -198,6 +198,10 @@ fn row(tool: &str, flags: usize, pct_flags_with_text: Option<f64>, status: &'sta
         single_dash_samples: Vec::new(),
         repeated_char_misread_count: 0,
         repeated_char_samples: Vec::new(),
+        wrapped_prose_count: 0,
+        wrapped_prose_samples: Vec::new(),
+        tail_operand_count: 0,
+        tail_operand_samples: Vec::new(),
         status,
         fingerprint: fingerprint::ToolFingerprint::default(),
     }
