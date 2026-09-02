@@ -1,99 +1,35 @@
-//! The **repeated-character flag** misread: `-vv` read as `-v` carrying a
-//! required value spelled `"v"`.
+//! The repeated-character flag misread: `-vv` read as `-v` carrying a
+//! required value spelled `"v"`. The second of the three families sharing
+//! the `short && !long && value_name` fingerprint (S-035;
+//! [`crate::bundling`]'s doc comment has the family table). `bpftrace`'s
+//! option table documents `-v`/`-vv` and `-d`/`-dd` as separate real
+//! flags; the tree only kept the boolean forms.
 //!
-//! The second of the three families that share the structural fingerprint
-//! `short && !long && value_name` (see [`crate::bundling`]'s doc comment for
-//! the table). `bpftrace`'s option table is the canonical document, and five
-//! of the seed-2 audit's 94 verdicts are the same bytes seen through five
-//! different `.bt` wrappers:
+//! Found by reading a flag that's present and mis-shaped, not by
+//! searching for one that's absent.
 //!
-//! ```text
-//!     -k             emit a warning when a bpf helper returns an error
-//!     -kk            check all bpf helper functions
-//! ...
-//!     -v                      verbose messages
-//!     -vv                     more verbose messages (max 2)
-//!     -d                      (dry run) debug info
-//!     -dd                     (dry run) verbose debug info
-//! ```
+//! A flag is reported when all hold: short spelling, no long name,
+//! `Required` value; the swallowed value is the flag's own character
+//! repeated ([`value_repeats_short`] — the family's whole identity, and
+//! what keeps the three families provably disjoint: a bundle is a set so
+//! can't satisfy it, a long option's tail is a word so can't either); the
+//! reconstructed token occurs glued and delimited in the raw text
+//! ([`crate::existence::spelling_occurs`]); the tool's own document
+//! declares the bare short flag a boolean ([`documents_bare_boolean`]).
 //!
-//! Six rows, six real flags. The tree gets four: `-k`, `-v` and `-d` as
-//! booleans, and *the same three letters again* as flags carrying a required
-//! value that is one copy of their own letter. `-kk`, `-vv` and `-dd` — three
-//! real, separately-documented, separately-described switches — are not in
-//! the tree under any spelling a user could type.
+//! That last condition is the safety argument: `lessecho`'s real `[-nn]`
+//! (a genuine "-n followed by a number" flag) satisfies every other
+//! condition and is indistinguishable by token shape alone, but
+//! `lessecho` never documents a bare `-n`, while `bpftrace` documents
+//! both `-v` and `-vv` with different descriptions — a tool documenting
+//! `-v` as taking no value has said `-vv` cannot be `-v` carrying a
+//! value. The fix (`help_text::sections::repair_repeated_character_flags`)
+//! is written against the identical condition.
 //!
-//! # Built against the shape that is there, not against the absence
-//!
-//! **This is the correction that made the family detectable at all.** The
-//! audit notes say "`-vv` and `-dd` missing", and a detector written against
-//! that sentence looks for an *absent* flag — a question with no answer,
-//! since a tree cannot be searched for what it does not contain without first
-//! knowing what should. The family description was corrected on 2026-08-13
-//! for exactly this reason: `-vv` is not missing from the tree, it is
-//! **present and mis-shaped**, and the mis-shaping is a fingerprint you can
-//! match in one predicate. Every instance below is found by reading a flag
-//! that is *there*.
-//!
-//! # The rule
-//!
-//! A flag is reported when **all** of these hold:
-//!
-//! 1. **It has a short spelling, no long name, and a `Required` value.** The
-//!    shared fingerprint. `Optional` means the raw text wrote brackets, which
-//!    is a value spec a human typed deliberately.
-//! 2. **The swallowed value is the flag's own character, repeated**
-//!    ([`value_repeats_short`]). This is the family's whole identity in one
-//!    condition, and it is what makes the three families provably disjoint:
-//!    no bundle can satisfy it (a bundle is a *set*, so
-//!    `bundling::members_are_distinct` and this predicate are exact
-//!    opposites), and no single-dash long option can either (`script`,
-//!    `utf8`, `name`, `elp` are words, not runs of one letter).
-//! 3. **The reconstructed token occurs glued and delimited in the raw text**
-//!    ([`crate::existence::spelling_occurs`] against `-<short><value>`). The
-//!    same load-bearing separator check [`crate::bundling`] uses, for the
-//!    same reason: a `value_name` alone cannot tell `-vv` from `-v v`, and
-//!    only the first is this defect.
-//! 4. **The tool's own document declares the bare short flag a boolean**
-//!    ([`documents_bare_boolean`]): some other flag on the same node has the
-//!    same short character and takes no value at all.
-//!
-//! # Condition 4 is the whole safety argument
-//!
-//! Conditions 1–3 alone are satisfied by `lessecho`'s real `[-nn]`, which is
-//! its genuine "-n followed by a number" flag (its man page: `x` is a
-//! character, `n` a number) and which the audit's own reviewer met in the
-//! same synopsis as `[-ox]` and `[-cx]`. Nothing about the *token* `-nn`
-//! separates it from `-vv`: same length, same shape, same glued spelling.
-//!
-//! What separates them is the document. `bpftrace` writes a row for `-v` and
-//! a row for `-vv`, with two different descriptions; `lessecho` writes
-//! `[-nn]` and never mentions a bare `-n` at all. **A tool that documents
-//! `-v` as taking no value has said, in its own words, that `-vv` cannot be
-//! `-v` carrying a value** — a required value and no value are not two
-//! readings of one flag. That is a structural fact about the tool's own
-//! output, it costs nothing to check, and it is why this detector can be
-//! ratcheted at zero without ever firing on `lessecho`'s seven real
-//! character-argument flags, which is the exact false positive
-//! [`crate::bundling`] already carries a must-stay-silent self-check for.
-//!
-//! It is also the condition the *fix* is written against, deliberately and
-//! character for character — see
-//! `help_text::sections::repair_repeated_character_flags`. A detector meant to
-//! read zero and a fix meant to reach zero must agree on what the defect is,
-//! or the zero means nothing.
-//!
-//! # What it deliberately does not catch
-//!
-//! **A repeated-character flag whose bare form the tool never documents.**
-//! `strace`'s `[-DDD]`, `wpa_supplicant`'s `[-BddhKLqqstuvW]` and every other
-//! synopsis that repeats a switch to mean "more of it" without also writing
-//! the switch on its own are out of reach here, and knowingly so: the only
-//! evidence that would admit them is the shape of the token, and the shape of
-//! the token is exactly what `lessecho`'s `[-nn]` also has. Buying that
-//! recall costs a false positive on a correct parse, which this project's
-//! standing rule forbids. The count this module reports is a lower bound,
-//! which is the right direction for a number that becomes a gate.
+//! Does not catch a repeated-character flag whose bare form the tool
+//! never documents (`strace`'s `[-DDD]`, `wpa_supplicant`'s
+//! `[-BddhKLqqstuvW]`) — token shape alone can't tell those from
+//! `lessecho`'s `[-nn]`. Count is a lower bound.
 
 use crate::existence::spelling_occurs;
 use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
