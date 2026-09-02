@@ -1,88 +1,36 @@
-//! **Residue ranking** — the complement of [`crate::existence`], and the
-//! only instrument in this workspace that is deliberately forbidden from
-//! ever becoming a number anyone quotes.
+//! Residue ranking — the complement of [`crate::existence`], and the only
+//! instrument in this workspace deliberately forbidden from ever becoming
+//! a number anyone quotes.
 //!
-//! # What it asks
+//! [`crate::existence`] asks "is everything in the tree attested by the
+//! text?" (catches invention). This module asks "what in the text did the
+//! tree never account for?" (catches omission — most of the seed-2
+//! audit's non-K1 defect backlog).
 //!
-//! [`crate::existence`] asks *"is everything in the tree attested by the
-//! text?"* — it catches **invention**. This module asks the opposite
-//! question: *"what in the text did the tree never account for?"* — it
-//! catches **omission**, which is the failure mode this project's entire
-//! labelled-defect backlog is made of. Every family in the seed-2 audit
-//! that isn't K1 is some flavour of "the parser walked past a table it
-//! should have read".
+//! Per-line attribution over the raw `--help` capture. Each physical line
+//! is classified by shape alone, never by tool name or heading wording
+//! (spec §1): a flag row (first token dash-shaped, not a prose bullet), a
+//! name row (indented, lowercase, [`is_command_name_shaped`] first token
+//! followed by a 2+ space gutter and more text), or uncounted. A row is
+//! accounted for when the tree carries a matching spelling/name;
+//! otherwise it is residue.
 //!
-//! The mechanism is a per-line attribution over the tool's own raw
-//! `--help` capture. Each physical line is classified by *shape* alone —
-//! never by a tool name, never by a heading's wording (spec §1) — into:
+//! Independent of the parser's own line classification deliberately: the
+//! parser's largest omission class (rule 1, `sections/mod.rs`) would
+//! agree with itself that a dropped bare-word block was never an entry.
 //!
-//! - a **flag row**: the line's first token starts with a dash and is not
-//!   a prose bullet (`- like this`);
-//! - a **name row**: an indented, lowercase, [`is_command_name_shaped`]
-//!   first token followed by a two-or-more-space gutter and then more
-//!   text — the physical shape of every real command-list entry this
-//!   project has captured;
-//! - **everything else**, which is never counted at all.
+//! Never a gate or quotable number: not an accuracy metric (only the 94
+//! human verdicts in `audit/submissions/sadigaxund/2.toml`, spec §13.1c,
+//! touch ground truth; residue has a large, unmeasured false-positive
+//! rate); not a pass/fail check (nothing reads it —
+//! [`residue_is_reachable_from_no_gate`] fails the build if that changes).
+//! A wrong residue candidate costs review time and cannot produce a wrong
+//! parse; treating it as a measurement would be a metric-design incident
+//! in advance rather than in hindsight (spec §13.1b, §13.1f).
 //!
-//! A row is *accounted for* when the tree carries a matching spelling or
-//! name; otherwise it is **residue**. That last exclusion is the whole
-//! substance of the thing: a tool whose help is one prose paragraph has
-//! enormous unconsumed *text* and zero unconsumed *rows*, so it does not
-//! rank, while a tool with a forty-row flag table of which thirty vanished
-//! ranks with thirty pieces of concrete, line-numbered evidence.
-//!
-//! # Why it does not reuse the parser's own line classification
-//!
-//! It would be cheaper to ask `help_text::sections` which lines it thought
-//! were entries and subtract. That instrument would be blind by
-//! construction: the parser's largest known omission class is **rule 1**
-//! (`sections/mod.rs`'s doc comment) — a bare-word block under a heading that
-//! never says the word "command" is dropped wholesale — and a residue
-//! check built on the parser's own notion of "this was an entry line"
-//! would agree with the parser that those lines were never entries. The
-//! classifier here is independent on purpose, which is also why it is
-//! allowed to be noisier than the parser: it is proposing reading
-//! material, not making claims.
-//!
-//! # The hard guard: this must never become a gate or a quotable number
-//!
-//! Residue ranking is a **discovery instrument that feeds a human**, who
-//! then writes a deterministic, calibrated rule that a ratchet can hold.
-//! It is explicitly:
-//!
-//! - **not an accuracy metric.** The one instrument in this project that
-//!   touches ground truth is the 94 human verdicts in `audit/submissions/sadigaxund/2.toml`
-//!   (spec §13.1c). A residue count has never been validated against
-//!   anything and has a large, unmeasured, shape-dependent false-positive
-//!   rate — a glossary table, a `See also:` list and an enum-value grid
-//!   all produce name rows that no tree should ever contain. Printing such
-//!   a number next to an audited accuracy figure invites exactly the
-//!   substitution the audit was built to stop.
-//! - **not a pass/fail check.** Nothing here is consulted by `coverage
-//!   --check`, by any ratchet, or by any `corpus` contract, and
-//!   [`residue_is_reachable_from_no_gate`] fails the build if that ever
-//!   stops being true. That test is the enforcement; this paragraph is
-//!   only the reason.
-//!
-//! The asymmetry that makes this safe to build at all is narrow and worth
-//! stating precisely: **a wrong residue candidate costs review time and
-//! cannot produce a wrong parse.** It cannot, because nothing downstream
-//! reads it. The moment a number computed here is treated as a
-//! measurement, that asymmetry is gone and what remains is an unvalidated
-//! metric competing with the project's only validated one — the fifth
-//! metric-design incident (spec §13.1b) in advance rather than in
-//! hindsight. See spec §13.1f, where this non-decision is recorded
-//! alongside the other deliberate ones.
-//!
-//! # No new probes
-//!
-//! Like [`crate::misattribution`] and [`crate::existence`], this reads
-//! bytes something else already captured. Unlike them it is not wired into
-//! the sweep at all: it runs over `corpus/`-shaped fixture directories
-//! (`corpus/README.md`), replaying frozen bytes with **zero** subprocesses,
-//! exactly as `xtask corpus` does. There is no `PATH` scan here and there
-//! must never be one — a discovery instrument that needs a twenty-minute
-//! fleet probe to answer a question is one nobody runs.
+//! No new probes: reads bytes already captured, replaying
+//! `corpus/`-shaped fixtures with zero subprocesses, exactly as `xtask
+//! corpus` does. No `PATH` scan, ever.
 
 use crate::corpus::{discover_fixtures, extract_tree, Fixture};
 use mandible_core::{is_command_name_shaped, CommandNode};
@@ -306,25 +254,15 @@ fn classify(line: &str, number: usize, root_name: &str, in_leading_run: bool) ->
     if !is_command_name_shaped(name) || name == root_name {
         return None;
     }
-    // A usage *alternative* (`  or:  du [OPTION]... --files0-from=F`) has
-    // the exact two-column shape of a command-list entry, and its second
-    // column opens with the tool's own name. Compared on the *file-name*
-    // component, since a tool invoked by absolute path prints its
-    // alternatives that way (`  or:  /usr/bin/chgrp [OPTION]...
-    // --reference=RFILE FILE...`) and a bare-name comparison misses every
-    // such tool.
+    // A usage alternative (`  or:  du [OPTION]... --files0-from=F`) has the
+    // exact two-column shape of a command-list entry, second column
+    // opening with the tool's own name. Compared on the file-name
+    // component (absolute-path invocations print `/usr/bin/chgrp ...`).
     //
-    // **Scoped to the leading run** — the lines before the document's
-    // first blank line, where a usage block is — because "the description
-    // opens with the tool's own name" is *also* how a perfectly real
+    // Scoped to the leading run (before the document's first blank line):
+    // "description opens with the tool's own name" is also how a real
     // command table reads (`clone    git clone a repository`), and an
-    // unscoped predicate would swallow it. Measured before choosing, over
-    // all 94 documents this project has captured (10 `corpus/` fixtures
-    // plus the 84 seed-2 audit captures): 54 name rows in total, the
-    // predicate fires **twice**, both times on a `  or:` line inside the
-    // leading run, and **zero** times anywhere else. So the scoping costs
-    // nothing measurable and removes a real false-negative shape rather
-    // than leaving it to be rediscovered.
+    // unscoped predicate would swallow it.
     if in_leading_run {
         let opens_with_tool = rest
             .split_whitespace()
@@ -360,13 +298,11 @@ fn capped(s: &str) -> String {
 ///
 /// Built the same way [`crate::existence`] builds its candidates, in the
 /// opposite direction: that module asks whether a stored spelling occurs
-/// in the text, this one asks whether a text token occurs in the store, so
-/// both need the *pre-normalization* forms. In particular the GCC-family
-/// split (`-fdump-scos` stored as `short='f'` + `value_name="dump-scos"`)
-/// is reconstructed here too — without it every one of `lto-dump`'s
-/// hundreds of real, correctly-parsed options would read as residue, the
-/// mirror image of the 848-false-positive regression documented in
-/// `existence.rs`.
+/// in the text, this one whether a text token occurs in the store, so
+/// both need the pre-normalization forms. The GCC-family split
+/// (`-fdump-scos` stored as `short='f'` + `value_name="dump-scos"`) is
+/// reconstructed here too, or `lto-dump`'s real options would read as
+/// residue.
 #[derive(Default)]
 struct Vocabulary {
     flags: HashSet<String>,
@@ -387,10 +323,8 @@ impl Vocabulary {
         }
         for entity in &node.entities {
             if entity.short().is_some() || entity.long().is_some() {
-                // A dashed spelling: contributes flag keys, exactly as the
-                // pre-migration flag branch built them (including the
-                // GCC-family reconstruction and the `--[no-]long`
-                // negation forms — see the module doc comment).
+                // A dashed spelling: contributes flag keys, including the
+                // GCC-family reconstruction and `--[no-]long` negation.
                 if let Some(short) = entity.short() {
                     self.flags.insert(format!("-{short}"));
                     if let Some(v) = &entity.value_name {
@@ -409,20 +343,12 @@ impl Vocabulary {
                     }
                 }
             } else {
-                // A bare, dashless spelling (a positional, a modifier
-                // letter, or an environment variable name): contributes
-                // its primary name, exactly as the pre-migration
-                // positional branch did — lowercased, matching
-                // `is_command_name_shaped`'s own requirement that a name
-                // row's first token is all-lowercase, which is the only
-                // shape `classify` can ever produce a name row's key in
-                // today. An `EntityKind::EnvVar`'s ALL_CAPS name is
-                // unaffected in practice: `classify` never emits a name
-                // row for an uppercase table (see
-                // `an_environment_variable_table_is_not_a_name_row`), so
-                // there is no row this lowering could cause to
-                // mismatch — see this module's PR notes for the design
-                // fork this raised and why it was left as-is.
+                // A bare, dashless spelling (positional, modifier letter,
+                // env-var name): contributes its primary name, lowercased
+                // to match `is_command_name_shaped`'s all-lowercase
+                // requirement (`classify` never emits a name row for an
+                // uppercase table, so an env var's ALL_CAPS name is
+                // unaffected).
                 let name = entity.primary_name();
                 if !name.is_empty() {
                     self.names.insert(name.to_lowercase());
