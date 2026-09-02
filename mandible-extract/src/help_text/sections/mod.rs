@@ -1780,7 +1780,7 @@ mod tests {
     /// one, and the total accepted must stay bounded. See S-072.
     #[test]
     fn repeated_identical_banner_does_not_explode_into_duplicate_subcommands() {
-        // Non-blocking timing signal only (spec.md decision D3): wall-clock
+        // Non-blocking timing signal only (docs/design.md decision D3): wall-clock
         // on shared hardware is a statement about the machine, not the
         // parser, so it never flips a correctness gate. `TIMING_BUDGET` is
         // set well above every observed run so only a genuine O(n^2)

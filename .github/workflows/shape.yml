@@ -4,7 +4,7 @@ name: shape
 # seconds.
 #
 # This is a workflow of its own rather than a job in `ci.yml` for one reason:
-# `ci.yml` carries `paths-ignore: "**/*.md"`, so a change to `spec.md`,
+# `ci.yml` carries `paths-ignore: "**/*.md"`, so a change to `docs/design.md`,
 # `AGENTS.md` or `docs/shapes.md` skips it entirely. Prose is most of what the
 # narrative lint exists to check, and a lint that cannot see the files it
 # guards is decorative. Nothing here compiles anything, so running it on every

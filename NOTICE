@@ -4,34 +4,24 @@ mandible — third-party data attribution
 mandible's own source code is dual-licensed under MIT OR Apache-2.0 (see
 LICENSE-MIT and LICENSE-APACHE). This file records
 the provenance and licensing of third-party *data* vendored into the
-repository, per spec.md §14/§15 — vendored data is a distinct legal
+repository, per docs/design.md §14/§15 — vendored data is a distinct legal
 question from crate dependency licensing, and the more likely real exposure
 for this project.
-
-Vendored data
---------------
-
-**humanizer**, MIT, from https://github.com/blader/humanizer, vendored as
-`docs/vendor/humanizer-SKILL.md`. It is the writing guide this repository's
-prose is edited through, based on Wikipedia's "Signs of AI writing" as
-maintained by WikiProject AI Cleanup. The file is copied verbatim and keeps
-its own `license: MIT` front-matter field, which is the attribution MIT
-requires. Nothing in it is executed and nothing ships in a released binary.
 
 Formerly vendored
 ------------------
 
-Revision 3 of spec.md removed the only third-party data this repository
+Revision 3 of docs/design.md removed the only third-party data this repository
 ever vendored: a snapshot of the carapace-spec catalog
 (`vendor/carapace-specs.json`, ~11 MB, `scripts/vendor_carapace_specs.py`).
-It was per-tool knowledge relocated into data — the thing spec.md §1
+It was per-tool knowledge relocated into data — the thing docs/design.md §1
 forbids — could not stay current with the tool actually installed on a
 user's machine, and cost 11 MB of a 16 MB binary to lift flag-description
 coverage from a measured 87% to 99.5% on the ~250 tools it happened to
 contain. It was replaced with framework identification (spec §7 Tier A′)
 plus one `--help` grammar per framework (Tier B): general knowledge about
 how a *generator* formats its output, not per-tool knowledge about any one
-tool. See spec.md §7's "Tier A — REMOVED" for the full reasoning, preserved
+tool. See docs/design.md §7's "Tier A — REMOVED" for the full reasoning, preserved
 so it is not re-proposed.
 
 No third-party data ships in a released binary. The one vendored file is the
@@ -40,12 +30,12 @@ writing guide recorded above, which lives in the repository only.
 Not currently vendored
 -----------------------
 
-The following third-party data sources are named in spec.md §7/§14 as
+The following third-party data sources are named in docs/design.md §7/§14 as
 optional or future sources. Neither is vendored into this repository, so no
 attribution obligation exists yet — noted here so it isn't forgotten when
 either is added:
 
-- **withfig/autocomplete**, MIT-licensed per spec.md's own dependency
+- **withfig/autocomplete**, MIT-licensed per docs/design.md's own dependency
   table, was investigated as a secondary catalog source alongside carapace
   in earlier revisions. Revision 3 removed the catalog concept entirely
   (see above); if a structured-catalog source is ever reconsidered, its
@@ -66,5 +56,5 @@ Crate (code) dependency licenses
 
 Every Rust crate dependency's license is declared in its own `Cargo.toml`
 and resolvable via standard tooling (e.g. `cargo license`); they are not
-duplicated here. See spec.md §14 for the dependency table this project was
+duplicated here. See docs/design.md §14 for the dependency table this project was
 designed against.

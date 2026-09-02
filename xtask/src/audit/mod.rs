@@ -188,7 +188,7 @@ pub(crate) fn entry_from_classified(
 /// and blank lines ignored — the same convention [`cmd_ingest`]'s verdicts
 /// file uses), for `crate::queue::cmd_sample`'s `force_include` parameter. A
 /// reason is required, not optional: an unconditional inclusion with no
-/// stated reason is exactly the kind of unauditable claim spec.md Appendix A
+/// stated reason is exactly the kind of unauditable claim docs/design.md Appendix A
 /// exists to rule out (see `Entry::include_reason`'s doc comment).
 pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> {
     let raw = std::fs::read_to_string(path)

@@ -3,10 +3,10 @@
 Read this before touching code. Every rule a script can check is a pointer to
 that script. What is left is prose, because no lint can catch it.
 
-**Precedence:** `spec.md` is the design authority, so it says what to build and
+**Precedence:** `docs/design.md` is the design authority, so it says what to build and
 why. This file is the operational authority, so it says how to work here.
-`CONTRIBUTING.md` is for humans. If this file and `spec.md` disagree about
-design, `spec.md` wins and you should fix this file.
+`CONTRIBUTING.md` is for humans. If this file and `docs/design.md` disagree about
+design, `docs/design.md` wins and you should fix this file.
 
 ---
 
@@ -34,7 +34,7 @@ erosion that the architecture was built to prevent.
 ## 2. Hard limits
 
 Every number here is enforced, and none of them is a law of nature. Changing
-one is a decision, and a decision goes in spec.md §16.
+one is a decision, and a decision goes in docs/design.md §16.
 
 | Limit | Number | Enforced by |
 |---|---|---|
@@ -251,15 +251,23 @@ Each is a bug a reasonable agent would repeat. One line, then where to look.
 
 ### 4.1 Writing
 
-Load the humanizer skill before editing any document. It is vendored at
-`docs/vendor/humanizer-SKILL.md` and recorded in `NOTICE`. Then:
+These are the house rules for every sentence committed here.
+`scripts/shape_guard.sh` holds the ones a script can check. The rest is on you.
 
-- One fact per sentence. About twenty words. Plain verbs.
+- One fact per sentence, about twenty words, plain verbs.
 - No em-dashes. No "not X but Y". No bold mini-headings inside bullets.
-- No dates, no branch names, and none of the status phrases
-  `scripts/shape_guard.sh` lists. Dates belong in spec §16, Appendix A, and the
-  atlas `fleet` field. Nowhere else.
-- No inflated claims, no sales words, no vague sources, no stock AI words.
+- No dates, no branch names, and none of the status phrases the guard lists.
+  Dates belong in `docs/design.md` §16, Appendix A, and the atlas `fleet`
+  field. Nowhere else.
+- Give the number or say nothing. A comparative word with no measurement
+  behind it is a claim you have not made.
+- Name the source. "A sweep found" needs the sweep. "Experts say" is not a
+  source.
+- Delete the words that survive their own deletion: crucial, delve, pivotal,
+  showcase, tapestry, testament, underscore, vibrant, landscape, key, robust,
+  leverage, seamless, comprehensive.
+- No "-ing" clause bolted onto a fact to make it sound deeper.
+- Describe the change, never the conversation that produced it.
 
 ### 4.2 Pull request class
 
@@ -299,7 +307,7 @@ request. This is a lookup, not a judgment call at the end of a round.
 | `scripts/` | watch the guard fail before committing it (§3.7) |
 | `.github/` | remember a workflow edit pushed to main runs nothing; verify on a pull request |
 | `docs/` | keep `docs/shapes.md` to one entry per shape and five fields (§3.3) |
-| `spec.md` | keep every `[M-n]` id resolvable; measurements go to Appendix A |
+| `docs/design.md` | keep every `[M-n]` id resolvable; measurements go to Appendix A |
 | `CHANGELOG.md` | run `scripts/changelog_guard.sh` locally |
 <!-- directory-triggers:end -->
 
@@ -309,7 +317,7 @@ Three rows are about content rather than a path:
 |---|---|
 | Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]` |
 | A measurement that contradicts spec Appendix A | update Appendix A with the new number and its method |
-| A design contract: schema, probe rules, display semantics | amend the governing `spec.md` section |
+| A design contract: schema, probe rules, display semantics | amend the governing `docs/design.md` section |
 
 ### 4.5 Recurring playbooks
 
@@ -332,7 +340,7 @@ This file's failure mode is not being wrong. It is **growing into a junk
 drawer** that nobody reads, at which point it stops protecting anything.
 
 **Add an entry when**, and only when, something went wrong that a reasonable
-agent would repeat, and the lesson is not already discoverable from `spec.md`,
+agent would repeat, and the lesson is not already discoverable from `docs/design.md`,
 the type system, or a test that fails loudly.
 
 Prefer making a mistake *impossible* over documenting it. A private field, a
@@ -344,9 +352,9 @@ the record of every rule that has already made that trip.
 "why" cannot be evaluated later, so it never gets deleted, so the file rots.
 
 **Delete aggressively.** An entry is dead when its cause is fixed. Deleting it
-is a completed task, not a loss. **Do not duplicate `spec.md`**; link to it,
+is a completed task, not a loss. **Do not duplicate `docs/design.md`**; link to it,
 because two sources will disagree at the worst time.
 
 There is no line budget. What keeps this file honest is the rule above. Design
-belongs in `spec.md`, human process in `CONTRIBUTING.md`, environment
+belongs in `docs/design.md`, human process in `CONTRIBUTING.md`, environment
 measurements in spec Appendix A.

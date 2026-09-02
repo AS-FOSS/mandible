@@ -90,7 +90,7 @@ def comment_blocks(lines):
 
 
 def spec_exempt_ranges(lines):
-    """Line numbers inside spec.md section 16 and Appendix A, which may narrate.
+    """Line numbers inside docs/design.md section 16 and Appendix A, which may narrate.
 
     Section 16 is the decisions log and Appendix A is the measured baseline.
     Both exist to record when something was decided or measured, so a date is
@@ -124,7 +124,7 @@ def narrative_hits(path, lines):
                 in_fleet = False
             if not in_fleet:
                 candidates.append((n, l))
-    elif path == "spec.md":
+    elif path == "docs/design.md":
         exempt = spec_exempt_ranges(lines)
         candidates = [(n, l) for n, l in enumerate(lines, 1) if n not in exempt]
     else:
@@ -156,7 +156,7 @@ def collect():
         for number, name in narrative_hits(path, lines):
             add("narrative", path, f"line {number}: {name}")
 
-    prose = ["spec.md", "AGENTS.md", "CONTRIBUTING.md"]
+    prose = ["AGENTS.md", "CONTRIBUTING.md"]
     prose += [
         p
         for p in subprocess.run(
@@ -164,7 +164,7 @@ def collect():
         ).stdout.split()
         if not p.startswith("docs/vendor/")
     ]
-    for path in prose:
+    for path in dict.fromkeys(prose):
         if os.path.exists(path):
             lines = read(path)
             for number, name in narrative_hits(path, lines):

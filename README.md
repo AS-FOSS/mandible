@@ -259,7 +259,7 @@ someone can actually fix.
 
 | | |
 |---|---|
-| [`spec.md`](./spec.md) | Design authority: the source model, the safety policy, and the measurement behind every non-obvious decision |
+| [`docs/design.md`](./docs/design.md) | Design authority: the source model, the safety policy, and the measurement behind every non-obvious decision |
 | [`AGENTS.md`](./AGENTS.md) | The invariants table. Every entry names the failure it prevents |
 
 

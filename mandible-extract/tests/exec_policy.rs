@@ -31,7 +31,7 @@ use std::time::Duration;
 // [M-17] measured that no argv `run_inert` actually constructs against
 // `systemctl` triggers this in this environment: systemd's own pager gate
 // checks `isatty` on its *own* stdout/stderr, which `run_inert` always
-// makes pipes, so it never even reaches the point of trying. (See spec.md
+// makes pipes, so it never even reaches the point of trying. (See docs/design.md
 // Appendix A [M-17] for the full method — a 74-verb sweep plus `strace`
 // confirmation that `less` itself, even with a real controlling terminal
 // available via the session, never attempts `/dev/tty` once its own
