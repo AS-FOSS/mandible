@@ -68,9 +68,15 @@ block	4	xtask/src/audit.rs
 block	1	xtask/src/audit_contribute.rs
 block	1	xtask/src/bundling.rs
 block	1	xtask/src/commandtable.rs
-block	5	xtask/src/corpus.rs
+block	3	xtask/src/corpus/contract.rs
+block	1	xtask/src/corpus/markdown.rs
+block	2	xtask/src/corpus/mod.rs
 block	3	xtask/src/coverage.rs
-block	7	xtask/src/detector.rs
+block	1	xtask/src/detector/calibration.rs
+block	1	xtask/src/detector/commands.rs
+block	1	xtask/src/detector/detectors_flags.rs
+block	1	xtask/src/detector/detectors_misc.rs
+block	3	xtask/src/detector/mod.rs
 block	1	xtask/src/dropped_alias.rs
 block	7	xtask/src/existence.rs
 block	2	xtask/src/main.rs
@@ -165,7 +171,10 @@ ratio	1	mandible/src/pipeline.rs
 ratio	1	mandible/src/report.rs
 ratio	1	mandible/src/shell_init.rs
 ratio	1	xtask/src/bundling.rs
+ratio	1	xtask/src/corpus/mod.rs
+ratio	1	xtask/src/corpus/summary.rs
 ratio	1	xtask/src/coverage.rs
+ratio	1	xtask/src/detector/calibration.rs
 ratio	1	xtask/src/dropped_alias.rs
 ratio	1	xtask/src/existence.rs
 ratio	1	xtask/src/main.rs
@@ -175,7 +184,5 @@ ratio	1	xtask/src/rng.rs
 ratio	1	xtask/src/status.rs
 size	1	mandible-extract/tests/exec_policy.rs
 size	1	xtask/src/audit.rs
-size	1	xtask/src/corpus.rs
 size	1	xtask/src/coverage.rs
-size	1	xtask/src/detector.rs
 size	1	xtask/src/transition.rs
