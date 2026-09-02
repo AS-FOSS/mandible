@@ -1,198 +1,24 @@
-//! The existence detector: the second half of what docs/design.md's WS4 called a
-//! single "anti-fabrication oracle" and turned out, on inspection, to be
-//! **two** distinct checks with two distinct victims:
+//! The existence detector: checks that every help-text-sourced subcommand
+//! name, flag spelling and positional operand occurs literally in the
+//! tool's own raw output, at a position a real entry could occupy.
+//! Complements [`crate::misattribution`] (description-to-flag attachment).
 //!
-//! - [`crate::misattribution`] (built first): does a description belong to
-//!   the flag it is attached to? Its victim was `lsof`'s three-column
-//!   options table, whose second and third columns bled into the first
-//!   flag's description.
-//! - This module: does everything the help-text tier emits actually
-//!   *occur* in the tool's own raw output — or did the parser invent it?
+//! Flags match as a word-boundary substring anywhere in the raw text
+//! ([`spelling_occurs`]); candidates are reconstructed for forms the IR
+//! normalizes away (value-spec glued on, `--[no-]` negation, GCC-style
+//! single-dash multi-character flags — see [`short_candidates`] and
+//! [`long_candidates`]). Subcommand names additionally require the
+//! occurrence to sit at a real command-list position: line-start
+//! ([`line_start_words`]) or a list-row item ([`list_row_words`]).
+//! Operand positions use [`option_list_slot`] to reject a placeholder
+//! word (`OPTION`) mistaken for a real operand.
 //!
-//! **Its victim is [M-10],** this project's worst shipped defect: `tar`
-//! gained 39 phantom subcommands with names like *"treat them as errors"*
-//! and *"extracting (default)"* — sentence fragments off a wrapped
-//! continuation line, promoted to sibling command nodes by a layout parser
-//! that mistook a re-indented line of prose for a new table entry. `dd`
-//! picked up 40 of its own, `less` 65, and `apt-get` collected seven words
-//! straight out of its own description paragraph. Every one of those
-//! shipped at a *reported* `100%` on the old `%described` column, because
-//! a fabricated node's own (fabricated) flags looked exactly as
-//! "described" as a real one's — [`crate::misattribution`]'s doc comment
-//! makes the identical point about `lsof`'s misattributed text; this is
-//! the other way the same column lies.
+//! Only nodes/flags sourced from `HelpText`/`HelpTextSynopsis` are checked;
+//! other sources (Cobra `__complete`, native probes, vendored catalogs)
+//! are structural and legitimately absent from help text.
 //!
-//! Multi-word fabrications of that exact shape can no longer reach the
-//! tree today — `mandible_core::is_command_name_shaped` rejects any
-//! candidate name containing a space, and every tier that proposes a bare-
-//! word subcommand is gated on it. What's left is the narrower, still-real
-//! failure mode this module exists to catch: a single lowercase *word*
-//! (indistinguishable in shape from a real command name) lifted from
-//! running prose rather than a genuine table entry, or a flag spelling
-//! invented rather than read. This module doesn't assume [M-10] is
-//! reachable again; it checks the literal claim regardless of mechanism —
-//! see [`detect`]'s own test module for a synthetic replay against
-//! `corpus/tar/1.35/help.txt`, `tar`'s own real war story.
-//!
-//! # The rule
-//!
-//! > Every subcommand name, flag spelling and positional operand the
-//! > help-text tier emits must occur literally in the raw input — and for a
-//! > subcommand, at a position where a real command-list entry actually
-//! > sits; for an operand, at a position where a real operand actually sits.
-//!
-//! **Positional operands** are the third check and the newest
-//! ([`attested_operand_positions`]). It is a position rule for the same
-//! reason the subcommand one is: the word an operand is named is exactly
-//! the word a *placeholder* is named, and the raw text contains both.
-//! `tar [OPTION...] [FILE]...` writes `OPTION` and `FILE` in identical
-//! notation, one slot apart, and only one of them is something the user
-//! passes. 15 tools shipped an operand called `OPTION`/`OPTIONS`/`options`
-//! lifted straight out of that slot, and this module saw every one of them
-//! and said nothing, because until now it did not look at
-//! `CommandNode::positionals` at all. [`option_list_slot`] carries the
-//! shape rule that separates the two, and the reason it is a shape rule
-//! rather than a copy of the tier's own word list.
-//!
-//! **Flags** are checked by literal substring occurrence anywhere in the
-//! raw text, at a word boundary (never embedded inside a longer, unrelated
-//! spelling — see [`spelling_occurs`]). A flag's own cell in real
-//! `--help` output routinely glues a value spec directly onto it with no
-//! separating space (`--gpg-sign[=KID]`, `--sparse-version=MAJOR[.MINOR]`),
-//! so the boundary check only requires that nothing *word-shaped*
-//! (alphanumeric, `-`, `_`) immediately follows the candidate spelling —
-//! `[`, `=`, `,`, `.`, whitespace, and end-of-text are all valid neighbours.
-//!
-//! **Subcommand names** additionally require the occurrence to sit at a
-//! position a genuine command-list entry actually occupies — either the
-//! first whitespace-delimited word of some physical line
-//! ([`line_start_words`]: `corpus/git/2.43.0/help.txt`'s `"   clone
-//! Clone a repository..."`, one name per line, indented, nothing before
-//! it), or an item of a **list row** ([`list_row_words`]: `openssl`'s
-//! column-aligned command grid, `busybox`'s comma-joined applet index).
-//! A bare substring check alone would be too weak here in the other
-//! direction from flags: ordinary English words (`"list"`, `"add"`,
-//! `"get"`) are exactly the words real subcommands are named, and exactly
-//! the words that turn up constantly in unrelated running prose — a
-//! substring-only check would wave through a name manufactured from a
-//! random sentence as long as that sentence happened to contain the same
-//! word once, anywhere.
-//!
-//! The first-token half alone did not close the *other* direction, and the
-//! cost was measured rather than guessed: the word-grid layout this
-//! module's own doc comment once called "a case never actually observed"
-//! is 359 of 656 fleet-wide fabrications, all false, all from two tools.
-//! [`list_row_words`] carries the rule that admits them without admitting
-//! prose, and its doc comment carries the evidence.
-//!
-//! # Pre-normalization spellings — the part a naive comparison gets wrong
-//!
-//! The IR's stored form is not the input's form; comparing a stored
-//! spelling against the raw text byte-for-byte produces false positives on
-//! every one of these, all real, all exercised by this module's tests:
-//!
-//! - **Alias pairing** (`mandible_core::merge::pair_aliases`) merges a
-//!   short and long row that arrived as separate items with identical
-//!   descriptions into one entity carrying both a short and a long spelling. Each
-//!   spelling is still checked independently against the *whole* raw text
-//!   (not required to sit on the same line or even the same cell as its
-//!   partner) — pairing only ever unifies items that came from the same
-//!   raw text in the first place, so both spellings remain literally
-//!   present somewhere in it; requiring adjacency would be a stronger
-//!   claim than the rule needs and would false-positive on legitimately
-//!   pairable rows.
-//! - **Value stripping**: `--gpg-sign[=KID]` is stored as `long: "gpg-sign"`
-//!   with the value spec parsed off into `value_name`/`value_kind`
-//!   (`mandible-extract/src/help_text/grammar.rs`'s `try_value`). Comparing
-//!   only the stripped `"gpg-sign"` against the raw text would demand an
-//!   exact match that never occurs verbatim in real output. This module
-//!   checks the base spelling as a *prefix* at a word boundary instead
-//!   (see [`spelling_occurs`]), so `--gpg-sign[=KID]`, `--gpg-sign=KID`,
-//!   and bare `--gpg-sign` all attest the same stored flag.
-//! - **Negatable booleans**: `--[no-]source` is stored as `long: "source"`,
-//!   `negatable: true` — `long` never contains the brackets
-//!   (`mandible_core::Entity::negatable`'s own doc comment). The raw text
-//!   never contains the bare substring `--source` at all in this shape; it
-//!   contains `--[no-]source` (or getopt_long's shorter `--[no]source`).
-//!   [`long_candidates`] builds both bracketed forms (plus the bare form,
-//!   as a harmless third candidate) for a negatable flag and accepts a
-//!   match against any one of them.
-//! - **GCC/Clang/binutils single-dash multi-character flags**
-//!   (`-fdump-scos`, `-cl-ext=<value>`, `-Wplacement-new=1`): the short-flag
-//!   grammar takes exactly one character as `short` and glues everything
-//!   after it onto `value_name` verbatim, so `short` alone is not the whole
-//!   spelling — measured fleet-wide as this task's own real regression, not
-//!   a hypothetical: a first version of this module compared only the bare
-//!   `-x` form and reported 848 fabrications for `lto-dump` alone (960
-//!   combined with its two symlinks), 710 for `clang`, all of them entries
-//!   like `-fdump-scos` that are entirely real, just never present as the
-//!   bare, isolated `-f` this module was checking for — GCC's own text
-//!   never once writes `-f` on its own. [`short_candidates`] reconstructs
-//!   `-x<value_name>` (and `-x=<value_name>`, covering the other branch of
-//!   `grammar::try_value`) as a fallback and checks that instead — see its
-//!   own doc comment, and the general lesson below.
-//! - **A long flag's value spec glued on with a word-shaped first
-//!   character** (`--perf-no_read_workqueue` stored as `long: "perf-no"`,
-//!   `value_name: "_read_workqueue"`): the same split, on the other half
-//!   of the flag identity. `_` is word-shaped for [`spelling_occurs`]'s
-//!   boundary — deliberately, so `--foo` cannot attest inside an unrelated
-//!   `--foo_bar` — which meant the bare stored spelling was rejected
-//!   against its own raw token. 54 of 656 fleet-wide fabrications, all
-//!   false; [`long_candidates`] reconstructs `--<long><value>` the way
-//!   [`short_candidates`] already reconstructed `-x<value>`, and carries
-//!   the measured table.
-//!
-//! **The general lesson, worth stating because the next reader will be
-//! tempted the same way:** [`spelling_occurs`]'s strict-prefix boundary
-//! exists to stop `-v` from matching inside the unrelated, longer
-//! `--verbose` — a real, necessary guard. Applied uncritically to *every*
-//! short flag, the identical guard rejected `-f` matching inside
-//! `-fdump-scos`, where the extra characters aren't an unrelated word at
-//! all, they're the rest of the same flag a weaker (and, for this
-//! convention, wrong) upstream grammar split in two. A guard that prevents
-//! one false-positive class can silently manufacture a much larger one
-//! elsewhere; the fix is never to weaken the guard, it's to recognize which
-//! stored field the split value actually landed in and reconstruct it —
-//! exactly the same "compare against the pre-normalization spelling"
-//! discipline this whole section is already built on, just for the field
-//! nobody had a fleet-scale counter-example for yet.
-//!
-//! # No new probes, not gated
-//!
-//! Same two properties as [`crate::misattribution`], for the same reasons —
-//! see that module's doc comment in full. In short: this reuses
-//! [`crate::misattribution::RecordingProbe`], so it costs zero additional
-//! subprocess spawns beyond what Tier B's own root `--help`/`-h` probe
-//! already pays for; and it is a brand-new metric with no fleet-wide
-//! baseline, so `xtask/src/main.rs` reports it in every footer and never
-//! folds it into `--check`'s pass/fail decision (spec §13.1b's metric
-//! design rules: a metric nobody has measured a baseline for must not
-//! silently fail a run the first time it's computed).
-//!
-//! # Scope: help-text tier only
-//!
-//! Only nodes and flags whose [`mandible_core::Provenance::sources`]
-//! includes [`mandible_core::Source::HelpText`] or
-//! [`mandible_core::Source::HelpTextSynopsis`] are checked. Every other
-//! source — Cobra `__complete`, a completion script, a native dynamic
-//! probe, a vendored catalog — is a *structural* source: its names and
-//! spellings come from the tool's own machinery, not from prose, and
-//! legitimately never appear in `--help` text at all (a cobra subcommand
-//! can be `Hidden: true` and never printed anywhere a human reads). Checking
-//! those against captured help text would be pure noise, not signal — the
-//! same reasoning [`crate::misattribution`] applies to picking its own
-//! index source.
-//!
-//! This also explains why checking the *whole* merged tree against the
-//! *root's* raw text is correct rather than merely convenient: the
-//! coverage sweep (`xtask::coverage::score_one`) calls
-//! [`mandible_extract::Runner::extract_full`], which requests only the
-//! **root** from every detecting tier (spec §5.2 step 1) — nested
-//! subcommands are never independently re-probed in this pipeline path,
-//! so a help-text-sourced tree's entire structure, root down to its
-//! deepest node, was built from parsing that one captured string. There is
-//! no second, unrecorded raw text a deeper node's fields could have
-//! legitimately come from instead.
+//! Fixture: `corpus/tar/1.35/help.txt` ([M-10] replay, see [`detect`]'s
+//! tests). Spec: §13.1, §13.1b.
 
 use mandible_core::{is_command_name_shaped, CommandNode, Entity, Provenance, Source};
 use std::collections::HashSet;
@@ -210,23 +36,13 @@ pub(crate) fn is_word_char(c: char) -> bool {
 
 /// True when `candidate` occurs in `raw` as an isolated token: nothing
 /// word-shaped ([`is_word_char`]) immediately precedes or follows the
-/// match. Char-indexed throughout (never a byte-offset `&str` slice,
-/// AGENTS.md's rule against slicing captured tool output at a raw byte
-/// offset) via `Vec<char>` windows, exactly as
-/// `misattribution::cells`'s own column math is char-indexed for the same
-/// reason.
+/// match. Char-indexed throughout (AGENTS.md: never slice captured tool
+/// output at a raw byte offset).
 ///
-/// This is a **prefix-tolerant** boundary, not an exact-token match: the
-/// character *after* the candidate is allowed to be anything that isn't
-/// word-shaped, which is what lets `--gpg-sign` (the stored, value-
-/// stripped spelling) match against `--gpg-sign[=KID]` (the raw text's
-/// actual spelling) — see this module's doc comment on value stripping.
+/// Prefix-tolerant, not exact-token: the character after the candidate may
+/// be anything non-word-shaped, so `--gpg-sign` matches `--gpg-sign[=KID]`.
 ///
-/// `pub(crate)` for [`crate::bundling`], which asks the identical question
-/// about a reconstructed spelling (does this exact token occur, delimited,
-/// in the tool's own text?) and would otherwise carry a second, drifting
-/// copy of this boundary rule — the duplication hazard `status.rs`'s own
-/// doc comment names.
+/// `pub(crate)` for [`crate::bundling`], which needs the identical check.
 pub(crate) fn spelling_occurs(raw: &str, candidate: &str) -> bool {
     let hay: Vec<char> = raw.chars().collect();
     let needle: Vec<char> = candidate.chars().collect();
@@ -247,26 +63,20 @@ pub(crate) fn spelling_occurs(raw: &str, candidate: &str) -> bool {
     false
 }
 
-/// The set of every physical line's first whitespace-delimited word (after
-/// trimming only leading whitespace — see this module's doc comment on why
-/// "line-start-ish" is checked this way), for the "is this subcommand name
-/// where a real command-list entry actually sits" half of the rule.
+/// The set of every physical line's first whitespace-delimited word
+/// (leading whitespace trimmed only), for the "subcommand name sits where
+/// a real command-list entry sits" half of the rule.
 ///
-/// Trailing `:`/`,`/`;` is stripped from that first token before it enters
-/// the set — a tokenizer fix, not a loosening of "line-start-ish": a real
-/// command-list row commonly glues punctuation straight onto the name with
-/// no separating space (`gh --help`'s `  auth:        Authenticate gh and
-/// git with GitHub`), so the untrimmed token was `"auth:"` while the stored
-/// name is `"auth"`, and the two were never going to match byte-for-byte no
-/// matter how real the entry was. Measured fleet-wide as part of this same
-/// false-positive class: `gh` alone reported 27 fabrications this way. Only
-/// these three characters are stripped, deliberately — they are not legal
-/// command-name characters (`mandible_core::is_command_name_shaped` doesn't
-/// allow them at all), so stripping them can never turn a genuinely
-/// different word into a false match. This does **not** by itself address a
-/// name sitting in column 2+ of a multi-column table (`busybox`,
-/// `openssl`); [`list_row_words`] does, and [`attested_name_positions`]
-/// unions the two.
+/// Trailing `:`/`,`/`;` is stripped before the token enters the set: a
+/// command-list row commonly glues punctuation onto the name with no space
+/// (`gh --help`'s `  auth:        Authenticate...`). Safe to strip — none
+/// of the three are legal command-name characters
+/// (`mandible_core::is_command_name_shaped`).
+///
+/// Does not by itself cover a name in column 2+ of a multi-column table
+/// (`busybox`, `openssl`); [`list_row_words`] does.
+///
+/// Fixture: `corpus/gh/*/help.txt`.
 fn line_start_words(raw: &str) -> HashSet<&str> {
     let mut out = HashSet::new();
     for line in raw.lines() {
@@ -275,19 +85,10 @@ fn line_start_words(raw: &str) -> HashSet<&str> {
         };
         let word = word.trim_end_matches([':', ',', ';']);
         out.insert(word);
-        // Same class of tokenizer fix as the `:` strip above, and it must
-        // use the *parser's* rule rather than a second copy of it: binutils
-        // `ar` writes each command with its optional modifier groups glued
-        // on (`m[ab]`, `r[ab][f][u]`), so the row's first token is not the
-        // name the tree stores, and the two were never going to match
-        // byte-for-byte however real the command is. Without this the five
-        // bracketed `ar` operations are reported as invented — five real
-        // commands, in the tool's own help text, called fabrications.
-        //
-        // Additive and prefix-only: `strip_optional_modifier_suffix`
-        // returns its input untouched unless the whole suffix is
-        // well-formed `[...]` groups, so this can only ever attest a
-        // *prefix of a token that is already on the line*.
+        // binutils `ar` glues optional modifier groups onto a command
+        // (`m[ab]`, `r[ab][f][u]`); reuses the parser's own stripper rather
+        // than a second copy. Additive/prefix-only: returns input unchanged
+        // unless the suffix is well-formed `[...]` groups.
         let bare = mandible_extract::help_text::strip_optional_modifier_suffix(word);
         if bare.len() < word.len() && !bare.is_empty() {
             out.insert(bare);
@@ -296,42 +97,20 @@ fn line_start_words(raw: &str) -> HashSet<&str> {
     out
 }
 
-/// Minimum number of items a line must break into before it can be read as
-/// a **list row** at all. A single item is just a word on a line; it takes
-/// several side by side, separated by a real item separator rather than by
-/// the single space that separates ordinary prose words, before the line is
-/// evidence of a *list* instead of evidence of a sentence.
-///
-/// Three, not two, and the difference is a false-negative this oracle would
-/// otherwise carry silently. At two, *any* two-column table whose right-hand
-/// cell happens to be a single word reads as a list row and attests that
-/// word — an `ENVIRONMENT` section pairing `TMPDIR` with `directory`, or an
-/// index pairing `add` with the description `adds`, would attest
-/// `directory`, `editor`, `adds`. A fabricated subcommand that collided with
-/// one of those description words would then go unreported, which is the one
-/// failure this module must not have: a permissive oracle hides the defects
-/// it exists to find, and is worse than one that over-reports.
-///
-/// Three costs nothing against the real layouts the list-row rule exists to
-/// read, which was measured rather than assumed: every qualifying line in
-/// `openssl`'s command grid carries 4 items, and in `busybox`'s applet list
-/// 9 to 11. Genuine indexes are wide; description tables are two columns.
+/// Minimum items a line must break into before it reads as a **list row**.
+/// Three, not two: at two, any two-column description table (a single-word
+/// right-hand cell) would misread as a list row, hiding a real fabrication
+/// that collided with a description word. `openssl`'s command grid carries
+/// 4 items/line; `busybox`'s applet list 9-11.
 const MIN_LIST_ROW_ITEMS: usize = 3;
 
-/// Split one physical line into the items a list row would carry: first at
-/// tabs and at column gaps (runs of two or more spaces), then at commas,
-/// trimming each result and dropping the empties a trailing separator
-/// leaves behind.
+/// Split one physical line into list-row items: tabs and column gaps (2+
+/// spaces) first, then commas, trimmed, empties dropped. Both separators
+/// are needed: `openssl`'s command index is space-aligned, `busybox`'s is
+/// comma-joined.
 ///
-/// Both separators are needed because the two real layouts in the fleet
-/// measurement use one each — `openssl`'s command index is space-aligned
-/// into columns, `busybox`'s applet index is comma-joined and wrapped —
-/// and a tool is free to combine them.
-///
-/// Every piece is a `&str` borrowed from `line` via `str::split` and
-/// `str::trim` only. There is no offset arithmetic anywhere in here, which
-/// is what keeps AGENTS.md's rule against slicing captured tool output at a
-/// raw byte offset satisfied by construction rather than by care.
+/// `&str` borrows only (`split`/`trim`) — no byte-offset arithmetic
+/// (AGENTS.md: never slice captured tool output at a raw byte offset).
 fn list_row_items(line: &str) -> Vec<&str> {
     line.split(['\t'])
         .flat_map(|cell| cell.split("  "))
@@ -342,72 +121,26 @@ fn list_row_items(line: &str) -> Vec<&str> {
 }
 
 /// The set of every word that sits at an item position of a **list row** —
-/// the second half of "is this subcommand name where a real command-list
-/// entry actually sits", covering the entries [`line_start_words`]
-/// structurally cannot see.
+/// the second half of "subcommand name sits where a real command-list
+/// entry sits", covering entries [`line_start_words`] cannot see (a
+/// multi-column command grid: `openssl`'s space-aligned index,
+/// `busybox`'s comma-joined applet list).
 ///
-/// # Why the first-token rule alone was not enough
+/// A line is a list row when all three hold:
 ///
-/// It is the single largest false-positive source this detector had: **359
-/// of 656 fleet-wide fabrications, every one of them false**, and both
-/// offenders publish their command list as a grid rather than one entry per
-/// line. `openssl --help` (112 of them) prints
+/// 1. It breaks into at least [`MIN_LIST_ROW_ITEMS`] items at a tab,
+///    column gap (2+ spaces), or comma — never a single space, so prose
+///    stays one item regardless of word count.
+/// 2. Every item is a single word (a multi-word item marks the row as a
+///    description row, not an index row).
+/// 3. No item is flag-shaped (leading `-`/`+`), so an option table's
+///    one-word description cell can't attest a fabricated subcommand.
 ///
-/// ```text
-/// asn1parse         ca                ciphers           cmp
-/// cms               crl               crl2pkcs7         dgst
-/// ```
+/// Cannot distinguish a genuine two-column index from a two-item row that
+/// happens to carry two bare words, e.g. `  fast    quick`.
 ///
-/// and `busybox --help` (247) prints
-///
-/// ```text
-///     [, [[, acpid, adjtimex, ar, arch, arp, arping, ascii, ash, awk,
-/// ```
-///
-/// Only `asn1parse` and `[` are a line's first token, so every other
-/// genuine command on both lists was reported as invented.
-///
-/// # The rule, and why it is not just "anywhere on the line"
-///
-/// Accepting a match anywhere on a line would be a real weakening: this
-/// detector's whole reason for a position rule is that ordinary English
-/// words (`list`, `add`, `get`) are exactly what real subcommands are
-/// named *and* exactly what turns up in running prose, so a name
-/// manufactured from a sentence would sail through. [M-10] is that failure,
-/// and it is what this module exists to catch.
-///
-/// So the line has to earn the reading first. A line is a list row when all
-/// three hold:
-///
-/// 1. It breaks into at least [`MIN_LIST_ROW_ITEMS`] items at a *list*
-///    separator — a tab, a column gap of two or more spaces, or a comma.
-///    Single spaces are not separators here, which is the load-bearing
-///    part: prose is words joined by single spaces, so a sentence stays one
-///    item no matter how many words it has.
-/// 2. **Every** item is a single whitespace-delimited word. One multi-word
-///    item is enough to disqualify the line, because that item is prose and
-///    a row that carries prose is a description row, not an index row.
-/// 3. **No** item is flag-shaped (leading `-` or `+`). A row that names a
-///    flag is an option table, and an option table's second column is its
-///    *description* — admitting it would let a one-word description like
-///    the `verbose` in `-v, --verbose      verbose` attest a fabricated
-///    subcommand named "verbose".
-///
-/// Against [M-10]'s own text every rule fires, and rule 2 fires hardest:
-/// `tar`'s continuation line `treat them as errors` has no separator on it
-/// at all, so it is one four-word item and cannot be a list row — which is
-/// why `errors` is still reported, and why the [M-10] replay test against
-/// `tar`'s real corpus capture still passes.
-///
-/// # What this still cannot see
-///
-/// A two-item row whose items are both bare single words and neither is a
-/// flag is indistinguishable, on shape alone, from a genuine two-column
-/// index — `  fast    quick` reads as a list row. A fabricated subcommand
-/// whose name happened to be the one-word right-hand column of some
-/// non-option table would be missed. No such case occurs in the fleet
-/// measurement this rule was derived from, and the honest thing is to say
-/// so rather than pretend the rule is exact.
+/// Fixture: `corpus/openssl/*/help.txt`, `corpus/busybox/*/help.txt`,
+/// `corpus/tar/1.35/help.txt` ([M-10] replay).
 fn list_row_words(raw: &str) -> HashSet<&str> {
     let mut out = HashSet::new();
     for line in raw.lines() {
@@ -440,34 +173,18 @@ fn attested_name_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str
 
 /// The set of every name-shaped token attested by spec §7 Tier B's
 /// **headingless invocation table** recognizer
-/// (`mandible_extract::help_text::sections::scan_headingless_invocation_table`):
-/// on a line whose first token is `root_name` itself, every token in the
-/// leading run of [`mandible_core::is_command_name_shaped`] tokens that
-/// follows it, up to and including the first two (the recognizer's own
-/// two-level cap — `btrfs device add` attests both `device` and `add`).
+/// (`sections::scan_headingless_invocation_table`): on a line whose first
+/// token is `root_name`, every token in the leading run of
+/// [`mandible_core::is_command_name_shaped`] tokens after it, up to the
+/// recognizer's own two-level cap (`btrfs device add` attests both
+/// `device` and `add`).
 ///
-/// # Why this exists
+/// Needed because [`line_start_words`] only attests a line's first token,
+/// which in `btrfs balance start [options] <path>` is the tool's own name.
+/// Reuses the parser's own shape rule rather than a second heuristic.
+/// Widening-only: can only reduce reports, never hide a real fabrication.
 ///
-/// `line_start_words` only ever attests a line's *first* token. In a
-/// headingless invocation table (`btrfs balance start [options] <path>`)
-/// that first token is the tool's own name (`btrfs`), never the
-/// subcommand words after it — so without this, every node the new
-/// recognizer produces would be reported as invented by this detector, a
-/// false fabrication report on real, existence-attested structure. This is
-/// the *same shape rule the parser itself uses* (a tool-name-prefixed row's
-/// leading run of name-shaped tokens), so the fix and the measurement
-/// agree on what the defect is — deliberately not a second, looser
-/// heuristic.
-///
-/// # Why this only ever adds to the attested set
-///
-/// Same "widening is safe" argument [`synopsis_lines`]'s own doc comment
-/// makes: this function only ever *adds* candidate words to `attested`,
-/// never removes any, so it can only make [`detect`] report *fewer*
-/// fabrications, never hide a real one that isn't also genuinely name-
-/// shaped and tool-name-prefixed. A line not starting with `root_name` is
-/// completely unaffected; a token after the first non-name-shaped one
-/// (flag, bracket, placeholder) is never attested by this rule.
+/// Fixture: `corpus/btrfs/*/help.txt`. Spec §7 Tier B.
 fn tool_name_prefixed_row_words<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
     let mut out = HashSet::new();
     if root_name.is_empty() {
@@ -499,26 +216,13 @@ fn tool_name_prefixed_row_words<'a>(raw: &'a str, root_name: &str) -> HashSet<&'
 // stands in the same slot while meaning the opposite
 // ----------------------------------------------------------------------
 
-/// Strip a usage token's notation down to the bare word inside it.
+/// Strip a usage token's notation down to the bare word inside it: only
+/// the docopt-style delimiters spec §7 Tier B names, trimmed from the ends
+/// only (`[FILE]...` -> `FILE`, `<url>` -> `url`). Leading `-` is kept —
+/// [`usage_operands`] tests flag-shape next. `+` is trimmed like `...`,
+/// for `sg3-utils`'s one-or-more marker glued onto `>` (`<device>+`).
 ///
-/// Only the docopt-style delimiters spec §7 Tier B names are trimmed, and
-/// only from the ends: `[FILE]...` → `FILE`, `<url>` → `url`,
-/// `[<option>` → `option`, `...` → the empty string (dropped by the
-/// caller). A leading `-` is deliberately **not** trimmed, because whether
-/// the token is flag-shaped is the very question [`usage_operands`] asks
-/// next.
-///
-/// `+` is trimmed on the same footing as `...`: the `sg3-utils` family
-/// (`scsi_ready`, `scsi_readcap`, `scsi_start`, `scsi_stop`,
-/// `scsi_temperature`) writes its one-or-more marker glued directly onto
-/// the closing `>` with no `...`, `Usage: scsi_ready [-b] [-h] [-v]
-/// <device>+`. Before this, the token survived cleaning as `device>+`
-/// (the trailing `+` isn't in the delimiter set, so nothing after the
-/// unclosed `>` gets trimmed) and never matched `mandible-extract`'s own
-/// correctly-recovered `device`, reporting a real, correctly-named operand
-/// as invented on all five tools. Extending the delimiter set costs
-/// nothing real `+` usage could collide with: this module trims only from
-/// the token's own ends, so a `+` appearing mid-word is untouched.
+/// Fixture: `corpus/scsi_ready/*/help.txt`.
 fn clean_usage_token(token: &str) -> &str {
     token.trim_matches(|c| {
         matches!(
@@ -543,29 +247,21 @@ fn is_bracketed(token: &str) -> bool {
 /// own name.
 struct SynopsisLine<'a> {
     text: &'a str,
-    /// True for a marker line (`Usage: tar ...`) and for a continuation
-    /// under a bare `Usage:` header (`  setsid [options] ...`, which
-    /// repeats the name); false for a wrapped remainder, which resumes
-    /// mid-synopsis and whose first token is therefore already an operand
-    /// or a flag. Getting this wrong in the `false` direction would
-    /// silently eat the first token of every wrapped line — `git`'s own
-    /// `<command>` sits one token into its last one.
+    /// True for a marker line and a bare-`Usage:`-header continuation;
+    /// false for a wrapped remainder (first token is already an operand
+    /// or flag). Wrong in the `false` direction silently eats a wrapped
+    /// line's first token — `git`'s `<command>` sits one token into its
+    /// last line.
     opens_with_program_name: bool,
 }
 
 /// True when some physical line of `raw` opens a **labelled** usage block —
 /// an ordinary `usage:` marker, or the C `"%s: Usage: ..."` idiom
 /// (`starts_with_name_prefixed_usage`) — anywhere in the document.
-///
-/// Mirrors `sections::parse_with_profile`'s own `labelled_usage_start`
-/// exactly, including what it deliberately leaves out: `starts_with_or_marker`
-/// (`or:`) is not tested here, because an `or:` line is only ever a
-/// *continuation* of an already-open block, never itself evidence that a
-/// labelled block exists somewhere in the document. This is the gate that
-/// decides whether [`synopsis_lines`] may fall back to an **unlabelled**
-/// synopsis line at all — a tool with a real `usage:`/name-prefixed line
-/// anywhere is completely unaffected by that fallback, exactly as the tier
-/// itself is unaffected.
+/// Mirrors `sections::parse_with_profile`'s `labelled_usage_start`
+/// (`starts_with_or_marker`/`or:` excluded, same reason: a continuation,
+/// not new evidence). Gates whether [`synopsis_lines`] may fall back to
+/// an unlabelled synopsis line.
 fn has_labelled_usage_start(raw: &str, root_name: &str) -> bool {
     use mandible_extract::help_text::{starts_with_name_prefixed_usage, starts_with_usage_prefix};
     raw.lines().any(|l| {
@@ -574,65 +270,33 @@ fn has_labelled_usage_start(raw: &str, root_name: &str) -> bool {
     })
 }
 
-/// The physical lines of `raw` that are a synopsis.
+/// The physical lines of `raw` that are a synopsis. Five shapes:
 ///
-/// Five shapes, all real and all in this project's own corpus:
+/// * marker and synopsis on one line (`Usage: tar [OPTION...] [FILE]...`);
+/// * that line **wrapped**, remainder on indented lines below, recognized
+///   by opening with a group delimiter ([`is_bracketed`]) so ordinary
+///   indented prose isn't misread as more synopsis (`git --help`'s
+///   `<command>`/`[<args>]` are on its last wrapped line);
+/// * a bare `Usage:` header with the synopsis indented beneath (util-linux
+///   house style: `setsid`, `wall`, `fsck`, `zoxide`) — every consecutive
+///   indented non-empty line is taken, delimiter or not;
+/// * the C `"%s: Usage: ..."` idiom (`starts_with_name_prefixed_usage`,
+///   `nfsidmap: Usage: nfsidmap [-vh] ...`) and an **unlabelled** synopsis
+///   opening with the tool's own name (`looks_like_unlabeled_synopsis_line`,
+///   `gh`'s `USAGE` / `gh <command> <subcommand> [flags]`), tried only
+///   when [`has_labelled_usage_start`] finds nothing;
+/// * a bare own-name line whose notation sits on the **next** line instead
+///   (LVM's `vg*`/`lv*`/`pv*` family: `vgextend VG PV ...` then
+///   `\t[ -A|--autobackup y|n ]`), recognized via `starts_with_tool_name`
+///   plus [`looks_like_bracket_flag_row`] on the next line.
 ///
-/// * the marker and the synopsis on one line — `Usage: tar [OPTION...]
-///   [FILE]...`, `  or:  du [OPTION]... --files0-from=F`;
-/// * that same line **wrapped**, its remainder hanging on the indented
-///   lines below it. `git --help` writes five of them, and its two real
-///   operands `<command>` and `[<args>]` are on the *last* one — reading
-///   only the marker line reported both as invented, which is how this
-///   clause came to exist. A wrapped remainder is recognized by opening
-///   with one of the synopsis grammar's own group delimiters
-///   ([`is_bracketed`], the same three bytes the tier's own
-///   `looks_like_usage_fragment` tests), which is what keeps the ordinary
-///   indented *prose* under a usage line — `du`'s "Summarize device usage
-///   of the set of FILEs..." — from being read as more synopsis;
-/// * a bare `Usage:` header with the synopsis indented beneath it, which is
-///   util-linux's house style (`setsid`, `wall`, `fsck`) and `zoxide`'s.
-///   Every consecutive indented non-empty line under such a header is
-///   taken, delimiter or not, because the continuation there begins with
-///   the tool's own name rather than with notation; and
-/// * two shapes with **no `usage:` marker anywhere on their own line**,
-///   taught to `mandible-extract` by PR #32/#33 and, until now, invisible
-///   to this module entirely: the C `"%s: Usage: ..."` idiom
-///   (`starts_with_name_prefixed_usage` — `nfsidmap: Usage: nfsidmap [-vh]
-///   ...`) and an **unlabelled** synopsis, a line that simply opens with the
-///   tool's own name and reads as usage grammar
-///   (`looks_like_unlabeled_synopsis_line` — `gh`'s bare `USAGE` heading
-///   followed by `  gh <command> <subcommand> [flags]`). The unlabelled
-///   shape is only ever tried when [`has_labelled_usage_start`] finds no
-///   ordinary labelled block anywhere in the document, matching the tier's
-///   own precedence exactly. Unlike the tier, this module does not further
-///   bound the unlabelled search to the lines before the document's body
-///   starts — a match found later can only *add* an attested operand
-///   position, never remove one, so the narrower bound is safe to skip (see
-///   the re-export's own doc comment in `mandible-extract/src/help_text/
-///   mod.rs`); and
-/// * a **bare own-name line whose notation sits on the next line instead**:
-///   LVM's own emitter (`vgck`, `vgextend`, `vgrename`, and the rest of the
-///   `vg*`/`lv*`/`pv*` family) writes `vgextend VG PV ...` with no `[`, `<`
-///   or `{` anywhere on that line at all, so `looks_like_unlabeled_synopsis_
-///   line`'s own notation test can never find it — every bit of bracket
-///   notation (`\t[ -A|--autobackup y|n ]`) is on the line right after.
-///   Recognized on the same evidence the tier itself requires
-///   (`starts_with_tool_name` plus [`looks_like_bracket_flag_row`] on the
-///   very next physical line), tried only under the same `try_unlabelled`
-///   gate as the shape above — never merely because some line, anywhere,
-///   happens to open with the tool's own name.
+/// Marker tests are `mandible_extract::help_text`'s own, re-exported
+/// rather than duplicated. The continuation rule is deliberately wider
+/// than the tier's: widening can only add to the attested set
+/// ([`attested_operand_positions`]), never hide a real fabrication.
 ///
-/// The marker tests themselves are `mandible_extract::help_text`'s own
-/// (`starts_with_usage_prefix`/`starts_with_or_marker`/
-/// `starts_with_name_prefixed_usage`/`looks_like_unlabeled_synopsis_line`/
-/// `starts_with_tool_name`/`looks_like_bracket_flag_row`, re-exported for
-/// this module) rather than a second copy — see that re-export's doc
-/// comment. The continuation rule *is* this module's own,
-/// and is deliberately wider than the tier's: every line this admits can
-/// only add to the attested set ([`attested_operand_positions`]), and a
-/// wider attested set can only make this oracle report less. An oracle may
-/// differ from the parser in that direction and not the other.
+/// Fixture: `corpus/git/*/help.txt`, `corpus/nfsidmap/*/help.txt`,
+/// `corpus/gh/*/help.txt`, `corpus/vgextend/*/help.txt`.
 fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
     use mandible_extract::help_text::{
         looks_like_bracket_flag_row, looks_like_unlabeled_synopsis_line,
@@ -659,16 +323,9 @@ fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
     let mut open = Continuation::None;
     for (idx, &line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
-        // LVM's own emitter (`vgck`, `vgextend`, `vgrename`, and the rest
-        // of the `vg*`/`lv*`/`pv*` family) writes a *bare* invocation line
-        // with no docopt notation on it at all (`vgextend VG PV ...`), so
-        // `looks_like_unlabeled_synopsis_line`'s own notation test can never
-        // find it — every bit of bracket notation is on the line that
-        // follows instead. Mirrors the tier's own fallback exactly: a bare
-        // own-name line is accepted only when the very next physical line
-        // is unambiguous flag-row evidence, never merely because a line
-        // happens to start with the tool's own name somewhere later in the
-        // document.
+        // LVM's `vg*`/`lv*`/`pv*` family writes a bare invocation line with
+        // no notation (`vgextend VG PV ...`); accepted only when the next
+        // physical line is unambiguous flag-row evidence.
         let is_bare_own_name_with_flag_row_next = try_unlabelled
             && starts_with_tool_name(trimmed, root_name)
             && lines
@@ -713,32 +370,19 @@ fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
 }
 
 /// One synopsis line read as a sequence of operand slots, plus whether the
-/// line writes any literal flag of its own.
+/// line writes any literal flag of its own. The program name is dropped
+/// when the line opens with it; every remaining non-flag-shaped token is a
+/// slot, in source order, paired with whether it was written in notation.
 ///
-/// The program's own name is dropped when the line opens with it
-/// ([`SynopsisLine::opens_with_program_name`]); it is never an operand.
-/// Every remaining token that is not flag-shaped is a slot, kept in source
-/// order and paired with whether it was written in notation.
+/// Unlike the tier's `extract_positionals`, a flag's value token (`-C
+/// <path>`) is kept as a slot — attesting an extra token can only reduce
+/// reports, and dropping it would false-alarm on `lzgrep`'s `PATTERN`,
+/// which sits right after a bracketed `[-e]`.
 ///
-/// A flag's *value* token (`-C <path>`) is deliberately kept as a slot,
-/// unlike in the tier's own `extract_positionals`, which skips it. The
-/// asymmetry is on purpose and it is the safe direction: this set is only
-/// ever used to *attest*, so keeping a token can only make the oracle
-/// report less. Dropping it would have cost a real false alarm —
-/// `lzgrep`'s `Usage: lzgrep [OPTION]... [-e] PATTERN [FILE]...` writes its
-/// genuine `PATTERN` operand immediately after a bracketed `[-e]`, and a
-/// value-consuming reader attests `PATTERN` nowhere and reports a real
-/// operand as invented.
+/// `root_name` strips the C `"%s: Usage: ..."` idiom's doubled name
+/// (`nfsidmap: Usage: nfsidmap ...`) before the rest of the line is read.
 ///
-/// `root_name` is needed for exactly one shape: the C `"%s: Usage: ..."`
-/// idiom (`nfsidmap: Usage: nfsidmap [-vh] ...`), whose line carries the
-/// tool's own name *twice* — once as the `fprintf` prefix, once again after
-/// the embedded `usage:` marker, as a real invocation would repeat it. The
-/// prefix is stripped off first (`"<name>: "`, byte for byte, the exact
-/// substring [`mandible_extract::help_text::starts_with_name_prefixed_usage`]
-/// matched), which leaves an ordinary `Usage: nfsidmap [-vh] ...` line for
-/// every rule below to read unchanged — one strip rather than a parallel
-/// three-token consumption rule that would have to be kept in sync with it.
+/// Fixture: `corpus/lzgrep/*/help.txt`, `corpus/nfsidmap/*/help.txt`.
 fn usage_operands<'a>(line: &SynopsisLine<'a>, root_name: &str) -> (Vec<(&'a str, bool)>, bool) {
     use mandible_extract::help_text::{
         starts_with_name_prefixed_usage, starts_with_or_marker, starts_with_usage_prefix,
@@ -780,123 +424,24 @@ fn usage_operands<'a>(line: &SynopsisLine<'a>, root_name: &str) -> (Vec<(&'a str
 }
 
 /// The shape rule: which slot of a synopsis line is the tool's **option
-/// list** rather than an operand the user supplies.
+/// list** rather than an operand the user supplies (`tar [OPTION...]
+/// [FILE]...`, `vim [arguments] [file ..]`).
 ///
-/// # The defect this exists for
+/// Two tests, in fixed order, not a blind union:
 ///
-/// A synopsis names its own option list with a word, in the same notation
-/// an operand uses, and only the second half of each of these pairs is
-/// something the user actually passes:
+/// 1. **Vocabulary**: [`mandible_extract::help_text::is_option_list_placeholder`]
+///    (`option`/`options`/`flag`/`flags`/`arguments`), scoped to a
+///    bracketed slot.
+/// 2. **Positional fallback**, only when (1) found nothing on the line: the
+///    first slot is the option list when the line writes no literal flag of
+///    its own, that slot is bracketed, and at least one further slot
+///    follows it.
 ///
-/// ```text
-/// tar [OPTION...] [FILE]...
-/// pkgconf [OPTIONS] [LIBRARIES]
-/// dpkg-statoverride [<option> ...] <command>
-/// rmiregistry <options> <port>
-/// vim [arguments] [file ..]
-/// ```
+/// Rule 2 must be gated on rule 1, not run alongside it — `gh`'s unlabelled
+/// `<command> <subcommand> [flags]` has its placeholder *last*; running
+/// both would also flag the genuine first operand `command` as invented.
 ///
-/// Reading the first as an operand invents an argument no tool has. That
-/// was live in **15 of the 26 corpus fixtures carrying a positional** —
-/// `tar`, `du`, `sha1sum`, `lzgrep`, `lzless` each recorded `OPTION`;
-/// `pkg-config`, `ip`, `mysqld_multi` recorded `OPTIONS`;
-/// `dpkg-statoverride` `option`; `rmiregistry`, `update-xmlcatalog`
-/// `options`; and `git restore`'s subtree `options` beside its real `file`
-/// — and this oracle saw every one of them and said nothing, because it did
-/// not look at positionals at all.
-///
-/// # Why a shape rule first, and a word list only on top
-///
-/// The tier's own fix names the shape by its vocabulary
-/// (`sections::OPTION_LIST_PLACEHOLDERS`), which is the right call *there*:
-/// a parser deciding whether to emit must decide, and those five words are
-/// the ones the frameworks in the fleet actually use. An oracle must not
-/// rely on that list *alone*: it cannot tell you whether the parser is
-/// wrong, only whether it disagreed with the same list — a fabrication
-/// spelled with a sixth word would be attested by both, and the primary
-/// rule below still has to cover that case on its own. So the primary rule
-/// here is positional, and it reads only shape:
-///
-/// > On a synopsis line that writes **no literal flag of its own**, the
-/// > **first** slot is the option list — provided it is written in
-/// > **notation** and at least one further slot **follows** it.
-///
-/// Each clause carries its own weight, and each is a false alarm this rule
-/// does not have:
-///
-/// 1. **No literal flag on the line.** A synopsis that spells its options
-///    out (`uflow [-h] [-l {java,...}] [-M METHOD] ... pid`) needs no
-///    stand-in for them, so every slot on it is an operand. This alone
-///    keeps `git`, `javaflow-bpfcc`, `rubyobjnew-bpfcc`, `sbverify` and
-///    `fsck` out of the rule's reach entirely.
-/// 2. **Written in notation.** `basename NAME [SUFFIX]` opens with a bare
-///    word, and a bare word is a named operand, never a stand-in for a flag
-///    list — no tool in the corpus writes its option placeholder
-///    unbracketed.
-/// 3. **Something follows it.** A synopsis whose only slot is its first
-///    (`zoxide <COMMAND>`, `strace-log-merge STRACE_LOG`) is naming the one
-///    operand the tool takes. Reading *that* as the option list would delete
-///    a real operand, which is the failure this project ranks worst.
-///
-/// # What it does not catch
-///
-/// A tool whose synopsis is only its option placeholder (`whoami
-/// [OPTION]...`) is missed by clause 3, and one whose synopsis writes a
-/// literal flag *beside* the placeholder (`lzgrep [OPTION]... [-e] PATTERN
-/// [FILE]...`) by clause 1. Both are under-reports, deliberately: this
-/// oracle's own standing rule is that a permissive miss costs a defect
-/// unfound while a false alarm blocks a working tool.
-///
-/// # The vocabulary addendum, and why it is additive rather than a rewrite
-///
-/// The positional rule above assumes the placeholder sits *first*, true of
-/// every case measured before this task and false of `gh`'s unlabelled
-/// `<command> <subcommand> [flags]` — a shape [`crate::existence`]'s own
-/// synopsis-entry fix (`mandible_extract::help_text::
-/// looks_like_unlabeled_synopsis_line`) only just made visible to this
-/// oracle at all. `gh`'s real flag stand-in is the *last* slot, and reading
-/// the positional rule alone would have excluded `command` (a real operand)
-/// as if it were the placeholder, while leaving `flags` (the actual
-/// placeholder) attested as if it were real — backwards on both counts.
-///
-/// So this function tries two tests, in a fixed order, not a blind union:
-///
-/// 1. A **vocabulary** test, applied regardless of position:
-///    [`mandible_extract::help_text::is_option_list_placeholder`], the exact
-///    five-word list `sections::extract_positionals` itself excludes on
-///    (`option`, `options`, `flag`, `flags`, `arguments`), re-used rather
-///    than restated for the drift reason that re-export's own doc comment
-///    gives. Scoped to a notation-written slot (`bracketed`) on purpose:
-///    this vocabulary family's whole reason to exist is a word that *looks*
-///    like a bare operand name while notation marks it as a placeholder
-///    instead, so a bare, unbracketed occurrence of one of these words is
-///    left alone as the ordinary operand it would otherwise be (nothing in
-///    the fleet measurement contradicts this; the anchor case, `vim`'s
-///    `[arguments]`, is always written bracketed).
-/// 2. Only when the vocabulary test found **nothing at all** on the line:
-///    the **positional** shape rule above (this function's own doc comment
-///    up to this point) — the first slot, when the line writes no literal
-///    flag of its own, it is written in notation, and something follows it.
-///
-/// The ordering is load-bearing, not cosmetic. Running both unconditionally
-/// double-counts the moment a real operand happens to sit first on a line
-/// whose *actual* placeholder is further along: `gh`'s unlabelled
-/// `<command> <subcommand> [flags]` has its real flag stand-in *last*
-/// (`flags`, caught by rule 1), but rule 2 alone would also read the
-/// genuine first operand `command` as *a second, wrong* placeholder if it
-/// ran unconditionally — reporting a real operand as invented is exactly
-/// the failure this whole module exists to prevent. Gating rule 2 on "rule
-/// 1 found nothing" is what keeps the two from ever answering the same
-/// question twice: every case measured in the fleet before this task
-/// (`tar`'s `OPTION`, `pkgconf`'s `OPTIONS`, `rmiregistry`'s `options`, ...)
-/// already matches the vocabulary case-insensitively, so rule 2 is pure
-/// insurance for a placeholder spelled with a word outside the five-word
-/// list — it has never yet had to fire *and* disagree with rule 1 on the
-/// same line, and this ordering guarantees it never will.
-///
-/// Returns every excluded slot's word, not just one, since a line can
-/// legitimately carry more than one vocabulary hit (rare, unmeasured, but
-/// nothing forbids a synopsis from repeating the word).
+/// Fixture: `corpus/tar/1.35/help.txt`, `corpus/gh/*/help.txt`.
 fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> HashSet<&'a str> {
     let mut placeholders = HashSet::new();
     for (word, bracketed) in slots {
@@ -904,19 +449,8 @@ fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Ha
             placeholders.insert(*word);
         }
     }
-    // The positional rule is a *fallback*, tried only when nothing on the
-    // line already matched the vocabulary above — never run unconditionally
-    // alongside it. Every real fleet case this rule was written for
-    // (`tar`'s `OPTION`, `pkgconf`'s `OPTIONS`, `vim`'s `arguments`, ...)
-    // already matches the vocabulary case-insensitively, so this branch is
-    // pure insurance against a placeholder spelled with a sixth word the
-    // vocabulary doesn't have — never a second vote alongside a vocabulary
-    // match that already named a *different* slot. Without this ordering,
-    // `gh`'s `<command> <subcommand> [flags]` triggers both rules at once:
-    // the vocabulary rule correctly excludes `flags` (the real placeholder,
-    // last), while the position rule — blind to which slot the vocabulary
-    // already answered for — would *also* exclude `command` (the first
-    // slot, and a genuine operand), reporting it as invented.
+    // Fallback only: gated on the vocabulary loop above finding nothing, so
+    // the two rules never both flag the same line (see doc comment).
     if placeholders.is_empty() && !has_literal_flag && slots.len() >= 2 {
         let (first, bracketed) = slots[0];
         if bracketed {
@@ -930,23 +464,12 @@ fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Ha
 /// attested — the operand half of what [`attested_name_positions`] is for
 /// subcommand names.
 ///
-/// Two sources, mirroring the two ways a tool documents an operand:
-///
-/// * an **operand slot of a synopsis line**, minus the option-list slot
-///   ([`option_list_slot`]); and
-/// * a **line's first token** ([`line_start_words`]) — an entry in a
-///   declared operand block, which is what `argparse` writes under its
-///   `positional arguments:` heading and what
-///   `sections::emit_declared_positionals` reads.
-///
-/// The option-list subtraction is confined to the synopsis set on purpose.
-/// Removing the placeholder word from `line_start_words` as well would be a
-/// second, unmeasured claim — that no document ever documents an operand
-/// under a name some other line uses as its option placeholder — and it
-/// would buy a handful of extra reports at the cost of a false-alarm class
-/// nobody has bounded. The subtraction as written costs `du`'s `OPTION` a
-/// report whenever a second `or:` line re-attests it, and that is the trade
-/// this module takes every time.
+/// Two sources: an operand slot of a synopsis line, minus the option-list
+/// slot ([`option_list_slot`]); and a line's first token
+/// ([`line_start_words`]), an entry in a declared operand block (argparse's
+/// `positional arguments:`). The option-list subtraction applies only to
+/// the synopsis set, not to `line_start_words`, to avoid an unmeasured
+/// false-alarm class.
 fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
     let mut out = HashSet::new();
     for line in synopsis_lines(raw, root_name) {
@@ -962,34 +485,15 @@ fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a 
     out
 }
 
-/// Candidate raw-text spellings for `flag`'s short spelling — the bare
-/// `-x` form, plus, when `flag.value_name` is set, the *reconstructed*
-/// single-dash spelling this module's doc comment describes: GCC/Clang/
-/// binutils's convention of multi-character single-dash flags
-/// (`-fdump-scos`, `-cl-ext=<value>`) is parsed by the (pre-existing,
-/// out-of-scope-here) short-flag grammar as one character of `short` plus
-/// everything after it glued onto `value_name` verbatim — so the bare `-x`
-/// this module would otherwise check for never occurs standalone in real
-/// output; only the *compound* `-x<value_name>` does, because that's
-/// genuinely the same raw token the grammar split in two. Reconstructing
-/// it and checking that instead is the identical "compare against the pre-
-/// normalization spelling" principle this module already applies to a
-/// long flag's stripped value spec — just applied to the other half of a
-/// flag identity for once. `value_name` is stored exactly as extracted (no
-/// reformatting - see `grammar::try_value`), so concatenating it directly
-/// back onto `short` reconstructs the original substring byte-for-byte
-/// whenever the grammar's bare-token branch produced it (`-fdump-scos`);
-/// the second candidate, `-x=<value_name>`, covers the same reconstruction
-/// when the grammar's `=VALUE` branch instead consumed and discarded a
-/// leading `=` (a shape not yet measured in the wild for this convention,
-/// but cheap to also check).
+/// Candidate raw-text spellings for `flag`'s short spelling: the bare `-x`
+/// form, plus, when `flag.value_name` is set, the reconstructed
+/// single-dash forms `-x<value_name>` and `-x=<value_name>` (GCC/Clang
+/// multi-character single-dash flags like `-fdump-scos` are parsed as one
+/// `short` char plus the rest glued onto `value_name`, so the bare form
+/// never occurs standalone in real output). Fallback only, tried after the
+/// bare form fails; cannot introduce a false negative.
 ///
-/// This can only *reduce* false positives, never manufacture a false
-/// negative on a genuinely invented flag: it's tried only as a fallback
-/// after the bare form already failed, and requires an exact, boundary-
-/// respecting match of the *actual extracted value text* — a coincidental
-/// collision with unrelated raw text is not a realistic risk for any
-/// value_name with real content.
+/// Fixture: `corpus/clang/*/help.txt`, `corpus/lto-dump/*/help.txt`.
 fn short_candidates(flag: &Entity, short: char) -> Vec<String> {
     let mut candidates = vec![format!("-{short}")];
     if let Some(value) = &flag.value_name {
@@ -1001,47 +505,16 @@ fn short_candidates(flag: &Entity, short: char) -> Vec<String> {
 
 /// Whether `raw` spells `short` as a member of a **bundled short-flag
 /// cluster** — `-C` inside `tmux`'s `[-2CDlNuVv]`, `-#` inside `tcpdump`'s
-/// `[-AbdDefhHIJKlLnNOpqStuUvxX#]`.
+/// `[-AbdDefhHIJKlLnNOpqStuUvxX#]`. Fallback only, after literal forms
+/// fail; reuses `help_text::grammar::parse_bundled_shorts` (the same
+/// function the parser splits clusters with), so it cannot manufacture a
+/// false negative — it attests exactly what the parser derived.
 ///
-/// # Why this exists, and why it is not a loosening
+/// Splits on brackets/braces/parens/pipes/commas as well as whitespace,
+/// since a synopsis token can glue two bracket groups together with no
+/// space (`rpcgen`'s `[-abkCLNTM][-Dname[=value]]`).
 ///
-/// This is the same "compare against the pre-normalization spelling"
-/// principle [`short_candidates`] already applies to `-fdump-scos`, and it
-/// arrived for the same reason: the grammar started splitting one raw token
-/// into several flags, and a per-flag literal check cannot see a spelling
-/// that only exists as one character of a token.
-///
-/// `help_text::grammar::parse_bundled_shorts` now reads a synopsis cluster
-/// as the set of switches it is, so `tmux`'s tree carries eight bare
-/// booleans where it used to carry one collapsed `-2`. Seven of those eight
-/// spellings occur **nowhere** in `tmux --help` on their own — `-C` appears
-/// only inside the cluster token — so without this, fixing the collapse
-/// would have converted a real 465-flag recall defect into a fleet-wide
-/// false alarm on the one oracle built for [M-10]. That is the *K2* shape
-/// exactly: 613 of the first sweep's 656 reported fabrications were
-/// detector artifacts of three kinds, every one a case of this module
-/// checking a spelling the parser had legitimately derived from text it
-/// really read.
-///
-/// **It cannot manufacture a false negative.** It is reached only as a
-/// fallback, after the literal forms already failed, and it attests `short`
-/// only when some raw token *is* a cluster by the identical rule the
-/// grammar splits on — the same function, not a restatement of it. So the
-/// oracle attests exactly the spellings the parser derived and nothing
-/// else: a genuinely invented `-Q` is still reported unless the tool's own
-/// text writes a cluster containing `Q`, in which case `-Q` was read, not
-/// invented, and reporting it would be the false alarm.
-///
-/// The raw text is split on brackets, braces, parens, pipes and commas as
-/// well as whitespace, because a synopsis writes its clusters bracketed and
-/// does not reliably put a space between the groups: `rpcgen`'s real usage
-/// line is `rpcgen [-abkCLNTM][-Dname[=value]] [-i size] ...`, where the
-/// cluster and the next option group are **one** whitespace token. Trimming
-/// the outer brackets off that token leaves `-abkCLNTM][-Dname[=value`,
-/// which is not a cluster, and `-k` — a spelling that occurs nowhere else
-/// in `rpcgen --help` — would be reported as invented. Splitting on the
-/// delimiters instead of trimming them costs nothing, since none of them
-/// can be a cluster member in the first place.
+/// Fixture: `corpus/tmux/*/help.txt`, `corpus/rpcgen/*/help.txt`. K2, §13.1b.
 fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
     raw.split(|c: char| {
         c.is_whitespace() || matches!(c, '[' | ']' | '{' | '}' | '(' | ')' | '|' | ',')
@@ -1054,45 +527,18 @@ fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
 
 /// Candidate raw-text spellings for `flag`'s long name: the negatable-
 /// boolean bracket convention (this module's doc comment), each also in the
-/// *value-reconstructed* form [`short_candidates`] already builds for the
-/// short half. Any one matching is sufficient.
+/// value-reconstructed form [`short_candidates`] builds for the short half
+/// (`--<long><value>`, `--<long>=<value>`) — needed because
+/// [`spelling_occurs`]'s word boundary treats `_` as word-shaped, so a
+/// value glued directly onto `long` with no separator (`--perf-
+/// no_read_workqueue` stored as `long: "perf-no"`, `value_name:
+/// "_read_workqueue"`) would otherwise reject the flag's own raw token.
+/// Fallback only, reached after the plain form fails.
 ///
-/// # Why the long half needs the same reconstruction the short half got
-///
-/// [`spelling_occurs`]'s boundary treats `_` as word-shaped, deliberately —
-/// it is a legal identifier character, so `--foo` matching inside an
-/// unrelated `--foo_bar` would be the same false attestation `--foo` inside
-/// `--foobar` is. But a flag whose *own* value spec is glued straight onto
-/// it with no separator hits that guard for the opposite reason: nothing
-/// unrelated follows, it is the rest of the same token, split off into
-/// `value_name` by `grammar::try_value` exactly as `-fdump-scos`'s tail is.
-///
-/// Measured, not hypothesized — 54 of 656 fleet-wide fabrications, all
-/// false, every one of this shape:
-///
-/// | raw text | stored `long` | stored `value_name` |
-/// |---|---|---|
-/// | `--perf-no_read_workqueue` (`cryptsetup`) | `perf-no` | `_read_workqueue` |
-/// | `--is-x86_64-xen-domu` (`grub-file`) | `is-x86` | `_64-xen-domu` |
-/// | `--fwparam_connect` (`iscsistart`) | `fwparam` | `_connect` |
-/// | `--auto_toc_prefix` (`icupkg`) | `auto` | `_toc_prefix` |
-/// | `--extended_fields` (`compactsnoop-bpfcc`) | `extended` | `_fields` |
-/// | `--load_hidden=<string>` (`llvm-jitlink-18`) | `load` | `_hidden=<string>` |
-///
-/// The same reasoning `short_candidates` closes with applies unchanged
-/// here: these are fallbacks, reached only after the plain form already
-/// failed, and each demands an exact boundary-respecting match of the
-/// *actual extracted value text*, so a genuinely invented long flag with a
-/// value spec is still reported (`detect_still_flags_a_genuinely_
-/// fabricated_long_flag_with_a_value_name`).
+/// Fixture: `corpus/cryptsetup/*/help.txt`.
 fn long_candidates(flag: &Entity, long: &str) -> Vec<String> {
-    // One dash or two, from the flag itself. A single-dash long option
-    // (`mandible_core::Entity::single_dash` — `qemu -help`, `bpftrace -vv`,
-    // `lto-dump -CC`) holds its bare name in `long` exactly as a `--`
-    // option does, so searching the raw text for `--vv` would report a
-    // perfectly real, correctly-parsed flag as an invention. Measured: the
-    // repeated-character repair moved `lto-dump` from 10 fabrications to 12
-    // until this was fixed, and both were `-CC`/`-MM`.
+    // Single-dash long options (`qemu -help`, `lto-dump -CC`) hold their
+    // bare name in `long` exactly as a `--` option does.
     let dashes = if flag.single_dash() { "-" } else { "--" };
     let mut bases = if flag.negatable() {
         vec![
@@ -1103,14 +549,9 @@ fn long_candidates(flag: &Entity, long: &str) -> Vec<String> {
     } else {
         vec![format!("{dashes}{long}")]
     };
-    // An abbreviation-bracket spelling (`-r[esolve]`, `-rc[vbuf]`,
-    // `--br[ief]`) never occurs in the raw text as its own full name —
-    // only the bracket form does. Without this, `long_candidates` would
-    // report every abbreviation-reconstructed name as fabricated, the same
-    // class of false positive this function's other candidates already
-    // exist to prevent for the negatable and glued-value conventions.
-    // `Spelling::render` reproduces exactly the bracket form the tool
-    // printed, so it is the candidate, verbatim.
+    // An abbreviation-bracket spelling (`-r[esolve]`, `--br[ief]`) never
+    // occurs as its full name in raw text, only the bracket form does.
+    // `Spelling::render` reproduces that form verbatim.
     if let Some(spelling) = flag.long_spelling() {
         if spelling.abbrev.is_some() {
             bases.push(spelling.render());

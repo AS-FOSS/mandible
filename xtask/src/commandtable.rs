@@ -1,51 +1,23 @@
 //! `unparsed-command-table`: a dash-separated command table under a
 //! `commands:` heading that reaches the tree as nothing at all.
 //!
-//! # Why this is not the whole `unparsed-subcommand` family
+//! The seed-2 audit's `unparsed-subcommand` label covers four unrelated
+//! grammars: a dash-separated command table (shape A, `ar` and its
+//! aliases), an inline label + continuation (`apt-ftparchive`), a
+//! repeated-prefix usage catalogue (`btrfs`), and a metavariable
+//! alternation set (`ip`). Only shape A is read here — a detector
+//! spanning all four would be loose enough in each to be worthless in
+//! all. The other three are named in this detector's
+//! [`Scope::known_exclusions`] with a [`Ground::UnreadableEntryShape`]
+//! carrying a real line from each tool's own help text.
 //!
-//! The seed-2 audit labelled 8 tools `unparsed-subcommand`, which made it
-//! the largest family in the set. Reading all 8 notes against the tools'
-//! own captures shows the label is covering **four unrelated grammars**,
-//! not one:
+//! What goes wrong: `ar`'s usage-block scanner
+//! (`help_text::sections`) treats every more-indented line as a synopsis
+//! continuation, so its `commands:` heading and every entry under it join
+//! into one `usage` string — no subcommand is ever recovered.
 //!
-//! | shape | tools | how the subcommand list is written |
-//! |---|---|---|
-//! | **A — dash-separated command table** | `ar`, `gcc-ar`, `gcc-ar-13`, `aarch64-linux-gnu-ar`, `aarch64-linux-gnu-gcc-ar` | ` commands:` heading, then `  d            - delete file(s) from the archive` |
-//! | B — inline label + continuation | `apt-ftparchive` | `Commands: packages binarypath [overridefile [pathprefix]]`, the first entry on the heading's own line |
-//! | C — repeated-prefix usage catalogue | `btrfs` | `    btrfs balance start [options] <path>`, no heading anywhere, the name recoverable only by stripping the repeated program name |
-//! | D — metavariable alternation set | `ip` | `where  OBJECT := { address \| addrlabel \| ... }`, a brace-delimited pipe-separated set bound to a name used in the usage line |
-//!
-//! Only shape A is read here, and that is deliberate: the four have no
-//! common structure to generalize over, and one detector spanning them
-//! would have to be loose enough in each to be worthless in all. B, C and
-//! D are named in this detector's [`Scope::known_exclusions`] with a
-//! [`Ground::UnreadableEntryShape`] carrying a real line from each tool's
-//! own help text, so the misses stay counted and reasoned rather than
-//! quietly dropped.
-//!
-//! Shape A is 5 of the 8, and every one of the 5 is binutils `ar` reached
-//! under a different name — an honest caveat this module states rather
-//! than hides. The *shape* is nonetheless general (a two-column
-//! `name  - description` table under an indented heading is ordinary
-//! layout), and the fleet sweep is what settles how general.
-//!
-//! # What goes wrong
-//!
-//! `ar`'s help opens with a usage line and then indents everything after
-//! it. The usage-block scanner in `mandible-extract`'s
-//! `help_text::sections` treats every more-indented line as a synopsis
-//! continuation, so ` commands:` and all 8 of its entries — and the two
-//! modifier sections after it — are joined into a single `usage` string.
-//! The heading is never seen as a heading, so no subcommand is ever
-//! recovered: the tree has zero.
-//!
-//! # What this detector will not do
-//!
-//! It fires only when the table's names are **all** absent from the tree.
-//! A partially-recovered table is not this defect (it is some other one),
-//! and firing on it would put the detector in the business of grading
-//! recall rather than reporting a section that was ignored wholesale —
-//! which is what every one of the 5 audited captures actually shows.
+//! Fires only when the table's names are all absent from the tree — a
+//! partially-recovered table is a different defect.
 
 use mandible_core::{is_command_name_shaped, CommandNode, Provenance, Source};
 use std::collections::BTreeSet;

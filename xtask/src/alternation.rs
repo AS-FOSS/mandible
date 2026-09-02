@@ -1,138 +1,50 @@
 //! The `brace-alternation-flag` detector: the fourth fleet oracle, after
 //! [`crate::misattribution`], [`crate::existence`] and [`crate::bundling`].
 //!
-//! **Its victim is a delimited alternation of flag spellings.** Three tools
-//! in `audit/submissions/sadigaxund/2.toml`'s seed-2 human review write their flags as an
-//! alternation group, in three different renderings, and all three lost real
-//! flags to it:
+//! Victim: a `{...}`/`[...]` group whose `|`-split members are bare flag
+//! spellings (S-084) — `cache_restore`'s `{-i|--input}` lost all eight
+//! flags, `eqn`'s `{-v | --version}` read `--version` with literal value
+//! `"}"`, `xfs_io`'s `[[-c|-C] cmd]...` lost both flags.
 //!
-//! | tool | as written | what reached the tree |
-//! |---|---|---|
-//! | `cache_restore` | `{-i\|--input} <input xml file>` | nothing — eight rows, zero flags |
-//! | `eqn` | `{-v \| --version}` | `--version` carrying the literal value `"}"`; `-v` gone |
-//! | `xfs_io` | `[[-c\|-C] cmd]...` | nothing — neither `-c` nor `-C` |
+//! Both anti-fabrication oracles are structurally blind: `eqn`'s
+//! `--version` occurs literally so existence attests it cleanly while the
+//! value is wrong, and a spelling never reaching the tree is not
+//! something "was this invented?" can see.
 //!
-//! The three look unalike on the page and are one shape underneath: a
-//! `{...}` or `[...]` group whose members, split on `|`, are bare flag
-//! spellings and nothing else. That is why they are one detector rather than
-//! three, and it is the same judgment call spec §13.1e asks of every family
-//! — a name that covered several shapes would have to be split, and this one
-//! does not.
+//! The rule itself lives in
+//! [`mandible_extract::help_text::parse_flag_alternation`], imported not
+//! restated — a hand-copied `pick_stream` once drifted silently and cost
+//! 200 of 656 fleet-wide fabrications. This module adds only detector-own
+//! decisions: at least [`MIN_ALTERNATIVES`] members (a one-member group
+//! is an ordinary `[-v]`, already handled elsewhere); verbatim trees are
+//! skipped (`verbatim-fallback` has its own detector); both a spelling
+//! missing from the tree and a delimiter left inside a `value_name` are
+//! reported, matching the family's own two-part definition.
 //!
-//! # Why this needs its own oracle
+//! Does not catch a member carrying its own value (`sg_sanitize`'s
+//! `--count=OC|-c OC`, a different family, `value-name-mangled`) or an
+//! undelimited alternation already parsed correctly (`sg_sanitize`'s
+//! `--ause|-A`). Count is a lower bound.
 //!
-//! [`crate::existence`] is structurally blind to it in both directions.
-//! `eqn`'s `--version` occurs literally in the raw text, so existence
-//! attests it cleanly while the parse hangs a stray `}` on it as a required
-//! value; and a spelling that never reached the tree at all is not something
-//! an oracle asking "was this invented?" can see, because nothing was
-//! invented. [`crate::bundling`] is blind too, and says so out loud: its
-//! `xfs_io` fixture comment records that the alternation is "a different
-//! family from the bundle (the members are separated by `|`, not glued), so
-//! the cluster grammar neither helps nor hinders it".
+//! Reported, not ratcheted at zero: the residual is `btrfs`'s
+//! `[-d|--all-devices]`, read correctly but with no subcommand node to
+//! hang the flags on (`unparsed-subcommand`, a different grammar) — root
+//! is the only available node and `-d` is not a root flag, so emitting it
+//! there would be false, not merely incomplete. Becomes ratchetable for
+//! free once that catalogue has a grammar of its own.
 //!
-//! # The rule, and where it lives
-//!
-//! **Not here.** The predicate that decides whether a group names flags is
-//! [`mandible_extract::help_text::parse_flag_alternation`] — the extractor's
-//! own, imported rather than restated. This project has already paid for the
-//! alternative: `xtask::misattribution` once carried a hand-copied
-//! `pick_stream`, it drifted silently past a real fix, and the oracle
-//! produced **200 of 656 fleet-wide fabrications** measuring its own
-//! different guess instead of the parser. A detector and the fix it measures
-//! have to agree, character for character, on what the defect is; sharing
-//! the function is the only way to guarantee that they do.
-//!
-//! What this module adds on top of that shared rule is the three decisions
-//! that are the *detector's* own:
-//!
-//! 1. **At least [`MIN_ALTERNATIVES`] members.** An "alternation" of one is
-//!    a bracketed optional flag (`[-v]`), which the synopsis path has always
-//!    read correctly; counting it here would turn this into a general
-//!    unparsed-flag detector wearing the wrong family's name.
-//! 2. **Verbatim trees are skipped.** A tool whose help text produced no
-//!    structure at all loses every spelling in it, alternation or not. That
-//!    is `verbatim-fallback`, it has its own detector, and letting this one
-//!    fire there would inflate a fleet count with tools whose alternation
-//!    was never the reason for anything.
-//! 3. **Two witnesses, both named in the family's own definition** — the
-//!    family reads "*is dropped entirely or keeps a brace as its value*", so
-//!    a spelling missing from the tree and a delimiter left inside a
-//!    `value_name` are both reported, each with the group it came from.
-//!
-//! # What it deliberately does not catch
-//!
-//! **A member carrying its own value.** `sg_sanitize`'s `--count=OC|-c OC`
-//! is an alternation of two spellings that *each* restate the value, and it
-//! is labelled `value-name-mangled`, not this family. Nothing on its shape
-//! says whether one value or two are meant, and the extractor's
-//! `is_bare_flag_spelling` refuses it for that reason; this detector inherits
-//! the refusal by construction rather than by a second decision.
-//!
-//! **Undelimited alternations.** `sg_sanitize`'s ordinary rows —
-//! `--ause|-A`, `--block|-B` — are `|`-separated and *already parsed
-//! correctly* (`skip_separators` treats `|` as an alias separator). A
-//! detector that fired on them would be reporting working tools, which is
-//! this project's standing rule inverted.
-//!
-//! The count is therefore a lower bound on the family, which is the right
-//! direction: a false negative leaves a bug unreported, a false positive
-//! blocks the fix.
-//!
-//! # Why this count is reported and not ratcheted at zero
-//!
-//! Every shape the grammar can reach is closed and all three labelled
-//! fixtures were promoted, but the fleet count does not reach zero, and the
-//! residual is not this family's to close. It is `btrfs`, whose help text is
-//! a repeated-prefix usage catalogue — `btrfs device scan [-d|--all-devices]
-//! <device>` — where `[-d|--all-devices]` is a real alternation this
-//! detector reads correctly and `-d` is a real flag of the node `btrfs
-//! device scan`. That node does not exist, because the catalogue was never
-//! parsed into subcommands (`unparsed-subcommand`, a different family and a
-//! different grammar).
-//!
-//! **The reason that is an out-of-scope miss rather than an unmeasured
-//! shortfall is not that the subcommand is missing — it is that the only
-//! node available to hang those flags on is the root, and `-d` is not a root
-//! flag of `btrfs`.** Emitting it there would assert something false about
-//! the tool. Reaching further would be *wrong*, not merely hard, and that is
-//! the whole difference between a principled exclusion and a gap nobody has
-//! got to yet.
-//!
-//! Gating at zero today would leave two ways to go green — narrow the
-//! detector until it stops seeing a real defect, or fabricate a root flag —
-//! and the first is this project's standing rule inverted. The count is
-//! reported instead, and becomes ratchetable for free once the
-//! repeated-prefix catalogue has a grammar of its own, with no change to
-//! this detector. See `crate::main`'s `coverage --check` arm.
-//!
-//! # No new probes
-//!
-//! Identical to the three oracles before it: this reads the raw bytes and
-//! the tree a sweep already produced, so it costs zero additional subprocess
-//! spawns.
+//! No new probes: reads the raw bytes and tree a sweep already produced.
 
 use mandible_core::CommandNode;
 use mandible_extract::help_text::parse_flag_alternation;
 use std::collections::BTreeSet;
 
 /// The fewest alternatives a group must offer before this detector reads it
-/// as an alternation.
-///
-/// Two, and the reason is ownership rather than ambiguity: a one-member
-/// group is `[-v]`, an ordinary bracketed optional flag that
-/// `sections::usage_segments` has always handled, and every synopsis in the
-/// fleet is full of them. Counting those would make this detector's number a
-/// measure of unparsed flags generally — a real defect, with its own family
-/// (`unparsed-flag`) and its own reasons — under a name that claims to be
-/// about alternation.
-///
-/// That reasoning was later confirmed from the other end: `unparsed-flag` was
-/// read in full and **no detector was built for it**, precisely because the
-/// name is a symptom rather than a shape and anything generalizing it is the
-/// recall counter this constant refuses to become. See
-/// `mandible_core::audit::DEFECT_FAMILIES`' comment above that family, and
-/// spec §13.1e.
+/// as an alternation. Two, not one: a one-member group is `[-v]`, an
+/// ordinary bracketed optional flag `sections::usage_segments` already
+/// handles. Counting it would make this detector's number a measure of
+/// unparsed flags generally — the separate `unparsed-flag` family, which
+/// deliberately has no detector of its own (spec §13.1e).
 pub(crate) const MIN_ALTERNATIVES: usize = 2;
 
 /// Characters that mean a group delimiter, or the alternation bar itself,

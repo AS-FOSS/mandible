@@ -6,73 +6,22 @@ use super::*;
 /// The largest indent at which a line may still be read as flush-left
 /// document prose rather than as part of some block's own body.
 ///
-/// Prose paragraphs that document an option are written at the document's
-/// own margin; the same sentence *indented under an option row* is that
-/// option's continuation text, and already belongs to whichever flag the
-/// row named. Keeping the two apart is the whole reason this is a bound
-/// and not simply "any line": `java`, `jdeps` and `rg` all write
-/// "The --x option …" sentences deep inside another flag's description
-/// column, and reading those as standalone paragraphs would attach one
-/// flag's prose to a different flag.
+/// A sentence indented under an option row is that option's own
+/// continuation text, not a standalone paragraph — this bound is what keeps
+/// the two apart. See docs/shapes.md S-076.
 pub(super) const MAX_PROSE_PARAGRAPH_INDENT: usize = 3;
 
-/// Fill in descriptions a document wrote as **prose paragraphs keyed by
-/// option name**, rather than as text in the option table's own
-/// description column.
+/// Fill in descriptions a document wrote as prose paragraphs keyed by
+/// option name, rather than as text in the option table's own description
+/// column.
 ///
-/// `jdeprscan --help` is the specimen. Its `options:` block is a bare list
-/// of spellings with no description column at all, and every option's
-/// prose lives further down the document in its own flush-left paragraph:
-///
-/// ```text
-/// options:
-///         --for-removal
-///   -l    --list
-/// …
-/// The --for-removal option limits scanning or listing to APIs that are
-/// deprecated for removal. Cannot be used with a release value of 6, 7, or 8.
-///
-/// The --list (-l) option prints out the set of deprecated APIs. No scanning is done,
-/// so no directory, jar, or class arguments should be provided.
-/// ```
-///
-/// The table parses correctly — the spellings are all recovered — and then
-/// every description is dropped on the floor, because nothing in the
-/// grammar ever revisits a flag with text found later in the document
-/// (measured: 8 flags, 0.0% with text). This is that revisit, and it is a
-/// pass over the assembled flag list for the same reason
+/// Runs as a pass over the whole assembled flag list, for the same reason
 /// [`repair_repeated_character_flags`] and
-/// [`repair_single_dash_long_options`] are: the question it answers needs
-/// the whole node's flags, so it cannot be answered at the row that
-/// produced any one of them.
-///
-/// Shape-keyed, never tool-keyed (spec §1). A paragraph qualifies when:
-///
-/// 1. Every one of its lines sits at indent ≤ [`MAX_PROSE_PARAGRAPH_INDENT`]
-///    and none of them starts with `-`, so an option table's own rows and
-///    an option's indented continuation text can never be read as one.
-/// 2. Its first line opens `The <spelling> option …` — an article, one
-///    option spelling, an optional parenthesised alias list, then the word
-///    `option`, `flag` or `switch`. That is a *reference* to an option, the
-///    one form in which running prose names one unambiguously.
-///
-/// Two invariants bound what this can cost, and both matter more than the
-/// recall it gives up:
-///
-/// - **It never creates a flag.** A spelling that names nothing already in
-///   `flags` is ignored, so a paragraph mentioning an option the tool did
-///   not table (`apt-ftparchive`'s `--source-override`) cannot fabricate
-///   one — the invention class spec §7 Tier B forbids.
-/// - **It never overwrites a description.** Only a flag whose description
-///   is `None` can be filled, so a table that already said something keeps
-///   saying it (`apropos`'s `--regex` is described in its own table *and*
-///   mentioned in a trailing paragraph; the table wins, untouched).
-///
-/// Matching is by *any* spelling the reference names, primary or
-/// parenthesised, which is what makes it independent of how well the table
-/// row parsed: jdeprscan's `-l    --list` row yields a flag with
-/// `short: 'l'` and no long name at all, and `The --list (-l) option …`
-/// still finds it through the `-l` in the parenthetical.
+/// [`repair_single_dash_long_options`] do: the question needs every flag at
+/// once and can't be answered at the row that produced any one of them.
+/// Never creates a flag and never overwrites a description the table
+/// already supplied. See docs/shapes.md S-076 and
+/// corpus/jdeprscan/*/help.txt.
 pub(super) fn backfill_prose_paragraph_descriptions(flags: &mut [Entity], lines: &[&str]) {
     if flags.is_empty() {
         return;
@@ -116,17 +65,13 @@ pub(super) fn backfill_prose_paragraph_descriptions(flags: &mut [Entity], lines:
     }
 }
 
-/// Every option spelling named by a paragraph-opening option *reference* —
+/// Every option spelling named by a paragraph-opening option reference —
 /// `The --list (-l) option …` → `["--list", "-l"]` — or `None` when the
 /// line does not open with one.
 ///
-/// Grammar, all of it required and in this order: an optional article
-/// (`The`/`A`/`An`), one dash-led spelling, an optional parenthesised list
-/// of further dash-led spellings, then the literal word `option`, `flag` or
-/// `switch`. The trailing noun is what distinguishes a reference from a
-/// sentence that merely happens to start with a flag-shaped token, and the
-/// leading article keeps it clear of an option *table* row, which starts
-/// with the spelling itself.
+/// Grammar: an optional article, one dash-led spelling, an optional
+/// parenthesised list of further dash-led spellings, then the literal word
+/// `option`, `flag` or `switch`. See docs/shapes.md S-076.
 pub(super) fn prose_option_reference(line: &str) -> Option<Vec<String>> {
     let mut words = line.split_whitespace().peekable();
     let first = words.peek()?;
@@ -189,15 +134,12 @@ pub(super) fn flag_answers_to_spelling(flag: &Entity, spelling: &str) -> bool {
 mod tests {
     use super::*;
 
-    /// `jdeprscan --help` documents every option in its own flush-left
-    /// prose paragraph, and its `options:` table has no description column
-    /// at all: 8 flags, 0.0% with text before this. The paragraph names the
-    /// option it documents, so the two can be associated.
-    ///
-    /// `--list` is the load-bearing case: the table row `-l    --list`
-    /// loses its long spelling to a separate, still-unfixed bug, so the
-    /// only way to reach that flag is the `(-l)` in the paragraph's own
-    /// parenthetical.
+    /// jdeprscan's `options:` table has no description column at all; each
+    /// option's prose lives in its own flush-left paragraph further down.
+    /// `--list`'s long spelling loses its table row to a separate bug, so
+    /// the only way to reach that flag is the `(-l)` in the paragraph's own
+    /// parenthetical. See docs/shapes.md S-076 and
+    /// corpus/jdeprscan/*/help.txt.
     #[test]
     fn a_prose_paragraph_naming_an_option_supplies_its_description() {
         let help = "Usage: jdeprscan [options] {dir|jar|class} ...\n\
@@ -236,14 +178,11 @@ mod tests {
         );
     }
 
-    /// The backfill's two hard limits, which are what bound its cost:
-    /// it may never invent a flag, and it may never overwrite a
-    /// description the table itself supplied.
-    ///
-    /// Both cases are real. `apt-ftparchive`'s prose mentions
-    /// `--source-override`, an option its table never lists; `apropos`
-    /// describes `--regex` in its own table *and* mentions it in a
-    /// trailing paragraph.
+    /// The backfill's two hard limits: it may never invent a flag
+    /// (`apt-ftparchive`'s `--source-override`, mentioned in prose but not
+    /// tabled) and never overwrite a description the table itself supplied
+    /// (`apropos`'s `--regex`, described in both places). See
+    /// docs/shapes.md S-076.
     #[test]
     fn the_prose_backfill_never_invents_a_flag_or_overwrites_a_description() {
         let help = "Usage: tool [options]\n\
@@ -275,11 +214,9 @@ mod tests {
         );
     }
 
-    /// A "The --x option ..." sentence *indented under another flag's row*
-    /// is that flag's continuation text, not a standalone paragraph — so
-    /// it must never be lifted out and attached to `--x`. Real shape:
-    /// `java`, `jdeps` and `rg` all write such sentences inside a
-    /// description column.
+    /// A "The --x option ..." sentence indented under another flag's row is
+    /// that flag's continuation text, not a standalone paragraph — it must
+    /// never be lifted out and attached to `--x`. See docs/shapes.md S-076.
     #[test]
     fn an_indented_sentence_is_continuation_text_not_a_prose_paragraph() {
         let help = "Usage: tool [options]\n\

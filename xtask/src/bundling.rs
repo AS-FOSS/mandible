@@ -1,243 +1,51 @@
 //! The bundled-short-flag collapse detector: the third fleet oracle, after
-//! [`crate::misattribution`] (is a description attached to the right flag?)
-//! and [`crate::existence`] (does this spelling occur in the tool's own
-//! output at all?).
+//! [`crate::misattribution`] and [`crate::existence`].
 //!
-//! **Its victim is the synopsis flag cluster.** A usage line that opens
-//! `[-AbdDefhHIJKlLnNOpqStuUvxX#]` is naming 26 bundled boolean flags in
-//! the ordinary getopt convention. `help_text::grammar::parse_flag_spec`
-//! reads the token as *one* flag — `try_short` takes the first character
-//! and `try_value` glues every remaining character onto it as a required
-//! value — so the tree gains `-A` with `value_name:
-//! "bdDefhHIJKlLnNOpqStuUvxX#"` and loses the other 25 flags entirely.
-//! Five real examples, all from `audit/submissions/sadigaxund/2.toml`'s seed-2 human review, four
-//! of them judged `wrong` explicitly for this:
+//! Victim: a synopsis flag cluster like `[-AbdDefhHIJKlLnNOpqStuUvxX#]`
+//! (26 bundled boolean flags) is read by `grammar::parse_flag_spec` as one
+//! flag — `try_short` takes the first character, `try_value` glues the
+//! rest on as a required value — losing the other 25 flags entirely (S-087).
 //!
-//! | tool | raw synopsis token | parsed as | real flags destroyed |
-//! |---|---|---|---|
-//! | `tcpdump` | `[-AbdDefhHIJKlLnNOpqStuUvxX#]` | `-A` + value `bdDefhHIJKlLnNOpqStuUvxX#` | 25 |
-//! | `xfs_io` | `[-adfinrRstVx]` | `-a` + value `dfinrRstVx` | 10 |
-//! | `tmux` | `[-2CDlNuVv]` | `-2` + value `CDlNuVv` | 7 |
-//! | `filefrag` | `[-BeEksvxX]` | `-B` + value `eEksvxX` | 7 |
-//! | `ssh-keygen` | `[-hU]` | `-h` + value `U` | 1 |
+//! [`crate::existence`] is structurally blind to this: a collapsed `-2`
+//! occurs literally in `[-2CDlNuVv]`, so it attests correctly while the
+//! parse is still wrong. This module measures the shape existence cannot
+//! see.
 //!
-//! # Why this needs its own oracle
+//! A flag is reported when all hold: synopsis-sourced
+//! ([`mandible_core::Source::HelpTextSynopsis`], the sole writer being
+//! `sections::push_usage_flag`); short spelling, no long name, `Required`
+//! value; the cluster occurs glued in the raw text
+//! ([`crate::existence::spelling_occurs`] against `-<short><value_name>`);
+//! every member is a plausible single-character flag name
+//! ([`is_bundle_member_char`]); members are pairwise distinct; members are
+//! either alphabetized ([`is_alphabetized`]) or the swallowed members mix
+//! case ([`swallowed_members_mix_case`]); at least
+//! [`MIN_BUNDLED_MEMBERS`] members are swallowed.
 //!
-//! [`crate::existence`] is **structurally blind** to this family, and not
-//! by accident: it asks whether a flag spelling occurs literally in the raw
-//! text, and a collapsed `-2` *does* occur — inside `[-2CDlNuVv]`, at a
-//! clean word boundary. It attests, correctly, and the parse is still badly
-//! wrong. Zero fabrications is a claim about invention, never a claim about
-//! a correct parse. This module measures what that one cannot see: text
-//! that was read, and read as the wrong *shape*.
+//! Three defect families share the `short && !long && value_name`
+//! fingerprint (only the first is this module's): bundled shorts (`tmux
+//! [-2CDlNuVv]`), single-dash long options (`gcc -pass-exit-codes`, S-035),
+//! repeated-character flags (`bpftrace -vv`, S-035). Each of the other two
+//! is rejected by a condition that already exists for its own reasons —
+//! see this module's tests.
 //!
-//! # The signature, and how it was derived
+//! `MIN_BUNDLED_MEMBERS = 2` deliberately leaves a real hit,
+//! `ssh-keygen`'s `[-hU]`, unrecognized: at one swallowed member the shape
+//! is genuinely ambiguous (S-034). Two further families are knowingly out
+//! of reach: unsorted uniformly-cased bundles, and bundles that repeat a
+//! switch to mean "more of it" (S-087). The fleet count is therefore a
+//! lower bound, the correct direction for a gate.
 //!
-//! Not from the five tools above — from the fleet. `xtask audit freeze`
-//! captured every one of this machine's 2,304 `PATH` tools' raw `--help`
-//! bytes, and the signature was tuned against *every glued short-flag
-//! token in every synopsis on the box*, looking at both what it caught and
-//! what it rejected. Two rounds of that changed the rule materially, and
-//! both changes are recorded on the predicates below: a first version
-//! required the cluster to be alphabetized, which the fleet says misses
-//! about a third of real bundles (`tree`, `e2fsck`, `tic`, `mkfs.ext4`,
-//! `badblocks`, `zipinfo` and the whole `fc-*` family all list their
-//! switches unsorted), and a first version measured case-mixing across the
-//! whole cluster, which admits every single-dash long option there is
-//! (`cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`).
+//! No new probes: reads the same [`crate::misattribution::RecordingProbe`]
+//! capture the sweep already paid for.
 //!
-//! Every condition is a discriminator against a specific real
-//! counter-example, because the failure that matters here is the false
-//! positive: `tmux`'s own synopsis line carries `[-c shell-command]`,
-//! `[-f file]`, `[-L socket-name]`, `[-S socket-path]` and `[-T features]`
-//! beside its collapsed `[-2CDlNuVv]`, and every one of those is a genuine
-//! value-taking short flag. A detector that fires on those is worse than no
-//! detector, because this number is meant to be ratchet-gated at zero once
-//! the grammar is fixed.
-//!
-//! A flag is reported when **all** of these hold:
-//!
-//! 1. **It is synopsis-sourced** ([`mandible_core::Source::HelpTextSynopsis`]).
-//!    That is the only source that produces this shape: `sections::
-//!    push_usage_flag` is the sole writer, and an `Options:`-block row
-//!    reaching the same grammar arrives with a description and a different
-//!    source. Restricting to it also keeps the whole GCC/Clang single-dash
-//!    convention (`-fdump-scos`, `-Wall`, `-cl-ext=<value>` — thousands of
-//!    flags fleet-wide, every one genuinely one flag with a glued value)
-//!    out of the population entirely, since those come from option tables.
-//! 2. **It has a short spelling, no long name, and a `Required` value.**
-//!    A collapsed cluster is one bare `-xyz` token: the grammar cannot have
-//!    seen a long name in it, and `Optional` means the raw text wrote
-//!    brackets (`-a[bcd]`), which is a value spec a human deliberately
-//!    typed, not a bundle.
-//! 3. **The cluster occurs glued in the raw text** —
-//!    [`crate::existence::spelling_occurs`] against `-<short><value_name>`,
-//!    i.e. the reconstructed token with no separator, delimited on both
-//!    sides. This is the load-bearing separator check and it alone
-//!    disposes of most of the false-positive population: `-c
-//!    shell-command` stores `value_name: "shell-command"` but the raw text
-//!    spells it with a space, so `-cshell-command` never occurs and the
-//!    flag is never a candidate. It is also what makes the claim exact —
-//!    `value_name` is stored verbatim (`grammar::try_value`), so a
-//!    successful match means the reconstructed string *is* the raw token,
-//!    not merely something like it.
-//! 4. **Every member is a plausible single-character flag name**
-//!    ([`is_bundle_member_char`]). `filefrag`'s own other option,
-//!    `[-b{blocksize}[KMG]]`, is glued and synopsis-sourced and would
-//!    otherwise pass — its value starts with `{`, which is not a flag name.
-//! 5. **The members are pairwise distinct**, case-sensitively. A bundle is
-//!    a *set* of switches; `-Wall`'s doubled `l` is a word.
-//! 6. **Either** the members are alphabetized ([`is_alphabetized`]) **or**
-//!    the swallowed members alone span both cases
-//!    ([`swallowed_members_mix_case`]). Two independent pieces of evidence
-//!    for "this is a switch set, not a word", each measured against the
-//!    fleet, each carrying a large family the other cannot see — the
-//!    predicates' own doc comments name both families and both
-//!    counter-example sets.
-//! 7. **At least [`MIN_BUNDLED_MEMBERS`] members are being swallowed.**
-//!
-//! # Three defect families share this structural fingerprint
-//!
-//! `short && !long && value_name` — a bare short flag carrying a value —
-//! is not one bug. The calibration work against `audit/submissions/sadigaxund/2.toml` found
-//! **three** distinct families producing it, all filed under the same
-//! `k1` label, and only the first is this module's:
-//!
-//! | family | example | stored as | is it this module's? |
-//! |---|---|---|---|
-//! | bundled shorts | `tmux [-2CDlNuVv]` | `-2` + `CDlNuVv` | **yes** |
-//! | single-dash long options | `gcc -pass-exit-codes` | `-p` + `ass-exit-codes` | no |
-//! | repeated-character flags | `bpftrace -vv` | `-v` + `v` | no |
-//!
-//! Firing on the other two would corrupt this module's fleet count in the
-//! most damaging possible way — plausibly, with a number that looks like
-//! evidence. The discriminator is the *shape of the swallowed text*, and
-//! each family is rejected by a condition that already exists for its own
-//! reasons:
-//!
-//! - A **single-dash long option** swallows a word: hyphens and repeated
-//!   letters (condition 4 and condition 5), uniformly cased and unordered
-//!   (condition 6). `-pass-exit-codes`, `-Zscript`, `-Dname`, `-Tutf8`,
-//!   `-Idirectory` are all rejected several times over —
-//!   `real_single_dash_long_options_stay_silent` and
-//!   `a_single_dash_long_option_with_hyphens_stays_silent`.
-//! - A **repeated-character flag** swallows one or more copies of the
-//!   flag's own letter: `-vv` is a single swallowed member (condition 7),
-//!   and `-vvv`/`-DDD` repeat it (condition 5) —
-//!   `repeated_character_flags_stay_silent`.
-//!
-//! # What it deliberately does not catch
-//!
-//! `MIN_BUNDLED_MEMBERS = 2` costs a real hit — `ssh-keygen`'s `[-hU]`,
-//! one of the five human-labelled examples — and it is still right: at one
-//! swallowed member the shape is genuinely ambiguous, and the fleet's
-//! one-member population is roughly half real collapses and half completely
-//! correct parses of real multi-character single-dash flags (`rpcgen -Ss`,
-//! `psfxtable -it`, `sg_map -st`, `mandoc -ac`, `which -as`, `xxd -ps`,
-//! `lessecho`'s seven `[-ox]`-shaped character arguments). See that
-//! constant's own doc comment for the full list.
-//!
-//! Two further families are knowingly out of reach, both from the fleet
-//! scan:
-//!
-//! - **Unsorted, uniformly-cased bundles** — `rpcbind`'s `[-adhilswfr]`,
-//!   `umount.nfs`'s `[-fvnrlh]`, `blkmapd`'s `[-hdf]`,
-//!   `debconf-set-selections`'s `[-vcu]`, `fc-validate`'s `[-Vhv]`. Neither
-//!   signal fires, and nothing distinguishes them on shape from a
-//!   lowercase word.
-//! - **Bundles that repeat a switch to mean "more of it"** — `strace`'s
-//!   `[-ACdffhiqqrtttTvVwxxyyzZ]`, `wpa_supplicant`'s `[-BddhKLqqstuvW]`.
-//!   Condition 5 rejects them by construction.
-//!
-//! The fleet count this module reports is therefore a **lower bound** on
-//! the defect, which is the correct direction for a number that will become
-//! a gate: a false negative leaves a real bug unreported, a false positive
-//! blocks the fix.
-//!
-//! # The measurement
-//!
-//! A full `PATH` sweep on this aarch64 box (2,302 tools) reports **58 tools
-//! with a collapse, destroying 465 real flags** — an average of 8 lost
-//! flags per affected tool, and 22 at the worst (`groff`'s
-//! `[-abcCeEgGijklNpRsStUVXzZ]`). Every one of the 58 was checked against
-//! its own captured help text by hand and every one is a real getopt
-//! bundle; no false positive was found.
-//!
-//! **58 is well below the 91 tools whose raw synopsis contains a bundle**,
-//! and the gap is not a miss — it is the difference between the text and
-//! the tree. `od`'s usage line really does say `[-abcdfilosx]`, but `od`
-//! also documents `-a` in an ordinary options table, so
-//! `sections::flag_spelling_already_present` drops the usage-derived flag
-//! and the tree ends up correct. Same for `tree`, `whereis`, `umount`,
-//! `rpcbind` and about thirty others. The defect only survives into the
-//! tree when the synopsis is the *only* place the flags are named — which
-//! is exactly the population this module reports, and the reason it reads
-//! the tree rather than grepping the text.
-//!
-//! # The fix, and what this oracle became
-//!
-//! **The defect is closed.** `help_text::grammar::parse_bundled_shorts`
-//! reads a synopsis cluster as the set of switches it is, and the same full
-//! `PATH` sweep that measured 58 tools / 465 destroyed flags now reports
-//! **0 tools and 0 destroyed flags**. A `sweep-diff` across the two
-//! scoreboards shows **0 flag-count losses across 0 tools** and no status
-//! transition outside the near-cap timing set, against **489 flags gained
-//! across 67 tools** — `tcpdump` +25, `groff` +22, `ssh` +22, `dhcpcd` +21.
-//!
-//! 67 gaining tools against 58 reported ones is the text-versus-tree gap
-//! this section already described, seen from the other side: nine more
-//! tools had a cluster whose *first* member was already in an options table
-//! (so no collapse survived into the tree for this module to see) while the
-//! rest of the cluster was documented nowhere else.
-//!
-//! **The fix and this module share their rule deliberately.** The five
-//! conditions `parse_bundled_shorts` applies are these seven minus the two
-//! that only make sense when reading a tree (the source check and the
-//! reconstruct-and-search check, both structural consequences of asking the
-//! question at the synopsis token instead). A detector meant to be ratcheted
-//! at zero and a fix meant to reach zero have to agree character for
-//! character on what the defect *is*, or the zero means nothing.
-//!
-//! **Calibration now inverts, and that is expected.** `xtask detector
-//! calibrate --detector bundled-short-flag` reported 4 hits before the fix
-//! and reports 0% recall after it, naming `tcpdump`, `tmux`, `filefrag`,
-//! `xfs_io`, `ssh-keygen` and `eqn` as misses — because every one of those
-//! fixtures is now parsed correctly and there is no longer a defect to fire
-//! on. Spec §13.1e's precondition ("not quotable until it has passed") is a
-//! claim about the labels, which were recorded against the *pre-fix* parser;
-//! once a family is fixed, its labelled set can no longer confirm anything,
-//! and a detector that keeps reading zero is doing its job.
-//!
-//! **The harness says so in its own words now.** `xtask detector calibrate`
-//! reports `VERDICT: REPAIRED` for this family rather than rendering a
-//! healthy state in the vocabulary of failure — but only because the
-//! hand-built cases below still fire. That is the whole mechanism: what
-//! demonstrates the rule has teeth is [`self_checks`], which builds the
-//! collapsed shape directly and asserts the rule still fires on it, and
-//! which is checked *at runtime* by both the calibration verdict and the
-//! ratchet gate. Neither will accept a zero without it. See
-//! [`crate::detector::Verdict::Repaired`] and
-//! [`crate::detector::ratchet_at_zero`].
-//!
-//! # No new probes — and now gated, at zero
-//!
-//! Identical to [`crate::existence`] on the probes, for identical reasons:
-//! it reads the same [`crate::misattribution::RecordingProbe`] capture the
-//! sweep already paid for, so it costs zero additional subprocess spawns.
-//!
-//! **It is no longer ungated.** It was reported-only while there was no
-//! baseline to regress against and while the number was expected to move
-//! the moment the grammar learned to split a bundle (spec §13.1b: a metric
-//! with no measured baseline must not silently fail a run the first time it
-//! is computed). That movement has happened — 58 tools / 465 destroyed
-//! flags to 0 / 0 — so `coverage --check` now ratchets both columns at a
-//! literal zero.
-//!
-//! Gated against `0` and not against the checked-in scoreboard, because the
-//! scoreboard is itself editable and a commit reintroducing the defect
-//! would otherwise raise its own baseline. And gated on the self-checks
-//! *alongside* the count, because `count == 0` on its own is satisfied by
-//! deleting this module.
+//! Gated at zero (`coverage --check`), against a literal `0` rather than
+//! the checked-in scoreboard (which is itself editable), and on the
+//! self-checks alongside the count — `count == 0` alone is satisfied by
+//! deleting this module. `parse_bundled_shorts` shares this module's rule
+//! deliberately, minus the two conditions that only make sense reading a
+//! tree, so a detector ratcheted at zero and a fix reaching zero agree
+//! character for character on what the defect is.
 
 use crate::existence::spelling_occurs;
 use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
@@ -245,73 +53,38 @@ use std::collections::HashSet;
 
 /// The fewest swallowed members a cluster must have before it is reported.
 ///
-/// Two, not one, and the difference is deliberate lost recall — see this
-/// module's doc comment. At one swallowed member the shape is genuinely
-/// ambiguous, and the fleet scan says so out loud: of the one-member
-/// clusters that satisfy every other condition, roughly half are real
-/// collapses (`ssh-keygen`'s `[-hU]`, `umount`'s `[-hV]`, `ssh-agent`'s
-/// `[-Dd]`) and the rest are entirely correct parses of genuine
-/// multi-character single-dash flags — `rpcgen`'s `[-Sc]`/`[-Ss]`/`[-Sm]`
-/// (generate sample client/server/makefile), `psfxtable`'s
-/// `[-it]`/`[-ot]`/`[-nt]` (input/output/new table), `sg_map`'s `[-st]`,
-/// `setfont`'s `[-ou]`, `mandoc`'s `[-ac]`, `which`'s `[-as]`, `xxd`'s
-/// `[-ps]`, plus `lessecho`'s seven character-argument flags. Nothing about
-/// their *shape* separates the two halves. This detector is meant to be
-/// gated at zero, and a gate that fires on a correct parse cannot be fixed
-/// by anyone, so the whole class is excluded.
+/// Two, not one — deliberate lost recall (S-034). At one swallowed member
+/// the shape is genuinely ambiguous: roughly half of the fleet's
+/// one-member clusters are real collapses and the rest are correct
+/// multi-character single-dash flags, with nothing in the shape to tell
+/// them apart. A gate that fires on a correct parse cannot be fixed, so
+/// the whole class is excluded.
 pub(crate) const MIN_BUNDLED_MEMBERS: usize = 2;
 
 /// The fewest ASCII letters a cluster must carry before [`is_alphabetized`]
-/// is allowed to vouch for it.
-///
-/// A cluster with no letters at all — `-1024`, `-0777` — is *vacuously*
-/// alphabetized, and a glued numeric default (`[-b4096]`) would ride that
-/// vacuous truth straight into the report. Two letters is the floor at
-/// which "the letters are in order" is a statement about anything; every
-/// real bundle in the fleet clears it by a wide margin (the narrowest,
-/// `xfs_copy`'s `[-bdV]`, carries three).
+/// is allowed to vouch for it. A cluster with no letters at all (`-1024`)
+/// is vacuously alphabetized; two letters is the floor at which "in order"
+/// is a real statement.
 const MIN_ORDERED_LETTERS: usize = 2;
 
 /// Whether `c` could be a single-character flag name, i.e. a plausible
-/// member of a bundle.
-///
-/// ASCII alphanumeric covers every letter and digit case observed
-/// (`tmux`'s `-2` is a real digit flag). `#` is the one non-alphanumeric
-/// member seen in the corpus — the last character of `tcpdump`'s
-/// `[-AbdDefhHIJKlLnNOpqStuUvxX#]`, which is `tcpdump`'s real
-/// "print packet number" switch. Nothing else is admitted: the point of
-/// this predicate is to reject a *value spec*, and every value spec
-/// punctuation character (`{`, `<`, `[`, `=`, `:`, `.`, `-`, `_`, `/`, `|`)
-/// is exactly what it rejects — `filefrag`'s own `[-b{blocksize}[KMG]]`
-/// fails here and nowhere else.
+/// member of a bundle. ASCII alphanumeric plus `#` (`tcpdump`'s
+/// "print packet number" switch, the one non-alphanumeric member seen in
+/// the corpus). Rejects value-spec punctuation (`{`, `<`, `[`, `=`, `:`,
+/// `.`, `-`, `_`, `/`, `|`) — S-087.
 fn is_bundle_member_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '#'
 }
 
 /// True when `members` carries at least [`MIN_ORDERED_LETTERS`] ASCII
-/// letters and all of them are in non-decreasing case-insensitive order —
-/// the *listing* convention a hand-written flag bundle follows, and one
-/// half of the two-signal test in this module's doc comment.
+/// letters, all in non-decreasing case-insensitive order — the listing
+/// convention a hand-written flag bundle follows, one half of the
+/// two-signal test (S-087).
 ///
-/// Case is folded rather than compared raw because the convention
-/// interleaves the two cases of the same letter (`hH`, `lL`, `uU`, `xX`,
-/// `Vv`) — a raw ASCII comparison would call every one of those a break in
-/// the order.
-///
-/// **Non-letters are skipped rather than ordered.** `tcpdump` parks its
-/// `#` at the end of an otherwise perfectly alphabetical bundle, and
-/// `tmux` parks its `2` at the front; requiring those to sort with the
-/// letters would reject both real cases while adding nothing.
-///
-/// It is the *only* signal that vouches for a uniformly-cased bundle, and
-/// that is what it is for. Nine real all-one-case bundles in the fleet scan
-/// have nothing else going for them: `od`'s `[-abcdfilosx]`, `pod2text`'s
-/// `[-aclostu]`, `showmount`'s `[-adehv]`, `e2image`'s `[-cfnp]`,
-/// `whereis`'s `[-BMS]`, `vm-support`'s `[-hux]`, `sm-notify`'s `[-dfq]`,
-/// `logsave`'s `[-asv]`, `grops`'s `[-glm]`. Against word-shaped values it
-/// stays quiet on its own terms: `-oOUTFILE`, `-Wall`, `-Ipath`,
-/// `-DMACRO`, `cargo`'s real `-Zscript`, `rpcgen`'s real `-Dname` and
-/// `makewhatis`'s real `-Tutf8` are every one of them unordered.
+/// Case is folded, not compared raw: the convention interleaves both
+/// cases of a letter (`hH`, `lL`, `uU`, `xX`, `Vv`). Non-letters are
+/// skipped rather than ordered — a bundle can park a digit or `#` outside
+/// the alphabetical run without breaking it.
 fn is_alphabetized(members: &str) -> bool {
     let letters = || members.chars().filter(|c| c.is_ascii_alphabetic());
     if letters().count() < MIN_ORDERED_LETTERS {
@@ -330,46 +103,27 @@ fn is_alphabetized(members: &str) -> bool {
     true
 }
 
-/// True when `swallowed` — the members after the surviving first one, i.e.
-/// the stored `value_name` — contains both an ASCII uppercase and an ASCII
-/// lowercase letter. The other half of the two-signal test.
+/// True when `swallowed` — the members after the surviving first one, the
+/// stored `value_name` — contains both an ASCII uppercase and lowercase
+/// letter. The other half of the two-signal test (S-087): a value
+/// placeholder is written in one case, so a swallowed run spanning both
+/// cases is a switch set instead, catching the roughly one-third of real
+/// bundles listed unsorted that [`is_alphabetized`] alone would miss.
 ///
-/// A value placeholder is written in one case (`file`, `size`, `mode`,
-/// `prog`, `rounds`, `bits`, `OUTFILE`, `MACRO`), so a *swallowed* run that
-/// spans both cases is not a placeholder at all — it is a switch set that
-/// inherited whatever cases its tool's flags happen to have.
-///
-/// This is the signal that carries every real bundle whose author listed
-/// the switches *unsorted*, which the fleet scan puts at roughly a third of
-/// them and which [`is_alphabetized`] alone would have missed entirely:
-/// `tree`'s `[-acdfghilnpqrstuvxACDFJQNSUX]` (a sorted lowercase run, then
-/// a sorted uppercase one — sorted twice, so not sorted), `e2fsck`'s
-/// `[-panyrcdfktvDFV]`, `tic`'s `[-1aCDcfGgIKLNrsTtUx]`, `mkfs.ext4`'s
-/// `[-jnqvDFSV]`, `dumpe2fs`'s `[-bfghimxV]`, `badblocks`'s `[-svwnfBX]`,
-/// `zipinfo`'s `[-12smlvChMtTz]`, and the whole `fc-*` family's `[-...Vh]`.
-///
-/// Measured on the *swallowed* half rather than on the whole cluster
-/// deliberately, and the difference is the entire single-dash-long-option
-/// population: `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8` and
-/// `perl -Idirectory` all mix case *as clusters* (an uppercase flag letter
-/// with a lowercase word glued on) and are all completely correct parses.
-/// Their swallowed halves — `script`, `name`, `utf8`, `directory` — do not
-/// mix, and that is what tells them apart from a bundle.
+/// Measured on the swallowed half, not the whole cluster: a single-dash
+/// long option (`cargo -Zscript`, `rpcgen -Dname`) mixes case as a
+/// cluster (uppercase flag letter, lowercase word) but its swallowed half
+/// alone does not — S-035.
 fn swallowed_members_mix_case(swallowed: &str) -> bool {
     swallowed.chars().any(|c| c.is_ascii_uppercase())
         && swallowed.chars().any(|c| c.is_ascii_lowercase())
 }
 
 /// True when every character of `cluster` is distinct, compared
-/// case-sensitively.
-///
-/// A bundle is a *set* of switches, so it never repeats one. Case matters:
-/// `-v` and `-V` are different flags and real bundles carry both (`Vv` in
-/// `tmux`, `uU`/`xX`/`hH`/`lL` in `tcpdump`), so folding case here would
-/// reject the very cases this module exists for. Against words it is a
-/// weak filter on its own (`file`, `size` and `mode` all have distinct
-/// letters) and a decisive one against the commonest doubled-letter
-/// placeholders (`-Wall`, `-nn`, `-ldl`).
+/// case-sensitively: a bundle is a set of switches, so it never repeats
+/// one. Case-sensitive because real bundles carry both cases of a letter
+/// (`tmux`'s `Vv`, `tcpdump`'s `uU`/`xX`/`hH`/`lL`) — folding would reject
+/// them. Decisive against doubled-letter placeholders (`-Wall`, `-nn`).
 fn members_are_distinct(cluster: &str) -> bool {
     let mut seen = HashSet::new();
     cluster.chars().all(|c| seen.insert(c))
@@ -509,21 +263,11 @@ pub fn detect(raw: &str, root: &CommandNode) -> BundleReport {
 // The hand-built evidence, promoted out of `#[cfg(test)]`
 // ----------------------------------------------------------------------
 //
-// Everything below is the same hand-built material this module's own tests
-// were already written against, moved into always-compiled code because
-// **two consumers outside the test binary now depend on it** (spec §13.1e's
-// "a fixed family inverts its own calibration"):
-//
-// * `crate::detector::calibrate` cross-checks it before it will call this
-//   family REPAIRED rather than broken, and
-// * `crate::detector::ratchet_at_zero` cross-checks it before it will accept
-//   a fleet count of zero — because `count == 0` on its own is satisfied by
-//   deleting the detector.
-//
-// A `#[cfg(test)]` assertion cannot serve either: neither runs under the
-// test harness. The tests below still exist and still assert the richer
-// facts (which cluster, how many flags destroyed); these cases are the
-// subset a shipped binary can re-run on demand.
+// Always-compiled, not `#[cfg(test)]`, because two runtime consumers
+// depend on it (spec §13.1e): `crate::detector::calibrate` before calling
+// this family REPAIRED, and `crate::detector::ratchet_at_zero` before
+// accepting a fleet count of zero. The tests below still assert the
+// richer facts; these cases are the subset a shipped binary can re-run.
 
 /// A short flag carrying `value`, sourced from `source` — built through
 /// [`Entity::flag_short`], then corrected, exactly as `crate::existence`'s

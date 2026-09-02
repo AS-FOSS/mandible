@@ -4,17 +4,14 @@
 use super::*;
 
 /// Scan a bare-word block (subcommand names, enum values, ...) starting at
-/// `lines[start]`, whose heading sat at `heading_indent`. Returns the
-/// index just past the block and the `(name, description)` pairs
-/// recovered. Unlike [`scan_flags_block`], entries here have no `-`
-/// marker to key off of, so this stays indentation-based: the block's
-/// baseline is its first content line's own indent, and a line indented
-/// well past that baseline continues the previous entry's description.
+/// `lines[start]`. Returns the index past the block and the recovered
+/// `(name, description)` pairs. Unlike [`scan_flags_block`] there is no `-`
+/// marker to key off, so this is indentation-based: the first content
+/// line's indent is the baseline, and a deeper line continues the
+/// previous entry's description.
 ///
-/// `allow_dash_separator` threads spec issue #3's ` - ` entry separator
-/// down to [`split_entries`] — see the call site in
-/// [`parse_with_profile`] for why this is decided *before* scanning
-/// rather than inside it.
+/// `allow_dash_separator` threads the ` - ` entry separator down to
+/// [`split_entries`]; decided by the caller before scanning, not here.
 pub(super) fn scan_bare_block<'a>(
     lines: &[&'a str],
     start: usize,
@@ -26,49 +23,17 @@ pub(super) fn scan_bare_block<'a>(
     (end, split_entries(&lines[start..end], allow_dash_separator))
 }
 
-/// Find the end of a bare-word block starting at `lines[start]`: its own
-/// indentation is the baseline, and the block runs until a non-blank line
-/// dedents below that baseline **or a flag row resumes**. Shared by
-/// [`scan_bare_block`] and [`scan_argparse_subparsers`] so both agree on
-/// where a block ends even though they disagree on how to split its
-/// *entries*.
+/// Find the end of a bare-word block starting at `lines[start]`: the
+/// block runs until a non-blank line dedents below its own baseline
+/// indent **or a flag row resumes**, whichever comes first. Shared by
+/// [`scan_bare_block`] and [`scan_argparse_subparsers`].
 ///
-/// # Why a flag row ends a bare block
-///
-/// Indentation alone was the only test here, and it is not sufficient in
-/// one direction that recurs: a tool nests a bare-word list *inside* its
-/// options table and then resumes the table beneath it at an indent that
-/// is still at or beyond the list's own. Dedent never happens, so the
-/// block ran to the end of the table and every flag in it was consumed as
-/// a *choice* (or, under a recognized heading, a subcommand).
-///
-/// This is not a new heuristic; it is the removal of an inconsistency.
-/// The section engine's very first test already says a line that
-/// [`looks_like_flag_start`] begins a flags block with no heading needed,
-/// and the usage-block scan above already ends *its* block on the same
-/// signal for the same reason (`curl`'s 13 flag rows run straight into the
-/// synopsis). `bare_block_end` was the one place that overrode that, so a
-/// flag row was structure everywhere except inside a bare block.
-///
-/// Breaking here **re-routes rather than drops**: the caller resumes the
-/// main loop at exactly this line, whose headingless-flags-block branch
-/// then reads the remainder as the flag table it is. Nothing is lost even
-/// if the break is wrong.
-///
-/// Two real documents, one rule:
-///
-/// - `tar --help` opens a nested `FORMAT is one of the following:` enum
-///   under `--format` at indent 4, then resumes its options table at
-///   indent 6 — so `--old-archive`, `--pax-option` and `--posix` were read
-///   as three more values of `FORMAT` rather than as the three real flags
-///   they are (`corpus/tar/1.35`, which was green and snapshot-blessed
-///   through all of it; found by residue ranking, spec §13.1f).
-/// - `sg_dd --help`'s `where:` operand table at indent 4 ends with its own
-///   flag rows at that same indent 4, so `--dry-run`, `--help`,
-///   `--progress`, `--verbose`, `--verify` and `--version` were choices of
-///   nothing, and the four that also appear in the synopsis reached the
-///   tree stripped of every description
-///   (`corpus/sg_dd/audit-seed2`, seed-2 verdict `wrong`).
+/// A bare-word block (e.g. an enum of values) can sit *inside* an options
+/// table at an indent the table then resumes at, so dedent alone never
+/// ends it and the resumed flag rows get consumed as fake choices. A flag
+/// row therefore ends the block; the caller resumes its main loop at that
+/// line and reads it as a flags block instead. See docs/shapes.md S-033
+/// and corpus/sg_dd/audit-seed2, corpus/tar/1.35.
 pub(super) fn bare_block_end(lines: &[&str], start: usize) -> usize {
     let mut i = start;
     let entry_indent = leading_whitespace(lines[start]);
@@ -91,35 +56,14 @@ pub(super) fn bare_block_end(lines: &[&str], start: usize) -> usize {
     i
 }
 
-/// Argparse's subparser blocks are the one shape spec §7 Tier B's generic
-/// bare-word engine cannot express as pure data — see
-/// [`super::profile::FrameworkProfile::argparse_subparser_quirk`]'s doc
-/// comment for the full rationale. In short: `add_subparsers()` renders a
-/// `{choice,choice,...}` pseudo-entry (argparse's own metavar for the
-/// whole choice group) immediately followed by each real subcommand one
-/// indent level *deeper* than that pseudo-entry:
-///
-/// ```text
-/// positional arguments:
-///   {init,build,run}
-///     init            Initialize a new widget
-///     build           Build the widget
-///     run             Run the widget
-/// ```
-///
-/// The generic engine's own rule — "a line indented deeper than the
-/// block's entries continues the previous entry's description" — would
-/// fold `init`/`build`/`run` into the pseudo-entry's own description
-/// instead of recovering them as their own entries, exactly backwards
-/// from what's needed. And `positional arguments:` legitimately holds
-/// *plain*, non-command positionals for any argparse tool that never
-/// calls `add_subparsers()` at all, so the heading text alone is never
-/// evidence of a command list (spec §7 Tier B rule 1) — only the presence
-/// of a `{...}`-shaped pseudo-entry inside the block is. Returns `None`
-/// (no evidence found; the caller falls through to ordinary bare-block/
-/// choice handling, exactly as if this framework check hadn't run at all)
-/// when the block contains no such pseudo-entry, so an ordinary
-/// positional-argument list is never promoted to fake subcommands.
+/// Recognizes argparse's `add_subparsers()` shape: a `{choice,choice,...}`
+/// pseudo-entry followed by each real subcommand one indent level
+/// *deeper* than it. The generic bare-word rule would otherwise fold
+/// those subcommands into the pseudo-entry's own description. Gated on
+/// the structural `{...}` pseudo-entry, never on heading text alone — an
+/// ordinary `positional arguments:` block with no such entry returns
+/// `None` and falls through to plain positional handling. See
+/// docs/shapes.md S-073.
 pub(super) fn scan_argparse_subparsers<'a>(
     lines: &[&'a str],
     start: usize,
@@ -146,36 +90,24 @@ pub(super) fn scan_argparse_subparsers<'a>(
     if sub_lines.is_empty() {
         return None;
     }
-    // `false`: argparse's own template renders subparser help in a
-    // column-aligned layout (`init            Initialize a new widget`),
-    // never `name - description`, and issue #3's fix is scoped to the
-    // shape it was actually observed in (apt-get-style recognized
-    // headings), not extended here without a real fixture driving it.
+    // `false`: argparse renders subparser help column-aligned, never
+    // `name - description`, so the dash separator never applies here.
+    // See docs/shapes.md S-073.
     Some((end, split_entries(&sub_lines, false)))
 }
 
 /// Scan a busybox-shaped comma-separated applet block starting at
-/// `lines[start]` (spec issue #1, gated on
-/// [`super::profile::FrameworkProfile::comma_separated_command_list`]).
-/// Unlike every other bare-word block this engine reads, there is no
-/// name/description split at all — the block is a flat run of `token,
-/// token, token,` entries wrapped across several lines purely for
-/// terminal width, with nothing to key a per-entry description off of —
-/// so this returns `(name, "")` pairs directly rather than delegating to
-/// [`split_entries`]'s indentation-and-column logic, which doesn't apply
-/// here. Reuses [`bare_block_end`] to find where the block ends (same
-/// "dedents below the first content line" rule every bare block uses),
-/// then just splits every non-blank line on `,`.
-/// Scan a command table sitting at the *same* indent as its heading
-/// (`dnf` 4's flush-left command list — see the call site for why this
-/// exists and what it is guarded against).
-///
-/// **All-or-nothing on purpose.** A single row that is not column-aligned
-/// rejects the whole block rather than ending it early. Stopping early
-/// would accept a table with prose appended to it, and prose promoted to
-/// subcommands is exactly [M-10]; refusing the block just leaves the text
-/// where it was, which is the failure this project prefers. `None` here
-/// simply falls through to the ordinary handling, same as any other tool.
+/// `lines[start]`, gated on
+/// [`super::profile::FrameworkProfile::comma_separated_command_list`].
+/// No name/description split exists here — the block is a flat,
+/// wrapped `token, token, token,` run — so this returns `(name, "")`
+/// pairs directly instead of delegating to [`split_entries`]. See
+/// docs/shapes.md S-093.
+/// Scan a command table at the *same* indent as its heading (`dnf`'s
+/// flush-left command list). All-or-nothing: one non-column-aligned row
+/// rejects the whole block rather than ending it early, since stopping
+/// early would let prose get promoted to subcommands. See docs/shapes.md
+/// S-050.
 pub(super) fn scan_same_indent_entry_table<'a>(
     lines: &[&'a str],
     start: usize,
@@ -201,80 +133,27 @@ pub(super) fn scan_same_indent_entry_table<'a>(
     (entries.len() >= MIN_ROWS).then_some((end, entries))
 }
 
-/// The fewest name-row / deeper-description-row pairs
-/// [`scan_headingless_invocation_table`] requires before treating a run of
-/// tool-name-prefixed rows as a real invocation table rather than one
-/// stray line — the same floor [`nested_entry_table_starts_at`] and
-/// [`scan_same_indent_entry_table`] each use, for the same reason: only
-/// repetition is evidence of a table.
+/// Fewest name-row / deeper-description-row pairs
+/// [`scan_headingless_invocation_table`] requires before treating a run
+/// as a real table rather than one stray line — shared with
+/// [`nested_entry_table_starts_at`] and [`scan_same_indent_entry_table`].
+/// See docs/shapes.md S-016.
 pub(super) const MIN_INVOCATION_TABLE_ROWS: usize = 2;
 
-/// Try to recognize and consume a **headingless invocation table**
-/// starting at `lines[start]` (spec §7 Tier B's headingless-command-table
-/// recognizer): a run of rows the tool prints of its own invocation forms
-/// — `btrfs balance start [options] <path>`, each row's own description
-/// one indent deeper — with **no governing heading at all**. Every other
-/// command-recovery path in this file requires a *recognized heading*
-/// (module doc rule 1); this one instead requires every row to start with
-/// the tool's own name at a word boundary, which is what supplies the
-/// positive evidence a heading would otherwise supply, and is also what
-/// supplies the nesting: `btrfs device add ...` reads as child `device`,
-/// grandchild `add`.
-///
-/// Returns `None` when the shape doesn't admit — too few qualifying rows,
-/// or the very first row isn't tool-name-prefixed and name-shaped at all —
-/// in which case the caller falls through to its ordinary heading-based
-/// handling of `lines[start]` unchanged (this function never partially
-/// consumes on a refusal). `Some((end, nodes, seen, clean))` otherwise:
-/// `end` is the index just past the table, `nodes` the (already deduped,
-/// up to two levels deep) direct-child nodes to emit, and `(seen, clean)`
-/// feed the same total/clean-entry confidence accounting every other
-/// command-recovery branch in [`parse_with_profile`] uses.
-///
-/// # Admission rules (conservative — zero new false positives beats recall)
-///
-/// 1. **Repetition shape**: at least [`MIN_INVOCATION_TABLE_ROWS`] rows
-///    where a tool-name-prefixed, name-shaped row is immediately followed
-///    (no blank line between) by a non-blank, deeper-indented line — the
-///    same shape [`nested_entry_table_starts_at`] tests for, applied here
-///    to decide *admission* rather than merely *where the flags block
-///    ends*.
-/// 2. **Every row starts with the tool's own name** at a word boundary
-///    ([`starts_with_tool_name`]). A row that doesn't is never part of
-///    this table — reaching one ends the scan.
-/// 3. **Existence attestation** (spec [M-10]'s lesson): every emitted name
-///    is checked ([`token_occurs_literally`]) to occur literally, as a
-///    whole token, in the raw help text this table was scanned out of —
-///    true by construction (a name here is always a token split directly
-///    out of a real line), but the check is explicit rather than assumed,
-///    per spec §6's closing paragraphs on attestation.
-/// 4. **Name shape**: only the leading run of [`is_command_name_shaped`]
-///    tokens after the tool's name contributes anything; the first
-///    flag-shaped, bracketed, or placeholder-shaped token ends the run.
-///    This is what keeps `tar -cf archive.tar files` (an `Examples:`-style
-///    row — though that heading's own block is consumed before this
-///    function is ever reached, see the call site) from contributing a
-///    fabricated `cf`/`archive.tar` pair even if it somehow were reached:
-///    `-cf` is flag-shaped, so the run stops at zero length and the row is
-///    refused outright (rule 2's own row still needs a length->=1 run).
-///
-/// # Emission shape
-///
-/// For each admitted row, `run[0]` (the first name-shaped token after the
-/// tool's name) is a direct child of the node being parsed; `run[1]`, if
-/// the run is at least two tokens long, is a child of that child —
-/// grandchildren go no deeper, matching spec's two-level shape. The row's
-/// description (the deeper-indented line(s) immediately following)
-/// belongs to the *deepest* name in the run — `run[1]` when present, else
-/// `run[0]`. A run of consecutive name rows sharing one following
-/// description block (btrfs's `device delete` / `device remove` pair) all
-/// take that shared description. Every recovered node is
-/// `invocation_attested: true`, `heading_attested: false` (spec §6: layout
-/// evidence about a document is not a heading declaring a command list,
-/// so this table's names are never sent as `--help` probe argv even
-/// though they are existence-attested) — a parent gains
-/// `children_filled: true` only when the table itself supplied at least
-/// one of its children.
+/// Recognize a **headingless invocation table** starting at
+/// `lines[start]`: rows of the tool's own invocation forms (`btrfs
+/// balance start [options] <path>`), description one indent deeper, no
+/// governing heading. Every row must start with the tool's own name at
+/// a word boundary ([`starts_with_tool_name`]) — that supplies both the
+/// heading-equivalent evidence and the nesting (`btrfs device add ...`
+/// reads as child `device`, grandchild `add`). Requires at least
+/// [`MIN_INVOCATION_TABLE_ROWS`] such rows; each emitted name is
+/// checked ([`token_occurs_literally`]) against the raw text; only the
+/// leading run of [`is_command_name_shaped`] tokens after the tool's
+/// name contributes a child (`run[0]`) and grandchild (`run[1]`).
+/// Returns `None` on refusal without partial consumption. Every emitted
+/// node is `invocation_attested: true`, `heading_attested: false`. See
+/// docs/shapes.md S-016.
 // Ratchet: one table walk with interleaved lookahead; splitting it needs the pass split first. Listed in scripts/ratchet.txt.
 #[allow(clippy::cognitive_complexity)]
 pub(super) fn scan_headingless_invocation_table<'a>(
@@ -298,9 +177,8 @@ pub(super) fn scan_headingless_invocation_table<'a>(
     let mut i = start;
 
     // Finalize every row in `pending` with `desc` (possibly empty — a row
-    // that never got a real description still becomes a node, just an
-    // undescribed one, e.g. `btrfs subvolume snapshot` whose own next line
-    // in the source is whitespace-only) and clear it.
+    // with no real description still becomes a node, just undescribed)
+    // and clear it.
     macro_rules! finalize_pending {
         ($desc:expr) => {{
             let desc: &str = $desc;
@@ -368,10 +246,8 @@ pub(super) fn scan_headingless_invocation_table<'a>(
             break;
         }
         if indent > base_indent {
-            // An orphaned deeper line with nothing pending to attach to
-            // (shouldn't normally occur — the row branch below already
-            // consumes an immediately-following description block). Skip
-            // rather than risk misreading it as a new row.
+            // Orphaned deeper line with nothing pending to attach to;
+            // skip rather than risk misreading it as a new row.
             i += 1;
             continue;
         }
@@ -389,9 +265,8 @@ pub(super) fn scan_headingless_invocation_table<'a>(
         if !token_occurs_literally(raw, child_name)
             || grandchild_name.is_some_and(|g| !token_occurs_literally(raw, g))
         {
-            // Should never happen by construction (the name was split
-            // directly out of this very line), but the guard is explicit
-            // (spec [M-10]) — refuse this row rather than trust it.
+            // Shouldn't happen by construction, but guard explicitly
+            // (spec M-10) — refuse this row rather than trust it.
             i += 1;
             continue;
         }
@@ -427,13 +302,11 @@ pub(super) fn scan_headingless_invocation_table<'a>(
     Some((i, children, seen, clean))
 }
 
-/// The leading run (up to two tokens) of [`is_command_name_shaped`] tokens
-/// in `trimmed` after stripping `tool_name` from the front — the token
-/// shape [`scan_headingless_invocation_table`] reads as `(child,
-/// Option<grandchild>)`. `None` when `trimmed` doesn't start with
-/// `tool_name` at all, or the very first token after it isn't name-shaped
-/// (a flag, a bracketed/placeholder token, or punctuation) — in either
-/// case there is nothing here to promote.
+/// Leading run (up to two tokens) of [`is_command_name_shaped`] tokens in
+/// `trimmed` after stripping `tool_name` from the front — read as
+/// `(child, Option<grandchild>)`. `None` when `trimmed` doesn't start
+/// with `tool_name`, or the first token after it isn't name-shaped. See
+/// docs/shapes.md S-016.
 pub(super) fn invocation_table_row_run<'a>(
     trimmed: &'a str,
     tool_name: &str,
@@ -462,13 +335,10 @@ pub(super) fn invocation_table_row_run<'a>(
     }
 }
 
-/// Whole-token occurrence check for spec [M-10]'s existence-attestation
-/// lesson (spec §6): is `token` present in `raw` as a maximal run of
-/// [`is_command_name_shaped`]'s own character class, rather than merely as
-/// a substring of some longer word (`"sub"` must not "occur" inside
-/// `"subvolume"`)? Splitting on everything outside that class and
-/// comparing for an exact match is what gives "whole token" its meaning
-/// here, matching the character class the names themselves are drawn from.
+/// Whole-token occurrence check for existence attestation (spec M-10,
+/// §6): is `token` present in `raw` as a maximal run of
+/// [`is_command_name_shaped`]'s character class, not merely a substring
+/// of a longer word (`"sub"` must not "occur" inside `"subvolume"`)?
 pub(super) fn token_occurs_literally(raw: &str, token: &str) -> bool {
     raw.split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-')))
         .any(|w| w == token)
@@ -493,25 +363,15 @@ pub(super) fn scan_comma_separated_commands<'a>(
 
 /// Split one row of a headed command table into `(name, description)`:
 /// [`find_bare_equals_separator_gap`]'s ` = ` separator when present
-/// (`wpa_cli`'s ordinary row shape), otherwise the row's leading token as
-/// the name with no description at all (`apt-ftparchive`'s
-/// `sources srcpath [overridefile [pathprefix]]`, and the handful of
-/// `wpa_cli` rows that carry no `=` at all — `wps_cancel Cancels the
-/// pending WPS operation` — a real inconsistency in that tool's own
-/// `--help` text, not something this parser should paper over by guessing
-/// where the name ends and prose begins).
-///
-/// The no-separator branch deliberately never treats trailing words as a
-/// description: for `apt-ftparchive` those words are the command's own
-/// positional operands (`binarypath [overridefile [pathprefix]]`), and
-/// reading them as prose would fabricate a description the tool never
-/// wrote — the exact §1 violation this project exists to refuse. Losing
-/// three real `wpa_cli` descriptions to the same rule is the honest price
-/// of not being able to tell the two shapes apart from a single line.
-///
-/// `None` when the leading token isn't [`is_command_name_shaped`] — the
-/// per-row refusal [`scan_bare_command_table`] relies on to skip a stray
-/// line without rejecting the whole table.
+/// (`wpa_cli`'s row shape), else the leading token as the name with no
+/// description (`apt-ftparchive`'s `sources srcpath [overridefile
+/// [pathprefix]]`). The no-separator branch never treats trailing words
+/// as a description — for `apt-ftparchive` those are positional
+/// operands, and reading them as prose would fabricate a description the
+/// tool never wrote (spec §1). `None` when the leading token isn't
+/// [`is_command_name_shaped`], letting [`scan_bare_command_table`] skip a
+/// stray line without rejecting the whole table. See docs/shapes.md
+/// S-017.
 pub(super) fn split_bare_command_table_row(line: &str) -> Option<(&str, Option<String>)> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -537,63 +397,19 @@ pub(super) fn split_bare_command_table_row(line: &str) -> Option<(&str, Option<S
 
 /// Scan a headed command table whose rows carry no column-aligned
 /// description at all — `wpa_cli`'s `commands:` block and
-/// `apt-ftparchive`'s `Commands:` table (spec §7 Tier B, the
-/// headed-command-table subsection). Reuses [`bare_block_end`] to find
-/// the block, same as [`scan_bare_block`], but splits each row with
-/// [`split_bare_command_table_row`] instead of [`split_entry_line`], and
-/// its emission ([`emit_headed_command_table`]) is `invocation_attested`
-/// rather than `heading_attested` — see that function's doc comment for
-/// why.
+/// `apt-ftparchive`'s `Commands:` table. Reuses [`bare_block_end`] like
+/// [`scan_bare_block`], splits each row with
+/// [`split_bare_command_table_row`], and emits `invocation_attested`
+/// rather than `heading_attested`.
 ///
-/// # The column-gap/dash bail-out
-///
-/// Bails (`None`) outright — before reading a single row — if *any*
-/// non-blank line in the block has a real column gap
-/// ([`find_multi_space_gap`]) or a ` - ` separator ([`find_dash_separator`]).
-/// Both are already-working shapes: a column-aligned table is read
-/// correctly today via [`split_entry_line`]'s ordinary column-gap path,
-/// and a dash-separated one via `allow_dash_separator`. Without this
-/// guard, this function would compete with both — worse, it would *win*
-/// by running first, silently discarding a working column-gap or dash
-/// description in favor of this function's own "leading token, no
-/// description" fallback. This is also what keeps this recognizer away
-/// from `wpa_supplicant`'s own `drivers:` block (`nl80211 = Linux
-/// nl80211/cfg80211`) even on the rare tool where that heading *would*
-/// otherwise be recognized as a command list: a description-bearing
-/// `name = description` bare block reads as a column gap the instant its
-/// values line up, and the moment it doesn't, [`find_equals_separator_gap`]'s
-/// own doc comment already explains why that block must be read as
-/// `(name, value)`, never split apart here.
-///
-/// # Why bare single-word rows are excluded from the admission floor
-///
-/// A row that is just one bare word (no `=`, no further tokens) already
-/// parses correctly through the ordinary heading-recognized path with
-/// `heading_attested: true` — the strictly *more* trustworthy bit. Only
-/// rows that are demonstrably not working today (an `=` separator, or
-/// more than one token on the name side) count toward
-/// [`MIN_INVOCATION_TABLE_ROWS`]'s floor, so this recognizer never fires
-/// for a block that the existing engine already reads correctly, even
-/// though a fired scan still emits every row it can (a single-word row
-/// caught up in an otherwise-qualifying block is still worth recovering,
-/// just with the weaker attestation bit, rather than being dropped
-/// outright).
-///
-/// # The floor counts distinct names, not qualifying rows
-///
-/// Two rows that qualify but share one name do not meet the floor —
-/// `trash-put --help`'s own "use one of these commands:" sentence (a real
-/// false hit of `mentions_commands_word`/`is_recognized_command_heading`,
-/// which read no further than "does the word 'commands' appear") followed
-/// by the worked example `trash -- -foo` / `trash ./-foo`, two invocations
-/// of one *different* program, not two commands of `trash-put`. Both rows
-/// qualify by every other rule here (no column gap, no dash, a
-/// name-shaped leading token, more than one token on the line), and
-/// without this a distinct guard would have fabricated `trash` as a
-/// subcommand of `trash-put`. A real command table lists several
-/// *different* commands — that is the entire evidentiary point of
-/// requiring repetition at all — so this is not a new restriction, only a
-/// more precise statement of the one already documented above.
+/// Bails outright if any row has a real column gap
+/// ([`find_multi_space_gap`]) or a ` - ` separator
+/// ([`find_dash_separator`]) — those shapes already parse correctly
+/// elsewhere and must not be discarded in favor of this table's weaker
+/// "leading token, no description" fallback. The admission floor
+/// ([`MIN_INVOCATION_TABLE_ROWS`]) counts distinct qualifying names, not
+/// rows: `trash-put`'s own worked example repeats one program's name
+/// twice and must not count twice. See docs/shapes.md S-017.
 pub(super) fn scan_bare_command_table<'a>(
     lines: &[&'a str],
     start: usize,
@@ -635,13 +451,9 @@ pub(super) fn scan_bare_command_table<'a>(
             entries.push((name, desc));
         } else if let Some(last) = entries.last_mut() {
             // A deeper-indented continuation of the previous row's
-            // description — same rule `split_entries` uses to fold
+            // description, same rule `split_entries` uses to fold
             // wrapped description lines. Never invents a description
-            // where the entry row had none (an `apt-ftparchive` row is
-            // never followed by a continuation line in the first place,
-            // since none of its rows wrap), it simply starts one from
-            // whatever real text the tool printed on the continuation
-            // line.
+            // where the entry row had none.
             let cont = line.trim();
             match &mut last.1 {
                 Some(d) => {
@@ -654,23 +466,14 @@ pub(super) fn scan_bare_command_table<'a>(
     }
 
     // Distinct names, not raw qualifying rows: a real command table lists
-    // several *different* commands, which is the whole point of it being a
-    // table. Two rows sharing one name is exactly the shape a worked usage
-    // example produces instead (`trash-put`'s own "use one of these
-    // commands:" sentence — itself a false hit of `mentions_commands_word`,
-    // not a real heading — followed by `trash -- -foo` / `trash ./-foo`,
-    // two alternative invocations of one *different* program's example),
-    // and admitting it fabricated `trash` as a "subcommand" of
-    // `trash-put`. Requiring distinct names costs nothing on either real
-    // fixture (`wpa_cli`'s ~180 rows and `apt-ftparchive`'s six are all
-    // distinct) and closes this off structurally rather than by trying to
-    // out-guess every future sentence that happens to contain "commands:".
+    // several different commands. Two rows sharing one name is the shape
+    // a worked usage example produces instead. See docs/shapes.md S-017.
     (qualifying_names.len() >= MIN_INVOCATION_TABLE_ROWS && !entries.is_empty())
         .then_some((end, entries))
 }
 
-/// One row of a modifier table: the letter, the operand the table spells
-/// beside it, and its description (spec §7 Tier B, "Modifier tables").
+/// One row of a modifier table: the letter, its operand, and its
+/// description. See docs/shapes.md S-020.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ModifierRow {
     /// The modifier letter itself — `a` for `[a]`, `l` for `[l <text> ]`.
@@ -683,48 +486,26 @@ pub(super) struct ModifierRow {
     pub description: String,
 }
 
-/// The shortest run of rows that may be read as a modifier table.
-///
-/// Two, the same floor [`MIN_ATTESTED_SECTION_FLAGS`] uses and for the same
-/// reason: one bracketed row is cheap for an unrelated document to produce
-/// by accident, a run of them is a table. Measured against the 2,301 frozen
-/// captures under `audit/queue-captures/`: the only length-2 run in the
-/// fleet that [`split_modifier_table_row`]'s grammar looked at was
-/// `pygettext3`'s reference footnotes (`[1] https://…`, `[2] https://…`),
-/// and that shape is refused on two independent grounds inside the row
-/// grammar itself, so no document in the fleet reaches this floor except a
-/// genuine modifier table.
+/// Shortest run of rows read as a modifier table — same floor
+/// [`MIN_ATTESTED_SECTION_FLAGS`] uses: one bracketed row is cheap to
+/// produce by accident, a run of them is a table. `pygettext3`'s
+/// reference footnotes are the fleet's only near-miss, and are refused
+/// on independent grounds inside the row grammar itself. See
+/// docs/shapes.md S-020.
 const MIN_MODIFIER_TABLE_ROWS: usize = 2;
 
 /// Split one modifier-table row — `ar`'s `[a]          - put file(s) after
 /// [member-name]`, `llvm-ar`'s `[a] - put [files] after [relpos]` — into a
-/// [`ModifierRow`]. `None` for anything that is not that shape.
+/// [`ModifierRow`]. `None` for anything not that shape.
 ///
-/// The grammar is deliberately narrow, because a bracketed token is common
-/// punctuation and a modifier table is rare:
-///
-/// - The row **opens** with `[`, and the bracket closes on the same row.
-/// - Inside the bracket, the first token is **exactly one ASCII letter**.
-///   Not a digit: `pygettext3` writes its two reference footnotes as
-///   `[1] https://…` / `[2] https://…`, consecutive rows that satisfy every
-///   structural rule here, and a footnote marker is not a modifier. Not two
-///   characters: `[ab]` is the optional-group notation a *command* row
-///   spells its accepted modifiers with (`ar`'s `m[ab]`, already read by
-///   [`strip_optional_modifier_suffix`]), and `[COMMON_OPTIONS]` is a usage
-///   placeholder.
-/// - Anything further inside the bracket is that letter's **operand**
-///   (`[l <text> ]`), kept verbatim.
-/// - After the bracket there must be an explicit **separator** — a ` - `
-///   run, or a column gap of two or more spaces (or a tab) — and then a
-///   non-empty description. A single space and then text is not a modifier
-///   row; that is the footnote shape a second time, and it is the whole
-///   difference between a table and a sentence that opens with a bracket.
-///
-/// The dash is punctuation *between two columns*, exactly what
-/// [`split_at_dash`] already treats it as, so it is stripped rather than
-/// left at the head of the description. It is looked for before the column
-/// gap because both specimens write one, and only the dash reading gets
-/// `llvm-ar`'s single-space rows apart into two columns at all.
+/// Narrow grammar: opens with `[`, closes on the same row; inside, the
+/// first token must be exactly one ASCII letter (not a digit —
+/// `pygettext3`'s footnotes `[1] https://…` look identical otherwise; not
+/// two letters — `[ab]` is a command row's optional-group notation).
+/// Anything further inside the bracket is the operand (`[l <text> ]`).
+/// After the bracket, an explicit ` - ` or column-gap separator plus a
+/// non-empty description is required — a single space is the footnote
+/// shape again, not a modifier row. See docs/shapes.md S-020.
 pub(super) fn split_modifier_table_row(line: &str) -> Option<ModifierRow> {
     let trimmed = line.trim();
     let inner_and_rest = trimmed.strip_prefix('[')?;
@@ -742,17 +523,14 @@ pub(super) fn split_modifier_table_row(line: &str) -> Option<ModifierRow> {
     let operand = tokens.collect::<Vec<_>>().join(" ");
     let value_name = (!operand.is_empty()).then_some(operand);
 
-    // `find_dash_separator` wants the space *before* the dash, which the
-    // slice after `]` still carries. A row whose dash has no space in front
-    // of it (`[a]- text`) is not two columns and is correctly refused here.
+    // `find_dash_separator` wants the space before the dash. A row whose
+    // dash has none (`[a]- text`) is not two columns, refused here.
     let description = match find_dash_separator(rest) {
         Some(idx) => split_at_dash(rest, idx).1,
         None => {
-            // [`find_multi_space_gap`] wants content *before* a gap, and
-            // `rest` opens with the gap itself, so it cannot answer this
-            // one. The leading run is measured directly instead, against
-            // that function's own [`MIN_COLUMN_GAP_SPACES`] threshold and
-            // its same "a tab is always a column gap" rule.
+            // `find_multi_space_gap` wants content before a gap, but
+            // `rest` opens with the gap itself, so measure it directly
+            // against [`MIN_COLUMN_GAP_SPACES`] instead.
             let gap = rest.len() - rest.trim_start().len();
             let is_column_gap =
                 gap >= MIN_COLUMN_GAP_SPACES || rest.get(..gap).is_some_and(|g| g.contains('\t'));
@@ -762,14 +540,10 @@ pub(super) fn split_modifier_table_row(line: &str) -> Option<ModifierRow> {
             rest.trim().to_string()
         }
     };
-    // A description has to *say* something. Emptiness is not a strong
-    // enough test on its own: `[a]  -` (a row whose separator is the last
-    // thing on the line) leaves the lone dash behind as the description,
-    // since trimming the line first puts the dash out of
-    // `find_dash_separator`'s reach and the column-gap branch then reads it
-    // as content. Requiring one alphanumeric character refuses that and
-    // every other punctuation-only remnant, while keeping real descriptions
-    // that merely start with punctuation (`-1 means unlimited`).
+    // Emptiness alone isn't a strong enough test: `[a]  -` leaves the
+    // lone dash as the description. Requiring one alphanumeric character
+    // refuses that while keeping descriptions starting with punctuation
+    // (`-1 means unlimited`).
     let description = description.trim();
     if !description.chars().any(|c| c.is_alphanumeric()) {
         return None;
@@ -837,7 +611,7 @@ pub(super) fn scan_modifier_table(
 }
 
 /// One row of an environment section: the variable name and its
-/// description (spec §7 Tier B, "Environment sections").
+/// description. See docs/shapes.md S-023.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct EnvVarRow {
     /// The variable name itself, e.g. `NODE_DEBUG`.
@@ -847,16 +621,11 @@ pub(super) struct EnvVarRow {
     pub description: String,
 }
 
-/// True for a token shaped like a shell identifier: an ASCII letter or
-/// underscore, then any run of ASCII letters, digits or underscores. This
-/// is the general shape of an environment variable's own name — POSIX
-/// defines it exactly this way — not a fleet-specific convention, so
-/// unlike [`is_environment_heading`] there is nothing tool-specific to
-/// measure here: it refuses a flag spelling (`--thin` opens with `-`), a
-/// prose word followed by punctuation, and a bare sentence fragment,
-/// while admitting both the fleet's overwhelmingly common `ALL_CAPS`
-/// spelling and a lowercase one (`http_proxy`) should a tool ever document
-/// one, since case is not part of what makes something an identifier.
+/// True for a token shaped like a POSIX shell identifier: an ASCII
+/// letter or underscore, then any run of ASCII letters, digits or
+/// underscores. Refuses a flag spelling (`--thin`) or prose; admits
+/// both `ALL_CAPS` and lowercase (`http_proxy`) since case isn't part of
+/// the shape. See docs/shapes.md S-023.
 fn is_env_var_name_shaped(token: &str) -> bool {
     let mut chars = token.chars();
     match chars.next() {
@@ -866,44 +635,19 @@ fn is_env_var_name_shaped(token: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-/// True when `heading` is one of the small set of exact, explicit spellings
-/// a tool uses to introduce its own environment-variable documentation
-/// (spec §4.5: "an explicitly labeled environment heading").
+/// True when `heading` is one of the small set of exact, explicit
+/// spellings a tool uses to introduce its own environment-variable
+/// documentation.
 ///
-/// **Heading-keyed, not row-keyed** — the opposite choice from
-/// [`split_modifier_table_row`]/[`scan_modifier_table`], and deliberately
-/// so. The modifier recognizer had no reliable heading to lean on (`ar`'s
-/// own modifier headings contain the word "command" and are themselves
-/// *recognized command headings* under a different rule), so it had to
-/// stand entirely on row shape. An environment section has exactly the
-/// opposite problem: the row shape alone — a bare identifier, a separator,
-/// a description — is indistinguishable from an ordinary bare-word block
-/// or a config-variable table (`mysqlslap`'s flush-left settings list is
-/// the [M-10] specimen that shape already burned this codebase on once).
-/// The heading is the only reliable signal here, so the heading is what is
-/// keyed on, strictly.
-///
-/// The exact set below is what the 2,301 frozen captures under
-/// `audit/queue-captures/` actually write, normalized by trimming and
-/// dropping one optional trailing colon (never other trailing punctuation
-/// — a wrapped sentence that merely *ends* with "environment variable."
-/// keeps its period and is correctly refused, which is what keeps `rg`'s
-/// and `msgmerge`'s prose from being read as a heading). Measured
-/// spellings: `ENVIRONMENT:` (the `bpftrace` family, by far the largest:
-/// bpftrace itself plus ~16 near-identical `.bt` trace scripts sharing its
-/// boilerplate `--help`), `Environment:` (`gprofng`, `mksquashfs`,
-/// `sqfstar`), `Environment variables:` (`node`, `nodejs`),
-/// `Environment variables` with no colon (`fzf`), `ENVIRONMENT` with no
-/// colon (`git-upload-pack`, man-page style), and `Environment variable:`
-/// (`ebtables`, `ebtables-nft` — both empty in the fleet, so they produce
-/// no entities regardless, which is correct: an empty labeled section
-/// documents nothing to recover). No other heading in the fleet reduces to
-/// one of these three normalized words, including the near-misses
-/// specifically checked for: a bare `env` heading (a subcommand list, not
-/// found in this fleet but structurally excluded — `env` alone is not in
-/// the set), and every prose sentence that merely *mentions* "environment
-/// variable" (`clang`'s "Specify the target environment", `wget`'s
-/// "environment variable is used.", `make`'s `--environment-overrides`).
+/// Heading-keyed, not row-keyed — the opposite choice from
+/// [`split_modifier_table_row`]/[`scan_modifier_table`]: a bare
+/// identifier/separator/description row alone is indistinguishable from
+/// an ordinary config-variable table (`mysqlslap`'s flush-left settings
+/// list, spec M-10), so the heading is the only reliable signal and is
+/// what's keyed on. Normalizes by trimming and dropping one optional
+/// trailing colon only — a wrapped sentence that *ends* with
+/// "environment variable." keeps its period and is correctly refused.
+/// See docs/shapes.md S-023.
 pub(super) fn is_environment_heading(heading: &str) -> bool {
     let normalized = heading.trim().trim_end_matches(':').trim().to_lowercase();
     matches!(
@@ -913,23 +657,16 @@ pub(super) fn is_environment_heading(heading: &str) -> bool {
 }
 
 /// Split one environment-section row — `bpftrace`'s
-/// `BPFTRACE_BTF                      [default: none] BTF file`, `node`'s
-/// `NODE_DEBUG                  ','-separated list of core modules`,
-/// `mksquashfs`'s tab-separated `SOURCE_DATE_EPOCH\tIf set, ...` — into an
-/// [`EnvVarRow`]. `None` for anything that is not that shape.
+/// `BPFTRACE_BTF  [default: none] BTF file`, `node`'s `NODE_DEBUG  ','-
+/// separated list of core modules`, `mksquashfs`'s tab-separated
+/// `SOURCE_DATE_EPOCH\tIf set, ...` — into an [`EnvVarRow`]. `None` for
+/// anything not that shape.
 ///
-/// Reuses the same separator grammar [`split_entry_line_raw`] applies to
-/// an ordinary bare-word entry: a column gap of [`MIN_COLUMN_GAP_SPACES`]
-/// or more (or any run containing a tab, via [`find_multi_space_gap`]), or
-/// failing that a ` - ` run (via [`find_dash_separator`]/[`split_at_dash`]).
-/// Unlike a modifier row there is no bracket to strip first — the row opens
-/// directly with the name — so the separator is looked for over the row's
-/// full text rather than a slice after a closing bracket.
-///
-/// The first whitespace-delimited token must be
-/// [shell-identifier-shaped][is_env_var_name_shaped]: this is what refuses
-/// a flag row (`--thin`) or a bare sentence that happens to have a column
-/// gap in it further along.
+/// Reuses [`split_entry_line_raw`]'s separator grammar (column gap via
+/// [`find_multi_space_gap`], else ` - ` via [`find_dash_separator`]). The
+/// first token must be [shell-identifier-shaped][is_env_var_name_shaped],
+/// which refuses a flag row (`--thin`). See docs/shapes.md S-023 and
+/// corpus/bpftrace, corpus/node.
 pub(super) fn split_env_var_row(line: &str) -> Option<EnvVarRow> {
     let trimmed = line.trim();
     let name_end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
@@ -957,20 +694,14 @@ pub(super) fn split_env_var_row(line: &str) -> Option<EnvVarRow> {
 }
 
 /// [`split_env_var_row`]'s permissive twin: a lone space is accepted as
-/// the separator, the shape a name too long for its own table's column
-/// convention falls back to (`node`'s
-/// `NODE_PENDING_PIPE_INSTANCES set the number of pending pipe instance`,
-/// one space where every shorter row in the same table gets two or more).
+/// the separator, the shape a name too long for its table's column
+/// convention falls back to (`node`'s `NODE_PENDING_PIPE_INSTANCES set
+/// the number of pending pipe instance`).
 ///
-/// **Never called from [`split_env_var_row`] itself or from a candidate
-/// first row** — only from inside [`scan_env_var_table`]'s loop, and only
-/// once that table already has at least one row split_env_var_row's own,
-/// stricter grammar confirmed. A single space is too cheap a signal to
-/// open a table on alone (it is exactly the shape
-/// `the_shapes_that_are_not_env_var_rows_are_refused` pins as refused in
-/// isolation), but once the heading *and* a real row have both already
-/// agreed this is a genuine environment section, a second single-space row
-/// in the same run costs nothing more to trust.
+/// Never called for a candidate first row — only from inside
+/// [`scan_env_var_table`]'s loop once a stricter row has already
+/// confirmed the table, since one space alone is too cheap a signal to
+/// open a table on. See docs/shapes.md S-023.
 pub(super) fn split_env_var_row_single_space_fallback(line: &str) -> Option<EnvVarRow> {
     let trimmed = line.trim();
     let name_end = trimmed.find(char::is_whitespace)?;
@@ -996,60 +727,33 @@ pub(super) fn split_env_var_row_single_space_fallback(line: &str) -> Option<EnvV
     })
 }
 
-/// The shortest run of rows [`scan_env_var_table`] accepts as an
-/// environment section: **one**. Deliberately lower than
-/// [`MIN_MODIFIER_TABLE_ROWS`]'s floor of two, because the two recognizers
-/// stand on different evidence. A modifier table has no heading to trust —
-/// `ar`'s own headings are unreliable — so a run of independently-shaped
-/// rows is the *only* evidence available, and one bracketed row is cheap
-/// for an unrelated document to produce by accident. An environment
-/// section is the opposite: [`is_environment_heading`] has already matched
-/// an explicit, narrow label before a single row is ever looked at, so the
-/// row itself only has to clear the ordinary identifier-plus-separator bar
-/// [`split_env_var_row`] sets, not carry the whole burden of proof alone.
-///
-/// Measured over the 2,301 frozen captures under `audit/queue-captures/`:
-/// 57 tools carry an [`is_environment_heading`]-shaped heading; of those
-/// with any row at all, none has exactly one row that is *not* a genuine
-/// environment variable — the fleet offers no counterexample this floor
-/// would have to be raised to exclude. Two tools (`ebtables`,
-/// `ebtables-nft`) label the heading and then document nothing beneath
-/// it — zero rows, which produces no section regardless of this constant.
+/// Shortest run of rows [`scan_env_var_table`] accepts: **one**,
+/// deliberately lower than [`MIN_MODIFIER_TABLE_ROWS`]'s floor of two.
+/// A modifier table has no reliable heading, so row repetition is its
+/// only evidence; an environment section's heading is already narrow,
+/// explicit evidence, so one row need only clear
+/// [`split_env_var_row`]'s ordinary bar. `ebtables`/`ebtables-nft` label
+/// the heading with zero rows beneath it, producing no section either
+/// way. See docs/shapes.md S-023.
 const MIN_ENV_VAR_TABLE_ROWS: usize = 1;
 
-/// Scan a run of environment-section rows starting at `lines[start]` — the
-/// content immediately following a heading [`is_environment_heading`]
-/// already accepted. Returns the index just past the run and its rows, or
-/// `None` when the run is shorter than [`MIN_ENV_VAR_TABLE_ROWS`].
+/// Scan a run of environment-section rows starting at `lines[start]`,
+/// immediately after a heading [`is_environment_heading`] already
+/// accepted. Returns the index past the run and its rows, or `None`
+/// below [`MIN_ENV_VAR_TABLE_ROWS`].
 ///
-/// **Skips at most one leading line that is not itself a row** before the
-/// run has to open — `gprofng`'s own `Environment:` heading is followed by
-/// a blank line, then "The following environment variables are supported:"
-/// (a sentence ending in `:`, not the `.` [`is_prose_sentence`] requires,
-/// so that predicate cannot be reused here), then a blank line, then its
-/// real rows. The skip is deliberately unconditional on *what* the line
-/// is — only on [`split_env_var_row`] refusing it — which is safe
-/// specifically *because* the heading is already the positive evidence
-/// here: skipping the wrong line costs nothing, since the row scan that
-/// follows still has to find [`MIN_ENV_VAR_TABLE_ROWS`] real rows or the
-/// whole result is `None` exactly as if no skip had happened. This is the
-/// reverse of [`scan_modifier_table`], whose run must open at the exact
-/// offered line because it has no heading to fall back on if the run is
-/// wrong.
+/// Skips at most one leading non-row line before the run must open —
+/// `gprofng`'s `Environment:` heading is followed by an intro sentence,
+/// then a blank line, then its real rows; safe because the heading is
+/// already positive evidence, unlike [`scan_modifier_table`] which must
+/// open at the exact offered line.
 ///
-/// A line indented past the run's own baseline folds into the previous
-/// row's description, the same wrapped-continuation rule
-/// [`scan_modifier_table`] applies — `node`'s multi-line
-/// `FORCE_COLOR`/`NODE_DEBUG` descriptions and `mksquashfs`'s tab-indented
-/// `SOURCE_DATE_EPOCH` continuation both fold this way.
-///
-/// **Recorded miss:** the run stops at the first blank line, the same
-/// convention [`scan_modifier_table`] follows. `gprofng`'s real
-/// `Environment:` section blank-separates its two variables as two
-/// paragraphs, so only the first is recovered — a documented lower bound
-/// (spec §13.1e's posture) rather than a special case for blank-line-
-/// tolerant sections, which would also have to decide how far a blank run
-/// may extend before it means "section over" instead of "next entry".
+/// A deeper-indented line folds into the previous row's description,
+/// same rule as [`scan_modifier_table`]. The run stops at the first
+/// blank line: `gprofng`'s real section blank-separates its two
+/// variables as two paragraphs, so only the first is recovered — a
+/// documented miss (spec §13.1e), not a special case. See
+/// docs/shapes.md S-023.
 pub(super) fn scan_env_var_table(lines: &[&str], start: usize) -> Option<(usize, Vec<EnvVarRow>)> {
     let mut idx = start;
     if idx < lines.len() && !lines[idx].trim().is_empty() && split_env_var_row(lines[idx]).is_none()
@@ -1140,11 +844,9 @@ mod modifier_tests {
         split_modifier_table_row(line)
     }
 
-    /// Both real spellings of a modifier row: `ar`'s column-padded
-    /// dash-separated one and `llvm-ar`'s single-space dash-separated one.
-    /// The letter, the description and the stripped separator come out the
-    /// same either way — the two tools' formatting differs, what they
-    /// document does not.
+    /// `ar`'s column-padded and `llvm-ar`'s single-space dash-separated
+    /// modifier rows parse to the same letter/description shape. See
+    /// docs/shapes.md S-020.
     #[test]
     fn both_real_spellings_of_a_modifier_row_read_the_same() {
         let padded = row("  [a]          - put file(s) after [member-name]").expect("ar row");
@@ -1156,9 +858,8 @@ mod modifier_tests {
         assert_eq!(padded.value_name, None);
     }
 
-    /// `ar`'s `[l <text> ]`: the operand inside the brackets is the
-    /// modifier's value, not part of its letter and not part of its
-    /// description.
+    /// `ar`'s `[l <text> ]`: the bracketed operand is the modifier's
+    /// value, not part of its letter or description.
     #[test]
     fn an_operand_inside_the_brackets_is_the_value() {
         let r = row("  [l <text> ]  - specify the dependencies of this library").expect("row");
@@ -1175,12 +876,10 @@ mod modifier_tests {
         assert_eq!(r.description, "be verbose");
     }
 
-    /// **The refusals, one per rule.** `pygettext3`'s reference footnotes
-    /// are the fleet's only near-miss (measured over the 2,301 frozen
-    /// captures under `audit/queue-captures/`) and they fail twice over: a
-    /// digit is not a letter, and one space is not a separator. The rest
-    /// are the notations a bracketed token otherwise carries in real help
-    /// text, none of which documents a modifier.
+    /// The refusals, one per rule. `pygettext3`'s footnotes are the
+    /// fleet's only near-miss, refused on two independent grounds: a
+    /// digit isn't a letter, and one space isn't a separator. See
+    /// docs/shapes.md S-020.
     #[test]
     fn the_shapes_that_are_not_modifier_rows_are_refused() {
         // pygettext3's footnotes — a digit, and a single space.
@@ -1203,19 +902,16 @@ mod modifier_tests {
         assert_eq!(row("  [a  - never closed"), None);
     }
 
-    /// A modifier table is a *run*: one bracketed row on its own is not
-    /// enough evidence, which is what keeps an isolated bracketed line in
-    /// somebody else's block from becoming a one-row MODIFIERS section.
+    /// A modifier table is a run: one bracketed row alone is not enough
+    /// evidence. See docs/shapes.md S-020.
     #[test]
     fn one_row_is_not_a_table() {
         let lines = ["  [a]  - put file(s) after", "  something else entirely"];
         assert_eq!(scan_modifier_table(&lines, 0), None);
     }
 
-    /// The scan stops at the first row that is not a modifier row, leaving
-    /// the rest of the block where it was. This is what lets `ar`'s
-    /// ` generic modifiers:` keep its four long options — and their group —
-    /// while its seven bracket rows become modifiers.
+    /// The scan stops at the first row that is not a modifier row,
+    /// leaving `ar`'s long options after the bracket rows untouched.
     #[test]
     fn the_scan_stops_at_the_first_row_that_is_not_one() {
         let lines = [
@@ -1230,8 +926,7 @@ mod modifier_tests {
         assert_eq!(rows[1].letter, 's');
     }
 
-    /// A wrapped description folds into the row above it, the same rule
-    /// every other block scanner in this module applies.
+    /// A wrapped description folds into the row above it.
     #[test]
     fn a_wrapped_description_folds_into_its_row() {
         let lines = [
@@ -1248,8 +943,8 @@ mod modifier_tests {
         );
     }
 
-    /// The run has to open at the line the scan is offered: it is never
-    /// allowed to hunt forward into a block for something bracket-shaped.
+    /// The run must open at the offered line; it never hunts forward
+    /// for a bracket-shaped line.
     #[test]
     fn the_run_must_open_at_the_offered_line() {
         let lines = [
@@ -1260,11 +955,9 @@ mod modifier_tests {
         assert_eq!(scan_modifier_table(&lines, 0), None);
     }
 
-    /// End to end through the engine, on `ar`'s own shape: the modifier
-    /// rows become modifiers, and the four long options that follow the
-    /// bracket rows *inside the same section* keep both their spellings and
-    /// the group that section names. The second half is the whole reason
-    /// the call site falls through instead of restarting the loop.
+    /// End to end on `ar`'s own shape: modifier rows become modifiers,
+    /// and the long options following them in the same section keep
+    /// their spelling and group. See docs/shapes.md S-020.
     #[test]
     fn a_modifier_table_leaves_the_flags_beneath_it_alone() {
         let help = "\
@@ -1321,10 +1014,8 @@ Usage: ar [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] archive-file file...
         assert!(!parsed.flags.iter().any(|f| f.short() == Some('a')));
     }
 
-    /// `llvm-ar`'s spelling of the same table: an explicit `MODIFIERS:`
-    /// heading and single-space dash separators. Nothing about the
-    /// recognizer is keyed on either tool — this is the second document
-    /// that proves it.
+    /// `llvm-ar`'s spelling: explicit `MODIFIERS:` heading, single-space
+    /// dash separators. Nothing here is keyed on tool name.
     #[test]
     fn the_other_tools_modifier_table_reads_the_same_way() {
         let help = "\
@@ -1351,22 +1042,11 @@ MODIFIERS:
         assert_eq!(parsed.modifiers[0].group.as_deref(), Some("MODIFIERS:"));
     }
 
-    /// The fleet's one near-miss, end to end: a block of reference
-    /// footnotes must not become a MODIFIERS section on a tool that has no
-    /// modifiers at all. `pygettext3`'s own two footnotes are the rows,
-    /// verbatim.
-    ///
-    /// **Set under a heading, which `pygettext3` does not do.** In its real
-    /// output those footnotes sit in a prose region no heading governs, so
-    /// [`scan_modifier_table`] is never offered them and the row grammar
-    /// never runs — meaning a test that transcribed the document faithfully
-    /// proved nothing about the grammar and stayed green however the rules
-    /// were broken. It was written that way first and did exactly that.
-    /// Putting the same rows where the scan *is* offered them is what makes
-    /// this able to fail: verified red with both the digit rule and the
-    /// separator rule removed, and green again with either one restored —
-    /// which is also the evidence that they are two independent grounds
-    /// rather than one rule spelled twice.
+    /// `pygettext3`'s two reference footnotes must not become a
+    /// MODIFIERS section. Set under a heading here (unlike the real
+    /// document, where they sit in an ungoverned prose region) so the
+    /// row grammar is actually exercised rather than trivially passing.
+    /// See docs/shapes.md S-020.
     #[test]
     fn reference_footnotes_never_become_modifiers() {
         let help = "\
@@ -1389,10 +1069,9 @@ mod env_var_tests {
         split_env_var_row(line)
     }
 
-    /// The three real column shapes: a wide column-gap row (`bpftrace`), a
-    /// tab-separated row (`mksquashfs`), and a narrower column-gap row
-    /// (`fzf`). All three read the same way — the tool's own formatting
-    /// differs, what it documents does not.
+    /// Three real column shapes read the same way: wide column-gap
+    /// (`bpftrace`), tab-separated (`mksquashfs`), narrow column-gap
+    /// (`fzf`). See docs/shapes.md S-023.
     #[test]
     fn every_real_column_shape_reads_the_same() {
         let wide =
@@ -1418,11 +1097,8 @@ mod env_var_tests {
         );
     }
 
-    /// A dash-separated row is accepted too, even though no tool in the
-    /// frozen fleet happens to use one for an environment row — the
-    /// grammar is the same one `split_modifier_table_row` uses, and this
-    /// pins that the second branch actually works rather than being dead
-    /// code nothing exercises.
+    /// A dash-separated row is accepted, pinning a branch no fleet tool
+    /// happens to exercise for an environment row.
     #[test]
     fn a_dash_separated_row_is_accepted() {
         let r = row("PAGER - the pager used to display long output").expect("dash row");
@@ -1444,9 +1120,8 @@ mod env_var_tests {
         );
     }
 
-    /// A labeled section with exactly one row is still read: the heading
-    /// is the evidence here, unlike a modifier table's row-only floor of
-    /// two.
+    /// A labeled section with exactly one row is still read: the
+    /// heading is the evidence, unlike a modifier table's floor of two.
     #[test]
     fn one_row_is_enough_for_an_environment_section() {
         let lines = ["EDITOR    the editor to invoke"];
@@ -1456,17 +1131,10 @@ mod env_var_tests {
         assert_eq!(rows[0].name, "EDITOR");
     }
 
-    /// `gprofng`'s own shape: an introductory sentence sits between the
-    /// heading and the table's real rows, and the scan skips exactly that
-    /// one line.
-    ///
-    /// `gprofng`'s real `--help` blank-separates its two variables (a
-    /// paragraph break between each), and the run — like
-    /// [`scan_modifier_table`]'s — stops at the first blank line, so only
-    /// the first variable is recovered here. This is a recorded miss, the
-    /// same shape [`scan_modifier_table`] already accepts as a cost of the
-    /// engine's general "a blank line ends the block" convention rather
-    /// than something specific to environment sections.
+    /// `gprofng`'s shape: an intro sentence between the heading and the
+    /// real rows is skipped. `gprofng`'s real text blank-separates its
+    /// two variables into two paragraphs, so only the first is
+    /// recovered — a recorded miss. See docs/shapes.md S-023.
     #[test]
     fn a_single_introductory_sentence_is_skipped() {
         let lines = [
@@ -1503,9 +1171,8 @@ mod env_var_tests {
         );
     }
 
-    /// End to end through the engine: a real ENVIRONMENT section becomes
-    /// `EntityKind::EnvVar` entities, and the flags elsewhere in the same
-    /// document are untouched.
+    /// A real ENVIRONMENT section becomes `EntityKind::EnvVar` entities;
+    /// flags elsewhere in the same document stay untouched.
     #[test]
     fn an_environment_section_reads_end_to_end() {
         let help = "\
@@ -1518,21 +1185,13 @@ Usage: bpftrace [options] filename\n\nOPTIONS:\n    -f FORMAT      output format
             .collect();
         assert_eq!(names, ["BPFTRACE_BTF", "BPFTRACE_CACHE_USER_SYMBOLS"]);
         assert_eq!(parsed.env_vars[0].group.as_deref(), Some("ENVIRONMENT:"));
-        // The unrelated flags block elsewhere in the same document is
-        // untouched by the environment section.
+        // Unrelated flags block elsewhere stays untouched.
         assert!(!parsed.flags.is_empty(), "{:?}", parsed.flags);
     }
 
-    /// `node`'s real shape: the heading and its rows sit flush at the
-    /// *same* indent (column 0), no step in at all — unlike bpftrace's
-    /// (heading at column 0, rows indented) or fzf's (both indented under
-    /// a 2-space heading). The general engine only reaches the
-    /// more-indented environment-table branch when something steps in
-    /// past its own heading; a same-indent environment section needs the
-    /// same-indent branch (mirroring `dnf`'s flush-left command table) to
-    /// ever see it at all. This is a real fleet miss this test caught
-    /// directly against `node --help`'s own text before the same-indent
-    /// branch was added.
+    /// `node`'s shape: heading and rows sit flush at the same indent
+    /// (unlike bpftrace's or fzf's stepped-in rows), needing the
+    /// same-indent branch (mirroring `dnf`'s table) to be read at all.
     #[test]
     fn a_flush_left_environment_section_is_still_read() {
         let help = "\
@@ -1557,14 +1216,8 @@ NODE_TLS_REJECT_UNAUTHORIZED
             .iter()
             .map(mandible_core::Entity::primary_name)
             .collect();
-        // The whole real shape, not just the two ordinary rows: a name
-        // long enough to overflow its table's column convention down to a
-        // single space (`NODE_PENDING_PIPE_INSTANCES`), and a name so long
-        // its description starts entirely on the line beneath it
-        // (`NODE_TLS_REJECT_UNAUTHORIZED`). This is the regression the
-        // fleet sweep caught directly against real `node --help` text:
-        // both fallbacks were needed before `mandible node` recovered more
-        // than the first nine of node's nineteen real variables.
+        // Needs both fallbacks: a name overflowing to a single-space
+        // separator, and one whose description starts on the next line.
         assert_eq!(
             names,
             [
@@ -1586,11 +1239,9 @@ NODE_TLS_REJECT_UNAUTHORIZED
         assert!(!parsed.flags.is_empty(), "{:?}", parsed.flags);
     }
 
-    /// [`split_env_var_row_single_space_fallback`] in isolation: accepts
-    /// exactly one space, refuses everything [`split_env_var_row`] itself
-    /// would already have accepted (two-plus spaces, a dash run) or
-    /// refused for the same reasons (no separator, nothing after it, a
-    /// non-identifier leading token).
+    /// [`split_env_var_row_single_space_fallback`] accepts exactly one
+    /// space, refusing what [`split_env_var_row`] already handles or
+    /// refuses.
     #[test]
     fn the_single_space_fallback_accepts_only_a_lone_space() {
         assert_eq!(
@@ -1643,11 +1294,9 @@ NODE_TLS_REJECT_UNAUTHORIZED
         assert_eq!(rows[0].name, "NODE_DEBUG");
     }
 
-    /// A heading that merely mentions "environment" in a prose sentence,
-    /// or the fleet's own false-positive shapes (a wrapped sentence ending
-    /// in "environment variable.", a flag description that happens to
-    /// contain the phrase), never becomes an environment section — only
-    /// the exact labeled forms do.
+    /// A heading merely mentioning "environment" in prose never becomes
+    /// an environment section — only the exact labeled forms do. See
+    /// docs/shapes.md S-023.
     #[test]
     fn a_heading_that_only_mentions_environment_is_refused() {
         assert!(!is_environment_heading("Specify the target environment"));
@@ -1656,11 +1305,8 @@ NODE_TLS_REJECT_UNAUTHORIZED
         assert!(!is_environment_heading("Environment Commands:"));
     }
 
-    /// §13.1e's fabrication class, end to end: a usage line and a prose
-    /// paragraph full of `PATH`/`FILE`/`TERM`-shaped placeholders produce
-    /// zero `EnvVar` entities. Nothing here carries an explicitly labeled
-    /// environment heading, so [`is_environment_heading`] never fires and
-    /// the ALL_CAPS words are never scavenged.
+    /// ALL_CAPS placeholder prose with no labeled heading produces zero
+    /// `EnvVar` entities (spec §13.1e's fabrication class).
     #[test]
     fn all_caps_prose_never_becomes_env_vars() {
         let help = "\
@@ -1669,11 +1315,9 @@ Usage: mytool [OPTIONS] FILE\n\nOPTIONS:\n  -o, --output FILE   write output to 
         assert!(parsed.env_vars.is_empty(), "{:?}", parsed.env_vars);
     }
 
-    /// A heading that merely mentions "env" — a subcommand list, not an
-    /// environment section — produces zero `EnvVar` entities: the strict
-    /// heading set in [`is_environment_heading`] does not contain a bare
-    /// `env`/`Env Commands` spelling, so the bare-word block beneath it is
-    /// read as subcommands (or dropped), never as variables.
+    /// A heading merely mentioning "env" is a subcommand list, not an
+    /// environment section — [`is_environment_heading`]'s strict set
+    /// excludes bare `env`/`Env Commands` spellings.
     #[test]
     fn a_bare_word_list_under_an_env_mentioning_heading_never_becomes_env_vars() {
         let help = "\
@@ -1682,9 +1326,8 @@ Usage: mytool [command]\n\nCommands:\n  env       print resolved environment\n  
         assert!(parsed.env_vars.is_empty(), "{:?}", parsed.env_vars);
     }
 
-    /// A real flags block that happens to sit under a heading merely
-    /// resembling "environment" text is still read as flags, not folded
-    /// into an environment section it does not belong to.
+    /// A real flags block under an environment-ish heading is still
+    /// read as flags, not folded into an environment section.
     #[test]
     fn a_flags_block_under_an_environment_ish_heading_is_still_flags() {
         let help = "\
@@ -1699,20 +1342,14 @@ Usage: mytool [OPTIONS]\n\nEnvironment overrides:\n  -e, --env-file FILE   load 
 mod tests {
     use super::*;
 
-    /// `sg_dd`'s shape: a `where:` operand table whose *own* rows are bare
-    /// words, ending in flag rows at that same indent. Before the block
-    /// learned to end at a flag row, all six became choices of nothing and
-    /// `--progress`/`--verify` — documented nowhere else — were lost
-    /// outright (seed-2 verdict `wrong`; `corpus/sg_dd/audit-seed2`).
+    /// `sg_dd`'s shape: a `where:` operand table whose own rows are bare
+    /// words, ending in flag rows at the same indent. See docs/shapes.md
+    /// S-033 and corpus/sg_dd/audit-seed2.
     ///
-    /// **More than three operand rows, deliberately.** A first cut of this
-    /// test used two and passed with the fix reverted, which is worse than
-    /// no test: [`flags_block_start`] already tolerates up to
-    /// `MAX_SKIPPED_LEADING_ROWS` non-flag rows before the first flag row,
-    /// so a short table is claimed as a flags block outright and never
-    /// reaches [`bare_block_end`] at all. `sg_dd`'s real table is twenty
-    /// rows; it is the tables *over* that budget that this rule exists for,
-    /// and only those reproduce the defect.
+    /// Uses more than three operand rows deliberately: a short table is
+    /// claimed outright by `flags_block_start`'s
+    /// `MAX_SKIPPED_LEADING_ROWS` tolerance and never reaches
+    /// [`bare_block_end`], so a two-row test would pass even reverted.
     #[test]
     fn a_bare_operand_table_ends_where_its_flag_rows_begin() {
         let help = "\
@@ -1741,19 +1378,17 @@ Usage: prog [bs=BS] [--help]
         assert!(parsed.subcommands.is_empty(), "{:?}", parsed.subcommands);
     }
 
-    /// The break is `i > start` for a reason: `flags_block_start` has
-    /// already declined this block, and a block whose *first* line ended it
-    /// would be zero-length and never advance. A bare-word list is
-    /// unaffected by the rule when no flag row follows it.
+    /// The break is `i > start` for a reason: a block whose first line
+    /// ended it would be zero-length and never advance.
     #[test]
     fn a_bare_block_with_no_flag_rows_is_unchanged() {
         let lines = ["  alpha   first", "  beta    second", "  gamma   third"];
         assert_eq!(bare_block_end(&lines, 0), 3);
     }
 
-    /// The bound on that lookahead is what keeps it from being "look
-    /// harder until you find flags". A bare-word block containing no
-    /// `-`-leading row at its own indent must still be a bare-word block.
+    /// The lookahead bound keeps this from "look harder until you find
+    /// flags": a bare-word block with no `-`-leading row at its own
+    /// indent stays a bare-word block.
     #[test]
     fn a_bare_word_block_is_not_reinterpreted_as_flags() {
         let help = "Usage: tool <command>\n\nCommands:\n  \
@@ -1785,13 +1420,11 @@ Usage: prog [bs=BS] [--help]
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {path}: {e}"))
     }
 
-    /// The real btrfs shape: two-level nesting (`device` -> `add`/`delete`/
-    /// `replace`/...), a shared description across consecutive sibling
-    /// rows (`device delete` / `device remove`), a single-level dedup
-    /// across two rows that both name the same command (`receive` /
-    /// `receive --dump`), a tab-indented description (`device replace`),
-    /// and a row with no description at all in the source (`subvolume
-    /// snapshot`) ending up genuinely empty rather than fabricating one.
+    /// Real btrfs shape: two-level nesting, a shared description across
+    /// sibling rows, single-level dedup of two rows naming the same
+    /// command, a tab-indented description, and a row with no
+    /// description staying genuinely empty. See docs/shapes.md S-016
+    /// and corpus/btrfs/audit-seed2.
     #[test]
     fn headingless_invocation_table_admits_the_btrfs_shape() {
         let raw = btrfs_help_txt();
@@ -1870,17 +1503,10 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// Pins the whole table against truncation, not just a sample of it.
-    /// `btrfs device replace <command> [...]`'s description is **tab**-
-    /// indented (`"    \tReplace a device..."`) — `leading_whitespace`
-    /// counts it as part of the leading-whitespace *character* count (4
-    /// spaces + 1 tab = 5), which is still deeper than the table's own row
-    /// indent (4), so this must not end the scan early. Every group name in
-    /// the source (verified independently by `grep`) must come out, in
-    /// particular the ones physically **after** that tab-indented row —
-    /// `filesystem` through `version` — proving the scan reads to the real
-    /// end of the table (the column-0 "Use --help as an argument..." line)
-    /// rather than stopping partway through.
+    /// The table is not truncated by btrfs's tab-indented `device
+    /// replace` description row — its character-count indent is still
+    /// deeper than the table's row indent, so the scan must not end
+    /// early there. See docs/shapes.md S-016.
     #[test]
     fn headingless_invocation_table_is_not_truncated_by_the_tab_indented_row() {
         let raw = btrfs_help_txt();
@@ -1912,10 +1538,9 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// [`MIN_INVOCATION_TABLE_ROWS`]'s floor counts rows that actually
-    /// *received* a description, not merely rows that were seen: two rows
-    /// where only one is ever followed by a deeper-indented line must not
-    /// admit, because only one name-row/description-row pair exists.
+    /// [`MIN_INVOCATION_TABLE_ROWS`]'s floor counts described rows, not
+    /// merely seen rows: two rows where only one gets a deeper-indented
+    /// description line must not admit.
     #[test]
     fn headingless_invocation_table_refuses_when_only_one_row_is_described() {
         let raw = "    mytool frob start <path>\n        Start frobbing\n    \
@@ -1929,9 +1554,9 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// A table whose rows do **not** start with the tool's own name is
-    /// refused outright — this is the whole basis for the recognizer's
-    /// evidence, not an optional extra.
+    /// A table whose rows do not start with the tool's own name is
+    /// refused outright — that is the recognizer's whole evidentiary
+    /// basis. See docs/shapes.md S-016.
     #[test]
     fn headingless_invocation_table_refuses_rows_not_naming_the_tool() {
         let raw = "  otherprog frobnicate [options] <path>\n      Frobnicate a path\n  \
@@ -1941,8 +1566,7 @@ Usage: prog [bs=BS] [--help]
     }
 
     /// A single name-row/description-row pair sits below the repetition
-    /// floor and must not be promoted — one row is as likely to be a
-    /// stray example as a table.
+    /// floor and must not be promoted.
     #[test]
     fn headingless_invocation_table_refuses_a_single_pair() {
         let raw = "    mytool frob start <path>\n        Start frobbing\n";
@@ -1950,13 +1574,10 @@ Usage: prog [bs=BS] [--help]
         assert!(parsed.subcommands.is_empty());
     }
 
-    /// `wpa_cli`'s real defect: a recognized `commands:` heading whose rows
-    /// separate name and description with ` = ` instead of a column gap,
-    /// with a couple of rows (a real inconsistency in the tool's own text)
-    /// carrying no separator at all. Before this recognizer: 0 subcommands
-    /// — every multi-word row failed [`is_command_name_shaped`] whole, and
-    /// `note <text>`'s row happened to split at the placeholder boundary,
-    /// leaving a description that still began with a literal `= `.
+    /// `wpa_cli`'s shape: a recognized `commands:` heading whose rows
+    /// separate name and description with ` = ` instead of a column gap;
+    /// a few rows carry no separator at all. See docs/shapes.md S-017
+    /// and corpus/wpa_cli.
     #[test]
     fn bare_command_table_admits_the_wpa_cli_equals_shape() {
         let raw = "commands:\n  \
@@ -2009,13 +1630,10 @@ Usage: prog [bs=BS] [--help]
         }
     }
 
-    /// The exact hazard `find_equals_separator_gap`'s own doc comment
-    /// warns about, now guarding a second call site: a bare-word block
-    /// that legitimately uses `name = description` for something that is
-    /// *not* a command list (`wpa_supplicant`'s own `drivers:` block) must
-    /// never be read by [`scan_bare_command_table`] — its heading isn't
-    /// recognized and nothing put the parser in `command_mode`, so the
-    /// gate at the call site refuses to even try.
+    /// `wpa_supplicant`'s own `name = value` `drivers:` block must never
+    /// become commands: its heading isn't recognized and nothing put the
+    /// parser in `command_mode`, so the call site's gate refuses to try.
+    /// See docs/shapes.md S-017.
     #[test]
     fn bare_command_table_never_touches_an_unrecognized_equals_block() {
         let raw = "drivers:\n  \
@@ -2030,21 +1648,12 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// Found on the real fleet while validating this recognizer (not a
-    /// synthetic worry): `fail2ban-client --help`'s real `Command:` table
-    /// is column-aligned throughout, but several rows' descriptions wrap
-    /// entirely onto their own more-indented lines with nothing on the
-    /// name row itself, and one row's own name-side text is itself
-    /// column-gapped. The generic engine's "not actually a heading,
-    /// rewind" path re-treats every such row as a fresh pseudo-heading
-    /// once `command_mode` is stuck on — and a wrapped continuation block
-    /// that ends up reachable on its own passes every guard
-    /// [`scan_bare_command_table`] has (no column gap, no dash, a
-    /// name-shaped leading token, more than one word) purely because
-    /// ordinary English is indistinguishable from a command name by shape
-    /// alone. Gating on `recognized` alone (never inherited through
-    /// `command_mode`) closes this: none of these pseudo-headings
-    /// themselves mention "command".
+    /// `fail2ban-client`'s wrapped rows: once `command_mode` is stuck
+    /// on, the "not actually a heading, rewind" path re-treats a wrapped
+    /// continuation as a fresh pseudo-heading, and it passes every other
+    /// guard by shape alone. Gating on `recognized` alone, never
+    /// inherited through `command_mode`, closes this. See
+    /// docs/shapes.md S-017 and corpus/fail2ban-client.
     #[test]
     fn bare_command_table_does_not_leak_through_a_sticky_command_mode_chain() {
         // The `BASIC` sub-heading is load-bearing: at indent 45 immediately
@@ -2071,17 +1680,11 @@ Usage: prog [bs=BS] [--help]
         }
     }
 
-    /// Found on the real fleet: `trash-put --help` closes with "To remove
-    /// a file whose name starts with a '-' ... use one of these
-    /// commands:" — an ordinary sentence, not a section heading, that
-    /// happens to satisfy `mentions_commands_word` because "commands"
-    /// appears in it as a whole word. The two lines beneath it are a
-    /// worked example of invoking a *different* program (`trash`, not
-    /// `trash-put`) twice, not a table of `trash-put`'s own subcommands.
-    /// Both example lines qualify by every other rule
-    /// [`scan_bare_command_table`] has, but they share one name, and the
-    /// distinct-names floor refuses to treat one repeated example as
-    /// repetition evidence.
+    /// `trash-put`'s "use one of these commands:" sentence is an
+    /// ordinary sentence, not a heading, and the worked example beneath
+    /// it invokes a different program (`trash`) twice — the
+    /// distinct-names floor refuses to treat that repetition as
+    /// evidence. See docs/shapes.md S-017 and corpus/trash-put.
     #[test]
     fn bare_command_table_refuses_one_name_repeated_by_a_worked_example() {
         let raw = "use one of these commands:\n\n    \
@@ -2095,13 +1698,10 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// pngfix's real near-miss (`corpus/pngfix/1.6.43/help.stderr.txt`):
-    /// `--strip=[none|crc|...]:` carries no description on its own line,
-    /// so [`entry_row_carries_own_description`] refuses to end the flags
-    /// block there, and the whole value-list stays that flag's own
-    /// description exactly as before this recognizer existed. None of
-    /// these lines start with `pngfix`, so the new recognizer is never
-    /// even reached.
+    /// pngfix's `--strip=[none|crc|...]:` row carries no description on
+    /// its own line, so the value-list stays that flag's own
+    /// description. See docs/shapes.md S-051 and
+    /// corpus/pngfix/1.6.43/help.stderr.txt.
     #[test]
     fn pngfix_strip_choice_list_stays_a_flag_description() {
         let raw = "Usage: pngfix {[options] png-file}\n\
@@ -2122,11 +1722,10 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// pod2man's real near-miss (`corpus/pod2man/5.01/help.txt`):
-    /// `--guesswork=rule[,rule...]` likewise carries nothing on its own
-    /// line, so its whole description (including the enum-shaped `all`/
-    /// `none` rule names deep inside it) must stay attached to that one
-    /// flag, never promoted to subcommands.
+    /// pod2man's `--guesswork=rule[,rule...]` likewise carries nothing on
+    /// its own line, so its whole value-list description must stay
+    /// attached to that one flag. See docs/shapes.md S-051 and
+    /// corpus/pod2man/5.01/help.txt.
     #[test]
     fn pod2man_guesswork_value_list_stays_a_flag_description() {
         let raw = "Usage: pod2man [options]\n\
@@ -2147,10 +1746,9 @@ Usage: prog [bs=BS] [--help]
         );
     }
 
-    /// An ordinary prose paragraph, even one that happens to repeat the
-    /// tool's own name at the start of successive sentences, must not be
-    /// promoted: the sentences aren't name-shaped after the tool's name
-    /// (they're prose), so the leading-run test refuses every row.
+    /// An ordinary prose paragraph repeating the tool's name is not
+    /// promoted to subcommands: the words after the name aren't
+    /// name-shaped, so the leading-run test refuses every row.
     #[test]
     fn a_prose_paragraph_is_not_promoted() {
         let raw = "    mytool is a tool that helps you manage things well.\n\
@@ -2169,9 +1767,8 @@ Usage: prog [bs=BS] [--help]
         ));
     }
 
-    /// A name must not "occur" merely as a substring of a longer token —
-    /// this is the whole-token half of the guard, and the one a naive
-    /// `raw.contains(name)` would get wrong.
+    /// A name must not "occur" merely as a substring of a longer token
+    /// — what a naive `raw.contains(name)` would get wrong.
     #[test]
     fn token_occurs_literally_rejects_a_mere_substring() {
         assert!(!token_occurs_literally("btrfs subvolume list", "sub"));

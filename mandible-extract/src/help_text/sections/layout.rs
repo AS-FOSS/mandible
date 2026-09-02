@@ -7,30 +7,12 @@
 pub(super) const TAB_STOP: usize = 8;
 
 /// A line's leading indentation, as a **visual column**, not a raw
-/// character count.
-///
-/// The two agree everywhere the fleet's overwhelming convention holds
-/// (indentation built entirely from spaces): a run of `n` leading spaces
-/// still measures `n` either way, so this is a byte-for-byte-identical
-/// answer for that case, and every caller of this function that was
-/// already correct for space-indented `--help` output stays exactly as
-/// correct.
-///
-/// They disagree when leading whitespace mixes tabs and spaces, which is
-/// where the plain character count actively lies: LVM's own emitter
-/// (`vgck`, `vgextend`, `vgrename`, ...) indents its `Common options for
-/// lvm:` heading two spaces and every flag row beneath it with **one
-/// tab**. A raw count reads the tab as *one* column — narrower than the
-/// heading's two spaces — so every "is this content indented more than
-/// its heading" check in this module answered "no" and the entire block
-/// (13+ flags per tool) was never even looked at as a candidate flags
-/// table, regardless of anything `looks_like_flag_start` does or does not
-/// accept. Expanding the tab to the next multiple of [`TAB_STOP`] (the
-/// universal terminal convention, not an LVM-specific number) reads it as
-/// column 8 — correctly deeper than the heading's column 2 — and every
-/// downstream decision in this file that already trusted
-/// `leading_whitespace`'s answer starts working for this shape too,
-/// without being touched.
+/// character count. Agrees with a raw count for pure-space indentation,
+/// but a tab expands to the next multiple of [`TAB_STOP`] rather than
+/// counting as one column — LVM's emitters indent flag rows with one
+/// tab under a two-space heading, and a raw count would read that as
+/// *less* indented than the heading, hiding the whole flags table. See
+/// docs/shapes.md S-005.
 pub(super) fn leading_whitespace(line: &str) -> usize {
     let mut col = 0usize;
     for c in line.chars() {
@@ -59,54 +41,28 @@ pub(super) fn split_columns(line: &str) -> Vec<&str> {
 
 /// Minimum number of distinct entry lines a secondary column offset must
 /// recur at before a block is trusted as genuinely multi-column. Same
-/// figure and same justification as
-/// `xtask::misattribution::MIN_COLUMN_RECURRENCE`: real column bleed
-/// (`lsof`'s two hidden columns) recurs 9 times over its ~10-line options
-/// block; the worst accidental coincidence measured in this project's own
-/// real-tool sample (`tar`'s `-T` cross-reference) recurs twice, at two
-/// different offsets. `3` sits strictly between the two.
+/// figure as `xtask::misattribution::MIN_COLUMN_RECURRENCE`: real column
+/// bleed (`lsof`) recurs 9 times; the worst accidental coincidence
+/// measured (`tar`'s `-T` cross-reference) recurs twice. `3` sits
+/// strictly between.
 pub const MIN_COLUMN_RECURRENCE: usize = 3;
 
-/// Minimum number of entry rows whose *second* spelling cell begins at the
-/// same character offset before [`scan_flags_block`] reads that cell as an
-/// aligned column of **alternate spellings** rather than as the row's
-/// description (see [`spelling_run`]).
+/// Minimum number of entry rows whose *second* spelling cell begins at
+/// the same character offset before [`scan_flags_block`] reads that
+/// cell as an aligned column of alternate spellings rather than the
+/// row's description.
 ///
-/// Two, where [`MIN_COLUMN_RECURRENCE`] is three, because the two
-/// constants guard different questions and one of them is much harder to
-/// trip by accident. `MIN_COLUMN_RECURRENCE` asks "is a second
-/// flag+description pair hiding in this row?", where the rival reading —
-/// ordinary prose that happens to mention a flag — is common and only a
-/// count can separate them. This one asks "is this cell *nothing but*
-/// another spelling of the option already named?", and the shape test
-/// alone ([`is_spelling_only_cell`]) already excludes prose: every cell in
-/// the run must be a flag spelling and, at most, a bare value placeholder,
-/// with no words of its own. Recurrence here is only ruling out
-/// *coincidental* alignment, so two rows is enough.
-///
-/// Both halves of that were measured over the 2,301 frozen captures in
-/// `audit/queue-captures/` (2026-08-22):
-///
-/// - Three would exclude the shape's own reference case. `jdeprscan
-///   --help` writes exactly two such rows — `  -l    --list` and
-///   `  -v    --verbose` — and both long spellings were lost entirely
-///   before this rule existed.
-/// - The one measured false positive is excluded by *alignment*, not by
-///   count, so lowering the count does not readmit it: `lto-dump --help`
-///   prints a default-value column (`--param=prefetch-minimum-stride=
-///   <TAB> -1`) whose `-1` would be read as a short spelling, but its
-///   three rows have long names of three different lengths, so the `-1`
-///   lands at three different offsets and no offset recurs even once.
-///   [`block_has_aligned_spelling_column`]'s second arm — this same count
-///   of *value-paired* rows ([`cells_name_the_same_value`]) — does not
-///   readmit it either: `-1` names no value, so no row of that block is
-///   value-paired.
+/// Two, lower than [`MIN_COLUMN_RECURRENCE`]'s three, since the shape
+/// test alone ([`is_spelling_only_cell`]) already excludes prose here —
+/// recurrence only rules out coincidental alignment. Three would exclude
+/// the shape's own reference case, `jdeprscan --help`'s exactly two
+/// rows. The one measured false positive (`lto-dump`'s default-value
+/// column) is excluded by alignment, not count, so lowering the count
+/// doesn't readmit it.
 pub(super) const MIN_SPELLING_COLUMN_RECURRENCE: usize = 2;
 
-/// True if `token` is shaped like a flag spelling: `-x`, `--word`, `+x`, or
-/// `+|-x` — lsof spells several of its own flags with the `+` prefix
-/// (`+d`, `+m`). Deliberately permissive about the character right after a
-/// short prefix (`lsof`'s own `-?`).
+/// True if `token` is shaped like a flag spelling: `-x`, `--word`, `+x`,
+/// or `+|-x` — lsof spells some flags with a `+` prefix (`+d`, `+m`).
 pub fn is_flag_shaped(token: &str) -> bool {
     if let Some(rest) = token.strip_prefix("+|-") {
         return rest.chars().next().is_some_and(is_flag_char);
@@ -123,9 +79,8 @@ pub fn is_flag_shaped(token: &str) -> bool {
     false
 }
 
-/// The character class allowed immediately after a short flag's leading
-/// `-`/`+`: alphanumerics cover the overwhelming majority, plus the small
-/// punctuation set measured on real tools (`lsof -?`).
+/// Character class allowed immediately after a short flag's leading
+/// `-`/`+`: alphanumerics plus a small punctuation set (`lsof -?`).
 pub(super) fn is_flag_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || matches!(c, '?' | '#' | '@')
 }
@@ -136,18 +91,12 @@ pub fn first_word(s: &str) -> &str {
     s.split_whitespace().next().unwrap_or("")
 }
 
-/// Split `line` into cells at a column gap — a run of two or more spaces,
-/// **or any tab** — character-indexed, never byte-indexed (AGENTS.md's rule
-/// against slicing tool output at a raw byte offset applies to column math
-/// here just as much as to parsing: a wide character earlier in a real
-/// `--help` line would otherwise desync every offset after it). Returns
-/// `(char offset, cell text)` pairs, trailing whitespace trimmed off each
-/// cell.
-///
-/// A single tab is a boundary on its own — `debconf --help`'s real table is
-/// tab-separated (`-o,  --owner=package\t\tSet the package...`), and only
-/// requiring 2+ spaces would read the tab-glued alias-plus-description as
-/// one cell.
+/// Split `line` into cells at a column gap — a run of two or more
+/// spaces, or any tab — character-indexed, never byte-indexed (AGENTS.md's
+/// rule against slicing tool output at a raw byte offset). Returns
+/// `(char offset, cell text)` pairs. A single tab is a boundary on its
+/// own: `debconf --help`'s table is tab-separated, and requiring 2+
+/// spaces alone would glue the alias and description into one cell.
 pub fn cells(line: &str) -> Vec<(usize, String)> {
     let chars: Vec<char> = line.chars().collect();
     let n = chars.len();
@@ -178,15 +127,13 @@ pub fn cells(line: &str) -> Vec<(usize, String)> {
     out
 }
 
-/// True if `s` is nothing but a single value-placeholder token — bracket-
-/// wrapped (`<dir>`, `[NUMBER]`), fully upper-case (`NUM`, `FILE`), or an
-/// upper-case name with a bracketed decoration (`BLOCKSIZE[bskK...]`) —
-/// with no other words. Deliberately narrow: a lower-case placeholder
-/// (`arptables`'s `-A chain`) is not recognized here, because a real
-/// English word is not reliably distinguishable from real prose from one
-/// cell alone. [`fields_in_line`]'s own fold-while-bare rule is what
-/// actually protects that case (see its doc comment) — this check only
-/// needs to catch the *unambiguous* placeholders, not every one.
+/// True if `s` is nothing but a single value-placeholder token —
+/// bracket-wrapped (`<dir>`), fully upper-case (`NUM`), or an upper-case
+/// name with bracketed decoration (`BLOCKSIZE[bskK...]`). Deliberately
+/// narrow: a lower-case placeholder (`arptables`'s `-A chain`) isn't
+/// recognized here since prose isn't reliably distinguishable from one
+/// cell alone — [`fields_in_line`]'s fold-while-bare rule protects that
+/// case instead.
 pub fn is_value_placeholder_only(s: &str) -> bool {
     let mut words = s.split_whitespace();
     let Some(word) = words.next() else {
@@ -210,62 +157,43 @@ pub fn is_value_placeholder_only(s: &str) -> bool {
 
 /// One column entry recovered from a multi-column row.
 pub(super) struct Field {
-    /// Character offset of the field's *first* flag-shaped cell — the
+    /// Character offset of the field's first flag-shaped cell — the
     /// position [`block_is_multi_column`] buckets recurrence counts by.
-    /// Never updated once the field is created, even while later cells
-    /// keep folding into it (see [`fields_in_line`]): it names where this
-    /// logical column *starts*, not wherever it happens to still be
-    /// absorbing text.
+    /// Never updated once created, even as later cells fold in.
     offset: usize,
     /// Every flag-shaped spelling folded into this field — usually one,
-    /// more when a row spells one option's short and long forms as
-    /// adjacent cells sharing a single description (`nano --help`'s `-A
-    /// --smarthome`), or when a value placeholder that looked like real
-    /// text kept the field open (see [`fields_in_line`]).
+    /// more when a row spells short and long forms as adjacent cells
+    /// sharing one description (`nano`'s `-A --smarthome`).
     pub(super) tokens: Vec<String>,
-    /// Accumulated non-flag-shaped text following this field's token(s).
-    /// Empty (or a bare value placeholder) means "not yet described" —
-    /// see [`Field::is_bare`].
+    /// Accumulated non-flag-shaped text following this field's
+    /// token(s). Empty (or a bare placeholder) means "not yet
+    /// described" — see [`Field::is_bare`].
     pub(super) trailing: String,
 }
 
 impl Field {
-    /// True when this field carries no real descriptive text of its own
-    /// yet. Never true of a genuine secondary column in an N-column table
-    /// (every real column pairs a flag with a description, by the shape
-    /// the bug report itself defines: "flag+description pairs"), so this
-    /// is the discriminator [`fields_in_line`] uses to decide whether the
-    /// *next* flag-shaped cell is a new column or just another spelling of
-    /// the option still open.
+    /// True when this field carries no real descriptive text yet. The
+    /// discriminator [`fields_in_line`] uses to decide whether the next
+    /// flag-shaped cell opens a new column or is just another spelling
+    /// of the option still open.
     fn is_bare(&self) -> bool {
         let trailing = self.trailing.trim();
         trailing.is_empty() || is_value_placeholder_only(trailing)
     }
 }
 
-/// Group `line`'s cells (see [`cells`]) into [`Field`]s: one per *logical*
+/// Group `line`'s cells (see [`cells`]) into [`Field`]s: one per logical
 /// column entry, not one per raw cell.
 ///
-/// **The fold-while-bare rule, and why it's stricter than
-/// `misattribution::fields_in_line`.** Whenever the currently open field is
-/// still bare (no real description attached yet), any further flag-shaped
-/// cell is folded into it as another spelling of the *same* option —
-/// regardless of whether that cell's own trailing text looks real. This is
-/// what a genuine alias pair looks like (`nano`'s `-A  --smarthome  <shared
-/// description>`, both cells bare until the real prose arrives), but it is
-/// also what protects against the residual false-positive class the
-/// misattribution detector documents and accepts rather than fixes:
-/// `arptables --help`'s `--append  -A chain<TAB><TAB>Append to chain`. Read
-/// cell-by-cell, `-A chain` has "real" trailing text (`chain`) that isn't a
-/// recognized placeholder (lower-case, so [`is_value_placeholder_only`]
-/// doesn't catch it) — but `--append`, the field already open when `-A`
-/// arrives, is itself still bare, so this rule folds `-A` into it anyway,
-/// and `chain` becomes an extension of the *shared* trailing text rather
-/// than proof of a second, independent flag. A genuine N-column table never
-/// needs this fold at all: its primary column always carries its own real
-/// description (`lsof`'s `-?|-h list help  ...`), so the field it opens is
-/// never bare when the next flag-shaped cell arrives, and a fresh field
-/// starts exactly as it would without this rule.
+/// Fold-while-bare rule, stricter than `misattribution::fields_in_line`:
+/// while the open field is still bare, any further flag-shaped cell
+/// folds into it as another spelling of the same option, regardless of
+/// whether that cell's own trailing text looks real. This is what a
+/// genuine alias pair looks like (`nano`'s `-A  --smarthome`), and it's
+/// also what protects `arptables`'s `--append  -A chain` — `-A chain`
+/// has real-looking trailing text, but `--append` is still bare when
+/// `-A` arrives, so `chain` folds in as shared trailing text rather
+/// than proving a second flag. See docs/shapes.md S-036.
 pub(super) fn fields_in_line(line: &str) -> Vec<Field> {
     let mut fields: Vec<Field> = Vec::new();
     for (offset, content) in cells(line) {
@@ -309,20 +237,16 @@ pub(super) fn fields_in_line(line: &str) -> Vec<Field> {
     fields
 }
 
-/// True if `entry_lines` (a flags block's raw entry rows, one string per
-/// physical line — never continuation lines, which carry no flag-shaped
-/// cells of their own to align) shows real column alignment: a secondary
-/// field recurring at the same character offset across at least
+/// True if `entry_lines` (a flags block's raw entry rows, never
+/// continuation lines) shows real column alignment: a secondary field
+/// recurring at the same character offset across at least
 /// [`MIN_COLUMN_RECURRENCE`] rows. Mirrors
-/// `misattribution::build_definition_index`'s recurrence check, scoped to
-/// one block instead of a whole tool's raw text — the same signal, applied
-/// where it can actually change how the block is parsed rather than only
-/// audit it after the fact. Only the *secondary* fields (skipping each
-/// row's own first/primary one) count, for the same reason
-/// `misattribution` excludes a row's own leftmost field: a row's primary
-/// entry legitimately cross-references another, real, single-column flag
-/// in its own prose (`du --help`'s `-H` mentioning `-D`), and that must
-/// never itself look like evidence of a second table column.
+/// `misattribution::build_definition_index`'s recurrence check, scoped
+/// to one block. Only secondary fields count (each row's own first
+/// field is skipped), since a row's primary entry can legitimately
+/// cross-reference another real flag in its own prose (`du`'s `-H`
+/// mentioning `-D`) without that looking like a second column. See
+/// docs/shapes.md S-036.
 pub(super) fn block_is_multi_column(entry_lines: &[&str]) -> bool {
     let mut offset_counts: std::collections::HashMap<usize, usize> =
         std::collections::HashMap::new();
@@ -343,35 +267,14 @@ pub(super) fn block_is_multi_column(entry_lines: &[&str]) -> bool {
         .any(|&count| count >= MIN_COLUMN_RECURRENCE)
 }
 
-// --- packed flag rows: several bare entries share one physical line, ----
-// --- with no per-entry description anywhere in the block ----------------
-//
-// GNU `find --help` writes its "Tests"/"Actions"/"Normal options" tables as
-// several `-flag [ARG]` entries packed onto one physical line with single
-// spaces, never one flag per line and never a description column at all:
-//
-// ```text
-// Tests (N can be +N or -N or N):
-//       -amin N -anewer FILE -atime N -cmin N -cnewer FILE -context CONTEXT
-//       ...
-//       -wholename PATTERN -size N[bcwkMG] -true -type [bcdpflsD] -uid N
-// ```
-//
-// Neither [`block_is_multi_column`] (built for a block where every packed
-// cell carries its *own* real description, e.g. `lsof`'s options table) nor
-// the ordinary single-column path (`find_description_gap` + one flag per
-// physical line) is the right tool: there is no description anywhere here
-// to find a gap before, and reading the *whole* line as one flag's spec —
-// what the single-column path falls back to when no gap is found — is what
-// produced the corruption this shape exists to fix. `find_placeholder_
-// boundary_gap` (a `]`/`>` followed by exactly one space, meant to recover
-// a description a fixed-width table's long spelling overran) misreads
-// `-size N[bcwkMG]`'s own bracketed unit suffix as exactly that shape and
-// hands `parse_flag_spec` the front half of the *next* entries
-// (`-true -type [bcdpflsD] -uid N`) as `-wholename`'s fabricated
-// "description" — a flag invented text the tool never wrote as belonging
-// to it. This block never reaches `find_description_gap` at all: see
-// [`block_is_packed_flag_rows`]'s call site in [`scan_flags_block`].
+// Packed flag rows: GNU `find --help`'s "Tests"/"Actions" tables pack
+// several `-flag [ARG]` entries onto one physical line with single
+// spaces and no description column at all. Neither
+// `block_is_multi_column` (needs each cell to carry its own
+// description) nor the ordinary single-column path applies; reading the
+// whole line as one flag's spec would misread `-size N[bcwkMG]`'s
+// bracketed suffix as a placeholder-boundary gap and fabricate the next
+// entries as that flag's description. See docs/shapes.md S-047.
 
 #[cfg(test)]
 mod tests {
@@ -380,22 +283,12 @@ mod tests {
 
     // --- the tab-stop leading-indentation fix ---------------------------
 
-    /// `sotruss --help`'s real specimen: a description that wraps onto a
-    /// physical continuation line indented with three tabs, and that
-    /// continuation's own trimmed text happens to start with a dash
-    /// (`-f is also used`, referring to a different flag in prose). Byte-
-    /// exact from a real capture.
-    ///
-    /// Before `leading_whitespace`'s tab-stop expansion, three raw tab
-    /// characters measured as indent `3` — inside
-    /// `scan_flags_block`'s `ENTRY_INDENT_TOLERANCE` (10) of the block's
-    /// own two-space entries — so this continuation line was read as a
-    /// **new** flag entry (`-f` carrying the fabricated value `is`)
-    /// instead of a continuation, and `-o, --output`'s own description
-    /// lost everything after "in case". Expanding the tabs to real
-    /// terminal columns (24) is well outside the tolerance, so the line
-    /// now correctly continues `-o`'s description and no phantom `-f`
-    /// entry is created.
+    /// `sotruss --help`'s real specimen: a three-tab-indented
+    /// continuation line whose trimmed text starts with a dash (`-f is
+    /// also used`). Three raw tabs measure as indent 3 (a naive count),
+    /// which falls inside `scan_flags_block`'s indent tolerance and
+    /// fabricates a phantom `-f` entry; expanded to column 24 it's
+    /// correctly read as a continuation. See docs/shapes.md S-005.
     const SOTRUSS_HELP: &str = concat!(
         "Usage: sotruss [OPTION...] [--] EXECUTABLE [EXECUTABLE-OPTION...]\n",
         "  -F, --from FROMLIST     Trace calls from objects on FROMLIST\n",
@@ -414,8 +307,7 @@ mod tests {
     #[test]
     fn tab_indented_continuation_does_not_fabricate_a_flag() {
         let parsed = parse_with_profile(SOTRUSS_HELP, None, Some("sotruss"));
-        // No phantom `-f` carrying the value `is` — only the one real
-        // `-f, --follow` flag.
+        // No phantom `-f` carrying value `is` — only real `-f, --follow`.
         let f_flags: Vec<_> = parsed
             .flags
             .iter()
@@ -425,8 +317,7 @@ mod tests {
         assert_eq!(f_flags[0].long(), Some("follow"));
         assert_eq!(f_flags[0].value_name, None);
 
-        // `-o, --output`'s description is now whole, not truncated at the
-        // point the continuation line used to be misread as a new entry.
+        // `-o, --output`'s description is whole, not truncated.
         let output = flag_named(&parsed, "output");
         assert_eq!(
             output.description.as_ref().map(|d| d.to_string()).as_deref(),
@@ -436,14 +327,10 @@ mod tests {
 
     // --- Multi-column option tables (corpus/lsof/4.95.0, corpus/unzip/6.00) ---
 
-    /// The regression `corpus/lsof/4.95.0` was `[xfail]` for: lsof's
-    /// options table packs three flag+description pairs onto one physical
-    /// line. Before the column splitter, the generic parser read only the
-    /// first flag on each row and swallowed the other two as its
-    /// description — under-extracting `-a`/`-b`/`-l`/`-t`/`-v` entirely and
-    /// telling a reader `-?` means "AND selections (OR)" (`-a`'s real
-    /// text). Every flag here must now be present *and* carry its own
-    /// text, not a neighbour's.
+    /// `corpus/lsof/4.95.0`: lsof's options table packs three
+    /// flag+description pairs onto one physical line. Every flag must
+    /// be present and carry its own text, not a neighbour's. See
+    /// docs/shapes.md S-036.
     #[test]
     fn lsof_three_column_options_table_is_split_per_flag() {
         let parsed = parse_named(LSOF_HELP, "lsof");
@@ -464,19 +351,13 @@ mod tests {
         assert_eq!(desc_of('l'), "list UID numbers");
         assert_eq!(desc_of('t'), "terse listing");
         assert_eq!(desc_of('v'), "list version info");
-        // The misattribution shape itself: no flag's description contains
-        // another flag's own spelling from this row.
+        // No flag's description contains another flag's spelling.
         assert!(!desc_of('?').contains("-a"));
         assert!(!desc_of('?').contains("-b"));
     }
 
-    /// A block with only *one* description column must still parse exactly
-    /// as before — the splitter's block-level gate
-    /// (`block_is_multi_column`) requires real, recurring column
-    /// alignment, so an ordinary single-column table is untouched. `tar`'s
-    /// 171-flag table is the existing net for this; this is a small,
-    /// direct check that a ordinary two-word description doesn't get
-    /// misread as a second flag+description pair.
+    /// A block with only one description column parses unaffected —
+    /// `block_is_multi_column`'s gate requires real recurring alignment.
     #[test]
     fn a_single_column_block_is_not_treated_as_multi_column() {
         let raw = "Options:\n\
@@ -493,16 +374,10 @@ mod tests {
         assert_eq!(parsed.flags.len(), 3);
     }
 
-    /// `nano`-shaped alias row: a short and long spelling of the *same*
-    /// option, sharing one description, with nothing between them. Every
-    /// row here folds into exactly one field per line (checked directly —
-    /// `fields_in_line`'s alias fold), so the block never accumulates the
-    /// column-recurrence evidence `block_is_multi_column` requires, and
-    /// falls back to the ordinary single-column path for all three rows —
-    /// the same path `nano`'s real 52-option table already went through
-    /// before this change, unaffected by it. The bar here is what the
-    /// false-positive class actually demands: no *phantom* fourth/fifth/
-    /// sixth flag gets fabricated out of `--smarthome`/`--breezy`/`--calm`.
+    /// `nano`-shaped alias row: short and long spelling of the same
+    /// option sharing one description. Folds into one field per line,
+    /// so no phantom flag is fabricated out of the long spelling. See
+    /// docs/shapes.md S-036.
     #[test]
     fn an_alias_pair_sharing_one_description_is_not_split_into_two_flags() {
         let raw = "Options:\n\
@@ -534,13 +409,11 @@ mod tests {
         );
     }
 
-    /// `iptables`/`patch`-shaped row: a bare short/long alias pair where
-    /// the short spelling's own cell carries what looks like real trailing
-    /// text but is actually just its value placeholder (`-p NUM`, `-A
-    /// chain` — lower-case, so it isn't recognized by
-    /// `is_value_placeholder_only`). Must fold into one field per line
-    /// (checked directly), never fabricating a second flag out of the
-    /// placeholder text.
+    /// `iptables`/`patch`-shaped row: a short/long alias pair whose
+    /// short spelling carries a lowercase value placeholder
+    /// (`is_value_placeholder_only` doesn't recognize it). Must fold
+    /// into one field, not fabricate a second flag. See docs/shapes.md
+    /// S-036.
     #[test]
     fn a_lowercase_value_placeholder_does_not_fabricate_a_second_flag() {
         let raw = "Options:\n\
@@ -565,11 +438,7 @@ mod tests {
                 parsed.flags
             );
         }
-        // No phantom `-A`/`-C`/`-D` split out as its own, separate flag —
-        // each real spelling recovered here is the long form only (the
-        // pre-existing single-column fallback's own limit on this 3-field
-        // "short / long / description" shape, unrelated to and unchanged
-        // by this batch), never a fabricated second entry.
+        // No phantom `-A`/`-C`/`-D` split out as its own separate flag.
         assert!(
             !parsed.flags.iter().any(|f| f.long().is_none()),
             "a spellingless (fabricated) flag was emitted: {:?}",
@@ -577,16 +446,11 @@ mod tests {
         );
     }
 
-    /// `awk`-shaped row: two columns of option *spellings* (POSIX short
-    /// beside GNU long), never flag+description. Must not read the second
-    /// column as a real description, and must not split it out as a second
-    /// flag either — `is_synonym_not_description`'s single-column check
-    /// (unchanged by this batch) is what actually saves this shape, since
-    /// the row's own lowercase value placeholder (`-f progfile`) keeps its
-    /// primary field from reading as bare, which is exactly why this stays
-    /// a block-level single-column fallback rather than a real second
-    /// column — matching the existing `a_second_column_of_option_spellings_
-    /// is_not_a_description` regression test above.
+    /// `awk`-shaped row: two columns of option spellings (POSIX short
+    /// beside GNU long), never flag+description. `is_synonym_not_description`'s
+    /// single-column check saves this shape, since the row's lowercase
+    /// value placeholder keeps its primary field from reading as bare.
+    /// See docs/shapes.md S-036.
     #[test]
     fn two_columns_of_bare_option_spellings_are_not_read_as_two_flags() {
         let raw = "Options:\n\
@@ -613,12 +477,9 @@ mod tests {
         }
     }
 
-    /// The second independent multi-column net beyond `lsof`
-    /// (`corpus/unzip/6.00`): a genuine two-column table, real flag on
-    /// both sides of every row. Spot-checks one pair from each of unzip's
-    /// two tables (the unlabeled top one and the "modifiers:" one) so a
-    /// regression confined to either table or either physical column would
-    /// still fail this test.
+    /// `corpus/unzip/6.00`: a genuine two-column table, real flag on
+    /// both sides of every row. Spot-checks one pair from each of
+    /// unzip's two tables. See docs/shapes.md S-036.
     #[test]
     fn unzip_two_column_options_table_is_split_per_flag() {
         let parsed = parse_named(UNZIP_HELP, "unzip");

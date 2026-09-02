@@ -3,9 +3,8 @@
 use thiserror::Error;
 
 /// An error from a single tier's [`crate::ExtractionTier::extract_node`]
-/// call. Per spec §5.3, a tier failing on one node must not invalidate the
-/// tier globally — the runner records this per-node, per-tier and keeps
-/// whatever merged successfully.
+/// call. Recorded per-node, per-tier; does not invalidate the tier
+/// globally. Spec §5.3.
 #[derive(Debug, Error)]
 pub enum ExtractError {
     /// The tool could not be located on `PATH`.

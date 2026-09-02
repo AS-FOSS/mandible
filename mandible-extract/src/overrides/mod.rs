@@ -1,27 +1,17 @@
 //! Tier F: user overrides (spec §7 Tier F).
 //!
-//! `~/.config/mandible/overrides/<tool>.toml`, merged with
-//! `Authority { structural: 255, prose: 255 }` — the highest of any tier,
-//! so a user override always wins a merge conflict against every other
-//! source (spec §4.4). This exists so the rare bad case (a tool this
-//! project's general tiers genuinely can't parse well) has a clean exit.
+//! `~/.config/mandible/overrides/<tool>.toml`, merged at the highest
+//! authority of any tier, so a user override always wins a merge conflict
+//! (spec §4.4). Exists so a tool the general tiers genuinely can't parse
+//! well has a clean exit.
 //!
 //! **Binding policy: overrides are user-local and must never be vendored
-//! into this repository.** This single rule is what actually enforces the
-//! project's no-per-tool-patches invariant (spec §1) — without it, the
-//! first hard tool gets an override committed to git, and the per-tool
-//! patch pile that the tiered architecture exists to prevent begins. This
-//! module only ever reads from the user's own config directory
-//! (`directories::ProjectDirs`, i.e. `$XDG_CONFIG_HOME/mandible/overrides`,
-//! `~/.config/mandible/overrides` on a default Linux setup); it has no code
-//! path that reads from, or writes to, anywhere inside this repository.
+//! into this repository.** Enforces the no-per-tool-patches invariant
+//! (spec §1): this module only ever reads from the user's own config
+//! directory, never from or to anywhere inside this repository.
 //!
-//! The pipeline never depends on an override file existing: [`detect`]
-//! simply returns `false` when there is none, exactly like any other tier
-//! that doesn't apply to a given tool.
-//!
-//! No subprocess is ever spawned here — this tier reads one small local
-//! file, so it needs none of spec §6's execution-safety machinery.
+//! No subprocess is ever spawned here — reads one small local file, so
+//! none of spec §6's execution-safety machinery applies.
 
 use crate::errors::ExtractError;
 use crate::resolve::ResolvedTool;
@@ -90,14 +80,10 @@ impl ExtractionTier for OverridesTier {
 
 /// Environment variable that overrides the config directory outright.
 ///
-/// Exists because the per-OS default is genuinely per-OS: `ProjectDirs`
-/// resolves `$XDG_CONFIG_HOME/mandible` on Linux but
-/// `~/Library/Application Support/mandible` on macOS, and **macOS ignores
-/// `XDG_CONFIG_HOME` completely**. That difference silently broke this
-/// module's own tests on `macos-latest` — they set `XDG_CONFIG_HOME` and
-/// it had no effect — and it is equally awkward for anyone wanting a
-/// portable or sandboxed config location. One explicit variable is
-/// clearer than either a per-OS test cfg or a per-OS mental model.
+/// `ProjectDirs` resolves `$XDG_CONFIG_HOME/mandible` on Linux but
+/// `~/Library/Application Support/mandible` on macOS, and macOS ignores
+/// `XDG_CONFIG_HOME` entirely. One explicit variable is clearer than a
+/// per-OS mental model.
 pub const CONFIG_DIR_ENV: &str = "MANDIBLE_CONFIG_DIR";
 
 /// `$MANDIBLE_CONFIG_DIR/overrides/<tool>.toml` if that variable is set,
@@ -171,13 +157,10 @@ struct NodeOverride {
 impl NodeOverride {
     fn into_command_node(self, name: String) -> CommandNode {
         let provenance = Provenance::single(Source::UserOverride);
-        // An override never claims to know the subcommand list or any
-        // other structural field — it only ever corrects specific fields
-        // on a node another tier already found (spec §7 Tier F: "the rare
-        // bad case has a clean exit", not a catalog replacement). Every
-        // field left at `CommandNode::new`'s default here is treated as
-        // "no opinion" by the merge (`pick_vec` skips empty candidates),
-        // so an override can never clobber real data from another tier.
+        // An override never claims the subcommand list or other structural
+        // fields — only corrects specific fields on a node another tier
+        // found (spec §7 Tier F). A field left at default is "no opinion"
+        // to the merge (`pick_vec` skips empty candidates).
         let mut node = CommandNode::new(name, provenance);
         node.summary = self.summary.map(|s| Text::sanitize(&s));
         node.description = self.description.map(|s| Text::sanitize(&s));
@@ -240,16 +223,8 @@ mod tests {
     use super::*;
     use std::io::Write;
 
-    /// Write an override file under `xdg_config_home` at the exact path
-    /// `override_path` will look for it — `<xdg_config_home>/mandible/
-    /// overrides/<tool>.toml`, mirroring `ProjectDirs`' own project
-    /// subdirectory rather than assuming `xdg_config_home` itself is
-    /// mandible's config dir.
-    /// `config_dir` is the value `MANDIBLE_CONFIG_DIR` will be set to —
-    /// i.e. the config directory itself, not a parent that a project name
-    /// gets appended to. This mirrors `override_path` exactly; when the two
-    /// disagreed the tests failed for a reason that had nothing to do with
-    /// the code under test.
+    /// Write an override file at the exact path `override_path` will look
+    /// for it: `<config_dir>/overrides/<tool>.toml`.
     fn write_override(config_dir: &std::path::Path, tool: &str, contents: &str) {
         let overrides_dir = config_dir.join("overrides");
         std::fs::create_dir_all(&overrides_dir).unwrap();
@@ -324,9 +299,7 @@ mod tests {
     #[test]
     fn empty_vec_fields_do_not_clobber_other_sources() {
         // An override for just `summary` must still produce an empty
-        // `flags` list (not fabricate any), so the merge's `pick_vec`
-        // (which treats an empty candidate vec like "no opinion") leaves
-        // another tier's real flags untouched.
+        // `flags` list, so `pick_vec` leaves another tier's flags untouched.
         let file = parse(r#"summary = "just a summary fix""#);
         let node = file
             .as_root_override()
@@ -335,12 +308,8 @@ mod tests {
         assert!(node.subcommands.is_empty());
     }
 
-    // Serializes access to the process-global `MANDIBLE_CONFIG_DIR` env
-    // var across the tests below: Rust test binaries run tests in parallel
-    // by default, and mutating process-wide env from multiple threads at
-    // once is unsound. A dedicated mutex scopes these tests to run one at a
-    // time relative to each other, which is sufficient since no other test
-    // in this crate touches this variable.
+    // Serializes access to the process-global `MANDIBLE_CONFIG_DIR` env var
+    // across the tests below (test binaries run tests in parallel).
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]

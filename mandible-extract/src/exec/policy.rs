@@ -1,15 +1,11 @@
-//! The allowed argv shapes (spec §6, rule 2) as a closed type.
+//! The allowed argv shapes (spec §6 rules 1-2) as a closed type.
 //!
-//! [`InertArgv`] is deliberately the *only* way to describe what to run: it
-//! has no "bare invocation" or "arbitrary args" variant, so a caller cannot
-//! construct an argv outside the allowlist even by mistake. This turns
-//! spec §6 rules 1 ("never invoke a bare binary") and 2 ("only inert argv
-//! shapes") into a property the type system enforces, not just a runtime
-//! check.
+//! [`InertArgv`] is the only way to describe what to run: no "bare
+//! invocation" or "arbitrary args" variant exists, so the type system
+//! enforces the allowlist rather than a runtime check.
 
 /// One of the inert argv shapes a tier is permitted to invoke a tool with.
-/// Every variant, once turned into an argument list via [`InertArgv::args`],
-/// is non-empty — there is no shape that reduces to a bare invocation.
+/// Every variant's [`InertArgv::args`] is non-empty.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InertArgv {
     /// `__complete <words...>` (cobra dynamic completion).
@@ -32,10 +28,9 @@ pub enum InertArgv {
         /// The path words to ask for help on, if any.
         words: Vec<String>,
     },
-    /// `<words...> --help` — per-node help (e.g. `git rebase --help`),
-    /// used by Tier B to probe a specific subtree without recursing
-    /// eagerly. Always ends in the literal `--help`, so this is never a
-    /// bare invocation even when `words` is empty (the root case).
+    /// `<words...> --help` — per-node help (e.g. `git rebase --help`).
+    /// Always ends in the literal `--help`, so never a bare invocation
+    /// even when `words` is empty.
     HelpLongForPath {
         /// The subcommand path words already typed, e.g. `["rebase"]`.
         words: Vec<String>,
@@ -46,21 +41,13 @@ pub enum InertArgv {
         /// The subcommand path words already typed.
         words: Vec<String>,
     },
-    /// `<words...> --help <word>` — spec §6 rule 2b, the "truncation
-    /// confession" follow-up: re-probes with exactly the argv a tool's own
-    /// printed text recommended, when that text confesses that a plain
-    /// `--help` is not the complete document (curl's `--help` ends `For
-    /// all options use the manual or "--help all".`).
-    ///
-    /// **`--help` always precedes `word`.** A getopt that stops at the
-    /// first non-option (BSD/busybox-style, unlike glibc's permuting one)
-    /// still reaches `--help` before ever considering `word` — this can
-    /// never degrade into a bare positional some other getopt routes
-    /// elsewhere, unlike a shape that put `word` first. `word` must come
-    /// from the tool's own printed directive
-    /// (`crate::help_text::confession::Directive`), never fabricated —
-    /// the same discipline rule 0's closing paragraph already requires of
-    /// [`InertArgv::HelpLongForPath`]'s subcommand words.
+    /// `<words...> --help <word>` — the truncation-confession follow-up:
+    /// re-probes with the argv a tool's own printed text recommended when
+    /// it confesses `--help` is not the complete document. `--help` always
+    /// precedes `word` so this can never degrade into a bare positional.
+    /// `word` must come from the tool's own printed directive, never
+    /// fabricated. Spec §6 rule 2b; docs/shapes.md S-080;
+    /// corpus/curl/8.5.0/help.txt.
     HelpExpand {
         /// The subcommand path words already typed, if any (empty for the
         /// root — the only case shipped so far).
@@ -143,8 +130,7 @@ impl InertArgv {
 mod tests {
     use super::*;
 
-    /// Rule 1: never a bare invocation. Every variant's argv must be
-    /// non-empty, including the degenerate all-empty-words cases.
+    /// Rule 1: no variant's argv is ever empty, including empty-words cases.
     #[test]
     fn no_variant_ever_produces_empty_argv() {
         let variants = [
@@ -193,8 +179,7 @@ mod tests {
         assert_eq!(v.args(), vec!["__complete".to_string(), "pr".to_string()]);
     }
 
-    /// Spec §6 rule 2b: `--help` always precedes the word, for both the
-    /// root (empty `words`) and a subcommand path.
+    /// Spec §6 rule 2b: `--help` precedes the word, root and subcommand path.
     #[test]
     fn help_expand_args_put_help_immediately_before_the_word() {
         let root = InertArgv::HelpExpand {

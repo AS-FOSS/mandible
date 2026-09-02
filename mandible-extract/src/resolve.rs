@@ -43,11 +43,9 @@ pub struct PathSibling {
 }
 
 /// Upper bound on how many convention-discovered children one parent gets.
-///
-/// A backstop against a directory full of `<parent>-*` helpers (git's own
-/// `libexec` layout is ~150 of them, and a machine that puts such a
-/// directory on `PATH` would otherwise hand the background warmer that many
-/// extra probes for names the parent never documented), not a tuning knob.
+/// A backstop against a `<parent>-*`-heavy directory (git's own `libexec`
+/// layout has ~150) handing the background warmer that many extra probes,
+/// not a tuning knob.
 const MAX_PATH_SIBLINGS: usize = 64;
 
 /// Every `<parent>-<sub>` executable on `PATH`, as [`PathSibling`]s, in
@@ -69,13 +67,9 @@ pub fn discover_path_siblings(parent: &str) -> Vec<PathSibling> {
 /// tests use, so they never have to mutate the process-global `PATH` (which
 /// the test harness runs in parallel threads and cannot serialize).
 pub fn discover_path_siblings_in(dirs: &[PathBuf], parent: &str) -> Vec<PathSibling> {
-    // Neither of these has a `PATH` neighbourhood to look in. The empty
-    // check is the one that changes an answer: the prefix would collapse to
-    // a bare `-`, and every `-foo` on `PATH` would read as a subcommand of
-    // nothing. A tool the user spelled as a path (`mandible
-    // ./scripts/tool.py`) can never match — a directory entry's file name
-    // holds no separator — so that half only skips a scan whose result is
-    // already known.
+    // Neither has a `PATH` neighbourhood to look in. The empty check is
+    // the one that changes an answer: the prefix would otherwise collapse
+    // to a bare `-`, matching every `-foo` on `PATH`.
     if parent.is_empty() || parent.contains(std::path::MAIN_SEPARATOR) {
         return Vec::new();
     }
@@ -93,16 +87,13 @@ pub fn discover_path_siblings_in(dirs: &[PathBuf], parent: &str) -> Vec<PathSibl
             let Some(sub) = binary.strip_prefix(&prefix) else {
                 continue;
             };
-            // The same name-shape rule every tier applies before believing a
-            // bare word is a command (spec §7 Tier B rule 3), so a build
-            // artifact (`cargo-clippy.exe.bak`, `git-2.43`) or a
-            // capitalized helper never becomes a tree row.
+            // Same name-shape rule every tier applies (spec §7 Tier B rule
+            // 3), so a build artifact or capitalized helper never becomes
+            // a tree row.
             if !mandible_core::is_command_name_shaped(sub) {
                 continue;
             }
-            // First `PATH` entry wins, exactly as `find_on_path` resolves a
-            // tool name, so a shadowed sibling is reported once and by the
-            // binary that would actually run.
+            // First `PATH` entry wins, exactly as `find_on_path` resolves.
             if found.iter().any(|s| s.name == sub) {
                 continue;
             }
@@ -115,11 +106,8 @@ pub fn discover_path_siblings_in(dirs: &[PathBuf], parent: &str) -> Vec<PathSibl
             });
         }
     }
-    // Alphabetical, not `readdir` order: there is no document order to
-    // preserve here (spec §4.4's ordering argument is about what a tool's
-    // own text listed), and directory order differs between filesystems, so
-    // sorting is what makes the tree the same on two machines with the same
-    // binaries installed.
+    // Alphabetical, not `readdir` order: directory order differs between
+    // filesystems, so sorting makes the tree the same across machines.
     found.sort_by(|a, b| a.name.cmp(&b.name));
     found.truncate(MAX_PATH_SIBLINGS);
     found
@@ -127,21 +115,15 @@ pub fn discover_path_siblings_in(dirs: &[PathBuf], parent: &str) -> Vec<PathSibl
 
 fn find_on_path(name: &str) -> Option<PathBuf> {
     // A path separator in `name` means the caller already gave us a path;
-    // don't search PATH for it, just check it directly.
-    //
-    // Canonicalized, because a *relative* path is resolved against a
-    // different directory here than where it will eventually run: this
-    // check uses the process's own CWD, while every probe is spawned with
-    // its working directory redirected into a scratch dir (spec §6 rule
-    // 8). `mandible ./scripts/tool.py` therefore resolved fine and then
-    // failed to spawn with ENOENT, which reads as "the file isn't there"
-    // for a file plainly sitting right there.
+    // check it directly rather than searching PATH. Made absolute below:
+    // a relative path resolves against this process's CWD here, but every
+    // probe spawns with its CWD redirected into a scratch dir (spec §6
+    // rule 8), so an unresolved relative path would fail to spawn ENOENT.
     if name.contains(std::path::MAIN_SEPARATOR) {
         let candidate = PathBuf::from(name);
         return is_executable(&candidate).then(|| absolute(candidate));
     }
-    // `PATH` entries may themselves be relative (`PATH=.:/usr/bin`), so
-    // the same treatment applies to what the search finds.
+    // `PATH` entries may themselves be relative (`PATH=.:/usr/bin`).
     let path_var = std::env::var_os("PATH")?;
     std::env::split_paths(&path_var)
         .map(|dir| dir.join(name))
@@ -150,29 +132,14 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
 }
 
 /// Make `path` absolute **without resolving symlinks**, falling back to it
-/// unchanged if the filesystem won't say. A still-relative path is no worse
-/// than what the caller gave us.
+/// unchanged if the filesystem won't say.
 ///
-/// `std::path::absolute` rather than `std::fs::canonicalize`, and the
-/// difference is not cosmetic — canonicalize follows symlinks, which broke
-/// two things at once when it was used here, both caught by the PATH-wide
-/// coverage sweep and neither by any test:
-///
-/// - **It defeated spec §6 rule 0.** `is_help_only_probe` matches on the file
-///   *name*, and `reboot`, `poweroff`, `shutdown` and `telinit` are all
-///   symlinks to `systemctl`. Canonicalizing renamed them before that
-///   check ran, so the never-probe list stopped refusing them and the
-///   scoreboard showed them going from `no-tier` (correctly refused) to
-///   `ok` (probed). That is the rule that exists because `mandible pkill`
-///   reset a user's machine.
-/// - **It broke multi-call binaries.** `iptables` and its nine siblings
-///   are symlinks to `xtables-nft-multi`, which dispatches on `argv[0]`;
-///   invoked under its real name it no longer knows which tool it is, and
-///   all ten degraded from `ok` to `verbatim`.
-///
-/// Absoluteness alone is what the caller needs: the path is resolved
-/// against this process's CWD but spawned from a scratch directory.
-/// Resolving symlinks was never part of that requirement.
+/// `std::path::absolute`, never `std::fs::canonicalize`: resolving
+/// symlinks defeats spec §6 rule 0 (`is_help_only_probe` matches on file
+/// *name*; `reboot`/`poweroff`/`shutdown`/`telinit` are symlinks to
+/// `systemctl`) and breaks multi-call binaries that dispatch on `argv[0]`
+/// (`iptables` and siblings are symlinks to `xtables-nft-multi`).
+/// Absoluteness alone is what the caller needs.
 fn absolute(path: PathBuf) -> PathBuf {
     std::path::absolute(&path).unwrap_or(path)
 }
@@ -207,17 +174,12 @@ mod tests {
         assert!(resolved.path.is_none());
     }
 
-    /// A resolved path must be absolute, because it is resolved here
-    /// against this process's CWD but spawned from a scratch directory
-    /// (spec §6 rule 8). `mandible ./scripts/tool.py` used to resolve and
-    /// then fail with "No such file or directory" for a file plainly
-    /// present.
+    /// A resolved path must be absolute: it resolves against this
+    /// process's CWD but spawns from a scratch directory (spec §6 rule 8).
     #[test]
     fn a_relative_path_resolves_to_an_absolute_one() {
-        // Created *inside* the current directory so the path below is
-        // genuinely relative, without calling `set_current_dir` — that is
-        // process-global, and the test harness runs these in parallel
-        // threads, so mutating it would race every other test.
+        // Inside the current directory so the path is genuinely relative,
+        // without `set_current_dir` (process-global, would race other tests).
         let dir = tempfile::TempDir::new_in(".").unwrap();
         let script = dir.path().join("toolish");
         std::fs::write(&script, "#!/bin/sh\necho hi\n").unwrap();
@@ -227,8 +189,7 @@ mod tests {
             std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        // `TempDir::new_in(".")` hands back an absolute path, so rebuild
-        // the relative spelling from its final component.
+        // Rebuild the relative spelling from the absolute path's final component.
         let dir_name = dir
             .path()
             .file_name()
@@ -254,14 +215,9 @@ mod tests {
     /// A directory of fixtures for the sibling-discovery tests: every entry
     /// is created executable unless `plain` names it.
     ///
-    /// `new_in(".")` rather than `TempDir::new()`, for the same reason the
-    /// two tests above build their fixtures that way: this crate's tests
-    /// share one process under `cargo test`, some of them redirect `TMPDIR`
-    /// at a scratch directory they then delete (spec §6 rule 8), and a
-    /// concurrent `TempDir::new()` fails with `NotFound` on a `$TMPDIR` that
-    /// no longer exists. `cargo nextest` gives each test its own process and
-    /// never sees it, which is exactly the kind of runner-dependent failure
-    /// not worth leaving in place.
+    /// `new_in(".")` rather than `TempDir::new()`: under `cargo test`,
+    /// tests share one process, and a concurrent test redirecting
+    /// `$TMPDIR` (spec §6 rule 8) can make `TempDir::new()` fail `NotFound`.
     #[cfg(unix)]
     fn sibling_dir(names: &[&str], plain: &[&str]) -> tempfile::TempDir {
         use std::os::unix::fs::PermissionsExt;
@@ -275,8 +231,8 @@ mod tests {
         dir
     }
 
-    /// The specimen from issue #70: `cargo --help` never lists `clippy`, but
-    /// `cargo-clippy` is right there on `PATH` (spec §5.4).
+    /// `cargo --help` never lists `clippy`, but `cargo-clippy` is right
+    /// there on `PATH` (spec §5.4).
     #[cfg(unix)]
     #[test]
     fn discovers_dash_prefixed_executables_as_subcommands() {
@@ -297,9 +253,9 @@ mod tests {
         assert_eq!(names, vec!["clippy"]);
     }
 
-    /// The same name-shape rule every tier applies to a bare word (spec §7
-    /// Tier B rule 3): a versioned or capitalized helper beside the tool is
-    /// not a subcommand name.
+    /// Same name-shape rule every tier applies to a bare word (spec §7
+    /// Tier B rule 3): a versioned or capitalized helper is not a
+    /// subcommand name.
     #[cfg(unix)]
     #[test]
     fn a_name_that_is_not_command_shaped_is_not_a_sibling() {
@@ -309,9 +265,7 @@ mod tests {
         assert_eq!(names, vec!["lfs"]);
     }
 
-    /// First `PATH` entry wins, exactly as [`find_on_path`] resolves a tool
-    /// name — a shadowed sibling must be reported once, under the binary
-    /// that would actually run.
+    /// First `PATH` entry wins, exactly as [`find_on_path`] resolves.
     #[cfg(unix)]
     #[test]
     fn a_shadowed_sibling_is_reported_once_from_the_first_path_entry() {
@@ -334,13 +288,9 @@ mod tests {
         assert_eq!(names, vec!["aaa", "mmm", "zzz"]);
     }
 
-    /// A parent with no `PATH` neighbourhood finds nothing in it.
-    ///
-    /// The empty spelling is the half that can go wrong: its prefix
-    /// collapses to a bare `-`, and every `-foo` on `PATH` would read as a
-    /// subcommand of nothing. A path-spelled tool is asserted alongside it
-    /// because that is the case the early return is *written* for, even
-    /// though a directory entry's file name can never contain a separator.
+    /// A parent with no `PATH` neighbourhood finds nothing in it. The empty
+    /// spelling is the half that can go wrong: its prefix would otherwise
+    /// collapse to a bare `-`, matching every `-foo` on `PATH`.
     #[cfg(unix)]
     #[test]
     fn a_parent_with_no_neighbourhood_matches_nothing() {
@@ -372,18 +322,8 @@ mod tests {
     }
 
     /// Making the path absolute must not follow symlinks, because the
-    /// never-probe refusal (spec §6 rule 0) matches on the file *name*.
-    ///
-    /// `reboot`, `poweroff`, `shutdown` and `telinit` are symlinks to
-    /// `systemctl`; resolving them renames the tool before that check
-    /// runs, and the whole never-probe list stops refusing anything that
-    /// reaches it by a link. A PATH-wide coverage sweep caught this —
-    /// those four went from correctly refused to probed — and no unit
-    /// test did, so here is the unit test.
-    ///
-    /// The same resolution also breaks multi-call binaries that dispatch
-    /// on `argv[0]` (`iptables` and nine siblings are links to
-    /// `xtables-nft-multi`).
+    /// never-probe refusal (spec §6 rule 0) matches on file *name*:
+    /// `reboot`/`poweroff`/`shutdown`/`telinit` are symlinks to `systemctl`.
     #[cfg(unix)]
     #[test]
     fn resolving_does_not_follow_symlinks() {

@@ -9,21 +9,13 @@
 //! documentation and `tests/no_process_outside_exec.rs`.
 
 // `deny`, not `forbid`: this crate carries exactly two scoped
-// `#[allow(unsafe_code)]` sites. `exec/spawn.rs`'s probe-spawning function
-// has one, for the `pre_exec` + `setsid` call that gives every probe a new
-// *session* (not just a new process group) so a descendant cannot reopen
-// the controlling terminal via `/dev/tty` (see that function's doc comment,
-// and spec §6 rule 6). `exec/containment.rs` has the other, for
-// reconstructing a `File` from a raw fd number a contained sweep inherits
-// across `unshare` + re-exec (see that module's `write_scoreboard` and
-// `secured_scoreboard_file` doc comments). Every other item in this crate —
-// and every other crate in the workspace — still carries
-// `#![forbid(unsafe_code)]`; `deny` here is what lets those two exceptions
-// exist without silently disabling the lint everywhere else in this crate
-// too.
+// `#[allow(unsafe_code)]` sites — `exec/spawn.rs`'s `pre_exec` + `setsid`
+// call (spec §6 rule 6) and `exec/containment.rs`'s fd reconstruction
+// across `unshare` + re-exec. Every other item still carries
+// `#![forbid(unsafe_code)]`; `deny` here lets those two exceptions exist
+// without disabling the lint elsewhere in this crate.
 #![deny(unsafe_code)]
-// Size ceilings. Both lints are opt-in; the thresholds live in the
-// workspace `clippy.toml`, and CI's `-D warnings` makes them gates.
+// Size ceilings; thresholds live in workspace `clippy.toml`.
 #![warn(clippy::too_many_lines)]
 #![warn(clippy::cognitive_complexity)]
 #![warn(missing_docs)]
@@ -63,27 +55,21 @@ use std::sync::Arc;
 
 /// Build the default set of tiers: B (`help_text`), C (`completion_script`),
 /// E (`native`), F (`overrides`), in cost-attempt order (spec §7), each
-/// probing tier driven by [`exec::LiveProbe`] — the real pipeline. See
-/// [`default_tiers_with_probe`] for the replay-seam variant (batch:
-/// rework/regression-net-and-recall) that lets a caller (a future corpus
-/// runner) drive the same tiers from frozen bytes instead.
+/// driven by [`exec::LiveProbe`]. See [`default_tiers_with_probe`] for the
+/// replay-seam variant driving the same tiers from frozen bytes instead.
 pub fn default_tiers() -> Vec<Box<dyn ExtractionTier>> {
     default_tiers_with_probe(Arc::new(exec::LiveProbe))
 }
 
 /// [`default_tiers`], but every probing tier is built against `probe`
-/// instead of always [`exec::LiveProbe`]. Revision 3 deleted Tier A (the
-/// vendored catalog, spec §7 "Tier A — REMOVED"): Tier B now leads,
-/// dispatched on the framework identified by Tier A′ (spec §7 Tier A′), and
-/// costs 1-2 spawns but exists for every tool everywhere; Tier C generates
-/// and parses a completion script; Tier E speaks a tool's own dynamic
-/// completion protocol; Tier F is a local file read, attempted last since
-/// most tools have no override at all and never probes anything (spec §6
-/// machinery doesn't apply to it, so it takes no probe). Tier D (man pages)
-/// remains unimplemented (deferred entirely, per spec's roadmap). Whichever
-/// features are enabled contributes its tier; conflict resolution between
-/// tiers (when more than one contributes the same node) is by
-/// [`mandible_core::Authority`], not attempt order.
+/// instead of always [`exec::LiveProbe`]. Tier B leads (dispatched on the
+/// framework identified by Tier A′, spec §7), costing 1-2 spawns but
+/// existing for every tool; Tier C generates and parses a completion
+/// script; Tier E speaks a tool's own dynamic completion protocol; Tier F
+/// is a local file read, attempted last, never probing anything. Tier D
+/// (man pages) remains unimplemented. Whichever features are enabled
+/// contributes its tier; conflicts resolve by [`mandible_core::Authority`],
+/// not attempt order.
 // `vec![]` can't express the cfg-gated pushes below (each tier only
 // exists to push when its feature is enabled).
 #[allow(clippy::vec_init_then_push, clippy::redundant_clone, unused_variables)]

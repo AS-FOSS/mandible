@@ -1,51 +1,21 @@
-//! Execution safety policy (spec §6). **This is the only module in the
-//! entire workspace permitted to use `std::process`** — a workspace-wide
-//! test (`tests/no_process_outside_exec.rs`) enforces that by grepping the
-//! source tree, so this boundary is auditable rather than aspirational.
+//! Execution safety policy (spec §6). The only module in the workspace
+//! permitted to use `std::process` — enforced by `tests/no_process_outside_exec.rs`.
+//! Every tier that runs a subprocess goes through [`run_inert`] with an
+//! [`InertArgv`], never `std::process::Command` directly.
 //!
-//! Every tier that needs to run a subprocess goes through [`run_inert`]
-//! with an [`InertArgv`], never `std::process::Command` directly.
+//! `--help`/`-h` is not reliably read-only (spec §6 rule 8). Every probe
+//! runs with its working directory, `HOME`, `TMPDIR`, and the writable XDG
+//! base-directory variables all pointed at one scratch `TempDir`, created
+//! fresh per invocation and removed recursively when it returns. Applied
+//! uniformly to every probe, never a per-tool exclusion list (spec §1).
+//! Not a complete guarantee: a tool writing to an absolute path baked into
+//! the binary sits outside what an env/CWD redirect can reach.
 //!
-//! **`--help`/`-h` is not reliably read-only (spec §6 rule 8, [M-11]).**
-//! Running the coverage harness (spec §13.1) against ~1600 real
-//! executables found font-cache builders writing `fonts.dir`/
-//! `fonts.scale` into the invoking directory, and
-//! `mysql_secure_installation` (a shell script) writing a `.my.cnf.<pid>`
-//! config file — with an empty root password — when probed with nothing
-//! but `--help`. (That script's write is a plain relative path,
-//! `config=".my.cnf.$$"` — no `$HOME` involved; an earlier version of
-//! this comment guessed otherwise before actually reading the script.)
-//! Every probe therefore runs with its working directory, `HOME`,
-//! `TMPDIR`, and the writable XDG base-directory variables
-//! (`XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`,
-//! `XDG_DATA_HOME`, `XDG_STATE_HOME`) all pointed at one scratch directory
-//! — a `tempfile::TempDir` created fresh for that single invocation and
-//! removed again (recursively) the moment it returns, so nothing a probe
-//! writes ever outlives the probe or accumulates across invocations. This
-//! is a general policy applied uniformly to every probe, never a
-//! per-tool exclusion list (spec §1's invariant) — verified for both the
-//! CWD and `HOME` cases in `spawn`'s test module.
-//!
-//! It still is not a complete guarantee: a tool that constructs a write
-//! path some other way entirely — an absolute path baked into the binary
-//! itself, say — sits outside what an environment/CWD redirect can reach.
-//! Full containment needs OS-level sandboxing (a container, a restricted
-//! mount namespace, seccomp) — no longer purely "out of scope," see below.
-//!
-//! **Three layers, not one, for a full-`PATH` sweep specifically.** Probing
-//! one tool a user named is one thing; a coverage/audit sweep invokes
-//! `--help` on every executable on `PATH` — dozens to low thousands of
-//! arbitrary binaries nobody chose individually. [`run_inert`]'s rules
-//! above (never bare, only inert shapes, the never-probe list, the scratch
-//! redirect) are the first layer and **prevent** what can be reasoned
-//! about from argv shape alone. [`containment`] is the second layer: it
-//! **contains** what runs anyway, by running the sweep inside a fresh
-//! user/PID/mount namespace instead of directly on the operator's machine.
-//! [`canary`] is the third: it **detects** a side effect that happens
-//! despite the first two, turning it into a failing test rather than a
-//! silent surprise. Containment must never become a reason to loosen the
-//! first layer — running inside a namespace does not make a riskier argv
-//! safe to send, see [`containment`]'s own doc comment.
+//! Three layers for a full-`PATH` sweep: [`run_inert`]'s rules **prevent**
+//! what argv shape alone can reason about; [`containment`] **contains**
+//! what runs anyway inside a fresh user/PID/mount namespace; [`canary`]
+//! **detects** a side effect that happens despite both. Containment must
+//! never become a reason to loosen the first layer.
 
 pub mod canary;
 pub mod containment;

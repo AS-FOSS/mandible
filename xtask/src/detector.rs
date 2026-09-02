@@ -1,77 +1,31 @@
-//! The **family-detector calibration harness**: the seam a fleet-wide
-//! defect detector registers itself in, and the confusion matrix that says
+//! The family-detector calibration harness: the seam a fleet-wide defect
+//! detector registers itself in, and the confusion matrix that says
 //! whether its fleet-wide number may be quoted yet.
 //!
-//! # What a family detector is, and what it is not
-//!
-//! A *family detector* generalizes one human finding across every tool on
-//! `PATH`. It is **not a correctness instrument and does not need to be.**
-//! The audit (`xtask audit`, spec §13.1c) is the only instrument in this
-//! project that touches truth, because a human read the tool's real output
-//! next to the parsed tree and judged it. A detector's job is only to say
-//! "this same *shape* occurs here too", 2,300 times, in a second.
-//!
-//! The failure mode that follows is the one this module exists to close.
-//! A detector run over the fleet produces a confident number — *"814 tools
-//! exhibit this defect"* — and nothing in that number knows whether the
-//! detector fires on the defect it claims to. Quoting it is the "measures
-//! itself" trap this project has already fallen into twice with metrics
-//! (spec §13.1b): [M-10]'s fabricated `tar` nodes *inflated* `%described`,
-//! and `%flags_text` was a name that read as an accuracy claim it never
-//! earned. A detector is a third instance of the same shape.
-//!
-//! # The precondition
-//!
-//! > **Before a detector's fleet-wide number is quotable, it must be
-//! > calibrated against the human labels: it must fire on the known-bad
-//! > tools and stay silent on the known-good ones.**
-//!
-//! That is what [`calibrate`] computes. A detector that has not passed it
-//! is measuring itself; one that has is an amplifier of a verified human
-//! judgment. Nothing here *enforces* the precondition on a detector's
-//! implementation — it cannot, since the fleet number is produced by a
-//! different command — so the enforcement is that the calibration report
-//! exists, is cheap to run, and names every disagreeing tool.
-//!
-//! # What the labels actually are, and why every report says so
+//! A family detector generalizes one human finding across every tool on
+//! `PATH`. It is not a correctness instrument — only the audit (`xtask
+//! audit`, spec §13.1c) touches truth. A detector's fleet-wide count
+//! ("814 tools exhibit this defect") means nothing until calibrated: it
+//! must fire on the known-bad tools and stay silent on the known-good
+//! ones ([`calibrate`]), or it repeats the "measures itself" trap
+//! [M-10]/`%flags_text` already fell into (spec §13.1b).
 //!
 //! The calibration set is 94 human verdicts from the seed-2 audit, sorted
-//! into defect families by a **machine reading of each reviewer's prose**
-//! plus the fixture evidence (`mandible_core::audit::Entry::families`, with
-//! `families_derived` recording exactly that provenance). Three limits
-//! follow, and [`render`] prints all three above the matrix rather than in
-//! a footnote:
+//! into defect families by a machine reading of reviewer prose plus
+//! fixture evidence (`Entry::families`/`families_derived`). Three limits,
+//! all printed above every rendered matrix: families are derived, not the
+//! verdicts themselves; 94 tools (~4% of `PATH`) validates correctness,
+//! not the fleet number's magnitude; only tools with a
+//! `corpus/<tool>/audit-seed2/` fixture are evaluable — others are
+//! counted separately ([`Calibration::not_evaluable`]), never dropped.
 //!
-//! 1. **The families are derived, the verdicts are not.** A human said the
-//!    parse was wrong; a machine said *which family* wrong. A miscategorized
-//!    label moves a tool between cells of the matrix.
-//! 2. **94 tools is a bounded sample, not the fleet.** A detector that is
-//!    perfect here has been shown to work on 94 tools, ~4% of `PATH`, drawn
-//!    from a stratified queue. It has not been shown to work on the fleet,
-//!    and the fleet number's *magnitude* is not what calibration validates.
-//! 3. **Only fixtures are evaluable.** A tool with no `corpus/<tool>/
-//!    audit-seed2/` fixture has no frozen bytes to replay, so it appears in
-//!    neither the fires nor the silent cells. It is counted and named
-//!    separately ([`Calibration::not_evaluable`]) rather than silently
-//!    dropped, because a "perfect" matrix computed over half the labelled
-//!    set is a worse claim than an imperfect one computed over all of it.
-//!
-//! # The seam
-//!
-//! [`Detector`] is deliberately the same shape the two existing fleet
-//! oracles already have — `detect(raw, root)`, no probes of its own, reading
-//! only bytes the pipeline already captured (`crate::existence`,
-//! `crate::misattribution`). A new detector implements three methods and
-//! adds one line to [`registry`]; it does not touch this file's calibration
-//! logic at all.
-//!
-//! [`Detector::family`] returns an `Option` on purpose. A detector that
-//! generalizes no family the audit ever labelled — the existence oracle is
-//! the standing example, since not one of the 94 reviewers reported a
-//! fabricated name — is **not calibratable against this set**, and saying
-//! so is the honest result. Forcing it into the nearest family would
-//! manufacture a matrix out of a mapping nobody verified, which is the same
-//! defect one level up.
+//! [`Detector`] mirrors the shape of the two existing fleet oracles
+//! (`detect(raw, root)`, no probes of its own). A new detector implements
+//! three methods and adds one line to [`registry`].
+//! [`Detector::family`] returns `None` when it generalizes no family the
+//! audit ever labelled (the existence oracle: no reviewer reported a
+//! fabricated name) — not calibratable, and saying so is the honest
+//! result.
 
 use crate::corpus;
 use mandible_core::audit::{self, AuditFile};
@@ -111,42 +65,31 @@ pub trait Detector {
     /// alarm is only useful if you can see what the detector thought it saw.
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String>;
 
-    /// What this detector claims to catch, and — by name — what it
-    /// deliberately does not, mirroring `corpus/README.md`'s
-    /// `verdict_scope`: a narrower, explicit claim is honest where a silent
-    /// one would overclaim. The default is the full family with no declared
-    /// exclusion, which is the right answer for a detector with no measured,
-    /// deliberate gap.
+    /// What this detector claims to catch, and by name what it
+    /// deliberately does not (mirrors `corpus/README.md`'s `verdict_scope`).
+    /// Default is the full family with no declared exclusion.
     ///
-    /// A tool named in [`Scope::known_exclusions`] moves calibration's
+    /// A tool in [`Scope::known_exclusions`] moves calibration's
     /// silent-on-labelled-bad cell from a false negative to a named
-    /// out-of-scope miss ([`Calibration::out_of_scope_misses`]) *only when
-    /// it is actually silent this run* — it never excuses a false alarm,
-    /// and [`render`] prints the whole declared list on every run,
-    /// regardless of whether the detector otherwise looks clean, so the
-    /// exclusion can never quietly stop being named.
+    /// out-of-scope miss ([`Calibration::out_of_scope_misses`]) only when
+    /// actually silent this run — never excuses a false alarm.
     fn scope(&self) -> Scope {
         Scope::full()
     }
 
-    /// Hand-built cases this detector asserts about *itself*: the defective
-    /// shape constructed directly, plus the correct parses that look like
-    /// it, each with the number of findings the detector must report.
+    /// Hand-built cases this detector asserts about itself: the defective
+    /// shape constructed directly, plus correct parses that look like it,
+    /// each with the expected finding count.
     ///
-    /// **This is the evidence that distinguishes a fixed family from a
-    /// broken detector**, and it is why the method is on the trait rather
-    /// than in a `#[cfg(test)]` module. Spec §13.1e: once the commit that
-    /// repairs a family lands, the labelled set has nothing left to confirm
-    /// against, and "zero because the bug is gone" and "zero because the
-    /// detector stopped working" are indistinguishable from the fleet
-    /// number alone. Two consumers need to tell them apart at *runtime*,
-    /// where no test harness exists — [`calibrate`], before it will report
-    /// [`Verdict::Repaired`], and [`ratchet_at_zero`], before it will accept
-    /// a fleet count of zero.
+    /// On the trait, not in `#[cfg(test)]`, because once a family is
+    /// repaired the labelled set has nothing left to confirm against —
+    /// "zero, bug gone" and "zero, detector broken" are indistinguishable
+    /// from the fleet number alone (spec §13.1e). [`calibrate`] needs this
+    /// before reporting [`Verdict::Repaired`]; [`ratchet_at_zero`] needs it
+    /// before accepting a fleet count of zero.
     ///
-    /// The default is empty, and that is the honest default: a detector
-    /// that offers no self-evidence can never be called repaired and can
-    /// never satisfy the ratchet gate. It is not silently treated as fine.
+    /// Default is empty: a detector with no self-evidence can never be
+    /// called repaired.
     fn self_checks(&self) -> Vec<SelfCheck> {
         Vec::new()
     }
@@ -175,16 +118,11 @@ impl Scope {
 
 /// One tool a detector declares it will not catch.
 ///
-/// **The reason is not free text.** Declaring an exclusion converts a
-/// blocking false negative into a non-blocking named miss, which makes this
-/// the last remaining lever for moving a goalpost: before [`Ground`]
-/// existed, an entry was `(tool, &str)` and nothing checked that the string
-/// named a structural property rather than a preference. The one entry that
-/// was ever written is correctly justified — `ssh-keygen`'s `[-hU]` swallows
-/// one member, below `bundling::MIN_BUNDLED_MEMBERS` — and that is the bar
-/// [`Ground`] now enforces mechanically: the exclusion carries the witness
-/// token and the constant, and the arithmetic that puts the tool out of
-/// scope is *computed from the witness*, never asserted by the author.
+/// The reason is not free text: declaring an exclusion converts a blocking
+/// false negative into a non-blocking named miss, so [`Ground`] enforces
+/// the justification mechanically — the exclusion carries a witness token
+/// and a constant, and the out-of-scope arithmetic is computed from the
+/// witness, never asserted by the author.
 pub struct Exclusion {
     /// The tool, as `mandible_core::audit::Entry::tool` spells it.
     pub tool: &'static str,
@@ -197,58 +135,38 @@ pub struct Exclusion {
 
 /// The structural property that puts a tool out of a detector's scope.
 ///
-/// A closed set on purpose. Adding an exclusion of a genuinely new kind
-/// means adding a variant here, with its own `holds` arm — a visible,
-/// reviewable change to the vocabulary, which is exactly what typing a new
-/// sentence into a `&str` was not. Spec §13.1e's discipline applied to the
-/// one place it had not been: out-of-scope and known misses stay counted
-/// and named, and now they also have to be *earned*.
+/// A closed set on purpose: a genuinely new exclusion kind means adding a
+/// variant here with its own `holds` arm, a reviewable change — unlike
+/// typing a new sentence into a `&str`.
 pub enum Ground {
     /// The tool's real shape is a member cluster carrying fewer swallowed
-    /// members than the detector's declared minimum.
-    ///
-    /// `cluster` is the literal token from the tool's own help text (e.g.
-    /// `"-hU"`), and the swallowed-member count is derived from it rather
-    /// than stated: an author who tried to exclude `tcpdump` on this ground
-    /// would have to write `-AbdDefhHIJKlLnNOpqStuUvxX#`, whose 25 swallowed
-    /// members are not below any threshold, and [`Ground::holds`] would
-    /// refuse it. `threshold` is meant to be the constant itself
-    /// (`bundling::MIN_BUNDLED_MEMBERS`), not a retyped copy of its value,
-    /// so it cannot drift; `constant` names it for the report.
+    /// members than the detector's declared minimum. `cluster` is the
+    /// literal token (e.g. `"-hU"`); the swallowed-member count is derived
+    /// from it, not stated, so [`Ground::holds`] refuses a cluster that
+    /// isn't actually below threshold. `threshold` should be the constant
+    /// itself (`bundling::MIN_BUNDLED_MEMBERS`), not a retyped copy.
     BelowMemberThreshold {
         cluster: &'static str,
         constant: &'static str,
         threshold: usize,
     },
     /// The tool writes its subcommand list in a grammar the detector does
-    /// not read at all.
-    ///
-    /// `entry` is a real line from the tool's own help text — the line a
-    /// reader would point at and say *"there are the subcommands"* — and
-    /// the ground holds only when that line does **not** parse as the
-    /// detector's entry shape. The arithmetic runs the detector's own row
-    /// parser over the witness, so an author who tried to exclude a tool
-    /// the detector really can read would have to supply a line that
-    /// parses, and [`Ground::holds`] would refuse it. `grammar` names the
-    /// shape that was looked for, for the report.
+    /// not read. `entry` is a real line from the tool's own help text; the
+    /// ground holds only when that line does not parse as the detector's
+    /// entry shape (checked by running the detector's own row parser over
+    /// it). `grammar` names the shape that was looked for.
     UnreadableEntryShape {
         entry: &'static str,
         grammar: &'static str,
     },
 
     /// The two spellings the label is about are not on one flag-spec
-    /// fragment at all: a run of spaces at least `column_gap` wide sits
-    /// between them, which is the layout splitter's own description-column
-    /// boundary (`help_text::MIN_COLUMN_GAP_SPACES`). Everything right of
-    /// that run reaches the grammar as a *description*, so a detector that
-    /// reads a fragment's own value spec has no fragment to read.
-    ///
-    /// `row` is the literal row from the tool's own help text, and the gap
-    /// is measured *from it* rather than asserted: an author who tried to
-    /// excuse `-p PID, --pid PID` on this ground would supply a row whose
-    /// widest run between two spellings is one space, and [`Ground::holds`]
-    /// would refuse it. `column_gap` is meant to be the constant itself,
-    /// never a retyped copy of its value, so it cannot drift.
+    /// fragment: a run of spaces at least `column_gap` wide (the layout
+    /// splitter's description-column boundary,
+    /// `help_text::MIN_COLUMN_GAP_SPACES`) sits between them, so everything
+    /// right of it reaches the grammar as a description. `row` is the
+    /// literal row; the gap is measured from it, not asserted. `column_gap`
+    /// should be the constant itself, not a retyped copy.
     AcrossDescriptionColumn {
         row: &'static str,
         constant: &'static str,
@@ -256,15 +174,10 @@ pub enum Ground {
     },
 
     /// The alias separator sits inside a brace alternation group, which the
-    /// manifest labels as a family of its own. The tool is a genuine member
-    /// of *both* families and this detector claims only one of them.
-    ///
-    /// `token` is the literal group from the tool's own help text (e.g.
-    /// `"{-v | --version}"`), and both the group's shape and the named
-    /// family are checked: `family` must be a family the manifest actually
-    /// declares, and the group must really alternate at least two flag
-    /// spellings, so an author cannot name an arbitrary word and call a
-    /// miss deliberate.
+    /// manifest labels as a family of its own; the tool is a genuine member
+    /// of both families and this detector claims only one. `token` is the
+    /// literal group (e.g. `"{-v | --version}"`); both its shape and
+    /// `family` (must be a manifest-declared family) are checked.
     InsideAlternationGroup {
         token: &'static str,
         family: &'static str,
@@ -635,19 +548,10 @@ pub fn run_self_checks(detector: &dyn Detector) -> Vec<SelfCheckOutcome> {
 }
 
 /// Whether a set of outcomes is strong enough to stand in for a labelled
-/// set that has nothing left to confirm.
-///
-/// All three conditions are load-bearing:
-///
-/// * **non-empty** — a detector with no self-evidence proves nothing, and
-///   an empty `all(...)` is vacuously true, which is precisely the shape of
-///   hole this project has been burned by;
-/// * **every case held** — one failure means the detector is broken, which
-///   is the state this whole mechanism exists to distinguish;
-/// * **at least one `Fires` and at least one `Silent` case** — the first
-///   shows the rule still fires on the defect, the second shows it is not
-///   simply firing on everything. Either alone is satisfiable by a detector
-///   that is useless in the opposite direction.
+/// set that has nothing left to confirm. Three load-bearing conditions:
+/// non-empty (an empty `all(...)` is vacuously true), every case held, and
+/// at least one `Fires` plus one `Silent` case (either alone is
+/// satisfiable by a detector useless in the opposite direction).
 pub fn self_checks_are_conclusive(outcomes: &[SelfCheckOutcome]) -> bool {
     !outcomes.is_empty()
         && outcomes.iter().all(|o| o.held)
@@ -965,20 +869,16 @@ fn argparse_positional_self_checks() -> Vec<SelfCheck> {
 }
 
 /// Names listed under an argparse `positional arguments:` heading: the
-/// first token of each row sitting at the block's own entry indent, until
-/// the block ends at a blank line or a line that is not indented.
+/// first token of each row at the block's own entry indent, until a blank
+/// or non-indented line ends the block.
 ///
-/// **Only rows at the entry indent**, because argparse writes two other
-/// things one level deeper under the same heading and neither is an
-/// operand name: a wrapped description continuation, and — the one that
-/// matters — an `add_subparsers()` group's real subcommands, which sit
-/// beneath a `{a,b,c}` pseudo-entry (the same shape
-/// `mandible_extract::help_text::sections::scan_argparse_subparsers`
-/// recognizes from the other side). Counting those turned every correctly
-/// parsed argparse subcommand tree into a claimed lost positional, since
-/// such a root legitimately has none. The pseudo-entry itself is dropped by
-/// name for the same reason, and a plain operand sharing the block with it
-/// still counts — the exclusion is per row, never per block.
+/// Only rows at the entry indent: argparse writes two other things one
+/// level deeper — a wrapped description continuation, and an
+/// `add_subparsers()` group's real subcommands under a `{a,b,c}`
+/// pseudo-entry. Counting those would turn every correctly parsed argparse
+/// subcommand tree into a claimed lost positional. The pseudo-entry itself
+/// is dropped by name; a plain operand sharing the block with it still
+/// counts (exclusion is per row, not per block).
 fn argparse_positional_names(raw: &str) -> Vec<String> {
     let mut lines = raw.lines();
     for line in lines.by_ref() {
@@ -1021,20 +921,15 @@ fn argparse_positional_names(raw: &str) -> Vec<String> {
 }
 
 /// The bundled-short-flag collapse (`crate::bundling`): a synopsis bundle
-/// of boolean short flags parsed as one flag swallowing the rest as a value.
+/// of boolean short flags parsed as one flag swallowing the rest as a
+/// value. Zero `crate::existence` fabrications on a collapsed `-2CDlNuVv`
+/// is not a claim of a correct parse — the collapsed token attests cleanly
+/// while the parse destroys seven flags.
 ///
-/// This is the first detector built *after* the harness existed, and the
-/// first whose family was chosen because the existing oracles are blind to
-/// it: a collapsed `-2` carrying `CDlNuVv` occurs literally in the raw text,
-/// so `crate::existence` attests it cleanly while the parse destroys seven
-/// flags. Zero fabrications is not a claim of a correct parse.
-///
-/// Its family shares a structural fingerprint (`short && !long &&
-/// value_name`) with `single-dash-long` and `repeated-char-flag`, all three
-/// of which sit under `k1 = true` in the labelled set. `crate::bundling`
-/// discriminates on what the swallowed text *is*, not on the structure —
-/// which is exactly the confusion this harness's own "fired on a tool
-/// judged defective of another family" cell exists to surface.
+/// Shares a structural fingerprint (`short && !long && value_name`) with
+/// `single-dash-long` and `repeated-char-flag` (all under `k1 = true` in
+/// the labelled set); `crate::bundling` discriminates on what the
+/// swallowed text is, not on structure.
 pub(crate) struct BundledShortFlag;
 
 /// `bundled-short-flag`'s declared exclusions. The one entry is the shape
@@ -1093,41 +988,23 @@ impl Detector for BundledShortFlag {
 }
 
 /// `brace-alternation-flag` (`crate::alternation`), the fourth oracle and
-/// the second family detector.
+/// second family detector. Its `hits` calls the same
+/// `help_text::parse_flag_alternation` the grammar calls, rather than
+/// restating the rule — imports the grammar's own rule rather than
+/// risking the drift `crate::misattribution`'s hand-copied `pick_stream`
+/// cost 200 of 656 fabrications.
 ///
-/// It is the first one whose *rule* is imported from the extractor rather
-/// than restated beside it: `hits` calls the same
-/// `help_text::parse_flag_alternation` the grammar calls, so the detector
-/// and the fix cannot drift into disagreeing about what the defect is. That
-/// is the lesson `crate::misattribution`'s hand-copied `pick_stream` cost
-/// 200 of 656 fabrications to learn.
+/// Fleet count is reported, not ratcheted at zero: `btrfs`'s `btrfs
+/// device scan [-d|--all-devices] <device>` reads the alternation
+/// correctly, but the flags belong to a subcommand node
+/// `unparsed-subcommand` prevents from existing, and `-d` is not a root
+/// flag — reaching further would assert something false. `btrfs` is the
+/// same tool [`UnparsedCommandTable`] excludes as its shape C; whichever
+/// fix lands first zeroes the other's residual for free.
 ///
-/// **Its fleet count is reported, not ratcheted at zero**, and the reason is
-/// a named residual rather than a missing gate: `btrfs` writes
-/// `btrfs device scan [-d|--all-devices] <device>` in a repeated-prefix
-/// usage catalogue, so the alternation is read correctly and its flags
-/// belong to a subcommand node that `unparsed-subcommand` prevents from
-/// existing. The only node left to hang them on is the root, and `-d` is not
-/// a root flag of `btrfs` — reaching further would assert something false
-/// about the tool rather than recover anything. See `crate::alternation`'s
-/// module doc comment for the full argument and `crate::main`'s
-/// `coverage --check` arm for the ungated wiring.
-///
-/// **`btrfs` is the same tool [`UnparsedCommandTable`] excludes as its own
-/// shape C**, and the two exclusions are one fact seen from two sides: there
-/// is no node for `btrfs device scan` because that catalogue has no grammar
-/// yet, so this detector cannot place the flags and that one cannot recover
-/// the names. Whichever lands first, the other's residual goes to zero for
-/// free.
-///
-/// **Its declared scope names no excluded tool, and that is the honest
-/// answer rather than a missing one.** An [`Exclusion`] converts a blocking
-/// false negative into a named miss, so it may only name a tool the detector
-/// actually misses; both labelled members of this family — `cache_restore`
-/// and `eqn` — are squarely inside the claim below, and [`Ground::holds`]
-/// would refuse a witness for either. What the claim does carry is the two
-/// shapes this detector knowingly does not reach, stated in the same place
-/// an exclusion would have been printed.
+/// Declared scope names no excluded tool (honestly — both labelled
+/// members, `cache_restore` and `eqn`, are inside the claim), but does
+/// carry the two shapes this detector knowingly does not reach.
 pub(crate) struct BraceAlternationFlag;
 
 impl Detector for BraceAlternationFlag {
@@ -1252,24 +1129,16 @@ impl Detector for UnparsedCommandTable {
 }
 
 /// The dropped-alias defect (`crate::dropped_alias`): a flag documented
-/// with both a short and a long spelling reaching the tree with only one of
-/// them, because a value spec interrupted its alias list.
+/// with both a short and a long spelling reaching the tree with only one
+/// of them, because a value spec interrupted its alias list. Like
+/// [`BundledShortFlag`], the two anti-fabrication oracles are structurally
+/// blind to it — nothing here is invented, what's wrong is what's absent.
 ///
-/// The second detector built after the harness existed, and — like
-/// [`BundledShortFlag`] — one the two anti-fabrication oracles are
-/// structurally blind to. Nothing here is invented: every spelling in the
-/// tree occurs in the raw text, and every description lands on the right
-/// flag. What is wrong is what is *absent*, which is the question neither
-/// `crate::existence` nor `crate::misattribution` asks.
-///
-/// **Its risk runs the opposite way to every other detector's**, and its
-/// scope says so. A detector that over-fires here does not merely produce a
-/// noisy number: it argues for a fix that would merge two genuinely
-/// different flags, and a fabricated alias is strictly worse than a dropped
-/// one — a user who types a flag that does not exist gets an error, where a
-/// user missing a flag can still read `--help`. Two of the seven labelled
-/// tools are therefore declared out of scope with structural grounds rather
-/// than reached for.
+/// Its risk runs the opposite way to every other detector's: over-firing
+/// argues for a fix that would merge two genuinely different flags, and a
+/// fabricated alias is strictly worse than a dropped one. Two of the
+/// seven labelled tools are declared out of scope with structural
+/// grounds rather than reached for.
 pub(crate) struct DroppedAliasDetector;
 
 /// `dropped-alias`'s declared exclusions: the two labelled tools whose
@@ -2309,30 +2178,19 @@ impl RatchetOutcome {
     }
 }
 
-/// Gate `detector`'s fleet-wide count at zero — **and refuse to accept that
-/// zero without evidence that the detector still works.**
+/// Gate `detector`'s fleet-wide count at zero — and refuse to accept that
+/// zero without evidence the detector still works.
 ///
-/// # The trap this exists to close
+/// A gate on `count == 0` alone is satisfied by deleting the detector, by
+/// `hits()` returning `Vec::new()`, by any refactor that quietly stops the
+/// rule firing — the same "a metric improved by breaking what measures
+/// it" failure spec §13.1b already records twice ([M-10], `%flags_text`).
+/// Spec §13.1e: zero-because-fixed and zero-because-broken are
+/// indistinguishable from the fleet number alone.
 ///
-/// A gate that only asserts `count == 0` is satisfied by deleting the
-/// detector. It is satisfied by `hits()` returning `Vec::new()`, by the
-/// registry entry being removed, by any refactor that quietly stops the
-/// rule from firing. Every one of those makes the number look perfect,
-/// which is the same "a metric improved by breaking the thing that measures
-/// it" failure spec §13.1b already records twice ([M-10]'s fabricated `tar`
-/// nodes inflating `%described`; `%flags_text`'s name overclaiming). Spec
-/// §13.1e states it for detectors specifically: a detector reading zero
-/// because the bug is gone and one reading zero because it stopped working
-/// are indistinguishable from the fleet number alone.
-///
-/// So the gate has two halves and needs both:
-///
-/// 1. the detector's own hand-built self-checks still hold, conclusively
-///    ([`self_checks_are_conclusive`] — non-empty, all held, and covering
-///    both the must-fire and must-stay-silent directions), and
-/// 2. the fleet counts are zero.
-///
-/// Deleting the detector fails half 1 and can never reach half 2's pass.
+/// So the gate needs both: (1) the detector's self-checks still hold,
+/// conclusively ([`self_checks_are_conclusive`]), and (2) the fleet counts
+/// are zero. Deleting the detector fails (1) and can never reach (2).
 pub fn ratchet_at_zero(
     detector: &dyn Detector,
     tools: usize,

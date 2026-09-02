@@ -1,15 +1,10 @@
 //! The extraction coverage harness (spec §13.1): runs the full tiered
-//! pipeline against every executable on `PATH` and emits a scoreboard.
+//! pipeline against every executable on `PATH` and emits a scoreboard, so a
+//! parser change is checked fleet-wide rather than against one tool.
 //!
-//! This is the artifact that makes "universal, no per-tool patches"
-//! measurable rather than aspirational — without it, a parser change is
-//! only ever checked against whichever one tool the author happened to be
-//! looking at, and there's no way to see that fixing `tar` regressed `xz`.
-//!
-//! Batch 6 part 5 adds a `framework` column (spec §7 Tier A′) and a
-//! `verbatim` status (spec §7 Tier B step 3) on top of the existing
-//! scoreboard, plus a `--format markdown` mode the framework-support CI
-//! workflow (batch 6 part 6, spec §13.1a) consumes.
+//! Columns include a `framework` field (spec §7 Tier A′), a `verbatim`
+//! status (spec §7 Tier B step 3), and a `--format markdown` mode the
+//! framework-support CI workflow (spec §13.1a) consumes.
 
 use crate::alternation;
 use crate::bundling;
@@ -50,27 +45,17 @@ pub(crate) const SUSPECT_COL_WIDTH: usize = 8;
 pub(crate) const MAN_COL_WIDTH: usize = 6;
 /// Fixed display width for the right-aligned `misattr` column.
 ///
-/// All eight widths above are `pub(crate)` (not just local to
-/// [`render_text`]) for one reason: [`crate::transition`] parses a
-/// rendered `ScoreFormat::Text` scoreboard back into rows — two
-/// independently-generated sweeps, diffed — and it must slice each line at
-/// *exactly* the offsets [`render_text`] wrote them at. Duplicating these
-/// numbers as a second set of literals in that module would be exactly the
-/// kind of drift risk `status.rs`'s own doc comment warns about ("two
-/// independent definitions... will drift, and the drift will be discovered
-/// at the worst possible time") — one column added here and the parser
-/// silently misreads every field after it. A single source of truth means
-/// a future column can't do that.
+/// All eight widths above are `pub(crate)`, not local to [`render_text`]:
+/// [`crate::transition`] parses a rendered `ScoreFormat::Text` scoreboard
+/// back into rows by slicing at these exact offsets. A single source of
+/// truth avoids the two-copy drift risk `status.rs`'s doc comment warns
+/// about.
 pub(crate) const MISATTR_COL_WIDTH: usize = 9;
 /// Fixed display width for the right-aligned `exist` column
-/// ([`crate::existence`] — the fabrication count twin of `misattr` above,
-/// same reasoning for why the width lives here rather than local to
-/// [`render_text`]).
+/// ([`crate::existence`]'s fabrication count).
 pub(crate) const EXISTENCE_COL_WIDTH: usize = 6;
 /// Fixed display width for the right-aligned `bundle` column
-/// ([`crate::bundling`] — the bundled-short-flag collapse count, the third
-/// oracle's own per-tool number), same reasoning for why the width lives
-/// here rather than local to [`render_text`].
+/// ([`crate::bundling`]'s collapse count).
 pub(crate) const BUNDLE_COL_WIDTH: usize = 7;
 
 /// One tool's row in the scoreboard.
@@ -82,40 +67,29 @@ struct Row {
     /// [`framework_label`].
     framework: String,
     nodes: usize,
-    /// Raw flag count, including flags whose only source is a usage
-    /// synopsis and can therefore never carry a description ([M-15]).
-    /// Deliberately kept as its own column, separate from [`Self::describable`]
-    /// — spec §13's metric design rules: a spelling-only flag is real
-    /// information, just not part of the ratio [`Self::pct_flags_with_text`] gates
-    /// on.
+    /// Raw flag count, including usage-synopsis-only flags that can never
+    /// carry a description ([M-15]). Kept separate from [`Self::describable`]
+    /// per spec §13's metric design rules.
     flags: usize,
-    /// Flags whose source *could*, in principle, have supplied a
-    /// description (spec §13's metric design rules) — the denominator
-    /// [`Self::pct_flags_with_text`] is actually computed over. See
+    /// Flags whose source could, in principle, carry a description — the
+    /// denominator [`Self::pct_flags_with_text`] is computed over. See
     /// [`mandible_extract::ExtractionResult::describable_flag_count`].
     describable: usize,
-    /// `None` when there are no *describable* flags to compute a
-    /// percentage over (which includes the case where `flags > 0` but
-    /// every one of them is usage-synopsis-derived).
+    /// `None` when there are no describable flags to compute a percentage
+    /// over.
     ///
-    /// **This is presence, not correctness.** Renamed from `pct_flags_with_text`
-    /// (the scoreboard's own former column header) because that name reads
-    /// as an accuracy claim to anyone who hasn't read this doc comment, and
-    /// this number has never checked whether the attached text is the
-    /// *right* text — `lsof` scored 79% on the old name while roughly a
-    /// quarter of its flags were actually correct (`corpus/lsof/4.95.0`,
-    /// `[xfail]`; see [`crate::misattribution`] for the instrument that
-    /// measures the thing this field's old name implied). Until an
-    /// accuracy instrument exists, every scoreboard also carries a literal
-    /// `accuracy: unmeasured` line — see [`accuracy_unmeasured_line`].
+    /// **Presence, not correctness** — never checks whether the attached
+    /// text is the *right* text (`corpus/lsof/4.95.0`, `[xfail]`; see
+    /// [`crate::misattribution`] for the accuracy instrument). Every
+    /// scoreboard also carries `accuracy: unmeasured` —
+    /// [`accuracy_unmeasured_line`].
     pct_flags_with_text: Option<f64>,
     ms: u128,
-    /// Structure-sanity count (spec §13.1): descendant nodes whose name
-    /// fails [`mandible_core::is_command_name_shaped`], plus descendant nodes with no
-    /// flags, no children, and no summary. Non-zero means `status` is
-    /// forced to `"suspicious"` regardless of `%described` — the whole
-    /// point of this column is that `%described` alone cannot detect
-    /// fabricated structure, since invented nodes *inflate* it ([M-10]).
+    /// Structure-sanity count (spec §13.1): descendant nodes failing
+    /// [`mandible_core::is_command_name_shaped`], or with no flags,
+    /// children, or summary. Non-zero forces `status` to `"suspicious"`
+    /// regardless of `%described`, since fabricated structure *inflates*
+    /// that number ([M-10]).
     suspicious_nodes: usize,
     /// True when the root node degraded to spec §7 Tier B step 3's
     /// verbatim rendering (`CommandNode::unparsed` non-empty) rather than
@@ -228,24 +202,16 @@ struct Row {
     fingerprint: ToolFingerprint,
 }
 
-/// One entity's field-level fingerprint (a flag, positional, modifier, or
+/// One entity's field-level fingerprint (flag, positional, modifier, or
 /// env-var item — see [`ToolFingerprint::flags`]): whether it has a
-/// description at all, a hash of that description's text (`None` when there
-/// is no description), a hash of its choices list (`None` when it has
-/// none), and its `value_name` verbatim (short enough — usually one word —
-/// to carry directly rather than hash). Named `FlagFingerprint` from when
-/// flags were the only kind fingerprinted; kept rather than renamed because
-/// every field already applies unchanged to every `EntityKind` — a
-/// positional's description, a modifier's operand `value_name`, an env-var
-/// item's description are exactly the same shape of fact.
+/// description, a hash of the description text, a hash of its choices
+/// list, and `value_name` verbatim. Named `FlagFingerprint` from when
+/// flags were the only kind fingerprinted; every field applies unchanged
+/// to every `EntityKind`.
 ///
-/// **Hashes, not full text**, for the description and choices: carrying
-/// every entity's full description into every scoreboard on every
-/// full-`PATH` sweep would make the checked-in `coverage-scoreboard.txt` and
-/// every CI artifact multiple times larger for a comparison that only ever
-/// needs to know "did this change," never "what did it used to say" — the
-/// scoreboard files it's diffing already exist on disk for a human to read
-/// the actual before/after text if a hash flags a change worth looking at.
+/// Hashes, not full text, for description/choices — keeps the checked-in
+/// scoreboard small; it only needs to know "did this change," and the
+/// scoreboard files being diffed are on disk for a human to read if so.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FlagFingerprint {
     has_description: bool,
@@ -254,55 +220,33 @@ struct FlagFingerprint {
     value_name: Option<String>,
 }
 
-/// One tool's full field-level fingerprint: every entity — flag, positional,
-/// modifier, env-var item, and any `EntityKind` added later — keyed by a
-/// stable per-node identity (never [`mandible_core::Entity::spelling`],
-/// which folds the value placeholder into the same string a value_name
-/// change would then also perturb — see [`entity_identity`]), plus the full
-/// set of subcommand paths its tree reaches.
+/// One tool's full field-level fingerprint: every entity — flag,
+/// positional, modifier, env-var item — keyed by a stable per-node
+/// identity ([`entity_identity`]; never `Entity::spelling`, which folds
+/// the value placeholder in), plus the full set of subcommand paths.
 ///
-/// The field is still named `flags` from when flags were the only kind
-/// fingerprinted; it now holds every entity on the node regardless of kind
-/// (`entity_identity`'s kind tag is what keeps a flag and a same-spelled
-/// positional/modifier/env-var from colliding in this one map).
+/// Field still named `flags` from when flags were the only kind
+/// fingerprinted; now holds every kind.
 ///
-/// **Anyone comparing this map's size against the scoreboard's `flags`
-/// column (e.g. a duplicate-carrying-tool scan: flag count exceeds unique
-/// `#fp2` id count) must first filter the ids to `EntityKind::Flag`.**
-/// Before this map covered every kind, that comparison was apples-to-apples
-/// by construction; now the id count includes positionals/modifiers/env-var
-/// items too, so an unfiltered comparison silently stops firing — it never
-/// errors, it just reports zero duplicate-carrying tools forever, which
-/// reads as "no duplicates exist" rather than "this scan is broken."
-/// Filtering to `Flag` first restores the exact pre-generalization count
-/// (measured on `ar`/`bpftrace`: the `Flag`-only id count equals the
-/// scoreboard's `flags` column exactly, while the unfiltered id count does
-/// not).
+/// A size comparison against the scoreboard's `flags` column must filter
+/// ids to `EntityKind::Flag` first, or it silently reports zero
+/// duplicate-carrying tools instead of erroring.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct ToolFingerprint {
     flags: BTreeMap<String, FlagFingerprint>,
     subcommands: std::collections::BTreeSet<String>,
 }
 
-/// An entity's identity for fingerprinting purposes: every documented
-/// spelling's dash-prefixed name, deliberately excluding
-/// `value_name`/`choices`/description — those are the fields this
-/// fingerprint exists to detect *changes* in, so folding them into the same
-/// key a change would also alter defeats the point (a `value_name` edit
-/// would silently become a remove-then-add instead of a same-entity
-/// change). Prefixed with the owning node's dotted path (`(root)` for the
-/// tool's own top-level entities) so two different subcommands' same-spelled
-/// entity (`git commit -m` vs `git tag -m`) never collide, and with the
-/// entity's [`mandible_core::EntityKind`] (rendered via `{:?}`) so a flag and
-/// a positional/modifier/env-var that happen to share a bare spelling on the
-/// same node never collide either.
+/// An entity's identity for fingerprinting: every documented spelling's
+/// dash-prefixed name, excluding `value_name`/`choices`/description (the
+/// fields this fingerprint exists to detect changes in — folding them into
+/// the key would turn a `value_name` edit into a remove-then-add).
+/// Prefixed with the owning node's dotted path and the entity's
+/// `EntityKind` (via `{:?}`) so same-spelled entities on different
+/// subcommands or of different kinds never collide.
 ///
-/// **Generic over `EntityKind` by construction, not by a match arm.** The
-/// kind tag comes from `{:?}` on the enum — Rust generates that impl from
-/// the variant list itself, so a fifth `EntityKind` variant added tomorrow
-/// gets a distinct, non-colliding identity automatically, with no edit here
-/// (AGENTS.md §1: no per-kind branching to grow when a kind is added, the
-/// same discipline that section demands for per-*tool* branching).
+/// Generic over `EntityKind` by construction (derived `{:?}`), not a match
+/// arm — AGENTS.md §1: no per-kind branching to grow.
 fn entity_identity(path: &str, entity: &mandible_core::Entity) -> String {
     let spelling = entity
         .spellings
@@ -321,11 +265,8 @@ fn entity_identity(path: &str, entity: &mandible_core::Entity) -> String {
 }
 
 /// FNV-1a over raw bytes — deterministic across processes and Rust std
-/// versions (unlike `std::collections::hash_map::DefaultHasher`, whose
-/// algorithm is not a documented guarantee), which matters here because the
-/// whole point is comparing a hash computed by one `xtask` invocation
-/// against one computed by a separate, possibly differently-built,
-/// invocation on the other side of a sweep.
+/// versions (unlike `DefaultHasher`), needed because hashes from separate
+/// `xtask` invocations are compared across a sweep.
 fn fnv1a(bytes: &[u8]) -> u64 {
     let mut hash: u64 = 0xcbf29ce484222325;
     for &b in bytes {
@@ -338,28 +279,12 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// Walk `root`'s tree and build its field-level [`ToolFingerprint`] — the
 /// data [`Row::fingerprint`] carries and [`fingerprint_lines`] serializes
 /// into the scoreboard's `#fp` footer, which [`crate::transition`] reads
-/// back to diff at field granularity instead of the coarse counts the rest
-/// of this module's `Row` exposes.
+/// back to diff at field granularity, since a count column alone cannot
+/// distinguish "description text changed" from "it didn't."
 ///
-/// **Why this is necessary at all, not just nice to have.** Every existing
-/// scoreboard column is a *count* — `flags`, `%flags_text`,
-/// `misattribution_suspect_count` and so on — and a count cannot
-/// distinguish "this flag's description text changed" from "it didn't,"
-/// only "the number of flags with a description changed." PR #14 deleted
-/// `--strip`'s and `--guesswork`'s descriptions and fabricated a choices
-/// list on the same two flags in the same change; whether that nets to a
-/// visible count delta is an accident of which other flags moved in the
-/// same run, not something `sweep-diff` should have to rely on.
-///
-/// **Every `EntityKind`, not flags alone.** Walks `node.entities` — flags,
-/// positionals, modifiers, env-var items, and whatever `EntityKind` variant
-/// is added next — rather than `node.flags()`. Before this, the fingerprint
-/// was structurally blind to every non-flag kind: `bpftrace` gaining 17
-/// `EntityKind::EnvVar` items or `ar` documenting 17 `EntityKind::Modifier`
-/// letters moved nothing in `#fp`, so `sweep-diff` could see a flag
-/// regression but never an env-var/modifier/positional gain or loss.
-/// [`entity_identity`]'s own doc comment is where the "no per-kind
-/// branching" discipline actually lives — this function just iterates.
+/// Walks `node.entities` (every `EntityKind`), not `node.flags()` alone,
+/// so a fingerprint isn't blind to env-var/modifier/positional changes.
+/// See [`entity_identity`] for the no-per-kind-branching discipline.
 fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerprint {
     let mut fp = ToolFingerprint::default();
     let Some(root) = root else {
@@ -375,11 +300,9 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
             let choices_hash = if entity.choices.is_empty() {
                 None
             } else {
-                // Name and description (when the tool documents one per
-                // choice — ffmpeg's AVOption constants) both feed the hash,
-                // separated by a distinct control character from the outer
-                // per-choice join, so a description-only edit still moves
-                // the fingerprint the same way a name-only one always did.
+                // Name and per-choice description (ffmpeg's AVOption
+                // constants) both feed the hash, so a description-only
+                // edit still moves the fingerprint.
                 let joined = entity
                     .choices
                     .iter()
@@ -416,35 +339,20 @@ fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> ToolFingerpri
 }
 
 /// Backslash-escape every character the `#fp` wire format uses as
-/// structure, so the escaped output is guaranteed to contain **no raw
-/// separator character at all** — the read side ([`crate::transition`]'s
-/// `fp_unescape`) can then keep its existing plain `split`/`splitn` calls
-/// unchanged and only needs an unescape pass per field.
+/// structure, so the escaped output contains no raw separator character —
+/// the read side (`crate::transition`'s `fp_unescape`) keeps its plain
+/// `split`/`splitn` calls and only needs an unescape pass per field.
 ///
-/// **Why every separator, not just [`FP_FIELD_SEP`].** An earlier version of
-/// this function only replaced the top-level field separator (tab) and
-/// newline with a space, on the theory that `entity_identity` (`flag_identity`
-/// before the fingerprint generalized past flags) only ever emits
-/// `-`, `,`, `.`, `:`, `(`, `)` and the tool's own spelling, and `value_name`
-/// — while free-form text lifted verbatim from a tool's own `--help` output
-/// — was assumed not to collide with the *other* separators this format
-/// uses ([`FP_FLAG_SEP`], [`FP_SUBCOMMAND_SEP`], [`FP_ID_SEP`],
-/// [`FP_ENTRY_SEP`]). That assumption is false, measurably: `awk`'s `-L`
-/// flag has `value_name` `"fatal|invalid|no-ext"` — real text from `awk
-/// --help`, not something this codebase invents. `fingerprint_lines`'s
-/// flag-list separator is also `|`, so the old `fp_escape` rendered a `#fp`
-/// line with three unescaped pipes where one flag-list separator was
-/// intended; `transition::parse_fingerprint_line` splits on every `|` it
-/// finds, so `"invalid"` and `"no-ext"` became bogus flag entries with no
-/// `=`, `split_once('=')` returned `None`, and the `?` on that line
-/// discarded the *entire* `#fp awk` line — every flag on it, not just `-L`.
-/// `awk`, `gawk` and `nawk` silently dropped out of every field-level
-/// `sweep-diff` comparison until this was found (PR #22, diffed by hand).
+/// Escapes every separator, not just [`FP_FIELD_SEP`]: `value_name` is
+/// free-form text lifted verbatim from a tool's own help output and can
+/// contain any of them, e.g. `awk`'s `-L` flag value_name
+/// `"fatal|invalid|no-ext"` collides with [`FP_FLAG_SEP`].
 ///
 /// Escapes, per character: `\` -> `\\`, tab -> `\t`, newline -> `\n`,
 /// [`FP_FLAG_SEP`] (`|`) -> `\p`, [`FP_SUBCOMMAND_SEP`] (`,`) -> `\c`,
-/// [`FP_ID_SEP`] (`=`) -> `\e`, [`FP_ENTRY_SEP`] (`:`) -> `\s`. Everything
-/// else passes through unchanged.
+/// [`FP_ID_SEP`] (`=`) -> `\e`, [`FP_ENTRY_SEP`] (`:`) -> `\s`.
+///
+/// Fixture: `corpus/awk/*/help.txt`, `corpus/gawk/*/help.txt`.
 fn fp_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -487,62 +395,29 @@ const FP_ID_SEP: char = '=';
 /// `crate::transition`.
 const FP_ENTRY_SEP: char = ':';
 
-/// The `#fp2` line prefix ([`fingerprint_lines`]'s wire format, format
-/// version 2 — see this constant's own doc-adjacent version note below).
-/// Deliberately a different literal from the pre-generalization `"#fp "`
-/// prefix (mirrored in `crate::transition::FP_LINE_PREFIX_V1`), not a bumped
-/// suffix on the same prefix: a v1 reader's `strip_prefix("#fp ")` does not
-/// match `"#fp2 ..."` at all (the character after `#fp` is `2`, not a
-/// space), so a pre-generalization binary reading a post-generalization
-/// scoreboard silently sees no fingerprint footer — the same, already-
-/// handled "predates the footer" degraded path, never a corrupted read of
-/// entity identities it doesn't understand. See
-/// `crate::transition::FingerprintFormat` for why a v1-vs-v2 *pair* has to
-/// be refused outright rather than degraded: the entity `id` strings the
-/// two versions embed are shaped differently (`(root)::--flag` in v1 vs
-/// `(root)::Flag::--flag` in v2), so naively joining a v1 scoreboard against
-/// a v2 one on those ids would report every entity as removed on one side
-/// and added on the other — a false wholesale loss/gain, not a real one.
+/// The `#fp2` line prefix ([`fingerprint_lines`]'s wire format, version 2).
+/// A different literal from the pre-generalization `"#fp "` prefix
+/// (`crate::transition::FP_LINE_PREFIX_V1`), not a bumped suffix: a v1
+/// reader's `strip_prefix("#fp ")` doesn't match `"#fp2 ..."`, so it falls
+/// back to the existing "predates the footer" path rather than misreading
+/// v2 entity ids. See `crate::transition::FingerprintFormat` for why a
+/// v1/v2 pair is refused outright rather than diffed.
 const FP_LINE_PREFIX_V2: &str = "#fp2 ";
 
 /// Render every row's [`ToolFingerprint`] as `#fp2` footer lines, one per
-/// tool, in the same tool-name order `rows` is already sorted in ([`run_over`])
-/// — deterministic output, no separate sort needed here.
+/// tool, in `rows`' existing sorted order ([`run_over`]).
 ///
-/// **One line per row, unconditionally — including a tool with empty
-/// `flags` and empty `subcommands`.** An earlier version of this function
-/// skipped those, on the (wrong) assumption that "nothing to fingerprint"
-/// and "not fingerprinted" were the same case. They aren't:
-/// [`crate::transition`] tells "this scoreboard predates the fingerprint
-/// footer" from "this tool measured clean" by whether a line exists at all,
-/// so skipping the empty case made every flagless/subcommandless tool — a
-/// verbatim tool, a zero-flag `ok` tool, roughly a quarter of a real
-/// full-`PATH` sweep — read as unmeasured instead of measured-with-nothing.
-/// Worse, it hid exactly the regression this whole fingerprint exists to
-/// catch: a tool that had entities on one side and loses every one of them
-/// produces a line on that side and *none* on the empty side, so the diff
-/// reported "unmeasured" for a total wipeout instead of every entity
-/// removed.
+/// One line per row unconditionally, even for empty `flags`/`subcommands`:
+/// [`crate::transition`] tells "predates the footer" from "measured clean"
+/// by whether a line exists, so skipping empty rows would hide a total
+/// wipeout (entities on one side, none on the other) as "unmeasured"
+/// instead of "every entity removed."
 ///
-/// Line shape: `#fp2 <tool>\t<sub1>,<sub2>,...\t<entity1>|<entity2>|...` where
-/// each entity entry is `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
-/// (hashes as lowercase hex), `id` already carries its `EntityKind` tag
-/// ([`entity_identity`]'s own doc comment), and either list may be empty
-/// (`#fp2 true\t\t` for a tool with no subcommands and no entities). `tool`,
-/// each subcommand path, each entity `id` and `value_name` are individually
-/// run through [`fp_escape`] before being written, so none of them can ever
-/// contain a raw `\t`, `\n`, `|`, `,`, `=` or `:` — see that function's doc
-/// comment for why every one of those needs escaping, not just the
-/// top-level `\t`. Never mixed into `render_markdown`'s output:
-/// [`crate::transition::parse_scoreboard`] only ever reads a
-/// [`ScoreFormat::Text`] scoreboard (that module's own doc comment), so
-/// there is nothing that would read a markdown copy of this section.
-///
-/// **Format version 2.** The prior format (flags only, `id` with no kind
-/// tag) is `crate::transition::FingerprintFormat::V1`; this one, emitted
-/// unconditionally by this function now, is `V2`. `crate::transition`
-/// detects which one a scoreboard carries from the line prefix and refuses
-/// to field-diff a V1/V2 pair — see [`FP_LINE_PREFIX_V2`]'s doc comment.
+/// Line shape: `#fp2 <tool>\t<sub1>,<sub2>,...\t<entity1>|<entity2>|...`,
+/// each entity `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
+/// (hex hashes, `id` carries its `EntityKind` tag). Every field individually
+/// run through [`fp_escape`] first. Format version 2 — see
+/// [`FP_LINE_PREFIX_V2`].
 fn fingerprint_lines(rows: &[Row]) -> String {
     let mut out = String::new();
     for row in rows {
@@ -629,9 +504,8 @@ const ALTERNATION_SAMPLES_PER_ROW: usize = 3;
 const ALTERNATION_SAMPLE_LIMIT: usize = 20;
 /// Cap on how many of one tool's own [`crate::single_dash_long`] splits or
 /// [`crate::repeated_char`] misreads feed their fleet-wide sample sections —
-/// mirrors [`BUNDLE_SAMPLES_PER_ROW`]. One constant for both because the two
-/// families are read from the same capture on the same pass and neither has
-/// a reason to be sampled at a different depth than the other.
+/// mirrors [`BUNDLE_SAMPLES_PER_ROW`]. Shared by both families; read from
+/// the same capture pass.
 const SPLIT_SAMPLES_PER_ROW: usize = 3;
 
 /// Cap on the total number of sample lines each of the two
@@ -653,53 +527,27 @@ pub struct Aggregate {
     /// Tools for which no tier produced a root node at all.
     pub no_tier_count: usize,
     /// Tools with at least one structurally-suspicious node (spec §13.1):
-    /// a name failing [`mandible_core::is_command_name_shaped`], or a node with no flags,
-    /// no children, and no summary. Gated exactly like `no_tier_count` —
-    /// [M-10] shipped as `ok` at `100% described` because `%described`
-    /// alone can't see fabricated structure; this is the column that can.
+    /// a name failing [`mandible_core::is_command_name_shaped`], or a node
+    /// with no flags, children, or summary. Gated like `no_tier_count` —
+    /// [M-10] shipped `ok` at 100% described because `%described` can't
+    /// see fabricated structure; this column can.
     pub suspicious_count: usize,
     /// Tools whose root degraded to verbatim (spec §7 Tier B step 3).
     /// **Not gated** — see [`compute_aggregate`].
     pub verbatim_count: usize,
     /// Tools at status `incomplete` (spec §6 rule 2b): a truncation
-    /// confession was detected but not followed — an unrecognised word,
-    /// a failed probe, or a rule 0 refusal — so the tree still reflects
-    /// the tool's own admittedly-incomplete document. **Not gated**, same
-    /// reasoning as `verbatim_count`/`man_shaped_count`: this is a
-    /// brand-new measurement (this batch) with no baseline to regress
-    /// against, and it is the interesting number precisely because it
-    /// names tools mandible was previously confidently wrong about
-    /// (reporting `ok` on a document the tool's own text said was
-    /// truncated) — a shrinking gate would incentivize hiding it, not
-    /// following more confessions.
+    /// confession was detected but not followed. **Not gated** — no
+    /// baseline exists yet for this measurement.
     pub incomplete_count: usize,
     /// Tools whose root `--help` output was detected as a rendered man
-    /// page (spec [M-16]) — the exposure set for the pending `-h`
-    /// fallback decision. A subset of `verbatim_count`: every man-shaped
-    /// root degrades to verbatim, but not every verbatim root is a man
-    /// page (some tools just print nothing this grammar can use). **Not
-    /// gated** — this is a brand-new measurement with no baseline to
-    /// regress against, and per the task this metric measures, it is not
-    /// itself changing any execution.
+    /// page ([M-16]). A subset of `verbatim_count`. **Not gated** — no
+    /// baseline exists yet for this measurement.
     pub man_shaped_count: usize,
-    /// Tools at status `ok` with zero flags at all — [M-15]'s own measure
-    /// ("378 of 1,895 `ok` tools carry no flags at all"), reported here so
-    /// a parser change's effect on *recall* is visible as its own number.
-    ///
-    /// Before spec §13's metric redefinition, finding a usage-only flag set
-    /// *lowered* `pct_flags_with_text` (a synopsis flag added to the denominator
-    /// with nothing to add to the numerator), which is the exact defect
-    /// [M-15] and this metric redefinition exist to fix — see
-    /// [`mandible_extract::ExtractionResult::describable_flag_count`]'s doc
-    /// comment. After the fix, a synopsis flag is excluded from
-    /// `pct_flags_with_text`'s denominator entirely, so recovering one moves this
-    /// count down without moving `pct_flags_with_text` down at all: the two
-    /// numbers are no longer in tension, which was the whole point.
-    /// **Not gated**, same reasoning as `man_shaped_count`: this is a
-    /// brand-new measurement with no baseline to regress against, and the
-    /// whole point of adding it is to give a human the number the existing
-    /// gate can't see, not to invent a second automatic gate the same trap
-    /// could defeat.
+    /// Tools at status `ok` with zero flags at all ([M-15]). A synopsis
+    /// flag is excluded from `pct_flags_with_text`'s denominator entirely
+    /// (see [`mandible_extract::ExtractionResult::describable_flag_count`]),
+    /// so this count and `pct_flags_with_text` move independently. **Not
+    /// gated** — no baseline exists yet for this measurement.
     pub zero_flag_ok_count: usize,
     /// Tools for which Tier A′ identified a framework at all (spec §7
     /// Tier A′), regardless of method.
@@ -1169,23 +1017,13 @@ fn format_repeated_char_sample(misread: &repeated_char::Misread) -> String {
 }
 
 /// True when the root's captured `--help` output was detected as a
-/// rendered man page (spec [M-16]) — the measurement this whole module
-/// change exists to add.
+/// rendered man page (spec [M-16]).
 ///
-/// **Sends nothing new.** This reads text the pipeline already captured
-/// rather than probing the tool again: [`help_text::build_node`] sets
-/// `CommandNode::unparsed` to the raw `--help` lines precisely when
-/// nothing parsed as structure, which includes (but is not limited to) the
-/// man-page case — `sections::parse_with_profile` returns an empty parse
-/// immediately once it sees the banner (spec §7 Tier B step 3). Only that
-/// tier ever populates `unparsed` (`mandible-extract/src/help_text/mod.rs`
-/// is the sole writer, grepped), so if it survived merge (spec §4.4:
-/// `pick_vec` skips empty contributors, and every other tier's `unparsed`
-/// is always empty), it is exactly the text `--help` produced. Re-running
-/// [`mandible_extract::help_text::is_man_page_banner`] — the identical
-/// rule `build_node` already applied — over that captured first line tells
-/// the two "gave up" reasons apart (a banner vs. output the grammar simply
-/// couldn't use) without a second invocation of the tool.
+/// Sends no new probe: reads `CommandNode::unparsed`, which `help_text::
+/// build_node` sets to the raw captured lines whenever nothing parsed as
+/// structure (spec §7 Tier B step 3), and re-runs
+/// [`mandible_extract::help_text::is_man_page_banner`] over the first line
+/// to tell a man-page banner apart from ordinary unparseable output.
 fn root_is_man_shaped(result: &ExtractionResult) -> bool {
     let Some(root) = result.root.as_ref() else {
         return false;
@@ -1198,20 +1036,11 @@ fn root_is_man_shaped(result: &ExtractionResult) -> bool {
 
 /// Compact `"<framework name> (<method>)"` label for the scoreboard's
 /// `framework` column, or `"—"` when Tier A′ didn't identify one (spec §7
-/// Tier A′ step 3, "Unidentified"). The framework name itself comes from
-/// `CommandNode::detected_framework` on the merged root (set only by Tier
-/// B — see `help_text::build_node`'s doc comment — so this is accurate
-/// even when a higher-structural-authority tier like native won the rest
-/// of the merge, since per-field authority resolution never lets a `None`
-/// contributor displace a `Some` one).
-///
-/// The *method* (artifact vs. help-text signature) isn't itself carried on
-/// `CommandNode` (spec §4.2 keeps `Source`/`Provenance` framework-agnostic
-/// on purpose), so this re-derives it with one extra call to
-/// `framework::identify_from_artifact` — which never spawns a process and
-/// is memoized per binary path (see that function's own doc comment), so
-/// this costs nothing beyond what `extract_full` already paid for and
-/// never double-probes the tool.
+/// Tier A′ step 3). Framework name comes from `CommandNode::detected_framework`
+/// (set only by Tier B, per-field authority resolution never lets `None`
+/// displace `Some`). Method is re-derived via `framework::identify_from_artifact`
+/// (memoized per binary path, spawns no process), since `Source`/`Provenance`
+/// stay framework-agnostic (spec §4.2).
 fn framework_label(tool: &str, result: &ExtractionResult) -> String {
     let Some(name) = result
         .root
@@ -1243,18 +1072,11 @@ fn short_tier_name(name: &str) -> &str {
 
 /// Compute aggregate stats over `rows`.
 ///
-/// **`verbatim_count` is reported but deliberately not part of the
-/// regression gate** (spec §13.1's `--check`, wired in `xtask/src/main.rs`):
-/// unlike `no_tier_count` and `suspicious_count`, a *growing* `verbatim`
-/// count is not on its own evidence of a regression. A correct new
-/// framework grammar can legitimately move a tool from fabricated
-/// structure (`suspicious`, or a low-confidence guess reported as `ok`) to
-/// honest verbatim — that is exactly spec §7 Tier B step 3's intended
-/// behavior, "never fabricate, degrade to verbatim" — and gating on
-/// `verbatim` growing would block precisely the fix this whole batch is
-/// about. `framework_detected_count`/`framework_counts` are reported for
-/// the same reason: identifying *more* frameworks over time is progress,
-/// never a regression to block on.
+/// `verbatim_count` is reported but not part of the regression gate (spec
+/// §13.1's `--check`): a growing count can be a correct degrade-rather-
+/// than-fabricate move (spec §7 Tier B step 3), not a regression.
+/// `framework_detected_count`/`framework_counts` are unlisted for the same
+/// reason — identifying more frameworks is progress, not a regression.
 fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let total_flags: usize = rows.iter().map(|r| r.flags).sum();
     let describable_flags: f64 = rows.iter().map(|r| r.describable as f64).sum();
@@ -1473,17 +1295,11 @@ fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
 }
 
 /// The literal line every scoreboard carries until an instrument actually
-/// measures whether a flag's attached text is *correct*, not just present
-/// (spec §13.1's rename note): `%flags_text`/`pct_flags_with_text` answers
-/// "does this flag have text at all," which is exactly the question `lsof`
-/// (`corpus/lsof/4.95.0`, `[xfail]`) proves is not the same question as "is
-/// the text right" — it scored 79% on the old, accuracy-sounding name while
-/// roughly a quarter of its flags were actually correct.
-/// [`crate::misattribution`] is a first step toward an actual accuracy
-/// signal (it measures one specific, real failure mode), but it is a
-/// heuristic with a nonzero, unquantified-at-fleet-scale false-positive
-/// rate — not a general "is this description correct" oracle — so this
-/// line stays until something is.
+/// measures whether a flag's attached text is correct, not just present
+/// (spec §13.1's rename note). `pct_flags_with_text` answers presence
+/// only — `corpus/lsof/4.95.0` (`[xfail]`) scored 79% while a quarter of
+/// its flags were wrong. [`crate::misattribution`] is a first step but not
+/// a general accuracy oracle.
 fn accuracy_unmeasured_line() -> String {
     "# accuracy: unmeasured\n".to_string()
 }
@@ -1516,22 +1332,12 @@ fn undescribed_flags(row: &Row) -> usize {
 /// The tools this harness parsed worst, ranked by how many flag
 /// descriptions went missing, capped to [`WORST_PARSED_LIMIT`].
 ///
-/// This section used to rank *unidentified* tools by flag count, on the
-/// theory that rich help text with no framework behind it was the best
-/// candidate for a new fingerprint. Measurement killed that theory: across
-/// a real `PATH`, unidentified tools average ~92% described and identified
-/// ones ~90%. Detection is not what separates a good result from a bad
-/// one, so a list of undetected tools is not a work queue, and acting on it
-/// would mean adding fingerprints that raise the detection rate without
-/// parsing anything better (spec §7's note on why that is worse than
-/// leaving the number alone).
-///
-/// What does separate them is how much of a tool the grammar actually
-/// understood. Ranking by *undescribed flags* rather than by percentage
-/// alone keeps the list actionable: a tool with 150 flags at 60% has more
-/// missing documentation behind it than one with 3 flags at 0%, and is a
-/// better use of the next hour. Ties broken by tool name for a stable,
-/// diffable scoreboard.
+/// Ranked by undescribed-flag count, not percentage alone: a 150-flag
+/// tool at 60% has more missing documentation than a 3-flag tool at 0%.
+/// Not ranked by detection status — measurement showed unidentified and
+/// identified tools score about the same (~90-92% described), so
+/// detection isn't what separates a good result from a bad one. Ties
+/// broken by tool name.
 fn worst_parsed(rows: &[Row]) -> Vec<&Row> {
     let mut worst: Vec<&Row> = rows.iter().filter(|r| undescribed_flags(r) > 0).collect();
     worst.sort_by(|a, b| {

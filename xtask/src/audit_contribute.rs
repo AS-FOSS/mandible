@@ -1,40 +1,21 @@
 //! `xtask audit contribute`: the one-command audit submission flow described
-//! in `CONTRIBUTING.md` §2 ("Audit mandible against your own tools") and
-//! mirrored in the README's own "Contributing" section.
+//! in `CONTRIBUTING.md` §2 ("Audit mandible against your own tools").
 //!
-//! # Why this hands you commands instead of running them
-//!
-//! `xtask/src` cannot spawn a subprocess: `mandible-extract/tests/
-//! no_process_outside_exec.rs` greps the entire workspace, `xtask/src`
-//! included, and fails the build on any `std::process`/`Command::new`
-//! outside `mandible-extract/src/exec/` (spec §6/§8's execution-safety
-//! boundary), and there is no `git`/`gh` library dependency in this
-//! workspace either. Two other places in this crate already carry the same
-//! rule on purpose (`xtask/src/corpus.rs`'s "this module has no git access,
-//! on purpose, and cannot gain any" and this module's own sibling
-//! `xtask/src/queue.rs`).
-//!
-//! So this command does everything that is plain file I/O — the freeze, the
-//! draw, the review resumability, writing `<seed>.toml` and
+//! `xtask/src` cannot spawn a subprocess (`no_process_outside_exec.rs`
+//! forbids `std::process` outside `mandible-extract/src/exec/`, spec
+//! §6/§8), so this command does everything that is plain file I/O — the
+//! freeze, the draw, review resumability, writing `<seed>.toml` and
 //! `<seed>-report.txt` — and for the two steps that are actually git/gh
 //! operations, [`suggest_login`] and [`finish_submission`], it prints what
-//! it cannot run: [`suggest_login`] never prefills the login prompt (there
-//! is no `gh api user -q .login`/`git config github.user` call to read it
-//! from), and [`finish_submission`] prints the `git switch`/`git add`/`git
-//! commit`/`gh pr create` commands for the contributor to run themselves —
-//! which also means they get a chance to look them over before anything is
-//! pushed.
+//! it cannot run: no prefilled login prompt, and the contributor runs the
+//! printed `git switch`/`git add`/`git commit`/`gh pr create` commands
+//! themselves, with a chance to review them first.
 //!
-//! The same reasoning covers step 4, opening `mandible --review <seed>
-//! --audit-dir <dir>`: that is also a subprocess, and one that needs a real
-//! controlling terminal (spec/AGENTS §3.2: there is no tty in an agent
-//! sandbox to run it from anyway). [`cmd_contribute`] does not invoke it
-//! either; when a draw still has pending entries it prints the command to
-//! run and returns, relying on the same resumability CONTRIBUTING.md §2
-//! step 4 already promises ("Ctrl-C and rerun the command to pick up where
-//! you left off") — a bare rerun finds the unfinished seed and continues
-//! from wherever the review actually left it, whether that review was
-//! driven by a person at `mandible --review` or by `xtask audit ingest`.
+//! Same reasoning for step 4 (`mandible --review <seed> --audit-dir <dir>`,
+//! needs a real tty, spec/AGENTS §3.2): [`cmd_contribute`] prints the
+//! command and returns when a draw has pending entries, relying on
+//! CONTRIBUTING.md §2's resumability promise — a bare rerun finds the
+//! unfinished seed and continues from wherever review left it.
 
 use crate::audit::{classify_one_with_recordings, render_report, Classified};
 use crate::queue::{
@@ -54,19 +35,14 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Carries the already-prompted-for login across the containment re-exec a
-/// full-`PATH` freeze goes through (`mandible_extract::exec::containment`'s
-/// `enter_or_refuse`: `unshare` re-execs this same binary with the same
-/// argv, inheriting this process's environment). That re-exec restarts
-/// `main()` from scratch, which would otherwise call [`prompt_login`] a
-/// second time against a `stdin` that has already been fully consumed by
-/// the first prompt — read once as a real bug (`ci-test-login` piped in
-/// once produced two "GitHub login:" prompts and a "no GitHub login given
-/// and stdin closed" error): the process image is genuinely a fresh
-/// process by the time it runs again, and cannot remember what it already
-/// read from a pipe or file. Set right before [`crate::sweep_guard`] is
-/// called and checked at the top of [`cmd_contribute`], the same pattern
-/// `containment`'s own `SCOREBOARD_FD_ENV_VAR` already uses to survive the
-/// same re-exec.
+/// full-`PATH` freeze goes through (`unshare` re-execs this binary with
+/// the same argv and environment). That re-exec restarts `main()` from
+/// scratch, which would otherwise call [`prompt_login`] a second time
+/// against a `stdin` already consumed by the first prompt, since the
+/// fresh process image remembers nothing read from a pipe. Set right
+/// before [`crate::sweep_guard`] is called and checked at the top of
+/// [`cmd_contribute`], the same pattern `containment`'s own
+/// `SCOREBOARD_FD_ENV_VAR` uses to survive the same re-exec.
 const CONTRIBUTE_LOGIN_ENV_VAR: &str = "XTASK_CONTRIBUTE_LOGIN";
 
 /// A GitHub login is validated against this shape everywhere it is read —

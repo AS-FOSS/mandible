@@ -1,41 +1,15 @@
-//! The detail pane: a breadcrumb header over **one scrollable document of
-//! sections** — `DESCRIPTION`, `USAGE`, `POSITIONALS`, `FLAGS`,
-//! `MODIFIERS`, `ENVIRONMENT`, in that order and only when non-empty
-//! (spec §9.3).
+//! The detail pane: a breadcrumb header over one scrollable document of
+//! sections, in order, skipping empty ones: `DESCRIPTION`, `USAGE`,
+//! `POSITIONALS`, `FLAGS`, `MODIFIERS`, `ENVIRONMENT` (spec §9.3). The four
+//! list sections share one loop over [`LIST_SECTIONS`] and
+//! [`mandible_core::EntityKind`]; [`mandible_core::Entity::group`] renders
+//! as a divider, inherited entities in a final dimmed `Inherited` group.
 //!
-//! The four list sections are driven purely by
-//! [`mandible_core::EntityKind`]: one loop over [`LIST_SECTIONS`] renders
-//! all four, so every kind is rendered through the same code and no
-//! section can acquire behaviour of its own — proven twice over, first
-//! when the parser began emitting modifiers with no change to this file,
-//! then again for environment variables. Within a section,
-//! [`mandible_core::Entity::group`] renders as a divider rule and
-//! inherited entities land in a final dimmed `Inherited` group
-//! (spec §9, §9.3).
-//!
-//! **Every line handed to the `Paragraph` is already wrapped to the
-//! pane's exact width before it gets there** — both the description
-//! prose and each flag's spelling/description — rather than leaning on
-//! `ratatui`'s own `Wrap` to do it. Two reasons:
-//!
-//! 1. A flag's description continuation must hang-indent under the
-//!    description column, not restart at column 0 (spec-adjacent
-//!    feedback: `ratatui::widgets::Wrap` re-wraps a `Line` with no memory
-//!    of where useful content started, so a flag line handed to it as one
-//!    long `Span` run comes back flush-left on continuation — the single
-//!    biggest readability problem the pane had).
-//! 2. Search selecting a flag needs to scroll the pane to *that exact
-//!    on-screen row* (spec §10's "closes the loop" requirement). That's
-//!    only possible if the `Line` index we compute during layout is the
-//!    same index the `Paragraph` actually renders at — which requires
-//!    controlling 100% of the wrapping ourselves, not delegating part of
-//!    it to a widget whose reflow decisions happen after this function
-//!    returns.
-//!
-//! `Wrap` stays enabled on the `Paragraph` purely as a defensive
-//! fallback (spec §9's border-corruption lesson: untrusted text reaching
-//! a `Span` unclipped is how that happened before) — every line we
-//! construct should already fit, so it should never need to act.
+//! Every line handed to `Paragraph` is pre-wrapped to the pane's exact
+//! width here, not by `ratatui::widgets::Wrap`: flag continuations must
+//! hang-indent at the description column (spec §9.1a) and search must
+//! scroll to an exact line index (spec §10). `Wrap` stays on only as a
+//! defensive fallback against unclipped text (spec §9).
 
 use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
@@ -76,11 +50,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_set(style::border_set(app.glyphs))
         .border_style(border_style)
-        // A column of breathing room either side, so prose and flag rows
-        // don't butt against the border. `Block::padding` takes it out of
-        // the inner rect, so every width calculation downstream — wrapping,
-        // the description column, truncation — accounts for it without
-        // knowing it exists.
+        // One column of padding each side; `Block::padding` removes it from
+        // `inner`, so downstream width math never has to know it exists.
         .padding(Padding::horizontal(1));
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -95,21 +66,17 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
-    // The user asked to see the tool's own bytes (`t`). Checked before the
-    // parsed rendering and before the degradation check below, because it
-    // is an override of both: the whole point is to see past whatever
-    // mandible decided.
+    // Raw mode (`t`) overrides both the parsed rendering and the
+    // degradation check below.
     if let Some(raw) = app.raw_help_for_selected() {
         render_raw_mode(frame, inner, app, raw);
         draw_hscroll_affordance(frame, area, app);
         return;
     }
 
-    // Level 3 of spec §7 Tier B's staged degradation (batch 6 part 4): no
-    // parse produced anything structurally plausible for this node, so it
-    // carries the tool's own raw `--help` text instead of invented
-    // structure. This is a fundamentally different rendering, not a
-    // variant of the structured one below — see `render_verbatim`.
+    // No plausible parse for this node (spec §7 Tier B staged
+    // degradation): renders the tool's own raw `--help` text via
+    // `render_verbatim` instead of structure.
     if !node.unparsed.is_empty() {
         render_verbatim(
             frame,
@@ -132,12 +99,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         app.glyphs,
         app,
     );
-    // Search selecting a flag scrolls straight to it (spec §10): the line
-    // index is exact because every line above was pre-wrapped by us, not
-    // by the widget's own `Wrap` after the fact. Falls back to the user's
-    // own scroll position once nothing is flag-targeted.
-    // Tell `App` how far this content can scroll, so `↓` stops at the end
-    // instead of pushing it off the top into blank space.
+    // Clamps `↓` to the document's end; search-selected flags scroll to an
+    // exact pre-wrapped line index (spec §10), else the user's own scroll.
     app.set_detail_extent(built.lines.len(), inner.height as usize);
     let scroll = match built.target_flag_line {
         Some(line) => target_scroll(&built, line, inner.height as usize),
@@ -164,15 +127,11 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 /// two edge cases below expressible at all — a row is a place in the
 /// document with a height, not a line index:
 ///
-/// - A row already wholly visible from the top scrolls **nothing**.
-///   Scrolling a flag to the top of the pane when it was on screen anyway
-///   throws away the `DESCRIPTION` and `USAGE` above it to no purpose.
-/// - The offset is clamped to the document's own extent, so targeting the
-///   last flag of a long list cannot scroll past the end into blank space.
-///   That clamp is the same bound `App::set_detail_extent` puts on the
-///   user's own scrolling, and this path used to bypass it — the
-///   unbounded-detail-pane-scroll bug class, reached through search
-///   instead of through `↓`.
+/// - A row already wholly visible from the top scrolls nothing, so a flag
+///   already on screen keeps `DESCRIPTION`/`USAGE` above it visible.
+/// - The offset is clamped to the document's own extent (same bound as
+///   `App::set_detail_extent`), so the last flag of a long list cannot
+///   scroll past the end into blank space.
 fn target_scroll(built: &BuiltLines, first_line: usize, viewport: usize) -> usize {
     let row_end = built
         .rows
@@ -186,36 +145,12 @@ fn target_scroll(built: &BuiltLines, first_line: usize, viewport: usize) -> usiz
     first_line.min(max)
 }
 
-/// Draw the horizontal-scroll overflow affordance in the detail pane's
-/// border — a single glyph on the top edge, the one row that already
-/// legitimately carries something other than the plain rule character (the
-/// breadcrumb title, spec §2) and so the one row `border_integrity.rs`
-/// checks less strictly than the other three. Placed a couple of cells
-/// inside the top-right corner, never
-/// on it, so a very long breadcrumb can never push this into corner
-/// territory and `border_integrity.rs`'s exact-corner-glyph assertion never
-/// sees anything but the rounded/ASCII corner it expects.
-///
-/// A no-op with the config toggle off — `app.horizontal_scroll_enabled` is
-/// exactly the same guard the scroll keys use (`App::detail_hscroll_left`
-/// /`_right`), so "off" never draws a marker for an offset the user has no
-/// way to have created.
-///
-/// **Deliberately drawn regardless of which pane has focus**, even though
-/// `h`/`l`/`←`/`→` only reach [`App::detail_hscroll_left`]/`_right` while
-/// `Focus::Detail` (`event::handle_detail_key`) — with the tree focused,
-/// this can promise more content on a side no keypress currently reaches.
-/// That was a conscious choice, not an oversight: the alternative is a pane
-/// that silently clips a USAGE line or raw `--help` text with no sign
-/// anything is missing until the reader happens to `Tab` over and press
-/// `l`, and a wrong-but-honest "there's more, go focus this pane to see it"
-/// is a smaller failure than that silent clipping — the same asymmetry
-/// spec §9's border-corruption lesson already treats as the more dangerous
-/// direction (content quietly doing something the reader can't see beats
-/// content quietly *not* telling them there's more of it). Revisit this if
-/// user feedback says the marker reads as broken rather than as "Tab over
-/// for more" — the fix then is gating on `app.focus == Focus::Detail` here,
-/// not changing what the marker itself draws.
+/// Draw the horizontal-scroll overflow marker on the border's top edge, a
+/// couple of cells inside the corner rather than on it, so
+/// `border_integrity.rs`'s exact-corner-glyph assertion still sees only the
+/// rounded/ASCII corner. No-op when `app.horizontal_scroll_enabled` is
+/// false. Drawn regardless of pane focus, since a silently clipped edge is
+/// worse than a marker pointing at an unfocused pane (spec §9).
 fn draw_hscroll_affordance(frame: &mut Frame, area: Rect, app: &App) {
     if !app.horizontal_scroll_enabled || area.width < 6 || area.height == 0 {
         return;
@@ -236,17 +171,13 @@ fn draw_hscroll_affordance(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 /// Render the verbatim view (`t`): the tool's own `--help` output for the
-/// selected node, whatever mandible made of it.
+/// selected node.
 ///
-/// The three states are all rendered, not just the successful one. A view
-/// whose purpose is "show me what you were actually given" cannot answer a
-/// refused or failed probe with a blank pane, because blank is also what a
-/// tool that prints nothing looks like, and telling those apart is the
-/// entire reason someone pressed the key.
+/// All three `RawHelp` states render, not just `Ready`: a blank pane would
+/// be indistinguishable from a tool that prints nothing.
 fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::RawHelp) {
-    // Named from the argv actually run, never a hardcoded spelling — see
-    // `RawHelp::Ready`. Only `Ready` knows it; the other two states have no
-    // output to attribute, so they stay generic.
+    // `Ready` names the argv actually run; the other states have no output
+    // to attribute, so they stay generic.
     let heading = match raw {
         crate::app::RawHelp::Ready(_, argv) => {
             format!("verbatim {} output of `{argv}`", app.glyphs.absent)
@@ -279,46 +210,17 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
 }
 
 /// Render preformatted text under a muted heading: the tool's own bytes,
-/// never re-flowed.
+/// never re-flowed. Shared by the verbatim view (`t`) and level-3
+/// degradation (`node.unparsed`, spec §7 Tier B step 3).
 ///
-/// Shared by the verbatim view (`t`) and by level-3 degradation, which want
-/// the same treatment for the same reason and differ only in their label.
-///
-/// Originally written for a node whose parse degraded to level 3 (spec §7
-/// Tier B step 3, batch 6 part 4): `node.unparsed`, one preformatted line
-/// per entry, labelled so it reads as "the author's own text", not a
-/// mandible parse.
-///
-/// Tool-authored body lines are deliberately **not** run through
-/// [`wrap_words`] and are not given `Paragraph::wrap` the way every other
-/// block in this pane is (see this
-/// module's top doc comment on why the rest of the pane pre-wraps
-/// everything itself) — this is preformatted output, and re-flowing it
-/// would silently edit the tool author's own text. `h`/`l`/`←`/`→` scroll
-/// it horizontally instead (spec §9: preformatted detail-pane content
-/// scrolls rather than wraps); the important safety property — content
-/// never reflows, and can therefore never smear into the pane border the
-/// way an unsanitized newline once did (spec §9) — holds regardless of
-/// which offset is showing.
-///
-/// With `[ui] horizontal_scroll` off there is no offset to move, so a line
-/// wider than the pane goes to [`wrap_preformatted`] instead: it keeps
-/// every column the author drew and continues the overflow on the next
-/// row rather than dropping it. Off means *wrap*, never *clip* — this
-/// pane is the one view whose job is showing the reader exactly what the
-/// tool printed, and a pane that quietly ends a line at the border tells
-/// them nothing is missing. Safe to hand
-/// straight to a `Span` because both bodies reaching here were built by
-/// `mandible_core::Text::sanitize_preserving_layout` (spec §4.1's layout
-/// tier), one line at a time: the verbatim view's own lines in
-/// `mandible-extract`'s `help_text::format_streams`, and `node.unparsed`
-/// in that module's `verbatim_node`. It guarantees no control characters
-/// and no embedded newline reach here, and it leaves indentation and
-/// column alignment exactly as the tool printed them — which is the
-/// point of both views, since a fallback that reformats the document it
-/// is showing is no longer showing it. The heading and the recognizable unverified-subcommand notice
-/// prefix are different: they are prose owned by mandible, so they wrap at the
-/// current inner width while the tool lines after them stay untouched.
+/// Body lines skip [`wrap_words`]/`Paragraph::wrap`; `h`/`l`/`←`/`→` scroll
+/// them horizontally instead (spec §9: preformatted content scrolls, never
+/// wraps, so it can't reflow into the border). With `[ui] horizontal_scroll`
+/// off, an overlong line goes to [`wrap_preformatted`] instead of clipping.
+/// The heading and notice prefix are mandible's own prose and wrap
+/// normally; body text is pre-sanitized by
+/// `mandible_core::Text::sanitize_preserving_layout` (spec §4.1), so it is
+/// safe to hand straight to a `Span`.
 fn render_verbatim(
     frame: &mut Frame,
     inner: Rect,
@@ -338,13 +240,8 @@ fn render_verbatim(
     let body: Vec<String> = body.collect();
     let wrapped_prefix_lines = unverified_notice_prefix_len(&body);
 
-    // Everything past the mandible-authored notice prefix is the tool's
-    // own preformatted bytes (see this function's doc comment above) —
-    // exactly the content spec §9 wants scrolled rather than wrapped. The
-    // notice prefix itself stays prose: it's mandible's own text, already
-    // wrapped by `push_wrapped_notice`, and immune to the horizontal
-    // offset the same way DESCRIPTION/FLAGS stay immune in the structured
-    // view below.
+    // Only the tool's own preformatted bytes get the horizontal offset; the
+    // notice prefix is mandible's own prose, already wrapped (spec §9).
     let hoffset = if app.horizontal_scroll_enabled {
         let max_width = body
             .iter()
@@ -382,38 +279,13 @@ fn render_verbatim(
 }
 
 /// The visible window of `s` for horizontal scrolling of preformatted
-/// content: `offset` display-width columns trimmed off the left, then
-/// capped to at most `width` columns of what remains.
-///
-/// The cap matters as much as the trim. The structured detail pane's
-/// `Paragraph` keeps `Wrap` enabled as a defensive fallback (this module's
-/// top doc comment) for content this function's caller does *not* produce —
-/// every other line here is already pre-wrapped to fit. A preformatted
-/// line handed over wider than `width` is exactly the shape `Wrap` exists
-/// to catch, so without the cap it silently re-wraps a synopsis this
-/// feature deliberately stopped wrapping, restarting the continuation flush
-/// left with no memory of the line's own indent — precisely the reflowed,
-/// meaning-scrambling failure spec §9 introduced this feature to remove,
-/// just reintroduced one layer up. Found by rendering `ip` through a real pty
-/// rather than trusting `TestBackend` (AGENTS.md §3.2): a synthetic fixture
-/// narrow enough to need the cap was never in the corpus.
-///
-/// Character-by-character, never a raw byte slice (AGENTS.md: never slice
-/// tool-derived text at a byte offset — this project has shipped a
-/// UTF-8-boundary panic from exactly that shortcut once already). A
-/// double-width character that straddles either boundary is dropped whole
-/// rather than split — splitting it would emit half a cell and misalign
-/// every column after it, which is worse than losing one character's width
-/// of the scroll.
-/// The visible window of one preformatted line at a horizontal offset,
-/// plus whether content was clipped off each edge. The flags feed
-/// [`draw_clip_marker_rails`], which draws vim-style `<`/`>` markers
-/// (`listchars extends:>,precedes:<`) — in the pane's one-column padding
-/// gutter against the border, NOT inside the text: the maintainer's call,
-/// so the marker reads as a rail on the wall and the text keeps its full
-/// width and natural columns. A line that ends exactly at the edge hides
-/// nothing and reports no clip; a line entirely behind the offset renders
-/// empty with no stray left marker.
+/// content: `offset` display-width columns trimmed off the left, capped to
+/// `width` columns of what remains (else it falls through to `Paragraph`'s
+/// defensive `Wrap` and gets reflowed, spec §9). Indexes character-by-
+/// character, never a byte offset (AGENTS.md); a double-width character
+/// straddling a boundary is dropped whole. Regression fixture: `ip`
+/// rendered through a real pty (AGENTS.md §3.2). Returns the window plus
+/// per-edge clip flags, fed to [`draw_clip_marker_rails`].
 fn hscroll_line(s: &str, offset: usize, width: usize) -> (Line<'static>, bool, bool) {
     let total = display_width(s);
     if offset == 0 && total <= width {
@@ -465,39 +337,15 @@ fn draw_clip_marker_rails(
     }
 }
 
-/// Wrap one preformatted line to `width` display columns, losing nothing.
-///
-/// The wrap-mode counterpart of [`hscroll_line`]: with `[ui]
-/// horizontal_scroll` off there is no horizontal offset for the reader to
-/// move, so a line wider than the pane has to arrive on more than one row
-/// or it does not arrive at all. It used to arrive on exactly one, and the
-/// `Paragraph` this pane's verbatim path builds carries no `Wrap` (that is
-/// the whole point of the scrolling path) — so everything past the pane's
-/// last column was silently dropped, in the one view whose purpose is
-/// showing the reader what the tool actually printed.
-///
-/// Not [`wrap_words`], which is prose wrapping: it splits on whitespace
-/// and rejoins with single spaces, so `ar`'s padded command table would
-/// come back as `d - delete file(s) from the archive` with the column the
-/// author aligned on collapsed away — the exact reformatting spec §4.1's
-/// layout tier exists to stop. Here instead:
-///
-/// - a line that fits is returned byte-identical, which is every line of
-///   most tools' help output;
-/// - an over-wide line is cut at a whitespace boundary when there is one
-///   in the window and hard-cut between characters when there is not, so a
-///   single unbroken 5,000-column token still survives whole;
-/// - each cut keeps the text either side of it exactly as written —
-///   interior runs of spaces inside a row are never touched;
-/// - continuation rows carry the line's own leading indent, so a wrapped
-///   table row stays visibly part of that row rather than drifting to
-///   column 0. The indent is dropped when it would take half the pane or
-///   more, since a 38-column indent in a 40-column pane turns one line
-///   into a tall column of two-character rows.
-///
-/// Character-by-character, never a raw byte slice at a computed column
-/// (AGENTS.md's byte-slicing rule) — [`width_prefix_end`] only ever
-/// returns a real `char` boundary.
+/// Wrap one preformatted line to `width` display columns, losing nothing
+/// (wrap-mode counterpart of [`hscroll_line`], used with `[ui]
+/// horizontal_scroll` off, spec §9). Not [`wrap_words`]: that collapses
+/// interior spacing, destroying a tool's own column-aligned table (spec
+/// §4.1). A fitting line returns byte-identical; an over-wide one cuts at
+/// a whitespace boundary when one exists, else hard-cuts between
+/// characters; continuation rows carry the line's own indent, dropped
+/// past half the pane. Character-by-character, never a byte slice
+/// (AGENTS.md); [`width_prefix_end`] only returns real `char` boundaries.
 fn wrap_preformatted(line: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     if display_width(line) <= width {
@@ -642,17 +490,11 @@ fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize)
     }
 }
 
-/// One rendered entity, as **one logical row** however many screen lines
-/// its description wrapped onto (spec §9.3).
-///
-/// This is the type that keeps the distinction honest. Selection addresses
-/// `first_line` — never a continuation line — and the scroll extent is
-/// taken from the *rendered* line count, never from a count of rows, so
-/// neither number can drift into the other. Conflating them is the
-/// unbounded-detail-pane-scroll bug class: a pane that scrolls in rows
-/// while it renders in lines runs off the end of its own content by
-/// exactly the number of wraps on screen, and
-/// `a_wrapped_entry_is_one_logical_row` pins it.
+/// One rendered entity, as one logical row however many screen lines its
+/// description wrapped onto (spec §9.3). Selection addresses `first_line`,
+/// never a continuation line; scroll extent comes from the rendered line
+/// count, never a row count, so the two can't drift apart. Regression
+/// test: `a_wrapped_entry_is_one_logical_row`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct EntryRow {
     /// Index of the row's first line in [`BuiltLines::lines`].
@@ -676,25 +518,12 @@ struct BuiltLines {
 }
 
 /// The list sections of spec §9.3, in render order: the [`EntityKind`]
-/// each holds, its heading, and the indent its rows are inset by.
-///
-/// The whole of the per-kind knowledge in this pane, and it is *data*.
-/// There is no branch on kind anywhere below: a section renders because its
-/// kind has entities, and every kind goes through exactly the same code.
-/// `Modifier` and `EnvVar` are what that claim bought: the parser began
-/// emitting modifier letters (spec §7 Tier B, "Modifier tables") and later
-/// environment variables (spec §7 Tier B, "Environment sections"), and this
-/// pane rendered a MODIFIERS section for `ar`/`llvm-ar` and an ENVIRONMENT
-/// section for `bpftrace`/`node`/`fzf` with no change to a line of it.
-/// `DESCRIPTION` and `USAGE` are not here because they are node prose, not
-/// entity lists — they carry no count and take no shared column.
-/// POSITIONALS is the one section carrying an indent (spec §9.3). Its rows
-/// are bare names with no dashes to start them, so at the content edge a
-/// run of them reads as loose text against the pane border rather than as a
-/// list; the flag-shaped sections keep the edge, where the short and long
-/// columns are structure the eye follows down the section. The indent is
-/// [`POSITIONAL_INDENT`], a number of its own rather than a share of the
-/// flag columns.
+/// each holds, its heading, and the indent its rows are inset by. This is
+/// the entire per-kind knowledge in this pane; nothing below branches on
+/// kind. `DESCRIPTION`/`USAGE` are node prose, not entity lists, so they
+/// are not here. POSITIONALS alone carries an indent ([`POSITIONAL_INDENT`]):
+/// its bare names have no dashes to set them off from the border, unlike
+/// the flag-shaped sections (spec §9.3).
 const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
     (EntityKind::Positional, "POSITIONALS", POSITIONAL_INDENT),
     (EntityKind::Flag, "FLAGS", 0),
@@ -715,10 +544,8 @@ fn build_lines(
     let mut target_flag_line = None;
     let mut clip_rows: Vec<(usize, bool, bool)> = Vec::new();
     let mut rows: Vec<EntryRow> = Vec::new();
-    // Reset every frame, not just when a USAGE section is present below —
-    // otherwise a node with no USAGE at all would leave the previous
-    // node's extent sitting in the `Cell`, and the overflow affordance
-    // would draw for content that isn't even on screen anymore.
+    // Reset every frame so a node with no USAGE doesn't keep the previous
+    // node's extent and draw a stale overflow marker.
     if app.horizontal_scroll_enabled {
         app.set_detail_hextent(0, width);
     }
@@ -876,21 +703,11 @@ const GROUP_BLANKS: usize = 1;
 
 /// Put exactly `blanks` blank rows between whatever is already on the page
 /// and the heading about to be pushed (spec §9.3) — never fewer, never
-/// more, and never any at the very top of the document.
-///
-/// The separator belongs to the block that *opens*, not to the one that
-/// closes. Every section used to push its own trailing blank instead,
-/// which made the boundary the sum of two independent decisions: a section
-/// that wrapped its last row, ended on a group, or ran a paragraph split
-/// out into an empty trailer contributed a different number of blanks from
-/// its neighbour, and the page's rhythm changed with the content. One
-/// caller per level, one rule, and whatever blank rows the block above
-/// left behind are absorbed here rather than counted on — which is what
-/// makes the count exact rather than merely a minimum.
-///
-/// Nothing is pushed *below* a heading: the header's or divider's own rule
-/// is already a horizontal line separating it from its rows, and a blank
-/// under it would set the label adrift from the list it names.
+/// more, none at the top of the document. The separator belongs to the
+/// block that opens, not the one that closes: trailing blanks left by the
+/// block above are popped and replaced, so the count is exact rather than
+/// a minimum. Nothing is pushed below a heading; its own rule already
+/// separates it from its rows.
 fn open_block(lines: &mut Vec<Line<'static>>, blanks: usize) {
     while lines.last().is_some_and(line_is_blank) {
         lines.pop();
@@ -910,23 +727,15 @@ fn line_is_blank(line: &Line<'static>) -> bool {
 }
 
 /// A section heading followed by a rule to the pane's edge, with the
-/// section's entity count for the list sections: `FLAGS (41)`.
+/// section's entity count for list sections: `FLAGS (41)`. Label and rule
+/// are drawn in [`style::section_rule`], the middle of the pane's three
+/// neutral steps (spec §9.3); the rule goes through the glyph set so a
+/// non-UTF-8 terminal gets `-` rather than tofu.
 ///
-/// The rule is what gives the pane hierarchy: without it, a word and the
-/// body text beneath it are two lines of similar weight, and the eye has
-/// nothing to anchor a section boundary to. Label and rule alike are drawn
-/// in [`style::section_rule`] — the middle of the pane's three neutral
-/// steps, a clear step below the borders around it and a clear step above
-/// the group divider that subdivides it — and the rule goes through the
-/// glyph set so a non-UTF-8 terminal gets `-` rather than tofu.
-///
-/// Shape, not styling, is what separates this from a group divider
-/// ([`group_divider_line`]): both are label-first with a rule running to
-/// the pane's edge, and this one is CAPS with a count against the
-/// divider's mixed case without one. Spec §9.2 forbids making an
-/// attribute the sole distinction between two kinds of text, because
-/// several terminals ignore attributes — so the two must still read
-/// differently with every one stripped, and they do.
+/// Distinguished from a group divider ([`group_divider_line`]) by shape,
+/// not styling alone — CAPS-plus-count versus mixed-case-without — since
+/// spec §9.2 forbids an attribute as the sole distinction between two
+/// kinds of text.
 fn heading_line_ruled(
     text: &str,
     count: Option<usize>,
@@ -940,11 +749,8 @@ fn heading_line_ruled(
     };
     let used = display_width(&heading) + 1;
     let rule_width = width.saturating_sub(used);
-    // Label and rule are one piece of furniture, so the label is drawn in
-    // exactly the rule's style — same color, and no bold, which brightens
-    // a foreground on many terminals and would recreate the mismatch
-    // through an attribute rather than a color. CAPS and the count are
-    // what mark this out as the outer level, not weight.
+    // Label drawn in exactly the rule's style, never bold: CAPS and the
+    // count mark this as the outer level, not weight (spec §9.3).
     let shade = style::section_rule(palette);
     let mut spans = vec![Span::styled(heading, shade)];
     if rule_width > 0 {
@@ -954,54 +760,30 @@ fn heading_line_ruled(
     Line::from(spans)
 }
 
-/// One usage line, with the redundancy stripped.
+/// One usage line, with the redundant `Usage:`/node-name prefix stripped:
+/// the `USAGE` heading above already supplies the label, and the name
+/// must not repeat if the tool's own command path already names it. A
+/// cobra tool prints its full path, not just the leaf name (`docker
+/// import --help` → `docker import [OPTIONS]...`), so the check scans the
+/// whole leading run of bare word tokens, stopping at the first
+/// option/placeholder/ALL-CAPS-metavar token, rather than just the first
+/// word. Fixtures: `docker import`, `smokecli columns outlier`.
 ///
-/// The raw string frequently already carries both a `Usage:` label and the
-/// tool's own command path — `tar --help` yields `Usage: tar [OPTION...]`,
-/// and prepending the node name to that produced `tar Usage: tar
-/// [OPTION...]`, with the name twice and a label the `USAGE` heading
-/// directly above already supplies.
-///
-/// The old guard only checked the usage text's *first* word, which is why
-/// `docker import --help`'s `Usage:  docker import [OPTIONS] file|URL|-
-/// [REPOSITORY[:TAG]]` rendered as `import docker import [OPTIONS]
-/// file|URL|- [REPOSITORY[:TAG]]`: cobra prints the *full* command path
-/// (`docker import`), not just the leaf name, so the first word is
-/// `docker` and the check missed. `smokecli columns outlier` (argparse,
-/// which does the same thing) has the identical shape: `usage: smokecli
-/// columns outlier [-h] ...`.
-///
-/// So the check now scans the whole run of bare, word-shaped tokens at the
-/// front of the usage text — stopping at the first token that looks like
-/// an option or placeholder (`-...`, `[...`, `<...`, or a bare ALL-CAPS
-/// metavar like `FILE`) — and prepends the name only when it is absent
-/// from that whole run, not just its first entry. That run *is* the
-/// tool's own command-path prefix; if the node's name shows up anywhere in
-/// it the line already names the command. Tools that print no command name
-/// at all still work: `Usage: [OPTIONS] FILE` has an empty leading run (the
-/// very first token is a placeholder), so nothing is found there and the
-/// name still gets prepended — which is what keeps a bare pattern like
-/// `[OPTIONS] <url>` a complete, copy-pasteable invocation.
-/// One usage form, as the column its text began at in the tool's own
-/// output and the text itself.
-///
-/// The column is the form's leading indentation plus whatever a `Usage:`
-/// label occupied in front of it, because both are width the author put
-/// there and only one of them survives into the rendered line. It is what
-/// [`usage_forms`] compensates with.
+/// One usage form: the column its text began at in the tool's own output
+/// (leading indent plus any dropped `Usage:` label width), and the text
+/// itself. [`usage_forms`] compensates with the column.
 fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
     let name = defensive_single_line(node_name);
     let raw = defensive_single_line(usage);
 
-    // The author's own indentation. Tabs are already expanded to spaces at
-    // 8-column stops by `Text::sanitize_preserving_layout`, so counting
-    // leading spaces is counting columns.
+    // Tabs are already expanded to spaces at 8-column stops
+    // (`Text::sanitize_preserving_layout`), so counting leading spaces
+    // counts columns.
     let mut text = raw.trim_start_matches(' ').to_string();
     let mut column = raw.chars().count() - text.chars().count();
 
-    // Drop a leading `usage:` label, case-insensitively — the heading says
-    // it — and charge its width to the column, since the text that
-    // followed it started that far in.
+    // Drop a leading `usage:` label case-insensitively; charge its width
+    // to the column.
     if text.len() >= 6 && text[..6].eq_ignore_ascii_case("usage:") {
         let after = text[6..].trim_start().to_string();
         column += text.chars().count() - after.chars().count();
@@ -1016,32 +798,13 @@ fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
     (column, text)
 }
 
-/// Every usage form, each as the padding it renders behind and its text —
-/// the tool's own alignment, compensated for the label the first form no
-/// longer shows (spec §4.1).
-///
-/// A tool draws its alternative invocations lined up under each other, and
-/// it lines them up against the `Usage: ` label it printed in front of the
-/// first one:
-///
-/// ```text
-/// Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
-///        ip [ -force ] -batch filename
-/// ```
-///
-/// The `USAGE` heading already says "usage", so the label is dropped — and
-/// dropping it moves the first form seven columns left while the second
-/// stays where the author put it, which is worse than not preserving the
-/// indentation at all. So every form shifts left by the first form's own
-/// content column: form one lands at the block indent, and the rest keep
-/// their positions *relative to it*, which is the alignment the author
-/// actually drew.
-///
-/// A form indented less than that shift — `du`'s `  or:  du ...`, whose
-/// two columns are fewer than the seven `Usage: ` occupied — clamps at the
-/// block indent rather than going negative. It cannot be aligned as drawn
-/// once the label it was drawn against is gone, and the honest fallback is
-/// the left edge.
+/// Every usage form, each as the padding it renders behind and its text,
+/// preserving the tool's own relative alignment once the dropped `Usage: `
+/// label no longer holds the first form's position (spec §4.1). Every
+/// form shifts left by the first form's own content column, so form one
+/// lands at the block indent and the rest keep their relative position; a
+/// form indented less than that shift (`du`'s `  or:  du ...`) clamps at
+/// the block indent rather than going negative.
 fn usage_forms(node_name: &str, usage: &[Text]) -> Vec<(usize, String)> {
     let forms: Vec<(usize, String)> = usage
         .iter()
@@ -1077,14 +840,11 @@ fn looks_like_option_or_placeholder(word: &str) -> bool {
 }
 
 /// Greedy word-wrap of `text` to at most `width` display columns per
-/// line, never breaking a word unless it alone exceeds `width` — in which
-/// case it is broken across as many lines as it takes (see
-/// [`break_overlong_word`]) rather than truncated. A token that is lost
-/// once truncated is unrecoverable from the parsed view: `smokecli
-/// unbreakable url` prints a ~150-character URL that used to render as
-/// `https://registry.example.com/v2/org…` in a 46-column pane, with
-/// everything past `/v2/org` gone. Always returns at least one (possibly
-/// empty) chunk.
+/// line, never breaking a word unless it alone exceeds `width`, in which
+/// case it breaks across as many lines as it takes ([`break_overlong_word`])
+/// rather than truncating: a truncated token is unrecoverable from the
+/// parsed view. Fixture: `smokecli unbreakable url`. Always returns at
+/// least one (possibly empty) chunk.
 fn wrap_words(text: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     let mut lines = Vec::new();
@@ -1123,20 +883,12 @@ fn wrap_words(text: &str, width: usize) -> Vec<String> {
 }
 
 /// Break a single token wider than `width` display columns into as many
-/// width-limited chunks as it takes, so the token survives intact across
-/// multiple lines instead of being lost to an ellipsis truncation.
-///
-/// Splits are placed between characters, chosen by summing each
-/// character's [`unicode_width`] — never by byte index (a raw byte offset
-/// can land mid-character and panic, the exact failure AGENTS.md's
-/// byte-slicing rule documents for parsed tool output) and never by
-/// `char` count (a `char`-count split can put a double-width CJK or emoji
-/// character right at the boundary and let it overflow the line by one
-/// cell, the same border-overflow failure display-width truncation exists
-/// to prevent elsewhere in this pane). A lone character wider than `width`
-/// itself (a 2-wide emoji in a 1-column budget) still cannot be split —
-/// it gets its own chunk and that chunk is allowed to exceed `width` by
-/// the unavoidable minimum, since no cut point inside a character exists.
+/// width-limited chunks as it takes, so the token survives intact rather
+/// than being lost to an ellipsis truncation. Splits by summed
+/// [`unicode_width`], never byte index (AGENTS.md) and never `char` count
+/// (a double-width CJK/emoji character could overflow the line by one
+/// cell). A single character wider than `width` gets its own oversized
+/// chunk; no cut point inside a character exists.
 fn break_overlong_word(word: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     let mut chunks = Vec::new();
@@ -1158,24 +910,13 @@ fn break_overlong_word(word: &str, width: usize) -> Vec<String> {
     chunks
 }
 
-/// A group heading with its source's punctuation stripped: single-lined,
-/// trimmed, and without the trailing terminator a help-text heading
-/// carries — the colon of `"GLOBAL OPTIONS:"`, and the full stop of a
-/// group whose label is a whole sentence the tool wrote
-/// (`"Start the lockspace of a shared VG in lvmlockd."`, LVM's own
-/// per-stanza description, which spec §7 Tier B makes that stanza's
-/// group label).
-///
-/// A divider is furniture: its label runs straight into the rule beside
-/// it, and a terminator stranded between the two reads as a mark on the
-/// line rather than as the end of a sentence — the same reason the colon
-/// goes. One trailing stop only, and never an ellipsis, which is docopt
-/// repetition notation rather than punctuation (a group named
-/// `"FILE..."` keeps its meaning).
-///
-/// The casing is left exactly as the tool wrote it — that is
-/// [`group_label`]'s and [`group_key`]'s business, and they want different
-/// answers.
+/// A group heading with its source's terminator stripped: single-lined,
+/// trimmed, no trailing colon (`"GLOBAL OPTIONS:"`) or sentence-ending
+/// full stop (LVM's own per-stanza description used as a group label,
+/// spec §7 Tier B) — a divider's label runs straight into its rule, so a
+/// stray terminator reads as a mark on the line. Never strips a trailing
+/// ellipsis (docopt repetition notation, e.g. `"FILE..."`). Casing is left
+/// untouched; that's [`group_label`]'s and [`group_key`]'s business.
 fn strip_group_punctuation(raw: &str) -> String {
     let single = defensive_single_line(raw);
     let trimmed = single.trim().trim_end_matches(':').trim();
@@ -1195,17 +936,12 @@ fn group_key(raw: &str) -> String {
     strip_group_punctuation(raw).to_uppercase()
 }
 
-/// The label a group divider displays: **mixed case, never CAPS**
-/// (spec §9.3).
-///
-/// CAPS is the section header's shape, and a group that also shouted would
-/// be indistinguishable from one on a terminal that drops the dimming
-/// (spec §9.2). So a heading the tool wrote in screaming caps
-/// (`"GLOBAL OPTIONS"`) is set in sentence case, while one that already
-/// carries the author's own casing (`"Main operation mode"`) keeps it —
-/// mixed case is information when the author chose it and noise when the
-/// help-text format imposed it. Either way the first character is
-/// capitalized, so `"main"` and `"Main"` render alike.
+/// The label a group divider displays: mixed case, never CAPS (spec
+/// §9.3, §9.2 — CAPS is the section header's shape and must stay
+/// distinguishable with dimming stripped). A heading the tool wrote in
+/// screaming caps (`"GLOBAL OPTIONS"`) is set to sentence case; one that
+/// already carries the author's own casing (`"Main operation mode"`)
+/// keeps it. Either way the first character is capitalized.
 fn group_label(raw: &str) -> String {
     let stripped = strip_group_punctuation(raw);
     let shouted = !stripped.chars().any(char::is_lowercase);
@@ -1224,39 +960,16 @@ fn group_label(raw: &str) -> String {
 
 /// A group divider within a section (spec §9.3): the group's label at
 /// column 0 with a rule running from it to the pane's edge,
-/// `Operation ──────…`.
-///
-/// The rows beneath it stay at the section's normal margin — grouping is
-/// drawn, never indented, so it costs no width.
-///
-/// Label-first, like the section header above it ([`heading_line_ruled`]).
-/// The divider used to open with a single rule cell before its label, on
-/// the theory that leading with the rule marked it as subordinate — but a
-/// one-cell stub of a line is not a level, it is a decoration, and it cost
-/// the pane its one straight left edge: every heading, every divider and
-/// every ungrouped row starts at column 0, so the eye reads the document
-/// down one margin. What actually separates the two levels is the shade of
-/// the rule and the shape of the label — CAPS with a count against mixed
-/// case without one — neither of which needs a cell of furniture in front
-/// of the words to carry it.
-///
-/// Rule and label are both drawn in [`style::group_rule`], the dimmest of
-/// the pane's three neutral steps and a clear step below the section
-/// header's [`style::section_rule`], so a divider reads as subordinate to
-/// the header above it rather than as its equal. The two spans are one
-/// style because they are one piece of furniture: a label in a different
-/// shade from the line running out of it reads as two unrelated marks
-/// that happen to share a row. The difference in weight belongs between
-/// the levels, never inside one of them — which is also why no label
-/// anywhere in this pane is bold.
-///
-/// `ruled` is false for a divider that opens its section — see
-/// [`group_divider_lead_line`], which is what that case renders instead.
-///
-/// The label is tool-authored text of unbounded length, so it is truncated
-/// to the pane rather than trusted to fit — a divider that wrapped would
-/// stop being a rule, and one that overflowed would reach the border (spec
-/// §9's border-corruption lesson).
+/// `Operation ──────…`. Rows beneath stay at the section's normal margin;
+/// grouping is drawn, never indented. Label-first like the section header
+/// ([`heading_line_ruled`]), starting at the same column-0 left edge as
+/// every heading and ungrouped row. Rule and label share
+/// [`style::group_rule`], the dimmest of the pane's three neutral steps,
+/// a clear step below the header's [`style::section_rule`] (spec §9.3);
+/// never bold. `ruled` is false for a divider that opens its section —
+/// see [`group_divider_lead_line`]. The label is tool-authored text of
+/// unbounded length, so it is truncated to the pane rather than trusted
+/// to fit (spec §9 border-corruption lesson).
 fn group_divider_line(
     label: &str,
     width: usize,
@@ -1281,21 +994,11 @@ fn group_divider_line(
     Line::from(spans)
 }
 
-/// The divider that **opens** a section: its label alone, at column 0,
-/// with no rule at all (spec §9.3).
-///
-/// A section header already draws a full-width rule, and a ruled divider
-/// on the very next line draws a second one directly beneath it. Two
-/// full-width rules one above the other read as a single doubled line —
-/// the header's own rule stops looking like a boundary and the group's
-/// stops looking like a subdivision of it. The header's rule is the
-/// boundary; the group only needs to be named, and naming it at column 0
-/// under a heading that also starts at column 0 is what a sub-heading
-/// looks like.
-///
-/// Distinguishable from the section header with every attribute stripped
-/// (spec §9.2): the header is CAPS with a count and a rule running to the
-/// pane's edge, this is mixed case with neither.
+/// The divider that opens a section: its label alone, at column 0, with
+/// no rule (spec §9.3) — a ruled divider directly under the header's own
+/// full-width rule would read as one doubled line. Distinguishable from
+/// the section header with every attribute stripped (spec §9.2): CAPS
+/// with a count and a rule versus mixed case with neither.
 fn group_divider_lead_line(
     label: &str,
     width: usize,
@@ -1308,10 +1011,8 @@ fn group_divider_lead_line(
 
 /// A spelling wider than this fraction of the pane does not get to set the
 /// shared column — it runs on past it instead, pushing its own first
-/// description line and nothing else (see [`SectionLayout`]). One
-/// 40-character flag name in a list of short ones used to push every
-/// description in the list against the right-hand edge. Mirrors the tree
-/// pane's summary-column rule (spec §9.1).
+/// description line and nothing else (see [`SectionLayout`]). Mirrors the
+/// tree pane's summary-column rule (spec §9.1).
 const DESC_COLUMN_CAP_PERCENT: usize = 45;
 
 /// The share of a section's entities the shared column is fitted to
@@ -1325,21 +1026,11 @@ const DESC_COLUMN_CAP_PERCENT: usize = 45;
 /// gives the width back to the other nine.
 const SHARED_COLUMN_PERCENTILE: usize = 90;
 
-/// The narrowest a description is allowed to be. A section's shared column
-/// is clamped down until this much of the pane is left for prose, however
-/// wide the section's heads are (spec §9.3).
-///
-/// Measured against real output rather than picked: at 20 columns
-/// `docker pull`'s `--platform` description breaks as "Set / platform /
-/// if server / is / multi-pla… / capable" — six lines, one of them
-/// truncated mid-word, for six words of text. At 28 the same description
-/// reads as prose. In a 90-column terminal the detail pane is 41 columns
-/// wide, which puts the clamp at column 13 — enough for a short-and-long
-/// pair, with wider heads pushing their own first line right.
-///
-/// Clamping the column is not the same as letting a wide head clamp its
-/// own description: the column moves for the whole section, so every
-/// description in it still begins in the same place.
+/// The narrowest a description is allowed to be. A section's shared
+/// column is clamped down until this much of the pane is left for prose,
+/// however wide the section's heads are (spec §9.3). Measured against
+/// real output: at 20 columns `docker pull`'s `--platform` description
+/// breaks across six lines, one mid-word; at 28 it reads as prose.
 const MIN_DESC_WIDTH: usize = 28;
 
 /// Where a short spelling starts: the true left edge of the content area
@@ -1357,34 +1048,20 @@ const SHORT_COLUMN: usize = 0;
 /// letter as well.
 const LONG_COLUMN: usize = "-X, ".len();
 
-/// The indent POSITIONALS rows are inset by (spec §9.3).
-///
-/// Two columns: enough to set a loose list of bare names in from the pane's
-/// edge, and not so much that it costs the descriptions width. Its own
-/// number, deliberately **not** [`LONG_COLUMN`] — the inset exists to keep
-/// a run of dashless names off the pane's border, which is a question about
-/// this section alone, and tying it to the flag columns would couple two
-/// layouts that have no reason to move together.
-///
-/// MODIFIERS and ENVIRONMENT are bare-name sections too, but they are laid
-/// out like FLAGS — one tight list against the content edge — and stay
-/// there.
+/// The indent POSITIONALS rows are inset by (spec §9.3): two columns, its
+/// own number and deliberately not [`LONG_COLUMN`], since coupling it to
+/// the flag columns would move two unrelated layouts together. MODIFIERS
+/// and ENVIRONMENT are bare-name sections too but stay laid out like
+/// FLAGS, against the content edge.
 const POSITIONAL_INDENT: usize = 2;
 
 /// The column an entity's spellings start at within a section indented by
-/// `indent` (spec §9.3).
-///
-/// Shape decides it, never kind and never the section: a row whose first
-/// documented spelling is a short (or a dashless name — a positional, a
-/// modifier letter, a variable) starts at the content edge, and a row that
-/// has only long spellings is preindented so its first long lands in the
-/// same column a short row's long does.
-///
-/// A row documenting more than two spellings (`-h, -?, -help, --help`)
-/// flows from the short column whatever its first spelling is. It is the
-/// natural exception: there is no single "the long" in such a row to align,
-/// so preindenting it would push a list of names right for no column, and
-/// its length already marks it out.
+/// `indent` (spec §9.3). Shape decides it, never kind: a row whose first
+/// spelling is a short (or a dashless name) starts at the content edge; a
+/// long-only row is preindented to the same column a short row's long
+/// lands at. A row with more than two spellings (`-h, -?, -help, --help`)
+/// always flows from the short column, since there is no single "the
+/// long" in it to align to.
 fn spelling_column(entity: &Entity, indent: usize) -> usize {
     indent + bare_spelling_column(entity)
 }
@@ -1407,42 +1084,17 @@ fn bare_spelling_column(entity: &Entity) -> usize {
     LONG_COLUMN
 }
 
-/// How a whole section is arranged. Chosen once **per section**, never per
-/// row — a per-row decision is exactly what made this ragged.
-///
-/// Per section rather than per pane (spec §9.3): positionals, flags,
-/// modifiers and environment variables have nothing to say to each other's
-/// widths, and one column shared across all four would be set by whichever
-/// section happens to hold the longest name.
-///
-/// The pane is not wide enough for a three-column table at every terminal
-/// size, and the previous code did not admit that. It computed one shared
-/// description column, capped it at 45% of the pane, and then let any row
-/// too wide for the cap start its description wherever its own text
-/// happened to end. At 120 columns almost nothing exceeded the cap and the
-/// table looked right; at 90 columns `docker`'s global flags rendered with
-/// descriptions starting at three different columns (19, 24 and 28), which
-/// is not a table at all. The cap was silently setting a target that most
-/// rows then missed individually.
-///
-/// A wide row does start its own first line past the column today, which
-/// looks like that defect and is not it: it is one line of one row, one
-/// space past that row's head, and every other line of that description —
-/// and every line of every other row — is on the column. What made the old
-/// behaviour ragged was that a row's *whole* description moved, so the
-/// section had no column at all.
+/// How a whole section is arranged. Chosen once per section, never per
+/// row, and per section rather than per pane (spec §9.3): positionals,
+/// flags, modifiers and environment variables have nothing to say to
+/// each other's widths. A row too wide for the column pushes only its
+/// own first description line right, one space past its head; every
+/// other line, and every other row, stays on the column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SectionLayout {
     /// The section's shared description column: where every description
-    /// line in the section begins.
-    ///
-    /// The one number the whole section shares. The placeholder is part of
-    /// what the reader types, so it is measured as part of the spelling
-    /// rather than given an aligned slot of its own (spec §9.3): a slot
-    /// has to be wide enough for the section's widest placeholder, which
-    /// is width every row pays and one row needs — `grep`'s `-e,
-    /// --regexp PATTERNS` ran past the description column on a placeholder
-    /// alone.
+    /// line in the section begins. The value placeholder is measured as
+    /// part of the spelling, not given its own aligned slot (spec §9.3).
     description: usize,
     /// Columns every row in the section is inset by — [`POSITIONAL_INDENT`]
     /// for POSITIONALS, zero for the flag-shaped sections.
@@ -1468,32 +1120,17 @@ fn percentile_width(widths: impl Iterator<Item = usize>) -> usize {
 }
 
 /// The layout for one section's `entities` in a pane `width` columns wide,
-/// inset by `indent`.
+/// inset by `indent`. The shared column is the lowest of three bounds:
 ///
-/// Three bounds on the shared column, and it is the *lowest* of them:
+/// 1. The percentile (spec §9.3): fitted to the majority, widest tenth
+///    excluded rather than clamped.
+/// 2. The pane cap (spec §9.1a): a head past [`DESC_COLUMN_CAP_PERCENT`]
+///    gets no vote.
+/// 3. The clamp (spec §9.3): comes down until [`MIN_DESC_WIDTH`] columns
+///    are left for prose.
 ///
-/// 1. **The percentile** (spec §9.3): fitted to the majority, so the widest
-///    tenth pushes its own first line right rather than setting a column
-///    for everyone else.
-/// 2. **The pane cap** (spec §9.1a): a head past
-///    [`DESC_COLUMN_CAP_PERCENT`] of the pane gets no vote at all, however
-///    many of its kind there are — a section where *most* heads are
-///    enormous must still leave prose a readable width.
-/// 3. **The clamp** (spec §9.3): whatever the first two say, the column
-///    comes down until [`MIN_DESC_WIDTH`] columns are left for prose. This
-///    is what a narrow pane degrades by — the column moves, and the
-///    section stays one layout with one column rather than swapping to a
-///    second one at some threshold width.
-///
-/// …and one floor under all three: the column never comes further left
-/// than two past the deepest column a spelling can start at. The area left
-/// of the column is reserved for heads, so a column inside it would put
-/// descriptions to the *left* of the preindented longs they belong to,
-/// where a description stops reading as one.
-///
-/// Outliers are excluded from the measurement rather than clamped to it. A
-/// clamped column is a column the outlier still misses; an excluded one is
-/// a column it starts one space past while every other row stays aligned.
+/// ...floored at two past the deepest column a spelling can start at, so
+/// a description never lands left of the preindented longs it belongs to.
 fn section_layout(entities: &[&Entity], width: usize, indent: usize) -> SectionLayout {
     let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
     let gap = 2;
@@ -1748,21 +1385,13 @@ fn entity_value_text(flag: &Entity) -> Option<String> {
         })
 }
 
-/// True when this entity's spelling column ends in a sigil rather than a
-/// name, so its value placeholder glues directly onto it with **no**
-/// space — the argfile sigil flag's own row-verbatim shape, `@<file>`
-/// (spec §4.5), rather than the ordinary `--output FILE` gap every other
-/// valued flag renders with (spec §9.3).
-///
-/// Decided by shape, not by the literal spelling `"@"`, so any future
-/// sigil-shaped entity this fleet turns up gets the same treatment for
-/// free: a single **dashless** spelling whose first character is not
-/// alphanumeric. Both halves of that gate are load-bearing: `-?` is
-/// punctuation too, but it is a dashed short option — and since the
-/// value-recovery work it *does* take a value (`ffplay`'s `-? topic`),
-/// so a first-character test alone glued it into `-?topic`. A sigil is a
-/// spelling that carries no dashes of its own (`Dashes::None`), which no
-/// short or long flag has and the argfile `@` does.
+/// True when this entity's value placeholder glues directly onto its
+/// spelling with no space — the argfile sigil flag's row-verbatim shape,
+/// `@<file>` (spec §4.5), rather than the ordinary `--output FILE` gap
+/// (spec §9.3). Decided by shape (a single dashless spelling whose first
+/// character is not alphanumeric), not by the literal `"@"`: a dashed
+/// short option like `-?` must not match, since it does take a value
+/// (`ffplay`'s `-? topic`) with the ordinary space.
 fn spelling_is_sigil(flag: &Entity) -> bool {
     flag.spellings.len() == 1
         && matches!(flag.spellings[0].dashes, Dashes::None)
@@ -1773,19 +1402,13 @@ fn spelling_is_sigil(flag: &Entity) -> bool {
             .is_some_and(|c| !c.is_alphanumeric())
 }
 
-/// One entity's spellings, value placeholder, and description — each
-/// styled per spec §9.2's table (spelling: accent; value placeholder:
-/// muted; description: default foreground) — laid out against the
-/// section's shared column.
-///
-/// Every description line starts at that column, first and continuation
-/// alike, so the left of the section is heads and the right is prose. The
-/// one exception is a head that reaches the column: it keeps its own line
-/// and its first description line starts one space past where it ends,
-/// with every continuation back at the column (spec §9.3).
-///
-/// The returned lines are one logical row (spec §9.3); the caller records
-/// that as an [`EntryRow`].
+/// One entity's spellings, value placeholder, and description — styled
+/// per spec §9.2 (spelling: accent; value: muted; description: default)
+/// — laid out against the section's shared column. Every description
+/// line starts at that column, except a head that reaches it: it keeps
+/// its own line and its first description line starts one space past,
+/// with every continuation back at the column (spec §9.3). Returned lines
+/// are one logical row; the caller records that as an [`EntryRow`].
 fn entity_line(
     flag: &Entity,
     dim: bool,
@@ -1810,13 +1433,7 @@ fn entity_line(
     } else {
         style::accent(color_enabled)
     };
-    // Muted, not italic. Italic is unreliable — spec §9.2 lists it among
-    // the modifiers many terminals silently ignore, and where it *is*
-    // honoured the glyphs frequently overflow their cell and leave
-    // artefacts behind (reported on a `--log-level` value rendering
-    // `error|info|debug`). It was also redundant the moment values moved
-    // into their own column: position now carries the distinction, which
-    // is the more robust signal anyway.
+    // Muted, not italic: many terminals silently ignore italic (spec §9.2).
     let value_style = style::muted(color_enabled);
     let desc_style = if dim {
         style::muted(color_enabled)
@@ -1830,36 +1447,18 @@ fn entity_line(
     )];
     let mut prefix_width = display_width(leading) + display_width(&name_spec);
     if let Some(v) = &value_text {
-        // One space after the spelling, never a pad to a slot of its own
-        // (spec §9.3) — except the argfile sigil flag (spec §4.5), whose
-        // row-verbatim shape is `@<file>` with no space at all between the
-        // sigil and its placeholder. `spelling_is_sigil` decides this by
-        // shape (a lone non-alphanumeric-led spelling), not by checking for
-        // `"@"` literally, so it never touches any other flag's rendering.
-        // The placeholder is part of what the reader types, and a slot for
-        // it is width every row in the section pays so that the widest
-        // placeholder can line up — which is how a row whose first line was
-        // mostly empty ended up hanging its description. The distinction
-        // between name and placeholder is carried by the style, which
-        // costs nothing.
+        // One space after the spelling, never a padded slot of its own
+        // (spec §9.3), except the argfile sigil flag (spec §4.5, `@<file>`).
         let gap = if spelling_is_sigil(flag) { "" } else { " " };
         first_line_spans.push(Span::raw(gap));
         first_line_spans.push(Span::styled(v.clone(), value_style));
         prefix_width += display_width(gap) + display_width(v);
     }
 
-    // A head wider than the pane is broken across lines here, rather than
-    // handed over for `Paragraph`'s defensive `Wrap` to reflow.
-    //
-    // This module pre-wraps everything precisely so that fallback never
-    // has to act (see the module doc), and where it did act the result was
-    // visibly wrong: `vgchange --alloc`'s value placeholder,
-    // `contiguous|cling|cling_by_tags|normal|anywhere|inherit`, is one
-    // 55-column token, and `Wrap` restarted it at column 0 with no memory
-    // of the row's indent — a value placeholder rendered flush against the
-    // pane's left edge, two rows below the spelling it belongs to. Found
-    // by rendering `vgchange` through a real pty (AGENTS.md §3.2); no
-    // synthetic fixture in the corpus had a placeholder that wide.
+    // A head wider than the pane is broken across lines here rather than
+    // handed to `Paragraph`'s defensive `Wrap` (module doc), which restarts
+    // at column 0 with no memory of the row's indent. Regression fixture:
+    // `vgchange --alloc` rendered through a real pty (AGENTS.md §3.2).
     let mut head: Vec<Line<'static>> = Vec::new();
     if prefix_width > width {
         // Budget the wrap at the row's own column, so every line of the
@@ -1900,21 +1499,13 @@ fn entity_line(
     }
     let description_text = description_text.filter(|d| !d.is_empty());
 
-    // The IR carries a flag's permitted values (spec §7 Tier B rule 4:
-    // `gnu`/`oldgnu`/`pax`/`posix` under `tar --format=` are enum values,
-    // which is why they are *not* subcommands). This does not join into
-    // `description_text`: description text must stay the tool's own prose,
-    // and the spelling column must stay verbatim — `tar --format` carries
-    // both a `FORMAT` placeholder and `choices`, and folding an enumeration
-    // into either would corrupt it. A derived enumeration gets its own
-    // labeled line instead, indented two columns past the description
-    // column, in the section's derived-metadata style.
-    // A flag whose choices carry no per-value description (the common
-    // case — `tar --quoting-style`'s bare `literal`/`shell`/`c`/...) still
-    // gets the round-6 single summary line. A flag whose choices carry
-    // their own text (ffmpeg/ffplay's AVOption constants, spec §7
-    // recognition rule) render one indented `name  description` line per
-    // choice instead — see `choice_detail_lines` below.
+    // A flag's `choices` (spec §7 Tier B rule 4) never fold into
+    // `description_text` or the spelling: they render as their own
+    // `values:` line, indented two past the description column (spec
+    // §9.3). Choices with no per-value description (e.g. `tar
+    // --quoting-style`) get the single summary line below; choices that
+    // carry their own text (ffmpeg/ffplay AVOptions) render one indented
+    // `name  description` row each instead, via `choice_detail_lines`.
     let has_choice_descriptions = flag.choices.iter().any(|c| c.description.is_some());
     let values_line = (!flag.choices.is_empty() && !has_choice_descriptions).then(|| {
         let joined = flag
@@ -1933,23 +1524,10 @@ fn entity_line(
         return vec![Line::from(first_line_spans)];
     }
 
-    // One description column for the entire section, not one per entity.
-    // That is what makes a parameter list read as a table — the defining
-    // visual element of API documentation — and it only holds if it is
-    // *always* the same number. It previously wasn't: the column was a
-    // target, and any row too wide for it silently started its description
-    // at its own width instead, so a list could show three different
-    // "columns" at once.
-    //
-    // Every description line therefore starts at the column, and the left
-    // of the section is reserved for heads. A head that reaches the column
-    // is the one exception (spec §9.3): it cannot be truncated to fit
-    // (spec §9.1's rule for the tree applies here too) and it must not
-    // move the column for the rest of the section, so it keeps its line
-    // and its *first* description line starts one space past where it
-    // ends. Every later line of that same description is back at the
-    // column, which is what keeps the exception a per-row nudge rather
-    // than a second layout.
+    // One description column for the entire section (spec §9.3). A head
+    // that reaches the column keeps its own line, never truncated (spec
+    // §9.1); only its first description line starts one space past it,
+    // every later line is back at the column.
     let column = layout.description;
     let rest_width = width.saturating_sub(column).max(1);
 
@@ -1989,11 +1567,8 @@ fn entity_line(
         }
     }
 
-    // The values line sits two columns past the description column (spec
-    // §9.3): a further indent, not a fresh column, is what marks it as
-    // subordinate to the description rather than a second row of the same
-    // kind. It wraps at the pane's own width like any other pane line, and
-    // renders even when the flag carries no description at all.
+    // The values line sits two columns past the description column,
+    // marking it subordinate rather than a second row (spec §9.3).
     if let Some(values_line) = values_line {
         let values_column = column + 2;
         let values_width = width.saturating_sub(values_column).max(1);
@@ -2159,84 +1734,42 @@ pub fn provenance_summary(node: &CommandNode) -> String {
         .join(" + ")
 }
 
-/// Confidence below this is a warning; at or above it, silence.
-///
-/// 0.5 is exactly the cap Tier B applies when no framework was identified
-/// but the generic engine parsed cleanly — `git`, `curl`, `apt-get` and
-/// `openssl` all sit there and are fine. What is worth warning about is
-/// well below it: `find` and `ip` both measure well under it (real
-/// samples, mostly unclean), meaning the grammar recognised almost nothing
-/// and what is on screen is a guess.
-///
-/// `node.provenance.confidence` is `mandible-extract`'s
-/// `sections::compute_confidence`: clean/total over the option-table rows
-/// the block scanner found, not a statement about the whole document (that
-/// is `--doctor`'s separate `flag_description_ratio`, described/describable
-/// over every flag — see `mandible/src/doctor.rs`'s header comment). The
-/// two disagreeing is not automatically a bug — they measure different
-/// things — but `ssh-keygen --help` (pure usage synopsis, zero real
-/// option-table rows) used to read `0.0` here while `--doctor` reported
-/// 100%: the block scanner's own curl-shaped-flags guard correctly handed
-/// the wrapped final continuation line of `ssh-keygen`'s last usage form
-/// (`-n namespace -s signature_file [-r krl_file] [-O option]`, which
-/// opens with a dash) to the generic flags scanner, which read it as
-/// exactly one option-table row, failed to parse it cleanly (it is not
-/// one), and `0 / 1` reported a confident total failure from a sample of
-/// one. Fixed at the source (`sections::compute_confidence`'s
-/// `MIN_MEANINGFUL_SAMPLE`): a sample of zero *or one* row is folded into
-/// the same "no real sample" fallback, not divided. `find`'s 19-row and
-/// `ip`'s 11-row samples are untouched by that fix and still read as real,
-/// low scores here.
+/// Confidence below this is a warning; at or above it, silence. 0.5 is the
+/// cap Tier B applies when no framework was identified but the generic
+/// engine parsed cleanly (`git`, `curl`, `apt-get`, `openssl`); `find` and
+/// `ip` measure well under it. `node.provenance.confidence` is
+/// `mandible-extract`'s `sections::compute_confidence` (clean/total over
+/// option-table rows), distinct from `--doctor`'s
+/// `flag_description_ratio`; a sample of zero or one row folds into a "no
+/// real sample" fallback (`MIN_MEANINGFUL_SAMPLE`) rather than reporting a
+/// spuriously confident score. Fixture: `ssh-keygen --help`.
 const LOW_CONFIDENCE: f32 = 0.5;
 
-/// A caveat about *this* node, or nothing at all.
-///
-/// The footer used to read `help-text · structure ✓ · prose ✓` under every
-/// command of every tool. Both axes have authority for every tool
-/// measured, so the ticks were always ticks; the tier list was the same
-/// string on every node. It was decoration, and it crowded out the one
-/// thing in this area that carries information — how much of the help text
-/// the grammar actually understood.
-///
-/// So it now appears only when there is a caveat. Silence means "nothing
-/// to flag", which is a stronger signal than a tick that is always
-/// present, and it is the same reasoning that moved the framework out of
-/// here: repeated identical metadata is noise, not provenance.
+/// A caveat about this node, or nothing at all: renders only when there is
+/// something to flag, since a tick that's always present carries no
+/// information (spec §9).
 pub fn provenance_caveat(node: &CommandNode, glyphs: Glyphs) -> Option<String> {
-    // Spec §5.4: this node's name came off a filename on `PATH`, not out of
-    // the parent's own help text, so the strongest caveat available about
-    // it is that the command may not exist at all. Checked before
-    // everything below, including the verbatim exemption: how well the
-    // binary's own help parsed says nothing about whether the parent
-    // dispatches to it, and naming the binary is what lets the reader
-    // settle that themselves.
+    // Spec §5.4: this name came off `PATH`, not the parent's own help
+    // text, so the command may not exist at all. Checked before every
+    // other caveat, including the verbatim exemption below.
     if let Some(binary) = &node.discovered_binary {
         return Some(format!(
             "unverified: not in the parent's help; found on PATH as `{binary}`"
         ));
     }
 
-    // A node rendered verbatim is not a bad parse — it is the designed
-    // honest fallback (spec §7 Tier B step 3), it carries confidence 0.0
-    // by construction, and the pane already says so in its own words. Every
-    // `git` subcommand lands here, because `git clone --help` renders
-    // GIT-CLONE(1) and the man-page guard correctly refuses to mine roff
-    // prose for structure. Reporting that as "0% parsed" made a deliberate
-    // outcome read as a failure on every node of the tool.
+    // A node rendered verbatim is a designed fallback (spec §7 Tier B step
+    // 3), not a bad parse; the pane already says so elsewhere. Fixture:
+    // `git clone` (man-page guard).
     if !node.unparsed.is_empty() {
         return None;
     }
 
     // Spec §6 rule 2b: the tool's own text said this document is
-    // incomplete, and mandible could not (or did not) follow it — an
-    // unrecognised word/shape, a failed probe, or a rule 0 refusal.
-    // Checked ahead of the confidence caveat below and unconditionally
-    // (not gated on confidence at all): a node can parse *perfectly* —
-    // every flag on this page correctly recognized and described — and
-    // still be the wrong page, which is exactly curl's `--help` before
-    // this feature existed. A *followed* confession (`followed: true`)
-    // says nothing here; the tree already reflects the expanded document
-    // and there is nothing left to flag.
+    // incomplete and mandible did not follow it. Checked unconditionally,
+    // not gated on confidence: a node can parse perfectly and still be the
+    // wrong page. A followed confession (`followed: true`) has nothing to
+    // flag.
     if let Some(confession) = &node.confession {
         if !confession.followed {
             return Some(format!(
@@ -2340,11 +1873,7 @@ mod tests {
 
     /// A break `Text::sanitize` kept inside a description paragraph is
     /// structure, and the pane must render it as one (spec §4.1, §9.3).
-    /// Wrapping the whole paragraph through one `split_whitespace` put
-    /// `grep`'s `Example:` line straight back into the middle of the
-    /// sentence after it, undoing at render time what the IR had just got
-    /// right — the defect was visible in the pane while every IR-level
-    /// test passed.
+    /// Fixture: `grep`'s `Example:` line.
     #[test]
     fn a_preserved_description_break_renders_as_its_own_line() {
         let mut node = node_with_flags();
@@ -2441,10 +1970,7 @@ mod tests {
     }
 
     /// Every description starts in the same column, whatever the flag's
-    /// spelling is. Descriptions used to be indented by *each flag's own*
-    /// width, so a list of options read as ragged prose rather than a
-    /// parameter table — the alignment is what makes it look like
-    /// documentation.
+    /// spelling is (spec §9.3).
     #[test]
     fn flag_descriptions_share_one_column() {
         let mk = |short: Option<char>, long: &str, value: Option<&str>, desc: &str| {
@@ -2501,16 +2027,10 @@ mod tests {
         );
     }
 
-    /// `docker --help`'s global flags, which is the list the alignment
-    /// actually broke on. The test above uses three short synthetic flags
-    /// at one comfortable width, and that is exactly why it kept passing
-    /// while real panes rendered ragged: nothing in it was wide enough to
-    /// exceed the column cap, so the per-row fallback never fired.
-    ///
-    /// Every description begins with `zzz` so its column can be located
-    /// exactly rather than inferred from runs of whitespace (the value
-    /// placeholder is also preceded by a run of whitespace, which is what
-    /// makes the inference ambiguous).
+    /// `docker --help`'s global flags: wide enough to exceed the column
+    /// cap and exercise the per-row fallback. Every description begins
+    /// with `zzz` so its column can be located exactly rather than
+    /// inferred from runs of whitespace.
     fn docker_global_flags() -> Vec<mandible_core::Entity> {
         let mk = |short: Option<char>, long: &str, value: Option<&str>| {
             let mut f =
@@ -2522,11 +2042,8 @@ mod tests {
             if value.is_some() {
                 f.value_kind = ValueKind::Required;
             }
-            // Every word is the marker, so the column of *every*
-            // description line can be located exactly — a continuation
-            // line is not distinguishable from a wrapped head by
-            // indentation alone, and guessing is how a pin ends up
-            // measuring the wrong lines.
+            // Every word is the marker, so the column of every
+            // description line can be located exactly, not inferred.
             f.description = Some(Text::sanitize(
                 "zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz zzz",
             ));
@@ -2577,23 +2094,10 @@ mod tests {
             .collect()
     }
 
-    /// The reported defect, at every width rather than one.
-    ///
-    /// A description never starts at a column its own row chose. It used
-    /// to: the shared column was capped at 45% of the pane and any row too
-    /// wide for the cap started its description at its own width instead,
-    /// so `docker`'s global flags rendered descriptions at three different
-    /// columns (19, 24 and 28) in a 90-column terminal — with `--log-level
-    /// string` also losing the gap that separates a spelling from its
-    /// value, so the two ran together as one token.
-    ///
-    /// Spec §9.3 states the rule as one layout with one column and one
-    /// per-row exception, and this pins it line by line, which is stronger
-    /// than the "at most two distinct columns" it supersedes: a
-    /// continuation line is *always* at the section's column, and a first
-    /// line is either at that column or exactly one space past the end of
-    /// its own head — never at some third place, and never at a per-row
-    /// indent of its own.
+    /// Pins spec §9.3's column rule at every width: a continuation line is
+    /// always at the section's column; a first line is either at that
+    /// column or exactly one space past its own head, never a third place.
+    /// Fixture: `docker`'s global flags.
     #[test]
     fn every_description_line_starts_at_the_column_or_one_space_past_its_head() {
         let flags = docker_global_flags();
@@ -2643,15 +2147,8 @@ mod tests {
     }
 
     /// A pane too narrow for the section's own column brings the column
-    /// down rather than shredding prose into a strip: the column is the
-    /// thing that degrades, and the section stays one layout.
-    ///
-    /// At 90 columns `docker pull`'s `--platform` description used to
-    /// break as "Set / platform / if server / is / multi-pla… / capable" —
-    /// six lines for six words, one truncated mid-word, because the
-    /// columns had eaten everything but 9 cells of the pane. This
-    /// supersedes the stacked-layout pin: what guarantees the same
-    /// legibility now is the clamp, not a second layout.
+    /// down rather than shredding prose into a strip (spec §9.3;
+    /// [`MIN_DESC_WIDTH`]). Fixture: `docker pull`'s `--platform`.
     #[test]
     fn a_narrow_pane_clamps_the_column_rather_than_shredding_prose() {
         let flags = docker_global_flags();
@@ -2677,8 +2174,8 @@ mod tests {
             );
         }
 
-        // Prose really does get that width on the page, measured on the
-        // rendered lines rather than restated from the arithmetic above.
+        // Prose really does get that width on the page, checked against
+        // the rendered lines rather than restated from the arithmetic above.
         let lines = section_lines(
             &refs,
             38,
@@ -2702,10 +2199,8 @@ mod tests {
     }
 
     /// One very long spelling must not drag every other row's description
-    /// against the right-hand edge — the reason a cap existed at all. It
-    /// now pushes only its own first line instead of widening the column,
-    /// so the cap's original job is done without the raggedness it used to
-    /// cause.
+    /// against the right-hand edge; it pushes only its own first line
+    /// instead of widening the column ([`DESC_COLUMN_CAP_PERCENT`]).
     #[test]
     fn one_overlong_head_pushes_only_its_own_first_line() {
         let mut flags = docker_global_flags();
@@ -2862,8 +2357,7 @@ mod tests {
         assert!(caveat.contains("unverified"), "{caveat:?}");
     }
 
-    /// A barely-parsed node says so. `find` scores 0.11 and `ip` 0.09 in
-    /// practice, and both used to report `structure ✓ · prose ✓`.
+    /// A barely-parsed node says so. Fixtures: `find` (0.11), `ip` (0.09).
     #[test]
     fn a_barely_parsed_node_warns_with_its_score() {
         let mut node = node_with_flags();
@@ -2876,9 +2370,8 @@ mod tests {
         assert!(caveat.chars().count() <= 32, "too long: {caveat:?}");
     }
 
-    /// The reported defect: a flag description that wraps must hang-
-    /// indent under the description column on continuation lines, not
-    /// restart at column 0.
+    /// A flag description that wraps must hang-indent under the
+    /// description column on continuation lines, not restart at column 0.
     #[test]
     fn a_pushed_description_continues_at_the_shared_column() {
         let mut flag = Entity::flag_long("tlscacert", Provenance::single(Source::HelpText));
@@ -3335,15 +2828,9 @@ mod tests {
         );
     }
 
-    /// The coordinator's second reported defect: a group heading must not
-    /// carry its source's trailing colon or casing quirks into the UI —
-    /// `"GLOBAL OPTIONS:"` and `"Global Options"` must collect into one
-    /// group rather than rendering the same logical grouping twice.
-    ///
-    /// The *key* is what does that collecting, and it stays case-folded.
-    /// What changed with spec §9.3 is that the key is no longer what the
-    /// reader sees: a displayed CAPS heading is now the section header's
-    /// shape, so the label went mixed case and got its own function.
+    /// A group heading must not carry its source's trailing colon or
+    /// casing into the group key: `"GLOBAL OPTIONS:"` and `"Global
+    /// Options"` collect into one group (spec §9.3).
     #[test]
     fn group_keys_strip_trailing_colon_and_fold_case() {
         assert_eq!(group_key("GLOBAL OPTIONS:"), "GLOBAL OPTIONS");
@@ -3353,13 +2840,9 @@ mod tests {
         assert_eq!(group_key("Global Options"), group_key("GLOBAL OPTIONS:"));
     }
 
-    /// Spec §9.3: a group divider's label is mixed case, never CAPS —
-    /// that shape difference is what keeps it distinguishable from a
-    /// section header on a terminal that ignores dimming (spec §9.2).
-    ///
-    /// A heading the tool shouted is set in sentence case; one that
-    /// carries the author's own casing keeps it, because there the mixed
-    /// case is information rather than a help-text formatting convention.
+    /// Spec §9.3: a group divider's label is mixed case, never CAPS, so it
+    /// stays distinguishable from a section header with dimming stripped
+    /// (spec §9.2).
     #[test]
     fn group_labels_are_mixed_case_never_caps() {
         assert_eq!(group_label("GLOBAL OPTIONS:"), "Global options");
@@ -3374,13 +2857,9 @@ mod tests {
         }
     }
 
-    /// A group whose label is a whole sentence the tool wrote — LVM's
-    /// per-stanza description, which spec §7 Tier B makes that stanza's
-    /// group label — loses its full stop the same way a heading loses its
-    /// colon: the label runs straight into the divider's rule, and a
-    /// terminator between the two reads as a stray mark rather than as the
-    /// end of a sentence. One stop only, and never an ellipsis, which is
-    /// repetition notation rather than punctuation.
+    /// A group label that is a whole sentence (LVM's per-stanza
+    /// description, spec §7 Tier B) loses its full stop like a heading
+    /// loses its colon; a trailing ellipsis (repetition notation) is kept.
     #[test]
     fn group_labels_drop_a_sentence_terminator_like_a_heading_colon() {
         assert_eq!(
@@ -3683,32 +3162,12 @@ mod tests {
         }
     }
 
-    /// Spec §9.3, the wiring half: which line draws in which level of the
-    /// pane's neutral hierarchy, and — at **both** levels — that a label
-    /// is drawn in exactly its own rule's style.
-    ///
-    /// The label half supersedes a pin that asserted the mismatch as
-    /// correct. It checked the match on the group divider and then
-    /// asserted the section header's label as `muted_bold` against its
-    /// own plainly-styled rule, so the defect at the level the eye reads
-    /// first was written into the test as the expected value — which is
-    /// why it was reported twice from outside before anything here could
-    /// see it. The match is now one property quantified over both levels
-    /// rather than a fact stated about one of them, and bold is checked
-    /// explicitly, since bold brightens a foreground on many terminals
-    /// and recreates the mismatch through an attribute.
-    ///
-    /// Supersedes, too, the pin that named `Gray` and `DarkGray` directly. Those
-    /// two are the whole of what the sixteen named colors offer below a
-    /// default foreground, and `Gray` is *at* it — so the section rule
-    /// read at the brightness of the pane borders around it and the
-    /// hierarchy had two visible levels where it needs three.
-    /// [`style`]'s own `the_three_neutral_levels_step_clearly_apart` pins
-    /// the shades and their separation; this pins which line gets which.
-    ///
-    /// Asserted on the styles of the spans rather than on their text,
-    /// because the text is identical by construction: both are runs of the
-    /// same rule glyph, and only the style tells them apart.
+    /// Spec §9.3: which line draws at which level of the pane's neutral
+    /// hierarchy, and at both levels a label is drawn in exactly its own
+    /// rule's style, never bold. [`style`]'s own
+    /// `the_three_neutral_levels_step_clearly_apart` pins the shades
+    /// themselves; this pins which line gets which. Asserted on span
+    /// styles, not text, since both are runs of the same rule glyph.
     #[test]
     fn every_rule_label_is_drawn_in_its_own_rules_style() {
         let glyphs = crate::glyphs::UNICODE;
@@ -3822,10 +3281,9 @@ mod tests {
     /// width — "the majority, not the outliers" — so the widest tenth of a
     /// section hangs instead of setting a column for everyone else.
     ///
-    /// Measured on the column arithmetic rather than the rendered text,
-    /// because the failure this rules out is a column *number* that one
-    /// entity chose: nine short spellings and one long one produce the
-    /// same column as nine short spellings alone.
+    /// Checked against the column arithmetic rather than the rendered
+    /// text: nine short spellings and one long one must produce the same
+    /// column as nine short spellings alone.
     #[test]
     fn the_shared_column_fits_the_majority_not_the_widest() {
         let mk = |long: &str| {
@@ -4102,16 +3560,10 @@ mod tests {
         assert_eq!(built.rows.len(), 3);
     }
 
-    /// Spec §9.3: a wrapped entry is **one logical row** for selection and
-    /// scroll math, however many screen lines its description takes.
-    ///
-    /// The bug class this pins is the unbounded detail-pane scroll: a pane
-    /// that counts rows where it renders lines (or the reverse) runs off
-    /// the end of its own content by exactly the number of wraps on
-    /// screen. So all three numbers are checked against each other — one
-    /// row per entity, every rendered line accounted for by exactly one
-    /// row or by the section furniture, and a scroll extent taken from the
-    /// lines rather than the rows.
+    /// Spec §9.3: a wrapped entry is one logical row for selection and
+    /// scroll math, however many screen lines its description takes. Checks
+    /// one row per entity, every rendered line accounted for by exactly one
+    /// row, and scroll extent taken from lines rather than rows.
     #[test]
     fn a_wrapped_entry_is_one_logical_row() {
         let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
@@ -4174,9 +3626,7 @@ mod tests {
     }
 
     /// The scroll a search target produces is bounded by the same extent
-    /// the user's own scrolling is (spec §9.3's scroll math). Targeting
-    /// the last flag of a long list used to set the offset to that flag's
-    /// line with no clamp at all, scrolling the document off the top.
+    /// the user's own scrolling is (spec §9.3's scroll math).
     #[test]
     fn a_search_target_near_the_end_does_not_scroll_past_it() {
         let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
@@ -4514,12 +3964,9 @@ mod tests {
         assert!(restored.contains("PARSED-FLAG-DESCRIPTION"), "{restored}");
     }
 
-    /// Batch 6 part 4 (spec §7 Tier B step 3): a node whose parse degraded
-    /// to level 3 must render its `unparsed` text, labelled as such, via
-    /// the whole-frame path — not the structured `build_lines` path (which
-    /// a node with `unparsed` set should never even reach, since
-    /// `unparsed`/`flags`/`subcommands`/`usage` are mutually exclusive by
-    /// construction).
+    /// A node whose parse degraded to level 3 (spec §7 Tier B step 3) must
+    /// render its `unparsed` text, labelled as such, via the whole-frame
+    /// path, never the structured `build_lines` path.
     #[test]
     fn unparsed_node_renders_labelled_raw_text() {
         use crate::app::App;
@@ -4717,15 +4164,9 @@ mod tests {
         assert_eq!(pads("mytool", &["    mytool [OPTIONS] FILE"]), vec![0]);
     }
 
-    /// The reported defect: cobra prints the *full* command path in its
-    /// usage line, not just the leaf node's own name — `docker import
-    /// --help` yields `Usage:  docker import [OPTIONS] file|URL|-
-    /// [REPOSITORY[:TAG]]`. The old guard only checked the usage text's
-    /// first word ("docker" ≠ "import"), so it prepended the leaf name
-    /// anyway and produced `import docker import [OPTIONS] file|URL|-
-    /// [REPOSITORY[:TAG]]` — the name doubled and the real command path
-    /// pushed off the front. The correct output is the tool's own line,
-    /// byte for byte.
+    /// Cobra prints the full command path, not just the leaf name; the
+    /// node name must not double-prepend when it already appears in that
+    /// path. See [`usage_form`].
     #[test]
     fn a_usage_form_does_not_prepend_when_the_full_path_already_names_the_node() {
         assert_eq!(
@@ -4811,14 +4252,9 @@ mod tests {
         }
     }
 
-    /// The wrap-mode rule for preformatted content, stated as the two
-    /// halves it has to satisfy at once: a line that fits is untouched,
-    /// and a line that does not is continued rather than cut.
-    ///
-    /// The second half is the defect this function was written for —
-    /// `[ui] horizontal_scroll = false` used to hand the raw view's lines
-    /// to a `Paragraph` with no `Wrap`, which ended each one at the pane's
-    /// last column and dropped the rest with no indication at all.
+    /// The wrap-mode rule for preformatted content: a fitting line is
+    /// untouched, an overlong one is continued rather than cut (spec §9,
+    /// `[ui] horizontal_scroll = false`).
     #[test]
     fn wrap_preformatted_keeps_short_lines_verbatim_and_continues_long_ones() {
         // Byte-identical when it fits, columns and all: this is `ar`'s

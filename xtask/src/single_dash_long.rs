@@ -1,173 +1,60 @@
-//! The **single-dash long option** split: `-help` read as `-h` carrying a
-//! required value `"elp"`.
+//! The single-dash long option split: `-help` read as `-h` carrying a
+//! required value `"elp"` (S-035). The third of the three families
+//! sharing the `short && !long && value_name` fingerprint (see
+//! [`crate::bundling`]'s doc comment for the table).
 //!
-//! The third of the three families that share the structural fingerprint
-//! `short && !long && value_name` (see [`crate::bundling`]'s doc comment for
-//! the table), and the one spec §13.1's K1 pre-tag was originally named
-//! after: *"a flag like `-fdump-scos` is stored as short flag `-f` with
-//! `value_name` `dump-scos` instead of as the long-form spelling it actually
-//! is."*
+//! `qemu-arm64-static` (S-035's fixture) documents long options and
+//! genuine value-taking short flags side by side, separated only by
+//! whitespace: `-help` becomes `-h` + `"elp"`; `-g port` stores
+//! `value_name: "port"` correctly.
 //!
-//! `qemu-arm64-static` is the labelled set's clearest document — an option
-//! table whose rows are single-dash long options and genuine value-taking
-//! short flags, side by side:
+//! A flag is reported when all hold: option-table-sourced
+//! ([`mandible_core::Source::HelpText`], never `HelpTextSynopsis`, mirroring
+//! [`crate::bundling`]'s condition 1); short spelling, no long name,
+//! `Required` value; the swallowed text's name half is option-name-shaped
+//! ([`is_option_name_tail`]: alphanumerics, `-`, `_`, at least one
+//! letter — everything before the first `=`, [`split_glued_value`]); at
+//! least [`MIN_SWALLOWED_CHARS`] characters; the reconstructed name token
+//! is uniformly lowercase ([`token_is_uniformly_lowercase`]); the
+//! swallowed text is not the flag's own character repeated
+//! ([`crate::repeated_char`]'s family, kept disjoint); the reconstructed
+//! token occurs glued and delimited in the raw text
+//! ([`crate::existence::spelling_occurs`]).
 //!
-//! ```text
-//! -h                                        print this help
-//! -help
-//! -g port              QEMU_GDB             wait gdb connection to 'port'
-//! -cpu model           QEMU_CPU             select CPU (-cpu help for list)
-//! -one-insn-per-tb     QEMU_ONE_INSN_PER_TB run with one guest instruction per emulated TB
-//! -version             QEMU_VERSION         display version information and exit
-//! ```
+//! The lowercase condition is the safety argument: the GCC/Clang
+//! glued-value convention (`-Zscript`, `-Dname`, `-DMACRO`, `-sDEVICE=x`)
+//! satisfies every other condition but always carries an uppercase flag
+//! letter, while a real long option is a lowercase word
+//! (`-help`, `-cpu`, `-version`, `-pass-exit-codes`) — the same argument
+//! as [`crate::bundling::swallowed_members_mix_case`], reversed. Measured
+//! over the whole token, not just the tail, because of `-oOUTFILE` (its
+//! flag letter is lowercase, only the argument shouts).
 //!
-//! Eleven of its rows are long options and the tree has none of them: `-help`
-//! becomes `-h` + `"elp"`, `-cpu` becomes `-c` + `"pu"`, `-version` becomes
-//! `-v` + `"ersion"`, `-one-insn-per-tb` becomes `-o` + `"ne-insn-per-tb"`.
-//! Meanwhile `-g port`, `-L path`, `-B address` and `-R size` on the same
-//! rows are entirely correct, and the *only* thing separating them in the
-//! document is a space.
-//!
-//! # The rule
-//!
-//! A flag is reported when **all** of these hold:
-//!
-//! 1. **It is option-table-sourced** ([`mandible_core::Source::HelpText`],
-//!    never [`mandible_core::Source::HelpTextSynopsis`]). The exact mirror of
-//!    [`crate::bundling`]'s condition 1, and for the mirrored reason: a long
-//!    option earns its own table row with its own description column, while a
-//!    getopt *cluster* is a synopsis phenomenon. Restricting to the table
-//!    keeps the entire bundle population — including the unsorted,
-//!    uniformly-cased bundles the grammar's own fix knowingly cannot split
-//!    (`rpcbind`'s `[-adhilswfr]`, `umount.nfs`'s `[-fvnrlh]`) — out of this
-//!    detector's population by construction rather than by a threshold.
-//! 2. **It has a short spelling, no long name, and a `Required` value.** The
-//!    shared fingerprint. `Optional` means the raw text wrote brackets
-//!    (`ip`'s `-h[uman-readable]`), which is a value spec a human typed.
-//! 3. **The swallowed text's *name half* is option-name-shaped**
-//!    ([`is_option_name_tail`]): ASCII alphanumerics, `-` and `_`, with at
-//!    least one letter. The name half is everything before the first `=`, or the
-//!    whole tail when there is no `=` ([`split_glued_value`]) — a tail like
-//!    `qemu`'s `-number=N` → `"umber=N"` is a name **plus** the value spec
-//!    the tool glued onto it, and `=` is the character that says where the
-//!    name stops. Everything else is still rejected, so every value spec
-//!    that leaks other punctuation goes with it — `-d item[,...]`,
-//!    `sg_emc_trespass`'s layout-mangled `-hr:` — and it is the condition
-//!    that makes the claim exact rather than approximate.
-//! 4. **The name half carries at least [`MIN_SWALLOWED_CHARS`]
-//!    characters.** Two, not one, and the lost recall is deliberate — see
-//!    that constant.
-//! 5. **The reconstructed *name* token is uniformly lowercase**
-//!    ([`token_is_uniformly_lowercase`]). The discriminator against the
-//!    largest genuinely-correct population there is; see below.
-//! 6. **The swallowed text is not the flag's own character repeated**
-//!    ([`crate::repeated_char`]'s family). `-vvv` satisfies every condition
-//!    above and belongs to the other detector; excluding it here is what
-//!    makes the two provably disjoint, so neither can inflate its own count
-//!    with the other's findings.
-//! 7. **The reconstructed token occurs glued and delimited in the raw text**
-//!    ([`crate::existence::spelling_occurs`]). The same load-bearing
-//!    separator check [`crate::bundling`] uses, and the one that disposes of
-//!    the whole spaced-value population: `-g port` stores `value_name:
-//!    "port"` exactly as `-help` stores `"elp"`, and `-gport` never occurs.
-//!
-//! # Condition 5 is the safety argument
-//!
-//! Conditions 1–4 and 7 are satisfied, character for character, by the
-//! GCC/Clang glued-value convention — thousands of **correct** parses
-//! fleet-wide, every one of which this detector must stay silent on:
-//! `cargo -Zscript`, `rpcgen -Dname`, `makewhatis -Tutf8`, `perl
-//! -Idirectory`, `find -Olevel`, `cc -oOUTFILE`, `gcc -DMACRO`. Every single
-//! one carries an **uppercase** letter, because the convention is what it is:
-//! the flag is a capital and the glued text is its argument. The same holds
-//! when that argument is introduced by an `=` and condition 5 therefore only
-//! sees the left half: Ghostscript's real `-sDEVICE=png16m` has the name
-//! token `-sDEVICE`, `cpp`'s `-DMACRO=value` has `-DMACRO`. The convention
-//! puts the shout to the *left* of the `=`, which is exactly where this
-//! still looks.
-//!
-//! The real long options are the other way round and just as consistent —
-//! `-help`, `-cpu`, `-version`, `-strace`, `-seed`, `-trace`, `-perfmap`,
-//! `-jitdump`, `-singlestep`, `-one-insn-per-tb`, `-dfilter`,
-//! `-pass-exit-codes`, `-fdump-scos`, `-nostdlib`, `-pthread` — because a
-//! long option is a *word*, and words in `--help` output are lowercase.
-//!
-//! This is the same species of argument as
-//! [`crate::bundling::swallowed_members_mix_case`], applied in the opposite
-//! direction, and it is the only signal measured against that population that
-//! does not also destroy it. It is not free: it is why `-Wall`-shaped rows
-//! and every uppercase-led long option are knowingly out of reach here.
-//!
-//! # What it deliberately does not catch
-//!
-//! Named, counted, and never dropped from a report:
-//!
-//! - **Uppercase-led single-dash long options.** Excluded by condition 5,
-//!   which cannot tell them from `-Zscript`. There is no measured signal that
-//!   separates the two, and buying that recall costs a false positive on a
-//!   correct parse.
-//! - **`ip`'s bracketed abbreviations** (`-h[uman-readable]`,
-//!   `-b[atch]`, `-rc[vbuf]`). The raw text writes the optional tail in
-//!   brackets, so the grammar records `ValueKind::Optional` and condition 2
-//!   never admits them. A labelled member of this family, declared as an
-//!   exclusion with its own witness token.
-//! - **Rows whose swallowed half carries layout punctuation.**
-//!   `sg_emc_trespass` writes `-hr: Set Honor Reservation bit` with no space
-//!   before the colon, so the tree stores `-h` + `"r:"` and condition 3
-//!   rejects it. Also a labelled member, also declared.
-//! - Once, but no longer: **names carrying an underscore**. Condition 3
-//!   rejected `_` on the theory that it also appears in glued value
-//!   placeholders; so does every letter of the alphabet, and `_` is a word
-//!   separator inside a name exactly as `-` is. A full-`PATH` sweep put the
-//!   population at 17 tools and 604 flag spellings, every one of them a
-//!   token its own tool writes at the head of a row, with no counter-example
-//!   — see `help_text::sections::repair_single_dash_long_options`'s "Why
-//!   `_` is a name character".
-//! - **One-character tails** ([`MIN_SWALLOWED_CHARS`]) — `rpcgen -Ss`,
-//!   `xxd -ps`, `sg_map -st`, `mandoc -ac`, `which -as`. The same
-//!   two-character population `bundling::MIN_BUNDLED_MEMBERS` already
-//!   excludes for the same measured reason: roughly half of it is real and
-//!   nothing on the shape separates the halves.
-//!
-//! The count this module reports is therefore a lower bound, which is the
-//! correct direction for a number that becomes a gate: a false negative
-//! leaves a real bug unreported, a false positive blocks the fix.
+//! Does not catch: uppercase-led single-dash long options (no signal
+//! separates them from GCC-style flags); `ip`'s bracketed abbreviations
+//! (`-h[uman-readable]`, `ValueKind::Optional`, declared exclusion);
+//! layout-mangled rows (`sg_emc_trespass`'s `-hr:`, declared exclusion);
+//! one-character tails ([`MIN_SWALLOWED_CHARS`], same reasoning as
+//! `bundling::MIN_BUNDLED_MEMBERS`). Underscore was once excluded and no
+//! longer is — see `help_text::sections::repair_single_dash_long_options`'s
+//! "Why `_` is a name character". The count is a lower bound.
 
 use crate::existence::spelling_occurs;
 use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
 
 /// The fewest characters a tail must carry before it is read as the rest of
-/// a long option's name.
-///
-/// Two, not one, and the difference is deliberate lost recall — the same
-/// measured population `bundling::MIN_BUNDLED_MEMBERS` excludes, seen from
-/// the other side. At one swallowed character the shape is genuinely
-/// ambiguous: `rpcgen`'s `[-Sc]`/`[-Ss]`/`[-Sm]` (generate sample
-/// client/server/makefile), `psfxtable`'s `[-it]`/`[-ot]`, `sg_map`'s
-/// `[-st]`, `setfont`'s `[-ou]`, `mandoc`'s `[-ac]`, `which`'s `[-as]` and
-/// `xxd`'s `[-ps]` are all two-character single-dash tokens, and the fleet
-/// scan behind `5f1abec` found nothing about their shape that separates the
-/// real collapses from the correct parses. A detector gated at zero must
-/// never fire on a correct parse, so the whole class is excluded.
+/// a long option's name. Two, not one — deliberate lost recall, mirroring
+/// `bundling::MIN_BUNDLED_MEMBERS` (S-034): at one swallowed character the
+/// shape is genuinely ambiguous, and nothing about it separates real
+/// collapses from correct two-character single-dash flags.
 pub(crate) const MIN_SWALLOWED_CHARS: usize = 2;
 
 /// True when `tail` could be the rest of a single-dash long option's name:
-/// ASCII alphanumerics, `-` and `_`, with at least one ASCII letter in it.
-///
-/// The letter requirement is what stops a glued numeric argument (`-b4096`,
-/// `-j8`) from riding in on a run that is technically alphanumeric, exactly
-/// as `bundling::MIN_ORDERED_LETTERS` stops the vacuous-ordering version of
-/// the same hazard. Everything else is rejected because a long option's name
-/// does not contain it: `:` (`sg_emc_trespass`'s layout-mangled `-hr:`),
-/// `[`/`{`/`<`/`,` (`-d item[,...]`, `-b{blocksize}`), `.` and `/` (paths).
-///
-/// `_` is admitted, on the same footing as `-`: it is a **word separator**
-/// in an option name, not value-spec punctuation. See this module's
-/// "Why `_` is a name character" section for the measurement.
-///
-/// `=` never reaches here: [`split_glued_value`] has already consumed it as
-/// the boundary between the name and its glued value spec, so what this sees
-/// is only ever the name half.
+/// ASCII alphanumerics, `-` and `_`, with at least one ASCII letter (the
+/// letter requirement stops a glued numeric argument like `-b4096`).
+/// Rejects `:`/`[`/`{`/`<`/`,`/`.`/`/` — none of them appear in a long
+/// option's name. `_` is admitted as a word separator, same footing as
+/// `-`. `=` never reaches here: [`split_glued_value`] already consumed it.
 fn is_option_name_tail(tail: &str) -> bool {
     tail.chars().any(|c| c.is_ascii_alphabetic())
         && tail
@@ -175,16 +62,11 @@ fn is_option_name_tail(tail: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// True when `token` carries no ASCII uppercase letter at all — the
-/// discriminator against the GCC/Clang glued-value convention, whose whole
-/// population is an uppercase flag letter with its argument glued on
-/// (`-Zscript`, `-Dname`, `-Tutf8`, `-Idirectory`, `-Olevel`, `-DMACRO`,
-/// `-oOUTFILE`, `-Wall`).
-///
-/// Measured over the *whole* token rather than only the tail, deliberately,
-/// and the difference is `-oOUTFILE`: its flag letter is lowercase and only
-/// the argument shouts, so a tail-only test would admit it. See this
-/// module's doc comment for the full argument and for what it costs.
+/// True when `token` carries no ASCII uppercase letter — the discriminator
+/// against the GCC/Clang glued-value convention (`-Zscript`, `-DMACRO`,
+/// `-oOUTFILE`). Measured over the whole token, not just the tail: an
+/// uppercase flag letter with a lowercase argument (`-oOUTFILE`) must
+/// still be caught, which a tail-only test would miss.
 fn token_is_uniformly_lowercase(token: &str) -> bool {
     !token.chars().any(|c| c.is_ascii_uppercase())
 }

@@ -1,52 +1,25 @@
 //! The per-tool sweep transition report (WS2 part 1): a semantic diff
 //! between two independently-generated [`crate::coverage::ScoreFormat::Text`]
-//! scoreboards.
+//! scoreboards. Automates the manual per-tool-diff step that has actually
+//! caught real fleet-wide regressions the aggregate `%flags_text` gate and
+//! the 4-fixture corpus both stayed green through — a flag-weighted
+//! average moves by hundredths of a percent on a handful of regressed
+//! tools out of a couple thousand.
 //!
-//! **Why this exists at all.** Two grammar fixes on this branch shipped
-//! regressions that the aggregate `%flags_text` gate and the 4-fixture
-//! corpus both stayed green through: one lost 228 flags across 72 tools,
-//! another lost 6 on `lsof` and 34 across four tools nobody had looked at.
-//! Both were caught only by a human running a full sweep before and after
-//! and diffing per tool by hand. `compute_aggregate`'s own doc comment
-//! explains why the fleet-wide ratio can't see this: it's a flag-weighted
-//! average, so a regression on four tools out of a couple thousand moves it
-//! by hundredths of a percent — invisible in the aggregate, glaring in a
-//! per-tool diff. This module automates exactly the manual step that has
-//! actually caught every regression so far, never a raw text diff of the
-//! two scoreboard files (`corpus.rs`'s own report is the model: "a 1,000+
-//! line YAML diff is unreviewable... instead of lines, report what changed
-//! semantically").
+//! Reports gains and losses as two separate totals, never netted
+//! ([`FlagDelta`], [`render_markdown`]): summing them into one signed
+//! number would hide a real regression on a few tools behind large gains
+//! elsewhere.
 //!
-//! **Losses, not net (measured, not a preference).** A change that adds
-//! 2,000 flags and loses 6 is a regression on those 6 tools; summing gains
-//! and losses into one signed number would hide exactly the losses that
-//! caught the two real regressions above. Gains and losses are therefore
-//! always reported as two separate totals, never netted — see
-//! [`FlagDelta`] and [`render_markdown`].
+//! Non-blocking by design (maintainer decision D4): `cargo xtask
+//! sweep-diff` always exits `0`; no `--check`/`--gate` flag exists here.
 //!
-//! **Non-blocking by design (maintainer decision D4).** This ships as a
-//! loud report, promoted to a real gate only after a burn-in period. Unlike
-//! `coverage --check` or `corpus`'s hard gate, nothing in this module
-//! returns a failure signal — `cargo xtask sweep-diff` always exits `0`
-//! (barring an I/O error reading its inputs). The CLI layer
-//! (`xtask/src/main.rs`) enforces this by construction: there is no
-//! `--check`/`--gate` flag here at all, so there's nothing to wire to a
-//! nonzero exit by accident.
-//!
-//! **Truncated tool names are a real hazard, not a hypothetical one.**
-//! `coverage::truncate_col` elides any tool name over
-//! [`crate::coverage::TOOL_COL_WIDTH`] characters with a single `…`
-//! marker, so two differently-named tools can render to the *same*
-//! truncated string (`aarch64-linux-gnu-cpp-13-extremely-long-name` and a
-//! same-length sibling both truncate to `aarch64-linux-gnu-cpp-1…`).
-//! Joining two scoreboards on tool name naively — `HashMap<String, Row>`,
-//! last-write-wins — turns that collision into a silent cross-product: one
-//! tool's "before" gets diffed against a different tool's "after". Every
-//! truncated row (detected in [`parse_scoreboard`], not guessed at) is
-//! therefore dropped from the comparison entirely rather than joined, and
-//! the count dropped is a headline number in the report — see
-//! [`ParsedScoreboard::truncated_dropped`] and
-//! [`render_markdown`]/[`render_text`].
+//! Truncated tool names are a real hazard: `coverage::truncate_col` elides
+//! long names with `…`, so two different names can render identically. A
+//! truncated row (detected in [`parse_scoreboard`]) is dropped from the
+//! comparison entirely rather than joined, to avoid diffing one tool's
+//! before against a different tool's after — the drop count is reported
+//! ([`ParsedScoreboard::truncated_dropped`]).
 
 use crate::coverage::{
     BUNDLE_COL_WIDTH, EXISTENCE_COL_WIDTH, FLAGS_COL_WIDTH, FRAMEWORK_COL_WIDTH, MAN_COL_WIDTH,
@@ -58,31 +31,20 @@ use std::collections::BTreeMap;
 /// The single-probe extraction timeout (`mandible_extract::help_text::mod`'s
 /// and `native::mod`'s own private `EXTRACT_TIMEOUT`, `Duration::from_secs(10)`).
 /// Duplicated here, not imported: `xtask` has no path to that private
-/// constant, and this crate's own hard boundary (`xtask` may not depend on
-/// `mandible-extract` beyond its public API, and the parallel work on
-/// `mandible-extract/src/help_text/` in flight on this branch is explicitly
-/// off limits for this task) means duplicating one well-known, stable
-/// number is the honest choice over reaching for it. If it ever changes,
-/// AGENTS.md's environment-facts discipline applies: re-measure and update
-/// both places in the same commit.
+/// constant. If it ever changes, re-measure and update both places in the
+/// same commit (AGENTS.md's environment-facts discipline).
 const EXTRACT_TIMEOUT_MS: u128 = 10_000;
 
 /// True when `ms` is close enough to [`EXTRACT_TIMEOUT_MS`] that a status
 /// derived from it is a statement about the machine, not the parser (spec
 /// §13.1b rule 3; maintainer decision D4).
 ///
-/// **Why a lower bound only, no upper bound.** The measured incident this
-/// rule exists for (AGENTS.md, `waagent2.0`) is not a single-probe tool:
-/// `score_one` recurses into every discovered subcommand, each under its
-/// own `EXTRACT_TIMEOUT`, so a tool's total `ms` legitimately exceeds one
-/// cap's worth of wall time by design — `waagent2.0` measured 41.9s and
-/// 21.4s across two runs of *identical code*, both multiples of the 10s
-/// single-probe cap. A symmetric "within 2x" band (5s–20s) would have
-/// missed the very case that motivated this rule. A total that has reached
-/// or passed half the single-probe cap is already timeout-adjacent — and
-/// more total time near/over the cap is more evidence of timeout pressure
-/// on some probe inside that tool's tree, never less — so the honest bound
-/// is "at least half the cap", open-ended above it.
+/// Lower bound only, no upper: `score_one` recurses into every discovered
+/// subcommand, each under its own `EXTRACT_TIMEOUT`, so a tool's total
+/// `ms` legitimately exceeds one cap's worth of wall time by design
+/// (`waagent2.0` measured both 41.9s and 21.4s across identical code, both
+/// multiples of the 10s cap). A symmetric "within 2x" band would miss
+/// that case; "at least half the cap", open-ended above, does not.
 fn near_timeout_cap(ms: u128) -> bool {
     ms.saturating_mul(2) >= EXTRACT_TIMEOUT_MS
 }
@@ -176,22 +138,15 @@ pub enum FingerprintFormat {
 }
 
 /// Refuse to treat a V1-footer scoreboard and a V2-footer scoreboard as
-/// comparable: the entity `id` strings the two versions embed are different
-/// shapes (`(root)::--flag` vs `(root)::Flag::--flag`), so every id on one
-/// side would fail to match every id on the other, and [`field_diff`] would
-/// report every entity as removed on the V1 side and added on the V2 side —
-/// a false wholesale-loss-and-gain for every tool with a fingerprint,
-/// indistinguishable in the rendered report from a real regression. That is
-/// exactly the outcome AGENTS.md §5 calls never-deferrable: a wrong number
-/// nobody is told about. This function is the naming-out-loud step —
-/// callers (`xtask/src/main.rs`'s `run_sweep_diff`) call it before
-/// [`diff`] and bail with the returned message rather than proceed.
+/// comparable: the entity `id` strings differ in shape
+/// (`(root)::--flag` vs `(root)::Flag::--flag`), so [`field_diff`] would
+/// report every entity as removed on one side and added on the other — a
+/// false wholesale loss/gain indistinguishable from a real regression.
+/// Callers (`run_sweep_diff`) call this before [`diff`] and bail on the
+/// returned message.
 ///
-/// Returns `None` (no mismatch to report) when either side carries no
-/// fingerprint footer at all (`None` format — the pre-existing "legacy
-/// scoreboard pair" case [`diff`] already handles via
-/// `field_diff_unmeasured`, not a version mismatch) or when both sides
-/// agree on a format.
+/// Returns `None` when either side carries no fingerprint footer at all,
+/// or both sides agree on a format.
 pub fn fingerprint_format_mismatch(
     before: &ParsedScoreboard,
     after: &ParsedScoreboard,
@@ -240,26 +195,17 @@ pub struct ParsedFingerprint {
     pub subcommands: std::collections::BTreeSet<String>,
 }
 
-/// The fingerprint [`diff`] substitutes for a matched tool's *missing* side
-/// when the *other* side does carry a `#fp` entry for it — a `'static`
-/// empty value (both collection types have a `const fn new()`) so it can be
-/// borrowed at the same lifetime as the real, scoreboard-owned fingerprints
-/// [`field_diff`] otherwise compares.
+/// The fingerprint [`diff`] substitutes for a matched tool's missing side
+/// when the other side does carry a `#fp` entry for it — a `'static` empty
+/// value so it can be borrowed at the same lifetime as the real,
+/// scoreboard-owned fingerprints [`field_diff`] compares.
 ///
-/// **Why "missing on one side only" is read as "empty" rather than
-/// "unmeasured."** `coverage::fingerprint_lines` now emits a `#fp` line for
-/// *every* row, including an empty one — the fix for the defect where a
-/// tool that lost every flag produced a line on the "before" side and none
-/// on the "after" side, which then reported as field-diff-unmeasured
-/// instead of reporting the full flag loss it actually was. With that fix,
-/// a per-tool line is absent on exactly one side only in the mixed-vintage
-/// case (one scoreboard predates the `#fp` footer entirely, the other
-/// doesn't) — and even there, the honest reading of "we hold no record of
-/// this side's flags" is "empty," which correctly reports every flag the
-/// present side has as added (if the earlier side is the one missing) or
-/// removed (if the later side is). The genuinely unmeasurable case — both
-/// sides missing — is handled separately in [`diff`] and keeps the
-/// `field_diff_unmeasured` wording.
+/// "Missing on one side only" is read as empty, not unmeasured:
+/// `coverage::fingerprint_lines` emits a `#fp` line for every row
+/// including an empty one, so a per-tool line is absent on only one side
+/// in the mixed-vintage case (one scoreboard predates the `#fp` footer).
+/// The genuinely unmeasurable case — both sides missing — is handled
+/// separately in [`diff`] with the `field_diff_unmeasured` wording.
 static EMPTY_FINGERPRINT: ParsedFingerprint = ParsedFingerprint {
     flags: BTreeMap::new(),
     subcommands: std::collections::BTreeSet::new(),
@@ -288,14 +234,8 @@ fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
         for entry in flags_s.split('|') {
             let (id, rest) = entry.split_once('=')?;
             let id = fp_unescape(id);
-            // `splitn(4, ':')` so a `value_name` that itself contains a
-            // colon (free-form text lifted from real `--help` output) lands
-            // whole in the final piece instead of being truncated at its
-            // first colon. This still matters post-escaping: an *old*
-            // scoreboard's `value_name` can hold a raw, unescaped `:` (see
-            // `fp_unescape`'s doc comment on backward compatibility), and
-            // this `splitn` is exactly what already handles that case
-            // correctly, unchanged.
+            // splitn(4, ':') so a value_name containing a colon lands whole
+            // in the final piece instead of truncating at its first colon.
             let mut fields = rest.splitn(4, ':');
             let has_description = fields.next()? == "1";
             let description_hash = match fields.next()? {
@@ -327,34 +267,19 @@ fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
 /// Reverse [`crate::coverage::fp_escape`] on one parsed piece (tool name,
 /// subcommand path, flag id, or `value_name`) of a `#fp` line.
 ///
-/// `\\` -> `\`, `\t` -> a literal tab, `\n` -> a literal newline, `\p` -> `|`
+/// `\\` -> `\`, `\t` -> tab, `\n` -> newline, `\p` -> `|`
 /// ([`FP_FLAG_SEP`]), `\c` -> `,` ([`FP_SUBCOMMAND_SEP`]), `\e` -> `=`
-/// ([`FP_ID_SEP`]), `\s` -> `:` ([`FP_ENTRY_SEP`]). Every other `\X` passes
-/// through **verbatim as `\X`** (an unrecognized escape is not an error —
-/// there is nothing else in this format that could have produced it), and a
-/// trailing lone `\` at the end of the field passes through as `\`.
+/// ([`FP_ID_SEP`]), `\s` -> `:` ([`FP_ENTRY_SEP`]). An unrecognized `\X`
+/// passes through verbatim, as does a trailing lone `\`.
 ///
-/// **Backward compatible with every scoreboard this binary has ever
-/// written, measured, not assumed.** Before this task, `fp_escape` never
-/// emitted a backslash at all (it only replaced tab/newline with a space) —
-/// a direct count found **0 backslashes across all 2,308 `#fp` lines** in a
-/// full-`PATH` sweep capture (`tmp/sweep-before.txt`) and **0** in
-/// `coverage-scoreboard.ci.txt`. `fp_unescape` is therefore the identity
-/// function on every existing scoreboard: with no backslash present, every
-/// branch above is unreachable and the string comes back unchanged,
-/// including a raw `|`, `,`, `=` or `:` sitting in a `value_name` exactly
-/// where it always did (the pre-existing `splitn(4, ':')` in
-/// [`parse_fingerprint_line`] is what actually keeps a raw-colon
-/// `value_name` intact, unaffected by this function).
-///
-/// **The one theoretical incompatibility, and why it's a caveat rather than
-/// a blocker.** An old scoreboard whose `value_name` happened to hold a
-/// literal backslash immediately followed by one of the seven escape
-/// letters (`\`, `t`, `n`, `p`, `c`, `e`, `s`) would have that pair
-/// misread as an escape sequence instead of two literal characters. Neither
-/// measured corpus contains a single backslash of any kind, so this has
-/// never actually happened — it is recorded here as a known, measured-zero
-/// edge case, not a defect being silently accepted.
+/// Backward compatible with every scoreboard this binary has ever
+/// written: the pre-existing `fp_escape` never emitted a backslash, so
+/// with no backslash present every branch above is unreachable and the
+/// string comes back unchanged. Caveat: an old scoreboard whose
+/// `value_name` held a literal backslash immediately followed by one of
+/// the seven escape letters would misread that pair as an escape — a
+/// known, measured-zero edge case (0 backslashes found across every
+/// captured `#fp` line to date).
 fn fp_unescape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars();
@@ -444,19 +369,11 @@ fn has_bundle_column(header: &str) -> bool {
 }
 
 /// The exact character offsets [`crate::coverage::render_text`] writes each
-/// column at, derived from the same width constants that function uses —
-/// never a second, hand-copied set of numbers (this module's doc comment).
-/// The three `with_*` flags select among the four layouts a real,
-/// checked-in scoreboard can have — ten columns (no detector existed yet),
-/// eleven (`misattr`), twelve (`+ exist`), thirteen (`+ bundle`) — since
-/// each detector only ever *appended* a column rather than resizing an
-/// existing one, every column up through `man` shares identical offsets
-/// regardless. The optional three are laid out as a chain, each starting
-/// where the last present one ended, so a header missing an earlier one
-/// (which no scoreboard this binary ever wrote can be — the columns
-/// shipped in that order) still yields self-consistent offsets rather than
-/// an assertion, since this function's only job is to read whatever header
-/// string it's given.
+/// column at, derived from the same width constants that function uses.
+/// The three `with_*` flags select among the four layouts a real
+/// scoreboard can have (ten columns, +`misattr`, +`exist`, +`bundle`),
+/// since each detector only ever appended a column. The optional three are
+/// laid out as a chain, each starting where the last present one ended.
 struct RowOffsets {
     tool: (usize, usize),
     tier: (usize, usize),

@@ -3,29 +3,17 @@
 //! [summary dim]` (spec §9), so mouse hit-testing (`crate::event`) can
 //! compute the chevron column arithmetically.
 //!
-//! Spec §9.1 governs two things this file gets right on purpose:
+//! The summary column is computed once over every row in the flattened
+//! list (`app.rows()`, not the visible slice), as `min(longest
+//! prefix+name over all rows, 40% of pane width)`, so it stays stable
+//! across pure scrolling (spec §9.1). The name column never yields to the
+//! summary: the name is truncated to its own budget first, and the
+//! summary is dropped entirely rather than squeezed to nothing.
 //!
-//! - **The summary column is computed once, over every row in the
-//!   flattened list** (`app.rows()`, not the scrolled/visible slice), as
-//!   `min(longest prefix+name over all rows, 40% of pane width)`. A
-//!   column derived from only the rows currently on screen would jump
-//!   every time the user scrolled past a row with a longer or shorter
-//!   name — worse than no alignment at all. It's naturally stable across
-//!   pure scrolling because `app.rows()` itself doesn't change on
-//!   scroll — only on expand/collapse/search/fill (spec §9's caching
-//!   rule) — so recomputing the column from the full list on every frame
-//!   still yields the same answer while just scrolling.
-//! - **The name column never yields to the summary.** The name is always
-//!   truncated to fit its own budget first; the summary only gets
-//!   whatever's left, and is dropped entirely rather than squeezed into
-//!   a handful of useless characters.
-//!
-//! Spec §9.2/§10: matched search characters are underlined, and only
-//! within the name — never the summary. [`mandible_search::match_indices`]
-//! re-runs a match scoped to just the row's own name (not the full
-//! search haystack, which for a command also includes its summary and
-//! for a flag its description), so the returned positions are always
-//! directly usable against that name with no offset bookkeeping.
+//! Matched search characters are underlined, only within the name, never
+//! the summary (spec §9.2, §10). [`mandible_search::match_indices`]
+//! re-runs a match scoped to just the row's own name, so the returned
+//! positions need no offset bookkeeping against the full search haystack.
 
 use crate::app::{App, Focus};
 use crate::glyphs::Glyphs;
@@ -59,17 +47,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
     } else {
         Style::default()
     };
-    // Titled by what the pane *is*, not by the tool — the tool's own name
-    // is already the root row one line below, and printing it twice in
-    // adjacent lines read as a duplication bug. The count is the useful
-    // thing a title can add that the rows can't: how much is in here,
-    // including the part scrolled out of view.
-    //
-    // The detected framework joins it because it is a *tool*-level fact —
-    // one generator produced all of this tool's help text — and it used to
-    // be repeated in the detail pane's footer under every single command,
-    // where it was the same string every time. Read from the root node,
-    // which is the only node that is always present.
+    // Titled by what the pane is, not by the tool: the tool's own name is
+    // already the root row one line below. The detected framework is a
+    // tool-level fact, read from the root node, the only node always
+    // present.
     let title = match &app.root.detected_framework {
         Some(framework) => format!(
             " commands ({}) {} {} ",
@@ -196,15 +177,9 @@ fn build_row_line(
         // (possibly stale or absent) summary, aligned to the same
         // computed column a real summary would use.
         if name_part_width < width {
-            // `+ 1` for the same reason the summary branch below does it,
-            // and against the same failure: a name that reaches the shared
-            // column leaves `pad_to` equal to its own width, so the marker
-            // starts in the very next cell. `dnf`'s longest command
-            // rendered as `check-update⋯ loading`, one mangled word rather
-            // than a name and its status. Fixed once below for summaries
-            // (apt-get's `dselect-upgradeFollow`) and missed here, because
-            // no tool in the suite had a pending row at the column until
-            // `dnf` gained subcommands.
+            // `+ 1` so a name that reaches the shared column still gets a
+            // space before the marker; without it the two run together.
+            // Fixture: `dnf`'s longest command.
             let pad_to = summary_column.max(name_part_width + 1);
             let padding = " ".repeat(pad_to.saturating_sub(name_part_width));
             let remaining = width.saturating_sub(pad_to);
@@ -235,14 +210,10 @@ fn build_row_line(
     // all (spec §5.4, §9.2). It takes the column first, and the summary
     // gets what is left.
     if (row.unverified || summary.is_some()) && name_part_width < width {
-        // Align to the shared column when the name is short enough to leave
-        // room for it; otherwise the summary simply starts right after the
-        // name (still never truncating the name to force alignment). At
-        // least one space, always. When a name is longer than the shared
-        // column, `pad_to` used to collapse to exactly the name's width and
-        // the summary began in the very next cell:
-        // `dselect-upgradeFollow dselect…` in `apt-get`, which reads as one
-        // mangled word rather than a name and its description.
+        // Align to the shared column when the name leaves room for it;
+        // otherwise the summary starts right after the name, at least one
+        // space always, never truncating the name to force alignment.
+        // Fixture: `apt-get`'s `dselect-upgradeFollow`.
         let pad_to = summary_column.max(name_part_width + 1);
         let mut remaining = width.saturating_sub(pad_to);
         if remaining > 0 {

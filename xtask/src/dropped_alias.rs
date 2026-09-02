@@ -1,170 +1,43 @@
-//! The dropped-alias defect: a flag documented with **both** a short and a
-//! long spelling reaches the tree carrying only one of them.
+//! The dropped-alias defect: a flag documented with both a short and a
+//! long spelling reaches the tree carrying only one of them. The fourth
+//! fleet oracle, after [`crate::misattribution`], [`crate::existence`],
+//! and [`crate::bundling`].
 //!
-//! The fourth fleet oracle, after [`crate::misattribution`] (is a
-//! description attached to the right flag?), [`crate::existence`] (does this
-//! spelling occur in the tool's own output at all?) and [`crate::bundling`]
-//! (was a switch set read as one valued flag?).
+//! Victim: `grammar::parse_flag_spec` reads a flag-spec fragment as a run
+//! of spellings followed by a value spec, stopping at the value. Correct
+//! for `-o, --output FILE`; wrong for a framework that repeats the
+//! placeholder after each spelling (argparse's default: `-p PID, --pid
+//! PID`) — `try_short` takes `-p`, everything after becomes one value
+//! token `PID,`, and `--pid` is discarded.
 //!
-//! # The victim: an alias list interrupted by a value spec
+//! Cross-generator, not one framework's quirk: Python argparse (short
+//! first, `, ` separator), `sg3_utils`' hand-written C (long first, `|`
+//! separator, separator lands inside the placeholder), and hand-written
+//! shell (`iptables-apply`) all produce it — see this module's tests.
+//! Two arms in the code because the separator can land after the
+//! placeholder or inside it, and a detector that only knew one arm would
+//! read zero on half the family.
 //!
-//! `help_text::grammar::parse_flag_spec` reads a flag-spec fragment as a run
-//! of spellings followed by a value spec, and it stops reading spellings the
-//! moment the value spec starts. That is correct for `-o, --output FILE`,
-//! where the value really is last — and wrong for every framework that
-//! repeats the placeholder after each spelling, which is what argparse does
-//! by default:
+//! Both anti-fabrication oracles are structurally blind to it: nothing
+//! was invented (every spelling occurs in the raw text), and every
+//! description lands on the right flag — what's wrong is what's absent.
 //!
-//! ```text
-//!   -p PID, --pid PID  trace this PID only
-//! ```
+//! Merging a short and long spelling that are genuinely different flags
+//! is a fabrication, strictly worse than dropping (a user who types an
+//! invented alias gets an error), so every condition below rejects a
+//! shape that only looks like an interrupted alias list: the flag must
+//! carry a value spec; the kept spelling and value must occur glued in
+//! the raw text ([`anchor_end`]); an alias separator (`,`/`|`) must sit
+//! at the placeholder's own boundary; what follows must be a whole flag
+//! spelling ([`whole_spelling`]); that spelling must be nowhere in the
+//! tree ([`spellings_in_tree`]).
 //!
-//! `try_short` takes `-p`, and everything after it becomes one value token:
-//! `PID,` — trailing comma and all — while `--pid` is discarded. The same
-//! fragment written `-h, --help` (no value) parses perfectly, which is
-//! exactly why the defect is invisible from a summary count: the tool's
-//! *other* flags are fine.
-//!
-//! # The labelled family, and what survived reading all of it
-//!
-//! `audit/submissions/sadigaxund/2.toml` labels seven tools `dropped-alias`. **Six, after `eqn`:**
-//! `eqn`'s `{-v | --version}` is a brace alternation, not an interrupted
-//! alias list — the spelling is lost because the synopsis tokenizer never
-//! opens the group, and the same alternation rule that recovers it also
-//! recovers `cache_restore`'s `{-i|--input} <file>` and `xfs_io`'s
-//! `[[-c|-C] cmd]...`, neither of which has a value spec anywhere near it.
-//! That label is an error in the manifest; it is reported (see this
-//! detector's declared exclusions) rather than corrected here.
-//!
-//! Of the six, **five are this module's and one is not**:
-//!
-//! | tool | raw fragment | parsed as | alias lost |
-//! |---|---|---|---|
-//! | `filegone-bpfcc` | `-p PID, --pid PID` | `-p` + value `PID,` | `--pid` |
-//! | `gethostlatency-bpfcc` | `-p PID, --pid PID` | `-p` + value `PID,` | `--pid` |
-//! | `javaflow-bpfcc` | `-M METHOD, --method METHOD` | `-M` + value `METHOD,` | `--method` |
-//! | `rubyobjnew-bpfcc` | `-C TOP_COUNT, --top-count TOP_COUNT` | `-C` + value `TOP_COUNT,` | `--top-count` |
-//! | `sg_sanitize` | `--count=OC|-c OC` | `--count` + value `OC\|-c` | `-c` |
-//!
-//! `jdeprscan` is the sixth and is two further shapes, both declared out of
-//! scope below.
-//!
-//! # Is this one generator's quirk? No — three, and that is the evidence
-//!
-//! Four of the five are `bpfcc` tools, and four tools sharing one generator
-//! would be one shape wearing four names, not a family. They are not the
-//! whole evidence:
-//!
-//! * **Python `argparse`** (`filegone-bpfcc`, `gethostlatency-bpfcc`,
-//!   `javaflow-bpfcc`, `rubyobjnew-bpfcc`) — short first, `, ` separator,
-//!   placeholder repeated verbatim after the long form.
-//! * **`sg3_utils`' hand-written C** (`sg_sanitize`) — *long* first, `|`
-//!   separator, `=` joiner on the long side and a space on the short side.
-//!   The separator ends up *inside* the stored placeholder rather than
-//!   after it, which is why this module has two arms.
-//! * **Hand-written shell** (`iptables-apply`, `ip6tables-apply`) —
-//!   lowercase placeholders (`-t seconds, --timeout seconds`), no
-//!   framework anywhere near it.
-//!
-//! Those last two are not labelled members: they are among **four tools a
-//! human judged `correct` that this detector fires on**, alongside
-//! `apport-cli` and `compactsnoop-bpfcc`. All four were checked by hand
-//! against their own frozen bytes and all four are genuine — `iptables-apply`
-//! documents `-t seconds, --timeout seconds` and its tree carries `-t` with
-//! the placeholder `seconds,` and no `--timeout` at all. They are the
-//! strongest evidence the family is real and cross-generator, and they are
-//! also why nothing here may be narrowed to fit the labels: the rows are
-//! the same shape, so excluding them would be per-tool logic.
-//!
-//! # Two arms, because the grammar draws the value boundary in two places
-//!
-//! The defect has one cause and two surface shapes, and which one appears
-//! depends only on whether the separator happened to be glued to the value
-//! token or to sit beside it:
-//!
-//! * **Arm 1 — the separator follows the placeholder.** `-p PID, --pid PID`
-//!   stores `PID,`: `take_rest_value_token` takes a run of non-whitespace,
-//!   so the comma rode along. The alias sits in the raw text immediately
-//!   after.
-//! * **Arm 2 — the separator is inside the placeholder.**
-//!   `--count=OC|-c OC` stores `OC|-c`: there is no whitespace anywhere in
-//!   `OC|-c`, so the whole thing became the value and the alias is now a
-//!   substring of a field that is supposed to be a placeholder.
-//!
-//! Both arms report the same finding and the fix closes both at once, but
-//! they are separate code paths here because a detector that only knew one
-//! of them would read zero on half the family and look healthy.
-//!
-//! # Why this needs its own oracle
-//!
-//! [`crate::existence`] is **structurally blind** to it, for the same reason
-//! it is blind to [`crate::bundling`]: nothing was invented. Every spelling
-//! in the tree occurs in the raw text, `-p` included. What is wrong is what
-//! is *absent*, and an anti-fabrication oracle asks the opposite question.
-//! [`crate::misattribution`] is blind too — the descriptions all land on the
-//! right flags; it is the identity of the flag that is half-missing.
-//!
-//! # The hazard that governs this family, and how every condition serves it
-//!
-//! **Merging a short and a long spelling that are genuinely different flags
-//! is a fabrication, and fabrication is strictly worse than dropping.**
-//! Dropping loses information a user can still find in `--help`; merging
-//! invents an alias the tool does not have, and a user who types it gets an
-//! error. The fleet already has a live example of exactly this going wrong:
-//! the existence oracle's standing baseline is dominated by mis-merged GCC
-//! aliases.
-//!
-//! So every condition below is a rejection of a specific shape that *looks*
-//! like an interrupted alias list and is not:
-//!
-//! 1. **The flag carries a value spec** ([`mandible_core::Entity::value_name`]). No value, no
-//!    interruption — an alias list with nothing between its members already
-//!    parses correctly, and a pair separated by anything *other* than a
-//!    value spec is a different defect (see [`Scope`] below).
-//! 2. **The kept spelling and its value occur, glued as the tree stores
-//!    them, in the raw text** ([`anchor_end`]). `value_name` is stored
-//!    verbatim, so a successful match means the reconstructed fragment *is*
-//!    the tool's own text rather than merely something like it — the same
-//!    reconstruct-and-search condition [`crate::bundling`] leans on.
-//! 3. **An alias separator (`,` or `|`) sits at the placeholder's own
-//!    boundary** — as its last character, as the next non-space character
-//!    after it, or as the last separator inside it. Bounded there
-//!    deliberately: scanning any further reaches the description column,
-//!    where `--format FMT   same as --output` would read as an alias list
-//!    and is prose.
-//! 4. **What follows that separator is a whole flag spelling and nothing
-//!    else** ([`whole_spelling`]). `{a,-b}` — a choice list whose member
-//!    happens to start with a dash — leaves `-b}` after its separator, which
-//!    is not a spelling, and is left alone. So is `jdeprscan`'s real
-//!    `--release 7|8|9|10|11|12|13|14|15|16|17`, whose pipes are followed by
-//!    digits.
-//! 5. **That spelling is nowhere in the tree** ([`spellings_in_tree`]).
-//!    This is what makes the finding a *drop* rather than an observation:
-//!    a tool that documents `-p PID, --pid PID` and whose tree already
-//!    carries `--pid` has nothing wrong with it, and this condition is the
-//!    one that goes false the instant the family is repaired.
-//!
-//! # What it deliberately does not catch
-//!
-//! Two of the labelled tools, both named in [`Detector::scope`] with a
-//! structural [`crate::detector::Ground`] rather than left to look like
-//! recall:
-//!
-//! * **`eqn`'s `{-v | --version}`** — the mislabel above. The separator is
-//!   inside a brace alternation group, which the manifest labels as its own
-//!   family (`brace-alternation-flag`). Nothing about it is an interrupted
-//!   value spec; the synopsis tokenizer never opened the group at all.
-//! * **`jdeprscan`'s `-l    --list`** — the two spellings are separated by a
-//!   four-space run, which is the layout splitter's own description-column
-//!   boundary. The two never arrive at the flag-spec grammar as one
-//!   fragment, so there is no fragment for this rule to read.
-//!
-//! A third shape is out of reach of this module's accessors rather than of
-//! this rule: `jdeprscan`'s `-? -h --help` names two shorts and
-//! [`mandible_core::Entity::short`] surfaces one `Option<char>`, exactly as
-//! `-A, --catenate, --concatenate` names two longs and
-//! [`mandible_core::Entity::long`] surfaces one. Nothing can be reported
-//! there without reading `spellings` directly.
+//! Does not catch a separator inside a brace alternation group
+//! (`eqn`'s `{-v | --version}`, a different family — declared exclusion,
+//! [`Detector::scope`]) or two spellings split across a real description
+//! column (`jdeprscan`'s `-l    --list`). A third shape, two shorts or
+//! two longs on one entity, is out of reach of `Entity::short`/`::long`'s
+//! single-spelling accessors entirely.
 
 use crate::existence::is_word_char;
 use mandible_core::{CommandNode, Entity, Provenance, Source, ValueKind};
@@ -198,36 +71,14 @@ pub struct DroppedAlias {
 
 /// The result of analyzing one tool.
 ///
-/// # Why there is no scoreboard column, and no `drop_count()`
-///
-/// **This family costs zero flags by construction.** It never removed a
-/// flag — it removed a flag's *long spelling*. `-p PID, --pid PID` yielded
-/// one flag before the fix and yields one flag after it; all that changed
-/// is whether that flag also answers to `--pid`. So every existing
-/// fleet-wide number is blind to it *by arithmetic*, not by oversight:
-/// `total_flags` cannot move, `pct_flags_with_text` cannot move, and a
-/// `sweep-diff` across the whole of `PATH` reports 0 losses **and 0 gains**.
-/// That is the honest explanation for how a defect this common survived
-/// ~2,300 tools of repeated measurement without once showing up — and it is
-/// why a column counting it would have to be a new number rather than a
-/// movement in an old one.
-///
-/// Measured, not assumed: 2,014 tools swept with identical binaries either
-/// side of the grammar fix produced byte-identical scoreboards apart from
-/// three tools whose wall clock crossed the 10s cap (0 flags on both
-/// sides — the near-cap timing set `sweep-diff` already excludes).
-///
-/// A column is therefore deliberately *not* added here yet, and the reason
-/// is spec §13.1b rather than effort. [`crate::bundling`] earned its gated
-/// `bundle` column by first measuring the defect fleet-wide (58 tools, 465
-/// destroyed flags) and then measuring it again at zero. This family has no
-/// such before-number: the sweep that would establish one cannot complete
-/// on this machine — a probed tool trips the pty canary by binding a port
-/// on every run, which namespace containment does not cover — so the only
-/// available fleet figures come from 7 of 8 shards. Gating on a number
-/// whose baseline was never measured is exactly what §13.1b forbids. The
-/// detector stands on its calibration and its self-checks until a baseline
-/// exists.
+/// No scoreboard column, no `drop_count()`: this family costs zero flags
+/// by construction — it removes a spelling, not a flag. `total_flags` and
+/// `pct_flags_with_text` cannot move, and a `sweep-diff` across `PATH`
+/// reports 0 losses and 0 gains (measured across 2,014 tools swept either
+/// side of the grammar fix). No column is added yet because no fleet-wide
+/// baseline exists to gate against (spec §13.1b) — the sweep that would
+/// establish one cannot complete on this machine. The detector stands on
+/// its calibration and self-checks until a baseline exists.
 pub struct AliasReport {
     pub drops: Vec<DroppedAlias>,
 }
@@ -298,20 +149,14 @@ fn documented_alias(value: &str, tail: &str) -> Option<String> {
 }
 
 /// The char index in `raw` just past the first occurrence of `needle` that
-/// is not preceded by a word character.
+/// is not preceded by a word character. Char-indexed (AGENTS.md: never
+/// slice captured tool output at a raw byte offset); shares
+/// [`crate::existence::is_word_char`] rather than a second copy.
 ///
-/// Char-indexed throughout (AGENTS.md's rule against slicing captured tool
-/// output at a raw byte offset), and it shares
-/// [`crate::existence::is_word_char`] rather than carrying a second copy of
-/// the boundary rule — the drift hazard `existence`'s own doc comment
-/// names.
-///
-/// **Only the left boundary is enforced**, unlike
-/// [`crate::existence::spelling_occurs`]. The needle here already ends in
-/// the tool's own value placeholder (or in the separator glued to it), so
-/// there is no prefix-of-a-longer-flag hazard on the right — and demanding
-/// a non-word character there would reject `-p PID,--pid` written with no
-/// space, which is the same defect with tighter typography.
+/// Only the left boundary is enforced, unlike
+/// [`crate::existence::spelling_occurs`]: the needle already ends in the
+/// value placeholder, so there's no right-side prefix hazard, and
+/// demanding one would reject `-p PID,--pid` written with no space.
 fn anchor_end(raw: &[char], needle: &str) -> Option<usize> {
     let needle: Vec<char> = needle.chars().collect();
     if needle.is_empty() || raw.len() < needle.len() {

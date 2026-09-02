@@ -3,12 +3,10 @@
 //!
 //! [`Runner::extract_full`] does spec §5.2 step 1 (root-only extraction
 //! from every detecting tier). [`Runner::fill_node`] does step 3 (lazy
-//! per-node expansion): it only re-probes *incremental* tiers, since a
-//! non-incremental tier (Tier A) already contributed everything it ever
-//! will at root extraction. Background warming of the next depth (step 4)
-//! lives above this crate, in the binary's event loop, since it's about
-//! *when* to call `fill_node` (on a bounded background pool, cancelled on
-//! quit), not about extraction logic itself.
+//! per-node expansion): it only re-probes incremental tiers, since a
+//! non-incremental tier already contributed everything at root extraction.
+//! Background warming (step 4) lives above this crate, in the binary's
+//! event loop.
 
 use crate::resolve::{resolve_tool, ResolvedTool};
 use crate::tier::{ExtractionTier, NodeHints};
@@ -43,47 +41,32 @@ pub struct ExtractionResult {
 
 impl ExtractionResult {
     /// Total flags in the merged tree, including inherited ones, counted
-    /// recursively. This is the raw recall count — it includes flags whose
-    /// only source is a usage synopsis and can never carry a description
-    /// (spec [M-15], §13's metric design rules), which is exactly why it
-    /// is kept as its own number rather than folded into
-    /// [`Self::flag_description_ratio`]'s denominator: a spelling-only
-    /// flag is real information, just not a ratio to gate on.
+    /// recursively. This raw recall count includes flags whose only source
+    /// is a usage synopsis and can never carry a description (spec [M-15],
+    /// §13), which is why it stays separate from
+    /// [`Self::flag_description_ratio`]'s denominator.
     pub fn flag_count(&self) -> usize {
         self.root.as_ref().map(count_flags).unwrap_or(0)
     }
 
     /// Total modifier letters in the merged tree, counted recursively —
-    /// the same raw recall count [`Self::flag_count`] is, for the kind
-    /// spec §7 Tier B's modifier tables produce.
-    ///
-    /// Its own number rather than part of the flag count: a modifier is
-    /// not a flag, and adding seventeen of them to `ar`'s six would make
-    /// every "% flags with text" ratio built on that count mean something
-    /// different for the handful of tools that have any.
+    /// kept separate from [`Self::flag_count`] since a modifier is not a
+    /// flag (spec §7 Tier B).
     pub fn modifier_count(&self) -> usize {
         self.root.as_ref().map(count_modifiers).unwrap_or(0)
     }
 
-    /// Total environment variables in the merged tree, counted
-    /// recursively — [`Self::modifier_count`]'s twin for the other kind
-    /// spec §7 Tier B's two emission stages produce (Environment
-    /// sections).
-    ///
-    /// Its own number for the same reason `modifier_count` is: an
-    /// environment variable is not a flag, and folding `node`'s nineteen
-    /// documented variables into its flag count would redefine the "%
-    /// flags with text" ratio for every tool that has any.
+    /// Total environment variables in the merged tree, counted recursively
+    /// — [`Self::modifier_count`]'s twin, kept separate for the same reason.
     pub fn env_var_count(&self) -> usize {
         self.root.as_ref().map(count_env_vars).unwrap_or(0)
     }
 
-    /// Total flags in the merged tree whose source *could*, in principle,
-    /// have supplied a description (spec §13's metric design rules, rule
-    /// 2: "denominators are conditioned on what the source could have
-    /// provided"). This is [`Self::flag_count`] minus flags whose every
-    /// contributing source is [`mandible_core::Source::HelpTextSynopsis`]
-    /// — see [`mandible_core::Provenance::describable`].
+    /// Total flags in the merged tree whose source could, in principle,
+    /// have supplied a description (spec §13 rule 2). [`Self::flag_count`]
+    /// minus flags whose every source is
+    /// [`mandible_core::Source::HelpTextSynopsis`] — see
+    /// [`mandible_core::Provenance::describable`].
     pub fn describable_flag_count(&self) -> usize {
         self.root.as_ref().map(count_describable_flags).unwrap_or(0)
     }
@@ -94,20 +77,15 @@ impl ExtractionResult {
         self.root.as_ref().map(count_nodes).unwrap_or(0)
     }
 
-    /// Fraction (0.0-1.0) of *describable* flags in the merged tree that
-    /// have a description (spec §13's metric design rules). `0.0` if there
-    /// are no describable flags — callers distinguish "nothing describable
-    /// to rate" from "rated everything at 0%" via
-    /// [`Self::describable_flag_count`], exactly as they already
-    /// distinguished "no flags" from "0% described" via [`Self::flag_count`]
-    /// before this redefinition ([M-15]).
+    /// Fraction (0.0-1.0) of describable flags in the merged tree that
+    /// have a description (spec §13). `0.0` if there are no describable
+    /// flags — [`Self::describable_flag_count`] distinguishes "nothing
+    /// describable" from "rated 0%" (spec [M-15]).
     ///
     /// Excluding usage-synopsis-only flags from the denominator, rather
-    /// than counting them as undescribed, is what makes this metric
-    /// monotone under added true information: recovering a real flag that
-    /// is honestly undescribable by construction must never make the ratio
-    /// worse, or the metric stands as a standing incentive not to find it
-    /// (spec §13's metric design rules, rule 1).
+    /// than counting them as undescribed, keeps this metric monotone:
+    /// recovering a real but undescribable flag must never make the ratio
+    /// worse (spec §13 rule 1).
     pub fn flag_description_ratio(&self) -> f64 {
         let describable = self.describable_flag_count();
         if describable == 0 {
@@ -139,13 +117,11 @@ fn count_describable_flags(node: &CommandNode) -> usize {
             .sum::<usize>()
 }
 
-/// Flags with a description. A flag is only ever given a description when
-/// its source is describable (`push_usage_flag` never sets one, and the
-/// duplicate-dropping rule in `sections/usage.rs` means a synopsis-only
-/// spelling never acquires one via merge either), so this is already
-/// implicitly a subset of [`count_describable_flags`] — no extra filter
-/// needed here for [`ExtractionResult::flag_description_ratio`]'s numerator
-/// to stay consistent with its denominator.
+/// Flags with a description. Already implicitly a subset of
+/// [`count_describable_flags`] — a flag is only ever given a description
+/// when its source is describable — so no extra filter is needed for
+/// [`ExtractionResult::flag_description_ratio`]'s numerator to stay
+/// consistent with its denominator.
 fn count_described_flags(node: &CommandNode) -> usize {
     node.flags().filter(|f| f.description.is_some()).count()
         + node
@@ -198,11 +174,9 @@ impl Runner {
         let root_path = vec![resolved.name.clone()];
         let mut statuses = Vec::with_capacity(self.tiers.len());
         let mut candidates = Vec::new();
-        // The root is the tool name the *user typed* at the command line —
-        // never a word any parser invented from `--help` layout — so it is
-        // structurally attested by definition, with no heading needed to
-        // point to. See `NodeHints::heading_attested`'s own doc comment for
-        // what this bit gates.
+        // The root is the tool name the user typed, never a word a parser
+        // invented, so it is structurally attested by definition. See
+        // `NodeHints::heading_attested`.
         let root_hints = NodeHints {
             heading_attested: true,
         };
@@ -248,17 +222,11 @@ impl Runner {
     }
 
     /// Lazy per-node expansion (spec §5.2 step 3): re-probe `path` against
-    /// every *incremental* tier only (a non-incremental tier like Tier A
-    /// already contributed everything it ever will, at root extraction —
-    /// there's nothing to defer, so nothing to re-request), and merge the
-    /// result with `existing` (the node already in the tree at `path`,
-    /// which may itself carry deep, already-complete data from a
-    /// non-incremental tier).
+    /// every incremental tier only, and merge with `existing` (the node
+    /// already in the tree at `path`).
     ///
     /// `existing` is always included as a merge candidate, so the result
-    /// is never worse than what was already known — a tier that fails or
-    /// isn't detected just doesn't contribute (spec §5.3), it doesn't
-    /// erase prior data.
+    /// is never worse than what was already known (spec §5.3).
     pub fn fill_node(
         &self,
         resolved: &ResolvedTool,
@@ -267,10 +235,8 @@ impl Runner {
     ) -> FillResult {
         let start = Instant::now();
         // `existing` already carries whatever the last merge decided about
-        // this node's own provenance (spec §4.4: `heading_attested` is
-        // OR'd across contributors at merge time, `mandible-core/src/merge.rs`),
-        // so it is the correct — and only available — source for this
-        // node's hint. Read before `existing` moves into `candidates`.
+        // this node's provenance (spec §4.4), so it's the correct source
+        // for this hint. Read before `existing` moves into `candidates`.
         let hints = NodeHints {
             heading_attested: existing.heading_attested,
         };
@@ -296,9 +262,8 @@ impl Runner {
             });
         }
 
-        // `candidates` always has at least the `existing` node pushed
-        // above, so this can only fail via a merge-internal bug, never
-        // MergeError::Empty.
+        // `candidates` always has at least `existing`, so this can only
+        // fail via a merge-internal bug, never MergeError::Empty.
         let node = merge_nodes(candidates)
             .expect("existing is always a candidate, so candidates is never empty");
 
@@ -438,9 +403,8 @@ mod tests {
         assert!(!result.tier_statuses[0].detected);
     }
 
-    /// An incremental tier whose `extract_node` returns a node carrying a
-    /// description, so tests can tell whether `fill_node` actually called
-    /// it and merged the result.
+    /// Returns a node carrying a description, so tests can tell whether
+    /// `fill_node` actually called it and merged the result.
     struct IncrementalWithDescription;
     impl ExtractionTier for IncrementalWithDescription {
         fn name(&self) -> &'static str {
@@ -469,8 +433,6 @@ mod tests {
 
     #[test]
     fn fill_node_skips_non_incremental_tiers() {
-        // AlwaysOk is non-incremental: it already contributed everything
-        // at root extraction, so fill_node must not call it again.
         let runner = Runner::new(vec![Box::new(AlwaysOk)]);
         let resolved = resolve_tool("sometool");
         let existing = CommandNode::new("child", Provenance::single(Source::HelpText));
@@ -496,12 +458,10 @@ mod tests {
             &["sometool".to_string(), "child".to_string()],
             existing,
         );
-        // The pre-existing field survives...
         assert_eq!(
             result.node.summary.unwrap().as_str(),
             "already known summary"
         );
-        // ...and the newly-filled field is present too.
         assert_eq!(
             result.node.description.unwrap().as_str(),
             "filled in lazily"
@@ -512,10 +472,8 @@ mod tests {
 
     #[test]
     fn fill_node_never_fails_even_if_every_tier_fails() {
-        // existing is always a merge candidate, so the result is always
-        // Some — a tier failing here must degrade to "unchanged," not to
-        // "no result at all" (unlike extract_full, which can return
-        // root: None when nothing contributes anything).
+        // existing is always a merge candidate, so a failing tier
+        // degrades to "unchanged," not "no result at all".
         let runner = Runner::new(vec![Box::new(AlwaysFails)]);
         let resolved = resolve_tool("sometool");
         let mut existing = CommandNode::new("child", Provenance::single(Source::HelpText));

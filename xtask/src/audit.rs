@@ -1,76 +1,39 @@
 //! `cargo run -p xtask -- audit`: a bounded, random, human-reviewed sample
 //! of real tools, comparing raw captured `--help` text against the parsed
-//! tree — the first instrument in this project that compares output to
-//! *truth* rather than to itself.
+//! tree — this project's only instrument that compares output to truth
+//! rather than to itself (every other instrument measures agreement with
+//! the parser). Sample size is `n=80` (~±8-10 points at 95% confidence,
+//! [`wilson_interval`]).
 //!
-//! # Why this exists
-//!
-//! Every prior instrument measures agreement with the parser, not with
-//! reality: the corpus asserts "the parser still does what it did", the
-//! coverage sweep counts what the parser produced, snapshots bless whatever
-//! came out, and [`crate::misattribution`] — the project's first genuine
-//! correctness instrument — found ~4 broken tools in 2,266 (0.18%), which
-//! cannot explain a maintainer-observed 25-33% error rate on hand
-//! inspection. Two of the four tools ever actually read by a human (`git`,
-//! `lsof`) had serious defects invisible to every automated gate. The real
-//! accuracy is unknown; this module measures it, on a sample small enough
-//! for a human to review by hand (~30s/tool, so 80 tools is an afternoon)
-//! and large enough for the resulting rate to mean something (`n=80` gives
-//! roughly ±8-10 points at 95% confidence — see [`wilson_interval`]).
-//!
-//! Crucially, the review effort is **capitalized**: every reviewed tool can
-//! become a `corpus/` fixture (spec §13.2, `corpus/README.md`), so one pass
-//! over a tool produces two things — a data point in the accuracy number,
-//! and a permanent regression-net entry encoding *verified* truth rather
-//! than a blessed guess. `corpus/lsof/4.95.0` is the cautionary tale this
-//! guards against: committed green by `--bless` without this kind of read.
+//! Each reviewed tool can become a `corpus/` fixture (spec §13.2), turning
+//! review effort into a permanent regression-net entry.
 //!
 //! # Shape
 //!
-//! - `xtask audit freeze` (`crate::queue::cmd_freeze`) sweeps `PATH` once,
-//!   classifies every tool by parse status (`ok`/`low-confidence`/
-//!   `verbatim`/`no-tier`, plus whatever other status
-//!   [`crate::status::compute`] actually produces for the population, e.g.
-//!   `suspicious` — never a fixed four-way bucket forced onto the real
-//!   data), shuffle-stratifies the result with a recorded seed, and writes
-//!   the ordered list plus the raw captured bytes behind it to
-//!   `<dir>/queue.toml` / `<dir>/queue-captures/`. `xtask audit sample`
-//!   (`crate::queue::cmd_sample`) then just advances a cursor through that
-//!   frozen queue and persists the next slice to a resumable verdict file —
-//!   see `crate::queue`'s own doc comment for the full design, why it
-//!   replaced a live re-sweep on every draw, and the caveats freezing a
-//!   population honestly carries.
+//! - `xtask audit freeze` (`crate::queue::cmd_freeze`) sweeps `PATH`,
+//!   classifies by parse status, shuffle-stratifies with a recorded seed,
+//!   writes `<dir>/queue.toml` / `<dir>/queue-captures/`. `xtask audit
+//!   sample` (`crate::queue::cmd_sample`) advances a cursor through that
+//!   frozen queue into a resumable verdict file.
 //! - [`cmd_review`] is the interactive loop: raw text and parsed tree side
-//!   by side, a one-word verdict, persisted after every tool so an
-//!   interrupted session resumes rather than restarts.
-//! - [`cmd_emit`]/[`cmd_ingest`] are the non-interactive twin of the same
-//!   loop — this machine has no tty (AGENTS.md §3.2), so a review workflow
-//!   that only works interactively is untestable here and unusable there.
-//!   `emit` writes every pending pair to a file for offline reading;
-//!   `ingest` reads a plain-text verdicts file back in.
+//!   by side, a one-word verdict, persisted after every tool.
+//! - [`cmd_emit`]/[`cmd_ingest`] are the non-interactive twin (this machine
+//!   has no tty, AGENTS.md §3.2): `emit` writes pending pairs to a file,
+//!   `ingest` reads verdicts back in.
 //! - [`cmd_report`] renders per-stratum and overall accuracy with an
-//!   explicit sample size and confidence interval — **never a bare
-//!   percentage**, which is the specific thing that misled this project
-//!   before (`%flags_text`/`%described`, spec §13.1b).
+//!   explicit sample size and confidence interval, never a bare percentage
+//!   (spec §13.1b).
 //! - [`cmd_fixtures`] turns a reviewed tool into a `corpus/`-shaped fixture:
-//!   a `correct` verdict is a human assertion of correctness exactly like
-//!   `--bless` (`corpus/README.md`'s own words) and gets a real
-//!   `expected.snap`; `incomplete`/`wrong` get `[xfail]` with the
-//!   reviewer's note as `reason`. See that function's doc comment for why
-//!   it stages into a scratch directory by default rather than writing
-//!   straight into the gated `corpus/` tree.
+//!   `correct` gets a real `expected.snap`; `incomplete`/`wrong` get
+//!   `[xfail]` with the reviewer's note as `reason`.
 //!
 //! # No cherry-picking, structurally
 //!
-//! There is no "skip this one" that silently reshapes the sample:
 //! [`cmd_review`]'s only responses are `correct`/`incomplete`/`wrong`/
-//! `skip`, and `skip` is *recorded*, not omitted — a skipped tool still
-//! occupies its slot in the verdict file and is visible in
-//! [`cmd_report`]'s output, just excluded from the accuracy ratio (there is
-//! nothing to judge). The draw itself never consults the tool's own status
-//! or name when deciding who gets sampled — see
-//! `crate::queue::shuffle_stratify`, which only ever sees `(tool, stratum)`
-//! pairs and a seeded shuffle.
+//! `skip`, and `skip` is recorded, not omitted — visible in
+//! [`cmd_report`]'s output, excluded only from the accuracy ratio. The
+//! draw (`crate::queue::shuffle_stratify`) never consults a tool's status
+//! or name, only `(tool, stratum)` pairs and a seeded shuffle.
 
 use crate::existence::{self, FabricationKind};
 use crate::misattribution::RecordingProbe;
@@ -88,21 +51,16 @@ use std::io::{BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
 
-/// The manifest schema itself — [`Entry`], [`AuditFile`], [`AuditMeta`], the
-/// load/save functions, and the verdict-word/tag-override parsers — lives in
-/// [`mandible_core::audit`], not here, so `mandible --review` can read and
-/// write the exact same `audit/<seed>.toml` file this module produces
-/// without a second, drifting copy of the format. See that module's own doc
-/// comment for the full rationale. What stays here: drawing the sample and
-/// computing the K1/K2/K3 pre-tag suggestions, both of which need this
-/// crate's own detectors (`status`, `existence`, `misattribution`) and a
-/// live extraction pass — `mandible --review` never recomputes either, it
-/// only displays what's already in the file.
+/// The manifest schema ([`Entry`], [`AuditFile`], [`AuditMeta`], load/save,
+/// verdict-word/tag-override parsers) lives in [`mandible_core::audit`],
+/// not here, so `mandible --review` reads/writes the same `audit/<seed>.toml`
+/// without a drifting second copy. This module draws the sample and
+/// computes K1/K2/K3 pre-tag suggestions, needing a live extraction pass;
+/// `mandible --review` only displays what's already in the file.
 ///
-/// The synthetic stratum label [`cmd_report`] uses for every entry carrying
-/// an [`Entry::include_reason`], so a force-included tool is tallied
-/// separately from the ordinary stratified draw rather than blended into
-/// its nominal [`Entry::stratum`] — see that field's doc comment.
+/// The synthetic stratum label [`cmd_report`] uses for every entry with an
+/// [`Entry::include_reason`], tallied separately from the ordinary
+/// stratified draw — see [`Entry::stratum`]'s doc comment.
 const FORCED_INCLUSION_STRATUM: &str = "forced-inclusion";
 
 /// One tool's classification: its drawn/measured stratum, the extracted
@@ -236,26 +194,16 @@ fn token_occurs_anywhere(raw: &str, name: &str) -> bool {
 }
 
 /// `(attributable, total)` counts of `report`'s subcommand-kind
-/// fabrications that are plausibly explained by the existence detector's
-/// own multi-column/comma-separated tokenization gap (K2) rather than
-/// genuine parser fabrication.
+/// fabrications plausibly explained by the existence detector's own
+/// multi-column/comma-separated tokenization gap (K2) rather than genuine
+/// parser fabrication. The gap itself is closed (`existence::list_row_words`
+/// reads whole list rows), so this normally returns `(0, 0)`; kept as a
+/// regression signal.
 ///
-/// **That gap is closed** — `existence::list_row_words` reads a whole list
-/// row now, so a real grid or comma-joined index produces no fabrication
-/// for this to attribute, and in practice this returns `(0, 0)` for the
-/// tools it was written for. It is kept, unchanged in behaviour, as the
-/// regression signal: a fabrication that *is* attributable here again means
-/// the list-row rule stopped recognising a layout it used to.
-///
-/// A fabrication is "attributable" when its
-/// name occurs as *some* token anywhere in the raw text
-/// ([`token_occurs_anywhere`]), just not at the line-start position the
-/// detector itself requires. Flag-kind fabrications are out of scope here —
-/// the tokenizer gap this class explains is specific to how
-/// `line_start_words` reads *lines*, which only ever gates subcommand
-/// names; a flag spelling's existence check ([`existence::spelling_occurs`])
-/// already scans the whole raw text unconditionally and has no equivalent
-/// gap to explain.
+/// Attributable: name occurs as some token anywhere in the raw text
+/// ([`token_occurs_anywhere`]), not at the line-start position the
+/// detector requires. Flag-kind fabrications are out of scope —
+/// [`existence::spelling_occurs`] already scans unconditionally.
 fn k2_signature_stats(report: &existence::ExistenceReport, raw: &str) -> (usize, usize) {
     let subcommand_names: Vec<&str> = report
         .fabrications
@@ -295,28 +243,20 @@ fn is_bare_stub(node: &CommandNode) -> bool {
     node.flags().next().is_none() && node.subcommands.is_empty() && node.summary.is_none()
 }
 
-/// True for a bare stub ([`is_bare_stub`]) that is *also* not
-/// [`CommandNode::heading_attested`] and not
-/// [`CommandNode::invocation_attested`] — its name came from a native/cobra
-/// artifact (e.g. a `__complete` candidate) rather than a recognized
-/// `--help` heading or a headingless invocation table (spec §7 Tier B).
-/// This is provable from the single extraction pass this pre-tag is
-/// computed from: `help_text::raw_help` refuses to probe any node whose
-/// `heading_attested` bit is false (`mandible-extract/src/
-/// help_text/mod.rs`) — `invocation_attested` is deliberately never checked
-/// by that gate either, by spec §6's own decision — so unlike an ordinary
-/// un-recursed subcommand — merely not fetched *yet* — this one
-/// structurally cannot ever be, live navigation included. `git-lfs`'s tree
-/// is the motivating case: 36 nodes, 34 of them exactly this shape, which
-/// is also why its `status::compute` label is `suspicious`.
+/// True for a bare stub ([`is_bare_stub`]) that is also not
+/// [`CommandNode::heading_attested`] — its name came from a native/cobra
+/// artifact rather than a recognized `--help` heading or headingless
+/// invocation table (spec §7 Tier B). Provable from the single extraction
+/// pass: `help_text::raw_help` refuses to probe any node whose
+/// `heading_attested` bit is false, so unlike an ordinary un-recursed
+/// subcommand, this one structurally cannot ever be probed.
 ///
-/// A headingless-table node still counts here even though it *is*
-/// existence-attested: it is genuinely never probed, so K3's "review this
-/// gap" suggestion is still the honest signal for it. `invocation_attested`
-/// only exempts a node from being counted as *fabricated* (see
-/// [`crate::status::structure_sanity`], which is the detector that actually
-/// gates `min_status`) — it does not make the node any less permanently
-/// un-probed.
+/// A headingless-table node still counts here even though it's
+/// existence-attested (`invocation_attested`) — it exempts a node from
+/// being counted as *fabricated* ([`crate::status::structure_sanity`]) but
+/// does not make it any less permanently un-probed.
+///
+/// Fixture: `corpus/git-lfs/*/help.txt`.
 fn is_attestation_gated_stub(node: &CommandNode) -> bool {
     is_bare_stub(node) && !node.heading_attested
 }
@@ -340,19 +280,14 @@ fn total_flags(node: &CommandNode) -> usize {
     node.flags().count() + node.subcommands.iter().map(total_flags).sum::<usize>()
 }
 
-/// True when `root` has at least one subcommand yet the whole tree — root
-/// included — carries zero flags anywhere. `openssl`'s shape: the top-level
-/// `--help` is a bare command grid with no options section at all, so the
-/// single root-only extraction pass this pre-tag is computed from
-/// ([`classify_one`]/[`Runner::extract_full`], which never recurses) never
-/// surfaces a single flag, and each of its 151 subcommands' own help
-/// genuinely was never fetched. Most real tools' root `--help` documents at
-/// least one flag (`-h`/`--version` if nothing else), which is what makes
-/// "zero flags anywhere, but subcommands exist" a reasonable single-pass
-/// proxy for this specific gap rather than every multi-level tool's
-/// ordinary lazy-fill state (which would otherwise over-tag almost every
-/// sampled tool, since `extract_full` never recurses into subcommands at
-/// all).
+/// True when `root` has at least one subcommand yet the whole tree carries
+/// zero flags anywhere. `openssl`'s shape: root `--help` is a bare command
+/// grid with no options section, so the single root-only extraction pass
+/// ([`Runner::extract_full`], never recurses) surfaces no flag at all.
+/// Most tools document at least `-h`/`--version`, which is what keeps this
+/// from over-tagging every multi-level tool's ordinary lazy-fill state.
+///
+/// Fixture: `corpus/openssl/*/help.txt`.
 fn has_unfetched_subcommand_help(root: &CommandNode) -> bool {
     !root.subcommands.is_empty() && total_flags(root) == 0
 }
@@ -446,54 +381,24 @@ pub fn load_force_include(path: &Path) -> anyhow::Result<Vec<(String, String)>> 
     Ok(out)
 }
 
-/// `xtask audit spot-audit` (spec §13.1b's sixth rule): the spot-audit
-/// stratum mechanism that section named as missing. Draws `--sample` tools
-/// **at random** from `promoted` — the tool list one specific mass-`ok`
-/// promotion event actually changed, never the whole fleet — classifies
-/// each with one fresh extraction pass ([`classify_one`], same "no second
-/// probe" property [`Classified`]'s doc comment already gives every other
-/// entry point here), and merges them into `<dir>/<seed>.toml` as their own
-/// `spot-audit:<event>` stratum ([`effective_stratum`]), reported by
-/// [`cmd_report`] alongside the ordinary parse-status strata and
-/// [`FORCED_INCLUSION_STRATUM`].
+/// `xtask audit spot-audit` (spec §13.1b's sixth rule): draws `--sample`
+/// tools at random from `promoted` (the tools one mass-`ok` promotion
+/// event changed), classifies each with one fresh extraction pass
+/// ([`classify_one`]), and merges them into `<dir>/<seed>.toml` as a
+/// `spot-audit:<event>` stratum ([`effective_stratum`]).
 ///
-/// **The draw is reproducible, not hand-picked.** `draw_seed` mixed with
-/// `event` via [`crate::rng::stratum_seed`] — the exact per-stratum seed
-/// mix `crate::queue::shuffle_stratify` already uses for the frozen
-/// queue — seeds a Fisher-Yates shuffle ([`crate::rng::seeded_shuffle`])
-/// over `promoted`; the same event name and seed always draw the same
-/// tools, and two different events never share a correlated draw pattern.
+/// The draw is reproducible: `draw_seed` mixed with `event` via
+/// [`crate::rng::stratum_seed`] seeds a Fisher-Yates shuffle
+/// ([`crate::rng::seeded_shuffle`]) over `promoted`.
 ///
-/// **A promoted set smaller than `sample` is handled explicitly, never
-/// silently.** When `promoted.len() < sample`, every promoted tool is
-/// drawn — not a padded count pretending the full sample size was met, and
-/// not a silently smaller draw with nothing said about it — and the
-/// printed summary states the shortfall in plain words. This is the exact
-/// edge case the bundled-short-flag backfill (5 promoted tools, below the
-/// 5–10 target because the family had only 5 audited members) hits.
+/// When `promoted.len() < sample`, every promoted tool is drawn and the
+/// shortfall is stated in the summary, never silently padded.
 ///
-/// **A tool already present in the verdict file is tagged, never
-/// duplicated or silently skipped.** A promotion event's own promoted set
-/// frequently overlaps the ordinary stratified draw that a prior audit
-/// already sampled — the motivating case here (spec §13.1b's backfill) is
-/// exactly this: all 5 bundled-short-flag-promoted tools were already
-/// present in `audit/submissions/sadigaxund/2.toml`, reviewed **against the pre-fix parse**, and
-/// three were judged `wrong`/one `incomplete` *for that same
-/// bundled-short-flag defect* — the tool a promotion event just fixed.
-/// Silently skipping an already-present tool (this function's first
-/// version did) would mean the spot-audit stratum never gains a row for
-/// it at all, defeating the entire point. Re-classifying and overwriting
-/// its verdict outright would silently destroy a real prior human
-/// judgment. So instead: an already-present entry is re-tagged with
-/// [`Entry::spot_audit_event`] (moving it into this event's reported row
-/// without touching its stratum, verdict, note, or history), and its
-/// existing verdict — now potentially stale against a changed parse — is
-/// left exactly as recorded for a human to re-review and correct via
-/// `xtask audit amend` (never for this function to overwrite; amending is
-/// a deliberate, reasoned act, not a side effect of a draw). Only a tool
-/// genuinely new to the file is classified fresh and added as a pending
-/// entry. Re-running this command with the same inputs is safe either way:
-/// an already-tagged entry is left alone on a second pass.
+/// A tool already present in the verdict file is tagged with
+/// [`Entry::spot_audit_event`], not duplicated or reclassified — its
+/// existing verdict is left for a human to re-review via `xtask audit
+/// amend`, never overwritten as a side effect of a draw. Re-running with
+/// the same inputs is safe: an already-tagged entry is left alone.
 pub fn cmd_spot_audit(
     dir: &Path,
     seed: u64,
@@ -612,23 +517,14 @@ pub(crate) fn render_snapshot(node: Option<&CommandNode>) -> String {
     }
 }
 
-/// `xtask audit review`: the interactive loop. Presents the raw `--help`
-/// text and the parsed tree for every still-pending entry, one at a time,
-/// reads a verdict line (`<word> [note...]`) from `input`, and persists the
-/// file after **every** entry — an interrupted session (killed process,
-/// closed terminal, EOF on `input`) leaves everything answered so far
-/// recorded and everything else still pending, so a re-run resumes exactly
-/// where it stopped rather than re-asking or restarting.
+/// `xtask audit review`: the interactive loop. Presents raw `--help` text
+/// and the parsed tree for every pending entry, reads a verdict line
+/// (`<word> [note...]`) from `input`, and persists the file after every
+/// entry, so an interrupted session resumes where it stopped.
 ///
-/// Deliberately line-buffered (`<word><Enter>`), not a raw single-keystroke
-/// terminal mode: this environment has no tty (AGENTS.md §3.2 — `enable raw
-/// mode` fails with "No such device or address" here), so a design that
-/// depended on raw mode would be unwritten code from this box's point of
-/// view. A short word plus Enter is close enough to "one keystroke" for the
-/// ~30s/tool target, and — unlike a raw-mode reader — it works identically
-/// whether `input` is a real terminal or (as every test here uses) a
-/// `Cursor` over a fixed byte string, which is what makes this loop
-/// testable at all without a pty.
+/// Line-buffered (`<word><Enter>`), not raw single-keystroke: this
+/// environment has no tty (AGENTS.md §3.2), and line buffering works
+/// identically over a real terminal or a `Cursor` in tests.
 pub fn cmd_review(
     dir: &Path,
     seed: u64,
@@ -904,31 +800,14 @@ pub fn cmd_ingest(
 
 /// `xtask audit amend`: correct one already-recorded verdict without
 /// destroying it — see `mandible_core::audit::amend`'s doc comment for the
-/// full mechanism this wraps. This is the **only** entry point that touches
-/// [`mandible_core::audit::Entry::amendments`]; there is deliberately no
-/// TUI counterpart (unlike `review`, which has both a terminal loop here
-/// and an in-app twin in `mandible --review`).
+/// full mechanism this wraps. The only entry point touching
+/// [`mandible_core::audit::Entry::amendments`]; no TUI counterpart.
 ///
-/// **Why a subcommand and not a TUI flow:** `mandible --review`'s own loop
-/// (`mandible/src/app_runner.rs::run_review`) walks
-/// [`mandible_core::audit::AuditFile::needing_attention`] — pending entries
-/// and verdicts with a missing obligatory note — and stops there by
-/// construction; it never revisits an entry that already carries a
-/// complete `correct` verdict, which is exactly the shape an amendment
-/// needs to reach (`tmux` was `correct`, with a note that satisfied every
-/// obligation already in place). Adding "browse every already-judged entry
-/// and pick one to correct" to that loop is a real, separate feature — a
-/// new navigation mode orthogonal to the linear pending-entry walk the
-/// rest of that module is built around — not a natural extension of it.
-/// This command needs no tty (AGENTS.md §3.2, same reasoning `emit`/
-/// `ingest` already documented for this module) and is fully covered by
-/// `cargo nextest run`, whereas a TUI flow would join `run_review` on the
-/// "not exercised by the automated test suite" list. Nothing here stops a
-/// future in-app amend key from being added on top of the same
-/// `mandible_core::audit::amend` function this calls — see that function's
-/// own doc comment, which already treats `mandible --review` as sharing the
-/// schema `xtask` owns — but it is not required to satisfy this task's "not
-/// by hand-editing TOML" bar, since this command already clears it.
+/// A subcommand, not a TUI flow: `mandible --review`'s loop
+/// (`run_review`) walks `AuditFile::needing_attention` and never revisits
+/// an already-complete `correct` verdict, so reaching an amendment needs a
+/// separate navigation mode. This command needs no tty (AGENTS.md §3.2)
+/// and is fully covered by `cargo nextest run`.
 pub fn cmd_amend(
     dir: &Path,
     seed: u64,
@@ -957,16 +836,11 @@ pub fn cmd_amend(
     Ok(())
 }
 
-/// Wilson score interval for a binomial proportion at (approximately) 95%
-/// confidence (`z = 1.96`). Chosen over the naive
-/// `p ± z*sqrt(p(1-p)/n)` normal approximation because that one produces
-/// nonsensical bounds outside `[0, 1]` at exactly the small-`n`,
-/// near-0-or-1 proportions a first audit run is likely to hit (e.g. `n=5`,
-/// `k=5` "100% correct so far"), which is a bad first impression for the
-/// one number this whole instrument exists to report honestly. Returns
-/// `(lower, upper)` as fractions in `[0, 1]`; `(0.0, 1.0)` for `n == 0`,
-/// since nothing has been judged and the honest statement is "no
-/// information", not a point estimate.
+/// Wilson score interval for a binomial proportion at ~95% confidence
+/// (`z = 1.96`). Chosen over the naive normal approximation, which
+/// produces bounds outside `[0, 1]` at the small-`n`, near-0-or-1
+/// proportions a first audit run is likely to hit (`n=5`, `k=5`). Returns
+/// `(lower, upper)` in `[0, 1]`; `(0.0, 1.0)` for `n == 0`.
 fn wilson_interval(k: usize, n: usize) -> (f64, f64) {
     if n == 0 {
         return (0.0, 1.0);
@@ -995,20 +869,10 @@ struct StratumTally {
     out_of_scope: usize,
 }
 
-/// The stratum label a report groups `entry` under.
-///
-/// Checked in priority order:
-/// 1. [`Entry::spot_audit_event`], if present — `spot-audit:<event>`, one
-///    row **per promotion event** (spec §13.1b's sixth rule). Checked
-///    first because a spot-audit entry may also carry an
-///    [`Entry::include_reason`] documenting the draw itself (which event,
-///    how many of the promoted set existed, the seed) — that field is
-///    provenance here, not the bucketing signal.
-/// 2. [`FORCED_INCLUSION_STRATUM`], for any other force-included entry
-///    (`include_reason.is_some()`), so it never silently blends into (and
-///    skews) the random draw's own per-status numbers.
-/// 3. The entry's own nominal [`Entry::stratum`] (its parse status at draw
-///    time) otherwise.
+/// The stratum label a report groups `entry` under, checked in priority
+/// order: [`Entry::spot_audit_event`] (`spot-audit:<event>`, spec §13.1b's
+/// sixth rule), else [`FORCED_INCLUSION_STRATUM`] for any other
+/// force-included entry, else the entry's own [`Entry::stratum`].
 fn effective_stratum(entry: &Entry) -> String {
     if let Some(event) = &entry.spot_audit_event {
         format!("spot-audit:{event}")
@@ -1020,27 +884,16 @@ fn effective_stratum(entry: &Entry) -> String {
 }
 
 /// A plain `(correct, judged)` accuracy tally over whatever subset of
-/// entries `keep` selects — the shared machinery behind every accuracy
-/// number [`cmd_report`] prints, all-inclusive or K1/K2-filtered alike, so
-/// every view is computed the same way.
+/// entries `keep` selects — shared machinery behind every accuracy number
+/// [`cmd_report`] prints.
 ///
-/// Reads [`Entry::effective_verdict`], never the raw [`Entry::verdict`]
-/// field directly — an amended entry's corrected verdict is what the
-/// project actually believes about that tool, and every aggregate number
-/// this instrument reports must reflect that correction, not the
-/// superseded original sitting in the file for history's sake.
+/// Reads [`Entry::effective_verdict`], never the raw [`Entry::verdict`]:
+/// an amended entry's corrected verdict is what the project believes.
 ///
-/// **Also skips every [`Entry::is_display_only`] entry, unconditionally,
-/// regardless of which caller's filtered iterator it was handed.** The
-/// maintainer's ruling (task #28) is that a display/rendering-only finding
-/// "[is] not accuracy, ... probably [a] UI rendering issue. parsing was
-/// fine" — it is a real, kept finding (still visible in
-/// [`cmd_report`]'s stratum table and its own out-of-scope line, still a
-/// `wrong`/`incomplete` verdict on disk, still a `[xfail]` fixture), just
-/// never part of what this function is answering. Doing the skip in one
-/// shared place, rather than in each of `cmd_report`'s five call sites,
-/// is what makes "out" mean the same thing in the headline figure, every
-/// K-view, and the per-stratum table all at once.
+/// Also skips every [`Entry::is_display_only`] entry (task #28: a
+/// display/rendering-only finding is not an accuracy finding, though it
+/// stays a kept `wrong`/`incomplete` verdict elsewhere) — done here once
+/// rather than at each call site.
 fn accuracy_over<'a>(entries: impl Iterator<Item = &'a Entry>) -> (usize, usize) {
     let mut correct = 0usize;
     let mut judged = 0usize;
@@ -1091,23 +944,12 @@ fn verdict_favorability(verdict: &str) -> Option<i32> {
     }
 }
 
-/// Print the standing caveat every accuracy figure this report produces
-/// needs: a Wilson interval bounds *sampling* error — how much this
-/// particular sample's accuracy could plausibly differ from a fresh draw of
-/// the same size — and says nothing about *reviewer* error, since every
-/// verdict in the file came from one person's read with no independent
-/// cross-check. The one thing this module can say honestly about reviewer
-/// error is derived from the amendment record itself, never asserted as a
-/// standing fact: it tallies, from every [`Entry::amendments`] entry in
-/// `file`, how many corrections moved a verdict toward a more favorable
-/// outcome (`wrong`/`incomplete` -> `correct`, an original that was too
-/// harsh) versus a less favorable one (`correct`/`incomplete` -> `wrong`,
-/// an original that was too generous, via [`verdict_favorability`]) and
-/// reports the actual balance rather than a hardcoded claim about which
-/// direction reviewer error tends to run — that balance is exactly the
-/// kind of thing that changes as more amendments are recorded, and a
-/// caveat that stopped being true the day after it was written would be
-/// worse than no caveat at all.
+/// Print the standing caveat every accuracy figure needs: a Wilson
+/// interval bounds sampling error only, not reviewer error (every verdict
+/// is one person's unchecked read). Tallies [`Entry::amendments`] toward a
+/// more favorable outcome (`wrong`/`incomplete` -> `correct`) versus a
+/// less favorable one, via [`verdict_favorability`], and reports the
+/// actual balance rather than a hardcoded claim.
 fn wilson_caveat_lines(file: &AuditFile) -> Vec<String> {
     let mut amended_count = 0usize;
     let mut toward_more_favorable = 0usize;
@@ -1164,35 +1006,14 @@ fn wilson_caveat_lines(file: &AuditFile) -> Vec<String> {
     lines
 }
 
-/// `xtask audit report`: per-stratum and overall accuracy, each stated as a
-/// count and a confidence interval — never a bare percentage (spec's own
-/// complaint about `%flags_text`/`%described`, spec §13.1b, is exactly what
-/// this line format exists to avoid repeating). Also lists every tool
-/// judged `wrong` or `incomplete`, since those are the next bugs to fix.
+/// The `skip` verdicts, named — the stratum table prints only a `skipped`
+/// count per stratum, which makes the accuracy denominator's exclusion
+/// unauditable on its own. `skip` is recorded, not omitted (spec §16):
+/// every skipped tool by name, with the reviewer's reason or an explicit
+/// `(no reason recorded)`.
 ///
-/// Also reports accuracy under four K1/K2 views — all-inclusive,
-/// K1-excluded, K2-excluded, and both-excluded — rather than every
-/// combination separately: [`Entry::k1`]/[`Entry::k2`]'s doc comments have
-/// the full rationale for each known class, and reporting all four
-/// pairwise combinations here would be unwieldy for the same "never a bare
-/// percentage, but also never noise" discipline this module already
-/// applies everywhere else.
-/// The `skip` verdicts, named — the denominator's other half.
-///
-/// The stratum table prints a `skipped` *count* per stratum and nothing
-/// else, and `accuracy_over` excludes those entries from every accuracy
-/// figure in the report. A count alone makes the exclusion unauditable:
-/// a reader can see that nine tools left the denominator but not which
-/// ones, so "62.4% correct" cannot be checked against what was actually
-/// judged. `skip` is recorded, not omitted (spec §16), and this is what
-/// recording it looks like in the rendered report — every skipped tool by
-/// name, with the reviewer's reason where one was given and an explicit
-/// `(no reason recorded)` where none was, since `skip` is the one verdict
-/// that does not require a note and inventing one here would be
-/// fabricating the very justification a reader came to check.
-///
-/// Returns whole lines (the section header included) rather than printing,
-/// so the content is testable without capturing stdout.
+/// Returns whole lines (header included) rather than printing, so content
+/// is testable without capturing stdout.
 fn skipped_lines(file: &AuditFile) -> Vec<String> {
     let mut skipped: Vec<&Entry> = file
         .entries
@@ -1436,6 +1257,11 @@ pub(crate) fn render_report(dir: &Path, seed: u64) -> anyhow::Result<String> {
     Ok(lines.join("\n"))
 }
 
+/// `xtask audit report`: per-stratum and overall accuracy as a count and
+/// confidence interval, never a bare percentage (spec §13.1b). Also
+/// reports four K1/K2 views (all-inclusive, K1-excluded, K2-excluded,
+/// both-excluded — see [`Entry::k1`]/[`Entry::k2`]) and lists every tool
+/// judged `wrong`/`incomplete`.
 pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
     print!("{}", render_report(dir, seed)?);
     Ok(())
@@ -1445,32 +1271,15 @@ pub fn cmd_report(dir: &Path, seed: u64) -> anyhow::Result<()> {
 /// `corpus/README.md`-shaped fixture directory under `corpus_dir` — capture
 /// files, a pre-filled `meta.toml`, and (for `correct`) an `expected.snap`.
 ///
-/// **Stages by default, does not write into the gated `corpus/` tree.**
-/// `corpus_dir` defaults to `<dir>/<seed>/fixtures`, not `corpus/`. This is
-/// not a convenience default, it is load-bearing: a `wrong`/`incomplete`
-/// verdict becomes a `[xfail]` block, and `corpus/README.md`'s own
-/// lifecycle rule — confirmed empirically against this exact runner while
-/// building this command — is that `xtask corpus` treats an `[xfail]`
-/// fixture with **no currently-failing `[contract]` field** as "the bug
-/// appears fixed" and fails the run (`SnapshotCheck::Missing` is legal only
-/// while `[xfail]`, so with no contract to fail either, every check
-/// vacuously passes). What check *should* fail is exactly the kind of
-/// tool-specific judgment (which flags are missing, what a description got
-/// mixed up with) that only a human reviewer can supply — the same
-/// judgment this whole audit exists to capture and that automating away
-/// here would mean fabricating. So this command writes a real, honest
-/// `[xfail]` with the reviewer's note as `reason`, plus the one contract
-/// field it *can* derive without guessing (`expected_framework`, which is
-/// simply what Tier A′ detected, not a claim about correctness) and a
-/// prominent comment naming the gap. Staging keeps that gap from silently
-/// breaking `cargo run -p xtask -- corpus` for anyone who runs this
-/// command and then adds the tool count without reading the output —
-/// promoting a staged fixture into `corpus/` is a small, deliberate act,
-/// same spirit as `--bless` itself.
+/// Stages by default (`corpus_dir` defaults to `<dir>/<seed>/fixtures`,
+/// not `corpus/`): a `wrong`/`incomplete` verdict becomes an `[xfail]`
+/// with no currently-failing `[contract]` field, which `xtask corpus`
+/// otherwise reads as "the bug appears fixed" and vacuously passes.
+/// Writes the reviewer's note as `reason` plus `expected_framework`
+/// (Tier A′'s detection, not a correctness claim). Promoting a staged
+/// fixture into `corpus/` is a deliberate act, same spirit as `--bless`.
 ///
-/// A `correct` verdict needs none of that: `corpus/README.md` says a
-/// `correct` verdict *is* a human assertion of correctness, in those
-/// words, so those fixtures get a real `expected.snap` and may ship green
+/// A `correct` verdict gets a real `expected.snap` and may ship green
 /// immediately, wherever `corpus_dir` points.
 pub fn cmd_fixtures(
     dir: &Path,

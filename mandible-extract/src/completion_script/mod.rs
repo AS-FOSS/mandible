@@ -2,83 +2,47 @@
 //!
 //! Generates `<tool> completion zsh` (falling back to `bash`), never
 //! executes the result, and walks it as a real shell AST via
-//! [`brush_parser`] — not `conch-parser` (unmaintained, emits a
-//! future-incompat build warning [M-9]) and not `yash-syntax` (GPLv3,
-//! which would oblige the whole binary).
+//! `brush-parser` — not `conch-parser` (unmaintained [M-9]) and not
+//! `yash-syntax` (GPLv3).
 //!
 //! **zsh first.** A zsh completion function's `_arguments` calls carry a
-//! flag's spelling *and* description in one structure:
-//! `'-v[enable verbose output]'`, or the common brace-pair idiom for a
-//! flag with both forms, `'(-v --verbose)'{-v,--verbose}'[enable verbose
-//! output]'`. `brush_parser`'s `Word` keeps a token's *raw* source text
-//! (quotes, braces, and all) rather than performing shell expansion —
-//! correct, since parsing must never execute anything a real shell would
-//! (brace expansion is a runtime step) — so this module does its own
-//! small, targeted expansion of exactly that idiom before applying a
-//! hand-written `_arguments` spec-string grammar. It does not attempt
-//! general shell brace-expansion or full `_arguments` grammar coverage
-//! (value messages, actions, and nested exclusion lists past the first
-//! are read past, not interpreted) — the payload this tier exists for is
-//! spelling + description, not a completion engine.
+//! flag's spelling and description in one structure, e.g. the brace-pair
+//! idiom `'(-v --verbose)'{-v,--verbose}'[enable verbose output]'`.
+//! `brush_parser` keeps a token's raw source text rather than performing
+//! shell expansion, so this module does its own small, targeted expansion
+//! of that idiom before a hand-written spec-string grammar. Value
+//! messages, actions, and nested exclusion lists past the first are read
+//! past, not interpreted — the payload here is spelling + description,
+//! not a completion engine.
 //!
 //! **bash as a fallback, spellings only.** Bash completion functions
-//! mostly compute candidates at runtime (`compgen`, `COMPREPLY=(...)`
-//! built from calling the tool itself) rather than declaring them
-//! statically, so there is usually much less to recover structurally than
-//! there first appears. This tier only recognizes the one common static
-//! shape, `complete -W "word1 word2 ..." <tool>`, and recovers bare
-//! spellings with no descriptions — matching spec §7 Tier C's own
-//! characterization of what bash can realistically offer here.
+//! mostly compute candidates at runtime rather than declaring them
+//! statically, so this tier only recognizes `complete -W "word1 word2
+//! ..." <tool>` and recovers bare spellings with no descriptions.
 //!
-//! **Root-only contribution.** A completion script's dispatch logic
-//! (usually a `case "$words[2]"`-style branch per subcommand) would need
-//! to be *simulated*, not just parsed, to correctly attribute a nested
-//! `_arguments` call to the right subcommand path — attempting that
-//! without actually running the script risks silently misattributing a
-//! subcommand's flags to a sibling or to the root. Rather than guess,
-//! this tier is **not incremental** (spec §5.2's `is_incremental`):
-//! it contributes once, to the root node only, and never claims to know
-//! about deeper nodes.
+//! **Root-only contribution.** Attributing a nested `_arguments` call to
+//! the right subcommand path would require simulating the script's
+//! dispatch logic, not just parsing it. Rather than guess, this tier is
+//! not incremental (spec §5.2): it contributes once, to the root node
+//! only.
 //!
-//! **Authority** (spec §4.4): structural 150, prose 30 — a completion
-//! script's *existence* of a flag is fairly trustworthy (someone wrote it
-//! down deliberately), but its prose is usually terser than a real
-//! `--help` or a hand-maintained catalog entry.
+//! **Authority** (spec §4.4): structural 150, prose 30 — existence of a
+//! flag is fairly trustworthy, but its prose is usually terser than real
+//! `--help`.
 //!
 //! **Gated on prior evidence, never speculative.** This tier used to send
-//! `completion zsh` and then `completion bash` to *every* tool, to find
-//! out whether it answered. That is the same speculative shape spec §7
-//! Tier E's cobra probe was gated for after the `wall` incident, and it
-//! was measured doing three separate kinds of damage:
+//! `completion zsh`/`bash` to every tool speculatively; measured leaving
+//! 437 daemons running, tripping the sweep's PTY canary (`docker-proxy`
+//! binding `0.0.0.0:-1`), and costing two-thirds of extraction time on
+//! tools with no such subcommand (spec §6 rule 4, [M-9]).
 //!
-//! - **It started daemons that outlived the probe.** `<tool> completion
-//!   zsh`/`bash` accounted for 437 of the 622 processes a sweep left
-//!   behind on a developer box (219 zsh + 218 bash), the oldest five days
-//!   old. These tools do not reject the word they were handed; they
-//!   ignore it and start. `blkmapd`, `rpc.idmapd` and `rpc.gssd` are the
-//!   bulk of it; `guacd` held a listening socket on `127.0.0.1:4822` for
-//!   five days and `sudo_logsrvd` held `0.0.0.0:30343` and `[::]:30343`.
-//! - **It tripped the sweep's own PTY canary.** `docker-proxy completion
-//!   zsh` makes Go's `flag` package stop at the first non-flag argument,
-//!   leaving `-host-ip 0.0.0.0` and `-host-port -1` at their defaults, so
-//!   the tool attempts to bind `0.0.0.0:-1`, fails, and writes its
-//!   startup error to a terminal it does not own — aborting the run.
-//! - **It cost two thirds of extraction time.** Over the 94 audited
-//!   tools, three of them took 85.3s of 129.5s total. A program that
-//!   neither has a `completion` subcommand nor validates an unrecognised
-//!   positional before entering its main loop just sits there until each
-//!   probe's own `PROBE_TIMEOUT` fires: `vim.basic`'s `--help` is 4ms and
-//!   its parse ~5ms, while `CompletionScriptTier::detect` alone was
-//!   **20.028s** — two probes, each eating the full 10s.
-//!
-//! [`names_a_completion_subcommand`] is the gate: this tier asks the tool
-//! for its own root `--help` — a shape spec §6 rule 2 already permits, and
-//! the one Tier B sends to every tool anyway, so no new argv and no new
-//! exposure — and only constructs a `completion <shell>` argv when the
-//! tool's own text names `completion` (or `completions`) as a command.
+//! [`names_a_completion_subcommand`] is the gate: asks the tool for its
+//! own root `--help` (a shape Tier B already sends every tool, so no new
+//! argv or exposure) and only constructs a `completion <shell>` argv when
+//! the tool's own text names `completion`/`completions` as a command.
 //! Evidence read from the tool's own output, never from its name (spec
-//! §1), and never a widening of what may be *run*: the gate can only ever
-//! stop a probe, never authorise one that was not already permitted.
+//! §1); the gate can only stop a probe, never authorise one not already
+//! permitted.
 
 use crate::errors::ExtractError;
 use crate::exec::{InertArgv, LiveProbe, Probe};
@@ -116,14 +80,10 @@ pub struct CompletionScriptTier {
     /// to replay frozen bytes with zero subprocesses.
     probe: Arc<dyn Probe>,
     /// Whether each binary offers a `completion` subcommand at all, keyed
-    /// by resolved path and answered once (see [`Self::offers_completion_subcommand`]).
-    ///
-    /// Memoized for the same reason [`crate::framework::identify_from_artifact`]
-    /// is: it is a property of the *binary*, not of a node or of a moment,
-    /// so re-asking it per call would spend a probe re-deriving a constant.
-    /// Deliberately does **not** memoize the completion script itself —
-    /// that is the payload, and a refresh (`r`) must re-fetch it exactly as
-    /// it does today.
+    /// by resolved path and answered once. Memoized since it's a property
+    /// of the binary, not of a node or moment. Deliberately does not
+    /// memoize the completion script itself — a refresh (`r`) must
+    /// re-fetch it.
     offers_completion: Mutex<HashMap<PathBuf, bool>>,
 }
 
@@ -144,25 +104,13 @@ impl CompletionScriptTier {
 
     /// The gate (see this module's doc comment): is there evidence, from
     /// the tool itself, that a `completion <shell>` argv is a subcommand
-    /// invocation rather than two words handed to a program that will read
-    /// them as something else entirely?
+    /// invocation?
     ///
-    /// Two independent sources, both about the binary and neither about
-    /// its name:
-    ///
-    /// - **The tool's own root `--help` names it.** The common case, and
-    ///   the direct one: every framework that ships a completion command
-    ///   lists it in the command table it prints.
-    /// - **Tier A′ identified the binary as cobra.** cobra registers a
-    ///   `completion` command *itself*, from version 1.2 on, whether or
-    ///   not the author mentions it — and it may be marked hidden, in
-    ///   which case the help text above cannot see it even though the
-    ///   command is really there. Reading the marker out of the compiled
-    ///   bytes is free (a memoized file read, no subprocess), so this
-    ///   costs nothing and closes the one class of false negative the
-    ///   help-text rule has. It re-admits no measured leaker:
-    ///   `docker-proxy` identifies as `go flag`, and `blkmapd`,
-    ///   `vim.basic`, `bashbug` and `jconsole` are all unidentified.
+    /// Two independent sources, both about the binary, neither about its
+    /// name: the tool's own root `--help` names it (the common case), or
+    /// Tier A′ identified the binary as cobra (which registers `completion`
+    /// itself from v1.2 on, possibly hidden from help text). Reading the
+    /// artifact marker is free — a memoized file read, no subprocess.
     fn offers_completion_subcommand(&self, tool: &ResolvedTool, tool_path: &Path) -> bool {
         if let Ok(memo) = self.offers_completion.lock() {
             if let Some(hit) = memo.get(tool_path) {
@@ -183,12 +131,10 @@ impl CompletionScriptTier {
     /// Ask the tool for its own root `--help` and look for a `completion`
     /// command in it.
     ///
-    /// **Both streams are searched**, rather than picking one the way the
-    /// parsing path does (`help_text::pick_stream`). That is not a second
-    /// copy of that decision — it is a strictly weaker question. Choosing
-    /// a stream matters when the answer is *the document to parse*; here
-    /// the answer is a yes/no about a word's presence, and a tool that
-    /// prints its command table to stderr should not lose a tier over it.
+    /// Both streams are searched, unlike the parsing path
+    /// (`help_text::pick_stream`): here the answer is a yes/no about a
+    /// word's presence, not a document to parse, so a tool printing its
+    /// command table to stderr should not lose a tier over it.
     fn help_text_names_a_completion_subcommand(&self, tool_path: &Path) -> bool {
         let Ok(out) = self
             .probe
@@ -205,30 +151,20 @@ impl CompletionScriptTier {
 /// `completions` as a whole word — the shape of a command-table row.
 ///
 /// Anchored to the first token deliberately, and this is the whole
-/// grammar. It is what separates a command from every other place the
-/// word appears in a help document:
+/// grammar:
 ///
 /// - `  completion   Generate the autocompletion script` — a command. ✓
-/// - `      --completion <shell>` — a flag, not a command; the token
-///   starts with a dash. ✗
-/// - `Generate the shell completion script` — prose about a *flag*
+/// - `      --completion <shell>` — a flag, token starts with a dash. ✗
+/// - `Generate the shell completion script` — prose about a flag
 ///   elsewhere in the document. ✗
-/// - `Usage: tool completion <shell>` — the word is real but not first,
-///   and a tool that prints this prints the command row too. ✗
+/// - `Usage: tool completion <shell>` — the word is real but not first. ✗
 ///
-/// A trailing `,` or `:` is stripped so an aliased row
-/// (`completion, comp   ...`) still matches. The plural is accepted
-/// because it is the other common spelling of the same command and a
-/// framework CLI that has one often answers to the other; one that does
-/// not rejects the argv in milliseconds, which is precisely the class of
-/// tool this gate is not about.
+/// A trailing `,` or `:` is stripped so an aliased row still matches. The
+/// plural is accepted as the other common spelling.
 ///
-/// Deliberately *narrow*, and the failure mode is the honest one: a tool
-/// whose completion command exists but is named something else, or is
-/// hidden and not cobra, loses this tier and keeps every other. Spec §7's
-/// degradation ladder already says an absent tier is a better answer than
-/// a fabricated one — and here it is also better than a probe that starts
-/// an NFS daemon.
+/// Deliberately narrow: a tool whose completion command exists but is
+/// named something else, or is hidden and not cobra, loses this tier and
+/// keeps every other (spec §7's degradation ladder).
 fn names_a_completion_subcommand(help: &str) -> bool {
     help.lines().any(|line| {
         let Some(first) = line.split_whitespace().next() else {
@@ -255,15 +191,10 @@ impl ExtractionTier for CompletionScriptTier {
         let Some(tool_path) = &tool.path else {
             return false;
         };
-        // The gate (spec §6 rule 1, and this module's doc comment).
-        // `completion` and `zsh` are a *framework protocol's* words, not
-        // universal ones: fired at a program that does not speak that
-        // protocol they are not an inert shape at all, they are two
-        // positionals — semantically the bare invocation rule 1 forbids,
-        // arriving through rule 2's closed list because that list was
-        // validated against tools that *parse argv*. A daemon that ignores
-        // argv and starts anyway falsifies that premise, which is what 437
-        // of the 622 leaked processes were. No evidence, no argv.
+        // The gate (spec §6 rule 1, this module's doc comment): `completion`
+        // and `zsh` are framework-protocol words, not universal ones. A
+        // daemon that ignores argv and starts anyway falsifies rule 2's
+        // premise that these tools parse argv. No evidence, no argv.
         if !self.offers_completion_subcommand(tool, tool_path) {
             return false;
         }
@@ -278,18 +209,14 @@ impl ExtractionTier for CompletionScriptTier {
     ) -> Result<CommandNode, ExtractError> {
         let tool_path = tool.path.as_ref().ok_or(ExtractError::ToolNotFound)?;
         // Root-only contribution (see module doc). `is_incremental() ==
-        // false` already keeps the lazy-fill path from ever calling this
-        // for a deeper node, but this guard is cheap insurance against a
-        // future caller doing so anyway.
+        // false` already keeps the lazy-fill path from calling this for a
+        // deeper node; this guard is cheap insurance regardless.
         if path.len() > 1 {
             return Err(ExtractError::PathNotFound);
         }
         // Re-checked here, not left to `detect()` having run first: the
-        // gate is a *safety* property, so it must hold for any caller that
-        // reaches this method by any route, exactly as `run_inert`'s own
-        // rule 0/2a checks live at the chokepoint rather than at call
-        // sites. Free in practice — the answer is memoized per binary, so
-        // this is a map lookup after `detect()`.
+        // gate is a safety property and must hold for any caller reaching
+        // this method by any route.
         if !self.offers_completion_subcommand(tool, tool_path) {
             return Err(ExtractError::Other(
                 "no evidence of a `completion` subcommand: refusing to send a completion-protocol \
@@ -308,7 +235,7 @@ impl ExtractionTier for CompletionScriptTier {
 
     fn is_incremental(&self) -> bool {
         // A single probe already returns everything this tier will ever
-        // know (see the module doc's "root-only contribution").
+        // know (root-only contribution, see module doc).
         false
     }
 }
@@ -347,11 +274,9 @@ fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(Strin
 }
 
 /// Parse `script` as shell source and collect every `SimpleCommand`
-/// anywhere in it (regardless of nesting inside functions, if/case/while
-/// blocks, brace groups, or subshells) — this tier only ever looks for
-/// specific command *names* (`_arguments`, `complete`), never simulates
-/// control flow, so flattening is sufficient and much simpler than a
-/// structure-preserving walk.
+/// anywhere in it (regardless of nesting). This tier only looks for
+/// specific command names, never simulates control flow, so flattening
+/// suffices.
 fn all_simple_commands(script: &str) -> Vec<(String, Vec<String>)> {
     let cursor = std::io::Cursor::new(script.as_bytes());
     let reader = std::io::BufReader::new(cursor);
@@ -498,12 +423,10 @@ fn extract_bash_flags(script: &str, provenance: &Provenance) -> Vec<Entity> {
 }
 
 /// Strip a single level of quoting from each maximal quoted run in `raw`,
-/// concatenating with any unquoted runs left as-is (in particular, an
-/// unquoted `{...}` brace expression survives untouched, ready for
-/// [`expand_brace_alternatives`]). Not general shell quote-removal
-/// (no escape processing inside double quotes, no `$(...)` handling) —
-/// `_arguments` spec strings in practice are simple literal single-quoted
-/// text, and this only needs to handle that.
+/// leaving unquoted runs as-is (an unquoted `{...}` brace expression
+/// survives, ready for [`expand_brace_alternatives`]). Not general shell
+/// quote-removal — `_arguments` spec strings are simple literal
+/// single-quoted text in practice.
 fn dequote_concat(raw: &str) -> String {
     let mut out = String::new();
     let mut chars = raw.chars();
@@ -719,11 +642,9 @@ mod tests {
         assert!(parse_arg_spec(":file:_files").is_none());
     }
 
-    /// The end-to-end regression this tier exists for: a real-shaped
-    /// `_arguments` call using the brace-pair idiom for a short+long
-    /// flag pair, embedded inside a shell function (as real zsh
-    /// completions always are), must recover both spellings sharing one
-    /// description.
+    /// A real-shaped `_arguments` call using the brace-pair idiom for a
+    /// short+long flag pair, inside a shell function, must recover both
+    /// spellings sharing one description.
     #[test]
     fn extracts_flags_from_a_realistic_zsh_completion_function() {
         let script = r#"
@@ -818,8 +739,7 @@ _mytool "$@"
     }
 
     /// A root `--help` that names a `completion` command — what the gate
-    /// requires before this tier constructs any completion-protocol argv
-    /// at all.
+    /// requires before this tier constructs any completion-protocol argv.
     const HELP_NAMING_COMPLETION: &str = "\
 Usage: mytool [OPTIONS] <COMMAND>
 
@@ -828,19 +748,12 @@ Commands:
   help        Print this message
 ";
 
-    /// Real argv, replayed: the root probe tries zsh first, which renders
-    /// to exactly `["completion", "zsh"]` (`InertArgv::args`). A transcript
-    /// keyed on that argv, holding a real-shaped `_arguments` script, must
-    /// let `extract_node` recover flags through the tier's actual probe
-    /// construction — not by handing `extract_zsh_flags` the script text
-    /// directly, which is what the parser-level tests above already cover.
-    ///
-    /// The transcript now has to carry the `["--help"]` recording too:
-    /// since the gate landed, that probe is how this tier learns the tool
-    /// has a `completion` command in the first place. Its presence here is
-    /// itself part of the real-argv claim — a tier that stopped asking, or
-    /// asked with some other argv, would miss and fail this test rather
-    /// than quietly passing.
+    /// Real argv, replayed: the root probe tries zsh first, rendering to
+    /// exactly `["completion", "zsh"]`. A transcript keyed on that argv
+    /// must let `extract_node` recover flags through the tier's actual
+    /// probe construction. Also carries the `["--help"]` recording the
+    /// gate needs — a tier that stopped asking, or asked differently,
+    /// would miss and fail this test.
     #[test]
     fn extract_node_replays_flags_from_a_transcript_keyed_on_the_real_argv() {
         let script = r#"
@@ -879,10 +792,8 @@ _mytool "$@"
         assert!(node.flags().any(|f| f.long() == Some("verbose")));
     }
 
-    /// The negative case: a transcript that covers neither `completion
-    /// zsh` nor `completion bash` — the only two argvs this tier ever
-    /// sends — must not produce a fabricated, silently-empty node. It must
-    /// come back as an explicit error.
+    /// A transcript covering neither `completion zsh` nor `completion
+    /// bash` must not produce a fabricated, silently-empty node.
     #[test]
     fn extract_node_against_a_transcript_missing_both_shell_argvs_is_an_error_not_empty_success() {
         let transcript = crate::exec::Transcript::new([
@@ -928,10 +839,9 @@ _mytool "$@"
         ));
     }
 
-    /// The three places the word appears in a help document *without*
-    /// naming a command. Each one of these firing would put a
-    /// completion-protocol argv in front of a tool that has no such
-    /// subcommand — the whole defect.
+    /// Three places the word appears in a help document without naming a
+    /// command; each firing would put a completion-protocol argv in front
+    /// of a tool with no such subcommand.
     #[test]
     fn the_word_elsewhere_in_a_document_is_not_evidence() {
         // A flag, not a command.
@@ -946,23 +856,15 @@ _mytool "$@"
         assert!(!names_a_completion_subcommand(
             "Usage: mytool completion <shell>\n"
         ));
-        // The measured leakers' shape: nothing resembling it at all.
         assert!(!names_a_completion_subcommand(
             "Usage: blkmapd [-h] [-d level] [-f] [-n]\n"
         ));
     }
 
-    /// **The safety property, through the tier's real probe
-    /// construction.** A tool whose own `--help` says nothing about a
-    /// `completion` command must never be sent `completion zsh` or
-    /// `completion bash` — proven by a transcript that *does* hold a
-    /// working `completion zsh` recording, so the only thing stopping the
-    /// tier from succeeding is the gate itself.
-    ///
-    /// This is the replay analogue of `tests/exec_policy.rs`'s shim
-    /// suite, and it is arranged the way spec §13.3 requires: if the gate
-    /// were removed, this test would *pass extraction* and fail its
-    /// assertion, rather than silently continuing to pass.
+    /// A tool whose own `--help` says nothing about a `completion`
+    /// command must never be sent `completion zsh`/`bash` — proven by a
+    /// transcript that does hold a working `completion zsh` recording, so
+    /// only the gate itself stops the tier from succeeding.
     #[test]
     fn a_tool_whose_help_names_no_completion_command_is_never_sent_one() {
         let script = r#"
@@ -1009,10 +911,9 @@ _mytool() {
         );
     }
 
-    /// The other half, and it matters just as much: a tool that *does*
-    /// advertise the command still gets probed and still yields its
-    /// flags. A gate that silently refused everything would look identical
-    /// on the safety test above while quietly deleting the tier.
+    /// A tool that does advertise the command still gets probed and still
+    /// yields its flags — a gate that silently refused everything would
+    /// look identical on the safety test above.
     #[test]
     fn a_tool_whose_help_names_the_command_is_still_probed_and_still_yields_flags() {
         let script = r#"

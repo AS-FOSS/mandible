@@ -109,30 +109,23 @@ pub fn compute(result: &ExtractionResult) -> Status {
     }
 }
 
-/// Count descendant nodes (root excluded — see below) that fail spec
-/// §13.1's structure-sanity check: a name that doesn't look like a real
-/// command ([`is_command_name_shaped`]), or a node with no flags, no
-/// children, no summary, and neither [`CommandNode::heading_attested`] nor
+/// Count descendant nodes (root excluded) that fail spec §13.1's
+/// structure-sanity check: a name that doesn't look like a real command
+/// ([`is_command_name_shaped`]), or a node with no flags, children,
+/// summary, and neither [`CommandNode::heading_attested`] nor
 /// [`CommandNode::invocation_attested`] evidence.
 ///
-/// **Why emptiness alone isn't enough.** A node that exists but carries
-/// nothing is exactly what a mis-parsed continuation line or enum-value-
-/// turned-subcommand looks like — *and* exactly what a real,
+/// Emptiness alone isn't enough: an empty node is also what a real,
 /// legitimately description-less command looks like (`openssl --help`
-/// lists 152 real commands as a bare word grid with no per-entry
-/// description). The distinguishing signal is provenance, not emptiness:
-/// `heading_attested` (a recognized command heading) and
-/// `invocation_attested` (a headingless invocation table — spec §7 Tier B)
-/// are each set only where the parser already had positive evidence of a
-/// real command list, so an empty node carrying *neither* is still
-/// [M-10]'s phantom-subcommand shape and stays suspicious.
+/// lists 152 commands as a bare word grid). The distinguishing signal is
+/// provenance — `heading_attested`/`invocation_attested` are set only
+/// where the parser had positive evidence of a real command list, so an
+/// empty node with neither is still [M-10]'s phantom-subcommand shape.
 ///
 /// The root is excluded from the name-shape half: it's the literal
-/// executable name resolved from `PATH` (or, for the corpus runner, the
-/// fixture's declared tool name), never something a tier guessed at, and
-/// plenty of legitimate real-world binaries (`NetworkManager`,
-/// `aarch64-linux-gnu-cpp-13`) fail `^[a-z][a-z0-9_.-]*$` on casing or a
-/// leading digit alone.
+/// executable name resolved from `PATH`, never something a tier guessed
+/// at, and real binaries (`NetworkManager`) can fail
+/// `^[a-z][a-z0-9_.-]*$` on casing alone.
 pub fn structure_sanity(root: &CommandNode) -> usize {
     root.subcommands.iter().map(count_suspicious).sum()
 }
@@ -159,26 +152,16 @@ fn count_suspicious(node: &CommandNode) -> usize {
 }
 
 /// The `min_status` ladder (`corpus/README.md`'s `[contract]` field),
-/// coarsest to finest. Defined exactly once so `xtask corpus`'s contract
-/// check and any future consumer agree on what "at least ok" means.
+/// coarsest to finest, defined once so every consumer agrees on "at least
+/// ok": `no-tier < verbatim < low-confidence < incomplete < ok`.
+/// `"incomplete"` (spec §6 rule 2b) sits between `low-confidence` and
+/// `ok` — its structure and prose parsed as well as an `ok` tool, the
+/// only gap is a confession that went unfollowed.
 ///
-/// `"incomplete"` (spec §6 rule 2b) slots in **between** `"low-confidence"`
-/// and `"ok"`, not after `"ok"` — an earlier doc comment here anticipated
-/// the field name but guessed the wrong end of the ladder; WS5's approved
-/// amendment is explicit: `ok > incomplete > low-confidence > verbatim >
-/// no-tier`. A tool this status names had its structure and prose parsed
-/// exactly as well as an `ok` tool — the *only* thing wrong is that its
-/// own text said the document was incomplete and following it didn't
-/// happen, which is a narrower, better-understood gap than
-/// `low-confidence`'s "the grammar barely understood this at all".
-///
-/// **`"suspicious"` is deliberately not on this ladder.** It is not a
-/// coarser or finer degree of the same "how much did we recover" scale
-/// the other five measure — it means the parser recovered structure that
-/// isn't real. AGENTS.md's structure-sanity invariant is explicit that
-/// fabricated structure is *worse* than missing structure, so no
-/// `min_status` floor is satisfiable by a suspicious result:
-/// [`meets_min_status`] fails it outright rather than ranking it.
+/// `"suspicious"` is deliberately not on this ladder: it means the parser
+/// recovered structure that isn't real, which AGENTS.md ranks worse than
+/// missing structure, so no floor is satisfiable by it —
+/// [`meets_min_status`] fails it outright.
 const STATUS_LADDER: &[&str] = &["no-tier", "verbatim", "low-confidence", "incomplete", "ok"];
 
 /// `label`'s position on [`STATUS_LADDER`] (coarsest = 0), for callers that
