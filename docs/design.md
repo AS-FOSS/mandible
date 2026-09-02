@@ -2410,30 +2410,25 @@ choice.
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |
 | Man page AST | *(none — hand-written)* | — | **No `bindgen`/vendored mandoc.** Revision 2 specified `libmandoc` via FFI; superseded, because it is not a system library on Linux [M-6] and `#![forbid(unsafe_code)]` rules out the FFI regardless. §7 Tier D is a pure-Rust subset parser over `.TP`/`.IP` + `.B` and `.It Fl` [M-14]. |
 | Parallelism | `rayon` | MIT/Apache-2.0 | Bounded pool for background subtree warming |
-| Paths | `directories` | MIT/Apache-2.0 | XDG cache/config resolution |
-| Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | IR, cache, carapace specs |
-| Compression | `flate2` | MIT/Apache-2.0 | Cache entries |
+| Paths | `directories` | MIT/Apache-2.0 | Resolves the per-OS config directory for user overrides |
+| Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | The IR, and the corpus snapshots `xtask corpus --bless` writes |
 | Errors | `thiserror` (libs), `anyhow` (binary) | MIT/Apache-2.0 | |
 | Logging | `tracing` + `tracing-subscriber` | MIT | Behind `MANDIBLE_LOG`; never writes to the TUI's terminal |
 | Clipboard | `arboard` | MIT/Apache-2.0 | For `y`; degrade to OSC-52 when unavailable |
 | Testing | `insta`, `proptest`, `cargo-fuzz` | MIT/Apache-2.0 | Snapshots, properties, grammar fuzzing |
 
-Python 3 and PyYAML are a build-time dependency, not shipped: the catalog
-vendoring script uses both.
+**Data dependencies: none.** Revision 3 removed the only third-party data
+this repository ever vendored, and nothing has replaced it. Should vendoring
+ever be reproposed, the obligation is to verify the current license text at
+vendor time, record the source commit, and carry an entry in `NOTICE`. The
+reasoning for the removal is in §7 under "Tier A — REMOVED" and in `NOTICE`
+under "Formerly vendored".
 
-**Data dependencies:**
-
-| Data | Source | Obligation |
-|---|---|---|
-| carapace specs | `carapace-sh/carapace-bin` | Verify current license text at vendor time; record source commit and date; carry in `NOTICE` |
-| withfig specs (optional) | `withfig/autocomplete` | MIT; carry in `NOTICE` |
-
-**Why.** Each crate row's Notes column carries the reason that crate over an
-alternative, cited to a measurement where one exists. An earlier table
-scrutinized crate licenses and omitted the build-time script dependency and
-the data dependencies entirely. Vendored data carries the larger legal
-exposure of the two, since its license terms are set by a third party mandible
-does not control.
+**Why.** Each crate row's Notes column carries the reason for that crate over
+an alternative, cited to a measurement where one exists. Vendored data would
+carry the larger legal exposure of the two, since its license terms are set by
+a third party mandible does not control. That is why the table names the
+obligation even while there is no data to apply it to.
 
 **Implemented in.** `Cargo.toml`; `NOTICE`.
 
@@ -2456,12 +2451,14 @@ NOTICE             Third-party data attribution (§14) — required, not optiona
 README.md          What it is, install, a screenshot, the honest coverage story
 CONTRIBUTING.md    Including the §1 invariant, stated prominently
 CHANGELOG.md       Keep-a-changelog format
-docs/design.md            This document
+docs/design.md     This document
+docs/instruments.md What each xtask instrument measures, and how to retire it
 .github/workflows/ ci.yml (fmt, clippy -D warnings, test, coverage-harness diff),
-                   release.yml (tagged cross-platform binaries)
-xtask/             coverage harness, vendoring, packaging
-packaging/         debian/, rpm/, shell/ (the --shell-init snippets),
-                   mandible.1 (man page for mandible itself)
+                   release.yml (tagged cross-platform binaries),
+                   shape.yml (size, comment shape, narrative prose)
+xtask/             the measuring instruments (docs/instruments.md)
+packaging/         copr/, homebrew/, mandible.1 (man page for mandible itself)
+mandible/shell/    the --shell-init snippets, mandible.bash and mandible.zsh
 ```
 
 Every crate carries `description`, `license`, `repository`, `readme`,
