@@ -32,8 +32,64 @@ are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline a
 15. [Packaging & distribution](#15-packaging--distribution)
 16. [Open risks & honest caveats](#16-open-risks--honest-caveats)
 17. [Investigated and deferred: local NL search](#17-investigated-and-deferred-local-nl-search)
+- [How to read this document](#how-to-read-this-document)
+- [Glossary](#glossary)
 - [Appendix A — Measured baseline](#appendix-a--measured-baseline)
 - [Appendix B — What changed in revision 2](#appendix-b--what-changed-in-revision-2)
+
+---
+
+## How to read this document
+
+Sections 1 to 17 all take the same four-part shape, in this order. A section
+that has nothing to say under a heading omits it rather than padding it.
+
+- **Decides.** One sentence naming what this section is the authority on.
+- **Rules.** The binding statements. If it is not here, it is not a rule.
+- **Why.** The reasoning, and the measurement behind it where one exists.
+- **Implemented in.** The paths that carry the rules out.
+
+The two appendices keep their own shape. Appendix A is a table of
+measurements and Appendix B is a historical record, and neither states a rule.
+
+Section numbers are stable. They are cited from source comments, from
+`AGENTS.md`, and from the man page, so a section is never renumbered and
+never reordered. A section that dies keeps its number and says so.
+
+## Glossary
+
+The words below mean one specific thing here, and they are used in no other
+sense anywhere in this repository.
+
+- **Node.** One invocable command: `git`, or `git commit`. Nodes form a tree.
+- **Entity.** One thing a node documents: a flag, a positional, a modifier,
+  an environment variable, or a subcommand.
+- **Spelling.** One written form of an entity, such as `-v` or `--verbose`.
+  Several spellings can name one entity.
+- **Tier.** One extraction strategy, tried in order. Tier A′ identifies the
+  framework, Tier B parses `--help`, and later tiers degrade from there.
+- **Framework.** The library that generated a tool's help text, such as clap,
+  cobra or argparse. Parsing is keyed on the framework, never on the tool.
+- **Shape.** A recurring visual form of help text, catalogued in
+  `docs/shapes.md` with a stable `S-NNN` id.
+- **Probe.** One contained execution of a tool to read its help output, under
+  the argv allowlist in §6.
+- **Verbatim.** The honest fallback: the tool's own text rendered untouched
+  because no structure could be recovered.
+- **Fabrication.** Structure reported that the tool's own text does not
+  contain. The failure this project treats as most serious.
+- **Provenance.** Which tier and which source produced a field.
+- **Confidence.** A per-node score derived from how cleanly the parse ran.
+- **Fixture.** Frozen bytes plus a contract under `corpus/`, replayed on every
+  run.
+- **xfail.** A fixture recording a defect that is reproduced and not yet
+  fixed. It carries no snapshot.
+- **Sweep.** A run of the extraction pipeline over every executable on `PATH`.
+- **Oracle.** An instrument that judges a parse against the tool's own text,
+  such as the existence check that catches fabrication.
+- **Ratchet.** The list of size-lint exemptions in `scripts/ratchet.txt`,
+  which may only shrink.
+- **[M-n].** A citation to a measurement in Appendix A.
 
 ---
 
