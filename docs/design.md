@@ -2290,7 +2290,7 @@ NOTICE             Third-party data attribution (§14) — required, not optiona
 README.md          What it is, install, a screenshot, the honest coverage story
 CONTRIBUTING.md    Including the §1 invariant, stated prominently
 CHANGELOG.md       Keep-a-changelog format
-spec.md            This document
+docs/design.md            This document
 .github/workflows/ ci.yml (fmt, clippy -D warnings, test, coverage-harness diff),
                    release.yml (tagged cross-platform binaries)
 xtask/             coverage harness, vendoring, packaging

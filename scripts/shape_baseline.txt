@@ -95,6 +95,7 @@ block	1	xtask/src/rng.rs
 block	4	xtask/src/single_dash_long.rs
 block	2	xtask/src/status.rs
 block	9	xtask/src/transition.rs
+narrative	5	docs/design.md
 narrative	1	mandible-core/src/audit.rs
 narrative	3	mandible-core/src/merge.rs
 narrative	1	mandible-core/src/node.rs
@@ -125,7 +126,6 @@ narrative	1	mandible-tui/tests/border_integrity.rs
 narrative	1	mandible-tui/tests/detail_pane_rewrap.rs
 narrative	1	mandible/src/discovery.rs
 narrative	1	mandible/src/report.rs
-narrative	5	spec.md
 narrative	1	xtask/src/bundling.rs
 narrative	1	xtask/src/corpus.rs
 narrative	6	xtask/src/coverage.rs

@@ -63,7 +63,7 @@
 //! set: it is the sample manifest, small (one line per tool: name + a short
 //! stratum label), and is *evidence* for a claim about how the queue was
 //! built — the same "a measurement's evidence lives in git, not on one
-//! contributor's laptop" reasoning spec.md Appendix A already applies to
+//! contributor's laptop" reasoning docs/design.md Appendix A already applies to
 //! `audit/<seed>.toml`.
 //!
 //! `<dir>/queue-captures/` is **not tracked** (gitignored, same convention

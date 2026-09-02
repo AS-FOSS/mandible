@@ -485,7 +485,7 @@ fn probe_help_text_reporting_flag(
 /// grammar guessed at, it is a word the tool's *own already-probed and
 /// already-trusted* output printed, so it is attested by construction —
 /// the same way the root path itself is exempt from the gate (spec §6
-/// rule 0's closing paragraph; see the amendment in spec.md §6 rule 2b).
+/// rule 0's closing paragraph; see the amendment in docs/design.md §6 rule 2b).
 ///
 /// Returns the confession info alongside the text/flag regardless of
 /// whether following it succeeded, so a caller (`extract_node`,

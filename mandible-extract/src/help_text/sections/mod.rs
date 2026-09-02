@@ -2320,7 +2320,7 @@ mod tests {
     #[test]
     fn repeated_identical_banner_does_not_explode_into_duplicate_subcommands() {
         // Non-blocking timing signal only — see `xtask::corpus::MAX_FIXTURE_PARSE_TIME`
-        // and spec.md's "sweep-timing false transition" decision (D3): wall-clock
+        // and docs/design.md's "sweep-timing false transition" decision (D3): wall-clock
         // measured on shared/contended hardware is a statement about the machine,
         // not the parser, so it must never flip a correctness gate. This test false
         // -failed twice in review under concurrent-compile load (observed up to 7.5s,

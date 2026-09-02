@@ -1,4 +1,4 @@
-//! The existence detector: the second half of what spec.md's WS4 called a
+//! The existence detector: the second half of what docs/design.md's WS4 called a
 //! single "anti-fabrication oracle" and turned out, on inspection, to be
 //! **two** distinct checks with two distinct victims:
 //!

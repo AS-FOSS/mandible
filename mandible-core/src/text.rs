@@ -625,7 +625,7 @@ fn is_option_token(word: &str) -> bool {
 }
 
 /// Recognize and normalize the small, closed set of markdown constructs
-/// spec.md's carapace mapping notes call out: `[label](uri)` links (any
+/// docs/design.md's carapace mapping notes call out: `[label](uri)` links (any
 /// scheme, including `man://`/`cmd://`), inline `` `code` ``, `**bold**`,
 /// and `*em*`/`_em_`. Anything else is left untouched — this is
 /// deliberately not a general markdown parser (see [`Text::sanitize_markdown`]).

@@ -61,7 +61,7 @@ jobs:
   # mandible-extract/src/resolve.rs, and xtask/src/coverage.rs (executable-
   # bit checks) on Darwin, not just Linux. `mandible-cache` (whose
   # `key.rs` this comment used to cite) was deleted in spec revision 3 —
-  # see spec.md §11, "No cache". GitHub's `macos-latest` is Apple Silicon
+  # see docs/design.md §11, "No cache". GitHub's `macos-latest` is Apple Silicon
   # (arm64) as of this writing.
   fmt:
     name: fmt (${{ matrix.os }})

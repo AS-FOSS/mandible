@@ -750,7 +750,7 @@ pub struct Aggregate {
     /// Tools with at least one [`crate::existence`] fabrication — a help-
     /// text-sourced subcommand name or flag spelling that does not occur
     /// literally in that tool's own raw captured text. This is the *other*
-    /// half of what spec.md's WS4 originally called one "anti-fabrication
+    /// half of what docs/design.md's WS4 originally called one "anti-fabrication
     /// oracle" — [`Self::misattribution_suspect_tools`]'s twin, with a
     /// different victim: [M-10]'s invented `tar`/`dd`/`less`/`apt-get`
     /// nodes, not `lsof`'s column-bled descriptions. **Not gated**, same
