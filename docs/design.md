@@ -1892,61 +1892,69 @@ read where available.
 
 ## 10. Search
 
-**`nucleo`** — the matcher behind Helix. Faster than `fuzzy-matcher`/`skim`,
-correct on Unicode graphemes, and designed to match on a background thread pool
-so typing never blocks.
+**Decides.** How every documented entity, not only commands, becomes
+findable, and how a match is shown in context.
 
-**Index entries are `NodeRef`s, and every entity gets its own entry.**
-Revision 1 folded flag names into the parent command's haystack, so searching
-`--squash` selected `git rebase` rather than the flag. Since finding what a
-tool documents is the product's core job (§1), and a tool documents more than
-flags — `ar`'s modifier letters, `bpftrace`'s environment variables, a
-command's positionals — every entity of every kind is its own index entry,
-addressed by `NodeRef::Flag`, whose `key: FlagKey` now covers both shapes an
-entity's name can take: `Long`/`Short` for a flag's dashed spelling, and
-`Name` for a dashless entity's bare `primary_name()` (a positional's
-placeholder, a modifier's letter, an environment variable's name — §4.5's
-three dashless `EntityKind`s). Each entry's haystack is every documented
-spelling's bare name, `value_name`, and description — the same shape for
-every kind, dashless spellings indexed with no dash prefix. Selecting a
-result selects the parent command and scrolls the detail pane to that
-entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
-section documents it (§9.3), exactly as a flag result always has.
+**Rules.**
 
-**Two match modes, name-only by default.** Matching one combined haystack
-(name + summary + description + entity value) is correct and looks
-arbitrary: searching `branch` in `git` returns `switch` via "Switch
-branches", and since only name matches are underlined, nothing on screen
-explains why that row is there. `/` opens the box in name mode; pressing
-`/` again toggles wide mode, the combined haystack, shown in the search
-bar's title. Name mode is the default because its results explain
-themselves. Name mode filters the index's own result set: a command
-matches by a literal, case-insensitive substring of its own name; every
-entity matches, with no per-kind branch, by a case-insensitive prefix of a
-`-`/`_`-separated word of any of its spellings, the whole name counting as
-its own first word, so `NODE_D` matches `NODE_DEBUG` from the start and
-`debug` matches it from after the `_`. A looser subsequence test was tried
-first and made the mode feel broken — searching `run` in `docker` surfaced
-`--no-trunc`'s parent command, since `--no-trunc` contains r…u…n in
-order — and the word-prefix rule refuses that case while still admitting
-`no`, `trunc`, a bare modifier letter, or either half of an underscored env
-var name. Wide mode's ranking is unaffected, and stays the fuzzy index,
-where `gco` still finds `checkout`.
+1. `nucleo`, the matcher behind Helix, backs the index.
+2. Index entries are `NodeRef`s, and every entity gets its own entry:
+   addressed by `NodeRef::Flag`, whose `key: FlagKey` covers both shapes an
+   entity's name can take, `Long`/`Short` for a flag's dashed spelling and
+   `Name` for a dashless entity's bare `primary_name()` (a positional's
+   placeholder, a modifier's letter, an environment variable's name, §4.5's
+   three dashless `EntityKind`s). Each entry's haystack is every documented
+   spelling's bare name, `value_name`, and description, the same shape for
+   every kind, dashless spellings indexed with no dash prefix.
+3. Selecting a result selects the parent command and scrolls the detail
+   pane to that entity's own row, in whichever of
+   FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT section documents it (§9.3),
+   exactly as a flag result always has.
+4. Two match modes, name-only by default. `/` opens the box in name mode;
+   pressing `/` again toggles wide mode, the combined haystack (name +
+   summary + description + entity value), shown in the search bar's
+   title.
+5. Name mode filters the index's own result set: a command matches by a
+   literal, case-insensitive substring of its own name; every entity
+   matches, with no per-kind branch, by a case-insensitive prefix of a
+   `-`/`_`-separated word of any of its spellings, the whole name counting
+   as its own first word. `NODE_D` matches `NODE_DEBUG` from the start and
+   `debug` matches it from after the `_`.
+6. Wide mode's ranking stays the fuzzy index, where `gco` still finds
+   `checkout`.
+7. Filtering preserves hierarchy: matching a node force-expands its
+   ancestor chain and the tree renders normally with non-matching siblings
+   hidden.
+8. `Nucleo::tick` is driven from the event loop's poll timeout, never from
+   a blocking spin inside the keystroke handler.
+9. Ranking boosts exact prefix matches on names above description matches,
+   so typing `reb` puts `rebase` above every command whose description
+   contains "rebase".
 
-**Filtering preserves hierarchy.** A flat result list rendered with
-`depth = path.len() - 1` produces indentation pointing at ancestors that aren't
-on screen. Instead, matching a node force-expands its ancestor chain and the tree
-renders normally with non-matching siblings hidden. This is also what makes the
-spec's intent — pin the filter, then navigate the narrowed tree — actually
-achievable; with a flat list, expand/collapse keys mutate state nothing reads.
+**Why.** `nucleo` is faster than `fuzzy-matcher`/`skim`, correct on Unicode
+graphemes, and designed to match on a background thread pool so typing
+never blocks. Revision 1 folded flag names into the parent command's
+haystack, so searching `--squash` selected `git rebase` rather than the
+flag; since finding what a tool documents is the product's core job (§1),
+and a tool documents more than flags (`ar`'s modifier letters,
+`bpftrace`'s environment variables, a command's positionals), every entity
+now gets its own entry. Matching one combined haystack by default is
+correct and looks arbitrary: searching `branch` in `git` returns `switch`
+via "Switch branches", and since only name matches are underlined, nothing
+on screen explains why that row is there. Name mode is the default because
+its results explain themselves. A looser subsequence test was tried first
+and made the mode feel broken: searching `run` in `docker` surfaced
+`--no-trunc`'s parent command, since `--no-trunc` contains r-u-n in order.
+The word-prefix rule refuses that case while still admitting `no`,
+`trunc`, a bare modifier letter, or either half of an underscored env var
+name. A flat result list rendered with `depth = path.len() - 1` produces
+indentation pointing at ancestors that aren't on screen, which is why
+matching force-expands the ancestor chain instead; with a flat list,
+expand/collapse keys would mutate state nothing reads. A 50 ms synchronous
+deadline per keystroke on the UI thread defeats the reason nucleo was
+chosen, hence driving `tick` from the poll timeout.
 
-**Threading.** Drive `Nucleo::tick` from the event loop's poll timeout, not from a
-blocking spin inside the keystroke handler. A 50 ms synchronous deadline per
-keystroke on the UI thread defeats the reason nucleo was chosen.
-
-**Ranking.** Boost exact prefix matches on names above description matches, so
-typing `reb` puts `rebase` above every command whose description contains
-"rebase".
+**Implemented in.** `mandible-search/src/lib.rs`.
 
 ---
 
