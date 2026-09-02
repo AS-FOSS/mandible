@@ -252,16 +252,32 @@ pub(super) fn wrapped_prose_region_end(lines: &[&str], head: usize) -> Option<us
     (end > head + 1).then_some(end)
 }
 
+/// True when `line`'s [`find_multi_space_gap`] is real column alignment,
+/// not two spaces after a full stop — ordinary sentence spacing some help
+/// text still uses (coreutils `nice`'s `... current niceness.  Niceness
+/// values range from`). A gap immediately after `.`/`!`/`?` is sentence
+/// spacing; anything else (jinfo's gap after `>`, nvim's gap after `>`) is
+/// a genuine column.
+fn has_description_column(line: &str) -> bool {
+    let Some(col) = find_multi_space_gap(line) else {
+        return false;
+    };
+    !line
+        .get(..col)
+        .and_then(|s| s.trim_end().chars().next_back())
+        .is_some_and(|c| matches!(c, '.' | '!' | '?'))
+}
+
 /// True when `lines[idx]` is a dash-led line continuing the prose above it,
-/// not opening a new flag row (atlas S-027). Same-indent counterpart of
-/// [`wrapped_prose_region_end`]. Gates: prev non-blank, not sentence-final,
-/// prose (cascades: an already-accepted predecessor counts as prose too)
-/// and past [`MIN_PROSE_SENTENCE_WORDS`] when not itself dash-led (tar's
-/// four-word `*This* tar defaults to:` opens real rows, not a wrap), prev
-/// and cur both carry no description column (jinfo's, nvim's real rows),
-/// same indent, and cur is not itself a self-described row — see
-/// [`super::flag_rows::entry_row_carries_own_description`] (e2scrub's
-/// colon-separated `-n: Show ...`).
+/// not a new flag row (atlas S-027). Gates: prev non-blank, not
+/// sentence-final, not bracketed usage/synopsis grammar (memhog's `memhog
+/// [-fFILE] [-rNUM] [-H] size[kmg] ...` reads 7 "words" by count alone),
+/// prose (cascades) and past [`MIN_PROSE_SENTENCE_WORDS`] when not itself
+/// dash-led (tar's `*This* tar defaults to:`), prev has no
+/// [`has_description_column`] (jinfo's, nvim's real rows), cur has no
+/// [`find_multi_space_gap`], same indent as prev, and cur does not already
+/// self-describe — [`super::flag_rows::entry_row_carries_own_description`]
+/// (e2scrub's colon-separated `-n: Show ...`).
 pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool {
     if idx == 0 {
         return false;
@@ -278,7 +294,10 @@ pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool 
     if prev.trim_end().ends_with(['.', '!', '?']) {
         return false;
     }
-    if find_multi_space_gap(prev).is_some() {
+    if prev.contains(['[', ']']) {
+        return false;
+    }
+    if has_description_column(prev) {
         return false;
     }
     if find_multi_space_gap(cur).is_some() {
