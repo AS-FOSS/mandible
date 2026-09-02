@@ -2394,6 +2394,12 @@ the count leaves zero. [M-21] has a worked example, start to finish.
 
 ## 14. Dependency table
 
+**Decides.** This section is the authority on every third-party crate and
+data source mandible depends on, and the license or measurement behind each
+choice.
+
+**Rules.**
+
 | Purpose | Crate | License | Notes |
 |---|---|---|---|
 | TUI framework | `ratatui` | MIT | `crossterm` backend; mouse support |
@@ -2412,17 +2418,24 @@ the count leaves zero. [M-21] has a worked example, start to finish.
 | Clipboard | `arboard` | MIT/Apache-2.0 | For `y`; degrade to OSC-52 when unavailable |
 | Testing | `insta`, `proptest`, `cargo-fuzz` | MIT/Apache-2.0 | Snapshots, properties, grammar fuzzing |
 
-**Build-time (not shipped):** Python 3 + PyYAML, used by the catalog vendoring
-script. Revision 1's table omitted this even though the vendoring step already
-depended on it.
+Python 3 and PyYAML are a build-time dependency, not shipped: the catalog
+vendoring script uses both.
 
-**Data dependencies** (revision 1 omitted these entirely while scrutinizing crate
-licenses — this is the more likely real exposure):
+**Data dependencies:**
 
 | Data | Source | Obligation |
 |---|---|---|
 | carapace specs | `carapace-sh/carapace-bin` | Verify current license text at vendor time; record source commit and date; carry in `NOTICE` |
 | withfig specs (optional) | `withfig/autocomplete` | MIT; carry in `NOTICE` |
+
+**Why.** Each crate row's Notes column carries the reason that crate over an
+alternative, cited to a measurement where one exists. An earlier table
+scrutinized crate licenses and omitted the build-time script dependency and
+the data dependencies entirely. Vendored data carries the larger legal
+exposure of the two, since its license terms are set by a third party mandible
+does not control.
+
+**Implemented in.** `Cargo.toml`; `NOTICE`.
 
 ---
 
