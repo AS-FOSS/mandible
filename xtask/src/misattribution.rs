@@ -1,164 +1,40 @@
-//! The misattribution detector: the project's first **correctness**
-//! instrument, as opposed to every prior one (the corpus, the sweep, a
-//! snapshot), which measures *quantity* — whether a flag has text attached,
-//! how many nodes came back, whether today's parse matches yesterday's.
-//! None of them compares output to truth.
+//! The misattribution detector: the project's first correctness
+//! instrument (as opposed to a quantity metric — flag-has-text, node
+//! count, snapshot match). `lsof` (`corpus/lsof/4.95.0`, `[xfail]`) is the
+//! proof: it scored 79% described while a quarter of its flags were wrong,
+//! because its options table packs three flag+description pairs onto one
+//! physical line (S-036).
 //!
-//! `lsof` (`corpus/lsof/4.95.0`, `[xfail]`) is the proof: it scored 79%
-//! "described" while roughly a quarter of its flags were actually correct.
-//! Its options table packs three flag+description pairs onto one physical
-//! line:
+//! Keys on the raw captured `--help` text, not the emitted tree (which
+//! misses the case where the bled-into flag was never extracted at all): a
+//! description is suspect when it contains a flag-shaped token that also
+//! appears at a column-aligned definition position elsewhere — the
+//! second-or-later flag-shaped cell of a line with two or more such cells,
+//! at an offset recurring [`MIN_COLUMN_RECURRENCE`] times. Excluding a
+//! token's own first column is what keeps a legitimate prose
+//! cross-reference (`du --help`'s `-D`) from flagging.
 //!
-//! ```text
-//!   -?|-h list help          -a AND selections (OR)     -b avoid kernel blocks
-//! ```
+//! [`fields_in_line`] groups cells into logical fields rather than reading
+//! them one at a time, folding a run of bare flag-shaped cells (spelling
+//! only, no trailing prose) into one field — otherwise an alias row like
+//! `nano`'s `-A  --smarthome` false-positives on every entry. A single tab
+//! also counts as a cell boundary ([`cells`]), and a bracketed or
+//! all-uppercase trailing token counts as still-bare
+//! ([`is_value_placeholder_only`]), for `debconf`/`patch`/
+//! `thin_metadata_size`-shaped rows.
 //!
-//! The generic parser reads `-?` and swallows the other two columns as its
-//! description — so the tree tells a reader `-?` means "AND selections
-//! (OR)". `-a` and `-b` never reach the tree at all. This module answers one
-//! question with a number: is `lsof` isolated, or is misattribution
-//! widespread?
+//! Known false positive: a lower-case English word standing in for a value
+//! placeholder (`arptables`'s `chain`) is indistinguishable from a real
+//! description without more context — deliberately under-suppressed
+//! rather than risking a real miss.
 //!
-//! # The rule, and why the obvious one fails
+//! No new probes: [`RecordingProbe`] is a transparent passthrough to
+//! [`LiveProbe`] that remembers the bytes spec §7 Tier B's own probe
+//! already returns.
 //!
-//! The obvious formulation is "flag a description containing the literal
-//! spelling of another flag *the parser emitted*." That misses `lsof`:
-//! `-?`'s description contains `-a` and `-b`, and neither `-a` nor `-b` is
-//! in `lsof`'s extracted tree — under-extraction is the *other half* of the
-//! same bug, so a check keyed on emitted flags is blind exactly where
-//! extraction already failed.
-//!
-//! This keys on the **raw captured `--help` text** instead: a description is
-//! suspect when it contains a flag-shaped token (`-x`, `--word`, `+x`,
-//! `+|-x`) that also appears, elsewhere in the same raw text, at a
-//! **column-aligned definition position** — the second or third flag-shaped
-//! cell of a line that has two or more such cells, at a character offset
-//! that recurs across several such lines. That is the actual mechanism of
-//! column bleed: a real N-column table repeats its column boundaries row
-//! after row.
-//!
-//! **Why the definition position excludes a token's own (first) column,**
-//! and why that matters as much as the recurrence threshold: legitimate
-//! prose cross-references a real flag (`du --help`: "`-H` ... equivalent to
-//! `--dereference-args (-D)`", where `-D`/`--dereference-args` are `du`'s
-//! own, single-column, perfectly legitimate flag definitions two rows
-//! above). Keying on *any* definition position — "this token is defined
-//! somewhere in the help text" — flags that as suspect too, which is a real,
-//! measured false positive, not a hypothetical one (see this module's
-//! tests). Restricting the index to a row's *second-or-later* flag-shaped
-//! cell, and only trusting a column offset once it recurs
-//! [`MIN_COLUMN_RECURRENCE`] times, removes it: `du` and `git` have zero
-//! lines with two or more flag-shaped cells at all (measured against their
-//! real `--help` output), so nothing is ever added to their index in the
-//! first place — the restriction, not the threshold alone, is what saves
-//! the `-D` case. `tar` has three lines that incidentally start their
-//! second cell with `-T` (real prose: "`-T` treats file names...", "`-T`
-//! reads null-terminated names..."), which land at only two distinct
-//! offsets, each recurring at most twice — below the threshold, and
-//! correctly excluded.
-//!
-//! # Cells aren't fields: the alias-column false positives
-//!
-//! The rule above, read literally ("the row's second-or-later flag-shaped
-//! *cell*"), still over-triggers on a whole class of real tables: a row that
-//! spells one option's short and long forms as two separate cells sharing
-//! one description (`nano --help`: `-A  --smarthome  Enable smart home
-//! key`). Read cell-by-cell, `--smarthome` looks exactly like a hidden
-//! second flag — and did, before this was fixed: it flagged all 52 of
-//! `nano`'s options, all false positives, on this project's own full sweep.
-//! `-A` and `--smarthome` are the same option; there is nothing to
-//! misattribute.
-//!
-//! [`fields_in_line`] groups cells into logical **fields** instead of
-//! reading them one at a time, folding a run of *bare* flag-shaped cells
-//! (nothing but the spelling, no trailing prose) into the field they
-//! started, and only starting a new field once real trailing text appears.
-//! `nano`'s row becomes one field (`-A`+`--smarthome` share the same
-//! description); `unzip --help`'s genuinely different two-column table
-//! (`-p  extract files to pipe...     -l  list files (short format)`,
-//! measured on the same sweep, `unzip -p`'s description really does swallow
-//! `-l`'s) still becomes two, because each cell there carries its own
-//! trailing description before the next flag starts — see
-//! [`Field::is_bare`].
-//!
-//! Two more real shapes needed their own fix once the alias case was
-//! caught, both measured on the same full sweep:
-//!
-//! - **Tabs, not spaces, before the description.** `debconf --help`:
-//!   `-o,  --owner=package<TAB><TAB>Set the package...` — [`cells`] only
-//!   split on 2+ spaces, so the tab-glued alias-plus-description read as one
-//!   cell with real trailing text, defeating the bare check. [`cells`] now
-//!   treats a single tab as a boundary on its own.
-//! - **A value placeholder on the short flag's own cell.** `patch --help`:
-//!   `-p NUM  --strip=NUM  Strip NUM leading components...` — `-p NUM` has
-//!   real-looking trailing text (`NUM`), which isn't a description, it's the
-//!   same option's own value notation repeated on both spellings.
-//!   [`is_value_placeholder_only`] recognizes a bracketed (`<dir>`) or all-
-//!   uppercase (`NUM`, `FILE`) single-word trailing as still-bare.
-//!
-//! Both of those apply to *either* side of an alias pair — a placeholder can
-//! land on the short cell before the long one arrives (`patch`) or the other
-//! way around (`thin_metadata_size --help`: `-b  --block-size
-//! BLOCKSIZE[...]  Block size...`, where the bare `-b` comes first). Folding
-//! only checked a bare *new* cell against an already-open field at first,
-//! which fixed `patch` but not `thin_metadata_size`; [`fields_in_line`] now
-//! decides foldability from *each* cell's own weakness (empty or
-//! placeholder-only trailing) before ever looking at the field it might join,
-//! so either order works.
-//!
-//! [`is_value_placeholder_only`] also recognizes an upper-case *name* followed by
-//! a bracketed decoration whose own casing is never checked
-//! (`BLOCKSIZE[bskKmMgGtTpPeEzZyY]` — mixed-case unit suffixes, but
-//! `BLOCKSIZE` itself is the all-uppercase shape the check already knew),
-//! which is what fixed `thin_metadata_size` once the alias-order fix above
-//! made it reachable at all.
-//!
-//! **What's left, honestly.** `arptables --help`'s `--append  -A
-//! chain<TAB><TAB>Append to chain` still false-positives: `chain` is a
-//! lower-case English word standing in for a value placeholder,
-//! indistinguishable from a real short description without more context
-//! than one cell offers. The same family (`arptables-nft`, `ebtables`/
-//! `ebtables-nft`, `iptables`/`ip6tables` and their `-legacy`/`-nft`/
-//! `-translate` siblings, `ntfswipe`) shares this exact shape.
-//! [`is_value_placeholder_only`] deliberately doesn't chase a lower-case
-//! placeholder — see its own doc comment on why under-suppressing is the
-//! safer failure direction here. `objcopy --help`'s `--redefine-syms`/
-//! `--strip-symbols`/`--keep-symbols` false-positive for a different reason
-//! entirely: they are
-//! genuine, deliberate prose cross-references to *other*, real, differently-
-//! named flags (`--redefine-sym`, `-N`, `-K`) — exactly the legitimate
-//! `--foo implies --bar` shape this detector is a heuristic over, not immune
-//! to.
-//!
-//! **Confirmed true positives beyond `lsof` itself**, the same bug in tools
-//! nobody had looked at: `unzip --help`'s and `zipinfo`'s two-column option
-//! tables (`-p  extract files to pipe...     -l  list files (short
-//! format)`) and `infocmp --help`'s (`-0  print single-row  ...  -e  format
-//! output for C initializer`) all genuinely pack two *different* flags per
-//! row and lose the second one's real description the same way `lsof` does.
-//!
-//! # No new probes
-//!
-//! This is a measurement over text the pipeline **already captures**, never
-//! a second probe of the tool. [`RecordingProbe`] is a transparent
-//! passthrough to [`LiveProbe`] — every call it forwards is a call the
-//! pipeline was going to make anyway (spec §7 Tier B's own root `--help`/
-//! `-h` probe) — that additionally remembers the bytes each call returned.
-//! `HelpTextTier::extract_node` (`mandible-extract/src/help_text/mod.rs`)
-//! parses that text into a tree and then drops it; this module is the first
-//! caller that keeps a copy around afterward.
-//!
-//! # Not gated
-//!
-//! This is a brand-new metric with no baseline, over a detector whose false
-//! positive rate is an open question this module's own doc comment on
-//! [`detect`] reports rather than hides. Spec §13.1's own rule — a metric
-//! that can be gamed by the failure mode it detects is worse than none —
-//! cuts the other way here too: a metric nobody has measured a baseline for
-//! must not silently fail a run the first time it's computed. See
-//! `xtask/src/main.rs`: `misattribution_suspect_count` is reported in every
-//! footer, compared against the previous run for visibility, and never part
-//! of `--check`'s pass/fail decision.
+//! Not gated: a brand-new metric with no baseline
+//! (`misattribution_suspect_count` is reported every footer, never part
+//! of `--check`'s pass/fail decision — spec §13.1).
 
 use mandible_core::{CommandNode, Entity};
 use mandible_extract::exec::{ExecError, ExecOutput, InertArgv, LiveProbe, Probe};
@@ -169,29 +45,20 @@ use std::time::Duration;
 
 // `MIN_COLUMN_RECURRENCE`, `is_flag_shaped`, `cells`, `first_word`, and
 // `is_value_placeholder_only` are imported from `mandible_extract::help_text`
-// rather than restated here — see that module's doc comment on the
-// re-export for why: this crate's own multi-column splitter (the thing this
-// detector audits) needs the exact same vocabulary, and a second copy of
-// "what counts as a flag-shaped token" is precisely the class of bug this
-// module's own doc comment on [`pick_stream`] names by number (200 of 656
-// fabrications). `fields_in_line` below is the one piece that is NOT
-// imported — see its own doc comment for why that difference is deliberate
-// and load-bearing rather than an oversight.
+// rather than restated — a second copy of "what counts as a flag-shaped
+// token" is the drift class [`pick_stream`]'s doc comment warns about.
+// `fields_in_line` below is not imported — see its own doc comment.
 
 /// A probe that behaves exactly like [`LiveProbe`] — every call is
-/// forwarded to it unmodified, so this spawns nothing [`LiveProbe`] alone
-/// wouldn't have — but also remembers the bytes each call returned, keyed
-/// by the exact argv sent ([`InertArgv::args`], matching
-/// [`mandible_extract::exec::Transcript`]'s own keying rationale: the real
-/// argument vector a tier sends, never the shape or a guess at intent).
+/// forwarded to it unmodified — but also remembers the bytes each call
+/// returned, keyed by the exact argv sent ([`InertArgv::args`]).
 ///
-/// This is the whole mechanism behind "no new probes": [`HelpTextTier`]
+/// The mechanism behind "no new probes": [`HelpTextTier`]
 /// (`mandible-extract/src/help_text/mod.rs`) already fetches a tool's root
-/// `--help`/`-h` text to parse it, then drops the string once parsing is
-/// done. Driving extraction through this probe instead of a bare
-/// [`LiveProbe`] costs zero additional subprocess spawns and lets
-/// [`RecordingProbe::root_help_text`] hand back exactly the bytes Tier B
-/// already parsed, after the fact.
+/// `--help`/`-h` text and drops it after parsing. Driving extraction
+/// through this probe instead of a bare [`LiveProbe`] costs zero
+/// additional subprocess spawns and lets [`RecordingProbe::root_help_text`]
+/// hand back the same bytes Tier B already parsed.
 ///
 /// [`HelpTextTier`]: mandible_extract::help_text::HelpTextTier
 pub struct RecordingProbe {
@@ -212,29 +79,20 @@ impl RecordingProbe {
 
     /// The raw text Tier B's root probe actually built the tree from —
     /// `--help`, `-h`, or (spec §6 rule 2b) the truncation-confession
-    /// follow-up when one was recorded and followed. Same "prefer
-    /// `--help`'s stdout/stderr; fall back to `-h` only if `--help`
-    /// produced nothing on either stream" rule
-    /// `help_text::probe_help_text_reporting_flag` already applies, with
-    /// the expansion checked first — see [`Self::find_root_expansion`]'s
-    /// doc comment for why that ordering is load-bearing. This reads what
-    /// that call already decided; it decides nothing itself and issues no
-    /// probe of its own. `None` when the tool has no recording for any
-    /// shape at all (nothing was ever detected, or the tier never ran for
-    /// it).
+    /// follow-up when one was recorded and followed, expansion checked
+    /// first (see [`Self::find_root_expansion`]). Reads what that call
+    /// already decided; issues no probe of its own. `None` when the tool
+    /// has no recording at all.
     pub fn root_help_text(&self) -> Option<String> {
         let recordings = self.recordings.lock().unwrap_or_else(|e| e.into_inner());
         root_help_text_from(&recordings)
     }
 
     /// The full recorded `(argv, output)` pair behind [`Self::root_help_text`]
-    /// — same "expansion, then `--help`, then `-h` only if the one before it
-    /// produced nothing" selection, but handing back the raw [`ExecOutput`]
-    /// (separate stdout/stderr, exit code) and the exact argv used, rather
-    /// than one merged string. `crate::audit` uses this to write a
+    /// — same selection, but the raw [`ExecOutput`] and exact argv rather
+    /// than a merged string. `crate::audit` uses this to write a
     /// corpus-shaped capture (`corpus/README.md`'s `[[capture]]`) without a
-    /// second probe of the tool — same "no new probes" property
-    /// [`Self::root_help_text`] already documents.
+    /// second probe.
     pub fn root_help_capture(&self) -> Option<(Vec<String>, ExecOutput)> {
         let recordings = self.recordings.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((argv, expanded)) = Self::find_root_expansion_capture(&recordings) {
@@ -252,16 +110,12 @@ impl RecordingProbe {
             .map(|short| (InertArgv::HelpShort.args(), short.clone()))
     }
 
-    /// A clone of **every** `(argv, output)` pair this probe recorded during
-    /// the single extraction pass it drove — not just the root `--help`
-    /// capture [`Self::root_help_capture`] picks out, but everything sent,
-    /// however many probes the tool's framework needed (cobra's two-probe
-    /// protocol included). Fed into [`mandible_extract::exec::Transcript`]
-    /// by `crate::queue::cmd_freeze` so `crate::queue::cmd_reclassify` can
-    /// replay the exact same extraction later with zero subprocess spawns —
-    /// same "no new probes" property [`Self::root_help_text`] already
-    /// documents, extended to cover a full re-run rather than just the
-    /// display pair.
+    /// A clone of every `(argv, output)` pair this probe recorded during
+    /// the single extraction pass, not just the root `--help` capture
+    /// (cobra's two-probe protocol included). Fed into
+    /// [`mandible_extract::exec::Transcript`] by `crate::queue::cmd_freeze`
+    /// so `crate::queue::cmd_reclassify` can replay the same extraction
+    /// later with zero subprocess spawns.
     pub fn all_recordings(&self) -> HashMap<Vec<String>, ExecOutput> {
         self.recordings
             .lock()
@@ -270,27 +124,16 @@ impl RecordingProbe {
     }
 
     /// Find a recorded root [`InertArgv::HelpExpand`] entry (spec §6 rule
-    /// 2b), if any, by its **rendered shape** rather than the `InertArgv`
-    /// value that produced it — [`RecordingProbe`] only ever sees rendered
-    /// argv (same design `mandible_extract::exec::Transcript` keys on, and
-    /// for the identical reason). A root expansion always renders to
-    /// exactly `["--help", word]`: two elements, `"--help"` first. No other
-    /// variant renders that way — `HelpLongForPath`'s `[..words, "--help"]`
-    /// always *ends* in `--help` for non-empty `words`, never starts with
-    /// it, so this is unambiguous without needing to track which
-    /// `InertArgv` constructed which recording.
+    /// 2b), if any, by its rendered shape (`["--help", word]`, two
+    /// elements, `"--help"` first — no other variant renders that way)
+    /// rather than the `InertArgv` value that produced it.
     ///
-    /// **Checked before the plain `--help` recording, not after.** Once a
-    /// confession is followed, `HelpTextTier::extract_node` builds the
-    /// tree from the *expanded* document — the tree's own flags simply
-    /// aren't in the original summary text at all. Preferring the plain
-    /// `--help` recording here would hand `existence::detect`/
-    /// `misattribution::detect` the wrong ground truth for every flag the
-    /// expansion recovered, and both would report them as fabricated
-    /// spellings that don't occur in "the raw text" — a false-positive
-    /// storm with nothing to do with either detector's own logic. Measured
-    /// on a full PATH sweep: curl alone produced 293 spurious existence
-    /// "fabrications" before this ordering, zero after.
+    /// Checked before the plain `--help` recording, not after: once a
+    /// confession is followed, the tree is built from the expanded
+    /// document, so preferring plain `--help` here would hand the
+    /// existence/misattribution detectors the wrong ground truth for every
+    /// flag the expansion recovered — measured as 293 spurious `curl`
+    /// fabrications before this ordering, zero after.
     fn find_root_expansion(recordings: &HashMap<Vec<String>, ExecOutput>) -> Option<&ExecOutput> {
         recordings
             .iter()
@@ -316,14 +159,11 @@ impl RecordingProbe {
 /// `--help`, and fall back to `-h` only when the one before it produced
 /// nothing on either stream.
 ///
-/// **Factored out of [`RecordingProbe::root_help_text`] rather than
-/// restated**, because a second copy of this selection is precisely the bug
-/// spec §13.1c's K2 table records: `RecordingProbe` once carried its own
-/// superseded copy of [`pick_stream`], and on every tool that banners to
-/// stdout and helps to stderr the existence oracle compared a correct tree
-/// against a version string — 200 spurious fabrications from one duplicated
-/// decision. `crate::detector` needs the same selection over a corpus
-/// fixture's frozen captures rather than a live probe's, so it calls this.
+/// Factored out of [`RecordingProbe::root_help_text`] rather than restated:
+/// a duplicated copy of this selection once cost 200 spurious
+/// fabrications on tools that banner to stdout and help to stderr (spec
+/// §13.1c's K2). `crate::detector` needs the same selection over a corpus
+/// fixture's frozen captures, so it calls this.
 pub fn root_help_text_from(recordings: &HashMap<Vec<String>, ExecOutput>) -> Option<String> {
     if let Some(expanded) = RecordingProbe::find_root_expansion(recordings) {
         if !expanded.stdout.is_empty() || !expanded.stderr.is_empty() {
@@ -371,36 +211,16 @@ impl Probe for RecordingProbe {
 
 /// The parser's own stream choice ([`pick_stream`]) and its multi-column
 /// vocabulary ([`is_flag_shaped`], [`cells`], [`first_word`],
-/// [`is_value_placeholder_only`], [`MIN_COLUMN_RECURRENCE`]) — all five
-/// imported rather than restated.
-///
-/// `pick_stream` used to be a two-line local copy here ("stdout if
-/// non-empty, else stderr"), justified in a comment on the grounds that the
-/// rule was small and "unlikely to drift silently". It drifted silently.
-/// `help_text::pick_stream` had already been corrected to judge each stream
-/// on whether it *looks like help output* — because `openssl cmp --help`
-/// prints two diagnostic lines to stdout and its whole help document to
-/// stderr — and the copy here was never updated. Every tool of that shape
-/// therefore had its correctly-parsed tree compared against a version
-/// banner, so both oracles reported all of its flags as invented: 200 of
-/// 656 fleet-wide existence fabrications, every one of them false, on tools
-/// like `mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub` and `encguess`.
-/// An oracle that reads different bytes than the parser read is not
-/// measuring the parser.
-///
-/// The other four names were audited for the identical hazard and found to
-/// have it: this crate's own multi-column splitter
-/// (`mandible_extract::help_text::sections`) is the thing this whole module
-/// audits, and it needs the exact same definitions of "flag-shaped token",
-/// "cell", and "bare value placeholder" that this module uses to decide
-/// what counts as column-bleed evidence. A second, private copy of any one
-/// of them would let this oracle silently stop agreeing with the parser it
-/// audits — exactly the `pick_stream` failure mode, just in different
-/// vocabulary. There is exactly one right answer to each of "which stream
-/// did Tier B parse", "what does Tier B consider flag-shaped", "where does
-/// Tier B split a table row", and "what does Tier B consider a bare value
-/// placeholder" — all four live in `help_text`, and this instrument asks
-/// rather than guessing.
+/// [`is_value_placeholder_only`], [`MIN_COLUMN_RECURRENCE`]) — imported,
+/// not restated. `pick_stream` was once a two-line local copy here
+/// ("stdout if non-empty, else stderr") that drifted silently after
+/// `help_text::pick_stream` was corrected to judge by whether a stream
+/// looks like help output (`openssl cmp --help` prints diagnostics to
+/// stdout, help to stderr) — 200 of 656 fleet-wide existence fabrications
+/// traced to this one duplicated decision. An oracle that reads different
+/// bytes than the parser read is not measuring the parser; the other four
+/// names carry the identical hazard since this module audits the same
+/// multi-column splitter it needs to agree with.
 use mandible_extract::help_text::{
     cells, first_word, is_flag_shaped, is_value_placeholder_only, pick_stream,
     MIN_COLUMN_RECURRENCE,
@@ -467,23 +287,15 @@ impl Field {
 }
 
 /// Group `line`'s cells (see [`cells`]) into [`Field`]s: one field per
-/// *logical* column entry, not one per raw cell.
+/// logical column entry, not one per raw cell. A row can spell one
+/// option's short and long forms as two consecutive bare cells with
+/// nothing between them (`nano --help`'s `-A  --smarthome`, sharing one
+/// description) — a run of bare flag-shaped cells folds into a single
+/// field; a new field starts only once real trailing text (or end of
+/// line) breaks the run. `unzip --help`'s real two-column table must NOT
+/// fold this way: each cell there has its own trailing description.
 ///
-/// **Why cells alone aren't the right unit.** A row can spell one option's
-/// short and long forms as two consecutive *bare* cells with nothing
-/// between them (`nano --help`: `-A             --smarthome
-/// Enable smart home key` — three raw cells, but two spellings of *one*
-/// option sharing *one* description). Treating `--smarthome` as its own
-/// secondary "flag" flagged every one of `nano`'s 52 options as a false
-/// positive (measured on this project's own aarch64 dev box, full sweep) —
-/// `-A` and `--smarthome` are the same flag, there is nothing left to
-/// "misattribute". A run of bare flag-shaped cells with no prose between
-/// them is therefore folded into a single field's `tokens`; the field
-/// starts fresh only once real trailing text (or end of line) breaks the
-/// run. `unzip --help`'s real two-column table (`-p  extract files to
-/// pipe...     -l  list files (short format)`) is the case this must NOT
-/// also fold away: its second cell has its own trailing description before
-/// the next flag, so it starts a genuinely new field.
+/// Fixture: `corpus/nano/*/help.txt`, `corpus/unzip/*/help.txt`. S-036.
 fn fields_in_line(line: &str) -> Vec<Field> {
     let mut fields: Vec<Field> = Vec::new();
     for (offset, content) in cells(line) {
@@ -687,17 +499,10 @@ fn find_suspects(node: &CommandNode, path: &str, index: &DefinitionIndex, out: &
 /// misattribution: a description carrying a flag-shaped token attested
 /// elsewhere in the same raw text at a column-aligned definition position.
 ///
-/// **Expect false positives.** This is a heuristic over free-form prose,
-/// not a proof. `flag_tokens_in` matches a token shape, not confirmed
-/// intent — a description that legitimately says "works like `-a`" where
-/// `-a` *also* happens to sit in a real, recurring secondary table column
-/// elsewhere in the same tool's text (rather than being the specific
-/// column-bled neighbour) reads identically to true misattribution from
-/// this function's point of view. The measured rate and a sample large
-/// enough for a human to judge belong in the sweep's own report, not
-/// asserted here — see spec §13.1b's own rule that a brand-new metric with
-/// no baseline must not silently fail anything (`xtask/src/main.rs` never
-/// gates on this).
+/// Expect false positives — a heuristic over free-form prose, not a
+/// proof: `flag_tokens_in` matches token shape, not confirmed intent. Not
+/// gated (spec §13.1b: a brand-new metric with no baseline must not
+/// silently fail anything).
 pub fn detect(raw: &str, root: &CommandNode) -> MisattributionReport {
     let index = build_definition_index(raw);
     let mut suspects = Vec::new();
