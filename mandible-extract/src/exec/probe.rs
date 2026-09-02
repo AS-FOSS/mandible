@@ -2,27 +2,14 @@
 //! were produced, so the same tier code can run against a real subprocess
 //! or against frozen fixture bytes with zero process spawns.
 //!
-//! [`Probe`] is the seam itself. [`LiveProbe`] is the production
-//! implementation — it is the only thing outside this module that can
-//! still cause a process to spawn, and it does so by delegating to
-//! [`run_inert`] unchanged, so every §6 rule (rule 0's never-probe list,
-//! rule 2a's empty-argument refusal, the timeout, the scratch dir, the
-//! output cap) still applies exactly as before. [`Transcript`] is the
-//! replay implementation the corpus regression harness (a later piece of
-//! work) will drive tiers from.
+//! [`Probe`] is the seam. [`LiveProbe`] is the production implementation —
+//! the only thing outside this module that can still cause a process to
+//! spawn, delegating to [`run_inert`] unchanged so every §6 rule still
+//! applies. [`Transcript`] is the replay implementation.
 //!
-//! **Keyed on the real argv, not on the argv shape or the tool.** This is
-//! the one design decision that matters here. It would be simpler to key
-//! a transcript on the [`InertArgv`] variant, or even just on which tier
-//! is asking — but this project has already shipped a tier that built the
-//! wrong argv (a cobra completion probe missing the literal `__complete`)
-//! while its own unit tests passed, because those tests mocked the probe
-//! and never exercised argv construction at all (`AGENTS.md` §3.1). Keying
-//! on [`InertArgv::args`] closes that hole structurally: a tier that
-//! builds the wrong argv gets a loud, named [`ExecError::TranscriptMiss`]
-//! instead of a silent pass, whether the mistake is caught by a unit test
-//! today or by a future corpus fixture that simply doesn't contain the
-//! argv the tier actually sent.
+//! **Keyed on the real argv, not on the argv shape or the tool.** A tier
+//! that builds the wrong argv gets a loud, named
+//! [`ExecError::TranscriptMiss`] instead of a silent pass.
 
 use super::policy::InertArgv;
 use super::spawn::{run_inert, ExecError, ExecOutput};
@@ -32,15 +19,11 @@ use std::time::Duration;
 
 /// A source of a tool probe's output: either a real subprocess
 /// ([`LiveProbe`]) or frozen bytes recorded ahead of time ([`Transcript`]).
-///
-/// Every extraction tier that needs to run a tool is given one of these
-/// through its constructor (never through [`crate::ExtractionTier`]'s own
-/// signature — the trait itself stays probe-agnostic), so the same tier
-/// code drives both a live pipeline and a replay from disk.
+/// Passed to each extraction tier through its constructor, never through
+/// [`crate::ExtractionTier`]'s own signature, so the trait stays
+/// probe-agnostic.
 pub trait Probe: Send + Sync {
-    /// Run `tool_path` under `argv`, exactly as [`run_inert`] would: bound
-    /// by `timeout`, subject to whatever safety policy the implementation
-    /// applies (full §6 for [`LiveProbe`]; a lookup for [`Transcript`]).
+    /// Run `tool_path` under `argv`, exactly as [`run_inert`] would.
     fn run(
         &self,
         tool_path: &Path,
@@ -49,14 +32,9 @@ pub trait Probe: Send + Sync {
     ) -> Result<ExecOutput, ExecError>;
 }
 
-/// The production [`Probe`]: every call is forwarded to [`run_inert`]
-/// unmodified, so this is the only thing outside `exec/` that can still
-/// cause a process to spawn, and every §6 guarantee `run_inert` already
-/// provides (rule 0, rule 2a, the timeout, the scratch dir, the output
-/// cap) carries over untouched. This impl deliberately adds no logic of
-/// its own — duplicating or bypassing any of `run_inert`'s policy here
-/// would be exactly the kind of second execution path spec §6 exists to
-/// prevent.
+/// The production [`Probe`]: every call forwards to [`run_inert`]
+/// unmodified. Adds no logic of its own — a second execution path here
+/// would be exactly what spec §6 exists to prevent.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LiveProbe;
 
@@ -71,16 +49,9 @@ impl Probe for LiveProbe {
     }
 }
 
-/// The replay [`Probe`]: an in-memory argv → [`ExecOutput`] map, with no
-/// subprocess involved at all. Built directly from pairs today; a future
-/// loader (reading `corpus/<tool>/<version>/help.txt` and friends) is the
-/// other half of this seam and is out of scope here — [`Transcript::argvs`]
-/// is the accessor that loader will need, to report which argvs a fixture
-/// actually covers.
-///
-/// **Keyed on [`InertArgv::args`]**, never on the [`InertArgv`] variant or
-/// a tool/path name — see this module's doc comment for why that's the
-/// whole point.
+/// The replay [`Probe`]: an in-memory argv → [`ExecOutput`] map, no
+/// subprocess involved. Keyed on [`InertArgv::args`], never on the
+/// [`InertArgv`] variant or a tool/path name.
 #[derive(Debug, Default, Clone)]
 pub struct Transcript {
     entries: HashMap<Vec<String>, ExecOutput>,
@@ -88,18 +59,14 @@ pub struct Transcript {
 
 impl Transcript {
     /// Build a transcript from `(argv, output)` pairs. `argv` is the exact
-    /// argument vector a tier's [`InertArgv::args`] must produce for a hit
-    /// — not the `InertArgv` value itself, which carries no `Eq`/`Hash`
-    /// suitable for this and, more importantly, would let a tier match by
-    /// construction intent rather than by what it actually sends.
+    /// vector a tier's [`InertArgv::args`] must produce for a hit.
     pub fn new(pairs: impl IntoIterator<Item = (Vec<String>, ExecOutput)>) -> Self {
         Self {
             entries: pairs.into_iter().collect(),
         }
     }
 
-    /// The argvs this transcript has a recording for, for a future loader
-    /// or corpus runner to report what a fixture covers.
+    /// The argvs this transcript has a recording for.
     pub fn argvs(&self) -> impl Iterator<Item = &Vec<String>> {
         self.entries.keys()
     }
@@ -152,9 +119,8 @@ mod tests {
         assert_eq!(out.stdout, b"usage: mytool [options]\n");
     }
 
-    /// The negative case the whole seam exists for: an argv the transcript
-    /// wasn't given must miss loudly, naming the argv it was asked for —
-    /// never fall through to an empty, confidently-wrong success.
+    /// An argv the transcript wasn't given must miss loudly, naming the
+    /// argv requested, never fall through to a confidently-wrong success.
     #[test]
     fn transcript_miss_names_the_requested_argv() {
         let t = Transcript::new([(vec!["--help".to_string()], output("ok\n"))]);

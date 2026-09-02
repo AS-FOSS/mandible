@@ -1,43 +1,22 @@
-//! Canary tripwires for a contained full-`PATH` sweep (spec §6/§8, this
-//! project's third safety layer — see [`super::containment`]'s doc comment
-//! for the first two: evidence-before-argv gating prevents, namespaces
-//! contain). A tripwire's job is to turn a side effect that *does* happen
-//! into a loud, immediate test failure instead of a silent surprise an
-//! operator discovers hours or days later. **A tripwire nobody has tested
-//! is decoration** — this module's own test suite (below) deliberately
-//! trips each one and asserts the failure, so the detection path itself is
-//! covered, not just assumed to work.
+//! Canary tripwires for a contained full-`PATH` sweep (spec §6/§8, the
+//! third safety layer after [`super::containment`]'s prevent/contain).
+//! Turns a side effect that does happen into a loud, immediate test
+//! failure. This module's own tests deliberately trip each canary and
+//! assert the failure.
 //!
-//! Three canaries, chosen to correspond to real observed misbehaviour
-//! classes named directly in this crate's own history and in spec §6:
-//!
-//! - [`PtyCanary`]: a real pseudo-terminal that must never receive a
-//!   byte. Catches a probed binary that runs `wall`/`write`-style broadcast
-//!   tools — the exact family `spawn.rs`'s `HELP_ONLY_PROBE` list already
-//!   refuses argv-wise (rule 0, the `wall` incident this crate's history
-//!   records), with this canary as the belt to that suspenders: if a
-//!   binary *not* on that closed list turns out to have the same behaviour
-//!   under some other invocation this crate didn't anticipate, this is
-//!   what notices.
-//! - [`ProcessCanary`]: throwaway processes deliberately given common,
-//!   short, plausible-looking names. Catches an over-broad `pkill`/`kill`
-//!   invocation — the family behind the `pkill -- ""` machine-reset
-//!   incident that motivated spec §6 rule 2a, now checked for the milder
-//!   but still-real case of a *non-empty* but over-matching pattern.
+//! - [`PtyCanary`]: a real pseudo-terminal that must never receive a byte.
+//!   Catches a probed binary that runs `wall`/`write`-style broadcast
+//!   tools not already refused by `spawn.rs`'s never-probe list.
+//! - [`ProcessCanary`]: throwaway processes given common, short,
+//!   plausible-looking names. Catches an over-broad `pkill`/`kill`
+//!   invocation (spec §6 rule 2a).
 //! - [`PathCanary`]: a directory outside `spawn.rs`'s per-probe `Scratch`
-//!   redirect that must stay empty for the life of the sweep. Catches an
-//!   unprompted writer — [M-11]'s `mysql_secure_installation` writing a
-//!   `.my.cnf` with an empty root password on nothing but `--help` is the
-//!   measured case this crate already documents; this is what would have
-//!   caught it as a hard failure instead of a comment added after the
-//!   fact.
+//!   redirect that must stay empty for the sweep's life. Catches an
+//!   unprompted writer.
 //!
-//! **What these do not cover.** A canary only detects what it is placed to
-//! observe. A probe that writes to an absolute path this sweep never
-//! watches, or that only misbehaves in a way none of these three shapes
-//! covers (a stray network call, say — see [`super::containment`]'s own
-//! "does not buy" section), trips nothing. These three are the
-//! specific, previously-measured classes; they are not a general dragnet.
+//! A canary only detects what it is placed to observe: a write to an
+//! absolute path outside its watch, or a misbehavior none of the three
+//! shapes covers (a stray network call), trips nothing.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -110,17 +89,9 @@ pub struct PtyCanary {
     slave_path: Option<PathBuf>,
     tripped: Arc<AtomicBool>,
     captured: Arc<Mutex<Vec<u8>>>,
-    /// Held for the canary's whole lifetime, deliberately never dropped
-    /// early. Measured directly while building this module: dropping the
-    /// slave fd right after reading its path (keeping only the master
-    /// open) let a *second, external* open of the same `/proc/self/fd`-
-    /// resolved path fail with `ENOENT` moments later — i.e. the devpts
-    /// entry did not reliably outlive the slave fd the way the "only one
-    /// side needs to stay open" folklore suggests on every kernel. Keeping
-    /// both fds referenced for as long as this struct lives is the
-    /// version that was actually verified to keep the path openable by
-    /// something else throughout, which is the whole point of exposing a
-    /// path at all.
+    /// Held for the canary's whole lifetime, never dropped early: closing
+    /// the slave fd early can let the devpts entry go `ENOENT` for a later
+    /// external open by path, even with the master still open.
     _slave: std::os::fd::OwnedFd,
     _reader: JoinHandle<()>,
 }
@@ -172,19 +143,9 @@ impl PtyCanary {
     /// The device path a probed tool would have to write to in order to
     /// trip this canary, if it could be resolved.
     ///
-    /// `None` off Linux, and that is a resolution gap rather than a
-    /// detection gap: the path is read out of `/proc/self/fd/<fd>`, which
-    /// no other platform provides, while the reader thread that actually
-    /// notices a write is portable and still armed either way. Only the
-    /// *name* of the device is unavailable, never the tripwire.
-    ///
-    /// Nothing in production depends on it resolving. Its one non-test
-    /// caller prints it as a diagnostic (`xtask`'s "canary tripwires armed
-    /// (pty=…)"), which renders the `None` honestly, and a `CanarySet` is
-    /// only ever armed inside a namespace-contained sweep — which
-    /// [`super::containment::enter_or_refuse`] refuses to construct off
-    /// Linux in the first place, so the unresolvable case cannot arise
-    /// where the value would matter.
+    /// `None` off Linux: a resolution gap, not a detection gap. The path
+    /// comes from `/proc/self/fd/<fd>`; the reader thread that notices a
+    /// write stays portable and armed regardless.
     pub fn slave_path(&self) -> Option<&Path> {
         self.slave_path.as_deref()
     }
@@ -208,13 +169,10 @@ impl PtyCanary {
 /// over-broad `pkill`/`killall` pattern is likely to match by accident.
 ///
 /// The name is set at the kernel level (`/proc/<pid>/comm`, what a plain
-/// `pkill <name>` — no `-f` — matches against), not merely as `argv[0]`:
-/// Linux derives `comm` from the path passed to `execve`, not from
-/// `argv[0]`, so this spawns a **symlink** named after the canary rather
-/// than relying on a shell's `exec -a` (which only rewrites `argv[0]` and
-/// leaves `comm` as the real binary's name — measured directly while
-/// building this module: `bash -c 'exec -a foo sleep 30'` still shows
-/// `comm=sleep`, not `comm=foo`).
+/// `pkill <name>` matches), not merely `argv[0]`: Linux derives `comm`
+/// from the `execve` path, so this spawns a symlink named after the
+/// canary rather than relying on a shell's `exec -a` (which leaves `comm`
+/// as the real binary's name).
 pub struct ProcessCanary {
     name: String,
     child: Child,
@@ -259,10 +217,7 @@ impl ProcessCanary {
     }
 
     /// `Some(trip)` if this canary died since it was spawned, without
-    /// [`Self::kill_and_reap`] having been called. Non-destructive to
-    /// call repeatedly, except that it necessarily reaps a dead child once
-    /// (idempotent afterward: `try_wait` on an already-reaped child
-    /// returns the cached exit status, not an error).
+    /// [`Self::kill_and_reap`] having been called. Safe to call repeatedly.
     pub fn check(&mut self) -> Option<CanaryTrip> {
         match self.child.try_wait() {
             Ok(Some(_status)) => Some(CanaryTrip::ProcessKilled {
@@ -284,12 +239,9 @@ impl ProcessCanary {
 /// A directory outside `spawn.rs`'s per-probe `Scratch` redirect that must
 /// stay empty for the life of the sweep.
 ///
-/// Deliberately coarse (any entry at all is a trip, not a diff against a
-/// baseline) — the redirected variables are supposed to absorb every
-/// write a probe makes, so *anything* landing here at all is already the
-/// finding, the same way [M-11]'s font-cache and `mysql_secure_installation`
-/// writes were each a single unexpected file, not a pattern that needed a
-/// diff to notice.
+/// Deliberately coarse: any entry at all is a trip, not a diff against a
+/// baseline — the redirected variables are supposed to absorb every write
+/// a probe makes, so anything landing here is already the finding.
 pub struct PathCanary {
     dir: PathBuf,
 }
@@ -412,16 +364,9 @@ mod tests {
     #[cfg(target_os = "linux")]
     use std::io::Write;
 
-    /// Proves the PTY canary's detection path actually fires: writes
-    /// directly to the slave device by path (the same way an external
-    /// probe reaching it would have to — this process holds no fd on the
-    /// slave side, only the path), then asserts `check()` reports it.
-    /// Linux-only: this drives the canary through its slave device *by
-    /// path*, and that path is resolved from `/proc/self/fd` (see
-    /// [`PtyCanary::slave_path`]). The tripwire itself is portable; only
-    /// this way of reaching it is not. Gated rather than relaxed, because
-    /// a `CanarySet` is armed only inside a namespace-contained sweep,
-    /// which cannot be constructed off Linux at all.
+    /// Writes to the slave device by path, as an external probe would,
+    /// then asserts `check()` reports it. Linux-only: the path resolves
+    /// via `/proc/self/fd`; the tripwire itself is portable.
     #[cfg(target_os = "linux")]
     #[test]
     fn pty_canary_trips_when_slave_is_written_to() {
@@ -441,8 +386,7 @@ mod tests {
         slave.flush().unwrap();
         drop(slave);
 
-        // The reader thread runs concurrently; give it a moment to observe
-        // the write rather than racing it.
+        // Reader thread runs concurrently; poll instead of racing it.
         let mut tripped = None;
         for _ in 0..200 {
             if let Some(t) = canary.check() {
@@ -462,23 +406,15 @@ mod tests {
         }
     }
 
-    /// Proves the process canary's detection path actually fires:
-    /// deliberately kills it (standing in for an over-broad `pkill`), then
-    /// asserts `check()` reports it — and that a canary killed
-    /// *deliberately* via `kill_and_reap` (i.e. normal teardown) does
-    /// *not* falsely report a trip, since that distinction is what keeps
-    /// this canary from failing every sweep on its own cleanup.
+    /// Kills the canary (standing in for an over-broad `pkill`) and
+    /// asserts `check()` reports it.
     #[test]
     fn process_canary_trips_when_killed_by_something_else() {
         let mut canary =
             ProcessCanary::spawn("test").expect("process canary should spawn in this sandbox");
         assert!(canary.check().is_none(), "canary must start untripped");
 
-        // Simulate an over-broad `pkill test` finding this process by its
-        // real `comm` and killing it — exactly the scenario this canary
-        // exists to catch, reached here via the same `nix` signal API
-        // `spawn.rs`'s own `kill_process_group` uses, standing in for
-        // whatever probed tool would have sent the signal for real.
+        // Simulate an over-broad `pkill test` matching by real `comm`.
         let pid = nix::unistd::Pid::from_raw(canary.child.id() as i32);
         nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGKILL)
             .expect("send SIGKILL to the canary process");
@@ -497,22 +433,16 @@ mod tests {
         }
     }
 
-    /// The other half of the previous test's claim: a canary that
-    /// *teardown* kills must never be mistaken for a trip, or every sweep
-    /// would fail on its own cleanup regardless of what any probe did.
+    /// A canary that teardown kills must never be mistaken for a trip.
     #[test]
     fn process_canary_killed_by_teardown_is_not_a_trip() {
         let canary = ProcessCanary::spawn("data").expect("process canary should spawn");
-        // `kill_and_reap` consumes `self`; there is deliberately no way to
-        // call `check()` on a torn-down canary afterward — teardown is
-        // meant to be the last thing done with one.
+        // `kill_and_reap` consumes `self`: no `check()` after teardown.
         canary.kill_and_reap();
     }
 
-    /// Proves the path canary's detection path actually fires: writes a
-    /// file into the watched directory (standing in for an unprompted
-    /// writer like [M-11]'s `mysql_secure_installation`), then asserts
-    /// `check()` reports it.
+    /// Writes a file into the watched directory (standing in for an
+    /// unprompted writer, spec §6 [M-11]), then asserts `check()` reports it.
     #[test]
     fn path_canary_trips_when_something_is_written_into_it() {
         let dir = tempfile::tempdir().unwrap();
@@ -534,16 +464,8 @@ mod tests {
         }
     }
 
-    /// End-to-end: a `CanarySet` built once, checked after a shim
-    /// deliberately does all three bad things at once (a stand-in for a
-    /// misbehaving probed tool), reports all three trips — never
-    /// short-circuiting on the first one found.
-    /// Linux-only: this drives the canary through its slave device *by
-    /// path*, and that path is resolved from `/proc/self/fd` (see
-    /// [`PtyCanary::slave_path`]). The tripwire itself is portable; only
-    /// this way of reaching it is not. Gated rather than relaxed, because
-    /// a `CanarySet` is armed only inside a namespace-contained sweep,
-    /// which cannot be constructed off Linux at all.
+    /// End-to-end: a `CanarySet` checked after all three bad things happen
+    /// at once reports all three trips. Linux-only (PTY path resolution).
     #[cfg(target_os = "linux")]
     #[test]
     fn canary_set_reports_every_trip_a_misbehaving_probe_causes() {
@@ -554,7 +476,7 @@ mod tests {
             "a freshly spawned canary set must start with no trips"
         );
 
-        // Write to the pty, exactly as a rogue `wall`-alike would.
+        // As a rogue `wall`-alike would.
         let slave_path = set.pty_slave_path().unwrap().to_path_buf();
         std::fs::OpenOptions::new()
             .write(true)
@@ -563,16 +485,13 @@ mod tests {
             .write_all(b"broadcast\n")
             .unwrap();
 
-        // Kill one canary process, exactly as an over-broad `pkill` would.
+        // As an over-broad `pkill` would.
         let victim_pid = nix::unistd::Pid::from_raw(set.processes[0].child.id() as i32);
         nix::sys::signal::kill(victim_pid, nix::sys::signal::Signal::SIGKILL).unwrap();
 
-        // Write into the watched path, exactly as an unprompted writer
-        // would.
+        // As an unprompted writer would.
         std::fs::write(watch_dir.join("unexpected.cnf"), b"leak").unwrap();
 
-        // Give the concurrent pty reader and the killed child's exit
-        // status a moment to become observable.
         let mut trips = Vec::new();
         for _ in 0..200 {
             trips = set.check();

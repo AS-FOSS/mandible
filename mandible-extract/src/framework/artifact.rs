@@ -1,28 +1,18 @@
 //! Step 1 of framework identification (spec §7 Tier A′): scan the artifact
 //! itself — a compiled binary's embedded strings, or a script's shebang
-//! plus import lines. Ground truth when it matches: `docker` contains the
-//! literal bytes `spf13/cobra` 583 times and `gh` 283 times [M-13],
-//! independent of how that particular cobra version happens to render its
-//! `--help` section headings.
+//! plus import lines. Ground truth when it matches: `docker` and `gh` both
+//! contain the literal bytes `spf13/cobra` [M-13], independent of how that
+//! cobra version renders `--help` section headings.
 //!
-//! Bounded on purpose (spec §7 Tier A′ step 1: "do not slurp a 100 MB
-//! binary"): reads at most [`MAX_BINARY_SCAN_BYTES`] of a binary artifact,
-//! or [`MAX_SCRIPT_SCAN_BYTES`] of a script (shebang and imports are, by
-//! convention, at the top of the file). Marker matching is a plain byte
-//! substring search — no `strings`(1)-style printable-run extraction —
-//! which works because every marker here is itself a short run of ASCII
-//! that appears verbatim in the artifact regardless of what
-//! (binary-garbage) bytes surround it.
+//! Bounded on purpose (spec §7 Tier A′ step 1): reads at most
+//! [`MAX_BINARY_SCAN_BYTES`] of a binary artifact, or
+//! [`MAX_SCRIPT_SCAN_BYTES`] of a script. Marker matching is a plain byte
+//! substring search, which works because every marker is a short run of
+//! ASCII appearing verbatim regardless of surrounding bytes.
 //!
-//! **Measured, not assumed:** on the real `docker`/`gh` binaries this
-//! project's own spec cites for the `spf13/cobra` marker [M-13], the
-//! first occurrence sits at roughly 28-33% into the file — 11.9 MB into a
-//! 43 MB `docker`, 14.9 MB into a 45 MB `gh` (both are Go binaries built
-//! with debug info, not stripped). A conservative few-MB cap would miss
-//! spec's own reference examples entirely. [`MAX_BINARY_SCAN_BYTES`] is
-//! set high enough to fully cover binaries in that size class while still
-//! bounding the pathological (100+ MB) case this doc comment's "don't
-//! slurp" guidance is about.
+//! [`MAX_BINARY_SCAN_BYTES`] is set high enough to fully cover real Go
+//! binaries with debug info (the `spf13/cobra` marker sits ~28-33% into
+//! `docker`/`gh` [M-13]) while still bounding a pathological 100+ MB file.
 
 use super::Framework;
 use std::fs::File;
@@ -55,17 +45,11 @@ const MAX_SCRIPT_SCAN_BYTES: usize = 64 * 1024;
 /// unique to one framework's own source.
 ///
 /// Priority order matters because markers can genuinely co-occur in one
-/// binary without the tool actually being built on the lower-priority
-/// framework: measured directly on the real `docker` and `gh` binaries
-/// this project's spec cites for the `spf13/cobra` marker [M-13], both
-/// *also* contain Go's stdlib `flag` package's `"flag provided but not
-/// defined:"` error string — 330 KB *earlier* in `docker`'s case — even
-/// though neither tool's CLI is built on stdlib `flag`. Something else in
-/// their dependency graph pulls the package in transitively (the stdlib
-/// `flag` package is a common transitive import — e.g. via `testing` or
-/// other tooling — independent of whether it's the CLI framework in use).
-/// `GoFlag` is therefore ordered last: a scan keeps looking past a
-/// `GoFlag` hit for anything earlier in this list before settling.
+/// binary without the tool being built on the lower-priority framework:
+/// `docker` and `gh` both also contain Go stdlib `flag`'s error string,
+/// pulled in transitively, even though neither CLI is built on it [M-13].
+/// `GoFlag` is ordered last: a scan keeps looking past a `GoFlag` hit for
+/// anything earlier in this list before settling.
 const BINARY_MARKERS: &[(&[u8], Framework)] = &[
     (b"spf13/cobra", Framework::Cobra),
     (b"urfave/cli", Framework::UrfaveCli),
@@ -340,11 +324,8 @@ mod tests {
         assert_eq!(scan(&path), Some(Framework::Cobra));
     }
 
-    /// Regression for the real collision found on the actual `docker`
-    /// binary (see [`BINARY_MARKERS`]'s doc comment): a lower-priority
-    /// marker ([`Framework::GoFlag`]) appearing *earlier* in the file than
-    /// a higher-priority one ([`Framework::Cobra`]) must not win just
-    /// because it was scanned first.
+    /// A lower-priority marker appearing earlier in the file must not win
+    /// just because it was scanned first (see [`BINARY_MARKERS`]).
     #[test]
     fn higher_priority_marker_wins_even_when_it_appears_later() {
         let dir = tempfile::tempdir().unwrap();
@@ -357,10 +338,8 @@ mod tests {
         assert_eq!(scan(&path), Some(Framework::Cobra));
     }
 
-    /// The mirror case: with no higher-priority marker anywhere in the
-    /// scanned budget, the lower-priority one is still the right answer —
-    /// this isn't "GoFlag never wins," it's "GoFlag loses only when
-    /// outranked."
+    /// With no higher-priority marker in the scanned budget, the
+    /// lower-priority one is still the right answer.
     #[test]
     fn lower_priority_marker_wins_when_alone() {
         let dir = tempfile::tempdir().unwrap();
@@ -410,10 +389,8 @@ mod tests {
         assert_eq!(scan(&path), Some(Framework::Commander));
     }
 
-    /// A Python script mentioning "commander" in, say, a comment must not
-    /// be misread as a Node script — script markers are gated by the
-    /// interpreter named on the shebang line, not matched language-
-    /// agnostically.
+    /// A Python script mentioning "commander" in a comment must not be
+    /// misread as a Node script — markers are gated by shebang language.
     #[test]
     fn script_markers_are_gated_by_shebang_language() {
         let dir = tempfile::tempdir().unwrap();

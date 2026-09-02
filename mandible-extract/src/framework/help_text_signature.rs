@@ -1,19 +1,14 @@
 //! Step 2 of framework identification (spec §7 Tier A′): distinctive
 //! marker strings in `--help` output itself, tried only when artifact
 //! scanning (step 1) didn't resolve anything — e.g. a dynamically-linked
-//! tool whose GNU argp usage/help strings live in `libc.so`, not the
-//! tool's own binary, so scanning the tool's own bytes finds nothing even
-//! though running it still prints the marker text.
+//! tool whose GNU argp strings live in `libc.so`, not the tool's own binary.
 //!
 //! **Deliberately does not include cobra's `Common Commands:` heading**
-//! alongside `Available Commands:`: docker uses that variant instead of
-//! cobra's own default, and a prose signature added here just to catch it
-//! would be spec §1's forbidden per-tool special case, wearing a
-//! framework's name instead of a tool's. Docker missing this table
-//! entirely is exactly why step 1 (artifact scanning, which finds
-//! `spf13/cobra` in docker's own bytes 583 times [M-13]) leads and is
-//! authoritative when it matches — this module is the fallback for when
-//! it doesn't.
+//! alongside `Available Commands:`: docker uses that variant, and a prose
+//! signature added here just to catch it would be spec §1's forbidden
+//! per-tool special case. Artifact scanning already finds `spf13/cobra` in
+//! docker's own bytes [M-13]; this module is the fallback for when it
+//! doesn't.
 
 use super::Framework;
 
@@ -67,14 +62,9 @@ fn scan_go_flag_usage(help_text: &str) -> Option<Framework> {
 
 /// Coarse fallback for terse BSD-style `usage:` output: a lowercase
 /// `usage:` line, no long-form (`--`) flags anywhere, and a short overall
-/// output. This is a genuinely weak signal — spec §7 Tier A′ step 2 is
-/// explicitly allowed to be "deliberately crude" and still add coverage
-/// [M-12] — it exists to give classic single-letter-flag Unix tools
-/// *something* better than falling through to unidentified, not to be a
-/// precise fingerprint. Checked last, after every more specific signature
-/// above has had a chance (argparse's own usage line is also lowercase
-/// `usage:`, but its `--help` text always also contains "show this help
-/// message and exit", which is checked first).
+/// output. A genuinely weak signal (spec §7 Tier A′ step 2, [M-12]),
+/// giving classic single-letter-flag Unix tools something better than
+/// unidentified. Checked last, after every more specific signature above.
 fn looks_like_bsd_terse(help_text: &str) -> bool {
     let has_lowercase_usage = help_text
         .lines()
@@ -107,11 +97,8 @@ mod tests {
         assert_eq!(scan(text), Some(Framework::Cobra));
     }
 
-    /// The core regression this module's doc comment is about: docker's
-    /// actual heading must NOT be recognized here — that would silently
-    /// reintroduce a per-tool special case (spec §1). It's expected to
-    /// come back unidentified from this step alone; artifact scanning is
-    /// what actually catches docker (spec §7 Tier A′ step 1).
+    /// docker's actual heading must NOT be recognized here — that would
+    /// reintroduce a per-tool special case (spec §1).
     #[test]
     fn common_commands_heading_is_deliberately_not_a_cobra_signature() {
         let text = "Usage:\n  docker [OPTIONS] COMMAND\n\nCommon Commands:\n  run    Create and run a new container\n";

@@ -1,160 +1,78 @@
 //! Tier B: engineered `--help` grammar parser (spec §7 Tier B).
 //!
-//! Attempted second (after the free, zero-spawn Tier A) because it costs
-//! 1-2 spawns per node and is the only source that exists for every tool
-//! everywhere. Reads stdout *and* stderr and does not require exit 0:
-//! `openssl --help` writes only to stderr with exit 0, and `ip --help`
-//! writes only to stderr with exit 255 (spec [M-8]). When both streams carry
-//! bytes, the parser reads whichever one looks like help rather than
-//! whichever one is merely non-empty; see [`pick_stream`] for the truth
-//! table and for the `openssl cmp` case that made the older rule untenable.
-//! Recursion happens per-node, lazily, through the runner
-//! (spec §5.2/batch 3's lazy runner); this tier itself only ever parses
-//! the one node it's asked for.
+//! Attempted second, after Tier A. Reads stdout *and* stderr and does not
+//! require exit 0 — `openssl --help` exits 0 on stderr only, `ip --help`
+//! exits 255 on stderr only (spec M-8). When both streams carry bytes, the
+//! one that looks like help wins, not the merely non-empty one; see
+//! [`pick_stream`] and docs/shapes.md S-091.
 //!
-//! **Dispatch on framework (spec §7 Tier A′ + Tier B, batch 6 part 4).**
-//! Before parsing, this tier tries to identify which framework generated
-//! the text, in the order spec §7 Tier A′ prescribes, *without ever
-//! double-probing*: [`framework::identify_from_artifact`] first (free —
-//! it scans the already-resolved binary's own bytes, no process spawn),
-//! and only on a miss, [`framework::identify_from_help_text`] against the
-//! `--help` text this tier already fetched for its own parsing. The
-//! result selects a [`profile::FrameworkProfile`] that
-//! [`sections::parse_with_profile`] consults; `None` (unidentified) runs
-//! the identical generic engine this parser always used, just called with
-//! no profile. See [`build_node`] for the three-level staged degradation
-//! this produces (spec §7 Tier B).
+//! Before parsing, dispatches on framework (spec §7 Tier A′ + Tier B):
+//! [`framework::identify_from_artifact`] first, then on a miss
+//! [`framework::identify_from_help_text`] against the fetched text. The
+//! result selects a [`profile::FrameworkProfile`] for
+//! [`sections::parse_with_profile`]; `None` runs the generic engine with no
+//! profile. See [`build_node`] for the staged degradation this produces.
 
 pub mod confession;
 mod grammar;
 mod profile;
 mod sections;
 
-/// Re-exported for the coverage harness (spec §13.1, [M-16]): the pure
-/// man-page-banner check this tier already uses at [`build_node`]'s
-/// verbatim-degradation step (`sections::parse_with_profile`), exposed so
-/// `xtask` can ask "was this root's captured `--help` output a rendered
-/// man page?" without a second copy of the rule and without re-probing the
-/// tool — see [`sections::is_man_page_banner`]'s own doc comment.
+/// Re-exported for the coverage harness (spec §13.1, M-16): lets `xtask`
+/// ask whether a root's captured `--help` was a rendered man page without a
+/// second copy of the rule. See docs/shapes.md S-066.
 pub use grammar::parse_bundled_shorts;
 pub use sections::is_man_page_banner;
 
-/// Re-exported for `xtask/src/alternation.rs`, the `brace-alternation-flag`
-/// detector: the *same* rule this tier's own grammar applies when it decides
-/// that `{-i|--input}` / `[-c|-C]` names flags rather than values. Shared
-/// rather than restated for the reason the block just below records at
-/// length — a detector meant to be ratcheted at zero and the fix meant to
-/// reach zero have to agree, character for character, on what the defect is,
-/// and this project has already paid once (200 of 656 fleet-wide
-/// fabrications) for letting an oracle keep its own copy of a predicate.
+/// Re-exported for `xtask/src/alternation.rs`'s `brace-alternation-flag`
+/// detector: the same rule this grammar uses for `{-i|--input}`/`[-c|-C]`.
+/// A detector and its fix must agree character-for-character on the
+/// defect, or the oracle drifts out of sync (200/656 fleet-wide
+/// fabrications, spec §13.1c K2). See docs/shapes.md S-084.
 pub use grammar::{parse_flag_alternation, FlagAlternation};
 
-/// Re-exported for `xtask/src/misattribution.rs`: the multi-column-table
-/// vocabulary this tier's own splitter uses to decide what counts as a
-/// flag-shaped token, where a line's cells fall, and what a bare value
-/// placeholder looks like. Same rationale as [`pick_stream`] just above —
-/// `misattribution` once carried its own copy of *that* function and it
-/// drifted silently past a real fix (200 of 656 fleet-wide fabrications,
-/// spec §13.1c's K2 table); these five names are the same hazard; a second
-/// copy of "what is a flag" or "what is a bare cell" would let the oracle
-/// silently stop measuring what this splitter actually does. Only
-/// `fields_in_line` itself is deliberately *not* shared — see the block
-/// comment above [`sections::is_flag_shaped`] in `sections/layout.rs` for
-/// why that one difference is load-bearing rather than an oversight.
+/// Re-exported for `xtask/src/misattribution.rs`: the same drift hazard as
+/// [`pick_stream`] above — a second copy of "what is a flag" or "what is a
+/// bare cell" would let the oracle stop measuring what this splitter
+/// actually does. `fields_in_line` itself stays unshared; see the comment
+/// above `sections::is_flag_shaped` in `sections/layout.rs`.
 pub use sections::{
     cells, first_word, is_flag_shaped, is_value_placeholder_only, MIN_COLUMN_GAP_SPACES,
     MIN_COLUMN_RECURRENCE,
 };
 
-/// Re-exported for `xtask/src/existence.rs`, and for exactly the reason the
-/// block above gives. This tier reads binutils `ar`'s ` commands:` table by
-/// taking the command name from the front of a token that carries its
-/// optional modifier groups glued on (`m[ab]` names `m`), so the existence
-/// oracle has to attest names the same way — its tokenizer sees the raw
-/// token `m[ab]`, and without this it reports five perfectly real `ar`
-/// commands as invented. A second copy of "where does the name end" is the
-/// same drift hazard as a second copy of "what is a flag".
+/// Re-exported for `xtask/src/existence.rs`: binutils `ar`'s modifier
+/// suffix (`m[ab]` names command `m`) must be stripped the same way here
+/// and by the oracle, or five real `ar` commands report as invented. See
+/// docs/shapes.md S-059.
 pub use sections::strip_optional_modifier_suffix;
 
-/// Re-exported for `xtask/src/existence.rs`'s positional-operand check, and
-/// for the same drift reason as everything above: the oracle has to agree
-/// with this tier on *which physical lines are a synopsis at all* before it
-/// can say anything about where an operand sits on one. These are the two
-/// markers this tier's own usage-block scan opens on
-/// (`sections::parse_with_profile`); a second copy of "does this line say
-/// usage" would be one more predicate free to drift past a fix.
+/// Re-exported for `xtask/src/existence.rs`'s positional-operand check: the
+/// oracle must agree on which lines are a synopsis before it can attest an
+/// operand's position. Includes the fprintf-idiom and unlabelled-synopsis
+/// entry points (PR #32/#33) — without them the oracle reported 94 real
+/// operands as invented fleet-wide. See docs/shapes.md S-001.
 ///
-/// Also carries the two entry shapes PR #32/#33 taught this tier to open a
-/// usage block on *without* an ordinary `usage:` marker anywhere on the
-/// line: [`sections::starts_with_name_prefixed_usage`] (the C
-/// `fprintf(stderr, "%s: Usage: ...", argv[0])` idiom — `nfsidmap: Usage:
-/// nfsidmap [-vh] ...`) and [`sections::looks_like_unlabeled_synopsis_line`]
-/// (a bare `USAGE` heading or no heading at all, with the synopsis itself
-/// opening with the tool's own name — `gh`'s `USAGE` / `  gh <command>
-/// <subcommand> [flags]`). Before this pair was added here, the oracle could
-/// not see the line either shape's operands came from, so a synopsis the
-/// parser now correctly recovers from one of them reported its own
-/// perfectly real operands as invented — measured fleet-wide as 94 tools on
-/// this task's own before/after sweep (`gh`, `busctl`, `journalctl`,
-/// `pidof`, ...), all false, all this exact instrument gap rather than a
-/// parser defect. Not reimplementing a second copy of either predicate is
-/// the whole point, per the same reasoning as the pair above.
-///
-/// What the oracle does **not** borrow is the block-continuation rule — how
-/// far past the marker line the synopsis runs. That is deliberately the
-/// oracle's own, wider, decision: it reads every indented line under a bare
-/// `Usage:` header, where this tier applies `looks_like_usage_fragment` and
-/// an indent ladder. A wider read can only *attest* more, i.e. report less,
-/// so the difference is safe in the one direction an oracle's difference has
-/// to be safe in. The same argument extends to the unlabelled shape: the
-/// oracle does not bound its search to the lines before the document's body
-/// starts the way this tier's own `unlabelled_synopsis_start` does — a
-/// match found later in the document can only add an attested operand
-/// position, never remove one, so skipping that bound is safe in the same
-/// direction.
+/// The oracle deliberately does *not* borrow the block-continuation rule
+/// (how far the synopsis runs past the marker) — its own wider read can
+/// only attest more, never less, so that difference is safe.
 pub use sections::{
     looks_like_unlabeled_synopsis_line, starts_with_name_prefixed_usage, starts_with_or_marker,
     starts_with_tool_name, starts_with_usage_prefix,
 };
 
-/// Re-exported for `xtask/src/existence.rs`, alongside
-/// [`looks_like_unlabeled_synopsis_line`] above: LVM's own emitter
-/// (`vgck`, `vgextend`, `vgrename`, and every other `vg*`/`lv*`/`pv*`
-/// command) writes a *bare* invocation line with no docopt notation on it
-/// at all — `vgextend VG PV ...`, no `[`, `<` or `{` anywhere — so
-/// `looks_like_unlabeled_synopsis_line`'s own notation test can never find
-/// it; every bit of bracket notation is on the *next* line instead
-/// (`\t[ -A|--autobackup y|n ]`). This tier's own usage-block entry point
-/// accepts a bare own-name line on exactly that evidence — the following
-/// physical line reading as unambiguous flag-row notation
-/// (`grammar::looks_like_bracket_flag_row`) — and the oracle has to open on
-/// the identical evidence, or every one of this family's real operands
-/// (`VG`, `PV`, ...) is invisible to it the same way `gh`'s were before
-/// `starts_with_name_prefixed_usage`/`looks_like_unlabeled_synopsis_line`
-/// were re-exported: measured fleet-wide as 29 tools on this task's own
-/// before/after sweep, the entire `vg*`/`lv*`/`pv*` family, all false.
+/// Re-exported for `xtask/src/existence.rs`: LVM's bare invocation line
+/// (`vgextend VG PV ...`, no bracket notation) opens a usage block only on
+/// the following line reading as a bracket flag row: the oracle must open
+/// on the same evidence or the whole `vg*`/`lv*`/`pv*` family's operands
+/// (29 tools, fleet-wide) go invisible to it. See docs/shapes.md S-005.
 pub use grammar::looks_like_bracket_flag_row;
 
-/// Re-exported for `xtask/src/existence.rs`'s `option_list_slot`, and for
-/// the same drift reason as the block above: `sections::extract_positionals`
-/// excludes a token from the tree wherever in a synopsis line it sits, by
-/// this exact vocabulary (`sections::OPTION_LIST_PLACEHOLDERS`) — not only
-/// when it happens to be the line's first slot. The oracle's own
-/// `option_list_slot` additionally applies a *positional* shape rule (its
-/// own doc comment has the reasoning for why an oracle prefers shape over
-/// vocabulary as its primary signal), but a shape rule alone disagreed with
-/// this tier the moment an unlabelled synopsis put a real leading operand
-/// where the shape rule expected a placeholder: `gh`'s `<command>
-/// <subcommand> [flags]` names its actual flag stand-in *last*
-/// (`[flags]`, this exact vocabulary), not first, and the shape rule alone
-/// read `command` as the placeholder and `flags` as a real operand —
-/// backwards on both counts. Layering this vocabulary check on top (never in
-/// place of the shape rule, which still fires unconditionally for a
-/// non-vocabulary word like `pkgconf`'s `OPTIONS`) closes exactly that gap
-/// without asking the oracle to agree with the parser everywhere: a
-/// fabrication spelled with a word outside this five-word list is still
-/// caught by the shape rule or by the oracle's ordinary "does it occur at
-/// all" check, whichever applies.
+/// Re-exported for `xtask/src/existence.rs`'s `option_list_slot`: the same
+/// option-list-placeholder vocabulary `sections::extract_positionals`
+/// excludes by, layered on top of (never replacing) the oracle's own shape
+/// rule — needed because `gh`'s `<command> <subcommand> [flags]` puts the
+/// real placeholder last, which a shape-only rule reads backwards.
 pub use sections::is_option_list_placeholder;
 
 use crate::errors::ExtractError;
@@ -232,13 +150,9 @@ impl ExtractionTier for HelpTextTier {
     }
 
     fn detect(&self, tool: &ResolvedTool) -> bool {
-        // `--help` is universal in the sense that it's the only thing
-        // every tool has everywhere (spec §3); the only real
-        // precondition is that the tool resolved to an executable at
-        // all. We don't spend a probe here confirming `--help` actually
-        // produces useful output — that's what extract_node finds out,
-        // and a failure there is recorded per-node without invalidating
-        // the tier (spec §5.3).
+        // `--help` is universal (spec §3); only precondition is a
+        // resolved executable. A failure to produce useful output is
+        // recorded per-node later (spec §5.3), not here.
         tool.path.is_some()
     }
 
@@ -255,51 +169,20 @@ impl ExtractionTier for HelpTextTier {
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
         if words.is_empty() {
-            // This probe *is* the root: remember its text as the baseline
-            // the check below compares every subcommand probe against.
-            // Always overwritten, never only-if-absent, so a refresh (`r`)
-            // re-baselines rather than comparing against a stale probe.
+            // This probe is the root: cache its text as the baseline
+            // later subcommand probes compare against. Always
+            // overwritten so a refresh re-baselines.
             if let Ok(mut cache) = self.root_text.lock() {
                 cache.insert(tool_path.clone(), Arc::from(raw.as_str()));
             }
         } else if let Ok(cache) = self.root_text.lock() {
-            // The self-similar-fan-out hazard, found live against
-            // `mandible systemctl` (spec [M-19]): GNU getopt permutes
-            // `--help` to the front of argv regardless of what precedes
-            // it, and `systemctl` never validates a verb before dispatch,
-            // so `systemctl <anything...> --help` prints the tool's *own
-            // root help*, byte-identical, no matter how many words or
-            // what they are — confirmed at the shell directly, five words
-            // deep. The generic grammar below has no way to know that;
-            // it reads the root's own "Commands:" section a second time
-            // and reports it as *this* subcommand's children, which are
-            // the same subcommand names all over again. The background
-            // warmer (`mandible/src/background.rs`) cascades every
-            // discovered child unconditionally with no cycle detection —
-            // that is deliberately this crate's job, not the extractor's,
-            // per this module's own doc comment ("recursion happens
-            // per-node, lazily, through the runner") — so left unchecked
-            // this is not merely wrong data, it is unbounded (18^depth)
-            // recursive re-probing capped only by `MAX_WARMED_NODES`
-            // (4096), and reaching that cap means thousands of concurrent
-            // `systemctl` spawns contending for the CPU with the UI
-            // thread's own 100ms poll loop — measured starving it for
-            // 45+ seconds on a 4-core machine, which is what a user
-            // reported as the TUI simply freezing.
-            //
-            // Keyed on an observable property of the *output* — identical
-            // bytes to the root — never on the tool's name, the same
-            // discipline [M-16] used for man-page detection: this is not
-            // "if tool == systemctl", it is "if probing this subcommand
-            // produced nothing beyond a second copy of the root", which
-            // generalizes to any multi-call binary or getopt permutation
-            // that behaves the same way. Degrading to verbatim (spec §7
-            // Tier B step 3) is the existing, honest response to "this
-            // probe told us nothing new": the raw bytes are still shown
-            // to the reader via `t` exactly as returned, but nothing is
-            // reported as this node's *own* structure, so the cascade
-            // that reads `subcommands` finds none and stops rather than
-            // re-probing the same 18 names one level deeper forever.
+            // Self-similar fan-out (spec M-19): a subcommand probe that
+            // returns bytes identical to the cached root text degrades to
+            // verbatim with no children, rather than re-reading the
+            // root's own command table as this subcommand's own.
+            // Keyed on output equality, never on tool name (same
+            // discipline as M-16's man-page check). See docs/shapes.md
+            // S-079.
             if let Some(root_raw) = cache.get(tool_path) {
                 if root_raw.as_ref() == raw.as_str() {
                     let detected_framework = framework::identify_from_artifact(tool)
@@ -312,12 +195,8 @@ impl ExtractionTier for HelpTextTier {
             }
         }
 
-        // Detection order per spec §7 Tier A′, never double-probing: the
-        // free artifact scan first (memoized per binary path — see
-        // `framework::identify_from_artifact`'s doc comment — so probing
-        // every node of a deep tree over the same binary costs nothing
-        // extra here), and only on a miss, the help-text signature against
-        // the text this call already fetched above for its own parsing.
+        // Detection order per spec §7 Tier A′: free artifact scan first
+        // (memoized per binary path), text signature only on a miss.
         let detected = framework::identify_from_artifact(tool)
             .or_else(|| framework::identify_from_help_text(&raw));
         let mut node = build_node(&node_name, &raw, detected, &tool.name);
@@ -330,66 +209,18 @@ impl ExtractionTier for HelpTextTier {
     }
 }
 
-/// Run `<tool> <words...> --help`, falling back to `-h` if that produced no
-/// output at all on either stream (the long-standing fallback; unconditional
-/// on `words`'/`hints`' provenance, unchanged by [M-16]'s addition below),
-/// and return whichever stream had content (stdout preferred when both are
-/// non-empty — spec §7 Tier B, measured against real tools in [M-8]).
+/// Run `<tool> [<path>...] --help`, falling back to `-h` on empty output or
+/// a rendered man page (spec M-16 sub-case (a) — `git commit --help` execs
+/// `man`), and report which flag actually produced the text. Preferred
+/// stream is whichever looks like help, stdout on a tie (spec §7 Tier B,
+/// M-8). See docs/shapes.md S-066.
 ///
-/// **The positional probe itself is gated on provenance.** `words`
-/// non-empty means this is a subcommand path, not the root, and its last
-/// element is a word some earlier extraction produced — either the tool's
-/// own attested command table, or, if a grammar bug ever mis-reads a
-/// layout, a fabrication. Spec §6 rule 0's closing paragraph names this as
-/// the general form of the never-probe list's hazard: a fabricated word
-/// becoming argv for *any* tool, not just the thirteen named there. So
-/// **no probe of any kind is sent** — not `--help`, not the `-h` fallback
-/// below it, not [M-16] sub-case (a)'s `-h` fallback further down — unless
-/// [`NodeHints::heading_attested`] is true, exactly the same bit the
-/// sub-case (a) fallback already checked before this function grew a gate
-/// of its own. See [`probe_help_text_reporting_flag`] for where the check
-/// actually lives; a non-attested node returns [`ExtractError::Other`]
-/// instead of spawning anything, so the runner records a per-node,
-/// per-tier failure (spec §5.3) rather than the tree silently gaining an
-/// empty-but-successful node.
-///
-/// **[M-16] sub-case (a):** when `--help` instead produced real output that
-/// is a *rendered man page* — `git commit --help` execs `man` and renders
-/// `GIT-COMMIT(1)` rather than printing help — also fall back to `-h`,
-/// which for 21 of git's 22 subcommands prints an ordinary option table the
-/// generic grammar already handles. Two guards, both required:
-///
-/// - **`words` must be non-empty.** This is the boundary between sub-case
-///   (a) (implemented here) and sub-case (b) (a tool's own root `--help`
-///   being man-shaped — six named binaries, `byobu`/`byobu-screen`/
-///   `byobu-tmux`/`git-receive-pack`/`git-upload-archive`/`git-upload-pack`,
-///   **not** implemented here). [M-16] measured the six but the maintainer's
-///   ruling is that an unmeasured argv broadening is a no; a man-shaped
-///   *root* must keep degrading to verbatim exactly as it does today, so
-///   this fallback never fires for the root regardless of anything else.
-/// - **`hints.heading_attested` must be true.** No longer checked
-///   explicitly at this fallback's own call site: the function-level gate
-///   above already refused a non-attested `words` before any probe ran, so
-///   by the time execution reaches this fallback, `words` non-empty
-///   implies attested. This is the same bit [M-16] originally added this
-///   fallback's own check for, before the wider gate existed.
-///
-/// The `-h` response is validated with [`looks_like_help_output`] before
-/// being trusted (D1.3.1): a tool that *acts* on an argument it doesn't
-/// recognise instead of printing help may still print *something*, and a
-/// never-probe tool's `-h` is refused outright by [`crate::exec::run_inert`]
-/// (spec §6 rule 0) regardless of any of the above — that refusal is
-/// swallowed here exactly like a validation failure, not propagated as a
-/// fatal error, so the node still degrades to verbatim.
-/// Run `<tool> [<path>...] --help`, falling back to `-h`, also reporting
-/// **which flag actually produced the text** — `"--help"` or `"-h"`.
-///
-/// The verbatim view (`t`) needs this to label itself honestly. Since
-/// [M-16] sub-case (a) a subcommand's text may come from either probe, and
-/// a pane that hardcodes "the tool's own `--help` output" while showing
-/// `-h` output states something untrue about where the bytes came from —
-/// in the one view whose entire job is showing the reader exactly what we
-/// were given. It shipped that way briefly.
+/// Gated on provenance: no probe is sent at all for a non-empty `words`
+/// unless [`NodeHints::heading_attested`] is true (spec §6 rule 0) — a
+/// non-attested node returns [`ExtractError::Other`] instead. The man-page
+/// fallback never fires for the root (six root-level binaries stay
+/// verbatim, S-066); the `-h` response is validated with
+/// [`looks_like_help_output`] (D1.3.1) before being trusted.
 fn probe_help_text_reporting_flag(
     probe: &dyn Probe,
     tool_path: &Path,
@@ -449,48 +280,24 @@ fn probe_help_text_reporting_flag(
                 return Ok((short_text, "-h"));
             }
         }
-        // `-h` was refused (a never-probe tool, spec §6 rule 0), errored,
-        // timed out, or didn't validate as real help output: keep the man
-        // page text, so this node degrades to verbatim exactly as it did
-        // before this fallback existed.
+        // `-h` refused, errored, timed out, or didn't validate: keep the
+        // man page text, so this node degrades to verbatim.
     }
 
     Ok((long_text, "--help"))
 }
 
-/// [`probe_help_text_reporting_flag`], further resolved against the tool's
-/// own truncation-confession convention (spec §6 rule 2b, `help_text::
-/// confession`): if that probe's text confesses to being an incomplete
-/// document and names a word this tier knows how to follow
-/// (`confession::expandable`), this issues exactly **one** additional
-/// probe with the advertised argv (`InertArgv::HelpExpand`) and returns
-/// *that* document instead.
+/// [`probe_help_text_reporting_flag`], further resolved against the
+/// truncation-confession convention (spec §6 rule 2b, `help_text::
+/// confession`, docs/shapes.md S-080): if the text confesses and names a
+/// followable word, issues exactly one more probe (`InertArgv::HelpExpand`)
+/// and returns that document instead. Never chained — the expanded
+/// document's own confessions are never re-scanned.
 ///
-/// **Never chained.** The expanded document's own text is returned as-is
-/// — this function does not call itself, and does not run
-/// `confession::detect_directives` a second time on the expanded text — so
-/// a confession printed inside an expanded document (verification's "no
-/// chaining" case) is structurally never looked at, not merely
-/// discouraged by convention.
-///
-/// **Interaction with spec §6 rule 0 and the attestation gate.** The
-/// `InertArgv::HelpExpand` probe below goes through the same
-/// `probe.run` → `run_inert` chokepoint as every other shape, so a
-/// never-probe tool (`pkill`, `shutdown`, ...) refuses it exactly as it
-/// refuses every non-`--help` shape — `run_inert`'s own check
-/// (`argv.args() != ["--help"]`) rejects `HelpExpand`'s
-/// `[..words, "--help", word]` unconditionally, with no special case
-/// needed here. Attestation (`hints.heading_attested`) is not
-/// re-checked for `word` itself: the word is not a subcommand name a
-/// grammar guessed at, it is a word the tool's *own already-probed and
-/// already-trusted* output printed, so it is attested by construction —
-/// the same way the root path itself is exempt from the gate (spec §6
-/// rule 0's closing paragraph; see the amendment in spec.md §6 rule 2b).
-///
-/// Returns the confession info alongside the text/flag regardless of
-/// whether following it succeeded, so a caller (`extract_node`,
-/// `raw_help_with_probe`) can record it on the node — `None` only when no
-/// confession was printed at all.
+/// `word` needs no separate attestation check: it comes from the tool's
+/// own already-trusted output, not a grammar guess, so it is attested by
+/// construction (spec §6 rule 0). Returns confession info regardless of
+/// whether following it succeeded; `None` only when nothing was printed.
 fn probe_help_text_confession_aware(
     probe: &dyn Probe,
     tool_path: &Path,
@@ -532,11 +339,8 @@ fn probe_help_text_confession_aware(
                 true,
             )),
         )),
-        // The follow-up probe failed, timed out, was refused (rule 0), or
-        // came back empty on both streams: keep the original, truncated
-        // text — the status ladder caps this at `incomplete` rather than
-        // reporting a confident `ok` on the document we already know is
-        // incomplete.
+        // Failed, timed out, refused, or empty: keep the truncated text,
+        // capped at `incomplete` rather than a confident `ok`.
         _ => Ok((
             text,
             flag.to_string(),
@@ -549,28 +353,16 @@ fn probe_help_text_confession_aware(
     }
 }
 
-/// D1.3.1: is `text` plausibly real help output, rather than a tool having
-/// *acted* on an argument it didn't recognise (and printed nothing
-/// help-shaped as a side effect) or having rendered a man page under a
-/// different guise?
-///
-/// Reuses [`sections::parse_with_profile`] — the exact structural-
-/// plausibility test [`build_node`] already applies to every probe result
-/// (spec §7 Tier B step 3: "flags, subcommands, or a usage line") — rather
-/// than inventing a second heuristic. This transitively rejects a man page
-/// too: `parse_with_profile` checks [`sections::is_man_page_banner`] first
-/// and returns an empty parse for one, so a `-h` response that renders a
-/// *different* man page fails this check the same way an empty or
-/// unstructured response does.
+/// D1.3.1: is `text` plausibly real help output, not a tool acting on an
+/// unrecognized argument or rendering a man page under a different guise?
+/// Reuses [`sections::parse_with_profile`] (spec §7 Tier B step 3), which
+/// transitively rejects a man page via [`sections::is_man_page_banner`].
 fn looks_like_help_output(text: &str) -> bool {
     if text.trim().is_empty() {
         return false;
     }
-    // `tool_name: None` — this check only cares whether *any* structure
-    // came back, and the usage-block scanner's tool-name discriminator
-    // only affects how many entries a usage block joins into, never
-    // whether `usage` ends up empty (see `parse_with_profile`'s doc
-    // comment). No tool name is in scope at this call site anyway.
+    // `tool_name: None`: this check only cares whether any structure came
+    // back, not how many entries a usage block joins into.
     let parsed = sections::parse_with_profile(text, None, None);
     !parsed.flags.is_empty()
         || !parsed.subcommands.is_empty()
@@ -580,33 +372,15 @@ fn looks_like_help_output(text: &str) -> bool {
 }
 
 /// Fetch one node's raw `--help` output verbatim, sanitized one [`Text`]
-/// per line and bounded the same way [`CommandNode::unparsed`] is.
+/// per line and bounded like [`CommandNode::unparsed`]. Serves the TUI's
+/// verbatim view (`t`), letting a reader check a confident-but-wrong parse
+/// against the author's own bytes.
 ///
-/// This exists for the TUI's verbatim view (`t`), which answers a question
-/// no confidence score can: *is this parse actually right?* A tool whose
-/// grammar produced a confident, well-formed, wrong tree looks identical to
-/// one that produced a correct tree. Showing the author's own bytes next to
-/// our reading of them lets the person at the keyboard settle it in a
-/// second, and every degradation this crate already performs — verbatim
-/// nodes, low-confidence caps — is an admission that our reading is
-/// sometimes worth checking.
+/// Deliberately re-probes rather than reading a retained copy (same
+/// staleness argument as spec §11's cache removal); refusal for a
+/// never-probe tool (spec §6 rule 0) propagates unchanged.
 ///
-/// Deliberately **re-probes** rather than reading a retained copy. Keeping
-/// every node's raw text alive costs megabytes on a warmed tree (`git`
-/// alone reaches the 4096-node warm ceiling) to serve one node at a time,
-/// and a retained copy also ages: it would show what the tool said at
-/// startup, not what it says now, which is the same staleness argument that
-/// removed the cache in spec §11. One probe is ~10-30ms against a binary
-/// the warmer has almost certainly already faulted in.
-///
-/// Refusal for a never-probe tool (spec §6 rule 0) propagates from
-/// [`crate::exec::run_inert`] unchanged: `kill --help` is no safer because
-/// a human asked for it interactively.
-///
-/// A thin [`LiveProbe`] wrapper over [`raw_help_with_probe`] — every real
-/// caller (the TUI's verbatim view) wants the live tool, so this keeps
-/// their call site unchanged while still funneling through the same
-/// probe-taking function a replay caller would use.
+/// Thin [`LiveProbe`] wrapper over [`raw_help_with_probe`].
 pub fn raw_help(
     tool: &ResolvedTool,
     path: &[String],
@@ -615,61 +389,22 @@ pub fn raw_help(
     raw_help_with_probe(&LiveProbe, tool, path, hints)
 }
 
-/// [`raw_help`], but against an explicit [`Probe`] rather than always the
-/// live one — the seam a future corpus runner or test can use to check the
-/// TUI's verbatim view against frozen bytes with zero subprocesses.
+/// [`raw_help`], but against an explicit [`Probe`] — the seam a corpus
+/// runner or test uses to check the verbatim view against frozen bytes.
 ///
-/// **`hints` must describe the same node the tree was built from.** This
-/// function exists so a reader can check our parse against the author's own
-/// bytes; that only works if it fetches *the document we actually parsed*.
-/// When [M-16] sub-case (a) fires, the parse came from `-h` and not from
-/// the man page `--help` returned — so a verbatim view that re-probed with
-/// different hints would show a different document than the tree came from,
-/// and silently answer the wrong question. It shipped that way briefly:
-/// `heading_attested` was hardcoded `false` here on the reasoning that this
-/// call site could not verify attestation, which is true of the *function*
-/// but not of its caller — the TUI resolves the `CommandNode` at `path`
-/// before requesting raw help, and that node carries the bit.
+/// `hints` must describe the same node the tree was built from: when spec
+/// M-16 sub-case (a) fires, the tree's parse came from `-h`, not the man
+/// page `--help` returned, so re-probing with different hints would show
+/// a different document than the tree came from.
 ///
-/// **Confession-aware** (spec §6 rule 2b), same as the extraction path:
-/// when the fetched text confesses to being incomplete and names a
-/// followable word, this shows the *expanded* document instead, and the
-/// returned argv string reflects that (`"--help all"`, not `"--help"`) —
-/// spec's own example of what the pane must keep honest: "the verbatim
-/// pane already names its own argv... make sure that keeps working and
-/// shows the expanded form when expansion happened."
+/// Confession-aware (spec §6 rule 2b): shows the expanded document when
+/// one exists, and the returned argv string reflects that.
 ///
-/// **Rewritten for the raw pane's two remaining defects** (the doc comment
-/// above predates both fixes):
-///
-/// - **Defect 1 (alignment).** Lines are now built with [`Text::
-///   sanitize_preserving_layout`], not [`Text::sanitize`] — see that
-///   function's own doc comment for exactly what it neutralizes (terminal
-///   control sequences) versus what it preserves (everything else,
-///   including indentation and internal column gaps). `Text::sanitize`
-///   remains exactly what it always was, unused on this path now, still
-///   used everywhere parsing happens (`build_node`, `verbatim_node`).
-/// - **Defect 2 (one stream only).** [`pick_stream`] merges stdout/stderr
-///   into whichever one the *parser* should read — correct for parsing,
-///   wrong for a pane whose job is showing what the parser had to choose
-///   between (`openssl cmp --help`: diagnostics on stderr, usage on
-///   stdout). This function therefore probes through
-///   [`raw_probe_streams_confession_aware`], a **separate, display-only**
-///   probing pipeline that keeps both streams apart instead of merging
-///   them early, and hands them to [`format_streams`] to render — labelled
-///   when both carry content, unlabelled (today's shape) when only one
-///   does. `pick_stream` itself, and the parsing path's own probing
-///   functions (`probe_help_text_reporting_flag`,
-///   `probe_help_text_confession_aware`) that call it, are untouched: this
-///   is deliberate duplication of a handful of `probe.run` calls rather
-///   than threading a new return shape through code `extract_node` depends
-///   on, so there is no way this change can alter what any tier parses.
-/// - **Defect 3 (illegible refusal).** When the attestation gate (spec §6
-///   rule 0's closing paragraph) refuses this node specifically because its
-///   name isn't `heading_attested`, [`not_attested_fallback`] explains that
-///   plainly and shows the tool's own root `--help` instead of nothing —
-///   see that function's doc comment. The gate itself is untouched; only
-///   what the pane says about hitting it changed.
+/// Raw display keeps both streams separate rather than merging via
+/// [`pick_stream`] (parsing-path only) — see [`RawStreams`] and
+/// [`format_streams`], docs/shapes.md S-091. When the attestation gate
+/// (spec §6 rule 0) refuses a node, [`not_attested_fallback`] shows the
+/// tool's own root `--help` instead of nothing.
 pub fn raw_help_with_probe(
     probe: &dyn Probe,
     tool: &ResolvedTool,
@@ -685,47 +420,17 @@ pub fn raw_help_with_probe(
     }
 }
 
-/// Choose which stream the *parser* reads (spec §7 Tier B).
+/// Choose which stream the parser reads (spec §7 Tier B). Parsing-path
+/// only — the raw display path keeps both streams apart, see
+/// [`RawStreams`]. "Non-empty" alone is the wrong test (`openssl cmp
+/// --help`: diagnostics on stdout, real help on stderr): each stream is
+/// judged by [`looks_like_help_output`] (D1.3.1), preferring the
+/// help-shaped one and defaulting to stdout on any tie or when neither
+/// looks like help. See docs/shapes.md S-091.
 ///
-/// **Parsing-path only.** The raw display path (`raw_help*`, this module's
-/// display-only probing functions below) keeps both streams apart instead
-/// — see [`RawStreams`] and [`raw_help_with_probe`]'s doc comment.
-///
-/// "Non-empty" alone is the wrong test: `openssl cmp --help` prints two
-/// `CMP info: ...` diagnostic lines to **stdout** and its entire ~60-line
-/// help (`Usage: cmp [options]`, `Valid options are:`, the flag list) to
-/// **stderr**. The old rule ("stdout if non-empty, else stderr") handed the
-/// parser two banner lines and threw the actual document away — reachable
-/// by roughly 150 openssl subcommands in the same shape. The truth table,
-/// using [`looks_like_help_output`] (D1.3.1) to judge each stream on its
-/// own:
-///
-/// | stdout empty? | stderr empty? | stdout help-shaped? | stderr help-shaped? | picks |
-/// |---|---|---|---|---|
-/// | yes | yes | – | – | stdout (empty; nothing to pick) |
-/// | yes | no  | – | – | stderr — only stream available |
-/// | no  | yes | – | – | stdout — only stream available |
-/// | no  | no  | yes | any | stdout — already correct, unchanged |
-/// | no  | no  | no  | yes | stderr — **the bug fix**: the merely non-empty stream loses to the help-shaped one |
-/// | no  | no  | no  | no  | stdout — neither is recognizably help; keep today's default rather than invent a new failure mode |
-///
-/// Both-help-shaped is folded into the first "yes" row above: when stdout
-/// is help-shaped it always wins, deliberately, per the same row — stdout
-/// is the conventional stream for a well-behaved tool's `--help`, so ties
-/// break toward it.
-///
-/// **Public because a second copy of this decision is a measured defect,
-/// not a theoretical one.** `xtask`'s anti-fabrication oracles
-/// (`xtask::misattribution::RecordingProbe`, `xtask::existence`) have to
-/// re-derive, after extraction, which bytes the parser actually read. They
-/// carried their own "stdout if non-empty, else stderr" copy of this
-/// function — the exact rule the truth table above replaced — so on every
-/// tool that prints a version banner to stdout and its real help to stderr
-/// (`mkfs.fat`, `tune2fs`, `btrfs-convert`, `xfs_scrub`, `encguess`,
-/// `ntfssecaudit`, …) the oracle compared a correctly-parsed tree against a
-/// one-line banner and reported **every flag in it as fabricated**: 200 of
-/// 656 fleet-wide fabrications, all false. Export the decision instead of
-/// letting a second definition drift from it.
+/// Public so `xtask`'s anti-fabrication oracles share this exact decision
+/// rather than re-deriving their own copy, which drifted before (200 of
+/// 656 fleet-wide fabrications, S-091).
 pub fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     let stdout_text = String::from_utf8_lossy(stdout).into_owned();
     let stderr_text = String::from_utf8_lossy(stderr).into_owned();
@@ -737,9 +442,9 @@ pub fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
         return stdout_text;
     }
 
-    // Both non-empty: only the case where stdout looks *nothing* like help
-    // and stderr does hands the document to stderr. Every other
-    // combination — including both being help-shaped — keeps stdout.
+    // Both non-empty: only stdout-not-help/stderr-help hands it to
+    // stderr. Every other combination, including both help-shaped, keeps
+    // stdout.
     if !looks_like_help_output(&stdout_text) && looks_like_help_output(&stderr_text) {
         stderr_text
     } else {
@@ -747,23 +452,12 @@ pub fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     }
 }
 
-// --- raw pane display path: defects 1-3 ---
-//
 // Everything below is used only by [`raw_help`]/[`raw_help_with_probe`],
 // never by [`HelpTextTier::extract_node`] or anything the parser depends
-// on. It exists apart from `probe_help_text_reporting_flag`/
-// `probe_help_text_confession_aware` above by design (see
-// `raw_help_with_probe`'s doc comment): the parser-freeze constraint this
-// crate operates under is easiest to keep literal by never letting the
-// display path share a return type, and therefore a call site, with code
-// `extract_node` calls.
+// on, and never shares a return type with code `extract_node` calls.
 
 /// Both raw streams from a single probe result, kept apart rather than
-/// merged through [`pick_stream`] — the raw pane's whole reason to exist is
-/// showing which bytes came from where. Real specimen: `openssl cmp --help`
-/// prints two `CMP info: ...` diagnostic lines on stderr *and* its usage on
-/// stdout; `pick_stream` (correctly, for parsing) picks one, and a reader
-/// checking the parser's work needs to see both.
+/// merged through [`pick_stream`]. See docs/shapes.md S-091.
 struct RawStreams {
     stdout: String,
     stderr: String,
@@ -781,12 +475,9 @@ impl RawStreams {
         self.stdout.is_empty() && self.stderr.is_empty()
     }
 
-    /// The same selection [`pick_stream`] performs, used internally by this
-    /// display path only to decide *plausibility* — the man-page-banner
-    /// check, [`looks_like_help_output`], and truncation-confession
-    /// detection all need one string to test, the same way the parsing
-    /// path does — never to decide what gets *shown*. [`format_streams`]
-    /// is what renders both streams for the reader.
+    /// Same selection as [`pick_stream`], used only to decide plausibility
+    /// (man-page check, confession detection), never what gets shown —
+    /// [`format_streams`] renders both streams.
     fn merged(&self) -> String {
         pick_stream(self.stdout.as_bytes(), self.stderr.as_bytes())
     }
@@ -798,21 +489,15 @@ impl RawStreams {
 /// separately from any other [`ExtractError`].
 enum RawProbeOutcome {
     Streams(RawStreams, String),
-    /// This node's name did not come from a recognized heading (spec §6
-    /// rule 0's closing paragraph): refused before any probe was sent, the
-    /// same gate [`probe_help_text_reporting_flag`] applies on the parsing
-    /// path, checked here independently rather than shared (see this
-    /// section's own doc comment on why).
+    /// Node name did not come from a recognized heading (spec §6 rule 0):
+    /// refused before any probe, same gate as the parsing path.
     NotAttested,
 }
 
-/// The display path's base probe sequence — mirrors
-/// [`probe_help_text_reporting_flag`]'s attestation gate, long-probe/
-/// short-fallback, and [M-16] sub-case (a)'s man-page fallback exactly,
-/// but returns both streams instead of one merged string, and returns the
-/// attestation refusal as a value ([`RawProbeOutcome::NotAttested`]) rather
-/// than an [`ExtractError`], so [`raw_help_with_probe`] can show a
-/// fallback instead of just failing (defect 3).
+/// Mirrors [`probe_help_text_reporting_flag`]'s attestation gate,
+/// long/short fallback, and man-page fallback (spec M-16), but returns
+/// both streams and the attestation refusal as a value rather than
+/// failing, so [`raw_help_with_probe`] can show a fallback instead.
 fn raw_probe_streams(
     probe: &dyn Probe,
     tool_path: &Path,
@@ -914,13 +599,10 @@ fn raw_probe_streams_confession_aware(
     }
 }
 
-/// Render a fetched document's lines for the raw pane: one [`Text::
-/// sanitize_preserving_layout`] entry per line (defect 1), both streams
-/// shown and clearly labelled when both carry content (defect 2) —
-/// unlabelled, today's shape, when only one does, so the overwhelming
-/// majority of tools (a single stream) see no cosmetic change at all.
-/// Bounded to [`MAX_UNPARSED_LINES`], same cap [`CommandNode::unparsed`]
-/// uses, so a pathological tool can't blow up the pane.
+/// Render a fetched document's lines for the raw pane: one line per
+/// [`Text::sanitize_preserving_layout`] entry, both streams shown and
+/// labelled when both carry content, unlabelled when only one does.
+/// Bounded to [`MAX_UNPARSED_LINES`]. See docs/shapes.md S-091.
 fn format_streams(streams: &RawStreams) -> Vec<Text> {
     let stdout_present = !streams.stdout.is_empty();
     let stderr_present = !streams.stderr.is_empty();
@@ -942,17 +624,11 @@ fn format_streams(streams: &RawStreams) -> Vec<Text> {
     lines
 }
 
-/// Defect 3: the attestation gate (spec §6 rule 0's closing paragraph)
-/// refused to probe this node because its name did not come from a
-/// recognized `--help` heading — typically a name a native/cobra artifact
-/// scan produced instead. **Fixing that gate is out of scope here**
-/// (spec's own instruction: it changes what the coverage audit measures,
-/// and is deliberately scheduled after it) — this only makes hitting the
-/// gate legible instead of a bare, jargon-heavy error string, and shows
-/// the one document that's always safe to fetch in its place: the tool's
-/// own root `--help`, unconditionally exempt from this exact gate by
-/// construction (`words.is_empty()` in [`raw_probe_streams`]) — never a
-/// second, potentially-fabricated word.
+/// The attestation gate (spec §6 rule 0) refused to probe this node
+/// because its name did not come from a recognized `--help` heading.
+/// Fixing the gate is out of scope here; this only makes hitting it
+/// legible and shows the one document always safe to fetch instead: the
+/// tool's own root `--help`, exempt from this gate by construction.
 fn not_attested_fallback(
     probe: &dyn Probe,
     tool_path: &Path,
@@ -968,10 +644,9 @@ fn not_attested_fallback(
         prefix = mandible_core::notice::UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX
     ))];
 
-    // `words` is `&[]` here, so `heading_attested`'s value is irrelevant —
-    // `raw_probe_streams`'s gate only ever checks it when `words` is
-    // non-empty. `true` is chosen only to read honestly at the call site
-    // (the root probe genuinely is attested, by construction).
+    // `words` is empty here, so `heading_attested`'s value doesn't matter
+    // to the gate; `true` reads honestly since the root is attested by
+    // construction.
     if let Ok(RawProbeOutcome::Streams(root_streams, _)) = raw_probe_streams_confession_aware(
         probe,
         tool_path,
@@ -998,36 +673,22 @@ fn not_attested_fallback(
 }
 
 /// Build a [`CommandNode`] from one probe's raw `--help` text, staging
-/// spec §7 Tier B's three degradation levels:
+/// spec §7 Tier B's three degradation levels: (1) framework identified —
+/// dispatch through its [`profile::FrameworkProfile`] at normal
+/// confidence; (2) unidentified — same engine, no profile, confidence
+/// capped to 0.5; (3) structurally implausible (no flags, subcommands, or
+/// usage line either way) — degrade to verbatim at confidence 0.0, never
+/// fabricate.
 ///
-/// 1. **Framework identified** (`framework.is_some()`): dispatch through
-///    that framework's [`profile::FrameworkProfile`], at normal (uncapped)
-///    confidence.
-/// 2. **Unidentified**: the same shared engine with no profile — pure
-///    layout heuristics — with confidence capped to `0.5` so the
-///    scoreboard and TUI both show it as a guess rather than a trusted
-///    parse.
-/// 3. **Structurally implausible** (no flags, no subcommands, *and* no
-///    usage line recovered, regardless of level 1 vs. 2 above): give up on
-///    structure entirely and carry the raw text verbatim in
-///    [`CommandNode::unparsed`] instead, at `confidence: 0.0` — spec §7
-///    Tier B step 3, "never fabricate, degrade to verbatim".
-///
-/// `name` is this node's own name (`"rebase"` for `git rebase`); `tool_name`
-/// is the root tool's name (`"git"` for both `git --help` and `git rebase
-/// --help`) — usage synopses conventionally repeat the *root* invocation,
-/// not the immediate node's name, so `tool_name` (not `name`) is what
-/// `sections::parse_with_profile`'s usage-block scanner is given as the
-/// "starts a new entry" discriminator.
+/// `tool_name` (the root's name) drives the usage-block "starts a new
+/// entry" discriminator, not `name` — synopses repeat the root invocation.
 fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &str) -> CommandNode {
     let fw_profile = framework.map(profile::profile);
     let parsed = sections::parse_with_profile(raw, fw_profile.as_ref(), Some(tool_name));
     let detected_framework = framework.map(|f| f.name().to_string());
 
-    // A modifier table or an environment section counts alongside the
-    // other three: each is a real recovered structure, and a document
-    // whose only structure is one would otherwise be thrown away for the
-    // verbatim fallback with what it did recover discarded.
+    // A modifier table or env-var section counts as recovered structure
+    // too, or a document whose only structure is one would be thrown away.
     let structurally_plausible = !parsed.flags.is_empty()
         || !parsed.subcommands.is_empty()
         || !parsed.modifiers.is_empty()
@@ -1038,9 +699,8 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         return verbatim_node(name, raw, detected_framework);
     }
 
-    // Level 2 (unidentified) is capped low; level 1 (identified) is not
-    // (spec §7 Tier B: "Framework identified → its grammar, high
-    // confidence" vs. "Unidentified → ... marked low-confidence").
+    // Level 2 (unidentified) capped low; level 1 (identified) not (spec
+    // §7 Tier B).
     const UNIDENTIFIED_CONFIDENCE_CAP: f32 = 0.5;
     let confidence = if framework.is_some() {
         parsed.confidence
@@ -1051,15 +711,9 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
 
     let mut node = CommandNode::new(name, provenance);
     node.description = parsed.description.as_deref().map(Text::sanitize);
-    // A synopsis is the tool's own layout, not ours (spec §4.1, §9.3): the
-    // spacing inside `Usage:  docker import [OPTIONS] file|URL|-` and the
-    // columns a tool lines its alternative forms up in are how the author
-    // wrote the invocation, and `Text::sanitize`'s whitespace collapse
-    // erases exactly that. The detail pane already treats USAGE as content
-    // whose layout is not mandible's — it scrolls the section sideways
-    // rather than re-flowing it — so the IR must stop flattening it first.
-    // Each entry is one logical, already-line-joined invocation form, which
-    // is the input `Text::sanitize_preserving_layout` is defined over.
+    // A synopsis is the tool's own layout, not ours (spec §4.1, §9.3):
+    // `Text::sanitize`'s whitespace collapse would erase real column
+    // alignment, so usage entries use the layout-preserving sanitizer.
     node.usage = parsed
         .usage
         .iter()
@@ -1097,33 +751,16 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
 }
 
 /// Give up on structure entirely and carry `raw` verbatim in
-/// [`CommandNode::unparsed`] instead, at `confidence: 0.0` (spec §7 Tier B
-/// step 3, "never fabricate, degrade to verbatim").
+/// [`CommandNode::unparsed`] at `confidence: 0.0` (spec §7 Tier B step 3,
+/// never fabricate, degrade to verbatim). Shared by [`build_node`] (no
+/// structure at all) and the self-similar-fan-out guard (spec M-19,
+/// docs/shapes.md S-079), so `children_filled: true` with empty
+/// `subcommands` consistently means "probed, found nothing here".
 ///
-/// Two callers reach this, both "this probe has nothing to report as this
-/// node's own structure": [`build_node`], when the generic parse found no
-/// flags, no subcommands and no usage line at all; and [`HelpTextTier::
-/// extract_node`]'s self-similar-fan-out guard, when the parse found
-/// plenty of *structure* but it demonstrably belongs to the tool's root,
-/// not to this subcommand (see that call site for [M-19]'s `systemctl`
-/// finding). Sharing this function rather than duplicating the empty-node
-/// construction keeps both places honest about what `children_filled:
-/// true` with an empty `subcommands` means: a probe genuinely completed
-/// and genuinely found nothing to attribute to this level, which is what
-/// stops the background warmer (`mandible/src/background.rs`) from
-/// cascading any further past this node.
-///
-/// The lines go through [`Text::sanitize_preserving_layout`], the same
-/// constructor [`format_streams`] uses for the raw pane and for the same
-/// reason (spec §4.1): this is the tool author's own document, shown
-/// because mandible could not read it, and the columns a tool pads its
-/// help table into are part of what the author drew. `Text::sanitize`
-/// collapses whitespace runs and trims, which left `ar`'s
-/// `  m[ab]        - move file(s) in the archive` rendering as
-/// `m[ab] - move file(s) in the archive` — a fallback that quietly
-/// reformats the text it exists to reproduce, and the honesty promise
-/// (§1) is the whole reason the fallback is there. One line per entry,
-/// which is what the layout tier's per-line contract requires.
+/// Lines use [`Text::sanitize_preserving_layout`], not `Text::sanitize`
+/// (which would collapse `ar`'s padded `m[ab]` column, see docs/shapes.md
+/// S-059) — this is the author's own document, shown because mandible
+/// couldn't read it.
 fn verbatim_node(name: &str, raw: &str, detected_framework: Option<String>) -> CommandNode {
     let provenance = Provenance::with_confidence(Source::HelpText, 0.0);
     let mut node = CommandNode::new(name, provenance);
@@ -1133,9 +770,7 @@ fn verbatim_node(name: &str, raw: &str, detected_framework: Option<String>) -> C
         .map(Text::sanitize_preserving_layout)
         .collect();
     node.detected_framework = detected_framework;
-    // Same rationale as the structurally-plausible path in `build_node`:
-    // one probe did complete and did discover this level's (empty, as it
-    // turns out) children list.
+    // One probe completed and discovered this level's (empty) children.
     node.children_filled = true;
     node
 }
@@ -1145,22 +780,15 @@ mod tests {
     use super::*;
     use crate::resolve::resolve_tool;
 
-    /// Every test in this module extracts a node whose path came from a
-    /// real, structurally-known source (a real binary's actual root, or a
-    /// path handed in directly by the test) — never an invented word — so
-    /// `heading_attested: true` is the honest hint throughout, matching
-    /// what `Runner::extract_full_for` passes for a root in production.
+    /// Every test path is a real, structurally-known source, never an
+    /// invented word, so `heading_attested: true` is honest throughout.
     const ATTESTED: NodeHints = NodeHints {
         heading_attested: true,
     };
 
     fn fixture(name: &str) -> String {
-        // `tar --help` and `git --help`'s captures now live once, as the
-        // corpus regression fixtures (`corpus/tar/<version>/help.txt`,
-        // `corpus/git/<version>/help.txt` — see corpus/README.md), rather
-        // than duplicated here byte-for-byte. A version bump means
-        // updating the path below, same as the corpus fixture's own
-        // directory would need renaming.
+        // tar/git captures live once as corpus regression fixtures (see
+        // corpus/README.md), not duplicated here.
         let path = match name {
             "tar_help.stdout" => {
                 format!("{}/../corpus/tar/1.35/help.txt", env!("CARGO_MANIFEST_DIR"))
@@ -1177,18 +805,13 @@ mod tests {
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading fixture {path}: {e}"))
     }
 
-    /// `raw_help` is a second public entry point into the exec boundary,
-    /// reached by a key press rather than by the extraction pipeline, so
-    /// spec §6 rule 0 has to hold on it too. Asking interactively is not a
-    /// reason `pkill something --help` becomes safe.
-    ///
-    /// The root shape is now permitted — `pkill --help` is measured
-    /// harmless and is the whole point of the verbatim view — so what this
-    /// pins is the boundary between the two.
+    /// `raw_help` is a second entry point into the exec boundary; spec §6
+    /// rule 0 must hold on it too. Root shape is permitted; this pins the
+    /// boundary between root and a deeper unattested path.
     #[test]
     fn raw_help_allows_the_root_but_refuses_a_deeper_path_for_a_help_only_tool() {
-        // A shim named `pkill`, so the refusal is exercised by file name
-        // without this test depending on the real binary's behaviour.
+        // A shim named `pkill` exercises the refusal by file name, not
+        // the real binary's behavior.
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("pkill");
         std::fs::write(
@@ -1261,9 +884,8 @@ mod tests {
         let mut tool = resolve_tool("shimtool");
         tool.path = Some(path);
 
-        // "ghost" stands in for a name a native/cobra artifact scan
-        // produced that never appeared under any recognized heading in
-        // this shim's own `--help` text above.
+        // "ghost" stands in for a name that never appeared under any
+        // recognized heading in this shim's own `--help` text.
         let (lines, flag) = raw_help(
             &tool,
             &["shimtool".to_string(), "ghost".to_string()],
@@ -1283,8 +905,7 @@ mod tests {
             joined.to_lowercase().contains("known limitation"),
             "{joined}"
         );
-        // The one document that's always safe to fetch — the tool's own
-        // root `--help` — must actually appear, not just be described.
+        // The root --help must actually appear, not just be described.
         assert!(joined.contains("Usage: shimtool [COMMAND]"), "{joined}");
         assert!(flag.contains("not heading-attested"), "{flag:?}");
     }
@@ -1296,19 +917,16 @@ mod tests {
         assert_eq!(node.name, "tar");
         assert!(node.flags().next().is_some());
         assert!(node.provenance.confidence.unwrap() > 0.0);
-        // A single probe genuinely discovers the complete direct-children
-        // list for this level (spec §5.2) — tar has none, which is itself
-        // a known-complete fact, not an unknown.
+        // tar has no children, which is known-complete (spec §5.2), not
+        // unknown.
         assert!(node.children_filled);
     }
 
     // --- batch 6 part 4: staged degradation (spec §7 Tier B) ---
 
-    /// Level 2 vs. level 1 (spec §7 Tier B): the exact same text parses to
-    /// the exact same underlying confidence either way (tar's structure is
-    /// what it is regardless of whether we know its framework), but an
-    /// *unidentified* parse must be capped to signal "this is a guess",
-    /// while an identified one is not.
+    /// Level 2 vs. level 1 (spec §7 Tier B): the same text, same
+    /// underlying confidence, but unidentified must be capped and
+    /// identified must not.
     #[test]
     fn unidentified_confidence_is_capped_but_identified_is_not() {
         let raw = fixture("tar_help.stdout");
@@ -1322,11 +940,9 @@ mod tests {
         );
     }
 
-    /// A synopsis keeps the spacing the tool printed (spec §4.1's layout
-    /// tier). LVM pads a long-only option out to the column its short-and-
-    /// long siblings put their long in, and that padding is the alignment
-    /// the author drew; `Text::sanitize`'s whitespace collapse used to
-    /// flatten it to one space before the pane ever saw it.
+    /// A synopsis keeps the spacing the tool printed (spec §4.1). LVM
+    /// pads a long-only option's column; `Text::sanitize` would flatten
+    /// it to one space.
     #[test]
     fn usage_keeps_the_tools_own_column_spacing() {
         let raw = "Usage:  prog  [ -A|--autobackup y|n ] [    --reportformat basic|json ]\n\n\
@@ -1342,11 +958,9 @@ mod tests {
         );
     }
 
-    /// The anti-case for the row above: a `\t` in a synopsis is still
-    /// expanded to 8-column stops rather than passed through, because
-    /// `ratatui` gives a bare tab zero display width and would misalign
-    /// the very columns this is preserving (`pastebinit` writes
-    /// `Usage:\tpastebinit [OPTION...]`).
+    /// A `\t` in a synopsis is still expanded to 8-column stops, not
+    /// passed through — ratatui gives a bare tab zero display width and
+    /// would misalign the columns being preserved (pastebinit).
     #[test]
     fn usage_expands_tabs_rather_than_passing_them_through() {
         let raw = "Usage:\tprog [OPTION...]\n\nOptions:\n  -a, --all   everything\n";
@@ -1356,11 +970,9 @@ mod tests {
         assert_eq!(node.usage[0].as_str(), "Usage:  prog [OPTION...]");
     }
 
-    /// Level 3 (spec §7 Tier B step 3): a probe that recovers no flags, no
-    /// subcommands, and no usage line must degrade to verbatim rather than
-    /// present an empty-but-structured node as if it were a real (if
-    /// sparse) parse — confidence `0.0`, non-empty `unparsed`, and no
-    /// fabricated structure anywhere.
+    /// Level 3 (spec §7 Tier B step 3): no flags/subcommands/usage line
+    /// degrades to verbatim — confidence 0.0, non-empty `unparsed`, no
+    /// fabricated structure.
     #[test]
     fn structurally_implausible_output_degrades_to_verbatim() {
         let raw = "This tool prints only a friendly banner and nothing else.\nGoodbye.\n";
@@ -1375,18 +987,9 @@ mod tests {
         assert!(node.description.is_none());
     }
 
-    /// The verbatim fallback reproduces the author's layout (spec §4.1's
-    /// layout tier): leading indentation and the space runs a tool pads
-    /// its own columns with survive into `unparsed` exactly as printed.
-    ///
-    /// The columns are `ar`'s own — it pads a name out and then lines
-    /// every description up behind it — on a block that recovers no
-    /// structure, which is the state that reaches [`verbatim_node`].
-    /// `Text::sanitize` was rendering
-    /// `  elf32-littlearm         elf32-bigarm` as
-    /// `elf32-littlearm elf32-bigarm`: columns collapsed, every row
-    /// shoved against the left edge, in the one view whose entire purpose
-    /// is showing the document unedited.
+    /// Verbatim fallback reproduces the author's layout (spec §4.1):
+    /// leading indentation and column padding survive into `unparsed`
+    /// exactly as printed. See docs/shapes.md S-059.
     #[test]
     fn verbatim_fallback_preserves_the_authors_column_alignment() {
         let raw = " supported targets:\n  elf64-littleaarch64     elf64-bigaarch64\n\
@@ -1395,8 +998,6 @@ mod tests {
         assert!(!node.unparsed.is_empty(), "expected the verbatim fallback");
         let rendered: Vec<&str> = node.unparsed.iter().map(Text::as_str).collect();
         assert_eq!(rendered, raw.lines().collect::<Vec<_>>(), "{rendered:?}");
-        // Named separately from the whole-document equality above so a
-        // failure says which half of the layout was lost.
         assert!(rendered[0].starts_with(' '), "leading indent: {rendered:?}");
         assert!(
             rendered[2].contains("elf32-littlearm         elf32"),
@@ -1426,19 +1027,14 @@ mod tests {
         assert_eq!(unidentified.detected_framework, None);
     }
 
-    // --- batch 6 part 4: the five priority frameworks (spec §7 Tier B) ---
-    // Each gets a deterministic, fixture-based parse-level assertion here,
-    // plus (where a real binary of that framework happens to be present
-    // in this environment) a real-argv test further down exercising the
-    // *actual* detection-plus-extraction pipeline end to end (AGENTS.md
-    // §3.1: a mocked probe hid a dead cobra tier before; these must go
-    // through `HelpTextTier::extract_node` for real).
+    // The five priority frameworks (spec §7 Tier B): a fixture-based
+    // parse-level assertion here, plus a real-argv test further down
+    // where a real binary is present (AGENTS.md §3.1: a mocked probe hid
+    // a dead cobra tier before).
 
-    /// GnuArgp, [M-12]'s single largest fingerprint (15.5%): the exact
-    /// regression this batch's profile mechanism exists to make
-    /// structural rather than incidental — [M-10]'s tar/dd/sed/find/less
-    /// phantom-subcommand bug, for a tool now positively identified as
-    /// having no subcommand concept at all.
+    /// GnuArgp, M-12's largest fingerprint: M-10's phantom-subcommand bug,
+    /// made structural via the profile mechanism. See docs/shapes.md
+    /// S-013.
     #[test]
     fn gnu_argp_profile_forces_zero_subcommands_on_real_tar_output() {
         let raw = fixture("tar_help.stdout");
@@ -1449,22 +1045,16 @@ mod tests {
         assert!(create.is_some(), "expected --create to still be recovered");
     }
 
-    /// ClapV3V4, [M-12]'s second-largest fingerprint (24.6%). Captured from
-    /// the real `cargo --help` (a genuine `clap_builder`-linked binary —
-    /// deliberately not `ripgrep`, which depends on clap but hand-rolls its
-    /// own `--help` formatter [M-13] and would misrepresent this as a
-    /// tool-specific fixture rather than a framework one).
+    /// ClapV3V4, M-12's second-largest fingerprint. Captured from real
+    /// `cargo --help`, not ripgrep (hand-rolled formatter, M-13).
     #[test]
     fn clap_v3v4_profile_recovers_cargo_commands_and_flags() {
         let raw = fixture("cargo_help.stdout");
         let parsed =
             sections::parse_with_profile(&raw, Some(&profile::profile(Framework::ClapV3V4)), None);
         let names: Vec<&str> = parsed.subcommands.iter().map(|c| c.name.as_str()).collect();
-        // Deliberately only asserting names with no inline `, alias`
-        // (clap's `visible_alias` rendering, e.g. "build, b") — entries
-        // shaped that way are currently dropped as not name-shaped rather
-        // than fabricated (a known, honest gap, not a silent wrong
-        // answer), which is out of this batch's scope to fix.
+        // Only names with no inline `, alias` — clap's alias rendering is
+        // currently dropped as not name-shaped, a known honest gap.
         for want in ["clean", "new", "init", "add", "remove", "install"] {
             assert!(names.contains(&want), "{names:?}");
         }
@@ -1474,10 +1064,8 @@ mod tests {
         }
     }
 
-    /// Argparse: the dedicated `scan_argparse_subparsers` path (see
-    /// `sections`'s doc comment on it), captured from a real, runnable
-    /// Python script's actual `--help` output
-    /// (`tests/fixtures/help_text/argparse_demo.py`).
+    /// Argparse: the dedicated subparsers scan, from a real runnable
+    /// Python script's `--help` output. See docs/shapes.md S-073.
     #[test]
     fn argparse_profile_recovers_subparsers_not_plain_positionals() {
         let raw = fixture("argparse_demo_help.stdout");
@@ -1490,15 +1078,8 @@ mod tests {
         assert!(long_flags.contains(&"config"));
     }
 
-    /// The same recovery when the tool styles the heading itself.
-    ///
-    /// `add_subparsers(title="commands")` is the ordinary way an argparse
-    /// tool names that block, and the dedicated scan used to be gated on
-    /// the heading reading `"positional arguments"`, so a styled heading
-    /// skipped it entirely and the whole command tree collapsed to a
-    /// single node. Captured from a real runnable script
-    /// (`tests/fixtures/help_text/argparse_titled_demo.py`) rather than
-    /// hand-written, so it stays honest about what argparse emits.
+    /// Same recovery when the tool styles the heading itself
+    /// (`add_subparsers(title=...)`). See docs/shapes.md S-073.
     #[test]
     fn argparse_profile_recovers_subparsers_under_a_styled_heading() {
         let raw = fixture("argparse_titled_demo_help.stdout");
@@ -1508,9 +1089,8 @@ mod tests {
         assert_eq!(names, vec!["init", "build", "run"], "{names:?}");
     }
 
-    /// A flush-left command table is recognized (`dnf` 4 prints its whole
-    /// command list at column 0, under a heading also at column 0), and
-    /// the `--help` engine's indent rule cannot see that on its own.
+    /// A flush-left command table (dnf) is recognized. See docs/shapes.md
+    /// S-050.
     #[test]
     fn a_command_table_at_its_headings_own_indent_is_recovered() {
         let raw = "usage: dnf [options] COMMAND\n\nList of Main Commands:\n\nalias                     List or create command aliases\nautoremove                remove all unneeded packages\ncheck                     check for problems in the packagedb\n\nGeneral DNF options:\n  -v, --verbose         verbose operation\n";
@@ -1519,17 +1099,9 @@ mod tests {
         assert_eq!(names, vec!["alias", "autoremove", "check"], "{names:?}");
     }
 
-    /// ...but a flush-left table of *settings* must not become commands,
-    /// even when one of its rows happens to contain the word "command".
-    ///
-    /// At a shared indent nothing structurally separates a heading from a
-    /// row, so every row is a candidate heading for those beneath it, and
-    /// `mentions_commands_word` splits on non-alphanumerics — so
-    /// `init-command` qualifies as mentioning "command". Measured against
-    /// the real thing: `mysqlslap --help` ends with a table of config
-    /// variables and their defaults, and this shape fabricated 28
-    /// subcommands out of MySQL settings before the guard landed. [M-10],
-    /// reached by a new route.
+    /// A flush-left table of settings, not commands, must not become
+    /// commands even though a row like `init-command` mentions the word.
+    /// See docs/shapes.md S-092.
     #[test]
     fn a_flush_left_settings_table_is_not_promoted_to_subcommands() {
         let raw = "Usage: mysqlslap [OPTIONS]\n\nVariables (--variable-name=value)\nand boolean options {FALSE|TRUE}      Value (after reading options)\ncommit                                0\ninit-command                          (No default value)\niterations                            1\nno-drop                               FALSE\nport                                  3306\n";
@@ -1545,10 +1117,9 @@ mod tests {
         );
     }
 
-    /// Argparse's own dedicated-scan regression: an ordinary positional
-    /// argument list (no `add_subparsers()` at all) must never be promoted
-    /// to fake subcommands just because it sits under `positional
-    /// arguments:` — the exact fabrication [M-10] is about.
+    /// Plain positionals under "positional arguments:" (no
+    /// add_subparsers()) must never fabricate subcommands. See
+    /// docs/shapes.md S-073.
     #[test]
     fn argparse_profile_does_not_fabricate_subcommands_from_plain_positionals() {
         let raw = "usage: tool [-h] path\n\npositional arguments:\n  path        the file to process\n\noptions:\n  -h, --help  show this help message and exit\n";
@@ -1565,13 +1136,8 @@ mod tests {
         );
     }
 
-    /// Busybox (spec issue #1): the dedicated `scan_comma_separated_commands`
-    /// path, captured from this machine's real `busybox --help` output
-    /// (`tests/fixtures/help_text/busybox_help.stdout`). Before this fix
-    /// the framework fingerprinted correctly but yielded zero subcommands
-    /// — the applet list is one flat, tab-indented, comma-separated run
-    /// under `"Currently defined functions:"`, a shape the generic
-    /// per-line bare-block engine cannot express at all.
+    /// Busybox's dedicated comma-separated scan, from this machine's real
+    /// `busybox --help`. See docs/shapes.md S-093.
     #[test]
     fn busybox_profile_recovers_comma_separated_applets() {
         let raw = fixture("busybox_help.stdout");
@@ -1584,20 +1150,14 @@ mod tests {
         for want in ["acpid", "adjtimex", "grep", "mount", "wget", "zcat"] {
             assert!(names.contains(&want), "expected {want:?} among {names:?}");
         }
-        // `[` and `[[` are real busybox applets but fail the name-shape
-        // test (spec §7 Tier B rule 3) — dropped, not fabricated into
-        // something they're not. This just documents that the count
-        // reflects real recovery, not an accidental swallow of the whole
-        // block as one entry.
+        // `[` and `[[` fail the name-shape test (spec §7 Tier B rule 3),
+        // dropped not fabricated.
         assert!(names.len() > 250, "got {} applets: {names:?}", names.len());
     }
 
-    /// Busybox's own dedicated-scan regression, mirroring argparse's above:
-    /// the comma-separated scan must never fire outside a recognized
-    /// command heading, even for a framework whose profile enables it —
-    /// the heading-gate check in `parse_with_profile` is what prevents an
-    /// unrelated comma-separated list elsewhere in a busybox-identified
-    /// tool's output from being read as commands.
+    /// The comma-separated scan must never fire outside a recognized
+    /// command heading, even with the profile enabled. See
+    /// docs/shapes.md S-093.
     #[test]
     fn busybox_profile_does_not_fabricate_commands_outside_a_command_heading() {
         let raw = "Usage: widget [OPTIONS]\n\nSupported formats:\n\tjson, yaml, toml, xml\n";
@@ -1652,10 +1212,8 @@ mod tests {
         assert!(long_flags.contains(&"help"));
     }
 
-    /// End-to-end identification: the click demo script's own bytes carry
-    /// `import click` after a `python3` shebang, so Tier A′ step 1
-    /// (artifact scanning, no probe) must find `Framework::Click` without
-    /// ever needing to fall back to the help-text signature.
+    /// Artifact scanning (Tier A′ step 1) finds `Framework::Click` from
+    /// the script's own `import click` bytes, no probe needed.
     #[test]
     fn click_is_identified_from_the_script_artifact_itself() {
         let path = format!(
@@ -1696,20 +1254,12 @@ mod tests {
             .unwrap();
         assert!(node.flags().next().is_some());
 
-        // The GNU-argp assertions below only apply to *GNU* tar. macOS
-        // ships bsdtar, which is a different program that happens to have
-        // the same name and legitimately carries no argp fingerprint —
-        // asserting one there tests the runner's OS, not this code. CI
-        // caught exactly that on `macos-latest`.
+        // GNU-argp assertions below apply only to GNU tar; macOS ships
+        // bsdtar, a different program with no argp fingerprint.
         if node.detected_framework.as_deref() != Some(Framework::GnuArgp.name()) {
             return;
         }
 
-        // Real argv, real binary, real detection (AGENTS.md §3.1): tar's
-        // own binary doesn't embed the GNU argp marker itself (it's
-        // dynamically linked, the phrase lives in libc), so reaching this
-        // point at all proves extract_node's help-text-signature fallback
-        // ran against the text it fetched — the wiring, not a mock.
         assert!(
             node.subcommands.is_empty(),
             "GnuArgp must never carry subcommands: {:?}",
@@ -1717,21 +1267,11 @@ mod tests {
         );
     }
 
-    /// Real argv, real binary (AGENTS.md §3.1): `zoxide`, a real
-    /// `clap_builder`-linked binary with both real flags and real
-    /// subcommands, identified via Tier A′ step 1 (artifact scanning), no
-    /// `--help` signature fallback needed. Deliberately not `cargo`
-    /// (resolves to a `rustup` proxy on this machine that reads
-    /// `$HOME/.rustup` to pick a toolchain, which fails under spec §6
-    /// rule 8's mandatory per-probe scratch `HOME`: `error: rustup could
-    /// not choose a version of cargo to run` — a real consequence of the
-    /// sandboxing being correct, not a bug here, discovered by this test
-    /// originally targeting `cargo`) and not `mandible` itself (this
-    /// crate's own `framework::artifact::BINARY_MARKERS` table embeds the
-    /// literal bytes `b"spf13/cobra"` as a scan pattern, and since
-    /// `mandible` statically links this very crate, scanning mandible's
-    /// own binary for that pattern finds *itself* — a real, if amusing,
-    /// self-reference bug also discovered while writing this test).
+    /// Real argv, real binary (AGENTS.md §3.1): `zoxide`, identified via
+    /// artifact scanning. Not `cargo` (resolves to a rustup proxy that
+    /// fails under spec §6 rule 8's scratch `HOME`) and not `mandible`
+    /// itself (statically links this crate, so its own cobra marker scan
+    /// finds itself).
     #[test]
     fn extract_node_against_real_zoxide_binary_identifies_clap() {
         let tier = HelpTextTier::default();
@@ -1753,9 +1293,8 @@ mod tests {
         }
     }
 
-    /// Real argv, real binary (AGENTS.md §3.1): `gh`'s own binary embeds
-    /// `spf13/cobra` hundreds of times [M-13], identified via artifact
-    /// scanning alone.
+    /// Real argv, real binary: `gh` embeds `spf13/cobra` (M-13),
+    /// identified via artifact scanning alone.
     #[test]
     fn extract_node_against_real_gh_binary_identifies_cobra() {
         let tier = HelpTextTier::default();
@@ -1810,15 +1349,8 @@ mod tests {
             .extract_node(&tool, &["click_demo.py".to_string()], ATTESTED)
             .unwrap();
 
-        // This test's unique job is proving the *wiring*: real argv, a real
-        // spawned process, and detection running against the bytes that
-        // came back (AGENTS.md §3.1 — a tier once shipped dead because its
-        // tests mocked the probe). Whether the click grammar recovers the
-        // right subcommands is covered deterministically, and on every
-        // platform, by `click_profile_recovers_commands_and_flags` against
-        // a captured fixture. Asserting grammar details here too added no
-        // coverage and made the test depend on which click version the
-        // runner's Python happens to have.
+        // Proves the wiring only (AGENTS.md §3.1); grammar details are
+        // covered deterministically by the fixture-based test instead.
         assert_eq!(
             node.detected_framework.as_deref(),
             Some(Framework::Click.name()),
@@ -1861,15 +1393,9 @@ mod tests {
         );
     }
 
-    // --- the replay seam: real-argv tests against a `Transcript` ---
-    //
-    // These drive `HelpTextTier` through its real `extract_node` — not
-    // `build_node` directly — against a `Transcript` keyed on exactly the
-    // argv the tier's own probe construction produces, with zero
-    // subprocesses. This is the test class AGENTS.md §3.1 and spec §13.3
-    // exist for: a tier that built the wrong argv (as a since-fixed cobra
-    // tier once did, undetected because its tests mocked the probe and
-    // skipped argv construction) would miss here instead of passing.
+    // The replay seam: drives `HelpTextTier` through real `extract_node`
+    // against a `Transcript` keyed on the tier's own probe argv, zero
+    // subprocesses (AGENTS.md §3.1, spec §13.3).
 
     fn exec_output(stdout: &str) -> crate::exec::ExecOutput {
         crate::exec::ExecOutput {
@@ -1880,13 +1406,9 @@ mod tests {
         }
     }
 
-    /// Real argv, replayed: the root probe is `InertArgv::HelpLongForPath
-    /// { words: [] }`, which renders to exactly `["--help"]`
-    /// (`InertArgv::args`). A transcript keyed on that argv, holding the
-    /// real captured `tar --help` fixture, must let `extract_node` produce
-    /// the same structural result as the direct `build_node` unit test
-    /// above — but reached through the tier's actual probe construction,
-    /// not by handing the parser text directly.
+    /// Real argv, replayed: the root probe renders to exactly `["--help"]`;
+    /// a transcript keyed on that argv must let `extract_node` produce the
+    /// same result as `build_node` directly.
     #[test]
     fn extract_node_replays_from_a_transcript_keyed_on_the_real_argv() {
         let raw = fixture("tar_help.stdout");
@@ -1905,21 +1427,11 @@ mod tests {
         assert!(node.flags().next().is_some());
     }
 
-    /// The self-similar-fan-out hazard [M-19] found live against `mandible
-    /// systemctl`: a subcommand probe that comes back byte-identical to the
-    /// root's own `--help` text must not be read as "this subcommand has
-    /// the same children as the root" — that reading is what turned a
-    /// harmless 18-way command list into an unbounded recursive re-probe
-    /// (18, then 18², then 18³…) that starved the UI thread for 45+ seconds
-    /// on real hardware before this fix.
-    ///
-    /// Reproduced here exactly as `systemctl` does it: one transcript entry
-    /// for the root argv and a *second* entry, for a subcommand's argv,
-    /// holding the identical text — standing in for a tool whose own getopt
-    /// permutes `--help` to the front regardless of what precedes it. Two
-    /// calls through the *same* tier instance, root first, so the cache
-    /// this fix adds is populated exactly as production does it (root
-    /// always fills before any child, spec §5.2 step 4's cascade order).
+    /// Self-similar fan-out (spec M-19, docs/shapes.md S-079): a
+    /// subcommand probe byte-identical to the root's own text must not be
+    /// read as sharing the root's children. Two calls through the same
+    /// tier instance, root first, so the cache populates as production
+    /// does (spec §5.2 step 4).
     #[test]
     fn a_subcommand_probe_identical_to_the_root_does_not_fan_out() {
         let raw = "usage: widget [options] COMMAND\n\nCommands:\n\n  preset-all   Do the preset-all thing\n  get-default  Get the default\n\nOptions:\n  -h, --help   Show this help\n";
@@ -1977,10 +1489,8 @@ mod tests {
         );
     }
 
-    /// A subcommand's probe that happens to share *some* text with the root
-    /// (a common preamble, say) but is not byte-identical must be parsed
-    /// normally — the guard is keyed on exact equality, not similarity, so
-    /// it never swallows a real subcommand's real, distinct structure.
+    /// A probe sharing some text with the root but not byte-identical
+    /// must parse normally — the guard is keyed on exact equality only.
     #[test]
     fn a_subcommand_probe_merely_similar_to_the_root_is_parsed_normally() {
         let root_raw = "usage: widget [options] COMMAND\n\nCommands:\n\n  preset-all   Do the preset-all thing\n\nOptions:\n  -h, --help   Show this help\n";
@@ -2019,25 +1529,11 @@ mod tests {
         );
     }
 
-    /// [M-19]'s self-similar-fan-out guard, the `llvm-ar`-shaped instance.
-    ///
-    /// The "operations" heading extension (spec §7 Tier B rule 1) makes an
-    /// operation letter under `OPERATIONS:` a `heading_attested` subcommand,
-    /// which makes `<tool> <letter> --help` reachable probe argv (§6 rule
-    /// 2). Measured against the real `llvm-ar-18` binary: every operation
-    /// letter answers `--help` with the tool's own **root** help text,
-    /// byte-identical, regardless of the letter or how many precede it
-    /// (`llvm-ar-18 --help` and `llvm-ar-18 d --help` are the same 2,046
-    /// bytes) — LLVM's `cl::opt` parser processes `--help` before acting on
-    /// anything ahead of it, the same permutation behaviour this guard was
-    /// built for. Without `a_subcommand_probe_identical_to_the_root_does_not_fan_out`'s
-    /// cache check (above), that reading would hand every one of `d`,
-    /// `m`, `p`, `q`, `r`, `s`, `t`, `x` the same eight-operation
-    /// `OPERATIONS:` table as its own children — an 8-way fan-out at every
-    /// level, the exact `mandible systemctl` shape [M-19] records. It is
-    /// the existing guard, not the exit-0-and-no-files-touched fact alone,
-    /// that keeps this safe; this test pins that the guard actually covers
-    /// the new shape rather than assuming it by analogy.
+    /// The self-similar-fan-out guard (M-19), the `llvm-ar` instance:
+    /// every operation letter under `OPERATIONS:` answers `--help` with
+    /// the root's own text, byte-identical (LLVM's `cl::opt` processes
+    /// `--help` before acting on anything ahead of it). See docs/shapes.md
+    /// S-079.
     #[test]
     fn an_operation_letter_probe_identical_to_the_root_does_not_fan_out() {
         let raw = "OVERVIEW: LLVM Archiver\n\nUSAGE: llvm-ar [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]\n\nOPERATIONS:\n  d - delete [files] from the archive\n  m - move [files] in the archive\n";
@@ -2085,16 +1581,12 @@ mod tests {
         );
     }
 
-    /// The negative case: a transcript that does *not* contain the argv
-    /// this tier actually sends must miss loudly, naming the argv it was
-    /// asked for — never fall through to an empty, confidently-wrong
-    /// success. If a tier's argv construction ever drifts from what this
-    /// test expects, this is the assertion that catches it.
+    /// A transcript missing the argv this tier actually sends must miss
+    /// loudly, naming the argv it was asked for.
     #[test]
     fn extract_node_against_a_transcript_missing_the_argv_is_a_named_miss() {
-        // Deliberately keyed on a *different* argv than the tier will ever
-        // send at the root (`["commit", "--help"]` instead of `["--help"]`)
-        // — simulating exactly the class of bug this seam exists to catch.
+        // Keyed on a different argv than the tier will ever send at the
+        // root, to simulate the bug class this seam catches.
         let transcript = crate::exec::Transcript::new([(
             vec!["commit".to_string(), "--help".to_string()],
             exec_output("usage: tar [options]\n"),
@@ -2120,17 +1612,10 @@ mod tests {
         }
     }
 
-    /// The real-world specimen behind [`pick_stream`]'s fix, replayed
-    /// verbatim (bytes measured by hand from `openssl cmp --help` on a real
-    /// machine): two `CMP info: ...` diagnostic lines land on **stdout**,
-    /// and the tool's entire help — `Usage: cmp [options]`, `Valid options
-    /// are:`, the flag list — lands on **stderr**. Before the fix,
-    /// `pick_stream` preferred the merely non-empty stdout and handed the
-    /// parser two banner lines instead of the document, so this node came
-    /// back with zero flags; openssl has ~150 subcommands in this exact
-    /// shape. Driven through the tier's real `extract_node`, not
-    /// `build_node` directly, so it also proves argv construction
-    /// (AGENTS.md §3.1).
+    /// The real specimen behind [`pick_stream`]'s fix, replayed verbatim:
+    /// diagnostics on stdout, real help on stderr. Driven through
+    /// `extract_node`, not `build_node`, to also prove argv construction
+    /// (AGENTS.md §3.1). See docs/shapes.md S-091.
     #[test]
     fn openssl_cmp_shape_prefers_the_help_shaped_stderr_over_diagnostic_stdout() {
         let stdout_diagnostics = "cmp_main:../apps/cmp.c:2832:CMP info: using section(s) 'cmp' of OpenSSL configuration file '/usr/lib/ssl/openssl.cnf'\ncmp_main:../apps/cmp.c:2840:CMP info: no [cmp] section found in config file '/usr/lib/ssl/openssl.cnf'; will thus use just [default] and unnamed section if present\n";
@@ -2163,14 +1648,9 @@ mod tests {
             node.usage,
             flags
         );
-        // openssl spells its long options single-dash (`-cmd val`), so the
-        // generic grammar reads them as a short flag plus a value name
-        // (`short: 'c'`, `value_name: "md"`) rather than a `--long` — that
-        // is a grammar detail unrelated to this fix. What this assertion
-        // pins is that the six real flags from stderr's document parsed at
-        // all (the pre-fix bug produced zero: the two stdout diagnostic
-        // lines contain no flag syntax whatsoever), identified by
-        // descriptions that only the real document has.
+        // openssl's single-dash long options parse as short flag + value
+        // name, a grammar detail unrelated to this fix; this pins that
+        // stderr's real flags parsed at all (pre-fix bug produced zero).
         assert!(
             flags.len() >= 5,
             "expected the ~6 real flags from stderr's document, not the \

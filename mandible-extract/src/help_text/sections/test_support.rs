@@ -1,6 +1,5 @@
-//! Fixtures and helpers shared by more than one of this module's test
-//! suites. The `include_str!` captures live once, as the corpus
-//! regression fixtures, rather than a byte-identical second copy.
+//! Fixtures and helpers shared across this module's test suites, so each
+//! `include_str!` capture lives once rather than duplicated per file.
 
 use super::*;
 
@@ -22,10 +21,8 @@ pub(super) fn flag_named(parsed: &ParsedHelp, long: &str) -> Entity {
         .clone()
 }
 
-// These two captures live once, as the corpus regression fixtures
-// (`corpus/tar/1.35/help.txt`, `corpus/git/2.43.0/help.txt` — see
-// corpus/README.md), rather than a byte-identical second copy under
-// this crate's own `tests/fixtures/`.
+// Corpus regression fixtures (see corpus/README.md), not a second copy
+// under this crate's own tests/fixtures/.
 pub(super) const TAR_HELP: &str = include_str!("../../../../corpus/tar/1.35/help.txt");
 pub(super) const GIT_HELP: &str = include_str!("../../../../corpus/git/2.43.0/help.txt");
 pub(super) const LSOF_HELP: &str = include_str!("../../../../corpus/lsof/4.95.0/help.stderr.txt");

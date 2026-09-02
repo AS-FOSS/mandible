@@ -26,9 +26,8 @@ type Res<T> = ModalResult<T, ContextError>;
 /// The result of parsing one flag-spec fragment.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct FlagSpec {
-    /// Every recognized spelling, in document order: `-A, --catenate,
-    /// --concatenate` keeps all three, not just the first of each shape —
-    /// the fix that dissolves the multi-spelling bug (#30) at its source.
+    /// Every recognized spelling, in document order — not just the first
+    /// of each shape. See docs/shapes.md S-083.
     pub spellings: Vec<Spelling>,
     /// The value placeholder text, if a value spec was recognized.
     pub value_name: Option<String>,
@@ -82,26 +81,9 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
 
     loop {
         // One run of alias spellings: `-p`, `--pid`, `-A, --catenate`.
-        //
-        // Once **two** long-like spellings (`--foo`, or a single-dash long
-        // like `-help`) in a row would meet on nothing but bare
-        // whitespace, the second one needs an *explicit* `,`/`|` before
-        // it instead. A short spelling may still run into a long one (or
-        // vice versa) on bare whitespace — `iptables --help`'s real
-        // `--replace -R chain rulenum` row (long-then-short, one flag,
-        // documented in that order) and `jdeprscan`'s real `-? -h` table
-        // cell (short-then-short) both need this — which is why the gate
-        // triggers only when *both* the spelling just read and the one
-        // about to be read are long-like, not merely on position. Without
-        // it, a run of several genuinely distinct long options simply
-        // space-separated on one line — `pod2html`'s real `--quiet
-        // --noquiet --verbose --noverbose` usage-synopsis row, four
-        // independently negatable flags, no comma anywhere — reads as one
-        // flag's ever-growing alias list. Now that every spelling found
-        // here is *kept* (not just the first of each shape), that false
-        // read stops being silently dropped and starts being an actively
-        // fabricated multi-spelling entity — worse than the defect this
-        // loop existed to avoid.
+        // Two long-like spellings in a row need an explicit `,`/`|`
+        // between them; a short may still run into a long (or vice versa)
+        // on bare whitespace. See docs/shapes.md S-083.
         let mut last_was_long_like = false;
         // Whether an explicit `,`/`|` has appeared anywhere earlier in
         // *this* alias run — see the whitespace-continuation rules below.
@@ -114,39 +96,20 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             }
             let explicit = saw_explicit_separator(before, rest);
 
-            // Whitespace-continuation rule (i): a row's separator style is
-            // fixed by its *first* separator. Once an explicit `,`/`|` has
-            // been used anywhere earlier in this run, a later spelling
-            // reached only by bare whitespace is no longer a continuation
-            // of the same alias list — it is the next thing on the line.
-            // `dpkg-split`'s real `-a|--auto -o <complete> <part>` is the
-            // specimen: `-a`/`--auto` are one flag's two spellings (joined
-            // by the explicit `|`), and `-o` is a *different*, separately
-            // documented flag (`-o, --output <file>`) that merely appears
-            // in the same usage example. Without this rule the bare space
-            // before `-o` reads as one more alias, because nothing else
-            // here distinguishes "usage example naming two flags" from
-            // "one flag's spellings continuing past a value" (the
-            // `--replace -R chain rulenum` shape this loop must still
-            // accept — see below). Real specimens never mix separator
-            // styles within one flag's own alias list, so this costs
-            // nothing there.
+            // Rule (i): a row's separator style is fixed by its first
+            // separator. Once an explicit `,`/`|` has appeared in this
+            // run, a later bare-whitespace spelling is not a continuation
+            // — it's the next thing on the line (dpkg-split's `-a|--auto
+            // -o <complete> <part>`). See docs/shapes.md S-083.
             if !explicit && saw_explicit_anywhere {
                 break;
             }
 
-            // In alias position — right after an explicit separator — a
-            // multi-letter single-dash run with no abbreviation bracket is
-            // a spelling of its own, not `try_short`'s truncate-to-first-
-            // character fallback (which exists to read a short flag with a
-            // value glued on, `-2CDlNuVv`, and has no business claiming a
-            // whole second word off the far side of a `,`/`|`). `gold`'s
-            // real `-G, -shared` is the specimen: without this,
-            // `-shared` truncates to `-s` and collides with the tool's
-            // genuinely different `-s, --strip-all`. First-position
-            // behavior (`jdb`'s own `-help`, reached by bare whitespace
-            // only) is untouched — see [`already_collected`]'s doc comment
-            // for why that shortcut stays as it is.
+            // In alias position, a multi-letter single-dash run with no
+            // abbreviation bracket is its own spelling, not `try_short`'s
+            // truncate-to-first-character fallback (gold's `-G, -shared`
+            // would otherwise collide with `-s, --strip-all`). See
+            // docs/shapes.md S-083.
             if explicit {
                 if let Some((spelling, tail)) = try_alias_position_single_dash_long(rest) {
                     if already_collected(&spec, &spelling) {
@@ -167,29 +130,16 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 if already_collected(&spec, &spelling) {
                     break;
                 }
-                // Whitespace-continuation rules (ii) and (iii), both
-                // scoped to "the previous spelling was a genuine short":
-                // `iptables`'s real `--replace -R chain rulenum` and
-                // `--append  -A chain` (long-then-short, value after) and
-                // `jdeprscan`'s real `-? -h --help` (short-then-short-
-                // then-long, no value) must both stay accepted, so neither
-                // rule fires when the previous spelling was long, and rule
-                // (iii) never fires when what follows is itself another
-                // flag spelling rather than a bare value.
+                // Rules (ii)/(iii), scoped to "previous spelling was a
+                // genuine short". See docs/shapes.md S-083.
                 if !explicit && spec.spellings.last().is_some_and(is_genuine_short) {
-                    // (ii) `screen`'s real `-D -RR` — the previous
-                    // spelling was a genuine one-letter short, so this
-                    // continuation must be one too, not a longer
-                    // unbracketed run that merely truncates down to one
-                    // (`-RR` truncating to `-R`).
+                    // (ii) screen's `-D -RR`: continuation must also be
+                    // one letter, not a longer run that truncates to one.
                     if short_run_char_count(rest) != Some(1) {
                         break;
                     }
-                    // (iii) `xxd`'s real `-r -s off ...` — `-s` itself is
-                    // a genuine short, but a bare value (`off`) trails it
-                    // on the row, which means `-r -s` is two flags shown
-                    // together in a worked example, not one flag's two
-                    // spellings.
+                    // (iii) xxd's `-r -s off ...`: a trailing bare value
+                    // means two flags in a worked example, not aliases.
                     if trailing_token_is_a_value(tail) {
                         break;
                     }
@@ -222,15 +172,9 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             return spec;
         }
 
-        // Whatever is left never becomes a value if it itself parses as
-        // another flag spelling: a real value placeholder is never
-        // flag-shaped, and the one case that reaches here — the alias
-        // loop above refusing a further long-like spelling with no
-        // explicit separator (`pod2html`'s real `--quiet --noquiet
-        // --verbose --noverbose`) — must not fall back to reading the
-        // next flag's own name as this flag's *value*. Honest
-        // incompleteness (`fully_consumed: false`, no invented
-        // `value_name`) over a guess.
+        // Leftover text that itself parses as another flag spelling never
+        // becomes a value (pod2html's `--quiet --noquiet --verbose
+        // --noverbose`): honest incompleteness over a guess. S-083.
         if try_short(rest).is_some() || try_long(rest).is_some() {
             spec.fully_consumed = false;
             return spec;
@@ -242,16 +186,13 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             spec.fully_consumed = false;
             return spec;
         };
-        // First value wins: a repeated placeholder (`-p PID, --pid PID`)
-        // names one value, once, however many spellings carry it.
+        // First value wins: a repeated placeholder names one value once.
         if spec.value_name.is_none() {
             spec.value_name = Some(value_name);
             spec.value_kind = kind;
         }
 
-        // ...and the alias list may continue past it. See
-        // [`alias_continues`] for why only an explicit `,`/`|` may resume
-        // the run, and never whitespace alone.
+        // The alias list may continue past it; see [`alias_continues`].
         let Some(next) = alias_continues(tail) else {
             spec.fully_consumed = tail.trim().is_empty();
             return spec;
@@ -260,62 +201,24 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
     }
 }
 
-// --- the alias list a value spec used to terminate ----------------------
-//
-// A flag-spec fragment is a run of spellings followed by a value spec, and
-// reading it that way is correct for `-o, --output FILE`, where the value
-// really is last. It is wrong for every formatter that repeats the
-// placeholder after each spelling — which is what Python's `argparse` does
-// by default, and what the `sg_*` family does with pipes:
-//
-// ```text
-//   -p PID, --pid PID       trace this PID only        (argparse)
-//   --count=OC|-c OC        OC is overwrite count      (sg_sanitize)
-// ```
-//
-// `try_short` took `-p`, `try_value` took everything after it as one token
-// (`PID,` — the separator rode along), and `--pid` was discarded. A fleet
-// oracle for the defect lives in `xtask/src/dropped_alias.rs`; this is the
-// half that closes it, and the two share their rule deliberately, exactly
-// as `parse_bundled_shorts` shares its five conditions with
-// `xtask/src/bundling.rs`: a detector meant to be ratcheted at zero and a
-// fix meant to reach zero have to agree on what the defect *is*, or the
-// zero means nothing.
-//
-// **The hazard runs the opposite way to the bundle's.** There, a false
-// positive destroyed a correct parse. Here, a false positive *merges two
-// genuinely different flags*, which is worse still: dropping a spelling
-// loses information a user can recover from `--help`, while merging
-// invents an alias the tool does not have, and a user who types it gets an
-// error. Both predicates below are written against that, not against
-// recall.
+// The alias list a value spec used to terminate: argparse and the sg_*
+// family repeat the value placeholder after each spelling
+// (`-p PID, --pid PID`), which used to drop the second spelling. See
+// docs/shapes.md S-083; oracle at xtask/src/dropped_alias.rs shares this
+// rule deliberately. A false positive here merges two distinct flags,
+// worse than the dropped-alias defect it fixes.
 
-/// True when `c` separates the spellings of one flag rather than belonging
-/// to a value: `,` (argparse, GNU getopt_long, tar) or `|` (the `sg_*`
-/// family, and every synopsis alternation).
-///
-/// Whitespace is deliberately *not* a member. A bare space between two
-/// spellings is already handled by [`skip_separators`], and a wide run of
-/// spaces is the description column — so admitting whitespace here would
-/// turn `--output FILE --other` into an alias claim about two unrelated
-/// flags, which is the fabrication this whole change is written against.
+/// True when `c` separates the spellings of one flag rather than
+/// belonging to a value: `,` or `|`. Whitespace deliberately excluded —
+/// see [`skip_separators`] and docs/shapes.md S-083.
 fn is_alias_separator(c: char) -> bool {
     c == ',' || c == '|'
 }
 
-/// True when `after_separator` — the text immediately following a `,` or
-/// `|` — really is the next spelling in an alias list.
-///
-/// Two conditions, and the second is the load-bearing one:
-///
-/// 1. A spelling parses there at all ([`try_short`]/[`try_long`]).
-/// 2. **What follows that spelling terminates it.** A `}`/`)`/`]` directly
-///    after means the dash was inside a bracketed *value*, not on the right
-///    of an alias separator: `{a,-b}` is a choice list whose member happens
-///    to start with a dash, and without this condition its `-b` would
-///    become a second spelling of the flag. Real aliases are always
-///    followed by whitespace, end-of-fragment, their own value spec
-///    (`=`/`[`), or another separator.
+/// True when `after_separator` (text right after a `,`/`|`) really is the
+/// next spelling: a spelling must parse there, and what follows it must
+/// terminate it — a `}`/`)`/`]` directly after means the dash was inside a
+/// bracketed value (`{a,-b}`), not an alias separator.
 fn alias_follows(after_separator: &str) -> bool {
     let after = after_separator.trim_start_matches(' ');
     let Some(tail) = try_long(after)
@@ -327,22 +230,11 @@ fn alias_follows(after_separator: &str) -> bool {
     tail.is_empty() || tail.starts_with([' ', '\t', '=', '[', ',', '|'])
 }
 
-/// True when `before_separator` — the value text taken so far — is
-/// something an alias separator could actually be separating *from*.
-///
-/// A separator sits between two things. Its left side has to be a finished
-/// value placeholder, which means it ends in a word character or in the
-/// closer of a bracketed one (`{java,perl,tcl}`, `<file>`, `[n]`). It is
-/// not enough that a separator is present.
-///
-/// The measured counter-example is `lsof`, whose help writes
-/// `+|-e s  exempt s *RISKY*`: a "plus-or-minus" convention meaning `+e` or
-/// `-e`, which is a third shape this grammar does not model at all. Its `|`
-/// has `+` on the left, so nothing is being separated from a placeholder,
-/// and without this condition `lsof` would gain an `-e` carrying the
-/// literal value `+`. Left alone deliberately — `-e` is a real `lsof` flag
-/// and recovering it is a real gain, but not one this change is entitled to
-/// take as a side effect, and not with a placeholder that is wrong.
+/// True when `before_separator` ends in a finished value placeholder — a
+/// word character or a bracketed closer — something a separator could
+/// actually separate from. lsof's `+|-e s` has `+` on the left, so this
+/// refuses it rather than fabricating `-e` with a literal `+` value. See
+/// docs/shapes.md S-086.
 fn separator_has_a_left_operand(before_separator: &str) -> bool {
     before_separator
         .chars()
@@ -350,12 +242,10 @@ fn separator_has_a_left_operand(before_separator: &str) -> bool {
         .is_some_and(|c| c.is_alphanumeric() || c == '_' || matches!(c, '}' | ')' | ']' | '>'))
 }
 
-/// The rest of an alias list continuing past a value spec, or `None`.
-///
-/// `after_value` is the text [`try_value`] left behind. An explicit
-/// separator must be the next non-space character there — a space alone
-/// never resumes the run ([`is_alias_separator`]) — and a whole spelling
-/// must follow it ([`alias_follows`]).
+/// The rest of an alias list continuing past a value spec, or `None`. An
+/// explicit separator must be the next non-space character in
+/// `after_value` — a space alone never resumes the run — and a whole
+/// spelling must follow it.
 fn alias_continues(after_value: &str) -> Option<&str> {
     let s = after_value.trim_start_matches(' ');
     let separator = s.chars().next().filter(|c| is_alias_separator(*c))?;
@@ -364,20 +254,11 @@ fn alias_continues(after_value: &str) -> Option<&str> {
 }
 
 /// Rewrite a brace-delimited alternation of flag spellings into the
-/// comma-free alias list the rest of [`parse_flag_spec`] already reads:
+/// comma-free alias list [`parse_flag_spec`] already reads:
 /// `{-i|--input} <input xml file>` becomes `-i --input <input xml file>`.
-/// Anything else is returned untouched, borrowed.
-///
-/// **Braces only.** A leading `[` is left alone here for the reason
-/// [`looks_like_flag_start`] gives: in an options *table* a bracket means
-/// "optional" far more often than it introduces an entry, and this function
-/// runs on every table row in the fleet. The synopsis path, where a bracket
-/// group is already understood as a group, handles `[` itself.
-///
-/// The rewrite is a normalization rather than a new parse: `skip_separators`
-/// already treats `|` and whitespace as alias separators, so once the
-/// delimiters are gone the existing short/long loop reads
-/// `{-h|--help}` exactly the way it reads `-h, --help`.
+/// Braces only — a leading `[` is left alone (see
+/// [`looks_like_flag_start`]: in an options table it usually means
+/// "optional", not "entry starts here"). See docs/shapes.md S-084.
 fn unwrap_brace_alternation(input: &str) -> std::borrow::Cow<'_, str> {
     match parse_flag_alternation(input) {
         Some(alt) if alt.open == '{' => {
@@ -399,23 +280,12 @@ fn skip_separators(input: &str) -> &str {
 }
 
 /// True when the text consumed going from `before` to `after` contained an
-/// explicit `,` or `|`, not whitespace alone. Used by [`parse_flag_spec`]'s
-/// alias loop to require a real separator between the first spelling and
-/// every one after it — see that loop's own doc comment for why bare
-/// whitespace must never be enough on its own.
+/// explicit `,`/`|`, not whitespace alone.
 ///
-/// **Does not assume `after` is a suffix of `before`.** The one call site
-/// happens to always pass a `before`/`after` pair where it is (`before` is
-/// `rest` from the previous iteration, `after` is the same binding after
-/// only `skip_separators` advanced it), but that is a caller-side
-/// invariant this function's own two independent `&str` parameters do not
-/// express — exactly the shape AGENTS.md's raw-byte-offset row warns
-/// about (a box-drawing glyph elsewhere in a real `--help` capture landing
-/// mid-character is what shipped that crash). `str::get` returns `None`
-/// instead of panicking both when the byte count lands off a char
-/// boundary and when `after` is longer than `before` (an out-of-order
-/// call, or unrelated strings), so a future caller that gets the
-/// invariant wrong degrades to "no separator" rather than aborting.
+/// Does not assume `after` is a suffix of `before`: `str::get` returns
+/// `None` (never panics) when the byte count lands off a char boundary or
+/// `after` is longer than `before`, degrading to "no separator" rather
+/// than aborting. See docs/shapes.md S-081.
 fn saw_explicit_separator(before: &str, after: &str) -> bool {
     let consumed_len = before.len().saturating_sub(after.len());
     before
@@ -423,40 +293,20 @@ fn saw_explicit_separator(before: &str, after: &str) -> bool {
         .is_some_and(|consumed| consumed.contains([',', '|']))
 }
 
-/// The same "long-like" shape rule [`mandible_core::Entity::long_spelling`]
-/// uses: two dashes always, or one dash when the name is longer than a
-/// single character — which an abbreviation-bracket spelling (`-r[esolve]`)
-/// is, even though [`try_short`] is the function that read it.
+/// Same "long-like" shape rule as [`mandible_core::Entity::long_spelling`]:
+/// two dashes always, or one dash with a name longer than one character —
+/// which includes an abbreviation-bracket spelling like `-r[esolve]` even
+/// though [`try_short`] read it.
 fn is_long_like(spelling: &Spelling) -> bool {
     matches!(spelling.dashes, Dashes::Double)
         || (matches!(spelling.dashes, Dashes::Single) && spelling.name.chars().count() > 1)
 }
 
 /// True when `spec` already carries a spelling with the same rendered
-/// identity (dashes + name) as `candidate`.
-///
-/// A duplicate spelling within one entity is never a correct parse of
-/// anything the tool actually documents (measured: zero occurrences
-/// anywhere in the fleet before this grammar existed), so the alias loop
-/// refuses to record one a second time — it `break`s instead of pushing,
-/// the same way the long-long gate above refuses a further alias, leaving
-/// `rest` unconsumed so the caller's own "honest incompleteness over a
-/// guess" fallback (`fully_consumed: false`, no invented `value_name`)
-/// takes over rather than fabricating a second reading of a name already
-/// read once. Two real shapes hit this: GNU `sort --help`'s own
-/// `-c, --check, --check=diagnose-first` writes the identical name twice
-/// (the second occurrence is a value-bearing restatement of the first,
-/// not a new alias), and a single-dash multi-letter spelling with no
-/// abbreviation bracket (`jdb`'s own `-? -h --help -help`) currently
-/// truncates to its first character in [`try_short`], which can
-/// coincidentally collide with an already-collected short spelling
-/// (`-help` truncating to `-h`, already read moments earlier). This guard
-/// stops the *visible* symptom — a spelling list that repeats itself — in
-/// both cases; it does not teach the grammar to read `-help` as its own
-/// four-letter spelling, which would need [`try_short`] to stop assuming
-/// a bracket-less multi-character run is a short flag glued to a value
-/// (`-ofile`) and nothing here can tell those two shapes apart from the
-/// text alone.
+/// identity (dashes + name) as `candidate`. A duplicate is never a
+/// correct parse, so the alias loop refuses to record one a second time
+/// (honest incompleteness, `fully_consumed: false`, rather than
+/// fabricating a repeat reading). See docs/shapes.md S-085.
 fn already_collected(spec: &FlagSpec, candidate: &Spelling) -> bool {
     spec.spellings
         .iter()
@@ -493,18 +343,10 @@ fn short_run_char_count(input: &str) -> Option<usize> {
     Some(rest[..run_end].chars().count())
 }
 
-/// True when the text immediately following a whitespace-continued
-/// spelling (`tail`, as [`try_short`]/[`try_long`] left it) is a bare
-/// value token rather than nothing, another explicit-separator-led alias,
-/// or another flag spelling in its own right.
-///
-/// Used only by [`parse_flag_spec`]'s whitespace-continuation rule (iii):
-/// a value trailing a short-then-short (or short-then-long) whitespace
-/// continuation means the row is a worked usage example naming two
-/// different flags (`xxd`'s real `-r -s off ...`), not one flag's two
-/// spellings — real aliases never carry a bare value after a whitespace-
-/// joined name, and `jdeprscan`'s real `-? -h --help` (nothing, or another
-/// flag, following each continuation) must keep parsing as one flag.
+/// True when the text right after a whitespace-continued spelling is a
+/// bare value token, not nothing, another alias, or another flag spelling.
+/// Used by rule (iii): a trailing value means a usage example naming two
+/// flags (xxd's `-r -s off`), not one flag's two spellings. S-083.
 fn trailing_token_is_a_value(tail: &str) -> bool {
     let t = tail.trim_start_matches(' ');
     if t.is_empty() || t.starts_with([',', '|']) {
@@ -513,27 +355,17 @@ fn trailing_token_is_a_value(tail: &str) -> bool {
     try_short(t).is_none() && try_long(t).is_none()
 }
 
-/// In alias position — the text immediately after an explicit `,`/`|`
-/// separator — a multi-letter single-dash run with no abbreviation
-/// bracket is a spelling in its own right (`gold`'s real `-G, -shared`),
-/// never [`try_short`]'s truncate-to-first-character fallback, which
-/// exists to read a short flag with a value glued on (`-2CDlNuVv`) and has
-/// no business claiming a whole second word off the far side of an
-/// explicit separator. Returns `None` (falling through to the ordinary
-/// [`try_short`]/[`try_long`] attempts) for a genuine one-letter run or
-/// one a valid abbreviation bracket already claims, so `-A, --catenate`
-/// and `-r[esolve], -rc[vbuf]`-style alias runs are unaffected.
+/// In alias position (text right after an explicit `,`/`|`), a
+/// multi-letter single-dash run with no abbreviation bracket is a
+/// spelling in its own right (gold's `-G, -shared`), not `try_short`'s
+/// truncate-to-first-character fallback. `None` for a genuine one-letter
+/// run or one a valid abbreviation bracket already claims. See
+/// docs/shapes.md S-083.
 fn try_alias_position_single_dash_long(input: &str) -> Option<(Spelling, &str)> {
     let mut s = input;
     short_dash(&mut s).ok()?;
-    // Unlike `try_short`'s own `is_short_char`-based run (whose no-bracket
-    // fallback only ever keeps the run's first character, so a stray `|`
-    // riding along inside it is harmless), this function returns the
-    // *whole* run as the spelling's name — so the run must also stop at
-    // `|`, or a pipe-alternation row (`socat-mux.sh`'s real
-    // `-b|-S|-t|-T|-l <arg>`) reads its second member's name as `"S|"`,
-    // swallowing the separator that was supposed to start the next
-    // spelling.
+    // Returns the whole run as the name, so it must also stop at `|` or a
+    // pipe-alternation row (socat-mux.sh) swallows the next separator.
     let run_end = s
         .char_indices()
         .find(|(_, c)| !is_short_char(*c) || *c == '|')
@@ -569,15 +401,11 @@ fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
     take_while(1.., |c: char| c.is_alphanumeric() || c == '-').parse_next(input)
 }
 
-/// `-x` where `x` is any non-separator, non-bracket character, or
-/// `-xy...[rest]` where an abbreviation-continuation bracket (see
-/// [`parse_abbrev_bracket`]) immediately follows a run of one or more such
-/// characters: `ip --help`'s own `-V[ersion]` (a one-letter prefix) and
-/// `-rc[vbuf]` (a two-letter prefix, issue #49's duplicate-`-r` row) are
-/// the same shape at different prefix lengths, and this reads both with
-/// the same rule. With no bracket, only the run's first character is ever
-/// consumed — a plain short flag, exactly the pre-abbreviation-model
-/// behavior — so a genuinely glued value (`-2CDlNuVv`) is untouched.
+/// `-x`, or `-xy...[rest]` where an abbreviation-continuation bracket
+/// immediately follows a run of one or more such characters (`ip`'s
+/// `-V[ersion]`/`-rc[vbuf]`). With no bracket, only the run's first
+/// character is consumed, so a genuinely glued value (`-2CDlNuVv`) is
+/// untouched. See docs/shapes.md S-006.
 fn try_short(input: &str) -> Option<(Spelling, &str)> {
     let mut s = input;
     short_dash(&mut s).ok()?;
@@ -604,10 +432,8 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             ));
         }
     }
-    // No abbreviation bracket (or its content didn't validate): an
-    // ordinary short flag, one character, exactly as `short_char` always
-    // read it — anything past that first character is left for the rest
-    // of the grammar (a glued value, or its own token) to interpret.
+    // No abbreviation bracket: an ordinary one-character short flag;
+    // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;
     Some((Spelling::short(c), &s[c.len_utf8()..]))
 }
@@ -617,47 +443,21 @@ fn is_short_char(c: char) -> bool {
 }
 
 /// The longest prefix [`try_short`]/[`try_long`] will read as an
-/// abbreviation before a bracket, in characters.
-///
-/// Every measured real convention (`ip`'s `-r[esolve]`, `-rc[vbuf]`,
-/// `-ts[hort]`, `-br[ief]`; `-V[ersion]`) is one or two letters, so three
-/// is generous headroom, not a tight fit. It exists to keep the
-/// abbreviation model from swallowing a usage-synopsis *placeholder*
-/// written in the identical shape: `unzip`'s own `[-opts[modifiers]]`
-/// means "any of the single-letter options below, optionally followed by
-/// any of the modifier letters below" — `opts` and `modifiers` are plain
-/// English words, not a real flag's name and its abbreviation, and
-/// `"opts" + "modifiers"` is not one coherent word the way `"r" +
-/// "esolve"` is. A per-tool exception list could never generalize (spec
-/// §1); a length bound generalizes from the shape every real specimen
-/// measured so far actually has.
+/// abbreviation before a bracket. Real conventions are one or two letters;
+/// this bound keeps the model from swallowing a synopsis placeholder like
+/// unzip's `[-opts[modifiers]]`. See docs/shapes.md S-006.
 const MAX_ABBREV_PREFIX_LEN: usize = 3;
 
-/// Parses (and validates) an abbreviation-continuation bracket glued
-/// directly onto a flag spelling, e.g. `ip --help`'s own `-V[ersion]`,
-/// `-rc[vbuf]`, `--br[ief]`: the prefix before the bracket already *is*
-/// the flag as far as identity goes, and the bracket merely spells out the
-/// rest of the word it abbreviates. Mirrors [`crate::help_text::sections::
-/// strip_optional_modifier_suffix`]'s command-name convention (`m[ab]`
-/// names the command `m`) on the flag side, per spec's own note that the
-/// two are the same shape in different documents.
+/// Parses an abbreviation-continuation bracket glued onto a flag spelling
+/// (`ip`'s `-V[ersion]`, `-rc[vbuf]`). Mirrors `strip_optional_modifier_
+/// suffix`'s command-name convention on the flag side. Without this,
+/// [`try_value`]'s `[VALUE]` arm would fabricate `-V` taking an optional
+/// value literally named `"ersion"`.
 ///
-/// Without this, [`try_value`]'s `[VALUE]` arm reads the bracket as a
-/// fabricated optional value: `-V[ersion]` came out as `-V` taking an
-/// optional value literally named `"ersion"` — a value the tool does not
-/// document at all, on a flag (`ip -V`) that takes none.
-///
-/// Structural, not semantic, and narrow by construction so it cannot claim
-/// a real optional-value placeholder for itself: content must open with an
-/// ASCII lowercase letter and contain nothing but ASCII lowercase letters
-/// and hyphens (`human-readable`). Every optional-value convention this
-/// project's fleet has actually measured is one of upper/mixed-case
-/// (`[FILE]`, `--occurrence[=NUMBER]`), angle-delimited (`<value>`), or
-/// carries a leading `=` (`[=WHEN]`) — never a bare, all-lowercase word
-/// glued straight onto a spelling with no `=` at all. A bracket containing
-/// `=`, digits, uppercase letters, or anything else therefore falls
-/// through untouched to the ordinary value-spec grammar below. Returns the
-/// bracket's content and the text following it.
+/// Narrow by construction: content must be all ASCII lowercase letters
+/// and hyphens, never upper/mixed-case, angle-delimited, or `=`-prefixed
+/// (real optional-value conventions), so it can't claim those instead.
+/// See docs/shapes.md S-006.
 fn parse_abbrev_bracket(input: &str) -> Option<(&str, &str)> {
     let rest = input.strip_prefix('[')?;
     let close = rest.find(']')?;
@@ -671,31 +471,21 @@ fn parse_abbrev_bracket(input: &str) -> Option<(&str, &str)> {
         return None;
     }
     let mut after = &rest[close + 1..];
-    // Drop stray closing punctuation immediately following the bracket —
-    // `ip --help`'s own `OPTIONS := { -V[ersion] | ... | -c[olor]}` cuts
-    // its last alternative's row with the alternation group's own closing
-    // `}` still glued on, with nothing between it and the bracket this
-    // function just closed. Nothing about the abbreviation convention
-    // produces trailing punctuation of its own, so a `}`/`)`/`]` sitting
-    // right here can only be leftover from an enclosing group this
-    // fragment was cut out of — never a value. Without this, `-c[olor]}`
-    // moved from a merely-doubtful `value_name: "olor"` (this convention's
-    // old, wrong-but-not-punctuation reading) to an outright
-    // `value_name: "}"`, `Required` — a fabrication in the exact flag this
-    // function exists to stop fabricating.
+    // Drop stray closing punctuation right after the bracket: `ip`'s
+    // `OPTIONS := { -V[ersion] | ... | -c[olor]}` leaves the group's own
+    // closing `}` glued on, leftover from the enclosing group, never a
+    // value. See docs/shapes.md S-006.
     while matches!(after.chars().next(), Some('}' | ')' | ']')) {
         after = &after[1..];
     }
     Some((content, after))
 }
 
-/// `--long-name` (letters, digits, `-`), optionally prefixed with GNU
-/// getopt_long's negatable-boolean bracket, `--[no-]long-name` or
-/// `--[no]long-name`, and optionally suffixed with an abbreviation
-/// bracket, `--br[ief]` (see [`parse_abbrev_bracket`]) — the two never
-/// coexist on one spelling in the measured fleet, and if they did,
-/// negatable wins (checked first, so an abbreviation bracket is only ever
-/// looked for once the `[no-]` prefix — if any — is already consumed).
+/// `--long-name`, optionally prefixed with GNU getopt_long's negatable
+/// bracket `--[no-]long-name`, and optionally suffixed with an
+/// abbreviation bracket `--br[ief]`. The two never coexist in the
+/// measured fleet; negatable is checked first if they did. See
+/// docs/shapes.md S-077.
 fn try_long(input: &str) -> Option<(Spelling, &str)> {
     let mut s = input;
     long_dashes(&mut s).ok()?;
@@ -728,11 +518,9 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
     ))
 }
 
-/// Strips a leading `[no-]` or `[no]` from `input`, if present — the
-/// bracketed negation prefix `--[no-]foo` puts right after its dashes.
-/// Recognized structurally (an optional-looking bracket whose content is
-/// exactly `no`/`no-`), never by which tool happens to emit it: any
-/// getopt_long-style formatter uses the identical convention.
+/// Strips a leading `[no-]`/`[no]` prefix, if present. Recognized
+/// structurally (content exactly `no`/`no-`), never by tool name. See
+/// docs/shapes.md S-077.
 fn strip_negatable_prefix(input: &str) -> Option<&str> {
     let rest = input.strip_prefix('[')?;
     let rest = rest.strip_prefix("no")?;
@@ -788,20 +576,11 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     Some((name, ValueKind::Required, tail))
 }
 
-/// Take one "value token": either an angle/brace-delimited placeholder
-/// (`<value>`, `{a|b|c}`) or a run of non-whitespace characters.
-///
-/// The run also stops at an alias separator that the next spelling follows
-/// ([`alias_follows`]) — the boundary a placeholder shares with the rest of
-/// its alias list when no space separates them. `sg_sanitize`'s real
-/// `--count=OC|-c OC` has no whitespace anywhere in `OC|-c`, so without
-/// this the whole thing became the value and `-c` was lost inside it.
-///
-/// A separator the check rejects is kept, which is the entire reason the
-/// check is `alias_follows` and not merely "a separator is here":
-/// `{java,perl,php,python,ruby,tcl}` carries five commas and is one
-/// placeholder, and `jdeprscan`'s `7|8|9|10|11|12|13|14|15|16|17` carries
-/// ten pipes and is one placeholder.
+/// Take one "value token": an angle/brace-delimited placeholder or a run
+/// of non-whitespace. Also stops at an alias separator that the next
+/// spelling follows (`sg_sanitize`'s `--count=OC|-c OC` has no whitespace
+/// in `OC|-c`), but keeps a separator inside a choice list
+/// (`{java,perl,...}`, `7|8|9|...`). See docs/shapes.md S-083.
 fn take_rest_value_token(input: &str) -> (String, &str) {
     let s = input;
     if let Some(rest) = s.strip_prefix('<') {
@@ -822,21 +601,12 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
     (s[..end].to_string(), &s[end..])
 }
 
-/// True if `input` (an already-isolated potential flag-spec fragment)
-/// starts with something recognizable as a flag at all — used by the
-/// layout parser to decide whether a line begins a new flag entry.
-///
-/// The `-` prefix is the original and still the dominant answer. The second
-/// arm is a **brace-delimited alternation of bare flag spellings**,
-/// `{-i|--input}` / `{--omit-clean-shutdown}` — `cache_restore` writes every
-/// row of its own `Options:` block that way and lost all eight flags to this
-/// check returning `false`. Braces only, never brackets, and the asymmetry
-/// is deliberate: a leading `[` in an options block means "optional" far
-/// more often than it introduces a flag entry, while a leading `{` around
-/// nothing but flag spellings has no other reading. See
-/// [`parse_flag_alternation`] for what "bare flag spellings" is allowed to
-/// mean — it is the same rule the synopsis path and `xtask`'s detector both
-/// call, never a second copy of it.
+/// True if `input` starts with something recognizable as a flag — used
+/// by the layout parser to decide whether a line begins a new flag entry.
+/// The `-` prefix is the dominant case; the second arm is a
+/// brace-delimited alternation of bare flag spellings (cache_restore).
+/// Braces only, never brackets — a leading `[` usually means "optional".
+/// See docs/shapes.md S-084.
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
     if trimmed.starts_with('-') {
@@ -851,83 +621,27 @@ fn first_token(input: &str) -> &str {
     input.split_whitespace().next().unwrap_or(input)
 }
 
-/// True when `token` is nothing but a run of 3 or more dashes — jmod's own
-/// header-underline row, `------  -----------`, printed directly under a
-/// two-column `Option`/`Description` heading to separate it from the rows
-/// beneath. Every character in the token's own would-be spelling is `-`,
-/// so admitting it as a flag row fabricates a flag named `----` (the two
-/// leading dashes stripped as the long-flag marker, the rest read as its
-/// name) — real structure invented from a table border, not a value the
-/// tool documents.
-///
-/// The threshold is 3, not 2: `--` alone is a real, meaningful token in
-/// many tools (GNU getopt's end-of-options marker, spelled as its own row
-/// in some `--help` conventions) and must stay eligible to open a flag
-/// entry. A dash run of 3 or more, with no other character anywhere in it,
-/// has no such reading — it is always table decoration, never a spelling.
+/// True when `token` is nothing but a run of 3+ dashes — jmod's header-
+/// underline row (`------  -----------`) under a two-column heading.
+/// Threshold is 3, not 2, because a bare `--` end-of-options marker must
+/// stay eligible to open a flag entry. See docs/shapes.md S-090.
 pub fn is_dash_underline_token(token: &str) -> bool {
     token.len() >= 3 && token.bytes().all(|b| b == b'-')
 }
 
-// --- the docopt bracket-group flag row ----------------------------------
-//
-// LVM's own help emitter (`vgck`, `vgextend`, `vgrename`, and every other
-// `lv*`/`vg*`/`pv*` binary) writes one flag per physical line as a whole
-// `[...]` group, never a `-`-prefixed row and never a `{...}` alternation:
-//
-// ```text
-//   [ -d|--debug ]
-//   [    --commandprofile String ]
-//   [ -A|--autobackup y|n ]
-//   [ --metadatasize Size[m|UNIT] ]
-// ```
-//
-// This is a *third* row shape [`looks_like_flag_start`] cannot be widened
-// to cover — see that function's own doc comment and the trap recorded in
-// this fix's PR: `lsof`'s usage-block continuation lines also open with
-// `[` (`[-F [f]]`), and that predicate doubles as the usage block's own
-// terminator (`sections::parse_body`'s "a continuation that reads as a
-// flag row ends the block" guard). Widening it to accept `[` would make
-// `lsof`'s own continuation line satisfy it, ending the block one line in
-// and losing the six flags documented only in later continuation lines.
-//
-// So this is a **separate, row-level** predicate, consulted only at the
-// two places that ask "is this physical line a flag-table entry" —
-// `flags_block_start`/`scan_flags_block` for the headed `Common options
-// for lvm:` block, and `extract_usage_flags` for the bracket rows that
-// continue a bare, unlabelled `vgck`/`vgextend VG PV ...` synopsis line —
-// never the usage-block-continuation question above.
+// The docopt bracket-group flag row: LVM's emitter writes one flag per
+// physical line as a whole `[...]` group, never `-`-prefixed and never a
+// `{...}` alternation. A separate, row-level predicate — never widened
+// into `looks_like_flag_start`, since lsof's usage-block continuation
+// lines also open with `[` and that predicate doubles as the usage
+// block's own terminator. See docs/shapes.md S-005.
 
-/// The inner content of a [`looks_like_bracket_flag_row`] line — the
-/// cluster of `-`/`--` spellings plus, when present, the value spec that
-/// follows them — or `None` if `input` is not that shape.
-///
-/// Two conditions, both required:
-///
-/// 1. `input`, once trimmed, is *exactly one* bracket group: nothing
-///    before the `[`, nothing but whitespace after its matching `]`. A
-///    row with a description trailing the group, or with a second group,
-///    is not a shape this reads.
-/// 2. The group's content, trimmed, starts with `-`. This is what turns
-///    away every *operand* LVM writes in the identical notation —
-///    `[ COMMON_OPTIONS ]` (a cross-reference to this very block, no
-///    dash at all) and `[ VG|Tag ... ]` / `[ VG PV ... ]` (positionals) —
-///    while admitting every real flag row, because every one of LVM's
-///    flag rows opens with a dash and no operand row ever does.
-///
-/// The returned content is handed to [`parse_flag_spec`] unchanged by
-/// every caller: once the outer brackets are gone, `-d|--debug`,
-/// `--commandprofile String`, `-A|--autobackup y|n` and `--metadatasize
-/// Size[m|UNIT]` are all shapes that grammar already reads correctly —
-/// `|` is already an alias separator ([`is_alias_separator`]), and
-/// [`take_rest_value_token`]'s `alias_follows` check already keeps a
-/// value's own `|` (`y|n`, `Size[m|UNIT]`) from being misread as a second
-/// alias, which is the same hazard `sg_sanitize`'s `--count=OC|-c OC` is
-/// there for. No second value-vs-alias parser is written for this row
-/// shape; the existing one already closes the ambiguity spec [7] Tier B
-/// worries about here (`--color={always|never|auto}`), because
-/// `is_bare_flag_spelling` is never even consulted by this path — a
-/// leftover value spec becomes `value_name` exactly as it always has.
+/// The inner content of a [`looks_like_bracket_flag_row`] line, or `None`.
+/// Two conditions: `input` trimmed is exactly one bracket group (nothing
+/// before `[`, nothing but whitespace after `]`), and the group's content
+/// starts with `-` — which turns away LVM's operand rows in the identical
+/// notation (`[ COMMON_OPTIONS ]`, `[ VG|Tag ... ]`). See docs/shapes.md
+/// S-005.
 pub fn bracket_flag_row_content(input: &str) -> Option<&str> {
     let trimmed = input.trim();
     if !trimmed.starts_with('[') {
@@ -941,22 +655,10 @@ pub fn bracket_flag_row_content(input: &str) -> Option<&str> {
     if !content.starts_with('-') {
         return None;
     }
-    // Refuse a row whose alias run does not actually finish at the first
-    // whitespace gap — `ethtool --help`'s
-    // `[ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]`
-    // is not LVM's shape at all: it is an alternation between *two
-    // different* flags, only one of which carries operands, glued into
-    // one bracket group. Every LVM row's aliases are unseparated by
-    // whitespace (`-A|--autobackup`, `-d|--debug`) with the value (if any)
-    // starting only *after* the alias run ends — so a `|` reappearing
-    // right after that first whitespace gap means the alias run never
-    // actually ended there, and what follows is a second alternative this
-    // function's single-flag reading cannot honestly attribute. Naively
-    // parsing this via `parse_flag_spec` reads `--all-groups` as carrying
-    // the value `eth-phy` and drops `--groups` entirely — a real flag
-    // lost to a fabricated one. Refusing the whole row is the same choice
-    // [`is_bare_flag_spelling`]'s own doc comment already makes for
-    // `[--count=OC|-c OC]`: missing beats invented.
+    // Refuse a row whose alias run does not finish at the first
+    // whitespace gap — ethtool's `--all-groups | --groups [...]` is an
+    // alternation between two different flags, not LVM's shape. Missing
+    // beats invented. See docs/shapes.md S-005.
     if let Some(gap) = top_level_whitespace(content) {
         if content[gap..].trim_start().starts_with('|') {
             return None;
@@ -1070,24 +772,10 @@ pub(super) fn is_bare_flag_token(word: &str) -> bool {
 }
 
 /// The inner content of one member row inside an open
-/// [`looks_like_paren_alternation_open`] group — the row with its opening
-/// `(` (the group's first row only), trailing `,` (every row but the
-/// last), and trailing `)` (the last row only) stripped, leaving exactly
-/// the same `-`/`--`-spelling-plus-optional-value fragment a
-/// [`bracket_flag_row_content`] row already hands to [`parse_flag_spec`].
-/// `None` when, once stripped, the remainder does not itself start with
-/// `-` — refuses a row the caller mis-tracked into the group rather than
-/// fabricate a flag from content that fails this check; `parse_body`'s own
-/// depth bookkeeping should never actually produce that input, but the
-/// check costs nothing to keep honest.
-///
-/// `|` inside a member (`-l|--logicalvolume`, the alias separator; `y|n` or
-/// `contiguous|cling|...`, a value's own choice list) is untouched here —
-/// handed to [`parse_flag_spec`] unchanged, exactly as
-/// `bracket_flag_row_content`'s own doc comment explains for the identical
-/// ambiguity: [`take_rest_value_token`]'s `alias_follows` guard (built for
-/// `sg_sanitize`'s `--count=OC|-c OC`) already reads a value's own `|` as
-/// part of the value, never as a second alias.
+/// [`looks_like_paren_alternation_open`] group — leading `(`, trailing
+/// `,`/`)` stripped, leaving the fragment [`parse_flag_spec`] reads.
+/// `None` when the remainder doesn't itself start with `-`. See
+/// docs/shapes.md S-088.
 pub fn paren_alternation_member_content(input: &str) -> Option<&str> {
     let mut s = input.trim();
     if let Some(rest) = s.strip_prefix('(') {
@@ -1106,86 +794,17 @@ pub fn paren_alternation_member_content(input: &str) -> Option<&str> {
     }
 }
 
-// --- the stanza head's own mode-selecting flag --------------------------
-//
-// LVM's emitter documents each mode as a stanza: a prose description line,
-// then a synopsis head line that repeats the tool's own name followed by
-// that mode's mode-selecting flag, then the mode's `[...]`/`(...)` rows:
-//
-// ```text
-//   Activate or deactivate LVs.
-//   vgchange -a|--activate y|n|ay
-//     [ -K|--ignoreactivationskip ]
-//     ...
-// ```
-//
-// `sections::parse_body`'s generic heading scanner already recognizes a
-// line like `vgchange -a|--activate y|n|ay` as a *heading* whenever
-// more-indented content follows it (`heading_can_name_a_group`), and keeps
-// its full text as the block's `group` — but the heading is only ever
-// copied into `group`, never itself parsed for the flag it names, so
-// `--activate` never became a flag row. This module adds only the
-// predicate for recognizing the shape; `sections::recover_stanza_head_flag`
-// hands the recognized remainder to [`parse_flag_spec`] unchanged, exactly
-// as every other row shape in this file already does — `-a|--activate
-// y|n|ay` reads as one flag (short `a`, long `activate`, value `y|n|ay`)
-// for the same reason `bracket_flag_row_content`'s identical shape does:
-// [`take_rest_value_token`]'s `alias_follows` guard already keeps a
-// value's own `|` from being misread as a second alias.
+// The stanza head's own mode-selecting flag: LVM's emitter documents each
+// mode as a prose line, then `vgchange -a|--activate y|n|ay`, then the
+// mode's `[...]`/`(...)` rows. The generic heading scanner already keeps
+// this line as the block's `group` text but never parses it for the flag
+// it names. See docs/shapes.md S-089.
 
-/// True if `rest` — the text immediately following a stanza head line's own
-/// tool-name prefix, already trimmed of leading whitespace — opens with a
-/// bare flag spelling and names no *second* flag anywhere in what follows.
-///
-/// Two conditions:
-///
-/// 1. The first word is a bare flag spelling ([`is_bare_flag_token`]). A
-///    bare invocation naming no flag at all (`vgchange` alone, `rest`
-///    empty) fails it, and so does an ordinary heading whose text merely
-///    happens to start with the tool's own name (`rest` starts with a
-///    word, not a dash).
-/// 2. **No later word in `rest` is itself a bare flag spelling**, whether
-///    bracketed or bare. Every real LVM specimen this predicate was
-///    measured against — `-a|--activate y|n|ay`, `--systemid String VG`,
-///    `--locktype sanlock|dlm|none VG` — carries its value as a bare token
-///    or a `|`-separated list and nothing else; LVM's own convention never
-///    puts a second flag on the head line at all, docopt-bracketed or not.
-///    Two real, otherwise indistinguishable specimens showed why this has
-///    to be checked structurally rather than assumed:
-///    - `blkid --help`'s labelled `Usage:` block writes `blkid -p
-///      [--match-tag <tag>] [--offset <offset>] [--size <size>] [--output
-///      <format>] <dev> ...` — `blkid`'s own name, a bare `-p`, then a
-///      *second* flag, `--match-tag`, sitting inside a bracket group.
-///      Without this clause, [`parse_flag_spec`]'s value grammar read that
-///      bracket group as `-p`'s own optional value, fabricating `-p
-///      [--match-tag <tag>]` while `--match-tag` itself was silently
-///      dropped.
-///    - `jar --help`'s own `Examples:` block (an illustrative, filled-in
-///      invocation, not a synopsis at all) writes `jar --update --file
-///      foo.jar --main-class com.foo.Main --module-version 1.0` — four
-///      real flags chained with no brackets anywhere. Without this clause,
-///      [`parse_flag_spec`]'s alias loop tried `--file` as a *second
-///      spelling* of the same flag (discarding the name, since `--update`
-///      already won, but still advancing past it), then read `--file`'s
-///      own value `foo.jar` as `--update`'s.
-///
-///    Refusing the whole line in both cases is the same choice
-///    [`bracket_flag_row_content`]'s own `|`-reappearance guard already
-///    makes for the identical hazard shape: missing beats invented. This
-///    does not cost real recall — a line shaped either way is an ordinary
-///    alternate invocation form or a worked example, both already handled
-///    (or correctly left alone) by the existing labelled-usage-block engine
-///    (`extract_usage_flags`) and the `is_ignorable_heading`/
-///    `in_ignorable_section` machinery respectively, never a stanza head
-///    this reader is the only path to.
-///
-/// Beyond that, it does not attempt to decide where the flag's own value
-/// ends and a trailing positional begins — `--systemid String VG`'s `VG`
-/// and `--locktype sanlock|dlm|none VG`'s `VG` are left in `rest` for
-/// [`parse_flag_spec`] to leave unconsumed on its own (its value grammar
-/// already stops at the first whitespace gap that isn't a qualifying alias
-/// separator), rather than trimmed here by a second, narrower
-/// value-vs-positional guess.
+/// True if `rest` (text after a stanza head's tool-name prefix) opens
+/// with a bare flag spelling and names no second flag anywhere after —
+/// refused for `blkid`'s `-p [--match-tag <tag>]` and `jar`'s
+/// `--update --file foo.jar ...`, both of which would otherwise fabricate
+/// or drop a flag. See docs/shapes.md S-089.
 pub fn looks_like_stanza_head_flag(rest: &str) -> bool {
     let mut words = rest.split_whitespace();
     let Some(first) = words.next() else {
@@ -1197,80 +816,40 @@ pub fn looks_like_stanza_head_flag(rest: &str) -> bool {
     !words.any(|w| is_bare_flag_token(w.trim_start_matches(['[', '(', '{'])))
 }
 
-// --- the flag-alternation group ----------------------------------------
-//
-// A *delimited alternation of flag spellings* is one notation with three
-// renderings in the seed-2 audit, all three of which lost real flags:
-//
-// | tool | as written | was parsed as |
-// |---|---|---|
-// | `cache_restore` | `{-i\|--input} <input xml file>` | nothing at all — the row never started a flag entry |
-// | `eqn` | `{-v \| --version}` | `--version` carrying the literal value `"}"`, `-v` gone |
-// | `xfs_io` | `[[-c\|-C] cmd]...` | nothing at all — the group is not a token starting with `-` |
-//
-// One rule serves all three, and serves `xtask`'s `brace-alternation-flag`
-// detector too (which imports this function rather than restating it —
-// `help_text/mod.rs`'s re-export block records what a second copy of a
-// shared predicate has already cost this project once).
-//
-// **The member rule is the whole safety story.** Every alternative must be
-// a *bare* flag spelling — `-c` or `--input`, nothing else — so a value
-// alternation (`--color={always|never|auto}`, `[{start|stop}]`) can never be
-// read as flags: its members are not flag-shaped. A member carrying its own
-// value (`[--count=OC|-c OC]`) is refused too, deliberately: that shape is
-// the `value-name-mangled` family, it is genuinely ambiguous about which
-// value belongs to which alternative, and guessing would trade a known miss
-// for a possible fabrication.
-//
-// **The member-count threshold belongs to the caller, not here.** The three
-// callers want three different floors and each one's reason is local:
-// `looks_like_flag_start` accepts a single braced spelling (`cache_restore`'s
-// `{--omit-clean-shutdown}` is a real row); the synopsis path requires two,
-// because a one-member `[-v]` is an ordinary optional flag its existing
-// bracket-group path already handles correctly; the detector requires two,
-// because "an alternation of one" is not the shape it is counting.
+// The flag-alternation group: a delimited alternation of flag spellings,
+// with three real renderings (cache_restore, eqn, xfs_io) that each lost
+// flags before this rule. Every alternative must be a bare flag spelling
+// — a value alternation (`{always|never|auto}`) or a member carrying its
+// own value (`[--count=OC|-c OC]`) is refused, missing over invented.
+// Shared with xtask's brace-alternation-flag detector rather than
+// restated. Member-count threshold belongs to each caller, not here. See
+// docs/shapes.md S-084.
 
 /// A delimited alternation of bare flag spellings, plus whatever followed
 /// the closing delimiter — see [`parse_flag_alternation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FlagAlternation {
-    /// The opening delimiter actually used, `'{'` or `'['`. Callers that
-    /// only trust one of the two filter on this rather than on a re-parse.
+    /// The opening delimiter actually used, `'{'` or `'['`.
     pub open: char,
-    /// The delimited span exactly as the tool wrote it, delimiters included
-    /// and nothing after them: `"{-v | --version}"`.
-    ///
-    /// Carried rather than left for the caller to reconstruct from `members`
-    /// and `rest`. Subtracting the *trimmed* `rest`'s length from the input's
-    /// gets the span wrong whenever the text after the group has leading or
-    /// trailing whitespace — a report that quotes the tool's own text has to
-    /// quote it, not approximate it.
+    /// The delimited span exactly as written, delimiters included:
+    /// `"{-v | --version}"`. Carried rather than reconstructed, since
+    /// subtracting trimmed `rest`'s length gets it wrong when there's
+    /// surrounding whitespace.
     pub group: String,
-    /// Each alternative's bare spelling in source order, delimiters and
-    /// surrounding whitespace stripped: `["-i", "--input"]`.
+    /// Each alternative's bare spelling in source order: `["-i", "--input"]`.
     pub members: Vec<String>,
-    /// The text after the closing delimiter, trimmed — the operand the
-    /// alternatives *share* when it is one (`xfs_io`'s `cmd`), empty when
-    /// the group stands alone. Left verbatim rather than interpreted here;
-    /// deciding whether it is a usable value spec is the caller's business.
+    /// Text after the closing delimiter, trimmed — the operand the
+    /// alternatives share (xfs_io's `cmd`), empty when the group stands
+    /// alone. Left verbatim; interpreting it is the caller's business.
     pub rest: String,
 }
 
 /// Read `input` as a delimited alternation of bare flag spellings —
-/// `{-i|--input} <input xml file>`, `{-v | --version}`, `[-c|-C] cmd` —
-/// anchored at `input`'s first non-whitespace character.
-///
-/// `None` unless **all** of these hold:
-///
-/// 1. The first non-whitespace character is `{` or `[`, and that delimiter
-///    has a matching close (depth-counted over its own pair, so
-///    `[[-c|-C] cmd]`'s outer bracket is not closed by the inner one).
-/// 2. Splitting the content on `|` at the content's own nesting depth
-///    yields at least one non-empty alternative.
-/// 3. **Every** alternative is a bare flag spelling
-///    ([`is_bare_flag_spelling`]) — this is the condition that keeps a value
-///    alternation (`{always|never|auto}`) and a subcommand alternation
-///    (`{start|stop}`) out entirely.
+/// `{-i|--input} <input xml file>`, `[-c|-C] cmd` — anchored at `input`'s
+/// first non-whitespace character. `None` unless the delimiter has a
+/// matching close, splitting on `|` yields at least one alternative, and
+/// every alternative is a bare flag spelling ([`is_bare_flag_spelling`]) —
+/// the condition keeping a value or subcommand alternation out entirely.
 pub fn parse_flag_alternation(input: &str) -> Option<FlagAlternation> {
     let trimmed = input.trim_start();
     let mut chars = trimmed.chars();
@@ -1294,13 +873,10 @@ pub fn parse_flag_alternation(input: &str) -> Option<FlagAlternation> {
     })
 }
 
-/// Split `input` (whose first character is `open`) into the content between
-/// `open` and its matching `close`, and everything after that close.
-///
-/// Depth is counted over the `open`/`close` pair only, which is what makes
-/// `[[-c|-C] cmd]` work: the inner `]` decrements to depth 1, not 0. Every
-/// boundary comes from `char_indices`, never a raw byte offset
-/// (`AGENTS.md`'s slicing rule).
+/// Split `input` (first char `open`) into the content between `open` and
+/// its matching `close`, and everything after. Depth counted over the
+/// `open`/`close` pair only, so `[[-c|-C] cmd]` works. Boundaries always
+/// from `char_indices`, never a raw byte offset.
 fn split_at_matching_close(input: &str, open: char, close: char) -> Option<(&str, &str)> {
     let mut depth = 0i32;
     let mut content_start = None;
@@ -1321,15 +897,10 @@ fn split_at_matching_close(input: &str, open: char, close: char) -> Option<(&str
     None
 }
 
-/// Split an alternation group's content on `|` at its own nesting depth 0,
-/// dropping empty fragments. Depth is counted over both bracket pairs, so a
-/// nested value spec on one alternative is never split through.
-///
-/// `pub(super)`: also reused by `sections::split_bnf_alternation_row` for
-/// the iproute2-family flag-row shape, which needs the same depth-aware
-/// split but over a row that is never itself wrapped in a `{`/`[` pair (the
-/// wrapping delimiter is consumed earlier, by `split_shared_heading_row`,
-/// on the line the row's own heading shared).
+/// Split an alternation group's content on `|` at nesting depth 0,
+/// dropping empty fragments, so a nested value spec is never split
+/// through. `pub(super)`: also reused by
+/// `sections::split_bnf_alternation_row` for the iproute2-family shape.
 pub(super) fn split_alternatives(content: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut depth = 0i32;
@@ -1350,16 +921,11 @@ pub(super) fn split_alternatives(content: &str) -> Vec<&str> {
     out
 }
 
-/// True when `token` is a *bare* flag spelling and nothing else: `--name`
-/// (ASCII letter first, then alphanumerics and `-`) or `-c` (exactly one
-/// [`is_bundle_member_char`] character).
-///
-/// Everything a flag entry can additionally carry is refused here — a value
-/// (`-c OC`, `--count=OC`), a bundle (`-abc`), a single-dash long option
-/// (`-pass-exit-codes`), punctuation, whitespace. Narrow on purpose: this
-/// predicate is the only thing standing between "an alternation of flags"
-/// and "an alternation of anything at all", and the shapes it turns away
-/// are every one of them a *different* defect family with its own ambiguity.
+/// True when `token` is a bare flag spelling and nothing else: `--name`
+/// or `-c` (one [`is_bundle_member_char`] character). Refuses a value, a
+/// bundle, a single-dash long option — narrow on purpose, the only thing
+/// standing between "an alternation of flags" and "anything at all". See
+/// docs/shapes.md S-084.
 pub(super) fn is_bare_flag_spelling(token: &str) -> bool {
     if let Some(name) = token.strip_prefix("--") {
         let mut cs = name.chars();
@@ -1373,104 +939,44 @@ pub(super) fn is_bare_flag_spelling(token: &str) -> bool {
     false
 }
 
-// --- the bundled-short-flag cluster ------------------------------------
-//
-// A usage synopsis that opens `[-2CDlNuVv]` or `[-AbdDefhHIJKlLnNOpqStuUvxX#]`
-// is naming a *set* of bundled boolean switches in the ordinary getopt
-// convention, not one flag. [`parse_flag_spec`] alone cannot see that:
-// `try_short` takes the first character and `try_value` glues every
-// remaining character on as a required value, so the tree gains `-2` with
-// `value_name: "CDlNuVv"` and loses the other seven flags entirely. A
-// fleet sweep of this machine's 2,302 `PATH` tools measured the cost at
-// **58 tools and 465 destroyed flags**, an average of 8 lost flags per
-// affected tool and 22 at the worst (`groff`'s `[-abcCeEgGijklNpRsStUVXzZ]`).
-//
-// [`parse_bundled_shorts`] recognizes the cluster so the synopsis path can
-// emit one boolean flag per member instead. It is *not* wired into
-// [`parse_flag_spec`], and must not be: the identical shape from an
-// option-*table* row is the GCC/Clang single-dash convention
-// (`-fdump-scos`, `-Wall`, `-Idirectory`) where the glued text really is a
-// value, thousands of correct parses fleet-wide. Only the synopsis produces
-// the collapse, so only the synopsis caller (`sections::extract_usage_flags`)
-// asks this question.
-//
-// **Three defect families share the structural fingerprint** `short &&
-// !long && value_name`, and only the first is a bundle:
-//
-// | family | example | is it a bundle? |
-// |---|---|---|
-// | bundled shorts | `tmux [-2CDlNuVv]` | **yes** |
-// | single-dash long options | `cargo -Zscript`, `gcc -pass-exit-codes` | no |
-// | repeated-character flags | `bpftrace -vv`, `strace [-DDD]` | no |
-//
-// The discriminator is the *shape of the swallowed text*, never the tool.
-// The predicates below are the same ones `xtask`'s `bundling` oracle uses
-// to count the defect fleet-wide, deliberately so: that detector is meant
-// to read zero once this is fixed, and it can only do that if the fix and
-// the measurement agree character for character on what a bundle is. Each
-// one carries the real counter-example that forced it — a false positive
-// here destroys a *correct* parse, which is strictly worse than leaving the
-// bundle collapsed.
+// The bundled-short-flag cluster: a usage synopsis like `[-2CDlNuVv]`
+// names a set of bundled boolean switches, not one flag with a glued
+// value. `parse_flag_spec` alone can't see that. Not wired into
+// `parse_flag_spec` itself — the identical shape in an option-table row
+// is the GCC/Clang single-dash-value convention, thousands of correct
+// parses fleet-wide — only the synopsis path asks this question.
+// Discriminator is the shape of the swallowed text, never the tool;
+// shared character-for-character with xtask's bundling oracle. See
+// docs/shapes.md S-087.
 
 /// The fewest members a cluster must carry to be read as a bundle: a
-/// surviving flag plus at least two swallowed ones.
-///
-/// Three, not two, and the difference is deliberate lost recall. At one
-/// swallowed member the shape is genuinely ambiguous, and the fleet scan
-/// says so out loud: of the two-character clusters, roughly half are real
-/// collapses (`ssh-keygen`'s `[-hU]`, `umount`'s `[-hV]`, `ssh-agent`'s
-/// `[-Dd]`) and the rest are entirely correct parses of genuine
-/// multi-character single-dash flags — `rpcgen`'s `[-Sc]`/`[-Ss]`/`[-Sm]`,
-/// `psfxtable`'s `[-it]`/`[-ot]`, `sg_map`'s `[-st]`, `setfont`'s `[-ou]`,
-/// `mandoc`'s `[-ac]`, `which`'s `[-as]`, `xxd`'s `[-ps]`, plus `lessecho`'s
-/// seven character-argument flags. Nothing about their *shape* separates the
-/// two halves, so the whole class is left alone.
+/// surviving flag plus at least two swallowed ones. Three, not two —
+/// deliberate lost recall, since two-character clusters are roughly half
+/// real collapses and half genuine multi-character single-dash flags
+/// (rpcgen's `[-Sc]`, etc.) with no shape distinguishing them. See
+/// docs/shapes.md S-087.
 const MIN_CLUSTER_MEMBERS: usize = 3;
 
-/// The fewest ASCII letters a cluster must carry before [`cluster_is_ordered`]
-/// is allowed to vouch for it.
-///
-/// A cluster with no letters at all — `-1024`, `-0777` — is *vacuously*
-/// ordered, and a glued numeric default (`[-b4096]`) would ride that
-/// vacuous truth into being split into four flags. Two letters is the floor
-/// at which "the letters are in order" is a statement about anything.
+/// The fewest ASCII letters a cluster must carry before
+/// [`cluster_is_ordered`] can vouch for it. A cluster with no letters
+/// (`-1024`) is vacuously ordered; two letters is the floor at which
+/// "in order" is a statement about anything.
 const MIN_ORDERED_LETTERS: usize = 2;
 
-/// Whether `c` could be a single-character flag name, i.e. a plausible
-/// member of a bundle.
-///
-/// ASCII alphanumeric covers every letter and digit case observed (`tmux`'s
-/// `-2` is a real digit flag). `#` is the one non-alphanumeric member in the
-/// fleet — the last character of `tcpdump`'s `[-AbdDefhHIJKlLnNOpqStuUvxX#]`,
-/// which is `tcpdump`'s real "print packet number" switch. Nothing else is
-/// admitted: the point of this predicate is to reject a *value spec*, and
-/// every value-spec punctuation character (`{`, `<`, `[`, `=`, `:`, `.`,
-/// `-`, `_`, `/`, `|`) is exactly what it rejects — `filefrag`'s own
-/// `[-b{blocksize}[KMG]]` fails here and nowhere else, and every hyphenated
-/// single-dash long option (`-pass-exit-codes`) fails here too.
+/// Whether `c` could be a single-character flag name. ASCII alphanumeric
+/// plus `#` (tcpdump's real switch); rejects value-spec punctuation
+/// (`{`, `<`, `=`, `-`, ...) so `filefrag`'s `[-b{blocksize}[KMG]]` and a
+/// hyphenated long option both fail here. See docs/shapes.md S-087.
 fn is_bundle_member_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '#'
 }
 
 /// True when `members` carries at least [`MIN_ORDERED_LETTERS`] ASCII
-/// letters and all of them are in non-decreasing case-insensitive order —
-/// the *listing* convention a hand-written flag bundle follows, and one half
-/// of the two-signal test.
-///
-/// Case is folded rather than compared raw because the convention
-/// interleaves the two cases of one letter (`hH`, `lL`, `uU`, `xX`, `Vv`); a
-/// raw ASCII comparison would call every one of those a break in the order.
-/// Non-letters are skipped rather than ordered — `tcpdump` parks its `#` at
-/// the end of an otherwise perfectly alphabetical bundle and `tmux` parks
-/// its `2` at the front.
-///
-/// It is the *only* signal that vouches for a uniformly-cased bundle, which
-/// is what it is for: `od`'s `[-abcdfilosx]`, `pod2text`'s `[-aclostu]`,
-/// `showmount`'s `[-adehv]`, `e2image`'s `[-cfnp]` and `whereis`'s `[-BMS]`
-/// have nothing else going for them. Against word-shaped values it stays
-/// quiet on its own terms: `-oOUTFILE`, `-Ipath`, `-DMACRO`, `cargo`'s real
-/// `-Zscript`, `rpcgen`'s real `-Dname` and `makewhatis`'s real `-Tutf8` are
-/// every one of them unordered.
+/// letters, all in non-decreasing case-insensitive order — the listing
+/// convention a hand-written flag bundle follows. Case is folded since the
+/// convention interleaves both cases of one letter (`hH`, `lL`); against
+/// word-shaped values (`-Zscript`, `-Dname`) it stays quiet, unordered.
+/// See docs/shapes.md S-087.
 fn cluster_is_ordered(members: &str) -> bool {
     let letters = || members.chars().filter(|c| c.is_ascii_alphabetic());
     if letters().count() < MIN_ORDERED_LETTERS {
@@ -1487,80 +993,37 @@ fn cluster_is_ordered(members: &str) -> bool {
     true
 }
 
-/// True when `swallowed` — every member after the first, i.e. exactly the
-/// text [`parse_flag_spec`] would have stored as a `value_name` — contains
-/// both an ASCII uppercase and an ASCII lowercase letter. The other half of
-/// the two-signal test.
-///
-/// A value placeholder is written in one case (`file`, `size`, `mode`,
-/// `prog`, `OUTFILE`, `MACRO`), so a *swallowed* run spanning both cases is
-/// not a placeholder at all — it is a switch set that inherited whatever
-/// cases its tool's flags happen to have. This carries every real bundle
-/// whose author listed the switches unsorted, roughly a third of them, which
-/// [`cluster_is_ordered`] alone would miss entirely: `tree`'s
-/// `[-acdfghilnpqrstuvxACDFJQNSUX]` (a sorted lowercase run then a sorted
-/// uppercase one — sorted twice, so not sorted), `e2fsck`'s `[-panyrcdfktvDFV]`,
-/// `tic`'s `[-1aCDcfGgIKLNrsTtUx]`, `mkfs.ext4`'s `[-jnqvDFSV]`,
-/// `badblocks`'s `[-svwnfBX]`, `zipinfo`'s `[-12smlvChMtTz]`.
-///
-/// Measured on the *swallowed* half rather than the whole cluster
-/// deliberately, and the difference is the entire single-dash-long-option
-/// population: `-Zscript`, `-Dname`, `-Tutf8`, `-Idirectory` all mix case as
-/// clusters (an uppercase flag letter with a lowercase word glued on) and
-/// are all completely correct parses. Their swallowed halves — `script`,
-/// `name`, `utf8`, `directory` — do not mix, and that is what tells them
-/// apart from a bundle.
+/// True when `swallowed` (every member after the first — what
+/// `parse_flag_spec` would store as `value_name`) contains both an ASCII
+/// uppercase and lowercase letter. A value placeholder is written in one
+/// case; a mixed-case swallowed run is a switch set instead. Measured on
+/// the swallowed half, not the whole cluster, so `-Zscript`/`-Dname`
+/// (mixed cluster, unmixed swallowed half) stay correct parses. The other
+/// half of the two-signal test — see docs/shapes.md S-087.
 fn swallowed_members_mix_case(swallowed: &str) -> bool {
     swallowed.chars().any(|c| c.is_ascii_uppercase())
         && swallowed.chars().any(|c| c.is_ascii_lowercase())
 }
 
-/// True when every character of `members` is distinct, compared
-/// case-sensitively.
-///
-/// A bundle is a *set* of switches, so it never repeats one. Case matters:
-/// `-v` and `-V` are different flags and real bundles carry both (`Vv` in
-/// `tmux`, `uU`/`xX`/`hH`/`lL` in `tcpdump`), so folding case here would
-/// reject the very cases this exists for. Against words it is a weak filter
-/// on its own (`file`, `size` and `mode` all have distinct letters) and a
-/// decisive one against the commonest doubled-letter shapes — `-Wall`,
-/// `-ldl`, and the whole repeated-character family (`-vvv`, `strace`'s real
-/// `[-DDD]`).
+/// True when every character of `members` is distinct, case-sensitively.
+/// A bundle never repeats a switch; case matters since `-v`/`-V` are
+/// different flags and real bundles carry both. Decisive against the
+/// repeated-character family (`-vvv`, `strace`'s `[-DDD]`). S-087.
 fn members_are_distinct(members: &str) -> bool {
     let mut seen = HashSet::new();
     members.chars().all(|c| seen.insert(c))
 }
 
-/// Read `token` — one whitespace-delimited synopsis token, brackets already
-/// stripped by the caller — as a bundle of single-character boolean short
-/// flags, returning its members in source order.
-///
-/// `None` unless **all** of these hold, each condition rejecting a specific
-/// real counter-example (see the module-level notes above and each
-/// predicate's own doc comment):
-///
-/// 1. The token is exactly one `-` followed by member characters, with no
-///    whitespace, no second dash, and nothing else. This is the load-bearing
-///    separator check: `tmux`'s own synopsis writes `[-c shell-command]`,
-///    `[-f file]`, `[-L socket-name]`, `[-S socket-path]` and `[-T features]`
-///    on the same physical line as its `[-2CDlNuVv]`, and every one of those
-///    is a genuine value-taking short flag distinguished *only* by the space.
-/// 2. Every member is a plausible single-character flag name
-///    ([`is_bundle_member_char`]).
-/// 3. There are at least [`MIN_CLUSTER_MEMBERS`] of them.
-/// 4. They are pairwise distinct ([`members_are_distinct`]).
-/// 5. Either the cluster is alphabetized ([`cluster_is_ordered`]) or the
-///    swallowed half spans both cases ([`swallowed_members_mix_case`]) — two
-///    independent pieces of evidence for "this is a switch set, not a word",
-///    each carrying a large real family the other cannot see.
-///
-/// The knowing false negatives, both measured on the fleet and both left
-/// alone under the no-false-positives rule: **unsorted, uniformly-cased
-/// bundles** (`rpcbind`'s `[-adhilswfr]`, `umount.nfs`'s `[-fvnrlh]`,
-/// `fc-validate`'s `[-Vhv]`) fire neither signal and are indistinguishable
-/// on shape from a lowercase word; **bundles that repeat a switch to mean
-/// "more of it"** (`strace`'s `[-ACdffhiqqrtttTvVwxxyyzZ]`,
-/// `wpa_supplicant`'s `[-BddhKLqqstuvW]`) are rejected by condition 4.
+/// Read `token` (one whitespace-delimited synopsis token, brackets
+/// already stripped) as a bundle of single-character boolean short flags,
+/// returning members in source order. `None` unless: exactly one `-` then
+/// member characters with no whitespace/second dash (tmux's `[-c
+/// shell-command]` stays a value-taking flag by this separator check);
+/// every member is bundle-shaped; at least [`MIN_CLUSTER_MEMBERS`]; all
+/// distinct; and either ordered or the swallowed half mixes case. Known
+/// false negatives: unsorted uniformly-cased bundles, and repeated-switch
+/// bundles (`strace`'s `[-ACdffhiqqrtttTvVwxxyyzZ]`). See docs/shapes.md
+/// S-087.
 pub fn parse_bundled_shorts(token: &str) -> Option<Vec<char>> {
     let members = token.strip_prefix('-')?;
     if members.chars().count() < MIN_CLUSTER_MEMBERS {
@@ -1695,10 +1158,7 @@ mod tests {
 
     // --- the alias list a value spec used to terminate -------------------
 
-    /// The family's four `argparse` members, byte-exact from their own
-    /// captures. The placeholder is repeated after the long form, and
-    /// before the fix everything after the short flag became one value
-    /// token (`PID,` — separator and all) while the long form was lost.
+    /// Four real argparse rows. See docs/shapes.md S-083.
     #[test]
     fn an_argparse_row_keeps_both_spellings_and_one_clean_value() {
         for (fragment, short, long, value) in [
@@ -1728,10 +1188,7 @@ mod tests {
         }
     }
 
-    /// `sg_sanitize`'s real rows: the *long* form first, `|` as the
-    /// separator, `=` on one side and a space on the other. There is no
-    /// whitespace anywhere in `OC|-c`, so before the fix the entire thing
-    /// became the placeholder and `-c` was lost inside it.
+    /// sg_sanitize's real pipe-separated rows. See docs/shapes.md S-083.
     #[test]
     fn a_pipe_separated_row_recovers_the_short_form_from_inside_the_value() {
         for (fragment, short, long, value) in [
@@ -1747,9 +1204,8 @@ mod tests {
         }
     }
 
-    /// `javaflow-bpfcc`'s real choice list: six commas inside one
-    /// placeholder. Only [`alias_follows`] keeps the value from being cut
-    /// at the first of them.
+    /// javaflow-bpfcc's real six-comma choice list. See docs/shapes.md
+    /// S-083.
     #[test]
     fn commas_inside_a_choice_list_never_end_the_value() {
         let spec = parse_flag_spec(
@@ -1763,10 +1219,8 @@ mod tests {
         );
     }
 
-    /// The false-positive side, which is the side that matters: merging two
-    /// genuinely different flags invents an alias the tool does not have.
-    /// Every one of these carries a separator and must still yield one
-    /// placeholder and no second spelling.
+    /// A separator inside a value must never become an alias — merging
+    /// two flags is worse than dropping one. See docs/shapes.md S-083.
     #[test]
     fn a_separator_inside_a_value_never_becomes_an_alias() {
         for (fragment, value) in [
@@ -1787,9 +1241,8 @@ mod tests {
         }
     }
 
-    /// Whitespace alone never resumes an alias run — only an explicit
-    /// `,`/`|` does. Without this, two unrelated flags written next to each
-    /// other in a synopsis would merge into one.
+    /// Whitespace alone never resumes an alias run, only an explicit
+    /// `,`/`|`. S-083.
     #[test]
     fn whitespace_alone_never_resumes_an_alias_run() {
         let spec = parse_flag_spec("--output FILE --other");
@@ -1801,11 +1254,8 @@ mod tests {
         );
     }
 
-    /// `lsof`'s real plus-or-minus convention, byte-exact: `+|-e s` means
-    /// `+e` or `-e`, a third shape this grammar does not model. Its `|` has
-    /// `+` on its left, which is not a finished placeholder, so
-    /// [`separator_has_a_left_operand`] leaves the token alone rather than
-    /// recovering `-e` with a literal `+` as its value.
+    /// lsof's real plus-or-minus convention, byte-exact. See
+    /// docs/shapes.md S-086.
     #[test]
     fn lsofs_plus_or_minus_token_is_left_alone() {
         assert!(!separator_has_a_left_operand("+"));
@@ -1825,8 +1275,7 @@ mod tests {
                 "{fragment}"
             );
         }
-        // `-o, --output FILE` is the shape that always worked; it must be
-        // untouched by any of this.
+        // The shape that always worked must stay untouched.
         let spec = parse_flag_spec("-o, --output FILE");
         assert_eq!(spec.short(), Some('o'));
         assert_eq!(spec.long(), Some("output"));
@@ -1834,8 +1283,7 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
-    /// `tar`'s real multi-alias row with a value on each: the first long
-    /// name still wins and the placeholder no longer carries the separator.
+    /// tar's real multi-alias row with a value on each. S-083.
     #[test]
     fn tars_repeated_long_alias_row_keeps_one_clean_value() {
         let spec = parse_flag_spec("-F, --info-script=NAME, --new-volume-script=NAME");
@@ -1904,10 +1352,8 @@ mod tests {
         );
     }
 
-    /// The content this predicate returns is handed straight to
-    /// `parse_flag_spec` by every caller — confirm that pipeline actually
-    /// reads the alias-vs-value ambiguity correctly, not just that the
-    /// brackets are stripped.
+    /// Confirms the bracket content feeds `parse_flag_spec` correctly,
+    /// not just that the brackets are stripped.
     #[test]
     fn bracket_flag_row_content_feeds_parse_flag_spec_correctly() {
         let spec = parse_flag_spec(bracket_flag_row_content("[ -A|--autobackup y|n ]").unwrap());
@@ -1928,19 +1374,15 @@ mod tests {
 
     #[test]
     fn looks_like_flag_start_still_refuses_brackets() {
-        // The trap this whole row-level predicate exists to avoid:
-        // `looks_like_flag_start` must stay blind to `[`, or `lsof`'s
-        // usage-block continuation (`[-F [f]]`) would end that block one
-        // line in.
+        // Must stay blind to `[`, or lsof's usage-block continuation
+        // would end that block one line in.
         assert!(!looks_like_flag_start("[ -d|--debug ]"));
         assert!(!looks_like_flag_start("[-F [f]]"));
     }
 
     // --- the bundled-short-flag cluster ---------------------------------
 
-    /// Helper: the members `parse_bundled_shorts` recovers, as a `String`,
-    /// or `"-"` when it declined — so a test can assert both answers with
-    /// one comparison and a failure message shows what was recovered.
+    /// The members `parse_bundled_shorts` recovers, or `"-"` when declined.
     fn bundle(token: &str) -> String {
         match parse_bundled_shorts(token) {
             Some(members) => members.into_iter().collect(),
@@ -1948,9 +1390,7 @@ mod tests {
         }
     }
 
-    /// The five real clusters from the seed-2 human audit, byte-exact from
-    /// their own captures. Each is a *whole* set of switches, so the
-    /// recovered members must be the token minus its dash, exactly.
+    /// Five real clusters, byte-exact. See docs/shapes.md S-087.
     #[test]
     fn the_five_audited_clusters_split_into_their_members() {
         assert_eq!(
@@ -1966,16 +1406,13 @@ mod tests {
         ); // groff
     }
 
-    /// The two signals in condition 5 each carry a large real family the
-    /// other cannot see, so both are exercised on fleet text.
+    /// The two signals each carry a family the other cannot see.
     #[test]
     fn either_ordering_or_a_case_mixing_swallowed_half_is_enough() {
-        // Ordered only: `od`'s traditional switches are all lowercase, so
-        // nothing about their case is evidence of anything.
+        // Ordered only: od's switches are all lowercase.
         assert!(!swallowed_members_mix_case("bcdfilosx"));
         assert_eq!(bundle("-abcdfilosx"), "abcdfilosx");
-        // Case-mixing only: `tree` sorts its lowercase run and then its
-        // uppercase one — sorted twice, so not sorted.
+        // Case-mixing only: tree sorts lowercase then uppercase separately.
         assert!(!cluster_is_ordered("acdfghilnpqrstuvxACDFJQNSUX"));
         assert_eq!(
             bundle("-acdfghilnpqrstuvxACDFJQNSUX"),
@@ -1983,13 +1420,8 @@ mod tests {
         );
     }
 
-    /// Family 2 of the three sharing the `short && !long && value_name`
-    /// fingerprint: a **single-dash long option**. Every one of these is a
-    /// completely correct parse today and splitting one would destroy a
-    /// working tool, which is strictly worse than leaving a bundle
-    /// collapsed. They mix case *as clusters* (an uppercase flag letter
-    /// with a lowercase word glued on) and are rejected because their
-    /// swallowed halves — `script`, `name`, `utf8`, `directory` — do not.
+    /// Single-dash long options: correct parses that must never split.
+    /// See docs/shapes.md S-087.
     #[test]
     fn single_dash_long_options_are_never_split() {
         for token in [
@@ -2007,11 +1439,8 @@ mod tests {
         }
     }
 
-    /// Family 3: a flag **repeated** to mean "more of it". `-vv` is below
-    /// the member floor; `-vvv` and `strace`'s real `[-DDD]` are rejected
-    /// by distinctness instead. Both halves are asserted because they fail
-    /// *different* conditions, so a change to either one could silently
-    /// admit the whole family.
+    /// Repeated-character flags: `-vv` fails the member floor, `-vvv`
+    /// fails distinctness. See docs/shapes.md S-087.
     #[test]
     fn repeated_character_flags_are_never_split() {
         for token in ["-vv", "-dd", "-qq"] {
@@ -2024,12 +1453,9 @@ mod tests {
         }
     }
 
-    /// The deliberate lost recall at [`MIN_CLUSTER_MEMBERS`]: `ssh-keygen`'s
-    /// `[-hU]` is a genuine collapse a human labelled `wrong`, and it is
-    /// left alone because nothing about its *shape* separates it from
-    /// `rpcgen`'s real `-Ss` or `xxd`'s real `-ps`. Asserted, not merely
-    /// described, so lowering the floor has to come with a decision about
-    /// `lessecho` rather than happening by accident.
+    /// Deliberate lost recall at [`MIN_CLUSTER_MEMBERS`]: ssh-keygen's
+    /// `[-hU]` is a real collapse, left alone since nothing about its
+    /// shape separates it from a real two-letter flag. S-087.
     #[test]
     fn a_two_character_cluster_is_deliberately_left_alone() {
         assert_eq!(bundle("-hU"), "-"); // ssh-keygen, a real collapse
@@ -2040,9 +1466,8 @@ mod tests {
         }
     }
 
-    /// The separator is the whole difference between `tmux`'s collapsed
-    /// `[-2CDlNuVv]` and the five genuine valued flags on its own synopsis
-    /// line, so it is asserted directly rather than left implicit.
+    /// The separator is the whole difference between tmux's collapsed
+    /// `[-2CDlNuVv]` and its five genuine valued flags. S-087.
     #[test]
     fn a_spaced_value_is_never_a_cluster_however_bundle_shaped_it_looks() {
         for token in [
@@ -2053,15 +1478,13 @@ mod tests {
         ] {
             assert_eq!(bundle(token), "-", "{token} must not be split");
         }
-        // ...and a token that is glued and ordered *does* split, confirming
-        // the space was doing the work above rather than some other
-        // condition failing silently.
+        // A glued, ordered token does split, confirming the space did the
+        // work above.
         assert_eq!(bundle("-cDeF"), "cDeF");
     }
 
-    /// A numeric run orders vacuously — no letters to be out of order — so
-    /// [`MIN_ORDERED_LETTERS`] is what keeps a glued numeric default from
-    /// riding that vacuous truth into being split into digits.
+    /// A numeric run orders vacuously (no letters); [`MIN_ORDERED_LETTERS`]
+    /// keeps a glued numeric default from splitting into digits.
     #[test]
     fn a_glued_numeric_default_is_never_split() {
         for token in ["-b1024", "-j4", "-n0777"] {
@@ -2070,9 +1493,7 @@ mod tests {
         assert!(!cluster_is_ordered("b1024"));
     }
 
-    /// Long options and the bare option terminator are not clusters, and
-    /// the `--` case matters: `-` -> `-name` would otherwise look like a
-    /// perfectly ordinary member run.
+    /// Long options and the bare option terminator are not clusters.
     #[test]
     fn a_long_option_is_never_a_cluster() {
         for token in ["--verbose", "--no-pager", "--", "-", "abc", ""] {
@@ -2080,10 +1501,9 @@ mod tests {
         }
     }
 
-    /// `parse_flag_spec` itself is deliberately *unchanged* — it still
-    /// reads a cluster as one valued flag, because the identical shape from
-    /// an option-table row is the GCC single-dash convention and is
-    /// genuinely one flag. The split lives at the synopsis call site.
+    /// `parse_flag_spec` itself stays unchanged: an option-table row with
+    /// the identical shape is GCC's single-dash convention, genuinely one
+    /// flag. The split lives at the synopsis call site.
     #[test]
     fn parse_flag_spec_still_reads_a_cluster_as_one_valued_flag() {
         let spec = parse_flag_spec("-2CDlNuVv");
@@ -2124,11 +1544,7 @@ mod tests {
         }
     }
 
-    /// `ip --help`'s own `OPTIONS := { -V[ersion] | ... | -c[olor]}` cuts
-    /// its last row with the alternation group's own closing `}` still
-    /// glued on. The stray brace is leftover punctuation from the
-    /// enclosing group, never a value — `-c[olor]` must come out exactly
-    /// as clean as `-a[ll]` does one line earlier in the same document.
+    /// ip's real `OPTIONS := { ... | -c[olor]}` stray closing brace. S-006.
     #[test]
     fn a_stray_closing_brace_after_an_abbreviation_bracket_is_not_a_value() {
         let spec = parse_flag_spec("-c[olor]}");
@@ -2141,17 +1557,8 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
-    /// `ip --help`'s real issue #49 defect: `-rc[vbuf] [size]`, a
-    /// **two**-letter abbreviation prefix. The one-letter-only model
-    /// (`try_short` reading exactly one character before ever looking for
-    /// a bracket) could not recognize this shape at all — `-rc[vbuf]`
-    /// failed to fully consume, which refused the whole nine-alternative
-    /// BNF row it sat in and fell back to the single-column read that
-    /// produced ip's mangled second `-r` (a `short: 'r'` carrying
-    /// `value_name: "c[vbuf]"`). With a multi-letter prefix recognized,
-    /// `-rc[vbuf]` reads as its own clean flag, `Long("rcvbuf")` — a
-    /// different key from `-r[esolve]`'s `Long("resolve")`, which is what
-    /// dissolves the duplicate without any dedup rule.
+    /// ip's real `-rc[vbuf] [size]`, a two-letter abbreviation prefix.
+    /// See docs/shapes.md S-006.
     #[test]
     fn a_two_letter_abbreviation_prefix_is_recognized() {
         let spec = parse_flag_spec("-rc[vbuf] [size]");
@@ -2165,12 +1572,8 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
-    /// The alias loop keeps every recognized spelling, not just the first
-    /// short and first long — the fix that dissolves issue #30's
-    /// multi-spelling bug at its source. `jdeprscan --help` writes exactly
-    /// this row (`-?, -h, --help`, one physical line, all three aliases
-    /// comma-separated) — before this fix the loop kept only the first
-    /// short (`-?`) and the long (`--help`), silently dropping `-h`.
+    /// jdeprscan's real `-?, -h, --help` row, all three comma-separated.
+    /// See docs/shapes.md S-083.
     #[test]
     fn the_alias_loop_keeps_every_spelling_jdeprscan_style() {
         let spec = parse_flag_spec("-?, -h, --help");
@@ -2181,12 +1584,8 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
-    /// `jdeprscan`'s real two-column table cell, `-? -h` — two short
-    /// spellings of one flag, separated by nothing but a bare space, no
-    /// comma. Bare whitespace must still be allowed to continue an alias
-    /// run when nothing long-like has been read yet — this is the
-    /// counter-example that keeps the pod2html-shaped gate below from
-    /// over-tightening (`corpus/jdeprscan/audit-seed2`).
+    /// jdeprscan's real `-? -h` two-column cell, bare space, no comma.
+    /// See docs/shapes.md S-083 and corpus/jdeprscan/audit-seed2.
     #[test]
     fn bare_whitespace_still_continues_a_run_of_two_shorts() {
         let spec = parse_flag_spec("-? -h");
@@ -2195,15 +1594,8 @@ mod tests {
         assert_eq!(spec.spellings[1].render(), "-h");
     }
 
-    /// A spelling identical to one already collected in this run must
-    /// never be recorded a second time — measured at zero occurrences
-    /// anywhere in the fleet before the multi-spelling emission fix
-    /// existed, so any duplicate is a defect by construction, never a real
-    /// convention. GNU `sort --help`'s own real row, byte-exact:
-    /// `-c, --check, --check=diagnose-first` writes `--check` twice — the
-    /// second occurrence supplies an example value for the same spelling,
-    /// not a second alias — and the alias loop used to read both,
-    /// producing `-c, --check, --check` with a garbled `value_name`.
+    /// GNU sort's real `-c, --check, --check=diagnose-first` row, which
+    /// restates `--check`. See docs/shapes.md S-085.
     #[test]
     fn a_spelling_repeated_in_the_same_row_is_never_recorded_twice() {
         let spec = parse_flag_spec("-c, --check, --check=diagnose-first");
@@ -2212,16 +1604,8 @@ mod tests {
         assert_eq!(spec.spellings[1].render(), "--check");
     }
 
-    /// The same guard closes the duplicate from the other direction:
-    /// `try_short`'s no-bracket fallback reads only the first character of
-    /// a multi-letter run with no abbreviation bracket (`-help` truncates
-    /// to `-h`), which can coincidentally collide with a short spelling
-    /// already read moments earlier. `jdb --help`'s real row, byte-exact:
-    /// `-? -h --help -help` used to produce `-?, -h, --help, -h` — a
-    /// spelling list that repeats itself. The duplicate `-h` is refused
-    /// (this test), while correctly reading the truncated run as its own
-    /// four-letter `-help` spelling is a separate, unresolved gap this
-    /// guard does not attempt (see [`already_collected`]'s doc comment).
+    /// jdb's real `-? -h --help -help` row: `-help` truncates to `-h` and
+    /// collides with the already-read short. See docs/shapes.md S-085.
     #[test]
     fn jdbs_truncated_help_never_duplicates_the_short_h_already_read() {
         let spec = parse_flag_spec("-? -h --help -help");
@@ -2230,17 +1614,9 @@ mod tests {
         assert_eq!(h_count, 1, "no spelling may be recorded twice: {names:?}");
     }
 
-    /// `pod2html --help`'s real usage-synopsis row: four independently
-    /// negatable long options, space-separated, no comma anywhere —
-    /// `--quiet --noquiet --verbose --noverbose`. Once a long-like
-    /// spelling has been read, a further spelling needs an *explicit*
-    /// `,`/`|` before it; bare whitespace no longer resumes the run, and
-    /// the leftover text is honestly unconsumed rather than glued on as a
-    /// fabricated value. Before this gate, every alias found here was
-    /// *kept* (the alias-loop fix this test module also pins), so the
-    /// four distinct flags read as one entity's ever-growing alias list —
-    /// worse than the pre-existing defect of silently dropping the extra
-    /// three.
+    /// pod2html's real `--quiet --noquiet --verbose --noverbose` row:
+    /// four independent negatable options, no comma. See docs/shapes.md
+    /// S-083.
     #[test]
     fn a_run_of_distinct_long_options_never_merges_on_bare_whitespace() {
         let spec = parse_flag_spec("--quiet --noquiet --verbose --noverbose");
@@ -2253,14 +1629,8 @@ mod tests {
         assert!(!spec.fully_consumed);
     }
 
-    /// `iptables --help`'s real `--replace -R chain rulenum` row: one flag,
-    /// long spelling first, short spelling second, separated by nothing
-    /// but a bare space. The long-then-long gate above must not also
-    /// catch long-then-*short* — it is keyed on both neighbors being
-    /// long-like, not merely on "a long-like spelling was read", or this
-    /// legitimate pair (and its five siblings in the same real document:
-    /// `--list-rules -S`, `--set-counters -c`, `--ipv4 -4`, `--ipv6 -6`)
-    /// would wrongly split in two.
+    /// iptables' real `--replace -R chain rulenum` row: long-then-short
+    /// must not trigger the long-then-long gate. See docs/shapes.md S-083.
     #[test]
     fn a_long_then_short_pair_still_runs_together_on_bare_whitespace() {
         let spec = parse_flag_spec("--replace -R chain rulenum");
@@ -2269,12 +1639,9 @@ mod tests {
         assert_eq!(spec.spellings[1].render(), "-R");
     }
 
-    /// `iptables --help`'s other real long-then-short row, byte-exact:
-    /// `--append  -A chain` (two spaces between them in the real text).
-    /// Whitespace-continuation rule (i) — refuse a bare-whitespace
-    /// continuation once an explicit separator has appeared earlier in
-    /// this run — must not fire here: no explicit separator has appeared
-    /// at all, so the rule stays silent and this pair keeps merging.
+    /// iptables' other real long-then-short row, `--append  -A chain`
+    /// (two spaces). Rule (i) must stay silent: no explicit separator
+    /// appeared. S-083.
     #[test]
     fn a_long_then_short_pair_with_no_earlier_explicit_separator_still_merges() {
         let spec = parse_flag_spec("--append  -A chain");
@@ -2283,14 +1650,8 @@ mod tests {
         assert_eq!(spec.spellings[1].render(), "-A");
     }
 
-    /// `jdeprscan --help`'s real `-? -h --help` — short, short, long, all
-    /// bare whitespace, no comma anywhere. The three whitespace-
-    /// continuation rules added for `dpkg-split`/`screen`/`xxd` below must
-    /// leave this alone: no explicit separator ever appears (rule i is
-    /// silent), `-h`'s own continuation is a genuine one-letter short
-    /// (rule ii is silent), and nothing that follows either short is a
-    /// bare value — `--help` is itself a flag spelling (rule iii is
-    /// silent).
+    /// jdeprscan's real `-? -h --help`: short-short-long, all bare
+    /// whitespace, all three continuation rules stay silent. S-083.
     #[test]
     fn short_short_long_with_no_values_still_merges_on_bare_whitespace() {
         let spec = parse_flag_spec("-? -h --help");
@@ -2301,14 +1662,8 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
-    /// `dpkg-split --help`'s real usage-example row, byte-exact:
-    /// `-a|--auto -o <complete> <part>`. `-a`/`--auto` are one flag's two
-    /// spellings, joined by the row's own explicit `|`; `-o` is a
-    /// different, separately documented flag (`-o, --output <file>`) that
-    /// merely appears alongside it in this worked example. Whitespace-
-    /// continuation rule (i): once this run has used an explicit
-    /// separator, a later bare-whitespace continuation is refused, so `-o`
-    /// is never absorbed.
+    /// dpkg-split's real `-a|--auto -o <complete> <part>`: rule (i)
+    /// refuses to absorb `-o` after the explicit `|`. S-083.
     #[test]
     fn a_usage_example_naming_a_second_flag_after_an_explicit_run_is_not_absorbed() {
         let spec = parse_flag_spec("-a|--auto -o <complete> <part>");
@@ -2321,15 +1676,8 @@ mod tests {
         );
     }
 
-    /// `screen --help`'s real usage-example row, byte-exact: `-D -RR`.
-    /// `-D` is a genuine one-letter short; `-RR` is not a second spelling
-    /// of the same flag but `screen`'s own `-R`/`-R` doubled-up usage
-    /// notation for "reattach, forcing if necessary" — a different real
-    /// flag (`-R`, documented on its own row) appearing in a worked
-    /// example. Whitespace-continuation rule (ii): after a genuine short,
-    /// a whitespace-continued candidate must itself be a genuine
-    /// one-letter short, not a longer unbracketed run that merely
-    /// truncates down to one letter.
+    /// screen's real `-D -RR`: rule (ii) refuses `-RR` as a second
+    /// spelling since it's not itself a one-letter short. S-083.
     #[test]
     fn a_doubled_short_flag_usage_note_is_not_read_as_a_second_spelling() {
         let spec = parse_flag_spec("-D -RR");
@@ -2341,18 +1689,10 @@ mod tests {
         );
     }
 
-    /// Rule (ii) and rule (iii) above are each independently necessary —
-    /// this specimen is the case where rule (iii) alone would miss it.
-    /// `try_short`'s own run-length scan does not exclude `|` (only
-    /// [`try_alias_position_single_dash_long`] needs to, and does — see
-    /// its own doc comment), so `-R|--foo` computes a two-character run
-    /// (`R|`) even though the fallback only ever consumes `-R`, leaving
-    /// `|--foo` as the leftover. Rule (iii)'s own value check reads a
-    /// leading `|` as "another alias continuing," not a value, so it stays
-    /// silent here — only rule (ii)'s raw-run-length check (2, not a
-    /// genuine one-letter short) refuses the continuation. Without rule
-    /// (ii), this constructed input would wrongly merge `-D`, `-R` and
-    /// `--foo` into one three-alias entity.
+    /// Rules (ii) and (iii) are each independently necessary — this
+    /// constructed input is the case where (iii) alone would miss it,
+    /// since a leading `|` reads as "alias continuing" not a value; only
+    /// (ii)'s run-length check refuses it. S-083.
     #[test]
     fn rule_ii_independently_refuses_what_rule_iii_alone_would_miss() {
         let spec = parse_flag_spec("-D -R|--foo");
@@ -2364,14 +1704,8 @@ mod tests {
         );
     }
 
-    /// `xxd --help`'s real usage-example row, byte-exact: `-r -s off`.
-    /// `-r` and `-s` are both genuine one-letter shorts, each separately
-    /// documented on its own row elsewhere — this row merely shows them
-    /// used together, with a bare value (`off`) trailing the second one.
-    /// Whitespace-continuation rule (iii): after a genuine short, a bare
-    /// value trailing the next whitespace-continued candidate means the
-    /// row is a worked example naming two flags, not one flag's two
-    /// spellings, even though the candidate itself (`-s`) is short-shaped.
+    /// xxd's real `-r -s off`: rule (iii) refuses the merge since a bare
+    /// value trails the second short. S-083.
     #[test]
     fn a_short_pair_usage_example_with_a_trailing_value_is_not_merged() {
         let spec = parse_flag_spec("-r -s off");
@@ -2383,13 +1717,8 @@ mod tests {
         );
     }
 
-    /// `gold --help`'s real row, byte-exact: `-G, -shared`. `-shared` is a
-    /// genuine single-dash long spelling of the same flag as `-G`, not
-    /// `try_short`'s truncate-to-first-character fallback misreading it as
-    /// `-s` — which would collide with `gold`'s genuinely different
-    /// `-s, --strip-all`. In alias position (right after the explicit
-    /// `,`), a multi-letter unbracketed single-dash run is read as a
-    /// spelling in its own right.
+    /// gold's real `-G, -shared`: not `try_short`'s truncate-to-first-
+    /// character fallback (would collide with `-s, --strip-all`). S-083.
     #[test]
     fn an_explicit_alias_separator_reads_an_unbracketed_single_dash_run_as_a_long_spelling() {
         let spec = parse_flag_spec("-G, -shared");
@@ -2399,12 +1728,8 @@ mod tests {
         assert!(spec.fully_consumed);
     }
 
-    /// `socat-mux.sh --help`'s real row, byte-exact: `-b|-S|-t|-T|-l
-    /// <arg>` — five one-letter shorts, pipe-separated, all in alias
-    /// position. [`try_alias_position_single_dash_long`]'s run must stop
-    /// at the `|` between spellings, not swallow it into the next
-    /// spelling's name (`"S|"`) the way a naive reuse of `try_short`'s
-    /// abbreviation-lookahead run would.
+    /// socat-mux.sh's real `-b|-S|-t|-T|-l <arg>`: five pipe-separated
+    /// one-letter shorts. See docs/shapes.md S-083.
     #[test]
     fn a_pipe_separated_row_of_one_letter_shorts_is_unaffected_by_the_alias_position_reading() {
         let spec = parse_flag_spec("-b|-S|-t|-T|-l <arg>");
@@ -2420,14 +1745,9 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("<arg>"));
     }
 
-    /// `jdb --help`'s real row, byte-exact: `-? -h --help -help`. The
-    /// trailing `-help` is reached only by bare whitespace (never an
-    /// explicit separator), so [`try_alias_position_single_dash_long`]
-    /// must not apply here — this stays exactly the existing, unresolved
-    /// truncate-to-`-h`-then-refuse-the-duplicate behavior
-    /// ([`jdbs_truncated_help_never_duplicates_the_short_h_already_read`]),
-    /// not a fourth spelling. Widening the alias-position reading to bare
-    /// whitespace is explicitly out of scope for this fix.
+    /// jdb's real `-? -h --help -help`: the trailing `-help` is reached
+    /// only by bare whitespace, so alias-position reading must not apply.
+    /// Out of scope: widening to bare whitespace. S-083.
     #[test]
     fn bare_whitespace_position_still_truncates_rather_than_reading_a_long_spelling() {
         let spec = parse_flag_spec("-? -h --help -help");
@@ -2441,15 +1761,9 @@ mod tests {
         );
     }
 
-    /// `unzip --help`'s real usage-synopsis placeholder,
-    /// `[-opts[modifiers]]` — "any of the single-letter options below,
-    /// optionally followed by any of the modifier letters below", not a
-    /// real flag named `-opts`. `"opts"` is a four-letter prefix, past
-    /// [`MAX_ABBREV_PREFIX_LEN`], so this reads as the ordinary one-letter
-    /// short flag `-o` (with the rest left for the grammar to interpret as
-    /// a value, exactly as it did before the abbreviation model existed)
-    /// rather than fabricating a `-opts[modifiers]` entity that answers to
-    /// no real flag `unzip` documents.
+    /// unzip's real `[-opts[modifiers]]` placeholder: "opts" is a
+    /// four-letter prefix, past [`MAX_ABBREV_PREFIX_LEN`], so this reads
+    /// as ordinary `-o`. See docs/shapes.md S-006.
     #[test]
     fn an_over_long_bracket_prefix_is_not_read_as_an_abbreviation() {
         let spec = parse_flag_spec("-opts[modifiers]");
@@ -2458,10 +1772,8 @@ mod tests {
         assert_eq!(spec.spellings[0].abbrev, None);
     }
 
-    /// The discriminator is narrow on purpose: a real optional-value
-    /// placeholder (upper/mixed case, or carrying its own `=`) must still
-    /// parse as a value exactly as before — this change must never widen
-    /// into swallowing a genuine optional argument.
+    /// The discriminator stays narrow: a real optional-value placeholder
+    /// must still parse as a value exactly as before.
     #[test]
     fn short_flag_real_optional_value_is_unaffected_by_abbrev_stripping() {
         let spec = parse_flag_spec("-o[FILE]");
@@ -2477,9 +1789,7 @@ mod tests {
 
     // --- the parenthesized alternation group ----------------------------
 
-    /// The positive case: a bare `(` immediately followed by a flag token,
-    /// left unclosed on the line — `vgchange`'s own
-    /// `( -l|--logicalvolume Number,`.
+    /// vgchange's real unclosed leading paren flag group. S-088.
     #[test]
     fn paren_alternation_open_fires_on_an_unclosed_leading_paren_flag_group() {
         assert!(looks_like_paren_alternation_open(
@@ -2488,10 +1798,8 @@ mod tests {
         assert!(looks_like_paren_alternation_open("(    --addtag Tag,"));
     }
 
-    /// A row using `|` as a plain alias separator, with no paren group at
-    /// all, must never be claimed by this predicate — it has no leading
-    /// `(`, so it is not this shape regardless of how many aliases or
-    /// values it carries.
+    /// A plain `|` alias-separator row with no leading `(` is not this
+    /// shape.
     #[test]
     fn paren_alternation_open_is_false_with_no_leading_paren() {
         assert!(!looks_like_paren_alternation_open(
@@ -2502,10 +1810,8 @@ mod tests {
         ));
     }
 
-    /// A same-line, already-balanced parenthetical is not a multi-line
-    /// group opening, even when the first word after `(` happens to look
-    /// flag-shaped — the defining evidence is that the group is left
-    /// *unclosed*, not merely that `(` is followed by a dash.
+    /// A same-line, already-balanced parenthetical is not a group
+    /// opening — the evidence is being left unclosed, not the dash.
     #[test]
     fn paren_alternation_open_refuses_a_balanced_same_line_parenthetical() {
         assert!(!looks_like_paren_alternation_open("(-x see docs)"));
@@ -2514,11 +1820,8 @@ mod tests {
         ));
     }
 
-    /// The three physical-line shapes a member row takes, stripped down to
-    /// exactly what `bracket_flag_row_content` already hands
-    /// `parse_flag_spec` for the bracket-row shape: opening (leading `(`,
-    /// trailing `,`), middle (trailing `,` only), and closing (trailing
-    /// `)` only, no comma).
+    /// The three physical-line member shapes: opening, middle, closing.
+    /// See docs/shapes.md S-088.
     #[test]
     fn paren_alternation_member_content_strips_open_close_and_comma() {
         assert_eq!(
@@ -2535,11 +1838,8 @@ mod tests {
         );
     }
 
-    /// `|` inside a member is untouched by the stripping — it is still an
-    /// alias separator (`-l|--logicalvolume`) or a value's own choice list
-    /// (`y|n`), exactly as `bracket_flag_row_content` leaves it for
-    /// `parse_flag_spec` to resolve via `take_rest_value_token`'s
-    /// `alias_follows` guard.
+    /// `|` inside a member is untouched by the stripping — still an alias
+    /// separator or a value's own choice list.
     #[test]
     fn paren_alternation_member_content_feeds_parse_flag_spec_correctly() {
         let content = paren_alternation_member_content("-x|--resizeable y|n,").unwrap();
@@ -2550,17 +1850,15 @@ mod tests {
     }
 
     /// A row that, once stripped, does not start with `-` is refused
-    /// outright rather than fabricated into a flag — the defensive check
-    /// `parse_body`'s own depth bookkeeping should never actually need.
+    /// rather than fabricated.
     #[test]
     fn paren_alternation_member_content_refuses_a_non_flag_row() {
         assert_eq!(paren_alternation_member_content("( COMMON_OPTIONS,"), None);
         assert_eq!(paren_alternation_member_content("VG|Tag )"), None);
     }
 
-    /// `looks_like_stanza_head_flag`'s whole test: a bare flag token as the
-    /// remainder's first word, real for every LVM shape it exists for, and
-    /// refused for a bare invocation with nothing after the name.
+    /// A bare flag token as the first word, refused for a bare invocation
+    /// with nothing after the name.
     #[test]
     fn looks_like_stanza_head_flag_requires_a_leading_flag_token() {
         assert!(looks_like_stanza_head_flag("-a|--activate y|n|ay"));
@@ -2571,11 +1869,7 @@ mod tests {
         assert!(!looks_like_stanza_head_flag("is a general-purpose tool"));
     }
 
-    /// A *second* flag anywhere in the remainder refuses the whole line,
-    /// bracketed or bare — `blkid`'s `-p [--match-tag <tag>] ...` and
-    /// `jar`'s `--update --file foo.jar --main-class ...` are both real
-    /// tools this predicate must not fire on (see its own doc comment for
-    /// why each one fabricated a wrong flag before this guard existed).
+    /// blkid and jar's real second-flag rows must both refuse. S-089.
     #[test]
     fn looks_like_stanza_head_flag_refuses_a_second_flag_anywhere_in_rest() {
         assert!(!looks_like_stanza_head_flag(
@@ -2590,11 +1884,8 @@ mod tests {
         ));
     }
 
-    /// jmod's own header-underline row (`corpus/jmod/17.0.20/help.txt`,
-    /// under its two-column `Option`/`Description` heading): a run of
-    /// dashes with no name character in it must never look like a flag
-    /// row, or it fabricates a flag named `----` (the leading `--` read as
-    /// the long-flag marker, the rest as its name).
+    /// jmod's real header-underline row. See docs/shapes.md S-090 and
+    /// corpus/jmod/17.0.20/help.txt.
     #[test]
     fn a_dash_underline_row_never_looks_like_a_flag_start() {
         assert!(!looks_like_flag_start(
@@ -2604,10 +1895,7 @@ mod tests {
         assert!(!looks_like_flag_start("----------"));
     }
 
-    /// `--` alone is a real, meaningful token in many tools (GNU getopt's
-    /// end-of-options marker) and must stay eligible to open a flag entry
-    /// — the dash-underline guard's threshold is 3, not 2, specifically so
-    /// this stays true.
+    /// A bare `--` must stay eligible; the threshold is 3, not 2. S-090.
     #[test]
     fn a_bare_double_dash_still_looks_like_a_flag_start() {
         assert!(looks_like_flag_start("--"));
