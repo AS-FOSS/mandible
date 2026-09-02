@@ -916,8 +916,10 @@ reason to defer them.
 
 ## 6. Execution safety policy
 
-mandible runs other people's binaries. This is the part of the design that
-can damage a user's machine, and it gets its own section and its own tests.
+**Decides.** What argv shapes, environment and process handling every tier
+is permitted when it runs another program.
+
+**Rules.**
 
 All ten rules below are enforced at the `exec::run_inert` chokepoint, the
 single place every tier spawns a process through, so no tier can bypass one
@@ -925,31 +927,11 @@ by another route. A test runs the full pipeline against a shim binary that
 logs its own argv and environment, and fails on any invocation outside the
 allowlist below.
 
-**Rules, binding on every tier:**
-
 0. **Programs that signal processes or change machine state are invoked
    only as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`,
    `skill`, `xkill`, `fuser`, `halt`, `poweroff`, `reboot`, `shutdown`,
    `telinit`, `init` may run with exactly that one argv. Every other shape
    is refused before anything is spawned.
-
-   This began as a total ban after `mandible pkill` froze a machine badly
-   enough to need a reset. The mechanism was rule 2a's empty argument, not
-   argument permutation as first assumed — measured directly: `pkill
-   --help`, `pkill victim --help`, `killall victim --help` all killed
-   nothing on this box. What the ban was actually protecting against, never
-   written down until it was measured: `-h` is not a help flag on these
-   tools. `halt -h`, `poweroff -h`, `reboot -h`, `shutdown -h` each attempt
-   the real operation, and mandible falls back to `-h` whenever `--help`
-   fails. [M-17] and [M-18] have the full measurement. `--help` itself is
-   safe and yields real flag lists for all thirteen, so the rule keeps what
-   is measured harmless and refuses what is measured dangerous.
-
-   This is a safety rule about what may be *executed*, closed and short,
-   and is deliberately not the per-tool knowledge §1 forbids: §1 governs
-   extraction, where a per-tool list would grow without bound. Every entry
-   here shares one fact about the program itself — it signals processes or
-   changes machine state — independent of its output format.
 
    A second, narrower gate closes the general form of the same hazard for
    every tool, not just these thirteen: Tier B's `<word> --help`/`-h`
@@ -978,18 +960,11 @@ allowlist below.
    and `-- <partial>` are subcommand invocations only in the framework that
    defines them; fired at an arbitrary binary they are ordinary positionals,
    and rule 1's prohibition applies in substance even though the argv is
-   non-empty. `wall __complete` broadcast that word to every logged-in
-   terminal on a reporter's machine, because `wall` treats an unrecognized
-   first positional as the message to send; `completion zsh`/`bash` sent
-   speculatively left hundreds of daemons running (rule 4). Neither was a
-   bad shape; both were a right shape sent to the wrong program. So a
-   protocol word requires prior evidence that the tool speaks the protocol,
-   read from the tool itself, never from its name: Tier E gates
-   `__complete` on the `spf13/cobra` marker in the compiled binary, Tier C
-   gates `completion <shell>` on that same marker or the tool's own
-   `--help` naming the command (§7). A per-tool list of who may be probed
-   would be §1's forbidden knowledge wearing a safety label; this evidence
-   requirement replaces the need for one.
+   non-empty. A protocol word requires prior evidence that the tool speaks
+   the protocol, read from the tool itself, never from its name: Tier E
+   gates `__complete` on the `spf13/cobra` marker in the compiled binary,
+   Tier C gates `completion <shell>` on that same marker or the tool's own
+   `--help` naming the command (§7).
 
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`,
@@ -1142,6 +1117,38 @@ still applies to that binary on its own terms — rule 0 matches the file
 name it was discovered under, rule 8's redirect and rule 4's reap are the
 same probe machinery. Discovery itself spawns nothing; it is a directory
 read.
+
+**Why.** mandible runs other people's binaries. This is the part of the
+design that can damage a user's machine, and it gets its own section and
+its own tests.
+
+Rule 0 began as a total ban after `mandible pkill` froze a machine badly
+enough to need a reset. The mechanism was rule 2a's empty argument, not
+argument permutation as first assumed — measured directly: `pkill --help`,
+`pkill victim --help`, `killall victim --help` all killed nothing on this
+box. What the ban was actually protecting against, never written down
+until it was measured: `-h` is not a help flag on these tools. `halt -h`,
+`poweroff -h`, `reboot -h`, `shutdown -h` each attempt the real operation,
+and mandible falls back to `-h` whenever `--help` fails [M-17, M-18].
+`--help` itself is safe and yields real flag lists for all thirteen, so
+the rule keeps what is measured harmless and refuses what is measured
+dangerous.
+
+Rule 0 is a safety rule about what may be executed, closed and short, and
+is deliberately not the per-tool knowledge §1 forbids: §1 governs
+extraction, where a per-tool list would grow without bound. Every entry in
+rule 0 shares one fact about the program itself, that it signals processes
+or changes machine state, independent of its output format.
+
+Rule 1a exists because `wall __complete` broadcast that word to every
+logged-in terminal on a reporter's machine, since `wall` treats an
+unrecognized first positional as the message to send, and `completion
+zsh`/`bash` sent speculatively left hundreds of daemons running (rule 4).
+Neither was a bad shape; both were a right shape sent to the wrong
+program. A per-tool list of who may be probed would be §1's forbidden
+knowledge wearing a safety label, so rule 1a requires evidence instead.
+
+**Implemented in.** `mandible-extract/src/exec/`.
 
 ---
 ---
