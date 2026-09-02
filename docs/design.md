@@ -289,12 +289,17 @@ than a flag left unfinished.
 
 ## 3. The core challenge: universal CLI introspection
 
-**There is no universal, machine-readable standard through which CLI tools expose
-their own structure.** Unlike OpenAPI for HTTP APIs, nothing equivalent ships with
-most binaries. This is a fact about the ecosystem, not a gap to architect around;
-any design that pretends otherwise degrades into per-tool patches.
+**Decides.** Why no single source can supply a tool's structure, and what
+follows from that.
 
-What exists is a fragmented set of partial mechanisms. Their **measured** coverage:
+**Rules.**
+
+There is no universal, machine-readable standard through which CLI tools
+expose their own structure. Unlike OpenAPI for HTTP APIs, nothing
+equivalent ships with most binaries.
+
+What exists is a fragmented set of partial mechanisms. Their measured
+coverage:
 
 | Mechanism | Reality on a real machine |
 |---|---|
@@ -305,14 +310,20 @@ What exists is a fragmented set of partial mechanisms. Their **measured** covera
 | **man pages** (`mdoc(7)` semantic, `man(7)` prose) | Prose-rich, structure-poor, and **absent on many systems**: this test container has 31 `man1` pages and none for `git` or `curl` [M-5]. `libmandoc` is not a shipped library on Linux [M-6]. |
 | **`--help`** | Universal, and the only thing every tool has everywhere. Also the messiest: output may go to **stderr** and the exit code may be **non-zero** [M-8]. |
 
-The honest design goal is therefore **a tiered pipeline that merges the best
-available source per field, and degrades visibly rather than silently.**
+The design goal is a tiered pipeline that merges the best available source
+per field, and degrades visibly rather than silently.
 
-The key architectural consequence, and the thing that makes "no monkeypatching"
-real: *the universal parser is not any one technique — it is the fact that every
-technique normalizes into one schema.* The TUI, the search index, and the cache
-never know which tier produced a field. That is what lets a Tier 6 be added next
-year without touching the UI.
+Every tier normalizes into one schema. The TUI, the search index, and the
+cache never know which tier produced a field.
+
+**Why.** The absence of a standard is a fact about the ecosystem, not a gap
+to architect around. Any design that pretends otherwise degrades into
+per-tool patches. Normalizing every tier into one schema is what makes "no
+monkeypatching" real, and it is what lets a later tier be added without
+touching the UI.
+
+**Implemented in.** `mandible-core/src/node.rs`,
+`mandible-core/src/entity.rs`, `mandible-core/src/merge.rs`.
 
 ---
 
