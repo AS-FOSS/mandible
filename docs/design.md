@@ -1518,26 +1518,24 @@ module may spawn a process.
 mandible/                          (workspace root)
 ├── mandible-core/                 # IR, Text sanitization, Provenance, Authority, merge, NodeRef
 ├── mandible-extract/              # the tiered pipeline + runner
-│   ├── known_specs/             # Tier A: carapace snapshot + index
+│   ├── framework/               # Tier A′: which framework generated the text
 │   ├── help_text/               # Tier B: winnow grammar
 │   ├── completion_script/       # Tier C: brush-parser AST walking
 │   ├── manpage/                 # Tier D: pure-Rust roff subset [feature = "manpage"]
 │   ├── native/                  # Tier E: cobra `__complete` probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
-├── mandible-cache/                # on-disk cache, keying, invalidation
 ├── mandible-search/               # nucleo index over commands AND flags
 ├── mandible-tui/                  # ratatui UI: tree, detail, search, overlay
 ├── mandible/                      # the `mandible` binary
-└── xtask/                       # coverage harness, spec vendoring, packaging
+└── xtask/                       # the measuring instruments (docs/instruments.md)
 ```
 
 2. `mandible-extract/src/exec/` is the only module permitted to use
    `std::process`. A `#![deny]`-style test greps the workspace for
    `Command::new` outside that module and fails the build otherwise.
 3. Per-tier modules sit behind feature flags. Default features:
-   `known-specs`, `help-text`, `completion-script`, `native`. Optional:
-   `manpage` (C toolchain), `withfig`.
+   `help-text`, `completion-script`, `native`. Optional: `manpage`.
 
 **Why.** Centralizing `std::process` in one module is what makes §6
 auditable rather than aspirational. Gating Tier D behind a feature means it
