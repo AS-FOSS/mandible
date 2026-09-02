@@ -1157,316 +1157,351 @@ knowledge wearing a safety label, so rule 1a requires evidence instead.
 
 Tiers are listed in the order they are attempted, which is a cost ordering,
 cheapest first. Conflict resolution is by `Authority` (§4.4), never by
-attempt order; conflating the two was revision 1's central error.
+attempt order. Conflating the two was revision 1's central error.
 
 ### Tier A — REMOVED (was: vendored spec catalog)
 
-Revision 2 ranked a vendored 739-tool carapace-spec snapshot first. Revision 3
-deletes it, along with the vendoring script, the 11 MB payload, and the
-third-party data attribution it carried.
+**Decides.** Why this tier no longer exists, and that its number stays
+retired rather than reused.
 
-A per-tool catalog is per-tool knowledge, the thing §1 forbids, merely
-relocated from code into data belonging to someone else. It also could not
-stay current: a snapshot is a point-in-time copy, and the tool on a user's
-machine is not. [M-12] has the coverage numbers it bought against what it
-cost. The replacement is parsing by the framework that generated the help
-text, below, never a return to a per-tool catalog.
+**Rules.**
+
+1. No per-tool catalog returns, here or anywhere else in the pipeline.
+   Parsing is by framework (Tier A′, Tier B), never by tool.
+
+**Why.** Revision 2 ranked a vendored 739-tool carapace-spec snapshot first.
+Revision 3 deleted it, along with the vendoring script, the 11 MB payload,
+and the third-party data attribution it carried. A per-tool catalog is
+per-tool knowledge, the thing §1 forbids, merely relocated from code into
+data belonging to someone else. It also could not stay current: a snapshot
+is a point-in-time copy, and the tool on a user's machine is not. [M-12] has
+the coverage numbers it bought against what it cost.
 
 ### Tier A′ — framework identification
 
-Help text is not written by hand, it is generated, and only a small closed
-set of generators exists. Per-tool knowledge is unbounded and forbidden;
-per-framework knowledge is bounded at 18 entries (`mandible-extract/src/
-help_text/profile.rs`) and is the correct unit of parsing. A grammar fix for
-argparse improves every Python CLI ever written; a catalog entry improved
-exactly one tool until it went stale.
+**Decides.** How mandible identifies which framework generated a tool's
+help text, before any parsing happens.
 
-Identification proceeds in this order, most reliable first:
+**Rules.**
 
-1. **From the artifact.** For a compiled binary, scan embedded strings — a Go
-   binary linking `spf13/cobra` says so directly in its own bytes,
-   independent of which headings that cobra version's `--help` happens to
-   render this week [M-13]. For a script, read the shebang plus the import
-   line. This is ground truth, not inference.
-2. **From the help-text signature.** Distinctive marker strings: argparse's
-   `show this help message and exit`, click's `Show this message and exit.`,
-   cobra's `Available Commands:`, GNU argp's `Mandatory arguments to long
-   options`. Weaker, and must never be the only method: it missed `docker`
-   entirely, because docker prints `Common Commands:` rather than cobra's
-   own default [M-13]. That gap is why step 1 leads.
-3. **Unidentified** — fall through to the generic layout parser, Tier B.
+1. Per-framework knowledge is bounded at 18 entries in
+   `mandible-extract/src/help_text/profile.rs`. No per-tool entry is ever
+   added.
+2. Identification proceeds in this order, most reliable first:
+   1. From the artifact. For a compiled binary, scan embedded strings. For
+      a script, read the shebang plus the import line. This is ground
+      truth, not inference.
+   2. From the help-text signature: distinctive marker strings such as
+      argparse's `show this help message and exit`, click's `Show this
+      message and exit.`, cobra's `Available Commands:`, and GNU argp's
+      `Mandatory arguments to long options`. Weaker, and must never be the
+      only method.
+   3. Unidentified: fall through to the generic layout parser, Tier B.
+3. Widening a fingerprint is worth doing only alongside a grammar that
+   earns it, never to move the detection number on its own.
+4. Detection rate is not a target; coverage is. `--doctor` reports the
+   detected framework.
 
-The implementation deliberately trades recall for precision: narrow,
-high-confidence markers identify a minority of a real machine's tools rather
-than the majority a looser fingerprint could reach [M-12]. A wrong framework
-silently applies the wrong grammar with no way to signal it did; an
-unidentified tool falls back to the general engine and is honestly marked
-low-confidence. Widening a fingerprint is worth doing only alongside a
-grammar that earns it, never to move the detection number on its own — a
-metric improved by the thing it exists to detect is the same failure §13.1
-warns about, one tier up.
-
-Detection rate is therefore not a target; coverage is. `--doctor` reports
-the detected framework, which turns "mandible is wrong about tool X" into
-"the argparse grammar mishandles Y" — a general, fixable bug report instead
+**Why.** Help text is generated by a small closed set of generators, so a
+grammar fix for argparse improves every Python CLI ever written, while a
+catalog entry improved exactly one tool until it went stale. Step 1 is
+ground truth: a Go binary linking `spf13/cobra` says so directly in its own
+bytes, independent of which headings that cobra version's `--help` happens
+to render [M-13]. Step 2 is weaker: it missed `docker` entirely, because
+docker prints `Common Commands:` rather than cobra's own default [M-13].
+That gap is why step 1 leads. Narrow, high-confidence markers identify a
+minority of a real machine's tools rather than the majority a looser
+fingerprint could reach [M-12]. A wrong framework silently applies the
+wrong grammar with no way to signal it did; an unidentified tool falls back
+to the general engine and is honestly marked low-confidence. A metric
+improved by the thing it exists to detect is the same failure §13.1 warns
+about, one tier up. `--doctor` turns "mandible is wrong about tool X" into
+"the argparse grammar mishandles Y", a general, fixable bug report instead
 of a per-tool complaint.
+
+**Implemented in.** `mandible-extract/src/help_text/profile.rs`
 
 ### Tier B — `--help` parsing, per framework
 
-The primary tier. `--help` is the only source every tool has, everywhere,
-and it is always current because it comes from the installed binary.
+**Decides.** How `--help` output, the one source every tool has, is parsed
+into structured entities.
 
-**One shared engine, not eighteen grammars.** A single `winnow`-based layout
-parser (`mandible-extract/src/help_text/sections/`) reads section headings,
-column-aligned tables, usage synopses, and continuation folding by shape
-alone. A `FrameworkProfile` (`help_text/profile.rs`) is consulted by that one
-engine and is deliberately narrow: which extra heading vocabulary a
-framework's own templates use for a command block, whether the framework has
-a subcommand concept at all, and which heading introduces a positional-
-argument block. A profile carries no grammar of its own — no value-spec
-syntax, no continuation-folding rule — because the shared low-level grammar
-already handles `--opt=VALUE` / `--opt VALUE` / `--opt <value>` /
-`--opt[=VALUE]` and indent-relative continuation folding uniformly across
-every framework tested. Two profile fields are gates rather than vocabulary,
-`argparse_subparser_quirk` and `comma_separated_command_list`. Each admits one
-framework to a dedicated scan for a shape the shared engine cannot express at
-all, argparse's `{choice,choice}` pseudo-entry and busybox's comma-separated
-applet run. A gate is still not a grammar, and it never loosens a rule the
-other frameworks rely on. Adding a framework is one `match` arm in `profile()`
-plus one fingerprint in Tier A′, nothing more. If a framework is ever found
-whose shape the shared engine genuinely cannot express, the fix is to widen
-the engine, which improves every framework at once, never to add a
-per-framework knob only one arm sets.
+**Rules.**
 
-**Degradation is staged, and never fabricates:**
+1. One shared engine parses every framework. A single `winnow`-based layout
+   parser (`mandible-extract/src/help_text/sections/`) reads section
+   headings, column-aligned tables, usage synopses, and continuation
+   folding by shape alone.
+2. A `FrameworkProfile` (`mandible-extract/src/help_text/profile.rs`)
+   supplies only vocabulary: extra heading words a framework's own
+   templates use for a command block, whether the framework has a
+   subcommand concept, and which heading introduces a positional-argument
+   block. It carries no grammar of its own; the shared engine already
+   handles `--opt=VALUE` / `--opt VALUE` / `--opt <value>` / `--opt[=VALUE]`
+   and indent-relative continuation folding uniformly across every
+   framework tested.
+3. Two profile fields are gates rather than vocabulary,
+   `argparse_subparser_quirk` and `comma_separated_command_list`. Each
+   admits one framework to a dedicated scan for a shape the shared engine
+   cannot express at all: argparse's `{choice,choice}` pseudo-entry and
+   busybox's comma-separated applet run. A gate is still not a grammar, and
+   it never loosens a rule the other frameworks rely on.
+4. Adding a framework is one `match` arm in `profile()` plus one
+   fingerprint in Tier A′, nothing more. If a framework's shape genuinely
+   cannot be expressed by the shared engine, the fix widens the engine,
+   which improves every framework at once, never adds a per-framework knob
+   only one arm sets.
+5. Degradation is staged, and never fabricates:
+   1. Framework identified: the shared engine with that framework's
+      profile, high confidence.
+   2. Unidentified: the same engine with the generic heading vocabulary
+      only, marked low-confidence.
+   3. The parse yields nothing structurally plausible: render the raw help
+      text verbatim, labelled `unparsed`, framework shown as unknown.
+6. A command block requires a recognized heading. Layout alone is never
+   sufficient evidence that a block of text names subcommands.
+   `Commands:`/`Subcommands:`/`Available Commands:`/`SUBCOMMANDS`, a
+   git-style group heading, and headings mentioning "operation(s)" all
+   qualify; a bare word list under no heading does not.
+7. A candidate name must match `^[a-z][a-z0-9_.-]*$` with no whitespace,
+   and every emitted name must occur literally in the tool's own raw text
+   (the existence oracle, §13.1).
+8. Two evidence classes short of a heading are tracked separately.
+   `invocation_attested` marks a row that repeats the tool's own name, or a
+   table whose row shape is unambiguous even without a heading.
+   `heading_attested` marks an explicit heading. The distinction governs
+   which nodes are eligible for further probing (§6 rule 0).
+9. A block yielding names that fail the shape test, or a node with no
+   flags, no children, and no summary, drops confidence and marks the tool
+   `suspicious` in the coverage scoreboard (§13.1) rather than inflating
+   it.
+10. An indented list nested under a flag is that flag's `choices`, never
+    subcommands. A per-value description, when the source documents one,
+    stays on the value it describes rather than being dropped.
+11. Each stream, stdout and stderr, is judged independently by a help-shape
+    check, never by "stdout if non-empty":
 
-1. Framework identified → the shared engine with that framework's profile,
-   high confidence.
-2. Unidentified → the same engine with the generic heading vocabulary only,
-   marked low-confidence.
-3. The parse yields nothing structurally plausible → render the raw help
-   text verbatim, labelled `unparsed`, framework shown as unknown.
+    | stdout empty? | stderr empty? | picks |
+    |---|---|---|
+    | yes | yes | stdout (nothing to pick) |
+    | yes | no | stderr, the only stream available |
+    | no | yes | stdout, the only stream available |
+    | no | no, stdout help-shaped | stdout, regardless of stderr |
+    | no | no, stdout not help-shaped, stderr help-shaped | stderr |
+    | no | no, neither help-shaped | stdout, the default |
 
-Step 3 is a feature, not a failure: a tool that conforms to no convention is
-displaying its help the way its author intended, and showing that text
-untouched is honest. It is also strictly better than the alternative already
-shipped and fixed once: inventing 39 phantom subcommands for `tar` out of
-wrapped description lines [M-10]. Never fabricate structure; degrade to
-verbatim.
+12. Ties break toward stdout. The two streams are never concatenated for
+    the parser. The raw pane (key `t`) always shows both streams, labelled,
+    independent of which one the parser chose (§4.1).
+13. Section headings are preserved as `Flag::group`. A heading is
+    recognized by relative indentation, since real headings sit at no
+    fixed column. A usage stanza can be labelled by its own preceding
+    description sentence rather than by its own head line (S-012).
+14. A confidence score is attached, derived from how much of the output
+    the grammar actually consumed, and surfaced in the UI.
+15. Recursion is lazy, per node, under §5.2: `<tool> <sub> --help` runs
+    only when that node is expanded.
+16. Modifiers (a letter glued to an operation letter, `ar rv`), the argfile
+    sigil (`@<file>`), and environment variables documented under an
+    explicit heading are recognized by shape and become their own
+    `EntityKind` (§4.5), rendered in their own panel section (§9.3). None
+    is inferred from prose that merely mentions the word: an ALL_CAPS word
+    in a usage placeholder is not an environment variable, and a heading
+    that only mentions "operation" without one-word invocation verbs
+    beneath it is not a modifier table.
+17. Every recognizer above is admitted only after being checked against the
+    full frozen `PATH` capture set, never assumed from one tool alone
+    (§13.1e).
 
-**A command block requires a recognized heading.** Layout alone is never
-sufficient evidence that a block of text names subcommands.
-`Commands:`/`Subcommands:`/`Available Commands:`/`SUBCOMMANDS`, a git-style
-group heading, and headings mentioning "operation(s)" all qualify; a bare
-word list under no heading does not. A candidate name must match
-`^[a-z][a-z0-9_.-]*$` with no whitespace, and every emitted name is checked
-to occur literally in the tool's own raw text (the existence oracle, §13.1).
-Two evidence classes short of a heading are structurally distinguished and
-tracked separately, `invocation_attested` versus `heading_attested`: a row
-that repeats the tool's own name, or a table whose row shape is unambiguous
-even without a heading, is real but weaker evidence than an explicit
-heading, and the difference governs which nodes are eligible for further
-probing (§6 rule 0). A block yielding names that fail the shape test, or a
-node with no flags, no children, and no summary, drops confidence and marks
-the tool `suspicious` in the coverage scoreboard (§13.1) rather than
-inflating it. See `docs/shapes.md` S-013 (never invent subcommands from
-wrapped description lines), S-016 (headingless invocation table naming the
-tool), S-017 (headed command table with a non-standard separator), S-018
-(heading sharing a line with its first row), S-019 (pseudo-heading rewind
-inside a sticky chain), S-022 (an "operations" heading), S-092 (a settings
-table misread as subcommands), and S-094 (a non-command "help topics"
-heading that breaks a sticky chain).
+Shapes cited in this tier: S-011 (hanging-indent prose misread as a
+heading), S-012 (usage stanza labelled by its own description sentence),
+S-013 (never invent subcommands from wrapped description lines), S-014
+(bare-word choices block), S-015 (described choice values in a scope-flag
+sub-table), S-016 (headingless invocation table naming the tool), S-017
+(headed command table with a non-standard separator), S-018 (heading
+sharing a line with its first row), S-019 (pseudo-heading rewind inside a
+sticky chain), S-020 (modifier table), S-021 (argfile row), S-022 (an
+"operations" heading), S-023 (environment section), S-029 and S-091 (banner
+text fabricating a flag when streams are merged), S-092 (a settings table
+misread as subcommands), S-094 (a non-command "help topics" heading that
+breaks a sticky chain).
 
-**An indented list nested under a flag is that flag's `choices`, never
-subcommands.** A per-value description, when the source documents one, is
-kept on the value it describes rather than dropped. See S-014 (bare-word
-choices block), S-015 (described choice values in a scope-flag sub-table).
-
-**Read stdout and stderr, and do not require exit 0.** `openssl --help`
-writes 0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255 with
-output only on stderr [M-8]. Each stream is judged independently by a
-help-shape check, never by "stdout if non-empty":
-
-| stdout empty? | stderr empty? | picks |
-|---|---|---|
-| yes | yes | stdout (nothing to pick) |
-| yes | no | stderr, the only stream available |
-| no | yes | stdout, the only stream available |
-| no | no, stdout help-shaped | stdout, regardless of stderr |
-| no | no, stdout not help-shaped, stderr help-shaped | stderr |
-| no | no, neither help-shaped | stdout, the default |
-
-Ties break toward stdout. The two streams are never concatenated for the
-parser: merging a diagnostic preamble into the document is how banner text
-becomes a fabricated flag (S-091, S-029). This is the parsing path only; the
-raw pane (key `t`) always shows both streams, labelled, independent of which
-one the parser chose, so a reviewer can see what was correctly discarded
-(§4.1).
-
-**Section headings are preserved as `Flag::group`.** A heading is recognized
-by relative indentation, since real headings sit at no fixed column. Running
-prose whose hard wrap places an indented line beneath an ordinary sentence
-is the one systematic false positive, handled by three binding rules
-depending on whether the sentence ends on the promoted line, is marked with
-a continuation backslash, or continues onto the indented line: see S-011
-(hanging-indent prose misread as a heading). A usage stanza can also be
-labelled by its own preceding description sentence rather than by its own
-head line: see S-012.
-
-**A confidence score is attached**, derived from how much of the output the
-grammar actually consumed, and surfaced in the UI. Being honest about a best
-guess is better UX than presenting heuristic output with man-page
-confidence.
-
-**Recursion.** Revision 1 parsed only the root; subcommand flags need a
-probe per node. Recursion is lazy, per-node, under §5.2: `<tool> <sub>
---help` runs only when that node is expanded.
-
-**Entities beyond flags and subcommands** — modifiers (a letter glued to an
-operation letter, `ar rv`), the argfile sigil (`@<file>`), and environment
-variables documented under an explicit heading — are recognized by shape and
-become their own `EntityKind` (§4.5), rendered in their own panel section
-(§9.3). None is inferred from prose that merely mentions the word: an
-ALL_CAPS word in a usage placeholder is not an environment variable, and a
-heading that only mentions "operation" without one-word invocation verbs
-beneath it is not a modifier table. See S-020 (modifier table), S-021
-(argfile row), S-023 (environment section).
-
-Every recognizer above is admitted only after being checked against the
-full frozen `PATH` capture set, never assumed from one tool alone; a recorded
-miss is preferred to a recognizer that invents a section (§13.1e). The
-atlas (`docs/shapes.md`) is the record of what was found and what fired on
-it; this section states the rule each recognizer enforces, not its
+**Why.** `--help` is the only source every tool has, everywhere, and it is
+always current because it comes from the installed binary. A grammar fix in
+the shared engine improves every framework at once. Rendering unparsed text
+verbatim (rule 5.3) is honest, not a failure: a tool that conforms to no
+convention is displaying its help the way its author intended. The
+alternative was shipped once and fixed: it invented 39 phantom subcommands
+for `tar` out of wrapped description lines [M-10]. `openssl --help` writes
+0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255 with output
+only on stderr, so exit code and non-emptiness cannot decide which stream
+to parse [M-8]. Merging a diagnostic preamble into the document is how
+banner text becomes a fabricated flag (S-091, S-029), so the two streams
+are judged separately and never concatenated. Revision 1 parsed only the
+root; subcommand flags need a probe per node, which is why recursion
+exists. The atlas (`docs/shapes.md`) records what was found and what fired
+on it. This section states the rule each recognizer enforces, not its
 history.
+
+**Implemented in.** `mandible-extract/src/help_text/sections/`,
+`mandible-extract/src/help_text/profile.rs`
 
 ### Tier D — man page enrichment
 
-Two sub-cases of very different quality. `mdoc(7)` pages use semantic macros
-(`.Fl` for a flag, `.Ar` for an argument), so the AST genuinely distinguishes
-a flag from prose. `man(7)` pages are typeset prose with weak semantic
-tagging: section boundaries extract reliably, but individual flag/
-description pairs need the same heuristics as Tier B.
+**Decides.** Whether and how man pages fill gaps `--help` parsing leaves.
 
-Never regex the rendered output of `man <tool>`, and never parse `mandoc -T
-tree` — the OpenBSD manual documents that format as unstable and says not to
-write parsers against it; there is no `-T json`.
+**Rules.**
 
-**Implementation is a pure-Rust subset parser, never `libmandoc` FFI.**
+1. Two sub-cases apply. `mdoc(7)` pages use semantic macros (`.Fl` for a
+   flag, `.Ar` for an argument), so the AST genuinely distinguishes a flag
+   from prose. `man(7)` pages are typeset prose with weak semantic tagging:
+   section boundaries extract reliably, but individual flag/description
+   pairs need the same heuristics as Tier B.
+2. Never regex the rendered output of `man <tool>`, and never parse
+   `mandoc -T tree`.
+3. Implementation is a pure-Rust subset parser, never `libmandoc` FFI. The
+   parser targets man(7) `.TP`/`.IP` + `.B`, with `.It Fl` for mdoc.
+4. It gates on the tag line beginning with a flag, never on an `OPTIONS`
+   section heading, since several real tools document options under
+   `DESCRIPTION` instead [M-14].
+5. Multi-page discovery, for the tools this tier does help, walks
+   `<tool>-<sub>.N` siblings via `MANPATH` and `man -k`.
+6. Trigger: zero-confidence fallback only, off by default. This tier fires
+   only where the help-text tiers produced nothing usable. It never
+   enriches a parse that already succeeded, and shipping it at all is
+   opt-in. §16 records the ruling and why.
+7. Where it does fire, per-field provenance labels the prose `man`, so a
+   reader can see a description came from a page rather than from the
+   binary.
+
+**Why.** The OpenBSD manual documents `mandoc -T tree`'s format as unstable
+and says not to write parsers against it, and there is no `-T json`.
 `libmandoc` is not a shipped library on Linux [M-6], so using it would mean
 vendoring and building mandoc's C source, and `#![forbid(unsafe_code)]`
-rules out the FFI regardless. The parser targets man(7) `.TP`/`.IP` + `.B`,
-with `.It Fl` for mdoc — most relevant pages are man, not mdoc [M-14]. It
-gates on the tag line beginning with a flag, never on an `OPTIONS` section
-heading, since several real tools document options under `DESCRIPTION`
-instead [M-14].
-
-**Man pages are generated too, the same insight as Tier A′ one tier down.**
+rules out the FFI regardless. Most relevant pages are man, not mdoc [M-14].
+Man pages are generated too, the same insight as Tier A′ one tier down:
 help2man, asciidoc/docbook-to-man, mdoc, and hand-written roff partition
 this space the way clap/cobra/argparse partition help text. The first step
-is a generator survey with a go/no-go per generator, not a parser: git's own
-184 `git-*.1` pages are asciidoc-generated and contain zero `.TP` macros, so
-a `.TP`-targeting parser recovers nothing from git regardless of how well it
-is built [M-16]. git's flags are reachable far more cheaply through `-h`
-(§7 Tier B, [M-16]).
+is a generator survey with a go/no-go per generator, not a parser. git's
+own 184 `git-*.1` pages are asciidoc-generated and contain zero `.TP`
+macros, so a `.TP`-targeting parser recovers nothing from git regardless of
+how well it is built [M-16]. git's flags are reachable far more cheaply
+through `-h` (§7 Tier B, [M-16]).
 
-Multi-page discovery, for the tools this tier does help, walks
-`<tool>-<sub>.N` siblings via `MANPATH` and `man -k`.
-
-**Trigger: zero-confidence fallback only, off by default.** This tier fires
-only where the help-text tiers produced nothing usable; it never enriches a
-parse that already succeeded, and shipping it at all is opt-in. §16 records
-the ruling and why. Where it does fire, per-field provenance labels the
-prose `man`, so a reader can see a description came from a page rather than
-from the binary.
+**Implemented in.** `mandible-extract/src/manpage/mod.rs`
 
 ### Tier C — completion script structural parsing
 
-For a tool that supports `<tool> completion bash|zsh|fish` (clap, cobra,
-click, oclif, and many hand-rolled CLIs): generate the script, then parse it
-with a real shell grammar, never regex. Parsing never executes the script,
-which is the safety property that matters when processing untrusted output.
+**Decides.** Whether shell completion scripts can be parsed for structure,
+and when that is safe to attempt.
 
-**Crate: `brush-parser`.** Revision 1 selected `conch-parser`, unmaintained
-and rejected by a future Rust version at build time [M-9]. `yash-syntax` is
-avoided as GPLv3, which would oblige the whole binary under GPL if statically
-linked.
+**Rules.**
 
-**zsh before bash.** zsh's `_arguments` blocks carry a spelling and a
-description in one structure; bash completion functions carry only
-spellings and typically compute candidates at runtime. Static parsing
-recovers far less from bash. Walk `complete -F`/`compgen -W` registrations
-and `case "$prev" in` branches as typed AST nodes.
+1. For a tool that supports `<tool> completion bash|zsh|fish` (clap, cobra,
+   click, oclif, and many hand-rolled CLIs): generate the script, then
+   parse it with a real shell grammar, never regex.
+2. Parsing never executes the script.
+3. Crate: `brush-parser`.
+4. zsh is parsed before bash. zsh's `_arguments` blocks carry a spelling
+   and a description in one structure. Walk `complete -F`/`compgen -W`
+   registrations and `case "$prev" in` branches as typed AST nodes.
+5. Gated on prior evidence that the subcommand exists, never sent
+   speculatively. `CompletionScriptTier` constructs the `completion
+   <shell>` argv only when Tier A′'s artifact scan already found the
+   `spf13/cobra` marker, or when the tool's own root `--help` names
+   `completion`/`completions` as the first token of a command-table row.
 
-**Gated on prior evidence that the subcommand exists, never sent
-speculatively.** `completion <shell>` is a framework protocol's own words,
-and sending them to a program that does not speak the protocol is a bare
-invocation under §6 rule 1a. `CompletionScriptTier` constructs that argv
-only when Tier A′'s artifact scan already found the `spf13/cobra` marker (a
-cobra binary registers `completion` itself, whether or not the author
-mentions it, and it may be hidden), or when the tool's own root `--help`
-names `completion`/`completions` as the first token of a line — the shape
-of a command-table row, which adds no new probe since `--help` is already
-sent to every tool. [M-23] has the cost this gate removed and the honest
-limit that remains: a tool with a real, hidden `completion` subcommand that
-is not cobra loses this tier.
+**Why.** `completion <shell>` is a framework protocol's own words, and
+sending it to a program that does not speak the protocol is a bare
+invocation under §6 rule 1a. Revision 1 selected `conch-parser`; it is
+unmaintained and a future Rust version rejects it at build time [M-9].
+`yash-syntax` is avoided as GPLv3, which would oblige the whole binary
+under GPL if statically linked. Bash completion functions carry only
+spellings and typically compute candidates at runtime, so static parsing
+recovers far less from bash than from zsh. A cobra binary registers
+`completion` itself, whether or not the author mentions it, and it may be
+hidden, so the artifact scan is one valid gate on its own. Naming
+`completion`/`completions` in `--help` adds no new probe, since `--help` is
+already sent to every tool. [M-23] has the cost this gate removed and the
+honest limit that remains: a tool with a real, hidden `completion`
+subcommand that is not cobra loses this tier.
+
+**Implemented in.** `mandible-extract/src/completion_script/mod.rs`
 
 ### Tier E — native, self-describing binaries
 
-Highest structural authority, lowest cost-efficiency. Attempted last because
-it is the only tier that spawns a process per node, but it wins structural
-conflicts (§4.4) because it reflects the version actually installed.
+**Decides.** How mandible reads structure directly from a cobra binary's
+own completion machinery, and why no other framework gets this tier.
 
-**Gated on prior evidence, never speculative.** This tier only constructs a
-`__complete` argv for a tool whose own compiled bytes already identify it as
-cobra, via Tier A′. Probing every tool on `PATH` to find out who would
-answer was the previous design: probing `wall` that way broadcast the
-literal text `__complete` to every logged-in terminal on the reporter's
-machine, because `wall` treats an unrecognized first positional as the
-message to send — the same shape as `pkill -- ""` under §6 rule 2a, an argv
-that is inert for nearly every tool and an action for one family. [M-23] has
-the fleet-wide measurement showing the gate costs nothing extraction can
-see.
+**Rules.**
 
-- **cobra `__complete`** requires two probes per node: flags need
-  `__complete <path> "-"` [M-2], not only the empty-word probe revision 1
-  documented. The trailing `:N` directive line is parsed and discarded;
-  candidate lines are `value\tdescription`, a `=` suffix marking a
-  value-taking flag. `__complete <path> ""` does not return subcommands
-  only: cobra appends the command's own `ValidArgsFunction` output, which is
-  application code reading live state, so a leaf's response is entirely
-  argument data [M-2]. A candidate list becomes subcommands only when every
-  candidate in it carries a non-empty description, since that is the only
-  distinction cobra's own wire format offers between a subcommand row and a
-  `ValidArgsFunction` row [M-2a]. A depth cap (default 6) and a visited set
-  keyed by the candidate list's hash stop a tool that echoes root
-  completions for unrecognized paths from recursing forever. The `Alias for
-  "..."` convention, and a child whose candidate set equals a sibling's, are
-  detected and recorded in `CommandNode::aliases` instead of being
-  recursed into, which would otherwise duplicate a whole subtree.
-- **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> -- <partial>`) was probed
-  once and removed. It could not be spelled safely: an empty partial sent
-  `--` as the tool's first positional, which `pkill -- ""` demonstrated
-  terminating every process in a PID namespace (§6 rule 2a). Spelled `<tool>
-  --` instead it is harmless but wrong, since `--` is a no-op for most tools
-  and their ordinary output then gets misread as candidates. And it never
-  reliably worked: unlike cobra's self-identifying `:N` trailer, detection
-  was only ever a shape heuristic, and on a full sweep it matched ten tools,
-  none of them clap [M-4]. Re-adding it needs confirmation of the protocol
-  before trusting a response, and a spelling that never passes an empty
-  first positional.
-- **argcomplete** (Python): the `_ARGCOMPLETE` env-var convention. Same
-  shape, lowest priority in this tier.
+1. Gated on prior evidence, never speculative. This tier only constructs a
+   `__complete` argv for a tool whose own compiled bytes already identify
+   it as cobra, via Tier A′.
+2. cobra `__complete` requires two probes per node: flags need
+   `__complete <path> "-"` [M-2], not only the empty-word probe.
+3. The trailing `:N` directive line is parsed and discarded; candidate
+   lines are `value\tdescription`, a `=` suffix marking a value-taking
+   flag.
+4. `__complete <path> ""` does not return subcommands only: cobra appends
+   the command's own `ValidArgsFunction` output, which is application code
+   reading live state, so a leaf's response is entirely argument data
+   [M-2].
+5. A candidate list becomes subcommands only when every candidate in it
+   carries a non-empty description, since that is the only distinction
+   cobra's own wire format offers between a subcommand row and a
+   `ValidArgsFunction` row [M-2a].
+6. A depth cap (default 6) and a visited set keyed by the candidate list's
+   hash stop a tool that echoes root completions for unrecognized paths
+   from recursing forever.
+7. The `Alias for "..."` convention, and a child whose candidate set equals
+   a sibling's, are detected and recorded in `CommandNode::aliases`
+   instead of being recursed into, which would otherwise duplicate a whole
+   subtree.
+8. clap `CompleteEnv` (`COMPLETE=<shell> <tool> -- <partial>`) was probed
+   once and removed. Re-adding it needs confirmation of the protocol
+   before trusting a response, and a spelling that never passes an empty
+   first positional.
+9. argcomplete (Python) uses the `_ARGCOMPLETE` env-var convention. Same
+   shape, lowest priority in this tier.
+
+**Why.** Tier E is attempted last: it is the only tier that spawns a
+process per node, but it wins structural conflicts (§4.4) because it
+reflects the version actually installed. Probing every tool on `PATH` to
+find out who would answer was the previous design. Probing `wall` that way
+broadcast the literal text `__complete` to every logged-in terminal on the
+reporter's machine, because `wall` treats an unrecognized first positional
+as the message to send. That is the same shape as `pkill -- ""` under §6
+rule 2a: an argv that is inert for nearly every tool and an action for one
+family. [M-23] has the fleet-wide measurement showing the gate costs
+nothing extraction can see. clap's `CompleteEnv` could not be spelled
+safely: an empty partial sent `--` as the tool's first positional, which
+`pkill -- ""` demonstrated terminating every process in a PID namespace (§6
+rule 2a). Spelled `<tool> --` instead it is harmless but wrong, since `--`
+is a no-op for most tools and their ordinary output then gets misread as
+candidates. Unlike cobra's self-identifying `:N` trailer, detection was
+only ever a shape heuristic, and on a full sweep it matched ten tools, none
+of them clap [M-4].
+
+**Implemented in.** `mandible-extract/src/native/mod.rs`
 
 ### Tier F — user override
 
-`~/.config/mandible/overrides/<tool>.toml`, merged with `Authority { 255,
-255 }`. This exists so the rare bad case has a clean exit; the pipeline
-never depends on one existing.
+**Decides.** Where a user fixes a tool mandible gets wrong, without that
+fix ever entering this repository.
 
-**Policy, binding:** overrides are user-local and never vendored into this
-repository. This rule is what actually enforces the §1 invariant — without
-it, the first hard tool gets an override committed to git and the per-tool
-patch pile begins.
+**Rules.**
+
+1. `~/.config/mandible/overrides/<tool>.toml`, merged with `Authority {
+   255, 255 }`.
+2. Overrides are user-local and never vendored into this repository.
+
+**Why.** This exists so the rare bad case has a clean exit. The pipeline
+never depends on one existing. This rule is what actually enforces the §1
+invariant: without it, the first hard tool gets an override committed to
+git and the per-tool patch pile begins.
+
+**Implemented in.** `mandible-extract/src/overrides/mod.rs`
 
 ---
 
