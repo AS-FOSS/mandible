@@ -80,7 +80,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-004
 - looks like: |
       [-d] [-hr] [-s] [-V] DEVICE
-- tools: sg_emc_trespass, scsi_ready, lzgrep, xzgrep, renice
+- tools: sg_emc_trespass, scsi_ready, lzgrep, xzgrep, renice, scsi_readcap,
+  scsi_start, scsi_stop, scsi_temperature
 - handling: extract_positionals no longer reads the token right after a self-closed
   bracket group as that flag's own argument. Recovers DEVICE, sg3-utils's
   device+, PATTERN, priority and pid. Scoped to a tool's one primary labelled
@@ -579,7 +580,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-034
 - looks like: |
       -I certificate_identity -s ca_key [-hU] ...
-- tools: ssh-keygen, umount, ssh-agent
+- tools: ssh-keygen, umount, ssh-agent, lessecho, mandoc, psfxtable, rpcgen,
+  sg_map, which, xxd
 - handling: grammar::MIN_CLUSTER_MEMBERS is 3, so a two-character bundle like -hU is
   left alone: -U reads as a fabricated required value on -h. About half of the
   fleet's two-character population are genuine collapses like this one; the
@@ -594,9 +596,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -vv    print more debugging output
       -help  show this help
-- tools: killsnoop.bt, opensnoop.bt, naptime.bt, tcpaccept.bt, threadsnoop.bt,
-  qemu-arm64-static, bpftrace, ntfsfallocate, lessecho, dbiprof, gcc, cpp,
-  ffplay, ffprobe, rpcgen, Ghostscript
+- tools: killsnoop.bt, opensnoop.bt, naptime.bt, tcpaccept.bt,
+  threadsnoop.bt, qemu-arm64-static, bpftrace, ntfsfallocate, lessecho,
+  dbiprof, gcc, cpp, ffplay, ffprobe, rpcgen, Ghostscript, grub-file, icupkg,
+  iscsistart, llvm-jitlink-18
 - handling: repair_single_dash_long_options rewrites a short flag plus a glued run, like
   -h plus "elp", into the real single-dash spelling. A repeated-letter form
   like -vv becomes long=="vv", single_dash==true, no value, rather than
@@ -618,7 +621,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
         -?|-h list help          -a AND selections (OR)     -b avoid kernel blocks
         -c c  cmd c ^c /c/[bix]  +c w  COMMAND width (9)    +d s  dir s files
-- tools: lsof, unzip, infocmp, zipinfo, nano, arptables, patch, awk
+- tools: lsof, unzip, infocmp, zipinfo, nano, arptables, patch, awk,
+  debconf, thin_metadata_size
 - handling: block_is_multi_column/fields_in_line detect a block's own column count from
   recurring flag-shaped cells at the same character offset across three or
   more rows, then split each row into its real per-flag pairs. Previously the
@@ -886,7 +890,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-053
 - looks like: |
       update - Retrieve new lists of packages
-- tools: apt-get
+- tools: apt-get, aarch64-linux-gnu-ar, aarch64-linux-gnu-gcc-ar
 - handling: A bare-word command table can separate name from description with a
   space-dash-space run instead of a column gap. The ordinary column gap is
   tried first and this fallback only applies when no column gap exists, so a
@@ -1412,7 +1416,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
       [-AbdDefhHIJKlLnNOpqStuUvxX#]
 - tools: tmux, groff, tcpdump, od, pod2text, showmount, e2image, whereis,
   tree, e2fsck, tic, mkfs.ext4, badblocks, zipinfo, fc-validate, psfxtable,
-  setfont, sg_map, umount.nfs
+  setfont, sg_map, umount.nfs, blkmapd, debconf-set-selections, dhcpcd,
+  dumpe2fs, filefrag, grops, logsave, rpcbind, sm-notify, ssh, strace,
+  vm-support, wpa_supplicant, xfs_copy, xfs_io
 - handling: A usage synopsis token like this names a set of bundled boolean switches,
   not one flag with a long glued-on value, but the ordinary flag grammar alone
   cannot tell the two apart. A synopsis-only check splits the cluster into one
