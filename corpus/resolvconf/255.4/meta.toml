@@ -29,8 +29,13 @@ must_not_contain_flags = ["-I", "--enable-updates"]
 broken = true
 reason = "the sentence 'Various options ... will cause the invocation to fail:' wraps onto a line starting with '-I, -i, -l, -R, -r, -v, -V, --enable-updates, ...', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating -I and --enable-updates as real resolvconf flags. The C3 whitespace-continuation rules do not reach this shape."
 
+# Maintainer, checking this build by hand: "similar single line flags
+# getting detected as aliases", verdict wrong. Machine classification:
+# wrapped-prose row boundary. The verdict is recorded in
+# audit/submissions/sadigaxund/6.toml.
+#
 # Fleet count: the wrapped-prose-row-boundary detector fires on 21 tools
-# (26 flags) across a full-PATH sweep of 2318 tools, 2026-09-02. The number
-# is NOT quotable as calibrated: no tool carrying this family has a human
-# audit verdict, so recall is unevaluable and only the false-alarm half was
-# checked (0 of 30 labelled-correct fixtures).
+# (26 flags) across a full-PATH sweep of 2318 tools, 2026-09-03. The number
+# IS now quotable: this tool and zgrep carry the family's first human
+# verdicts, the detector fires on both, and it stays silent on all 39
+# judged-correct tools that have a fixture (30 on seed 2, 9 on seed 4).

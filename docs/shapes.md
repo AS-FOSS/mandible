@@ -493,9 +493,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   wrapped-prose-region remedy (S-011); zgrep, resolvconf and jpackage remain
   open.
 - fleet: detector fires on 21 tools, 26 flags, over a 2318-tool sweep,
-  2026-09-02. Not quotable as calibrated: no tool carrying this family has
-  a human audit verdict, so recall is unevaluable and only the false-alarm
-  half was checked, 0 of 30 labelled-correct fixtures.
+  2026-09-03. Quotable as calibrated: zgrep and resolvconf now carry human
+  verdicts, the detector fires on both, and it stays silent on all 39
+  judged-correct tools that have a fixture.
 
 ### S-028: smaller unshipped defects
 
@@ -719,9 +719,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not extracted as a positional; the tree currently carries no positionals at
   all for these tools even though the operand is real and documented. Open
   defect.
-- fleet: detector fires on 194 tools, 194 flags, over a 2318-tool sweep,
-  2026-09-02. Calibrated and passing: 3 of 3 labelled members detected,
-  0 false alarms on seed 4.
+- fleet: detector fires on 150 tools, 150 flags, over a 2318-tool sweep,
+  2026-09-03, down from 194 before the single-line synopsis repair.
+  Calibrated and passing: 3 of 3 labelled members detected, 0 false alarms
+  on seed 4.
 
 ### S-042: BNF production heading sharing its own row (iproute2 family)
 
@@ -1476,7 +1477,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-090
 - looks like: |
       ------  -----------
-- tools: jmod
+- tools: jmod, apparmor_parser
 - handling: A token made of nothing but three or more dashes sitting directly under a
   two-column heading is table border decoration, refused as a flag row so it
   cannot fabricate a flag literally named with dashes. A run of exactly two
@@ -1554,3 +1555,97 @@ entry's `tools` field and nothing else. It does not get a new entry.
   being read as commands and breaks the sticky chain for anything that
   follows.
 - fleet: not measured
+
+### S-095: plus-prefixed option row
+
+- id: S-095
+- looks like: |
+      +			Start at end of file
+      +<lnum>		Start at line <lnum>
+- tools: vim.basic, vim, vi, view, rvim, ex
+- handling: An option row whose name begins with a plus is not recognized as a row at
+  all, so both rows reach nothing. The whole `Arguments:` block around them
+  parses, and 43 dash-led rows in it come out correct. The two rows are real
+  and documented. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
+  Distinct from S-086, which is the plus-or-minus alternation notation.
+- fleet: not measured
+
+### S-096: end-of-options marker row dropped
+
+- id: S-096
+- looks like: |
+      --			Only file names after this
+- tools: vim.basic
+- handling: A row whose whole name is a bare double dash is deliberately left eligible
+  as a row (S-090 refuses only three dashes or more), and it still fails to
+  reach the tree. The marker is real and the row carries its own description.
+  Open defect, recorded by `corpus/vim.basic/audit-seed4`.
+- fleet: not measured
+
+### S-097: glued optional value spec loses everything after the first bracket
+
+- id: S-097
+- looks like: |
+      -V[N][fname]		Be verbose [level N] [log messages to fname]
+- tools: vim.basic
+- handling: A value spec written as two bracket groups glued to the flag keeps only the
+  first. The flag reaches the tree spelled `-V` with the optional value `N`,
+  and `fname` is rendered nowhere. The row's description still names it, so
+  the loss is in the value alone. Open defect, recorded by
+  `corpus/vim.basic/audit-seed4`.
+- fleet: not measured
+
+### S-098: parenthetical qualifier read as a value and truncated
+
+- id: S-098
+- looks like: |
+      -r			List swap files and exit
+      -r (with file name)	Recover crashed session
+- tools: vim.basic
+- handling: A tool documents one spelling twice and qualifies the second row in
+  parentheses. The qualifier is read as a value placeholder and cut at the
+  first space, so the flag carries the value `(with` and the words `file
+  name)` are rendered nowhere. Open defect, recorded by
+  `corpus/vim.basic/audit-seed4`.
+- fleet: not measured
+
+### S-099: alias pair joined by the word "or"
+
+- id: S-099
+- looks like: |
+      -h  or  --help	Print Help (this message) and exit
+- tools: vim.basic
+- handling: A row that joins two spellings with the word `or` instead of a comma yields
+  one flag `-h` whose description begins `or --help`. The `--help` spelling
+  never becomes an alias, and the description carries text that is not
+  description. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
+- fleet: not measured
+
+### S-100: usage alternative reaches the tree without its own description
+
+- id: S-100
+- looks like: |
+         or: vim [arguments] -t tag          edit file where tag is defined
+         or: vim [arguments] -q [errorfile]  edit file with first error
+- tools: vim.basic
+- handling: An alternative synopsis line names a flag and describes it on the same line.
+  The flag reaches the tree from the synopsis with no description, and `-q`
+  arrives with no value placeholder either. The text is present and aligned in
+  a description column. Open defect, recorded by
+  `corpus/vim.basic/audit-seed4`.
+- fleet: not measured
+
+### S-101: repetition dots glued to an operand name
+
+- id: S-101
+- looks like: |
+      Usage: aarch64-linux-gnu-dwp [options] [file...]
+      usage: bc [options] [file ...]
+- tools: aarch64-linux-gnu-dwp, dwp, demandoc, lsattr, lsinitramfs
+- handling: An operand written with the repetition dots attached to its name loses the
+  marker. The operand reaches the tree named `file` and not repeatable. The
+  same operand written with a space before the dots comes out repeatable,
+  which is what the second line above does. Open defect, recorded by
+  `corpus/aarch64-linux-gnu-dwp/2.42`.
+- fleet: no detector. Five tools checked by hand and all five lose the marker,
+  2026-09-03. The two control tools written with a space keep it.

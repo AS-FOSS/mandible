@@ -1,0 +1,348 @@
+name: apparmor_parser
+description: AppArmor parser version 4.0.1 Copyright (C) 1999-2008 Novell Inc. Copyright 2009-2018 Canonical Ltd.
+usage:
+- 'Usage: apparmor_parser [options] [profile]'
+positionals:
+- name: profile
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -a
+  - --add
+  description: Add apparmor definitions [default]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --replace
+  description: Replace apparmor definitions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --remove
+  description: Remove apparmor definitions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --Complain
+  description: Force the profile into complain mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --binary
+  description: Input is precompiled profile
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --names
+  description: Dump names of profiles in input.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --stdout
+  description: Dump compiled profile to stdout
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --ofile
+  value_name: n
+  value_kind: Required
+  description: Write output to file n
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --base
+  value_name: n
+  value_kind: Required
+  description: Set base dir and cwd
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --Include
+  value_name: n
+  value_kind: Required
+  description: Add n to the search path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --subdomainfs
+  value_name: n
+  value_kind: Required
+  description: Set location of apparmor filesystem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --match-string
+  value_name: n
+  value_kind: Required
+  description: Use only features n
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --features-file
+  value_name: n
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --policy-features
+  value_name: n
+  value_kind: Required
+  description: Policy features set in file n
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --override-policy-abi
+  value_name: n
+  value_kind: Required
+  description: As policy-features but override ABI rules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --kernel-features
+  value_name: n
+  value_kind: Required
+  description: Kernel features set in file n
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --namespace
+  value_name: n
+  value_kind: Required
+  description: Set Namespace for the profile
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --readimpliesX
+  description: Map profile read permissions to mr
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --show-cache
+  description: Report cache hit/miss details
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --skip-cache
+  description: Do not attempt to load or save cached profiles
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --skip-read-cache
+  description: Do not attempt to load cached profiles
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --write-cache
+  description: Save cached profile (force with -T)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --skip-bad-cache
+  description: Don't clear cache if out of sync
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --purge-cache
+  description: Clear cache regardless of its state
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debug-cache
+  description: Debug cache file checks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --print-cache-dir
+  description: Print the cache directory path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --cache-loc
+  value_name: n
+  value_kind: Required
+  description: Set the location of the profile caches
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: Don't emit warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Show profile names as they load
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Q
+  - --skip-kernel-load
+  description: Do everything except loading into kernel
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Display version info and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  value_name: n
+  value_kind: Optional
+  description: Debug apparmor definitions OR [n]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --preprocess
+  description: Dump preprocessed profile
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --dump
+  value_name: n
+  value_kind: Optional
+  description: Dump internal info for debugging
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --Optimize
+  value_name: n
+  value_kind: Optional
+  description: Control dfa optimizations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  value_name: cmd
+  value_kind: Optional
+  description: Display this text or info about cmd
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --jobs
+  value_name: n
+  value_kind: Required
+  description: Set the number of compile threads
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-jobs
+  value_name: n
+  value_kind: Required
+  description: Hard cap on --jobs. Default 8*cpus
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --abort-on-error
+  description: Abort processing of profiles on first error
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --skip-bad-cache-rebuild
+  description: Do not try rebuilding the cache if it is rejected by the kernel
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --config-file
+  value_name: n
+  value_kind: Required
+  description: Specify the parser config file location, processed early before other options.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --print-config
+  description: Print config file location
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --warn
+  value_name: n
+  value_kind: Required
+  description: Enable warnings (see --help=warn)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --Werror
+  value_name: n
+  value_kind: Optional
+  description: Convert warnings to errors. If n is specified turn warn n into an error
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

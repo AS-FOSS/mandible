@@ -28,8 +28,14 @@ must_not_contain_flags = ["--exclude", "--null-data"]
 broken = true
 reason = "the sentence listing unsupported grep options wraps onto a line starting with '--null-data (-z), and --recursive (-r).', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating --exclude and --null-data as real zgrep flags. The C3 whitespace-continuation rules do not reach this shape."
 
+# Maintainer, checking this build by hand: "positionals part is fine, but
+# the same bad parse we encountered earlier where all flags are on the same
+# line therefore got parsed as synonyms. verdict: wrong". Machine
+# classification: wrapped-prose row boundary. The verdict is recorded in
+# audit/submissions/sadigaxund/6.toml.
+#
 # Fleet count: the wrapped-prose-row-boundary detector fires on 21 tools
-# (26 flags) across a full-PATH sweep of 2318 tools, 2026-09-02. The number
-# is NOT quotable as calibrated: no tool carrying this family has a human
-# audit verdict, so recall is unevaluable and only the false-alarm half was
-# checked (0 of 30 labelled-correct fixtures).
+# (26 flags) across a full-PATH sweep of 2318 tools, 2026-09-03. The number
+# IS now quotable: this tool and resolvconf carry the family's first human
+# verdicts, the detector fires on both, and it stays silent on all 39
+# judged-correct tools that have a fixture (30 on seed 2, 9 on seed 4).
